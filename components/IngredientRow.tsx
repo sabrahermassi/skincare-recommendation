@@ -2,10 +2,11 @@ import { Text, View } from "react-native";
 
 import type { Ingredient } from "@/data/types";
 import { comedogenicLabel } from "@/lib/format";
+import { COMEDOGENIC_FLAG_THRESHOLD, isFlagged } from "@/lib/safety";
 import { SafetyPill } from "./SafetyPill";
 
 export function IngredientRow({ ingredient }: { ingredient: Ingredient }) {
-  const flagged = ingredient.comedogenic >= 3 || ingredient.safety !== "safe";
+  const flagged = isFlagged(ingredient);
 
   return (
     <View
@@ -22,7 +23,9 @@ export function IngredientRow({ ingredient }: { ingredient: Ingredient }) {
 
       <Text
         className={`mt-1 text-xs ${
-          ingredient.comedogenic >= 3 ? "text-rose-700" : "text-slate-500"
+          ingredient.comedogenic >= COMEDOGENIC_FLAG_THRESHOLD
+            ? "text-rose-700"
+            : "text-slate-500"
         }`}
       >
         {comedogenicLabel(ingredient.comedogenic)}

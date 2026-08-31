@@ -1,20 +1,30 @@
-import type { Concern, Product, SkinType } from "@/data/types";
+import type { Concern, Ingredient, ProductWithIngredients, SkinType } from "@/data/types";
+import { contraindications, type Contraindication } from "./safety";
 
 /**
- * PLACEHOLDER match score.
+ * PLACEHOLDER match score. Real personalisation logic replaces this file
+ * (issue #5) — but it is not free to get wrong in the meantime, so it now
+ * reads the formula rather than trusting product-level tags alone.
  *
- * Real personalisation logic lands here later. For now this is deterministic
- * (hashed from the product id + profile) rather than `Math.random()`, because
- * a random score would change on every re-render and look broken.
- *
- * It does lean on the real profile so the demo behaves plausibly: products that
- * list your skin type and concerns score higher.
+ * Deterministic (hashed from the product id + profile) rather than
+ * `Math.random()`, because a random score re-rolls on every render and reads
+ * as a bug.
  */
-export function matchScore(
-  product: Product,
+
+export type MatchResult = {
+  score: number;
+  /** Ingredients that are a problem for this specific profile. */
+  warnings: Contraindication[];
+};
+
+/** Score above which a product may be presented as a good match. */
+const CONTRAINDICATED_CEILING = 45;
+
+export function matchProduct(
+  product: ProductWithIngredients,
   skinType: SkinType | null,
   concerns: Concern[]
-): number {
+): MatchResult {
   let score = 55;
 
   if (skinType && product.suitableFor.includes(skinType)) score += 20;
@@ -25,13 +35,26 @@ export function matchScore(
   // Stable jitter so equal-scoring products don't all show the same number.
   score += hash(product.id + (skinType ?? "") + concerns.join(",")) % 6;
 
-  return Math.max(0, Math.min(99, score));
+  const warnings = contraindications(product.ingredients, skinType, concerns);
+
+  // A product the formula contradicts must not outrank one it doesn't, however
+  // well its marketing tags line up. Capping rather than zeroing keeps the
+  // ordering meaningful among contraindicated products.
+  if (warnings.length > 0) {
+    score = Math.min(score, CONTRAINDICATED_CEILING) - (warnings.length - 1) * 5;
+  }
+
+  return { score: clamp(score), warnings };
 }
 
 export function matchTone(score: number): "high" | "medium" | "low" {
   if (score >= 80) return "high";
   if (score >= 65) return "medium";
   return "low";
+}
+
+function clamp(score: number): number {
+  return Math.max(0, Math.min(99, Math.round(score)));
 }
 
 function hash(input: string): number {
@@ -42,3 +65,6 @@ function hash(input: string): number {
   }
   return Math.abs(h);
 }
+
+/** Re-exported so screens don't need a second import to render warnings. */
+export type { Contraindication, Ingredient };

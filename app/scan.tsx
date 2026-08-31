@@ -18,7 +18,7 @@ const BARCODE_TYPES = IS_WEB
 export default function Scan() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState<string | null>(null);
-  const toggleSaved = useAppStore((s) => s.toggleSaved);
+  const saveProduct = useAppStore((s) => s.saveProduct);
 
   if (!permission) {
     // Permission state still loading.
@@ -61,7 +61,8 @@ export default function Scan() {
             ? undefined // pause after a hit until the user resets
             : ({ data, type }) => {
                 setScanned(`${type}: ${data}`);
-                toggleSaved(data);
+                // Additive: re-scanning the same code must not un-save it.
+                saveProduct(data);
               }
         }
       />

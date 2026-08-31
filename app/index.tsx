@@ -12,8 +12,8 @@ import {
 import { Chip } from "@/components/Chip";
 import { ProductCard } from "@/components/ProductCard";
 import { fetchProducts } from "@/data/api";
-import type { Product, ProductType } from "@/data/types";
-import { matchScore } from "@/lib/matching";
+import type { ProductType, ProductWithIngredients } from "@/data/types";
+import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
 
 const TYPE_FILTERS: (ProductType | "all")[] = [
@@ -26,14 +26,14 @@ const TYPE_FILTERS: (ProductType | "all")[] = [
 ];
 
 export default function Browse() {
-  const [products, setProducts] = useState<Product[] | null>(null);
+  const [products, setProducts] = useState<ProductWithIngredients[] | null>(null);
   const [typeFilter, setTypeFilter] = useState<ProductType | "all">("all");
 
-  const hasCompletedOnboarding = useAppStore((s) => s.hasCompletedOnboarding);
+  const hasSeenOnboarding = useAppStore((s) => s.hasSeenOnboarding);
   const skinType = useAppStore((s) => s.skinType);
   const concerns = useAppStore((s) => s.concerns);
   const compareIds = useAppStore((s) => s.compareIds);
-  const resetProfile = useAppStore((s) => s.resetProfile);
+  const editProfile = useAppStore((s) => s.editProfile);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,14 +52,14 @@ export default function Browse() {
     return products
       .map((product) => ({
         product,
-        score: matchScore(product, skinType, concerns),
+        match: matchProduct(product, skinType, concerns),
       }))
-      .sort((a, b) => b.score - a.score);
+      .sort((a, b) => b.match.score - a.match.score);
   }, [products, skinType, concerns]);
 
   // First run goes to onboarding. Declarative, so it cannot fire before the
   // navigator mounts and cannot ping-pong the way an effect-based gate can.
-  if (!hasCompletedOnboarding) {
+  if (!hasSeenOnboarding) {
     return <Redirect href="/onboarding" />;
   }
 
@@ -74,8 +74,8 @@ export default function Browse() {
                 }`
               : "No profile yet — showing default scores"}
           </Text>
-          {/* Clearing the profile drops us back through the gate above. */}
-          <Pressable onPress={resetProfile} hitSlop={8}>
+          {/* Re-enters onboarding pre-filled. Keeps the wishlist. */}
+          <Pressable onPress={editProfile} hitSlop={8}>
             <Text className="text-xs font-semibold text-teal-700">Edit</Text>
           </Pressable>
         </View>
@@ -106,7 +106,7 @@ export default function Browse() {
           keyExtractor={(item) => item.product.id}
           contentContainerClassName="p-4 pb-28"
           renderItem={({ item }) => (
-            <ProductCard product={item.product} score={item.score} />
+            <ProductCard product={item.product} match={item.match} />
           )}
           ListEmptyComponent={
             <Text className="mt-12 text-center text-slate-400">

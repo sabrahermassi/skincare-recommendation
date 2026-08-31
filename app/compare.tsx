@@ -6,7 +6,8 @@ import { SafetyPill } from "@/components/SafetyPill";
 import { fetchProductsByIds } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { formatKRW } from "@/lib/format";
-import { matchScore } from "@/lib/matching";
+import { matchProduct } from "@/lib/matching";
+import { flaggedIngredients } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
 export default function Compare() {
@@ -61,10 +62,8 @@ export default function Compare() {
         {/* Two fixed columns, so the comparison reads top-to-bottom in pairs. */}
         <View className="flex-row gap-3">
           {products.map((product) => {
-            const score = matchScore(product, skinType, concerns);
-            const flaggedCount = product.ingredients.filter(
-              (i) => i.comedogenic >= 3 || i.safety !== "safe"
-            ).length;
+            const { score } = matchProduct(product, skinType, concerns);
+            const flaggedCount = flaggedIngredients(product.ingredients).length;
 
             return (
               <View

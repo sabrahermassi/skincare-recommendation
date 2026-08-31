@@ -16,10 +16,20 @@ import type {
  * async so no caller has to change.
  */
 
-/** Simulated latency, so loading states are exercised in the demo. */
-const LATENCY_MS = 180;
+/**
+ * Simulated latency, so loading states are exercised while developing.
+ *
+ * Development only: it must never delay a real network call in production,
+ * and must not run under test, where pending timers slow the suite and leave
+ * Jest workers hanging at teardown.
+ */
+const IS_TEST =
+  typeof process !== "undefined" && process.env?.NODE_ENV === "test";
+const LATENCY_MS =
+  !IS_TEST && typeof __DEV__ !== "undefined" && __DEV__ ? 180 : 0;
 
 function delay<T>(value: T): Promise<T> {
+  if (LATENCY_MS === 0) return Promise.resolve(value);
   return new Promise((resolve) => setTimeout(() => resolve(value), LATENCY_MS));
 }
 
@@ -43,12 +53,20 @@ export type ProductFilters = {
   type?: ProductType | "all";
 };
 
+/**
+ * Returns products with ingredients resolved. The list screen needs them:
+ * scoring reads the formula, not just the product-level tags, so that a
+ * product whose INCI list contradicts its marketing cannot be surfaced as a
+ * good match. A real backend would either embed these or expose a companion
+ * endpoint — either way the caller signature stays the same.
+ */
 export async function fetchProducts(
   filters: ProductFilters = {}
-): Promise<Product[]> {
+): Promise<ProductWithIngredients[]> {
   const { type = "all" } = filters;
-  const results =
-    type === "all" ? PRODUCTS : PRODUCTS.filter((p) => p.type === type);
+  const results = (
+    type === "all" ? PRODUCTS : PRODUCTS.filter((p) => p.type === type)
+  ).map(resolveIngredients);
   return delay(results);
 }
 

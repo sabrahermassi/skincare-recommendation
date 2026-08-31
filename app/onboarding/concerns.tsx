@@ -49,12 +49,10 @@ export default function ConcernsStep() {
                 key={option.value}
                 label={option.label}
                 selected={selected}
-                // At the cap, only already-selected chips stay tappable
-                // (so you can deselect but not add a third).
-                onPress={() => {
-                  if (!selected && atLimit) return;
-                  toggleConcern(option.value);
-                }}
+                // At the cap, unselected chips are genuinely disabled rather
+                // than silently ignoring taps — so assistive tech announces it.
+                disabled={!selected && atLimit}
+                onPress={() => toggleConcern(option.value)}
               />
             );
           })}

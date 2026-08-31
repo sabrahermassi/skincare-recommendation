@@ -12,7 +12,13 @@ type AppState = {
   // ── Skin profile (captured in onboarding) ──
   skinType: SkinType | null;
   concerns: Concern[];
-  hasCompletedOnboarding: boolean;
+
+  /**
+   * Whether onboarding has been shown, NOT whether a profile was filled in.
+   * Skipping counts. Browsing without a profile is a supported state — the
+   * list falls back to unpersonalised scores.
+   */
+  hasSeenOnboarding: boolean;
 
   // ── Saved / wishlisted ──
   savedProducts: SavedProduct[];
@@ -23,28 +29,26 @@ type AppState = {
   setSkinType: (skinType: SkinType) => void;
   toggleConcern: (concern: Concern) => void;
   completeOnboarding: () => void;
+  skipOnboarding: () => void;
+  editProfile: () => void;
 
+  /** Idempotent add. Use for scans, where re-scanning must not un-save. */
+  saveProduct: (id: string) => void;
+  /** Add/remove. Use for the wishlist control, where toggling is the intent. */
   toggleSaved: (id: string) => void;
-  isSaved: (id: string) => boolean;
 
   toggleCompare: (id: string) => void;
   clearCompare: () => void;
-
-  resetProfile: () => void;
 };
 
 const MAX_COMPARE = 2;
 
-const initialState = {
+export const useAppStore = create<AppState>((set) => ({
   skinType: null,
   concerns: [],
-  hasCompletedOnboarding: false,
+  hasSeenOnboarding: false,
   savedProducts: [],
   compareIds: [],
-} satisfies Partial<AppState>;
-
-export const useAppStore = create<AppState>((set, get) => ({
-  ...initialState,
 
   setSkinType: (skinType) => set({ skinType }),
 
@@ -55,7 +59,27 @@ export const useAppStore = create<AppState>((set, get) => ({
         : [...state.concerns, concern],
     })),
 
-  completeOnboarding: () => set({ hasCompletedOnboarding: true }),
+  completeOnboarding: () => set({ hasSeenOnboarding: true }),
+
+  /** Dismiss onboarding without answering. Leaves the profile empty. */
+  skipOnboarding: () => set({ hasSeenOnboarding: true }),
+
+  /**
+   * Re-enter onboarding to change the profile.
+   *
+   * Deliberately keeps skinType and concerns so the steps arrive pre-filled
+   * with the previous answers, and deliberately keeps savedProducts and
+   * compareIds — this is reached from a control labelled "Edit", which must
+   * not destroy the wishlist.
+   */
+  editProfile: () => set({ hasSeenOnboarding: false }),
+
+  saveProduct: (id) =>
+    set((state) =>
+      state.savedProducts.some((p) => p.id === id)
+        ? state
+        : { savedProducts: [...state.savedProducts, { id, savedAt: Date.now() }] }
+    ),
 
   toggleSaved: (id) =>
     set((state) => ({
@@ -64,20 +88,14 @@ export const useAppStore = create<AppState>((set, get) => ({
         : [...state.savedProducts, { id, savedAt: Date.now() }],
     })),
 
-  isSaved: (id) => get().savedProducts.some((p) => p.id === id),
-
   /** Selecting a third product drops the oldest, so the tray always holds ≤ 2. */
   toggleCompare: (id) =>
     set((state) => {
       if (state.compareIds.includes(id)) {
         return { compareIds: state.compareIds.filter((c) => c !== id) };
       }
-      return {
-        compareIds: [...state.compareIds, id].slice(-MAX_COMPARE),
-      };
+      return { compareIds: [...state.compareIds, id].slice(-MAX_COMPARE) };
     }),
 
   clearCompare: () => set({ compareIds: [] }),
-
-  resetProfile: () => set(initialState),
 }));

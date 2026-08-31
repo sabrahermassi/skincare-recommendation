@@ -1,20 +1,22 @@
 import { Link } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
-import type { Product } from "@/data/types";
+import type { ProductWithIngredients } from "@/data/types";
 import { formatKRW } from "@/lib/format";
+import type { MatchResult } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
 import { MatchBadge } from "./MatchBadge";
 
 type Props = {
-  product: Product;
-  score: number;
+  product: ProductWithIngredients;
+  match: MatchResult;
 };
 
-export function ProductCard({ product, score }: Props) {
+export function ProductCard({ product, match }: Props) {
   const compareIds = useAppStore((s) => s.compareIds);
   const toggleCompare = useAppStore((s) => s.toggleCompare);
   const inCompare = compareIds.includes(product.id);
+  const [firstWarning] = match.warnings;
 
   return (
     <View className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -29,12 +31,31 @@ export function ProductCard({ product, score }: Props) {
                 {product.name}
               </Text>
             </View>
-            <MatchBadge score={score} />
+            <MatchBadge score={match.score} />
           </View>
 
           <Text className="mt-2 text-sm text-slate-500" numberOfLines={2}>
             {product.description}
           </Text>
+
+          {/*
+            Surface contraindications on the list itself. Previously the score
+            was the only signal here, so a product this user should avoid could
+            look like a strong match until they opened the detail screen.
+          */}
+          {firstWarning && (
+            <View className="mt-3 rounded-lg bg-rose-50 px-3 py-2">
+              <Text className="text-xs font-semibold text-rose-900">
+                Not ideal for your profile
+              </Text>
+              <Text className="mt-0.5 text-xs text-rose-800">
+                {firstWarning.ingredient.name} — {firstWarning.reason}
+                {match.warnings.length > 1
+                  ? ` (+${match.warnings.length - 1} more)`
+                  : ""}
+              </Text>
+            </View>
+          )}
 
           <View className="mt-3 flex-row items-center gap-2">
             <Text className="text-sm font-semibold text-slate-900">

@@ -1,7 +1,22 @@
-import { Link } from "expo-router";
-import { Text, View } from "react-native";
+import { Link, router } from "expo-router";
+import { Pressable, Text, View } from "react-native";
+
+import { useAppStore } from "@/store/useAppStore";
 
 export default function Welcome() {
+  const skipOnboarding = useAppStore((s) => s.skipOnboarding);
+
+  /**
+   * Skipping has to record that onboarding was shown, otherwise the browse
+   * screen's gate sends the user straight back here and the button appears
+   * to do nothing. Browsing without a profile is supported — the list falls
+   * back to unpersonalised scores and the header offers "Edit" to fill it in.
+   */
+  function skip() {
+    skipOnboarding();
+    router.replace("/");
+  }
+
   return (
     <View className="flex-1 justify-center gap-8 bg-white px-8">
       <View className="gap-3">
@@ -21,12 +36,11 @@ export default function Welcome() {
         >
           Get started
         </Link>
-        <Link
-          href="/"
-          className="py-2 text-center text-sm font-medium text-slate-500"
-        >
-          Skip for now
-        </Link>
+        <Pressable onPress={skip} className="py-2">
+          <Text className="text-center text-sm font-medium text-slate-500">
+            Skip for now
+          </Text>
+        </Pressable>
       </View>
 
       <Text className="text-center text-xs text-slate-400">Step 1 of 3</Text>

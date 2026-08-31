@@ -7,7 +7,8 @@ import { MatchBadge } from "@/components/MatchBadge";
 import { fetchProduct } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { formatKRW } from "@/lib/format";
-import { matchScore } from "@/lib/matching";
+import { matchProduct } from "@/lib/matching";
+import { flaggedIngredients } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
 export default function ProductDetail() {
@@ -50,10 +51,8 @@ export default function ProductDetail() {
     );
   }
 
-  const score = matchScore(product, skinType, concerns);
-  const flagged = product.ingredients.filter(
-    (i) => i.comedogenic >= 3 || i.safety !== "safe"
-  );
+  const { score } = matchProduct(product, skinType, concerns);
+  const flagged = flaggedIngredients(product.ingredients);
 
   return (
     <ScrollView className="flex-1 bg-slate-50">
