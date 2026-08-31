@@ -17,17 +17,22 @@ npm start                  # dev server; press w for web, or scan the QR with Ex
 npx expo start --clear     # same, clearing Metro's cache (NativeWind caches aggressively)
 npm run web                # web only
 
-npx tsc --noEmit           # typecheck
+npm test                   # jest (jest-expo preset)
+npm test -- safety         # one suite, by filename fragment
+npm test -- -t "compare"   # one test, by name
+npm run typecheck          # tsc --noEmit
 npm run lint               # expo lint (eslint-config-expo)
 npx expo-doctor@latest     # SDK 54 dependency alignment
 ```
 
-**Full pre-merge check.** There are no tests yet (issue #10), so these
-three are the only correctness gates. A web-only pass does not prove
+**Full pre-merge check.** Tests cover the pure logic — store,
+matching, safety classification and the `data/api.ts` contract — but
+there are no component or navigation tests yet (issue #10), so bundling
+remains a separate gate. A web-only pass does not prove
 native bundling works — always export all three platforms:
 
 ```bash
-npx tsc --noEmit && npm run lint && \
+npm run typecheck && npm run lint && npm test && \
   npx expo export --platform web --platform ios --platform android --output-dir /tmp/verify
 ```
 
@@ -79,6 +84,17 @@ persistence needs a per-platform storage adapter (React Native has no
 profile, weighted by declared `suitableFor` / `targets`. Deliberately not
 `Math.random()`, which re-rolls every render and reads as a bug. Real
 logic replaces this file only; no callers should change (issue #5).
+
+**It must keep reading the ingredient list, not just the tags.** Product
+`targets` are author-supplied and can contradict the formula: the sample
+catalogue has an ampoule tagged `acne-prone` whose INCI list contains
+isopropyl myristate (comedogenic 5, "avoid"). Scoring on tags alone put
+it at 99% for exactly the users it is worst for, while the detail screen
+warned about that ingredient one tap later. `lib/safety.ts` owns this —
+`isFlagged` for the general case, `contraindications` for
+profile-specific ones — and is the single source of truth for ingredient
+risk. Do not re-inline the `comedogenic >= 3` predicate; it was
+duplicated across three screens before and drifted.
 
 ## Constraints that look like bugs
 
