@@ -1,0 +1,122 @@
+import type { Product } from "./types";
+
+/**
+ * Fabricated sample catalog. Brands and products are invented, not real.
+ * Replace via `data/api.ts` when a catalog endpoint exists.
+ */
+export const PRODUCTS: Product[] = [
+  {
+    id: "hanbang-rice-serum",
+    brand: "Sooyun",
+    name: "Hanbang Rice Ferment Hydrating Serum",
+    type: "serum",
+    price: 28000,
+    volume: "50 ml",
+    suitableFor: ["dry", "normal", "combination", "sensitive"],
+    targets: ["dehydrated", "dullness"],
+    description:
+      "A lightweight fermented-rice serum for dehydrated skin that needs water rather than oil.",
+    ingredientIds: [
+      "water",
+      "rice-ferment",
+      "glycerin",
+      "butylene-glycol",
+      "niacinamide",
+      "hyaluronic-acid",
+      "panthenol",
+      "licorice-root",
+      "adenosine",
+    ],
+    inStock: true,
+  },
+  {
+    id: "aqua-ceramide-cream",
+    brand: "Dolim",
+    name: "Aqua Barrier Ceramide Moisturizer",
+    type: "moisturizer",
+    price: 34000,
+    volume: "80 ml",
+    suitableFor: ["dry", "sensitive", "normal"],
+    targets: ["dehydrated", "redness"],
+    description:
+      "A barrier cream built around ceramide NP for skin that stings after cleansing.",
+    ingredientIds: [
+      "water",
+      "glycerin",
+      "cetearyl-alcohol",
+      "ceramide-np",
+      "shea-butter",
+      "squalane",
+      "panthenol",
+      "centella",
+    ],
+    inStock: true,
+  },
+  {
+    id: "mugwort-gel-cleanser",
+    brand: "Bonchoh",
+    name: "Daily Mugwort Calming Gel Cleanser",
+    type: "cleanser",
+    price: 16000,
+    volume: "150 ml",
+    suitableFor: ["oily", "combination", "normal"],
+    targets: ["acne-prone", "redness"],
+    description:
+      "A low-pH gel cleanser with mugwort extract. Rinses clean without a squeaky finish.",
+    ingredientIds: [
+      "water",
+      "cocamidopropyl-betaine",
+      "glycerin",
+      "mugwort",
+      "centella",
+      "green-tea",
+      "fragrance",
+    ],
+    inStock: true,
+  },
+  {
+    id: "sheer-shield-spf50",
+    brand: "Yeondu",
+    name: "Sheer Shield Mineral Sunscreen SPF50+ PA++++",
+    type: "sunscreen",
+    price: 22000,
+    volume: "50 ml",
+    suitableFor: ["sensitive", "dry", "normal", "combination"],
+    targets: ["redness", "hyperpigmentation"],
+    description:
+      "A 100% mineral filter sunscreen with no white cast on light-to-medium tones.",
+    ingredientIds: [
+      "water",
+      "zinc-oxide",
+      "titanium-dioxide",
+      "squalane",
+      "glycerin",
+      "coconut-oil",
+      "cetearyl-alcohol",
+      "green-tea",
+    ],
+    inStock: false,
+  },
+  {
+    id: "snail-repair-ampoule",
+    brand: "Sooyun",
+    name: "Snail Mucin Repair Ampoule 96%",
+    type: "ampoule",
+    price: 19000,
+    volume: "30 ml",
+    suitableFor: ["oily", "combination", "normal"],
+    targets: ["acne-prone", "large-pores", "fine-lines"],
+    description:
+      "A high-concentration snail secretion ampoule for post-breakout texture.",
+    ingredientIds: [
+      "snail-mucin",
+      "water",
+      "butylene-glycol",
+      "niacinamide",
+      "adenosine",
+      "isopropyl-myristate",
+      "denatured-alcohol",
+    ],
+    inStock: true,
+  },
+];
