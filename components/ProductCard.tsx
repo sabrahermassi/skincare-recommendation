@@ -1,90 +1,124 @@
 import { Link } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, View } from "react-native";
+
+import { Text } from "@/components/Text";
+import Animated, { FadeInUp } from "react-native-reanimated";
 
 import type { ProductWithIngredients } from "@/data/types";
 import { formatKRW } from "@/lib/format";
 import type { MatchResult } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
 import { MatchBadge } from "./MatchBadge";
+import { ProductIllustration } from "./ProductIllustration";
 
 type Props = {
   product: ProductWithIngredients;
   match: MatchResult;
+  /** Position in the grid, for a capped stagger on the entrance animation. */
+  index?: number;
 };
 
-export function ProductCard({ product, match }: Props) {
+const ENTER_MS = 280;
+const STAGGER_MS = 40;
+const MAX_STAGGERED_ITEMS = 8;
+
+export function ProductCard({ product, match, index = 0 }: Props) {
   const compareIds = useAppStore((s) => s.compareIds);
   const toggleCompare = useAppStore((s) => s.toggleCompare);
   const inCompare = compareIds.includes(product.id);
-  const [firstWarning] = match.warnings;
+  const contraindicated = match.warnings.length > 0;
+
+  // Hover only ever fires on web — RN Pressable's hover handlers are simply
+  // never called by a touch, so this needs no Platform.OS branching.
+  const [hovered, setHovered] = useState(false);
 
   return (
-    <View className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <Animated.View
+      entering={FadeInUp.delay(
+        Math.min(index, MAX_STAGGERED_ITEMS) * STAGGER_MS,
+      ).duration(ENTER_MS)}
+    >
       <Link href={`/product/${product.id}`} asChild>
-        <Pressable className="p-4 active:bg-slate-50">
-          <View className="flex-row items-start justify-between gap-3">
-            <View className="flex-1">
-              <Text className="text-xs font-semibold uppercase tracking-wide text-teal-700">
-                {product.brand} · {product.type}
-              </Text>
-              <Text className="mt-1 text-base font-bold text-slate-900">
-                {product.name}
-              </Text>
+        <Pressable onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)}>
+          <View className="relative">
+            <ProductIllustration type={product.type} />
+
+            <View className="absolute right-2 top-2">
+              <MatchBadge score={match.score} />
             </View>
-            <MatchBadge score={match.score} />
+
+            {contraindicated && (
+              <View className="absolute left-2 top-2 h-6 w-6 items-center justify-center rounded-full bg-status-avoid">
+                <Text className="text-xs font-sans-bold text-white">!</Text>
+              </View>
+            )}
+
+            {/* Web-only reveal — the 3 benefit bullets from the product data. */}
+            {hovered && (
+              <View className="absolute inset-0 items-center justify-center gap-1.5 rounded-card bg-ink/85 p-4">
+                {product.benefits.map((benefit) => (
+                  <Text
+                    key={benefit}
+                    className="text-center text-xs font-sans-medium text-white"
+                    numberOfLines={2}
+                  >
+                    {benefit}
+                  </Text>
+                ))}
+              </View>
+            )}
           </View>
 
-          <Text className="mt-2 text-sm text-slate-500" numberOfLines={2}>
-            {product.description}
-          </Text>
-
-          {/*
-            Surface contraindications on the list itself. Previously the score
-            was the only signal here, so a product this user should avoid could
-            look like a strong match until they opened the detail screen.
-          */}
-          {firstWarning && (
-            <View className="mt-3 rounded-lg bg-rose-50 px-3 py-2">
-              <Text className="text-xs font-semibold text-rose-900">
-                Not ideal for your profile
-              </Text>
-              <Text className="mt-0.5 text-xs text-rose-800">
-                {firstWarning.ingredient.name} — {firstWarning.reason}
-                {match.warnings.length > 1
-                  ? ` (+${match.warnings.length - 1} more)`
-                  : ""}
-              </Text>
-            </View>
-          )}
-
-          <View className="mt-3 flex-row items-center gap-2">
-            <Text className="text-sm font-semibold text-slate-900">
-              {formatKRW(product.price)}
+          {/* Floats up over the image's bottom edge, like a caption card laid on top of the photo. */}
+          <View className="-mt-5 rounded-card bg-surface p-3 shadow-md active:bg-canvas">
+            <Text className="text-[11px] font-sans-semibold uppercase tracking-wide text-ink-faint">
+              {product.brand}
             </Text>
-            <Text className="text-xs text-slate-400">{product.volume}</Text>
-            {!product.inStock && (
-              <Text className="text-xs font-semibold text-rose-600">
-                Out of stock
+            <Text className="mt-0.5 text-sm font-sans-semibold leading-5 text-ink" numberOfLines={2}>
+              {product.name}
+            </Text>
+
+            <View className="mt-1.5 flex-row items-center gap-2">
+              <Text className="text-sm font-sans-semibold tabular-nums text-ink">
+                {formatKRW(product.price)}
               </Text>
-            )}
+              {!product.inStock && (
+                <Text className="text-[11px] font-sans-semibold text-status-avoid">
+                  Out of stock
+                </Text>
+              )}
+            </View>
+
+            {/* Always-visible on touch — the one-line answer to "what does this do". */}
+            <Text
+              className={`mt-1.5 text-xs ${
+                contraindicated ? "font-sans-semibold text-status-avoid" : "text-ink-muted"
+              }`}
+              numberOfLines={1}
+            >
+              {contraindicated ? "Not ideal for your profile" : product.benefits[0]}
+            </Text>
           </View>
         </Pressable>
       </Link>
 
       <Pressable
         onPress={() => toggleCompare(product.id)}
-        className={`border-t border-slate-200 px-4 py-2.5 ${
-          inCompare ? "bg-teal-600 active:bg-teal-700" : "active:bg-slate-100"
+        className={`mt-2 rounded-control py-2 ${
+          inCompare
+            ? "bg-accent active:bg-accent-deep"
+            : "border border-hairline active:bg-canvas"
         }`}
       >
         <Text
-          className={`text-center text-sm font-semibold ${
-            inCompare ? "text-white" : "text-teal-700"
+          className={`text-center text-xs font-sans-semibold ${
+            inCompare ? "text-white" : "text-accent-text"
           }`}
         >
           {inCompare ? "✓ In compare" : "Add to compare"}
         </Text>
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }

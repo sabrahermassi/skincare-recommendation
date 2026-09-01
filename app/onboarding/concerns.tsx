@@ -1,8 +1,11 @@
 import { router } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { View } from "react-native";
 
-import type { Concern } from "@/data/types";
+import { Text } from "@/components/Text";
+
 import { Chip } from "@/components/Chip";
+import { QuizStep } from "@/components/QuizStep";
+import type { Concern } from "@/data/types";
 import { useAppStore } from "@/store/useAppStore";
 
 const OPTIONS: { value: Concern; label: string }[] = [
@@ -15,73 +18,44 @@ const OPTIONS: { value: Concern; label: string }[] = [
   { value: "hyperpigmentation", label: "Dark spots" },
 ];
 
-const MAX = 2;
+const MAX = 3;
 
 export default function ConcernsStep() {
-  const concerns = useAppStore((s) => s.concerns);
+  const concerns = useAppStore((s) => s.profile.concerns);
   const toggleConcern = useAppStore((s) => s.toggleConcern);
-  const completeOnboarding = useAppStore((s) => s.completeOnboarding);
 
   const atLimit = concerns.length >= MAX;
 
-  function finish() {
-    completeOnboarding();
-    router.replace("/");
-  }
-
   return (
-    <View className="flex-1 gap-6 bg-white px-6 pb-8 pt-16">
-      <View className="gap-2">
-        <Text className="text-3xl font-bold text-slate-900">
-          What are you working on?
-        </Text>
-        <Text className="text-base text-slate-500">
-          Pick up to {MAX}. You can change these later.
-        </Text>
+    <QuizStep
+      step={3}
+      title="What are your main skin concerns?"
+      subtitle={`Pick up to ${MAX}. You can change these later.`}
+      onNext={() => router.push("/onboarding/skin-type")}
+      nextDisabled={concerns.length === 0}
+    >
+      <View className="flex-row flex-wrap gap-2">
+        {OPTIONS.map((option) => {
+          const selected = concerns.includes(option.value);
+          return (
+            <Chip
+              key={option.value}
+              label={option.label}
+              selected={selected}
+              // At the cap, unselected chips are genuinely disabled rather
+              // than silently ignoring taps — so assistive tech announces it.
+              disabled={!selected && atLimit}
+              onPress={() => toggleConcern(option.value)}
+            />
+          );
+        })}
       </View>
 
-      <View className="flex-1">
-        <View className="flex-row flex-wrap gap-2">
-          {OPTIONS.map((option) => {
-            const selected = concerns.includes(option.value);
-            return (
-              <Chip
-                key={option.value}
-                label={option.label}
-                selected={selected}
-                // At the cap, unselected chips are genuinely disabled rather
-                // than silently ignoring taps — so assistive tech announces it.
-                disabled={!selected && atLimit}
-                onPress={() => toggleConcern(option.value)}
-              />
-            );
-          })}
-        </View>
-
-        {atLimit && (
-          <Text className="mt-4 text-xs text-slate-400">
-            {MAX} selected — deselect one to swap.
-          </Text>
-        )}
-      </View>
-
-      <Pressable
-        disabled={concerns.length === 0}
-        onPress={finish}
-        className={`rounded-xl px-6 py-4 ${
-          concerns.length ? "bg-teal-600 active:bg-teal-700" : "bg-slate-200"
-        }`}
-      >
-        <Text
-          className={`text-center text-base font-semibold ${
-            concerns.length ? "text-white" : "text-slate-400"
-          }`}
-        >
-          See my matches
+      {atLimit && (
+        <Text className="mt-4 text-xs text-ink-faint">
+          {MAX} selected — deselect one to swap.
         </Text>
-      </Pressable>
-
-      <Text className="text-center text-xs text-slate-400">Step 3 of 3</Text>
-    </View>
+      )}
+    </QuizStep>
   );
 }

@@ -1,5 +1,7 @@
 import { Link, router } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+
+import { Text } from "@/components/Text";
 
 import { useAppStore } from "@/store/useAppStore";
 
@@ -10,7 +12,7 @@ export default function Welcome() {
    * Skipping has to record that onboarding was shown, otherwise the browse
    * screen's gate sends the user straight back here and the button appears
    * to do nothing. Browsing without a profile is supported — the list falls
-   * back to unpersonalised scores and the header offers "Edit" to fill it in.
+   * back to unpersonalised, unsorted results with no match badges.
    */
   function skip() {
     skipOnboarding();
@@ -18,32 +20,34 @@ export default function Welcome() {
   }
 
   return (
-    <View className="flex-1 justify-center gap-8 bg-white px-8">
+    <View className="flex-1 justify-center gap-8 bg-canvas px-5">
       <View className="gap-3">
-        <Text className="text-4xl font-bold text-slate-900">
-          Find K-beauty that suits your skin
+        <Text className="text-[11px] font-sans-semibold uppercase tracking-widest text-ink-faint">
+          Skintel
         </Text>
-        <Text className="text-base leading-6 text-slate-500">
-          Answer two quick questions and every product gets a match score
-          against your profile.
+        <Text className="font-display text-[32px] leading-9 text-ink">
+          Find your K-beauty routine
+        </Text>
+        <Text className="text-base leading-6 text-ink-muted">
+          Five quick questions about your skin. Then every product gets
+          scored against your profile — including the ingredients that
+          don&apos;t suit you.
         </Text>
       </View>
 
       <View className="gap-3">
         <Link
-          href="/onboarding/skin-type"
-          className="rounded-xl bg-teal-600 px-6 py-4 text-center text-base font-semibold text-white active:bg-teal-700"
+          href="/onboarding/about-you"
+          className="rounded-control bg-accent px-6 py-4 text-center text-base font-sans-semibold text-white active:bg-accent-deep"
         >
           Get started
         </Link>
         <Pressable onPress={skip} className="py-2">
-          <Text className="text-center text-sm font-medium text-slate-500">
+          <Text className="text-center text-sm font-sans-medium text-ink-muted">
             Skip for now
           </Text>
         </Pressable>
       </View>
-
-      <Text className="text-center text-xs text-slate-400">Step 1 of 3</Text>
     </View>
   );
 }

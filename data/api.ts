@@ -1,6 +1,7 @@
 import { INGREDIENTS } from "./ingredients";
 import { PRODUCTS } from "./products";
 import type {
+  BodyArea,
   Ingredient,
   Product,
   ProductType,
@@ -51,6 +52,7 @@ function resolveIngredients(product: Product): ProductWithIngredients {
 
 export type ProductFilters = {
   type?: ProductType | "all";
+  area?: BodyArea;
 };
 
 /**
@@ -63,10 +65,10 @@ export type ProductFilters = {
 export async function fetchProducts(
   filters: ProductFilters = {}
 ): Promise<ProductWithIngredients[]> {
-  const { type = "all" } = filters;
-  const results = (
-    type === "all" ? PRODUCTS : PRODUCTS.filter((p) => p.type === type)
-  ).map(resolveIngredients);
+  const { type = "all", area } = filters;
+  const results = PRODUCTS.filter((p) => type === "all" || p.type === type)
+    .filter((p) => !area || p.area === area)
+    .map(resolveIngredients);
   return delay(results);
 }
 
@@ -74,6 +76,18 @@ export async function fetchProduct(
   id: string
 ): Promise<ProductWithIngredients | null> {
   const product = PRODUCTS.find((p) => p.id === id);
+  return delay(product ? resolveIngredients(product) : null);
+}
+
+/**
+ * Barcode lookup for the scanner. Separate from `fetchProduct` because a
+ * scanned code is not a product id — a miss is an ordinary outcome here
+ * (an unrecognised bottle), not a bad request.
+ */
+export async function fetchProductByBarcode(
+  barcode: string
+): Promise<ProductWithIngredients | null> {
+  const product = PRODUCTS.find((p) => p.barcode === barcode);
   return delay(product ? resolveIngredients(product) : null);
 }
 

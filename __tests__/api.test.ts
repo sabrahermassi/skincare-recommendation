@@ -1,5 +1,6 @@
 import {
   fetchProduct,
+  fetchProductByBarcode,
   fetchProducts,
   fetchProductsByIds,
   fetchProductTypes,
@@ -21,6 +22,16 @@ describe("fetchProducts", () => {
     }
   });
 
+  it("gives every product exactly 3 non-empty benefit bullets for the browse card", async () => {
+    const products = await fetchProducts();
+    for (const p of products) {
+      expect(p.benefits).toHaveLength(3);
+      for (const benefit of p.benefits) {
+        expect(benefit.trim().length).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it("preserves INCI order, which is meaningful on a label", async () => {
     const [product] = await fetchProducts();
     expect(product.ingredients.map((i) => i.id)).toEqual(product.ingredientIds);
@@ -34,6 +45,18 @@ describe("fetchProducts", () => {
 
   it("returns an empty list rather than throwing for a type with no products", async () => {
     await expect(fetchProducts({ type: "toner" })).resolves.toEqual([]);
+  });
+
+  it("filters by area", async () => {
+    const bodyProducts = await fetchProducts({ area: "body" });
+    expect(bodyProducts.length).toBe(3);
+    expect(bodyProducts.every((p) => p.area === "body")).toBe(true);
+  });
+
+  it("combines type and area filters", async () => {
+    const faceCleansers = await fetchProducts({ type: "cleanser", area: "face" });
+    expect(faceCleansers.length).toBeGreaterThan(0);
+    expect(faceCleansers.every((p) => p.type === "cleanser" && p.area === "face")).toBe(true);
   });
 });
 
@@ -71,5 +94,40 @@ describe("ingredient resolution", () => {
       .flatMap((p) => p.ingredients)
       .filter((i) => i.note === "No data for this ingredient yet.");
     for (const i of unknown) expect(i.safety).toBe("caution");
+  });
+});
+
+describe("fetchProductByBarcode", () => {
+  /** Checksum, not just length: a mistyped digit should not look like a valid code. */
+  function ean13CheckDigit(body12: string): number {
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+      sum += Number(body12[i]) * (i % 2 === 0 ? 1 : 3);
+    }
+    return (10 - (sum % 10)) % 10;
+  }
+
+  it("gives every product a unique, checksum-valid EAN-13", async () => {
+    const products = await fetchProducts();
+    const barcodes = products.map((p) => p.barcode);
+
+    expect(new Set(barcodes).size).toBe(barcodes.length);
+    for (const barcode of barcodes) {
+      expect(barcode).toMatch(/^\d{13}$/);
+      expect(Number(barcode[12])).toBe(ean13CheckDigit(barcode.slice(0, 12)));
+    }
+  });
+
+  it("resolves a known barcode to that product, with ingredients", async () => {
+    const [first] = await fetchProducts();
+    const found = await fetchProductByBarcode(first.barcode);
+
+    expect(found?.id).toBe(first.id);
+    expect(found?.ingredients).toHaveLength(first.ingredientIds.length);
+  });
+
+  /** A miss is an ordinary outcome for a scanner, not an error. */
+  it("returns null for a barcode that is not in the catalog", async () => {
+    expect(await fetchProductByBarcode("0000000000000")).toBeNull();
   });
 });

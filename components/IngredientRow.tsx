@@ -1,4 +1,6 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
+
+import { Text } from "@/components/Text";
 
 import type { Ingredient } from "@/data/types";
 import { comedogenicLabel } from "@/lib/format";
@@ -10,29 +12,25 @@ export function IngredientRow({ ingredient }: { ingredient: Ingredient }) {
 
   return (
     <View
-      className={`border-b border-slate-100 px-4 py-3 ${
-        flagged ? "bg-amber-50/60" : "bg-white"
-      }`}
+      className={`border-b border-hairline px-4 py-3 ${flagged ? "bg-tint-peach/40" : "bg-surface"}`}
     >
       <View className="flex-row items-start justify-between gap-3">
-        <Text className="flex-1 text-sm font-medium text-slate-900">
-          {ingredient.name}
-        </Text>
+        <Text className="flex-1 text-sm font-sans-medium text-ink">{ingredient.name}</Text>
         <SafetyPill level={ingredient.safety} />
       </View>
 
       <Text
         className={`mt-1 text-xs ${
           ingredient.comedogenic >= COMEDOGENIC_FLAG_THRESHOLD
-            ? "text-rose-700"
-            : "text-slate-500"
+            ? "text-status-watch"
+            : "text-ink-muted"
         }`}
       >
         {comedogenicLabel(ingredient.comedogenic)}
       </Text>
 
       {ingredient.note ? (
-        <Text className="mt-1 text-xs text-slate-500">{ingredient.note}</Text>
+        <Text className="mt-1 text-xs text-ink-muted">{ingredient.note}</Text>
       ) : null}
     </View>
   );

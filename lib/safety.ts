@@ -1,4 +1,4 @@
-import type { Concern, Ingredient, SkinType } from "@/data/types";
+import type { Ingredient, SkinProfile } from "@/data/types";
 
 /**
  * Single source of truth for ingredient risk. Previously this predicate was
@@ -40,13 +40,16 @@ export type Contraindication = {
  * safety "avoid"). Without this check the browse screen scored that product at
  * 99% for acne-prone users while the detail screen warned about the very same
  * ingredient.
+ *
+ * The "avoid" check applies to every visitor, personalised or not, because
+ * it isn't profile-dependent — pass `EMPTY_PROFILE` for an unanswered quiz.
  */
 export function contraindications(
   ingredients: Ingredient[],
-  skinType: SkinType | null,
-  concerns: Concern[]
+  profile: SkinProfile
 ): Contraindication[] {
   const found: Contraindication[] = [];
+  const { concerns, sensitive } = profile;
 
   for (const ingredient of ingredients) {
     // "avoid" applies to everyone — it is not profile-dependent.
@@ -66,10 +69,37 @@ export function contraindications(
       continue;
     }
 
-    if (skinType === "sensitive" && ingredient.safety === "caution") {
+    if (sensitive && ingredient.safety === "caution") {
       found.push({ ingredient, reason: "Common irritant for sensitive skin" });
     }
   }
 
   return found;
+}
+
+export type RiskGroup = "avoid" | "caution" | "clean";
+
+/**
+ * Buckets ingredients into three risk tiers for the detail screen's grouped
+ * list. Built from the same predicates as `isFlagged`, so the grouped view
+ * and any flat count elsewhere can never disagree about which ingredients
+ * are worth a look.
+ */
+export function groupByRisk(ingredients: Ingredient[]): Record<RiskGroup, Ingredient[]> {
+  const groups: Record<RiskGroup, Ingredient[]> = { avoid: [], caution: [], clean: [] };
+
+  for (const ingredient of ingredients) {
+    if (ingredient.safety === "avoid") {
+      groups.avoid.push(ingredient);
+    } else if (
+      ingredient.safety === "caution" ||
+      ingredient.comedogenic >= COMEDOGENIC_FLAG_THRESHOLD
+    ) {
+      groups.caution.push(ingredient);
+    } else {
+      groups.clean.push(ingredient);
+    }
+  }
+
+  return groups;
 }

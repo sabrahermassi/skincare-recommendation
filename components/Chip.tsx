@@ -1,4 +1,6 @@
-import { Pressable, Text } from "react-native";
+import { Pressable } from "react-native";
+
+import { Text } from "@/components/Text";
 
 type Props = {
   label: string;
@@ -15,21 +17,24 @@ export function Chip({ label, selected = false, disabled = false, onPress }: Pro
       accessibilityRole="button"
       // Announce the unselectable state rather than only looking inert.
       accessibilityState={{ selected, disabled }}
+      // 8px of extra hit area on each side — the chip is 34pt tall, which
+      // needs the padding to clear the 44pt touch minimum.
+      hitSlop={8}
       className={
         selected
-          ? "rounded-full border border-teal-600 bg-teal-600 px-4 py-2"
+          ? "rounded-chip border border-accent bg-accent px-3.5 py-2"
           : disabled
-            ? "rounded-full border border-slate-200 bg-slate-50 px-4 py-2"
-            : "rounded-full border border-slate-300 bg-white px-4 py-2 active:bg-slate-100"
+            ? "rounded-chip border border-hairline bg-canvas px-3.5 py-2"
+            : "rounded-chip border border-hairline bg-surface px-3.5 py-2 active:bg-canvas"
       }
     >
       <Text
         className={
           selected
-            ? "text-sm font-semibold text-white"
+            ? "text-sm font-sans-semibold text-white"
             : disabled
-              ? "text-sm font-medium text-slate-300"
-              : "text-sm font-medium text-slate-700"
+              ? "text-sm font-sans-medium text-ink-faint"
+              : "text-sm font-sans-medium text-ink-muted"
         }
       >
         {label}

@@ -1,4 +1,5 @@
-import type { Concern, Ingredient, ProductWithIngredients, SkinType } from "@/data/types";
+import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
+import { isPersonalized } from "./profile";
 import { contraindications, type Contraindication } from "./safety";
 
 /**
@@ -12,7 +13,12 @@ import { contraindications, type Contraindication } from "./safety";
  */
 
 export type MatchResult = {
-  score: number;
+  /**
+   * `null` when the profile carries no skin signal (skipped onboarding, or
+   * only demographics answered) — there is nothing to score against, so no
+   * percentage should render rather than a meaningless default.
+   */
+  score: number | null;
   /** Ingredients that are a problem for this specific profile. */
   warnings: Contraindication[];
 };
@@ -22,20 +28,40 @@ const CONTRAINDICATED_CEILING = 45;
 
 export function matchProduct(
   product: ProductWithIngredients,
-  skinType: SkinType | null,
-  concerns: Concern[]
+  profile: SkinProfile
 ): MatchResult {
+  const warnings = contraindications(product.ingredients, profile);
+
+  if (!isPersonalized(profile)) {
+    // "avoid" ingredients are still worth flagging even with no profile.
+    return { score: null, warnings };
+  }
+
   let score = 55;
 
-  if (skinType && product.suitableFor.includes(skinType)) score += 20;
+  if (profile.baseSkinType && product.suitableFor.includes(profile.baseSkinType)) {
+    score += 20;
+  }
+  if (profile.sensitive && product.suitableFor.includes("sensitive")) {
+    score += 10;
+  }
 
-  const overlap = concerns.filter((c) => product.targets.includes(c)).length;
-  score += Math.min(overlap, 2) * 10;
+  const overlap = profile.concerns.filter((c) => product.targets.includes(c)).length;
+  score += Math.min(overlap, 3) * 10;
+
+  if (profile.routineLength === "minimal") {
+    score += ["cleanser", "moisturizer", "sunscreen", "body-wash", "body-lotion", "hand-cream"].includes(
+      product.type
+    )
+      ? 5
+      : -5;
+  } else if (profile.routineLength === "full") {
+    score += ["essence", "ampoule", "serum"].includes(product.type) ? 3 : 0;
+  }
 
   // Stable jitter so equal-scoring products don't all show the same number.
-  score += hash(product.id + (skinType ?? "") + concerns.join(",")) % 6;
-
-  const warnings = contraindications(product.ingredients, skinType, concerns);
+  score +=
+    hash(product.id + (profile.baseSkinType ?? "") + profile.concerns.join(",")) % 6;
 
   // A product the formula contradicts must not outrank one it doesn't, however
   // well its marketing tags line up. Capping rather than zeroing keeps the
