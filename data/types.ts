@@ -57,7 +57,20 @@ export type ProductType =
   | "body-lotion"
   | "hand-cream";
 
-/** 0 = will not clog pores, 5 = highly pore-clogging. */
+/**
+ * 0 = will not clog pores, 5 = highly pore-clogging.
+ *
+ * INTENTIONALLY UNPOPULATED for real catalogue data, and it should stay that
+ * way. The published 0-5 scales come from mid-century rabbit-ear assays that
+ * correlate poorly with human breakouts, and no openly licensed dataset exists
+ * — so filling this column would put a fabricated rating next to a measured one
+ * with nothing to tell them apart. Pore-clogging judgement lives in
+ * `INGREDIENT_RULES` (`lib/rules.ts`) instead, where it covers only the handful
+ * of ingredients with reasonably consistent human evidence and each claim
+ * carries the sentence shown to the user.
+ *
+ * Only the hand-written sample catalogue in `data/ingredients.ts` sets it.
+ */
 export type ComedogenicRating = 0 | 1 | 2 | 3 | 4 | 5;
 
 export type SafetyLevel = "safe" | "caution" | "avoid";

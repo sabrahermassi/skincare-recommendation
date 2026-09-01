@@ -174,7 +174,28 @@ async function runOcr(imageBase64: string): Promise<string | null> {
   });
   if (!res.ok) return null;
   const body = await res.json().catch(() => null);
-  return body?.responses?.[0]?.fullTextAnnotation?.text ?? null;
+  const annotation = body?.responses?.[0]?.fullTextAnnotation;
+  if (!annotation) return null;
+
+  // Vision's own reading order, which interleaves words across line wraps on a
+  // label photographed sideways: "ophiopogon" lands ten fragments from
+  // "japonicus root extract", so no dictionary can rejoin them.
+  //
+  // Rebuilding the order from the per-word bounding boxes was tried and
+  // measured, and is NOT a straight win — the note is here so it isn't retried
+  // blind. Two parts worked: the direction of the text can be read reliably
+  // from the vertex order Vision returns (v0 -> v1 runs along the text), and
+  // following a line word-by-word rather than assuming it is straight handles
+  // the curve of a round bottle. Against the ground truth for
+  // obf-3337875696548 it did recover `ophiopogon japonicus root extract`,
+  // `ammonium polyacryloyldimethyl taurate` and `vitreoscilla ferment`.
+  //
+  // But it lost more than it gained — 24 of 27 correct names fell to 20 —
+  // because line ends bleed: the next line's first word sits within the
+  // corridor and gets pulled in, splitting `sodium chloride`, `citric acid`
+  // and `capryloyl glycine`. Fixing that needs real line segmentation, not a
+  // tolerance tweak. Until then the flat text scores better.
+  return annotation.text ?? null;
 }
 
 // ── Parsing ─────────────────────────────────────────────────────────────────
@@ -193,6 +214,15 @@ const MAX_WINDOW_WORDS = 6;
 function splitOnSeparators(text: string): string[] {
   return text.split(/[;•·]|,(?!\d)/);
 }
+
+/**
+ * Ceiling on the words reconstruction will consider. Reconstruction checks
+ * every window against a dictionary of tens of thousands of names with a fuzzy
+ * pass behind it, so if the block boundary is ever missed and the "block"
+ * becomes the whole label, the work grows with it — a real request died on this
+ * function's compute limit exactly that way. No ingredient list runs this long.
+ */
+const MAX_RECONSTRUCTED_WORDS = 400;
 
 /**
  * Pull the INCI list out of whatever else the OCR picked up.
@@ -225,7 +255,7 @@ export function parseIngredientBlock(
   // boilerplate, both of which reliably sit right after the formula and,
   // left in, degrade to junk fragments that dilute the recognised ratio.
   const stop =
-    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\be\s*\d+([.,]\d+)?\s*(ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b)/i.exec(
+    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b)/i.exec(
       block
     );
   if (stop) block = block.slice(0, stop.index);
@@ -242,7 +272,7 @@ export function parseIngredientBlock(
 
   if (delimited.length >= MIN_DELIMITED_TOKENS || !dictionary) return dedupe(delimited);
 
-  const words = block.split(/\s+/).filter(Boolean);
+  const words = block.split(/\s+/).filter(Boolean).slice(0, MAX_RECONSTRUCTED_WORDS);
   return dedupe(
     reconstructFromDictionary(words, dictionary).map((p) => ({
       ...p,

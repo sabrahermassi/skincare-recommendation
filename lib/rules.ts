@@ -140,6 +140,75 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     reason: "Squalane is a light emollient that softens without a heavy occlusive feel",
     weight: 6,
   },
+
+  // ── The everyday base of a formula ────────────────────────────────────────
+  // Chosen by how often they actually appear in the catalogue, not by how
+  // interesting they are. Before these, an oily or pigmentation-focused profile
+  // met nothing the table had an opinion on in roughly half of all products —
+  // the actives those profiles care about are simply absent from most jars,
+  // and what remains is emollients, humectants and occlusives. Those are not
+  // neutral to them, they are just quiet. All weighted low: none of these
+  // decides a formula on its own.
+  {
+    names: ["cholesterol"],
+    category: "barrier",
+    helps: { skinTypes: ["dry"], sensitive: true, concerns: ["atopic"] },
+    reason: "Cholesterol is one of the three lipids skin builds its barrier from",
+    weight: 7,
+  },
+  {
+    names: ["tocopherol", "tocopheryl acetate", "vitamin e"],
+    category: "actives",
+    helps: { concerns: ["dullness", "fine-lines"] },
+    reason: "Vitamin E is an antioxidant that limits day-to-day oxidative damage",
+    weight: 4,
+  },
+  {
+    names: ["dimethicone", "cyclopentasiloxane", "dimethiconol"],
+    category: "barrier",
+    helps: { skinTypes: ["dry"], concerns: ["dehydrated"] },
+    hurts: { concerns: ["acne-prone"] },
+    reason:
+      "Silicone smooths and slows water loss, though a heavier occlusive layer can trap congestion",
+    weight: 5,
+  },
+  {
+    names: ["caprylic/capric triglyceride", "caprylic capric triglyceride", "tricaprylin"],
+    category: "barrier",
+    helps: { skinTypes: ["dry"] },
+    reason: "A light coconut-derived emollient — softens without much weight",
+    weight: 5,
+  },
+  {
+    names: ["cetearyl alcohol", "cetyl alcohol", "stearyl alcohol", "behenyl alcohol"],
+    category: "barrier",
+    helps: { skinTypes: ["dry"] },
+    hurts: { concerns: ["acne-prone"] },
+    reason:
+      "A fatty alcohol — softening rather than drying, despite the name, but rich on congestion-prone skin",
+    weight: 4,
+  },
+  {
+    names: ["butylene glycol", "propanediol", "pentylene glycol", "1,2-hexanediol", "dipropylene glycol"],
+    category: "hydration",
+    helps: { concerns: ["dehydrated"] },
+    reason: "A humectant solvent — carries actives and holds a little water in the skin",
+    weight: 4,
+  },
+  {
+    names: ["palmitic acid", "stearic acid", "myristic acid"],
+    category: "pore-clogging",
+    hurts: { concerns: ["acne-prone"] },
+    reason: "A heavier fatty acid, commonly implicated in congestion",
+    weight: 5,
+  },
+  {
+    names: ["fructooligosaccharides", "xylitol", "rhamnose", "inulin", "alpha-glucan oligosaccharide"],
+    category: "soothing",
+    helps: { sensitive: true, concerns: ["atopic"] },
+    reason: "A prebiotic sugar — feeds the skin's own flora rather than acting on the skin directly",
+    weight: 4,
+  },
   {
     names: ["urea"],
     category: "hydration",

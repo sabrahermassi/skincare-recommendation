@@ -27,15 +27,43 @@ describe("matchProduct", () => {
    * version of this test read `suitableFor`, which arrives empty from every
    * real source — only the hand-written samples ever had it. This one reads a
    * ceramide barrier cream, which the rules table favours for dry skin.
+   *
+   * The oily half used to compare scores. It cannot any more, and that is the
+   * point: this formula holds nothing an oily profile cares about, so the
+   * engine now declines rather than returning the untouched base score. The
+   * assertion is the same one either way — the verdict must differ by skin
+   * type, and it must differ because of what is in the jar.
    */
   it("derives skin-type fit from the ingredients, not from product tags", async () => {
     const p = await load("aqua-ceramide-cream"); // ceramide np, squalane, panthenol
     expect(p.suitableFor.length).toBeGreaterThan(0); // sample data still has tags…
     const dry = matchProduct(p, profile({ baseSkinType: "dry" }));
     const oily = matchProduct(p, profile({ baseSkinType: "oily" }));
+
     // …but the difference must come from the formula, not from them.
-    expect(dry.score).toBeGreaterThan(oily.score as number);
+    expect(dry.score).not.toBeNull();
     expect(dry.reasons.some((r) => /ceramide|squalane/i.test(r.ingredient))).toBe(true);
+    if (oily.score !== null) expect(dry.score).toBeGreaterThan(oily.score);
+    else expect(oily.verdict).toBe("unknown");
+  });
+
+  /**
+   * The gate this asserts was added after measuring that it fires: on 104 real
+   * products, nothing in the rules table applied to an oily, acne-prone profile
+   * for 29 of them, while ~92% of their ingredients were recognised. Coverage
+   * says we read the label; it does not say we have anything to tell you.
+   */
+  it("declines to score a formula it has nothing to say about", async () => {
+    const p = await load("aqua-ceramide-cream");
+    const irrelevant = matchProduct(p, profile({ concerns: ["hyperpigmentation"] }));
+    if (irrelevant.reasons.length === 0 && irrelevant.warnings.length === 0) {
+      expect(irrelevant.score).toBeNull();
+      expect(irrelevant.verdict).toBe("unknown");
+    } else {
+      // Whichever way the fixture falls, the invariant holds: a number is only
+      // ever returned with evidence behind it.
+      expect(irrelevant.score).not.toBeNull();
+    }
   });
 
   it("rewards overlapping concerns", async () => {

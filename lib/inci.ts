@@ -51,6 +51,19 @@ const MIN_DELIMITED_TOKENS = 4;
 const MAX_WINDOW_WORDS = 6;
 
 /**
+ * Ceiling on the words reconstruction will consider.
+ *
+ * Reconstruction is the expensive path — every window is checked against a
+ * dictionary of tens of thousands of names, with a fuzzy pass behind it — and
+ * it only runs when the block could not be split on punctuation. If the block
+ * boundary is ever missed, that block becomes the whole label and the work
+ * grows with it: a real request died on the Edge Function's compute limit
+ * exactly this way. No ingredient list runs past this, so the cap costs
+ * nothing and bounds the damage when the boundary is wrong.
+ */
+const MAX_RECONSTRUCTED_WORDS = 400;
+
+/**
  * Bounded Levenshtein distance — returns early once the result is certain to
  * exceed `max`, since this runs against many candidate dictionary entries per
  * word and the exact distance beyond `max` is never needed.
@@ -261,7 +274,7 @@ export function parseIngredientBlock(
   // enough to sink the verdict below "unknown" even when the OCR read was
   // otherwise clean.
   const stop =
-    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\be\s*\d+([.,]\d+)?\s*(ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b)/i.exec(
+    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b)/i.exec(
       block
     );
   if (stop) block = block.slice(0, stop.index);
@@ -279,7 +292,7 @@ export function parseIngredientBlock(
 
   if (delimited.length >= MIN_DELIMITED_TOKENS || !dictionary) return dedupe(delimited);
 
-  const words = block.split(/\s+/).filter(Boolean);
+  const words = block.split(/\s+/).filter(Boolean).slice(0, MAX_RECONSTRUCTED_WORDS);
   return dedupe(
     reconstructFromDictionary(words, dictionary).map((p) => ({
       ...p,

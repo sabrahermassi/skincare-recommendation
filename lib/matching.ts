@@ -147,20 +147,23 @@ export function matchProduct(
     score = Math.min(score, 45) - (warnings.length - 1) * 5;
   }
 
-  // KNOWN GAP, deliberately left as-is pending a product decision.
-  //
   // Reading a formula and having something to say about it are different
-  // questions, and only the first is asked above. Measured across 104 real
-  // products: for an oily, acne-prone profile no rule fires at all on 54 of
-  // them, and for a pigmentation profile on 61 — while coverage sits at ~92%,
-  // so the gate waves them through and this returns BASE_SCORE untouched. That
-  // number is a default presented as a finding.
+  // questions, and the gate above only asks the first. A formula can be 92%
+  // recognised and still contain nothing this profile cares about — most of a
+  // jar is solvent, thickener, chelator and preservative — in which case
+  // `score` is still BASE_SCORE and returning it would present a default as a
+  // finding.
   //
-  // Returning `null` there is the honest answer, but on today's rules table it
-  // would make the app answer "can't tell" to roughly half of all scans by
-  // those users, so it is not obviously the better failure. The durable fix is
-  // rules that cover oily/acne and pigmentation as well as they cover
-  // dry/sensitive, at which point the gate costs almost nothing.
+  // This was measured before it was fixed: no rule fired at all on 54 of 104
+  // real products for an oily, acne-prone profile, and 61 for a pigmentation
+  // one. Widening the table to cover the emollients, humectants and occlusives
+  // those profiles actually meet brought that to 29 and 37, which is what makes
+  // refusing here honest rather than merely unhelpful — it is now the minority
+  // case, and it is the truthful answer when it happens.
+  if (reasons.length === 0 && warnings.length === 0) {
+    return { score: null, verdict: "unknown", warnings, reasons: [], factors: [], coverage };
+  }
+
   const finalScore = clamp(score);
   reasons.sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect));
 
