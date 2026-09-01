@@ -72,7 +72,18 @@ export default function Scan() {
       busy.current = true;
       setStatus({ kind: "looking", code: data });
 
-      const product = await fetchProductByBarcode(data);
+      // A miss reads as "not in our catalogue" whether the cascade genuinely
+      // found nothing or the lookup itself failed (bad rate limit, a scanned
+      // code that isn't actually a product barcode, a transient network
+      // error) — the recovery is identical either way: try again, search, or
+      // photograph the label. Letting the request throw here would crash the
+      // scan screen instead of just showing that state.
+      let product: ProductWithIngredients | null = null;
+      try {
+        product = await fetchProductByBarcode(data);
+      } catch (err) {
+        console.warn("fetchProductByBarcode failed:", err);
+      }
 
       if (product) {
         const { score, warnings } =

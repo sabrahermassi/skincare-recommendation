@@ -23,8 +23,6 @@ export type AgeGroup = "18-24" | "25-34" | "35-44" | "45-54" | "55-64" | "65+";
 
 export type BodyArea = "face" | "body";
 
-export type RoutineLength = "minimal" | "balanced" | "full";
-
 /**
  * The onboarding quiz's answers. `gender` and `ageGroup` are stored for
  * copy/personalisation but deliberately do not affect `matchProduct` —
@@ -37,7 +35,6 @@ export type SkinProfile = {
   concerns: Concern[];
   baseSkinType: BaseSkinType | null;
   sensitive: boolean;
-  routineLength: RoutineLength | null;
 };
 
 export type ProductType =

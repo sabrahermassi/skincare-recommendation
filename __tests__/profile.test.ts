@@ -63,44 +63,26 @@ describe("labels", () => {
 });
 
 describe("quiz flow", () => {
-  it("gives face the full five steps and body four", () => {
-    expect(quizStepCount("face")).toBe(5);
-    expect(quizStepCount("body")).toBe(4);
+  it("has four steps, the same for face and body", () => {
+    expect(quizStepCount()).toBe(4);
   });
 
-  it("assumes the longer flow until area is known", () => {
-    // Steps 1-2 render before the area question is answered.
-    expect(quizStepCount(null)).toBe(5);
+  it("does not include a routine step", () => {
+    expect(quizRoutes()).not.toContain("/onboarding/routine");
   });
 
-  it("drops only the routine step for body", () => {
-    expect(quizRoutes("face")).toContain("/onboarding/routine");
-    expect(quizRoutes("body")).not.toContain("/onboarding/routine");
-    expect(quizRoutes("body")).toEqual(
-      quizRoutes("face").filter((r) => r !== "/onboarding/routine")
-    );
-  });
-
-  it("sends face from skin type on to the routine question", () => {
-    expect(nextQuizRoute("/onboarding/skin-type", "face")).toBe("/onboarding/routine");
-  });
-
-  it("treats skin type as the last step for body", () => {
+  it("treats skin type as the last step", () => {
     // null means "finish onboarding", not "navigate".
-    expect(nextQuizRoute("/onboarding/skin-type", "body")).toBeNull();
+    expect(nextQuizRoute("/onboarding/skin-type")).toBeNull();
   });
 
-  it("treats routine as the last step for face", () => {
-    expect(nextQuizRoute("/onboarding/routine", "face")).toBeNull();
-  });
-
-  it("walks the whole face flow end to end", () => {
+  it("walks the whole flow end to end", () => {
     const visited: QuizRoute[] = ["/onboarding/about-you"];
-    let current = nextQuizRoute(visited[0], "face");
+    let current = nextQuizRoute(visited[0]);
     while (current) {
       visited.push(current);
-      current = nextQuizRoute(current, "face");
+      current = nextQuizRoute(current);
     }
-    expect(visited).toEqual(quizRoutes("face"));
+    expect(visited).toEqual(quizRoutes());
   });
 });

@@ -27,12 +27,12 @@ export default function Welcome() {
           Skintel
         </Text>
         <Text className="font-display text-[32px] leading-9 text-ink">
-          Find your K-beauty routine
+          Find the right product for your skin
         </Text>
         <Text className="text-base leading-6 text-ink-muted">
-          Five quick questions about your skin. Then every product gets
-          scored against your profile — including the ingredients that
-          don&apos;t suit you.
+          Four quick questions about your skin. Then scan any product to see
+          how well it matches — including the ingredients that don&apos;t
+          suit you.
         </Text>
       </View>
 

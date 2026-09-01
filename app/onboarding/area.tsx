@@ -48,7 +48,7 @@ export default function AreaStep() {
     <QuizStep
       step={2}
       title="Face or body?"
-      subtitle="We'll show the routine that matches."
+      subtitle="We'll show the product that matches."
       onNext={() => router.push("/onboarding/concerns")}
       nextDisabled={!area}
     >

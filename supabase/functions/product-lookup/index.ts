@@ -18,7 +18,7 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const INCI_API_KEY = Deno.env.get("INCI_API_KEY") ?? "";
 
 const OBF_BASE = "https://world.openbeautyfacts.org/api/v2";
-const INCI_BASE = "https://api.inciapi.com/v1";
+const INCI_BASE = "https://inciapi.com/v1";
 /** Identity-only fallback. Free trial tier, no key. */
 const UPCITEMDB_BASE = "https://api.upcitemdb.com/prod/trial/lookup";
 
@@ -90,19 +90,32 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .maybeSingle();
   if (existing.data) return json(existing.data, 200);
 
+  // Each remaining source is a third-party call over the network, so a DNS
+  // failure, timeout or outage in one must fall through to the next rather
+  // than crash the whole lookup — a barcode that is genuinely nowhere is an
+  // ordinary 404, not a 500.
+  const safely = async (fn: () => Promise<Fetched | null>): Promise<Fetched | null> => {
+    try {
+      return await fn();
+    } catch (err) {
+      console.error("lookup source failed:", err);
+      return null;
+    }
+  };
+
   // 2 ── Open Beauty Facts: the only source we may keep permanently
-  const fromObf = await lookupOpenBeautyFacts(barcode);
+  const fromObf = await safely(() => lookupOpenBeautyFacts(barcode));
   if (fromObf) return json(await persist(fromObf), 200);
 
   // 3 ── INCI API: better data, but cached under their terms, not owned
   if (INCI_API_KEY) {
-    const fromInci = await lookupInciApi(barcode);
+    const fromInci = await safely(() => lookupInciApi(barcode));
     if (fromInci) return json(await persist(fromInci), 200);
   }
 
   // 4 ── identity-only. Cannot produce a verdict, but turns a blank failure
   //      into a named product plus an invitation to photograph the label.
-  const identity = await lookupBarcodeDb(barcode);
+  const identity = await safely(() => lookupBarcodeDb(barcode));
   if (identity) return json(await persist(identity), 200);
 
   return json({ error: "Not found in any source" }, 404);
@@ -154,14 +167,24 @@ async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
   };
 }
 
+/**
+ * `GET /v1/products/:barcode` — category is an array, images live under
+ * `imageUrls`, and `ingredients` is a raw comma-separated string (same shape
+ * as Open Beauty Facts'), not a pre-parsed array — verified against the
+ * published docs at https://inciapi.com/docs/, since the previous shape here
+ * (`api.inciapi.com`, `Authorization: Bearer`, an `ingredients[]` of objects)
+ * didn't match anything the service actually serves.
+ */
 async function lookupInciApi(barcode: string): Promise<Fetched | null> {
   const res = await fetch(`${INCI_BASE}/products/${barcode}`, {
-    headers: { Authorization: `Bearer ${INCI_API_KEY}`, Accept: "application/json" },
+    headers: { "X-API-Key": INCI_API_KEY, Accept: "application/json" },
   });
-  if (!res.ok) return null;
+  if (!res.ok) return null; // 404 product_not_found / invalid_barcode
 
   const p = await res.json();
   if (!p?.name) return null;
+
+  const category: string[] = Array.isArray(p.category) ? p.category : [];
 
   return {
     product: {
@@ -169,12 +192,12 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
       barcode,
       brand: p.brand ?? "Unknown",
       name: p.name,
-      type: guessType([], `${p.category ?? ""} ${p.name}`),
-      area: guessArea([], `${p.category ?? ""} ${p.name}`),
-      description: p.description ?? null,
+      type: guessType(category, p.name),
+      area: guessArea(category, p.name),
+      description: null,
       // Their terms don't address re-hosting, so we don't: the URL is
       // referenced, never copied into our own storage.
-      image_url: p.image_url ?? null,
+      image_url: Array.isArray(p.imageUrls) ? (p.imageUrls[0] ?? null) : null,
       volume: p.volume ?? null,
       in_stock: true,
       suitable_for: [],
@@ -183,12 +206,7 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
       attribution: ATTRIBUTION.inci_api,
       expires_at: new Date(Date.now() + ttlFrom(res) * 1000).toISOString(),
     },
-    ingredients: Array.isArray(p.ingredients)
-      ? p.ingredients.map((ing: { inci_name?: string; name?: string }, i: number) => ({
-          inci_name: normalise(ing.inci_name ?? ing.name ?? ""),
-          position: i,
-        }))
-      : [],
+    ingredients: parseInci(typeof p.ingredients === "string" ? p.ingredients : ""),
   };
 }
 
@@ -285,11 +303,16 @@ async function persist(fetched: Fetched) {
  * order (which is regulated information) and drops the decoration.
  */
 function parseInci(text: string): { inci_name: string; position: number }[] {
-  return text
-    .split(/[,;]/)
-    .map((part) => normalise(part))
-    .filter((part) => part.length > 1 && part.length < 120)
-    .map((inci_name, position) => ({ inci_name, position }));
+  return (
+    text
+      // A comma directly between two digits belongs to the name —
+      // "1,2-Hexanediol" is one ingredient, and splitting there yields a bare
+      // "1" and an orphaned "2-hexanediol". Kept in step with `lib/inci.ts`.
+      .split(/[;]|,(?!\d)/)
+      .map((part) => normalise(part))
+      .filter((part) => part.length > 1 && part.length < 120)
+      .map((inci_name, position) => ({ inci_name, position }))
+  );
 }
 
 function normalise(raw: string): string {

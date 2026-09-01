@@ -52,42 +52,6 @@ describe("matchProduct", () => {
     expect(withSensitive.score).toBeGreaterThan(without.score as number);
   });
 
-  /**
-   * Routine length no longer affects scoring at all — for any product, not
-   * just body. The old rule nudged whole product *types* up or down, which
-   * made sense while the app ranked a catalogue. Judging one scanned bottle
-   * against your skin has nothing to do with how many steps you enjoy, and
-   * keeping the nudge would have moved a verdict for a reason we could not
-   * defend in the explanation.
-   *
-   * Consequence worth knowing: the onboarding routine question now feeds
-   * nothing. Either give it a purpose or drop the step.
-   */
-  describe("routine length is inert", () => {
-    const LENGTHS = ["minimal", "balanced", "full", null] as const;
-
-    it("gives an identical score whatever the answer", async () => {
-      const p = await load("mugwort-gel-cleanser");
-      const scores = LENGTHS.map(
-        (routineLength) =>
-          matchProduct(p, profile({ baseSkinType: "oily", routineLength })).score
-      );
-      expect(new Set(scores).size).toBe(1);
-    });
-
-    it("holds across the whole catalogue, not just one product", async () => {
-      const all = await fetchProducts();
-      for (const p of all) {
-        const scores = LENGTHS.map(
-          (routineLength) =>
-            matchProduct(p, profile({ baseSkinType: "dry", concerns: ["dehydrated"], routineLength }))
-              .score
-        );
-        expect(new Set(scores).size).toBe(1);
-      }
-    });
-  });
-
   it("stays within 0-99 and returns an integer", async () => {
     const p = await load("hanbang-rice-serum");
     const { score } = matchProduct(p, profile({ baseSkinType: "dry", concerns: ["dehydrated", "dullness"] }));

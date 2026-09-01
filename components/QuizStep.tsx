@@ -8,11 +8,10 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { COLORS } from "@/lib/colors";
 import { quizStepCount } from "@/lib/profile";
-import { useAppStore } from "@/store/useAppStore";
 import { StepProgress } from "./StepProgress";
 
 type Props = {
-  /** 1-based index into the 5-step quiz. */
+  /** 1-based index into the quiz. */
   step: number;
   title: string;
   subtitle?: string;
@@ -38,10 +37,7 @@ export function QuizStep({
   nextDisabled = false,
   children,
 }: Props) {
-  // Body has one fewer step. Area is chosen on step 2, so picking Body updates
-  // the indicator underneath the user — truthful, since the flow really did
-  // just get shorter, and better than promising 5 and stopping at 4.
-  const totalSteps = quizStepCount(useAppStore((s) => s.profile.area));
+  const totalSteps = quizStepCount();
 
   return (
     <View className="flex-1 bg-canvas px-5 pb-8 pt-14">
