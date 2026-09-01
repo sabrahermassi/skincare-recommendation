@@ -17,6 +17,7 @@ const CONCERN_LABEL: Record<Concern, string> = {
   "large-pores": "large pores",
   "fine-lines": "fine lines",
   hyperpigmentation: "dark spots",
+  atopic: "eczema-prone",
 };
 
 const GENDER_LABEL: Record<Gender, string> = {

@@ -303,8 +303,16 @@ async function persist(fetched: Fetched) {
  * order (which is regulated information) and drops the decoration.
  */
 function parseInci(text: string): { inci_name: string; position: number }[] {
+  // Open Beauty Facts' ingredient text sometimes carries the label's own
+  // heading. Without this the heading fuses onto the first name and the most
+  // basic ingredient in the formula stops resolving — Torriden's DIVE-In pad
+  // was stored with "ingredients water" as its first entry, so the app could
+  // not say what water was. `lib/inci.ts` has always stripped this; the two
+  // parsers simply disagreed.
+  const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?ingredients?\s*[:：]\s*/i, "");
+
   return (
-    text
+    withoutHeading
       // A comma directly between two digits belongs to the name —
       // "1,2-Hexanediol" is one ingredient, and splitting there yields a bare
       // "1" and an orphaned "2-hexanediol". Kept in step with `lib/inci.ts`.

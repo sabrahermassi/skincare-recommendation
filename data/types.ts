@@ -8,6 +8,13 @@ export type SkinType = "oily" | "dry" | "combination" | "normal" | "sensitive";
 /** Skin type minus the "sensitive" modifier — see `SkinProfile.sensitive`. */
 export type BaseSkinType = Exclude<SkinType, "sensitive">;
 
+/**
+ * `atopic` is eczema-prone skin, not a severity of "dry". Both La Roche-Posay
+ * and Avène build a flagship range for it alone (Lipikar, XeraCalm A.D)
+ * because it wants different things from a formula than dry skin does —
+ * barrier lipids and near-zero sensitisers, rather than humectants — and it is
+ * the state most likely to react badly to a product that suits everyone else.
+ */
 export type Concern =
   | "dehydrated"
   | "acne-prone"
@@ -15,7 +22,8 @@ export type Concern =
   | "dullness"
   | "fine-lines"
   | "large-pores"
-  | "hyperpigmentation";
+  | "hyperpigmentation"
+  | "atopic";
 
 export type Gender = "female" | "male" | "nonbinary" | "undisclosed";
 

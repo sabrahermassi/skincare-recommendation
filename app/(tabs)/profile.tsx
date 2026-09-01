@@ -32,6 +32,7 @@ const CONCERN_OPTIONS: { value: Concern; label: string }[] = [
   { value: "large-pores", label: "Large pores" },
   { value: "fine-lines", label: "Fine lines" },
   { value: "hyperpigmentation", label: "Dark spots" },
+  { value: "atopic", label: "Eczema-prone" },
 ];
 const SKIN_TYPES: { value: BaseSkinType; label: string }[] = [
   { value: "dry", label: "Dry" },

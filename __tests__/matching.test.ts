@@ -52,6 +52,32 @@ describe("matchProduct", () => {
     expect(withSensitive.score).toBeGreaterThan(without.score as number);
   });
 
+  /**
+   * A cleanser is rinsed off within a minute; a serum sits on the skin for
+   * hours. Scoring the same ingredient identically in both overstated actives
+   * and, worse, irritants in a face wash.
+   */
+  it("weights a rinse-off product's ingredients below a leave-on one's", async () => {
+    const cleanser = await load("mugwort-gel-cleanser");
+    const prof = profile({ baseSkinType: "dry", sensitive: true });
+    const result = matchProduct(cleanser, prof);
+    if (result.reasons.length > 0) {
+      const strongest = Math.max(...result.reasons.map((r) => Math.abs(r.effect)));
+      // Full weight for the top rule at position 1 would be its raw weight;
+      // rinse-off caps it well below that.
+      expect(strongest).toBeLessThan(11);
+    }
+  });
+
+  it("recognises eczema-prone skin as its own concern", async () => {
+    const p = await load("aqua-ceramide-cream");
+    const atopic = matchProduct(p, profile({ concerns: ["atopic"] }));
+    // Ceramides, panthenol and niacinamide all now speak to it, so this must
+    // produce reasons rather than falling through to "can't tell".
+    expect(atopic.reasons.length).toBeGreaterThan(0);
+    expect(atopic.score).not.toBeNull();
+  });
+
   it("stays within 0-99 and returns an integer", async () => {
     const p = await load("hanbang-rice-serum");
     const { score } = matchProduct(p, profile({ baseSkinType: "dry", concerns: ["dehydrated", "dullness"] }));

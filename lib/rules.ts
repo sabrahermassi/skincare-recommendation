@@ -1,4 +1,4 @@
-import type { BaseSkinType, Concern } from "@/data/types";
+import type { BaseSkinType, Concern, ProductType } from "@/data/types";
 
 /**
  * Curated ingredient rules — the app's actual dermatological judgement.
@@ -96,16 +96,42 @@ export const INGREDIENT_RULES: IngredientRule[] = [
   {
     names: [/^ceramide/, "phytosphingosine", "sphingolipids"],
     category: "barrier",
-    helps: { skinTypes: ["dry"], sensitive: true },
-    reason: "Ceramides rebuild the barrier lipids that dry and reactive skin runs short of",
+    helps: { skinTypes: ["dry"], sensitive: true, concerns: ["atopic"] },
+    reason:
+      "Ceramides rebuild the barrier lipids that dry, reactive and eczema-prone skin runs short of",
     weight: 10,
   },
   {
     names: ["panthenol", "dexpanthenol", "d-panthenol"],
     category: "barrier",
-    helps: { concerns: ["redness"], sensitive: true },
+    helps: { concerns: ["redness", "atopic"], sensitive: true },
     reason: "Panthenol soothes and supports barrier repair — well tolerated on reactive skin",
     weight: 7,
+  },
+
+  // ── Eczema-prone skin ─────────────────────────────────────────────────────
+  // What the dermo-cosmetic ranges built for it actually rely on: replace the
+  // lipids, calm the itch, and leave out anything that sensitises.
+  {
+    names: [/^avena sativa/, "colloidal oatmeal", "oat kernel extract", "oat kernel oil"],
+    category: "soothing",
+    helps: { concerns: ["atopic", "redness"], sensitive: true },
+    reason: "Colloidal oatmeal is the classic anti-itch barrier ingredient for eczema-prone skin",
+    weight: 9,
+  },
+  {
+    names: [/^butyrospermum/, "shea butter", /^helianthus annuus seed oil/, "canola oil"],
+    category: "barrier",
+    helps: { concerns: ["atopic"], skinTypes: ["dry"] },
+    reason: "A rich plant lipid that replaces what an eczema-prone barrier leaks",
+    weight: 7,
+  },
+  {
+    names: [/^vitreoscilla/, "bifida ferment lysate", /^lactobacillus/, "aqua posae filiformis"],
+    category: "soothing",
+    helps: { concerns: ["atopic"], sensitive: true },
+    reason: "Microbiome-derived ferments used in eczema-prone ranges to help calm reactivity",
+    weight: 6,
   },
   {
     names: ["squalane", "squalene"],
@@ -168,10 +194,13 @@ export const INGREDIENT_RULES: IngredientRule[] = [
 
   // ── Actives: tone, texture, ageing ────────────────────────────────────────
   {
+    // One rule per ingredient: `findRule` takes the first match, so a second
+    // niacinamide entry for eczema-prone skin would shadow this one and stop
+    // it contributing for everybody else.
     names: ["niacinamide", "nicotinamide"],
     category: "barrier",
     helps: {
-      concerns: ["large-pores", "hyperpigmentation", "redness"],
+      concerns: ["large-pores", "hyperpigmentation", "redness", "atopic"],
       skinTypes: ["oily", "combination"],
     },
     reason: "Niacinamide moderates oil, evens tone and strengthens the barrier — unusually versatile",
@@ -251,14 +280,14 @@ export const INGREDIENT_RULES: IngredientRule[] = [
   {
     names: ["alcohol denat", "alcohol denat.", "denatured alcohol", "sd alcohol 40", "sd alcohol 40-b", "ethanol"],
     category: "alcohol",
-    hurts: { skinTypes: ["dry"], sensitive: true, concerns: ["dehydrated"] },
+    hurts: { skinTypes: ["dry"], sensitive: true, concerns: ["dehydrated", "atopic"] },
     reason: "Denatured alcohol gives a fast dry-down but strips a dry or compromised barrier",
     weight: 9,
   },
   {
     names: ["parfum", "fragrance", "aroma"],
     category: "fragrance",
-    hurts: { sensitive: true, concerns: ["redness"] },
+    hurts: { sensitive: true, concerns: ["redness", "atopic"] },
     reason: "Fragrance is the most common cause of cosmetic contact reactions",
     weight: 9,
   },
@@ -269,7 +298,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
       "butylphenyl methylpropional", "isoeugenol", "farnesol",
     ],
     category: "fragrance",
-    hurts: { sensitive: true },
+    hurts: { sensitive: true, concerns: ["atopic"] },
     reason: "An EU-labelled fragrance allergen — declared precisely because it sensitises some people",
     weight: 6,
   },
@@ -279,21 +308,21 @@ export const INGREDIENT_RULES: IngredientRule[] = [
       "tea tree oil", /melaleuca/, /cymbopogon/, /rosmarinus/, "clove oil", /eugenia caryophyllus/,
     ],
     category: "fragrance",
-    hurts: { sensitive: true, concerns: ["redness"] },
+    hurts: { sensitive: true, concerns: ["redness", "atopic"] },
     reason: "Volatile essential oil — pleasant, but a frequent irritant on reactive skin",
     weight: 7,
   },
   {
     names: ["menthol", "camphor", "menthyl lactate"],
     category: "irritants",
-    hurts: { sensitive: true, concerns: ["redness"] },
+    hurts: { sensitive: true, concerns: ["redness", "atopic"] },
     reason: "Creates a cooling sensation by irritating nerve endings, not by soothing",
     weight: 7,
   },
   {
     names: ["sodium lauryl sulfate", "ammonium lauryl sulfate"],
     category: "irritants",
-    hurts: { skinTypes: ["dry"], sensitive: true },
+    hurts: { skinTypes: ["dry"], sensitive: true, concerns: ["atopic"] },
     reason: "A harsh primary surfactant — the standard irritant control in patch testing",
     weight: 8,
   },
@@ -335,6 +364,22 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     weight: 5,
   },
 ];
+
+/**
+ * How much of an ingredient's effect survives the way the product is used.
+ *
+ * A cleanser is on the skin for perhaps a minute and is then rinsed off, so
+ * both its actives and its irritants land far softer than the same names in a
+ * serum left on all night. Scoring them identically overstated salicylic acid
+ * in a face wash and, worse, overstated fragrance in one. Position already
+ * proxies concentration; this proxies exposure, which is the other half.
+ *
+ * Not zero for rinse-off: surfactants and fragrance still cause real contact
+ * reactions, which is why patch testing uses a wash-off protocol at all.
+ */
+export function contactWeight(type: ProductType): number {
+  return type === "cleanser" || type === "body-wash" ? 0.4 : 1;
+}
 
 /**
  * INCI order is regulated: ingredients appear in descending concentration

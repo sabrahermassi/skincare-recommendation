@@ -2,6 +2,7 @@ import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/typ
 import { isPersonalized } from "./profile";
 import {
   CATEGORY_LABEL,
+  contactWeight,
   INGREDIENT_RULES,
   positionWeight,
   ruleMatches,
@@ -118,7 +119,7 @@ export function matchProduct(
     const rule = findRule(ingredient);
     if (!rule) return;
 
-    const weight = rule.weight * positionWeight(position);
+    const weight = rule.weight * positionWeight(position) * contactWeight(product.type);
     const helps = targetApplies(rule.helps, profile);
     const hurts = targetApplies(rule.hurts, profile);
 
@@ -146,6 +147,20 @@ export function matchProduct(
     score = Math.min(score, 45) - (warnings.length - 1) * 5;
   }
 
+  // KNOWN GAP, deliberately left as-is pending a product decision.
+  //
+  // Reading a formula and having something to say about it are different
+  // questions, and only the first is asked above. Measured across 104 real
+  // products: for an oily, acne-prone profile no rule fires at all on 54 of
+  // them, and for a pigmentation profile on 61 — while coverage sits at ~92%,
+  // so the gate waves them through and this returns BASE_SCORE untouched. That
+  // number is a default presented as a finding.
+  //
+  // Returning `null` there is the honest answer, but on today's rules table it
+  // would make the app answer "can't tell" to roughly half of all scans by
+  // those users, so it is not obviously the better failure. The durable fix is
+  // rules that cover oily/acne and pigmentation as well as they cover
+  // dry/sensitive, at which point the gate costs almost nothing.
   const finalScore = clamp(score);
   reasons.sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect));
 
