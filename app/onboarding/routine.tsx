@@ -5,6 +5,7 @@ import { OptionCard } from "@/components/OptionCard";
 import { QuizStep } from "@/components/QuizStep";
 import { Text } from "@/components/Text";
 import type { RoutineLength } from "@/data/types";
+import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
 const OPTIONS: { value: RoutineLength; label: string; hint: string }[] = [
@@ -20,7 +21,7 @@ export default function RoutineStep() {
 
   function finish() {
     completeOnboarding();
-    router.replace("/");
+    router.replace(POST_ONBOARDING_ROUTE);
   }
 
   /**

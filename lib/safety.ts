@@ -12,8 +12,20 @@ export const COMEDOGENIC_FLAG_THRESHOLD = 3;
 /** Rating at or above which an ingredient is a real problem for acne-prone skin. */
 export const COMEDOGENIC_SEVERE_THRESHOLD = 4;
 
+/**
+ * Whether a name was matched to an authoritative dictionary. `undefined` means
+ * the hand-written sample catalogue, which is trusted; only an explicit
+ * `false` marks something parsed off a crowdsourced label and unrecognised.
+ */
+export function isVerified(ingredient: Ingredient): boolean {
+  return ingredient.verified !== false;
+}
+
 /** Worth surfacing to any user, regardless of profile. */
 export function isFlagged(ingredient: Ingredient): boolean {
+  // An unrecognised name is not "not flagged" — it is unassessed. Returning
+  // false here would let it count silently toward a clean bill of health.
+  if (!isVerified(ingredient)) return false;
   return (
     ingredient.comedogenic >= COMEDOGENIC_FLAG_THRESHOLD ||
     ingredient.safety !== "safe"
@@ -52,6 +64,10 @@ export function contraindications(
   const { concerns, sensitive } = profile;
 
   for (const ingredient of ingredients) {
+    // An unrecognised name supports no claim in either direction. Skipping it
+    // means the product is neither warned about nor vouched for on its basis.
+    if (!isVerified(ingredient)) continue;
+
     // "avoid" applies to everyone — it is not profile-dependent.
     if (ingredient.safety === "avoid") {
       found.push({ ingredient, reason: "Flagged as best avoided" });
@@ -77,7 +93,7 @@ export function contraindications(
   return found;
 }
 
-export type RiskGroup = "avoid" | "caution" | "clean";
+export type RiskGroup = "avoid" | "caution" | "clean" | "unknown";
 
 /**
  * Buckets ingredients into three risk tiers for the detail screen's grouped
@@ -86,9 +102,20 @@ export type RiskGroup = "avoid" | "caution" | "clean";
  * are worth a look.
  */
 export function groupByRisk(ingredients: Ingredient[]): Record<RiskGroup, Ingredient[]> {
-  const groups: Record<RiskGroup, Ingredient[]> = { avoid: [], caution: [], clean: [] };
+  const groups: Record<RiskGroup, Ingredient[]> = {
+    avoid: [],
+    caution: [],
+    clean: [],
+    unknown: [],
+  };
 
   for (const ingredient of ingredients) {
+    // Its own tier, because the alternative is filing an unrecognised name
+    // under "No concerns" — presenting a gap in our data as a clean result.
+    if (!isVerified(ingredient)) {
+      groups.unknown.push(ingredient);
+      continue;
+    }
     if (ingredient.safety === "avoid") {
       groups.avoid.push(ingredient);
     } else if (

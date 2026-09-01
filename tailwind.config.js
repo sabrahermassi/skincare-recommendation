@@ -39,6 +39,17 @@ module.exports = {
 
         hairline: "#E8DFE4",
 
+        // Per-profile fit, from the design's legend. Softer than `status`
+        // and kept separate from it on purpose: `status` carries a regulatory
+        // verdict that is true for everyone, `tone` carries "does this suit
+        // *you*", which changes with the profile. Conflating them would let a
+        // personal preference read as a safety finding.
+        tone: {
+          good: "#8FCBAE",
+          watch: "#EBB68E",
+          flag: "#E29AA0",
+        },
+
         // Functional, deliberately outside the brand palette: a risk verdict
         // must not shift when the brand does.
         status: {
@@ -64,15 +75,18 @@ module.exports = {
       },
 
       fontFamily: {
-        // Fraunces is allowed in four places only — the wordmark, the welcome
-        // headline, each quiz step title, and the product name. It has no
-        // business at 12px.
-        display: ["Fraunces_600SemiBold"],
-        "display-bold": ["Fraunces_700Bold"],
-        sans: ["Inter_400Regular"],
-        "sans-medium": ["Inter_500Medium"],
-        "sans-semibold": ["Inter_600SemiBold"],
-        "sans-bold": ["Inter_700Bold"],
+        // Per the Skin Match Scanner design: Newsreader for display, Plus
+        // Jakarta Sans for everything else. Newsreader is set at 400 rather
+        // than a heavy weight — the design uses it large and light, as an
+        // editorial voice, never for emphasis at small sizes.
+        display: ["Newsreader_400Regular"],
+        "display-medium": ["Newsreader_500Medium"],
+        sans: ["PlusJakartaSans_400Regular"],
+        "sans-medium": ["PlusJakartaSans_500Medium"],
+        "sans-semibold": ["PlusJakartaSans_600SemiBold"],
+        "sans-bold": ["PlusJakartaSans_700Bold"],
+        // Small monospace eyebrows are a signature of the design.
+        mono: ["ui-monospace", "Menlo", "monospace"],
       },
 
       // Elevation stays on Tailwind's built-in `shadow-sm` / `shadow-md`,

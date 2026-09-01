@@ -1,6 +1,13 @@
 import { INGREDIENTS } from "@/data/ingredients";
 import type { SkinProfile } from "@/data/types";
-import { contraindications, flaggedIngredients, isFlagged } from "@/lib/safety";
+import type { Ingredient } from "@/data/types";
+import {
+  contraindications,
+  flaggedIngredients,
+  groupByRisk,
+  isFlagged,
+  isVerified,
+} from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 const safe = INGREDIENTS["glycerin"]; // comedogenic 0, safe
@@ -78,5 +85,73 @@ describe("contraindications", () => {
     const p = profile({ sensitive: true, concerns: ["acne-prone"] });
     const result = contraindications([moderate], p);
     expect(result).toHaveLength(1);
+  });
+});
+
+/**
+ * Open Beauty Facts ingredient text is crowdsourced and often OCR-mangled —
+ * the live catalogue contains fused entries like "Ulmus Davidiana Root raria
+ * Lobata Root". These pin the rule that an unrecognised name is *unassessed*,
+ * never quietly counted as fine.
+ */
+describe("unverified ingredients", () => {
+  const unrecognised: Ingredient = {
+    id: "ulmus davidiana root raria lobata root",
+    name: "ulmus davidiana root raria lobata root",
+    comedogenic: 0,
+    safety: "safe",
+    verified: false,
+  };
+
+  // The hand-written sample catalogue predates the flag and is trusted.
+  it("treats a missing flag as verified, so the sample catalogue is unaffected", () => {
+    expect(safe.verified).toBeUndefined();
+    expect(isVerified(safe)).toBe(true);
+  });
+
+  it("treats an explicit false as unverified", () => {
+    expect(isVerified(unrecognised)).toBe(false);
+  });
+
+  it("does not flag an unrecognised name — it is unassessed, not clean", () => {
+    expect(isFlagged(unrecognised)).toBe(false);
+    expect(flaggedIngredients([unrecognised])).toEqual([]);
+  });
+
+  /** The heart of it: never file an unknown under "No concerns". */
+  it("buckets an unrecognised name as unknown rather than clean", () => {
+    const groups = groupByRisk([unrecognised]);
+    expect(groups.unknown).toHaveLength(1);
+    expect(groups.clean).toEqual([]);
+    expect(groups.caution).toEqual([]);
+    expect(groups.avoid).toEqual([]);
+  });
+
+  it("keeps verified ingredients in their normal tiers alongside it", () => {
+    const groups = groupByRisk([safe, severeComedogenic, unrecognised]);
+    expect(groups.clean).toEqual([safe]);
+    expect(groups.avoid).toEqual([severeComedogenic]);
+    expect(groups.unknown).toEqual([unrecognised]);
+  });
+
+  /**
+   * A name we cannot identify supports no claim in either direction, so it
+   * must not raise a warning any more than it may suppress one.
+   */
+  it("raises no contraindication from an unrecognised name", () => {
+    const dangerousLooking: Ingredient = { ...unrecognised, safety: "avoid", comedogenic: 5 };
+    expect(contraindications([dangerousLooking], profile({ concerns: ["acne-prone"] }))).toEqual(
+      []
+    );
+  });
+
+  it("still contraindicates the same ingredient once it is verified", () => {
+    const verified: Ingredient = {
+      ...unrecognised,
+      safety: "avoid",
+      comedogenic: 5,
+      verified: true,
+    };
+    expect(contraindications([verified], profile())).toHaveLength(1);
   });
 });

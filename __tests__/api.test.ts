@@ -22,13 +22,40 @@ describe("fetchProducts", () => {
     }
   });
 
-  it("gives every product exactly 3 non-empty benefit bullets for the browse card", async () => {
+  /**
+   * Benefit bullets used to be guaranteed. They no longer are: real sources
+   * return a formula and a label, not copywriting, so this now pins that any
+   * bullet present is non-empty and that the card always has *something* to
+   * show — `ProductCard` falls back to the description.
+   */
+  it("never carries an empty benefit bullet, and always has caption text", async () => {
     const products = await fetchProducts();
     for (const p of products) {
-      expect(p.benefits).toHaveLength(3);
+      expect(Array.isArray(p.benefits)).toBe(true);
       for (const benefit of p.benefits) {
         expect(benefit.trim().length).toBeGreaterThan(0);
       }
+      expect((p.benefits[0] ?? p.description).trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it("exposes an imageUrl and attribution field on every product", async () => {
+    const products = await fetchProducts();
+    for (const p of products) {
+      expect(p).toHaveProperty("imageUrl");
+      expect(p).toHaveProperty("attribution");
+    }
+  });
+
+  /**
+   * Every catalogue photo is a user upload with no official/review
+   * distinction available, so none are surfaced — the illustration renders
+   * instead. Pinned here because the guard is easy to remove by accident.
+   */
+  it("never surfaces source photography", async () => {
+    const products = await fetchProducts();
+    for (const p of products) {
+      expect(p.imageUrl).toBeNull();
     }
   });
 

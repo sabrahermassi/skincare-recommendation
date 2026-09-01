@@ -16,7 +16,7 @@ import type {
   RoutineLength,
   SkinProfile,
 } from "@/data/types";
-import { ageGroupLabel, genderLabel } from "@/lib/profile";
+import { ageGroupLabel, genderLabel, POST_ONBOARDING_ROUTE } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
 const GENDERS: Gender[] = ["female", "male", "nonbinary", "undisclosed"];
@@ -56,6 +56,7 @@ const MAX_CONCERNS = 3;
 export default function ProfileScreen() {
   const storedProfile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
+  const resetApp = useAppStore((s) => s.resetApp);
 
   const [draft, setDraft] = useState<SkinProfile>(storedProfile);
 
@@ -78,7 +79,7 @@ export default function ProfileScreen() {
     // Profile is a tab now rather than a pushed modal, so router.back() has
     // nothing reliable to return to — go straight to the tab that shows the
     // effect of the save.
-    router.replace("/");
+    router.replace(POST_ONBOARDING_ROUTE);
   }
 
   const atLimit = draft.concerns.length >= MAX_CONCERNS;
@@ -204,6 +205,23 @@ export default function ProfileScreen() {
         >
           <Text className="text-sm font-sans-medium text-accent-text underline">
             Retake the quiz
+          </Text>
+        </Pressable>
+
+        {/*
+          Distinct from "Retake the quiz", which keeps your shelf and history.
+          This is the way back to a genuinely first-run app — needed precisely
+          because persistence works: once onboarding is done it stays done.
+        */}
+        <Pressable
+          onPress={() => {
+            resetApp();
+            router.replace("/onboarding");
+          }}
+          className="items-center py-2"
+        >
+          <Text className="text-sm font-sans-medium text-status-avoid underline">
+            Start over — erase my profile, shelf and history
           </Text>
         </Pressable>
       </ScrollView>

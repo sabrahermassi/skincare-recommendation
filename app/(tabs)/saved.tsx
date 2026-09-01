@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { Link } from "expo-router";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -178,7 +179,17 @@ function Row({
   return (
     <Link href={`/product/${product.id}`} asChild>
       <Pressable className="flex-row items-start gap-3 rounded-card bg-surface p-3 shadow-sm active:opacity-80">
-        <ProductIllustration type={product.type} size={56} />
+        {product.imageUrl ? (
+          <Image
+            source={{ uri: product.imageUrl }}
+            style={{ width: 56, height: 56, borderRadius: 14 }}
+            contentFit="contain"
+            transition={150}
+            accessibilityLabel={`${product.brand} ${product.name}`}
+          />
+        ) : (
+          <ProductIllustration type={product.type} size={56} />
+        )}
         <View className="flex-1">
           <Text className="text-[11px] font-sans-semibold uppercase tracking-wide text-ink-faint">
             {product.brand}

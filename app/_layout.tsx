@@ -1,13 +1,13 @@
 import "../global.css";
 
-import { Fraunces_600SemiBold, Fraunces_700Bold } from "@expo-google-fonts/fraunces";
+import { Newsreader_400Regular, Newsreader_500Medium } from "@expo-google-fonts/newsreader";
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
   useFonts,
-} from "@expo-google-fonts/inter";
+} from "@expo-google-fonts/plus-jakarta-sans";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -20,12 +20,12 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    Fraunces_600SemiBold,
-    Fraunces_700Bold,
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
+    Newsreader_400Regular,
+    Newsreader_500Medium,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
   });
 
   // Reading persisted state off disk is async, so on a cold start the store
@@ -57,7 +57,7 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
-          headerTitleStyle: { fontFamily: "Inter_600SemiBold", color: COLORS.ink },
+          headerTitleStyle: { fontFamily: "PlusJakartaSans_600SemiBold", color: COLORS.ink },
           headerStyle: { backgroundColor: COLORS.surface },
           headerTintColor: COLORS.accentText,
           contentStyle: { backgroundColor: COLORS.canvas },
@@ -71,6 +71,14 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Skintel" }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="product/[id]" options={{ title: "Product" }} />
+        {/* The verdict. Header title is set per-product by the screen itself. */}
+        <Stack.Screen name="result/[id]" options={{ title: "Result" }} />
+        <Stack.Screen name="ingredients/[id]" options={{ title: "Ingredients" }} />
+        <Stack.Screen name="ingredient/[inci]" options={{ title: "Ingredient" }} />
+        <Stack.Screen
+          name="scan-label"
+          options={{ title: "Read the label", presentation: "modal" }}
+        />
       </Stack>
     </>
   );

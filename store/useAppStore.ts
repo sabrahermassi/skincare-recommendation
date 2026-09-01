@@ -92,6 +92,14 @@ type AppState = {
 
   toggleCompare: (id: string) => void;
   clearCompare: () => void;
+
+  /**
+   * Back to a first-run state: empty profile, closed onboarding gate, empty
+   * shelf and log. Needed because persistence works — once onboarding is
+   * completed it stays completed, and without this there is no way back to it
+   * short of deleting the app.
+   */
+  resetApp: () => void;
 };
 
 /**
@@ -118,14 +126,19 @@ export function partializeState(state: AppState): PersistedState {
   };
 }
 
+/** First-run values. Exported so `resetApp` and the tests share one source. */
+export const INITIAL_STATE = {
+  profile: EMPTY_PROFILE,
+  hasSeenOnboarding: false,
+  savedProducts: [] as SavedProduct[],
+  history: [] as HistoryEntry[],
+  compareIds: [] as string[],
+};
+
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
-      profile: EMPTY_PROFILE,
-      hasSeenOnboarding: false,
-      savedProducts: [],
-      history: [],
-      compareIds: [],
+      ...INITIAL_STATE,
 
       setProfile: (patch) =>
         set((state) => ({ profile: { ...state.profile, ...patch } })),
@@ -194,6 +207,13 @@ export const useAppStore = create<AppState>()(
         }),
 
       clearCompare: () => set({ compareIds: [] }),
+
+      resetApp: () => {
+        set({ ...INITIAL_STATE });
+        // Also wipe what is on disk. Without this the in-memory reset is
+        // undone by the next rehydration and the app "forgets" the reset.
+        void useAppStore.persist.clearStorage();
+      },
     }),
     {
       name: "skintel-store",

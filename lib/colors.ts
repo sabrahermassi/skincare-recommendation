@@ -23,6 +23,11 @@ export const COLORS = {
 
   hairline: "#E8DFE4",
 
+  // Per-profile fit (design legend), distinct from the status ramp.
+  toneGood: "#8FCBAE",
+  toneWatch: "#EBB68E",
+  toneFlag: "#E29AA0",
+
   statusSafe: "#3F7D5F",
   statusCaution: "#8A6314",
   statusWatch: "#A2521F",

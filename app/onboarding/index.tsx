@@ -3,6 +3,7 @@ import { Pressable, View } from "react-native";
 
 import { Text } from "@/components/Text";
 
+import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
 export default function Welcome() {
@@ -16,7 +17,7 @@ export default function Welcome() {
    */
   function skip() {
     skipOnboarding();
-    router.replace("/");
+    router.replace(POST_ONBOARDING_ROUTE);
   }
 
   return (

@@ -65,6 +65,23 @@ export type Ingredient = {
   safety: SafetyLevel;
   /** Short human-readable reason shown under the ingredient. */
   note?: string;
+  /**
+   * Whether this name was matched against an authoritative dictionary
+   * (CosIng / MFDS) rather than merely parsed off a product label.
+   *
+   * Open Beauty Facts ingredient text is crowdsourced and often OCR-mangled —
+   * live records contain fused entries like "Ulmus Davidiana Root raria Lobata
+   * Root". Under a safety verdict, an unrecognised name has to look
+   * unrecognised rather than authoritative. Optional so the sample catalogue,
+   * which is hand-written and therefore trusted, needn't set it.
+   */
+  verified?: boolean;
+  /**
+   * CosIng functional roles ("humectant", "solvent", "emollient"). Populated
+   * for ~98% of the dictionary and used as the subtitle when no curated rule
+   * applies — a real fact about the ingredient rather than filler.
+   */
+  functions?: string[];
 };
 
 export type Product = {
@@ -89,8 +106,28 @@ export type Product = {
   /** Concerns this product claims to target. */
   targets: Concern[];
   description: string;
-  /** Exactly 3 short marketing-style bullets, shown on the browse card. */
-  benefits: [string, string, string];
+  /**
+   * Short marketing-style bullets for the browse card. Empty for anything
+   * pulled from a real source: Open Beauty Facts and INCI API return a formula
+   * and a label, not copywriting. The card falls back to the description.
+   */
+  benefits: string[];
+  /**
+   * Packaging photo from the source, or `null` when there isn't one — which is
+   * common. `ProductIllustration` renders the pastel vessel in that case.
+   */
+  imageUrl: string | null;
+  /**
+   * Licence credit to render beside the product, e.g. "Data from Open Beauty
+   * Facts, ODbL". Null for curated rows we wrote ourselves. Stored per product
+   * because the obligation travels with the row, not with the catalogue.
+   */
+  attribution: string | null;
+  /**
+   * When this row's label data was last read, ISO-8601. Shown to the user
+   * because formulas change and a two-year-old INCI list is a claim, not data.
+   */
+  fetchedAt?: string;
   /** Ordered INCI list — references `Ingredient.id`. */
   ingredientIds: string[];
   inStock: boolean;

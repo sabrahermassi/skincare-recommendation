@@ -243,4 +243,35 @@ describe("history log", () => {
   });
 });
 
+describe("resetApp", () => {
+  /**
+   * Persistence is what makes this necessary: once onboarding is completed it
+   * stays completed across launches, so without a reset there is no route back
+   * to a first-run app short of deleting it.
+   */
+  it("returns every slice to its first-run value", () => {
+    s().completeOnboarding();
+    s().setProfile({ baseSkinType: "oily", sensitive: true });
+    s().toggleConcern("redness");
+    s().saveProduct("a");
+    s().recordView({ id: "b", known: true, score: 70, warnings: 0 });
+    s().toggleCompare("c");
+
+    s().resetApp();
+
+    expect(s().hasSeenOnboarding).toBe(false);
+    expect(s().profile).toEqual(EMPTY_PROFILE);
+    expect(s().savedProducts).toEqual([]);
+    expect(s().history).toEqual([]);
+    expect(s().compareIds).toEqual([]);
+  });
+
+  it("re-opens the onboarding gate, which is the whole point", () => {
+    s().completeOnboarding();
+    expect(s().hasSeenOnboarding).toBe(true);
+    s().resetApp();
+    expect(s().hasSeenOnboarding).toBe(false);
+  });
+});
+
 afterAll(() => useAppStore.setState(initial, true));

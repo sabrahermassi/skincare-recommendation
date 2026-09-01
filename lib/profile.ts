@@ -112,3 +112,14 @@ export function nextQuizRoute(
   if (i === -1 || i === routes.length - 1) return null;
   return routes[i + 1];
 }
+
+/**
+ * Where finishing (or skipping) the quiz lands you.
+ *
+ * Defined once because it was wrong four times: every exit called
+ * `router.replace("/")`, and `/` resolves to the browse grid — so the skin
+ * analysis ended on a list of products, which is exactly what this app stopped
+ * being. Reordering the tab bar did not help, because these navigations name
+ * the destination explicitly.
+ */
+export const POST_ONBOARDING_ROUTE = "/scan" as const;

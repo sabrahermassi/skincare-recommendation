@@ -30,6 +30,8 @@ export const PRODUCTS: Product[] = [
       "licorice-root",
       "adenosine",
     ],
+    imageUrl: null,
+    attribution: null,
     inStock: true,
   },
   {
@@ -56,6 +58,8 @@ export const PRODUCTS: Product[] = [
       "panthenol",
       "centella",
     ],
+    imageUrl: null,
+    attribution: null,
     inStock: true,
   },
   {
@@ -81,6 +85,8 @@ export const PRODUCTS: Product[] = [
       "green-tea",
       "fragrance",
     ],
+    imageUrl: null,
+    attribution: null,
     inStock: true,
   },
   {
@@ -107,6 +113,8 @@ export const PRODUCTS: Product[] = [
       "cetearyl-alcohol",
       "green-tea",
     ],
+    imageUrl: null,
+    attribution: null,
     inStock: false,
   },
   {
@@ -132,6 +140,8 @@ export const PRODUCTS: Product[] = [
       "isopropyl-myristate",
       "denatured-alcohol",
     ],
+    imageUrl: null,
+    attribution: null,
     inStock: true,
   },
   {
@@ -156,6 +166,8 @@ export const PRODUCTS: Product[] = [
       "centella",
       "fragrance",
     ],
+    imageUrl: null,
+    attribution: null,
     inStock: true,
   },
   {
@@ -181,6 +193,8 @@ export const PRODUCTS: Product[] = [
       "panthenol",
       "cetearyl-alcohol",
     ],
+    imageUrl: null,
+    attribution: null,
     inStock: true,
   },
   {
@@ -205,6 +219,8 @@ export const PRODUCTS: Product[] = [
       "adenosine",
       "coconut-oil",
     ],
+    imageUrl: null,
+    attribution: null,
     inStock: true,
   },
 ];

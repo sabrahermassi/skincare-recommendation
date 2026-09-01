@@ -1,4 +1,4 @@
-import { Link, Redirect, router } from "expo-router";
+import { Link, router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -47,7 +47,6 @@ export default function Browse() {
   const [typeFilter, setTypeFilter] = useState<ProductType | "all">("all");
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  const hasSeenOnboarding = useAppStore((s) => s.hasSeenOnboarding);
   const profile = useAppStore((s) => s.profile);
   const compareIds = useAppStore((s) => s.compareIds);
 
@@ -83,12 +82,6 @@ export default function Browse() {
     if (!personalized) return withScores;
     return [...withScores].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0));
   }, [products, profile, personalized]);
-
-  // First run goes to onboarding. Declarative, so it cannot fire before the
-  // navigator mounts and cannot ping-pong the way an effect-based gate can.
-  if (!hasSeenOnboarding) {
-    return <Redirect href="/onboarding" />;
-  }
 
   return (
     <View className="flex-1 bg-canvas">

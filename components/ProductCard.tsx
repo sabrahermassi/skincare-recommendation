@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { Link } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
@@ -42,7 +43,17 @@ export function ProductCard({ product, match, index = 0 }: Props) {
       <Link href={`/product/${product.id}`} asChild>
         <Pressable onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)}>
           <View className="relative">
-            <ProductIllustration type={product.type} />
+            {product.imageUrl ? (
+              <Image
+                source={{ uri: product.imageUrl }}
+                style={{ width: "100%", aspectRatio: 1, borderRadius: 14 }}
+                contentFit="contain"
+                transition={150}
+                accessibilityLabel={`${product.brand} ${product.name}`}
+              />
+            ) : (
+              <ProductIllustration type={product.type} />
+            )}
 
             <View className="absolute right-2 top-2">
               <MatchBadge score={match.score} />
@@ -54,8 +65,13 @@ export function ProductCard({ product, match, index = 0 }: Props) {
               </View>
             )}
 
-            {/* Web-only reveal — the 3 benefit bullets from the product data. */}
-            {hovered && (
+            {/*
+              Web-only reveal. Guarded on `benefits.length` because real
+              sources return a formula and a label, not marketing copy — only
+              the curated entries have bullets, and an empty black overlay on
+              hover reads as a rendering bug.
+            */}
+            {hovered && product.benefits.length > 0 && (
               <View className="absolute inset-0 items-center justify-center gap-1.5 rounded-card bg-ink/85 p-4">
                 {product.benefits.map((benefit) => (
                   <Text
@@ -97,7 +113,9 @@ export function ProductCard({ product, match, index = 0 }: Props) {
               }`}
               numberOfLines={1}
             >
-              {contraindicated ? "Not ideal for your profile" : product.benefits[0]}
+              {contraindicated
+                ? "Not ideal for your profile"
+                : (product.benefits[0] ?? product.description ?? "")}
             </Text>
           </View>
         </Pressable>

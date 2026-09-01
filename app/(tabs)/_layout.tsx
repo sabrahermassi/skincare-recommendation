@@ -1,18 +1,34 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
-import { View } from "react-native";
+import { Redirect, Tabs } from "expo-router";
 
 import { COLORS } from "@/lib/colors";
+import { useAppStore } from "@/store/useAppStore";
 
 export default function TabsLayout() {
+  const hasSeenOnboarding = useAppStore((s) => s.hasSeenOnboarding);
+
+  /*
+    First run goes to onboarding. This gate used to live in the browse screen,
+    which worked only while browse was the landing tab. Scanning is the front
+    door now, so the gate has to sit above the whole group or a first-time user
+    would open straight into a camera with no profile to judge against.
+
+    Declarative rather than an effect: it cannot fire before the navigator
+    mounts, and it cannot ping-pong. The root layout already waits for the
+    persisted store to rehydrate, so this never sees a stale `false`.
+  */
+  if (!hasSeenOnboarding) {
+    return <Redirect href="/onboarding" />;
+  }
+
   return (
     <Tabs
       screenOptions={{
         headerStyle: { backgroundColor: COLORS.surface },
-        headerTitleStyle: { fontFamily: "Inter_600SemiBold", color: COLORS.ink },
+        headerTitleStyle: { fontFamily: "PlusJakartaSans_600SemiBold", color: COLORS.ink },
         tabBarActiveTintColor: COLORS.accentText,
         tabBarInactiveTintColor: COLORS.inkFaint,
-        tabBarLabelStyle: { fontFamily: "Inter_500Medium", fontSize: 11 },
+        tabBarLabelStyle: { fontFamily: "PlusJakartaSans_500Medium", fontSize: 11 },
         tabBarStyle: {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.hairline,
@@ -23,10 +39,22 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
+        name="scan"
+        options={{
+          title: "Scan a product",
+          tabBarLabel: "Scan",
+          // Was a raised centre FAB while browsing was the front door. Now
+          // that scanning *is* the app and this is the first tab, a floating
+          // circle in position one reads as a stray button rather than the
+          // primary action.
+          tabBarIcon: ({ color, size }) => <Ionicons name="camera" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="index"
         options={{
           title: "Skintel",
-          tabBarLabel: "Home",
+          tabBarLabel: "Browse",
           tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
         }}
       />
@@ -45,33 +73,6 @@ export default function TabsLayout() {
         bar without deleting the route.
       */}
       <Tabs.Screen name="compare" options={{ title: "Compare", href: null }} />
-      <Tabs.Screen
-        name="scan"
-        options={{
-          title: "Scan",
-          // Empty label + a raised circular icon reads as the primary action,
-          // not just another tab — the recipe is a negative marginTop pulling
-          // the icon above the bar.
-          tabBarLabel: "",
-          tabBarIcon: () => (
-            <View
-              className="items-center justify-center rounded-full bg-accent"
-              style={{
-                width: 52,
-                height: 52,
-                marginBottom: 26,
-                shadowColor: COLORS.ink,
-                shadowOpacity: 0.24,
-                shadowRadius: 6,
-                shadowOffset: { width: 0, height: 3 },
-                elevation: 4,
-              }}
-            >
-              <Ionicons name="camera" size={24} color="#fff" />
-            </View>
-          ),
-        }}
-      />
       <Tabs.Screen
         name="profile"
         options={{

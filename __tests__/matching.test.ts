@@ -1,4 +1,4 @@
-import { fetchProduct } from "@/data/api";
+import { fetchProduct, fetchProducts } from "@/data/api";
 import type { ProductWithIngredients, SkinProfile } from "@/data/types";
 import { matchProduct, matchTone } from "@/lib/matching";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -22,11 +22,20 @@ describe("matchProduct", () => {
     expect(a.score).toBe(b.score);
   });
 
-  it("rewards a skin-type match", async () => {
-    const p = await load("hanbang-rice-serum"); // suitableFor includes 'dry'
-    const matched = matchProduct(p, profile({ baseSkinType: "dry" }));
-    const unmatched = matchProduct(p, profile({ baseSkinType: "oily" }));
-    expect(matched.score).toBeGreaterThan(unmatched.score as number);
+  /**
+   * Skin-type fit now comes from the formula, not from product tags. The old
+   * version of this test read `suitableFor`, which arrives empty from every
+   * real source — only the hand-written samples ever had it. This one reads a
+   * ceramide barrier cream, which the rules table favours for dry skin.
+   */
+  it("derives skin-type fit from the ingredients, not from product tags", async () => {
+    const p = await load("aqua-ceramide-cream"); // ceramide np, squalane, panthenol
+    expect(p.suitableFor.length).toBeGreaterThan(0); // sample data still has tags…
+    const dry = matchProduct(p, profile({ baseSkinType: "dry" }));
+    const oily = matchProduct(p, profile({ baseSkinType: "oily" }));
+    // …but the difference must come from the formula, not from them.
+    expect(dry.score).toBeGreaterThan(oily.score as number);
+    expect(dry.reasons.some((r) => /ceramide|squalane/i.test(r.ingredient))).toBe(true);
   });
 
   it("rewards overlapping concerns", async () => {
@@ -43,55 +52,38 @@ describe("matchProduct", () => {
     expect(withSensitive.score).toBeGreaterThan(without.score as number);
   });
 
-  it("favours low-maintenance product types for a minimal routine", async () => {
-    const cleanser = await load("mugwort-gel-cleanser");
-    const minimal = matchProduct(cleanser, profile({ baseSkinType: "oily", routineLength: "minimal" }));
-    const balanced = matchProduct(cleanser, profile({ baseSkinType: "oily", routineLength: "balanced" }));
-    expect(minimal.score).toBeGreaterThan(balanced.score as number);
-  });
-
   /**
-   * Load-bearing: onboarding skips the routine question entirely for body on
-   * the strength of this. Every body product sits inside matchProduct's
-   * "minimal" list and outside its "full" list, so a routine answer moves all
-   * of them by the same amount — it can never change which body product
-   * outranks which, and so carries no signal for choosing between them.
+   * Routine length no longer affects scoring at all — for any product, not
+   * just body. The old rule nudged whole product *types* up or down, which
+   * made sense while the app ranked a catalogue. Judging one scanned bottle
+   * against your skin has nothing to do with how many steps you enjoy, and
+   * keeping the nudge would have moved a verdict for a reason we could not
+   * defend in the explanation.
    *
-   * If the catalogue gains a body product that breaks the pattern (a body
-   * serum, say), these fail and the routine step should return for body.
+   * Consequence worth knowing: the onboarding routine question now feeds
+   * nothing. Either give it a purpose or drop the step.
    */
-  describe("routine length carries no signal for body", () => {
-    const BODY_IDS = ["green-tea-body-wash", "ceramide-body-lotion", "shea-hand-cream"];
-    const ANSWERS = ["minimal", "balanced", "full", null] as const;
-    const base = { baseSkinType: "dry" as const, concerns: ["dehydrated" as const] };
+  describe("routine length is inert", () => {
+    const LENGTHS = ["minimal", "balanced", "full", null] as const;
 
-    async function scoresFor(routineLength: (typeof ANSWERS)[number]) {
-      const products = await Promise.all(BODY_IDS.map(load));
-      return products.map((p) => ({
-        id: p.id,
-        score: matchProduct(p, profile({ ...base, routineLength })).score as number,
-      }));
-    }
-
-    it("ranks body products identically whatever the answer", async () => {
-      const order = async (r: (typeof ANSWERS)[number]) =>
-        (await scoresFor(r)).sort((a, b) => b.score - a.score).map((s) => s.id);
-
-      const reference = await order("minimal");
-      for (const answer of ANSWERS.slice(1)) {
-        expect(await order(answer)).toEqual(reference);
-      }
+    it("gives an identical score whatever the answer", async () => {
+      const p = await load("mugwort-gel-cleanser");
+      const scores = LENGTHS.map(
+        (routineLength) =>
+          matchProduct(p, profile({ baseSkinType: "oily", routineLength })).score
+      );
+      expect(new Set(scores).size).toBe(1);
     });
 
-    it("moves every body product by the same delta, never a relative one", async () => {
-      const reference = await scoresFor(null);
-
-      for (const answer of ANSWERS) {
-        const deltas = (await scoresFor(answer)).map(
-          (s, i) => s.score - reference[i].score
+    it("holds across the whole catalogue, not just one product", async () => {
+      const all = await fetchProducts();
+      for (const p of all) {
+        const scores = LENGTHS.map(
+          (routineLength) =>
+            matchProduct(p, profile({ baseSkinType: "dry", concerns: ["dehydrated"], routineLength }))
+              .score
         );
-        // One distinct delta across the whole body catalogue = a uniform shift.
-        expect(new Set(deltas).size).toBe(1);
+        expect(new Set(scores).size).toBe(1);
       }
     });
   });
@@ -163,5 +155,117 @@ describe("matchTone", () => {
     expect(matchTone(79)).toBe("medium");
     expect(matchTone(65)).toBe("medium");
     expect(matchTone(64)).toBe("low");
+  });
+});
+
+/**
+ * The behaviours the pivot rests on. The app's whole output is now "does this
+ * suit you, and why", so these pin that the number is derived and that we
+ * decline to produce one when we can't read the formula.
+ */
+describe("verdict engine", () => {
+  function synthetic(
+    names: string[],
+    overrides: Partial<ProductWithIngredients> = {}
+  ): ProductWithIngredients {
+    return {
+      id: "synthetic",
+      barcode: "0000000000000",
+      brand: "Test",
+      name: "Test",
+      type: "serum",
+      area: "face",
+      price: 0,
+      volume: "",
+      suitableFor: [],
+      targets: [],
+      description: "",
+      benefits: [],
+      imageUrl: null,
+      attribution: null,
+      ingredientIds: names,
+      inStock: true,
+      ingredients: names.map((name) => ({
+        id: name,
+        name,
+        comedogenic: 0 as const,
+        safety: "safe" as const,
+        verified: true,
+      })),
+    };
+  }
+
+  const FILLER = ["water", "butylene glycol", "glycerin", "1,2-hexanediol", "xanthan gum"];
+
+  /**
+   * INCI order is regulated descending-concentration data, and nothing in the
+   * app used it before. Fragrance second in the list is a real exposure; the
+   * same word last is a trace, and the score has to say so.
+   */
+  it("weights an irritant by where it sits in the INCI list", () => {
+    const prof = profile({ baseSkinType: "normal", sensitive: true });
+    const high = matchProduct(synthetic(["water", "parfum", ...FILLER]), prof);
+    const low = matchProduct(synthetic(["water", ...FILLER, ...FILLER, ...FILLER, "parfum"]), prof);
+
+    expect(high.score).toBeLessThan(low.score as number);
+    expect(high.reasons[0].ingredient).toBe("parfum");
+  });
+
+  it("records both sides when one ingredient helps and hurts the same person", () => {
+    // Salicylic acid suits oily/acne-prone and works against sensitive skin.
+    const result = matchProduct(
+      synthetic(["water", "salicylic acid", ...FILLER]),
+      profile({ baseSkinType: "oily", concerns: ["acne-prone"], sensitive: true })
+    );
+    const entry = result.reasons.find((r) => r.ingredient === "salicylic acid");
+    // Net zero: the tension is real, so it moves the score nowhere and is not
+    // dressed up as a recommendation either way.
+    expect(entry).toBeUndefined();
+  });
+
+  it("explains itself — every scored product returns its reasons", () => {
+    const result = matchProduct(
+      synthetic(["water", "niacinamide", "sodium hyaluronate", ...FILLER]),
+      profile({ baseSkinType: "oily", concerns: ["large-pores"] })
+    );
+    expect(result.score).not.toBeNull();
+    expect(result.reasons.length).toBeGreaterThan(0);
+    for (const r of result.reasons) {
+      expect(r.reason.trim().length).toBeGreaterThan(10);
+    }
+  });
+
+  describe("refusing to guess", () => {
+    it("returns no score when too little of the formula is recognised", () => {
+      const p = synthetic(["water", "glycerin", "niacinamide", ...FILLER]);
+      // Simulate an OCR'd label where most names came out garbled.
+      p.ingredients = p.ingredients.map((i, idx) =>
+        idx < 6 ? { ...i, verified: false } : i
+      );
+      const result = matchProduct(p, profile({ baseSkinType: "dry" }));
+      expect(result.score).toBeNull();
+      expect(result.verdict).toBe("unknown");
+      expect(result.coverage).toBeLessThan(0.5);
+    });
+
+    it("returns no score for a fragment of a list", () => {
+      const result = matchProduct(synthetic(["water", "glycerin"]), profile({ baseSkinType: "dry" }));
+      expect(result.score).toBeNull();
+      expect(result.verdict).toBe("unknown");
+    });
+
+    it("reports coverage so the UI can say how much it read", () => {
+      const p = synthetic(["water", "glycerin", "niacinamide", "panthenol"]);
+      p.ingredients[3] = { ...p.ingredients[3], verified: false };
+      expect(matchProduct(p, profile({ baseSkinType: "dry" })).coverage).toBeCloseTo(0.75);
+    });
+  });
+
+  it("never returns a jittered score — identical formulas score identically", () => {
+    const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+    const a = synthetic(["water", "glycerin", "sodium hyaluronate", ...FILLER]);
+    const b = synthetic(["water", "glycerin", "sodium hyaluronate", ...FILLER], {});
+    b.id = "a-completely-different-id";
+    expect(matchProduct(a, prof).score).toBe(matchProduct(b, prof).score);
   });
 });

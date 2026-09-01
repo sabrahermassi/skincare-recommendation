@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
@@ -19,8 +20,12 @@ const TIER_META: Record<RiskGroup, { label: string; icon: string; color: string 
   avoid: { label: "Needs a closer look", icon: "!", color: "bg-status-avoid" },
   caution: { label: "Some caution", icon: "•", color: "bg-status-caution" },
   clean: { label: "No concerns", icon: "✓", color: "bg-status-safe" },
+  unknown: { label: "We couldn't identify these", icon: "?", color: "bg-ink-faint" },
 };
-const TIER_ORDER: RiskGroup[] = ["avoid", "caution", "clean"];
+// "unknown" sits last but above nothing: it is the honest tail of the list,
+// not a footnote. Crowdsourced labels are often OCR-mangled, and these are the
+// names we could not match to a dictionary.
+const TIER_ORDER: RiskGroup[] = ["avoid", "caution", "unknown", "clean"];
 
 export default function ProductDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -83,7 +88,22 @@ export default function ProductDetail() {
 
       <View className="bg-surface px-4 pb-5 pt-4">
         <View className="flex-row items-start gap-3">
-          <ProductIllustration type={product.type} size={72} />
+          {/*
+            A real packaging photo when the source has one, and the pastel
+            vessel when it doesn't — which is often, so the fallback is a
+            first-class path rather than an error state.
+          */}
+          {product.imageUrl ? (
+            <Image
+              source={{ uri: product.imageUrl }}
+              style={{ width: 72, height: 72, borderRadius: 14 }}
+              contentFit="contain"
+              transition={150}
+              accessibilityLabel={`${product.brand} ${product.name}`}
+            />
+          ) : (
+            <ProductIllustration type={product.type} size={72} />
+          )}
           <View className="flex-1">
             <View className="flex-row items-start justify-between gap-3">
               <Text className="flex-1 text-xs font-sans-semibold uppercase tracking-wide text-ink-faint">
@@ -129,7 +149,7 @@ export default function ProductDetail() {
         Ingredients ({product.ingredients.length})
       </Text>
 
-      <View className="mb-10 gap-3 px-4">
+      <View className="gap-3 px-4">
         {TIER_ORDER.map((tier) => {
           const items = riskGroups[tier];
           if (items.length === 0) return null;
@@ -155,6 +175,27 @@ export default function ProductDetail() {
           );
         })}
       </View>
+
+      {/*
+        Required by the INCI API terms, which forbid presenting their data as
+        medically validated without a disclaimer — and true regardless, since
+        `lib/matching.ts` is still an explicit placeholder.
+      */}
+      <View className="mx-4 mb-4 mt-6 rounded-card bg-tint-lilac px-4 py-3">
+        <Text className="text-xs leading-4 text-accent-text">
+          Ingredient information only — not medical or dermatological advice.
+          Formulas change, and label data can be out of date or incomplete.
+          Check the packaging and ask a professional about anything that matters.
+        </Text>
+      </View>
+
+      {product.attribution ? (
+        <Text className="mb-10 px-4 text-[11px] leading-4 text-ink-faint">
+          {product.attribution}
+        </Text>
+      ) : (
+        <View className="mb-10" />
+      )}
     </ScrollView>
   );
 }

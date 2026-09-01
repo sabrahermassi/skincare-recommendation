@@ -6,7 +6,7 @@ import { Text } from "@/components/Text";
 import { OptionCard } from "@/components/OptionCard";
 import { QuizStep } from "@/components/QuizStep";
 import type { BaseSkinType } from "@/data/types";
-import { nextQuizRoute } from "@/lib/profile";
+import { nextQuizRoute, POST_ONBOARDING_ROUTE } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
 const OPTIONS: { value: BaseSkinType; label: string; hint: string }[] = [
@@ -36,7 +36,7 @@ export default function SkinTypeStep() {
       return;
     }
     completeOnboarding();
-    router.replace("/");
+    router.replace(POST_ONBOARDING_ROUTE);
   }
 
   return (
