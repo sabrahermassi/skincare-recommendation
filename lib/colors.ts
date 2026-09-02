@@ -13,7 +13,7 @@ export const COLORS = {
   tintMint: "#D9EDE3",
   tintLilac: "#EDE9F6",
 
-  accent: "#8B7FB6",
+  accent: "#7A6BB0",
   accentDeep: "#625786",
   accentText: "#625786",
 

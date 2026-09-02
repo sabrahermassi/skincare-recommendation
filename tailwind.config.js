@@ -29,21 +29,27 @@ module.exports = {
           lilac: "#EDE9F6", // Lilac milk — SPF, masks, app panels
         },
 
-        // Single accent. Phase 1 read #7A6BB0 / #5C4F73 off the Scanner and
-        // Result mockups; the other ten screens are unanimous on a different
-        // pair, so these are the majority values now. #8B7FB6 fills every
-        // button, toggle track, step dot and selected border; #625786 is
-        // every piece of accent-coloured text, link and active tab label.
+        // Single accent — the fill behind every primary button, toggle track,
+        // step dot, selected border and selected chip.
         //
-        // WARNING: white on #8B7FB6 is 3.62:1 — below AA for the 15-16px
-        // semibold label the design puts on its primary buttons (the old
-        // #7A6BB0 was 4.61:1 and passed). This is the design's own value,
-        // recorded rather than silently darkened — same treatment as
-        // `ink.muted` below. `deep` doubles as the pressed state and is
-        // 6.51:1 on white, so a held button is fine; it is the resting
-        // state that fails.
+        // The design uses two values for this: #8B7FB6 on ten screens, and
+        // #7A6BB0 on the Scanner and Result screens. They are the same hue,
+        // three steps apart in lightness, and only one of them works: white
+        // on #8B7FB6 is 3.61:1, below AA for the 15-16px semibold label the
+        // design sets on its buttons, while #7A6BB0 is 4.61:1 and passes.
+        //
+        // That difference is not academic. A washed-out label on a pale
+        // lavender pill is what a low-contrast button *looks* like — the
+        // button reads as disabled, or as a placeholder, even when its size
+        // and radius are exactly right. Earlier passes took the majority
+        // value and recorded the failure in a comment instead of acting on
+        // it, which left every primary action in the app looking unfinished.
+        //
+        // Taking the design's own darker value is both the accessible choice
+        // and a faithful one: it is a colour these mockups specify, not an
+        // invention.
         accent: {
-          DEFAULT: "#8B7FB6", // was #7A6BB0 — white label 3.62:1, see above
+          DEFAULT: "#7A6BB0", // white label 4.61:1 — AA. See above for why not #8B7FB6.
           deep: "#625786", // pressed — 6.51:1 with white
           text: "#625786", // 5.45:1 on tint-lilac, 6.09:1 on canvas
         },
