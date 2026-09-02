@@ -57,9 +57,15 @@ export default function Browse() {
   useEffect(() => {
     let cancelled = false;
     setProducts(null);
-    fetchProducts({ type: typeFilter, area }).then((result) => {
-      if (!cancelled) setProducts(result);
-    });
+    fetchProducts({ type: typeFilter, area })
+      .then((result) => {
+        if (!cancelled) setProducts(result);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("fetchProducts failed:", err);
+        setProducts([]);
+      });
     return () => {
       cancelled = true;
     };

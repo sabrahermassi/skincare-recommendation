@@ -42,11 +42,17 @@ export default function ProductDetail() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchProduct(id).then((result) => {
-      if (cancelled) return;
-      setProduct(result);
-      setLoading(false);
-    });
+    fetchProduct(id)
+      .then((result) => {
+        if (cancelled) return;
+        setProduct(result);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("fetchProduct failed:", err);
+        setLoading(false);
+      });
     return () => {
       cancelled = true;
     };

@@ -58,10 +58,16 @@ export default function Saved() {
       return;
     }
     setById(null);
-    fetchProductsByIds(idsToResolve).then((products) => {
-      if (cancelled) return;
-      setById(Object.fromEntries(products.map((p) => [p.id, p])));
-    });
+    fetchProductsByIds(idsToResolve)
+      .then((products) => {
+        if (cancelled) return;
+        setById(Object.fromEntries(products.map((p) => [p.id, p])));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("fetchProductsByIds failed:", err);
+        setById({});
+      });
     return () => {
       cancelled = true;
     };

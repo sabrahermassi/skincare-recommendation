@@ -24,9 +24,15 @@ export default function Compare() {
   useEffect(() => {
     let cancelled = false;
     setProducts(null);
-    fetchProductsByIds(compareIds).then((result) => {
-      if (!cancelled) setProducts(result);
-    });
+    fetchProductsByIds(compareIds)
+      .then((result) => {
+        if (!cancelled) setProducts(result);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("fetchProductsByIds failed:", err);
+        setProducts([]);
+      });
     return () => {
       cancelled = true;
     };
