@@ -82,16 +82,30 @@ export function ProductRow({
         </View>
 
         {/* No score means no profile to score against — the row still lists,
-            it just doesn't pretend to rank. */}
+            it just doesn't pretend to rank. Badge over score, both centred on
+            the same axis: the score used to hang off the left edge of a badge
+            it belonged to, and the badge itself was too tight for its own
+            label. */}
         {tone && match.score !== null ? (
-          <View className="items-end gap-1.5">
-            <View className={`rounded-chip px-[9px] py-[3px] ${TONE_BG[tone]}`}>
-              <Text className="text-[11px] font-semibold text-white">{TONE_LABEL[tone]}</Text>
+          <View style={{ alignItems: "center", gap: 6, width: 92 }}>
+            <View
+              style={{ paddingHorizontal: 10, paddingVertical: 5 }}
+              className={`rounded-full ${TONE_BG[tone]}`}
+            >
+              <Text
+                className="font-semibold text-white"
+                style={{ fontSize: 11 }}
+                numberOfLines={1}
+              >
+                {TONE_LABEL[tone]}
+              </Text>
             </View>
-            <Text className="text-[15px] font-semibold tabular-nums text-ink">
-              {match.score}
+            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 1 }}>
+              <Text className="text-[16px] font-semibold tabular-nums text-ink">
+                {match.score}
+              </Text>
               <Text className="text-[10.5px] font-medium text-ink-faint">/100</Text>
-            </Text>
+            </View>
           </View>
         ) : null}
       </Pressable>

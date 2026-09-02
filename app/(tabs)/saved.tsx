@@ -277,7 +277,7 @@ function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: 
 /** A barcode that resolved to nothing — still worth logging as "already checked". */
 function UnknownRow({ entry }: { entry: HistoryEntry }) {
   return (
-    <View className="rounded-panel border border-hairline bg-surface p-[13px]">
+    <View style={{ padding: 13 }} className="rounded-panel border border-hairline bg-surface">
       <Text className="text-[9.5px] font-semibold uppercase tracking-[0.7px] text-ink-faint">
         Scanned · not in our catalogue
       </Text>

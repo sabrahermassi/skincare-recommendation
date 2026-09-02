@@ -122,7 +122,7 @@ export default function ProductDetail() {
         }
       />
 
-      <ScrollView contentContainerClassName="pb-32">
+      <ScrollView contentContainerStyle={{ paddingBottom: 190 }}>
         <View className="items-center px-5 pt-4">
           {product.imageUrl ? (
             <Image
@@ -157,16 +157,34 @@ export default function ProductDetail() {
         {/* The verdict, before the detail. Never colour alone — the band
             carries a word too. */}
         {band && match.score !== null ? (
-          <View className={`mx-5 mt-5 flex-row items-center gap-4 rounded-card border px-[18px] py-4 ${band.bg}`}>
-            <Text className="text-[30px] font-semibold leading-none tracking-tight text-ink">
-              {match.score}
-              <Text className="text-[13px] font-medium text-ink-muted">%</Text>
-            </Text>
-            <View className="flex-1 gap-1">
-              <Text className={`font-display text-lg leading-[20px] ${band.ink}`}>
+          <View
+            style={{
+              marginHorizontal: 20,
+              marginTop: 20,
+              paddingHorizontal: 18,
+              paddingVertical: 18,
+              gap: 16,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+            className={`rounded-card border ${band.bg}`}
+          >
+            <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+              <Text
+                className="font-semibold tracking-tight text-ink"
+                style={{ fontSize: 34, lineHeight: 36 }}
+              >
+                {match.score}
+              </Text>
+              <Text className="text-[14px] font-medium text-ink-muted">%</Text>
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text className={`font-display text-[19px] leading-[22px] ${band.ink}`}>
                 {band.label}
               </Text>
-              <Text className="text-xs leading-4 text-ink-muted">{verdictHeadline(match)}</Text>
+              <Text className="text-[12.5px] leading-[17px] text-ink-body">
+                {verdictHeadline(match)}
+              </Text>
             </View>
           </View>
         ) : (
@@ -214,22 +232,30 @@ export default function ProductDetail() {
               return (
                 <View
                   key={tier}
-                  className="flex-row items-center gap-3 rounded-card border border-hairline bg-surface px-[15px] py-4"
+                  style={{ gap: 12, paddingHorizontal: 15, paddingVertical: 16 }}
+                  className="flex-row items-center rounded-card border border-hairline bg-surface"
                 >
                   <View
-                    className={`h-[26px] w-[26px] items-center justify-center rounded-full ${meta.color}`}
+                    style={{ height: 28, width: 28 }}
+                    className={`items-center justify-center rounded-full ${meta.color}`}
                   >
-                    <Text className="text-[13px] font-bold text-white">{meta.icon}</Text>
+                    <Text className="text-[13px] font-bold leading-[16px] text-white">
+                      {meta.icon}
+                    </Text>
                   </View>
-                  <View className="flex-1">
+                  <View style={{ flex: 1 }}>
                     <Text className="text-[13px] font-semibold text-ink">{meta.label}</Text>
                     <Text className="mt-0.5 text-[11px] leading-[15px] text-ink-muted" numberOfLines={2}>
                       {items.map((i) => i.name).join(", ")}
                     </Text>
                   </View>
-                  <Text className="text-[13px] font-semibold tabular-nums text-ink-muted">
-                    {items.length}
-                  </Text>
+                  {/* Fixed width and centred, so a two-digit count can't push
+                      the row's contents around or clip against the edge. */}
+                  <View style={{ minWidth: 26, alignItems: "flex-end" }}>
+                    <Text className="text-[14px] font-semibold tabular-nums text-ink-muted">
+                      {items.length}
+                    </Text>
+                  </View>
                 </View>
               );
             })}
@@ -237,7 +263,7 @@ export default function ProductDetail() {
         )}
 
         {total === 0 && (
-          <View className="mx-5 mt-7 gap-3 rounded-card bg-tint-lilac p-[18px]">
+          <View style={{ marginHorizontal: 20, marginTop: 28, gap: 12, padding: 18 }} className="rounded-card bg-tint-lilac">
             <Text className="text-[13px] font-semibold text-accent-text">
               We know this product but not what&apos;s in it
             </Text>
@@ -254,7 +280,7 @@ export default function ProductDetail() {
           medically validated without a disclaimer — and true regardless, since
           `lib/matching.ts` is still an explicit placeholder.
         */}
-        <View className="mx-5 mb-4 mt-7 rounded-card bg-tint-lilac px-4 py-3">
+        <View style={{ marginHorizontal: 20, marginTop: 36, marginBottom: 16 }} className="rounded-card bg-tint-lilac px-4 py-3.5">
           <Text className="text-xs leading-4 text-accent-text">
             Ingredient information only — not medical or dermatological advice.
             Formulas change, and label data can be out of date or incomplete.
@@ -272,41 +298,56 @@ export default function ProductDetail() {
         the heart. Compare is the third, because the design's browse list
         dropped the "Add to compare" button the grid card used to carry, and
         without an entry point somewhere the compare screen is unreachable.
+
+        It used to be an unlabelled square with a two-headed arrow in it, which
+        told nobody what it did. It says what it does now, on its own row.
       */}
-      <View className="absolute inset-x-0 bottom-0 flex-row gap-3 border-t border-hairline bg-canvas px-5 pb-8 pt-3">
+      <View
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          gap: 10,
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          paddingBottom: 32,
+        }}
+        className="border-t border-hairline bg-canvas"
+      >
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <PrimaryButton
+            className="flex-1"
+            label={total > 0 ? "View ingredients" : "Photograph the ingredients"}
+            onPress={() =>
+              total > 0
+                ? router.push({ pathname: "/ingredients/[id]", params: { id: product.id } })
+                : router.push(`/scan-label?barcode=${product.barcode}`)
+            }
+          />
+
+          <Pressable
+            onPress={() => toggleSaved(product.id)}
+            accessibilityRole="button"
+            accessibilityLabel={saved ? "Remove from saved" : "Save"}
+            accessibilityState={{ selected: saved }}
+            style={{ height: 56, width: 56 }}
+            className={`items-center justify-center rounded-control border ${
+              saved ? "border-transparent bg-tint-pink" : "border-hairline bg-surface"
+            }`}
+          >
+            <HeartIcon size={20} filled={saved} />
+          </Pressable>
+        </View>
+
         <PrimaryButton
-          className="flex-1"
-          label={total > 0 ? "View ingredients" : "Photograph the ingredients"}
-          onPress={() =>
-            total > 0
-              ? router.push({ pathname: "/ingredients/[id]", params: { id: product.id } })
-              : router.push(`/scan-label?barcode=${product.barcode}`)
-          }
-        />
-
-        <Pressable
+          variant="outline"
+          size={50}
+          active={inCompare}
+          label={inCompare ? "In your comparison" : "Add to comparison"}
           onPress={() => toggleCompare(product.id)}
-          accessibilityLabel={inCompare ? "Remove from compare" : "Add to compare"}
-          accessibilityState={{ selected: inCompare }}
-          style={{ height: 56, width: 56 }}
-          className={`items-center justify-center rounded-control border ${
-            inCompare ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
-          }`}
-        >
-          <CompareIcon size={19} color={inCompare ? COLORS.accentText : COLORS.ink} />
-        </Pressable>
-
-        <Pressable
-          onPress={() => toggleSaved(product.id)}
-          accessibilityLabel={saved ? "Remove from saved" : "Save"}
-          accessibilityState={{ selected: saved }}
-          style={{ height: 56, width: 56 }}
-          className={`items-center justify-center rounded-control border ${
-            saved ? "border-transparent bg-tint-pink" : "border-hairline bg-surface"
-          }`}
-        >
-          <HeartIcon size={19} filled={saved} />
-        </Pressable>
+          icon={<CompareIcon size={17} color={inCompare ? COLORS.accentText : COLORS.ink} />}
+        />
       </View>
     </View>
   );

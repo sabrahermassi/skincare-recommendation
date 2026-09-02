@@ -1,9 +1,9 @@
 import { router } from "expo-router";
+import { View } from "react-native";
 
 import { Text } from "@/components/Text";
 
-import { OptionCard } from "@/components/OptionCard";
-import { OptionGrid } from "@/components/OptionGrid";
+import { Chip, CHIP_ROW } from "@/components/Chip";
 import { QuizStep } from "@/components/QuizStep";
 import type { Concern } from "@/data/types";
 import { useAppStore } from "@/store/useAppStore";
@@ -36,33 +36,30 @@ export default function ConcernsStep() {
       nextDisabled={concerns.length === 0}
     >
       {/*
-        A two-column card grid, laid out inline by OptionGrid — the same
-        control the profile screen uses for these exact eight options. At the
-        cap the unpicked cards drop to 45%, which is how the design shows the
-        limit: visible before you hit it rather than announced after a tap does
-        nothing.
+        Once three are picked the rest grey out and stop responding, rather
+        than staying live and quietly swallowing the tap. The cap is a real
+        limit, so it reads as one before it is reached.
       */}
-      <OptionGrid>
+      <View style={CHIP_ROW}>
         {OPTIONS.map((option) => {
           const selected = concerns.includes(option.value);
           return (
-            <OptionCard
+            <Chip
               key={option.value}
-              compact
               multiple
               label={option.label}
               selected={selected}
-              dimmed={atLimit}
+              disabled={!selected && atLimit}
               onPress={() => toggleConcern(option.value)}
             />
           );
         })}
-      </OptionGrid>
+      </View>
 
       <Text className="mt-4 text-xs text-ink-faint">
         {atLimit
-          ? `${MAX} selected — deselect one to swap.`
-          : `${concerns.length} of ${MAX} selected.`}
+          ? `${MAX} chosen — deselect one to swap.`
+          : `${concerns.length} of ${MAX} chosen.`}
       </Text>
     </QuizStep>
   );

@@ -112,25 +112,26 @@ export default function Browse() {
             </Pressable>
           </View>
 
-          <View className="flex-row gap-3">
+          <View style={{ flexDirection: "row", gap: 12 }}>
             {QUICK_ACTIONS.map((action) => (
               <Link key={action.href} href={action.href} asChild>
                 <Pressable
-                  className={`flex-1 items-center gap-2 rounded-card py-[22px] ${action.bg} active:opacity-80`}
+                  style={{ flex: 1, minHeight: 96, gap: 10 }}
+                  className={`items-center justify-center rounded-card ${action.bg} active:opacity-80`}
                 >
-                  <Ionicons name={action.icon} size={22} color={COLORS.ink} />
-                  <Text className="text-[11.5px] font-semibold text-ink">{action.label}</Text>
+                  <Ionicons name={action.icon} size={26} color={COLORS.ink} />
+                  <Text className="text-[13px] font-semibold text-ink">{action.label}</Text>
                 </Pressable>
               </Link>
             ))}
           </View>
         </View>
 
-        <View className="border-b border-hairline bg-canvas pb-3.5">
+        <View style={{ paddingBottom: 16 }} className="border-b border-hairline bg-canvas">
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerClassName="gap-2 px-5 pt-2"
+            contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingTop: 10 }}
           >
             {typeFilters.map((type) => (
               <Chip

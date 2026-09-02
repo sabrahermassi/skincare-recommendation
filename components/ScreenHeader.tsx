@@ -36,7 +36,7 @@ export function ScreenHeader({
         hitSlop={14}
         accessibilityRole="button"
         accessibilityLabel="Back"
-        className="w-[21px]"
+        style={{ width: 21 }}
       >
         <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
           <Path
@@ -61,7 +61,7 @@ export function ScreenHeader({
       )}
 
       {/* Mirrors the chevron's width when empty, so a centred title stays centred. */}
-      <View className="min-w-[21px] flex-row items-center justify-end gap-5">{right}</View>
+      <View style={{ minWidth: 21, gap: 20 }} className="flex-row items-center justify-end">{right}</View>
     </View>
   );
 }

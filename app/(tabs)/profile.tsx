@@ -1,14 +1,12 @@
 import { router } from "expo-router";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/Text";
 
-import { Chip } from "@/components/Chip";
-import { OptionCard } from "@/components/OptionCard";
-import { OptionGrid } from "@/components/OptionGrid";
+import { Chip, CHIP_ROW } from "@/components/Chip";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Avatar } from "@/components/Avatar";
 import type {
@@ -64,23 +62,6 @@ export default function ProfileScreen() {
 
   const [draft, setDraft] = useState<SkinProfile>(storedProfile);
 
-  /*
-    "Not sure" hands off to the diagnostic, which writes straight to the store
-    rather than to this draft. Pulling the answer back in when it changes is
-    what stops the round trip from looking like it did nothing. Scoped to the
-    two fields the diagnostic touches, so an in-progress edit elsewhere on the
-    screen survives.
-  */
-  const storedSkinType = storedProfile.baseSkinType;
-  const storedSkinTypeSource = storedProfile.skinTypeSource;
-  useEffect(() => {
-    setDraft((d) => ({
-      ...d,
-      baseSkinType: storedSkinType,
-      skinTypeSource: storedSkinTypeSource,
-    }));
-  }, [storedSkinType, storedSkinTypeSource]);
-
   function patch(p: Partial<SkinProfile>) {
     setDraft((d) => ({ ...d, ...p }));
   }
@@ -103,14 +84,7 @@ export default function ProfileScreen() {
     router.replace(POST_ONBOARDING_ROUTE);
   }
 
-  /** Commit first: the diagnostic is a different screen, and a lost draft is a bug. */
-  function openDiagnostic() {
-    setProfile(draft);
-    router.push("/onboarding/diagnostic?from=profile");
-  }
-
   const atLimit = draft.concerns.length >= MAX_CONCERNS;
-  const derived = draft.skinTypeSource === "derived";
   const summary = profileSummary(draft);
 
   return (
@@ -130,7 +104,7 @@ export default function ProfileScreen() {
         </View>
 
         <Section title="About you">
-          <View className="flex-row flex-wrap gap-2">
+          <View style={CHIP_ROW}>
             {GENDERS.map((gender) => (
               <Chip
                 key={gender}
@@ -151,41 +125,28 @@ export default function ProfileScreen() {
         </Section>
 
         <Section title="Face or body">
-          <OptionGrid>
+          <View style={CHIP_ROW}>
             {AREAS.map((option) => (
-              <OptionCard
+              <Chip
                 key={option.value}
-                compact
                 label={option.label}
                 selected={draft.area === option.value}
                 onPress={() => patch({ area: option.value })}
               />
             ))}
-          </OptionGrid>
+          </View>
         </Section>
 
-        <Section
-          title="Skin type"
-          note={derived ? "Worked out from two questions" : undefined}
-        >
-          <OptionGrid>
+        <Section title="Skin type">
+          <View style={CHIP_ROW}>
             {SKIN_TYPES.map((option) => (
-              <OptionCard
+              <Chip
                 key={option.value}
-                compact
                 label={option.label}
-                selected={!derived && draft.baseSkinType === option.value}
-                onPress={() =>
-                  patch({ baseSkinType: option.value, skinTypeSource: "declared" })
-                }
+                selected={draft.baseSkinType === option.value}
+                onPress={() => patch({ baseSkinType: option.value })}
               />
             ))}
-          </OptionGrid>
-
-          {/* Spans the row on its own — it is a different kind of answer from
-              the four above it, not a fifth type. */}
-          <View style={{ marginTop: 12 }}>
-            <OptionCard compact label="Not sure" selected={derived} onPress={openDiagnostic} />
           </View>
 
           <Pressable
@@ -217,22 +178,21 @@ export default function ProfileScreen() {
         </Section>
 
         <Section title="Skin concerns" note={`${draft.concerns.length} of ${MAX_CONCERNS}`}>
-          <OptionGrid>
+          <View style={CHIP_ROW}>
             {CONCERN_OPTIONS.map((option) => {
               const selected = draft.concerns.includes(option.value);
               return (
-                <OptionCard
+                <Chip
                   key={option.value}
-                  compact
                   multiple
                   label={option.label}
                   selected={selected}
-                  dimmed={atLimit}
+                  disabled={!selected && atLimit}
                   onPress={() => toggleDraftConcern(option.value)}
                 />
               );
             })}
-          </OptionGrid>
+          </View>
         </Section>
 
         <Pressable onPress={() => router.replace("/onboarding")} className="items-center py-2">

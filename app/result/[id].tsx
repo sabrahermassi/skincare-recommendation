@@ -161,8 +161,16 @@ export default function ScanResult() {
         {/* The verdict, before anything else. Never colour alone — the panel
             carries a word too. */}
         <View
-          className="mx-6 mt-5 flex-row items-center gap-5 rounded-card border px-5 py-[22px]"
-          style={{ backgroundColor: panel.bg, borderColor: panel.border }}
+          className="flex-row items-center rounded-card border"
+          style={{
+            marginHorizontal: 24,
+            marginTop: 20,
+            gap: 20,
+            paddingHorizontal: 20,
+            paddingVertical: 22,
+            backgroundColor: panel.bg,
+            borderColor: panel.border,
+          }}
         >
           <ScoreRing
             score={match.score}

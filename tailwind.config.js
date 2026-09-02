@@ -198,8 +198,11 @@ module.exports = {
         // Weight is carried by Tailwind's plain `font-medium`/`font-semibold`/
         // `font-bold` utilities (RN's `fontWeight`), not by a separate named
         // family per weight the way the loaded Google Fonts worked.
-        // Small monospace eyebrows are a signature of the design.
-        mono: ["ui-monospace", "Menlo", "monospace"],
+        // No third family. The design sets its eyebrows in IBM Plex Mono, and
+        // a `mono` token existed for them, but one seven-pixel line on two
+        // screens does not earn a font dependency — those now render in the UI
+        // font with wide tracking (components/Wordmark.tsx), and the app is
+        // down to exactly two faces.
       },
 
       // Elevation stays on Tailwind's built-in `shadow-sm` / `shadow-md`,

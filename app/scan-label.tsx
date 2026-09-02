@@ -94,7 +94,7 @@ export default function ScanLabel() {
       {/* A frame, because "fill this box with the ingredients" is the single
           instruction that most improves what the OCR gets back. */}
       <View className="flex-1 items-center justify-center px-6" pointerEvents="none">
-        <View className="h-[38%] w-full rounded-card border-2 border-white/80" />
+        <View style={{ height: "38%", width: "100%" }} className="rounded-card border-2 border-white/80" />
       </View>
 
       <View className="absolute inset-x-0 top-0 px-6 pt-16" pointerEvents="none">

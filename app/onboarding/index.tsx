@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { Pressable, View } from "react-native";
 
 import { LogoMark } from "@/components/LogoMark";
+import { Eyebrow, Wordmark } from "@/components/Wordmark";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 
@@ -27,20 +28,20 @@ export default function Welcome() {
       <View style={{ flex: 1, minHeight: 60 }} />
 
       <View className="items-center">
-        <LogoMark size={120} />
+        <LogoMark size={104} />
       </View>
 
-      <View style={{ alignItems: "center", gap: 34, paddingTop: 34 }}>
-        {/* The wordmark sets S and T larger than the stem letters — the one
-            place the brand is drawn rather than typed, so it is spelled out
-            here instead of living in a font file. */}
-        <View style={{ alignItems: "center", gap: 10 }}>
-          <Text className="font-display text-[34px] leading-none tracking-[-0.27px] text-[#463F57]">
-            <Text className="text-[40px]">S</Text>kin<Text className="text-[40px]">T</Text>el
-          </Text>
-          <Text className="font-mono text-[7px] tracking-[0.84px] text-ink-muted">
-            SCAN{"  "}/{"  "}ANALYZE{"  "}/{"  "}KNOW
-          </Text>
+      <View style={{ alignItems: "center", gap: 30, paddingTop: 26 }}>
+        {/*
+          The wordmark is the brand, so it is set at display size and centred
+          under the mark rather than sitting at caption size beside it. The S
+          and T are drawn larger than the stem letters — the one place the name
+          is drawn rather than typed, which is why it is spelled out here
+          instead of living in a font file.
+        */}
+        <View style={{ alignItems: "center", gap: 12 }}>
+          <Wordmark size={52} />
+          <Eyebrow size={10} />
         </View>
 
         <View style={{ alignItems: "center", gap: 13 }}>

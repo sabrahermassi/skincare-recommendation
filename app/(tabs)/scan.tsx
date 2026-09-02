@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 import { LogoMark } from "@/components/LogoMark";
+import { Eyebrow, Wordmark } from "@/components/Wordmark";
 import { MatchBadge } from "@/components/MatchBadge";
 import { ProductIllustration } from "@/components/ProductIllustration";
 import { Avatar } from "@/components/Avatar";
@@ -160,43 +161,67 @@ export default function Scan() {
     // status bar itself.
     <View className="flex-1 bg-canvas" style={{ paddingTop: insets.top }}>
       <ScrollView contentContainerClassName="pb-10">
-        {/* Wordmark + eyebrow on the left, the profile chip on the right —
-            per the Scanner mockup, replacing the previous two-row layout
-            ("Point at a barcode" headline, then a separate small chip row
-            below it). The chip's dynamic "Looking it up…" status is dropped
-            here since the status card overlaid on the camera below already
-            says the same thing while a lookup is in flight — keeping both
-            would just repeat it. No avatar image: the mockup's chip has one,
-            but this app has no user-photo feature backing it, and adding a
-            stock design-tool image would be decoration with nothing real
-            behind it. */}
-        <View className="flex-row items-start justify-between gap-3.5 px-[26px] pb-3 pt-3">
-          <View className="gap-2 pt-0.5">
-            <View className="flex-row items-center gap-2.5">
-              <LogoMark size={33} />
-              <Text className="font-display text-[31px] leading-none tracking-[-0.16px] text-[#463F57]">
-                <Text className="text-[37px]">S</Text>kin<Text className="text-[37px]">T</Text>el
-              </Text>
+        {/*
+          Both halves of this row sit on the same 26pt gutter as the camera
+          card below, stated inline — it was `px-[26px]`, and with that class
+          missing the row ran to the screen edges while the card stayed inset,
+          which is why the profile chip hung off the right of the screen.
+
+          The chip is allowed to shrink and its text column is `flex: 1`, so a
+          long profile summary wraps inside the pill instead of spilling out of
+          it. No avatar of the user's own: this app has no photo feature, so
+          the portrait is the design project's own illustration.
+        */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            paddingHorizontal: 26,
+            paddingTop: 12,
+            paddingBottom: 12,
+          }}
+        >
+          <View style={{ gap: 7, flexShrink: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
+              <LogoMark size={30} />
+              <Wordmark size={26} />
             </View>
-            <Text className="ml-[43px] font-mono text-[7px] tracking-[0.84px] text-ink-muted">
-              SCAN{"  "}/{"  "}ANALYZE{"  "}/{"  "}KNOW
-            </Text>
+            <Eyebrow size={8.5} />
           </View>
+
           <Pressable
             onPress={() => router.push("/profile")}
-            style={{ height: 52, maxWidth: 198, paddingHorizontal: 11, gap: 10 }}
-            className="flex-shrink flex-row items-center rounded-full bg-tint-lilac"
+            style={{
+              height: 52,
+              flexShrink: 1,
+              maxWidth: 186,
+              paddingHorizontal: 10,
+              gap: 9,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+            className="rounded-full bg-tint-lilac"
           >
-            <Avatar size={31} />
-            <View className="flex-shrink gap-0.5">
-              <Text className="text-[7.5px] font-semibold tracking-[0.98px] text-[#736C7F]">
+            <Avatar size={30} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text
+                className="font-semibold text-[#736C7F]"
+                style={{ fontSize: 7.5, letterSpacing: 0.98 }}
+                numberOfLines={1}
+              >
                 YOUR SKIN PROFILE
               </Text>
-              <Text className="text-[10px] leading-[14.5px] text-[#413B4B]" numberOfLines={2}>
+              <Text
+                className="text-[#413B4B]"
+                style={{ fontSize: 9.5, lineHeight: 12.5 }}
+                numberOfLines={2}
+              >
                 {summary || "No profile yet — tap to start"}
               </Text>
             </View>
-            <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+            <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
               <Path
                 d="m9 5 7 7-7 7"
                 stroke="#5C5566"
@@ -282,7 +307,8 @@ export default function Scan() {
 
           {/* Status card over the viewfinder, as in the design. */}
           {status.kind !== "idle" && (
-            <View className="absolute inset-x-5 bottom-[66px] flex-row items-center gap-3 rounded-[18px] bg-canvas/95 px-4 py-3">
+            <View style={{ position: "absolute", left: 20, right: 20, bottom: 66, gap: 12, borderRadius: 18 }}
+              className="flex-row items-center bg-canvas/95 px-4 py-3">
               <View
                 className={`h-8 w-8 items-center justify-center rounded-full ${
                   status.kind === "looking" ? "bg-tint-mint" : "bg-tint-pink"
@@ -310,7 +336,7 @@ export default function Scan() {
           )}
 
           {status.kind === "missed" && (
-            <View className="absolute inset-x-5 bottom-[20px] flex-row gap-2">
+            <View style={{ position: "absolute", left: 20, right: 20, bottom: 20, gap: 8 }} className="flex-row">
               <Pressable
                 onPress={() => router.push(`/scan-label?barcode=${status.code}`)}
                 className="flex-1 items-center rounded-full bg-canvas py-2.5 active:opacity-80"
@@ -353,7 +379,7 @@ export default function Scan() {
               >
                 <Icon color={on ? COLORS.canvas : COLORS.ink} />
                 <Text
-                  className={`text-xs font-medium ${on ? "text-canvas" : "text-ink"}`}
+                  className={`text-[14.5px] font-semibold ${on ? "text-canvas" : "text-ink"}`}
                 >
                   {label}
                 </Text>
@@ -387,7 +413,7 @@ export default function Scan() {
 function Viewfinder() {
   const corner = "absolute h-8 w-8 border-[#FDFCFA]";
   return (
-    <View className="absolute bottom-[71px] left-[33px] right-[33px] top-[29px]">
+    <View style={{ position: "absolute", top: 29, bottom: 71, left: 33, right: 33 }}>
       <View className={`${corner} left-0 top-0 rounded-tl-lg border-l-[3px] border-t-[3px]`} />
       <View className={`${corner} right-0 top-0 rounded-tr-lg border-r-[3px] border-t-[3px]`} />
       <View className={`${corner} bottom-0 left-0 rounded-bl-lg border-b-[3px] border-l-[3px]`} />
@@ -397,8 +423,9 @@ function Viewfinder() {
       {/* The instruction the design sets inside the frame. Without it the
           viewfinder is four brackets over a black rectangle and says nothing
           about what to point it at. */}
-      <View className="absolute inset-x-0 top-[67px] items-center">
-        <Text className="max-w-[200px] text-center text-sm leading-[21px] text-[#FDFCFA]/90">
+      <View style={{ position: "absolute", left: 0, right: 0, top: 67 }} className="items-center">
+        <Text style={{ maxWidth: 200, fontSize: 14, lineHeight: 21 }}
+          className="text-center text-[#FDFCFA]/90">
           Position barcode or ingredient list in the frame
         </Text>
       </View>
@@ -519,7 +546,7 @@ function Recents({ history }: { history: { id: string; known: boolean; scoreAtVi
   const scoreFor = (id: string) => history.find((h) => h.id === id)?.scoreAtView ?? null;
 
   return (
-    <View className="gap-2.5 px-[26px] pt-[26px]">
+    <View style={{ gap: 10, paddingHorizontal: 26, paddingTop: 26 }}>
       <View className="flex-row items-center justify-between gap-3">
         <Text className="text-[9px] font-semibold uppercase tracking-[1.53px] text-[#565060]">
           Scanned in this store
@@ -575,10 +602,10 @@ function Recents({ history }: { history: { id: string; known: boolean; scoreAtVi
               {/* The snapshot score, stacked under its label — the mockup's
                   right-hand column. `MatchBadge` renders nothing when there is
                   no score, which is the honest state for an unresolved scan. */}
-              <View className="w-[78px] items-end gap-1.5">
+              <View style={{ width: 78, gap: 6 }} className="items-end">
                 <MatchBadge score={score} variant="soft" />
                 {score !== null ? (
-                  <View className="flex-row items-baseline gap-[2.5px]">
+                  <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
                     <Text className="text-[14px] font-semibold tabular-nums tracking-[-0.28px] text-ink">
                       {score}
                     </Text>

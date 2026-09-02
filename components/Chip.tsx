@@ -5,42 +5,61 @@ import { Text } from "@/components/Text";
 type Props = {
   label: string;
   selected?: boolean;
+  /** Out of reach — greyed and genuinely untappable, e.g. past the concern cap. */
   disabled?: boolean;
+  /** Announce as a checkbox where more than one can be on at a time. */
+  multiple?: boolean;
   onPress: () => void;
 };
 
-export function Chip({ label, selected = false, disabled = false, onPress }: Props) {
+/**
+ * The one selectable control in the app.
+ *
+ * Gender, age, face or body, skin type on the profile screen and every skin
+ * concern all render as this. They used to be three different things — tall
+ * bordered cards, compact two-up cards, and this — at three sizes, in two
+ * greys, with and without a tick, which made a single quiz look like it had
+ * been assembled from three apps.
+ *
+ * Height, radius and type are fixed here on purpose: there is no size prop.
+ * Anywhere a row of choices appears, it looks like this.
+ */
+export function Chip({
+  label,
+  selected = false,
+  disabled = false,
+  multiple = false,
+  onPress,
+}: Props) {
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      accessibilityRole="button"
+      accessibilityRole={multiple ? "checkbox" : "radio"}
       // Announce the unselectable state rather than only looking inert.
       accessibilityState={{ selected, disabled }}
       hitSlop={6}
-      // Height inline, like every other control here — and 40pt rather than the
-      // 34 the design draws, so the age row sits comfortably under the taller
-      // gender cards above it instead of reading as an afterthought.
-      style={{ height: 40 }}
+      // Size inline: a control that loses its height class collapses onto its
+      // label, and a row of collapsed chips reads as a row of empty boxes.
+      style={{ height: 44, opacity: disabled ? 0.4 : 1 }}
       className={`items-center justify-center rounded-chip border px-4 ${
         selected
           ? "border-accent bg-accent"
-          : disabled
-            ? "border-hairline bg-canvas"
-            : "border-hairline bg-surface active:bg-canvas"
+          : "border-hairline bg-surface active:bg-canvas"
       }`}
     >
       <Text
-        className={
-          selected
-            ? "text-sm font-semibold text-white"
-            : disabled
-              ? "text-sm font-medium text-ink-faint"
-              : "text-sm font-medium text-ink-muted"
-        }
+        className={`text-[14.5px] font-semibold ${selected ? "text-white" : "text-ink"}`}
       >
         {label}
       </Text>
     </Pressable>
   );
 }
+
+/** The wrapper every chip row uses, so the gutters match wherever they appear. */
+export const CHIP_ROW = {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  gap: 8,
+} as const;

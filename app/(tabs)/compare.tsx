@@ -62,7 +62,7 @@ export default function Compare() {
         </Svg>
       </Pressable>
       <Text className="text-base font-semibold text-ink">Compare</Text>
-      <View className="w-[21px]" />
+      <View style={{ width: 21 }} />
     </View>
   );
 

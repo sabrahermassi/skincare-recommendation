@@ -106,7 +106,7 @@ export function FactorBar({ factor }: { factor: ScoreFactor }) {
 
   return (
     <View style={{ height: 38, gap: 11 }} className="flex-row items-center">
-      <View className="w-[19px] items-center justify-center">
+      <View style={{ width: 19 }} className="items-center justify-center">
         <CategoryGlyph category={factor.category} />
       </View>
 
@@ -114,10 +114,11 @@ export function FactorBar({ factor }: { factor: ScoreFactor }) {
         {factor.label}
       </Text>
 
-      <View className="h-1.5 w-[104px] overflow-hidden rounded-full bg-[#E9E4DD]">
+      <View style={{ height: 6, width: 104 }} className="overflow-hidden rounded-full bg-[#E9E4DD]">
         <View
-          className="h-1.5 rounded-full"
+          className="rounded-full"
           style={{
+            height: 6,
             width: `${Math.max(6, Math.round(factor.magnitude * 100))}%`,
             backgroundColor: color,
           }}
@@ -125,8 +126,8 @@ export function FactorBar({ factor }: { factor: ScoreFactor }) {
       </View>
 
       <Text
-        className="w-[30px] text-right text-xs font-medium tabular-nums"
-        style={{ color }}
+        className="text-right text-xs font-medium tabular-nums"
+        style={{ color, width: 32 }}
       >
         {/* U+2212 minus, not a hyphen — it aligns with digits. */}
         {positive ? `+${factor.delta}` : `−${Math.abs(factor.delta)}`}

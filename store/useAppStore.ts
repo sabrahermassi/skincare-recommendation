@@ -44,7 +44,6 @@ export const EMPTY_PROFILE: SkinProfile = {
   area: null,
   concerns: [],
   baseSkinType: null,
-  skinTypeSource: null,
   sensitive: false,
 };
 
@@ -217,27 +216,24 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "skintel-store",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: partializeState,
       /*
-        v1 profiles predate `skinTypeSource`. Without this they rehydrate with
-        the field `undefined` while the type says otherwise, and the profile
-        screen would read that as "no answer" and drop a skin type the user
-        had actually given. Anything already stored was picked by hand, so it
-        is `declared`.
+        v2 carried `skinTypeSource`, which existed only to tell a hand-picked
+        skin type apart from one the two-question diagnostic worked out. That
+        screen is gone, so the field is dropped rather than left to rot in
+        storage — a stored key with no reader is a trap for the next person to
+        read the type. The skin type itself is untouched.
       */
       migrate: (persisted, version) => {
-        const state = persisted as PersistedState | undefined;
+        const state = persisted as (PersistedState & {
+          profile?: { skinTypeSource?: unknown };
+        }) | undefined;
         if (!state) return state;
-        if (version < 2) {
-          return {
-            ...state,
-            profile: {
-              ...state.profile,
-              skinTypeSource: state.profile.baseSkinType ? "declared" : null,
-            },
-          } satisfies PersistedState;
+        if (version < 3) {
+          const { skinTypeSource: _dropped, ...profile } = state.profile ?? {};
+          return { ...state, profile } as PersistedState;
         }
         return state;
       },
