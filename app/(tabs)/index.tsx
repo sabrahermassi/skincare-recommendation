@@ -1,15 +1,12 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Link, router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  View,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Chip } from "@/components/Chip";
-import { ProductCard } from "@/components/ProductCard";
+import { LogoMark } from "@/components/LogoMark";
+import { ProductRow } from "@/components/ProductRow";
 import { Text } from "@/components/Text";
 import { fetchProducts } from "@/data/api";
 import type { ProductType, ProductWithIngredients } from "@/data/types";
@@ -43,6 +40,7 @@ const QUICK_ACTIONS = [
 ];
 
 export default function Browse() {
+  const insets = useSafeAreaInsets();
   const [products, setProducts] = useState<ProductWithIngredients[] | null>(null);
   const [typeFilter, setTypeFilter] = useState<ProductType | "all">("all");
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -90,23 +88,26 @@ export default function Browse() {
   }, [products, profile, personalized]);
 
   return (
-    <View className="flex-1 bg-canvas">
-      <ScrollView
-        contentContainerClassName="pb-28"
-        stickyHeaderIndices={[1]}
-      >
-        <View className="gap-4 px-4 pb-2 pt-4">
-          <View className="flex-row items-center justify-between">
-            <View>
-              <Text className="font-display text-xl text-ink">Skintel</Text>
-              <Text className="text-xs text-ink-muted">
+    <View className="flex-1 bg-canvas" style={{ paddingTop: insets.top }}>
+      <ScrollView contentContainerClassName="pb-28" stickyHeaderIndices={[1]}>
+        <View className="gap-[18px] px-5 pb-2 pt-3">
+          <View className="flex-row items-start justify-between gap-3.5">
+            <View className="gap-1">
+              <View className="flex-row items-center gap-2.5">
+                <LogoMark size={28} />
+                <Text className="font-display text-2xl leading-none text-ink">
+                  <Text className="text-[28px]">S</Text>kin<Text className="text-[28px]">T</Text>
+                  el
+                </Text>
+              </View>
+              <Text className="text-[11.5px] text-ink-muted">
                 {personalized
-                  ? `Matched to ${profileSummary(profile)}`
+                  ? `Ranked for ${profileSummary(profile).toLowerCase()}`
                   : "No profile yet — showing unsorted results"}
               </Text>
             </View>
-            <Pressable onPress={() => router.push("/profile")} hitSlop={8}>
-              <Text className="text-xs font-semibold text-accent-text">Edit</Text>
+            <Pressable onPress={() => router.push("/profile")} hitSlop={8} className="pt-1.5">
+              <Text className="text-[11.5px] font-semibold text-accent-text">Edit</Text>
             </Pressable>
           </View>
 
@@ -114,21 +115,21 @@ export default function Browse() {
             {QUICK_ACTIONS.map((action) => (
               <Link key={action.href} href={action.href} asChild>
                 <Pressable
-                  className={`flex-1 items-center gap-1.5 rounded-card py-4 ${action.bg} active:opacity-80`}
+                  className={`flex-1 items-center gap-2 rounded-card py-[22px] ${action.bg} active:opacity-80`}
                 >
                   <Ionicons name={action.icon} size={22} color={COLORS.ink} />
-                  <Text className="text-xs font-semibold text-ink">{action.label}</Text>
+                  <Text className="text-[11.5px] font-semibold text-ink">{action.label}</Text>
                 </Pressable>
               </Link>
             ))}
           </View>
         </View>
 
-        <View className="border-b border-hairline bg-canvas pb-3">
+        <View className="border-b border-hairline bg-canvas pb-3.5">
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerClassName="gap-2 px-4 pt-1"
+            contentContainerClassName="gap-2 px-5 pt-2"
           >
             {typeFilters.map((type) => (
               <Chip
@@ -142,7 +143,7 @@ export default function Browse() {
         </View>
 
         {!personalized && !bannerDismissed && (
-          <View className="mx-4 mt-3 flex-row items-center gap-2 rounded-card bg-tint-lilac px-4 py-3">
+          <View className="mx-5 mt-3 flex-row items-center gap-2 rounded-card bg-tint-lilac px-4 py-3">
             <Pressable onPress={() => router.push("/profile")} className="flex-1">
               <Text className="text-sm font-semibold text-accent-text">
                 Answer five quick questions to see how each product suits your skin →
@@ -161,11 +162,14 @@ export default function Browse() {
         ) : scored.length === 0 ? (
           <Text className="mt-12 text-center text-ink-faint">No products of this type yet.</Text>
         ) : (
-          <View className="flex-row flex-wrap gap-3 p-4">
-            {scored.map(({ product, match }, i) => (
-              <View key={product.id} className="w-[48%]">
-                <ProductCard product={product} match={match} index={i} />
-              </View>
+          /*
+            A list, not a grid. The grid could show a thumbnail and a price;
+            this can show why a product ranks where it does, which is the
+            question the app exists to answer.
+          */
+          <View>
+            {scored.map(({ product, match }) => (
+              <ProductRow key={product.id} product={product} match={match} />
             ))}
           </View>
         )}

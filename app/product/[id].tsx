@@ -1,18 +1,15 @@
 import { Image } from "expo-image";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 
 import { Text } from "@/components/Text";
 
-import { IngredientRow } from "@/components/IngredientRow";
-import { MatchBadge } from "@/components/MatchBadge";
 import { ProductIllustration } from "@/components/ProductIllustration";
 import { fetchProduct } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
-import { formatKRW } from "@/lib/format";
-import { matchProduct } from "@/lib/matching";
+import { matchProduct, matchTone, verdictHeadline } from "@/lib/matching";
 import { groupByRisk, type RiskGroup } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -27,6 +24,17 @@ const TIER_META: Record<RiskGroup, { label: string; icon: string; color: string 
 // names we could not match to a dictionary.
 const TIER_ORDER: RiskGroup[] = ["avoid", "caution", "unknown", "clean"];
 
+/**
+ * The match band's fill. Green only when the score has earned it — the design
+ * draws its sample as a great match, but the same panel has to carry a poor
+ * one without reading as praise.
+ */
+const BAND = {
+  high: { bg: "bg-panel-success border-panel-success-line", label: "Great match", ink: "text-status-safe" },
+  medium: { bg: "bg-tint-peach border-tint-peach", label: "Fair match", ink: "text-status-caution" },
+  low: { bg: "bg-tint-pink border-tint-pink", label: "Poor match", ink: "text-status-watch" },
+} as const;
+
 export default function ProductDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
@@ -35,8 +43,11 @@ export default function ProductDetail() {
   const profile = useAppStore((s) => s.profile);
   const savedProducts = useAppStore((s) => s.savedProducts);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
+  const compareIds = useAppStore((s) => s.compareIds);
+  const toggleCompare = useAppStore((s) => s.toggleCompare);
   const recordView = useAppStore((s) => s.recordView);
   const saved = savedProducts.some((p) => p.id === id);
+  const inCompare = compareIds.includes(id);
   const loggedId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -71,7 +82,7 @@ export default function ProductDetail() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-surface">
+      <View className="flex-1 items-center justify-center bg-canvas">
         <ActivityIndicator color={COLORS.accent} />
       </View>
     );
@@ -79,129 +90,190 @@ export default function ProductDetail() {
 
   if (!product) {
     return (
-      <View className="flex-1 items-center justify-center bg-surface px-6">
+      <View className="flex-1 items-center justify-center bg-canvas px-6">
         <Text className="text-ink-muted">Product not found.</Text>
       </View>
     );
   }
 
-  const { score } = matchProduct(product, profile);
+  const match = matchProduct(product, profile);
+  const tone = match.score === null ? null : matchTone(match.score);
+  const band = tone ? BAND[tone] : null;
   const riskGroups = groupByRisk(product.ingredients);
+  const total = product.ingredients.length;
 
   return (
-    <ScrollView className="flex-1 bg-canvas">
+    <View className="flex-1 bg-canvas">
       <Stack.Screen options={{ title: product.brand }} />
 
-      <View className="bg-surface px-4 pb-5 pt-4">
-        <View className="flex-row items-start gap-3">
-          {/*
-            A real packaging photo when the source has one, and the pastel
-            vessel when it doesn't — which is often, so the fallback is a
-            first-class path rather than an error state.
-          */}
+      <ScrollView contentContainerClassName="pb-32">
+        <View className="items-center px-5 pt-4">
           {product.imageUrl ? (
             <Image
               source={{ uri: product.imageUrl }}
-              style={{ width: 72, height: 72, borderRadius: 14 }}
+              style={{ width: 150, height: 150, borderRadius: 15 }}
               contentFit="contain"
               transition={150}
               accessibilityLabel={`${product.brand} ${product.name}`}
             />
           ) : (
-            <ProductIllustration type={product.type} size={72} />
+            <ProductIllustration type={product.type} size={150} />
           )}
-          <View className="flex-1">
-            <View className="flex-row items-start justify-between gap-3">
-              <Text className="flex-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-                {product.brand} · {product.type}
-              </Text>
-              <MatchBadge score={score} />
-            </View>
-            <Text className="mt-1 font-display text-2xl leading-7 text-ink">{product.name}</Text>
-          </View>
         </View>
 
-        <Text className="mt-2 text-sm leading-5 text-ink-muted">{product.description}</Text>
-
-        <View className="mt-3 flex-row items-center gap-2">
-          <Text className="text-base font-semibold tabular-nums text-ink">
-            {formatKRW(product.price)}
+        <View className="items-center gap-1.5 px-5 pt-4">
+          <Text className="text-[10px] font-semibold uppercase tracking-[0.9px] text-ink-faint">
+            {product.brand}
           </Text>
-          <Text className="text-sm text-ink-faint">{product.volume}</Text>
+          <Text className="text-center font-display text-[23px] leading-7 text-ink">
+            {product.name}
+          </Text>
+          <Text className="text-[12.5px] text-ink-muted">
+            {[product.volume, product.type, total > 0 ? `${total} ingredients` : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </Text>
           {!product.inStock && (
-            <Text className="text-sm font-semibold text-status-avoid">Out of stock</Text>
+            <Text className="text-[12.5px] font-semibold text-status-avoid">Out of stock</Text>
           )}
         </View>
+
+        {/* The verdict, before the detail. Never colour alone — the band
+            carries a word too. */}
+        {band && match.score !== null ? (
+          <View className={`mx-5 mt-5 flex-row items-center gap-4 rounded-card border p-4 ${band.bg}`}>
+            <Text className="text-[30px] font-semibold leading-none tracking-tight text-ink">
+              {match.score}
+              <Text className="text-[13px] font-medium text-ink-muted">%</Text>
+            </Text>
+            <View className="flex-1 gap-1">
+              <Text className={`font-display text-lg leading-[20px] ${band.ink}`}>
+                {band.label}
+              </Text>
+              <Text className="text-xs leading-4 text-ink-muted">{verdictHeadline(match)}</Text>
+            </View>
+          </View>
+        ) : (
+          <View className="mx-5 mt-5 rounded-card bg-tint-lilac px-4 py-3.5">
+            <Text className="text-xs leading-4 text-accent-text">{verdictHeadline(match)}</Text>
+          </View>
+        )}
+
+        {/*
+          The design fills this section with marketing copy. `benefits` is the
+          only thing in the catalogue that answers the same question, and real
+          sources return a formula and a label rather than bullets — so when
+          there are none, the section is dropped rather than padded.
+        */}
+        {product.benefits.length > 0 && (
+          <View className="gap-3 px-5 pt-7">
+            <Text className="text-[10.5px] font-bold uppercase tracking-[0.9px] text-ink-faint">
+              What it does
+            </Text>
+            {product.benefits.map((benefit) => (
+              <View key={benefit} className="flex-row items-center gap-2.5">
+                <Text className="text-[15px] font-bold text-status-safe">✓</Text>
+                <Text className="flex-1 text-[12.5px] leading-[17px] text-ink">{benefit}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {total > 0 && (
+          <View className="gap-3 px-5 pt-7">
+            <Text className="text-[10.5px] font-bold uppercase tracking-[0.9px] text-ink-faint">
+              Ingredients by risk
+            </Text>
+            {TIER_ORDER.map((tier) => {
+              const items = riskGroups[tier];
+              if (items.length === 0) return null;
+              const meta = TIER_META[tier];
+
+              return (
+                <View
+                  key={tier}
+                  className="flex-row items-center gap-3 rounded-card border border-hairline bg-surface px-4 py-4"
+                >
+                  <View
+                    className={`h-[26px] w-[26px] items-center justify-center rounded-full ${meta.color}`}
+                  >
+                    <Text className="text-[13px] font-bold text-white">{meta.icon}</Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-[13px] font-semibold text-ink">{meta.label}</Text>
+                    <Text className="mt-0.5 text-[11px] leading-[15px] text-ink-muted" numberOfLines={2}>
+                      {items.map((i) => i.name).join(", ")}
+                    </Text>
+                  </View>
+                  <Text className="text-[13px] font-semibold tabular-nums text-ink-muted">
+                    {items.length}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/*
+          Required by the INCI API terms, which forbid presenting their data as
+          medically validated without a disclaimer — and true regardless, since
+          `lib/matching.ts` is still an explicit placeholder.
+        */}
+        <View className="mx-5 mb-4 mt-7 rounded-card bg-tint-lilac px-4 py-3">
+          <Text className="text-xs leading-4 text-accent-text">
+            Ingredient information only — not medical or dermatological advice.
+            Formulas change, and label data can be out of date or incomplete.
+            Check the packaging and ask a professional about anything that matters.
+          </Text>
+        </View>
+
+        {product.attribution ? (
+          <Text className="px-5 text-[11px] leading-4 text-ink-faint">{product.attribution}</Text>
+        ) : null}
+      </ScrollView>
+
+      {/*
+        Thumb zone. The design draws two controls here — the primary action and
+        the heart. Compare is the third, because the design's browse list
+        dropped the "Add to compare" button the grid card used to carry, and
+        without an entry point somewhere the compare screen is unreachable.
+      */}
+      <View className="absolute inset-x-0 bottom-0 flex-row gap-3 border-t border-hairline bg-canvas px-5 pb-8 pt-3">
+        <Pressable
+          onPress={() =>
+            total > 0
+              ? router.push({ pathname: "/ingredients/[id]", params: { id: product.id } })
+              : router.push(`/scan-label?barcode=${product.barcode}`)
+          }
+          className="h-[52px] flex-1 items-center justify-center rounded-control bg-accent active:bg-accent-deep"
+        >
+          <Text className="text-sm font-semibold text-white">
+            {total > 0 ? "View ingredients" : "Photograph the ingredients"}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => toggleCompare(product.id)}
+          accessibilityLabel={inCompare ? "Remove from compare" : "Add to compare"}
+          accessibilityState={{ selected: inCompare }}
+          className={`h-[52px] w-[52px] items-center justify-center rounded-control border ${
+            inCompare ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
+          }`}
+        >
+          <Text className={`text-lg ${inCompare ? "text-accent-text" : "text-ink"}`}>⇄</Text>
+        </Pressable>
 
         <Pressable
           onPress={() => toggleSaved(product.id)}
-          className={`mt-4 rounded-control border-2 py-3 ${
-            saved
-              ? "border-accent bg-tint-lilac active:bg-hairline"
-              : "border-hairline bg-surface active:bg-canvas"
+          accessibilityLabel={saved ? "Remove from saved" : "Save"}
+          accessibilityState={{ selected: saved }}
+          className={`h-[52px] w-[52px] items-center justify-center rounded-control border ${
+            saved ? "border-transparent bg-tint-pink" : "border-hairline bg-surface"
           }`}
         >
-          <Text
-            className={`text-center text-sm font-semibold ${
-              saved ? "text-accent-text" : "text-ink"
-            }`}
-          >
-            {saved ? "♥ Saved" : "♡ Save"}
-          </Text>
+          <Text className="text-lg text-ink">{saved ? "♥" : "♡"}</Text>
         </Pressable>
       </View>
-
-      <Text className="px-4 pb-2 pt-6 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-        Ingredients ({product.ingredients.length})
-      </Text>
-
-      <View className="gap-3 px-4">
-        {TIER_ORDER.map((tier) => {
-          const items = riskGroups[tier];
-          if (items.length === 0) return null;
-          const meta = TIER_META[tier];
-
-          return (
-            <View
-              key={tier}
-              className="overflow-hidden rounded-card bg-surface shadow-md"
-            >
-              <View className="flex-row items-center gap-2 px-4 pb-2 pt-4">
-                <View className={`h-6 w-6 items-center justify-center rounded-full ${meta.color}`}>
-                  <Text className="text-xs font-bold text-white">{meta.icon}</Text>
-                </View>
-                <Text className="text-sm font-semibold text-ink">{meta.label}</Text>
-                <Text className="text-xs tabular-nums text-ink-faint">({items.length})</Text>
-              </View>
-
-              {items.map((ingredient) => (
-                <IngredientRow key={ingredient.id} ingredient={ingredient} />
-              ))}
-            </View>
-          );
-        })}
-      </View>
-
-      {/*
-        Required by the INCI API terms, which forbid presenting their data as
-        medically validated without a disclaimer — and true regardless, since
-        `lib/matching.ts` is still an explicit placeholder.
-      */}
-      <View className="mx-4 mb-4 mt-6 rounded-card bg-tint-lilac px-4 py-3">
-        <Text className="text-xs leading-4 text-accent-text">
-          Ingredient information only — not medical or dermatological advice.
-          Formulas change, and label data can be out of date or incomplete.
-          Check the packaging and ask a professional about anything that matters.
-        </Text>
-      </View>
-
-      {product.attribution ? (
-        <Text className="mb-10 px-4 text-[11px] leading-4 text-ink-faint">
-          {product.attribution}
-        </Text>
-      ) : (
-        <View className="mb-10" />
-      )}
-    </ScrollView>
+    </View>
   );
 }

@@ -3,18 +3,30 @@ import { Link } from "expo-router";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { MatchBadge } from "@/components/MatchBadge";
 import { ProductIllustration } from "@/components/ProductIllustration";
 import { Text } from "@/components/Text";
 import { fetchProductsByIds } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { relativeTime } from "@/lib/format";
-import { matchProduct } from "@/lib/matching";
+import { matchProduct, matchTone } from "@/lib/matching";
 import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
 
 type Tab = "saved" | "history";
+
+const TONE_BG = {
+  high: "bg-status-safe",
+  medium: "bg-status-caution",
+  low: "bg-status-watch",
+} as const;
+
+const TONE_LABEL = {
+  high: "Great match",
+  medium: "Fair match",
+  low: "Poor match",
+} as const;
 
 /**
  * The shelf and the log, on one screen.
@@ -26,6 +38,7 @@ type Tab = "saved" | "history";
  * log — so their verdict is rendered quietly, never as a live badge.
  */
 export default function Saved() {
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("saved");
 
   const profile = useAppStore((s) => s.profile);
@@ -75,7 +88,11 @@ export default function Saved() {
 
   return (
     <View className="flex-1 bg-canvas">
-      <View className="flex-row gap-2 border-b border-hairline bg-surface px-4 pb-3 pt-3">
+      <View className="bg-surface px-5 pb-0" style={{ paddingTop: insets.top + 10 }}>
+        <Text className="text-center text-base font-semibold text-ink">Saved</Text>
+      </View>
+
+      <View className="flex-row gap-2 border-b border-hairline bg-surface px-4 py-3.5">
         <SegmentButton
           label={savedProducts.length ? `Saved (${savedProducts.length})` : "Saved"}
           active={tab === "saved"}
@@ -99,19 +116,29 @@ export default function Saved() {
             body="Tap Save on any product and it will wait for you here — including next time you open the app."
           />
         ) : (
-          <ScrollView contentContainerClassName="gap-3 p-4 pb-8">
+          <ScrollView contentContainerClassName="gap-4 p-4 pb-8">
             {savedIds.map((id) => {
               const product = byId[id];
               if (!product) return null;
               const { score } = matchProduct(product, profile);
+              const tone = score === null ? null : matchTone(score);
               return (
                 <Row key={id} product={product}>
-                  <View className="mt-1.5 flex-row items-center justify-between gap-2">
-                    <MatchBadge score={score} />
+                  <View className="flex-row items-center justify-between gap-2.5 pt-1.5">
+                    {tone && score !== null ? (
+                      <View className={`flex-row items-center gap-1 rounded-chip px-2.5 py-1 ${TONE_BG[tone]}`}>
+                        <Text className="text-xs font-bold tabular-nums text-white">
+                          {score}%
+                        </Text>
+                        <Text className="text-[11px] font-medium text-white/90">
+                          · {TONE_LABEL[tone]}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View />
+                    )}
                     <Pressable onPress={() => toggleSaved(id)} hitSlop={8}>
-                      <Text className="text-xs font-semibold text-accent-text">
-                        Remove
-                      </Text>
+                      <Text className="text-[11.5px] font-semibold text-accent-text">Remove</Text>
                     </Pressable>
                   </View>
                 </Row>
@@ -125,7 +152,7 @@ export default function Saved() {
           body="Every product you open or scan is logged here automatically, so you can tell at a glance whether you have already checked something."
         />
       ) : (
-        <ScrollView contentContainerClassName="gap-3 p-4 pb-8">
+        <ScrollView contentContainerClassName="gap-4 p-4 pb-8">
           {history.map((entry) => {
             const product = entry.known ? byId[entry.id] : undefined;
             return product ? (
@@ -138,9 +165,7 @@ export default function Saved() {
           })}
 
           <Pressable onPress={clearHistory} className="items-center py-3">
-            <Text className="text-sm font-medium text-accent-text underline">
-              Clear history
-            </Text>
+            <Text className="text-sm font-medium text-accent-text underline">Clear history</Text>
           </Pressable>
         </ScrollView>
       )}
@@ -167,7 +192,7 @@ function SegmentButton({
       }`}
     >
       <Text
-        className={`text-sm font-semibold ${active ? "text-accent-text" : "text-ink-muted"}`}
+        className={`text-[13.5px] font-semibold ${active ? "text-accent-text" : "text-ink-muted"}`}
       >
         {label}
       </Text>
@@ -184,11 +209,11 @@ function Row({
 }) {
   return (
     <Link href={`/product/${product.id}`} asChild>
-      <Pressable className="flex-row items-start gap-3 rounded-card bg-surface p-3 shadow-sm active:opacity-80">
+      <Pressable className="flex-row items-start gap-3 rounded-sheet bg-surface p-3 shadow-sm active:opacity-80">
         {product.imageUrl ? (
           <Image
             source={{ uri: product.imageUrl }}
-            style={{ width: 56, height: 56, borderRadius: 14 }}
+            style={{ width: 56, height: 56, borderRadius: 15 }}
             contentFit="contain"
             transition={150}
             accessibilityLabel={`${product.brand} ${product.name}`}
@@ -197,10 +222,10 @@ function Row({
           <ProductIllustration type={product.type} size={56} />
         )}
         <View className="flex-1">
-          <Text className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+          <Text className="text-[9.5px] font-semibold uppercase tracking-[0.7px] text-ink-faint">
             {product.brand}
           </Text>
-          <Text className="font-display text-base leading-5 text-ink" numberOfLines={2}>
+          <Text className="mt-0.5 font-display text-[15px] leading-[19px] text-ink" numberOfLines={2}>
             {product.name}
           </Text>
           {children}
@@ -211,25 +236,25 @@ function Row({
 }
 
 /**
- * The snapshot verdict, set deliberately quieter than `MatchBadge` so it never
- * reads as the product's current score.
+ * The snapshot verdict, set deliberately quieter than the saved badge so it
+ * never reads as the product's current score.
  */
 function HistoryMeta({ entry }: { entry: HistoryEntry }) {
   return (
     <View className="mt-1.5 flex-row flex-wrap items-center gap-x-2 gap-y-1">
-      <Text className="text-xs text-ink-muted">{relativeTime(entry.lastSeenAt)}</Text>
+      <Text className="text-[11.5px] text-ink-muted">{relativeTime(entry.lastSeenAt)}</Text>
       {entry.seenCount > 1 && (
-        <Text className="text-xs tabular-nums text-ink-faint">
+        <Text className="text-[11.5px] tabular-nums text-ink-faint">
           · checked {entry.seenCount} times
         </Text>
       )}
       {entry.scoreAtView !== null && (
-        <Text className="text-xs tabular-nums text-ink-faint">
+        <Text className="text-[11.5px] tabular-nums text-ink-faint">
           · {entry.scoreAtView}% then
         </Text>
       )}
       {entry.warningsAtView > 0 && (
-        <Text className="text-xs font-semibold text-status-watch">
+        <Text className="text-[11.5px] font-semibold text-status-watch">
           · {entry.warningsAtView} flagged
         </Text>
       )}
@@ -240,8 +265,8 @@ function HistoryMeta({ entry }: { entry: HistoryEntry }) {
 /** A barcode that resolved to nothing — still worth logging as "already checked". */
 function UnknownRow({ entry }: { entry: HistoryEntry }) {
   return (
-    <View className="rounded-card border border-hairline bg-surface p-3">
-      <Text className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+    <View className="rounded-sheet border border-hairline bg-surface p-3">
+      <Text className="text-[9.5px] font-semibold uppercase tracking-[0.7px] text-ink-faint">
         Scanned · not in our catalogue
       </Text>
       <Text className="mt-0.5 text-sm tabular-nums text-ink">{entry.id}</Text>

@@ -356,19 +356,6 @@ export function ingredientTone(
   return "good";
 }
 
-export const TONE_PILL: Record<IngredientTone, string> = {
-  good: "GOOD",
-  watch: "NOTE",
-  flag: "FLAG",
-};
-
-/** Tailwind classes per tone, matching the design legend. */
-export const TONE_CLASS: Record<IngredientTone, { dot: string; pill: string; hero: string }> = {
-  good: { dot: "bg-tone-good", pill: "bg-tint-mint", hero: "bg-tint-mint" },
-  watch: { dot: "bg-tone-watch", pill: "bg-tint-peach", hero: "bg-tint-peach" },
-  flag: { dot: "bg-tone-flag", pill: "bg-tint-pink", hero: "bg-tint-pink" },
-};
-
 /**
  * The rule that applies to an ingredient, if any — the detail screen uses it
  * for the plain-language explanation and the sensitive-skin read.

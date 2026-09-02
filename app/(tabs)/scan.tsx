@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 import { MatchBadge } from "@/components/MatchBadge";
@@ -93,6 +94,7 @@ const MODES: { label: Mode; Icon: (props: { color: string }) => ReactElement }[]
 ];
 
 export default function Scan() {
+  const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [mode, setMode] = useState<Mode>(IS_WEB ? "Search" : "Barcode");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -152,7 +154,9 @@ export default function Scan() {
   const live = mode === "Barcode" && status.kind === "idle" && permission?.granted;
 
   return (
-    <View className="flex-1 bg-canvas">
+    // The tab group hides the native header, so this screen pads for the
+    // status bar itself.
+    <View className="flex-1 bg-canvas" style={{ paddingTop: insets.top }}>
       <ScrollView contentContainerClassName="pb-10">
         {/* Wordmark + eyebrow on the left, the profile chip on the right —
             per the Scanner mockup, replacing the previous two-row layout
