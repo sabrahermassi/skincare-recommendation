@@ -105,7 +105,7 @@ export function FactorBar({ factor }: { factor: ScoreFactor }) {
   const color = positive ? COLORS.toneGood : COLORS.toneWatch;
 
   return (
-    <View className="h-[38px] flex-row items-center gap-[11px]">
+    <View style={{ height: 38, gap: 11 }} className="flex-row items-center">
       <View className="w-[19px] items-center justify-center">
         <CategoryGlyph category={factor.category} />
       </View>

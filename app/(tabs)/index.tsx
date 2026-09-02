@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Chip } from "@/components/Chip";
 import { LogoMark } from "@/components/LogoMark";
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
 import { Text } from "@/components/Text";
 import { fetchProducts } from "@/data/api";
@@ -90,7 +91,7 @@ export default function Browse() {
   return (
     <View className="flex-1 bg-canvas" style={{ paddingTop: insets.top }}>
       <ScrollView contentContainerClassName="pb-28" stickyHeaderIndices={[1]}>
-        <View className="gap-[18px] px-5 pb-2 pt-3">
+        <View style={{ gap: 18 }} className="px-5 pb-2 pt-3">
           <View className="flex-row items-start justify-between gap-3.5">
             <View className="gap-1">
               <View className="flex-row items-center gap-2.5">
@@ -178,14 +179,12 @@ export default function Browse() {
       {/* Compare tray — only appears once something is selected. */}
       {compareIds.length > 0 && (
         <View className="absolute inset-x-0 bottom-0 border-t border-hairline bg-surface p-4">
-          <Link href="/compare" asChild>
-            <Pressable className="h-[52px] items-center justify-center rounded-control bg-accent active:bg-accent-deep">
-              <Text className="text-base font-semibold text-white">
-                Compare {compareIds.length} selected
-                {compareIds.length === 1 ? " — pick one more" : ""}
-              </Text>
-            </Pressable>
-          </Link>
+          <PrimaryButton
+            label={`Compare ${compareIds.length} selected${
+              compareIds.length === 1 ? " — pick one more" : ""
+            }`}
+            onPress={() => router.push("/compare")}
+          />
         </View>
       )}
     </View>

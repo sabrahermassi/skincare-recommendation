@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { fetchProduct } from "@/data/api";
@@ -92,8 +93,8 @@ const RUNG: Record<
 function FlaskHero({ color }: { color: string }) {
   return (
     <View
-      className="h-[86px] w-[86px] items-center justify-center rounded-full"
-      style={{ backgroundColor: `${color}26` }}
+      className="items-center justify-center rounded-full"
+      style={{ height: 86, width: 86, backgroundColor: `${color}26` }}
     >
       <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
         <Path
@@ -206,8 +207,8 @@ export default function IngredientDetail() {
       <ScreenHeader />
 
       <ScrollView contentContainerClassName="pb-40">
-        <View className="flex-row items-start gap-[18px] px-6 pt-[30px]">
-          <View className="flex-1 gap-[9px]">
+        <View style={{ gap: 18, paddingTop: 30 }} className="flex-row items-start px-6">
+          <View style={{ flex: 1, gap: 9 }}>
             <Text className="font-display text-[34px] capitalize leading-[36px] tracking-[-0.61px] text-[#463F57]">
               {primary}
             </Text>
@@ -254,7 +255,7 @@ export default function IngredientDetail() {
 
         <Section title="Things to know" gap="gap-[23px]" top="pt-11">
           {notes.length > 0 ? (
-            <View className="gap-[23px]">
+            <View style={{ gap: 23 }}>
               {notes.map((note) => (
                 <View key={note} className="flex-row items-center gap-3">
                   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
@@ -284,7 +285,9 @@ export default function IngredientDetail() {
       </ScrollView>
 
       <View className="absolute inset-x-0 bottom-0 flex-row gap-3 border-t border-hairline bg-canvas px-6 pb-8 pt-3">
-        <Pressable
+        <PrimaryButton
+          className="flex-1"
+          label="Next ingredient"
           onPress={() => {
             if (!product || index < 0) return router.back();
             const next = product.ingredients[(index + 1) % product.ingredients.length];
@@ -293,16 +296,8 @@ export default function IngredientDetail() {
               params: { inci: next.name, product: product.id },
             });
           }}
-          className="h-[52px] flex-1 items-center justify-center rounded-control bg-accent active:bg-accent-deep"
-        >
-          <Text className="text-sm font-semibold text-white">Next ingredient</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => router.back()}
-          className="h-[52px] items-center justify-center rounded-control border border-hairline bg-surface px-5 active:bg-canvas"
-        >
-          <Text className="text-[13px] font-semibold text-ink">Back to list</Text>
-        </Pressable>
+        />
+        <PrimaryButton variant="outline" label="Back to list" onPress={() => router.back()} />
       </View>
     </View>
   );

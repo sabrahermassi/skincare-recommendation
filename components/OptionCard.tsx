@@ -55,9 +55,16 @@ export function OptionCard({
       // point of dimming it — the visual state alone tells a sighted user.
       accessibilityState={{ selected, disabled: dimmed && !selected }}
       // Border width is constant so selecting never nudges the layout.
+      // Height is an inline minHeight rather than a utility class, for the
+      // same reason PrimaryButton states its height inline: a card that loses
+      // its padding class collapses onto its label, and a grid of collapsed
+      // cards reads as a grid of empty boxes. `compact` is the two-up card on
+      // the profile and concerns screens, `roomy` the tall one the design
+      // draws for the four gender options.
+      style={{ minHeight: compact ? 52 : roomy ? 68 : 64 }}
       className={`flex-row items-center gap-3 border-2 ${
         compact
-          ? "min-h-[44px] rounded-field px-3 py-2.5"
+          ? "rounded-field px-3 py-3"
           : roomy
             ? "rounded-card px-4 py-6"
             : "rounded-card px-3.5 py-4"

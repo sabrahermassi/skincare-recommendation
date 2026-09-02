@@ -7,6 +7,7 @@ import Svg, { Path } from "react-native-svg";
 import { Text } from "@/components/Text";
 
 import { ProductIllustration } from "@/components/ProductIllustration";
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { SafetyPill } from "@/components/SafetyPill";
 import { fetchProductsByIds } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -163,12 +164,7 @@ export default function Compare() {
       </ScrollView>
 
       <View className="border-t border-hairline bg-surface px-4 pb-8 pt-4">
-        <Pressable
-          onPress={clearCompare}
-          className="h-12 items-center justify-center rounded-control border border-hairline active:bg-canvas"
-        >
-          <Text className="text-[13.5px] font-semibold text-ink">Clear comparison</Text>
-        </Pressable>
+        <PrimaryButton variant="outline" label="Clear comparison" onPress={clearCompare} />
       </View>
     </View>
   );

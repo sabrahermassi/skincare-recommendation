@@ -51,7 +51,8 @@ export function ProductRow({
 
   return (
     <Link href={`/product/${product.id}`} asChild>
-      <Pressable className="flex-row items-center gap-[13px] border-b border-hairline-soft bg-surface px-5 py-[17px] active:bg-canvas">
+      <Pressable style={{ gap: 13, paddingVertical: 17 }}
+        className="flex-row items-center border-b border-hairline-soft bg-surface px-5 active:bg-canvas">
         {product.imageUrl ? (
           <Image
             source={{ uri: product.imageUrl }}

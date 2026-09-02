@@ -78,7 +78,8 @@ export default function ScanLabel() {
         </Text>
         <Pressable
           onPress={requestPermission}
-          className="h-[52px] items-center justify-center rounded-control bg-accent px-6 active:bg-accent-deep"
+          style={{ height: 52 }}
+          className="items-center justify-center rounded-control bg-accent px-6 active:bg-accent-deep"
         >
           <Text className="text-base font-semibold text-white">Grant permission</Text>
         </Pressable>
@@ -116,7 +117,8 @@ export default function ScanLabel() {
         <Pressable
           onPress={capture}
           disabled={status.kind === "reading"}
-          className={`h-[52px] flex-row items-center justify-center gap-2 rounded-control ${
+          style={{ height: 52 }}
+          className={`flex-row items-center justify-center gap-2 rounded-control ${
             status.kind === "reading" ? "bg-white/40" : "bg-white active:bg-hairline"
           }`}
         >

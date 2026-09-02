@@ -16,7 +16,7 @@ import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { LogoMark } from "@/components/LogoMark";
 import { MatchBadge } from "@/components/MatchBadge";
 import { ProductIllustration } from "@/components/ProductIllustration";
-import { SkinTypeIcon } from "@/components/SkinTypeIcon";
+import { Avatar } from "@/components/Avatar";
 import { Text } from "@/components/Text";
 import { fetchProductByBarcode, fetchProductsByIds, searchProducts } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -184,12 +184,10 @@ export default function Scan() {
           </View>
           <Pressable
             onPress={() => router.push("/profile")}
-            className="h-[52px] max-w-[198px] flex-shrink flex-row items-center gap-2.5 rounded-full bg-tint-lilac px-[11px]"
+            style={{ height: 52, maxWidth: 198, paddingHorizontal: 11, gap: 10 }}
+            className="flex-shrink flex-row items-center rounded-full bg-tint-lilac"
           >
-            {/* The mockup puts a stock portrait here. This shows the skin-type
-                tile instead — the same art vocabulary, and it says something
-                true about the profile rather than picturing a stranger. */}
-            <SkinTypeIcon name={profile.baseSkinType ?? "unsure"} size={31} />
+            <Avatar size={31} />
             <View className="flex-shrink gap-0.5">
               <Text className="text-[7.5px] font-semibold tracking-[0.98px] text-[#736C7F]">
                 YOUR SKIN PROFILE
@@ -210,7 +208,14 @@ export default function Scan() {
           </Pressable>
         </View>
 
-        <View className="mx-[26px] h-[293px] overflow-hidden rounded-control bg-[#17161B]">
+        {/* Height inline: an absolutely-positioned CameraView contributes no
+            height of its own, so if this card's height is ever dropped the
+            whole scanner collapses to nothing and reads as "the barcode reader
+            is gone". */}
+        <View
+          style={{ height: 293, marginHorizontal: 26 }}
+          className="overflow-hidden rounded-control bg-[#17161B]"
+        >
           {live ? (
             <CameraView
               style={StyleSheet.absoluteFill}
@@ -222,18 +227,33 @@ export default function Scan() {
             />
           ) : null}
 
+          {/*
+            Three reasons the frame can be dark, and it has to say which:
+            permission not asked for yet, permission refused, or the browser
+            (where SDK 54's expo-camera is QR-only — issue #11). A silent black
+            rectangle reads as "the scanner is gone".
+          */}
           {mode === "Barcode" && !permission?.granted && (
             <View className="flex-1 items-center justify-center gap-4 px-8">
               <Text className="text-center text-sm leading-5 text-canvas/80">
-                We need the camera to read barcodes. Nothing leaves your phone
-                except the barcode number.
+                {permission?.canAskAgain === false
+                  ? "Camera access is blocked. Turn it back on for this app in your device settings, then come back."
+                  : "We need the camera to read barcodes. Nothing leaves your phone except the barcode number."}
               </Text>
-              <Pressable
-                onPress={requestPermission}
-                className="rounded-full bg-canvas px-6 py-3 active:opacity-80"
-              >
-                <Text className="text-sm font-semibold text-ink">Enable camera</Text>
-              </Pressable>
+              {permission?.canAskAgain === false ? null : (
+                <Pressable
+                  onPress={requestPermission}
+                  style={{ height: 44 }}
+                  className="items-center justify-center rounded-full bg-canvas px-6 active:opacity-80"
+                >
+                  <Text className="text-sm font-semibold text-ink">Enable camera</Text>
+                </Pressable>
+              )}
+              <Text className="text-center text-xs leading-4 text-canvas/50">
+                {IS_WEB
+                  ? "In a browser only QR codes can be read. Scan a barcode from the phone app, or use Search."
+                  : "Or switch to Label photo or Search above."}
+              </Text>
             </View>
           )}
 
@@ -319,14 +339,15 @@ export default function Scan() {
             paths, the same convention `Viewfinder` above already uses in
             this file — not an icon-library adoption, which stays a Phase 2
             decision. */}
-        <View className="mx-[26px] mt-[18px] flex-row gap-3">
+        <View style={{ marginHorizontal: 26, marginTop: 18, gap: 12 }} className="flex-row">
           {MODES.map(({ label, Icon }) => {
             const on = mode === label;
             return (
               <Pressable
                 key={label}
                 onPress={() => setMode(label)}
-                className={`h-[35px] flex-1 flex-row items-center justify-center gap-[7px] rounded-full border ${
+                style={{ height: 44 }}
+                className={`flex-1 flex-row items-center justify-center gap-[7px] rounded-full border ${
                   on ? "border-accent bg-accent" : "border-hairline bg-surface"
                 }`}
               >

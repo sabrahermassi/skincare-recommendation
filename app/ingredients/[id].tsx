@@ -205,7 +205,8 @@ function IngredientListRow({
   return (
     <Pressable
       onPress={onPress}
-      className="flex-row items-start gap-[11px] border-b border-hairline-soft bg-surface px-6 py-3.5 active:bg-canvas"
+      style={{ gap: 11 }}
+      className="flex-row items-start border-b border-hairline-soft bg-surface px-6 py-3.5 active:bg-canvas"
     >
       <View className={`mt-1.5 h-[9px] w-[9px] rounded-full ${meta.dot}`} />
 

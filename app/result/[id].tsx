@@ -6,6 +6,8 @@ import Svg, { Circle, Path } from "react-native-svg";
 import { FactorBar } from "@/components/FactorBar";
 import { ProductIllustration } from "@/components/ProductIllustration";
 import { ScoreRing } from "@/components/ScoreRing";
+import { HeartIcon } from "@/components/icons";
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { fetchProduct } from "@/data/api";
@@ -96,7 +98,8 @@ export default function ScanResult() {
           <Text className="font-display text-2xl text-ink">Product not found</Text>
           <Pressable
             onPress={() => router.replace("/scan")}
-            className="h-[52px] items-center justify-center rounded-control bg-accent px-8 active:bg-accent-deep"
+            style={{ height: 52 }}
+            className="items-center justify-center rounded-control bg-accent px-8 active:bg-accent-deep"
           >
             <Text className="text-sm font-semibold text-white">Scan another</Text>
           </Pressable>
@@ -273,38 +276,22 @@ export default function ScanResult() {
 
       {/* Thumb zone: the two things you do next. */}
       <View className="gap-3 border-t border-hairline bg-canvas px-6 pb-8 pt-3.5">
-        <Pressable
+        <PrimaryButton
+          label={total > 0 ? "View ingredients" : "Photograph the ingredients"}
           onPress={() =>
             total > 0
               ? router.push({ pathname: "/ingredients/[id]", params: { id: product.id } })
               : router.push(`/scan-label?barcode=${product.barcode}`)
           }
-          className="h-[52px] items-center justify-center rounded-control bg-accent active:bg-accent-deep"
-        >
-          <Text className="text-[14.5px] font-medium text-white">
-            {total > 0 ? "View ingredients" : "Photograph the ingredients"}
-          </Text>
-        </Pressable>
+        />
 
-        <Pressable
+        <PrimaryButton
+          variant="outline"
+          active={saved}
+          label={saved ? "Saved to my shelf" : "Save to my shelf"}
           onPress={() => toggleSaved(product.id)}
-          className={`h-[52px] flex-row items-center justify-center gap-2.5 rounded-control border ${
-            saved ? "border-accent bg-tint-lilac" : "border-hairline bg-surface active:bg-canvas"
-          }`}
-        >
-          <Svg width={17} height={17} viewBox="0 0 24 24" fill={saved ? COLORS.ink : "none"}>
-            <Path
-              d="M12 20.2s-7.6-4.7-7.6-9.7A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 7.6 2.8c0 5-7.6 9.7-7.6 9.7Z"
-              stroke={COLORS.ink}
-              strokeWidth={1.7}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-          <Text className="text-[14.5px] font-medium text-ink">
-            {saved ? "Saved to my shelf" : "Save to my shelf"}
-          </Text>
-        </Pressable>
+          icon={<HeartIcon size={17} filled={saved} />}
+        />
       </View>
     </View>
   );

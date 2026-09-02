@@ -1,9 +1,9 @@
 import { router } from "expo-router";
-import { View } from "react-native";
 
 import { Text } from "@/components/Text";
 
 import { OptionCard } from "@/components/OptionCard";
+import { OptionGrid } from "@/components/OptionGrid";
 import { QuizStep } from "@/components/QuizStep";
 import type { Concern } from "@/data/types";
 import { useAppStore } from "@/store/useAppStore";
@@ -36,29 +36,28 @@ export default function ConcernsStep() {
       nextDisabled={concerns.length === 0}
     >
       {/*
-        A two-column card grid, not a chip cloud — the same control the profile
-        screen uses for these exact eight options, so editing a concern looks
-        the same wherever you do it. At the cap the unpicked cards drop to 45%,
-        which is how the design shows the limit: visible before you hit it
-        rather than announced after a tap does nothing.
+        A two-column card grid, laid out inline by OptionGrid — the same
+        control the profile screen uses for these exact eight options. At the
+        cap the unpicked cards drop to 45%, which is how the design shows the
+        limit: visible before you hit it rather than announced after a tap does
+        nothing.
       */}
-      <View className="flex-row flex-wrap gap-2">
+      <OptionGrid>
         {OPTIONS.map((option) => {
           const selected = concerns.includes(option.value);
           return (
-            <View key={option.value} className="w-[48.5%]">
-              <OptionCard
-                compact
-                multiple
-                label={option.label}
-                selected={selected}
-                dimmed={atLimit}
-                onPress={() => toggleConcern(option.value)}
-              />
-            </View>
+            <OptionCard
+              key={option.value}
+              compact
+              multiple
+              label={option.label}
+              selected={selected}
+              dimmed={atLimit}
+              onPress={() => toggleConcern(option.value)}
+            />
           );
         })}
-      </View>
+      </OptionGrid>
 
       <Text className="mt-4 text-xs text-ink-faint">
         {atLimit

@@ -17,16 +17,18 @@ export function Chip({ label, selected = false, disabled = false, onPress }: Pro
       accessibilityRole="button"
       // Announce the unselectable state rather than only looking inert.
       accessibilityState={{ selected, disabled }}
-      // 8px of extra hit area on each side — the chip is 34pt tall, which
-      // needs the padding to clear the 44pt touch minimum.
-      hitSlop={8}
-      className={
+      hitSlop={6}
+      // Height inline, like every other control here — and 40pt rather than the
+      // 34 the design draws, so the age row sits comfortably under the taller
+      // gender cards above it instead of reading as an afterthought.
+      style={{ height: 40 }}
+      className={`items-center justify-center rounded-chip border px-4 ${
         selected
-          ? "rounded-chip border border-accent bg-accent px-3.5 py-2"
+          ? "border-accent bg-accent"
           : disabled
-            ? "rounded-chip border border-hairline bg-canvas px-3.5 py-2"
-            : "rounded-chip border border-hairline bg-surface px-3.5 py-2 active:bg-canvas"
-      }
+            ? "border-hairline bg-canvas"
+            : "border-hairline bg-surface active:bg-canvas"
+      }`}
     >
       <Text
         className={

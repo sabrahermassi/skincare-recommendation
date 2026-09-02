@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { Pressable, View } from "react-native";
 
 import { LogoMark } from "@/components/LogoMark";
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
@@ -23,17 +24,17 @@ export default function Welcome() {
 
   return (
     <View className="flex-1 bg-canvas px-6 pb-10">
-      <View className="min-h-[60px] flex-1" />
+      <View style={{ flex: 1, minHeight: 60 }} />
 
       <View className="items-center">
         <LogoMark size={120} />
       </View>
 
-      <View className="items-center gap-[34px] pt-[34px]">
+      <View style={{ alignItems: "center", gap: 34, paddingTop: 34 }}>
         {/* The wordmark sets S and T larger than the stem letters — the one
             place the brand is drawn rather than typed, so it is spelled out
             here instead of living in a font file. */}
-        <View className="items-center gap-2.5">
+        <View style={{ alignItems: "center", gap: 10 }}>
           <Text className="font-display text-[34px] leading-none tracking-[-0.27px] text-[#463F57]">
             <Text className="text-[40px]">S</Text>kin<Text className="text-[40px]">T</Text>el
           </Text>
@@ -42,7 +43,7 @@ export default function Welcome() {
           </Text>
         </View>
 
-        <View className="items-center gap-3">
+        <View style={{ alignItems: "center", gap: 13 }}>
           <Text className="text-center font-display text-[30px] leading-[35px] tracking-[-0.42px] text-ink">
             Find the right product for your skin
           </Text>
@@ -54,20 +55,15 @@ export default function Welcome() {
         </View>
       </View>
 
-      <View className="min-h-[40px] flex-1" />
+      <View style={{ flex: 1, minHeight: 40 }} />
 
-      <View className="gap-3.5">
-        {/*
-          A Pressable, not a styled <Link>. Link renders a Text, so its height
-          came from the line box plus padding and the button sat at roughly a
-          third of the 56px the design draws.
-        */}
-        <Pressable
+      <View style={{ gap: 14 }}>
+        {/* PrimaryButton, not a styled <Link> and not a height utility —
+            see components/PrimaryButton.tsx for why the height is inline. */}
+        <PrimaryButton
+          label="Get started"
           onPress={() => router.push("/onboarding/about-you")}
-          className="h-[56px] items-center justify-center rounded-control bg-accent active:bg-accent-deep"
-        >
-          <Text className="text-[15px] font-semibold text-white">Get started</Text>
-        </Pressable>
+        />
         <Pressable onPress={skip} className="py-2">
           <Text className="text-center text-[13.5px] font-medium text-ink-muted">
             Skip for now

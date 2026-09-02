@@ -30,6 +30,11 @@ export function namesOwnFontFamily(className: string | undefined): boolean {
  * The wrapper stays because every screen imports it, and because it is the
  * one place to reach if a body face is ever loaded again.
  */
-export function Text(props: TextProps) {
-  return <RNText {...props} />;
+export function Text({ className, ...props }: TextProps) {
+  // `className` is named as a literal JSX attribute rather than left inside a
+  // spread. NativeWind's transform reads it off the call site, and passing it
+  // through `{...props}` is the shape it is least able to see — every style on
+  // every piece of text in the app hangs off this one line, so it stays
+  // explicit even though the wrapper no longer adds anything of its own.
+  return <RNText className={className} {...props} />;
 }

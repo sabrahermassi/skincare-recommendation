@@ -92,7 +92,7 @@ export default function Saved() {
         <Text className="text-center text-base font-semibold text-ink">Saved</Text>
       </View>
 
-      <View className="flex-row gap-2 border-b border-hairline bg-surface px-4 py-3.5">
+      <View style={{ gap: 8 }} className="flex-row border-b border-hairline bg-surface px-4 py-3.5">
         <SegmentButton
           label={savedProducts.length ? `Saved (${savedProducts.length})` : "Saved"}
           active={tab === "saved"}
@@ -116,7 +116,7 @@ export default function Saved() {
             body="Tap Save on any product and it will wait for you here — including next time you open the app."
           />
         ) : (
-          <ScrollView contentContainerClassName="gap-4 px-4 pb-8 pt-5">
+          <ScrollView contentContainerStyle={{ gap: 16, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 32 }}>
             {savedIds.map((id) => {
               const product = byId[id];
               if (!product) return null;
@@ -152,7 +152,7 @@ export default function Saved() {
           body="Every product you open or scan is logged here automatically, so you can tell at a glance whether you have already checked something."
         />
       ) : (
-        <ScrollView contentContainerClassName="gap-4 px-4 pb-8 pt-5">
+        <ScrollView contentContainerStyle={{ gap: 16, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 32 }}>
           {history.map((entry) => {
             const product = entry.known ? byId[entry.id] : undefined;
             return product ? (
@@ -187,7 +187,11 @@ function SegmentButton({
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
-      className={`flex-1 items-center rounded-control border-2 py-[11px] ${
+      // 48pt inline. It was padding-derived, which put it at roughly 34 —
+      // shorter than everything else on the screen and the first thing you
+      // touch on it.
+      style={{ height: 48 }}
+      className={`flex-1 items-center justify-center rounded-control border-2 ${
         active ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
       }`}
     >
@@ -209,7 +213,8 @@ function Row({
 }) {
   return (
     <Link href={`/product/${product.id}`} asChild>
-      <Pressable className="flex-row items-start gap-[13px] rounded-panel bg-surface p-[13px] shadow-sm active:opacity-80">
+      <Pressable style={{ gap: 13, padding: 13 }}
+        className="flex-row items-start rounded-panel bg-surface shadow-sm active:opacity-80">
         {product.imageUrl ? (
           <Image
             source={{ uri: product.imageUrl }}

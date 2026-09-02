@@ -8,6 +8,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { COLORS } from "@/lib/colors";
 import { quizStepCount } from "@/lib/profile";
+import { PrimaryButton } from "./PrimaryButton";
 import { StepProgress } from "./StepProgress";
 
 type Props = {
@@ -72,8 +73,8 @@ export function QuizStep({
         </View>
       ) : null}
 
-      <Animated.View entering={FadeInDown.duration(280)} className="mt-[30px] flex-1 gap-[26px]">
-        <View className="gap-2">
+      <Animated.View entering={FadeInDown.duration(280)} style={{ marginTop: 30, flex: 1, gap: 26 }}>
+        <View style={{ gap: 8 }}>
           <Text className="font-display text-[32px] leading-[36.5px] tracking-[-0.48px] text-ink">
             {title}
           </Text>
@@ -83,23 +84,7 @@ export function QuizStep({
         <View className="flex-1">{children}</View>
       </Animated.View>
 
-      <Pressable
-        disabled={nextDisabled}
-        onPress={onNext}
-        // 56px, per the design. Height is explicit rather than derived from
-        // padding so it cannot drift with the label size.
-        className={`h-[56px] items-center justify-center rounded-control ${
-          nextDisabled ? "bg-hairline" : "bg-accent active:bg-accent-deep"
-        }`}
-      >
-        <Text
-          className={`text-base font-semibold ${
-            nextDisabled ? "text-ink-faint" : "text-white"
-          }`}
-        >
-          {nextLabel}
-        </Text>
-      </Pressable>
+      <PrimaryButton label={nextLabel} onPress={onNext} disabled={nextDisabled} />
     </View>
   );
 }

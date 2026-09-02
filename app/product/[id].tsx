@@ -7,6 +7,7 @@ import { Text } from "@/components/Text";
 
 import { ProductIllustration } from "@/components/ProductIllustration";
 import { CompareIcon, HeartIcon } from "@/components/icons";
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { fetchProduct } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -273,24 +274,22 @@ export default function ProductDetail() {
         without an entry point somewhere the compare screen is unreachable.
       */}
       <View className="absolute inset-x-0 bottom-0 flex-row gap-3 border-t border-hairline bg-canvas px-5 pb-8 pt-3">
-        <Pressable
+        <PrimaryButton
+          className="flex-1"
+          label={total > 0 ? "View ingredients" : "Photograph the ingredients"}
           onPress={() =>
             total > 0
               ? router.push({ pathname: "/ingredients/[id]", params: { id: product.id } })
               : router.push(`/scan-label?barcode=${product.barcode}`)
           }
-          className="h-[52px] flex-1 items-center justify-center rounded-control bg-accent active:bg-accent-deep"
-        >
-          <Text className="text-sm font-semibold text-white">
-            {total > 0 ? "View ingredients" : "Photograph the ingredients"}
-          </Text>
-        </Pressable>
+        />
 
         <Pressable
           onPress={() => toggleCompare(product.id)}
           accessibilityLabel={inCompare ? "Remove from compare" : "Add to compare"}
           accessibilityState={{ selected: inCompare }}
-          className={`h-[52px] w-[52px] items-center justify-center rounded-control border ${
+          style={{ height: 56, width: 56 }}
+          className={`items-center justify-center rounded-control border ${
             inCompare ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
           }`}
         >
@@ -301,7 +300,8 @@ export default function ProductDetail() {
           onPress={() => toggleSaved(product.id)}
           accessibilityLabel={saved ? "Remove from saved" : "Save"}
           accessibilityState={{ selected: saved }}
-          className={`h-[52px] w-[52px] items-center justify-center rounded-control border ${
+          style={{ height: 56, width: 56 }}
+          className={`items-center justify-center rounded-control border ${
             saved ? "border-transparent bg-tint-pink" : "border-hairline bg-surface"
           }`}
         >

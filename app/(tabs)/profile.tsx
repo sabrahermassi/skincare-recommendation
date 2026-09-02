@@ -8,7 +8,9 @@ import { Text } from "@/components/Text";
 
 import { Chip } from "@/components/Chip";
 import { OptionCard } from "@/components/OptionCard";
-import { SkinTypeIcon } from "@/components/SkinTypeIcon";
+import { OptionGrid } from "@/components/OptionGrid";
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { Avatar } from "@/components/Avatar";
 import type {
   AgeGroup,
   BaseSkinType,
@@ -114,17 +116,11 @@ export default function ProfileScreen() {
   return (
     <View className="flex-1 bg-canvas">
       <ScrollView
-        contentContainerClassName="gap-[18px] px-5 pb-40"
-        contentContainerStyle={{ paddingTop: insets.top + 14 }}
+        contentContainerClassName="px-5 pb-40"
+        contentContainerStyle={{ paddingTop: insets.top + 14, gap: 18 }}
       >
-        {/*
-          The design puts a generic illustrated avatar here. This shows the
-          user's own skin-type tile instead: the same art vocabulary, but it
-          says something true about the profile rather than picturing a face
-          that belongs to nobody.
-        */}
-        <View className="flex-row items-center gap-3">
-          <SkinTypeIcon name={draft.baseSkinType ?? "unsure"} size={52} />
+        <View style={{ gap: 13 }} className="flex-row items-center">
+          <Avatar size={52} />
           <View className="flex-1">
             <Text className="text-[17px] font-semibold text-ink">Your skin profile</Text>
             <Text className="mt-0.5 text-[11.5px] text-ink-muted">
@@ -155,52 +151,49 @@ export default function ProfileScreen() {
         </Section>
 
         <Section title="Face or body">
-          <View className="flex-row flex-wrap gap-2">
+          <OptionGrid>
             {AREAS.map((option) => (
-              <View key={option.value} className="w-[48.5%]">
-                <OptionCard
-                  compact
-                  label={option.label}
-                  selected={draft.area === option.value}
-                  onPress={() => patch({ area: option.value })}
-                />
-              </View>
+              <OptionCard
+                key={option.value}
+                compact
+                label={option.label}
+                selected={draft.area === option.value}
+                onPress={() => patch({ area: option.value })}
+              />
             ))}
-          </View>
+          </OptionGrid>
         </Section>
 
         <Section
           title="Skin type"
           note={derived ? "Worked out from two questions" : undefined}
         >
-          <View className="flex-row flex-wrap gap-2">
+          <OptionGrid>
             {SKIN_TYPES.map((option) => (
-              <View key={option.value} className="w-[48.5%]">
-                <OptionCard
-                  compact
-                  label={option.label}
-                  selected={!derived && draft.baseSkinType === option.value}
-                  onPress={() =>
-                    patch({ baseSkinType: option.value, skinTypeSource: "declared" })
-                  }
-                />
-              </View>
-            ))}
-            <View className="w-full">
               <OptionCard
+                key={option.value}
                 compact
-                label="Not sure"
-                selected={derived}
-                onPress={openDiagnostic}
+                label={option.label}
+                selected={!derived && draft.baseSkinType === option.value}
+                onPress={() =>
+                  patch({ baseSkinType: option.value, skinTypeSource: "declared" })
+                }
               />
-            </View>
+            ))}
+          </OptionGrid>
+
+          {/* Spans the row on its own — it is a different kind of answer from
+              the four above it, not a fifth type. */}
+          <View style={{ marginTop: 12 }}>
+            <OptionCard compact label="Not sure" selected={derived} onPress={openDiagnostic} />
           </View>
 
           <Pressable
             onPress={() => patch({ sensitive: !draft.sensitive })}
             accessibilityRole="switch"
             accessibilityState={{ checked: draft.sensitive }}
-            className={`mt-2 min-h-[44px] flex-row items-center justify-between rounded-field border-2 px-3 py-2.5 ${
+            style={{ minHeight: 52, marginTop: 12 }}
+            className={`flex-row items-center justify-between rounded-field border-2 px-3 ${
               draft.sensitive ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
             }`}
           >
@@ -224,23 +217,22 @@ export default function ProfileScreen() {
         </Section>
 
         <Section title="Skin concerns" note={`${draft.concerns.length} of ${MAX_CONCERNS}`}>
-          <View className="flex-row flex-wrap gap-2">
+          <OptionGrid>
             {CONCERN_OPTIONS.map((option) => {
               const selected = draft.concerns.includes(option.value);
               return (
-                <View key={option.value} className="w-[48.5%]">
-                  <OptionCard
-                    compact
-                    multiple
-                    label={option.label}
-                    selected={selected}
-                    dimmed={atLimit}
-                    onPress={() => toggleDraftConcern(option.value)}
-                  />
-                </View>
+                <OptionCard
+                  key={option.value}
+                  compact
+                  multiple
+                  label={option.label}
+                  selected={selected}
+                  dimmed={atLimit}
+                  onPress={() => toggleDraftConcern(option.value)}
+                />
               );
             })}
-          </View>
+          </OptionGrid>
         </Section>
 
         <Pressable onPress={() => router.replace("/onboarding")} className="items-center py-2">
@@ -268,12 +260,7 @@ export default function ProfileScreen() {
       </ScrollView>
 
       <View className="absolute inset-x-0 bottom-0 border-t border-hairline bg-surface px-5 pb-8 pt-3.5">
-        <Pressable
-          onPress={save}
-          className="h-[50px] items-center justify-center rounded-control bg-accent active:bg-accent-deep"
-        >
-          <Text className="text-[14.5px] font-semibold text-white">Find my matches</Text>
-        </Pressable>
+        <PrimaryButton label="Find my matches" onPress={save} />
       </View>
     </View>
   );
