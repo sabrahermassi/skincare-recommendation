@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/Text";
 
@@ -54,6 +55,7 @@ const MAX_CONCERNS = 3;
  * re-score the browse list underneath it.
  */
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const storedProfile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
   const resetApp = useAppStore((s) => s.resetApp);
@@ -111,7 +113,10 @@ export default function ProfileScreen() {
 
   return (
     <View className="flex-1 bg-canvas">
-      <ScrollView contentContainerClassName="gap-[18px] px-5 pb-40 pt-4">
+      <ScrollView
+        contentContainerClassName="gap-[18px] px-5 pb-40"
+        contentContainerStyle={{ paddingTop: insets.top + 14 }}
+      >
         {/*
           The design puts a generic illustrated avatar here. This shows the
           user's own skin-type tile instead: the same art vocabulary, but it
@@ -195,7 +200,7 @@ export default function ProfileScreen() {
             onPress={() => patch({ sensitive: !draft.sensitive })}
             accessibilityRole="switch"
             accessibilityState={{ checked: draft.sensitive }}
-            className={`mt-2 min-h-[44px] flex-row items-center justify-between rounded-card border-2 px-3 py-2.5 ${
+            className={`mt-2 min-h-[44px] flex-row items-center justify-between rounded-field border-2 px-3 py-2.5 ${
               draft.sensitive ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
             }`}
           >
@@ -226,6 +231,7 @@ export default function ProfileScreen() {
                 <View key={option.value} className="w-[48.5%]">
                   <OptionCard
                     compact
+                    multiple
                     label={option.label}
                     selected={selected}
                     dimmed={atLimit}

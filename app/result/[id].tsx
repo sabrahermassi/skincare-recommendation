@@ -158,7 +158,7 @@ export default function ScanResult() {
         {/* The verdict, before anything else. Never colour alone — the panel
             carries a word too. */}
         <View
-          className="mx-6 mt-5 flex-row items-center gap-5 rounded-card border p-5"
+          className="mx-6 mt-5 flex-row items-center gap-5 rounded-card border px-5 py-[22px]"
           style={{ backgroundColor: panel.bg, borderColor: panel.border }}
         >
           <ScoreRing
@@ -174,7 +174,7 @@ export default function ScanResult() {
             >
               {panel.label}
             </Text>
-            <Text className="text-[13px] leading-[18px] text-ink-muted">
+            <Text className="text-[13px] leading-[18.5px] text-ink-body">
               {verdictHeadline(match)}
             </Text>
           </View>
@@ -217,7 +217,7 @@ export default function ScanResult() {
         )}
 
         {/* This screen is a judgement, so the caveat belongs on it. */}
-        <View className="mx-6 mt-4 flex-row items-center justify-center gap-2.5 rounded-control bg-hairline/50 px-4 py-3">
+        <View className="mx-6 mt-4 flex-row items-center justify-center gap-2.5 rounded-control bg-panel-wash px-4 py-3">
           <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
             <Circle cx={12} cy={12} r={9} stroke={COLORS.inkMuted} strokeWidth={1.8} />
             <Path
@@ -310,24 +310,37 @@ export default function ScanResult() {
   );
 }
 
+/**
+ * The mockup only ever draws the reassuring state, so the card was hard-coded
+ * to it — which meant a formula with three restricted entries announced
+ * "Elevated" in the same calm green as "Low". The verdict now carries its own
+ * tone and the card follows it, on the same four-rung ramp as the ingredient
+ * list.
+ */
+const RISK_TONE = {
+  good: { box: "border-panel-risk-line bg-panel-risk", ink: "text-level-good-ink" },
+  watch: { box: "border-level-watch-tint bg-level-watch-tint", ink: "text-level-watch-ink" },
+  avoid: { box: "border-level-avoid-tint bg-level-avoid-tint", ink: "text-level-avoid-ink" },
+  neutral: { box: "border-hairline bg-level-neutral-tint", ink: "text-level-neutral-ink" },
+} as const;
+
+type Risk = { level: string; note: string; tone: keyof typeof RISK_TONE };
+
 function RiskCard({
   title,
   icon,
   level,
   note,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  level: string;
-  note: string;
-}) {
+  tone,
+}: Risk & { title: string; icon: React.ReactNode }) {
+  const style = RISK_TONE[tone];
   return (
-    <View className="flex-1 gap-[7px] rounded-control border border-panel-success-line bg-panel-success px-4 pb-4 pt-3.5">
+    <View className={`flex-1 gap-[7px] rounded-control border px-[15px] pb-4 pt-3.5 ${style.box}`}>
       <View className="flex-row items-start gap-2">
         <View className="mt-px">{icon}</View>
-        <Text className="flex-1 text-[11.5px] leading-[15px] text-ink-muted">{title}</Text>
+        <Text className="flex-1 text-[11.5px] leading-[15px] text-[#4C574F]">{title}</Text>
       </View>
-      <Text className="font-display text-[19px] leading-[20px] text-status-safe">{level}</Text>
+      <Text className={`font-display text-[19px] leading-[20px] ${style.ink}`}>{level}</Text>
       <Text className="text-[10.5px] text-ink-muted">{note}</Text>
     </View>
   );
@@ -338,22 +351,23 @@ function RiskCard({
  * bottle plus anything contraindicated for this profile. Not a hazard score —
  * a count of restricted entries, said in words.
  */
-function irritationRisk(
-  product: ProductWithIngredients,
-  match: MatchResult
-): { level: string; note: string } {
+function irritationRisk(product: ProductWithIngredients, match: MatchResult): Risk {
   const restricted = product.ingredients.filter(
     (i) => isVerified(i) && i.safety !== "safe"
   ).length;
   const personal = match.warnings.length;
 
-  if (product.ingredients.length === 0) return { level: "Unknown", note: "Label not read yet" };
-  if (personal > 0) {
-    return { level: "Elevated", note: `${personal} flagged for your skin` };
+  if (product.ingredients.length === 0) {
+    return { level: "Unknown", note: "Label not read yet", tone: "neutral" };
   }
-  if (restricted === 0) return { level: "Low", note: "Nothing restricted" };
-  if (restricted <= 2) return { level: "Moderate", note: `${restricted} restricted entries` };
-  return { level: "Elevated", note: `${restricted} restricted entries` };
+  if (personal > 0) {
+    return { level: "Elevated", note: `${personal} flagged for your skin`, tone: "avoid" };
+  }
+  if (restricted === 0) return { level: "Low", note: "Nothing restricted", tone: "good" };
+  if (restricted <= 2) {
+    return { level: "Moderate", note: `${restricted} restricted entries`, tone: "watch" };
+  }
+  return { level: "Elevated", note: `${restricted} restricted entries`, tone: "avoid" };
 }
 
 /**
@@ -362,22 +376,25 @@ function irritationRisk(
  * the rule table's own pore-clogging category, which is where that judgement
  * actually lives.
  */
-function poreRisk(
-  product: ProductWithIngredients,
-  match: MatchResult
-): { level: string; note: string } {
-  if (product.ingredients.length === 0) return { level: "Unknown", note: "Label not read yet" };
+function poreRisk(product: ProductWithIngredients, match: MatchResult): Risk {
+  if (product.ingredients.length === 0) {
+    return { level: "Unknown", note: "Label not read yet", tone: "neutral" };
+  }
 
   const rated = product.ingredients.filter((i) => isVerified(i) && i.comedogenic > 0);
   const worst = Math.max(0, ...rated.map((i) => i.comedogenic));
   const fromRules = match.factors.find((f) => f.category === "pore-clogging" && f.delta < 0);
 
   if (worst >= COMEDOGENIC_FLAG_THRESHOLD) {
-    return { level: "Elevated", note: `Rated ${worst}/5 at worst` };
+    return { level: "Elevated", note: `Rated ${worst}/5 at worst`, tone: "avoid" };
   }
   if (fromRules) {
-    return { level: "Moderate", note: fromRules.ingredients[0] ?? "One ingredient" };
+    return {
+      level: "Moderate",
+      note: fromRules.ingredients[0] ?? "One ingredient",
+      tone: "watch",
+    };
   }
-  if (worst > 0) return { level: "Low", note: `Rated ${worst}/5 at worst` };
-  return { level: "Low", note: "Nothing flagged" };
+  if (worst > 0) return { level: "Low", note: `Rated ${worst}/5 at worst`, tone: "good" };
+  return { level: "Low", note: "Nothing flagged", tone: "good" };
 }

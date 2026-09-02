@@ -105,16 +105,16 @@ export function FactorBar({ factor }: { factor: ScoreFactor }) {
   const color = positive ? COLORS.toneGood : COLORS.toneWatch;
 
   return (
-    <View className="h-[38px] flex-row items-center gap-3">
+    <View className="h-[38px] flex-row items-center gap-[11px]">
       <View className="w-[19px] items-center justify-center">
         <CategoryGlyph category={factor.category} />
       </View>
 
-      <Text className="flex-1 text-[12.5px] text-ink" numberOfLines={1}>
+      <Text className="flex-1 text-[12.5px] tracking-[-0.06px] text-[#453F4E]" numberOfLines={1}>
         {factor.label}
       </Text>
 
-      <View className="h-1.5 w-[104px] overflow-hidden rounded-full bg-hairline">
+      <View className="h-1.5 w-[104px] overflow-hidden rounded-full bg-[#E9E4DD]">
         <View
           className="h-1.5 rounded-full"
           style={{

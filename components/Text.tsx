@@ -1,30 +1,35 @@
 import { Text as RNText, type TextProps } from "react-native";
 
-/** Matches any of our fontFamily utilities: font-display[-bold], font-sans[-medium|-semibold|-bold]. */
-const FAMILY_CLASS = /(?:^|\s)font-(?:display|sans)(?:-[a-z]+)?(?:\s|$)/;
+/**
+ * Matches our display-family utilities. Kept as a named export because it is
+ * the predicate `Text` used to gate its default family on, and the reason the
+ * display face renders at all is still worth pinning in a test.
+ */
+const FAMILY_CLASS = /(?:^|\s)font-display(?:-[a-z]+)?(?:\s|$)/;
 
-/** Exported for test — this predicate is the whole reason the display face renders at all. */
 export function namesOwnFontFamily(className: string | undefined): boolean {
   return className ? FAMILY_CLASS.test(className) : false;
 }
 
 /**
- * RN's Text has no browser-style cascading default font — every element needs
- * its own fontFamily. Routing every screen's `Text` import through here
- * applies the app's sans typeface by default, so only the four hero/logotype
- * spots have to opt into `font-display`.
+ * A thin pass-through over RN's `Text`.
  *
- * The default is applied *only* when the caller hasn't named a family of its
- * own. Merging both into one string does not work: Tailwind emits
- * `.font-display` before `.font-sans`, and for equal specificity the later
- * stylesheet rule wins regardless of the order the classes are written in —
- * so a blanket `font-sans` here silently overrode every display title.
+ * It used to merge a default `font-sans` into every className, back when body
+ * text was a loaded Google font (Plus Jakarta Sans) that genuinely had to be
+ * named on every element. The design now sets body text in the OS UI font,
+ * and naming *that* is actively harmful: NativeWind emits the token as a CSS
+ * class, which bypasses react-native-web's style compiler — so the browser
+ * received the literal, unknown family `System` and fell back to its default
+ * serif. Every screen rendered its body copy in Times New Roman.
+ *
+ * Saying nothing is what produces the system font on all three platforms:
+ * iOS falls to San Francisco, Android to Roboto, and RNW's own Text base
+ * style (`font: 14px System`) *does* go through the compiler, which expands
+ * it to the real `-apple-system, BlinkMacSystemFont, "Segoe UI", …` stack.
+ *
+ * The wrapper stays because every screen imports it, and because it is the
+ * one place to reach if a body face is ever loaded again.
  */
-export function Text({ className, ...props }: TextProps) {
-  return (
-    <RNText
-      className={namesOwnFontFamily(className) ? className : `font-sans ${className ?? ""}`}
-      {...props}
-    />
-  );
+export function Text(props: TextProps) {
+  return <RNText {...props} />;
 }

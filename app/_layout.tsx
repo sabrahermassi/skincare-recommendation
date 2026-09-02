@@ -55,10 +55,11 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
-          // System font (see tailwind.config.js's `sans` family) — "System"
-          // isn't a real fontFamily string RN Navigation understands here, so
-          // this leaves fontFamily unset and carries weight via fontWeight
-          // instead, same as the renamed `font-semibold` className elsewhere.
+          // fontFamily is deliberately unset: the OS UI font is what the
+          // design asks for, and every platform renders it when nothing is
+          // named. Weight is carried by fontWeight, same as the `font-semibold`
+          // utilities elsewhere. See components/Text.tsx for why naming it
+          // (as `System`) was actively wrong.
           headerTitleStyle: { fontWeight: "600", color: COLORS.ink },
           headerStyle: { backgroundColor: COLORS.surface },
           headerTintColor: COLORS.accentText,

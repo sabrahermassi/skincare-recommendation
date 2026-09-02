@@ -2,11 +2,11 @@ import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
 
 import { ProductIllustration } from "@/components/ProductIllustration";
+import { CompareIcon, HeartIcon } from "@/components/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { fetchProduct } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -116,15 +116,7 @@ export default function ProductDetail() {
             accessibilityLabel={saved ? "Remove from saved" : "Save"}
             accessibilityState={{ selected: saved }}
           >
-            <Svg width={21} height={21} viewBox="0 0 24 24" fill={saved ? COLORS.ink : "none"}>
-              <Path
-                d="M12 20.2s-7.6-4.7-7.6-9.7A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 7.6 2.8c0 5-7.6 9.7-7.6 9.7Z"
-                stroke={COLORS.ink}
-                strokeWidth={1.7}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
+            <HeartIcon size={21} filled={saved} />
           </Pressable>
         }
       />
@@ -164,7 +156,7 @@ export default function ProductDetail() {
         {/* The verdict, before the detail. Never colour alone — the band
             carries a word too. */}
         {band && match.score !== null ? (
-          <View className={`mx-5 mt-5 flex-row items-center gap-4 rounded-card border p-4 ${band.bg}`}>
+          <View className={`mx-5 mt-5 flex-row items-center gap-4 rounded-card border px-[18px] py-4 ${band.bg}`}>
             <Text className="text-[30px] font-semibold leading-none tracking-tight text-ink">
               {match.score}
               <Text className="text-[13px] font-medium text-ink-muted">%</Text>
@@ -221,7 +213,7 @@ export default function ProductDetail() {
               return (
                 <View
                   key={tier}
-                  className="flex-row items-center gap-3 rounded-card border border-hairline bg-surface px-4 py-4"
+                  className="flex-row items-center gap-3 rounded-card border border-hairline bg-surface px-[15px] py-4"
                 >
                   <View
                     className={`h-[26px] w-[26px] items-center justify-center rounded-full ${meta.color}`}
@@ -302,7 +294,7 @@ export default function ProductDetail() {
             inCompare ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
           }`}
         >
-          <Text className={`text-lg ${inCompare ? "text-accent-text" : "text-ink"}`}>⇄</Text>
+          <CompareIcon size={19} color={inCompare ? COLORS.accentText : COLORS.ink} />
         </Pressable>
 
         <Pressable
@@ -313,7 +305,7 @@ export default function ProductDetail() {
             saved ? "border-transparent bg-tint-pink" : "border-hairline bg-surface"
           }`}
         >
-          <Text className="text-lg text-ink">{saved ? "♥" : "♡"}</Text>
+          <HeartIcon size={19} filled={saved} />
         </Pressable>
       </View>
     </View>

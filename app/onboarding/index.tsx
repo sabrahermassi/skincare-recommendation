@@ -22,7 +22,7 @@ export default function Welcome() {
   }
 
   return (
-    <View className="flex-1 bg-canvas px-6 pb-10 pt-4">
+    <View className="flex-1 bg-canvas px-6 pb-10">
       <View className="min-h-[60px] flex-1" />
 
       <View className="items-center">
@@ -34,19 +34,19 @@ export default function Welcome() {
             place the brand is drawn rather than typed, so it is spelled out
             here instead of living in a font file. */}
         <View className="items-center gap-2.5">
-          <Text className="font-display text-[34px] leading-none text-[#463F57]">
+          <Text className="font-display text-[34px] leading-none tracking-[-0.27px] text-[#463F57]">
             <Text className="text-[40px]">S</Text>kin<Text className="text-[40px]">T</Text>el
           </Text>
-          <Text className="font-mono text-[7px] tracking-[1.2px] text-ink-muted">
+          <Text className="font-mono text-[7px] tracking-[0.84px] text-ink-muted">
             SCAN{"  "}/{"  "}ANALYZE{"  "}/{"  "}KNOW
           </Text>
         </View>
 
         <View className="items-center gap-3">
-          <Text className="text-center font-display text-[30px] leading-[35px] text-ink">
+          <Text className="text-center font-display text-[30px] leading-[35px] tracking-[-0.42px] text-ink">
             Find the right product for your skin
           </Text>
-          <Text className="text-center text-[15px] leading-6 text-ink-muted">
+          <Text className="text-center text-[15px] leading-[23px] text-ink-muted">
             Four quick questions about your skin. Then scan any product to see
             how well it matches — including the ingredients that don&apos;t
             suit you.

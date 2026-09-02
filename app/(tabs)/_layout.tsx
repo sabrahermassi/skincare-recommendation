@@ -53,7 +53,7 @@ export default function TabsLayout() {
           // that scanning *is* the app and this is the first tab, a floating
           // circle in position one reads as a stray button rather than the
           // primary action.
-          tabBarIcon: ({ color, size }) => <Ionicons name="camera" size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="camera" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -61,7 +61,7 @@ export default function TabsLayout() {
         options={{
           title: "Skintel",
           tabBarLabel: "Browse",
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="home" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -69,7 +69,7 @@ export default function TabsLayout() {
         options={{
           title: "Saved",
           tabBarLabel: "Saved",
-          tabBarIcon: ({ color, size }) => <Ionicons name="heart" size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="heart" size={22} color={color} />,
         }}
       />
       {/*
@@ -85,7 +85,7 @@ export default function TabsLayout() {
         options={{
           title: "Your skin profile",
           tabBarLabel: "Profile",
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="person" size={22} color={color} />,
         }}
       />
     </Tabs>

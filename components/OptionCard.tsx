@@ -18,8 +18,20 @@ type Props = {
   /**
    * The tighter card the profile screen packs two-to-a-row. Same anatomy,
    * less air — a full-height quiz card twice over does not fit the width.
+   * Carries the design's 13px radius rather than the 15px of a full card.
    */
   compact?: boolean;
+  /**
+   * The roomier card the "about you" step gives the four gender options:
+   * 24px of vertical padding instead of 16, so four cards fill a step that
+   * would otherwise be mostly empty. The design draws it only there.
+   */
+  roomy?: boolean;
+  /**
+   * Concerns are a pick-up-to-three list, not a single choice, and assistive
+   * tech should say so. Everything else on the quiz is genuinely a radio.
+   */
+  multiple?: boolean;
   onPress: () => void;
 };
 
@@ -31,16 +43,24 @@ export function OptionCard({
   selected,
   dimmed = false,
   compact = false,
+  roomy = false,
+  multiple = false,
   onPress,
 }: Props) {
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
+      accessibilityRole={multiple ? "checkbox" : "radio"}
+      // At the cap an unpicked card is inert. Announcing that is the whole
+      // point of dimming it — the visual state alone tells a sighted user.
+      accessibilityState={{ selected, disabled: dimmed && !selected }}
       // Border width is constant so selecting never nudges the layout.
-      className={`flex-row items-center gap-3 rounded-card border-2 ${
-        compact ? "min-h-[44px] px-3 py-2.5" : "px-3.5 py-4"
+      className={`flex-row items-center gap-3 border-2 ${
+        compact
+          ? "min-h-[44px] rounded-field px-3 py-2.5"
+          : roomy
+            ? "rounded-card px-4 py-6"
+            : "rounded-card px-3.5 py-4"
       } ${
         selected
           ? "border-accent bg-tint-lilac"
@@ -57,7 +77,7 @@ export function OptionCard({
         >
           {label}
         </Text>
-        {hint ? <Text className="mt-0.5 text-[13px] leading-4 text-ink-muted">{hint}</Text> : null}
+        {hint ? <Text className="mt-0.5 text-[13px] leading-[17.5px] text-ink-muted">{hint}</Text> : null}
       </View>
 
       {/* Selection reads as border + tint + check, so it survives greyscale.

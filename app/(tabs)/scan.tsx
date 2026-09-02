@@ -13,8 +13,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
+import { LogoMark } from "@/components/LogoMark";
 import { MatchBadge } from "@/components/MatchBadge";
 import { ProductIllustration } from "@/components/ProductIllustration";
+import { SkinTypeIcon } from "@/components/SkinTypeIcon";
 import { Text } from "@/components/Text";
 import { fetchProductByBarcode, fetchProductsByIds, searchProducts } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -168,30 +170,39 @@ export default function Scan() {
             but this app has no user-photo feature backing it, and adding a
             stock design-tool image would be decoration with nothing real
             behind it. */}
-        <View className="flex-row items-start justify-between gap-3.5 px-6 pb-3 pt-3">
-          <View className="gap-1.5 pt-0.5">
-            <Text className="font-display text-[26px] leading-7 text-ink">Skintel</Text>
-            <Text className="text-[8px] font-bold tracking-[2px] text-ink-faint">
-              SCAN · ANALYZE · KNOW
+        <View className="flex-row items-start justify-between gap-3.5 px-[26px] pb-3 pt-3">
+          <View className="gap-2 pt-0.5">
+            <View className="flex-row items-center gap-2.5">
+              <LogoMark size={33} />
+              <Text className="font-display text-[31px] leading-none tracking-[-0.16px] text-[#463F57]">
+                <Text className="text-[37px]">S</Text>kin<Text className="text-[37px]">T</Text>el
+              </Text>
+            </View>
+            <Text className="ml-[43px] font-mono text-[7px] tracking-[0.84px] text-ink-muted">
+              SCAN{"  "}/{"  "}ANALYZE{"  "}/{"  "}KNOW
             </Text>
           </View>
           <Pressable
-            onPress={() => router.push("/onboarding")}
-            className="flex-shrink flex-row items-center gap-2 rounded-full bg-tint-lilac py-2 pl-3 pr-2.5"
+            onPress={() => router.push("/profile")}
+            className="h-[52px] max-w-[198px] flex-shrink flex-row items-center gap-2.5 rounded-full bg-tint-lilac px-[11px]"
           >
+            {/* The mockup puts a stock portrait here. This shows the skin-type
+                tile instead — the same art vocabulary, and it says something
+                true about the profile rather than picturing a stranger. */}
+            <SkinTypeIcon name={profile.baseSkinType ?? "unsure"} size={31} />
             <View className="flex-shrink gap-0.5">
-              <Text className="text-[7.5px] font-bold tracking-[1.5px] text-ink-muted">
+              <Text className="text-[7.5px] font-semibold tracking-[0.98px] text-[#736C7F]">
                 YOUR SKIN PROFILE
               </Text>
-              <Text className="text-[10.5px] leading-[13px] text-ink" numberOfLines={2}>
+              <Text className="text-[10px] leading-[14.5px] text-[#413B4B]" numberOfLines={2}>
                 {summary || "No profile yet — tap to start"}
               </Text>
             </View>
-            <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+            <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
               <Path
                 d="m9 5 7 7-7 7"
-                stroke={COLORS.inkMuted}
-                strokeWidth={2.4}
+                stroke="#5C5566"
+                strokeWidth={2.2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
@@ -199,7 +210,7 @@ export default function Scan() {
           </Pressable>
         </View>
 
-        <View className="mx-6 h-[293px] overflow-hidden rounded-[11px] bg-ink">
+        <View className="mx-[26px] h-[293px] overflow-hidden rounded-control bg-[#17161B]">
           {live ? (
             <CameraView
               style={StyleSheet.absoluteFill}
@@ -227,7 +238,7 @@ export default function Scan() {
           )}
 
           {mode === "Barcode" && permission?.granted && status.kind === "idle" && (
-            <View className="flex-1 items-center justify-center" pointerEvents="none">
+            <View className="absolute inset-0" pointerEvents="none">
               <Viewfinder />
             </View>
           )}
@@ -308,7 +319,7 @@ export default function Scan() {
             paths, the same convention `Viewfinder` above already uses in
             this file — not an icon-library adoption, which stays a Phase 2
             decision. */}
-        <View className="mx-6 mt-[18px] flex-row gap-3">
+        <View className="mx-[26px] mt-[18px] flex-row gap-3">
           {MODES.map(({ label, Icon }) => {
             const on = mode === label;
             return (
@@ -345,16 +356,31 @@ export default function Scan() {
   );
 }
 
-/** Corner brackets and a scan line — the design's framing affordance. */
+/**
+ * Corner brackets and a scan line — the design's framing affordance, at its
+ * own measurements: 32pt brackets in 3pt of #FDFCFA, inset 33 from each side,
+ * 29 from the top and 71 from the bottom of the 293pt card. It used to be a
+ * fixed 236×150 box floated in the middle, which put the frame in a different
+ * place on every screen width.
+ */
 function Viewfinder() {
-  const corner = "absolute h-8 w-8 border-canvas";
+  const corner = "absolute h-8 w-8 border-[#FDFCFA]";
   return (
-    <View style={{ width: 236, height: 150 }}>
-      <View className={`${corner} left-0 top-0 rounded-tl-[14px] border-l-2 border-t-2`} />
-      <View className={`${corner} right-0 top-0 rounded-tr-[14px] border-r-2 border-t-2`} />
-      <View className={`${corner} bottom-0 left-0 rounded-bl-[14px] border-b-2 border-l-2`} />
-      <View className={`${corner} bottom-0 right-0 rounded-br-[14px] border-b-2 border-r-2`} />
-      <View className="absolute inset-x-3 top-[73px] h-0.5 rounded-full bg-tone-good" />
+    <View className="absolute bottom-[71px] left-[33px] right-[33px] top-[29px]">
+      <View className={`${corner} left-0 top-0 rounded-tl-lg border-l-[3px] border-t-[3px]`} />
+      <View className={`${corner} right-0 top-0 rounded-tr-lg border-r-[3px] border-t-[3px]`} />
+      <View className={`${corner} bottom-0 left-0 rounded-bl-lg border-b-[3px] border-l-[3px]`} />
+      <View className={`${corner} bottom-0 right-0 rounded-br-lg border-b-[3px] border-r-[3px]`} />
+      <View className="absolute inset-x-3 top-1/2 h-0.5 rounded-full bg-tone-good" />
+
+      {/* The instruction the design sets inside the frame. Without it the
+          viewfinder is four brackets over a black rectangle and says nothing
+          about what to point it at. */}
+      <View className="absolute inset-x-0 top-[67px] items-center">
+        <Text className="max-w-[200px] text-center text-sm leading-[21px] text-[#FDFCFA]/90">
+          Position barcode or ingredient list in the frame
+        </Text>
+      </View>
     </View>
   );
 }
@@ -418,7 +444,16 @@ function SearchPane() {
               </Text>
               <Text className="text-[11px] text-canvas/60">{product.brand}</Text>
             </View>
-            <Text className="text-canvas/40">›</Text>
+            <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="m9 5 7 7-7 7"
+                stroke={COLORS.canvas}
+                strokeOpacity={0.4}
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
           </Pressable>
         ))}
       </ScrollView>
@@ -463,9 +498,9 @@ function Recents({ history }: { history: { id: string; known: boolean; scoreAtVi
   const scoreFor = (id: string) => history.find((h) => h.id === id)?.scoreAtView ?? null;
 
   return (
-    <View className="gap-2.5 px-6 pt-6">
+    <View className="gap-2.5 px-[26px] pt-[26px]">
       <View className="flex-row items-center justify-between gap-3">
-        <Text className="text-[9px] font-semibold uppercase tracking-[1.5px] text-ink-muted">
+        <Text className="text-[9px] font-semibold uppercase tracking-[1.53px] text-[#565060]">
           Scanned in this store
         </Text>
         <Pressable onPress={() => router.push("/saved")} hitSlop={8}>
@@ -475,7 +510,7 @@ function Recents({ history }: { history: { id: string; known: boolean; scoreAtVi
       {/* One bordered card holding every row, with a divider between them —
           per the Scanner mockup's shelf list. Previously each row was its
           own shadowed card in a gapped stack. */}
-      <View className="overflow-hidden rounded-card border border-hairline bg-surface">
+      <View className="overflow-hidden rounded-control border border-hairline bg-surface">
         {ids.map((id, index) => {
           const product = products.find((p) => p.id === id);
           if (!product) return null;
@@ -487,29 +522,58 @@ function Recents({ history }: { history: { id: string; known: boolean; scoreAtVi
             <Pressable
               key={id}
               onPress={() => router.push({ pathname: "/result/[id]", params: { id } })}
-              className={`flex-row items-center gap-3 px-3.5 py-3 active:opacity-70 ${
-                index < ids.length - 1 ? "border-b border-hairline" : ""
+              className={`min-h-[92px] flex-row items-center gap-[13px] p-[15px] active:opacity-70 ${
+                index < ids.length - 1 ? "border-b border-[#F1ECE6]" : ""
               }`}
             >
-              <ProductIllustration type={product.type} size={44} />
+              <ProductIllustration
+                type={product.type}
+                size={48}
+                height={56}
+                radius="rounded-[7px]"
+              />
               <View className="flex-1 gap-0.5">
                 <Text
-                  className="text-[9px] font-bold uppercase tracking-[1px] text-ink-muted"
+                  className="text-[8.8px] font-semibold uppercase tracking-[0.97px] text-[#736C7F]"
                   numberOfLines={1}
                 >
                   {product.brand}
                 </Text>
-                <Text className="text-[13px] font-semibold text-ink" numberOfLines={1}>
+                <Text
+                  className="text-[13px] font-medium leading-[17px] text-ink"
+                  numberOfLines={2}
+                >
                   {product.name}
                 </Text>
                 {meta ? (
-                  <Text className="text-[10.5px] text-ink-faint" numberOfLines={1}>
+                  <Text className="pt-0.5 text-[10.5px] text-ink-muted" numberOfLines={1}>
                     {meta}
                   </Text>
                 ) : null}
               </View>
-              <MatchBadge score={score} />
-              <Text className="text-[13px] text-ink-faint">›</Text>
+              {/* The snapshot score, stacked under its label — the mockup's
+                  right-hand column. `MatchBadge` renders nothing when there is
+                  no score, which is the honest state for an unresolved scan. */}
+              <View className="w-[78px] items-end gap-1.5">
+                <MatchBadge score={score} variant="soft" />
+                {score !== null ? (
+                  <View className="flex-row items-baseline gap-[2.5px]">
+                    <Text className="text-[14px] font-semibold tabular-nums tracking-[-0.28px] text-ink">
+                      {score}
+                    </Text>
+                    <Text className="text-[9.5px] text-ink-muted">/100</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="m9 5 7 7-7 7"
+                  stroke="#B7B0BC"
+                  strokeWidth={2.2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
             </Pressable>
           );
         })}

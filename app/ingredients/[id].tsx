@@ -115,12 +115,12 @@ export default function IngredientList() {
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
                 className={`h-[38px] flex-1 items-center justify-center rounded-full border ${
-                  active ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
+                  active ? "border-accent bg-tint-lilac" : "border-[#E7E1DB] bg-[#FDFCFA]"
                 }`}
               >
                 <Text
-                  className={`text-[12.5px] font-medium ${
-                    active ? "text-accent-text" : "text-ink"
+                  className={`text-[12.5px] font-medium tracking-[-0.06px] ${
+                    active ? "text-accent-text" : "text-[#453F4E]"
                   }`}
                 >
                   {label}
@@ -164,7 +164,7 @@ export default function IngredientList() {
 
       {/* INCI order is regulated information, and it is the single fact that
           makes this list readable rather than just long. */}
-      <View className="flex-row items-center justify-center gap-2.5 bg-hairline/40 px-6 pb-8 pt-4">
+      <View className="flex-row items-center justify-center gap-2.5 bg-[#F3EFEA] px-6 pb-8 pt-4">
         <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
           <Circle cx={12} cy={12} r={9} stroke={COLORS.inkMuted} strokeWidth={1.8} />
           <Path
@@ -205,7 +205,7 @@ function IngredientListRow({
   return (
     <Pressable
       onPress={onPress}
-      className="flex-row items-start gap-3 border-b border-hairline-soft bg-surface px-6 py-3.5 active:bg-canvas"
+      className="flex-row items-start gap-[11px] border-b border-hairline-soft bg-surface px-6 py-3.5 active:bg-canvas"
     >
       <View className={`mt-1.5 h-[9px] w-[9px] rounded-full ${meta.dot}`} />
 
@@ -223,7 +223,7 @@ function IngredientListRow({
       <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" style={{ marginTop: 5 }}>
         <Path
           d="m9 5 7 7-7 7"
-          stroke={COLORS.inkFaint}
+          stroke="#BDB6C2"
           strokeWidth={2.2}
           strokeLinecap="round"
           strokeLinejoin="round"

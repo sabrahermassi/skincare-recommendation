@@ -138,11 +138,17 @@ type Props = {
   type: ProductType;
   /** Fixed pixel size (detail hero, compare thumbnail). Omit to fill the parent. */
   size?: number;
+  /**
+   * Taller than it is wide, which is how the design draws the shelf and result
+   * tiles (48×56 and 58×66) — a bottle in a square box reads as a sticker.
+   * Defaults to `size`.
+   */
+  height?: number;
   /** Corner radius class for the tile. Rows use a tighter one than cards. */
   radius?: string;
 };
 
-export function ProductIllustration({ type, size, radius = "rounded-card" }: Props) {
+export function ProductIllustration({ type, size, height, radius = "rounded-card" }: Props) {
   const vessel = VESSEL_BY_TYPE[type];
   const backdrop = BACKDROP_BY_TYPE[type];
 
@@ -151,7 +157,7 @@ export function ProductIllustration({ type, size, radius = "rounded-card" }: Pro
       className={`items-center justify-center ${radius} ${backdrop} ${
         size ? "" : "aspect-square w-full"
       }`}
-      style={size ? { width: size, height: size } : undefined}
+      style={size ? { width: size, height: height ?? size } : undefined}
     >
       {/* Percentage sizing means this works identically whether the wrapper is
           a fixed pixel box or fills its parent. */}

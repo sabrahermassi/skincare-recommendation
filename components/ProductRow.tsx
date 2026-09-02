@@ -51,7 +51,7 @@ export function ProductRow({
 
   return (
     <Link href={`/product/${product.id}`} asChild>
-      <Pressable className="flex-row items-center gap-3 border-b border-hairline-soft bg-surface px-5 py-4 active:bg-canvas">
+      <Pressable className="flex-row items-center gap-[13px] border-b border-hairline-soft bg-surface px-5 py-[17px] active:bg-canvas">
         {product.imageUrl ? (
           <Image
             source={{ uri: product.imageUrl }}
@@ -61,7 +61,7 @@ export function ProductRow({
             accessibilityLabel={`${product.brand} ${product.name}`}
           />
         ) : (
-          <ProductIllustration type={product.type} size={46} radius="rounded-chip" />
+          <ProductIllustration type={product.type} size={46} radius="rounded-tile" />
         )}
 
         <View className="flex-1">
@@ -84,7 +84,7 @@ export function ProductRow({
             it just doesn't pretend to rank. */}
         {tone && match.score !== null ? (
           <View className="items-end gap-1.5">
-            <View className={`rounded-chip px-2.5 py-1 ${TONE_BG[tone]}`}>
+            <View className={`rounded-chip px-[9px] py-[3px] ${TONE_BG[tone]}`}>
               <Text className="text-[11px] font-semibold text-white">{TONE_LABEL[tone]}</Text>
             </View>
             <Text className="text-[15px] font-semibold tabular-nums text-ink">

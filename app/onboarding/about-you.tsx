@@ -27,19 +27,22 @@ export default function AboutYouStep() {
       onNext={() => router.push("/onboarding/area")}
       nextDisabled={!answered}
     >
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-6">
-        <View className="gap-3">
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-8">
+        <View className="gap-[15px]">
           {GENDERS.map((gender) => (
             <OptionCard
               key={gender}
               label={genderLabel(gender)}
               selected={profile.gender === gender}
+              // The one screen the design draws with the tall card: four
+              // options and nothing else on it.
+              roomy
               onPress={() => setProfile({ gender })}
             />
           ))}
         </View>
 
-        <View className="gap-2">
+        <View className="gap-[11px]">
           <Text className="text-sm font-semibold text-ink-muted">Age group</Text>
           <View className="flex-row flex-wrap gap-2">
             {AGE_GROUPS.map((ageGroup) => (

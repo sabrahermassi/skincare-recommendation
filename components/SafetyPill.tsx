@@ -55,7 +55,7 @@ export function SafetyPill({
 
   return (
     <View className={`rounded-chip px-2 py-0.5 ${SOLID[level]}`}>
-      <Text className="text-[11px] font-bold uppercase tracking-wide text-white">
+      <Text className="text-[11px] font-bold uppercase tracking-[0.44px] text-white">
         {SAFETY_LABEL[level]}
       </Text>
     </View>

@@ -63,6 +63,13 @@ module.exports = {
         // darkening it past what the design shows.
         ink: {
           DEFAULT: "#332E3A", // 12.35:1 on canvas (was 9.58:1)
+          // Long-form body copy. The design does NOT set running prose in
+          // `muted` — the ingredient-detail screen, which carries the most
+          // continuous text in the app, uses #4A4453 for it and reserves
+          // #8C8592 for captions and meta lines. Reading `muted` as "any text
+          // that isn't a heading" was a misreading, and it put 3.34:1 text
+          // under whole paragraphs. This is 8.02:1 on canvas — comfortably AA.
+          body: "#4A4453",
           muted: "#8C8592", // 3.34:1 on canvas — below AA for body text, see above
           faint: "#9E98A3", // ~2.63:1 on canvas — computed, decorative / large text only
         },
@@ -132,20 +139,32 @@ module.exports = {
         panel: {
           success: "#EAF3EC",
           "success-line": "#DCEBE0",
+          // The result screen's two risk cards. A hair cooler and lighter than
+          // the match panel above them, which is what keeps the panel reading
+          // as the verdict and these as its footnotes. Both pairs are in the
+          // mockup; they are not a duplicate of each other.
+          risk: "#EDF4EF",
+          "risk-line": "#DFEBE3",
+          // The flat warm wash under the two disclaimer strips.
+          wash: "#F3EFEA",
         },
       },
 
-      // control/card bumped 1-3px toward the mockups' own values (13-15px
-      // across button, card and shelf-row radii); chip/sheet left as-is —
-      // no mockup read so far isolates a pill-badge or bottom-sheet radius
-      // distinctly from these.
+      // Read off the mockups rather than rounded to a scale — the design uses
+      // six distinct radii and they are not interchangeable. The one that
+      // matters most is `control`: every primary button in all twelve screens
+      // is 11px, and it was set to 13px here, which is the *compact card*
+      // radius. Buttons drawn at a card's radius read as panels.
       borderRadius: {
-        chip: "8px", // tags, filter chips, score pills
-        control: "13px", // buttons, inputs — was 10px
-        card: "15px", // cards, tiles, thumbnails — was 14px
+        chip: "8px", // filter chips, score pills, tier badges
+        control: "11px", // buttons, segment controls, info strips
+        tile: "12px", // browse-row thumbnails, ingredient-detail panels
+        field: "13px", // the compact two-up cards on the profile screen
+        card: "15px", // option cards, quick actions, product hero
+        panel: "16px", // the shadowed shelf card on Saved
         sheet: "18px", // modals, bottom sheets
         // `full` stays for genuinely circular things only: avatars, the FAB,
-        // step dots, the toggle knob.
+        // step dots, the toggle knob, and the pill-shaped filter tabs.
       },
 
       fontFamily: {
@@ -155,19 +174,24 @@ module.exports = {
         // mockups use it: large, once per screen, never at small sizes.
         display: ["PlayfairDisplay_500Medium"],
         "display-medium": ["PlayfairDisplay_600SemiBold"],
-        // Body text is the OS system font now, not a loaded Google font — the
-        // mockups use `-apple-system, "SF Pro Text", system-ui`, and RN's
-        // Text already renders the platform system font when no fontFamily
-        // is set. "System" is graceful here on both platforms: iOS resolves
-        // it to San Francisco; anything that doesn't recognise it (Android)
-        // falls back to its own default (Roboto) rather than erroring.
+        // There is deliberately NO `sans` override here, and `Text` no longer
+        // injects a family class. The mockups set body text in the OS UI font
+        // (`-apple-system, "SF Pro Text", system-ui`), and every platform
+        // already renders exactly that when no fontFamily is given: iOS uses
+        // San Francisco, Android uses Roboto, and react-native-web's own Text
+        // base style (`font: 14px System`) is rewritten by RNW's style
+        // compiler into the real `-apple-system, BlinkMacSystemFont, "Segoe
+        // UI", Roboto, …` stack.
+        //
+        // Naming the family was the bug. A `sans: ["System"]` token emitted
+        // literal `font-family: System` into the web stylesheet — and that
+        // CSS class bypasses RNW's compiler, so the browser saw an unknown
+        // family and fell back to its default serif. Every word of body text
+        // in the app rendered in Times New Roman.
         //
         // Weight is carried by Tailwind's plain `font-medium`/`font-semibold`/
-        // `font-bold` utilities now (RN's `fontWeight`), not by a separate
-        // named family per weight the way the loaded Google Fonts worked —
-        // every `font-sans-{medium,semibold,bold}` call site was renamed to
-        // match. `sans-medium/-semibold/-bold` are gone: nothing calls them.
-        sans: ["System"],
+        // `font-bold` utilities (RN's `fontWeight`), not by a separate named
+        // family per weight the way the loaded Google Fonts worked.
         // Small monospace eyebrows are a signature of the design.
         mono: ["ui-monospace", "Menlo", "monospace"],
       },

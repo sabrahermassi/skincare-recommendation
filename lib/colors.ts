@@ -18,6 +18,7 @@ export const COLORS = {
   accentText: "#625786",
 
   ink: "#332E3A",
+  inkBody: "#4A4453",
   inkMuted: "#8C8592",
   inkFaint: "#9E98A3",
 
@@ -42,4 +43,7 @@ export const COLORS = {
 
   panelSuccess: "#EAF3EC",
   panelSuccessLine: "#DCEBE0",
+  panelRisk: "#EDF4EF",
+  panelRiskLine: "#DFEBE3",
+  panelWash: "#F3EFEA",
 } as const;

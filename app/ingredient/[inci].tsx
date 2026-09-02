@@ -39,7 +39,16 @@ type Rung = "good" | "watch" | "avoid" | "neutral";
 
 const RUNG: Record<
   Rung,
-  { pill: string; ink: string; dot: string; label: string; panel: string; hero: string }
+  {
+    pill: string;
+    ink: string;
+    dot: string;
+    label: string;
+    panel: string;
+    /** The solid fill of the qualifier pill inside the verdict panel. */
+    chip: string;
+    hero: string;
+  }
 > = {
   good: {
     pill: "bg-level-good-tint",
@@ -47,6 +56,7 @@ const RUNG: Record<
     dot: "bg-level-good",
     label: "Good for you",
     panel: "bg-panel-success border-panel-success-line",
+    chip: "bg-[#D9EADE]",
     hero: COLORS.levelGood,
   },
   watch: {
@@ -55,6 +65,7 @@ const RUNG: Record<
     dot: "bg-level-watch",
     label: "Worth knowing",
     panel: "bg-tint-peach border-tint-peach",
+    chip: "bg-level-watch-tint",
     hero: COLORS.levelWatch,
   },
   avoid: {
@@ -63,6 +74,7 @@ const RUNG: Record<
     dot: "bg-level-avoid",
     label: "Flagged for you",
     panel: "bg-tint-pink border-tint-pink",
+    chip: "bg-level-avoid-tint",
     hero: COLORS.levelAvoid,
   },
   neutral: {
@@ -71,6 +83,7 @@ const RUNG: Record<
     dot: "bg-level-neutral",
     label: "Not recognised",
     panel: "bg-hairline border-hairline",
+    chip: "bg-level-neutral-tint",
     hero: COLORS.levelNeutral,
   },
 };
@@ -193,13 +206,13 @@ export default function IngredientDetail() {
       <ScreenHeader />
 
       <ScrollView contentContainerClassName="pb-40">
-        <View className="flex-row items-start gap-4 px-6 pt-6">
-          <View className="flex-1 gap-2">
-            <Text className="font-display text-[32px] capitalize leading-[34px] text-[#463F57]">
+        <View className="flex-row items-start gap-[18px] px-6 pt-[30px]">
+          <View className="flex-1 gap-[9px]">
+            <Text className="font-display text-[34px] capitalize leading-[36px] tracking-[-0.61px] text-[#463F57]">
               {primary}
             </Text>
             {secondary ? (
-              <Text className="font-display text-[19px] capitalize leading-[21px] text-ink-muted">
+              <Text className="font-display text-[19px] capitalize leading-[19px] text-[#5C5468]">
                 {secondary}
               </Text>
             ) : null}
@@ -214,24 +227,24 @@ export default function IngredientDetail() {
         </View>
 
         <Section title="What it does">
-          <Text className="text-[13.5px] leading-[21px] text-ink-muted">
+          <Text className="text-[13.5px] leading-[21px] text-ink-body">
             {whatItDoes(ingredient, rule?.reason)}
           </Text>
         </Section>
 
-        <Section title="How it fits your skin">
-          <View className={`gap-3 rounded-card border p-[18px] ${meta.panel}`}>
+        <Section title="How it fits your skin" gap="gap-3.5" top="pt-9">
+          <View className={`gap-[13px] rounded-tile border px-[18px] py-[22px] ${meta.panel}`}>
             <View className="flex-row items-center gap-2.5">
               <HeartIcon color={meta.hero} />
               <Text className="font-display text-lg leading-[20px] text-ink">
                 {fitHeadline(rung, helps, hurts, verified)}
               </Text>
             </View>
-            <Text className="text-[13px] leading-[19px] text-ink-muted">
+            <Text className="text-[13px] leading-[19.5px] text-ink-body">
               {fitBody(rung, helps, hurts, verified, Boolean(rule))}
             </Text>
             {/* The small qualifier pill the design puts under the verdict. */}
-            <View className="self-start rounded-full bg-surface/70 px-3 py-1.5">
+            <View className={`self-start rounded-full px-3 py-1.5 ${meta.chip}`}>
               <Text className={`text-[11.5px] font-medium ${meta.ink}`}>
                 {fitPill(rung, helps, hurts, verified)}
               </Text>
@@ -239,9 +252,9 @@ export default function IngredientDetail() {
           </View>
         </Section>
 
-        <Section title="Things to know">
+        <Section title="Things to know" gap="gap-[23px]" top="pt-11">
           {notes.length > 0 ? (
-            <View className="gap-[18px]">
+            <View className="gap-[23px]">
               {notes.map((note) => (
                 <View key={note} className="flex-row items-center gap-3">
                   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
@@ -253,12 +266,12 @@ export default function IngredientDetail() {
                       strokeLinejoin="round"
                     />
                   </Svg>
-                  <Text className="flex-1 text-[13px] leading-[18px] text-ink-muted">{note}</Text>
+                  <Text className="flex-1 text-[13px] leading-[18px] text-ink-body">{note}</Text>
                 </View>
               ))}
             </View>
           ) : (
-            <Text className="text-[13px] leading-[19px] text-ink-muted">
+            <Text className="text-[13px] leading-[19px] text-ink-body">
               We hold no regulatory record, declared function or pore rating for
               this name — which is itself the thing worth knowing about it.
             </Text>
@@ -295,10 +308,21 @@ export default function IngredientDetail() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  gap = "gap-3",
+  top = "pt-[38px]",
+  children,
+}: {
+  title: string;
+  /** The mockup gives each section its own rhythm; these are its values. */
+  gap?: string;
+  top?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <View className="gap-3.5 px-6 pt-9">
-      <Text className="text-[15.5px] font-semibold text-ink">{title}</Text>
+    <View className={`px-6 ${top} ${gap}`}>
+      <Text className="text-[15.5px] font-semibold tracking-[-0.12px] text-ink">{title}</Text>
       {children}
     </View>
   );

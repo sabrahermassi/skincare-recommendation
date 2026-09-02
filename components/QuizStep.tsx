@@ -72,9 +72,11 @@ export function QuizStep({
         </View>
       ) : null}
 
-      <Animated.View entering={FadeInDown.duration(280)} className="mt-8 flex-1 gap-6">
+      <Animated.View entering={FadeInDown.duration(280)} className="mt-[30px] flex-1 gap-[26px]">
         <View className="gap-2">
-          <Text className="font-display text-[32px] leading-9 text-ink">{title}</Text>
+          <Text className="font-display text-[32px] leading-[36.5px] tracking-[-0.48px] text-ink">
+            {title}
+          </Text>
           {subtitle ? <Text className="text-base leading-6 text-ink-muted">{subtitle}</Text> : null}
         </View>
 

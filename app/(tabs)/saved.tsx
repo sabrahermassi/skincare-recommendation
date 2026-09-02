@@ -116,7 +116,7 @@ export default function Saved() {
             body="Tap Save on any product and it will wait for you here — including next time you open the app."
           />
         ) : (
-          <ScrollView contentContainerClassName="gap-4 p-4 pb-8">
+          <ScrollView contentContainerClassName="gap-4 px-4 pb-8 pt-5">
             {savedIds.map((id) => {
               const product = byId[id];
               if (!product) return null;
@@ -152,7 +152,7 @@ export default function Saved() {
           body="Every product you open or scan is logged here automatically, so you can tell at a glance whether you have already checked something."
         />
       ) : (
-        <ScrollView contentContainerClassName="gap-4 p-4 pb-8">
+        <ScrollView contentContainerClassName="gap-4 px-4 pb-8 pt-5">
           {history.map((entry) => {
             const product = entry.known ? byId[entry.id] : undefined;
             return product ? (
@@ -187,7 +187,7 @@ function SegmentButton({
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
-      className={`flex-1 items-center rounded-control border-2 py-2.5 ${
+      className={`flex-1 items-center rounded-control border-2 py-[11px] ${
         active ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
       }`}
     >
@@ -209,7 +209,7 @@ function Row({
 }) {
   return (
     <Link href={`/product/${product.id}`} asChild>
-      <Pressable className="flex-row items-start gap-3 rounded-sheet bg-surface p-3 shadow-sm active:opacity-80">
+      <Pressable className="flex-row items-start gap-[13px] rounded-panel bg-surface p-[13px] shadow-sm active:opacity-80">
         {product.imageUrl ? (
           <Image
             source={{ uri: product.imageUrl }}
@@ -272,7 +272,7 @@ function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: 
 /** A barcode that resolved to nothing — still worth logging as "already checked". */
 function UnknownRow({ entry }: { entry: HistoryEntry }) {
   return (
-    <View className="rounded-sheet border border-hairline bg-surface p-3">
+    <View className="rounded-panel border border-hairline bg-surface p-[13px]">
       <Text className="text-[9.5px] font-semibold uppercase tracking-[0.7px] text-ink-faint">
         Scanned · not in our catalogue
       </Text>

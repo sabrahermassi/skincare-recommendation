@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { Text } from "@/components/Text";
 
-import { Chip } from "@/components/Chip";
+import { OptionCard } from "@/components/OptionCard";
 import { QuizStep } from "@/components/QuizStep";
 import type { Concern } from "@/data/types";
 import { useAppStore } from "@/store/useAppStore";
@@ -35,28 +35,36 @@ export default function ConcernsStep() {
       onNext={() => router.push("/onboarding/skin-type")}
       nextDisabled={concerns.length === 0}
     >
+      {/*
+        A two-column card grid, not a chip cloud — the same control the profile
+        screen uses for these exact eight options, so editing a concern looks
+        the same wherever you do it. At the cap the unpicked cards drop to 45%,
+        which is how the design shows the limit: visible before you hit it
+        rather than announced after a tap does nothing.
+      */}
       <View className="flex-row flex-wrap gap-2">
         {OPTIONS.map((option) => {
           const selected = concerns.includes(option.value);
           return (
-            <Chip
-              key={option.value}
-              label={option.label}
-              selected={selected}
-              // At the cap, unselected chips are genuinely disabled rather
-              // than silently ignoring taps — so assistive tech announces it.
-              disabled={!selected && atLimit}
-              onPress={() => toggleConcern(option.value)}
-            />
+            <View key={option.value} className="w-[48.5%]">
+              <OptionCard
+                compact
+                multiple
+                label={option.label}
+                selected={selected}
+                dimmed={atLimit}
+                onPress={() => toggleConcern(option.value)}
+              />
+            </View>
           );
         })}
       </View>
 
-      {atLimit && (
-        <Text className="mt-4 text-xs text-ink-faint">
-          {MAX} selected — deselect one to swap.
-        </Text>
-      )}
+      <Text className="mt-4 text-xs text-ink-faint">
+        {atLimit
+          ? `${MAX} selected — deselect one to swap.`
+          : `${concerns.length} of ${MAX} selected.`}
+      </Text>
     </QuizStep>
   );
 }
