@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
-import { PoreCloggingBand } from "@/components/PoreCloggingBand";
+import { PoreCloggingList } from "@/components/PoreCloggingList";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
@@ -81,7 +81,7 @@ export default function CheckScreen() {
           {recognised} recognised
         </Text>
 
-        <PoreCloggingBand ingredients={ingredients} />
+        <PoreCloggingList ingredients={ingredients} />
 
         <Text className="px-6 pb-2 pt-7 text-[10.5px] font-bold uppercase tracking-[0.9px] text-ink-faint">
           The full list
@@ -140,7 +140,7 @@ function PastedRow({ ingredient, position }: { ingredient: Ingredient; position:
           className="rounded-full"
         >
           <Text style={{ color: "#A4526A", fontSize: 9.5 }} className="font-bold uppercase">
-            Pores
+            Clogging
           </Text>
         </View>
       ) : null}

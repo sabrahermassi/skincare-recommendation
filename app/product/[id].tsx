@@ -1,13 +1,12 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Share, View } from "react-native";
-import Svg, { Circle, Path } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
 
 import { BottleIcon } from "@/components/BottleIcon";
-import { FactorBar } from "@/components/FactorBar";
-import { PoreCloggingBand } from "@/components/PoreCloggingBand";
+import { PoreCloggingList } from "@/components/PoreCloggingList";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { CompareIcon, HeartIcon } from "@/components/icons";
@@ -17,7 +16,8 @@ import { fetchProduct } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { matchProduct, verdictHeadline, type Verdict } from "@/lib/matching";
-import { groupByRisk, isVerified, type RiskGroup } from "@/lib/safety";
+import { CATEGORY_LABEL } from "@/lib/rules";
+import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -33,6 +33,18 @@ import { useAppStore } from "@/store/useAppStore";
  * Every number here is derived from the formula. Where the design called for
  * data we do not hold — an EWG hazard score, a written verdict — the screen
  * shows something we can actually source instead of a plausible fabrication.
+ *
+ * ONE ANSWER PER QUESTION
+ *
+ * The screen used to state the same thing repeatedly: a score, then weighted
+ * factor bars, then two risk cards, then risk tiers, then a caveat in the
+ * middle and a second caveat at the bottom. Pore-clogging alone appeared three
+ * times. Someone holding a bottle in a shop reads none of that.
+ *
+ * The order is now: what it is, the score, the two risk verdicts, which
+ * ingredients caused the pore-clogging one, one line of why in words, the
+ * caveat. Detail lives one tap away behind "View ingredients", never stacked
+ * on top of the answer.
  */
 
 const PANEL: Record<Verdict, { bg: string; border: string; label: string; ink: string }> = {
@@ -41,17 +53,6 @@ const PANEL: Record<Verdict, { bg: string; border: string; label: string; ink: s
   poor: { bg: "#FBEAEC", border: "#F2D8DC", label: "Not for you", ink: "#A2521F" },
   unknown: { bg: "#F3EFEA", border: "#E9E4DD", label: "Can't tell yet", ink: "#5C5566" },
 };
-
-const TIER_META: Record<RiskGroup, { label: string; icon: string; color: string }> = {
-  avoid: { label: "Needs a closer look", icon: "!", color: "bg-status-avoid" },
-  caution: { label: "Some caution", icon: "•", color: "bg-status-caution" },
-  clean: { label: "No concerns", icon: "✓", color: "bg-status-safe" },
-  unknown: { label: "We couldn't identify these", icon: "?", color: "bg-ink-faint" },
-};
-// "unknown" sits last but above nothing: it is the honest tail of the list,
-// not a footnote. Crowdsourced labels are often OCR-mangled, and these are the
-// names we could not match to a dictionary.
-const TIER_ORDER: RiskGroup[] = ["avoid", "caution", "unknown", "clean"];
 
 export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -120,9 +121,18 @@ export default function ProductScreen() {
 
   const match = matchProduct(product, profile);
   const panel = PANEL[match.verdict];
-  const riskGroups = groupByRisk(product.ingredients);
   const total = product.ingredients.length;
   const recognised = product.ingredients.filter(isVerified).length;
+
+  // The same factors the weighted bars used to draw, said as words. The
+  // direction of each factor is the part a shopper can act on; the magnitude
+  // was never anything but our own rule weight.
+  const helps = match.factors
+    .filter((f) => f.delta > 0)
+    .map((f) => CATEGORY_LABEL[f.category].toLowerCase());
+  const against = match.factors
+    .filter((f) => f.delta < 0)
+    .map((f) => CATEGORY_LABEL[f.category].toLowerCase());
 
   async function share() {
     if (!product) return;
@@ -235,125 +245,53 @@ export default function ProductScreen() {
           </Pressable>
         </View>
 
-        {/* The pore-clogging answer, above the fold. This is the question the
-            app is replacing a three-site copy-paste routine to answer, so it
-            sits directly under the verdict rather than in the risk cards
-            further down, which are below the fold on a phone. */}
-        <PoreCloggingBand
+        {/* Two boxes, directly under the score: the only two risks the screen
+            states as a verdict. Everything below them is detail on those two,
+            never a second opinion about them. */}
+        <RiskCards product={product} match={match} />
+
+        {/* Which ones. Renders only when there is something to name. */}
+        <PoreCloggingList
           ingredients={product.ingredients}
           onPress={
             product.ingredients.length > 0
               ? () =>
                   router.push({
                     pathname: "/ingredients/[id]",
-                    params: { id: product.id, tab: "Pores" },
+                    params: { id: product.id, tab: "Pore clogging" },
                   })
               : undefined
           }
         />
 
-        {match.factors.length > 0 ? (
-          <>
-            <Text className="pt-6 text-center text-[10.5px] text-ink-muted">
-              Why? We read {recognised} of {total} ingredients.
-            </Text>
-            <View className="px-6 pt-4">
-              {match.factors.map((factor) => (
-                <FactorBar key={factor.category} factor={factor} />
-              ))}
-            </View>
-          </>
-        ) : (
-          <Text className="px-6 pt-5 text-center text-[12.5px] leading-[18px] text-ink-muted">
-            Nothing in this formula matched a rule we hold, so there is no
-            breakdown to show — the score above is the whole answer.
-          </Text>
-        )}
-
-        {/* This screen is a judgement, so the caveat belongs on it. */}
-        <View className="mx-6 mt-4 flex-row items-center justify-center gap-2.5 rounded-control bg-panel-wash px-4 py-3">
-          <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-            <Circle cx={12} cy={12} r={9} stroke={COLORS.inkMuted} strokeWidth={1.8} />
-            <Path
-              d="M12 11v5.4M12 7.7v.1"
-              stroke={COLORS.inkMuted}
-              strokeWidth={1.8}
-              strokeLinecap="round"
-            />
-          </Svg>
-          <Text className="text-center text-[10.5px] leading-[15px] text-ink-muted">
-            Based on your skin profile and public ingredient data. Not medical advice.
-          </Text>
-        </View>
-
-        <RiskCards product={product} match={match} />
-
         {/*
-          The design draws this as a checklist. `benefits` supplies the bullets
-          where a row has them, but that is only the hand-written catalogue —
-          Open Beauty Facts and the INCI API return a formula and a label, not
-          copywriting, so for a real product the list is empty. `description`
-          is always populated, so it carries the section instead of leaving a
-          hole where the design put content.
+          One line of "why", in words.
+
+          This replaced a stack of weighted bars reading "Barrier support −7 /
+          Pore-clogging −6". Those numbers are internal scoring arithmetic —
+          a hand-set rule weight, scaled by position in the list and by whether
+          the product rinses off — and they were being shown as though they
+          measured something. Nobody could read them, which for a screen whose
+          job is to answer one question in a shop aisle makes them worse than
+          nothing.
         */}
-        <View className="gap-3 px-5 pt-7">
-          <Text className="text-[10.5px] font-bold uppercase tracking-[0.9px] text-ink-faint">
-            What it does
-          </Text>
-          {product.benefits.length > 0 ? (
-            product.benefits.map((benefit) => (
-              <View key={benefit} className="flex-row items-center gap-2.5">
-                <Text className="text-[15px] font-bold text-status-safe">✓</Text>
-                <Text className="flex-1 text-[12.5px] leading-[17px] text-ink">{benefit}</Text>
-              </View>
-            ))
-          ) : (
-            <Text className="text-[12.5px] leading-[19px] text-ink-muted">
-              {product.description}
+        {(helps.length > 0 || against.length > 0) && (
+          <View style={{ marginHorizontal: 24, marginTop: 22, gap: 6 }}>
+            {helps.length > 0 && (
+              <Text className="text-[12.5px] leading-[18px] text-ink-body">
+                <Text className="font-semibold text-ink">Works for you: </Text>
+                {helps.join(", ")}.
+              </Text>
+            )}
+            {against.length > 0 && (
+              <Text className="text-[12.5px] leading-[18px] text-ink-body">
+                <Text className="font-semibold text-ink">Works against you: </Text>
+                {against.join(", ")}.
+              </Text>
+            )}
+            <Text className="pt-1 text-[11px] text-ink-faint">
+              From {recognised} of {total} ingredients we could identify.
             </Text>
-          )}
-        </View>
-
-        {total > 0 && (
-          <View className="gap-3 px-5 pt-7">
-            <Text className="text-[10.5px] font-bold uppercase tracking-[0.9px] text-ink-faint">
-              Ingredients by risk
-            </Text>
-            {TIER_ORDER.map((tier) => {
-              const items = riskGroups[tier];
-              if (items.length === 0) return null;
-              const meta = TIER_META[tier];
-
-              return (
-                <View
-                  key={tier}
-                  style={{ gap: 12, paddingHorizontal: 15, paddingVertical: 16 }}
-                  className="flex-row items-center rounded-card border border-hairline bg-surface"
-                >
-                  <View
-                    style={{ height: 28, width: 28 }}
-                    className={`items-center justify-center rounded-full ${meta.color}`}
-                  >
-                    <Text className="text-[13px] font-bold leading-[16px] text-white">
-                      {meta.icon}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text className="text-[13px] font-semibold text-ink">{meta.label}</Text>
-                    <Text className="mt-0.5 text-[11px] leading-[15px] text-ink-muted" numberOfLines={2}>
-                      {items.map((i) => i.name).join(", ")}
-                    </Text>
-                  </View>
-                  {/* Fixed width and centred, so a two-digit count can't push
-                      the row's contents around or clip against the edge. */}
-                  <View style={{ minWidth: 26, alignItems: "flex-end" }}>
-                    <Text className="text-[14px] font-semibold tabular-nums text-ink-muted">
-                      {items.length}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
           </View>
         )}
 
@@ -371,15 +309,18 @@ export default function ProductScreen() {
         )}
 
         {/*
-          Required by the INCI API terms, which forbid presenting their data as
-          medically validated without a disclaimer — and true regardless, since
-          `lib/matching.ts` is still an explicit placeholder.
+          One caveat, at the bottom. There were two — a grey box mid-screen
+          and this one — which is both redundant and, in the middle of the
+          screen, in the way of the answer. It stays required (the INCI API
+          terms forbid presenting their data as medically validated without a
+          disclaimer, and `lib/matching.ts` is still an explicit placeholder),
+          but it is a footnote, not a headline.
         */}
-        <View style={{ marginHorizontal: 20, marginTop: 36, marginBottom: 16 }} className="rounded-card bg-tint-lilac px-4 py-3.5">
-          <Text className="text-xs leading-4 text-accent-text">
-            Ingredient information only — not medical or dermatological advice.
-            Formulas change, and label data can be out of date or incomplete.
-            Check the packaging and ask a professional about anything that matters.
+        <View style={{ marginHorizontal: 24, marginTop: 30, marginBottom: 8 }}>
+          <Text className="text-[10.5px] leading-[15px] text-ink-faint">
+            Based on your skin profile and public ingredient data — not medical
+            advice. Formulas change and label data can be out of date, so check
+            the packaging for anything that matters.
           </Text>
         </View>
 

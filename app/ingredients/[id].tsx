@@ -22,7 +22,7 @@ import { useAppStore } from "@/store/useAppStore";
  * this and reading the back of the box.
  */
 
-const TABS = ["All", "Actives", "Watch-outs", "Pores"] as const;
+const TABS = ["All", "Actives", "Watch-outs", "Pore clogging"] as const;
 type Tab = (typeof TABS)[number];
 
 /**
@@ -47,7 +47,7 @@ function rungFor(ingredient: Ingredient, match: MatchResult): Rung {
 }
 
 export default function IngredientList() {
-  // `tab` arrives from the product screen's pore-clogging band, which deep
+  // `tab` arrives from the product screen's pore-clogging list, which deep
   // links straight into the filtered view rather than dropping you on "All"
   // to find them yourself.
   const { id, tab: initialTab } = useLocalSearchParams<{ id: string; tab?: string }>();
@@ -102,7 +102,7 @@ export default function IngredientList() {
   const visible = product.ingredients.filter((i) => {
     if (tab === "Actives") return ruleFor(i) !== undefined;
     if (tab === "Watch-outs") return rungFor(i, match) !== "good";
-    if (tab === "Pores") return isPoreClogging(i);
+    if (tab === "Pore clogging") return isPoreClogging(i);
     return true;
   });
 
@@ -124,9 +124,9 @@ export default function IngredientList() {
         >
           {TABS.map((label) => {
             const active = tab === label;
-            // The count earns the tab its place: "Pores 3" answers the
+            // The count earns the tab its place: "Pore clogging 3" answers the
             // question before you have tapped anything.
-            const suffix = label === "Pores" && cloggerCount > 0 ? ` ${cloggerCount}` : "";
+            const suffix = label === "Pore clogging" && cloggerCount > 0 ? ` ${cloggerCount}` : "";
             return (
               <Pressable
                 key={label}
@@ -252,8 +252,11 @@ function IngredientListRow({
               style={{ backgroundColor: "#FBE2E7", paddingHorizontal: 6, paddingVertical: 2 }}
               className="rounded-full"
             >
+              {/* "Clogging", not "Pore clogging": the badge sits inline beside
+                  the ingredient name, and the full phrase crowds the row off
+                  the screen. The tab it filters to says the whole thing. */}
               <Text style={{ color: "#A4526A", fontSize: 9.5 }} className="font-bold uppercase">
-                Pores
+                Clogging
               </Text>
             </View>
           ) : null}
