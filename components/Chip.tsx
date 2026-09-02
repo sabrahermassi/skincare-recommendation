@@ -48,8 +48,14 @@ export function Chip({
           : "border-hairline bg-surface active:bg-canvas"
       }`}
     >
+      {/* Unselected sits in muted grey, not full ink: a row of eight options
+          in heading-black reads as eight things already chosen. The selected
+          one is the only one at full contrast, which is what makes it findable
+          at a glance. */}
       <Text
-        className={`text-[14.5px] font-semibold ${selected ? "text-white" : "text-ink"}`}
+        className={`text-[14.5px] font-semibold ${
+          selected ? "text-white" : "text-ink-muted"
+        }`}
       >
         {label}
       </Text>

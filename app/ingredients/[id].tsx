@@ -105,7 +105,7 @@ export default function IngredientList() {
       <ScreenHeader title="Ingredients" />
 
       <ScrollView contentContainerClassName="pb-4">
-        <View className="flex-row gap-2.5 px-6 pt-5">
+        <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 24, paddingTop: 20 }}>
           {(["All", "Actives", "Watch-outs"] as const).map((label) => {
             const active = tab === label;
             return (
@@ -114,13 +114,18 @@ export default function IngredientList() {
                 onPress={() => setTab(label)}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
-                className={`h-[38px] flex-1 items-center justify-center rounded-full border ${
-                  active ? "border-accent bg-tint-lilac" : "border-[#E7E1DB] bg-[#FDFCFA]"
+                // 44pt and the app's own option-label size, matching every
+                // other row of choices. The design draws 38 at 12.5px, which
+                // is both under the touch minimum and smaller than the same
+                // control anywhere else in the app.
+                style={{ height: 44, flex: 1 }}
+                className={`items-center justify-center rounded-full border ${
+                  active ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
                 }`}
               >
                 <Text
-                  className={`text-[12.5px] font-medium tracking-[-0.06px] ${
-                    active ? "text-accent-text" : "text-[#453F4E]"
+                  className={`text-[14.5px] font-semibold ${
+                    active ? "text-accent-text" : "text-ink-muted"
                   }`}
                 >
                   {label}

@@ -34,9 +34,12 @@ const TONE_LABEL = {
 export function ProductRow({
   product,
   match,
+  last = false,
 }: {
   product: ProductWithIngredients;
   match: MatchResult;
+  /** Drops the divider — the scanner's shelf card draws its own border. */
+  last?: boolean;
 }) {
   const total = product.ingredients.length;
   const flagged = flaggedIngredients(product.ingredients).length;

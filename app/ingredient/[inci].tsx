@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
@@ -89,26 +90,6 @@ const RUNG: Record<
   },
 };
 
-/** A round flask tile, standing in for the design's raster hero illustration. */
-function FlaskHero({ color }: { color: string }) {
-  return (
-    <View
-      className="items-center justify-center rounded-full"
-      style={{ height: 86, width: 86, backgroundColor: `${color}26` }}
-    >
-      <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
-        <Path
-          d="M9.5 3h5M10.5 3v6.2L5.8 17.4A2.2 2.2 0 0 0 7.7 20.8h8.6a2.2 2.2 0 0 0 1.9-3.4L13.5 9.2V3"
-          stroke={color}
-          strokeWidth={1.7}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <Path d="M8.2 14.6h7.6" stroke={color} strokeWidth={1.7} strokeLinecap="round" />
-      </Svg>
-    </View>
-  );
-}
 
 function HeartIcon({ color }: { color: string }) {
   return (
@@ -224,7 +205,15 @@ export default function IngredientDetail() {
               <Text className={`text-[12.5px] font-medium ${meta.ink}`}>{meta.label}</Text>
             </View>
           </View>
-          <FlaskHero color={meta.hero} />
+          {/* The design project's own hero illustration
+              (assets/icon-flask-round.png), not a redraw of it. */}
+          <Image
+            source={require("@/assets/images/icon-flask-round.png")}
+            style={{ width: 86, height: 86, borderRadius: 43 }}
+            contentFit="cover"
+            transition={120}
+            accessibilityLabel=""
+          />
         </View>
 
         <Section title="What it does">
@@ -237,7 +226,7 @@ export default function IngredientDetail() {
           <View className={`gap-[13px] rounded-tile border px-[18px] py-[22px] ${meta.panel}`}>
             <View className="flex-row items-center gap-2.5">
               <HeartIcon color={meta.hero} />
-              <Text className="font-display text-lg leading-[20px] text-ink">
+              <Text className={`font-display text-[18px] leading-[21px] ${meta.ink}`}>
                 {fitHeadline(rung, helps, hurts, verified)}
               </Text>
             </View>

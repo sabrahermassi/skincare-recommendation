@@ -1,20 +1,46 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Share, View } from "react-native";
+import Svg, { Circle, Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
 
+import { FactorBar } from "@/components/FactorBar";
 import { ProductIllustration } from "@/components/ProductIllustration";
+import { RiskCards } from "@/components/RiskCards";
+import { ScoreRing } from "@/components/ScoreRing";
 import { CompareIcon, HeartIcon } from "@/components/icons";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { fetchProduct } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
-import { matchProduct, matchTone, verdictHeadline } from "@/lib/matching";
-import { groupByRisk, type RiskGroup } from "@/lib/safety";
+import { matchProduct, verdictHeadline, type Verdict } from "@/lib/matching";
+import { groupByRisk, isVerified, type RiskGroup } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
+
+/**
+ * The product screen — one screen, however you arrive at it.
+ *
+ * There used to be two: a "scan result" carrying the score ring, the factor
+ * breakdown and the risk cards, and a "product detail" carrying a hero tile, a
+ * flat match band and the ingredient tiers. Tapping the same bottle from the
+ * shelf and from the browse list therefore showed two different-looking answers
+ * to the same question. `app/result/[id].tsx` renders this file now, so the
+ * post-scan route keeps working with one rendering behind both.
+ *
+ * Every number here is derived from the formula. Where the design called for
+ * data we do not hold — an EWG hazard score, a written verdict — the screen
+ * shows something we can actually source instead of a plausible fabrication.
+ */
+
+const PANEL: Record<Verdict, { bg: string; border: string; label: string; ink: string }> = {
+  good: { bg: "#EAF3EC", border: "#DCEBE0", label: "Good match", ink: "#4B7A5E" },
+  mixed: { bg: "#FBF0E4", border: "#F2E2CE", label: "Worth a look", ink: "#8A6314" },
+  poor: { bg: "#FBEAEC", border: "#F2D8DC", label: "Not for you", ink: "#A2521F" },
+  unknown: { bg: "#F3EFEA", border: "#E9E4DD", label: "Can't tell yet", ink: "#5C5566" },
+};
 
 const TIER_META: Record<RiskGroup, { label: string; icon: string; color: string }> = {
   avoid: { label: "Needs a closer look", icon: "!", color: "bg-status-avoid" },
@@ -27,18 +53,7 @@ const TIER_META: Record<RiskGroup, { label: string; icon: string; color: string 
 // names we could not match to a dictionary.
 const TIER_ORDER: RiskGroup[] = ["avoid", "caution", "unknown", "clean"];
 
-/**
- * The match band's fill. Green only when the score has earned it — the design
- * draws its sample as a great match, but the same panel has to carry a poor
- * one without reading as praise.
- */
-const BAND = {
-  high: { bg: "bg-panel-success border-panel-success-line", label: "Great match", ink: "text-status-safe" },
-  medium: { bg: "bg-tint-peach border-tint-peach", label: "Fair match", ink: "text-status-caution" },
-  low: { bg: "bg-tint-pink border-tint-pink", label: "Poor match", ink: "text-status-watch" },
-} as const;
-
-export default function ProductDetail() {
+export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,105 +108,174 @@ export default function ProductDetail() {
 
   if (!product) {
     return (
-      <View className="flex-1 items-center justify-center bg-canvas px-6">
-        <Text className="text-ink-muted">Product not found.</Text>
+      <View className="flex-1 bg-canvas">
+        <ScreenHeader />
+        <View className="flex-1 items-center justify-center gap-4 px-8">
+          <Text className="font-display text-2xl text-ink">Product not found</Text>
+          <PrimaryButton label="Scan another" onPress={() => router.replace("/scan")} />
+        </View>
       </View>
     );
   }
 
   const match = matchProduct(product, profile);
-  const tone = match.score === null ? null : matchTone(match.score);
-  const band = tone ? BAND[tone] : null;
+  const panel = PANEL[match.verdict];
   const riskGroups = groupByRisk(product.ingredients);
   const total = product.ingredients.length;
+  const recognised = product.ingredients.filter(isVerified).length;
+
+  async function share() {
+    if (!product) return;
+    const line =
+      match.score === null
+        ? `${product.brand} ${product.name} — checked on Skintel`
+        : `${product.brand} ${product.name} — ${match.score}/100 for my skin, on Skintel`;
+    try {
+      await Share.share({ message: line });
+    } catch (err) {
+      console.warn("share failed:", err);
+    }
+  }
 
   return (
     <View className="flex-1 bg-canvas">
-      {/* Back chevron and heart on the canvas, as the design draws it — no
-          system header bar above. */}
       <ScreenHeader
         right={
-          <Pressable
-            onPress={() => toggleSaved(product.id)}
-            hitSlop={12}
-            accessibilityLabel={saved ? "Remove from saved" : "Save"}
-            accessibilityState={{ selected: saved }}
-          >
-            <HeartIcon size={21} filled={saved} />
+          <Pressable onPress={share} hitSlop={12} accessibilityLabel="Share this result">
+            <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M12 15.5V3.4M7.8 7.6 12 3.4l4.2 4.2M5 13.6V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.4"
+                stroke="#453F4E"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
           </Pressable>
         }
       />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 190 }}>
-        <View className="items-center px-5 pt-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 200 }}>
+        {/* Which product this is about, stated once and compactly. */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 14,
+            paddingHorizontal: 24,
+            paddingTop: 20,
+          }}
+        >
           {product.imageUrl ? (
             <Image
               source={{ uri: product.imageUrl }}
-              style={{ width: 150, height: 150, borderRadius: 15 }}
+              style={{ width: 58, height: 66, borderRadius: 9 }}
               contentFit="contain"
               transition={150}
               accessibilityLabel={`${product.brand} ${product.name}`}
             />
           ) : (
-            <ProductIllustration type={product.type} size={150} />
+            <ProductIllustration type={product.type} size={58} height={66} radius="rounded-[9px]" />
           )}
+          <View style={{ flex: 1, gap: 5 }}>
+            <Text className="text-[9.5px] font-semibold uppercase tracking-[0.7px] text-ink-faint">
+              {product.brand}
+            </Text>
+            <Text className="text-[16.5px] font-medium leading-[22px] tracking-tight text-ink">
+              {product.name}
+            </Text>
+            <Text className="text-[11.5px] text-ink-muted">
+              {[product.volume, product.type].filter(Boolean).join(" / ")}
+            </Text>
+          </View>
         </View>
 
-        <View className="items-center gap-1.5 px-5 pt-4">
-          <Text className="text-[10px] font-semibold uppercase tracking-[0.9px] text-ink-faint">
-            {product.brand}
-          </Text>
-          <Text className="text-center font-display text-[23px] leading-7 text-ink">
-            {product.name}
-          </Text>
-          <Text className="text-[12.5px] text-ink-muted">
-            {[product.volume, product.type, total > 0 ? `${total} ingredients` : null]
-              .filter(Boolean)
-              .join(" · ")}
-          </Text>
-          {!product.inStock && (
-            <Text className="text-[12.5px] font-semibold text-status-avoid">Out of stock</Text>
-          )}
-        </View>
-
-        {/* The verdict, before the detail. Never colour alone — the band
+        {/* The verdict, before anything else. Never colour alone — the panel
             carries a word too. */}
-        {band && match.score !== null ? (
-          <View
-            style={{
-              marginHorizontal: 20,
-              marginTop: 20,
-              paddingHorizontal: 18,
-              paddingVertical: 18,
-              gap: 16,
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-            className={`rounded-card border ${band.bg}`}
+        <View
+          className="flex-row items-center rounded-card border"
+          style={{
+            marginHorizontal: 24,
+            marginTop: 20,
+            gap: 20,
+            paddingHorizontal: 20,
+            paddingVertical: 22,
+            backgroundColor: panel.bg,
+            borderColor: panel.border,
+          }}
+        >
+          <ScoreRing
+            score={match.score}
+            size={82}
+            label="/100"
+            tone={match.verdict}
+          />
+          <View className="flex-1 gap-1.5 pr-6">
+            <Text
+              className="font-display text-[21px] leading-[23px] tracking-tight"
+              style={{ color: panel.ink }}
+            >
+              {panel.label}
+            </Text>
+            <Text className="text-[13px] leading-[18.5px] text-ink-body">
+              {verdictHeadline(match)}
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={() => toggleSaved(product.id)}
+            hitSlop={10}
+            accessibilityLabel={saved ? "Remove from shelf" : "Save to my shelf"}
+            accessibilityState={{ selected: saved }}
+            className="absolute right-4 top-4"
           >
-            <View style={{ flexDirection: "row", alignItems: "baseline" }}>
-              <Text
-                className="font-semibold tracking-tight text-ink"
-                style={{ fontSize: 34, lineHeight: 36 }}
-              >
-                {match.score}
-              </Text>
-              <Text className="text-[14px] font-medium text-ink-muted">%</Text>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill={saved ? panel.ink : "none"}>
+              <Path
+                d="M12 20.2s-7.6-4.7-7.6-9.7A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 7.6 2.8c0 5-7.6 9.7-7.6 9.7Z"
+                stroke={panel.ink}
+                strokeWidth={1.7}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </Pressable>
+        </View>
+
+        {match.factors.length > 0 ? (
+          <>
+            <Text className="pt-3.5 text-center text-[10.5px] text-ink-muted">
+              Why? We read {recognised} of {total} ingredients.
+            </Text>
+            <View className="px-6 pt-4">
+              {match.factors.map((factor) => (
+                <FactorBar key={factor.category} factor={factor} />
+              ))}
             </View>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text className={`font-display text-[19px] leading-[22px] ${band.ink}`}>
-                {band.label}
-              </Text>
-              <Text className="text-[12.5px] leading-[17px] text-ink-body">
-                {verdictHeadline(match)}
-              </Text>
-            </View>
-          </View>
+          </>
         ) : (
-          <View className="mx-5 mt-5 rounded-card bg-tint-lilac px-4 py-3.5">
-            <Text className="text-xs leading-4 text-accent-text">{verdictHeadline(match)}</Text>
-          </View>
+          <Text className="px-6 pt-5 text-center text-[12.5px] leading-[18px] text-ink-muted">
+            Nothing in this formula matched a rule we hold, so there is no
+            breakdown to show — the score above is the whole answer.
+          </Text>
         )}
+
+        {/* This screen is a judgement, so the caveat belongs on it. */}
+        <View className="mx-6 mt-4 flex-row items-center justify-center gap-2.5 rounded-control bg-panel-wash px-4 py-3">
+          <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+            <Circle cx={12} cy={12} r={9} stroke={COLORS.inkMuted} strokeWidth={1.8} />
+            <Path
+              d="M12 11v5.4M12 7.7v.1"
+              stroke={COLORS.inkMuted}
+              strokeWidth={1.8}
+              strokeLinecap="round"
+            />
+          </Svg>
+          <Text className="text-center text-[10.5px] leading-[15px] text-ink-muted">
+            Based on your skin profile and public ingredient data. Not medical advice.
+          </Text>
+        </View>
+
+        <RiskCards product={product} match={match} />
 
         {/*
           The design draws this as a checklist. `benefits` supplies the bullets
@@ -289,7 +373,9 @@ export default function ProductDetail() {
         </View>
 
         {product.attribution ? (
-          <Text className="px-5 text-[11px] leading-4 text-ink-faint">{product.attribution}</Text>
+          <Text className="px-6 pt-5 text-[10.5px] leading-4 text-ink-faint">
+            {product.attribution}
+          </Text>
         ) : null}
       </ScrollView>
 

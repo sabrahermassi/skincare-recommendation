@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Chip } from "@/components/Chip";
-import { LogoMark } from "@/components/LogoMark";
+import { AppHeader, HEADER_GUTTER, ProfilePill } from "@/components/AppHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
 import { Text } from "@/components/Text";
@@ -91,39 +91,33 @@ export default function Browse() {
   return (
     <View className="flex-1 bg-canvas" style={{ paddingTop: insets.top }}>
       <ScrollView contentContainerClassName="pb-28" stickyHeaderIndices={[1]}>
-        <View style={{ gap: 18 }} className="px-5 pb-2 pt-3">
-          <View className="flex-row items-start justify-between gap-3.5">
-            <View className="gap-1">
-              <View className="flex-row items-center gap-2.5">
-                <LogoMark size={28} />
-                <Text className="font-display text-2xl leading-none text-ink">
-                  <Text className="text-[28px]">S</Text>kin<Text className="text-[28px]">T</Text>
-                  el
-                </Text>
-              </View>
-              <Text className="text-[11.5px] text-ink-muted">
-                {personalized
-                  ? `Ranked for ${profileSummary(profile).toLowerCase()}`
-                  : "No profile yet — showing unsorted results"}
-              </Text>
-            </View>
-            <Pressable onPress={() => router.push("/profile")} hitSlop={8} className="pt-1.5">
-              <Text className="text-[11.5px] font-semibold text-accent-text">Edit</Text>
-            </Pressable>
-          </View>
+        <View style={{ gap: 18, paddingBottom: 8 }}>
+          {/* The same masthead the scanner draws — same mark, same wordmark,
+              same strapline, same size and colour. It used to be written out
+              again here a few points smaller and in a different ink, so the
+              top of the app resized itself as you moved between tabs. */}
+          <AppHeader right={<ProfilePill summary={profileSummary(profile)} />} />
 
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            {QUICK_ACTIONS.map((action) => (
-              <Link key={action.href} href={action.href} asChild>
-                <Pressable
-                  style={{ flex: 1, minHeight: 96, gap: 10 }}
-                  className={`items-center justify-center rounded-card ${action.bg} active:opacity-80`}
-                >
-                  <Ionicons name={action.icon} size={26} color={COLORS.ink} />
-                  <Text className="text-[13px] font-semibold text-ink">{action.label}</Text>
-                </Pressable>
-              </Link>
-            ))}
+          <View style={{ paddingHorizontal: HEADER_GUTTER, gap: 12 }}>
+            <Text className="text-[11.5px] text-ink-muted">
+              {personalized
+                ? `Ranked for ${profileSummary(profile).toLowerCase()}`
+                : "No profile yet — showing unsorted results"}
+            </Text>
+
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              {QUICK_ACTIONS.map((action) => (
+                <Link key={action.href} href={action.href} asChild>
+                  <Pressable
+                    style={{ flex: 1, minHeight: 96, gap: 10 }}
+                    className={`items-center justify-center rounded-card ${action.bg} active:opacity-80`}
+                  >
+                    <Ionicons name={action.icon} size={26} color={COLORS.ink} />
+                    <Text className="text-[13px] font-semibold text-ink">{action.label}</Text>
+                  </Pressable>
+                </Link>
+              ))}
+            </View>
           </View>
         </View>
 
@@ -131,7 +125,7 @@ export default function Browse() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingTop: 10 }}
+            contentContainerStyle={{ gap: 8, paddingHorizontal: HEADER_GUTTER, paddingTop: 10 }}
           >
             {typeFilters.map((type) => (
               <Chip

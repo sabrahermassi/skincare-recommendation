@@ -13,11 +13,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
-import { LogoMark } from "@/components/LogoMark";
-import { Eyebrow, Wordmark } from "@/components/Wordmark";
-import { MatchBadge } from "@/components/MatchBadge";
-import { ProductIllustration } from "@/components/ProductIllustration";
-import { Avatar } from "@/components/Avatar";
+import { ProductRow } from "@/components/ProductRow";
+import { AppHeader, HEADER_GUTTER, ProfilePill } from "@/components/AppHeader";
 import { Text } from "@/components/Text";
 import { fetchProductByBarcode, fetchProductsByIds, searchProducts } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -161,77 +158,7 @@ export default function Scan() {
     // status bar itself.
     <View className="flex-1 bg-canvas" style={{ paddingTop: insets.top }}>
       <ScrollView contentContainerClassName="pb-10">
-        {/*
-          Both halves of this row sit on the same 26pt gutter as the camera
-          card below, stated inline — it was `px-[26px]`, and with that class
-          missing the row ran to the screen edges while the card stayed inset,
-          which is why the profile chip hung off the right of the screen.
-
-          The chip is allowed to shrink and its text column is `flex: 1`, so a
-          long profile summary wraps inside the pill instead of spilling out of
-          it. No avatar of the user's own: this app has no photo feature, so
-          the portrait is the design project's own illustration.
-        */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            paddingHorizontal: 26,
-            paddingTop: 12,
-            paddingBottom: 12,
-          }}
-        >
-          <View style={{ gap: 7, flexShrink: 1 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
-              <LogoMark size={30} />
-              <Wordmark size={26} />
-            </View>
-            <Eyebrow size={8.5} />
-          </View>
-
-          <Pressable
-            onPress={() => router.push("/profile")}
-            style={{
-              height: 52,
-              flexShrink: 1,
-              maxWidth: 186,
-              paddingHorizontal: 10,
-              gap: 9,
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-            className="rounded-full bg-tint-lilac"
-          >
-            <Avatar size={30} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text
-                className="font-semibold text-[#736C7F]"
-                style={{ fontSize: 7.5, letterSpacing: 0.98 }}
-                numberOfLines={1}
-              >
-                YOUR SKIN PROFILE
-              </Text>
-              <Text
-                className="text-[#413B4B]"
-                style={{ fontSize: 9.5, lineHeight: 12.5 }}
-                numberOfLines={2}
-              >
-                {summary || "No profile yet — tap to start"}
-              </Text>
-            </View>
-            <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="m9 5 7 7-7 7"
-                stroke="#5C5566"
-                strokeWidth={2.2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </Pressable>
-        </View>
+        <AppHeader right={<ProfilePill summary={summary} />} />
 
         {/* Height inline: an absolutely-positioned CameraView contributes no
             height of its own, so if this card's height is ever dropped the
@@ -291,14 +218,48 @@ export default function Scan() {
           {mode === "Search" && <SearchPane />}
 
           {mode === "Label photo" && (
-            <View className="flex-1 items-center justify-center gap-4 px-8">
+            <View
+              style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 18, paddingHorizontal: 30 }}
+            >
+              {/* A drawn label with an ingredient list on it — the mode was a
+                  paragraph and a button in an otherwise empty black box, which
+                  reads as a screen that failed to load rather than a choice. */}
+              <Svg width={78} height={92} viewBox="0 0 78 92" fill="none">
+                <Rect
+                  x={9}
+                  y={5}
+                  width={60}
+                  height={82}
+                  rx={9}
+                  stroke="#FDFCFA"
+                  strokeOpacity={0.55}
+                  strokeWidth={2}
+                />
+                <Path
+                  d="M21 24h36M21 36h36M21 48h26M21 60h32M21 72h20"
+                  stroke="#FDFCFA"
+                  strokeOpacity={0.35}
+                  strokeWidth={3}
+                  strokeLinecap="round"
+                />
+                <Circle cx={58} cy={70} r={15} fill="#17161B" />
+                <Circle cx={56} cy={68} r={9.5} stroke={COLORS.toneGood} strokeWidth={2.6} />
+                <Path
+                  d="m63 75 6.5 6.5"
+                  stroke={COLORS.toneGood}
+                  strokeWidth={2.6}
+                  strokeLinecap="round"
+                />
+              </Svg>
+
               <Text className="text-center text-sm leading-5 text-canvas/80">
                 Photograph the ingredient list on the back and we&apos;ll read it.
                 Works on anything, even products we&apos;ve never seen.
               </Text>
               <Pressable
                 onPress={() => router.push("/scan-label")}
-                className="rounded-full bg-canvas px-6 py-3 active:opacity-80"
+                style={{ height: 44 }}
+                className="items-center justify-center rounded-full bg-canvas px-6 active:opacity-80"
               >
                 <Text className="text-sm font-semibold text-ink">Open the camera</Text>
               </Pressable>
@@ -475,6 +436,36 @@ function SearchPane() {
       />
       <ScrollView className="mt-3" keyboardShouldPersistTaps="handled">
         {searching && <ActivityIndicator color={COLORS.canvas} className="mt-4" />}
+
+        {/* An empty search pane looked broken. It now says what it searches
+            and when it will start, so the blankness is expected rather than a
+            failure. */}
+        {!searching && query.trim().length < 2 && (
+          <View style={{ alignItems: "center", gap: 8, paddingTop: 26, paddingHorizontal: 12 }}>
+            <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
+              <Circle
+                cx={10.6}
+                cy={10.6}
+                r={6.9}
+                stroke={COLORS.canvas}
+                strokeOpacity={0.4}
+                strokeWidth={1.9}
+              />
+              <Path
+                d="m15.6 15.6 4.4 4.4"
+                stroke={COLORS.canvas}
+                strokeOpacity={0.4}
+                strokeWidth={1.9}
+                strokeLinecap="round"
+              />
+            </Svg>
+            <Text className="text-center text-xs leading-[17px] text-canvas/60">
+              Search the catalogue by product or brand — type two letters to
+              start. Use this when a barcode won&apos;t scan.
+            </Text>
+          </View>
+        )}
+
         {!searching && query.trim().length >= 2 && results.length === 0 && (
           <Text className="mt-4 text-center text-xs text-canvas/60">
             Nothing matched. Try the barcode, or photograph the label.
@@ -514,7 +505,8 @@ function SearchPane() {
  * the store already keeps, so it costs nothing and answers the most common
  * in-aisle question: have I already looked at this?
  */
-function Recents({ history }: { history: { id: string; known: boolean; scoreAtView: number | null }[] }) {
+function Recents({ history }: { history: { id: string; known: boolean }[] }) {
+  const profile = useAppStore((s) => s.profile);
   const ids = useMemo(
     () => history.filter((h) => h.known).slice(0, 3).map((h) => h.id),
     [history]
@@ -543,10 +535,8 @@ function Recents({ history }: { history: { id: string; known: boolean; scoreAtVi
 
   if (products.length === 0) return null;
 
-  const scoreFor = (id: string) => history.find((h) => h.id === id)?.scoreAtView ?? null;
-
   return (
-    <View style={{ gap: 10, paddingHorizontal: 26, paddingTop: 26 }}>
+    <View style={{ gap: 10, paddingHorizontal: HEADER_GUTTER, paddingTop: 26 }}>
       <View className="flex-row items-center justify-between gap-3">
         <Text className="text-[9px] font-semibold uppercase tracking-[1.53px] text-[#565060]">
           Scanned in this store
@@ -555,74 +545,28 @@ function Recents({ history }: { history: { id: string; known: boolean; scoreAtVi
           <Text className="text-xs text-accent-text">View all</Text>
         </Pressable>
       </View>
-      {/* One bordered card holding every row, with a divider between them —
-          per the Scanner mockup's shelf list. Previously each row was its
-          own shadowed card in a gapped stack. */}
+
+      {/*
+        The same row the browse list uses, scored the same way and opening the
+        same screen. It was a bespoke row here — its own tile, its own type
+        scale, its own badge treatment — so the products you had just scanned
+        looked like a different kind of thing from the products you browsed.
+
+        Live scores rather than the scan-time snapshot: these are things on the
+        shelf in front of you. The snapshot rule still holds where it means
+        something, on the History tab, which is a log of what you saw and when.
+      */}
       <View className="overflow-hidden rounded-control border border-hairline bg-surface">
         {ids.map((id, index) => {
           const product = products.find((p) => p.id === id);
           if (!product) return null;
-          const score = scoreFor(id);
-          const meta = [product.volume, `${product.ingredients.length} ingredients`]
-            .filter(Boolean)
-            .join(" · ");
           return (
-            <Pressable
+            <ProductRow
               key={id}
-              onPress={() => router.push({ pathname: "/result/[id]", params: { id } })}
-              className={`min-h-[92px] flex-row items-center gap-[13px] p-[15px] active:opacity-70 ${
-                index < ids.length - 1 ? "border-b border-[#F1ECE6]" : ""
-              }`}
-            >
-              <ProductIllustration
-                type={product.type}
-                size={48}
-                height={56}
-                radius="rounded-[7px]"
-              />
-              <View className="flex-1 gap-0.5">
-                <Text
-                  className="text-[8.8px] font-semibold uppercase tracking-[0.97px] text-[#736C7F]"
-                  numberOfLines={1}
-                >
-                  {product.brand}
-                </Text>
-                <Text
-                  className="text-[13px] font-medium leading-[17px] text-ink"
-                  numberOfLines={2}
-                >
-                  {product.name}
-                </Text>
-                {meta ? (
-                  <Text className="pt-0.5 text-[10.5px] text-ink-muted" numberOfLines={1}>
-                    {meta}
-                  </Text>
-                ) : null}
-              </View>
-              {/* The snapshot score, stacked under its label — the mockup's
-                  right-hand column. `MatchBadge` renders nothing when there is
-                  no score, which is the honest state for an unresolved scan. */}
-              <View style={{ width: 78, gap: 6 }} className="items-end">
-                <MatchBadge score={score} variant="soft" />
-                {score !== null ? (
-                  <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
-                    <Text className="text-[14px] font-semibold tabular-nums tracking-[-0.28px] text-ink">
-                      {score}
-                    </Text>
-                    <Text className="text-[9.5px] text-ink-muted">/100</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="m9 5 7 7-7 7"
-                  stroke="#B7B0BC"
-                  strokeWidth={2.2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </Pressable>
+              product={product}
+              match={matchProduct(product, profile)}
+              last={index === ids.length - 1}
+            />
           );
         })}
       </View>
