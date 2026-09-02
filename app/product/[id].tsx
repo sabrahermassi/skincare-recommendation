@@ -156,38 +156,42 @@ export default function ProductScreen() {
       />
 
       <ScrollView contentContainerStyle={{ paddingBottom: 200 }}>
-        {/* Which product this is about, stated once and compactly. */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 14,
-            paddingHorizontal: 24,
-            paddingTop: 20,
-          }}
-        >
+        {/*
+          The design's product screen opens on a 150pt hero with the brand,
+          name and size centred under it (screen 11); the verdict panel below
+          is the scan result's (screen 02). Merging the two screens meant
+          keeping both, not picking one — the hero is how you confirm you are
+          looking at the right bottle.
+        */}
+        <View style={{ alignItems: "center", paddingHorizontal: 20, paddingTop: 18 }}>
           {product.imageUrl ? (
             <Image
               source={{ uri: product.imageUrl }}
-              style={{ width: 58, height: 66, borderRadius: 9 }}
+              style={{ width: 150, height: 150, borderRadius: 15 }}
               contentFit="contain"
               transition={150}
               accessibilityLabel={`${product.brand} ${product.name}`}
             />
           ) : (
-            <ProductIllustration type={product.type} size={58} height={66} radius="rounded-[9px]" />
+            <ProductIllustration type={product.type} size={150} />
           )}
-          <View style={{ flex: 1, gap: 5 }}>
-            <Text className="text-[9.5px] font-semibold uppercase tracking-[0.7px] text-ink-faint">
-              {product.brand}
-            </Text>
-            <Text className="text-[16.5px] font-medium leading-[22px] tracking-tight text-ink">
-              {product.name}
-            </Text>
-            <Text className="text-[11.5px] text-ink-muted">
-              {[product.volume, product.type].filter(Boolean).join(" / ")}
-            </Text>
-          </View>
+        </View>
+
+        <View style={{ alignItems: "center", gap: 6, paddingHorizontal: 20, paddingTop: 18 }}>
+          <Text className="text-[10px] font-semibold uppercase tracking-[0.9px] text-ink-faint">
+            {product.brand}
+          </Text>
+          <Text className="text-center font-display text-[23px] leading-[28px] tracking-[-0.28px] text-ink">
+            {product.name}
+          </Text>
+          <Text className="text-[12.5px] text-ink-muted">
+            {[product.volume, product.type, total > 0 ? `${total} ingredients` : null]
+              .filter(Boolean)
+              .join("  ·  ")}
+          </Text>
+          {!product.inStock && (
+            <Text className="text-[12.5px] font-semibold text-status-avoid">Out of stock</Text>
+          )}
         </View>
 
         {/* The verdict, before anything else. Never colour alone — the panel

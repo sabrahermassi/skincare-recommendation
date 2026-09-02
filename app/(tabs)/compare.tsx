@@ -164,7 +164,7 @@ export default function Compare() {
       </ScrollView>
 
       <View className="border-t border-hairline bg-surface px-4 pb-8 pt-4">
-        <PrimaryButton variant="outline" label="Clear comparison" onPress={clearCompare} />
+        <PrimaryButton variant="outline" size={50} label="Clear comparison" onPress={clearCompare} />
       </View>
     </View>
   );
