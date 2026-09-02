@@ -60,7 +60,7 @@ const RUNG: Record<
     dot: "bg-level-good",
     label: "Good for you",
     panel: "bg-panel-success border-panel-success-line",
-    chip: "bg-[#D9EADE]",
+    chip: "#E7F1E9", // tailwind.config.js level.good.tint
     hero: COLORS.levelGood,
   },
   watch: {
@@ -69,7 +69,7 @@ const RUNG: Record<
     dot: "bg-level-watch",
     label: "Worth knowing",
     panel: "bg-tint-peach border-tint-peach",
-    chip: "bg-level-watch-tint",
+    chip: "#FBEBD5", // tailwind.config.js level.watch.tint
     hero: COLORS.levelWatch,
   },
   avoid: {
@@ -78,7 +78,7 @@ const RUNG: Record<
     dot: "bg-level-avoid",
     label: "Flagged for you",
     panel: "bg-tint-pink border-tint-pink",
-    chip: "bg-level-avoid-tint",
+    chip: "#FBE2E7", // tailwind.config.js level.avoid.tint
     hero: COLORS.levelAvoid,
   },
   neutral: {
@@ -87,7 +87,7 @@ const RUNG: Record<
     dot: "bg-level-neutral",
     label: "Not recognised",
     panel: "bg-hairline border-hairline",
-    chip: "bg-level-neutral-tint",
+    chip: "#EFEBE6", // tailwind.config.js level.neutral.tint
     hero: COLORS.levelNeutral,
   },
 };
@@ -254,8 +254,11 @@ export default function IngredientDetail() {
           </Text>
         </Section>
 
-        <Section title="How it fits your skin" gap="gap-3.5" top="pt-9">
-          <View className={`gap-[13px] rounded-tile border px-[18px] py-[22px] ${meta.panel}`}>
+        <Section title="How it fits your skin" gap={14} top={36}>
+          <View
+            style={{ gap: 13, paddingHorizontal: 18, paddingVertical: 22 }}
+            className={`rounded-tile border ${meta.panel}`}
+          >
             <View className="flex-row items-center gap-2.5">
               <HeartIcon color={meta.hero} />
               <Text className={`font-display text-[18px] leading-[21px] ${meta.ink}`}>
@@ -266,7 +269,10 @@ export default function IngredientDetail() {
               {fitBody(rung, helps, hurts, verified, Boolean(rule))}
             </Text>
             {/* The small qualifier pill the design puts under the verdict. */}
-            <View className={`self-start rounded-full px-3 py-1.5 ${meta.chip}`}>
+            <View
+              style={{ backgroundColor: meta.chip }}
+              className="self-start rounded-full px-3 py-1.5"
+            >
               <Text className={`text-[11.5px] font-medium ${meta.ink}`}>
                 {fitPill(rung, helps, hurts, verified)}
               </Text>
@@ -274,7 +280,7 @@ export default function IngredientDetail() {
           </View>
         </Section>
 
-        <Section title="Things to know" gap="gap-[23px]" top="pt-11">
+        <Section title="Things to know" gap={23} top={44}>
           {notes.length > 0 ? (
             <View style={{ gap: 23 }}>
               {notes.map((note) => (
@@ -350,18 +356,18 @@ export default function IngredientDetail() {
 
 function Section({
   title,
-  gap = "gap-3",
-  top = "pt-[38px]",
+  gap = 12,
+  top = 38,
   children,
 }: {
   title: string;
   /** The mockup gives each section its own rhythm; these are its values. */
-  gap?: string;
-  top?: string;
+  gap?: number;
+  top?: number;
   children: React.ReactNode;
 }) {
   return (
-    <View className={`px-6 ${top} ${gap}`}>
+    <View style={{ paddingTop: top, gap }} className="px-6">
       <Text className="text-[15.5px] font-semibold tracking-[-0.12px] text-ink">{title}</Text>
       {children}
     </View>

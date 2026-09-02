@@ -169,7 +169,10 @@ export default function IngredientList() {
 
       {/* INCI order is regulated information, and it is the single fact that
           makes this list readable rather than just long. */}
-      <View className="flex-row items-center justify-center gap-2.5 bg-[#F3EFEA] px-6 pb-8 pt-4">
+      <View
+        style={{ backgroundColor: "#F3EFEA" }}
+        className="flex-row items-center justify-center gap-2.5 px-6 pb-8 pt-4"
+      >
         <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
           <Circle cx={12} cy={12} r={9} stroke={COLORS.inkMuted} strokeWidth={1.8} />
           <Path
@@ -213,7 +216,7 @@ function IngredientListRow({
       style={{ gap: 11 }}
       className="flex-row items-start border-b border-hairline-soft bg-surface px-6 py-3.5 active:bg-canvas"
     >
-      <View className={`mt-1.5 h-[9px] w-[9px] rounded-full ${meta.dot}`} />
+      <View style={{ width: 9, height: 9, marginTop: 6 }} className={`rounded-full ${meta.dot}`} />
 
       <View className="flex-1 gap-0.5">
         <Text className="text-[13.5px] font-medium capitalize leading-[18px] text-ink">

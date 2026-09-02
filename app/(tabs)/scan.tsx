@@ -49,10 +49,14 @@ const BARCODE_TYPES = IS_WEB
 type Mode = "Barcode" | "Label photo" | "Search";
 type Status = { kind: "idle" } | { kind: "looking"; code: string } | { kind: "missed"; code: string };
 
-/** Icons for the mode switcher, paths copied from the Scanner mockup. */
-function BarcodeIcon({ color }: { color: string }) {
+/**
+ * Icons for the mode switcher, paths copied from the Scanner mockup. The row
+ * is icon-only now — no label under Barcode/Label photo/Search — so these
+ * are drawn bigger (22pt) than the icon-plus-text version was.
+ */
+function BarcodeIcon({ color, size = 22 }: { color: string; size?: number }) {
   return (
-    <Svg width={14} height={14} viewBox="0 0 24 24">
+    <Svg width={size} height={size} viewBox="0 0 24 24">
       <Rect x={4} y={5} width={1.9} height={14} rx={0.95} fill={color} />
       <Rect x={8.2} y={5} width={1.3} height={14} rx={0.65} fill={color} />
       <Rect x={11.6} y={5} width={2.4} height={14} rx={1.2} fill={color} />
@@ -62,9 +66,9 @@ function BarcodeIcon({ color }: { color: string }) {
   );
 }
 
-function PhotoIcon({ color }: { color: string }) {
+function PhotoIcon({ color, size = 22 }: { color: string; size?: number }) {
   return (
-    <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x={3.8} y={3.8} width={16.4} height={16.4} rx={3} stroke={color} strokeWidth={1.6} />
       <Circle cx={9} cy={9.4} r={1.5} fill={color} />
       <Path
@@ -78,16 +82,19 @@ function PhotoIcon({ color }: { color: string }) {
   );
 }
 
-function SearchIcon({ color }: { color: string }) {
+function SearchIcon({ color, size = 22 }: { color: string; size?: number }) {
   return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx={11} cy={11} r={6.4} stroke={color} strokeWidth={1.8} />
       <Path d="m15.8 15.8 4 4" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
     </Svg>
   );
 }
 
-const MODES: { label: Mode; Icon: (props: { color: string }) => ReactElement }[] = [
+const MODES: {
+  label: Mode;
+  Icon: (props: { color: string; size?: number }) => ReactElement;
+}[] = [
   { label: "Barcode", Icon: BarcodeIcon },
   { label: "Label photo", Icon: PhotoIcon },
   { label: "Search", Icon: SearchIcon },
@@ -165,8 +172,14 @@ export default function Scan() {
             whole scanner collapses to nothing and reads as "the barcode reader
             is gone". */}
         <View
-          style={{ height: 293, marginHorizontal: 26 }}
-          className="overflow-hidden rounded-control bg-[#17161B]"
+          // Background colour inline, not `bg-[#17161B]`: bracketed arbitrary
+          // Tailwind classes are the same class of bug that made Label photo
+          // and Search read as empty — the class silently failed to compile,
+          // the card fell back to transparent over the light canvas, and
+          // every off-white label/placeholder text drawn for a *dark* card
+          // vanished into a near-white background instead.
+          style={{ height: 293, marginHorizontal: 26, backgroundColor: "#17161B" }}
+          className="overflow-hidden rounded-control"
         >
           {live ? (
             <CameraView
@@ -342,10 +355,13 @@ export default function Scan() {
 
         {/* Mode switcher — moved below the camera card, per the Scanner
             mockup (previously overlaid on the camera itself, white-on-dark).
-            Icons are hand-rolled inline SVGs copied from the mockup's own
-            paths, the same convention `Viewfinder` above already uses in
-            this file — not an icon-library adoption, which stays a Phase 2
-            decision. */}
+            Icon-only: the three modes are named once by the screen they open
+            (a viewfinder, a camera, a search box), and a text label next to
+            an icon that already says the same thing just crowded a small
+            row. Icons drawn bigger to carry the row on their own.
+            Hand-rolled inline SVGs copied from the mockup's own paths, the
+            same convention `Viewfinder` above already uses in this file —
+            not an icon-library adoption, which stays a Phase 2 decision. */}
         <View style={{ marginHorizontal: 26, marginTop: 18, gap: 12 }} className="flex-row">
           {MODES.map(({ label, Icon }) => {
             const on = mode === label;
@@ -353,17 +369,15 @@ export default function Scan() {
               <Pressable
                 key={label}
                 onPress={() => setMode(label)}
-                style={{ height: 44 }}
-                className={`flex-1 flex-row items-center justify-center gap-[7px] rounded-full border ${
-                  on ? "border-accent bg-accent" : "border-hairline bg-surface"
+                accessibilityRole="tab"
+                accessibilityLabel={label}
+                accessibilityState={{ selected: on }}
+                style={{ height: 48 }}
+                className={`flex-1 items-center justify-center rounded-full border ${
+                  on ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
                 }`}
               >
-                <Icon color={on ? COLORS.canvas : COLORS.ink} />
-                <Text
-                  className={`text-[14.5px] font-semibold ${on ? "text-canvas" : "text-ink"}`}
-                >
-                  {label}
-                </Text>
+                <Icon color={on ? COLORS.accentText : COLORS.ink} />
               </Pressable>
             );
           })}

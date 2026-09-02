@@ -102,7 +102,7 @@ export default function Browse() {
           </View>
         </View>
 
-        <View style={{ paddingBottom: 16 }} className="border-b border-hairline bg-canvas">
+        <View style={{ paddingBottom: 16 }} className="bg-canvas">
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
