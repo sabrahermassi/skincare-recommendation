@@ -43,27 +43,14 @@ describe("matchProduct", () => {
     // …but the difference must come from the formula, not from them.
     expect(dry.score).not.toBeNull();
     expect(dry.reasons.some((r) => /ceramide|squalane/i.test(r.ingredient))).toBe(true);
-    if (oily.score !== null) expect(dry.score).toBeGreaterThan(oily.score);
-    else expect(oily.verdict).toBe("unknown");
-  });
-
-  /**
-   * The gate this asserts was added after measuring that it fires: on 104 real
-   * products, nothing in the rules table applied to an oily, acne-prone profile
-   * for 29 of them, while ~92% of their ingredients were recognised. Coverage
-   * says we read the label; it does not say we have anything to tell you.
-   */
-  it("declines to score a formula it has nothing to say about", async () => {
-    const p = await load("aqua-ceramide-cream");
-    const irrelevant = matchProduct(p, profile({ concerns: ["hyperpigmentation"] }));
-    if (irrelevant.reasons.length === 0 && irrelevant.warnings.length === 0) {
-      expect(irrelevant.score).toBeNull();
-      expect(irrelevant.verdict).toBe("unknown");
-    } else {
-      // Whichever way the fixture falls, the invariant holds: a number is only
-      // ever returned with evidence behind it.
-      expect(irrelevant.score).not.toBeNull();
-    }
+    // Verified rather than branched on: this fixture's formula (ceramide,
+    // shea butter, squalane, panthenol, centella) has nothing in the rules
+    // table for a plain oily profile with no stated concern, so the engine
+    // declines outright — a stronger contrast than a lower score would be. A
+    // silent if/else here previously let this assertion go unexercised.
+    expect(oily.score).toBeNull();
+    expect(oily.verdict).toBe("unknown");
+    expect(oily.unknownReason).toBe("no_evidence");
   });
 
   it("rewards overlapping concerns", async () => {
@@ -254,6 +241,30 @@ describe("verdict engine", () => {
   });
 
   describe("refusing to guess", () => {
+    /**
+     * The gate this asserts was added after measuring that it fires: on 104
+     * real products, nothing in the rules table applied to an oily,
+     * acne-prone profile for 29 of them, while ~92% of their ingredients were
+     * recognised. Coverage says we read the label; it does not say we have
+     * anything to tell you.
+     *
+     * Built from a synthetic product rather than a catalogue fixture: a real
+     * product can gain a matching rule later without anyone noticing this
+     * test stopped exercising the gate. `disodium edta`, `xanthan gum` and
+     * `carbomer` are chelator/thickener/gelling agents with no entry in
+     * `lib/rules.ts` by design — they are exactly the "genuinely inert"
+     * ingredients the gate exists for, not merely inert today by omission.
+     */
+    it("declines to score a formula it has nothing to say about", () => {
+      const p = synthetic(["water", "disodium edta", "xanthan gum", "carbomer", "phenoxyethanol"]);
+      const irrelevant = matchProduct(p, profile({ concerns: ["hyperpigmentation"] }));
+      expect(irrelevant.reasons).toHaveLength(0);
+      expect(irrelevant.warnings).toHaveLength(0);
+      expect(irrelevant.score).toBeNull();
+      expect(irrelevant.verdict).toBe("unknown");
+      expect(irrelevant.unknownReason).toBe("no_evidence");
+    });
+
     it("returns no score when too little of the formula is recognised", () => {
       const p = synthetic(["water", "glycerin", "niacinamide", ...FILLER]);
       // Simulate an OCR'd label where most names came out garbled.

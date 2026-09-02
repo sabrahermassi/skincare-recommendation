@@ -14,6 +14,14 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+import {
+  callerKey,
+  json,
+  preflight,
+  withinRateLimit,
+  type RateLimit,
+} from "../_shared/http.ts";
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const VISION_API_KEY = Deno.env.get("GOOGLE_VISION_API_KEY") ?? "";
@@ -21,7 +29,7 @@ const VISION_API_KEY = Deno.env.get("GOOGLE_VISION_API_KEY") ?? "";
 const VISION_URL = "https://vision.googleapis.com/v1/images:annotate";
 
 /** Generous for a person in a shop, useless for anyone burning the free tier. */
-const RATE_LIMIT = { windowSeconds: 300, maxRequests: 10 };
+const RATE_LIMIT: RateLimit = { windowSeconds: 300, maxRequests: 10 };
 
 /** Roughly 4 MB of base64 — well past what a legible label photo needs. */
 const MAX_IMAGE_CHARS = 5_500_000;
@@ -31,8 +39,9 @@ const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 });
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  if (req.method !== "POST") return json({ error: "POST only" }, 405);
-  if (!VISION_API_KEY) return json({ error: "OCR is not configured" }, 503);
+  if (req.method === "OPTIONS") return preflight(req);
+  if (req.method !== "POST") return json(req, { error: "POST only" }, 405);
+  if (!VISION_API_KEY) return json(req, { error: "OCR is not configured" }, 503);
 
   let barcode: string | undefined;
   let imageBase64: string;
@@ -41,21 +50,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
   try {
     ({ barcode, imageBase64, name, brand } = await req.json());
   } catch {
-    return json({ error: "Body must be JSON" }, 400);
+    return json(req, { error: "Body must be JSON" }, 400);
   }
 
   if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
-    return json({ error: "imageBase64 is required" }, 400);
+    return json(req, { error: "imageBase64 is required" }, 400);
   }
   if (imageBase64.length > MAX_IMAGE_CHARS) {
-    return json({ error: "Image too large — retake it closer in" }, 413);
+    return json(req, { error: "Image too large — retake it closer in" }, 413);
+  }
+  // Cheap rejection of garbage before it reaches Vision: a non-base64 payload
+  // would otherwise spend a network round trip only to be rejected there.
+  if (!/^[A-Za-z0-9+/=\s]+$/.test(imageBase64)) {
+    return json(req, { error: "imageBase64 is not valid base64" }, 400);
   }
   if (barcode !== undefined && !/^\d{8,14}$/.test(barcode)) {
-    return json({ error: "barcode must be 8-14 digits" }, 400);
+    return json(req, { error: "barcode must be 8-14 digits" }, 400);
   }
 
-  if (!(await withinRateLimit(deviceKey(req)))) {
-    return json({ error: "Too many requests" }, 429);
+  if (!withinRateLimit(callerKey(req), RATE_LIMIT)) {
+    return json(req, { error: "Too many requests" }, 429);
   }
 
   // A formula we already hold for this barcode came from a source that had
@@ -65,6 +79,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const existing = barcode ? await productForBarcode(barcode) : null;
   if (existing && existing.product_ingredients.length > 0) {
     return json(
+      req,
       {
         product: existing,
         recognised: existing.product_ingredients.length,
@@ -75,17 +90,32 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   const text = await runOcr(imageBase64);
-  if (text === null) return json({ error: "Could not read the image" }, 502);
+  if (text === null) return json(req, { error: "Could not read the image" }, 502);
 
-  const [dictionary, aliases] = await Promise.all([fetchDictionary(), fetchAliases()]);
-  // A synonym is matchable in its own right, then resolved to the canonical
-  // name on the way out.
-  for (const synonym of aliases.keys()) dictionary.add(synonym);
-  const parsed = parseIngredientBlock(text, dictionary, aliases);
+  // Aliases are cheap (one small table) and needed on every path, so they are
+  // fetched unconditionally. The dictionary is tens of thousands of rows and
+  // only needed when the label's own delimiters didn't produce enough tokens
+  // on their own; fetching it up front cost every well-punctuated label a full
+  // table scan for nothing. This probe is not a second parser to keep in
+  // sync with the real one below — it is the exact same `parseIngredientBlock`
+  // invoked once first with no dictionary, so it can only take the delimited
+  // path, whose token count does not depend on the dictionary being present.
+  const aliases = await fetchAliases();
+  let parsed = parseIngredientBlock(text, undefined, aliases);
+
+  if (parsed.length < 4) {
+    const dictionary = await fetchDictionary();
+    // A synonym is matchable in its own right, then resolved to the canonical
+    // name on the way out.
+    for (const synonym of aliases.keys()) dictionary.add(synonym);
+    parsed = parseIngredientBlock(text, dictionary, aliases);
+  }
+
   if (parsed.length < 4) {
     // Better to say so than to score a fragment. Four is the same floor the
     // verdict engine uses before it will produce a number at all.
     return json(
+      req,
       { error: "not_enough_text", found: parsed.length, rawText: text.slice(0, 400) },
       422
     );
@@ -101,12 +131,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // carries no formula — the ingredients belong on THAT row. Writing
   // `ocr-<barcode>` alongside it would violate the constraint, and the user
   // would end up with the same product twice.
+  //
+  // Identity fields prefer `existing` over the client-supplied `name`/`brand`
+  // when reusing that row: this endpoint is unauthenticated, so an existing
+  // catalogue entry — sourced from OBF, the INCI API, or a prior scan — must
+  // not be silently renamed or re-attributed by whoever next photographs its
+  // label. The client's values only fill a genuinely blank row.
   const product = {
     id: existing?.id ?? (barcode ? `ocr-${barcode}` : `ocr-${crypto.randomUUID()}`),
     barcode: barcode ?? null,
-    brand: (brand ?? existing?.brand ?? "Unknown").trim().slice(0, 120) || "Unknown",
+    brand: (existing?.brand ?? brand ?? "Unknown").trim().slice(0, 120) || "Unknown",
     name:
-      (name ?? existing?.name ?? "Scanned product").trim().slice(0, 200) || "Scanned product",
+      (existing?.name ?? name ?? "Scanned product").trim().slice(0, 200) || "Scanned product",
     // Whatever the barcode source already established about the product is
     // better than this function's fallbacks — it only read the formula.
     type: existing?.type ?? "serum",
@@ -117,33 +153,64 @@ Deno.serve(async (req: Request): Promise<Response> => {
     in_stock: true,
     suitable_for: [],
     targets: [],
-    source: "ocr",
-    attribution: "Ingredients read from the product label.",
+    // Reusing an identity-only row keeps its own source/attribution — it was
+    // never ours to relicense just because this scan added the formula. Only
+    // a brand-new row is attributed to the label photo itself.
+    source: existing ? existing.source : "ocr",
+    attribution: existing
+      ? existing.attribution
+      : "Ingredients read from the product label.",
     expires_at: null,
   };
 
-  await db.from("ingredients").upsert(
+  const { error: ingredientsError } = await db.from("ingredients").upsert(
     parsed
       .filter((p) => !known.has(p.inci_name))
       .map((p) => ({
         inci_name: p.inci_name,
-        source: "curated",
+        // Not "curated" — nothing has reviewed this, it's a stub so
+        // `product_ingredients` has a name to point at. See migration 0007.
+        source: "unmatched",
         safety: "safe",
         verified: false,
         note: "Read from a label, not matched to the ingredient dictionary.",
       })),
     { onConflict: "inci_name", ignoreDuplicates: true }
   );
+  if (ingredientsError) {
+    console.error("ingredients upsert failed:", ingredientsError);
+    return json(req, { error: "Could not save the scan" }, 502);
+  }
 
-  await db.from("products").upsert(product, { onConflict: "id" });
-  await db.from("product_ingredients").delete().eq("product_id", product.id);
-  await db.from("product_ingredients").insert(
+  const { error: productError } = await db.from("products").upsert(product, { onConflict: "id" });
+  if (productError) {
+    console.error("products upsert failed:", productError);
+    return json(req, { error: "Could not save the scan" }, 502);
+  }
+
+  // Delete-then-insert: both checked, because an unchecked failure on either
+  // leg would leave the row silently short a formula while this handler still
+  // reports success.
+  const { error: deleteError } = await db
+    .from("product_ingredients")
+    .delete()
+    .eq("product_id", product.id);
+  if (deleteError) {
+    console.error("product_ingredients delete failed:", deleteError);
+    return json(req, { error: "Could not save the scan" }, 502);
+  }
+
+  const { error: insertError } = await db.from("product_ingredients").insert(
     parsed.map((p) => ({
       product_id: product.id,
       inci_name: p.inci_name,
       position: p.position,
     }))
   );
+  if (insertError) {
+    console.error("product_ingredients insert failed:", insertError);
+    return json(req, { error: "Could not save the scan" }, 502);
+  }
 
   const { data } = await db
     .from("products")
@@ -151,7 +218,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq("id", product.id)
     .maybeSingle();
 
-  return json({ product: data, recognised: known.size, total: parsed.length }, 200);
+  return json(req, { product: data, recognised: known.size, total: parsed.length }, 200);
 });
 
 // ── OCR ─────────────────────────────────────────────────────────────────────
@@ -462,7 +529,7 @@ function reconstructFromDictionary(
 }
 
 const PRODUCT_SELECT = `id, barcode, brand, name, type, area, description, image_url, volume,
-   price_krw, in_stock, suitable_for, targets, attribution,
+   price_krw, in_stock, suitable_for, targets, source, attribution,
    product_ingredients ( position, ingredients ( inci_name, comedogenic, safety, note, verified ) )`;
 
 type ExistingProduct = {
@@ -472,6 +539,8 @@ type ExistingProduct = {
   type: string;
   area: string;
   volume: string | null;
+  source: string;
+  attribution: string | null;
   product_ingredients: unknown[];
 };
 
@@ -546,34 +615,3 @@ async function knownIngredients(names: string[]): Promise<Set<string>> {
   return found;
 }
 
-// ── Plumbing ────────────────────────────────────────────────────────────────
-
-const hits = new Map<string, number[]>();
-
-async function withinRateLimit(key: string): Promise<boolean> {
-  const now = Date.now();
-  const cutoff = now - RATE_LIMIT.windowSeconds * 1000;
-  const recent = (hits.get(key) ?? []).filter((t) => t > cutoff);
-  if (recent.length >= RATE_LIMIT.maxRequests) {
-    hits.set(key, recent);
-    return false;
-  }
-  recent.push(now);
-  hits.set(key, recent);
-  return true;
-}
-
-function deviceKey(req: Request): string {
-  return (
-    req.headers.get("x-device-id") ??
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-    "unknown"
-  );
-}
-
-function json(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}

@@ -193,7 +193,14 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     category: "hydration",
     helps: { concerns: ["dehydrated"] },
     reason: "A humectant solvent — carries actives and holds a little water in the skin",
-    weight: 4,
+    // Measured at 100 of 104 real products, the single most common family in
+    // the catalogue — formulas routinely carry two or three of them at once,
+    // each scored separately by position. At weight 4 that stacks to roughly
+    // +9-10 on its own, which is most of the way from BASE_SCORE to "good"
+    // before any other ingredient is considered. Weight 2 keeps the direction
+    // (still a real, if minor, positive for dehydrated skin) without letting
+    // solvent content alone carry the verdict.
+    weight: 2,
   },
   {
     names: ["palmitic acid", "stearic acid", "myristic acid"],

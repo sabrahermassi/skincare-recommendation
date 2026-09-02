@@ -76,6 +76,15 @@ export type MatchResult = {
   factors: ScoreFactor[];
   /** How much of the formula we could actually identify, 0–1. */
   coverage: number;
+  /**
+   * Why `verdict` is "unknown" — `undefined` otherwise. Three genuinely
+   * different situations all produce a null score, and `verdictHeadline`
+   * cannot tell them apart from `coverage` alone: an unpersonalised profile
+   * can still show high coverage (it's computed before the profile is even
+   * checked), and so can a formula we read fine but that contained nothing
+   * this profile's rules speak to.
+   */
+  unknownReason?: "not_personalized" | "low_coverage" | "no_evidence";
 };
 
 /** Neutral starting point. Movement away from it has to be earned. */
@@ -101,12 +110,28 @@ export function matchProduct(
   if (!isPersonalized(profile)) {
     // Hazards are still worth flagging with no profile — they aren't
     // profile-dependent — but there is nothing to match against.
-    return { score: null, verdict: "unknown", warnings, reasons: [], factors: [], coverage };
+    return {
+      score: null,
+      verdict: "unknown",
+      warnings,
+      reasons: [],
+      factors: [],
+      coverage,
+      unknownReason: "not_personalized",
+    };
   }
 
   const identified = product.ingredients.filter(isVerified).length;
   if (identified < MIN_IDENTIFIED || coverage < MIN_COVERAGE) {
-    return { score: null, verdict: "unknown", warnings, reasons: [], factors: [], coverage };
+    return {
+      score: null,
+      verdict: "unknown",
+      warnings,
+      reasons: [],
+      factors: [],
+      coverage,
+      unknownReason: "low_coverage",
+    };
   }
 
   const reasons: MatchReason[] = [];
@@ -161,7 +186,15 @@ export function matchProduct(
   // refusing here honest rather than merely unhelpful — it is now the minority
   // case, and it is the truthful answer when it happens.
   if (reasons.length === 0 && warnings.length === 0) {
-    return { score: null, verdict: "unknown", warnings, reasons: [], factors: [], coverage };
+    return {
+      score: null,
+      verdict: "unknown",
+      warnings,
+      reasons: [],
+      factors: [],
+      coverage,
+      unknownReason: "no_evidence",
+    };
   }
 
   const finalScore = clamp(score);
@@ -212,9 +245,19 @@ export function verdictHeadline(result: MatchResult): string {
         ? "Contains something worth avoiding for your skin"
         : "Probably not the right pick for you";
     case "unknown":
-      return result.coverage > 0 && result.coverage < MIN_COVERAGE
-        ? "We couldn't read enough of this formula to judge it"
-        : "Answer a few questions and we can tell you how this suits you";
+      switch (result.unknownReason) {
+        case "low_coverage":
+          return "We couldn't read enough of this formula to judge it";
+        case "no_evidence":
+          // The formula read fine — this is not the low-coverage case above —
+          // it simply contains nothing our rules have an opinion on for this
+          // profile. Telling the user to "answer a few questions" would be
+          // wrong: they already have, and coverage was good enough to score.
+          return "We read this formula but found nothing that speaks to your skin";
+        case "not_personalized":
+        default:
+          return "Answer a few questions and we can tell you how this suits you";
+      }
   }
 }
 
