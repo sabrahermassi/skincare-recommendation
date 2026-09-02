@@ -557,6 +557,12 @@ function Recents({ history }: { history: { id: string; known: boolean }[] }) {
     };
   }, [ids]);
 
+  // Nothing scanned yet in this session — the space below the mode switcher
+  // used to sit empty until the first scan, which read as an unfinished
+  // screen. A short explainer fills it instead, and this is the only branch
+  // where it shows: the moment `ids` is non-empty it's replaced by the real
+  // rows below, never both at once.
+  if (ids.length === 0) return <FirstScanTip />;
   if (products.length === 0) return null;
 
   return (
@@ -593,6 +599,42 @@ function Recents({ history }: { history: { id: string; known: boolean }[] }) {
             />
           );
         })}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * First-run filler for the "Scanned in this store" slot, shown until there's
+ * a real scan to put there. Same eyebrow label position as `Recents` so the
+ * swap between the two doesn't shift anything else on the screen.
+ */
+const FIRST_SCAN_STEPS = [
+  { n: "1", text: "Point the camera at a barcode, or photograph the ingredient list." },
+  { n: "2", text: "We read the formula and check it against your skin profile." },
+  { n: "3", text: "See your match score and anything flagged, right here as you shop." },
+];
+
+function FirstScanTip() {
+  return (
+    <View style={{ gap: 14, paddingHorizontal: HEADER_GUTTER, paddingTop: 26 }}>
+      <Text className="text-[9px] font-semibold uppercase tracking-[1.53px] text-[#565060]">
+        How scanning works
+      </Text>
+      <View style={{ gap: 12 }}>
+        {FIRST_SCAN_STEPS.map((step) => (
+          <View key={step.n} style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
+            <View
+              style={{ width: 22, height: 22, borderRadius: 11 }}
+              className="items-center justify-center bg-tint-lilac"
+            >
+              <Text className="text-[11px] font-bold text-accent-text">{step.n}</Text>
+            </View>
+            <Text className="flex-1 text-[12.5px] leading-[18px] text-ink-muted">
+              {step.text}
+            </Text>
+          </View>
+        ))}
       </View>
     </View>
   );

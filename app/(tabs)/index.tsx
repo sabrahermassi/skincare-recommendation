@@ -1,5 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
-import { Link, router } from "expo-router";
+import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -30,14 +29,6 @@ const BODY_TYPE_FILTERS: (ProductType | "all")[] = [
   "body-wash",
   "body-lotion",
   "hand-cream",
-];
-
-// Tiles use three of the four product tints. The label and icon are always
-// ink — the tint distinguishes the tiles, it doesn't have to carry the text.
-const QUICK_ACTIONS = [
-  { href: "/scan" as const, label: "Scan", icon: "camera" as const, bg: "bg-tint-pink" },
-  { href: "/saved" as const, label: "Saved", icon: "heart" as const, bg: "bg-tint-mint" },
-  { href: "/profile" as const, label: "My profile", icon: "person" as const, bg: "bg-tint-peach" },
 ];
 
 export default function Browse() {
@@ -98,26 +89,16 @@ export default function Browse() {
               top of the app resized itself as you moved between tabs. */}
           <AppHeader right={<ProfilePill summary={profileSummary(profile)} />} />
 
-          <View style={{ paddingHorizontal: HEADER_GUTTER, gap: 12 }}>
+          {/* Scan, Saved and Profile used to repeat here as quick-action
+              tiles — redundant once the tab bar already puts all three one
+              tap away, and the profile chip in the header above covers
+              "who am I browsing as" on its own. */}
+          <View style={{ paddingHorizontal: HEADER_GUTTER }}>
             <Text className="text-[11.5px] text-ink-muted">
               {personalized
                 ? `Ranked for ${profileSummary(profile).toLowerCase()}`
                 : "No profile yet — showing unsorted results"}
             </Text>
-
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              {QUICK_ACTIONS.map((action) => (
-                <Link key={action.href} href={action.href} asChild>
-                  <Pressable
-                    style={{ flex: 1, minHeight: 96, gap: 10 }}
-                    className={`items-center justify-center rounded-card ${action.bg} active:opacity-80`}
-                  >
-                    <Ionicons name={action.icon} size={26} color={COLORS.ink} />
-                    <Text className="text-[13px] font-semibold text-ink">{action.label}</Text>
-                  </Pressable>
-                </Link>
-              ))}
-            </View>
           </View>
         </View>
 
