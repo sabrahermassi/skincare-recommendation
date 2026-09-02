@@ -7,6 +7,7 @@ import { Text } from "@/components/Text";
 import { fetchProduct } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
+import { comedogenicLabel } from "@/lib/format";
 import { ingredientTone, matchProduct, positionWeightLabel, ruleFor } from "@/lib/matching";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
@@ -16,14 +17,21 @@ import { useAppStore } from "@/store/useAppStore";
  * Ingredient detail — screen 5 of the Skintel Screens design.
  *
  * The design fills this screen with encyclopaedia copy: a written definition,
- * a personalised verdict, and three "things to know" bullets. We hold none of
- * that as prose. What we do hold is the curated rule, the CosIng function
- * list, the EU regulatory status and the ingredient's position in the formula
- * — so the sections keep the design's shape and are filled from those instead.
+ * a personalised verdict, and a list of things to know. We hold none of that
+ * as prose. What we do hold is the curated rule, the ingredient's own note,
+ * the CosIng function list, the EU regulatory status, the pore rating and the
+ * position in the formula — so the sections keep the design's shape and are
+ * filled from those.
  *
- * The design's closing "See studies and evidence" card is dropped rather than
- * drawn: there is no evidence source behind it, and a card that goes nowhere
- * is worse than one less section.
+ * Every section renders every time. An earlier pass gated all three on a
+ * curated rule existing, which is true for a few dozen ingredients out of
+ * ~31k — so for almost everything real the screen was a name and a pill above
+ * a blank page. Where a fact is genuinely missing, the section says so in a
+ * sentence rather than disappearing.
+ *
+ * The design's closing "See studies and evidence" card is still not drawn:
+ * there is no evidence source behind it, and a card that goes nowhere is worse
+ * than one less section.
  */
 
 type Rung = "good" | "watch" | "avoid" | "neutral";
@@ -87,6 +95,20 @@ function FlaskHero({ color }: { color: string }) {
   );
 }
 
+function HeartIcon({ color }: { color: string }) {
+  return (
+    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 20.2s-7.6-4.7-7.6-9.7A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 7.6 2.8c0 5-7.6 9.7-7.6 9.7Z"
+        stroke={color}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export default function IngredientDetail() {
   const { inci, product: productId } = useLocalSearchParams<{
     inci: string;
@@ -147,13 +169,18 @@ export default function IngredientDetail() {
   const total = product?.ingredients.length ?? 0;
   const position = index >= 0 ? index + 1 : null;
 
-  // Everything under "Things to know" is sourced, never written. When there is
-  // nothing to source, the section does not render.
+  // The design sets a common name under the INCI name. We don't hold one, but
+  // many INCI names carry it in parentheses ("Panthenol (Vitamin B5)"), and
+  // where they don't the declared role is the honest second line.
+  const { primary, secondary } = splitName(ingredient);
+
+  // Everything under "Things to know" is sourced, never written.
   const notes = [
-    verified ? `EU status: ${regulatoryStatus(ingredient)}` : null,
+    verified ? `EU regulatory status: ${regulatoryStatus(ingredient)}` : null,
     ingredient.functions && ingredient.functions.length > 0
       ? `Declared function: ${ingredient.functions.slice(0, 3).join(", ")}`
       : null,
+    verified && ingredient.comedogenic > 0 ? comedogenicLabel(ingredient.comedogenic) : null,
     position !== null
       ? `#${position} of ${total} on the label — ${positionWeightLabel(index)}`
       : null,
@@ -166,11 +193,18 @@ export default function IngredientDetail() {
 
       <ScrollView contentContainerClassName="pb-40">
         <View className="flex-row items-start gap-4 px-6 pt-6">
-          <View className="flex-1 gap-2.5">
+          <View className="flex-1 gap-2">
             <Text className="font-display text-[32px] capitalize leading-[34px] text-[#463F57]">
-              {ingredient.name}
+              {primary}
             </Text>
-            <View className={`flex-row items-center gap-2 self-start rounded-full px-3.5 py-2 ${meta.pill}`}>
+            {secondary ? (
+              <Text className="font-display text-[19px] capitalize leading-[21px] text-ink-muted">
+                {secondary}
+              </Text>
+            ) : null}
+            <View
+              className={`mt-1 flex-row items-center gap-2 self-start rounded-full px-3.5 py-2 ${meta.pill}`}
+            >
               <View className={`h-2 w-2 rounded-full ${meta.dot}`} />
               <Text className={`text-[12.5px] font-medium ${meta.ink}`}>{meta.label}</Text>
             </View>
@@ -178,78 +212,57 @@ export default function IngredientDetail() {
           <FlaskHero color={meta.hero} />
         </View>
 
-        {/* What it does — the curated rule when there is one, the regulator's
-            own function list when there isn't. */}
-        {(rule || (ingredient.functions && ingredient.functions.length > 0)) && (
-          <View className="gap-3 px-6 pt-9">
-            <Text className="text-[15.5px] font-semibold text-ink">What it does</Text>
-            <Text className="text-[13.5px] leading-[21px] text-ink-muted">
-              {rule
-                ? rule.reason
-                : `Declared in the EU inventory as ${ingredient.functions!
-                    .slice(0, 3)
-                    .join(", ")
-                    .toLowerCase()}.`}
-            </Text>
-          </View>
-        )}
+        <Section title="What it does">
+          <Text className="text-[13.5px] leading-[21px] text-ink-muted">
+            {whatItDoes(ingredient, rule?.reason)}
+          </Text>
+        </Section>
 
-        {/* How it fits your skin — the personalised half, and the only place
-            on the screen that reads the profile. */}
-        {rule && (
-          <View className="gap-3.5 px-6 pt-9">
-            <Text className="text-[15.5px] font-semibold text-ink">How it fits your skin</Text>
-            <View className={`gap-3 rounded-card border p-[18px] ${meta.panel}`}>
-              <Text className="font-display text-lg text-ink">
-                {hurts
-                  ? "Works against your profile"
-                  : helps
-                    ? "Great match"
-                    : "Neutral for your profile"}
+        <Section title="How it fits your skin">
+          <View className={`gap-3 rounded-card border p-[18px] ${meta.panel}`}>
+            <View className="flex-row items-center gap-2.5">
+              <HeartIcon color={meta.hero} />
+              <Text className="font-display text-lg leading-[20px] text-ink">
+                {fitHeadline(rung, helps, hurts, verified)}
               </Text>
-              <Text className="text-[13px] leading-[19px] text-ink-muted">
-                {hurts
-                  ? "This is one of the things pulling the score down for the skin you described."
-                  : helps
-                    ? "This actively helps with what you told us about your skin."
-                    : "Neither helps nor hurts, given the answers you gave."}
+            </View>
+            <Text className="text-[13px] leading-[19px] text-ink-muted">
+              {fitBody(rung, helps, hurts, verified, Boolean(rule))}
+            </Text>
+            {/* The small qualifier pill the design puts under the verdict. */}
+            <View className="self-start rounded-full bg-surface/70 px-3 py-1.5">
+              <Text className={`text-[11.5px] font-medium ${meta.ink}`}>
+                {fitPill(rung, helps, hurts, verified)}
               </Text>
             </View>
           </View>
-        )}
+        </Section>
 
-        {!verified && (
-          <View className="mx-6 mt-9 gap-2 rounded-card bg-tint-peach p-[18px]">
-            <Text className="text-[15.5px] font-semibold text-ink">
-              We couldn&apos;t identify this
+        <Section title="Things to know">
+          {notes.length > 0 ? (
+            <View className="gap-[18px]">
+              {notes.map((note) => (
+                <View key={note} className="flex-row items-center gap-3">
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="m5 12.6 4.6 4.6L19 6.8"
+                      stroke={meta.hero}
+                      strokeWidth={2.2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                  <Text className="flex-1 text-[13px] leading-[18px] text-ink-muted">{note}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text className="text-[13px] leading-[19px] text-ink-muted">
+              We hold no regulatory record, declared function or pore rating for
+              this name — which is itself the thing worth knowing about it.
             </Text>
-            <Text className="text-[13px] leading-[19px] text-ink">
-              This name didn&apos;t match our ingredient dictionary, so it carries no
-              rating in either direction. Label text is often mis-transcribed, and
-              guessing would be worse than saying nothing.
-            </Text>
-          </View>
-        )}
-
-        {notes.length > 0 && (
-          <View className="gap-[18px] px-6 pt-11">
-            <Text className="text-[15.5px] font-semibold text-ink">Things to know</Text>
-            {notes.map((note) => (
-              <View key={note} className="flex-row items-center gap-3">
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="m5 12.6 4.6 4.6L19 6.8"
-                    stroke={meta.hero}
-                    strokeWidth={2.2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
-                <Text className="flex-1 text-[13px] leading-[18px] text-ink-muted">{note}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+          )}
+        </Section>
 
         <Text className="px-6 pt-9 text-[11.5px] text-ink-faint">
           Reference data from Open Beauty Facts and EU CosIng.
@@ -279,6 +292,88 @@ export default function IngredientDetail() {
       </View>
     </View>
   );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View className="gap-3.5 px-6 pt-9">
+      <Text className="text-[15.5px] font-semibold text-ink">{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+/** "Panthenol (Vitamin B5)" → the two lines the design draws. */
+function splitName(ingredient: Ingredient): { primary: string; secondary: string | null } {
+  const match = ingredient.name.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (match) return { primary: match[1], secondary: `(${match[2]})` };
+
+  const role = ingredient.functions?.[0];
+  return { primary: ingredient.name, secondary: role ? role.toLowerCase() : null };
+}
+
+/**
+ * The written definition, in descending order of how specific we can be:
+ * a curated rule, the row's own note, the regulator's function list, and
+ * finally an honest admission.
+ */
+function whatItDoes(ingredient: Ingredient, ruleReason: string | undefined): string {
+  if (ruleReason) return ruleReason;
+  if (ingredient.note) return ingredient.note;
+
+  const functions = ingredient.functions ?? [];
+  if (functions.length > 0) {
+    return `Declared in the EU inventory as ${functions
+      .slice(0, 3)
+      .join(", ")
+      .toLowerCase()}. That is the role it plays in a formula, not a claim about results.`;
+  }
+  if (!isVerified(ingredient)) {
+    return "This name didn't match our ingredient dictionary, so we can't say what it does. Label text is often mis-transcribed, and guessing would be worse than saying nothing.";
+  }
+  return "We hold no declared function for this one yet.";
+}
+
+function fitHeadline(rung: Rung, helps: boolean, hurts: boolean, verified: boolean): string {
+  if (!verified) return "We can't judge this one";
+  if (hurts) return "Works against your profile";
+  if (helps) return "Great match";
+  if (rung === "avoid") return "Flagged for everyone";
+  if (rung === "watch") return "Worth a second look";
+  return "Nothing against it";
+}
+
+function fitBody(
+  rung: Rung,
+  helps: boolean,
+  hurts: boolean,
+  verified: boolean,
+  hasRule: boolean
+): string {
+  if (!verified) {
+    return "An unrecognised name supports no claim in either direction, so this one neither counts for nor against the product's score.";
+  }
+  if (hurts) return "This is one of the things pulling the score down for the skin you described.";
+  if (helps) return "This actively helps with what you told us about your skin.";
+  if (rung === "avoid") {
+    return "The EU inventory restricts or prohibits this one, which applies to everybody rather than to your profile in particular.";
+  }
+  if (rung === "watch") {
+    return "Carries a restriction or a pore rating worth knowing about, though nothing in your profile makes it a specific problem.";
+  }
+  if (!hasRule) {
+    return "No rule in our table applies to this ingredient, and nothing in your profile flags it — so it neither helps nor hurts your score.";
+  }
+  return "Neither helps nor hurts, given the answers you gave.";
+}
+
+function fitPill(rung: Rung, helps: boolean, hurts: boolean, verified: boolean): string {
+  if (!verified) return "Unassessed";
+  if (hurts) return "Counts against your goals";
+  if (helps) return "Good for your goals";
+  if (rung === "avoid") return "Best avoided generally";
+  if (rung === "watch") return "Worth knowing";
+  return "Neutral for your goals";
 }
 
 /**

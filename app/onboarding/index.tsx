@@ -1,4 +1,4 @@
-import { Link, router } from "expo-router";
+import { router } from "expo-router";
 import { Pressable, View } from "react-native";
 
 import { LogoMark } from "@/components/LogoMark";
@@ -57,12 +57,17 @@ export default function Welcome() {
       <View className="min-h-[40px] flex-1" />
 
       <View className="gap-3.5">
-        <Link
-          href="/onboarding/about-you"
-          className="rounded-control bg-accent px-6 py-[18px] text-center text-[15px] font-semibold text-white active:bg-accent-deep"
+        {/*
+          A Pressable, not a styled <Link>. Link renders a Text, so its height
+          came from the line box plus padding and the button sat at roughly a
+          third of the 56px the design draws.
+        */}
+        <Pressable
+          onPress={() => router.push("/onboarding/about-you")}
+          className="h-[56px] items-center justify-center rounded-control bg-accent active:bg-accent-deep"
         >
-          Get started
-        </Link>
+          <Text className="text-[15px] font-semibold text-white">Get started</Text>
+        </Pressable>
         <Pressable onPress={skip} className="py-2">
           <Text className="text-center text-[13.5px] font-medium text-ink-muted">
             Skip for now

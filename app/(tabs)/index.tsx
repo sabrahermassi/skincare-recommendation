@@ -179,8 +179,8 @@ export default function Browse() {
       {compareIds.length > 0 && (
         <View className="absolute inset-x-0 bottom-0 border-t border-hairline bg-surface p-4">
           <Link href="/compare" asChild>
-            <Pressable className="rounded-control bg-accent py-3.5 active:bg-accent-deep">
-              <Text className="text-center text-base font-semibold text-white">
+            <Pressable className="h-[52px] items-center justify-center rounded-control bg-accent active:bg-accent-deep">
+              <Text className="text-base font-semibold text-white">
                 Compare {compareIds.length} selected
                 {compareIds.length === 1 ? " — pick one more" : ""}
               </Text>

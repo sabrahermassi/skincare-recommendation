@@ -7,6 +7,7 @@ import { Text } from "@/components/Text";
 import { fetchProduct } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
+import { relativeTime } from "@/lib/format";
 import { ingredientTone, matchProduct, ruleFor, type MatchResult } from "@/lib/matching";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
@@ -128,8 +129,14 @@ export default function IngredientList() {
           })}
         </View>
 
-        <Text className="py-3.5 text-center text-[10.5px] text-ink-muted">
+        {/* Formulas change. Saying when we last read the label is the
+            difference between data and a claim — it was on this screen before
+            the redesign and is worth more than the design's info icon. */}
+        <Text className="pb-1 pt-3.5 text-center text-[10.5px] text-ink-muted">
           {total} ingredient{total === 1 ? "" : "s"} · Tap for details
+        </Text>
+        <Text className="pb-3.5 text-center text-[10.5px] text-ink-faint">
+          Label read {relativeTime(Date.parse(product.fetchedAt ?? "") || Date.now())}
         </Text>
         <View className="h-px bg-hairline" />
 
@@ -186,9 +193,13 @@ function IngredientListRow({
   const meta = RUNG[rung];
   const rule = ruleFor(ingredient);
 
+  // The most specific thing we hold, in order: a curated rule, the row's own
+  // note, then the regulator's declared function list.
   const subtitle = !isVerified(ingredient)
     ? "Not recognised — we can't assess this one"
-    : (rule ? rule.reason.split("—")[0].trim() : functionLabel(ingredient));
+    : rule
+      ? rule.reason.split("—")[0].trim()
+      : (ingredient.note ?? functionLabel(ingredient));
 
   return (
     <Pressable

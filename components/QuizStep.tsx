@@ -84,12 +84,14 @@ export function QuizStep({
       <Pressable
         disabled={nextDisabled}
         onPress={onNext}
-        className={`rounded-control px-6 py-4 ${
+        // 56px, per the design. Height is explicit rather than derived from
+        // padding so it cannot drift with the label size.
+        className={`h-[56px] items-center justify-center rounded-control ${
           nextDisabled ? "bg-hairline" : "bg-accent active:bg-accent-deep"
         }`}
       >
         <Text
-          className={`text-center text-base font-semibold ${
+          className={`text-base font-semibold ${
             nextDisabled ? "text-ink-faint" : "text-white"
           }`}
         >

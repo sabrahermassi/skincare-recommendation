@@ -116,7 +116,7 @@ export default function ScanLabel() {
         <Pressable
           onPress={capture}
           disabled={status.kind === "reading"}
-          className={`flex-row items-center justify-center gap-2 rounded-control py-4 ${
+          className={`h-[52px] flex-row items-center justify-center gap-2 rounded-control ${
             status.kind === "reading" ? "bg-white/40" : "bg-white active:bg-hairline"
           }`}
         >

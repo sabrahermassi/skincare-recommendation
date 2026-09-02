@@ -157,7 +157,7 @@ export default function Saved() {
             const product = entry.known ? byId[entry.id] : undefined;
             return product ? (
               <Row key={entry.id} product={product}>
-                <HistoryMeta entry={entry} />
+                <HistoryMeta entry={entry} action />
               </Row>
             ) : (
               <UnknownRow key={entry.id} entry={entry} />
@@ -239,25 +239,32 @@ function Row({
  * The snapshot verdict, set deliberately quieter than the saved badge so it
  * never reads as the product's current score.
  */
-function HistoryMeta({ entry }: { entry: HistoryEntry }) {
+function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: boolean }) {
   return (
-    <View className="mt-1.5 flex-row flex-wrap items-center gap-x-2 gap-y-1">
-      <Text className="text-[11.5px] text-ink-muted">{relativeTime(entry.lastSeenAt)}</Text>
-      {entry.seenCount > 1 && (
-        <Text className="text-[11.5px] tabular-nums text-ink-faint">
-          · checked {entry.seenCount} times
-        </Text>
-      )}
-      {entry.scoreAtView !== null && (
-        <Text className="text-[11.5px] tabular-nums text-ink-faint">
-          · {entry.scoreAtView}% then
-        </Text>
-      )}
-      {entry.warningsAtView > 0 && (
-        <Text className="text-[11.5px] font-semibold text-status-watch">
-          · {entry.warningsAtView} flagged
-        </Text>
-      )}
+    <View className="mt-1.5 flex-row items-end justify-between gap-2.5">
+      <View className="flex-1 flex-row flex-wrap items-center gap-x-2 gap-y-1">
+        <Text className="text-[11.5px] text-ink-muted">{relativeTime(entry.lastSeenAt)}</Text>
+        {entry.seenCount > 1 && (
+          <Text className="text-[11.5px] tabular-nums text-ink-faint">
+            · checked {entry.seenCount} times
+          </Text>
+        )}
+        {entry.scoreAtView !== null && (
+          <Text className="text-[11.5px] tabular-nums text-ink-faint">
+            · {entry.scoreAtView}% then
+          </Text>
+        )}
+        {entry.warningsAtView > 0 && (
+          <Text className="text-[11.5px] font-semibold text-status-watch">
+            · {entry.warningsAtView} flagged
+          </Text>
+        )}
+      </View>
+      {/* The row is already a link; this is the affordance that says so, and
+          the design puts one on every history row. */}
+      {action ? (
+        <Text className="text-[11.5px] font-semibold text-accent-text">View</Text>
+      ) : null}
     </View>
   );
 }

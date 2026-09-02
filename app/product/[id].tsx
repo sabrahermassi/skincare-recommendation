@@ -104,7 +104,24 @@ export default function ProductDetail() {
 
   return (
     <View className="flex-1 bg-canvas">
-      <Stack.Screen options={{ title: product.brand }} />
+      {/* The design puts the save control at the top as well as in the thumb
+          zone; on a long product page the footer one scrolls out of reach of
+          the eye, not just the thumb. */}
+      <Stack.Screen
+        options={{
+          title: product.brand,
+          headerRight: () => (
+            <Pressable
+              onPress={() => toggleSaved(product.id)}
+              hitSlop={12}
+              accessibilityLabel={saved ? "Remove from saved" : "Save"}
+              accessibilityState={{ selected: saved }}
+            >
+              <Text className="text-lg text-ink">{saved ? "♥" : "♡"}</Text>
+            </Pressable>
+          ),
+        }}
+      />
 
       <ScrollView contentContainerClassName="pb-32">
         <View className="items-center px-5 pt-4">
@@ -160,24 +177,30 @@ export default function ProductDetail() {
         )}
 
         {/*
-          The design fills this section with marketing copy. `benefits` is the
-          only thing in the catalogue that answers the same question, and real
-          sources return a formula and a label rather than bullets — so when
-          there are none, the section is dropped rather than padded.
+          The design draws this as a checklist. `benefits` supplies the bullets
+          where a row has them, but that is only the hand-written catalogue —
+          Open Beauty Facts and the INCI API return a formula and a label, not
+          copywriting, so for a real product the list is empty. `description`
+          is always populated, so it carries the section instead of leaving a
+          hole where the design put content.
         */}
-        {product.benefits.length > 0 && (
-          <View className="gap-3 px-5 pt-7">
-            <Text className="text-[10.5px] font-bold uppercase tracking-[0.9px] text-ink-faint">
-              What it does
-            </Text>
-            {product.benefits.map((benefit) => (
+        <View className="gap-3 px-5 pt-7">
+          <Text className="text-[10.5px] font-bold uppercase tracking-[0.9px] text-ink-faint">
+            What it does
+          </Text>
+          {product.benefits.length > 0 ? (
+            product.benefits.map((benefit) => (
               <View key={benefit} className="flex-row items-center gap-2.5">
                 <Text className="text-[15px] font-bold text-status-safe">✓</Text>
                 <Text className="flex-1 text-[12.5px] leading-[17px] text-ink">{benefit}</Text>
               </View>
-            ))}
-          </View>
-        )}
+            ))
+          ) : (
+            <Text className="text-[12.5px] leading-[19px] text-ink-muted">
+              {product.description}
+            </Text>
+          )}
+        </View>
 
         {total > 0 && (
           <View className="gap-3 px-5 pt-7">
@@ -211,6 +234,19 @@ export default function ProductDetail() {
                 </View>
               );
             })}
+          </View>
+        )}
+
+        {total === 0 && (
+          <View className="mx-5 mt-7 gap-3 rounded-card bg-tint-lilac p-[18px]">
+            <Text className="text-[13px] font-semibold text-accent-text">
+              We know this product but not what&apos;s in it
+            </Text>
+            <Text className="text-[12.5px] leading-[19px] text-accent-text">
+              Nobody has read this label yet, so there is no ingredient list to
+              judge. Photograph the back of the pack and we&apos;ll read it —
+              once, for everyone.
+            </Text>
           </View>
         )}
 

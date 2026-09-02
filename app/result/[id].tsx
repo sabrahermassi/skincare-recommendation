@@ -217,9 +217,9 @@ export default function ScanResult() {
             </Text>
             <Pressable
               onPress={() => router.push(`/scan-label?barcode=${product.barcode}`)}
-              className="rounded-full bg-accent py-3 active:opacity-80"
+              className="h-[52px] items-center justify-center rounded-full bg-accent active:opacity-80"
             >
-              <Text className="text-center text-sm font-semibold text-canvas">
+              <Text className="text-sm font-semibold text-canvas">
                 Photograph the ingredients
               </Text>
             </Pressable>
