@@ -21,7 +21,8 @@
  *   node scripts/backfill-ingredient-names.mjs --dry-run
  *   node scripts/backfill-ingredient-names.mjs
  *
- * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY unless --dry-run.
+ * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY either way — --dry-run
+ * still reads the live catalogue, it just skips the writes at the end.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -148,20 +149,22 @@ async function main() {
     if (e1) throw new Error(e1.message);
 
     for (const row of rows ?? []) {
-      const { data: clash } = await db
+      const { data: clash, error: clashError } = await db
         .from("product_ingredients")
         .select("position")
         .eq("product_id", row.product_id)
         .eq("inci_name", r.to)
         .maybeSingle();
+      if (clashError) throw new Error(clashError.message);
 
       if (clash) {
         // Already present under the canonical name — drop the duplicate.
-        await db
+        const { error: deleteError } = await db
           .from("product_ingredients")
           .delete()
           .eq("product_id", row.product_id)
           .eq("position", row.position);
+        if (deleteError) throw new Error(deleteError.message);
       } else {
         const { error: e2 } = await db
           .from("product_ingredients")

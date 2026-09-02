@@ -275,11 +275,16 @@ const MAX_WINDOW_WORDS = 6;
 /**
  * Split a printed list on its separators. A comma directly between two digits
  * belongs to the name — "1,2-Hexanediol" is one ingredient, and splitting there
- * yields a bare "1" and a "2-hexanediol" that matches nothing. Kept in step
- * with `lib/inci.ts`.
+ * yields a bare "1" and a "2-hexanediol" that matches nothing. Both sides of
+ * the comma are checked, not just the one after — a lookahead alone let
+ * "Water,4-Terpineol" fuse into one token. Kept in step with `lib/inci.ts`.
  */
 function splitOnSeparators(text: string): string[] {
-  return text.split(/[;•·]|,(?!\d)/);
+  const PLACEHOLDER = "";
+  const protectedText = text.replace(/,(?=\d)/g, (match, offset: number) =>
+    offset > 0 && /\d/.test(text[offset - 1]) ? PLACEHOLDER : match
+  );
+  return protectedText.split(/[;•·]|,/).map((s) => s.replace(new RegExp(PLACEHOLDER, "g"), ","));
 }
 
 /**
@@ -569,11 +574,15 @@ async function fetchDictionary(): Promise<Set<string>> {
   const names = new Set<string>();
   const PAGE = 1000;
   for (let offset = 0; ; offset += PAGE) {
-    const { data } = await db
+    // Postgres gives no cross-page ordering guarantee for an unordered
+    // `.range()` — without `.order()`, later pages can repeat or skip rows.
+    const { data, error } = await db
       .from("ingredients")
       .select("inci_name")
       .eq("verified", true)
+      .order("inci_name", { ascending: true })
       .range(offset, offset + PAGE - 1);
+    if (error) throw new Error(`fetchDictionary: ${error.message}`);
     for (const row of data ?? []) names.add(row.inci_name as string);
     if (!data || data.length < PAGE) break;
   }
@@ -590,10 +599,15 @@ async function fetchAliases(): Promise<Map<string, string>> {
   const aliases = new Map<string, string>();
   const PAGE = 1000;
   for (let offset = 0; ; offset += PAGE) {
-    const { data } = await db
+    // Same reasoning as fetchDictionary: `.order()` is required for a stable
+    // `.range()` page sequence, and a failed page must not be treated as "no
+    // more rows".
+    const { data, error } = await db
       .from("ingredient_synonyms")
       .select("synonym, inci_name")
+      .order("synonym", { ascending: true })
       .range(offset, offset + PAGE - 1);
+    if (error) throw new Error(`fetchAliases: ${error.message}`);
     for (const row of data ?? []) {
       aliases.set(row.synonym as string, row.inci_name as string);
     }

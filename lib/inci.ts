@@ -37,11 +37,18 @@ export type ParsedIngredient = { inci_name: string; position: number };
  * A comma sitting directly between two digits belongs to the name, not to the
  * list: "1,2-Hexanediol" is one ingredient, and splitting there produced a bare
  * "1" and a "2-hexanediol" that matches nothing — the most common bad name in
- * the catalogue. A real separator is always followed by a space or a letter,
- * never by a digit with nothing between, so a lookahead tells them apart.
+ * the catalogue. A comma with a letter or nothing on either side is a real
+ * separator, so both sides have to be checked, not just the one after — a
+ * lookahead alone let "Water,4-Terpineol" fuse into one token. The check is
+ * done via the match offset against the original text rather than a
+ * lookbehind, which not every runtime this parser has to run on supports.
  */
 export function splitOnSeparators(text: string): string[] {
-  return text.split(/[;•·]|,(?!\d)/);
+  const PLACEHOLDER = "";
+  const protectedText = text.replace(/,(?=\d)/g, (match, offset: number) =>
+    offset > 0 && /\d/.test(text[offset - 1]) ? PLACEHOLDER : match
+  );
+  return protectedText.split(/[;•·]|,/).map((s) => s.replace(new RegExp(PLACEHOLDER, "g"), ","));
 }
 
 /** Below this many delimiter-split tokens, the split itself is untrustworthy. */

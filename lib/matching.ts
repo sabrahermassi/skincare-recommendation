@@ -136,6 +136,11 @@ export function matchProduct(
 
   const reasons: MatchReason[] = [];
   let score = BASE_SCORE;
+  // Counted separately from `reasons.length`: a rule that both helps and
+  // hurts the same profile (dimethicone on dry, acne-prone skin) can net to
+  // zero and never reach `reasons`, but it was still evidence the formula was
+  // read against this profile, not a formula with nothing to say.
+  let applicableRules = 0;
 
   product.ingredients.forEach((ingredient, position) => {
     // An unrecognised name supports no claim in either direction.
@@ -147,6 +152,12 @@ export function matchProduct(
     const weight = rule.weight * positionWeight(position) * contactWeight(product.type);
     const helps = targetApplies(rule.helps, profile);
     const hurts = targetApplies(rule.hurts, profile);
+    // A rule whose name matches but whose helps/hurts targets miss this
+    // profile entirely said nothing about this profile — only count it once
+    // it actually engages, or the ceramide/oily-profile "nothing to say"
+    // fixture below would stop declining to score.
+    if (!helps && !hurts) return;
+    applicableRules += 1;
 
     // A rule can both help and hurt the same person — salicylic acid on oily,
     // sensitive skin. That is a genuine tension, not a bug, so both are
@@ -185,7 +196,7 @@ export function matchProduct(
   // those profiles actually meet brought that to 29 and 37, which is what makes
   // refusing here honest rather than merely unhelpful — it is now the minority
   // case, and it is the truthful answer when it happens.
-  if (reasons.length === 0 && warnings.length === 0) {
+  if (applicableRules === 0 && warnings.length === 0) {
     return {
       score: null,
       verdict: "unknown",

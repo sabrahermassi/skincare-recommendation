@@ -34,8 +34,18 @@ const LIMIT = Number(args[args.indexOf("--limit") + 1]) || Infinity;
 const ENDPOINT = "https://query.wikidata.org/sparql";
 const USER_AGENT = "Skintel/1.0 (https://github.com/sabrahermassi/skincare-recommendation)";
 
-/** Languages a cosmetics label in our markets might actually be printed in. */
-const LOCALES = ["en", "fr", "de", "es", "it", "pt", "nl", "ja", "ko", "zh"];
+/**
+ * Languages a cosmetics label in our markets might actually be printed in.
+ *
+ * ja/ko/zh are deliberately excluded even though labels do carry them: this
+ * script's `normalise()` (below, mirrored from `lib/inci.ts`) trims to an
+ * ASCII `[a-z0-9]` boundary, which erases a purely non-Latin label entirely
+ * rather than trimming it. Fixing that means making the shared normalisation
+ * contract Unicode-aware in every copy — including the one in `lib/inci.ts`
+ * that live scans match label text against — not just this importer, so it's
+ * tracked separately rather than done here.
+ */
+const LOCALES = ["en", "fr", "de", "es", "it", "pt", "nl"];
 
 /** CAS numbers per SPARQL request. Large enough to be quick, small enough not to time out. */
 const BATCH = 150;
@@ -157,6 +167,7 @@ async function main() {
   const proposals = new Map(); // synonym -> { inci_name, locale }
   const collisions = new Map(); // synonym -> Set of inci_names
 
+  let failedBatches = 0;
   for (let i = 0; i < casList.length; i += BATCH) {
     const batch = casList.slice(i, i + BATCH).map(([cas]) => cas);
     let rows = [];
@@ -164,6 +175,7 @@ async function main() {
       rows = await sparql(batch);
     } catch (err) {
       console.warn(`\n  batch at ${i} failed (${err.message.slice(0, 80)}) — skipping`);
+      failedBatches += 1;
       continue;
     }
 
@@ -215,6 +227,16 @@ async function main() {
     console.log(`    ${r.synonym}  ->  ${r.inci_name}  [${r.locale ?? "common"}]`);
   }
 
+  if (failedBatches > 0) {
+    console.error(
+      `\n${failedBatches} Wikidata batch(es) failed. Refusing to rebuild ` +
+        `the table from a partial result — that would delete existing ` +
+        `synonyms for the skipped batches and never replace them. Re-run ` +
+        `once Wikidata is reachable.`
+    );
+    process.exit(1);
+  }
+
   if (DRY_RUN) {
     console.log("\n--dry-run: nothing written.");
     return;
@@ -223,7 +245,8 @@ async function main() {
   // Rebuilt, not merged. Every row here is derived from Wikidata plus the
   // guards above, so a rerun after tightening a guard has to be able to
   // retract what a looser one admitted — an upsert alone would leave the bad
-  // rows in place.
+  // rows in place. Safe only because the batch-failure check above already
+  // guarantees `rows` reflects every CAS number queried, not a partial set.
   const { error: clearError } = await db
     .from("ingredient_synonyms")
     .delete()
