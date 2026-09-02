@@ -19,6 +19,7 @@ import { Text } from "@/components/Text";
 import { fetchProductByBarcode, fetchProductsByIds, searchProducts } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
+import { parseIngredientBlock } from "@/lib/inci";
 import { matchProduct } from "@/lib/matching";
 import { profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
@@ -46,7 +47,7 @@ const BARCODE_TYPES = IS_WEB
   ? (["qr"] as const)
   : (["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as const);
 
-type Mode = "Barcode" | "Label photo" | "Search";
+type Mode = "Barcode" | "Label photo" | "Search" | "Paste list";
 type Status = { kind: "idle" } | { kind: "looking"; code: string } | { kind: "missed"; code: string };
 
 /**
@@ -91,6 +92,21 @@ function SearchIcon({ color, size = 22 }: { color: string; size?: number }) {
   );
 }
 
+function PasteIcon({ color, size = 22 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x={5} y={4.5} width={14} height={16} rx={2.6} stroke={color} strokeWidth={1.6} />
+      <Rect x={9} y={2.6} width={6} height={3.8} rx={1.3} stroke={color} strokeWidth={1.6} />
+      <Path
+        d="M8.6 11.5h6.8M8.6 15h4.4"
+        stroke={color}
+        strokeWidth={1.6}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 const MODES: {
   label: Mode;
   Icon: (props: { color: string; size?: number }) => ReactElement;
@@ -98,6 +114,7 @@ const MODES: {
   { label: "Barcode", Icon: BarcodeIcon },
   { label: "Label photo", Icon: PhotoIcon },
   { label: "Search", Icon: SearchIcon },
+  { label: "Paste list", Icon: PasteIcon },
 ];
 
 export default function Scan() {
@@ -235,6 +252,8 @@ export default function Scan() {
           )}
 
           {mode === "Search" && <SearchPane />}
+
+          {mode === "Paste list" && <PastePane />}
 
           {mode === "Label photo" && (
             <View
@@ -534,6 +553,72 @@ function SearchPane() {
           </Pressable>
         ))}
       </ScrollView>
+    </View>
+  );
+}
+
+/**
+ * Paste an ingredient list — the mode that replaces the copy-from-INCIDecoder,
+ * paste-into-a-website routine.
+ *
+ * `parseIngredientBlock` with no dictionary argument is exactly the right tool:
+ * it strips a leading "Ingredients:" heading, splits on commas while protecting
+ * names like 1,2-Hexanediol, cuts off at directions and legal boilerplate,
+ * normalises each entry and dedupes. Pure and synchronous, so the parse costs
+ * nothing and needs no network — and because pore-clogging is judged against a
+ * table on the device, neither does the answer.
+ */
+function PastePane() {
+  const [text, setText] = useState("");
+  const setPastedIngredients = useAppStore((s) => s.setPastedIngredients);
+
+  const parsed = useMemo(() => parseIngredientBlock(text), [text]);
+  const ready = parsed.length >= 2;
+
+  function check() {
+    if (!ready) return;
+    setPastedIngredients(parsed.map((p) => p.inci_name));
+    setText("");
+    router.push("/check");
+  }
+
+  return (
+    <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 14, gap: 10 }}>
+      <TextInput
+        value={text}
+        onChangeText={setText}
+        placeholder="Paste the ingredient list here — water, glycerin, niacinamide…"
+        placeholderTextColor="rgba(253,251,249,0.45)"
+        multiline
+        textAlignVertical="top"
+        autoCorrect={false}
+        autoCapitalize="none"
+        className="rounded-control px-3 py-3 text-canvas"
+        style={{
+          flex: 1,
+          fontSize: 13,
+          lineHeight: 18,
+          backgroundColor: "rgba(250,247,243,0.14)",
+        }}
+      />
+
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <Text style={{ color: "rgba(250,247,243,0.6)", flex: 1 }} className="text-[11px]">
+          {text.trim().length === 0
+            ? "Copy it from anywhere — we read it on your phone."
+            : `${parsed.length} ingredient${parsed.length === 1 ? "" : "s"} found`}
+        </Text>
+        <Pressable
+          onPress={check}
+          disabled={!ready}
+          accessibilityRole="button"
+          accessibilityLabel="Check this ingredient list"
+          style={{ height: 40, opacity: ready ? 1 : 0.4 }}
+          className="items-center justify-center rounded-full bg-canvas px-5 active:opacity-80"
+        >
+          <Text className="text-[13px] font-semibold text-ink">Check</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

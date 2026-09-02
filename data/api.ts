@@ -337,6 +337,72 @@ export async function analyseLabel(
  * the graceful degradation when there is no usable camera. That matters on
  * web, where SDK 54's expo-camera decodes QR codes only.
  */
+/**
+ * Look up already-parsed INCI names in the dictionary, preserving label order.
+ *
+ * For the paste-a-list flow, which has names but no product. A plain table
+ * read — `ingredients` is public-SELECT under RLS — so it needs no edge
+ * function and no service-role key.
+ *
+ * Names we cannot resolve come back as unverified stubs rather than being
+ * dropped. That is what lets the screen say "we recognised 12 of 31" instead
+ * of quietly shortening the list, and it keeps pore-clogging detection working
+ * on them: an unrecognised name can still be an exact match against the
+ * curated table.
+ *
+ * Degrades rather than throws. With no Supabase configured, or with no
+ * network, every name comes back as a stub and the caller still gets a usable
+ * pore-clogging answer — which is the whole point of doing that check on the
+ * device.
+ */
+export async function resolveIngredientNames(names: string[]): Promise<Ingredient[]> {
+  const stub = (name: string): Ingredient => ({
+    id: name,
+    name,
+    comedogenic: 0,
+    safety: "safe",
+    verified: false,
+  });
+
+  if (names.length === 0) return [];
+
+  if (!usingSupabase()) {
+    return delay(
+      names.map((name) => {
+        const local = Object.values(INGREDIENTS).find((i) => i.name.toLowerCase() === name);
+        return local ?? stub(name);
+      })
+    );
+  }
+
+  try {
+    const { data, error } = await supabase!
+      .from("ingredients")
+      .select("inci_name, comedogenic, safety, note, verified, functions")
+      .in("inci_name", names);
+
+    if (error) throw error;
+
+    const byName = new Map<string, Ingredient>();
+    for (const row of data ?? []) {
+      byName.set(row.inci_name, {
+        id: row.inci_name,
+        name: row.inci_name,
+        comedogenic: (row.comedogenic ?? 0) as Ingredient["comedogenic"],
+        safety: row.safety,
+        note: row.note ?? undefined,
+        verified: row.verified,
+        functions: row.functions ?? undefined,
+      });
+    }
+
+    return names.map((name) => byName.get(name) ?? stub(name));
+  } catch (err) {
+    console.warn("resolveIngredientNames failed:", err);
+    return names.map(stub);
+  }
+}
+
 export async function searchProducts(query: string): Promise<ProductWithIngredients[]> {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];

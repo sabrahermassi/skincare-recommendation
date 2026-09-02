@@ -4,7 +4,8 @@ import Svg, { Circle, Path } from "react-native-svg";
 import { Text } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import type { MatchResult } from "@/lib/matching";
-import { COMEDOGENIC_FLAG_THRESHOLD, isVerified } from "@/lib/safety";
+import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
+import { isVerified } from "@/lib/safety";
 
 /**
  * The two risks people actually ask about, side by side, both computed from
@@ -50,7 +51,7 @@ export function RiskCards({
       />
       <RiskCard
         title="Pore-clogging risk"
-        {...poreRisk(product, match)}
+        {...poreRisk(product)}
         icon={
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
             <Circle cx={8} cy={8} r={1.4} stroke="#6D9A7E" strokeWidth={1.7} />
@@ -125,30 +126,36 @@ function irritationRisk(product: ProductWithIngredients, match: MatchResult): Ri
 }
 
 /**
- * Pore-clogging risk. CosIng rates no ingredient for this — `comedogenic` is
- * null for every real row — so where the rating is absent this falls back to
- * the rule table's own pore-clogging category, which is where that judgement
- * actually lives.
+ * Pore-clogging risk, read from the same detection the band at the top of the
+ * product screen uses.
+ *
+ * It used to compute its own answer from `comedogenic` (null on every real
+ * row) with a fallback to the netted `pore-clogging` score factor. That could
+ * disagree with the band on the same screen — the factor nets a positive like
+ * salicylic acid against a genuine clogger and reports "Nothing flagged" — so
+ * the card now summarises `poreVerdict` rather than racing it to a different
+ * conclusion. Two answers to one question is worse than either answer.
  */
-function poreRisk(product: ProductWithIngredients, match: MatchResult): Risk {
-  if (product.ingredients.length === 0) {
-    return { level: "Unknown", note: "Label not read yet", tone: "neutral" };
-  }
+function poreRisk(product: ProductWithIngredients): Risk {
+  const verdict = poreVerdict(product.ingredients);
 
-  const rated = product.ingredients.filter((i) => isVerified(i) && i.comedogenic > 0);
-  const worst = Math.max(0, ...rated.map((i) => i.comedogenic));
-  const fromRules = match.factors.find((f) => f.category === "pore-clogging" && f.delta < 0);
-
-  if (worst >= COMEDOGENIC_FLAG_THRESHOLD) {
-    return { level: "Elevated", note: `Rated ${worst}/5 at worst`, tone: "avoid" };
-  }
-  if (fromRules) {
+  if (verdict.kind === "unknown") {
     return {
-      level: "Moderate",
-      note: fromRules.ingredients[0] ?? "One ingredient",
-      tone: "watch",
+      level: "Unknown",
+      note: verdict.total === 0 ? "Label not read yet" : "Too little recognised",
+      tone: "neutral",
     };
   }
-  if (worst > 0) return { level: "Low", note: `Rated ${worst}/5 at worst`, tone: "good" };
-  return { level: "Low", note: "Nothing flagged", tone: "good" };
+  if (verdict.kind === "clean") {
+    return { level: "Low", note: "Nothing flagged", tone: "good" };
+  }
+
+  const { hits, warned } = verdict;
+  if (warned.length === 0) {
+    return { level: "Contested", note: `${hits.length} sources disagree on`, tone: "neutral" };
+  }
+  if (warned.some((h: CloggerHit) => h.confidence === "high")) {
+    return { level: "Elevated", note: `${warned.length} on the lists`, tone: "avoid" };
+  }
+  return { level: "Moderate", note: `${warned.length} on the lists`, tone: "watch" };
 }

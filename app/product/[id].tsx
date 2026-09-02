@@ -7,6 +7,7 @@ import { Text } from "@/components/Text";
 
 import { BottleIcon } from "@/components/BottleIcon";
 import { FactorBar } from "@/components/FactorBar";
+import { PoreCloggingBand } from "@/components/PoreCloggingBand";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { CompareIcon, HeartIcon } from "@/components/icons";
@@ -233,6 +234,23 @@ export default function ProductScreen() {
             </Svg>
           </Pressable>
         </View>
+
+        {/* The pore-clogging answer, above the fold. This is the question the
+            app is replacing a three-site copy-paste routine to answer, so it
+            sits directly under the verdict rather than in the risk cards
+            further down, which are below the fold on a phone. */}
+        <PoreCloggingBand
+          ingredients={product.ingredients}
+          onPress={
+            product.ingredients.length > 0
+              ? () =>
+                  router.push({
+                    pathname: "/ingredients/[id]",
+                    params: { id: product.id, tab: "Pores" },
+                  })
+              : undefined
+          }
+        />
 
         {match.factors.length > 0 ? (
           <>

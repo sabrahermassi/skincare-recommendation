@@ -70,6 +70,13 @@ type AppState = {
   // ── Compare tray: at most two products at a time ──
   compareIds: string[];
 
+  /**
+   * An ingredient list pasted into the scanner, awaiting the check screen.
+   * In-memory like `compareIds`: it is a single interaction, and restoring a
+   * list you pasted three weeks ago would be noise.
+   */
+  pastedIngredients: string[] | null;
+
   /** Shallow-merges into the profile. Used by every quiz step and by /profile. */
   setProfile: (patch: Partial<SkinProfile>) => void;
   /** Enforces the cap of `MAX_CONCERNS`. */
@@ -97,6 +104,8 @@ type AppState = {
 
   toggleCompare: (id: string) => void;
   clearCompare: () => void;
+
+  setPastedIngredients: (names: string[] | null) => void;
 
   /**
    * Back to a first-run state: empty profile, closed onboarding gate, empty
@@ -141,6 +150,7 @@ export const INITIAL_STATE = {
   savedIngredients: [] as string[],
   history: [] as HistoryEntry[],
   compareIds: [] as string[],
+  pastedIngredients: null as string[] | null,
 };
 
 export const useAppStore = create<AppState>()(
@@ -222,6 +232,8 @@ export const useAppStore = create<AppState>()(
         }),
 
       clearCompare: () => set({ compareIds: [] }),
+
+      setPastedIngredients: (names) => set({ pastedIngredients: names }),
 
       resetApp: () => {
         set({ ...INITIAL_STATE });

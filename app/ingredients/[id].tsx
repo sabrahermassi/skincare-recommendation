@@ -10,6 +10,7 @@ import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { relativeTime } from "@/lib/format";
 import { ingredientTone, matchProduct, ruleFor, type MatchResult } from "@/lib/matching";
+import { isPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -21,7 +22,8 @@ import { useAppStore } from "@/store/useAppStore";
  * this and reading the back of the box.
  */
 
-type Tab = "All" | "Actives" | "Watch-outs";
+const TABS = ["All", "Actives", "Watch-outs", "Pores"] as const;
+type Tab = (typeof TABS)[number];
 
 /**
  * Four rungs, drawn soft. `ingredientTone` returns three, because it answers
@@ -45,10 +47,15 @@ function rungFor(ingredient: Ingredient, match: MatchResult): Rung {
 }
 
 export default function IngredientList() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `tab` arrives from the product screen's pore-clogging band, which deep
+  // links straight into the filtered view rather than dropping you on "All"
+  // to find them yourself.
+  const { id, tab: initialTab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("All");
+  const [tab, setTab] = useState<Tab>(
+    TABS.includes(initialTab as Tab) ? (initialTab as Tab) : "All"
+  );
 
   const profile = useAppStore((s) => s.profile);
 
@@ -95,30 +102,38 @@ export default function IngredientList() {
   const visible = product.ingredients.filter((i) => {
     if (tab === "Actives") return ruleFor(i) !== undefined;
     if (tab === "Watch-outs") return rungFor(i, match) !== "good";
+    if (tab === "Pores") return isPoreClogging(i);
     return true;
   });
 
   const total = product.ingredients.length;
+  const cloggerCount = poreCloggingHits(product.ingredients).length;
 
   return (
     <View className="flex-1 bg-canvas">
       <ScreenHeader title="Ingredients" />
 
       <ScrollView contentContainerClassName="pb-4">
-        <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 24, paddingTop: 20 }}>
-          {(["All", "Actives", "Watch-outs"] as const).map((label) => {
+        {/* Scrolls rather than dividing the width four ways: at flex-1 the
+            fourth pill squeezed the labels below legibility. Pills keep their
+            44pt height and the app's own option-label size. */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 10, paddingHorizontal: 24, paddingTop: 20 }}
+        >
+          {TABS.map((label) => {
             const active = tab === label;
+            // The count earns the tab its place: "Pores 3" answers the
+            // question before you have tapped anything.
+            const suffix = label === "Pores" && cloggerCount > 0 ? ` ${cloggerCount}` : "";
             return (
               <Pressable
                 key={label}
                 onPress={() => setTab(label)}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
-                // 44pt and the app's own option-label size, matching every
-                // other row of choices. The design draws 38 at 12.5px, which
-                // is both under the touch minimum and smaller than the same
-                // control anywhere else in the app.
-                style={{ height: 44, flex: 1 }}
+                style={{ height: 44, paddingHorizontal: 18 }}
                 className={`items-center justify-center rounded-full border ${
                   active ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
                 }`}
@@ -129,11 +144,12 @@ export default function IngredientList() {
                   }`}
                 >
                   {label}
+                  {suffix}
                 </Text>
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
 
         {/* Formulas change. Saying when we last read the label is the
             difference between data and a claim — it was on this screen before
@@ -201,14 +217,18 @@ function IngredientListRow({
 }) {
   const meta = RUNG[rung];
   const rule = ruleFor(ingredient);
+  const clogs = isPoreClogging(ingredient);
 
-  // The most specific thing we hold, in order: a curated rule, the row's own
-  // note, then the regulator's declared function list.
+  // The most specific thing we hold, in order: pore-clogging (the reason
+  // someone opened this screen), a curated rule, the row's own note, then the
+  // regulator's declared function list.
   const subtitle = !isVerified(ingredient)
     ? "Not recognised — we can't assess this one"
-    : rule
-      ? rule.reason.split("—")[0].trim()
-      : (ingredient.note ?? functionLabel(ingredient));
+    : clogs
+      ? "On the published pore-clogging lists"
+      : rule
+        ? rule.reason.split("—")[0].trim()
+        : (ingredient.note ?? functionLabel(ingredient));
 
   return (
     <Pressable
@@ -219,9 +239,25 @@ function IngredientListRow({
       <View style={{ width: 9, height: 9, marginTop: 6 }} className={`rounded-full ${meta.dot}`} />
 
       <View className="flex-1 gap-0.5">
-        <Text className="text-[13.5px] font-medium capitalize leading-[18px] text-ink">
-          {ingredient.name}
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text
+            className="text-[13.5px] font-medium capitalize leading-[18px] text-ink"
+            style={{ flexShrink: 1 }}
+          >
+            {ingredient.name}
+          </Text>
+          {/* The highlight the external checkers give you, on the row itself. */}
+          {clogs ? (
+            <View
+              style={{ backgroundColor: "#FBE2E7", paddingHorizontal: 6, paddingVertical: 2 }}
+              className="rounded-full"
+            >
+              <Text style={{ color: "#A4526A", fontSize: 9.5 }} className="font-bold uppercase">
+                Pores
+              </Text>
+            </View>
+          ) : null}
+        </View>
         <Text className="text-[11px] leading-[16px] text-ink-muted">{subtitle}</Text>
       </View>
 
