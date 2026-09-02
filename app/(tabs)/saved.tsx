@@ -1,11 +1,10 @@
-import { Image } from "expo-image";
 import { Link } from "expo-router";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ProductIllustration } from "@/components/ProductIllustration";
+import { BottleIcon } from "@/components/BottleIcon";
 import { Text } from "@/components/Text";
 import { fetchProductsByIds } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -218,17 +217,7 @@ function Row({
     <Link href={`/product/${product.id}`} asChild>
       <Pressable style={{ gap: 13, padding: 13 }}
         className="flex-row items-start rounded-panel bg-surface shadow-sm active:opacity-80">
-        {product.imageUrl ? (
-          <Image
-            source={{ uri: product.imageUrl }}
-            style={{ width: 56, height: 56, borderRadius: 15 }}
-            contentFit="contain"
-            transition={150}
-            accessibilityLabel={`${product.brand} ${product.name}`}
-          />
-        ) : (
-          <ProductIllustration type={product.type} size={56} />
-        )}
+        <BottleIcon type={product.productType} size={56} />
         <View className="flex-1">
           <Text className="text-[9.5px] font-semibold uppercase tracking-[0.7px] text-ink-faint">
             {product.brand}

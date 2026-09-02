@@ -1,4 +1,3 @@
-import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Share, View } from "react-native";
@@ -6,8 +5,8 @@ import Svg, { Circle, Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
 
+import { BottleIcon } from "@/components/BottleIcon";
 import { FactorBar } from "@/components/FactorBar";
-import { ProductIllustration } from "@/components/ProductIllustration";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { CompareIcon, HeartIcon } from "@/components/icons";
@@ -164,17 +163,7 @@ export default function ProductScreen() {
           looking at the right bottle.
         */}
         <View style={{ alignItems: "center", paddingHorizontal: 20, paddingTop: 18 }}>
-          {product.imageUrl ? (
-            <Image
-              source={{ uri: product.imageUrl }}
-              style={{ width: 150, height: 150, borderRadius: 15 }}
-              contentFit="contain"
-              transition={150}
-              accessibilityLabel={`${product.brand} ${product.name}`}
-            />
-          ) : (
-            <ProductIllustration type={product.type} size={150} />
-          )}
+          <BottleIcon type={product.productType} size={150} />
         </View>
 
         <View style={{ alignItems: "center", gap: 6, paddingHorizontal: 20, paddingTop: 18 }}>

@@ -58,6 +58,25 @@ export type ProductType =
   | "hand-cream";
 
 /**
+ * Which of the eight illustrated bottle shapes represents this product on
+ * screen — a physical-packaging axis, not the merchandising one `type`
+ * already covers. A gel cleanser and a body wash are different `type`s but
+ * the same vessel, so both take `productType: "cleanser-tube"`.
+ *
+ * Matches `design_handoff_skintel_onboarding/bottle-set.html` exactly, one
+ * value per `btl-<name>.svg` — see `components/BottleIcon.tsx`.
+ */
+export type PackagingType =
+  | "serum"
+  | "cleanser-tube"
+  | "lotion-pump"
+  | "cream-jar"
+  | "mist"
+  | "toner"
+  | "ampoule"
+  | "sunscreen";
+
+/**
  * 0 = will not clog pores, 5 = highly pore-clogging.
  *
  * INTENTIONALLY UNPOPULATED for real catalogue data, and it should stay that
@@ -114,6 +133,8 @@ export type Product = {
   brand: string;
   name: string;
   type: ProductType;
+  /** Which bottle icon to draw — see `PackagingType`. */
+  productType: PackagingType;
   /** Face or body — matches the quiz's area question. */
   area: BodyArea;
   /** Price in KRW. */
@@ -131,8 +152,11 @@ export type Product = {
    */
   benefits: string[];
   /**
-   * Packaging photo from the source, or `null` when there isn't one — which is
-   * common. `ProductIllustration` renders the pastel vessel in that case.
+   * Packaging photo from the source. Unused by every screen now —
+   * `components/BottleIcon.tsx` draws every product as its `productType`'s
+   * illustrated bottle instead, real photo or not (see `SHOW_SOURCE_PHOTOS`
+   * in `data/api.ts` for why). Kept on the type because a real catalogue
+   * endpoint will still return it.
    */
   imageUrl: string | null;
   /**

@@ -1,3 +1,4 @@
+import { defaultPackagingType } from "@/components/BottleIcon";
 import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@/lib/supabase";
 import { INGREDIENTS } from "./ingredients";
 import { PRODUCTS } from "./products";
@@ -37,7 +38,8 @@ const usingSupabase = () => isSupabaseConfigured && supabase !== null;
  * `uploader`, `uploaded_t` and pixel sizes, with no field separating an
  * official pack shot from someone holding the bottle in a bathroom mirror.
  * Many are review snapshots. There is no reliable way to tell them apart, so
- * none are shown and `ProductIllustration` renders instead.
+ * none are shown — every product renders as its `productType`'s illustrated
+ * bottle instead (`components/BottleIcon.tsx`), photo or no photo.
  *
  * Enforced here, at the read boundary, rather than only at import: rows
  * written by an earlier import still hold their URLs, and this guarantees
@@ -152,6 +154,9 @@ function rowToProduct(row: CatalogueRow): ProductWithIngredients {
     brand: row.brand,
     name: row.name,
     type: row.type as ProductType,
+    // Real catalogue rows don't carry a packaging shape yet, so it's derived
+    // from the merchandising type they do have.
+    productType: defaultPackagingType(row.type as ProductType),
     area: row.area as BodyArea,
     price: row.price_krw ?? 0,
     volume: row.volume ?? "",

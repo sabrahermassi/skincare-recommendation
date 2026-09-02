@@ -1,4 +1,3 @@
-import { Image } from "expo-image";
 import { Link } from "expo-router";
 import { Pressable, View } from "react-native";
 
@@ -7,7 +6,7 @@ import { Text } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import { matchTone, type MatchResult } from "@/lib/matching";
 import { flaggedIngredients } from "@/lib/safety";
-import { ProductIllustration } from "./ProductIllustration";
+import { BottleIcon } from "./BottleIcon";
 
 /**
  * One product in the browse list.
@@ -56,17 +55,7 @@ export function ProductRow({
     <Link href={`/product/${product.id}`} asChild>
       <Pressable style={{ gap: 13, paddingVertical: 17 }}
         className="flex-row items-center border-b border-hairline-soft bg-surface px-5 active:bg-canvas">
-        {product.imageUrl ? (
-          <Image
-            source={{ uri: product.imageUrl }}
-            style={{ width: 46, height: 46, borderRadius: 12 }}
-            contentFit="contain"
-            transition={150}
-            accessibilityLabel={`${product.brand} ${product.name}`}
-          />
-        ) : (
-          <ProductIllustration type={product.type} size={46} radius="rounded-tile" />
-        )}
+        <BottleIcon type={product.productType} size={46} radius="rounded-tile" />
 
         <View className="flex-1">
           <Text className="text-[9.5px] font-semibold uppercase tracking-[0.7px] text-ink-faint">

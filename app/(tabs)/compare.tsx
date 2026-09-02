@@ -6,7 +6,7 @@ import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
 
-import { ProductIllustration } from "@/components/ProductIllustration";
+import { BottleIcon } from "@/components/BottleIcon";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SafetyPill } from "@/components/SafetyPill";
 import { fetchProductsByIds } from "@/data/api";
@@ -113,7 +113,7 @@ export default function Compare() {
 
             return (
               <View key={product.id} className="flex-1 rounded-card bg-surface p-3.5 shadow-md">
-                <ProductIllustration type={product.type} size={44} />
+                <BottleIcon type={product.productType} size={44} />
                 <Text className="pt-3 text-[9.5px] font-semibold uppercase tracking-[0.7px] text-ink-faint">
                   {product.brand}
                 </Text>
