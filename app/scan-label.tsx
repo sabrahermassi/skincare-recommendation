@@ -94,32 +94,45 @@ export default function ScanLabel() {
       {/* A frame, because "fill this box with the ingredients" is the single
           instruction that most improves what the OCR gets back. */}
       <View className="flex-1 items-center justify-center px-6" pointerEvents="none">
-        <View style={{ height: "38%", width: "100%" }} className="rounded-card border-2 border-white/80" />
+        <View
+          style={{ height: "38%", width: "100%", borderColor: "rgba(255,255,255,0.8)" }}
+          className="rounded-card border-2"
+        />
       </View>
 
       <View className="absolute inset-x-0 top-0 px-6 pt-16" pointerEvents="none">
         <Text className="text-center text-base font-semibold text-white">
           Fill the frame with the ingredient list
         </Text>
-        <Text className="mt-1 text-center text-sm text-white/70">
+        <Text style={{ color: "rgba(255,255,255,0.7)" }} className="mt-1 text-center text-sm">
           Usually the smallest print on the back. Hold steady.
         </Text>
       </View>
 
-      <View className="absolute inset-x-0 bottom-0 gap-3 bg-black/75 p-6">
+      <View
+        style={{ backgroundColor: "rgba(0,0,0,0.75)" }}
+        className="absolute inset-x-0 bottom-0 gap-3 p-6"
+      >
         {status.kind === "failed" && (
           <View className="gap-1">
             <Text className="text-base font-semibold text-tint-peach">{status.message}</Text>
-            {status.hint && <Text className="text-sm text-white/70">{status.hint}</Text>}
+            {status.hint && (
+              <Text style={{ color: "rgba(255,255,255,0.7)" }} className="text-sm">
+                {status.hint}
+              </Text>
+            )}
           </View>
         )}
 
         <Pressable
           onPress={capture}
           disabled={status.kind === "reading"}
-          style={{ height: 52 }}
+          style={{
+            height: 52,
+            backgroundColor: status.kind === "reading" ? "rgba(255,255,255,0.4)" : undefined,
+          }}
           className={`flex-row items-center justify-center gap-2 rounded-control ${
-            status.kind === "reading" ? "bg-white/40" : "bg-white active:bg-hairline"
+            status.kind === "reading" ? "" : "bg-white active:bg-hairline"
           }`}
         >
           {status.kind === "reading" && <ActivityIndicator color="#000" />}
@@ -133,7 +146,9 @@ export default function ScanLabel() {
         </Pressable>
 
         <Pressable onPress={() => router.back()} className="items-center py-1">
-          <Text className="text-sm font-medium text-white/80 underline">Cancel</Text>
+          <Text style={{ color: "rgba(255,255,255,0.8)" }} className="text-sm font-medium underline">
+            Cancel
+          </Text>
         </Pressable>
       </View>
     </View>

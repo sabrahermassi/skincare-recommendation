@@ -61,6 +61,9 @@ type AppState = {
   // ── Saved shelf: explicit, user-curated ──
   savedProducts: SavedProduct[];
 
+  /** Ingredient names starred from the ingredient-detail screen. */
+  savedIngredients: string[];
+
   // ── History: automatic, written on every product view and scan ──
   history: HistoryEntry[];
 
@@ -79,6 +82,9 @@ type AppState = {
   saveProduct: (id: string) => void;
   /** Add/remove. Use for the wishlist control, where toggling is the intent. */
   toggleSaved: (id: string) => void;
+
+  /** Add/remove an ingredient name from the starred list. */
+  toggleSavedIngredient: (name: string) => void;
 
   /** Upserts a history entry, moving it to the front. Never touches the shelf. */
   recordView: (view: {
@@ -110,6 +116,7 @@ export const PERSISTED_KEYS = [
   "profile",
   "hasSeenOnboarding",
   "savedProducts",
+  "savedIngredients",
   "history",
 ] as const;
 
@@ -121,6 +128,7 @@ export function partializeState(state: AppState): PersistedState {
     profile: state.profile,
     hasSeenOnboarding: state.hasSeenOnboarding,
     savedProducts: state.savedProducts,
+    savedIngredients: state.savedIngredients,
     history: state.history,
   };
 }
@@ -130,6 +138,7 @@ export const INITIAL_STATE = {
   profile: EMPTY_PROFILE,
   hasSeenOnboarding: false,
   savedProducts: [] as SavedProduct[],
+  savedIngredients: [] as string[],
   history: [] as HistoryEntry[],
   compareIds: [] as string[],
 };
@@ -171,6 +180,13 @@ export const useAppStore = create<AppState>()(
           savedProducts: state.savedProducts.some((p) => p.id === id)
             ? state.savedProducts.filter((p) => p.id !== id)
             : [...state.savedProducts, { id, savedAt: Date.now() }],
+        })),
+
+      toggleSavedIngredient: (name) =>
+        set((state) => ({
+          savedIngredients: state.savedIngredients.includes(name)
+            ? state.savedIngredients.filter((n) => n !== name)
+            : [...state.savedIngredients, name],
         })),
 
       recordView: ({ id, known, score, warnings }) =>

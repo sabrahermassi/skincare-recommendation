@@ -247,7 +247,7 @@ export default function ProductScreen() {
 
         {match.factors.length > 0 ? (
           <>
-            <Text className="pt-3.5 text-center text-[10.5px] text-ink-muted">
+            <Text className="pt-6 text-center text-[10.5px] text-ink-muted">
               Why? We read {recognised} of {total} ingredients.
             </Text>
             <View className="px-6 pt-4">

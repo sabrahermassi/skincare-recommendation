@@ -44,17 +44,20 @@ export function Chip({
       style={{ height: 44, opacity: disabled ? 0.4 : 1 }}
       className={`items-center justify-center rounded-chip border px-4 ${
         selected
-          ? "border-accent bg-accent"
+          ? "border-accent bg-tint-lilac"
           : "border-hairline bg-surface active:bg-canvas"
       }`}
     >
       {/* Unselected sits in muted grey, not full ink: a row of eight options
           in heading-black reads as eight things already chosen. The selected
           one is the only one at full contrast, which is what makes it findable
-          at a glance. */}
+          at a glance. Selected is a lilac tint with dark accent text, not a
+          solid fill — the same soft highlight the skin-type cards and the
+          "Also sensitive" toggle use, so a chosen chip looks the same
+          wherever a choice is made in the app. */}
       <Text
         className={`text-[14.5px] font-semibold ${
-          selected ? "text-white" : "text-ink-muted"
+          selected ? "text-accent-text" : "text-ink-muted"
         }`}
       >
         {label}

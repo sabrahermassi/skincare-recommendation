@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, ScrollView, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -32,9 +32,11 @@ import { useAppStore } from "@/store/useAppStore";
  * a blank page. Where a fact is genuinely missing, the section says so in a
  * sentence rather than disappearing.
  *
- * The design's closing "See studies and evidence" card is still not drawn:
- * there is no evidence source behind it, and a card that goes nowhere is worse
- * than one less section.
+ * The design's closing "See studies and evidence" card links out to PubChem's
+ * search for this exact name — a real, working source rather than the
+ * plausible-but-fake citation the mockup implies. Same reasoning for the
+ * header's star: it toggles `savedIngredients` in the store rather than
+ * sitting there as a tappable no-op.
  */
 
 type Rung = "good" | "watch" | "avoid" | "neutral";
@@ -105,6 +107,22 @@ function HeartIcon({ color }: { color: string }) {
   );
 }
 
+function StarIcon({ filled }: { filled: boolean }) {
+  const d =
+    "M12 3.4l2.53 5.4 5.87.72-4.34 4.06 1.16 5.83L12 16.4l-5.22 2.99 1.16-5.83-4.34-4.06 5.87-.72Z";
+  return (
+    <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+      <Path
+        d={d}
+        fill={filled ? "#332E3A" : "none"}
+        stroke="#332E3A"
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export default function IngredientDetail() {
   const { inci, product: productId } = useLocalSearchParams<{
     inci: string;
@@ -114,6 +132,8 @@ export default function IngredientDetail() {
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [loading, setLoading] = useState(Boolean(productId));
   const profile = useAppStore((s) => s.profile);
+  const savedIngredients = useAppStore((s) => s.savedIngredients);
+  const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
 
   useEffect(() => {
     if (!productId) return;
@@ -169,6 +189,7 @@ export default function IngredientDetail() {
   // many INCI names carry it in parentheses ("Panthenol (Vitamin B5)"), and
   // where they don't the declared role is the honest second line.
   const { primary, secondary } = splitName(ingredient);
+  const starred = savedIngredients.includes(ingredient.name);
 
   // Everything under "Things to know" is sourced, never written.
   const notes = [
@@ -185,7 +206,18 @@ export default function IngredientDetail() {
 
   return (
     <View className="flex-1 bg-canvas">
-      <ScreenHeader />
+      <ScreenHeader
+        right={
+          <Pressable
+            onPress={() => toggleSavedIngredient(ingredient.name)}
+            hitSlop={12}
+            accessibilityLabel={starred ? "Remove from starred ingredients" : "Star this ingredient"}
+            accessibilityState={{ selected: starred }}
+          >
+            <StarIcon filled={starred} />
+          </Pressable>
+        }
+      />
 
       <ScrollView contentContainerClassName="pb-40">
         <View style={{ gap: 18, paddingTop: 30 }} className="flex-row items-start px-6">
@@ -267,6 +299,30 @@ export default function IngredientDetail() {
             </Text>
           )}
         </Section>
+
+        <Pressable
+          onPress={() =>
+            Linking.openURL(
+              `https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(ingredient.name)}`
+            )
+          }
+          style={{ marginTop: 28, marginHorizontal: 24 }}
+          className="flex-row items-center justify-between rounded-panel bg-tint-lilac px-5 py-4 active:opacity-80"
+        >
+          <View className="gap-0.5">
+            <Text className="text-[14.5px] font-semibold text-ink">Want to learn more?</Text>
+            <Text className="text-[12.5px] text-ink-muted">See studies and evidence</Text>
+          </View>
+          <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="m9 5 7 7-7 7"
+              stroke="#332E3A"
+              strokeWidth={2.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </Pressable>
 
         <Text className="px-6 pt-9 text-[11.5px] text-ink-faint">
           Reference data from Open Beauty Facts and EU CosIng.

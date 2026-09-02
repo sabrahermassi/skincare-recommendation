@@ -60,7 +60,9 @@ export function MatchBadge({
   return (
     <View className={`flex-row items-center gap-1 rounded-chip px-2.5 py-1 ${TONE_BG[tone]}`}>
       <Text className="text-xs font-bold tabular-nums text-white">{score}%</Text>
-      <Text className="text-[11px] font-medium text-white/90">· {TONE_LABEL[tone]}</Text>
+      <Text style={{ color: "rgba(255,255,255,0.9)" }} className="text-[11px] font-medium">
+        · {TONE_LABEL[tone]}
+      </Text>
     </View>
   );
 }

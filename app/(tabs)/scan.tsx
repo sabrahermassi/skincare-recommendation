@@ -187,7 +187,10 @@ export default function Scan() {
           */}
           {mode === "Barcode" && !permission?.granted && (
             <View className="flex-1 items-center justify-center gap-4 px-8">
-              <Text className="text-center text-sm leading-5 text-canvas/80">
+              <Text
+                style={{ color: "rgba(250,247,243,0.8)" }}
+                className="text-center text-sm leading-5"
+              >
                 {permission?.canAskAgain === false
                   ? "Camera access is blocked. Turn it back on for this app in your device settings, then come back."
                   : "We need the camera to read barcodes. Nothing leaves your phone except the barcode number."}
@@ -201,7 +204,10 @@ export default function Scan() {
                   <Text className="text-sm font-semibold text-ink">Enable camera</Text>
                 </Pressable>
               )}
-              <Text className="text-center text-xs leading-4 text-canvas/50">
+              <Text
+                style={{ color: "rgba(250,247,243,0.5)" }}
+                className="text-center text-xs leading-4"
+              >
                 {IS_WEB
                   ? "In a browser only QR codes can be read. Scan a barcode from the phone app, or use Search."
                   : "Or switch to Label photo or Search above."}
@@ -252,7 +258,10 @@ export default function Scan() {
                 />
               </Svg>
 
-              <Text className="text-center text-sm leading-5 text-canvas/80">
+              <Text
+                style={{ color: "rgba(250,247,243,0.8)" }}
+                className="text-center text-sm leading-5"
+              >
                 Photograph the ingredient list on the back and we&apos;ll read it.
                 Works on anything, even products we&apos;ve never seen.
               </Text>
@@ -268,8 +277,18 @@ export default function Scan() {
 
           {/* Status card over the viewfinder, as in the design. */}
           {status.kind !== "idle" && (
-            <View style={{ position: "absolute", left: 20, right: 20, bottom: 66, gap: 12, borderRadius: 18 }}
-              className="flex-row items-center bg-canvas/95 px-4 py-3">
+            <View
+              style={{
+                position: "absolute",
+                left: 20,
+                right: 20,
+                bottom: 66,
+                gap: 12,
+                borderRadius: 18,
+                backgroundColor: "rgba(250,247,243,0.95)",
+              }}
+              className="flex-row items-center px-4 py-3"
+            >
               <View
                 className={`h-8 w-8 items-center justify-center rounded-full ${
                   status.kind === "looking" ? "bg-tint-mint" : "bg-tint-pink"
@@ -311,7 +330,8 @@ export default function Scan() {
                   setStatus({ kind: "idle" });
                   busy.current = false;
                 }}
-                className="flex-1 items-center rounded-full bg-canvas/20 py-2.5"
+                style={{ backgroundColor: "rgba(250,247,243,0.2)" }}
+                className="flex-1 items-center rounded-full py-2.5"
               >
                 <Text className="text-[11.5px] font-semibold text-canvas">Try another</Text>
               </Pressable>
@@ -431,8 +451,8 @@ function SearchPane() {
         placeholder="Product or brand name"
         placeholderTextColor="rgba(253,251,249,0.45)"
         autoCorrect={false}
-        className="rounded-full bg-canvas/[0.14] px-4 py-3 text-canvas"
-        style={{ fontWeight: "500", fontSize: 14 }}
+        className="rounded-full px-4 py-3 text-canvas"
+        style={{ fontWeight: "500", fontSize: 14, backgroundColor: "rgba(250,247,243,0.14)" }}
       />
       <ScrollView className="mt-3" keyboardShouldPersistTaps="handled">
         {searching && <ActivityIndicator color={COLORS.canvas} className="mt-4" />}
@@ -459,7 +479,10 @@ function SearchPane() {
                 strokeLinecap="round"
               />
             </Svg>
-            <Text className="text-center text-xs leading-[17px] text-canvas/60">
+            <Text
+              style={{ color: "rgba(250,247,243,0.6)", lineHeight: 17 }}
+              className="text-center text-xs"
+            >
               Search the catalogue by product or brand — type two letters to
               start. Use this when a barcode won&apos;t scan.
             </Text>
@@ -467,7 +490,7 @@ function SearchPane() {
         )}
 
         {!searching && query.trim().length >= 2 && results.length === 0 && (
-          <Text className="mt-4 text-center text-xs text-canvas/60">
+          <Text style={{ color: "rgba(250,247,243,0.6)" }} className="mt-4 text-center text-xs">
             Nothing matched. Try the barcode, or photograph the label.
           </Text>
         )}
@@ -475,13 +498,14 @@ function SearchPane() {
           <Pressable
             key={product.id}
             onPress={() => router.push({ pathname: "/result/[id]", params: { id: product.id } })}
-            className="flex-row items-center gap-3 border-b border-canvas/10 py-3"
+            style={{ borderBottomColor: "rgba(250,247,243,0.1)" }}
+            className="flex-row items-center gap-3 border-b py-3"
           >
             <View className="flex-1">
               <Text className="text-[13px] font-semibold text-canvas" numberOfLines={1}>
                 {product.name}
               </Text>
-              <Text className="text-[11px] text-canvas/60">{product.brand}</Text>
+              <Text style={{ color: "rgba(250,247,243,0.6)", fontSize: 11 }}>{product.brand}</Text>
             </View>
             <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
               <Path
