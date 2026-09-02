@@ -28,8 +28,8 @@ export function MatchBadge({ score }: { score: number | null }) {
   const tone = matchTone(score);
   return (
     <View className={`flex-row items-center gap-1 rounded-chip px-2.5 py-1 ${TONE_BG[tone]}`}>
-      <Text className="text-xs font-sans-bold tabular-nums text-white">{score}%</Text>
-      <Text className="text-[11px] font-sans-medium text-white/90">· {TONE_LABEL[tone]}</Text>
+      <Text className="text-xs font-bold tabular-nums text-white">{score}%</Text>
+      <Text className="text-[11px] font-medium text-white/90">· {TONE_LABEL[tone]}</Text>
     </View>
   );
 }

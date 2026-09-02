@@ -61,7 +61,7 @@ export function ProductCard({ product, match, index = 0 }: Props) {
 
             {contraindicated && (
               <View className="absolute left-2 top-2 h-6 w-6 items-center justify-center rounded-full bg-status-avoid">
-                <Text className="text-xs font-sans-bold text-white">!</Text>
+                <Text className="text-xs font-bold text-white">!</Text>
               </View>
             )}
 
@@ -76,7 +76,7 @@ export function ProductCard({ product, match, index = 0 }: Props) {
                 {product.benefits.map((benefit) => (
                   <Text
                     key={benefit}
-                    className="text-center text-xs font-sans-medium text-white"
+                    className="text-center text-xs font-medium text-white"
                     numberOfLines={2}
                   >
                     {benefit}
@@ -88,19 +88,19 @@ export function ProductCard({ product, match, index = 0 }: Props) {
 
           {/* Floats up over the image's bottom edge, like a caption card laid on top of the photo. */}
           <View className="-mt-5 rounded-card bg-surface p-3 shadow-md active:bg-canvas">
-            <Text className="text-[11px] font-sans-semibold uppercase tracking-wide text-ink-faint">
+            <Text className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
               {product.brand}
             </Text>
-            <Text className="mt-0.5 text-sm font-sans-semibold leading-5 text-ink" numberOfLines={2}>
+            <Text className="mt-0.5 text-sm font-semibold leading-5 text-ink" numberOfLines={2}>
               {product.name}
             </Text>
 
             <View className="mt-1.5 flex-row items-center gap-2">
-              <Text className="text-sm font-sans-semibold tabular-nums text-ink">
+              <Text className="text-sm font-semibold tabular-nums text-ink">
                 {formatKRW(product.price)}
               </Text>
               {!product.inStock && (
-                <Text className="text-[11px] font-sans-semibold text-status-avoid">
+                <Text className="text-[11px] font-semibold text-status-avoid">
                   Out of stock
                 </Text>
               )}
@@ -109,7 +109,7 @@ export function ProductCard({ product, match, index = 0 }: Props) {
             {/* Always-visible on touch — the one-line answer to "what does this do". */}
             <Text
               className={`mt-1.5 text-xs ${
-                contraindicated ? "font-sans-semibold text-status-avoid" : "text-ink-muted"
+                contraindicated ? "font-semibold text-status-avoid" : "text-ink-muted"
               }`}
               numberOfLines={1}
             >
@@ -130,7 +130,7 @@ export function ProductCard({ product, match, index = 0 }: Props) {
         }`}
       >
         <Text
-          className={`text-center text-xs font-sans-semibold ${
+          className={`text-center text-xs font-semibold ${
             inCompare ? "text-white" : "text-accent-text"
           }`}
         >

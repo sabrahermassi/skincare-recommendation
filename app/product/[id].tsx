@@ -42,11 +42,17 @@ export default function ProductDetail() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchProduct(id).then((result) => {
-      if (cancelled) return;
-      setProduct(result);
-      setLoading(false);
-    });
+    fetchProduct(id)
+      .then((result) => {
+        if (cancelled) return;
+        setProduct(result);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("fetchProduct failed:", err);
+        setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -106,7 +112,7 @@ export default function ProductDetail() {
           )}
           <View className="flex-1">
             <View className="flex-row items-start justify-between gap-3">
-              <Text className="flex-1 text-xs font-sans-semibold uppercase tracking-wide text-ink-faint">
+              <Text className="flex-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">
                 {product.brand} · {product.type}
               </Text>
               <MatchBadge score={score} />
@@ -118,12 +124,12 @@ export default function ProductDetail() {
         <Text className="mt-2 text-sm leading-5 text-ink-muted">{product.description}</Text>
 
         <View className="mt-3 flex-row items-center gap-2">
-          <Text className="text-base font-sans-semibold tabular-nums text-ink">
+          <Text className="text-base font-semibold tabular-nums text-ink">
             {formatKRW(product.price)}
           </Text>
           <Text className="text-sm text-ink-faint">{product.volume}</Text>
           {!product.inStock && (
-            <Text className="text-sm font-sans-semibold text-status-avoid">Out of stock</Text>
+            <Text className="text-sm font-semibold text-status-avoid">Out of stock</Text>
           )}
         </View>
 
@@ -136,7 +142,7 @@ export default function ProductDetail() {
           }`}
         >
           <Text
-            className={`text-center text-sm font-sans-semibold ${
+            className={`text-center text-sm font-semibold ${
               saved ? "text-accent-text" : "text-ink"
             }`}
           >
@@ -145,7 +151,7 @@ export default function ProductDetail() {
         </Pressable>
       </View>
 
-      <Text className="px-4 pb-2 pt-6 text-xs font-sans-semibold uppercase tracking-wide text-ink-faint">
+      <Text className="px-4 pb-2 pt-6 text-xs font-semibold uppercase tracking-wide text-ink-faint">
         Ingredients ({product.ingredients.length})
       </Text>
 
@@ -162,9 +168,9 @@ export default function ProductDetail() {
             >
               <View className="flex-row items-center gap-2 px-4 pb-2 pt-4">
                 <View className={`h-6 w-6 items-center justify-center rounded-full ${meta.color}`}>
-                  <Text className="text-xs font-sans-bold text-white">{meta.icon}</Text>
+                  <Text className="text-xs font-bold text-white">{meta.icon}</Text>
                 </View>
-                <Text className="text-sm font-sans-semibold text-ink">{meta.label}</Text>
+                <Text className="text-sm font-semibold text-ink">{meta.label}</Text>
                 <Text className="text-xs tabular-nums text-ink-faint">({items.length})</Text>
               </View>
 

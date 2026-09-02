@@ -31,7 +31,7 @@ export function IngredientRow({ ingredient }: { ingredient: Ingredient }) {
     >
       <View className="flex-row items-start justify-between gap-3">
         <Text
-          className={`flex-1 text-sm font-sans-medium ${
+          className={`flex-1 text-sm font-medium ${
             unverified ? "text-ink-muted" : "text-ink"
           }`}
         >

@@ -90,7 +90,7 @@ export default function IngredientDetail() {
               {ingredient.name}
             </Text>
             <View className="rounded-full bg-canvas/70 px-3 py-1.5">
-              <Text className="text-[11px] font-sans-bold text-ink">
+              <Text className="text-[11px] font-bold text-ink">
                 {tone === "good"
                   ? "LOW RISK FOR YOU"
                   : tone === "watch"
@@ -104,13 +104,13 @@ export default function IngredientDetail() {
             <View className="flex-row flex-wrap gap-1.5">
               {ingredient.functions.slice(0, 4).map((fn) => (
                 <View key={fn} className="rounded-full bg-canvas/70 px-2.5 py-1">
-                  <Text className="text-[11.5px] font-sans-semibold capitalize text-ink">{fn}</Text>
+                  <Text className="text-[11.5px] font-semibold capitalize text-ink">{fn}</Text>
                 </View>
               ))}
             </View>
           )}
 
-          <Text className="text-[9.5px] font-sans-medium uppercase tracking-[0.6px] text-ink-muted">
+          <Text className="text-[9.5px] font-medium uppercase tracking-[0.6px] text-ink-muted">
             INCI · {ingredient.name}
           </Text>
         </View>
@@ -141,7 +141,7 @@ export default function IngredientDetail() {
         {position !== null && (
           <View className="gap-2 px-5 pt-5">
             <View className="flex-row items-baseline justify-between">
-              <Text className="text-[13px] font-sans-bold text-ink">In this formula</Text>
+              <Text className="text-[13px] font-bold text-ink">In this formula</Text>
               <Text className="text-[11.5px] text-ink-muted">
                 #{position} of {total} · {positionWeightLabel(index)}
               </Text>
@@ -164,7 +164,7 @@ export default function IngredientDetail() {
 
         {rule && (
           <View className="mx-5 mt-5 gap-2.5 rounded-sheet bg-tint-mint p-5">
-            <Text className="text-[13px] font-sans-bold text-ink">For your skin</Text>
+            <Text className="text-[13px] font-bold text-ink">For your skin</Text>
             <Bullet ok text={rule.reason} />
             {helps && <Bullet ok text="Actively helps with what you told us about your skin." />}
             {hurts && (
@@ -181,7 +181,7 @@ export default function IngredientDetail() {
 
         {!verified && (
           <View className="mx-5 mt-5 gap-2 rounded-sheet bg-tint-peach p-5">
-            <Text className="text-[13px] font-sans-bold text-ink">We couldn&apos;t identify this</Text>
+            <Text className="text-[13px] font-bold text-ink">We couldn&apos;t identify this</Text>
             <Text className="text-[12.5px] leading-5 text-ink">
               This name didn&apos;t match our ingredient dictionary, so it carries no
               rating in either direction. Label text is often mis-transcribed, and
@@ -209,13 +209,13 @@ export default function IngredientDetail() {
           }}
           className="h-[52px] flex-1 items-center justify-center rounded-full bg-ink active:opacity-80"
         >
-          <Text className="text-[14.5px] font-sans-semibold text-canvas">Next ingredient</Text>
+          <Text className="text-[14.5px] font-semibold text-canvas">Next ingredient</Text>
         </Pressable>
         <Pressable
           onPress={() => router.back()}
           className="h-[52px] items-center justify-center rounded-full bg-ink/[0.06] px-5"
         >
-          <Text className="text-[13px] font-sans-semibold text-ink">Back to list</Text>
+          <Text className="text-[13px] font-semibold text-ink">Back to list</Text>
         </Pressable>
       </View>
     </View>
@@ -225,10 +225,10 @@ export default function IngredientDetail() {
 function StatCard({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
     <View className="flex-1 gap-1 rounded-card bg-surface p-3 shadow-sm">
-      <Text className="text-[9px] font-sans-bold uppercase tracking-[1.1px] text-ink-faint">
+      <Text className="text-[9px] font-bold uppercase tracking-[1.1px] text-ink-faint">
         {label}
       </Text>
-      <Text className="text-[13px] font-sans-semibold capitalize leading-4 text-ink">{value}</Text>
+      <Text className="text-[13px] font-semibold capitalize leading-4 text-ink">{value}</Text>
       <Text className="text-[10px] text-ink-faint">{hint}</Text>
     </View>
   );
@@ -242,7 +242,7 @@ function Bullet({ ok, text }: { ok: boolean; text: string }) {
           ok ? "bg-ink" : "bg-tint-pink"
         }`}
       >
-        <Text className={`text-[9.5px] font-sans-bold ${ok ? "text-canvas" : "text-ink"}`}>
+        <Text className={`text-[9.5px] font-bold ${ok ? "text-canvas" : "text-ink"}`}>
           {ok ? "✓" : "!"}
         </Text>
       </View>

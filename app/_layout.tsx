@@ -1,13 +1,10 @@
 import "../global.css";
 
-import { Newsreader_400Regular, Newsreader_500Medium } from "@expo-google-fonts/newsreader";
 import {
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_500Medium,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
+  PlayfairDisplay_500Medium,
+  PlayfairDisplay_600SemiBold,
   useFonts,
-} from "@expo-google-fonts/plus-jakarta-sans";
+} from "@expo-google-fonts/playfair-display";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -19,13 +16,14 @@ import { useAppStore } from "@/store/useAppStore";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  // Body text no longer loads a custom font — it renders in the OS system
+  // font (see tailwind.config.js's `sans` family), so only the display face
+  // blocks startup now. This also means `ready` below settles faster on a
+  // cold start than it used to, since there's one font family to wait on
+  // instead of five.
   const [fontsLoaded] = useFonts({
-    Newsreader_400Regular,
-    Newsreader_500Medium,
-    PlusJakartaSans_400Regular,
-    PlusJakartaSans_500Medium,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
+    PlayfairDisplay_500Medium,
+    PlayfairDisplay_600SemiBold,
   });
 
   // Reading persisted state off disk is async, so on a cold start the store
@@ -57,7 +55,11 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
-          headerTitleStyle: { fontFamily: "PlusJakartaSans_600SemiBold", color: COLORS.ink },
+          // System font (see tailwind.config.js's `sans` family) — "System"
+          // isn't a real fontFamily string RN Navigation understands here, so
+          // this leaves fontFamily unset and carries weight via fontWeight
+          // instead, same as the renamed `font-semibold` className elsewhere.
+          headerTitleStyle: { fontWeight: "600", color: COLORS.ink },
           headerStyle: { backgroundColor: COLORS.surface },
           headerTintColor: COLORS.accentText,
           contentStyle: { backgroundColor: COLORS.canvas },

@@ -80,7 +80,7 @@ export default function ScanLabel() {
           onPress={requestPermission}
           className="rounded-control bg-accent px-6 py-3 active:bg-accent-deep"
         >
-          <Text className="text-base font-sans-semibold text-white">Grant permission</Text>
+          <Text className="text-base font-semibold text-white">Grant permission</Text>
         </Pressable>
       </View>
     );
@@ -97,7 +97,7 @@ export default function ScanLabel() {
       </View>
 
       <View className="absolute inset-x-0 top-0 px-6 pt-16" pointerEvents="none">
-        <Text className="text-center text-base font-sans-semibold text-white">
+        <Text className="text-center text-base font-semibold text-white">
           Fill the frame with the ingredient list
         </Text>
         <Text className="mt-1 text-center text-sm text-white/70">
@@ -108,7 +108,7 @@ export default function ScanLabel() {
       <View className="absolute inset-x-0 bottom-0 gap-3 bg-black/75 p-6">
         {status.kind === "failed" && (
           <View className="gap-1">
-            <Text className="text-base font-sans-semibold text-tint-peach">{status.message}</Text>
+            <Text className="text-base font-semibold text-tint-peach">{status.message}</Text>
             {status.hint && <Text className="text-sm text-white/70">{status.hint}</Text>}
           </View>
         )}
@@ -121,7 +121,7 @@ export default function ScanLabel() {
           }`}
         >
           {status.kind === "reading" && <ActivityIndicator color="#000" />}
-          <Text className="text-base font-sans-semibold text-ink">
+          <Text className="text-base font-semibold text-ink">
             {status.kind === "reading"
               ? "Reading the label…"
               : status.kind === "failed"
@@ -131,7 +131,7 @@ export default function ScanLabel() {
         </Pressable>
 
         <Pressable onPress={() => router.back()} className="items-center py-1">
-          <Text className="text-sm font-sans-medium text-white/80 underline">Cancel</Text>
+          <Text className="text-sm font-medium text-white/80 underline">Cancel</Text>
         </Pressable>
       </View>
     </View>

@@ -31,10 +31,10 @@ export function Chip({ label, selected = false, disabled = false, onPress }: Pro
       <Text
         className={
           selected
-            ? "text-sm font-sans-semibold text-white"
+            ? "text-sm font-semibold text-white"
             : disabled
-              ? "text-sm font-sans-medium text-ink-faint"
-              : "text-sm font-sans-medium text-ink-muted"
+              ? "text-sm font-medium text-ink-faint"
+              : "text-sm font-medium text-ink-muted"
         }
       >
         {label}

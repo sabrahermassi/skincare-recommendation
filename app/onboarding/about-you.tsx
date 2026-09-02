@@ -40,7 +40,7 @@ export default function AboutYouStep() {
         </View>
 
         <View className="gap-2">
-          <Text className="text-sm font-sans-semibold text-ink-muted">Age group</Text>
+          <Text className="text-sm font-semibold text-ink-muted">Age group</Text>
           <View className="flex-row flex-wrap gap-2">
             {AGE_GROUPS.map((ageGroup) => (
               <Chip

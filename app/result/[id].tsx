@@ -26,11 +26,26 @@ import { useAppStore } from "@/store/useAppStore";
  * fabrication.
  */
 
-const HERO: Record<Verdict, { bg: string; label: string }> = {
-  good: { bg: "bg-tint-mint", label: "Good match" },
-  mixed: { bg: "bg-tint-peach", label: "Worth a look" },
-  poor: { bg: "bg-tint-pink", label: "Not for you" },
-  unknown: { bg: "bg-hairline", label: "Can't tell" },
+/**
+ * `border` is new for the Skintel Screens restyle — the Result mockup's hero
+ * card is bordered, not just tinted. `headline` is deliberately plain ink for
+ * three of the four states: the mockup only shows the "good" verdict, whose
+ * headline is a specific dark green (`#4B7A5E`) rather than the app's ink —
+ * that one value is used directly since it's evidenced. Deriving matching
+ * dark variants of `tone-watch`/`tone-flag` for the other three states would
+ * mean inventing three more colors with no mockup to check them against, so
+ * they keep the neutral, always-legible ink headline instead — `status.*`
+ * (the app's OTHER color family) is not an option here regardless: it is
+ * "the same for every user" regulatory-safety semantics, and this verdict is
+ * "does this suit *you*", the `tone` semantics — the two are kept apart on
+ * purpose (see `tint.lilac`'s usage elsewhere on this screen for the same
+ * rule applied to a different pair).
+ */
+const HERO: Record<Verdict, { bg: string; border: string; headline: string; label: string }> = {
+  good: { bg: "bg-tint-mint", border: "border-tone-good/25", headline: "text-[#4B7A5E]", label: "Good match" },
+  mixed: { bg: "bg-tint-peach", border: "border-tone-watch/30", headline: "text-ink", label: "Worth a look" },
+  poor: { bg: "bg-tint-pink", border: "border-tone-flag/30", headline: "text-ink", label: "Not for you" },
+  unknown: { bg: "bg-hairline", border: "border-ink/10", headline: "text-ink", label: "Can't tell" },
 };
 
 export default function ScanResult() {
@@ -48,11 +63,17 @@ export default function ScanResult() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchProduct(id).then((result) => {
-      if (cancelled) return;
-      setProduct(result);
-      setLoading(false);
-    });
+    fetchProduct(id)
+      .then((result) => {
+        if (cancelled) return;
+        setProduct(result);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("fetchProduct failed:", err);
+        setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -79,9 +100,9 @@ export default function ScanResult() {
         <Text className="font-display text-2xl text-ink">Product not found</Text>
         <Pressable
           onPress={() => router.replace("/scan")}
-          className="rounded-full bg-ink px-6 py-3"
+          className="rounded-full bg-accent px-6 py-3"
         >
-          <Text className="font-sans-semibold text-canvas">Scan another</Text>
+          <Text className="font-semibold text-canvas">Scan another</Text>
         </Pressable>
       </View>
     );
@@ -105,11 +126,14 @@ export default function ScanResult() {
 
       <ScrollView contentContainerClassName="pb-40">
         {/* The verdict, before anything else. Never colour alone — the band
-            carries a word too. */}
-        <View className={`mx-5 mt-2 flex-row items-center gap-4 rounded-sheet p-5 ${hero.bg}`}>
-          <ScoreRing score={match.score} />
+            carries a word too. Bordered card + display-face headline per the
+            Result mockup, in place of the previous plain tinted band. */}
+        <View
+          className={`mx-5 mt-2 flex-row items-center gap-4 rounded-sheet border p-5 ${hero.bg} ${hero.border}`}
+        >
+          <ScoreRing score={match.score} size={82} tone={match.verdict} />
           <View className="flex-1 gap-1">
-            <Text className="text-[15px] font-sans-bold text-ink">
+            <Text className={`font-display text-[19px] leading-6 ${hero.headline}`}>
               {hero.label}
               {concern && match.score !== null ? ", one caveat" : ""}
             </Text>
@@ -122,7 +146,7 @@ export default function ScanResult() {
         </View>
 
         <View className="gap-1 px-5 pt-4">
-          <Text className="text-[10px] font-sans-bold uppercase tracking-[1.4px] text-ink-faint">
+          <Text className="text-[10px] font-bold uppercase tracking-[1.4px] text-ink-faint">
             {product.brand}
           </Text>
           <Text className="font-display text-[23px] leading-7 text-ink">{product.name}</Text>
@@ -134,8 +158,15 @@ export default function ScanResult() {
         </View>
 
         {match.factors.length > 0 && (
-          <View className="gap-3 px-5 pt-6">
-            <Text className="text-[13px] font-sans-bold text-ink">What moved the score</Text>
+          <View className="gap-1 px-5 pt-6">
+            <Text className="text-[13px] font-bold text-ink">What moved the score</Text>
+            {/* "Why? We analyzed N factors" from the Result mockup — reads
+                match.factors.length rather than a fixed count, since the
+                real number varies by formula and profile. */}
+            <Text className="pb-2 text-[10.5px] text-ink-faint">
+              Why? We analyzed {match.factors.length}{" "}
+              {match.factors.length === 1 ? "factor" : "factors"}.
+            </Text>
             <View className="gap-3.5">
               {match.factors.map((factor) => (
                 <FactorBar key={factor.category} factor={factor} />
@@ -147,7 +178,7 @@ export default function ScanResult() {
         {/* The one thing to check — the largest factor working against you. */}
         {concern && (
           <View className="mx-5 mt-5 gap-2 rounded-sheet bg-tint-peach p-5">
-            <Text className="text-[13px] font-sans-bold text-ink">The one thing to check</Text>
+            <Text className="text-[13px] font-bold text-ink">The one thing to check</Text>
             <Text className="text-[12.5px] leading-5 text-ink">
               {concern.note} {concern.ingredients.length === 1 ? "is" : "are"} the main thing
               working against your profile here
@@ -160,17 +191,21 @@ export default function ScanResult() {
                   params: { inci: concern.ingredients[0], product: product.id },
                 })
               }
-              className="mt-1 self-start rounded-full bg-ink px-4 py-2 active:opacity-80"
+              className="mt-1 self-start rounded-full bg-accent px-4 py-2 active:opacity-80"
             >
-              <Text className="text-xs font-sans-semibold text-canvas">Open that ingredient</Text>
+              <Text className="text-xs font-semibold text-canvas">Open that ingredient</Text>
             </Pressable>
           </View>
         )}
 
         {hasFormula && (
           <View className="flex-row gap-2.5 px-5 pt-5">
-            <StatCard label="Flagged for you" value={flagged === 0 ? "Nothing" : `${flagged} of ${total}`} />
-            <StatCard label="Working for you" value={`${actives} of ${total}`} />
+            <StatCard
+              label="Flagged for you"
+              value={flagged === 0 ? "Nothing" : `${flagged} of ${total}`}
+              good={flagged === 0}
+            />
+            <StatCard label="Working for you" value={`${actives} of ${total}`} good={actives > 0} />
           </View>
         )}
 
@@ -182,9 +217,9 @@ export default function ScanResult() {
             </Text>
             <Pressable
               onPress={() => router.push(`/scan-label?barcode=${product.barcode}`)}
-              className="rounded-full bg-ink py-3 active:opacity-80"
+              className="rounded-full bg-accent py-3 active:opacity-80"
             >
-              <Text className="text-center text-sm font-sans-semibold text-canvas">
+              <Text className="text-center text-sm font-semibold text-canvas">
                 Photograph the ingredients
               </Text>
             </Pressable>
@@ -210,40 +245,65 @@ export default function ScanResult() {
         ) : null}
       </ScrollView>
 
-      {/* Thumb zone: the two things you do next. */}
-      <View className="absolute inset-x-0 bottom-0 flex-row gap-2.5 border-t border-hairline bg-canvas px-5 pb-8 pt-3">
+      {/* Thumb zone: the two things you do next. Stacked full-width, per the
+          Result mockup — was a wide primary beside a square icon-only save
+          button; the mockup stacks two full-width buttons instead, the
+          second one labelled rather than icon-only. Primary is now the
+          accent color, matching every button in every mockup screen read
+          (Quiz, Scanner, Result all agree on #7A6BB0) rather than the
+          previous plain-ink fill. */}
+      <View className="absolute inset-x-0 bottom-0 gap-2.5 border-t border-hairline bg-canvas px-5 pb-8 pt-3">
         <Pressable
           onPress={() =>
             hasFormula
               ? router.push({ pathname: "/ingredients/[id]", params: { id: product.id } })
               : router.replace("/scan")
           }
-          className="h-[52px] flex-1 items-center justify-center rounded-full bg-ink active:opacity-80"
+          className="h-[52px] items-center justify-center rounded-full bg-accent active:opacity-80"
         >
-          <Text className="text-[14.5px] font-sans-semibold text-canvas">
+          <Text className="text-[14.5px] font-semibold text-canvas">
             {hasFormula ? `See all ${total} ingredients` : "Scan another"}
           </Text>
         </Pressable>
         <Pressable
           onPress={() => toggleSaved(product.id)}
-          className={`h-[52px] w-[52px] items-center justify-center rounded-full ${
-            saved ? "bg-tint-pink" : "bg-ink/[0.06]"
+          className={`h-[52px] flex-row items-center justify-center gap-2 rounded-full border ${
+            saved ? "border-tone-flag/40 bg-tint-pink" : "border-hairline bg-surface"
           }`}
         >
-          <Text className="text-lg text-ink">{saved ? "♥" : "♡"}</Text>
+          <Text className="text-base text-ink">{saved ? "♥" : "♡"}</Text>
+          <Text className="text-[14.5px] font-semibold text-ink">
+            {saved ? "Saved to your shelf" : "Save to your shelf"}
+          </Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+/**
+ * Bordered, tinted card per the Result mockup's stat-card pattern — but kept
+ * on this app's own real metric (a count, e.g. "2 of 24") rather than the
+ * mockup's categorical "Low"/"Medium"/"High" risk word, which this app has
+ * no computed risk-tier for. Inventing one to match the mockup's copy would
+ * be exactly the kind of fabricated signal `lib/rules.ts` and this screen's
+ * own top comment both explicitly refuse elsewhere — a count is what's
+ * actually measured, so a count is what's shown, just in the mockup's
+ * card shape.
+ */
+function StatCard({ label, value, good }: { label: string; value: string; good: boolean }) {
   return (
-    <View className="flex-1 gap-1.5 rounded-card bg-surface p-3.5 shadow-sm">
-      <Text className="text-[9px] font-sans-bold uppercase tracking-[1.2px] text-ink-faint">
+    <View
+      className={`flex-1 gap-1.5 rounded-card border p-3.5 ${
+        good ? "border-tone-good/25 bg-tint-mint" : "border-hairline bg-surface"
+      }`}
+    >
+      <Text className="text-[9px] font-bold uppercase tracking-[1.2px] text-ink-faint">
         {label}
       </Text>
-      <Text className="text-[13px] font-sans-semibold text-ink">{value}</Text>
+      <Text className={`text-[15px] font-semibold ${good ? "text-[#4B7A5E]" : "text-ink"}`}>
+        {value}
+      </Text>
     </View>
   );
 }

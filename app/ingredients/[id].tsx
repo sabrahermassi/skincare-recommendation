@@ -103,7 +103,7 @@ export default function IngredientList() {
         <View className="flex-row items-start gap-4 px-5 pb-4 pt-3">
           <ProductIllustration type={product.type} size={86} />
           <View className="flex-1 gap-1">
-            <Text className="text-[10px] font-sans-bold uppercase tracking-[1.4px] text-ink-faint">
+            <Text className="text-[10px] font-bold uppercase tracking-[1.4px] text-ink-faint">
               {product.brand}
             </Text>
             <Text className="font-display text-[22px] leading-[26px] text-ink">
@@ -125,7 +125,7 @@ export default function IngredientList() {
         <View className="mx-5 flex-row items-center gap-4 rounded-sheet bg-tint-mint p-4">
           <ScoreRing score={match.score} size={64} />
           <View className="flex-1 gap-1">
-            <Text className="text-[15px] font-sans-bold text-ink">
+            <Text className="text-[15px] font-bold text-ink">
               {match.score === null ? "Not enough to judge" : "Matched to your skin"}
             </Text>
             {summary ? (
@@ -146,7 +146,7 @@ export default function IngredientList() {
                 className={`rounded-full px-3.5 py-2 ${active ? "bg-ink" : "bg-ink/[0.06]"}`}
               >
                 <Text
-                  className={`text-xs font-sans-semibold ${active ? "text-canvas" : "text-ink-muted"}`}
+                  className={`text-xs font-semibold ${active ? "text-canvas" : "text-ink-muted"}`}
                 >
                   {label}  {counts[label]}
                 </Text>
@@ -183,7 +183,7 @@ export default function IngredientList() {
           onPress={() => router.replace("/scan")}
           className="h-[52px] flex-1 items-center justify-center rounded-full bg-ink active:opacity-80"
         >
-          <Text className="text-[14.5px] font-sans-semibold text-canvas">Scan next product</Text>
+          <Text className="text-[14.5px] font-semibold text-canvas">Scan next product</Text>
         </Pressable>
         <Pressable
           onPress={() => toggleSaved(product.id)}
@@ -222,7 +222,7 @@ function IngredientCard({
     >
       <View className={`h-2.5 w-2.5 rounded-full ${classes.dot}`} />
       <View className="flex-1 gap-0.5">
-        <Text className="text-[13.5px] font-sans-semibold capitalize text-ink" numberOfLines={1}>
+        <Text className="text-[13.5px] font-semibold capitalize text-ink" numberOfLines={1}>
           {ingredient.name}
         </Text>
         <Text className="text-[11px] text-ink-muted" numberOfLines={1}>
@@ -230,7 +230,7 @@ function IngredientCard({
         </Text>
       </View>
       <View className={`rounded-full px-2.5 py-1 ${classes.pill}`}>
-        <Text className="text-[10.5px] font-sans-bold text-ink">{TONE_PILL[tone]}</Text>
+        <Text className="text-[10.5px] font-bold text-ink">{TONE_PILL[tone]}</Text>
       </View>
       <Text className="text-[15px] text-ink-faint">›</Text>
     </Pressable>

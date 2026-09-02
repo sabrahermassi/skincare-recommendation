@@ -15,7 +15,7 @@ const STYLES: Record<SafetyLevel, string> = {
 export function SafetyPill({ level }: { level: SafetyLevel }) {
   return (
     <View className={`rounded-chip px-2 py-0.5 ${STYLES[level]}`}>
-      <Text className="text-[11px] font-sans-bold uppercase tracking-wide text-white">
+      <Text className="text-[11px] font-bold uppercase tracking-wide text-white">
         {SAFETY_LABEL[level]}
       </Text>
     </View>

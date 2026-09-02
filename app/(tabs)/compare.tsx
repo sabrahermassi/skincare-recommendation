@@ -24,9 +24,15 @@ export default function Compare() {
   useEffect(() => {
     let cancelled = false;
     setProducts(null);
-    fetchProductsByIds(compareIds).then((result) => {
-      if (!cancelled) setProducts(result);
-    });
+    fetchProductsByIds(compareIds)
+      .then((result) => {
+        if (!cancelled) setProducts(result);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("fetchProductsByIds failed:", err);
+        setProducts([]);
+      });
     return () => {
       cancelled = true;
     };
@@ -38,7 +44,7 @@ export default function Compare() {
         <Text className="text-center text-base text-ink-muted">
           Nothing selected yet. Add two products from the browse screen.
         </Text>
-        <Link href="/" className="font-sans-semibold text-accent-text underline">
+        <Link href="/" className="font-semibold text-accent-text underline">
           Back to browse
         </Link>
       </View>
@@ -74,11 +80,11 @@ export default function Compare() {
                 className="flex-1 rounded-card bg-surface p-3 shadow-md"
               >
                 <ProductIllustration type={product.type} size={40} />
-                <Text className="mt-2 text-[11px] font-sans-semibold uppercase tracking-wide text-ink-faint">
+                <Text className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
                   {product.brand}
                 </Text>
                 <Text
-                  className="mt-1 text-sm font-sans-semibold leading-5 text-ink"
+                  className="mt-1 text-sm font-semibold leading-5 text-ink"
                   numberOfLines={3}
                 >
                   {product.name}
@@ -99,7 +105,7 @@ export default function Compare() {
                   />
                 </View>
 
-                <Text className="mt-4 text-[11px] font-sans-semibold uppercase tracking-wide text-ink-faint">
+                <Text className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
                   Ingredients
                 </Text>
                 <View className="mt-1.5 gap-1.5">
@@ -128,7 +134,7 @@ export default function Compare() {
           onPress={clearCompare}
           className="rounded-control border border-hairline py-3 active:bg-canvas"
         >
-          <Text className="text-center text-sm font-sans-semibold text-ink">
+          <Text className="text-center text-sm font-semibold text-ink">
             Clear comparison
           </Text>
         </Pressable>
@@ -151,7 +157,7 @@ function Row({
   return (
     <View className="flex-row items-center justify-between gap-2">
       <Text className="text-[11px] text-ink-faint">{label}</Text>
-      <Text className={`text-xs font-sans-semibold tabular-nums ${valueClass}`}>{value}</Text>
+      <Text className={`text-xs font-semibold tabular-nums ${valueClass}`}>{value}</Text>
     </View>
   );
 }

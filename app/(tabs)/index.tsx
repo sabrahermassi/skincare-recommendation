@@ -57,9 +57,15 @@ export default function Browse() {
   useEffect(() => {
     let cancelled = false;
     setProducts(null);
-    fetchProducts({ type: typeFilter, area }).then((result) => {
-      if (!cancelled) setProducts(result);
-    });
+    fetchProducts({ type: typeFilter, area })
+      .then((result) => {
+        if (!cancelled) setProducts(result);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("fetchProducts failed:", err);
+        setProducts([]);
+      });
     return () => {
       cancelled = true;
     };
@@ -100,7 +106,7 @@ export default function Browse() {
               </Text>
             </View>
             <Pressable onPress={() => router.push("/profile")} hitSlop={8}>
-              <Text className="text-xs font-sans-semibold text-accent-text">Edit</Text>
+              <Text className="text-xs font-semibold text-accent-text">Edit</Text>
             </Pressable>
           </View>
 
@@ -111,7 +117,7 @@ export default function Browse() {
                   className={`flex-1 items-center gap-1.5 rounded-card py-4 ${action.bg} active:opacity-80`}
                 >
                   <Ionicons name={action.icon} size={22} color={COLORS.ink} />
-                  <Text className="text-xs font-sans-semibold text-ink">{action.label}</Text>
+                  <Text className="text-xs font-semibold text-ink">{action.label}</Text>
                 </Pressable>
               </Link>
             ))}
@@ -138,12 +144,12 @@ export default function Browse() {
         {!personalized && !bannerDismissed && (
           <View className="mx-4 mt-3 flex-row items-center gap-2 rounded-card bg-tint-lilac px-4 py-3">
             <Pressable onPress={() => router.push("/profile")} className="flex-1">
-              <Text className="text-sm font-sans-semibold text-accent-text">
+              <Text className="text-sm font-semibold text-accent-text">
                 Answer five quick questions to see how each product suits your skin →
               </Text>
             </Pressable>
             <Pressable onPress={() => setBannerDismissed(true)} hitSlop={8}>
-              <Text className="text-sm font-sans-semibold text-accent-text">✕</Text>
+              <Text className="text-sm font-semibold text-accent-text">✕</Text>
             </Pressable>
           </View>
         )}
@@ -170,7 +176,7 @@ export default function Browse() {
         <View className="absolute inset-x-0 bottom-0 border-t border-hairline bg-surface p-4">
           <Link href="/compare" asChild>
             <Pressable className="rounded-control bg-accent py-3.5 active:bg-accent-deep">
-              <Text className="text-center text-base font-sans-semibold text-white">
+              <Text className="text-center text-base font-semibold text-white">
                 Compare {compareIds.length} selected
                 {compareIds.length === 1 ? " — pick one more" : ""}
               </Text>

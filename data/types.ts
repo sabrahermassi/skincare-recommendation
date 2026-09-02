@@ -42,6 +42,14 @@ export type SkinProfile = {
   area: BodyArea | null;
   concerns: Concern[];
   baseSkinType: BaseSkinType | null;
+  /**
+   * How `baseSkinType` was arrived at. `declared` means the user picked it;
+   * `derived` means they picked "Not sure" and the two-question fallback in
+   * `lib/skin-type-quiz.ts` worked it out. Kept because the profile screen has
+   * to show "Not sure" as the remembered answer rather than silently
+   * presenting a derived type as one the user chose.
+   */
+  skinTypeSource: "declared" | "derived" | null;
   sensitive: boolean;
 };
 

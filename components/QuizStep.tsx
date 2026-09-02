@@ -18,6 +18,12 @@ type Props = {
   onNext: () => void;
   nextLabel?: string;
   nextDisabled?: boolean;
+  /**
+   * The numbered rail. Off for the skin-type diagnostic when it is opened
+   * from the profile tab rather than mid-quiz — there is no step 4 of 4 to
+   * be on if you are not in the quiz.
+   */
+  showProgress?: boolean;
   children: ReactNode;
 };
 
@@ -35,6 +41,7 @@ export function QuizStep({
   onNext,
   nextLabel = "Continue",
   nextDisabled = false,
+  showProgress = true,
   children,
 }: Props) {
   const totalSteps = quizStepCount();
@@ -51,15 +58,19 @@ export function QuizStep({
         >
           <Ionicons name="chevron-back" size={22} color={COLORS.ink} />
         </Pressable>
-        <Text className="text-xs font-sans-semibold text-ink-faint">
-          Step {step} of {totalSteps}
-        </Text>
+        {showProgress ? (
+          <Text className="text-xs font-semibold text-ink-faint">
+            Step {step} of {totalSteps}
+          </Text>
+        ) : null}
         <View className="h-9 w-9" />
       </View>
 
-      <View className="mt-4">
-        <StepProgress current={step} total={totalSteps} />
-      </View>
+      {showProgress ? (
+        <View className="mt-4">
+          <StepProgress current={step} total={totalSteps} />
+        </View>
+      ) : null}
 
       <Animated.View entering={FadeInDown.duration(280)} className="mt-8 flex-1 gap-6">
         <View className="gap-2">
@@ -78,7 +89,7 @@ export function QuizStep({
         }`}
       >
         <Text
-          className={`text-center text-base font-sans-semibold ${
+          className={`text-center text-base font-semibold ${
             nextDisabled ? "text-ink-faint" : "text-white"
           }`}
         >

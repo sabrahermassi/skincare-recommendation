@@ -58,10 +58,16 @@ export default function Saved() {
       return;
     }
     setById(null);
-    fetchProductsByIds(idsToResolve).then((products) => {
-      if (cancelled) return;
-      setById(Object.fromEntries(products.map((p) => [p.id, p])));
-    });
+    fetchProductsByIds(idsToResolve)
+      .then((products) => {
+        if (cancelled) return;
+        setById(Object.fromEntries(products.map((p) => [p.id, p])));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("fetchProductsByIds failed:", err);
+        setById({});
+      });
     return () => {
       cancelled = true;
     };
@@ -103,7 +109,7 @@ export default function Saved() {
                   <View className="mt-1.5 flex-row items-center justify-between gap-2">
                     <MatchBadge score={score} />
                     <Pressable onPress={() => toggleSaved(id)} hitSlop={8}>
-                      <Text className="text-xs font-sans-semibold text-accent-text">
+                      <Text className="text-xs font-semibold text-accent-text">
                         Remove
                       </Text>
                     </Pressable>
@@ -132,7 +138,7 @@ export default function Saved() {
           })}
 
           <Pressable onPress={clearHistory} className="items-center py-3">
-            <Text className="text-sm font-sans-medium text-accent-text underline">
+            <Text className="text-sm font-medium text-accent-text underline">
               Clear history
             </Text>
           </Pressable>
@@ -161,7 +167,7 @@ function SegmentButton({
       }`}
     >
       <Text
-        className={`text-sm font-sans-semibold ${active ? "text-accent-text" : "text-ink-muted"}`}
+        className={`text-sm font-semibold ${active ? "text-accent-text" : "text-ink-muted"}`}
       >
         {label}
       </Text>
@@ -191,7 +197,7 @@ function Row({
           <ProductIllustration type={product.type} size={56} />
         )}
         <View className="flex-1">
-          <Text className="text-[11px] font-sans-semibold uppercase tracking-wide text-ink-faint">
+          <Text className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
             {product.brand}
           </Text>
           <Text className="font-display text-base leading-5 text-ink" numberOfLines={2}>
@@ -223,7 +229,7 @@ function HistoryMeta({ entry }: { entry: HistoryEntry }) {
         </Text>
       )}
       {entry.warningsAtView > 0 && (
-        <Text className="text-xs font-sans-semibold text-status-watch">
+        <Text className="text-xs font-semibold text-status-watch">
           · {entry.warningsAtView} flagged
         </Text>
       )}
@@ -235,7 +241,7 @@ function HistoryMeta({ entry }: { entry: HistoryEntry }) {
 function UnknownRow({ entry }: { entry: HistoryEntry }) {
   return (
     <View className="rounded-card border border-hairline bg-surface p-3">
-      <Text className="text-[11px] font-sans-semibold uppercase tracking-wide text-ink-faint">
+      <Text className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
         Scanned · not in our catalogue
       </Text>
       <Text className="mt-0.5 text-sm tabular-nums text-ink">{entry.id}</Text>

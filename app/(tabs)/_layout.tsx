@@ -25,10 +25,11 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerStyle: { backgroundColor: COLORS.surface },
-        headerTitleStyle: { fontFamily: "PlusJakartaSans_600SemiBold", color: COLORS.ink },
+        // System font, weight carried by fontWeight — see app/_layout.tsx.
+        headerTitleStyle: { fontWeight: "600", color: COLORS.ink },
         tabBarActiveTintColor: COLORS.accentText,
         tabBarInactiveTintColor: COLORS.inkFaint,
-        tabBarLabelStyle: { fontFamily: "PlusJakartaSans_500Medium", fontSize: 11 },
+        tabBarLabelStyle: { fontWeight: "500", fontSize: 11 },
         tabBarStyle: {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.hairline,

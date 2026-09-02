@@ -44,6 +44,7 @@ export const EMPTY_PROFILE: SkinProfile = {
   area: null,
   concerns: [],
   baseSkinType: null,
+  skinTypeSource: null,
   sensitive: false,
 };
 
@@ -216,9 +217,30 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "skintel-store",
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: partializeState,
+      /*
+        v1 profiles predate `skinTypeSource`. Without this they rehydrate with
+        the field `undefined` while the type says otherwise, and the profile
+        screen would read that as "no answer" and drop a skin type the user
+        had actually given. Anything already stored was picked by hand, so it
+        is `declared`.
+      */
+      migrate: (persisted, version) => {
+        const state = persisted as PersistedState | undefined;
+        if (!state) return state;
+        if (version < 2) {
+          return {
+            ...state,
+            profile: {
+              ...state.profile,
+              skinTypeSource: state.profile.baseSkinType ? "declared" : null,
+            },
+          } satisfies PersistedState;
+        }
+        return state;
+      },
     }
   )
 );

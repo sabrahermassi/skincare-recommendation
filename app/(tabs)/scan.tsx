@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -10,7 +10,9 @@ import {
   TextInput,
   View,
 } from "react-native";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
 
+import { MatchBadge } from "@/components/MatchBadge";
 import { ProductIllustration } from "@/components/ProductIllustration";
 import { Text } from "@/components/Text";
 import { fetchProductByBarcode, fetchProductsByIds, searchProducts } from "@/data/api";
@@ -45,6 +47,50 @@ const BARCODE_TYPES = IS_WEB
 
 type Mode = "Barcode" | "Label photo" | "Search";
 type Status = { kind: "idle" } | { kind: "looking"; code: string } | { kind: "missed"; code: string };
+
+/** Icons for the mode switcher, paths copied from the Scanner mockup. */
+function BarcodeIcon({ color }: { color: string }) {
+  return (
+    <Svg width={14} height={14} viewBox="0 0 24 24">
+      <Rect x={4} y={5} width={1.9} height={14} rx={0.95} fill={color} />
+      <Rect x={8.2} y={5} width={1.3} height={14} rx={0.65} fill={color} />
+      <Rect x={11.6} y={5} width={2.4} height={14} rx={1.2} fill={color} />
+      <Rect x={16.2} y={5} width={1.3} height={14} rx={0.65} fill={color} />
+      <Rect x={19.4} y={5} width={1.9} height={14} rx={0.95} fill={color} />
+    </Svg>
+  );
+}
+
+function PhotoIcon({ color }: { color: string }) {
+  return (
+    <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+      <Rect x={3.8} y={3.8} width={16.4} height={16.4} rx={3} stroke={color} strokeWidth={1.6} />
+      <Circle cx={9} cy={9.4} r={1.5} fill={color} />
+      <Path
+        d="m5 18.4 4.4-4.6 3.2 3.2 2.7-2.1 4 3.5"
+        stroke={color}
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function SearchIcon({ color }: { color: string }) {
+  return (
+    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+      <Circle cx={11} cy={11} r={6.4} stroke={color} strokeWidth={1.8} />
+      <Path d="m15.8 15.8 4 4" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+const MODES: { label: Mode; Icon: (props: { color: string }) => ReactElement }[] = [
+  { label: "Barcode", Icon: BarcodeIcon },
+  { label: "Label photo", Icon: PhotoIcon },
+  { label: "Search", Icon: SearchIcon },
+];
 
 export default function Scan() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -108,24 +154,44 @@ export default function Scan() {
   return (
     <View className="flex-1 bg-canvas">
       <ScrollView contentContainerClassName="pb-10">
-        <View className="flex-row items-start justify-between px-5 pb-2.5 pt-3">
-          <View className="gap-0.5">
-            <Text className="font-display text-2xl leading-7 text-ink">Point at a barcode</Text>
-            <Text className="text-xs text-ink-muted">
-              {status.kind === "looking" ? "Looking it up…" : "Any product, any brand"}
+        {/* Wordmark + eyebrow on the left, the profile chip on the right —
+            per the Scanner mockup, replacing the previous two-row layout
+            ("Point at a barcode" headline, then a separate small chip row
+            below it). The chip's dynamic "Looking it up…" status is dropped
+            here since the status card overlaid on the camera below already
+            says the same thing while a lookup is in flight — keeping both
+            would just repeat it. No avatar image: the mockup's chip has one,
+            but this app has no user-photo feature backing it, and adding a
+            stock design-tool image would be decoration with nothing real
+            behind it. */}
+        <View className="flex-row items-start justify-between gap-3 px-5 pb-3 pt-3">
+          <View className="gap-1.5 pt-0.5">
+            <Text className="font-display text-[26px] leading-7 text-ink">Skintel</Text>
+            <Text className="text-[8px] font-bold tracking-[2px] text-ink-faint">
+              SCAN · ANALYZE · KNOW
             </Text>
           </View>
-        </View>
-
-        {/* The profile chip: the quiz behind a chip, never a gate. */}
-        <View className="flex-row items-center gap-2 px-5 pb-3">
-          <View className="rounded-full bg-tint-lilac px-3 py-1.5">
-            <Text className="text-[11.5px] font-sans-semibold text-ink">
-              {summary || "No profile yet"}
-            </Text>
-          </View>
-          <Pressable onPress={() => router.push("/onboarding")} hitSlop={8}>
-            <Text className="text-[11.5px] text-ink-faint underline">Retake quiz</Text>
+          <Pressable
+            onPress={() => router.push("/onboarding")}
+            className="flex-shrink flex-row items-center gap-2 rounded-full bg-tint-lilac py-2 pl-3 pr-2.5"
+          >
+            <View className="flex-shrink gap-0.5">
+              <Text className="text-[7.5px] font-bold tracking-[1.5px] text-ink-muted">
+                YOUR SKIN PROFILE
+              </Text>
+              <Text className="text-[10.5px] leading-[13px] text-ink" numberOfLines={2}>
+                {summary || "No profile yet — tap to start"}
+              </Text>
+            </View>
+            <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="m9 5 7 7-7 7"
+                stroke={COLORS.inkMuted}
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
           </Pressable>
         </View>
 
@@ -151,7 +217,7 @@ export default function Scan() {
                 onPress={requestPermission}
                 className="rounded-full bg-canvas px-6 py-3 active:opacity-80"
               >
-                <Text className="text-sm font-sans-semibold text-ink">Enable camera</Text>
+                <Text className="text-sm font-semibold text-ink">Enable camera</Text>
               </Pressable>
             </View>
           )}
@@ -174,7 +240,7 @@ export default function Scan() {
                 onPress={() => router.push("/scan-label")}
                 className="rounded-full bg-canvas px-6 py-3 active:opacity-80"
               >
-                <Text className="text-sm font-sans-semibold text-ink">Open the camera</Text>
+                <Text className="text-sm font-semibold text-ink">Open the camera</Text>
               </Pressable>
             </View>
           )}
@@ -190,11 +256,11 @@ export default function Scan() {
                 {status.kind === "looking" ? (
                   <ActivityIndicator size="small" color={COLORS.ink} />
                 ) : (
-                  <Text className="text-sm font-sans-bold text-ink">!</Text>
+                  <Text className="text-sm font-bold text-ink">!</Text>
                 )}
               </View>
               <View className="flex-1">
-                <Text className="text-[12.5px] font-sans-bold text-ink">
+                <Text className="text-[12.5px] font-bold text-ink">
                   {status.kind === "looking"
                     ? `Barcode found · ${status.code}`
                     : "Not in our catalogue yet"}
@@ -214,7 +280,7 @@ export default function Scan() {
                 onPress={() => router.push(`/scan-label?barcode=${status.code}`)}
                 className="flex-1 items-center rounded-full bg-canvas py-2.5 active:opacity-80"
               >
-                <Text className="text-[11.5px] font-sans-semibold text-ink">
+                <Text className="text-[11.5px] font-semibold text-ink">
                   Photograph the label
                 </Text>
               </Pressable>
@@ -225,33 +291,39 @@ export default function Scan() {
                 }}
                 className="flex-1 items-center rounded-full bg-canvas/20 py-2.5"
               >
-                <Text className="text-[11.5px] font-sans-semibold text-canvas">Try another</Text>
+                <Text className="text-[11.5px] font-semibold text-canvas">Try another</Text>
               </Pressable>
             </View>
           )}
 
-          {status.kind === "idle" && (
-            <View className="absolute inset-x-5 bottom-5 flex-row gap-2">
-              {(["Barcode", "Label photo", "Search"] as const).map((label) => {
-                const on = mode === label;
-                return (
-                  <Pressable
-                    key={label}
-                    onPress={() => setMode(label)}
-                    className={`flex-1 items-center rounded-full py-2.5 ${
-                      on ? "bg-canvas" : "bg-canvas/[0.16]"
-                    }`}
-                  >
-                    <Text
-                      className={`text-[11.5px] font-sans-semibold ${on ? "text-ink" : "text-canvas/85"}`}
-                    >
-                      {label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
+        </View>
+
+        {/* Mode switcher — moved below the camera card, per the Scanner
+            mockup (previously overlaid on the camera itself, white-on-dark).
+            Icons are hand-rolled inline SVGs copied from the mockup's own
+            paths, the same convention `Viewfinder` above already uses in
+            this file — not an icon-library adoption, which stays a Phase 2
+            decision. */}
+        <View className="mx-5 mt-3 flex-row gap-2">
+          {MODES.map(({ label, Icon }) => {
+            const on = mode === label;
+            return (
+              <Pressable
+                key={label}
+                onPress={() => setMode(label)}
+                className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-full border py-2.5 ${
+                  on ? "border-accent bg-accent" : "border-hairline bg-surface"
+                }`}
+              >
+                <Icon color={on ? COLORS.canvas : COLORS.ink} />
+                <Text
+                  className={`text-[11.5px] font-semibold ${on ? "text-canvas" : "text-ink"}`}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         <Recents history={history} />
@@ -259,7 +331,7 @@ export default function Scan() {
         <Pressable onPress={() => router.push("/scan-label")} className="items-center px-5 pt-4">
           <Text className="text-xs text-ink-muted">
             No barcode?{" "}
-            <Text className="font-sans-semibold text-ink underline">
+            <Text className="font-semibold text-ink underline">
               Photograph the label instead
             </Text>
           </Text>
@@ -321,7 +393,7 @@ function SearchPane() {
         placeholderTextColor="rgba(253,251,249,0.45)"
         autoCorrect={false}
         className="rounded-full bg-canvas/[0.14] px-4 py-3 text-canvas"
-        style={{ fontFamily: "PlusJakartaSans_500Medium", fontSize: 14 }}
+        style={{ fontWeight: "500", fontSize: 14 }}
       />
       <ScrollView className="mt-3" keyboardShouldPersistTaps="handled">
         {searching && <ActivityIndicator color={COLORS.canvas} className="mt-4" />}
@@ -337,7 +409,7 @@ function SearchPane() {
             className="flex-row items-center gap-3 border-b border-canvas/10 py-3"
           >
             <View className="flex-1">
-              <Text className="text-[13px] font-sans-semibold text-canvas" numberOfLines={1}>
+              <Text className="text-[13px] font-semibold text-canvas" numberOfLines={1}>
                 {product.name}
               </Text>
               <Text className="text-[11px] text-canvas/60">{product.brand}</Text>
@@ -382,35 +454,51 @@ function Recents({ history }: { history: { id: string; known: boolean; scoreAtVi
 
   return (
     <View className="gap-2.5 px-5 pt-5">
-      <Text className="text-[11px] font-sans-bold uppercase tracking-[1.1px] text-ink-faint">
+      <Text className="text-[11px] font-bold uppercase tracking-[1.1px] text-ink-faint">
         Scanned in this store
       </Text>
-      {ids.map((id) => {
-        const product = products.find((p) => p.id === id);
-        if (!product) return null;
-        const score = scoreFor(id);
-        return (
-          <Pressable
-            key={id}
-            onPress={() => router.push({ pathname: "/result/[id]", params: { id } })}
-            className="flex-row items-center gap-3 rounded-[18px] bg-surface px-3.5 py-2.5 shadow-sm active:opacity-80"
-          >
-            <ProductIllustration type={product.type} size={38} />
-            <View className="flex-1">
-              <Text className="text-[13px] font-sans-semibold text-ink" numberOfLines={1}>
-                {product.name}
-              </Text>
-              <Text className="text-[11px] text-ink-muted" numberOfLines={1}>
-                {product.brand}
-              </Text>
-            </View>
-            <Text className="text-[15px] font-sans-bold tabular-nums text-ink">
-              {score ?? "—"}
-            </Text>
-            <Text className="text-[15px] text-ink-faint">›</Text>
-          </Pressable>
-        );
-      })}
+      {/* One bordered card holding every row, with a divider between them —
+          per the Scanner mockup's shelf list. Previously each row was its
+          own shadowed card in a gapped stack. */}
+      <View className="overflow-hidden rounded-card border border-hairline bg-surface">
+        {ids.map((id, index) => {
+          const product = products.find((p) => p.id === id);
+          if (!product) return null;
+          const score = scoreFor(id);
+          const meta = [product.volume, `${product.ingredients.length} ingredients`]
+            .filter(Boolean)
+            .join(" · ");
+          return (
+            <Pressable
+              key={id}
+              onPress={() => router.push({ pathname: "/result/[id]", params: { id } })}
+              className={`flex-row items-center gap-3 px-3.5 py-3 active:opacity-70 ${
+                index < ids.length - 1 ? "border-b border-hairline" : ""
+              }`}
+            >
+              <ProductIllustration type={product.type} size={44} />
+              <View className="flex-1 gap-0.5">
+                <Text
+                  className="text-[9px] font-bold uppercase tracking-[1px] text-ink-muted"
+                  numberOfLines={1}
+                >
+                  {product.brand}
+                </Text>
+                <Text className="text-[13px] font-semibold text-ink" numberOfLines={1}>
+                  {product.name}
+                </Text>
+                {meta ? (
+                  <Text className="text-[10.5px] text-ink-faint" numberOfLines={1}>
+                    {meta}
+                  </Text>
+                ) : null}
+              </View>
+              <MatchBadge score={score} />
+              <Text className="text-[13px] text-ink-faint">›</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
