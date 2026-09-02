@@ -89,7 +89,12 @@ export function ScoreRing({
         )}
         <Text
           className="font-semibold text-ink-muted"
-          style={{ fontSize: Math.round(size * 0.105), letterSpacing: 0.8 }}
+          style={{
+            fontSize: Math.round(size * 0.115),
+            // Tracking suits an all-caps word like MATCH; it just looks broken
+            // on the design's "/100".
+            letterSpacing: label.startsWith("/") ? 0 : 0.8,
+          }}
         >
           {score === null ? "NO DATA" : label}
         </Text>

@@ -1,51 +1,45 @@
-import { Stack, router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Share, View } from "react-native";
+import Svg, { Circle, Path } from "react-native-svg";
 
 import { FactorBar } from "@/components/FactorBar";
+import { ProductIllustration } from "@/components/ProductIllustration";
 import { ScoreRing } from "@/components/ScoreRing";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { fetchProduct } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
-import { biggestConcern, matchProduct, verdictHeadline, type Verdict } from "@/lib/matching";
-import { profileSummary } from "@/lib/profile";
-import { isVerified } from "@/lib/safety";
+import { matchProduct, verdictHeadline, type MatchResult, type Verdict } from "@/lib/matching";
+import { COMEDOGENIC_FLAG_THRESHOLD, isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
- * "Why this score" — screen 2b of the Skin Match Scanner design.
+ * "Why this score" — screen 2 of the Skintel Screens design.
  *
  * The whole app funnels here. It answers the Olive Young question (INCIDecoder
  * → comedogenic check → review site) in one view: a score, the factors behind
- * it, and the single thing most worth a second look.
+ * it, and the two risks people actually ask about.
  *
  * Every number on this screen is derived from the formula. Where the design
- * called for data we do not hold — an EWG hazard score, a comedogenic rating —
+ * called for data we do not hold — an EWG hazard score, a written verdict —
  * the card shows something we can actually source instead of a plausible
  * fabrication.
  */
 
-/**
- * `border` is new for the Skintel Screens restyle — the Result mockup's hero
- * card is bordered, not just tinted. `headline` is deliberately plain ink for
- * three of the four states: the mockup only shows the "good" verdict, whose
- * headline is a specific dark green (`#4B7A5E`) rather than the app's ink —
- * that one value is used directly since it's evidenced. Deriving matching
- * dark variants of `tone-watch`/`tone-flag` for the other three states would
- * mean inventing three more colors with no mockup to check them against, so
- * they keep the neutral, always-legible ink headline instead — `status.*`
- * (the app's OTHER color family) is not an option here regardless: it is
- * "the same for every user" regulatory-safety semantics, and this verdict is
- * "does this suit *you*", the `tone` semantics — the two are kept apart on
- * purpose (see `tint.lilac`'s usage elsewhere on this screen for the same
- * rule applied to a different pair).
- */
-const HERO: Record<Verdict, { bg: string; border: string; headline: string; label: string }> = {
-  good: { bg: "bg-tint-mint", border: "border-tone-good/25", headline: "text-[#4B7A5E]", label: "Good match" },
-  mixed: { bg: "bg-tint-peach", border: "border-tone-watch/30", headline: "text-ink", label: "Worth a look" },
-  poor: { bg: "bg-tint-pink", border: "border-tone-flag/30", headline: "text-ink", label: "Not for you" },
-  unknown: { bg: "bg-hairline", border: "border-ink/10", headline: "text-ink", label: "Can't tell" },
+const PANEL: Record<Verdict, { bg: string; border: string; label: string; ink: string }> = {
+  good: { bg: "#EAF3EC", border: "#DCEBE0", label: "Good match", ink: "#4B7A5E" },
+  mixed: { bg: "#FBF0E4", border: "#F2E2CE", label: "Worth a look", ink: "#8A6314" },
+  poor: { bg: "#FBEAEC", border: "#F2D8DC", label: "Not for you", ink: "#A2521F" },
+  unknown: { bg: "#F3EFEA", border: "#E9E4DD", label: "Can't tell yet", ink: "#5C5566" },
+};
+
+const RING_TONE: Record<Verdict, "good" | "mixed" | "poor" | "unknown"> = {
+  good: "good",
+  mixed: "mixed",
+  poor: "poor",
+  unknown: "unknown",
 };
 
 export default function ScanResult() {
@@ -96,184 +90,219 @@ export default function ScanResult() {
 
   if (!product) {
     return (
-      <View className="flex-1 items-center justify-center gap-3 bg-canvas px-8">
-        <Text className="font-display text-2xl text-ink">Product not found</Text>
-        <Pressable
-          onPress={() => router.replace("/scan")}
-          className="rounded-full bg-accent px-6 py-3"
-        >
-          <Text className="font-semibold text-canvas">Scan another</Text>
-        </Pressable>
+      <View className="flex-1 bg-canvas">
+        <ScreenHeader />
+        <View className="flex-1 items-center justify-center gap-4 px-8">
+          <Text className="font-display text-2xl text-ink">Product not found</Text>
+          <Pressable
+            onPress={() => router.replace("/scan")}
+            className="h-[52px] items-center justify-center rounded-control bg-accent px-8 active:bg-accent-deep"
+          >
+            <Text className="text-sm font-semibold text-white">Scan another</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
 
   const match = matchProduct(product, profile);
-  const hero = HERO[match.verdict];
-  const concern = biggestConcern(match);
-  const summary = profileSummary(profile);
-  const hasFormula = product.ingredients.length > 0;
-
+  const panel = PANEL[match.verdict];
   const total = product.ingredients.length;
-  const flagged = match.reasons.filter((r) => r.effect < 0).length + match.warnings.length;
-  const actives = product.ingredients.filter(
-    (i) => isVerified(i) && match.reasons.some((r) => r.ingredient === i.name && r.effect > 0)
-  ).length;
+  const recognised = product.ingredients.filter(isVerified).length;
+
+  async function share() {
+    if (!product) return;
+    const line =
+      match.score === null
+        ? `${product.brand} ${product.name} — checked on Skintel`
+        : `${product.brand} ${product.name} — ${match.score}/100 for my skin, on Skintel`;
+    try {
+      await Share.share({ message: line });
+    } catch (err) {
+      console.warn("share failed:", err);
+    }
+  }
 
   return (
     <View className="flex-1 bg-canvas">
-      <Stack.Screen options={{ title: product.brand }} />
+      <ScreenHeader
+        right={
+          <Pressable onPress={share} hitSlop={12} accessibilityLabel="Share this result">
+            <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M12 15.5V3.4M7.8 7.6 12 3.4l4.2 4.2M5 13.6V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.4"
+                stroke="#453F4E"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </Pressable>
+        }
+      />
 
-      <ScrollView contentContainerClassName="pb-40">
-        {/* The verdict, before anything else. Never colour alone — the band
-            carries a word too. Bordered card + display-face headline per the
-            Result mockup, in place of the previous plain tinted band. */}
-        <View
-          className={`mx-5 mt-2 flex-row items-center gap-4 rounded-sheet border p-5 ${hero.bg} ${hero.border}`}
-        >
-          <ScoreRing score={match.score} size={82} tone={match.verdict} />
+      <ScrollView contentContainerClassName="pb-4">
+        {/* Which product this is about, stated once and compactly. */}
+        <View className="flex-row items-center gap-3.5 px-6 pt-5">
+          <ProductIllustration type={product.type} size={58} radius="rounded-chip" />
           <View className="flex-1 gap-1">
-            <Text className={`font-display text-[19px] leading-6 ${hero.headline}`}>
-              {hero.label}
-              {concern && match.score !== null ? ", one caveat" : ""}
+            <Text className="text-[16.5px] font-medium leading-[22px] tracking-tight text-ink">
+              {product.name}
             </Text>
-            <Text className="text-xs leading-4 text-ink-muted">
-              {match.score !== null && summary
-                ? `Scored against your ${summary.toLowerCase()} profile — not an average shopper.`
-                : verdictHeadline(match)}
+            <Text className="text-[11.5px] text-ink-muted">
+              {[product.volume, product.type].filter(Boolean).join(" / ")}
             </Text>
           </View>
         </View>
 
-        <View className="gap-1 px-5 pt-4">
-          <Text className="text-[10px] font-bold uppercase tracking-[1.4px] text-ink-faint">
-            {product.brand}
-          </Text>
-          <Text className="font-display text-[23px] leading-7 text-ink">{product.name}</Text>
-          <Text className="text-xs text-ink-muted">
-            {[product.volume, hasFormula ? `${total} ingredients` : null]
-              .filter(Boolean)
-              .join(" · ")}
-          </Text>
+        {/* The verdict, before anything else. Never colour alone — the panel
+            carries a word too. */}
+        <View
+          className="mx-6 mt-5 flex-row items-center gap-5 rounded-card border p-5"
+          style={{ backgroundColor: panel.bg, borderColor: panel.border }}
+        >
+          <ScoreRing
+            score={match.score}
+            size={82}
+            label="/100"
+            tone={RING_TONE[match.verdict]}
+          />
+          <View className="flex-1 gap-1.5 pr-6">
+            <Text
+              className="font-display text-[21px] leading-[23px] tracking-tight"
+              style={{ color: panel.ink }}
+            >
+              {panel.label}
+            </Text>
+            <Text className="text-[13px] leading-[18px] text-ink-muted">
+              {verdictHeadline(match)}
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={() => toggleSaved(product.id)}
+            hitSlop={10}
+            accessibilityLabel={saved ? "Remove from shelf" : "Save to my shelf"}
+            accessibilityState={{ selected: saved }}
+            className="absolute right-4 top-4"
+          >
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill={saved ? panel.ink : "none"}>
+              <Path
+                d="M12 20.2s-7.6-4.7-7.6-9.7A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 7.6 2.8c0 5-7.6 9.7-7.6 9.7Z"
+                stroke={panel.ink}
+                strokeWidth={1.7}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </Pressable>
         </View>
 
-        {match.factors.length > 0 && (
-          <View className="gap-1 px-5 pt-6">
-            <Text className="text-[13px] font-bold text-ink">What moved the score</Text>
-            {/* "Why? We analyzed N factors" from the Result mockup — reads
-                match.factors.length rather than a fixed count, since the
-                real number varies by formula and profile. */}
-            <Text className="pb-2 text-[10.5px] text-ink-faint">
-              Why? We analyzed {match.factors.length}{" "}
-              {match.factors.length === 1 ? "factor" : "factors"}.
+        {match.factors.length > 0 ? (
+          <>
+            <Text className="pt-3.5 text-center text-[10.5px] text-ink-muted">
+              Why? We read {recognised} of {total} ingredients.
             </Text>
-            <View className="gap-3.5">
+            <View className="px-6 pt-4">
               {match.factors.map((factor) => (
                 <FactorBar key={factor.category} factor={factor} />
               ))}
             </View>
-          </View>
-        )}
-
-        {/* The one thing to check — the largest factor working against you. */}
-        {concern && (
-          <View className="mx-5 mt-5 gap-2 rounded-sheet bg-tint-peach p-5">
-            <Text className="text-[13px] font-bold text-ink">The one thing to check</Text>
-            <Text className="text-[12.5px] leading-5 text-ink">
-              {concern.note} {concern.ingredients.length === 1 ? "is" : "are"} the main thing
-              working against your profile here
-              {positionNote(product, concern.ingredients[0])}.
-            </Text>
-            <Pressable
-              onPress={() =>
-                router.push({
-                  pathname: "/ingredient/[inci]",
-                  params: { inci: concern.ingredients[0], product: product.id },
-                })
-              }
-              className="mt-1 self-start rounded-full bg-accent px-4 py-2 active:opacity-80"
-            >
-              <Text className="text-xs font-semibold text-canvas">Open that ingredient</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {hasFormula && (
-          <View className="flex-row gap-2.5 px-5 pt-5">
-            <StatCard
-              label="Flagged for you"
-              value={flagged === 0 ? "Nothing" : `${flagged} of ${total}`}
-              good={flagged === 0}
-            />
-            <StatCard label="Working for you" value={`${actives} of ${total}`} good={actives > 0} />
-          </View>
-        )}
-
-        {!hasFormula && (
-          <View className="mx-5 mt-5 gap-3 rounded-sheet bg-tint-lilac p-5">
-            <Text className="text-[12.5px] leading-5 text-accent-text">
-              We know this product but not what&apos;s in it. Photograph the ingredient
-              list and we&apos;ll read it — once, for everyone.
-            </Text>
-            <Pressable
-              onPress={() => router.push(`/scan-label?barcode=${product.barcode}`)}
-              className="h-[52px] items-center justify-center rounded-full bg-accent active:opacity-80"
-            >
-              <Text className="text-sm font-semibold text-canvas">
-                Photograph the ingredients
-              </Text>
-            </Pressable>
-          </View>
-        )}
-
-        {match.coverage > 0 && match.coverage < 1 && hasFormula && (
-          <Text className="px-5 pt-4 text-[11px] text-ink-faint">
-            We recognised {Math.round(match.coverage * 100)}% of this ingredient list.
+          </>
+        ) : (
+          <Text className="px-6 pt-5 text-center text-[12.5px] leading-[18px] text-ink-muted">
+            Nothing in this formula matched a rule we hold, so there is no
+            breakdown to show — the score above is the whole answer.
           </Text>
         )}
 
         {/* This screen is a judgement, so the caveat belongs on it. */}
-        <View className="mx-5 mb-2 mt-6 rounded-card bg-tint-lilac px-4 py-3">
-          <Text className="text-[11px] leading-4 text-accent-text">
-            Ingredient information only — not medical or dermatological advice.
-            Formulas change and label data can be incomplete.
+        <View className="mx-6 mt-4 flex-row items-center justify-center gap-2.5 rounded-control bg-hairline/50 px-4 py-3">
+          <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+            <Circle cx={12} cy={12} r={9} stroke={COLORS.inkMuted} strokeWidth={1.8} />
+            <Path
+              d="M12 11v5.4M12 7.7v.1"
+              stroke={COLORS.inkMuted}
+              strokeWidth={1.8}
+              strokeLinecap="round"
+            />
+          </Svg>
+          <Text className="text-center text-[10.5px] leading-[15px] text-ink-muted">
+            Based on your skin profile and public ingredient data. Not medical advice.
           </Text>
         </View>
 
+        {/* The two risks people actually ask about, both computed rather than
+            quoted: nothing here is an EWG-style hazard number. */}
+        <View className="flex-row gap-3 px-6 pt-3.5">
+          <RiskCard
+            title={"Irritation\nrisk"}
+            {...irritationRisk(product, match)}
+            icon={
+              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M12 3.2 5 6v5.6c0 4.3 2.9 7.6 7 9.2 4.1-1.6 7-4.9 7-9.2V6l-7-2.8Z"
+                  stroke="#6D9A7E"
+                  strokeWidth={1.7}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            }
+          />
+          <RiskCard
+            title={"Pore-clogging\nrisk"}
+            {...poreRisk(product, match)}
+            icon={
+              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                <Circle cx={8} cy={8} r={1.4} stroke="#6D9A7E" strokeWidth={1.7} />
+                <Circle cx={15.6} cy={9.4} r={1.4} stroke="#6D9A7E" strokeWidth={1.7} />
+                <Circle cx={10} cy={15.4} r={1.4} stroke="#6D9A7E" strokeWidth={1.7} />
+                <Circle cx={16.4} cy={16} r={1.4} stroke="#6D9A7E" strokeWidth={1.7} />
+              </Svg>
+            }
+          />
+        </View>
+
         {product.attribution ? (
-          <Text className="px-5 text-[10.5px] leading-4 text-ink-faint">{product.attribution}</Text>
+          <Text className="px-6 pt-5 text-[10.5px] leading-4 text-ink-faint">
+            {product.attribution}
+          </Text>
         ) : null}
       </ScrollView>
 
-      {/* Thumb zone: the two things you do next. Stacked full-width, per the
-          Result mockup — was a wide primary beside a square icon-only save
-          button; the mockup stacks two full-width buttons instead, the
-          second one labelled rather than icon-only. Primary is now the
-          accent color, matching every button in every mockup screen read
-          (Quiz, Scanner, Result all agree on #7A6BB0) rather than the
-          previous plain-ink fill. */}
-      <View className="absolute inset-x-0 bottom-0 gap-2.5 border-t border-hairline bg-canvas px-5 pb-8 pt-3">
+      {/* Thumb zone: the two things you do next. */}
+      <View className="gap-3 border-t border-hairline bg-canvas px-6 pb-8 pt-3.5">
         <Pressable
           onPress={() =>
-            hasFormula
+            total > 0
               ? router.push({ pathname: "/ingredients/[id]", params: { id: product.id } })
-              : router.replace("/scan")
+              : router.push(`/scan-label?barcode=${product.barcode}`)
           }
-          className="h-[52px] items-center justify-center rounded-full bg-accent active:opacity-80"
+          className="h-[52px] items-center justify-center rounded-control bg-accent active:bg-accent-deep"
         >
-          <Text className="text-[14.5px] font-semibold text-canvas">
-            {hasFormula ? `See all ${total} ingredients` : "Scan another"}
+          <Text className="text-[14.5px] font-medium text-white">
+            {total > 0 ? "View ingredients" : "Photograph the ingredients"}
           </Text>
         </Pressable>
+
         <Pressable
           onPress={() => toggleSaved(product.id)}
-          className={`h-[52px] flex-row items-center justify-center gap-2 rounded-full border ${
-            saved ? "border-tone-flag/40 bg-tint-pink" : "border-hairline bg-surface"
+          className={`h-[52px] flex-row items-center justify-center gap-2.5 rounded-control border ${
+            saved ? "border-accent bg-tint-lilac" : "border-hairline bg-surface active:bg-canvas"
           }`}
         >
-          <Text className="text-base text-ink">{saved ? "♥" : "♡"}</Text>
-          <Text className="text-[14.5px] font-semibold text-ink">
-            {saved ? "Saved to your shelf" : "Save to your shelf"}
+          <Svg width={17} height={17} viewBox="0 0 24 24" fill={saved ? COLORS.ink : "none"}>
+            <Path
+              d="M12 20.2s-7.6-4.7-7.6-9.7A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 7.6 2.8c0 5-7.6 9.7-7.6 9.7Z"
+              stroke={COLORS.ink}
+              strokeWidth={1.7}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+          <Text className="text-[14.5px] font-medium text-ink">
+            {saved ? "Saved to my shelf" : "Save to my shelf"}
           </Text>
         </Pressable>
       </View>
@@ -281,40 +310,74 @@ export default function ScanResult() {
   );
 }
 
-/**
- * Bordered, tinted card per the Result mockup's stat-card pattern — but kept
- * on this app's own real metric (a count, e.g. "2 of 24") rather than the
- * mockup's categorical "Low"/"Medium"/"High" risk word, which this app has
- * no computed risk-tier for. Inventing one to match the mockup's copy would
- * be exactly the kind of fabricated signal `lib/rules.ts` and this screen's
- * own top comment both explicitly refuse elsewhere — a count is what's
- * actually measured, so a count is what's shown, just in the mockup's
- * card shape.
- */
-function StatCard({ label, value, good }: { label: string; value: string; good: boolean }) {
+function RiskCard({
+  title,
+  icon,
+  level,
+  note,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  level: string;
+  note: string;
+}) {
   return (
-    <View
-      className={`flex-1 gap-1.5 rounded-card border p-3.5 ${
-        good ? "border-tone-good/25 bg-tint-mint" : "border-hairline bg-surface"
-      }`}
-    >
-      <Text className="text-[9px] font-bold uppercase tracking-[1.2px] text-ink-faint">
-        {label}
-      </Text>
-      <Text className={`text-[15px] font-semibold ${good ? "text-[#4B7A5E]" : "text-ink"}`}>
-        {value}
-      </Text>
+    <View className="flex-1 gap-[7px] rounded-control border border-panel-success-line bg-panel-success px-4 pb-4 pt-3.5">
+      <View className="flex-row items-start gap-2">
+        <View className="mt-px">{icon}</View>
+        <Text className="flex-1 text-[11.5px] leading-[15px] text-ink-muted">{title}</Text>
+      </View>
+      <Text className="font-display text-[19px] leading-[20px] text-status-safe">{level}</Text>
+      <Text className="text-[10.5px] text-ink-muted">{note}</Text>
     </View>
   );
 }
 
 /**
- * INCI order is regulated descending-concentration data, so where something
- * sits changes how much it matters. Saying "#11 of 24" is the difference
- * between a warning and a useful warning.
+ * Irritation risk, from the EU regulatory status of what is actually in the
+ * bottle plus anything contraindicated for this profile. Not a hazard score —
+ * a count of restricted entries, said in words.
  */
-function positionNote(product: ProductWithIngredients, ingredientName: string): string {
-  const index = product.ingredients.findIndex((i) => i.name === ingredientName);
-  if (index === -1) return "";
-  return `, at #${index + 1} of ${product.ingredients.length}`;
+function irritationRisk(
+  product: ProductWithIngredients,
+  match: MatchResult
+): { level: string; note: string } {
+  const restricted = product.ingredients.filter(
+    (i) => isVerified(i) && i.safety !== "safe"
+  ).length;
+  const personal = match.warnings.length;
+
+  if (product.ingredients.length === 0) return { level: "Unknown", note: "Label not read yet" };
+  if (personal > 0) {
+    return { level: "Elevated", note: `${personal} flagged for your skin` };
+  }
+  if (restricted === 0) return { level: "Low", note: "Nothing restricted" };
+  if (restricted <= 2) return { level: "Moderate", note: `${restricted} restricted entries` };
+  return { level: "Elevated", note: `${restricted} restricted entries` };
+}
+
+/**
+ * Pore-clogging risk. CosIng rates no ingredient for this — `comedogenic` is
+ * null for every real row — so where the rating is absent this falls back to
+ * the rule table's own pore-clogging category, which is where that judgement
+ * actually lives.
+ */
+function poreRisk(
+  product: ProductWithIngredients,
+  match: MatchResult
+): { level: string; note: string } {
+  if (product.ingredients.length === 0) return { level: "Unknown", note: "Label not read yet" };
+
+  const rated = product.ingredients.filter((i) => isVerified(i) && i.comedogenic > 0);
+  const worst = Math.max(0, ...rated.map((i) => i.comedogenic));
+  const fromRules = match.factors.find((f) => f.category === "pore-clogging" && f.delta < 0);
+
+  if (worst >= COMEDOGENIC_FLAG_THRESHOLD) {
+    return { level: "Elevated", note: `Rated ${worst}/5 at worst` };
+  }
+  if (fromRules) {
+    return { level: "Moderate", note: fromRules.ingredients[0] ?? "One ingredient" };
+  }
+  if (worst > 0) return { level: "Low", note: `Rated ${worst}/5 at worst` };
+  return { level: "Low", note: "Nothing flagged" };
 }

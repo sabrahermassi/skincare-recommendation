@@ -1,8 +1,9 @@
-import { Stack, router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { fetchProduct } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
@@ -189,7 +190,7 @@ export default function IngredientDetail() {
 
   return (
     <View className="flex-1 bg-canvas">
-      <Stack.Screen options={{ title: product?.name ?? "Ingredient" }} />
+      <ScreenHeader />
 
       <ScrollView contentContainerClassName="pb-40">
         <View className="flex-row items-start gap-4 px-6 pt-6">

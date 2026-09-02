@@ -168,7 +168,7 @@ export default function Scan() {
             but this app has no user-photo feature backing it, and adding a
             stock design-tool image would be decoration with nothing real
             behind it. */}
-        <View className="flex-row items-start justify-between gap-3 px-5 pb-3 pt-3">
+        <View className="flex-row items-start justify-between gap-3.5 px-6 pb-3 pt-3">
           <View className="gap-1.5 pt-0.5">
             <Text className="font-display text-[26px] leading-7 text-ink">Skintel</Text>
             <Text className="text-[8px] font-bold tracking-[2px] text-ink-faint">
@@ -199,7 +199,7 @@ export default function Scan() {
           </Pressable>
         </View>
 
-        <View className="mx-5 h-[392px] overflow-hidden rounded-[28px] bg-ink">
+        <View className="mx-6 h-[293px] overflow-hidden rounded-[11px] bg-ink">
           {live ? (
             <CameraView
               style={StyleSheet.absoluteFill}
@@ -308,20 +308,20 @@ export default function Scan() {
             paths, the same convention `Viewfinder` above already uses in
             this file — not an icon-library adoption, which stays a Phase 2
             decision. */}
-        <View className="mx-5 mt-3 flex-row gap-2">
+        <View className="mx-6 mt-[18px] flex-row gap-3">
           {MODES.map(({ label, Icon }) => {
             const on = mode === label;
             return (
               <Pressable
                 key={label}
                 onPress={() => setMode(label)}
-                className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-full border py-2.5 ${
+                className={`h-[35px] flex-1 flex-row items-center justify-center gap-[7px] rounded-full border ${
                   on ? "border-accent bg-accent" : "border-hairline bg-surface"
                 }`}
               >
                 <Icon color={on ? COLORS.canvas : COLORS.ink} />
                 <Text
-                  className={`text-[11.5px] font-semibold ${on ? "text-canvas" : "text-ink"}`}
+                  className={`text-xs font-medium ${on ? "text-canvas" : "text-ink"}`}
                 >
                   {label}
                 </Text>
@@ -444,9 +444,15 @@ function Recents({ history }: { history: { id: string; known: boolean; scoreAtVi
       return;
     }
     let cancelled = false;
-    fetchProductsByIds(ids).then((found) => {
-      if (!cancelled) setProducts(found);
-    });
+    fetchProductsByIds(ids)
+      .then((found) => {
+        if (!cancelled) setProducts(found);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("fetchProductsByIds failed:", err);
+        setProducts([]);
+      });
     return () => {
       cancelled = true;
     };
@@ -457,10 +463,15 @@ function Recents({ history }: { history: { id: string; known: boolean; scoreAtVi
   const scoreFor = (id: string) => history.find((h) => h.id === id)?.scoreAtView ?? null;
 
   return (
-    <View className="gap-2.5 px-5 pt-5">
-      <Text className="text-[11px] font-bold uppercase tracking-[1.1px] text-ink-faint">
-        Scanned in this store
-      </Text>
+    <View className="gap-2.5 px-6 pt-6">
+      <View className="flex-row items-center justify-between gap-3">
+        <Text className="text-[9px] font-semibold uppercase tracking-[1.5px] text-ink-muted">
+          Scanned in this store
+        </Text>
+        <Pressable onPress={() => router.push("/saved")} hitSlop={8}>
+          <Text className="text-xs text-accent-text">View all</Text>
+        </Pressable>
+      </View>
       {/* One bordered card holding every row, with a divider between them —
           per the Scanner mockup's shelf list. Previously each row was its
           own shadowed card in a gapped stack. */}

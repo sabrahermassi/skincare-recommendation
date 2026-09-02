@@ -72,11 +72,16 @@ export default function RootLayout() {
         {/* Titled as a fallback for anything that ignores the display mode. */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Skintel" }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="product/[id]" options={{ title: "Product" }} />
-        {/* The verdict. Header title is set per-product by the screen itself. */}
-        <Stack.Screen name="result/[id]" options={{ title: "Result" }} />
-        <Stack.Screen name="ingredients/[id]" options={{ title: "Ingredients" }} />
-        <Stack.Screen name="ingredient/[inci]" options={{ title: "Ingredient" }} />
+        {/*
+          No native header on any of these. The design draws its own top row on
+          every pushed screen — back chevron on the canvas, screen-specific
+          actions on the right — and a system header above that was rendering a
+          second, competing title bar. `components/ScreenHeader` is that row.
+        */}
+        <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="result/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="ingredients/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="ingredient/[inci]" options={{ headerShown: false }} />
         <Stack.Screen
           name="scan-label"
           options={{ title: "Read the label", presentation: "modal" }}

@@ -1,11 +1,13 @@
 import { Image } from "expo-image";
-import { Stack, router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
 
 import { ProductIllustration } from "@/components/ProductIllustration";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { fetchProduct } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
@@ -104,23 +106,27 @@ export default function ProductDetail() {
 
   return (
     <View className="flex-1 bg-canvas">
-      {/* The design puts the save control at the top as well as in the thumb
-          zone; on a long product page the footer one scrolls out of reach of
-          the eye, not just the thumb. */}
-      <Stack.Screen
-        options={{
-          title: product.brand,
-          headerRight: () => (
-            <Pressable
-              onPress={() => toggleSaved(product.id)}
-              hitSlop={12}
-              accessibilityLabel={saved ? "Remove from saved" : "Save"}
-              accessibilityState={{ selected: saved }}
-            >
-              <Text className="text-lg text-ink">{saved ? "♥" : "♡"}</Text>
-            </Pressable>
-          ),
-        }}
+      {/* Back chevron and heart on the canvas, as the design draws it — no
+          system header bar above. */}
+      <ScreenHeader
+        right={
+          <Pressable
+            onPress={() => toggleSaved(product.id)}
+            hitSlop={12}
+            accessibilityLabel={saved ? "Remove from saved" : "Save"}
+            accessibilityState={{ selected: saved }}
+          >
+            <Svg width={21} height={21} viewBox="0 0 24 24" fill={saved ? COLORS.ink : "none"}>
+              <Path
+                d="M12 20.2s-7.6-4.7-7.6-9.7A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 7.6 2.8c0 5-7.6 9.7-7.6 9.7Z"
+                stroke={COLORS.ink}
+                strokeWidth={1.7}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </Pressable>
+        }
       />
 
       <ScrollView contentContainerClassName="pb-32">
