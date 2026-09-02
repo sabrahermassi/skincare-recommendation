@@ -130,9 +130,14 @@ function rowToProduct(row: CatalogueRow): ProductWithIngredients {
       return {
         id: source.inci_name,
         name: source.inci_name,
-        // Most ingredients have no published comedogenic rating. It maps to 0
-        // so the scale stays numeric, but `note` is what the UI shows, so a
-        // gap is never rendered as a measured clean bill of health.
+        // No real catalogue row carries a comedogenic rating and none should —
+        // see `ComedogenicRating` for why. Collapsing the absence to 0 keeps
+        // the scale numeric, and callers must read it as "not rated" rather
+        // than "rated harmless": every comedogenic branch in `lib/safety.ts`
+        // is therefore dead for catalogue products, and pore-clogging is
+        // decided by `INGREDIENT_RULES` instead. Left as 0 rather than made
+        // nullable because the sample catalogue does rate its ingredients and
+        // the two paths share this type.
         comedogenic: (source.comedogenic ?? 0) as Ingredient["comedogenic"],
         safety: source.safety,
         note: source.note ?? undefined,

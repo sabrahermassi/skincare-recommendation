@@ -10,7 +10,10 @@
     "lint": "expo lint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "import:cosing": "node scripts/import-cosing.mjs",
+    "import:inci-dictionary": "node scripts/import-inci-dictionary.mjs",
+    "import:obf": "node scripts/import-obf.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/newsreader": "^0.4.1",

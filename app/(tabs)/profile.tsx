@@ -13,7 +13,6 @@ import type {
   BodyArea,
   Concern,
   Gender,
-  RoutineLength,
   SkinProfile,
 } from "@/data/types";
 import { ageGroupLabel, genderLabel, POST_ONBOARDING_ROUTE } from "@/lib/profile";
@@ -33,6 +32,7 @@ const CONCERN_OPTIONS: { value: Concern; label: string }[] = [
   { value: "large-pores", label: "Large pores" },
   { value: "fine-lines", label: "Fine lines" },
   { value: "hyperpigmentation", label: "Dark spots" },
+  { value: "atopic", label: "Eczema-prone" },
 ];
 const SKIN_TYPES: { value: BaseSkinType; label: string }[] = [
   { value: "dry", label: "Dry" },
@@ -40,12 +40,6 @@ const SKIN_TYPES: { value: BaseSkinType; label: string }[] = [
   { value: "combination", label: "Combination" },
   { value: "normal", label: "Normal" },
 ];
-const ROUTINES: { value: RoutineLength; label: string }[] = [
-  { value: "minimal", label: "Minimal (2–3 steps)" },
-  { value: "balanced", label: "Balanced (4–5 steps)" },
-  { value: "full", label: "Full routine (6+ steps)" },
-];
-
 const MAX_CONCERNS = 3;
 
 /**
@@ -178,26 +172,6 @@ export default function ProfileScreen() {
             </View>
           </Pressable>
         </Section>
-
-        {/*
-          The quiz skips this question for body, so the edit screen shouldn't
-          offer it either — it has no effect on body matches. Switching back to
-          face brings it back with whatever value was already stored.
-        */}
-        {draft.area !== "body" && (
-          <Section title="Routine length">
-            <View className="gap-2">
-              {ROUTINES.map((option) => (
-                <OptionCard
-                  key={option.value}
-                  label={option.label}
-                  selected={draft.routineLength === option.value}
-                  onPress={() => patch({ routineLength: option.value })}
-                />
-              ))}
-            </View>
-          </Section>
-        )}
 
         <Pressable
           onPress={() => router.replace("/onboarding")}

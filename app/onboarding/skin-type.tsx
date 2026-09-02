@@ -24,13 +24,12 @@ const OPTIONS: { value: BaseSkinType; label: string; hint: string }[] = [
 export default function SkinTypeStep() {
   const baseSkinType = useAppStore((s) => s.profile.baseSkinType);
   const sensitive = useAppStore((s) => s.profile.sensitive);
-  const area = useAppStore((s) => s.profile.area);
   const setProfile = useAppStore((s) => s.setProfile);
   const completeOnboarding = useAppStore((s) => s.completeOnboarding);
 
-  /** Last step for body, so there may be nothing left to navigate to. */
+  /** Currently the last step, so there is nothing left to navigate to. */
   function next() {
-    const route = nextQuizRoute("/onboarding/skin-type", area);
+    const route = nextQuizRoute("/onboarding/skin-type");
     if (route) {
       router.push(route);
       return;
@@ -46,7 +45,7 @@ export default function SkinTypeStep() {
       subtitle="Pick the closest match."
       onNext={next}
       nextDisabled={!baseSkinType}
-      nextLabel={nextQuizRoute("/onboarding/skin-type", area) ? "Continue" : "See my matches"}
+      nextLabel={nextQuizRoute("/onboarding/skin-type") ? "Continue" : "See my matches"}
     >
       <View className="gap-3">
         {OPTIONS.map((option) => (

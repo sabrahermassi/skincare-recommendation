@@ -45,7 +45,6 @@ export const EMPTY_PROFILE: SkinProfile = {
   concerns: [],
   baseSkinType: null,
   sensitive: false,
-  routineLength: null,
 };
 
 type AppState = {
