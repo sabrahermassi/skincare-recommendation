@@ -61,7 +61,9 @@ export function ProductRow({
   return (
     <Link href={`/product/${product.id}`} asChild>
       <Pressable style={{ gap: 13, paddingVertical: 17 }}
-        className="flex-row items-center border-b border-hairline-soft bg-surface px-5 active:bg-canvas">
+        className={`flex-row items-center bg-surface px-5 active:bg-canvas ${
+          last ? "" : "border-b border-hairline-soft"
+        }`}>
         <BottleIcon type={product.productType} size={46} radius="rounded-tile" />
 
         <View className="flex-1">

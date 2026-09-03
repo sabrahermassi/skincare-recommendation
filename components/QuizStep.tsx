@@ -78,7 +78,7 @@ export function QuizStep({
           <Text className="font-display text-[32px] leading-[36.5px] tracking-[-0.48px] text-ink">
             {title}
           </Text>
-          {subtitle ? <Text className="text-base leading-6 text-ink-muted">{subtitle}</Text> : null}
+          {subtitle ? <Text className="text-base leading-6 text-ink-body">{subtitle}</Text> : null}
         </View>
 
         <View className="flex-1">{children}</View>

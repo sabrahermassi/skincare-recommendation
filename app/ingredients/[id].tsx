@@ -10,7 +10,7 @@ import { fetchProduct } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { relativeTime } from "@/lib/format";
-import { ingredientTone, matchProduct, ruleFor, type MatchResult } from "@/lib/matching";
+import { matchProduct, ruleFor, RUNG_META, rungFor, type Rung } from "@/lib/matching";
 import { isPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
@@ -25,27 +25,6 @@ import { useAppStore } from "@/store/useAppStore";
 
 const TABS = ["All", "Actives", "Watch-outs", "Pore clogging"] as const;
 type Tab = (typeof TABS)[number];
-
-/**
- * Four rungs, drawn soft. `ingredientTone` returns three, because it answers
- * "does this work for you"; an unrecognised name is a fourth thing — not good,
- * not a warning, just unassessed — and the design gives it its own quiet grey
- * rather than lumping it in with the watch-outs.
- */
-type Rung = "good" | "watch" | "avoid" | "neutral";
-
-const RUNG: Record<Rung, { dot: string; pill: string; ink: string; label: string }> = {
-  good: { dot: "bg-level-good", pill: "bg-level-good-tint", ink: "text-level-good-ink", label: "Good" },
-  watch: { dot: "bg-level-watch", pill: "bg-level-watch-tint", ink: "text-level-watch-ink", label: "Watch" },
-  avoid: { dot: "bg-level-avoid", pill: "bg-level-avoid-tint", ink: "text-level-avoid-ink", label: "Avoid" },
-  neutral: { dot: "bg-level-neutral", pill: "bg-level-neutral-tint", ink: "text-level-neutral-ink", label: "Neutral" },
-};
-
-function rungFor(ingredient: Ingredient, match: MatchResult): Rung {
-  if (!isVerified(ingredient)) return "neutral";
-  const tone = ingredientTone(ingredient, match);
-  return tone === "flag" ? "avoid" : tone;
-}
 
 /**
  * Copy / copied — one icon, two states, so tapping it doesn't need a toast
@@ -275,7 +254,7 @@ function IngredientListRow({
   rung: Rung;
   onPress: () => void;
 }) {
-  const meta = RUNG[rung];
+  const meta = RUNG_META[rung];
   const rule = ruleFor(ingredient);
   const clogs = isPoreClogging(ingredient);
 

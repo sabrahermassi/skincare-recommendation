@@ -11,7 +11,7 @@ import { fetchProduct } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { comedogenicLabel } from "@/lib/format";
-import { ingredientTone, matchProduct, positionWeightLabel, ruleFor } from "@/lib/matching";
+import { matchProduct, positionWeightLabel, ruleFor, rungFor, type Rung } from "@/lib/matching";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
@@ -38,8 +38,6 @@ import { useAppStore } from "@/store/useAppStore";
  * header's star: it toggles `savedIngredients` in the store rather than
  * sitting there as a tappable no-op.
  */
-
-type Rung = "good" | "watch" | "avoid" | "neutral";
 
 const RUNG: Record<
   Rung,
@@ -171,11 +169,11 @@ export default function IngredientDetail() {
 
   const match = product ? matchProduct(product, profile) : null;
   const verified = isVerified(ingredient);
-  const rung: Rung = !verified
-    ? "neutral"
-    : match
-      ? ((t) => (t === "flag" ? "avoid" : t))(ingredientTone(ingredient, match))
-      : "watch";
+  // `match` is null when this screen is opened without a product context
+  // (e.g. from search) — there's nothing to score against yet, so an
+  // otherwise-recognised ingredient reads as "worth knowing" rather than a
+  // verdict `rungFor` has no way to give it.
+  const rung: Rung = match ? rungFor(ingredient, match) : verified ? "watch" : "neutral";
   const meta = RUNG[rung];
 
   const rule = ruleFor(ingredient);
@@ -308,9 +306,9 @@ export default function IngredientDetail() {
 
         <Pressable
           onPress={() =>
-            Linking.openURL(
+            void Linking.openURL(
               `https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(ingredient.name)}`
-            )
+            ).catch((err) => console.warn("openURL failed:", err))
           }
           style={{ marginTop: 28, marginHorizontal: 24 }}
           className="flex-row items-center justify-between rounded-panel bg-tint-lilac px-5 py-4 active:opacity-80"

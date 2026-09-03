@@ -293,7 +293,8 @@ export const useAppStore = create<AppState>()(
         }) | undefined;
         if (!state) return state;
         if (version < 3) {
-          const { skinTypeSource: _dropped, ...profile } = state.profile ?? {};
+          if (!state.profile) return state;
+          const { skinTypeSource: _dropped, ...profile } = state.profile;
           return { ...state, profile } as PersistedState;
         }
         return state;

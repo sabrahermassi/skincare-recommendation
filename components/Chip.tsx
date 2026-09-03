@@ -36,8 +36,9 @@ export function Chip({
       onPress={onPress}
       disabled={disabled}
       accessibilityRole={multiple ? "checkbox" : "radio"}
-      // Announce the unselectable state rather than only looking inert.
-      accessibilityState={{ selected, disabled }}
+      // `checked`, not `selected` — that's what checkbox/radio roles expose,
+      // and it's what announces the unselectable state rather than looking inert.
+      accessibilityState={{ checked: selected, disabled }}
       hitSlop={6}
       // Size inline: a control that loses its height class collapses onto its
       // label, and a row of collapsed chips reads as a row of empty boxes.

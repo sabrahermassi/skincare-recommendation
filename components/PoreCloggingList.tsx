@@ -21,7 +21,7 @@ import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
  */
 
 function positionLine(hit: CloggerHit): string {
-  return `#${hit.position} of ${hit.total} · ${positionWeightLabel(hit.position)}`;
+  return `#${hit.position} of ${hit.total} · ${positionWeightLabel(hit.position - 1)}`;
 }
 
 export function PoreCloggingList({

@@ -369,7 +369,10 @@ export async function resolveIngredientNames(names: string[]): Promise<Ingredien
   if (!usingSupabase()) {
     return delay(
       names.map((name) => {
-        const local = Object.values(INGREDIENTS).find((i) => i.name.toLowerCase() === name);
+        const lookupName = name.trim().toLowerCase();
+        const local = Object.values(INGREDIENTS).find(
+          (i) => i.name.toLowerCase() === lookupName
+        );
         return local ?? stub(name);
       })
     );

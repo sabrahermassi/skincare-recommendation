@@ -192,7 +192,7 @@ function poreRisk(product: ProductWithIngredients): Risk {
   if (warned.length === 0) {
     return {
       level: "Contested",
-      note: `${hits.length} sources disagree on`,
+      note: `${hits.length} sources disagree`,
       tone: "neutral",
       hasEntries: true,
     };

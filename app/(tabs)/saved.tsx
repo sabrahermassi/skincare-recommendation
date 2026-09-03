@@ -62,9 +62,12 @@ export default function Saved() {
   );
 
   const [byId, setById] = useState<Record<string, ProductWithIngredients> | null>(null);
+  const [error, setError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setError(false);
     if (idsToResolve.length === 0) {
       setById({});
       return;
@@ -78,12 +81,12 @@ export default function Saved() {
       .catch((err) => {
         if (cancelled) return;
         console.warn("fetchProductsByIds failed:", err);
-        setById({});
+        setError(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [idsToResolve]);
+  }, [idsToResolve, retryKey]);
 
   return (
     <View className="flex-1 bg-canvas">
@@ -104,7 +107,16 @@ export default function Saved() {
         />
       </View>
 
-      {byId === null ? (
+      {error ? (
+        <View className="items-center gap-3 px-10 pt-24">
+          <Text className="text-center text-sm leading-5 text-ink-muted">
+            Couldn&apos;t load your saved products. Check your connection and try again.
+          </Text>
+          <Pressable onPress={() => setRetryKey((k) => k + 1)}>
+            <Text className="text-sm font-semibold text-accent-text underline">Try again</Text>
+          </Pressable>
+        </View>
+      ) : byId === null ? (
         <View className="items-center justify-center py-24">
           <ActivityIndicator color={COLORS.accent} />
         </View>

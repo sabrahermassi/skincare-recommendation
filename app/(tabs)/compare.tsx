@@ -30,10 +30,13 @@ export default function Compare() {
   const profile = useAppStore((s) => s.profile);
 
   const [products, setProducts] = useState<ProductWithIngredients[] | null>(null);
+  const [error, setError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setProducts(null);
+    setError(false);
     fetchProductsByIds(compareIds)
       .then((result) => {
         if (!cancelled) setProducts(result);
@@ -41,12 +44,12 @@ export default function Compare() {
       .catch((err) => {
         if (cancelled) return;
         console.warn("fetchProductsByIds failed:", err);
-        setProducts([]);
+        setError(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [compareIds]);
+  }, [compareIds, retryKey]);
 
   const header = (
     <View className="flex-row items-center justify-between px-5" style={{ paddingTop: insets.top + 8 }}>
@@ -77,6 +80,22 @@ export default function Compare() {
           <Link href="/" className="font-semibold text-accent-text underline">
             Back to browse
           </Link>
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View className="flex-1 bg-canvas">
+        {header}
+        <View className="flex-1 items-center justify-center gap-4 px-8">
+          <Text className="text-center text-base text-ink-muted">
+            Couldn&apos;t load these products. Check your connection and try again.
+          </Text>
+          <Pressable onPress={() => setRetryKey((k) => k + 1)}>
+            <Text className="font-semibold text-accent-text underline">Try again</Text>
+          </Pressable>
         </View>
       </View>
     );
