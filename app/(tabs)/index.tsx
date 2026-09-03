@@ -44,6 +44,8 @@ const QUICK_ACTIONS = [
 
 export default function Browse() {
   const [products, setProducts] = useState<ProductWithIngredients[] | null>(null);
+  const [error, setError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [typeFilter, setTypeFilter] = useState<ProductType | "all">("all");
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
@@ -57,6 +59,7 @@ export default function Browse() {
   useEffect(() => {
     let cancelled = false;
     setProducts(null);
+    setError(false);
     fetchProducts({ type: typeFilter, area })
       .then((result) => {
         if (!cancelled) setProducts(result);
@@ -64,12 +67,12 @@ export default function Browse() {
       .catch((err) => {
         if (cancelled) return;
         console.warn("fetchProducts failed:", err);
-        setProducts([]);
+        setError(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [typeFilter, area]);
+  }, [typeFilter, area, retryKey]);
 
   // The type-filter chip bar is area-specific (face vs body types), so a
   // stale face filter must not linger over the body list after an edit.
@@ -154,7 +157,18 @@ export default function Browse() {
           </View>
         )}
 
-        {scored === null ? (
+        {error ? (
+          <View className="items-center gap-3 px-8 py-24">
+            <Text className="text-center text-ink-faint">
+              Couldn&apos;t load products. Check your connection and try again.
+            </Text>
+            <Pressable onPress={() => setRetryKey((k) => k + 1)}>
+              <Text className="text-sm font-sans-semibold text-accent-text underline">
+                Try again
+              </Text>
+            </Pressable>
+          </View>
+        ) : scored === null ? (
           <View className="items-center justify-center py-24">
             <ActivityIndicator color={COLORS.accent} />
           </View>

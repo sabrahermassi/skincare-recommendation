@@ -11,10 +11,12 @@ be rewritten against (#26) once it lands.
 As of this writing, the backend holds a database but no user data:
 
 - Four tables — `ingredients`, `products`, `product_ingredients`,
-  `ingredient_synonyms` — all shared catalogue data. RLS is enabled on all
-  four, with a public-read policy for `anon`/`authenticated` and no
-  write policies; every write goes through the service-role key, server-side
-  only, never from the client.
+  `ingredient_synonyms` — all shared catalogue data. RLS is enabled with a
+  public-read policy for `anon`/`authenticated` on `ingredients`, `products`,
+  and `product_ingredients`. `ingredient_synonyms` has neither yet — a gap in
+  the migration, not a deliberate decision, and worth its own follow-up.
+  No table has write policies; every write goes through the service-role
+  key, server-side only, never from the client.
 - There is no authentication anywhere in the app. No sign-in, no session, no
   token. The client holds the Supabase anon key only.
 - There is no user-owned table. No owner column, no profiles, no quiz
@@ -42,10 +44,15 @@ constraints below, not defaults that might slide.
 | Saved products | list of product ids | Low sensitivity alone, but joins with scan history to reveal the same inferences | AsyncStorage, on-device | Synced row, owned by user id | Until account deletion |
 | Account identifier | email or OAuth provider id | PII | Does not exist yet | Supabase Auth `auth.users`, referenced by every owner column | Until account deletion |
 | Session token | proof of authenticated identity | Credential-equivalent | Does not exist yet | Short-lived, refreshable; storage mechanism is #12's problem, not this doc's | Session lifetime |
-| Caller IP | used for rate-limiting in `_shared/http.ts` | Low sensitivity in isolation, PII under GDPR when combined with request logs | Held in-memory per Edge Function isolate, never persisted | Same, unless logging is added later | Ephemeral (isolate lifetime) |
+| Caller IP | used for rate-limiting in `_shared/http.ts` | PII under GDPR — a dynamic IP can identify a person even without being combined with other logs | Held in-memory per Edge Function isolate, never persisted | Same, unless logging is added later | Ephemeral (isolate lifetime) |
 | Label photo | photographed ingredient list, sent to `label-ocr` | Not stored — this is a fixed non-goal, see below | Forwarded to Google Vision, response used, image discarded | No change | N/A — never persisted |
 
 Nothing above is a face, skin, or body photograph. None currently exists.
+
+`Scan history` above is also this app's recommendation history — every
+scored product view is already captured there, so issue #13's separate
+mention of "recommendation history" isn't a distinct data type here. No
+second table is planned; if that ever changes, it gets its own row.
 
 ## 2. Trust boundaries
 
@@ -59,6 +66,11 @@ Nothing above is a face, skin, or body photograph. None currently exists.
 - **Backend ↔ third-party product sources** (Open Beauty Facts, UPCitemdb,
   INCI API). Untrusted data in, already treated as such by the existing
   cascade and `source`/`verified` columns. Not a user-data boundary.
+- **Backend ↔ object storage.** None exists. No bucket is provisioned, and
+  none is planned while the no-photo-storage non-goal (§5) holds. If that
+  ever changes, the new bucket needs its own auth, access controls,
+  retention, and deletion review before it ships — this section doesn't
+  grandfather it in.
 - **Backend ↔ Supabase with the service-role key.** The service-role key
   bypasses RLS entirely. Today it's used only for catalogue writes nothing
   user-owned touches. Once user tables exist, no code path may use the
@@ -88,15 +100,21 @@ Vision infrastructure. These are treated as out of this app's threat model.
 
 Per-user isolation is enforced by construction, not by discipline:
 
-- **Every user-owned table carries an owner column** (`user_id uuid
-  references auth.users`) set from the verified session server-side. The
-  client never supplies a user id as a parameter — identity comes from the
-  session only, the same rule `.claude/claude-security-guidance.md` already
-  states for a hypothetical backend and which now has a real target.
-- **RLS policies are written in the same migration that creates the table.**
-  Not a follow-up, not a "phase 2." A user-owned table is not merged without
-  its policies. Deny by default — a table exists in a non-readable state
-  until its policy says otherwise, mirroring how the catalogue tables already
+- **Every user-owned table carries a `NOT NULL` owner column** (`user_id
+  uuid not null references auth.users`) set from the verified session
+  server-side. The client never supplies a user id as a parameter — identity
+  comes from the session only, the same rule
+  `.claude/claude-security-guidance.md` already states for a hypothetical
+  backend and which now has a real target.
+- **RLS policies are written in the same migration that creates the table,**
+  and enforced with both clauses, not just one: `USING` controls row
+  visibility and which existing rows can be updated or deleted; `WITH CHECK`
+  validates inserts and updates, so a user cannot reassign a row's ownership
+  by writing someone else's id into it. Both are keyed off the same
+  centralized session-verification path, never a client-supplied id. Not a
+  follow-up, not a "phase 2" — a user-owned table is not merged without its
+  policies. Deny by default — a table exists in a non-readable state until
+  its policy says otherwise, mirroring how the catalogue tables already
   default-deny writes.
 - **The service-role key is never used as a shortcut for a user-scoped
   operation.** It stays reserved for what it's used for today: catalogue
@@ -119,9 +137,9 @@ Per-user isolation is enforced by construction, not by discipline:
 - **No third-party analytics or crash reporting that receives health-adjacent
   fields** (concerns, skin type, scan history) in identifiable form.
 
-Recording these here is deliberate: it's what lets #21, #22, #23, #27, and
-#28 (all photo-storage hardening issues) be closed as not-applicable rather
-than carried indefinitely, as long as this boundary holds.
+Recording these here is deliberate: it's what lets #21, #22, #23, #27, and #28
+(all photo-storage hardening issues) be closed as not-applicable rather than
+carried indefinitely, as long as this boundary holds.
 
 ## What this changes right now, before accounts exist
 

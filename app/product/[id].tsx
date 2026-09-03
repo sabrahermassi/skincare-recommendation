@@ -51,6 +51,7 @@ export default function ProductDetail() {
       .catch((err) => {
         if (cancelled) return;
         console.warn("fetchProduct failed:", err);
+        setProduct(null);
         setLoading(false);
       });
     return () => {
