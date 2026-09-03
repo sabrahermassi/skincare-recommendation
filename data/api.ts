@@ -360,7 +360,7 @@ export async function resolveIngredientNames(names: string[]): Promise<Ingredien
     id: name,
     name,
     comedogenic: 0,
-    safety: "safe",
+    safety: "caution",
     verified: false,
   });
 
