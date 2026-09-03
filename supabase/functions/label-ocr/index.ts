@@ -21,6 +21,7 @@ import {
   withinRateLimit,
   type RateLimit,
 } from "../_shared/http.ts";
+import { paginateOrdered } from "../_shared/paginate.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -100,11 +101,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // sync with the real one below — it is the exact same `parseIngredientBlock`
   // invoked once first with no dictionary, so it can only take the delimited
   // path, whose token count does not depend on the dictionary being present.
-  const aliases = await fetchAliases();
+  let aliases: Map<string, string>;
+  try {
+    aliases = await fetchAliases();
+  } catch (err) {
+    console.error("fetchAliases failed:", err);
+    return json(req, { error: "Could not read the ingredient dictionary" }, 502);
+  }
   let parsed = parseIngredientBlock(text, undefined, aliases);
 
   if (parsed.length < 4) {
-    const dictionary = await fetchDictionary();
+    let dictionary: Set<string>;
+    try {
+      dictionary = await fetchDictionary();
+    } catch (err) {
+      console.error("fetchDictionary failed:", err);
+      return json(req, { error: "Could not read the ingredient dictionary" }, 502);
+    }
     // A synonym is matchable in its own right, then resolved to the canonical
     // name on the way out.
     for (const synonym of aliases.keys()) dictionary.add(synonym);
@@ -212,11 +225,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json(req, { error: "Could not save the scan" }, 502);
   }
 
-  const { data } = await db
+  const { data, error: readbackError } = await db
     .from("products")
     .select(PRODUCT_SELECT)
     .eq("id", product.id)
     .maybeSingle();
+  if (readbackError || !data) {
+    console.error("post-write readback failed:", readbackError);
+    return json(req, { error: "Could not save the scan" }, 502);
+  }
 
   return json(req, { product: data, recognised: known.size, total: parsed.length }, 200);
 });
@@ -290,6 +307,14 @@ function splitOnSeparators(text: string): string[] {
  * function's compute limit exactly that way. No ingredient list runs this long.
  */
 const MAX_RECONSTRUCTED_WORDS = 400;
+
+/**
+ * Ceiling on fuzzy-match attempts across one `reconstructFromDictionary`
+ * call — bounds the same unmatched-run cost `MAX_RECONSTRUCTED_WORDS` bounds
+ * for word count, since a long unmatched run can still call `fuzzyLookup`
+ * many times per word without it. Kept in step with `lib/inci.ts`.
+ */
+const MAX_FUZZY_ATTEMPTS_PER_BLOCK = 800;
 
 /**
  * Pull the INCI list out of whatever else the OCR picked up.
@@ -417,7 +442,14 @@ function fuzzyBudget(length: number): number {
  * nothing in the text says which was printed, and picking either invents an
  * ingredient. Kept in step with `lib/inci.ts`.
  */
-function fuzzyLookup(candidate: string, byLength: Map<number, string[]>): string | null {
+function fuzzyLookup(
+  candidate: string,
+  byLength: Map<number, string[]>,
+  attempts: { remaining: number }
+): string | null {
+  if (attempts.remaining <= 0) return null;
+  attempts.remaining -= 1;
+
   const budget = fuzzyBudget(candidate.length);
   if (budget === 0) return null;
 
@@ -453,12 +485,13 @@ function matchWindow(
   window: string[],
   dictionary: ReadonlySet<string>,
   byLength: Map<number, string[]>,
-  fuzzy: boolean
+  fuzzy: boolean,
+  attempts: { remaining: number }
 ): string | null {
   const lookup = (value: string): string | null => {
     if (value.length <= 1) return null;
     if (dictionary.has(value)) return value;
-    return fuzzy ? fuzzyLookup(value, byLength) : null;
+    return fuzzy ? fuzzyLookup(value, byLength, attempts) : null;
   };
 
   const spaced = normalise(window.join(" "));
@@ -503,6 +536,7 @@ function reconstructFromDictionary(
   }
 
   const out: ParsedIngredient[] = [];
+  const fuzzyAttempts = { remaining: MAX_FUZZY_ATTEMPTS_PER_BLOCK };
   let i = 0;
 
   while (i < words.length) {
@@ -511,7 +545,7 @@ function reconstructFromDictionary(
 
     for (const fuzzy of [false, true]) {
       for (let span = maxSpan; span >= 1 && !matched; span--) {
-        const name = matchWindow(words.slice(i, i + span), dictionary, byLength, fuzzy);
+        const name = matchWindow(words.slice(i, i + span), dictionary, byLength, fuzzy, fuzzyAttempts);
         if (name) matched = { name, consumed: span };
       }
       if (matched) break;
@@ -566,18 +600,12 @@ async function productForBarcode(barcode: string): Promise<ExistingProduct | nul
  * (`source = 'obf'`) is trusted to define what an ingredient is.
  */
 async function fetchDictionary(): Promise<Set<string>> {
-  const names = new Set<string>();
-  const PAGE = 1000;
-  for (let offset = 0; ; offset += PAGE) {
-    const { data } = await db
-      .from("ingredients")
-      .select("inci_name")
-      .eq("verified", true)
-      .range(offset, offset + PAGE - 1);
-    for (const row of data ?? []) names.add(row.inci_name as string);
-    if (!data || data.length < PAGE) break;
-  }
-  return names;
+  const rows = await paginateOrdered<{ inci_name: string }>(db, "ingredients", {
+    select: "inci_name",
+    cursorColumn: "inci_name",
+    filter: (q) => q.eq("verified", true),
+  });
+  return new Set(rows.map((row) => row.inci_name));
 }
 
 /**
@@ -587,19 +615,12 @@ async function fetchDictionary(): Promise<Set<string>> {
  * then rewritten to what the dictionary is keyed on.
  */
 async function fetchAliases(): Promise<Map<string, string>> {
-  const aliases = new Map<string, string>();
-  const PAGE = 1000;
-  for (let offset = 0; ; offset += PAGE) {
-    const { data } = await db
-      .from("ingredient_synonyms")
-      .select("synonym, inci_name")
-      .range(offset, offset + PAGE - 1);
-    for (const row of data ?? []) {
-      aliases.set(row.synonym as string, row.inci_name as string);
-    }
-    if (!data || data.length < PAGE) break;
-  }
-  return aliases;
+  const rows = await paginateOrdered<{ synonym: string; inci_name: string }>(
+    db,
+    "ingredient_synonyms",
+    { select: "synonym, inci_name", cursorColumn: "synonym" }
+  );
+  return new Map(rows.map((row) => [row.synonym, row.inci_name]));
 }
 
 async function knownIngredients(names: string[]): Promise<Set<string>> {

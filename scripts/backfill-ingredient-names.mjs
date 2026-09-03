@@ -148,20 +148,22 @@ async function main() {
     if (e1) throw new Error(e1.message);
 
     for (const row of rows ?? []) {
-      const { data: clash } = await db
+      const { data: clashRows, error: eClash } = await db
         .from("product_ingredients")
         .select("position")
         .eq("product_id", row.product_id)
         .eq("inci_name", r.to)
-        .maybeSingle();
+        .limit(1);
+      if (eClash) throw new Error(eClash.message);
 
-      if (clash) {
+      if (clashRows && clashRows.length > 0) {
         // Already present under the canonical name — drop the duplicate.
-        await db
+        const { error: eDelete } = await db
           .from("product_ingredients")
           .delete()
           .eq("product_id", row.product_id)
           .eq("position", row.position);
+        if (eDelete) throw new Error(eDelete.message);
       } else {
         const { error: e2 } = await db
           .from("product_ingredients")

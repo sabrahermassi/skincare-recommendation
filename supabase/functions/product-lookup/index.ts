@@ -337,7 +337,13 @@ async function persist(fetched: Fetched) {
     if (insertError) throw new PersistError(`product_ingredients insert: ${insertError.message}`);
   }
 
-  const { data } = await db.from("products").select(SELECT).eq("id", id).maybeSingle();
+  const { data, error: readbackError } = await db
+    .from("products")
+    .select(SELECT)
+    .eq("id", id)
+    .maybeSingle();
+  if (readbackError) throw new PersistError(`post-write readback: ${readbackError.message}`);
+  if (!data) throw new PersistError("post-write readback: row not found after write");
   return data;
 }
 

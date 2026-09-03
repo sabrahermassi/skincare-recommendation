@@ -21,14 +21,22 @@
  * but cannot verify), and it will not carry anything newer. Re-run with a fresh
  * export path when one is to hand.
  *
+ * Pinned to commit 7497cea8a8a90687d2e5175e9ecb46b7ca75a60b rather than the
+ * mutable `develop` branch — verified against that exact revision: "File
+ * creation date: 20/02/2016", "Last update: 15/02/2016", same header row this
+ * script expects. Update the SHA (and the note above) if a fresher export is
+ * ever adopted.
+ *
  * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY unless --dry-run.
  */
 
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
+import { paginateOrdered } from "./lib/paginate.mjs";
+
 const DEFAULT_SOURCE =
-  "https://raw.githubusercontent.com/openfoodfacts/openbeautyfacts/develop/cosing/COSING_Ingredients-Fragrance.Inventory_v2.csv";
+  "https://raw.githubusercontent.com/openfoodfacts/openbeautyfacts/7497cea8a8a90687d2e5175e9ecb46b7ca75a60b/cosing/COSING_Ingredients-Fragrance.Inventory_v2.csv";
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
@@ -36,8 +44,17 @@ const FILE = args.find((a) => !a.startsWith("--")) ?? DEFAULT_SOURCE;
 
 async function read(source) {
   if (!/^https?:\/\//.test(source)) return readFileSync(source, "utf8");
+  // A network attacker who can intercept a plain-http fetch (or a redirect
+  // that ends on one) could substitute the CSV that gets upserted into
+  // `ingredients`. Refuse anything that isn't HTTPS start to finish.
+  if (!/^https:\/\//.test(source)) {
+    throw new Error(`refusing non-HTTPS source: ${source}`);
+  }
   const res = await fetch(source);
   if (!res.ok) throw new Error(`${source} → HTTP ${res.status}`);
+  if (!res.url.startsWith("https://")) {
+    throw new Error(`refusing a redirect that landed on a non-HTTPS URL: ${res.url}`);
+  }
   return res.text();
 }
 
@@ -201,15 +218,11 @@ async function main() {
   const existing = new Map();
   if (url && key) {
     const probe = createClient(url, key, { auth: { persistSession: false } });
-    for (let offset = 0; ; offset += 1000) {
-      const { data, error } = await probe
-        .from("ingredients")
-        .select("inci_name, verified")
-        .range(offset, offset + 999);
-      if (error) throw new Error(error.message);
-      for (const row of data ?? []) existing.set(row.inci_name, row.verified);
-      if (!data || data.length < 1000) break;
-    }
+    const rows = await paginateOrdered(probe, "ingredients", {
+      select: "inci_name, verified",
+      cursorColumn: "inci_name",
+    });
+    for (const row of rows) existing.set(row.inci_name, row.verified);
   }
 
   if (existing.size === 0) {

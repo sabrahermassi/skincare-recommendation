@@ -11,7 +11,7 @@ import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { relativeTime } from "@/lib/format";
 import { matchProduct, ruleFor, RUNG_META, rungFor, type Rung } from "@/lib/matching";
-import { isPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
+import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -256,7 +256,7 @@ function IngredientListRow({
 }) {
   const meta = RUNG_META[rung];
   const rule = ruleFor(ingredient);
-  const clogs = isPoreClogging(ingredient);
+  const clogs = isWarnedPoreClogging(ingredient);
 
   // The most specific thing we hold, in order: pore-clogging (the reason
   // someone opened this screen), a curated rule, the row's own note, then the

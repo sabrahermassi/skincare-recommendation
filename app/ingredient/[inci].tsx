@@ -7,7 +7,7 @@ import Svg, { Path } from "react-native-svg";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
-import { fetchProduct } from "@/data/api";
+import { fetchProduct, resolveIngredientNames } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { comedogenicLabel } from "@/lib/format";
@@ -128,30 +128,44 @@ export default function IngredientDetail() {
   }>();
 
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
-  const [loading, setLoading] = useState(Boolean(productId));
+  const [resolvedIngredient, setResolvedIngredient] = useState<Ingredient | null>(null);
+  const [loading, setLoading] = useState(true);
   const profile = useAppStore((s) => s.profile);
   const savedIngredients = useAppStore((s) => s.savedIngredients);
   const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
 
   useEffect(() => {
-    if (!productId) return;
     let cancelled = false;
     setLoading(true);
-    fetchProduct(productId)
-      .then((result) => {
-        if (cancelled) return;
-        setProduct(result);
-        setLoading(false);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.warn("fetchProduct failed:", err);
-        setLoading(false);
-      });
+    if (productId) {
+      fetchProduct(productId)
+        .then((result) => {
+          if (cancelled) return;
+          setProduct(result);
+          setLoading(false);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          console.warn("fetchProduct failed:", err);
+          setLoading(false);
+        });
+    } else {
+      // No product context — opened from a pasted-list check, for example.
+      // Resolve against the dictionary directly rather than assuming
+      // "not recognised" for an ingredient that may well be verified.
+      resolveIngredientNames([inci])
+        .then((resolved) => {
+          if (!cancelled) setResolvedIngredient(resolved[0] ?? null);
+        })
+        .catch((err) => console.warn("resolveIngredientNames failed:", err))
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }
     return () => {
       cancelled = true;
     };
-  }, [productId]);
+  }, [productId, inci]);
 
   if (loading) {
     return (
@@ -165,7 +179,13 @@ export default function IngredientDetail() {
   const ingredient: Ingredient =
     index >= 0 && product
       ? product.ingredients[index]
-      : { id: inci, name: inci, comedogenic: 0, safety: "safe", verified: false };
+      : (resolvedIngredient ?? {
+          id: inci,
+          name: inci,
+          comedogenic: 0,
+          safety: "safe",
+          verified: false,
+        });
 
   const match = product ? matchProduct(product, profile) : null;
   const verified = isVerified(ingredient);

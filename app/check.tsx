@@ -10,7 +10,7 @@ import { Text } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
 import type { Ingredient } from "@/data/types";
 import { COLORS } from "@/lib/colors";
-import { isPoreClogging } from "@/lib/pore-clogging";
+import { isWarnedPoreClogging } from "@/lib/pore-clogging";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -108,7 +108,7 @@ export default function CheckScreen() {
 }
 
 function PastedRow({ ingredient, position }: { ingredient: Ingredient; position: number }) {
-  const clogs = isPoreClogging(ingredient);
+  const clogs = isWarnedPoreClogging(ingredient);
   const unknown = !isVerified(ingredient);
 
   return (

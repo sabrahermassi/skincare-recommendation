@@ -334,6 +334,19 @@ export function isPoreClogging(ingredient: Ingredient): boolean {
   return PORE_CLOGGERS.some((entry) => entryMatches(entry, ingredient.name));
 }
 
+/**
+ * True when this exact ingredient is flagged with real confidence — for a
+ * per-row *warning* badge specifically. Contested-only matches are excluded,
+ * the same way `poreVerdict`'s `warned` list excludes them — a contested
+ * entry is shown, never warned about. `isPoreClogging` stays inclusive of
+ * contested matches for callers like the "Pore clogging" filter tab, where
+ * surfacing every contested match for transparency is the point.
+ */
+export function isWarnedPoreClogging(ingredient: Ingredient): boolean {
+  const entry = PORE_CLOGGERS.find((candidate) => entryMatches(candidate, ingredient.name));
+  return entry !== undefined && entry.confidence !== "contested";
+}
+
 export type PoreVerdict =
   /** At least one flagged ingredient. `warned` excludes contested entries. */
   | { kind: "hits"; hits: CloggerHit[]; warned: CloggerHit[] }

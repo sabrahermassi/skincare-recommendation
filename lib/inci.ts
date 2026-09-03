@@ -64,6 +64,22 @@ const MAX_WINDOW_WORDS = 6;
 const MAX_RECONSTRUCTED_WORDS = 400;
 
 /**
+ * Ceiling on fuzzy-match attempts across one `reconstructFromDictionary`
+ * call. Every unmatched position can try up to `MAX_WINDOW_WORDS` window
+ * spans, each of which can call `fuzzyLookup` more than once (the spaced
+ * form, the joined form, the slash head) — and each `fuzzyLookup` scans every
+ * dictionary entry within the edit-distance budget's length buckets. Without
+ * a ceiling, a long run of unmatched words (the reconstruction path only
+ * runs when the label was already too garbled to delimiter-split) still
+ * spends real CPU per request even with the word cap above in place.
+ *
+ * Not benchmarked against real garbled labels — picked generously above what
+ * a legitimate reconstruction should ever need, so it should only ever bite
+ * on pathological input. Revisit with real data if it turns out too tight.
+ */
+const MAX_FUZZY_ATTEMPTS_PER_BLOCK = 800;
+
+/**
  * Bounded Levenshtein distance — returns early once the result is certain to
  * exceed `max`, since this runs against many candidate dictionary entries per
  * word and the exact distance beyond `max` is never needed.
@@ -112,7 +128,14 @@ function fuzzyBudget(length: number): number {
  * matters more as the dictionary grows: every name added is another
  * near-neighbour, so the safeguard has to scale with it.
  */
-function fuzzyLookup(candidate: string, byLength: Map<number, string[]>): string | null {
+function fuzzyLookup(
+  candidate: string,
+  byLength: Map<number, string[]>,
+  attempts: { remaining: number }
+): string | null {
+  if (attempts.remaining <= 0) return null;
+  attempts.remaining -= 1;
+
   const budget = fuzzyBudget(candidate.length);
   if (budget === 0) return null;
 
@@ -156,12 +179,13 @@ function matchWindow(
   window: string[],
   dictionary: ReadonlySet<string>,
   byLength: Map<number, string[]>,
-  fuzzy: boolean
+  fuzzy: boolean,
+  attempts: { remaining: number }
 ): string | null {
   const lookup = (value: string): string | null => {
     if (value.length <= 1) return null;
     if (dictionary.has(value)) return value;
-    return fuzzy ? fuzzyLookup(value, byLength) : null;
+    return fuzzy ? fuzzyLookup(value, byLength, attempts) : null;
   };
 
   const spaced = normalise(window.join(" "));
@@ -215,6 +239,7 @@ export function reconstructFromDictionary(
   }
 
   const out: ParsedIngredient[] = [];
+  const fuzzyAttempts = { remaining: MAX_FUZZY_ATTEMPTS_PER_BLOCK };
   let i = 0;
 
   while (i < words.length) {
@@ -223,7 +248,7 @@ export function reconstructFromDictionary(
 
     for (const fuzzy of [false, true]) {
       for (let span = maxSpan; span >= 1 && !matched; span--) {
-        const name = matchWindow(words.slice(i, i + span), dictionary, byLength, fuzzy);
+        const name = matchWindow(words.slice(i, i + span), dictionary, byLength, fuzzy, fuzzyAttempts);
         if (name) matched = { name, consumed: span };
       }
       if (matched) break;

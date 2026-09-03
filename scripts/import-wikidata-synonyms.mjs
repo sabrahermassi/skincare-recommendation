@@ -27,6 +27,8 @@
 
 import { createClient } from "@supabase/supabase-js";
 
+import { paginateOrdered } from "./lib/paginate.mjs";
+
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
 const LIMIT = Number(args[args.indexOf("--limit") + 1]) || Infinity;
@@ -107,17 +109,10 @@ async function sparql(casBatch) {
 }
 
 async function loadIngredients() {
-  const rows = [];
-  for (let offset = 0; ; offset += 1000) {
-    const { data, error } = await db
-      .from("ingredients")
-      .select("inci_name, cas_number, verified")
-      .range(offset, offset + 999);
-    if (error) throw new Error(error.message);
-    rows.push(...(data ?? []));
-    if (!data || data.length < 1000) break;
-  }
-  return rows;
+  return paginateOrdered(db, "ingredients", {
+    select: "inci_name, cas_number, verified",
+    cursorColumn: "inci_name",
+  });
 }
 
 async function main() {
@@ -157,6 +152,7 @@ async function main() {
   const proposals = new Map(); // synonym -> { inci_name, locale }
   const collisions = new Map(); // synonym -> Set of inci_names
 
+  let failedBatches = 0;
   for (let i = 0; i < casList.length; i += BATCH) {
     const batch = casList.slice(i, i + BATCH).map(([cas]) => cas);
     let rows = [];
@@ -164,6 +160,7 @@ async function main() {
       rows = await sparql(batch);
     } catch (err) {
       console.warn(`\n  batch at ${i} failed (${err.message.slice(0, 80)}) — skipping`);
+      failedBatches += 1;
       continue;
     }
 
@@ -218,6 +215,17 @@ async function main() {
   if (DRY_RUN) {
     console.log("\n--dry-run: nothing written.");
     return;
+  }
+
+  // A failed batch means `proposals` is missing whatever that batch would
+  // have contributed. Deleting and rebuilding from an incomplete set would
+  // permanently drop synonym mappings that were correct before this run —
+  // worse than leaving stale data in place. Refuse rather than guess.
+  if (failedBatches > 0) {
+    throw new Error(
+      `${failedBatches} SPARQL batch(es) failed — refusing to delete and rebuild curated ` +
+        `synonyms from an incomplete proposal set. Re-run once Wikidata is reachable.`
+    );
   }
 
   // Rebuilt, not merged. Every row here is derived from Wikidata plus the
