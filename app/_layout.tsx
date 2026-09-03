@@ -71,7 +71,7 @@ export default function RootLayout() {
         }}
       >
         {/* Titled as a fallback for anything that ignores the display mode. */}
-        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Skintel" }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Skintell" }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         {/*
           No native header on any of these. The design draws its own top row on
