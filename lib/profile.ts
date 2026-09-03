@@ -1,4 +1,4 @@
-import type { AgeGroup, BodyArea, Concern, Gender, SkinProfile } from "@/data/types";
+import type { AgeGroup, Concern, Gender, SkinProfile } from "@/data/types";
 
 /**
  * A profile "counts" for matching once it carries a skin signal. Demographics
@@ -17,6 +17,7 @@ const CONCERN_LABEL: Record<Concern, string> = {
   "large-pores": "large pores",
   "fine-lines": "fine lines",
   hyperpigmentation: "dark spots",
+  atopic: "eczema-prone",
 };
 
 const GENDER_LABEL: Record<Gender, string> = {
@@ -66,51 +67,34 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** Every onboarding route, in order. The face flow uses all of them. */
-const FACE_STEPS = [
+/** Every onboarding route, in order. Same flow for face and body. */
+const STEPS = [
   "/onboarding/about-you",
   "/onboarding/area",
   "/onboarding/concerns",
   "/onboarding/skin-type",
-  "/onboarding/routine",
 ] as const;
 
-export type QuizRoute = (typeof FACE_STEPS)[number];
+export type QuizRoute = (typeof STEPS)[number];
 
-/**
- * Body skips the routine question. Not a shortcut for its own sake: the body
- * catalogue is body-wash, body-lotion and hand-cream, and all three sit in
- * `matchProduct`'s "minimal" list and outside its "full" list, so every
- * routine answer shifts every body product by the same amount. The ranking is
- * identical whichever is picked — the question cannot change a single body
- * recommendation, so asking it is pure friction. `matching.test.ts` pins this,
- * and will fail if the catalogue ever gains a body product that breaks it.
- */
-const BODY_STEPS = FACE_STEPS.filter((r) => r !== "/onboarding/routine");
-
-/** Ordered onboarding routes for this area. Single source of truth for the flow. */
-export function quizRoutes(area: BodyArea | null): readonly QuizRoute[] {
-  return area === "body" ? BODY_STEPS : FACE_STEPS;
+/** Ordered onboarding routes. Single source of truth for the flow. */
+export function quizRoutes(): readonly QuizRoute[] {
+  return STEPS;
 }
 
-/** Total shown in "Step N of M". Defaults to the longer flow until area is known. */
-export function quizStepCount(area: BodyArea | null): number {
-  return quizRoutes(area).length;
+/** Total shown in "Step N of M". */
+export function quizStepCount(): number {
+  return STEPS.length;
 }
 
 /**
  * The route after `current`, or `null` when `current` is the last step — which
- * means "finish onboarding" rather than "navigate". Keeping the null-as-finish
- * rule here is what stops the face/body branch leaking into every screen.
+ * means "finish onboarding" rather than "navigate".
  */
-export function nextQuizRoute(
-  current: QuizRoute,
-  area: BodyArea | null
-): QuizRoute | null {
-  const routes = quizRoutes(area);
-  const i = routes.indexOf(current);
-  if (i === -1 || i === routes.length - 1) return null;
-  return routes[i + 1];
+export function nextQuizRoute(current: QuizRoute): QuizRoute | null {
+  const i = STEPS.indexOf(current);
+  if (i === -1 || i === STEPS.length - 1) return null;
+  return STEPS[i + 1];
 }
 
 /**

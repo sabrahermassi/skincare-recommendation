@@ -3,8 +3,7 @@ import { ScrollView, View } from "react-native";
 
 import { Text } from "@/components/Text";
 
-import { Chip } from "@/components/Chip";
-import { OptionCard } from "@/components/OptionCard";
+import { Chip, CHIP_ROW } from "@/components/Chip";
 import { QuizStep } from "@/components/QuizStep";
 import type { AgeGroup, Gender } from "@/data/types";
 import { ageGroupLabel, genderLabel } from "@/lib/profile";
@@ -27,21 +26,30 @@ export default function AboutYouStep() {
       onNext={() => router.push("/onboarding/area")}
       nextDisabled={!answered}
     >
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-6">
-        <View className="gap-3">
-          {GENDERS.map((gender) => (
-            <OptionCard
-              key={gender}
-              label={genderLabel(gender)}
-              selected={profile.gender === gender}
-              onPress={() => setProfile({ gender })}
-            />
-          ))}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 26 }}>
+        {/*
+          Gender and age are the same kind of question, so they are the same
+          control at the same size. The four gender options used to be tall
+          bordered cards stacked full-width, which made two halves of one screen
+          look like two different screens.
+        */}
+        <View style={{ gap: 11 }}>
+          <FieldLabel>Gender</FieldLabel>
+          <View style={CHIP_ROW}>
+            {GENDERS.map((gender) => (
+              <Chip
+                key={gender}
+                label={genderLabel(gender)}
+                selected={profile.gender === gender}
+                onPress={() => setProfile({ gender })}
+              />
+            ))}
+          </View>
         </View>
 
-        <View className="gap-2">
-          <Text className="text-sm font-sans-semibold text-ink-muted">Age group</Text>
-          <View className="flex-row flex-wrap gap-2">
+        <View style={{ gap: 11 }}>
+          <FieldLabel>Age group</FieldLabel>
+          <View style={CHIP_ROW}>
             {AGE_GROUPS.map((ageGroup) => (
               <Chip
                 key={ageGroup}
@@ -55,4 +63,9 @@ export default function AboutYouStep() {
       </ScrollView>
     </QuizStep>
   );
+}
+
+/** One heading style above a chip row, wherever one appears. */
+export function FieldLabel({ children }: { children: string }) {
+  return <Text className="text-sm font-semibold text-ink-muted">{children}</Text>;
 }

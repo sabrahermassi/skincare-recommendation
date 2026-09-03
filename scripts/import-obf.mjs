@@ -193,7 +193,9 @@ async function main() {
   await db.from("ingredients").upsert(
     distinct.map((inci_name) => ({
       inci_name,
-      source: "curated",
+      // Not "curated" — an unreviewed stub so `product_ingredients` has a
+      // name to point at, same as the two Edge Functions. See migration 0007.
+      source: "unmatched",
       safety: "safe",
       verified: false,
       note: "No published rating for this ingredient yet.",

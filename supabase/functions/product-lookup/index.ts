@@ -13,12 +13,20 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+import {
+  callerKey,
+  json,
+  preflight,
+  withinRateLimit,
+  type RateLimit,
+} from "../_shared/http.ts";
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const INCI_API_KEY = Deno.env.get("INCI_API_KEY") ?? "";
 
 const OBF_BASE = "https://world.openbeautyfacts.org/api/v2";
-const INCI_BASE = "https://api.inciapi.com/v1";
+const INCI_BASE = "https://inciapi.com/v1";
 /** Identity-only fallback. Free trial tier, no key. */
 const UPCITEMDB_BASE = "https://api.upcitemdb.com/prod/trial/lookup";
 
@@ -33,8 +41,8 @@ const USER_AGENT = "Skintel/1.0 (https://github.com/sabrahermassi/skincare-recom
  */
 const DEFAULT_TTL_SECONDS = 60 * 60 * 24;
 
-/** Per-device budget. Generous for a human in a shop, useless for a scraper. */
-const RATE_LIMIT = { windowSeconds: 60, maxRequests: 20 };
+/** Per-caller budget. Generous for a human in a shop, useless for a scraper. */
+const RATE_LIMIT: RateLimit = { windowSeconds: 60, maxRequests: 20 };
 
 const ATTRIBUTION = {
   obf: "Product data from Open Beauty Facts, used under ODbL.",
@@ -61,24 +69,24 @@ const SELECT = `
 `;
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  if (req.method === "OPTIONS") return preflight(req);
+  if (req.method !== "POST") return json(req, { error: "POST only" }, 405);
 
   let barcode: string;
   try {
     ({ barcode } = await req.json());
   } catch {
-    return json({ error: "Body must be JSON" }, 400);
+    return json(req, { error: "Body must be JSON" }, 400);
   }
 
   // EAN-13/8 and UPC-A/E are all digits. Rejecting anything else here keeps
   // arbitrary strings out of both the upstream APIs and the database.
   if (typeof barcode !== "string" || !/^\d{8,14}$/.test(barcode)) {
-    return json({ error: "barcode must be 8-14 digits" }, 400);
+    return json(req, { error: "barcode must be 8-14 digits" }, 400);
   }
 
-  const caller = deviceKey(req);
-  if (!(await withinRateLimit(caller))) {
-    return json({ error: "Too many requests" }, 429);
+  if (!withinRateLimit(callerKey(req), RATE_LIMIT)) {
+    return json(req, { error: "Too many requests" }, 429);
   }
 
   // 1 ── our own catalogue, which already excludes anything past its deadline
@@ -88,24 +96,52 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq("barcode", barcode)
     .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .maybeSingle();
-  if (existing.data) return json(existing.data, 200);
+  if (existing.data) return json(req, existing.data, 200);
+
+  // Each remaining source is a third-party call over the network, so a DNS
+  // failure, timeout or outage in one must fall through to the next rather
+  // than crash the whole lookup — a barcode that is genuinely nowhere is an
+  // ordinary 404, not a 500.
+  const safely = async (fn: () => Promise<Fetched | null>): Promise<Fetched | null> => {
+    try {
+      return await fn();
+    } catch (err) {
+      console.error("lookup source failed:", err);
+      return null;
+    }
+  };
+
+  // A write failure here must not read as "not found" (wrong — the product IS
+  // in the source that was just consulted) or as success with a body the
+  // client then can't render. Per the security guidance the client gets a
+  // generic message; the detail goes to the server log only.
+  const persistOrFail = async (fetched: Fetched): Promise<Response> => {
+    try {
+      return json(req, await persist(fetched), 200);
+    } catch (err) {
+      console.error("persist failed:", err);
+      return json(req, { error: "Could not save the product" }, 502);
+    }
+  };
 
   // 2 ── Open Beauty Facts: the only source we may keep permanently
-  const fromObf = await lookupOpenBeautyFacts(barcode);
-  if (fromObf) return json(await persist(fromObf), 200);
+  const fromObf = await safely(() => lookupOpenBeautyFacts(barcode));
+  if (fromObf) return persistOrFail(fromObf);
 
-  // 3 ── INCI API: better data, but cached under their terms, not owned
+  // 3 ── INCI API: better data, but cached under their terms, not owned. Kept
+  // behind the OBF short-circuit above so a hit there never spends metered
+  // quota on the 2,000-request/month tier.
   if (INCI_API_KEY) {
-    const fromInci = await lookupInciApi(barcode);
-    if (fromInci) return json(await persist(fromInci), 200);
+    const fromInci = await safely(() => lookupInciApi(barcode));
+    if (fromInci) return persistOrFail(fromInci);
   }
 
   // 4 ── identity-only. Cannot produce a verdict, but turns a blank failure
   //      into a named product plus an invitation to photograph the label.
-  const identity = await lookupBarcodeDb(barcode);
-  if (identity) return json(await persist(identity), 200);
+  const identity = await safely(() => lookupBarcodeDb(barcode));
+  if (identity) return persistOrFail(identity);
 
-  return json({ error: "Not found in any source" }, 404);
+  return json(req, { error: "Not found in any source" }, 404);
 });
 
 // ── Sources ─────────────────────────────────────────────────────────────────
@@ -154,14 +190,24 @@ async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
   };
 }
 
+/**
+ * `GET /v1/products/:barcode` — category is an array, images live under
+ * `imageUrls`, and `ingredients` is a raw comma-separated string (same shape
+ * as Open Beauty Facts'), not a pre-parsed array — verified against the
+ * published docs at https://inciapi.com/docs/, since the previous shape here
+ * (`api.inciapi.com`, `Authorization: Bearer`, an `ingredients[]` of objects)
+ * didn't match anything the service actually serves.
+ */
 async function lookupInciApi(barcode: string): Promise<Fetched | null> {
   const res = await fetch(`${INCI_BASE}/products/${barcode}`, {
-    headers: { Authorization: `Bearer ${INCI_API_KEY}`, Accept: "application/json" },
+    headers: { "X-API-Key": INCI_API_KEY, Accept: "application/json" },
   });
-  if (!res.ok) return null;
+  if (!res.ok) return null; // 404 product_not_found / invalid_barcode
 
   const p = await res.json();
   if (!p?.name) return null;
+
+  const category: string[] = Array.isArray(p.category) ? p.category : [];
 
   return {
     product: {
@@ -169,12 +215,12 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
       barcode,
       brand: p.brand ?? "Unknown",
       name: p.name,
-      type: guessType([], `${p.category ?? ""} ${p.name}`),
-      area: guessArea([], `${p.category ?? ""} ${p.name}`),
-      description: p.description ?? null,
+      type: guessType(category, p.name),
+      area: guessArea(category, p.name),
+      description: null,
       // Their terms don't address re-hosting, so we don't: the URL is
       // referenced, never copied into our own storage.
-      image_url: p.image_url ?? null,
+      image_url: Array.isArray(p.imageUrls) ? (p.imageUrls[0] ?? null) : null,
       volume: p.volume ?? null,
       in_stock: true,
       suitable_for: [],
@@ -183,12 +229,7 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
       attribution: ATTRIBUTION.inci_api,
       expires_at: new Date(Date.now() + ttlFrom(res) * 1000).toISOString(),
     },
-    ingredients: Array.isArray(p.ingredients)
-      ? p.ingredients.map((ing: { inci_name?: string; name?: string }, i: number) => ({
-          inci_name: normalise(ing.inci_name ?? ing.name ?? ""),
-          position: i,
-        }))
-      : [],
+    ingredients: parseInci(typeof p.ingredients === "string" ? p.ingredients : ""),
   };
 }
 
@@ -243,6 +284,14 @@ function ttlFrom(res: Response): number {
 
 // ── Persistence ─────────────────────────────────────────────────────────────
 
+/**
+ * Thrown to short-circuit `persist` on a write failure. Never sent to the
+ * client verbatim — the guidance forbids returning raw database errors — the
+ * handler catches this, logs the detail server-side, and replies with a
+ * generic 502.
+ */
+class PersistError extends Error {}
+
 async function persist(fetched: Fetched) {
   const { product, ingredients } = fetched;
 
@@ -250,10 +299,12 @@ async function persist(fetched: Fetched) {
   // A fabricated comedogenic rating would be indistinguishable from a measured
   // one, which is the one mistake this table must not make.
   if (ingredients.length > 0) {
-    await db.from("ingredients").upsert(
+    const { error } = await db.from("ingredients").upsert(
       ingredients.map((i) => ({
         inci_name: i.inci_name,
-        source: "curated",
+        // Not "curated" — nothing has reviewed this, it's a stub so
+        // `product_ingredients` has a name to point at. See migration 0007.
+        source: "unmatched",
         safety: "safe",
         // Parsed off a label, not matched to CosIng. The UI says so.
         verified: false,
@@ -261,19 +312,38 @@ async function persist(fetched: Fetched) {
       })),
       { onConflict: "inci_name", ignoreDuplicates: true }
     );
+    if (error) throw new PersistError(`ingredients upsert: ${error.message}`);
   }
 
-  await db.from("products").upsert(product, { onConflict: "id" });
+  const { error: productError } = await db.from("products").upsert(product, { onConflict: "id" });
+  if (productError) throw new PersistError(`products upsert: ${productError.message}`);
 
   const id = product.id as string;
-  await db.from("product_ingredients").delete().eq("product_id", id);
+
+  // Delete-then-insert. Not a transaction — PostgREST has no multi-statement
+  // one here — so both legs are checked rather than fired and forgotten: an
+  // unchecked failure on either would leave the row silently short a formula
+  // while the handler still reports success.
+  const { error: deleteError } = await db
+    .from("product_ingredients")
+    .delete()
+    .eq("product_id", id);
+  if (deleteError) throw new PersistError(`product_ingredients delete: ${deleteError.message}`);
+
   if (ingredients.length > 0) {
-    await db.from("product_ingredients").insert(
+    const { error: insertError } = await db.from("product_ingredients").insert(
       ingredients.map((i) => ({ product_id: id, inci_name: i.inci_name, position: i.position }))
     );
+    if (insertError) throw new PersistError(`product_ingredients insert: ${insertError.message}`);
   }
 
-  const { data } = await db.from("products").select(SELECT).eq("id", id).maybeSingle();
+  const { data, error: readbackError } = await db
+    .from("products")
+    .select(SELECT)
+    .eq("id", id)
+    .maybeSingle();
+  if (readbackError) throw new PersistError(`post-write readback: ${readbackError.message}`);
+  if (!data) throw new PersistError("post-write readback: row not found after write");
   return data;
 }
 
@@ -285,11 +355,44 @@ async function persist(fetched: Fetched) {
  * order (which is regulated information) and drops the decoration.
  */
 function parseInci(text: string): { inci_name: string; position: number }[] {
-  return text
-    .split(/[,;]/)
+  // Open Beauty Facts' ingredient text sometimes carries the label's own
+  // heading. Without this the heading fuses onto the first name and the most
+  // basic ingredient in the formula stops resolving — Torriden's DIVE-In pad
+  // was stored with "ingredients water" as its first entry, so the app could
+  // not say what water was. `lib/inci.ts` has always stripped this; the two
+  // parsers simply disagreed.
+  const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?ingredients?\s*[:：]\s*/i, "");
+
+  const parsed = withoutHeading
+    // A comma directly between two digits belongs to the name —
+    // "1,2-Hexanediol" is one ingredient, and splitting there yields a bare
+    // "1" and an orphaned "2-hexanediol". Kept in step with `lib/inci.ts`.
+    .split(/[;]|,(?!\d)/)
     .map((part) => normalise(part))
-    .filter((part) => part.length > 1 && part.length < 120)
-    .map((inci_name, position) => ({ inci_name, position }));
+    .filter((part) => part.length > 1 && part.length < 120);
+
+  return dedupe(parsed);
+}
+
+/**
+ * `product_ingredients` is keyed on (product_id, position), not inci_name —
+ * nothing stops two rows naming the same ingredient, and a real label does
+ * repeat one: `ci 77491` in a tinted product, `parfum` a second time under a
+ * fragrance-allergen disclosure. The client keys rows by inci_name (its `id`
+ * is the ingredient name, not the position), so a genuine duplicate crashes
+ * into a React key collision there. First occurrence wins. Kept in step with
+ * the identical function in `supabase/functions/label-ocr/index.ts` and
+ * `lib/inci.ts`.
+ */
+function dedupe(names: string[]): { inci_name: string; position: number }[] {
+  const seen = new Set<string>();
+  const out: { inci_name: string; position: number }[] = [];
+  for (const name of names) {
+    if (seen.has(name)) continue;
+    seen.add(name);
+    out.push({ inci_name: name, position: out.length });
+  }
+  return out;
 }
 
 function normalise(raw: string): string {
@@ -330,41 +433,4 @@ function guessArea(tags: string[], text: string): string {
   return /body|hand|foot|shower/.test(`${tags.join(" ")} ${text}`.toLowerCase())
     ? "body"
     : "face";
-}
-
-// ── Rate limiting ───────────────────────────────────────────────────────────
-
-const hits = new Map<string, number[]>();
-
-/**
- * In-memory and therefore per-instance, which is the right trade here: it
- * costs nothing, survives the only case that matters (one client looping), and
- * a burst spread across cold starts is still bounded by the upstream quota.
- */
-async function withinRateLimit(key: string): Promise<boolean> {
-  const now = Date.now();
-  const cutoff = now - RATE_LIMIT.windowSeconds * 1000;
-  const recent = (hits.get(key) ?? []).filter((t) => t > cutoff);
-  if (recent.length >= RATE_LIMIT.maxRequests) {
-    hits.set(key, recent);
-    return false;
-  }
-  recent.push(now);
-  hits.set(key, recent);
-  return true;
-}
-
-function deviceKey(req: Request): string {
-  return (
-    req.headers.get("x-device-id") ??
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-    "unknown"
-  );
-}
-
-function json(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }

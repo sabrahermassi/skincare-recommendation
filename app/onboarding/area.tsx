@@ -48,7 +48,7 @@ export default function AreaStep() {
     <QuizStep
       step={2}
       title="Face or body?"
-      subtitle="We'll show the routine that matches."
+      subtitle="We'll show the product that matches."
       onNext={() => router.push("/onboarding/concerns")}
       nextDisabled={!area}
     >
@@ -70,7 +70,7 @@ export default function AreaStep() {
               <Icon fill={selected ? COLORS.accent : COLORS.inkFaint} />
               <View className="items-center">
                 <Text
-                  className={`text-lg font-sans-semibold ${selected ? "text-accent-text" : "text-ink"}`}
+                  className={`text-lg font-semibold ${selected ? "text-accent-text" : "text-ink"}`}
                 >
                   {label}
                 </Text>

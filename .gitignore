@@ -51,3 +51,9 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Supabase CLI local link state
+supabase/.temp/
+
+# Written by ad-hoc `deno check` runs, not a project lockfile
+deno.lock

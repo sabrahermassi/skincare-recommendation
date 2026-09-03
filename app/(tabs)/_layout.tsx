@@ -24,11 +24,17 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: COLORS.surface },
-        headerTitleStyle: { fontFamily: "PlusJakartaSans_600SemiBold", color: COLORS.ink },
+        /*
+          Every screen in this group draws its own top bar — the design gives
+          each one a different one (a wordmark on scan and browse, a centred
+          title on saved, an avatar row on profile), and a native header on
+          top of that was showing as a second, duplicate title. Each screen
+          pads for the status bar itself using the safe-area inset.
+        */
+        headerShown: false,
         tabBarActiveTintColor: COLORS.accentText,
         tabBarInactiveTintColor: COLORS.inkFaint,
-        tabBarLabelStyle: { fontFamily: "PlusJakartaSans_500Medium", fontSize: 11 },
+        tabBarLabelStyle: { fontWeight: "500", fontSize: 11 },
         tabBarStyle: {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.hairline,
@@ -47,7 +53,7 @@ export default function TabsLayout() {
           // that scanning *is* the app and this is the first tab, a floating
           // circle in position one reads as a stray button rather than the
           // primary action.
-          tabBarIcon: ({ color, size }) => <Ionicons name="camera" size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="camera" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -55,7 +61,7 @@ export default function TabsLayout() {
         options={{
           title: "Skintel",
           tabBarLabel: "Browse",
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="home" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -63,14 +69,15 @@ export default function TabsLayout() {
         options={{
           title: "Saved",
           tabBarLabel: "Saved",
-          tabBarIcon: ({ color, size }) => <Ionicons name="heart" size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="heart" size={22} color={color} />,
         }}
       />
       {/*
         Compare keeps its route and stays reachable from the tray on the browse
         screen, but it isn't a destination — you get there by picking two
         products, and the tray is capped at two. `href: null` drops it from the
-        bar without deleting the route.
+        bar without deleting the route, which is also how the design draws it:
+        a pushed screen with a back chevron and a centred title.
       */}
       <Tabs.Screen name="compare" options={{ title: "Compare", href: null }} />
       <Tabs.Screen
@@ -78,7 +85,7 @@ export default function TabsLayout() {
         options={{
           title: "Your skin profile",
           tabBarLabel: "Profile",
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="person" size={22} color={color} />,
         }}
       />
     </Tabs>

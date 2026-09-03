@@ -21,7 +21,16 @@ export function isVerified(ingredient: Ingredient): boolean {
   return ingredient.verified !== false;
 }
 
-/** Worth surfacing to any user, regardless of profile. */
+/**
+ * Worth surfacing to any user, regardless of profile.
+ *
+ * The comedogenic half of this test only ever fires on the hand-written sample
+ * catalogue: no real row carries a rating, and `data/api.ts` collapses that
+ * absence to 0. That is deliberate rather than an oversight — see
+ * `ComedogenicRating` in `data/types.ts` — so on catalogue products this
+ * reduces to the regulatory `safety` field, and pore-clogging is judged by
+ * `INGREDIENT_RULES` instead.
+ */
 export function isFlagged(ingredient: Ingredient): boolean {
   // An unrecognised name is not "not flagged" — it is unassessed. Returning
   // false here would let it count silently toward a clean bill of health.

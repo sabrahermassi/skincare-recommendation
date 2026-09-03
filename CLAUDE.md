@@ -25,6 +25,25 @@ npm run lint               # expo lint (eslint-config-expo)
 npx expo-doctor@latest     # SDK 54 dependency alignment
 ```
 
+### Dictionary imports
+
+These populate `ingredients`, the table `verified` is judged against. All take
+`--dry-run`, and all need `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` in the
+shell to write (the service-role key is not in `.env` — read it from the
+dashboard, or `supabase projects api-keys --project-ref <ref>`).
+
+```bash
+npm run import:inci-dictionary   # Open Beauty Facts taxonomy (~31k rows, the bulk)
+npm run import:cosing            # EU CosIng; no argument = fetch the mirrored export
+npm run import:obf               # products, not the dictionary
+```
+
+**`import:cosing` never overwrites a row another source already verified** — it
+only adds new names and promotes unverified ones, so re-running it is safe. Its
+default source is a 2016 mirror of the Commission's export (the live CosIng UI
+hands the CSV out only through a session-bound download); pass a path to a
+fresher export when one is available.
+
 **Full pre-merge check.** Tests cover the pure logic — store,
 matching, safety classification and the `data/api.ts` contract — but
 there are no component or navigation tests yet (issue #10), so bundling

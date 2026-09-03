@@ -27,15 +27,30 @@ describe("matchProduct", () => {
    * version of this test read `suitableFor`, which arrives empty from every
    * real source — only the hand-written samples ever had it. This one reads a
    * ceramide barrier cream, which the rules table favours for dry skin.
+   *
+   * The oily half used to compare scores. It cannot any more, and that is the
+   * point: this formula holds nothing an oily profile cares about, so the
+   * engine now declines rather than returning the untouched base score. The
+   * assertion is the same one either way — the verdict must differ by skin
+   * type, and it must differ because of what is in the jar.
    */
   it("derives skin-type fit from the ingredients, not from product tags", async () => {
     const p = await load("aqua-ceramide-cream"); // ceramide np, squalane, panthenol
     expect(p.suitableFor.length).toBeGreaterThan(0); // sample data still has tags…
     const dry = matchProduct(p, profile({ baseSkinType: "dry" }));
     const oily = matchProduct(p, profile({ baseSkinType: "oily" }));
+
     // …but the difference must come from the formula, not from them.
-    expect(dry.score).toBeGreaterThan(oily.score as number);
+    expect(dry.score).not.toBeNull();
     expect(dry.reasons.some((r) => /ceramide|squalane/i.test(r.ingredient))).toBe(true);
+    // Verified rather than branched on: this fixture's formula (ceramide,
+    // shea butter, squalane, panthenol, centella) has nothing in the rules
+    // table for a plain oily profile with no stated concern, so the engine
+    // declines outright — a stronger contrast than a lower score would be. A
+    // silent if/else here previously let this assertion go unexercised.
+    expect(oily.score).toBeNull();
+    expect(oily.verdict).toBe("unknown");
+    expect(oily.unknownReason).toBe("no_evidence");
   });
 
   it("rewards overlapping concerns", async () => {
@@ -53,39 +68,29 @@ describe("matchProduct", () => {
   });
 
   /**
-   * Routine length no longer affects scoring at all — for any product, not
-   * just body. The old rule nudged whole product *types* up or down, which
-   * made sense while the app ranked a catalogue. Judging one scanned bottle
-   * against your skin has nothing to do with how many steps you enjoy, and
-   * keeping the nudge would have moved a verdict for a reason we could not
-   * defend in the explanation.
-   *
-   * Consequence worth knowing: the onboarding routine question now feeds
-   * nothing. Either give it a purpose or drop the step.
+   * A cleanser is rinsed off within a minute; a serum sits on the skin for
+   * hours. Scoring the same ingredient identically in both overstated actives
+   * and, worse, irritants in a face wash.
    */
-  describe("routine length is inert", () => {
-    const LENGTHS = ["minimal", "balanced", "full", null] as const;
+  it("weights a rinse-off product's ingredients below a leave-on one's", async () => {
+    const cleanser = await load("mugwort-gel-cleanser");
+    const prof = profile({ baseSkinType: "dry", sensitive: true });
+    const result = matchProduct(cleanser, prof);
+    if (result.reasons.length > 0) {
+      const strongest = Math.max(...result.reasons.map((r) => Math.abs(r.effect)));
+      // Full weight for the top rule at position 1 would be its raw weight;
+      // rinse-off caps it well below that.
+      expect(strongest).toBeLessThan(11);
+    }
+  });
 
-    it("gives an identical score whatever the answer", async () => {
-      const p = await load("mugwort-gel-cleanser");
-      const scores = LENGTHS.map(
-        (routineLength) =>
-          matchProduct(p, profile({ baseSkinType: "oily", routineLength })).score
-      );
-      expect(new Set(scores).size).toBe(1);
-    });
-
-    it("holds across the whole catalogue, not just one product", async () => {
-      const all = await fetchProducts();
-      for (const p of all) {
-        const scores = LENGTHS.map(
-          (routineLength) =>
-            matchProduct(p, profile({ baseSkinType: "dry", concerns: ["dehydrated"], routineLength }))
-              .score
-        );
-        expect(new Set(scores).size).toBe(1);
-      }
-    });
+  it("recognises eczema-prone skin as its own concern", async () => {
+    const p = await load("aqua-ceramide-cream");
+    const atopic = matchProduct(p, profile({ concerns: ["atopic"] }));
+    // Ceramides, panthenol and niacinamide all now speak to it, so this must
+    // produce reasons rather than falling through to "can't tell".
+    expect(atopic.reasons.length).toBeGreaterThan(0);
+    expect(atopic.score).not.toBeNull();
   });
 
   it("stays within 0-99 and returns an integer", async () => {
@@ -174,6 +179,7 @@ describe("verdict engine", () => {
       brand: "Test",
       name: "Test",
       type: "serum",
+      productType: "serum",
       area: "face",
       price: 0,
       volume: "",
@@ -236,6 +242,30 @@ describe("verdict engine", () => {
   });
 
   describe("refusing to guess", () => {
+    /**
+     * The gate this asserts was added after measuring that it fires: on 104
+     * real products, nothing in the rules table applied to an oily,
+     * acne-prone profile for 29 of them, while ~92% of their ingredients were
+     * recognised. Coverage says we read the label; it does not say we have
+     * anything to tell you.
+     *
+     * Built from a synthetic product rather than a catalogue fixture: a real
+     * product can gain a matching rule later without anyone noticing this
+     * test stopped exercising the gate. `disodium edta`, `xanthan gum` and
+     * `carbomer` are chelator/thickener/gelling agents with no entry in
+     * `lib/rules.ts` by design — they are exactly the "genuinely inert"
+     * ingredients the gate exists for, not merely inert today by omission.
+     */
+    it("declines to score a formula it has nothing to say about", () => {
+      const p = synthetic(["water", "disodium edta", "xanthan gum", "carbomer", "phenoxyethanol"]);
+      const irrelevant = matchProduct(p, profile({ concerns: ["hyperpigmentation"] }));
+      expect(irrelevant.reasons).toHaveLength(0);
+      expect(irrelevant.warnings).toHaveLength(0);
+      expect(irrelevant.score).toBeNull();
+      expect(irrelevant.verdict).toBe("unknown");
+      expect(irrelevant.unknownReason).toBe("no_evidence");
+    });
+
     it("returns no score when too little of the formula is recognised", () => {
       const p = synthetic(["water", "glycerin", "niacinamide", ...FILLER]);
       // Simulate an OCR'd label where most names came out garbled.

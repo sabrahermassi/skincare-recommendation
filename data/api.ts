@@ -1,3 +1,4 @@
+import { defaultPackagingType } from "@/components/BottleIcon";
 import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@/lib/supabase";
 import { INGREDIENTS } from "./ingredients";
 import { PRODUCTS } from "./products";
@@ -37,7 +38,8 @@ const usingSupabase = () => isSupabaseConfigured && supabase !== null;
  * `uploader`, `uploaded_t` and pixel sizes, with no field separating an
  * official pack shot from someone holding the bottle in a bathroom mirror.
  * Many are review snapshots. There is no reliable way to tell them apart, so
- * none are shown and `ProductIllustration` renders instead.
+ * none are shown — every product renders as its `productType`'s illustrated
+ * bottle instead (`components/BottleIcon.tsx`), photo or no photo.
  *
  * Enforced here, at the read boundary, rather than only at import: rows
  * written by an earlier import still hold their URLs, and this guarantees
@@ -130,9 +132,14 @@ function rowToProduct(row: CatalogueRow): ProductWithIngredients {
       return {
         id: source.inci_name,
         name: source.inci_name,
-        // Most ingredients have no published comedogenic rating. It maps to 0
-        // so the scale stays numeric, but `note` is what the UI shows, so a
-        // gap is never rendered as a measured clean bill of health.
+        // No real catalogue row carries a comedogenic rating and none should —
+        // see `ComedogenicRating` for why. Collapsing the absence to 0 keeps
+        // the scale numeric, and callers must read it as "not rated" rather
+        // than "rated harmless": every comedogenic branch in `lib/safety.ts`
+        // is therefore dead for catalogue products, and pore-clogging is
+        // decided by `INGREDIENT_RULES` instead. Left as 0 rather than made
+        // nullable because the sample catalogue does rate its ingredients and
+        // the two paths share this type.
         comedogenic: (source.comedogenic ?? 0) as Ingredient["comedogenic"],
         safety: source.safety,
         note: source.note ?? undefined,
@@ -147,6 +154,9 @@ function rowToProduct(row: CatalogueRow): ProductWithIngredients {
     brand: row.brand,
     name: row.name,
     type: row.type as ProductType,
+    // Real catalogue rows don't carry a packaging shape yet, so it's derived
+    // from the merchandising type they do have.
+    productType: defaultPackagingType(row.type as ProductType),
     area: row.area as BodyArea,
     price: row.price_krw ?? 0,
     volume: row.volume ?? "",
@@ -327,6 +337,75 @@ export async function analyseLabel(
  * the graceful degradation when there is no usable camera. That matters on
  * web, where SDK 54's expo-camera decodes QR codes only.
  */
+/**
+ * Look up already-parsed INCI names in the dictionary, preserving label order.
+ *
+ * For the paste-a-list flow, which has names but no product. A plain table
+ * read — `ingredients` is public-SELECT under RLS — so it needs no edge
+ * function and no service-role key.
+ *
+ * Names we cannot resolve come back as unverified stubs rather than being
+ * dropped. That is what lets the screen say "we recognised 12 of 31" instead
+ * of quietly shortening the list, and it keeps pore-clogging detection working
+ * on them: an unrecognised name can still be an exact match against the
+ * curated table.
+ *
+ * Degrades rather than throws. With no Supabase configured, or with no
+ * network, every name comes back as a stub and the caller still gets a usable
+ * pore-clogging answer — which is the whole point of doing that check on the
+ * device.
+ */
+export async function resolveIngredientNames(names: string[]): Promise<Ingredient[]> {
+  const stub = (name: string): Ingredient => ({
+    id: name,
+    name,
+    comedogenic: 0,
+    safety: "safe",
+    verified: false,
+  });
+
+  if (names.length === 0) return [];
+
+  if (!usingSupabase()) {
+    return delay(
+      names.map((name) => {
+        const lookupName = name.trim().toLowerCase();
+        const local = Object.values(INGREDIENTS).find(
+          (i) => i.name.toLowerCase() === lookupName
+        );
+        return local ?? stub(name);
+      })
+    );
+  }
+
+  try {
+    const { data, error } = await supabase!
+      .from("ingredients")
+      .select("inci_name, comedogenic, safety, note, verified, functions")
+      .in("inci_name", names);
+
+    if (error) throw error;
+
+    const byName = new Map<string, Ingredient>();
+    for (const row of data ?? []) {
+      byName.set(row.inci_name, {
+        id: row.inci_name,
+        name: row.inci_name,
+        comedogenic: (row.comedogenic ?? 0) as Ingredient["comedogenic"],
+        safety: row.safety,
+        note: row.note ?? undefined,
+        verified: row.verified,
+        functions: row.functions ?? undefined,
+      });
+    }
+
+    return names.map((name) => byName.get(name) ?? stub(name));
+  } catch (err) {
+    console.warn("resolveIngredientNames failed:", err);
+    return names.map(stub);
+  }
+}
+
 export async function searchProducts(query: string): Promise<ProductWithIngredients[]> {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];

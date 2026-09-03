@@ -7,13 +7,25 @@
  * is something we parsed off a mangled label. Everything the UI does with
  * `verified` depends on this having been run.
  *
- * The CSV is behind the CosIng web UI rather than a stable download URL, so
- * this takes a local file instead of guessing an endpoint:
+ * Takes a local path or an https URL:
  *
- *   1. Download the Annex/glossary export (csv) from
- *      https://single-market-economy.ec.europa.eu/sectors/cosmetics/cosmetic-ingredient-database_en
- *   2. node scripts/import-cosing.mjs ./cosing.csv --dry-run
- *   3. node scripts/import-cosing.mjs ./cosing.csv
+ *   node scripts/import-cosing.mjs --dry-run
+ *   node scripts/import-cosing.mjs
+ *   node scripts/import-cosing.mjs ./some-other-export.csv
+ *
+ * With no argument it pulls DEFAULT_SOURCE below — a verbatim mirror of the
+ * Commission's "Ingredients and Fragrance Inventory" export, which the CosIng
+ * web UI otherwise hands out only through a session-bound download. That mirror
+ * is a 2016 snapshot: good enough for the long-established names the taxonomy
+ * misses (measured: it supplies 115 of the 466 names our catalogue references
+ * but cannot verify), and it will not carry anything newer. Re-run with a fresh
+ * export path when one is to hand.
+ *
+ * Pinned to commit 7497cea8a8a90687d2e5175e9ecb46b7ca75a60b rather than the
+ * mutable `develop` branch — verified against that exact revision: "File
+ * creation date: 20/02/2016", "Last update: 15/02/2016", same header row this
+ * script expects. Update the SHA (and the note above) if a fresher export is
+ * ever adopted.
  *
  * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY unless --dry-run.
  */
@@ -21,13 +33,29 @@
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
+import { paginateOrdered } from "./lib/paginate.mjs";
+
+const DEFAULT_SOURCE =
+  "https://raw.githubusercontent.com/openfoodfacts/openbeautyfacts/7497cea8a8a90687d2e5175e9ecb46b7ca75a60b/cosing/COSING_Ingredients-Fragrance.Inventory_v2.csv";
+
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
-const FILE = args.find((a) => !a.startsWith("--"));
+const FILE = args.find((a) => !a.startsWith("--")) ?? DEFAULT_SOURCE;
 
-if (!FILE) {
-  console.error("Usage: node scripts/import-cosing.mjs <cosing.csv> [--dry-run]");
-  process.exit(1);
+async function read(source) {
+  if (!/^https?:\/\//.test(source)) return readFileSync(source, "utf8");
+  // A network attacker who can intercept a plain-http fetch (or a redirect
+  // that ends on one) could substitute the CSV that gets upserted into
+  // `ingredients`. Refuse anything that isn't HTTPS start to finish.
+  if (!/^https:\/\//.test(source)) {
+    throw new Error(`refusing non-HTTPS source: ${source}`);
+  }
+  const res = await fetch(source);
+  if (!res.ok) throw new Error(`${source} → HTTP ${res.status}`);
+  if (!res.url.startsWith("https://")) {
+    throw new Error(`refusing a redirect that landed on a non-HTTPS URL: ${res.url}`);
+  }
+  return res.text();
 }
 
 /**
@@ -97,22 +125,45 @@ function findColumn(header, ...patterns) {
   return -1;
 }
 
-function main() {
-  const rows = parseCsv(readFileSync(FILE, "utf8"));
+async function main() {
+  const rows = parseCsv(await read(FILE));
   if (rows.length < 2) {
     console.error("No data rows found — is this the right file?");
     process.exit(1);
   }
 
-  const header = rows[0];
-  const iName = findColumn(header, /^inci\s*name/i, /^ingredient/i, /^name/i);
-  const iCas = findColumn(header, /cas/i);
-  const iFunction = findColumn(header, /function/i);
+  // The export opens with an Excel `sep=,` directive, a creation date and a
+  // title row, all before the real header. Patterns are tried strictest-first
+  // across the early rows, because the loose ones match the title too —
+  // "Ingredients/Fragrance Inventory (CosIng 2)" satisfies /^ingredient/ and
+  // would silently make column 0 (the CosIng reference number) the name.
+  const NAME_PATTERNS = [/^inci\s*name$/i, /^inci\s*name/i, /^ingredient$/i, /^name$/i];
+  let headerRow = -1;
+  let iName = -1;
+  outer: for (const pattern of NAME_PATTERNS) {
+    for (let r = 0; r < Math.min(rows.length, 30); r++) {
+      const i = rows[r].findIndex((h) => pattern.test(h.trim()));
+      if (i !== -1) {
+        headerRow = r;
+        iName = i;
+        break outer;
+      }
+    }
+  }
 
   if (iName === -1) {
-    console.error(`Could not find an INCI name column. Header was:\n  ${header.join(" | ")}`);
+    console.error(
+      `Could not find an INCI name column in the first rows:\n  ${rows
+        .slice(0, 10)
+        .map((r) => r.join(" | "))
+        .join("\n  ")}`
+    );
     process.exit(1);
   }
+
+  const header = rows[headerRow];
+  const iCas = findColumn(header, /cas/i);
+  const iFunction = findColumn(header, /function/i);
   console.log(
     `Columns: name=${header[iName]}` +
       (iCas !== -1 ? `, cas=${header[iCas]}` : ", cas=(absent)") +
@@ -122,7 +173,7 @@ function main() {
   const byName = new Map();
   let skipped = 0;
 
-  for (const row of rows.slice(1)) {
+  for (const row of rows.slice(headerRow + 1)) {
     const name = normalise(row[iName] ?? "");
     if (name.length < 2) {
       skipped += 1;
@@ -147,40 +198,72 @@ function main() {
     });
   }
 
-  const ingredients = [...byName.values()];
-  console.log(`${rows.length - 1} rows → ${ingredients.length} distinct names (${skipped} skipped)`);
+  const parsed = [...byName.values()];
+  console.log(
+    `${rows.length - headerRow - 1} rows → ${parsed.length} distinct names (${skipped} skipped)`
+  );
+
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!DRY_RUN && (!url || !key)) {
+    console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required (or pass --dry-run)");
+    process.exit(1);
+  }
+
+  // Rows already verified by another source are left exactly as they are.
+  // A blind upsert would relabel every one of the taxonomy's names as
+  // `cosing` and overwrite its functions — losing provenance on ~24,000 rows
+  // to add a few hundred. Only genuinely new names, and names currently
+  // sitting unverified, are written.
+  const existing = new Map();
+  if (url && key) {
+    const probe = createClient(url, key, { auth: { persistSession: false } });
+    const rows = await paginateOrdered(probe, "ingredients", {
+      select: "inci_name, verified",
+      cursorColumn: "inci_name",
+    });
+    for (const row of rows) existing.set(row.inci_name, row.verified);
+  }
+
+  if (existing.size === 0) {
+    console.log(
+      "  (no credentials — cannot compare against the live table, so every name below reads as new)"
+    );
+  }
+
+  const fresh = parsed.filter((i) => !existing.has(i.inci_name));
+  // A promoted row still carries the note its scan wrote — "Read from a label,
+  // not matched to the ingredient dictionary" — which becomes false the moment
+  // CosIng verifies it. Clear it rather than leave the row contradicting itself.
+  const promoted = parsed
+    .filter((i) => existing.get(i.inci_name) === false)
+    .map((i) => ({ ...i, note: null }));
+  const untouched = parsed.length - fresh.length - promoted.length;
+  const ingredients = [...fresh, ...promoted];
+
+  console.log(
+    `  ${fresh.length} new, ${promoted.length} promoted from unverified, ${untouched} left alone`
+  );
 
   if (DRY_RUN) {
-    console.log("\n--dry-run: nothing written. Sample:");
-    for (const i of ingredients.slice(0, 5)) {
+    console.log("\n--dry-run: nothing written. Sample of what would be written:");
+    for (const i of ingredients.slice(0, 8)) {
       console.log(`  ${i.inci_name}${i.cas_number ? `  CAS ${i.cas_number}` : ""}`);
     }
     return;
   }
 
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required (or pass --dry-run)");
-    process.exit(1);
-  }
   const db = createClient(url, key, { auth: { persistSession: false } });
-
-  return (async () => {
-    for (let i = 0; i < ingredients.length; i += 500) {
-      const batch = ingredients.slice(i, i + 500);
-      // Upsert rather than insert: names already created unverified by a
-      // barcode lookup get promoted to verified in place, which is exactly the
-      // transition this table exists to record.
-      const { error } = await db.from("ingredients").upsert(batch, { onConflict: "inci_name" });
-      if (error) throw new Error(error.message);
-      process.stdout.write(`\r  ${Math.min(i + 500, ingredients.length)}/${ingredients.length}`);
-    }
-    console.log(`\nVerified ${ingredients.length} ingredient names.`);
-  })();
+  for (let i = 0; i < ingredients.length; i += 500) {
+    const batch = ingredients.slice(i, i + 500);
+    const { error } = await db.from("ingredients").upsert(batch, { onConflict: "inci_name" });
+    if (error) throw new Error(error.message);
+    process.stdout.write(`\r  ${Math.min(i + 500, ingredients.length)}/${ingredients.length}`);
+  }
+  console.log(`\nVerified ${ingredients.length} ingredient names.`);
 }
 
-Promise.resolve(main()).catch((err) => {
+main().catch((err) => {
   console.error(err);
   process.exit(1);
 });

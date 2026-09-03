@@ -1,55 +1,92 @@
-import { Stack, router, useLocalSearchParams } from "expo-router";
+import * as Clipboard from "expo-clipboard";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
 
-import { ProductIllustration } from "@/components/ProductIllustration";
-import { ScoreRing } from "@/components/ScoreRing";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { fetchProduct } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { relativeTime } from "@/lib/format";
-import {
-  ingredientTone,
-  matchProduct,
-  TONE_CLASS,
-  TONE_PILL,
-  ruleFor,
-  type MatchResult,
-} from "@/lib/matching";
-import { profileSummary } from "@/lib/profile";
+import { matchProduct, ruleFor, RUNG_META, rungFor, type Rung } from "@/lib/matching";
+import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
- * The full ingredient list — screen 1a of the Skin Match Scanner design.
+ * The full ingredient list — screen 3 of the Skintel Screens design.
  *
  * Every row is judged against *this* profile, not in the abstract: the dot and
  * the pill say whether it works for you, which is the whole difference between
  * this and reading the back of the box.
  */
 
-type Tab = "All" | "Actives" | "Watch-outs";
+const TABS = ["All", "Actives", "Watch-outs", "Pore clogging"] as const;
+type Tab = (typeof TABS)[number];
+
+/**
+ * Copy / copied — one icon, two states, so tapping it doesn't need a toast
+ * the rest of this app has no component for. The check holds for 1.5s, long
+ * enough to register as confirmation without needing a dismiss.
+ */
+function CopyIcon({ copied }: { copied: boolean }) {
+  if (copied) {
+    return (
+      <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="m5 12.6 4.6 4.6L19 6.8"
+          stroke="#4B7A5E"
+          strokeWidth={2.2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    );
+  }
+  return (
+    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+      <Rect x={8.5} y={8.5} width={11} height={11} rx={2.2} stroke="#453F4E" strokeWidth={1.7} />
+      <Path
+        d="M15 8.5V6.7a2.2 2.2 0 0 0-2.2-2.2H6.7a2.2 2.2 0 0 0-2.2 2.2v6.1a2.2 2.2 0 0 0 2.2 2.2h1.8"
+        stroke="#453F4E"
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 export default function IngredientList() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `tab` arrives from the product screen's pore-clogging list, which deep
+  // links straight into the filtered view rather than dropping you on "All"
+  // to find them yourself.
+  const { id, tab: initialTab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("All");
+  const [tab, setTab] = useState<Tab>(
+    TABS.includes(initialTab as Tab) ? (initialTab as Tab) : "All"
+  );
+  const [copied, setCopied] = useState(false);
 
   const profile = useAppStore((s) => s.profile);
-  const savedProducts = useAppStore((s) => s.savedProducts);
-  const toggleSaved = useAppStore((s) => s.toggleSaved);
-  const saved = savedProducts.some((p) => p.id === id);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchProduct(id).then((result) => {
-      if (cancelled) return;
-      setProduct(result);
-      setLoading(false);
-    });
+    fetchProduct(id)
+      .then((result) => {
+        if (cancelled) return;
+        setProduct(result);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("fetchProduct failed:", err);
+        setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -59,17 +96,6 @@ export default function IngredientList() {
     () => (product ? matchProduct(product, profile) : null),
     [product, profile]
   );
-
-  const counts = useMemo(() => {
-    if (!product || !match) return { All: 0, Actives: 0, "Watch-outs": 0 };
-    return {
-      All: product.ingredients.length,
-      Actives: product.ingredients.filter((i) => ruleFor(i) !== undefined).length,
-      "Watch-outs": product.ingredients.filter(
-        (i) => ingredientTone(i, match) !== "good"
-      ).length,
-    };
-  }, [product, match]);
 
   if (loading || !match) {
     return (
@@ -89,150 +115,207 @@ export default function IngredientList() {
 
   const visible = product.ingredients.filter((i) => {
     if (tab === "Actives") return ruleFor(i) !== undefined;
-    if (tab === "Watch-outs") return ingredientTone(i, match) !== "good";
+    if (tab === "Watch-outs") return rungFor(i, match) !== "good";
+    if (tab === "Pore clogging") return isPoreClogging(i);
     return true;
   });
 
-  const summary = profileSummary(profile);
+  const total = product.ingredients.length;
+  const cloggerCount = poreCloggingHits(product.ingredients).length;
+
+  // Plain, comma-separated names in label order — the format someone would
+  // paste straight into a second app to compare by hand, which is the actual
+  // point: this app's own verdict is one tap away already, so the only reason
+  // to copy the list is to check it against something else.
+  async function copyList() {
+    if (!product || product.ingredients.length === 0) return;
+    await Clipboard.setStringAsync(product.ingredients.map((i) => i.name).join(", "));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
 
   return (
     <View className="flex-1 bg-canvas">
-      <Stack.Screen options={{ title: product.brand }} />
+      <ScreenHeader
+        title="Ingredients"
+        right={
+          total > 0 ? (
+            <Pressable
+              onPress={copyList}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={copied ? "Ingredient list copied" : "Copy ingredient list"}
+            >
+              <CopyIcon copied={copied} />
+            </Pressable>
+          ) : undefined
+        }
+      />
 
-      <ScrollView contentContainerClassName="pb-40">
-        <View className="flex-row items-start gap-4 px-5 pb-4 pt-3">
-          <ProductIllustration type={product.type} size={86} />
-          <View className="flex-1 gap-1">
-            <Text className="text-[10px] font-sans-bold uppercase tracking-[1.4px] text-ink-faint">
-              {product.brand}
-            </Text>
-            <Text className="font-display text-[22px] leading-[26px] text-ink">
-              {product.name}
-            </Text>
-            <Text className="text-xs text-ink-muted">
-              {[product.volume, `${product.ingredients.length} ingredients`]
-                .filter(Boolean)
-                .join(" · ")}
-            </Text>
-            {/* Formulas change. Saying when we last read the label is the
-                difference between data and a claim. */}
-            <Text className="text-[10.5px] text-ink-faint">
-              Label read {relativeTime(Date.parse(product.fetchedAt ?? "") || Date.now())}
-            </Text>
-          </View>
-        </View>
-
-        <View className="mx-5 flex-row items-center gap-4 rounded-sheet bg-tint-mint p-4">
-          <ScoreRing score={match.score} size={64} />
-          <View className="flex-1 gap-1">
-            <Text className="text-[15px] font-sans-bold text-ink">
-              {match.score === null ? "Not enough to judge" : "Matched to your skin"}
-            </Text>
-            {summary ? (
-              <Text className="text-xs leading-4 text-ink-muted">{summary}</Text>
-            ) : null}
-          </View>
-        </View>
-
-        <View className="flex-row gap-2 px-5 pb-2 pt-4">
-          {(["All", "Actives", "Watch-outs"] as const).map((label) => {
+      <ScrollView contentContainerClassName="pb-4">
+        {/* Scrolls rather than dividing the width four ways: at flex-1 the
+            fourth pill squeezed the labels below legibility. Pills keep their
+            44pt height and the app's own option-label size. */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 10, paddingHorizontal: 24, paddingTop: 20 }}
+        >
+          {TABS.map((label) => {
             const active = tab === label;
+            // The count earns the tab its place: "Pore clogging 3" answers the
+            // question before you have tapped anything.
+            const suffix = label === "Pore clogging" && cloggerCount > 0 ? ` ${cloggerCount}` : "";
             return (
               <Pressable
                 key={label}
                 onPress={() => setTab(label)}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
-                className={`rounded-full px-3.5 py-2 ${active ? "bg-ink" : "bg-ink/[0.06]"}`}
+                style={{ height: 44, paddingHorizontal: 18 }}
+                className={`items-center justify-center rounded-full border ${
+                  active ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
+                }`}
               >
                 <Text
-                  className={`text-xs font-sans-semibold ${active ? "text-canvas" : "text-ink-muted"}`}
+                  className={`text-[14.5px] font-semibold ${
+                    active ? "text-accent-text" : "text-ink-muted"
+                  }`}
                 >
-                  {label}  {counts[label]}
+                  {label}
+                  {suffix}
                 </Text>
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
 
-        <View className="gap-2 px-5 pt-1">
-          {visible.length === 0 ? (
-            <Text className="py-8 text-center text-sm text-ink-muted">
-              Nothing in this group — which is good news.
-            </Text>
-          ) : (
-            visible.map((ingredient) => (
-              <IngredientCard
-                key={ingredient.id}
-                ingredient={ingredient}
-                match={match}
-                onPress={() =>
-                  router.push({
-                    pathname: "/ingredient/[inci]",
-                    params: { inci: ingredient.name, product: product.id },
-                  })
-                }
-              />
-            ))
-          )}
-        </View>
+        {/* Formulas change. Saying when we last read the label is the
+            difference between data and a claim — it was on this screen before
+            the redesign and is worth more than the design's info icon. */}
+        <Text className="pb-1 pt-3.5 text-center text-[10.5px] text-ink-muted">
+          {total} ingredient{total === 1 ? "" : "s"} · Tap for details
+        </Text>
+        <Text className="pb-3.5 text-center text-[10.5px] text-ink-faint">
+          Label read {relativeTime(Date.parse(product.fetchedAt ?? "") || Date.now())}
+        </Text>
+        <View className="h-px bg-hairline" />
+
+        {visible.length === 0 ? (
+          <Text className="bg-surface py-10 text-center text-sm text-ink-muted">
+            Nothing in this group - which is good news.
+          </Text>
+        ) : (
+          visible.map((ingredient) => (
+            <IngredientListRow
+              key={ingredient.id}
+              ingredient={ingredient}
+              rung={rungFor(ingredient, match)}
+              onPress={() =>
+                router.push({
+                  pathname: "/ingredient/[inci]",
+                  params: { inci: ingredient.name, product: product.id },
+                })
+              }
+            />
+          ))
+        )}
       </ScrollView>
 
-      <View className="absolute inset-x-0 bottom-0 flex-row gap-2.5 border-t border-hairline bg-canvas px-5 pb-8 pt-3">
-        <Pressable
-          onPress={() => router.replace("/scan")}
-          className="h-[52px] flex-1 items-center justify-center rounded-full bg-ink active:opacity-80"
-        >
-          <Text className="text-[14.5px] font-sans-semibold text-canvas">Scan next product</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => toggleSaved(product.id)}
-          className={`h-[52px] w-[52px] items-center justify-center rounded-full ${
-            saved ? "bg-tint-pink" : "bg-ink/[0.06]"
-          }`}
-        >
-          <Text className="text-lg text-ink">{saved ? "♥" : "♡"}</Text>
-        </Pressable>
+      {/* INCI order is regulated information, and it is the single fact that
+          makes this list readable rather than just long. */}
+      <View
+        style={{ backgroundColor: "#F3EFEA" }}
+        className="flex-row items-center justify-center gap-2.5 px-6 pb-8 pt-4"
+      >
+        <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+          <Circle cx={12} cy={12} r={9} stroke={COLORS.inkMuted} strokeWidth={1.8} />
+          <Path
+            d="M12 11v5.4M12 7.7v.1"
+            stroke={COLORS.inkMuted}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+          />
+        </Svg>
+        <Text className="text-[10.5px] text-ink-muted">
+          Ingredients are listed in order of concentration.
+        </Text>
       </View>
     </View>
   );
 }
 
-function IngredientCard({
+function IngredientListRow({
   ingredient,
-  match,
+  rung,
   onPress,
 }: {
   ingredient: Ingredient;
-  match: MatchResult;
+  rung: Rung;
   onPress: () => void;
 }) {
-  const tone = ingredientTone(ingredient, match);
-  const classes = TONE_CLASS[tone];
+  const meta = RUNG_META[rung];
   const rule = ruleFor(ingredient);
+  const clogs = isWarnedPoreClogging(ingredient);
 
+  // The most specific thing we hold, in order: pore-clogging (the reason
+  // someone opened this screen), a curated rule, the row's own note, then the
+  // regulator's declared function list.
   const subtitle = !isVerified(ingredient)
-    ? "Not recognised — we can't assess this one"
-    : (rule ? rule.reason.split("—")[0].trim() : functionLabel(ingredient));
+    ? "Not recognised - we can't assess this one"
+    : clogs
+      ? "On the published pore-clogging lists"
+      : rule
+        ? rule.reason.split(" - ")[0].trim()
+        : (ingredient.note ?? functionLabel(ingredient));
 
   return (
     <Pressable
       onPress={onPress}
-      className="flex-row items-center gap-3 rounded-card bg-surface p-3.5 shadow-sm active:opacity-80"
+      style={{ gap: 11 }}
+      className="flex-row items-start border-b border-hairline-soft bg-surface px-6 py-3.5 active:bg-canvas"
     >
-      <View className={`h-2.5 w-2.5 rounded-full ${classes.dot}`} />
+      <View style={{ width: 9, height: 9, marginTop: 6 }} className={`rounded-full ${meta.dot}`} />
+
       <View className="flex-1 gap-0.5">
-        <Text className="text-[13.5px] font-sans-semibold capitalize text-ink" numberOfLines={1}>
-          {ingredient.name}
-        </Text>
-        <Text className="text-[11px] text-ink-muted" numberOfLines={1}>
-          {subtitle}
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text
+            className="text-[13.5px] font-medium capitalize leading-[18px] text-ink"
+            style={{ flexShrink: 1 }}
+          >
+            {ingredient.name}
+          </Text>
+          {/* The highlight the external checkers give you, on the row itself. */}
+          {clogs ? (
+            <View
+              style={{ backgroundColor: "#FBE2E7", paddingHorizontal: 6, paddingVertical: 2 }}
+              className="rounded-full"
+            >
+              {/* "Clogging", not "Pore clogging": the badge sits inline beside
+                  the ingredient name, and the full phrase crowds the row off
+                  the screen. The tab it filters to says the whole thing. */}
+              <Text style={{ color: "#A4526A", fontSize: 9.5 }} className="font-bold uppercase">
+                Clogging
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        <Text className="text-[11px] leading-[16px] text-ink-muted">{subtitle}</Text>
       </View>
-      <View className={`rounded-full px-2.5 py-1 ${classes.pill}`}>
-        <Text className="text-[10.5px] font-sans-bold text-ink">{TONE_PILL[tone]}</Text>
+
+      <View className={`mt-px rounded-full px-3 py-1 ${meta.pill}`}>
+        <Text className={`text-[11px] font-medium ${meta.ink}`}>{meta.label}</Text>
       </View>
-      <Text className="text-[15px] text-ink-faint">›</Text>
+
+      <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" style={{ marginTop: 5 }}>
+        <Path
+          d="m9 5 7 7-7 7"
+          stroke="#BDB6C2"
+          strokeWidth={2.2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
     </Pressable>
   );
 }

@@ -8,6 +8,13 @@ export type SkinType = "oily" | "dry" | "combination" | "normal" | "sensitive";
 /** Skin type minus the "sensitive" modifier — see `SkinProfile.sensitive`. */
 export type BaseSkinType = Exclude<SkinType, "sensitive">;
 
+/**
+ * `atopic` is eczema-prone skin, not a severity of "dry". Both La Roche-Posay
+ * and Avène build a flagship range for it alone (Lipikar, XeraCalm A.D)
+ * because it wants different things from a formula than dry skin does —
+ * barrier lipids and near-zero sensitisers, rather than humectants — and it is
+ * the state most likely to react badly to a product that suits everyone else.
+ */
 export type Concern =
   | "dehydrated"
   | "acne-prone"
@@ -15,15 +22,14 @@ export type Concern =
   | "dullness"
   | "fine-lines"
   | "large-pores"
-  | "hyperpigmentation";
+  | "hyperpigmentation"
+  | "atopic";
 
 export type Gender = "female" | "male" | "nonbinary" | "undisclosed";
 
 export type AgeGroup = "18-24" | "25-34" | "35-44" | "45-54" | "55-64" | "65+";
 
 export type BodyArea = "face" | "body";
-
-export type RoutineLength = "minimal" | "balanced" | "full";
 
 /**
  * The onboarding quiz's answers. `gender` and `ageGroup` are stored for
@@ -37,7 +43,6 @@ export type SkinProfile = {
   concerns: Concern[];
   baseSkinType: BaseSkinType | null;
   sensitive: boolean;
-  routineLength: RoutineLength | null;
 };
 
 export type ProductType =
@@ -52,7 +57,39 @@ export type ProductType =
   | "body-lotion"
   | "hand-cream";
 
-/** 0 = will not clog pores, 5 = highly pore-clogging. */
+/**
+ * Which of the eight illustrated bottle shapes represents this product on
+ * screen — a physical-packaging axis, not the merchandising one `type`
+ * already covers. A gel cleanser and a body wash are different `type`s but
+ * the same vessel, so both take `productType: "cleanser-tube"`.
+ *
+ * Matches `design_handoff_skintel_onboarding/bottle-set.html` exactly, one
+ * value per `btl-<name>.svg` — see `components/BottleIcon.tsx`.
+ */
+export type PackagingType =
+  | "serum"
+  | "cleanser-tube"
+  | "lotion-pump"
+  | "cream-jar"
+  | "mist"
+  | "toner"
+  | "ampoule"
+  | "sunscreen";
+
+/**
+ * 0 = will not clog pores, 5 = highly pore-clogging.
+ *
+ * INTENTIONALLY UNPOPULATED for real catalogue data, and it should stay that
+ * way. The published 0-5 scales come from mid-century rabbit-ear assays that
+ * correlate poorly with human breakouts, and no openly licensed dataset exists
+ * — so filling this column would put a fabricated rating next to a measured one
+ * with nothing to tell them apart. Pore-clogging judgement lives in
+ * `INGREDIENT_RULES` (`lib/rules.ts`) instead, where it covers only the handful
+ * of ingredients with reasonably consistent human evidence and each claim
+ * carries the sentence shown to the user.
+ *
+ * Only the hand-written sample catalogue in `data/ingredients.ts` sets it.
+ */
 export type ComedogenicRating = 0 | 1 | 2 | 3 | 4 | 5;
 
 export type SafetyLevel = "safe" | "caution" | "avoid";
@@ -96,6 +133,8 @@ export type Product = {
   brand: string;
   name: string;
   type: ProductType;
+  /** Which bottle icon to draw — see `PackagingType`. */
+  productType: PackagingType;
   /** Face or body — matches the quiz's area question. */
   area: BodyArea;
   /** Price in KRW. */
@@ -113,8 +152,11 @@ export type Product = {
    */
   benefits: string[];
   /**
-   * Packaging photo from the source, or `null` when there isn't one — which is
-   * common. `ProductIllustration` renders the pastel vessel in that case.
+   * Packaging photo from the source. Unused by every screen now —
+   * `components/BottleIcon.tsx` draws every product as its `productType`'s
+   * illustrated bottle instead, real photo or not (see `SHOW_SOURCE_PHOTOS`
+   * in `data/api.ts` for why). Kept on the type because a real catalogue
+   * endpoint will still return it.
    */
   imageUrl: string | null;
   /**

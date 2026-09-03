@@ -2,6 +2,7 @@ import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/typ
 import { isPersonalized } from "./profile";
 import {
   CATEGORY_LABEL,
+  contactWeight,
   INGREDIENT_RULES,
   positionWeight,
   ruleMatches,
@@ -75,6 +76,15 @@ export type MatchResult = {
   factors: ScoreFactor[];
   /** How much of the formula we could actually identify, 0–1. */
   coverage: number;
+  /**
+   * Why `verdict` is "unknown" — `undefined` otherwise. Three genuinely
+   * different situations all produce a null score, and `verdictHeadline`
+   * cannot tell them apart from `coverage` alone: an unpersonalised profile
+   * can still show high coverage (it's computed before the profile is even
+   * checked), and so can a formula we read fine but that contained nothing
+   * this profile's rules speak to.
+   */
+  unknownReason?: "not_personalized" | "low_coverage" | "no_evidence";
 };
 
 /** Neutral starting point. Movement away from it has to be earned. */
@@ -100,12 +110,28 @@ export function matchProduct(
   if (!isPersonalized(profile)) {
     // Hazards are still worth flagging with no profile — they aren't
     // profile-dependent — but there is nothing to match against.
-    return { score: null, verdict: "unknown", warnings, reasons: [], factors: [], coverage };
+    return {
+      score: null,
+      verdict: "unknown",
+      warnings,
+      reasons: [],
+      factors: [],
+      coverage,
+      unknownReason: "not_personalized",
+    };
   }
 
   const identified = product.ingredients.filter(isVerified).length;
   if (identified < MIN_IDENTIFIED || coverage < MIN_COVERAGE) {
-    return { score: null, verdict: "unknown", warnings, reasons: [], factors: [], coverage };
+    return {
+      score: null,
+      verdict: "unknown",
+      warnings,
+      reasons: [],
+      factors: [],
+      coverage,
+      unknownReason: "low_coverage",
+    };
   }
 
   const reasons: MatchReason[] = [];
@@ -118,7 +144,7 @@ export function matchProduct(
     const rule = findRule(ingredient);
     if (!rule) return;
 
-    const weight = rule.weight * positionWeight(position);
+    const weight = rule.weight * positionWeight(position) * contactWeight(product.type);
     const helps = targetApplies(rule.helps, profile);
     const hurts = targetApplies(rule.hurts, profile);
 
@@ -144,6 +170,31 @@ export function matchProduct(
   // one it doesn't, however well the rest of it reads.
   if (warnings.length > 0) {
     score = Math.min(score, 45) - (warnings.length - 1) * 5;
+  }
+
+  // Reading a formula and having something to say about it are different
+  // questions, and the gate above only asks the first. A formula can be 92%
+  // recognised and still contain nothing this profile cares about — most of a
+  // jar is solvent, thickener, chelator and preservative — in which case
+  // `score` is still BASE_SCORE and returning it would present a default as a
+  // finding.
+  //
+  // This was measured before it was fixed: no rule fired at all on 54 of 104
+  // real products for an oily, acne-prone profile, and 61 for a pigmentation
+  // one. Widening the table to cover the emollients, humectants and occlusives
+  // those profiles actually meet brought that to 29 and 37, which is what makes
+  // refusing here honest rather than merely unhelpful — it is now the minority
+  // case, and it is the truthful answer when it happens.
+  if (reasons.length === 0 && warnings.length === 0) {
+    return {
+      score: null,
+      verdict: "unknown",
+      warnings,
+      reasons: [],
+      factors: [],
+      coverage,
+      unknownReason: "no_evidence",
+    };
   }
 
   const finalScore = clamp(score);
@@ -194,9 +245,19 @@ export function verdictHeadline(result: MatchResult): string {
         ? "Contains something worth avoiding for your skin"
         : "Probably not the right pick for you";
     case "unknown":
-      return result.coverage > 0 && result.coverage < MIN_COVERAGE
-        ? "We couldn't read enough of this formula to judge it"
-        : "Answer a few questions and we can tell you how this suits you";
+      switch (result.unknownReason) {
+        case "low_coverage":
+          return "We couldn't read enough of this formula to judge it";
+        case "no_evidence":
+          // The formula read fine — this is not the low-coverage case above —
+          // it simply contains nothing our rules have an opinion on for this
+          // profile. Telling the user to "answer a few questions" would be
+          // wrong: they already have, and coverage was good enough to score.
+          return "We read this formula but found nothing that speaks to your skin";
+        case "not_personalized":
+        default:
+          return "Answer a few questions and we can tell you how this suits you";
+      }
   }
 }
 
@@ -295,18 +356,36 @@ export function ingredientTone(
   return "good";
 }
 
-export const TONE_PILL: Record<IngredientTone, string> = {
-  good: "GOOD",
-  watch: "NOTE",
-  flag: "FLAG",
+/**
+ * Four rungs, drawn soft. `ingredientTone` returns three, because it answers
+ * "does this work for you"; an unrecognised name is a fourth thing — not good,
+ * not a warning, just unassessed — and the design gives it its own quiet grey
+ * rather than lumping it in with the watch-outs.
+ *
+ * Shared by the ingredient list and the ingredient detail screen, which show
+ * a rung for the same ingredient — a second, independent derivation drifted
+ * from this one before (the detail screen's null-match case fell back to
+ * "watch" instead of using this function at all).
+ */
+export type Rung = "good" | "watch" | "avoid" | "neutral";
+
+export const RUNG_META: Record<Rung, { dot: string; pill: string; ink: string; label: string }> = {
+  good: { dot: "bg-level-good", pill: "bg-level-good-tint", ink: "text-level-good-ink", label: "Good" },
+  watch: { dot: "bg-level-watch", pill: "bg-level-watch-tint", ink: "text-level-watch-ink", label: "Watch" },
+  avoid: { dot: "bg-level-avoid", pill: "bg-level-avoid-tint", ink: "text-level-avoid-ink", label: "Avoid" },
+  neutral: {
+    dot: "bg-level-neutral",
+    pill: "bg-level-neutral-tint",
+    ink: "text-level-neutral-ink",
+    label: "Neutral",
+  },
 };
 
-/** Tailwind classes per tone, matching the design legend. */
-export const TONE_CLASS: Record<IngredientTone, { dot: string; pill: string; hero: string }> = {
-  good: { dot: "bg-tone-good", pill: "bg-tint-mint", hero: "bg-tint-mint" },
-  watch: { dot: "bg-tone-watch", pill: "bg-tint-peach", hero: "bg-tint-peach" },
-  flag: { dot: "bg-tone-flag", pill: "bg-tint-pink", hero: "bg-tint-pink" },
-};
+export function rungFor(ingredient: Ingredient, match: MatchResult): Rung {
+  if (!isVerified(ingredient)) return "neutral";
+  const tone = ingredientTone(ingredient, match);
+  return tone === "flag" ? "avoid" : tone;
+}
 
 /**
  * The rule that applies to an ingredient, if any — the detail screen uses it

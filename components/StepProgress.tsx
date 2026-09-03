@@ -37,7 +37,7 @@ export function StepProgress({ current, total }: Props) {
                 }`}
               >
                 <Text
-                  className={`text-xs font-sans-bold ${filled ? "text-white" : "text-ink-faint"}`}
+                  className={`text-xs font-bold ${filled ? "text-white" : "text-ink-faint"}`}
                 >
                   {step}
                 </Text>
