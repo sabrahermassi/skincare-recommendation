@@ -101,7 +101,7 @@ export function PoreCloggingList({
 
       {contested > 0 && warned.length > 0 ? (
         <Text className="text-[11px] leading-[15px] text-ink-muted">
-          {contested} of these {contested === 1 ? "is" : "are"} disputed — some
+          {contested} of these {contested === 1 ? "is" : "are"} disputed - some
           published lists flag {contested === 1 ? "it" : "them"}, others don&apos;t.
         </Text>
       ) : null}

@@ -97,7 +97,7 @@ export default function Browse() {
             <Text className="text-[11.5px] text-ink-muted">
               {personalized
                 ? `Ranked for ${profileSummary(profile).toLowerCase()}`
-                : "No profile yet — showing unsorted results"}
+                : "No profile yet - showing unsorted results"}
             </Text>
           </View>
         </View>
@@ -157,7 +157,7 @@ export default function Browse() {
         <View className="absolute inset-x-0 bottom-0 border-t border-hairline bg-surface p-4">
           <PrimaryButton
             label={`Compare ${compareIds.length} selected${
-              compareIds.length === 1 ? " — pick one more" : ""
+              compareIds.length === 1 ? " - pick one more" : ""
             }`}
             onPress={() => router.push("/compare")}
           />

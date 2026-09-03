@@ -83,7 +83,7 @@ export function ProfilePill({ summary }: { summary: string }) {
           style={{ fontSize: 9.5, lineHeight: 12.5 }}
           numberOfLines={2}
         >
-          {summary || "No profile yet — tap to start"}
+          {summary || "No profile yet - tap to start"}
         </Text>
       </View>
       <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">

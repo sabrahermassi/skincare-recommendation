@@ -78,7 +78,7 @@ export function ScoreRing({
 
       <View className="items-center justify-center">
         {score === null ? (
-          <Text className="font-bold text-lg text-ink">—</Text>
+          <Text className="font-bold text-lg text-ink">-</Text>
         ) : (
           <Text
             className="font-bold tabular-nums text-ink"

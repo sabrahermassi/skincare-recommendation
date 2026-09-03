@@ -130,7 +130,7 @@ export default function Compare() {
                 <View className="mt-3 gap-2 border-t border-hairline pt-3">
                   <Row
                     label="Match"
-                    value={score === null ? "—" : `${score}%`}
+                    value={score === null ? "-" : `${score}%`}
                     className={tone ? TONE_TEXT[tone] : "text-ink"}
                   />
                   <Row label="Size" value={product.volume} />
@@ -164,7 +164,20 @@ export default function Compare() {
       </ScrollView>
 
       <View className="border-t border-hairline bg-surface px-4 pb-8 pt-4">
-        <PrimaryButton variant="outline" size={50} label="Clear comparison" onPress={clearCompare} />
+        <PrimaryButton
+          variant="outline"
+          size={50}
+          label="Clear comparison"
+          onPress={() => {
+            // Clearing used to leave you looking at this same screen's own
+            // "nothing selected" state, with a link back to browse buried in
+            // it — a dead end dressed up as a result. Clearing the tray and
+            // having nothing left to compare means the natural next stop is
+            // the product list, so go there directly.
+            clearCompare();
+            router.replace("/");
+          }}
+        />
       </View>
     </View>
   );

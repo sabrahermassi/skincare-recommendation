@@ -4,9 +4,12 @@ import { Pressable, View } from "react-native";
 import { Text } from "@/components/Text";
 
 import type { ProductWithIngredients } from "@/data/types";
+import { COLORS } from "@/lib/colors";
 import { matchTone, type MatchResult } from "@/lib/matching";
 import { flaggedIngredients } from "@/lib/safety";
+import { useAppStore } from "@/store/useAppStore";
 import { BottleIcon } from "./BottleIcon";
+import { CompareIcon } from "./icons";
 
 /**
  * One product in the browse list.
@@ -40,6 +43,10 @@ export function ProductRow({
   /** Drops the divider — the scanner's shelf card draws its own border. */
   last?: boolean;
 }) {
+  const compareIds = useAppStore((s) => s.compareIds);
+  const toggleCompare = useAppStore((s) => s.toggleCompare);
+  const inCompare = compareIds.includes(product.id);
+
   const total = product.ingredients.length;
   const flagged = flaggedIngredients(product.ingredients).length;
   const tone = match.score === null ? null : matchTone(match.score);
@@ -100,6 +107,26 @@ export function ProductRow({
             </View>
           </View>
         ) : null}
+
+        {/* Compare used to be reachable only from inside a product's own
+            page, one at a time — you couldn't pick a second product to
+            compare against without leaving the list to go find it. Nested
+            inside the row's own Link the same way Saved's "Remove" button
+            is: the touch that lands on this circle is consumed here, not
+            passed up to the row's navigation. */}
+        <Pressable
+          onPress={() => toggleCompare(product.id)}
+          hitSlop={8}
+          accessibilityRole="checkbox"
+          accessibilityLabel={inCompare ? "Remove from comparison" : "Add to comparison"}
+          accessibilityState={{ checked: inCompare }}
+          style={{ width: 30, height: 30 }}
+          className={`items-center justify-center rounded-full border ${
+            inCompare ? "border-accent bg-tint-lilac" : "border-hairline bg-canvas"
+          }`}
+        >
+          <CompareIcon size={14} color={inCompare ? COLORS.accentText : COLORS.inkMuted} />
+        </Pressable>
       </Pressable>
     </Link>
   );

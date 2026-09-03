@@ -402,6 +402,8 @@ export default function Scan() {
           })}
         </View>
 
+        {status.kind === "missed" && <UnknownProductNote barcode={status.code} />}
+
         <Recents history={history} />
 
         <Pressable onPress={() => router.push("/scan-label")} className="items-center px-5 pt-4">
@@ -413,6 +415,75 @@ export default function Scan() {
           </Text>
         </Pressable>
       </ScrollView>
+    </View>
+  );
+}
+
+/**
+ * A tiny way to say "I know what this is" after a barcode comes back empty.
+ *
+ * Nothing writes to the catalogue from here — every ingredient and product
+ * table only accepts writes from the service role
+ * (`supabase/migrations/0001_catalogue.sql`), and there is no endpoint yet
+ * that takes a name from a stranger and turns it into a trusted row. What
+ * this genuinely does is keep the name on the device, the same way
+ * `savedIngredients` does, rather than losing it the moment the camera moves
+ * on. The copy says exactly that — "saved on your phone" — instead of
+ * implying it reached anyone, which would be the fabricated-promise problem
+ * this app avoids everywhere else.
+ */
+function UnknownProductNote({ barcode }: { barcode: string }) {
+  const submitted = useAppStore((s) =>
+    s.productSuggestions.some((p) => p.barcode === barcode)
+  );
+  const submit = useAppStore((s) => s.submitProductSuggestion);
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+
+  if (submitted) {
+    return (
+      <View style={{ paddingHorizontal: 26, paddingTop: 10 }}>
+        <Text className="text-center text-xs text-ink-muted">
+          Saved on your phone — thanks for helping fill in what we&apos;re missing.
+        </Text>
+      </View>
+    );
+  }
+
+  if (!open) {
+    return (
+      <Pressable onPress={() => setOpen(true)} className="items-center px-5 pt-2">
+        <Text className="text-xs text-ink-muted">
+          Know what this is?{" "}
+          <Text className="font-semibold text-accent-text underline">
+            Tell us its name
+          </Text>
+        </Text>
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={{ paddingHorizontal: 26, paddingTop: 10, gap: 8 }}>
+      <TextInput
+        value={name}
+        onChangeText={setName}
+        placeholder="Brand and product name"
+        placeholderTextColor={COLORS.inkFaint}
+        autoFocus
+        className="rounded-control border border-hairline bg-surface px-4 py-3 text-[13px] text-ink"
+      />
+      <Pressable
+        onPress={() => {
+          if (name.trim().length === 0) return;
+          submit(barcode, name.trim());
+        }}
+        disabled={name.trim().length === 0}
+        style={{ height: 44, opacity: name.trim().length === 0 ? 0.5 : 1 }}
+        className="items-center justify-center rounded-control bg-accent px-6 active:bg-accent-deep"
+      >
+        <Text className="text-[13.5px] font-semibold text-white">Save the name</Text>
+      </Pressable>
     </View>
   );
 }
@@ -516,7 +587,7 @@ function SearchPane() {
               style={{ color: "rgba(250,247,243,0.6)", lineHeight: 17 }}
               className="text-center text-xs"
             >
-              Search the catalogue by product or brand — type two letters to
+              Search the catalogue by product or brand - type two letters to
               start. Use this when a barcode won&apos;t scan.
             </Text>
           </View>
@@ -587,7 +658,7 @@ function PastePane() {
       <TextInput
         value={text}
         onChangeText={setText}
-        placeholder="Paste the ingredient list here — water, glycerin, niacinamide…"
+        placeholder="Paste the ingredient list here - water, glycerin, niacinamide…"
         placeholderTextColor="rgba(253,251,249,0.45)"
         multiline
         textAlignVertical="top"
@@ -605,7 +676,7 @@ function PastePane() {
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
         <Text style={{ color: "rgba(250,247,243,0.6)", flex: 1 }} className="text-[11px]">
           {text.trim().length === 0
-            ? "Copy it from anywhere — we read it on your phone."
+            ? "Copy it from anywhere - we read it on your phone."
             : `${parsed.length} ingredient${parsed.length === 1 ? "" : "s"} found`}
         </Text>
         <Pressable

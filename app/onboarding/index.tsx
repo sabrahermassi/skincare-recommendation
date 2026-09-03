@@ -76,6 +76,11 @@ export default function Welcome() {
           >
             Find the right product for your skin
           </Text>
+          {/* Two short sentences, each its own line — one line each reads
+              faster than the same words wrapped as a single flowing
+              paragraph, and centred text wraps unpredictably depending on
+              device width, which used to break the sentence in an
+              arbitrary place instead of a chosen one. */}
           <Text
             style={{
               textAlign: "center",
@@ -84,9 +89,9 @@ export default function Welcome() {
               color: "#8C8592",
             }}
           >
-            Four quick questions about your skin. Then scan any product to see
-            how well it matches — including the ingredients that don&apos;t
-            suit you.
+            Four quick questions about your skin.{"\n"}
+            Scan any product to see how well it matches - including the
+            ingredients that don&apos;t suit you.
           </Text>
         </View>
       </View>

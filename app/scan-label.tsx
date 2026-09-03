@@ -47,6 +47,24 @@ export default function ScanLabel() {
 
       const result = await analyseLabel(photo.base64, { barcode });
 
+      // The server's "did we find enough text to try" check happens before it
+      // knows whether any of that text is actually an ingredient. A photo of
+      // something else entirely — a wall, a receipt, a face — can still clear
+      // that bar if the OCR returns a handful of comma-separated words, and
+      // this is what let a random photo through to a product screen showing
+      // "Can't tell yet" instead of an honest failure: recognising literally
+      // nothing is not a product, it's a label we couldn't read, and it
+      // deserves the same message as one, not a page that looks like a scan
+      // succeeded.
+      if (result.ok && (result.total === 0 || result.recognised === 0)) {
+        setStatus({
+          kind: "failed",
+          message: "That doesn't look like an ingredient list.",
+          hint: "Make sure the ingredient panel fills the frame, then try again.",
+        });
+        return;
+      }
+
       if (result.ok) {
         router.replace({ pathname: "/result/[id]", params: { id: result.product.id } });
         return;
@@ -57,7 +75,7 @@ export default function ScanLabel() {
       setStatus({
         kind: "failed",
         message: "Something went wrong reading that.",
-        hint: "Try again — and check you have a connection.",
+        hint: "Try again - and check you have a connection.",
       });
     }
   }

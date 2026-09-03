@@ -6,7 +6,6 @@ import Svg, { Path } from "react-native-svg";
 import { Text } from "@/components/Text";
 
 import { BottleIcon } from "@/components/BottleIcon";
-import { PoreCloggingList } from "@/components/PoreCloggingList";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { CompareIcon, HeartIcon } from "@/components/icons";
@@ -138,8 +137,8 @@ export default function ProductScreen() {
     if (!product) return;
     const line =
       match.score === null
-        ? `${product.brand} ${product.name} — checked on Skintel`
-        : `${product.brand} ${product.name} — ${match.score}/100 for my skin, on Skintel`;
+        ? `${product.brand} ${product.name} - checked on Skintell`
+        : `${product.brand} ${product.name} - ${match.score}/100 for my skin, on Skintell`;
     try {
       await Share.share({ message: line });
     } catch (err) {
@@ -246,21 +245,26 @@ export default function ProductScreen() {
         </View>
 
         {/* Two boxes, directly under the score: the only two risks the screen
-            states as a verdict. Everything below them is detail on those two,
-            never a second opinion about them. */}
-        <RiskCards product={product} match={match} />
-
-        {/* Which ones. Renders only when there is something to name. */}
-        <PoreCloggingList
-          ingredients={product.ingredients}
-          onPress={
-            product.ingredients.length > 0
-              ? () =>
-                  router.push({
-                    pathname: "/ingredients/[id]",
-                    params: { id: product.id, tab: "Pore clogging" },
-                  })
-              : undefined
+            states as a verdict. Each one is a button when it has something to
+            show — tap it to see exactly which ingredients are behind it,
+            rather than repeating the list on this screen too. Irritation
+            routes to Watch-outs (the same "not good for you" set the pore
+            card would otherwise duplicate); pore-clogging routes to its own
+            tab. */}
+        <RiskCards
+          product={product}
+          match={match}
+          onIrritationPress={() =>
+            router.push({
+              pathname: "/ingredients/[id]",
+              params: { id: product.id, tab: "Watch-outs" },
+            })
+          }
+          onPorePress={() =>
+            router.push({
+              pathname: "/ingredients/[id]",
+              params: { id: product.id, tab: "Pore clogging" },
+            })
           }
         />
 
@@ -318,7 +322,7 @@ export default function ProductScreen() {
         */}
         <View style={{ marginHorizontal: 24, marginTop: 30, marginBottom: 8 }}>
           <Text className="text-[10.5px] leading-[15px] text-ink-faint">
-            Based on your skin profile and public ingredient data — not medical
+            Based on your skin profile and public ingredient data - not medical
             advice. Formulas change and label data can be out of date, so check
             the packaging for anything that matters.
           </Text>

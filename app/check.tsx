@@ -60,7 +60,7 @@ export default function CheckScreen() {
         <ScreenHeader title="Ingredient check" />
         <View className="flex-1 items-center justify-center gap-4 px-8">
           <Text className="text-center text-[13px] leading-[19px] text-ink-muted">
-            Nothing to check — paste an ingredient list on the Scan tab and it
+            Nothing to check - paste an ingredient list on the Scan tab and it
             will show up here.
           </Text>
           <PrimaryButton label="Back to scanning" onPress={() => router.replace("/scan")} />
@@ -100,7 +100,7 @@ export default function CheckScreen() {
         <Text className="px-6 pt-6 text-[11px] leading-[16px] text-ink-faint">
           Ingredients are listed in order of concentration, so what is near the
           top matters more than what is near the bottom. A pasted list is not
-          saved to your shelf — it has no product attached to it.
+          saved to your shelf - it has no product attached to it.
         </Text>
       </ScrollView>
     </View>
@@ -129,7 +129,7 @@ function PastedRow({ ingredient, position }: { ingredient: Ingredient; position:
         </Text>
         {unknown ? (
           <Text className="text-[11px] text-ink-faint">
-            Not in our dictionary — we can&apos;t assess this one
+            Not in our dictionary - we can&apos;t assess this one
           </Text>
         ) : null}
       </View>

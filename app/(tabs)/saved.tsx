@@ -112,7 +112,7 @@ export default function Saved() {
         savedIds.length === 0 ? (
           <EmptyState
             title="Nothing saved yet"
-            body="Tap Save on any product and it will wait for you here — including next time you open the app."
+            body="Tap Save on any product and it will wait for you here - including next time you open the app."
           />
         ) : (
           <ScrollView contentContainerStyle={{ gap: 16, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 32 }}>

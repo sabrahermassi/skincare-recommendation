@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
 
@@ -87,11 +88,43 @@ export default function ProfileScreen() {
   const atLimit = draft.concerns.length >= MAX_CONCERNS;
   const summary = profileSummary(draft);
 
+  // Profile is a tab, so it normally has no back arrow — that's the right
+  // default for the tab bar. But the profile pill on Scan and Browse also
+  // pushes straight to it, and from there landing with no way back except
+  // "remember which tab you started on" is a dead end. `canGoBack` tells the
+  // two cases apart: true when we arrived via the pill's push, false when we
+  // arrived by tapping the Profile tab itself — in which case there's nothing
+  // to go back *to*, so the arrow falls back to Browse instead of erroring.
+  function goBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace("/");
+  }
+
   return (
     <View className="flex-1 bg-canvas">
+      <View style={{ paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: 2 }}>
+        <Pressable
+          onPress={goBack}
+          hitSlop={14}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          style={{ width: 21 }}
+        >
+          <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="m15 5-7 7 7 7"
+              stroke="#453F4E"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </Pressable>
+      </View>
+
       <ScrollView
         contentContainerClassName="px-5 pb-40"
-        contentContainerStyle={{ paddingTop: insets.top + 14, gap: 18 }}
+        contentContainerStyle={{ paddingTop: 8, gap: 18 }}
       >
         <View style={{ gap: 13 }} className="flex-row items-center">
           <Avatar size={52} />
@@ -214,7 +247,7 @@ export default function ProfileScreen() {
           className="items-center py-1"
         >
           <Text className="text-xs font-medium text-status-avoid underline">
-            Start over — erase my profile, shelf and history
+            Start over - erase my profile, shelf and history
           </Text>
         </Pressable>
       </ScrollView>

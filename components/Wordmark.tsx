@@ -5,19 +5,28 @@ import { Text } from "@/components/Text";
 import { COLORS } from "@/lib/colors";
 
 /**
- * "SkinTel", drawn rather than typed: the S and T are set larger than the stem
- * letters, which is the whole of the logotype. It appears on Welcome, Browse
- * and the Scanner at three sizes, and was written out by hand in each — so the
+ * "SkinTell", drawn rather than typed: the S and T are set larger than the
+ * stem letters, which is the whole of the logotype. Renamed from "SkinTel" —
+ * one L read too close to "telephone" — so this is the second spelling this
+ * mark has carried; the drawing convention (oversized S/T, everything else
+ * this component's own doc talks about) is unaffected by which word it
+ * spells. It appears on Welcome, Browse and the Scanner at three sizes, and
+ * was written out by hand in each before this component existed, so the
  * three had drifted to different proportions and different colours.
  */
 export function Wordmark({ size = 31 }: { size?: number }) {
   return (
     <Text
-      className="font-display leading-none text-[#463F57]"
-      style={{ fontSize: size, letterSpacing: size * -0.011 }}
+      className="font-display text-[#463F57]"
+      // `leading-none` set the line height to 1x the *outer* font size — no
+      // room for the S and T, which render at 1.19x that. Every S and T on
+      // every screen this appears on was clipped along the top edge. The
+      // line height has to be sized off the larger nested glyph, with a
+      // little headroom, not off the smaller stem-letter size around it.
+      style={{ fontSize: size, letterSpacing: size * -0.011, lineHeight: size * 1.32 }}
     >
       <Text style={{ fontSize: size * 1.19 }}>S</Text>kin
-      <Text style={{ fontSize: size * 1.19 }}>T</Text>el
+      <Text style={{ fontSize: size * 1.19 }}>T</Text>ell
     </Text>
   );
 }

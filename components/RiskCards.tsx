@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
@@ -23,20 +23,30 @@ const RISK_TONE = {
   neutral: { box: "border-hairline bg-level-neutral-tint", ink: "text-level-neutral-ink" },
 } as const;
 
-type Risk = { level: string; note: string; tone: keyof typeof RISK_TONE };
+type Risk = { level: string; note: string; tone: keyof typeof RISK_TONE; hasEntries: boolean };
 
 export function RiskCards({
   product,
   match,
+  onIrritationPress,
+  onPorePress,
 }: {
   product: ProductWithIngredients;
   match: MatchResult;
+  /** Opens the ingredient list filtered to what's driving irritation risk. */
+  onIrritationPress?: () => void;
+  /** Opens the ingredient list filtered to the pore-clogging ingredients. */
+  onPorePress?: () => void;
 }) {
+  const irritation = irritationRisk(product, match);
+  const pore = poreRisk(product);
+
   return (
     <View style={{ flexDirection: "row", gap: 12, paddingHorizontal: 24, paddingTop: 14 }}>
       <RiskCard
         title="Irritation risk"
-        {...irritationRisk(product, match)}
+        {...irritation}
+        onPress={irritation.hasEntries ? onIrritationPress : undefined}
         icon={
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
             <Path
@@ -51,7 +61,8 @@ export function RiskCards({
       />
       <RiskCard
         title="Pore-clogging risk"
-        {...poreRisk(product)}
+        {...pore}
+        onPress={pore.hasEntries ? onPorePress : undefined}
         icon={
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
             <Circle cx={8} cy={8} r={1.4} stroke="#6D9A7E" strokeWidth={1.7} />
@@ -71,15 +82,22 @@ function RiskCard({
   level,
   note,
   tone,
-}: Risk & { title: string; icon: React.ReactNode }) {
+  onPress,
+}: Risk & { title: string; icon: React.ReactNode; onPress?: () => void }) {
   const style = RISK_TONE[tone];
   return (
-    <View
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityLabel={onPress ? `${title}: ${level}. See the ingredients.` : undefined}
       // Everything left-aligned on one axis and vertically centred as a block.
       // The title used to be a two-line string with a hard break in it, which
       // put the icon beside line one and the verdict adrift below both.
       style={{ flex: 1, gap: 8, paddingHorizontal: 15, paddingVertical: 15 }}
-      className={`justify-center rounded-control border ${style.box}`}
+      className={`justify-center rounded-control border ${style.box} ${
+        onPress ? "active:opacity-70" : ""
+      }`}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         {icon}
@@ -97,7 +115,7 @@ function RiskCard({
           {note}
         </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -113,16 +131,33 @@ function irritationRisk(product: ProductWithIngredients, match: MatchResult): Ri
   const personal = match.warnings.length;
 
   if (product.ingredients.length === 0) {
-    return { level: "Unknown", note: "Label not read yet", tone: "neutral" };
+    return { level: "Unknown", note: "Label not read yet", tone: "neutral", hasEntries: false };
   }
   if (personal > 0) {
-    return { level: "Elevated", note: `${personal} flagged for your skin`, tone: "avoid" };
+    return {
+      level: "Elevated",
+      note: `${personal} flagged for your skin`,
+      tone: "avoid",
+      hasEntries: true,
+    };
   }
-  if (restricted === 0) return { level: "Low", note: "Nothing restricted", tone: "good" };
+  if (restricted === 0) {
+    return { level: "Low", note: "Nothing restricted", tone: "good", hasEntries: false };
+  }
   if (restricted <= 2) {
-    return { level: "Moderate", note: `${restricted} restricted entries`, tone: "watch" };
+    return {
+      level: "Moderate",
+      note: `${restricted} restricted entries`,
+      tone: "watch",
+      hasEntries: true,
+    };
   }
-  return { level: "Elevated", note: `${restricted} restricted entries`, tone: "avoid" };
+  return {
+    level: "Elevated",
+    note: `${restricted} restricted entries`,
+    tone: "avoid",
+    hasEntries: true,
+  };
 }
 
 /**
@@ -144,18 +179,26 @@ function poreRisk(product: ProductWithIngredients): Risk {
       level: "Unknown",
       note: verdict.total === 0 ? "Label not read yet" : "Too little recognised",
       tone: "neutral",
+      hasEntries: false,
     };
   }
   if (verdict.kind === "clean") {
-    return { level: "Low", note: "Nothing flagged", tone: "good" };
+    return { level: "Low", note: "Nothing flagged", tone: "good", hasEntries: false };
   }
 
+  // Every branch below is `verdict.kind === "hits"` — there is something to
+  // name, even the contested-only case, so the card is clickable throughout.
   const { hits, warned } = verdict;
   if (warned.length === 0) {
-    return { level: "Contested", note: `${hits.length} sources disagree on`, tone: "neutral" };
+    return {
+      level: "Contested",
+      note: `${hits.length} sources disagree on`,
+      tone: "neutral",
+      hasEntries: true,
+    };
   }
   if (warned.some((h: CloggerHit) => h.confidence === "high")) {
-    return { level: "Elevated", note: `${warned.length} on the lists`, tone: "avoid" };
+    return { level: "Elevated", note: `${warned.length} on the lists`, tone: "avoid", hasEntries: true };
   }
-  return { level: "Moderate", note: `${warned.length} on the lists`, tone: "watch" };
+  return { level: "Moderate", note: `${warned.length} on the lists`, tone: "watch", hasEntries: true };
 }

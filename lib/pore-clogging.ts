@@ -94,7 +94,7 @@ export const PORE_CLOGGERS: CloggerEntry[] = [
     ],
     confidence: "high",
     reason:
-      "Coconut oil is the most consistently reported pore-clogger on every published list — it is high in lauric acid, which sits in the follicle rather than absorbing",
+      "Coconut oil is the most consistently reported pore-clogger on every published list - it is high in lauric acid, which sits in the follicle rather than absorbing",
   },
   {
     names: ["lauric acid"],
@@ -114,7 +114,7 @@ export const PORE_CLOGGERS: CloggerEntry[] = [
     names: [/^isopropyl (myristate|palmitate|isostearate|linoleate|lanolate)$/],
     confidence: "high",
     reason:
-      "Isopropyl fatty esters are among the most reliably comedogenic entries in the original testing — they are used precisely because they sink into the follicle",
+      "Isopropyl fatty esters are among the most reliably comedogenic entries in the original testing - they are used precisely because they sink into the follicle",
   },
   {
     names: [/^myristyl (myristate|lactate|propionate)$/],
@@ -142,7 +142,7 @@ export const PORE_CLOGGERS: CloggerEntry[] = [
     ],
     confidence: "moderate",
     reason:
-      "A heavy synthetic emollient ester — this family sits on the skin rather than absorbing, and appears across the published lists",
+      "A heavy synthetic emollient ester - this family sits on the skin rather than absorbing, and appears across the published lists",
   },
   {
     names: [/^(ethylhexyl|octyl) (palmitate|stearate)$/],
@@ -167,7 +167,7 @@ export const PORE_CLOGGERS: CloggerEntry[] = [
     names: ["glyceryl stearate se"],
     confidence: "moderate",
     reason:
-      "The self-emulsifying grade specifically — plain glyceryl stearate is not flagged, and the two are easy to confuse on a label",
+      "The self-emulsifying grade specifically - plain glyceryl stearate is not flagged, and the two are easy to confuse on a label",
   },
   {
     names: [/^steareth-(10|20)$/],
@@ -230,7 +230,7 @@ export const PORE_CLOGGERS: CloggerEntry[] = [
     ],
     confidence: "moderate",
     reason:
-      "A heavier vegetable oil from the group the published lists flag — generally rated mild to moderate rather than severe",
+      "A heavier vegetable oil from the group the published lists flag - generally rated mild to moderate rather than severe",
   },
   {
     names: ["avocado oil", /^persea gratissima/, "olive oil", /^olea europaea/, "mink oil"],
@@ -241,7 +241,7 @@ export const PORE_CLOGGERS: CloggerEntry[] = [
     names: ["squalene"],
     confidence: "moderate",
     reason:
-      "Squalene, not squalane — the unsaturated form oxidises readily and is implicated in comedone formation. The hydrogenated version (squalane) is not flagged",
+      "Squalene, not squalane - the unsaturated form oxidises readily and is implicated in comedone formation. The hydrogenated version (squalane) is not flagged",
   },
   {
     names: ["shea butter", /^butyrospermum parkii/, "argan oil", /^argania spinosa/, "marula oil"],
@@ -266,7 +266,7 @@ export const PORE_CLOGGERS: CloggerEntry[] = [
     names: [/^(cetyl|stearyl|cetearyl|behenyl) alcohol$/],
     confidence: "contested",
     reason:
-      "Fatty alcohols appear on some lists and are cleared by dermatology sources as non-drying emollients — included so the disagreement is visible",
+      "Fatty alcohols appear on some lists and are cleared by dermatology sources as non-drying emollients - included so the disagreement is visible",
   },
 
   // ── Colourants ────────────────────────────────────────────────────────────

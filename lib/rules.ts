@@ -83,7 +83,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: ["glycerin", "glycerol"],
     category: "hydration",
     helps: { concerns: ["dehydrated"], skinTypes: ["dry"] },
-    reason: "Glycerin draws water into the skin — the most evidenced humectant there is",
+    reason: "Glycerin draws water into the skin - the most evidenced humectant there is",
     weight: 8,
   },
   {
@@ -105,7 +105,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: ["panthenol", "dexpanthenol", "d-panthenol"],
     category: "barrier",
     helps: { concerns: ["redness", "atopic"], sensitive: true },
-    reason: "Panthenol soothes and supports barrier repair — well tolerated on reactive skin",
+    reason: "Panthenol soothes and supports barrier repair - well tolerated on reactive skin",
     weight: 7,
   },
 
@@ -176,7 +176,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: ["caprylic/capric triglyceride", "caprylic capric triglyceride", "tricaprylin"],
     category: "barrier",
     helps: { skinTypes: ["dry"] },
-    reason: "A light coconut-derived emollient — softens without much weight",
+    reason: "A light coconut-derived emollient - softens without much weight",
     weight: 5,
   },
   {
@@ -185,14 +185,14 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     helps: { skinTypes: ["dry"] },
     hurts: { concerns: ["acne-prone"] },
     reason:
-      "A fatty alcohol — softening rather than drying, despite the name, but rich on congestion-prone skin",
+      "A fatty alcohol - softening rather than drying, despite the name, but rich on congestion-prone skin",
     weight: 4,
   },
   {
     names: ["butylene glycol", "propanediol", "pentylene glycol", "1,2-hexanediol", "dipropylene glycol"],
     category: "hydration",
     helps: { concerns: ["dehydrated"] },
-    reason: "A humectant solvent — carries actives and holds a little water in the skin",
+    reason: "A humectant solvent - carries actives and holds a little water in the skin",
     // Measured at 100 of 104 real products, the single most common family in
     // the catalogue — formulas routinely carry two or three of them at once,
     // each scored separately by position. At weight 4 that stacks to roughly
@@ -213,7 +213,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: ["fructooligosaccharides", "xylitol", "rhamnose", "inulin", "alpha-glucan oligosaccharide"],
     category: "soothing",
     helps: { sensitive: true, concerns: ["atopic"] },
-    reason: "A prebiotic sugar — feeds the skin's own flora rather than acting on the skin directly",
+    reason: "A prebiotic sugar - feeds the skin's own flora rather than acting on the skin directly",
     weight: 4,
   },
   {
@@ -279,7 +279,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
       concerns: ["large-pores", "hyperpigmentation", "redness", "atopic"],
       skinTypes: ["oily", "combination"],
     },
-    reason: "Niacinamide moderates oil, evens tone and strengthens the barrier — unusually versatile",
+    reason: "Niacinamide moderates oil, evens tone and strengthens the barrier - unusually versatile",
     weight: 10,
   },
   {
@@ -287,7 +287,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     category: "pore-clogging",
     helps: { concerns: ["acne-prone", "large-pores"], skinTypes: ["oily"] },
     hurts: { sensitive: true, skinTypes: ["dry"] },
-    reason: "Salicylic acid clears pores from the inside — effective on congestion, drying on dry or reactive skin",
+    reason: "Salicylic acid clears pores from the inside - effective on congestion, drying on dry or reactive skin",
     weight: 10,
   },
   {
@@ -375,7 +375,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     ],
     category: "fragrance",
     hurts: { sensitive: true, concerns: ["atopic"] },
-    reason: "An EU-labelled fragrance allergen — declared precisely because it sensitises some people",
+    reason: "An EU-labelled fragrance allergen - declared precisely because it sensitises some people",
     weight: 6,
   },
   {
@@ -385,7 +385,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     ],
     category: "fragrance",
     hurts: { sensitive: true, concerns: ["redness", "atopic"] },
-    reason: "Volatile essential oil — pleasant, but a frequent irritant on reactive skin",
+    reason: "Volatile essential oil - pleasant, but a frequent irritant on reactive skin",
     weight: 7,
   },
   {
@@ -399,7 +399,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: ["sodium lauryl sulfate", "ammonium lauryl sulfate"],
     category: "irritants",
     hurts: { skinTypes: ["dry"], sensitive: true, concerns: ["atopic"] },
-    reason: "A harsh primary surfactant — the standard irritant control in patch testing",
+    reason: "A harsh primary surfactant - the standard irritant control in patch testing",
     weight: 8,
   },
   {

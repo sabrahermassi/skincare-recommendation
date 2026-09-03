@@ -58,7 +58,7 @@ export default function ConcernsStep() {
 
       <Text className="mt-4 text-xs text-ink-faint">
         {atLimit
-          ? `${MAX} chosen — deselect one to swap.`
+          ? `${MAX} chosen - deselect one to swap.`
           : `${concerns.length} of ${MAX} chosen.`}
       </Text>
     </QuizStep>

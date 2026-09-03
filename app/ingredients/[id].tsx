@@ -1,7 +1,8 @@
+import * as Clipboard from "expo-clipboard";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
-import Svg, { Circle, Path } from "react-native-svg";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
@@ -46,6 +47,39 @@ function rungFor(ingredient: Ingredient, match: MatchResult): Rung {
   return tone === "flag" ? "avoid" : tone;
 }
 
+/**
+ * Copy / copied — one icon, two states, so tapping it doesn't need a toast
+ * the rest of this app has no component for. The check holds for 1.5s, long
+ * enough to register as confirmation without needing a dismiss.
+ */
+function CopyIcon({ copied }: { copied: boolean }) {
+  if (copied) {
+    return (
+      <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="m5 12.6 4.6 4.6L19 6.8"
+          stroke="#4B7A5E"
+          strokeWidth={2.2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    );
+  }
+  return (
+    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+      <Rect x={8.5} y={8.5} width={11} height={11} rx={2.2} stroke="#453F4E" strokeWidth={1.7} />
+      <Path
+        d="M15 8.5V6.7a2.2 2.2 0 0 0-2.2-2.2H6.7a2.2 2.2 0 0 0-2.2 2.2v6.1a2.2 2.2 0 0 0 2.2 2.2h1.8"
+        stroke="#453F4E"
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export default function IngredientList() {
   // `tab` arrives from the product screen's pore-clogging list, which deep
   // links straight into the filtered view rather than dropping you on "All"
@@ -56,6 +90,7 @@ export default function IngredientList() {
   const [tab, setTab] = useState<Tab>(
     TABS.includes(initialTab as Tab) ? (initialTab as Tab) : "All"
   );
+  const [copied, setCopied] = useState(false);
 
   const profile = useAppStore((s) => s.profile);
 
@@ -109,9 +144,34 @@ export default function IngredientList() {
   const total = product.ingredients.length;
   const cloggerCount = poreCloggingHits(product.ingredients).length;
 
+  // Plain, comma-separated names in label order — the format someone would
+  // paste straight into a second app to compare by hand, which is the actual
+  // point: this app's own verdict is one tap away already, so the only reason
+  // to copy the list is to check it against something else.
+  async function copyList() {
+    if (!product || product.ingredients.length === 0) return;
+    await Clipboard.setStringAsync(product.ingredients.map((i) => i.name).join(", "));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
   return (
     <View className="flex-1 bg-canvas">
-      <ScreenHeader title="Ingredients" />
+      <ScreenHeader
+        title="Ingredients"
+        right={
+          total > 0 ? (
+            <Pressable
+              onPress={copyList}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={copied ? "Ingredient list copied" : "Copy ingredient list"}
+            >
+              <CopyIcon copied={copied} />
+            </Pressable>
+          ) : undefined
+        }
+      />
 
       <ScrollView contentContainerClassName="pb-4">
         {/* Scrolls rather than dividing the width four ways: at flex-1 the
@@ -164,7 +224,7 @@ export default function IngredientList() {
 
         {visible.length === 0 ? (
           <Text className="bg-surface py-10 text-center text-sm text-ink-muted">
-            Nothing in this group — which is good news.
+            Nothing in this group - which is good news.
           </Text>
         ) : (
           visible.map((ingredient) => (
@@ -223,11 +283,11 @@ function IngredientListRow({
   // someone opened this screen), a curated rule, the row's own note, then the
   // regulator's declared function list.
   const subtitle = !isVerified(ingredient)
-    ? "Not recognised — we can't assess this one"
+    ? "Not recognised - we can't assess this one"
     : clogs
       ? "On the published pore-clogging lists"
       : rule
-        ? rule.reason.split("—")[0].trim()
+        ? rule.reason.split(" - ")[0].trim()
         : (ingredient.note ?? functionLabel(ingredient));
 
   return (

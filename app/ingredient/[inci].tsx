@@ -199,7 +199,7 @@ export default function IngredientDetail() {
       : null,
     verified && ingredient.comedogenic > 0 ? comedogenicLabel(ingredient.comedogenic) : null,
     position !== null
-      ? `#${position} of ${total} on the label — ${positionWeightLabel(index)}`
+      ? `#${position} of ${total} on the label - ${positionWeightLabel(index)}`
       : null,
     rule?.hurts?.sensitive ? "Our rules flag this as a common irritant for sensitive skin" : null,
   ].filter((n): n is string => n !== null);
