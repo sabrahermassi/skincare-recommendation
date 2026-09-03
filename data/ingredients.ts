@@ -12,7 +12,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     name: "Glycerin",
     comedogenic: 0,
     safety: "safe",
-    note: "Humectant — pulls moisture into the skin.",
+    note: "Humectant - pulls moisture into the skin.",
   },
   "niacinamide": {
     id: "niacinamide",
@@ -89,7 +89,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     name: "Cocos Nucifera (Coconut) Oil",
     comedogenic: 4,
     safety: "caution",
-    note: "Highly pore-clogging — risky for acne-prone skin.",
+    note: "Highly pore-clogging - risky for acne-prone skin.",
   },
   "isopropyl-myristate": {
     id: "isopropyl-myristate",
@@ -103,7 +103,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     name: "Cetearyl Alcohol",
     comedogenic: 2,
     safety: "safe",
-    note: "Fatty alcohol — an emulsifier, not drying.",
+    note: "Fatty alcohol - an emulsifier, not drying.",
   },
   "shea-butter": {
     id: "shea-butter",

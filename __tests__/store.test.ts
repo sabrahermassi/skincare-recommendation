@@ -151,6 +151,7 @@ describe("what survives an app restart", () => {
       "hasSeenOnboarding",
       "history",
       "profile",
+      "savedIngredients",
       "savedProducts",
     ]);
 

@@ -1,13 +1,10 @@
 import "../global.css";
 
-import { Newsreader_400Regular, Newsreader_500Medium } from "@expo-google-fonts/newsreader";
 import {
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_500Medium,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
+  PlayfairDisplay_500Medium,
+  PlayfairDisplay_600SemiBold,
   useFonts,
-} from "@expo-google-fonts/plus-jakarta-sans";
+} from "@expo-google-fonts/playfair-display";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -19,13 +16,14 @@ import { useAppStore } from "@/store/useAppStore";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  // Body text no longer loads a custom font — it renders in the OS system
+  // font (see tailwind.config.js's `sans` family), so only the display face
+  // blocks startup now. This also means `ready` below settles faster on a
+  // cold start than it used to, since there's one font family to wait on
+  // instead of five.
   const [fontsLoaded] = useFonts({
-    Newsreader_400Regular,
-    Newsreader_500Medium,
-    PlusJakartaSans_400Regular,
-    PlusJakartaSans_500Medium,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
+    PlayfairDisplay_500Medium,
+    PlayfairDisplay_600SemiBold,
   });
 
   // Reading persisted state off disk is async, so on a cold start the store
@@ -57,7 +55,12 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
-          headerTitleStyle: { fontFamily: "PlusJakartaSans_600SemiBold", color: COLORS.ink },
+          // fontFamily is deliberately unset: the OS UI font is what the
+          // design asks for, and every platform renders it when nothing is
+          // named. Weight is carried by fontWeight, same as the `font-semibold`
+          // utilities elsewhere. See components/Text.tsx for why naming it
+          // (as `System`) was actively wrong.
+          headerTitleStyle: { fontWeight: "600", color: COLORS.ink },
           headerStyle: { backgroundColor: COLORS.surface },
           headerTintColor: COLORS.accentText,
           contentStyle: { backgroundColor: COLORS.canvas },
@@ -68,13 +71,19 @@ export default function RootLayout() {
         }}
       >
         {/* Titled as a fallback for anything that ignores the display mode. */}
-        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Skintel" }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Skintell" }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="product/[id]" options={{ title: "Product" }} />
-        {/* The verdict. Header title is set per-product by the screen itself. */}
-        <Stack.Screen name="result/[id]" options={{ title: "Result" }} />
-        <Stack.Screen name="ingredients/[id]" options={{ title: "Ingredients" }} />
-        <Stack.Screen name="ingredient/[inci]" options={{ title: "Ingredient" }} />
+        {/*
+          No native header on any of these. The design draws its own top row on
+          every pushed screen — back chevron on the canvas, screen-specific
+          actions on the right — and a system header above that was rendering a
+          second, competing title bar. `components/ScreenHeader` is that row.
+        */}
+        <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="result/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="ingredients/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="ingredient/[inci]" options={{ headerShown: false }} />
+        <Stack.Screen name="check" options={{ headerShown: false }} />
         <Stack.Screen
           name="scan-label"
           options={{ title: "Read the label", presentation: "modal" }}

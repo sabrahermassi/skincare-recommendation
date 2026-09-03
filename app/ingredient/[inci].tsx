@@ -1,35 +1,126 @@
-import { Stack, router, useLocalSearchParams } from "expo-router";
+import { Image } from "expo-image";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, ScrollView, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { fetchProduct } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
-import {
-  ingredientTone,
-  matchProduct,
-  positionWeightLabel,
-  ruleFor,
-  TONE_CLASS,
-} from "@/lib/matching";
+import { comedogenicLabel } from "@/lib/format";
+import { matchProduct, positionWeightLabel, ruleFor, rungFor, type Rung } from "@/lib/matching";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
- * Ingredient detail — screen 1b of the Skin Match Scanner design.
+ * Ingredient detail — screen 5 of the Skintel Screens design.
  *
- * The design's three stat cards were Hazard (EWG /10), Pore-clog (/5) and
- * Irritation. We hold none of those: there is no EWG licence, and CosIng —
- * a regulatory glossary — rates no ingredient for pore-clogging, so
- * `comedogenic` is NULL for all 31,817 rows.
+ * The design fills this screen with encyclopaedia copy: a written definition,
+ * a personalised verdict, and a list of things to know. We hold none of that
+ * as prose. What we do hold is the curated rule, the ingredient's own note,
+ * the CosIng function list, the EU regulatory status, the pore rating and the
+ * position in the formula — so the sections keep the design's shape and are
+ * filled from those.
  *
- * Rather than print plausible numbers, the cards show what we can actually
- * source: EU regulatory status, the ingredient's declared function, and
- * whether our own rules mark it as a problem for sensitive skin. Same shape,
- * same glanceability, nothing invented.
+ * Every section renders every time. An earlier pass gated all three on a
+ * curated rule existing, which is true for a few dozen ingredients out of
+ * ~31k — so for almost everything real the screen was a name and a pill above
+ * a blank page. Where a fact is genuinely missing, the section says so in a
+ * sentence rather than disappearing.
+ *
+ * The design's closing "See studies and evidence" card links out to PubChem's
+ * search for this exact name — a real, working source rather than the
+ * plausible-but-fake citation the mockup implies. Same reasoning for the
+ * header's star: it toggles `savedIngredients` in the store rather than
+ * sitting there as a tappable no-op.
  */
+
+const RUNG: Record<
+  Rung,
+  {
+    pill: string;
+    ink: string;
+    dot: string;
+    label: string;
+    panel: string;
+    /** The solid fill of the qualifier pill inside the verdict panel. */
+    chip: string;
+    hero: string;
+  }
+> = {
+  good: {
+    pill: "bg-level-good-tint",
+    ink: "text-level-good-ink",
+    dot: "bg-level-good",
+    label: "Good for you",
+    panel: "bg-panel-success border-panel-success-line",
+    chip: "#E7F1E9", // tailwind.config.js level.good.tint
+    hero: COLORS.levelGood,
+  },
+  watch: {
+    pill: "bg-level-watch-tint",
+    ink: "text-level-watch-ink",
+    dot: "bg-level-watch",
+    label: "Worth knowing",
+    panel: "bg-tint-peach border-tint-peach",
+    chip: "#FBEBD5", // tailwind.config.js level.watch.tint
+    hero: COLORS.levelWatch,
+  },
+  avoid: {
+    pill: "bg-level-avoid-tint",
+    ink: "text-level-avoid-ink",
+    dot: "bg-level-avoid",
+    label: "Flagged for you",
+    panel: "bg-tint-pink border-tint-pink",
+    chip: "#FBE2E7", // tailwind.config.js level.avoid.tint
+    hero: COLORS.levelAvoid,
+  },
+  neutral: {
+    pill: "bg-level-neutral-tint",
+    ink: "text-level-neutral-ink",
+    dot: "bg-level-neutral",
+    label: "Not recognised",
+    panel: "bg-hairline border-hairline",
+    chip: "#EFEBE6", // tailwind.config.js level.neutral.tint
+    hero: COLORS.levelNeutral,
+  },
+};
+
+
+function HeartIcon({ color }: { color: string }) {
+  return (
+    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 20.2s-7.6-4.7-7.6-9.7A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 7.6 2.8c0 5-7.6 9.7-7.6 9.7Z"
+        stroke={color}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function StarIcon({ filled }: { filled: boolean }) {
+  const d =
+    "M12 3.4l2.53 5.4 5.87.72-4.34 4.06 1.16 5.83L12 16.4l-5.22 2.99 1.16-5.83-4.34-4.06 5.87-.72Z";
+  return (
+    <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+      <Path
+        d={d}
+        fill={filled ? "#332E3A" : "none"}
+        stroke="#332E3A"
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export default function IngredientDetail() {
   const { inci, product: productId } = useLocalSearchParams<{
     inci: string;
@@ -39,16 +130,24 @@ export default function IngredientDetail() {
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [loading, setLoading] = useState(Boolean(productId));
   const profile = useAppStore((s) => s.profile);
+  const savedIngredients = useAppStore((s) => s.savedIngredients);
+  const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
 
   useEffect(() => {
     if (!productId) return;
     let cancelled = false;
     setLoading(true);
-    fetchProduct(productId).then((result) => {
-      if (cancelled) return;
-      setProduct(result);
-      setLoading(false);
-    });
+    fetchProduct(productId)
+      .then((result) => {
+        if (cancelled) return;
+        setProduct(result);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("fetchProduct failed:", err);
+        setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -69,136 +168,175 @@ export default function IngredientDetail() {
       : { id: inci, name: inci, comedogenic: 0, safety: "safe", verified: false };
 
   const match = product ? matchProduct(product, profile) : null;
-  const tone = match ? ingredientTone(ingredient, match) : "watch";
-  const rule = ruleFor(ingredient);
   const verified = isVerified(ingredient);
+  // `match` is null when this screen is opened without a product context
+  // (e.g. from search) — there's nothing to score against yet, so an
+  // otherwise-recognised ingredient reads as "worth knowing" rather than a
+  // verdict `rungFor` has no way to give it.
+  const rung: Rung = match ? rungFor(ingredient, match) : verified ? "watch" : "neutral";
+  const meta = RUNG[rung];
 
+  const rule = ruleFor(ingredient);
   const helps = rule ? targetApplies(rule.helps, profile) : false;
   const hurts = rule ? targetApplies(rule.hurts, profile) : false;
 
   const total = product?.ingredients.length ?? 0;
   const position = index >= 0 ? index + 1 : null;
 
+  // The design sets a common name under the INCI name. We don't hold one, but
+  // many INCI names carry it in parentheses ("Panthenol (Vitamin B5)"), and
+  // where they don't the declared role is the honest second line.
+  const { primary, secondary } = splitName(ingredient);
+  const starred = savedIngredients.includes(ingredient.name);
+
+  // Everything under "Things to know" is sourced, never written.
+  const notes = [
+    verified ? `EU regulatory status: ${regulatoryStatus(ingredient)}` : null,
+    ingredient.functions && ingredient.functions.length > 0
+      ? `Declared function: ${ingredient.functions.slice(0, 3).join(", ")}`
+      : null,
+    verified && ingredient.comedogenic > 0 ? comedogenicLabel(ingredient.comedogenic) : null,
+    position !== null
+      ? `#${position} of ${total} on the label - ${positionWeightLabel(index)}`
+      : null,
+    rule?.hurts?.sensitive ? "Our rules flag this as a common irritant for sensitive skin" : null,
+  ].filter((n): n is string => n !== null);
+
   return (
     <View className="flex-1 bg-canvas">
-      <Stack.Screen options={{ title: product?.name ?? "Ingredient" }} />
+      <ScreenHeader
+        right={
+          <Pressable
+            onPress={() => toggleSavedIngredient(ingredient.name)}
+            hitSlop={12}
+            accessibilityLabel={starred ? "Remove from starred ingredients" : "Star this ingredient"}
+            accessibilityState={{ selected: starred }}
+          >
+            <StarIcon filled={starred} />
+          </Pressable>
+        }
+      />
 
       <ScrollView contentContainerClassName="pb-40">
-        <View className={`mx-5 mt-2 gap-3 rounded-sheet p-5 ${TONE_CLASS[tone].hero}`}>
-          <View className="flex-row items-start justify-between gap-3">
-            <Text className="flex-1 font-display text-[28px] capitalize leading-8 text-ink">
-              {ingredient.name}
+        <View style={{ gap: 18, paddingTop: 30 }} className="flex-row items-start px-6">
+          <View style={{ flex: 1, gap: 9 }}>
+            <Text className="font-display text-[34px] capitalize leading-[36px] tracking-[-0.61px] text-[#463F57]">
+              {primary}
             </Text>
-            <View className="rounded-full bg-canvas/70 px-3 py-1.5">
-              <Text className="text-[11px] font-sans-bold text-ink">
-                {tone === "good"
-                  ? "LOW RISK FOR YOU"
-                  : tone === "watch"
-                    ? "WORTH KNOWING"
-                    : "FLAGGED FOR YOU"}
+            {secondary ? (
+              <Text className="font-display text-[19px] capitalize leading-[19px] text-[#5C5468]">
+                {secondary}
+              </Text>
+            ) : null}
+            <View
+              className={`mt-1 flex-row items-center gap-2 self-start rounded-full px-3.5 py-2 ${meta.pill}`}
+            >
+              <View className={`h-2 w-2 rounded-full ${meta.dot}`} />
+              <Text className={`text-[12.5px] font-medium ${meta.ink}`}>{meta.label}</Text>
+            </View>
+          </View>
+          {/* The design project's own hero illustration
+              (assets/icon-flask-round.png), not a redraw of it. */}
+          <Image
+            source={require("@/assets/images/icon-flask-round.png")}
+            style={{ width: 86, height: 86, borderRadius: 43 }}
+            contentFit="cover"
+            transition={120}
+            accessibilityLabel=""
+          />
+        </View>
+
+        <Section title="What it does">
+          <Text className="text-[13.5px] leading-[21px] text-ink-body">
+            {whatItDoes(ingredient, rule?.reason)}
+          </Text>
+        </Section>
+
+        <Section title="How it fits your skin" gap={14} top={36}>
+          <View
+            style={{ gap: 13, paddingHorizontal: 18, paddingVertical: 22 }}
+            className={`rounded-tile border ${meta.panel}`}
+          >
+            <View className="flex-row items-center gap-2.5">
+              <HeartIcon color={meta.hero} />
+              <Text className={`font-display text-[18px] leading-[21px] ${meta.ink}`}>
+                {fitHeadline(rung, helps, hurts, verified)}
+              </Text>
+            </View>
+            <Text className="text-[13px] leading-[19.5px] text-ink-body">
+              {fitBody(rung, helps, hurts, verified, Boolean(rule))}
+            </Text>
+            {/* The small qualifier pill the design puts under the verdict. */}
+            <View
+              style={{ backgroundColor: meta.chip }}
+              className="self-start rounded-full px-3 py-1.5"
+            >
+              <Text className={`text-[11.5px] font-medium ${meta.ink}`}>
+                {fitPill(rung, helps, hurts, verified)}
               </Text>
             </View>
           </View>
+        </Section>
 
-          {ingredient.functions && ingredient.functions.length > 0 && (
-            <View className="flex-row flex-wrap gap-1.5">
-              {ingredient.functions.slice(0, 4).map((fn) => (
-                <View key={fn} className="rounded-full bg-canvas/70 px-2.5 py-1">
-                  <Text className="text-[11.5px] font-sans-semibold capitalize text-ink">{fn}</Text>
+        <Section title="Things to know" gap={23} top={44}>
+          {notes.length > 0 ? (
+            <View style={{ gap: 23 }}>
+              {notes.map((note) => (
+                <View key={note} className="flex-row items-center gap-3">
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="m5 12.6 4.6 4.6L19 6.8"
+                      stroke={meta.hero}
+                      strokeWidth={2.2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                  <Text className="flex-1 text-[13px] leading-[18px] text-ink-body">{note}</Text>
                 </View>
               ))}
             </View>
+          ) : (
+            <Text className="text-[13px] leading-[19px] text-ink-body">
+              We hold no regulatory record, declared function or pore rating for
+              this name — which is itself the thing worth knowing about it.
+            </Text>
           )}
+        </Section>
 
-          <Text className="text-[9.5px] font-sans-medium uppercase tracking-[0.6px] text-ink-muted">
-            INCI · {ingredient.name}
-          </Text>
-        </View>
-
-        {/* Three facts we can actually stand behind. */}
-        <View className="flex-row gap-2.5 px-5 pt-4">
-          <StatCard
-            label="EU status"
-            value={regulatoryStatus(ingredient)}
-            hint={verified ? "CosIng" : "unmatched"}
-          />
-          <StatCard
-            label="Role"
-            value={
-              ingredient.functions && ingredient.functions.length > 0
-                ? ingredient.functions[0]
-                : "Unknown"
-            }
-            hint="declared function"
-          />
-          <StatCard
-            label="Sensitive skin"
-            value={rule?.hurts?.sensitive ? "Can irritate" : verified ? "No flag" : "Unknown"}
-            hint="our rules"
-          />
-        </View>
-
-        {position !== null && (
-          <View className="gap-2 px-5 pt-5">
-            <View className="flex-row items-baseline justify-between">
-              <Text className="text-[13px] font-sans-bold text-ink">In this formula</Text>
-              <Text className="text-[11.5px] text-ink-muted">
-                #{position} of {total} · {positionWeightLabel(index)}
-              </Text>
-            </View>
-            <View className="h-1.5 overflow-hidden rounded-full bg-ink/10">
-              <View
-                className="h-full rounded-full bg-ink"
-                style={{ width: `${Math.max(4, Math.round((1 - index / total) * 100))}%` }}
-              />
-            </View>
-            {/* Position is regulated information, not a guess: INCI lists run in
-                descending concentration. We say where it sits, and deliberately
-                not what percentage that implies — that cannot be known. */}
-            <Text className="text-[12.5px] leading-5 text-ink-muted">
-              Ingredients are listed in descending order of concentration, so this sits
-              among the {index < 5 ? "main" : index < 12 ? "mid-list" : "trace"} components.
-            </Text>
+        <Pressable
+          onPress={() =>
+            void Linking.openURL(
+              `https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(ingredient.name)}`
+            ).catch((err) => console.warn("openURL failed:", err))
+          }
+          style={{ marginTop: 28, marginHorizontal: 24 }}
+          className="flex-row items-center justify-between rounded-panel bg-tint-lilac px-5 py-4 active:opacity-80"
+        >
+          <View className="gap-0.5">
+            <Text className="text-[14.5px] font-semibold text-ink">Want to learn more?</Text>
+            <Text className="text-[12.5px] text-ink-muted">See studies and evidence</Text>
           </View>
-        )}
+          <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="m9 5 7 7-7 7"
+              stroke="#332E3A"
+              strokeWidth={2.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </Pressable>
 
-        {rule && (
-          <View className="mx-5 mt-5 gap-2.5 rounded-sheet bg-tint-mint p-5">
-            <Text className="text-[13px] font-sans-bold text-ink">For your skin</Text>
-            <Bullet ok text={rule.reason} />
-            {helps && <Bullet ok text="Actively helps with what you told us about your skin." />}
-            {hurts && (
-              <Bullet
-                ok={false}
-                text="Works against your profile — this is what pulled the score down."
-              />
-            )}
-            {!helps && !hurts && (
-              <Bullet ok text="Neutral for your profile — neither helps nor hurts." />
-            )}
-          </View>
-        )}
-
-        {!verified && (
-          <View className="mx-5 mt-5 gap-2 rounded-sheet bg-tint-peach p-5">
-            <Text className="text-[13px] font-sans-bold text-ink">We couldn&apos;t identify this</Text>
-            <Text className="text-[12.5px] leading-5 text-ink">
-              This name didn&apos;t match our ingredient dictionary, so it carries no
-              rating in either direction. Label text is often mis-transcribed, and
-              guessing would be worse than saying nothing.
-            </Text>
-          </View>
-        )}
-
-        <View className="gap-1.5 px-5 pt-5">
-          <Text className="text-[11.5px] text-ink-faint">
-            Reference data from Open Beauty Facts and EU CosIng.
-          </Text>
-        </View>
+        <Text className="px-6 pt-9 text-[11.5px] text-ink-faint">
+          Reference data from Open Beauty Facts and EU CosIng.
+        </Text>
       </ScrollView>
 
-      <View className="absolute inset-x-0 bottom-0 flex-row gap-2.5 border-t border-hairline bg-canvas px-5 pb-8 pt-3">
-        <Pressable
+      <View className="absolute inset-x-0 bottom-0 flex-row gap-3 border-t border-hairline bg-canvas px-6 pb-8 pt-3">
+        <PrimaryButton
+          className="flex-1"
+          label="Next ingredient"
           onPress={() => {
             if (!product || index < 0) return router.back();
             const next = product.ingredients[(index + 1) % product.ingredients.length];
@@ -207,48 +345,104 @@ export default function IngredientDetail() {
               params: { inci: next.name, product: product.id },
             });
           }}
-          className="h-[52px] flex-1 items-center justify-center rounded-full bg-ink active:opacity-80"
-        >
-          <Text className="text-[14.5px] font-sans-semibold text-canvas">Next ingredient</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => router.back()}
-          className="h-[52px] items-center justify-center rounded-full bg-ink/[0.06] px-5"
-        >
-          <Text className="text-[13px] font-sans-semibold text-ink">Back to list</Text>
-        </Pressable>
+        />
+        <PrimaryButton variant="outline" label="Back to list" onPress={() => router.back()} />
       </View>
     </View>
   );
 }
 
-function StatCard({ label, value, hint }: { label: string; value: string; hint: string }) {
+function Section({
+  title,
+  gap = 12,
+  top = 38,
+  children,
+}: {
+  title: string;
+  /** The mockup gives each section its own rhythm; these are its values. */
+  gap?: number;
+  top?: number;
+  children: React.ReactNode;
+}) {
   return (
-    <View className="flex-1 gap-1 rounded-card bg-surface p-3 shadow-sm">
-      <Text className="text-[9px] font-sans-bold uppercase tracking-[1.1px] text-ink-faint">
-        {label}
-      </Text>
-      <Text className="text-[13px] font-sans-semibold capitalize leading-4 text-ink">{value}</Text>
-      <Text className="text-[10px] text-ink-faint">{hint}</Text>
+    <View style={{ paddingTop: top, gap }} className="px-6">
+      <Text className="text-[15.5px] font-semibold tracking-[-0.12px] text-ink">{title}</Text>
+      {children}
     </View>
   );
 }
 
-function Bullet({ ok, text }: { ok: boolean; text: string }) {
-  return (
-    <View className="flex-row items-start gap-2.5">
-      <View
-        className={`mt-0.5 h-4 w-4 items-center justify-center rounded-full ${
-          ok ? "bg-ink" : "bg-tint-pink"
-        }`}
-      >
-        <Text className={`text-[9.5px] font-sans-bold ${ok ? "text-canvas" : "text-ink"}`}>
-          {ok ? "✓" : "!"}
-        </Text>
-      </View>
-      <Text className="flex-1 text-[12.5px] leading-[18px] text-ink">{text}</Text>
-    </View>
-  );
+/** "Panthenol (Vitamin B5)" → the two lines the design draws. */
+function splitName(ingredient: Ingredient): { primary: string; secondary: string | null } {
+  const match = ingredient.name.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (match) return { primary: match[1], secondary: `(${match[2]})` };
+
+  const role = ingredient.functions?.[0];
+  return { primary: ingredient.name, secondary: role ? role.toLowerCase() : null };
+}
+
+/**
+ * The written definition, in descending order of how specific we can be:
+ * a curated rule, the row's own note, the regulator's function list, and
+ * finally an honest admission.
+ */
+function whatItDoes(ingredient: Ingredient, ruleReason: string | undefined): string {
+  if (ruleReason) return ruleReason;
+  if (ingredient.note) return ingredient.note;
+
+  const functions = ingredient.functions ?? [];
+  if (functions.length > 0) {
+    return `Declared in the EU inventory as ${functions
+      .slice(0, 3)
+      .join(", ")
+      .toLowerCase()}. That is the role it plays in a formula, not a claim about results.`;
+  }
+  if (!isVerified(ingredient)) {
+    return "This name didn't match our ingredient dictionary, so we can't say what it does. Label text is often mis-transcribed, and guessing would be worse than saying nothing.";
+  }
+  return "We hold no declared function for this one yet.";
+}
+
+function fitHeadline(rung: Rung, helps: boolean, hurts: boolean, verified: boolean): string {
+  if (!verified) return "We can't judge this one";
+  if (hurts) return "Works against your profile";
+  if (helps) return "Great match";
+  if (rung === "avoid") return "Flagged for everyone";
+  if (rung === "watch") return "Worth a second look";
+  return "Nothing against it";
+}
+
+function fitBody(
+  rung: Rung,
+  helps: boolean,
+  hurts: boolean,
+  verified: boolean,
+  hasRule: boolean
+): string {
+  if (!verified) {
+    return "An unrecognised name supports no claim in either direction, so this one neither counts for nor against the product's score.";
+  }
+  if (hurts) return "This is one of the things pulling the score down for the skin you described.";
+  if (helps) return "This actively helps with what you told us about your skin.";
+  if (rung === "avoid") {
+    return "The EU inventory restricts or prohibits this one, which applies to everybody rather than to your profile in particular.";
+  }
+  if (rung === "watch") {
+    return "Carries a restriction or a pore rating worth knowing about, though nothing in your profile makes it a specific problem.";
+  }
+  if (!hasRule) {
+    return "No rule in our table applies to this ingredient, and nothing in your profile flags it — so it neither helps nor hurts your score.";
+  }
+  return "Neither helps nor hurts, given the answers you gave.";
+}
+
+function fitPill(rung: Rung, helps: boolean, hurts: boolean, verified: boolean): string {
+  if (!verified) return "Unassessed";
+  if (hurts) return "Counts against your goals";
+  if (helps) return "Good for your goals";
+  if (rung === "avoid") return "Best avoided generally";
+  if (rung === "watch") return "Worth knowing";
+  return "Neutral for your goals";
 }
 
 /**

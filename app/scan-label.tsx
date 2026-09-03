@@ -47,6 +47,24 @@ export default function ScanLabel() {
 
       const result = await analyseLabel(photo.base64, { barcode });
 
+      // The server's "did we find enough text to try" check happens before it
+      // knows whether any of that text is actually an ingredient. A photo of
+      // something else entirely — a wall, a receipt, a face — can still clear
+      // that bar if the OCR returns a handful of comma-separated words, and
+      // this is what let a random photo through to a product screen showing
+      // "Can't tell yet" instead of an honest failure: recognising literally
+      // nothing is not a product, it's a label we couldn't read, and it
+      // deserves the same message as one, not a page that looks like a scan
+      // succeeded.
+      if (result.ok && (result.total === 0 || result.recognised === 0)) {
+        setStatus({
+          kind: "failed",
+          message: "That doesn't look like an ingredient list.",
+          hint: "Make sure the ingredient panel fills the frame, then try again.",
+        });
+        return;
+      }
+
       if (result.ok) {
         router.replace({ pathname: "/result/[id]", params: { id: result.product.id } });
         return;
@@ -57,7 +75,7 @@ export default function ScanLabel() {
       setStatus({
         kind: "failed",
         message: "Something went wrong reading that.",
-        hint: "Try again — and check you have a connection.",
+        hint: "Try again - and check you have a connection.",
       });
     }
   }
@@ -78,9 +96,10 @@ export default function ScanLabel() {
         </Text>
         <Pressable
           onPress={requestPermission}
-          className="rounded-control bg-accent px-6 py-3 active:bg-accent-deep"
+          style={{ height: 52 }}
+          className="items-center justify-center rounded-control bg-accent px-6 active:bg-accent-deep"
         >
-          <Text className="text-base font-sans-semibold text-white">Grant permission</Text>
+          <Text className="text-base font-semibold text-white">Grant permission</Text>
         </Pressable>
       </View>
     );
@@ -93,35 +112,49 @@ export default function ScanLabel() {
       {/* A frame, because "fill this box with the ingredients" is the single
           instruction that most improves what the OCR gets back. */}
       <View className="flex-1 items-center justify-center px-6" pointerEvents="none">
-        <View className="h-[38%] w-full rounded-card border-2 border-white/80" />
+        <View
+          style={{ height: "38%", width: "100%", borderColor: "rgba(255,255,255,0.8)" }}
+          className="rounded-card border-2"
+        />
       </View>
 
       <View className="absolute inset-x-0 top-0 px-6 pt-16" pointerEvents="none">
-        <Text className="text-center text-base font-sans-semibold text-white">
+        <Text className="text-center text-base font-semibold text-white">
           Fill the frame with the ingredient list
         </Text>
-        <Text className="mt-1 text-center text-sm text-white/70">
+        <Text style={{ color: "rgba(255,255,255,0.7)" }} className="mt-1 text-center text-sm">
           Usually the smallest print on the back. Hold steady.
         </Text>
       </View>
 
-      <View className="absolute inset-x-0 bottom-0 gap-3 bg-black/75 p-6">
+      <View
+        style={{ backgroundColor: "rgba(0,0,0,0.75)" }}
+        className="absolute inset-x-0 bottom-0 gap-3 p-6"
+      >
         {status.kind === "failed" && (
           <View className="gap-1">
-            <Text className="text-base font-sans-semibold text-tint-peach">{status.message}</Text>
-            {status.hint && <Text className="text-sm text-white/70">{status.hint}</Text>}
+            <Text className="text-base font-semibold text-tint-peach">{status.message}</Text>
+            {status.hint && (
+              <Text style={{ color: "rgba(255,255,255,0.7)" }} className="text-sm">
+                {status.hint}
+              </Text>
+            )}
           </View>
         )}
 
         <Pressable
           onPress={capture}
           disabled={status.kind === "reading"}
-          className={`flex-row items-center justify-center gap-2 rounded-control py-4 ${
-            status.kind === "reading" ? "bg-white/40" : "bg-white active:bg-hairline"
+          style={{
+            height: 52,
+            backgroundColor: status.kind === "reading" ? "rgba(255,255,255,0.4)" : undefined,
+          }}
+          className={`flex-row items-center justify-center gap-2 rounded-control ${
+            status.kind === "reading" ? "" : "bg-white active:bg-hairline"
           }`}
         >
           {status.kind === "reading" && <ActivityIndicator color="#000" />}
-          <Text className="text-base font-sans-semibold text-ink">
+          <Text className="text-base font-semibold text-ink">
             {status.kind === "reading"
               ? "Reading the label…"
               : status.kind === "failed"
@@ -131,7 +164,9 @@ export default function ScanLabel() {
         </Pressable>
 
         <Pressable onPress={() => router.back()} className="items-center py-1">
-          <Text className="text-sm font-sans-medium text-white/80 underline">Cancel</Text>
+          <Text style={{ color: "rgba(255,255,255,0.8)" }} className="text-sm font-medium underline">
+            Cancel
+          </Text>
         </Pressable>
       </View>
     </View>

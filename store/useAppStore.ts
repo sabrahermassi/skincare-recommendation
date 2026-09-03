@@ -32,6 +32,22 @@ export type HistoryEntry = {
   warningsAtView: number;
 };
 
+/**
+ * A product name typed in after a barcode came back unrecognised.
+ *
+ * Nothing reads this anywhere but the device it was typed on — there is no
+ * write path from the client into the catalogue (every ingredient/product
+ * table is service-role-write-only, by design, per the migration comments in
+ * `supabase/migrations`). This is a local capture so the suggestion is not
+ * silently lost, not a submission to anyone. Wiring a real intake path is
+ * tracked separately rather than promised here.
+ */
+export type ProductSuggestion = {
+  barcode: string;
+  name: string;
+  submittedAt: number;
+};
+
 const MAX_CONCERNS = 3;
 const MAX_COMPARE = 2;
 
@@ -61,11 +77,24 @@ type AppState = {
   // ── Saved shelf: explicit, user-curated ──
   savedProducts: SavedProduct[];
 
+  /** Ingredient names starred from the ingredient-detail screen. */
+  savedIngredients: string[];
+
   // ── History: automatic, written on every product view and scan ──
   history: HistoryEntry[];
 
   // ── Compare tray: at most two products at a time ──
   compareIds: string[];
+
+  /**
+   * An ingredient list pasted into the scanner, awaiting the check screen.
+   * In-memory like `compareIds`: it is a single interaction, and restoring a
+   * list you pasted three weeks ago would be noise.
+   */
+  pastedIngredients: string[] | null;
+
+  /** Names typed in for barcodes we didn't recognise. See `ProductSuggestion`. */
+  productSuggestions: ProductSuggestion[];
 
   /** Shallow-merges into the profile. Used by every quiz step and by /profile. */
   setProfile: (patch: Partial<SkinProfile>) => void;
@@ -80,6 +109,9 @@ type AppState = {
   /** Add/remove. Use for the wishlist control, where toggling is the intent. */
   toggleSaved: (id: string) => void;
 
+  /** Add/remove an ingredient name from the starred list. */
+  toggleSavedIngredient: (name: string) => void;
+
   /** Upserts a history entry, moving it to the front. Never touches the shelf. */
   recordView: (view: {
     id: string;
@@ -91,6 +123,11 @@ type AppState = {
 
   toggleCompare: (id: string) => void;
   clearCompare: () => void;
+
+  setPastedIngredients: (names: string[] | null) => void;
+
+  /** Idempotent per barcode — retyping the same one just updates the name. */
+  submitProductSuggestion: (barcode: string, name: string) => void;
 
   /**
    * Back to a first-run state: empty profile, closed onboarding gate, empty
@@ -110,7 +147,9 @@ export const PERSISTED_KEYS = [
   "profile",
   "hasSeenOnboarding",
   "savedProducts",
+  "savedIngredients",
   "history",
+  "productSuggestions",
 ] as const;
 
 export type PersistedState = Pick<AppState, (typeof PERSISTED_KEYS)[number]>;
@@ -121,7 +160,9 @@ export function partializeState(state: AppState): PersistedState {
     profile: state.profile,
     hasSeenOnboarding: state.hasSeenOnboarding,
     savedProducts: state.savedProducts,
+    savedIngredients: state.savedIngredients,
     history: state.history,
+    productSuggestions: state.productSuggestions,
   };
 }
 
@@ -130,8 +171,11 @@ export const INITIAL_STATE = {
   profile: EMPTY_PROFILE,
   hasSeenOnboarding: false,
   savedProducts: [] as SavedProduct[],
+  savedIngredients: [] as string[],
   history: [] as HistoryEntry[],
   compareIds: [] as string[],
+  pastedIngredients: null as string[] | null,
+  productSuggestions: [] as ProductSuggestion[],
 };
 
 export const useAppStore = create<AppState>()(
@@ -173,6 +217,13 @@ export const useAppStore = create<AppState>()(
             : [...state.savedProducts, { id, savedAt: Date.now() }],
         })),
 
+      toggleSavedIngredient: (name) =>
+        set((state) => ({
+          savedIngredients: state.savedIngredients.includes(name)
+            ? state.savedIngredients.filter((n) => n !== name)
+            : [...state.savedIngredients, name],
+        })),
+
       recordView: ({ id, known, score, warnings }) =>
         set((state) => {
           const now = Date.now();
@@ -207,6 +258,16 @@ export const useAppStore = create<AppState>()(
 
       clearCompare: () => set({ compareIds: [] }),
 
+      setPastedIngredients: (names) => set({ pastedIngredients: names }),
+
+      submitProductSuggestion: (barcode, name) =>
+        set((state) => ({
+          productSuggestions: [
+            { barcode, name, submittedAt: Date.now() },
+            ...state.productSuggestions.filter((s) => s.barcode !== barcode),
+          ],
+        })),
+
       resetApp: () => {
         set({ ...INITIAL_STATE });
         // Also wipe what is on disk. Without this the in-memory reset is
@@ -216,9 +277,28 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "skintel-store",
-      version: 1,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: partializeState,
+      /*
+        v2 carried `skinTypeSource`, which existed only to tell a hand-picked
+        skin type apart from one the two-question diagnostic worked out. That
+        screen is gone, so the field is dropped rather than left to rot in
+        storage — a stored key with no reader is a trap for the next person to
+        read the type. The skin type itself is untouched.
+      */
+      migrate: (persisted, version) => {
+        const state = persisted as (PersistedState & {
+          profile?: { skinTypeSource?: unknown };
+        }) | undefined;
+        if (!state) return state;
+        if (version < 3) {
+          if (!state.profile) return state;
+          const { skinTypeSource: _dropped, ...profile } = state.profile;
+          return { ...state, profile } as PersistedState;
+        }
+        return state;
+      },
     }
   )
 );

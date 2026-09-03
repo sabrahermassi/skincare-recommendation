@@ -2,11 +2,14 @@ import { router } from "expo-router";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
 
-import { Chip } from "@/components/Chip";
-import { OptionCard } from "@/components/OptionCard";
+import { Chip, CHIP_ROW } from "@/components/Chip";
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { Avatar } from "@/components/Avatar";
 import type {
   AgeGroup,
   BaseSkinType,
@@ -15,7 +18,12 @@ import type {
   Gender,
   SkinProfile,
 } from "@/data/types";
-import { ageGroupLabel, genderLabel, POST_ONBOARDING_ROUTE } from "@/lib/profile";
+import {
+  ageGroupLabel,
+  genderLabel,
+  POST_ONBOARDING_ROUTE,
+  profileSummary,
+} from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
 const GENDERS: Gender[] = ["female", "male", "nonbinary", "undisclosed"];
@@ -48,6 +56,7 @@ const MAX_CONCERNS = 3;
  * re-score the browse list underneath it.
  */
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const storedProfile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
   const resetApp = useAppStore((s) => s.resetApp);
@@ -77,22 +86,66 @@ export default function ProfileScreen() {
   }
 
   const atLimit = draft.concerns.length >= MAX_CONCERNS;
+  const summary = profileSummary(draft);
+
+  // Profile is a tab, so it normally has no back arrow — that's the right
+  // default for the tab bar. But the profile pill on Scan and Browse also
+  // pushes straight to it, and from there landing with no way back except
+  // "remember which tab you started on" is a dead end. `canGoBack` tells the
+  // two cases apart: true when we arrived via the pill's push, false when we
+  // arrived by tapping the Profile tab itself — in which case there's nothing
+  // to go back *to*, so the arrow falls back to Browse instead of erroring.
+  function goBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace("/");
+  }
 
   return (
     <View className="flex-1 bg-canvas">
-      <ScrollView contentContainerClassName="gap-8 p-6 pb-32">
+      <View style={{ paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: 2 }}>
+        <Pressable
+          onPress={goBack}
+          hitSlop={14}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          style={{ width: 21 }}
+        >
+          <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="m15 5-7 7 7 7"
+              stroke="#453F4E"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </Pressable>
+      </View>
+
+      <ScrollView
+        contentContainerClassName="px-5 pb-40"
+        contentContainerStyle={{ paddingTop: 8, gap: 18 }}
+      >
+        <View style={{ gap: 13 }} className="flex-row items-center">
+          <Avatar size={52} />
+          <View className="flex-1">
+            <Text className="text-[17px] font-semibold text-ink">Your skin profile</Text>
+            <Text className="mt-0.5 text-[11.5px] text-ink-muted">
+              {summary || "Not set up yet"}
+            </Text>
+          </View>
+        </View>
+
         <Section title="About you">
-          <View className="gap-2">
+          <View style={CHIP_ROW}>
             {GENDERS.map((gender) => (
-              <OptionCard
+              <Chip
                 key={gender}
                 label={genderLabel(gender)}
                 selected={draft.gender === gender}
                 onPress={() => patch({ gender })}
               />
             ))}
-          </View>
-          <View className="mt-3 flex-row flex-wrap gap-2">
             {AGE_GROUPS.map((ageGroup) => (
               <Chip
                 key={ageGroup}
@@ -105,40 +158,22 @@ export default function ProfileScreen() {
         </Section>
 
         <Section title="Face or body">
-          <View className="flex-row gap-2">
+          <View style={CHIP_ROW}>
             {AREAS.map((option) => (
-              <View key={option.value} className="flex-1">
-                <OptionCard
-                  label={option.label}
-                  selected={draft.area === option.value}
-                  onPress={() => patch({ area: option.value })}
-                />
-              </View>
+              <Chip
+                key={option.value}
+                label={option.label}
+                selected={draft.area === option.value}
+                onPress={() => patch({ area: option.value })}
+              />
             ))}
           </View>
         </Section>
 
-        <Section title={`Concerns (up to ${MAX_CONCERNS})`}>
-          <View className="flex-row flex-wrap gap-2">
-            {CONCERN_OPTIONS.map((option) => {
-              const selected = draft.concerns.includes(option.value);
-              return (
-                <Chip
-                  key={option.value}
-                  label={option.label}
-                  selected={selected}
-                  disabled={!selected && atLimit}
-                  onPress={() => toggleDraftConcern(option.value)}
-                />
-              );
-            })}
-          </View>
-        </Section>
-
         <Section title="Skin type">
-          <View className="gap-2">
+          <View style={CHIP_ROW}>
             {SKIN_TYPES.map((option) => (
-              <OptionCard
+              <Chip
                 key={option.value}
                 label={option.label}
                 selected={draft.baseSkinType === option.value}
@@ -146,16 +181,18 @@ export default function ProfileScreen() {
               />
             ))}
           </View>
+
           <Pressable
             onPress={() => patch({ sensitive: !draft.sensitive })}
             accessibilityRole="switch"
             accessibilityState={{ checked: draft.sensitive }}
-            className={`mt-2 flex-row items-center justify-between rounded-card border-2 p-4 ${
+            style={{ minHeight: 52, marginTop: 12 }}
+            className={`flex-row items-center justify-between rounded-field border-2 px-3 ${
               draft.sensitive ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
             }`}
           >
             <Text
-              className={`text-sm font-sans-semibold ${
+              className={`text-[14.5px] font-semibold ${
                 draft.sensitive ? "text-accent-text" : "text-ink"
               }`}
             >
@@ -173,11 +210,26 @@ export default function ProfileScreen() {
           </Pressable>
         </Section>
 
-        <Pressable
-          onPress={() => router.replace("/onboarding")}
-          className="items-center py-2"
-        >
-          <Text className="text-sm font-sans-medium text-accent-text underline">
+        <Section title="Skin concerns" note={`${draft.concerns.length} of ${MAX_CONCERNS}`}>
+          <View style={CHIP_ROW}>
+            {CONCERN_OPTIONS.map((option) => {
+              const selected = draft.concerns.includes(option.value);
+              return (
+                <Chip
+                  key={option.value}
+                  multiple
+                  label={option.label}
+                  selected={selected}
+                  disabled={!selected && atLimit}
+                  onPress={() => toggleDraftConcern(option.value)}
+                />
+              );
+            })}
+          </View>
+        </Section>
+
+        <Pressable onPress={() => router.replace("/onboarding")} className="items-center py-2">
+          <Text className="text-[12.5px] font-medium text-accent-text underline">
             Retake the quiz
           </Text>
         </Pressable>
@@ -192,32 +244,38 @@ export default function ProfileScreen() {
             resetApp();
             router.replace("/onboarding");
           }}
-          className="items-center py-2"
+          className="items-center py-1"
         >
-          <Text className="text-sm font-sans-medium text-status-avoid underline">
-            Start over — erase my profile, shelf and history
+          <Text className="text-xs font-medium text-status-avoid underline">
+            Start over - erase my profile, shelf and history
           </Text>
         </Pressable>
       </ScrollView>
 
-      <View className="absolute inset-x-0 bottom-0 border-t border-hairline bg-surface p-4">
-        <Pressable
-          onPress={save}
-          className="rounded-control bg-accent px-6 py-4 active:bg-accent-deep"
-        >
-          <Text className="text-center text-base font-sans-semibold text-white">
-            Save &amp; see new matches
-          </Text>
-        </Pressable>
+      <View className="absolute inset-x-0 bottom-0 border-t border-hairline bg-surface px-5 pb-8 pt-3.5">
+        <PrimaryButton label="Find my matches" onPress={save} />
       </View>
     </View>
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({
+  title,
+  note,
+  children,
+}: {
+  title: string;
+  note?: string;
+  children: ReactNode;
+}) {
   return (
-    <View className="gap-3">
-      <Text className="text-xs font-sans-bold uppercase tracking-wide text-ink-faint">{title}</Text>
+    <View className="gap-2.5">
+      <View className="flex-row items-baseline justify-between gap-2.5">
+        <Text className="text-[10.5px] font-bold uppercase tracking-[0.9px] text-ink-faint">
+          {title}
+        </Text>
+        {note ? <Text className="text-[10.5px] text-accent-text">{note}</Text> : null}
+      </View>
       {children}
     </View>
   );

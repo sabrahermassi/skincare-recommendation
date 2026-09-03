@@ -1,15 +1,12 @@
-import { Link, router } from "expo-router";
+import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  View,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Chip } from "@/components/Chip";
-import { ProductCard } from "@/components/ProductCard";
+import { AppHeader, HEADER_GUTTER, ProfilePill } from "@/components/AppHeader";
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { ProductRow } from "@/components/ProductRow";
 import { Text } from "@/components/Text";
 import { fetchProducts } from "@/data/api";
 import type { ProductType, ProductWithIngredients } from "@/data/types";
@@ -34,16 +31,11 @@ const BODY_TYPE_FILTERS: (ProductType | "all")[] = [
   "hand-cream",
 ];
 
-// Tiles use three of the four product tints. The label and icon are always
-// ink — the tint distinguishes the tiles, it doesn't have to carry the text.
-const QUICK_ACTIONS = [
-  { href: "/scan" as const, label: "Scan", icon: "camera" as const, bg: "bg-tint-pink" },
-  { href: "/saved" as const, label: "Saved", icon: "heart" as const, bg: "bg-tint-mint" },
-  { href: "/profile" as const, label: "My profile", icon: "person" as const, bg: "bg-tint-peach" },
-];
-
 export default function Browse() {
+  const insets = useSafeAreaInsets();
   const [products, setProducts] = useState<ProductWithIngredients[] | null>(null);
+  const [error, setError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [typeFilter, setTypeFilter] = useState<ProductType | "all">("all");
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
@@ -57,13 +49,20 @@ export default function Browse() {
   useEffect(() => {
     let cancelled = false;
     setProducts(null);
-    fetchProducts({ type: typeFilter, area }).then((result) => {
-      if (!cancelled) setProducts(result);
-    });
+    setError(false);
+    fetchProducts({ type: typeFilter, area })
+      .then((result) => {
+        if (!cancelled) setProducts(result);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("fetchProducts failed:", err);
+        setError(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, [typeFilter, area]);
+  }, [typeFilter, area, retryKey]);
 
   // The type-filter chip bar is area-specific (face vs body types), so a
   // stale face filter must not linger over the body list after an edit.
@@ -84,45 +83,33 @@ export default function Browse() {
   }, [products, profile, personalized]);
 
   return (
-    <View className="flex-1 bg-canvas">
-      <ScrollView
-        contentContainerClassName="pb-28"
-        stickyHeaderIndices={[1]}
-      >
-        <View className="gap-4 px-4 pb-2 pt-4">
-          <View className="flex-row items-center justify-between">
-            <View>
-              <Text className="font-display text-xl text-ink">Skintel</Text>
-              <Text className="text-xs text-ink-muted">
-                {personalized
-                  ? `Matched to ${profileSummary(profile)}`
-                  : "No profile yet — showing unsorted results"}
-              </Text>
-            </View>
-            <Pressable onPress={() => router.push("/profile")} hitSlop={8}>
-              <Text className="text-xs font-sans-semibold text-accent-text">Edit</Text>
-            </Pressable>
-          </View>
+    <View className="flex-1 bg-canvas" style={{ paddingTop: insets.top }}>
+      <ScrollView contentContainerClassName="pb-28" stickyHeaderIndices={[1]}>
+        <View style={{ gap: 18, paddingBottom: 8 }}>
+          {/* The same masthead the scanner draws — same mark, same wordmark,
+              same strapline, same size and colour. It used to be written out
+              again here a few points smaller and in a different ink, so the
+              top of the app resized itself as you moved between tabs. */}
+          <AppHeader right={<ProfilePill summary={profileSummary(profile)} />} />
 
-          <View className="flex-row gap-3">
-            {QUICK_ACTIONS.map((action) => (
-              <Link key={action.href} href={action.href} asChild>
-                <Pressable
-                  className={`flex-1 items-center gap-1.5 rounded-card py-4 ${action.bg} active:opacity-80`}
-                >
-                  <Ionicons name={action.icon} size={22} color={COLORS.ink} />
-                  <Text className="text-xs font-sans-semibold text-ink">{action.label}</Text>
-                </Pressable>
-              </Link>
-            ))}
+          {/* Scan, Saved and Profile used to repeat here as quick-action
+              tiles — redundant once the tab bar already puts all three one
+              tap away, and the profile chip in the header above covers
+              "who am I browsing as" on its own. */}
+          <View style={{ paddingHorizontal: HEADER_GUTTER }}>
+            <Text className="text-[11.5px] text-ink-muted">
+              {personalized
+                ? `Ranked for ${profileSummary(profile).toLowerCase()}`
+                : "No profile yet - showing unsorted results"}
+            </Text>
           </View>
         </View>
 
-        <View className="border-b border-hairline bg-canvas pb-3">
+        <View style={{ paddingBottom: 16 }} className="bg-canvas">
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerClassName="gap-2 px-4 pt-1"
+            contentContainerStyle={{ gap: 8, paddingHorizontal: HEADER_GUTTER, paddingTop: 10 }}
           >
             {typeFilters.map((type) => (
               <Chip
@@ -136,30 +123,42 @@ export default function Browse() {
         </View>
 
         {!personalized && !bannerDismissed && (
-          <View className="mx-4 mt-3 flex-row items-center gap-2 rounded-card bg-tint-lilac px-4 py-3">
+          <View className="mx-5 mt-3 flex-row items-center gap-2 rounded-card bg-tint-lilac px-4 py-3">
             <Pressable onPress={() => router.push("/profile")} className="flex-1">
-              <Text className="text-sm font-sans-semibold text-accent-text">
+              <Text className="text-sm font-semibold text-accent-text">
                 Answer five quick questions to see how each product suits your skin →
               </Text>
             </Pressable>
             <Pressable onPress={() => setBannerDismissed(true)} hitSlop={8}>
-              <Text className="text-sm font-sans-semibold text-accent-text">✕</Text>
+              <Text className="text-sm font-semibold text-accent-text">✕</Text>
             </Pressable>
           </View>
         )}
 
-        {scored === null ? (
+        {error ? (
+          <View className="items-center gap-3 px-8 py-24">
+            <Text className="text-center text-ink-faint">
+              Couldn&apos;t load products. Check your connection and try again.
+            </Text>
+            <Pressable onPress={() => setRetryKey((k) => k + 1)}>
+              <Text className="text-sm font-semibold text-accent-text underline">Try again</Text>
+            </Pressable>
+          </View>
+        ) : scored === null ? (
           <View className="items-center justify-center py-24">
             <ActivityIndicator color={COLORS.accent} />
           </View>
         ) : scored.length === 0 ? (
           <Text className="mt-12 text-center text-ink-faint">No products of this type yet.</Text>
         ) : (
-          <View className="flex-row flex-wrap gap-3 p-4">
-            {scored.map(({ product, match }, i) => (
-              <View key={product.id} className="w-[48%]">
-                <ProductCard product={product} match={match} index={i} />
-              </View>
+          /*
+            A list, not a grid. The grid could show a thumbnail and a price;
+            this can show why a product ranks where it does, which is the
+            question the app exists to answer.
+          */
+          <View>
+            {scored.map(({ product, match }) => (
+              <ProductRow key={product.id} product={product} match={match} />
             ))}
           </View>
         )}
@@ -168,14 +167,12 @@ export default function Browse() {
       {/* Compare tray — only appears once something is selected. */}
       {compareIds.length > 0 && (
         <View className="absolute inset-x-0 bottom-0 border-t border-hairline bg-surface p-4">
-          <Link href="/compare" asChild>
-            <Pressable className="rounded-control bg-accent py-3.5 active:bg-accent-deep">
-              <Text className="text-center text-base font-sans-semibold text-white">
-                Compare {compareIds.length} selected
-                {compareIds.length === 1 ? " — pick one more" : ""}
-              </Text>
-            </Pressable>
-          </Link>
+          <PrimaryButton
+            label={`Compare ${compareIds.length} selected${
+              compareIds.length === 1 ? " - pick one more" : ""
+            }`}
+            onPress={() => router.push("/compare")}
+          />
         </View>
       )}
     </View>

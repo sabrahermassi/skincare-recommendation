@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { Text } from "@/components/Text";
 
-import { Chip } from "@/components/Chip";
+import { Chip, CHIP_ROW } from "@/components/Chip";
 import { QuizStep } from "@/components/QuizStep";
 import type { Concern } from "@/data/types";
 import { useAppStore } from "@/store/useAppStore";
@@ -35,16 +35,20 @@ export default function ConcernsStep() {
       onNext={() => router.push("/onboarding/skin-type")}
       nextDisabled={concerns.length === 0}
     >
-      <View className="flex-row flex-wrap gap-2">
+      {/*
+        Once three are picked the rest grey out and stop responding, rather
+        than staying live and quietly swallowing the tap. The cap is a real
+        limit, so it reads as one before it is reached.
+      */}
+      <View style={CHIP_ROW}>
         {OPTIONS.map((option) => {
           const selected = concerns.includes(option.value);
           return (
             <Chip
               key={option.value}
+              multiple
               label={option.label}
               selected={selected}
-              // At the cap, unselected chips are genuinely disabled rather
-              // than silently ignoring taps — so assistive tech announces it.
               disabled={!selected && atLimit}
               onPress={() => toggleConcern(option.value)}
             />
@@ -52,11 +56,11 @@ export default function ConcernsStep() {
         })}
       </View>
 
-      {atLimit && (
-        <Text className="mt-4 text-xs text-ink-faint">
-          {MAX} selected — deselect one to swap.
-        </Text>
-      )}
+      <Text className="mt-4 text-xs text-ink-faint">
+        {atLimit
+          ? `${MAX} chosen - deselect one to swap.`
+          : `${concerns.length} of ${MAX} chosen.`}
+      </Text>
     </QuizStep>
   );
 }

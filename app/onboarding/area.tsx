@@ -70,7 +70,7 @@ export default function AreaStep() {
               <Icon fill={selected ? COLORS.accent : COLORS.inkFaint} />
               <View className="items-center">
                 <Text
-                  className={`text-lg font-sans-semibold ${selected ? "text-accent-text" : "text-ink"}`}
+                  className={`text-lg font-semibold ${selected ? "text-accent-text" : "text-ink"}`}
                 >
                   {label}
                 </Text>
