@@ -70,7 +70,9 @@ export default function ProductScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    // `loading` already starts true (its initial state above), so there's
+    // no need to set it synchronously here too — that pattern causes an
+    // extra render before the fetch even starts.
     fetchProduct(id)
       .then((result) => {
         if (cancelled) return;

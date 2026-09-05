@@ -1,5 +1,6 @@
 import "../global.css";
 
+import { IBMPlexMono_500Medium } from "@expo-google-fonts/ibm-plex-mono";
 import {
   PlayfairDisplay_500Medium,
   PlayfairDisplay_600SemiBold,
@@ -17,13 +18,15 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   // Body text no longer loads a custom font — it renders in the OS system
-  // font (see tailwind.config.js's `sans` family), so only the display face
-  // blocks startup now. This also means `ready` below settles faster on a
-  // cold start than it used to, since there's one font family to wait on
-  // instead of five.
+  // font (see tailwind.config.js's `sans` family), so only the display and
+  // mono faces block startup now. IBM Plex Mono is the Ellow Welcome
+  // screen's tagline face (design_handoff_ellow_welcome) — a signature of
+  // the system per that handoff, not a fallback, so it earns its own load
+  // rather than rendering in the UI font while it's briefly missing.
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_500Medium,
     PlayfairDisplay_600SemiBold,
+    IBMPlexMono_500Medium,
   });
 
   // Reading persisted state off disk is async, so on a cold start the store

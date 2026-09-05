@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ellow — Welcome / onboarding (design reference)</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#EDE9E4;font-family:-apple-system,"SF Pro Text",system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:48px;gap:22px;flex-wrap:wrap}
+  a{color:#625786}a:hover{color:#8B7FB6}
+  /* Device shell + panel are presentation only — do not port them. Port .screen. */
+  .device{width:427px;height:944px;border-radius:48px;overflow:hidden;box-shadow:0 24px 70px rgba(51,46,58,.18);flex:none}
+  .panel{font-size:12px;line-height:1.6;color:#8C8592;max-width:300px}
+  .panel b{color:#463F57}
+  button{font:inherit;font-size:12px;font-weight:600;padding:9px 15px;border-radius:9px;border:1px solid #E7E1DB;background:#FDFCFA;color:#463F57;cursor:pointer;margin-bottom:12px}
+  button:hover{background:#F4F0FC}
+  .paused [data-anim]{animation:none !important}
+
+/* ─── MOTION ─────────────────────────────────────────────────────── */
+@keyframes cl-pop{0%{opacity:0;transform:scale(.88)}60%{opacity:1;transform:scale(1.03)}100%{opacity:1;transform:scale(1)}}
+@keyframes cl-rise{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes cl-halo{0%,100%{opacity:.34;transform:scale(1)}50%{opacity:.62;transform:scale(1.05)}}
+@keyframes cl-float{0%,100%{opacity:1;transform:translate(-50%,-50%) scale(1)}48%{opacity:1;transform:translate(-50%,calc(-50% - 26px)) scale(1.06)}62%{opacity:1;transform:translate(-50%,calc(-50% - 34px)) scale(1.26)}68%{opacity:0;transform:translate(-50%,calc(-50% - 37px)) scale(.3)}80%{opacity:0;transform:translate(-50%,calc(-50% + 14px)) scale(.4)}92%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes cl-burst{0%,60%{opacity:0;transform:translate(-50%,calc(-50% - 32px)) scale(.35)}68%{opacity:.95;transform:translate(-50%,calc(-50% - 35px)) scale(1)}80%,100%{opacity:0;transform:translate(-50%,calc(-50% - 46px)) scale(1.5)}}
+@keyframes cl-scan{0%,100%{transform:translateY(-23px)}50%{transform:translateY(23px)}}
+@keyframes cl-ring{0%,20%{stroke-dasharray:9 94;stroke:#DE7E93}32%{stroke-dasharray:23 94;stroke:#DE7E93}46%{stroke-dasharray:53 94;stroke:#E2A45E}60%,100%{stroke-dasharray:79 94;stroke:#79A98A}}
+@keyframes cl-n1{0%,26%{opacity:1}33%,100%{opacity:0}}
+@keyframes cl-n2{0%,32%{opacity:0}38%,50%{opacity:1}56%,100%{opacity:0}}
+@keyframes cl-n3{0%,54%{opacity:0}60%,100%{opacity:1}}
+@keyframes cl-s1{0%{opacity:0;transform:translateY(10px)}5%,84%{opacity:1;transform:translateY(0)}93%,100%{opacity:0;transform:translateY(-6px)}}
+@keyframes cl-s2{0%,14%{opacity:0;transform:translateY(10px)}20%,86%{opacity:1;transform:translateY(0)}95%,100%{opacity:0;transform:translateY(-6px)}}
+@keyframes cl-s3{0%,32%{opacity:0;transform:translateY(10px)}38%,88%{opacity:1;transform:translateY(0)}97%,100%{opacity:0;transform:translateY(-6px)}}
+@media (prefers-reduced-motion: no-preference){
+[data-anim="pop"]{animation:cl-pop .7s cubic-bezier(.34,1.32,.64,1) both}
+[data-anim="rise1"]{animation:cl-rise .6s ease-out .38s both}
+[data-anim="rise2"]{animation:cl-rise .6s ease-out .5s both}
+[data-anim="rise3"]{animation:cl-rise .6s ease-out .62s both}
+[data-anim="halo"]{animation:cl-halo 3.6s ease-in-out 1s infinite}
+[data-anim="bubble"]{animation:cl-float var(--dur) ease-in-out var(--delay) infinite}
+[data-anim="burst"]{animation:cl-burst var(--dur) ease-out var(--delay) infinite}
+[data-anim="scan"]{animation:cl-scan 2.4s ease-in-out infinite}
+[data-anim="ring"]{animation:cl-ring 7.5s ease-in-out infinite}
+[data-anim="n1"]{animation:cl-n1 7.5s ease-in-out infinite}
+[data-anim="n2"]{animation:cl-n2 7.5s ease-in-out infinite}
+[data-anim="n3"]{animation:cl-n3 7.5s ease-in-out infinite}
+[data-anim="s1"]{animation:cl-s1 7.5s ease-in-out infinite}
+[data-anim="s2"]{animation:cl-s2 7.5s ease-in-out infinite}
+[data-anim="s3"]{animation:cl-s3 7.5s ease-in-out infinite}
+}
+</style>
+</head>
+<body>
+<div class="device">
+  <div class="screen" data-screen-label="Welcome" style="width:427px;height:944px;box-sizing:border-box;display:flex;flex-direction:column;background:#FAF7F3;font-family:-apple-system,'SF Pro Text',system-ui,sans-serif;color:#332E3A;position:relative;overflow:hidden">
+    <div style="position:absolute;inset:0;pointer-events:none">
+      <svg viewBox="0 0 427 944" style="position:absolute;inset:0;width:100%;height:100%" fill="none" aria-hidden="true">
+        <path d="M-30 300C80 252 158 344 252 300S404 220 470 266" stroke="#DDEAE2" stroke-width="12" stroke-linecap="round" opacity=".62"></path>
+        <path d="M-30 344C92 298 152 388 260 344S418 274 470 310" stroke="#E8E2F3" stroke-width="8" stroke-linecap="round" opacity=".7"></path>
+        <path d="M-20 712C96 672 154 754 264 712S414 650 460 684" stroke="#E4EDE7" stroke-width="10" stroke-linecap="round" opacity=".6"></path>
+      </svg>
+      <img src="assets/v2/btl-essence-pale.png" alt="" style="position:absolute;top:44px;left:-42px;width:112px;transform:rotate(-12deg)">
+      <img src="assets/v2/btl-serum-pale.png" alt="" style="position:absolute;top:126px;right:-30px;width:96px;transform:rotate(14deg)">
+      <img src="assets/v2/btl-cream-pale.png" alt="" style="position:absolute;top:330px;left:-34px;width:104px;transform:rotate(8deg);opacity:.55">
+      <img src="assets/v2/btl-toner-pale.png" alt="" style="position:absolute;bottom:236px;right:-36px;width:100px;transform:rotate(-10deg);opacity:.6">
+      <img src="assets/v2/btl-cleanser-pale.png" alt="" style="position:absolute;bottom:118px;left:-38px;width:118px;transform:rotate(11deg)">
+      <img src="assets/v2/btl-sun-pale.png" alt="" style="position:absolute;bottom:34px;right:-34px;width:104px;transform:rotate(13deg);opacity:.85">
+    </div>
+    <div style="position:absolute;top:0;left:0;right:0;height:300px;pointer-events:none">
+      <svg width="26" height="26" viewBox="0 0 40 40" aria-hidden="true" data-anim="bubble" style="position:absolute;left:14%;top:58%;transform:translate(-50%,-50%) scale(1);opacity:1;--dur:4.6s;--delay:0.4s"><circle cx="20" cy="20" r="17.5" fill="#BFDCE8" fill-opacity=".5" stroke="#9FC6D6" stroke-width="2.2"></circle><ellipse cx="14" cy="13.5" rx="5" ry="3.6" fill="#FFFFFF" fill-opacity=".85" transform="rotate(-28 14 13.5)"></ellipse><circle cx="26.5" cy="25.5" r="2" fill="#FFFFFF" fill-opacity=".5"></circle></svg>
+      <svg width="39" height="39" viewBox="0 0 60 60" aria-hidden="true" data-anim="burst" style="position:absolute;left:14%;top:58%;transform:translate(-50%,-50%) scale(.35);opacity:0;--dur:4.6s;--delay:0.4s"><circle cx="30" cy="30" r="16" fill="none" stroke="#9FC6D6" stroke-width="2.4" stroke-dasharray="5 7" stroke-linecap="round"></circle><circle cx="30" cy="8" r="2.6" fill="#9FC6D6"></circle><circle cx="52" cy="30" r="2.2" fill="#9FC6D6"></circle><circle cx="30" cy="52" r="2.6" fill="#9FC6D6"></circle><circle cx="8" cy="30" r="2.2" fill="#9FC6D6"></circle></svg>
+      <svg width="32" height="32" viewBox="0 0 40 40" aria-hidden="true" data-anim="bubble" style="position:absolute;left:46%;top:20%;transform:translate(-50%,-50%) scale(1);opacity:1;--dur:5.4s;--delay:0.9s"><circle cx="20" cy="20" r="17.5" fill="#CFE3EC" fill-opacity=".5" stroke="#A8CCDA" stroke-width="2.2"></circle><ellipse cx="14" cy="13.5" rx="5" ry="3.6" fill="#FFFFFF" fill-opacity=".85" transform="rotate(-28 14 13.5)"></ellipse><circle cx="26.5" cy="25.5" r="2" fill="#FFFFFF" fill-opacity=".5"></circle></svg>
+      <svg width="48" height="48" viewBox="0 0 60 60" aria-hidden="true" data-anim="burst" style="position:absolute;left:46%;top:20%;transform:translate(-50%,-50%) scale(.35);opacity:0;--dur:5.4s;--delay:0.9s"><circle cx="30" cy="30" r="16" fill="none" stroke="#A8CCDA" stroke-width="2.4" stroke-dasharray="5 7" stroke-linecap="round"></circle><circle cx="30" cy="8" r="2.6" fill="#A8CCDA"></circle><circle cx="52" cy="30" r="2.2" fill="#A8CCDA"></circle><circle cx="30" cy="52" r="2.6" fill="#A8CCDA"></circle><circle cx="8" cy="30" r="2.2" fill="#A8CCDA"></circle></svg>
+      <svg width="22" height="22" viewBox="0 0 40 40" aria-hidden="true" data-anim="bubble" style="position:absolute;left:78%;top:34%;transform:translate(-50%,-50%) scale(1);opacity:1;--dur:5s;--delay:1.9s"><circle cx="20" cy="20" r="17.5" fill="#D8D2EE" fill-opacity=".5" stroke="#B3A9DC" stroke-width="2.2"></circle><ellipse cx="14" cy="13.5" rx="5" ry="3.6" fill="#FFFFFF" fill-opacity=".85" transform="rotate(-28 14 13.5)"></ellipse><circle cx="26.5" cy="25.5" r="2" fill="#FFFFFF" fill-opacity=".5"></circle></svg>
+      <svg width="33" height="33" viewBox="0 0 60 60" aria-hidden="true" data-anim="burst" style="position:absolute;left:78%;top:34%;transform:translate(-50%,-50%) scale(.35);opacity:0;--dur:5s;--delay:1.9s"><circle cx="30" cy="30" r="16" fill="none" stroke="#B3A9DC" stroke-width="2.4" stroke-dasharray="5 7" stroke-linecap="round"></circle><circle cx="30" cy="8" r="2.6" fill="#B3A9DC"></circle><circle cx="52" cy="30" r="2.2" fill="#B3A9DC"></circle><circle cx="30" cy="52" r="2.6" fill="#B3A9DC"></circle><circle cx="8" cy="30" r="2.2" fill="#B3A9DC"></circle></svg>
+      <svg width="14" height="14" viewBox="0 0 40 40" aria-hidden="true" data-anim="bubble" style="position:absolute;left:90%;top:62%;transform:translate(-50%,-50%) scale(1);opacity:1;--dur:4.2s;--delay:3.1s"><circle cx="20" cy="20" r="17.5" fill="#C7E2E0" fill-opacity=".5" stroke="#9CC8C4" stroke-width="2.2"></circle><ellipse cx="14" cy="13.5" rx="5" ry="3.6" fill="#FFFFFF" fill-opacity=".85" transform="rotate(-28 14 13.5)"></ellipse><circle cx="26.5" cy="25.5" r="2" fill="#FFFFFF" fill-opacity=".5"></circle></svg>
+      <svg width="21" height="21" viewBox="0 0 60 60" aria-hidden="true" data-anim="burst" style="position:absolute;left:90%;top:62%;transform:translate(-50%,-50%) scale(.35);opacity:0;--dur:4.2s;--delay:3.1s"><circle cx="30" cy="30" r="16" fill="none" stroke="#9CC8C4" stroke-width="2.4" stroke-dasharray="5 7" stroke-linecap="round"></circle><circle cx="30" cy="8" r="2.6" fill="#9CC8C4"></circle><circle cx="52" cy="30" r="2.2" fill="#9CC8C4"></circle><circle cx="30" cy="52" r="2.6" fill="#9CC8C4"></circle><circle cx="8" cy="30" r="2.2" fill="#9CC8C4"></circle></svg>
+    </div>
+  <div style="flex:1;min-height:52px"></div>
+  <div style="display:flex;justify-content:center;padding:0 24px;position:relative">
+    <div style="position:relative;width:150px;height:150px">
+      <div style="position:absolute;left:-22px;top:-22px;width:194px;height:194px;border-radius:194px;background:radial-gradient(circle, rgba(206,229,214,.62) 0%, rgba(206,229,214,0) 68%);opacity:.34" data-anim="halo"></div>
+      <img src="assets/v2/avatar.png" alt="" style="width:150px;height:150px;border-radius:150px;display:block;position:relative" data-anim="pop">
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:22px;padding:22px 24px 0;position:relative">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px" data-anim="rise1">
+      <div style="display:flex;align-items:center;gap:13px">
+        <img src="assets/ellow-mark.svg" alt="Ellow" style="width:44px;height:44px;display:block;flex:none">
+        <div style="font-family:'Playfair Display',Georgia,serif;font-weight:500;font-size:42px;line-height:1;letter-spacing:-.016em;color:#463F57">Ellow</div>
+      </div>
+      <div style="font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-size:8.5px;font-weight:500;letter-spacing:.19em;color:#8C8592;display:flex;align-items:center;gap:9px"><span>SCAN</span><svg width="11" height="7" viewBox="0 0 12 8" fill="none" aria-hidden="true" style="flex:none"><path d="M1 4h9M7.4 1 10.8 4 7.4 7" stroke="#B3A9DC" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>ANALYZE</span><svg width="11" height="7" viewBox="0 0 12 8" fill="none" aria-hidden="true" style="flex:none"><path d="M1 4h9M7.4 1 10.8 4 7.4 7" stroke="#B3A9DC" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>KNOW</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:9px" data-anim="rise2">
+      <div style="font-size:15px;font-weight:600;line-height:1.5;letter-spacing:-.005em;color:#5B5366;text-wrap:pretty">Scan any skincare product</div>
+      <div style="font-size:15px;font-weight:400;line-height:1.55;color:#8C8592;text-wrap:pretty">Answer four questions about your skin, then scan a barcode or ingredient list to see how well that product suits you.</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:flex-start;justify-content:center;gap:14px;padding:30px 24px 0;position:relative" data-anim="rise2">
+    <div data-anim="s1" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:10px;padding:2px 6px 0">
+      <div style="height:78px;display:flex;align-items:center;justify-content:center">
+        <div style="position:relative;width:46px;height:78px;display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 110 110" fill="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%">
+            <g stroke="#8B7FB6" stroke-width="6.5" stroke-linecap="round"><path d="M6 28V16a10 10 0 0 1 10-10h12"></path><path d="M82 6h12a10 10 0 0 1 10 10v12"></path><path d="M104 82v12a10 10 0 0 1-10 10H82"></path><path d="M28 104H16a10 10 0 0 1-10-10V82"></path></g>
+          </svg>
+          <img src="assets/v2/btl-serum.png" alt="" style="height:53px;display:block;position:relative">
+          <div data-anim="scan" style="position:absolute;left:13px;right:13px;top:38px;height:3px;border-radius:2px;background:#8B7FB6;box-shadow:0 0 7px rgba(139,127,182,.75)"></div>
+        </div>
+      </div>
+      <div style="font-size:13px;font-weight:600;letter-spacing:-.006em;color:#463F57;text-align:center">Scan the<br>product</div>
+    </div>
+    <div data-anim="s2" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:10px;padding:2px 6px 0">
+      <div style="height:78px;display:flex;align-items:center;justify-content:center"><svg width="62" height="62" viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="20" cy="20" r="15" fill="none" stroke="#DDEAE2" stroke-width="5"></circle>
+          <circle data-anim="ring" cx="20" cy="20" r="15" fill="none" stroke="#79A98A" stroke-width="5" stroke-linecap="round" stroke-dasharray="79 94" transform="rotate(-90 20 20)"></circle>
+          <g font-family="-apple-system, system-ui, sans-serif" font-size="12" font-weight="600" text-anchor="middle">
+            <text data-anim="n1" x="20" y="24.5" fill="#B4566B" opacity="0">18</text>
+            <text data-anim="n2" x="20" y="24.5" fill="#A9713C" opacity="0">56</text>
+            <text data-anim="n3" x="20" y="24.5" fill="#463F57">84</text>
+          </g>
+        </svg></div>
+      <div style="font-size:13px;font-weight:600;letter-spacing:-.006em;color:#463F57;text-align:center">Get a match<br>score</div>
+    </div>
+    <div data-anim="s3" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:10px;padding:2px 6px 0">
+      <div style="height:78px;display:flex;align-items:center;justify-content:center"><svg width="60" height="60" viewBox="0 0 40 40" aria-hidden="true"><g stroke="#463F57" stroke-width="2.4" stroke-linecap="round"><path d="M14 12h18M14 20h18M14 28h12"></path></g><circle cx="7" cy="12" r="3" fill="#6FA783"></circle><circle cx="7" cy="20" r="3" fill="#6FA783"></circle><circle cx="7" cy="28" r="3" fill="#E2A45E"></circle></svg></div>
+      <div style="font-size:13px;font-weight:600;letter-spacing:-.006em;color:#463F57;text-align:center">See every<br>ingredient</div>
+    </div>
+  </div>
+  <div style="flex:1;min-height:26px"></div>
+  <div style="padding:0 24px 40px;position:relative">
+    <div style="display:flex;flex-direction:column;gap:14px" data-anim="rise3">
+      <div style="height:56px;border-radius:11px;background:#8B7FB6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#FFFFFF;cursor:pointer">Scan my first product</div>
+      <div style="text-align:center;font-size:13.5px;font-weight:500;color:#8C8592;padding:8px 0;cursor:pointer">Set up my skin profile first</div>
+    </div>
+  </div>
+  </div>
+</div>
+<div class="panel">
+  <button onclick="document.querySelector('.screen').classList.toggle('paused')">Toggle animation</button>
+  <p><b>Paused</b> shows the resting state — what a frozen timeline, a screenshot, or a reduced-motion user sees. Note it is the finished design (all three steps visible, score green at 84), never a blank screen. That is deliberate; see the README.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SkinTel — bubble motion layer (design reference)</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#EDE9E4;font-family:-apple-system,"SF Pro Text",system-ui,sans-serif;color:#332E3A;padding:40px}
+  .wrap{max-width:1080px;margin:0 auto;display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+  h1{font-family:'Playfair Display',serif;font-weight:500;font-size:24px;margin:0 0 6px}
+  .lede{font-size:13px;line-height:1.55;color:#8C8592;margin:0 0 20px}
+  .card{background:#FAF7F3;border-radius:16px;padding:22px 24px}
+  .tag{font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.08em;color:#9E98A3;margin-bottom:14px}
+  .note{font-size:11.5px;line-height:1.5;color:#8C8592}
+  .stage{width:427px;height:520px;border-radius:20px;background:#FAF7F3;position:relative;overflow:hidden;flex:none;display:flex;align-items:center;justify-content:center}
+  button{font:inherit;font-size:12px;font-weight:600;padding:9px 15px;border-radius:9px;border:1px solid #E7E1DB;background:#FDFCFA;color:#463F57;cursor:pointer}
+  button:hover{background:#F4F0FC}
+  a{color:#625786}a:hover{color:#8B7FB6}
+  code{font-family:'IBM Plex Mono',monospace;font-size:10.5px}
+
+  /* ─── THE MOTION LAYER — this is the part to port ─────────────── */
+  @keyframes bb-halo{
+    0%,100%{opacity:.3;transform:scale(1)}
+    50%{opacity:.6;transform:scale(1.05)}
+  }
+  @keyframes bb-float{
+    0%,100%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+    52%{opacity:1;transform:translate(-50%,calc(-50% - 16px)) scale(1.05)}
+    64%{opacity:1;transform:translate(-50%,calc(-50% - 20px)) scale(1.24)}
+    70%{opacity:0;transform:translate(-50%,calc(-50% - 22px)) scale(.3)}
+    80%{opacity:0;transform:translate(-50%,calc(-50% + 8px)) scale(.4)}
+    92%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  }
+  @keyframes bb-burst{
+    0%,62%{opacity:0;transform:translate(-50%,calc(-50% - 18px)) scale(.35)}
+    70%{opacity:.95;transform:translate(-50%,calc(-50% - 20px)) scale(1)}
+    82%,100%{opacity:0;transform:translate(-50%,calc(-50% - 30px)) scale(1.5)}
+  }
+  @media (prefers-reduced-motion: no-preference){
+    [data-anim="halo"]{animation:bb-halo 3.4s ease-in-out 1s infinite}
+    [data-anim="bubble"]{animation:bb-float var(--dur) ease-in-out var(--delay) infinite}
+    [data-anim="burst"]{animation:bb-burst var(--dur) ease-out var(--delay) infinite}
+  }
+  .paused [data-anim]{animation:none !important}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div style="flex:1;min-width:380px">
+    <h1>Bubble motion layer</h1>
+    <p class="lede">The only thing to port from this file is the motion layer: eight soap bubbles that drift, swell and pop around the existing avatar, plus the breathing halo behind it. Everything else on this page is scaffolding so you can see it in context.</p>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="tag">PAUSE TO SEE THE RESTING STATE</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button onclick="document.querySelector('.stage').classList.toggle('paused')">Toggle animation</button>
+        <span class="note">Paused = what a frozen timeline or reduced-motion user sees.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="tag">THE ONE RULE THAT MATTERS</div>
+      <div class="note">Each bubble's <strong>resting CSS is its visible steady state</strong> (<code>opacity:1</code>, <code>scale(1)</code>) and <code>bb-float</code> both starts and ends on that same keyframe. The drift, swell, pop and refill all happen in the middle of the cycle. That means a paused timeline, a screenshot, a print export or <code>prefers-reduced-motion</code> all degrade to <em>bubbles sitting calmly around her face</em> — never to an empty screen. Do not put the hidden state at 0%.</div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div style="position:relative;width:152px;height:152px">
+      <div data-anim="halo" style="position:absolute;left:-26px;top:-26px;width:204px;height:204px;border-radius:204px;background:radial-gradient(circle, rgba(196,222,232,.55) 0%, rgba(196,222,232,0) 68%);opacity:.3"></div>
+      <img src="assets/avatar-round.png" alt="" style="width:152px;height:152px;border-radius:152px;display:block;position:relative">
+      <div id="field" style="position:absolute;top:-38px;right:-38px;bottom:-8px;left:-38px;pointer-events:none"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// The eight bubbles. x / y are % of the field box; s is px at rest.
+var BUBBLES = [
+  { x: 6,  y: 24, s: 26, d: 0.8, dur: 4.2, tint: '#BFDCE8', rim: '#9FC6D6' },
+  { x: 86, y: 14, s: 34, d: 1.5, dur: 5.0, tint: '#CFE3EC', rim: '#A8CCDA' },
+  { x: 96, y: 48, s: 19, d: 2.4, dur: 3.8, tint: '#D8D2EE', rim: '#B3A9DC' },
+  { x: 78, y: 80, s: 28, d: 1.1, dur: 4.6, tint: '#C7E2E0', rim: '#9CC8C4' },
+  { x: 14, y: 84, s: 21, d: 3.0, dur: 4.0, tint: '#D8D2EE', rim: '#B3A9DC' },
+  { x: 1,  y: 62, s: 31, d: 2.0, dur: 5.4, tint: '#BFDCE8', rim: '#9FC6D6' },
+  { x: 48, y: -3, s: 17, d: 3.5, dur: 3.6, tint: '#CFE3EC', rim: '#A8CCDA' },
+  { x: 62, y: 4,  s: 14, d: 4.1, dur: 3.4, tint: '#C7E2E0', rim: '#9CC8C4' }
+];
+
+var SVG = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs) {
+  var n = document.createElementNS(SVG, tag);
+  for (var k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+}
+
+var field = document.getElementById('field');
+BUBBLES.forEach(function (b) {
+  // Bubble: tinted fill, darker rim, two white highlights.
+  var s = svgEl('svg', {width: b.s, height: b.s, viewBox: '0 0 40 40', 'aria-hidden': 'true', 'data-anim': 'bubble'});
+  s.style.cssText = 'position:absolute;left:' + b.x + '%;top:' + b.y + '%;transform:translate(-50%,-50%) scale(1);opacity:1;--dur:' + b.dur + 's;--delay:' + b.d + 's';
+  s.appendChild(svgEl('circle', {cx: 20, cy: 20, r: 17.5, fill: b.tint, 'fill-opacity': .55, stroke: b.rim, 'stroke-width': 2.2}));
+  s.appendChild(svgEl('ellipse', {cx: 14, cy: 13.5, rx: 5, ry: 3.6, fill: '#FFFFFF', 'fill-opacity': .85, transform: 'rotate(-28 14 13.5)'}));
+  s.appendChild(svgEl('circle', {cx: 26.5, cy: 25.5, r: 2, fill: '#FFFFFF', 'fill-opacity': .5}));
+  field.appendChild(s);
+
+  // Burst: dashed ring + four droplets, fired on the same cycle.
+  var p = svgEl('svg', {width: b.s * 1.5, height: b.s * 1.5, viewBox: '0 0 60 60', 'aria-hidden': 'true', 'data-anim': 'burst'});
+  p.style.cssText = 'position:absolute;left:' + b.x + '%;top:' + b.y + '%;transform:translate(-50%,-50%) scale(.35);opacity:0;--dur:' + b.dur + 's;--delay:' + b.d + 's';
+  p.appendChild(svgEl('circle', {cx: 30, cy: 30, r: 16, fill: 'none', stroke: b.rim, 'stroke-width': 2.4, 'stroke-dasharray': '5 7', 'stroke-linecap': 'round'}));
+  [[30, 8, 2.6], [52, 30, 2.2], [30, 52, 2.6], [8, 30, 2.2]].forEach(function (d) {
+    p.appendChild(svgEl('circle', {cx: d[0], cy: d[1], r: d[2], fill: b.rim}));
+  });
+  field.appendChild(p);
+});
+</script>
+</body>
+</html>
