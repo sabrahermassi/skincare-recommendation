@@ -57,16 +57,22 @@ export default function ScanLabel() {
       // the first place. Failing closed rather than falling back to the
       // original: an image we cannot parse is an image we should not forward.
       const clean = stripBase64ImageMetadata(photo.base64);
-      if (clean === null) {
+      if (!clean.ok) {
         setStatus({
           kind: "failed",
-          message: "We couldn't read that image.",
-          hint: "Try again with steadier hands or better light.",
+          message:
+            clean.reason === "too_large"
+              ? "That photo is too large to read."
+              : "We couldn't read that image.",
+          hint:
+            clean.reason === "too_large"
+              ? "Try again — the ingredient panel alone is enough, it doesn't need the whole box."
+              : "Try again with steadier hands or better light.",
         });
         return;
       }
 
-      const result = await analyseLabel(clean, { barcode });
+      const result = await analyseLabel(clean.base64, { barcode });
 
       // The server's "did we find enough text to try" check happens before it
       // knows whether any of that text is actually an ingredient. A photo of

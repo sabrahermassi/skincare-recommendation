@@ -36,6 +36,14 @@ const RATE_LIMIT: RateLimit = { windowSeconds: 300, maxRequests: 10 };
 /** Roughly 4 MB of base64 — well past what a legible label photo needs. */
 const MAX_IMAGE_CHARS = 5_500_000;
 
+/**
+ * Ceiling on the raw request body, checked against Content-Length before the
+ * body is read at all. Sized as `MAX_IMAGE_CHARS` plus room for the JSON
+ * envelope and the optional barcode/name/brand fields, so it never rejects a
+ * request the image check would have accepted.
+ */
+const MAX_BODY_BYTES = MAX_IMAGE_CHARS + 64 * 1024;
+
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
@@ -44,6 +52,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return preflight(req);
   if (req.method !== "POST") return json(req, { error: "POST only" }, 405);
   if (!VISION_API_KEY) return json(req, { error: "OCR is not configured" }, 503);
+
+  // Refuse an oversized body BEFORE reading it. `req.json()` buffers the whole
+  // request into memory first, so the `MAX_IMAGE_CHARS` check further down —
+  // correct as far as it goes — only ever runs once the bytes are already
+  // held. Supabase does not document a request body limit for Edge Functions,
+  // so there is nothing to delegate this to.
+  //
+  // A body with no Content-Length (chunked) cannot be pre-checked; that case
+  // falls through to the existing check, which still holds.
+  const declaredLength = Number(req.headers.get("content-length") ?? Number.NaN);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return json(req, { error: "Image too large — retake it closer in" }, 413);
+  }
 
   let barcode: string | undefined;
   let imageBase64: string;
@@ -66,8 +87,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!/^[A-Za-z0-9+/=\s]+$/.test(imageBase64)) {
     return json(req, { error: "imageBase64 is not valid base64" }, 400);
   }
-  if (barcode !== undefined && !/^\d{8,14}$/.test(barcode)) {
+  // `typeof` first, deliberately. `/regex/.test(x)` coerces its argument, so
+  // a JSON *number* barcode passes the digit check and is then written to
+  // `products.barcode` as a number rather than the string the column expects.
+  if (barcode !== undefined && (typeof barcode !== "string" || !/^\d{8,14}$/.test(barcode))) {
     return json(req, { error: "barcode must be 8-14 digits" }, 400);
+  }
+  // These are optional and only used to name a brand-new row, but they reach
+  // `.trim()` unchecked further down — so `{"name": 123}` threw a TypeError
+  // out of the handler and surfaced as a bare 500 rather than a 400.
+  if (name !== undefined && typeof name !== "string") {
+    return json(req, { error: "name must be a string" }, 400);
+  }
+  if (brand !== undefined && typeof brand !== "string") {
+    return json(req, { error: "brand must be a string" }, 400);
   }
 
   if (!withinRateLimit(callerKey(req), RATE_LIMIT)) {
@@ -92,14 +125,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Reassigning `imageBase64` itself rather than binding a second name is
   // deliberate: nothing in scope then holds the original bytes, so a later
   // edit cannot route the unstripped image to Vision by accident.
+  // The same pass also proves the payload is genuinely a well-formed image
+  // and reads its declared dimensions, so a decompression bomb is refused on
+  // its header rather than on what it would cost to decode. Magic bytes alone
+  // would not do: FFD8FF prefixed to an archive is trivial, so the walk
+  // requires a real frame header and real pixel data before it accepts
+  // anything. Nothing here decodes — see the note on `stripImageMetadata`
+  // for why re-encoding would move risk onto us rather than away.
   const cleaned = stripBase64ImageMetadata(imageBase64);
-  if (cleaned === null) {
-    // Unreachable from our own client, which only ever sends camera JPEG —
-    // hence no dedicated failure copy. `data/api.ts` maps any unrecognised
-    // status to "unreadable", which is honest enough for a hand-rolled caller.
+  if (!cleaned.ok) {
+    // Reachable from our own client only in the "too_large" case, and then
+    // only on a phone whose camera outdoes the size cap; the rest need a
+    // hand-rolled caller. `data/api.ts` maps 415 to "unreadable" and already
+    // has copy for 413.
+    if (cleaned.reason === "too_large") {
+      return json(req, { error: "Image too large — retake it closer in" }, 413);
+    }
     return json(req, { error: "Unsupported image format" }, 415);
   }
-  imageBase64 = cleaned;
+  imageBase64 = cleaned.base64;
 
   // A formula we already hold for this barcode came from a source that had
   // the list in machine-readable form — commas intact, every name canonical.
