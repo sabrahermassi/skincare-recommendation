@@ -62,7 +62,10 @@ handling on the way back.
 
 - Skin profile, quiz answers, scan history, saved products: on-device only
   today (`AsyncStorage`, unencrypted — a separate, already-tracked gap, not
-  this document's subject).
+  this document's subject; see `docs/device-storage-policy.md`). That
+  storage is also swept into Android's default `allowBackup` and iOS
+  device/iCloud backups, which is a disclosable processing fact for whatever
+  becomes the real privacy policy.
 - Face or skin photographs: this app has no feature that captures one. If
   one is ever added, it needs its own entry here and its own regulatory
   review — see `docs/threat-model.md`'s non-goals.

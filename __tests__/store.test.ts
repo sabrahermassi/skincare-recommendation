@@ -150,6 +150,7 @@ describe("what survives an app restart", () => {
     expect([...PERSISTED_KEYS].sort()).toEqual([
       "hasSeenOnboarding",
       "history",
+      "productSuggestions",
       "profile",
       "savedIngredients",
       "savedProducts",
@@ -162,6 +163,24 @@ describe("what survives an app restart", () => {
     expect(Object.keys(persisted).sort()).toEqual([...PERSISTED_KEYS].sort());
     expect(persisted).not.toHaveProperty("compareIds");
     expect(persisted.savedProducts.map((p) => p.id)).toEqual(["keep-me"]);
+  });
+
+  /**
+   * Issue #12. AsyncStorage is not a secure store. This pins the exact set
+   * of keys that reach it, so adding a new persisted field is a deliberate
+   * act that forces a classification decision in
+   * docs/device-storage-policy.md rather than a silent one-line addition to
+   * partialize.
+   */
+  it("never persists credential-shaped keys", () => {
+    const forbidden = /token|session|secret|credential|password|jwt|refresh|apikey/i;
+    for (const key of PERSISTED_KEYS) {
+      expect(key).not.toMatch(forbidden);
+    }
+    // partialize is the real gate; assert it agrees with the declared key set.
+    expect(Object.keys(partializeState(useAppStore.getState())).sort()).toEqual(
+      [...PERSISTED_KEYS].sort()
+    );
   });
 });
 

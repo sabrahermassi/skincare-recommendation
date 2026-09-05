@@ -43,7 +43,7 @@ constraints below, not defaults that might slide.
 | Scan history | last 50 scans: product id, score, warning count, timestamp | Health-adjacent (reveals concerns by inference — a run of "avoid" verdicts on acne products implies acne-prone skin) | AsyncStorage, on-device | Synced row, owned by user id | User-configurable; default cap already exists (50 entries) client-side, needs a server-side equivalent |
 | Saved products | list of product ids | Low sensitivity alone, but joins with scan history to reveal the same inferences | AsyncStorage, on-device | Synced row, owned by user id | Until account deletion |
 | Account identifier | email or OAuth provider id | PII | Does not exist yet | Supabase Auth `auth.users`, referenced by every owner column | Until account deletion |
-| Session token | proof of authenticated identity | Credential-equivalent | Does not exist yet | Short-lived, refreshable; storage mechanism is #12's problem, not this doc's | Session lifetime |
+| Session token | proof of authenticated identity | Credential-equivalent | Does not exist yet | Short-lived, refreshable; storage mechanism is #12's problem, not this doc's — see `docs/device-storage-policy.md` | Session lifetime |
 | Caller IP | used for rate-limiting in `_shared/http.ts` | PII under GDPR — a dynamic IP can identify a person even without being combined with other logs | Held in-memory per Edge Function isolate, never persisted | Same, unless logging is added later | Ephemeral (isolate lifetime) |
 | Label photo | photographed ingredient list, sent to `label-ocr` | Not stored — this is a fixed non-goal, see below | Stripped of EXIF/XMP/IPTC on the device and again on ingest, forwarded to Google Vision, response used, image discarded | No change | N/A — never persisted |
 | Photo metadata | GPS coordinates, device identifier and capture timestamp, written into the file by the camera | PII, and the highest-consequence field in this table — a coordinate is a home address | Removed before the image leaves the handset and again in `label-ocr`, by `_shared/strip-metadata.ts` | No change | N/A — never persisted, and deliberately not promoted to a column |
@@ -58,7 +58,10 @@ second table is planned; if that ever changes, it gets its own row.
 ## 2. Trust boundaries
 
 - **Device ↔ AsyncStorage.** Today's real boundary: anything here survives
-  app data extraction on a lost or shared device. Currently unencrypted.
+  app data extraction on a lost or shared device. Currently unencrypted, and
+  also copied into Android's default `allowBackup` and iOS device/iCloud
+  backups — see `docs/device-storage-policy.md` for the trigger to revisit
+  this.
 - **Device ↔ camera/image-manipulation cache** (issue #27). `takePictureAsync`
   and, since #16, `expo-image-manipulator`'s crop step each write a photo of
   the ingredient label to the app's cache directory — and neither Expo
@@ -325,7 +328,8 @@ other reason, revisit: the calculus only holds while we never open the file.
 
 - Skin profile and scan history are already health-adjacent and already
   live, unencrypted, in AsyncStorage. That's a real gap this document
-  surfaces but doesn't fix — worth its own tracked issue.
+  surfaces but doesn't fix — that issue is #12; see
+  `docs/device-storage-policy.md`.
 - `.claude/claude-security-guidance.md` describes an app with sessions and
   per-user rows. Until #26 rewrites it, treat this document as the accurate
   one where they conflict.
@@ -336,7 +340,8 @@ Three real features, checked against this document before their first
 migration ships:
 
 - **Sign-in.** Account identifier and session token are classified above;
-  storage mechanism is #12's scope, not created here.
+  storage mechanism is #12's scope, not created here — see
+  `docs/device-storage-policy.md`.
 - **Syncing the profile.** Owner column named, RLS policy required in the
   same migration, client never sends a user id.
 - **Syncing the saved list.** Same requirements; also confirms the

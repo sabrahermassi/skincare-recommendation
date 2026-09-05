@@ -92,10 +92,13 @@ restart the server.
 `store/useAppStore.ts` — one Zustand store: skin profile, onboarding flag,
 wishlist, compare tray (capped at 2, drops oldest).
 
-**In-memory only.** Everything resets on reload, so onboarding re-runs on
-every launch. This is issue #2 and the most visible gap; adding
-persistence needs a per-platform storage adapter (React Native has no
-`localStorage`, web has no `AsyncStorage`) plus a rehydration guard.
+**Persisted via Zustand's `persist` middleware (issue #2), backed by
+AsyncStorage, with a rehydration guard in `app/_layout.tsx` gating on
+`useAppStore.persist.hasHydrated()`.** `compareIds` and `pastedIngredients`
+are deliberately excluded — session state, not worth restoring after a
+restart. **`store/useAppStore.ts` is the one file allowed to import
+AsyncStorage** — see `docs/device-storage-policy.md` for which data class
+goes where, and why auth/session material must never take this same path.
 
 ### Scoring
 

@@ -8,6 +8,7 @@
 - The verified session's user ID is the authenticated user's identity. This is the only trusted source of identity for a request.
 - Never trust a client-supplied `userId` from request bodies, query parameters, or URL parameters. Every service function/query takes the user ID from the verified session, never from the request payload.
 - If this app implements its own registration/login (rather than only using Supabase Auth or another managed provider), password hashing must use a modern algorithm (`bcrypt` or equivalent). Never store or log a plaintext password.
+- Where a session token lives on the device is `docs/device-storage-policy.md`'s scope, not this document's — see it before wiring up any persisted session.
 
 ## Authorization and data ownership
 
