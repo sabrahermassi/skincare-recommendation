@@ -22,8 +22,39 @@
 export type ImageFormat = "jpeg" | "png";
 
 export type StripResult =
-  | { ok: true; format: ImageFormat; bytes: Uint8Array }
-  | { ok: false; reason: "unsupported_format" | "malformed" };
+  | { ok: true; format: ImageFormat; bytes: Uint8Array; width: number; height: number }
+  | { ok: false; reason: "unsupported_format" | "malformed" | "too_large" };
+
+/**
+ * Ceiling on total pixels, and the whole decompression-bomb defence.
+ *
+ * A bomb is small on disk and enormous once decoded — a 64000x64000 PNG is a
+ * few KB of run-length-friendly data and 4,096 megapixels of memory for
+ * whoever opens it. The defence is that the dimensions are declared in the
+ * header, so the cost of checking is bounded by the header rather than by
+ * what the file claims to expand to. Nothing here ever decodes.
+ *
+ * 50 MP sits above every mainstream phone (48 MP sensors are the current high
+ * end, and the default capture is nearer 12 MP) and decisively below a bomb.
+ * A genuine photo that large would also be far past `MAX_IMAGE_CHARS` in
+ * `label-ocr`, so this cap costs no real capture anything.
+ */
+const MAX_PIXELS = 50_000_000;
+
+/**
+ * Ceiling on either side on its own.
+ *
+ * The pixel cap alone would admit 1 x 30,000,000, which is cheap to encode,
+ * absurd as a photograph, and the shape that finds edge cases in decoders
+ * that assume a sane aspect ratio.
+ */
+const MAX_DIMENSION = 20_000;
+
+function withinCaps(width: number, height: number): boolean {
+  if (width <= 0 || height <= 0) return false;
+  if (width > MAX_DIMENSION || height > MAX_DIMENSION) return false;
+  return width * height <= MAX_PIXELS;
+}
 
 const JPEG_MAGIC = [0xff, 0xd8, 0xff];
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -44,11 +75,21 @@ export function sniffFormat(bytes: Uint8Array): ImageFormat | null {
 }
 
 /**
- * Strip all metadata from `bytes`, or explain why it could not.
+ * Strip all metadata from `bytes`, prove the result is genuinely a
+ * well-formed image within the size caps, or explain why it is not.
  *
  * An unrecognised container is refused rather than passed through. Refusing
  * is the safe default: forwarding a format we cannot walk is exactly the case
  * where metadata survives, and our own client only ever produces JPEG.
+ *
+ * Note what this deliberately does NOT do: decode and re-encode the pixels.
+ * The two things a re-encode is usually credited with — dropping embedded
+ * payloads and killing polyglot files — already fall out of the structural
+ * rewrite below. What it would uniquely add is protection against an image
+ * crafted to exploit a decoder, and we have no decoder: these bytes are
+ * walked here and handed to Google Cloud Vision. Re-encoding would mean
+ * opening the file ourselves first, moving that risk off Google's hardened
+ * decoder and onto this isolate. See `docs/threat-model.md`.
  */
 export function stripImageMetadata(bytes: Uint8Array): StripResult {
   const format = sniffFormat(bytes);
@@ -93,8 +134,49 @@ const JFIF_APP0 = [
 /** "Adobe", the payload prefix identifying an APP14 colour-transform marker. */
 const ADOBE = [0x41, 0x64, 0x6f, 0x62, 0x65];
 
+/**
+ * Whether this marker is a frame header, which is what declares the image's
+ * dimensions.
+ *
+ * `SOF0`-`SOF15` occupy 0xC0-0xCF, but three values in that range are not
+ * frame headers at all and must not be read as one: 0xC4 is a Huffman table,
+ * 0xC8 is reserved, and 0xCC is an arithmetic-coding conditioning table.
+ * Treating a Huffman table's first bytes as a width is how a parser ends up
+ * reporting nonsense dimensions for a perfectly ordinary photo.
+ */
+function isFrameHeader(marker: number): boolean {
+  if (marker < 0xc0 || marker > 0xcf) return false;
+  return marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+}
+
+/**
+ * Output is never larger than the input plus the synthesized JFIF APP0: this
+ * only ever drops segments, and adds those 18 bytes. Preallocating to that
+ * bound lets the whole walk write into one `Uint8Array` through a cursor.
+ *
+ * The alternative — accumulating into a plain `number[]` and converting at
+ * the end — is what this originally did, and it cost roughly eight times the
+ * image in peak memory: a boxed JS array holds about 8 bytes per element, and
+ * the conversion allocates the real buffer alongside it. On a 4 MB photo that
+ * is ~36 MB per request, with nothing bounding how many requests are in
+ * flight at once. Bounding the pipeline's own resource use is exactly what
+ * this issue is about, so it would be odd to leave that in place.
+ */
 function stripJpeg(bytes: Uint8Array): StripResult {
-  const out: number[] = [0xff, SOI, ...JFIF_APP0];
+  const out = new Uint8Array(bytes.length + JFIF_APP0.length);
+  let n = 0;
+  out[n++] = 0xff;
+  out[n++] = SOI;
+  for (const b of JFIF_APP0) out[n++] = b;
+
+  // A file is only accepted once it has proved it is really an image: a frame
+  // header declaring its dimensions, and at least one scan of pixel data.
+  // Magic bytes alone are trivially spoofed by prefixing FFD8FF to an
+  // archive, so "type determined from content" has to mean the structure,
+  // not the first three bytes.
+  let width = 0;
+  let height = 0;
+  let sawScan = false;
 
   let i = 2; // past SOI
   while (i < bytes.length) {
@@ -119,8 +201,9 @@ function stripJpeg(bytes: Uint8Array): StripResult {
     // appended-payload polyglot — a file that is a valid JPEG *and* a valid
     // archive — loses its second half.
     if (marker === EOI) {
-      out.push(0xff, EOI);
-      return { ok: true, format: "jpeg", bytes: Uint8Array.from(out) };
+      out[n++] = 0xff;
+      out[n++] = EOI;
+      return finishJpeg(out, n, width, height, sawScan);
     }
 
     const lengthAt = markerAt + 2;
@@ -131,18 +214,32 @@ function stripJpeg(bytes: Uint8Array): StripResult {
     const segmentEnd = lengthAt + length;
     if (segmentEnd > bytes.length) return { ok: false, reason: "malformed" };
 
+    if (isFrameHeader(marker)) {
+      // precision(1), height(2), width(2), components(1).
+      const payload = lengthAt + 2;
+      if (payload + 5 > bytes.length) return { ok: false, reason: "malformed" };
+      height = (bytes[payload + 1] << 8) | bytes[payload + 2];
+      width = (bytes[payload + 3] << 8) | bytes[payload + 4];
+      // Refused here rather than after the copy: the point of reading the
+      // header is to reject a bomb before spending anything on its body.
+      if (!withinCaps(width, height)) return { ok: false, reason: "too_large" };
+    }
+
     if (isMetadataMarker(marker, bytes, lengthAt + 2, segmentEnd)) {
       i = segmentEnd;
       continue;
     }
 
-    for (let k = markerAt; k < segmentEnd; k++) out.push(bytes[k]);
+    for (let k = markerAt; k < segmentEnd; k++) out[n++] = bytes[k];
 
     if (marker === SOS) {
+      sawScan = true;
       // Entropy-coded data follows with no length of its own, so it has to be
       // scanned for the next real marker. A progressive JPEG has several
       // scans, so this returns to the marker loop rather than running to EOF.
-      i = copyEntropyData(bytes, segmentEnd, out);
+      const copied = copyEntropyData(bytes, segmentEnd, out, n);
+      n = copied.written;
+      i = copied.next;
       continue;
     }
 
@@ -152,8 +249,22 @@ function stripJpeg(bytes: Uint8Array): StripResult {
   // Ran off the end without an EOI. Real cameras do produce truncated files
   // (a full card, an interrupted write) and the OCR only needs whatever scan
   // lines arrived, so closing the stream beats rejecting the photo.
-  out.push(0xff, EOI);
-  return { ok: true, format: "jpeg", bytes: Uint8Array.from(out) };
+  out[n++] = 0xff;
+  out[n++] = EOI;
+  return finishJpeg(out, n, width, height, sawScan);
+}
+
+function finishJpeg(
+  out: Uint8Array,
+  written: number,
+  width: number,
+  height: number,
+  sawScan: boolean
+): StripResult {
+  // No frame header means no declared dimensions, and no scan means no pixel
+  // data — in either case this is not an image, whatever its first bytes say.
+  if (width === 0 || height === 0 || !sawScan) return { ok: false, reason: "malformed" };
+  return { ok: true, format: "jpeg", bytes: out.subarray(0, written), width, height };
 }
 
 /**
@@ -195,21 +306,28 @@ function isMetadataMarker(
  * restart marker. Treating either as the end of the scan would truncate the
  * image at the first run of pixels that happened to encode 0xFF.
  */
-function copyEntropyData(bytes: Uint8Array, from: number, out: number[]): number {
+function copyEntropyData(
+  bytes: Uint8Array,
+  from: number,
+  out: Uint8Array,
+  written: number
+): { next: number; written: number } {
   let i = from;
+  let n = written;
   while (i < bytes.length) {
     if (bytes[i] === 0xff) {
       const next = bytes[i + 1];
       if (next === undefined) break;
-      if (next !== 0x00 && !(next >= RST0 && next <= RST7)) return i;
-      out.push(bytes[i], next);
+      if (next !== 0x00 && !(next >= RST0 && next <= RST7)) return { next: i, written: n };
+      out[n++] = bytes[i];
+      out[n++] = next;
       i += 2;
       continue;
     }
-    out.push(bytes[i]);
+    out[n++] = bytes[i];
     i += 1;
   }
-  return bytes.length;
+  return { next: bytes.length, written: n };
 }
 
 // ── PNG ─────────────────────────────────────────────────────────────────────
@@ -241,8 +359,14 @@ const PNG_KEEP = new Set([
 ]);
 
 function stripPng(bytes: Uint8Array): StripResult {
-  const out: number[] = [];
-  for (let k = 0; k < PNG_MAGIC.length; k++) out.push(bytes[k]);
+  // Only ever drops chunks, so the input length is a safe upper bound.
+  const out = new Uint8Array(bytes.length);
+  let n = 0;
+  for (let k = 0; k < PNG_MAGIC.length; k++) out[n++] = bytes[k];
+
+  let width = 0;
+  let height = 0;
+  let sawData = false;
 
   let i = PNG_MAGIC.length;
   while (i < bytes.length) {
@@ -258,14 +382,45 @@ function stripPng(bytes: Uint8Array): StripResult {
 
     const type = String.fromCharCode(bytes[i + 4], bytes[i + 5], bytes[i + 6], bytes[i + 7]);
 
+    if (type === "IHDR") {
+      // IHDR must be the first chunk, and its payload is width(4), height(4),
+      // then bit depth and colour type. A second IHDR, or one that is not
+      // first, is not a PNG we are willing to reason about.
+      if (i !== PNG_MAGIC.length || width !== 0) return { ok: false, reason: "malformed" };
+      if (length < 13) return { ok: false, reason: "malformed" };
+      const payload = i + 8;
+      width =
+        bytes[payload] * 0x1000000 +
+        (bytes[payload + 1] << 16) +
+        (bytes[payload + 2] << 8) +
+        bytes[payload + 3];
+      height =
+        bytes[payload + 4] * 0x1000000 +
+        (bytes[payload + 5] << 16) +
+        (bytes[payload + 6] << 8) +
+        bytes[payload + 7];
+      // The bomb check, and the reason it is cheap: a 64000x64000 PNG says so
+      // here, in the first 25 bytes, however little it weighs on disk.
+      if (!withinCaps(width, height)) return { ok: false, reason: "too_large" };
+    } else if (width === 0) {
+      // Any chunk before IHDR means the datastream is not a PNG.
+      return { ok: false, reason: "malformed" };
+    }
+
+    if (type === "IDAT") sawData = true;
+
     // Chunks are copied whole, CRC included, so nothing needs recomputing.
     if (PNG_KEEP.has(type)) {
-      for (let k = i; k < chunkEnd; k++) out.push(bytes[k]);
+      for (let k = i; k < chunkEnd; k++) out[n++] = bytes[k];
     }
 
     // IEND closes the datastream. Anything past it is an appended payload,
     // and the same polyglot argument as JPEG's EOI applies.
-    if (type === "IEND") return { ok: true, format: "png", bytes: Uint8Array.from(out) };
+    if (type === "IEND") {
+      // No pixel data means this is a container, not a picture.
+      if (!sawData) return { ok: false, reason: "malformed" };
+      return { ok: true, format: "png", bytes: out.subarray(0, n), width, height };
+    }
 
     i = chunkEnd;
   }
@@ -376,14 +531,32 @@ export function base64FromBytes(bytes: Uint8Array): string {
   return chunks.join("");
 }
 
+export type Base64StripResult =
+  | { ok: true; base64: string; format: ImageFormat; width: number; height: number }
+  | { ok: false; reason: "not_base64" | "unsupported_format" | "malformed" | "too_large" };
+
 /**
- * The whole operation as both callers need it: base64 in, stripped base64
- * out, `null` when the payload is not an image we can walk.
+ * The whole operation as both callers need it: base64 in, sanitised base64
+ * out, or a reason.
+ *
+ * The reason is carried rather than collapsed to `null` because the server
+ * owes the caller different answers for different failures — an image that is
+ * too large is a 413 and a retake, an unrecognised container is a 415 — and
+ * because "we could not read that" and "that was 4,096 megapixels" should not
+ * look the same in a log.
  */
-export function stripBase64ImageMetadata(base64: string): string | null {
+export function stripBase64ImageMetadata(base64: string): Base64StripResult {
   const bytes = bytesFromBase64(base64);
-  if (bytes === null) return null;
+  if (bytes === null) return { ok: false, reason: "not_base64" };
+
   const stripped = stripImageMetadata(bytes);
-  if (!stripped.ok) return null;
-  return base64FromBytes(stripped.bytes);
+  if (!stripped.ok) return { ok: false, reason: stripped.reason };
+
+  return {
+    ok: true,
+    base64: base64FromBytes(stripped.bytes),
+    format: stripped.format,
+    width: stripped.width,
+    height: stripped.height,
+  };
 }
