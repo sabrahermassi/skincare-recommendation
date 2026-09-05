@@ -118,10 +118,37 @@ second table is planned; if that ever changes, it gets its own row.
   INCI API). Untrusted data in, already treated as such by the existing
   cascade and `source`/`verified` columns. Not a user-data boundary.
 - **Backend ↔ object storage.** None exists. No bucket is provisioned, and
-  none is planned while the no-photo-storage non-goal (§5) holds. If that
-  ever changes, the new bucket needs its own auth, access controls,
-  retention, and deletion review before it ships — this section doesn't
-  grandfather it in.
+  none is planned while the no-photo-storage non-goal (§5) holds — confirmed
+  directly for issue #23: no `.upload()`, no `createSignedUrl`, no Storage
+  usage anywhere in this codebase, and no user accounts to scope access to
+  in the first place. `products.image_url` is not a counterexample — it's a
+  third-party catalogue-photo URL (Open Beauty Facts / the INCI API), never
+  a user's own image, and hidden client-side regardless
+  (`SHOW_SOURCE_PHOTOS`/`USE_SOURCE_PHOTOS`, both `false`).
+
+  That's a goal ("no public URLs to user photos") with no mechanism behind
+  it, which is exactly as useless the day a bucket *is* added as it is
+  today — so the mechanism is written down now, before there's a bucket to
+  retrofit it onto. **If that ever changes, the new bucket must have all
+  five of these from day one**, not as a follow-up review:
+
+  - **Signed URL TTL in minutes, not hours or days.** A long-lived URL
+    pasted into a support ticket or a crash report is a standing
+    unauthenticated leak for as long as it stays valid.
+  - **No CDN/proxy caching of a signed response** — explicit `private,
+    no-store` on the response, verified through whatever CDN actually sits
+    in front of it, not just checked at origin. A cache that keeps serving a
+    signed 200 after the signature expires is the standard way a "private"
+    bucket leaks anyway.
+  - **Object keys are random**, never sequential or derived from a user
+    identifier. A guessable key turns one bug into full enumeration even
+    behind otherwise-working auth.
+  - **Bucket default-deny.** Access only through signing — never a public
+    bucket relying on an obscure path standing in for real access control.
+  - **Re-authorize at signing time, every time.** A valid session proves who
+    is asking, not that they own the specific object being requested — that
+    ownership check belongs at the signing call itself, not assumed from
+    being logged in.
 - **Backend ↔ Supabase with the service-role key.** The service-role key
   bypasses RLS entirely. Today it's used only for catalogue writes nothing
   user-owned touches. Once user tables exist, no code path may use the
