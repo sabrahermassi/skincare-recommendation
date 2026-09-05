@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { File } from "expo-file-system";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
@@ -54,6 +55,18 @@ export default function ScanLabel() {
     if (status.kind === "reading") return;
     setStatus({ kind: "reading" });
 
+    // Both files, once they exist, are deleted in `finally` below regardless
+    // of how this function exits. iOS gives a freshly-created file
+    // NSFileProtectionCompleteUntilFirstUserAuthentication by default (no
+    // entitlement needed) and Android's cache directory is encrypted at rest
+    // via File-Based Encryption since API 29 — reasonable against a
+    // powered-off device, but neither is a reason to let a photographed
+    // ingredient label sit in cache indefinitely. Community experience with
+    // this exact library confirms neither file is cleaned up on its own. See
+    // issue #27.
+    let capturedUri: string | undefined;
+    let croppedUri: string | undefined;
+
     try {
       const photo = await camera.current?.takePictureAsync({
         base64: true,
@@ -67,6 +80,7 @@ export default function ScanLabel() {
         setStatus({ kind: "failed", message: "The camera didn't return an image." });
         return;
       }
+      capturedUri = photo.uri;
 
       // Crop to the on-screen guide box before anything leaves the device.
       // Until this existed, the box drawn below was decoration only —
@@ -95,6 +109,7 @@ export default function ScanLabel() {
               compress: 0.8,
               format: SaveFormat.JPEG,
             });
+            croppedUri = cropped.uri;
             if (cropped.base64) imageBase64 = cropped.base64;
           } catch {
             // Fall through with the uncropped photo — see comment above.
@@ -163,6 +178,9 @@ export default function ScanLabel() {
         message: "Something went wrong reading that.",
         hint: "Try again - and check you have a connection.",
       });
+    } finally {
+      deleteTempFile(capturedUri);
+      deleteTempFile(croppedUri);
     }
   }
 
@@ -265,6 +283,27 @@ export default function ScanLabel() {
       </View>
     </View>
   );
+}
+
+/**
+ * Remove a temp photo file from cache once `capture()` no longer needs it —
+ * see issue #27. Best-effort: a file the OS will eventually reclaim from
+ * cache on its own is a smaller problem than a cleanup step throwing and
+ * masking the scan result the user is already looking at.
+ *
+ * The `file://` guard isn't just defensive — `CameraCapturedPicture.uri`'s
+ * own doc comment says web has no filesystem and returns the base64 string
+ * as `uri` instead, so this is a correct, self-documented no-op there rather
+ * than something that happens to survive by falling into the `catch`.
+ */
+function deleteTempFile(uri: string | undefined) {
+  if (!uri || !uri.startsWith("file://")) return;
+  try {
+    const file = new File(uri);
+    if (file.exists) file.delete();
+  } catch {
+    // Nothing to do — see above.
+  }
 }
 
 /** Each failure gets a different next action, because they have different fixes. */
