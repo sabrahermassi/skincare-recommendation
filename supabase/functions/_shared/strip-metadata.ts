@@ -93,6 +93,15 @@ const JFIF_APP0 = [
 /** "Adobe", the payload prefix identifying an APP14 colour-transform marker. */
 const ADOBE = [0x41, 0x64, 0x6f, 0x62, 0x65];
 
+/**
+ * The real Adobe APP14 payload is always exactly this long: the 5-byte
+ * "Adobe" tag plus DCTEncodeVersion(2) + APP14Flags0(2) + APP14Flags1(2) +
+ * ColorTransform(1). Anything longer is not a colour-transform declaration —
+ * it is extra bytes appended after a genuine "Adobe" prefix, which an
+ * `>=` length check would let through unexamined.
+ */
+const ADOBE_APP14_LENGTH = 12;
+
 function stripJpeg(bytes: Uint8Array): StripResult {
   const out: number[] = [0xff, SOI, ...JFIF_APP0];
 
@@ -177,7 +186,7 @@ function isMetadataMarker(
 ): boolean {
   if (marker === COM) return true;
   if (marker < APP0 || marker > APP15) return false;
-  if (marker === APP14 && payloadEnd - payloadStart >= ADOBE.length) {
+  if (marker === APP14 && payloadEnd - payloadStart === ADOBE_APP14_LENGTH) {
     for (let k = 0; k < ADOBE.length; k++) {
       if (bytes[payloadStart + k] !== ADOBE[k]) return true;
     }
@@ -213,6 +222,32 @@ function copyEntropyData(bytes: Uint8Array, from: number, out: number[]): number
 }
 
 // ── PNG ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Standard PNG CRC-32 (ISO 3309 / zlib), table built once. No `zlib` or
+ * `crypto` import: this file has to run on Deno, Hermes, the browser and
+ * Jest with none of them, same reasoning as the hand-rolled base64 below.
+ */
+const CRC_TABLE = ((): Uint32Array => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+/** CRC over `bytes[start, end)`, matching what a PNG chunk's CRC field covers. */
+function crc32(bytes: Uint8Array, start: number, end: number): number {
+  let c = 0xffffffff;
+  for (let i = start; i < end; i++) {
+    c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
 
 /**
  * Chunks that carry picture, not provenance.
@@ -257,6 +292,20 @@ function stripPng(bytes: Uint8Array): StripResult {
     if (chunkEnd > bytes.length) return { ok: false, reason: "malformed" };
 
     const type = String.fromCharCode(bytes[i + 4], bytes[i + 5], bytes[i + 6], bytes[i + 7]);
+
+    // CRC covers the type and payload, not the length field or itself. A
+    // mismatch means the chunk was corrupted or tampered with in transit —
+    // checked before the chunk is inspected further, dropped or not, since
+    // a bad CRC in a chunk we were about to discard is still a sign the
+    // whole file cannot be trusted.
+    const declaredCrc =
+      bytes[chunkEnd - 4] * 0x1000000 +
+      (bytes[chunkEnd - 3] << 16) +
+      (bytes[chunkEnd - 2] << 8) +
+      bytes[chunkEnd - 1];
+    if (crc32(bytes, i + 4, chunkEnd - 4) !== declaredCrc) {
+      return { ok: false, reason: "malformed" };
+    }
 
     // Chunks are copied whole, CRC included, so nothing needs recomputing.
     if (PNG_KEEP.has(type)) {

@@ -135,21 +135,53 @@ function png(chunks: number[][]): Uint8Array {
   return Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...chunks.flat()]);
 }
 
-/** length, type, payload, CRC. The CRC is never recomputed, so any four bytes do. */
+/**
+ * Standard PNG CRC-32, computed independently of the implementation under
+ * test — the fixture builder and the stripper must not share a bug.
+ */
+const CRC_TABLE = ((): number[] => {
+  const table: number[] = [];
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes: number[]): number {
+  let c = 0xffffffff;
+  for (const byte of bytes) {
+    c = CRC_TABLE[(c ^ byte) & 0xff] ^ (c >>> 8);
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+/** length, type, payload, CRC — a real one, since the stripper now checks it. */
 function pngChunk(type: string, payload: number[]): number[] {
   const n = payload.length;
+  const typeAndPayload = [...ascii(type), ...payload];
+  const crc = crc32(typeAndPayload);
   return [
     (n >>> 24) & 0xff,
     (n >>> 16) & 0xff,
     (n >>> 8) & 0xff,
     n & 0xff,
-    ...ascii(type),
-    ...payload,
-    0xde,
-    0xad,
-    0xbe,
-    0xef,
+    ...typeAndPayload,
+    (crc >>> 24) & 0xff,
+    (crc >>> 16) & 0xff,
+    (crc >>> 8) & 0xff,
+    crc & 0xff,
   ];
+}
+
+/** Same as `pngChunk`, but with the CRC deliberately wrong. */
+function pngChunkBadCrc(type: string, payload: number[]): number[] {
+  const chunk = pngChunk(type, payload);
+  chunk[chunk.length - 1] ^= 0xff;
+  return chunk;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -340,6 +372,12 @@ describe("stripImageMetadata: PNG", () => {
 
   it("refuses a datastream with no IEND", () => {
     expect(stripImageMetadata(png([IHDR, IDAT]))).toEqual({ ok: false, reason: "malformed" });
+  });
+
+  it("refuses a chunk with a corrupted CRC", () => {
+    const input = png([IHDR, pngChunkBadCrc("tEXt", ascii("Comment taken at home")), IDAT, IEND]);
+
+    expect(stripImageMetadata(input)).toEqual({ ok: false, reason: "malformed" });
   });
 });
 
