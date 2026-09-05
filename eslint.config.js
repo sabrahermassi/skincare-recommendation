@@ -29,8 +29,8 @@ module.exports = defineConfig([
     // someone has to remember. See docs/device-storage-policy.md.
     files: ['**/*.{ts,tsx}'],
     ignores: [
-      'store/useAppStore.ts', // the approved AsyncStorage seam (issue #2)
-      // 'lib/secure-storage.ts', // uncomment with the auth PR — the only
+      'store/useAppStore.{ts,tsx}', // the approved AsyncStorage seam (issue #2)
+      // 'lib/secure-storage.{ts,tsx}', // uncomment with the auth PR — the only
                                    // file permitted to import expo-secure-store
     ],
     rules: {
