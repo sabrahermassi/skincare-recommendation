@@ -154,7 +154,7 @@ Per-user isolation is enforced by construction, not by discipline:
 - **No third-party analytics or crash reporting that receives health-adjacent
   fields** (concerns, skin type, scan history) in identifiable form.
 
-Recording these here is deliberate: it's what lets #21, #23, #27, and #28 (all
+Recording these here is deliberate: it's what lets #23, #27, and #28 (all
 photo-*storage* hardening issues) be closed as not-applicable rather than
 carried indefinitely, as long as this boundary holds.
 
@@ -166,6 +166,51 @@ long as the list said otherwise, and it is fixed above by stripping rather
 than by anything this section rules out. The lesson generalises — "we don't
 store it" answers questions about retention, not about egress, so check which
 kind an issue is before this section is allowed to close it.
+
+**#21 was on it too, and only half belonged.** Two of its controls really are
+discharged by having no storage: derivatives inheriting a parent object's ACL
+needs derivatives, and re-encoding *before storage* needs storage. The rest of
+it — proving the bytes are an image, and capping how big an image we will act
+on — is about ingest, and ingest happens whether or not anything is kept. Those
+are implemented; see §6.
+
+## 6. What we check before acting on a label photo
+
+Every control here lives in `_shared/strip-metadata.ts` and is enforced in
+`label-ocr` on every request, before the image reaches Google Vision.
+
+- **Type is decided by structure, not by what the caller says.** Not the MIME
+  type, not the extension, and not the magic bytes alone — `FFD8FF` prefixed
+  to an archive is three bytes anyone can type. The file is accepted only if
+  it walks as a real JPEG (a frame header *and* a scan) or a real PNG (`IHDR`
+  first, at least one `IDAT`, `IEND`).
+- **Dimensions are read from the header and capped**: 50 megapixels total,
+  20,000 pixels on either side. This is the decompression-bomb defence, and
+  the reason it is cheap: a 64000×64000 PNG is a few hundred bytes on disk and
+  says so in its first 25 bytes, so the cost of refusing it is the header
+  rather than the 4,096 megapixels it would expand to. The caps sit above any
+  real phone camera (48 MP sensors are the current high end) and below
+  anything a bomb needs.
+- **Body size is capped before the body is read**, against `Content-Length`,
+  rather than after `req.json()` has already buffered it. Supabase does not
+  document a request body limit for Edge Functions, so there is nothing to
+  delegate this to.
+- **Anything after the end-of-image marker is discarded**, which is what
+  removes an appended-payload polyglot.
+- **Peak memory is bounded by the image.** The walker writes into a single
+  preallocated buffer sized to the input, so a request costs about the size of
+  the photo rather than a multiple of it.
+
+**We deliberately do not decode and re-encode the image**, which #21 lists as
+a control. The two things a re-encode is usually credited with — dropping
+embedded payloads and killing polyglots — already fall out of the structural
+rewrite above. What it would uniquely add is protection against an image
+crafted to exploit a decoder, and we have no decoder: these bytes are walked
+and handed to Google Cloud Vision. Re-encoding would mean opening the file
+ourselves first, which moves that risk off Google's hardened decoder and onto
+our own isolate — taking on a real exposure to spare a third party that is far
+better equipped to absorb it. If a decoder ever does enter this path for some
+other reason, revisit: the calculus only holds while we never open the file.
 
 ## What this changes right now, before accounts exist
 

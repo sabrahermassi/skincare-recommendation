@@ -100,6 +100,29 @@ function exifWithGps(): number[] {
 const XMP = [...ascii("http://ns.adobe.com/xap/1.0/"), 0x00, ...ascii("<x:xmpmeta/>")];
 const IPTC = [...ascii("Photoshop 3.0"), 0x00, 0x38, 0x42, 0x49, 0x4d];
 
+/**
+ * A minimal but structurally complete JPEG of the given dimensions: frame
+ * header declaring the size, one scan, EOI. Used to drive the dimension caps
+ * without allocating anything like the pixels those dimensions imply — which
+ * is the whole point of reading the header rather than decoding.
+ */
+function jpegOfSize(width: number, height: number): Uint8Array {
+  return Uint8Array.from([
+    0xff, 0xd8,
+    ...segment(0xc0, [
+      0x08,
+      (height >> 8) & 0xff,
+      height & 0xff,
+      (width >> 8) & 0xff,
+      width & 0xff,
+      0x01, 0x01, 0x11, 0x00,
+    ]),
+    ...SOS_HEADER,
+    ...ENTROPY,
+    0xff, 0xd9,
+  ]);
+}
+
 /** Quantisation table — picture data, and so must survive untouched. */
 const DQT = segment(0xdb, [0x00, ...Array.from({ length: 64 }, (_, i) => (i % 255) + 1)]);
 /** Baseline frame header: 8-bit, 16x16, one component. */
@@ -357,6 +380,136 @@ describe("stripImageMetadata: refusals", () => {
   });
 });
 
+/**
+ * The three cases issue #21 names by name, kept together and labelled so the
+ * acceptance criteria are legible from the test output rather than having to
+ * be inferred from scattered assertions.
+ */
+describe("issue #21: upload pipeline hardening", () => {
+  const IHDR_13 = (w: number, h: number) => [
+    (w >>> 24) & 0xff, (w >>> 16) & 0xff, (w >>> 8) & 0xff, w & 0xff,
+    (h >>> 24) & 0xff, (h >>> 16) & 0xff, (h >>> 8) & 0xff, h & 0xff,
+    8, 2, 0, 0, 0,
+  ];
+  const IDAT = pngChunk("IDAT", [0x78, 0x9c, 0x62, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01]);
+  const IEND = pngChunk("IEND", []);
+
+  describe("decompression bomb", () => {
+    it("refuses a PNG that declares 64000x64000 in a few hundred bytes", () => {
+      const bomb = png([pngChunk("IHDR", IHDR_13(64_000, 64_000)), IDAT, IEND]);
+
+      // The defence is that the cost of checking is the header, not the
+      // decode: the whole hostile file is smaller than this test's fixtures.
+      expect(bomb.length).toBeLessThan(100);
+      expect(stripImageMetadata(bomb)).toEqual({ ok: false, reason: "too_large" });
+    });
+
+    it("refuses a JPEG that declares 64000x64000", () => {
+      expect(stripImageMetadata(jpegOfSize(64_000, 64_000))).toEqual({
+        ok: false,
+        reason: "too_large",
+      });
+    });
+
+    it("refuses a degenerate aspect ratio the pixel count alone would allow", () => {
+      // 1 x 30,000,000 is only 30 MP — under the pixel cap — but absurd as a
+      // photograph and the shape that finds decoder edge cases.
+      expect(stripImageMetadata(jpegOfSize(1, 30_000_000))).toEqual({
+        ok: false,
+        reason: "too_large",
+      });
+    });
+
+    it("still accepts a large but genuine phone photo", () => {
+      // 8000x6000 is a 48 MP sensor at full resolution — the realistic ceiling.
+      const result = stripImageMetadata(jpegOfSize(8000, 6000));
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.width).toBe(8000);
+      expect(result.height).toBe(6000);
+    });
+  });
+
+  describe("polyglot file", () => {
+    it("drops an archive appended after a valid JPEG", () => {
+      const zip = ascii("PK archive riding along behind the image");
+      const out = stripped(Uint8Array.from([...jpegWithMetadata(), ...zip]));
+
+      expect(contains(out, zip)).toBe(false);
+      expect(Array.from(out.subarray(-2))).toEqual([0xff, 0xd9]);
+    });
+
+    it("drops an archive appended after a valid PNG", () => {
+      const zip = ascii("PK archive riding along behind the image");
+      const out = stripped(
+        png([pngChunk("IHDR", IHDR_13(16, 16)), IDAT, IEND, zip])
+      );
+
+      expect(contains(out, zip)).toBe(false);
+    });
+  });
+
+  describe("spoofed content type", () => {
+    it("refuses an archive wearing a JPEG's magic bytes", () => {
+      // FFD8FF is three bytes anyone can prepend. Sniffing alone would call
+      // this a JPEG; requiring a real frame header and a real scan is what
+      // makes "type determined from content" mean the structure.
+      const spoofed = Uint8Array.from([
+        0xff, 0xd8, 0xff,
+        ...ascii("PK this is really a zip file"),
+      ]);
+
+      expect(sniffFormat(spoofed)).toBe("jpeg");
+      expect(stripImageMetadata(spoofed).ok).toBe(false);
+    });
+
+    it("refuses a JPEG-framed file carrying no scan data", () => {
+      const noScan = Uint8Array.from([0xff, 0xd8, ...SOF0, 0xff, 0xd9]);
+
+      expect(stripImageMetadata(noScan)).toEqual({ ok: false, reason: "malformed" });
+    });
+
+    it("refuses a PNG-framed file carrying no IDAT", () => {
+      expect(stripImageMetadata(png([pngChunk("IHDR", IHDR_13(16, 16)), IEND]))).toEqual({
+        ok: false,
+        reason: "malformed",
+      });
+    });
+
+    it("refuses a PNG whose first chunk is not IHDR", () => {
+      const out = png([pngChunk("tEXt", ascii("before the header")), IDAT, IEND]);
+
+      expect(stripImageMetadata(out)).toEqual({ ok: false, reason: "malformed" });
+    });
+
+    it("judges a real PNG as PNG regardless of what a caller might claim", () => {
+      const real = png([pngChunk("IHDR", IHDR_13(32, 24)), IDAT, IEND]);
+      const result = stripImageMetadata(real);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.format).toBe("png");
+      expect(result.width).toBe(32);
+      expect(result.height).toBe(24);
+    });
+  });
+
+  describe("memory", () => {
+    it("allocates one output buffer bounded by the input, not a boxed array", () => {
+      // The output can never exceed the input plus the synthesized JFIF APP0,
+      // which is what lets the walk write into a single preallocated
+      // Uint8Array. A regression to accumulating into number[] would not fail
+      // this outright, but a growth past the bound would.
+      const input = jpegWithMetadata();
+      const out = stripped(input);
+
+      expect(out.length).toBeLessThanOrEqual(input.length + 18);
+      expect(out).toBeInstanceOf(Uint8Array);
+    });
+  });
+});
+
 describe("base64 codec", () => {
   /**
    * Differential against Node's own base64 rather than against itself: a
@@ -433,16 +586,35 @@ describe("the shared module stays runnable on every target", () => {
 });
 
 describe("stripBase64ImageMetadata", () => {
-  it("round-trips through base64 and removes the GPS coordinates", () => {
-    const out = stripBase64ImageMetadata(base64FromBytes(jpegWithMetadata()));
+  function strippedBase64(bytes: Uint8Array): string {
+    const result = stripBase64ImageMetadata(base64FromBytes(bytes));
+    if (!result.ok) throw new Error(`expected a strip, got ${result.reason}`);
+    return result.base64;
+  }
 
-    expect(out).not.toBeNull();
-    expect(contains(bytesFromBase64(out!)!, GPS_LATITUDE_BYTES)).toBe(false);
+  it("round-trips through base64 and removes the GPS coordinates", () => {
+    const out = strippedBase64(jpegWithMetadata());
+
+    expect(contains(bytesFromBase64(out)!, GPS_LATITUDE_BYTES)).toBe(false);
+  });
+
+  it("reports the dimensions it read from the header", () => {
+    const result = stripBase64ImageMetadata(base64FromBytes(jpegWithMetadata()));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.format).toBe("jpeg");
+    expect(result.width).toBe(16);
+    expect(result.height).toBe(16);
   });
 
   it("is idempotent — stripping an already-clean image changes nothing", () => {
-    const once = stripBase64ImageMetadata(base64FromBytes(jpegWithMetadata()))!;
-    expect(stripBase64ImageMetadata(once)).toBe(once);
+    const once = strippedBase64(jpegWithMetadata());
+    const twice = stripBase64ImageMetadata(once);
+
+    expect(twice.ok).toBe(true);
+    if (!twice.ok) return;
+    expect(twice.base64).toBe(once);
   });
 
   it("survives a payload spanning many encoder chunks", () => {
@@ -456,14 +628,20 @@ describe("stripBase64ImageMetadata", () => {
       0xff, 0xd9,
     ]);
 
-    const out = stripBase64ImageMetadata(base64FromBytes(big));
-
-    expect(out).not.toBeNull();
-    expect(bytesFromBase64(out!)!.length).toBeGreaterThan(40_000);
+    expect(bytesFromBase64(strippedBase64(big))!.length).toBeGreaterThan(40_000);
   });
 
-  it("returns null for input that is not base64, and for base64 that is not an image", () => {
-    expect(stripBase64ImageMetadata("not base64 at all!!")).toBeNull();
-    expect(stripBase64ImageMetadata(base64FromBytes(Uint8Array.from(ascii("hello"))))).toBeNull();
+  it("distinguishes why it refused, so the server can answer differently", () => {
+    expect(stripBase64ImageMetadata("not base64 at all!!")).toEqual({
+      ok: false,
+      reason: "not_base64",
+    });
+    expect(
+      stripBase64ImageMetadata(base64FromBytes(Uint8Array.from(ascii("hello"))))
+    ).toEqual({ ok: false, reason: "unsupported_format" });
+    expect(stripBase64ImageMetadata(base64FromBytes(jpegOfSize(64_000, 64_000)))).toEqual({
+      ok: false,
+      reason: "too_large",
+    });
   });
 });
