@@ -80,7 +80,13 @@ function useScanBeamStyle() {
   }, [reducedMotion, t]);
 
   return useAnimatedStyle(() => ({
-    transform: [{ translateY: interpolate(t.value, [0, 0.5, 1], [-23, 23, -23]) }],
+    transform: [
+      {
+        translateY: reducedMotion
+          ? 0
+          : interpolate(t.value, [0, 0.5, 1], [-23, 23, -23]),
+      },
+    ],
   }));
 }
 

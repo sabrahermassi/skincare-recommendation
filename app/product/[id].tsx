@@ -70,9 +70,11 @@ export default function ProductScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    // `loading` already starts true (its initial state above), so there's
-    // no need to set it synchronously here too — that pattern causes an
-    // extra render before the fetch even starts.
+    // `loading` starts true for the initial mount, but this effect also
+    // re-runs when `id` changes while the screen stays mounted — without
+    // resetting it here too, the previous product stays on screen while
+    // the new one fetches.
+    setLoading(true);
     fetchProduct(id)
       .then((result) => {
         if (cancelled) return;
