@@ -1,10 +1,12 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 
 import { Text } from "@/components/Text";
 import { analyseLabel } from "@/data/api";
+import { coverFitCropRect, type Rect, type Size } from "@/lib/crop-to-guide";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
 
 /**
@@ -28,6 +30,26 @@ export default function ScanLabel() {
   const [status, setStatus] = useState<Status>({ kind: "framing" });
   const camera = useRef<CameraView>(null);
 
+  // Measured via onLayout rather than `Dimensions.get('window')`: this route
+  // is presented as a modal (`app/_layout.tsx`) and whether that costs any
+  // vertical space to a header is not something worth depending on. Both are
+  // populated well before `capture()` can run (the shutter button doesn't
+  // exist until this view has already rendered once), so a missing
+  // measurement here only ever means "layout hasn't happened yet" and is
+  // handled by falling back to the uncropped photo, never by guessing.
+  const [cameraSize, setCameraSize] = useState<Size | null>(null);
+  const [guideRect, setGuideRect] = useState<Rect | null>(null);
+
+  function onCameraLayout(event: LayoutChangeEvent) {
+    const { width, height } = event.nativeEvent.layout;
+    setCameraSize({ width, height });
+  }
+
+  function onGuideLayout(event: LayoutChangeEvent) {
+    const { x, y, width, height } = event.nativeEvent.layout;
+    setGuideRect({ x, y, width, height });
+  }
+
   async function capture() {
     if (status.kind === "reading") return;
     setStatus({ kind: "reading" });
@@ -46,17 +68,54 @@ export default function ScanLabel() {
         return;
       }
 
+      // Crop to the on-screen guide box before anything leaves the device.
+      // Until this existed, the box drawn below was decoration only —
+      // takePictureAsync returns the full sensor frame regardless of what's
+      // drawn over it, so whatever sat around the bottle (a hand, a shelf,
+      // the rest of the room) was sent to Google Vision along with the
+      // label. See issue #16: "send the minimum."
+      //
+      // The camera preview fills its container the way CSS `background-size:
+      // cover` does — scaled up and clipped, not stretched — so the guide
+      // box's on-screen position has to be mapped through that same
+      // transform to land on the right pixels of the actual photo, which
+      // `coverFitCropRect` does. A failure here (a manipulation error, or a
+      // layout measurement that hasn't landed yet) falls back to the
+      // uncropped photo rather than blocking the scan — this is a privacy
+      // improvement layered on top of the server-side controls in
+      // `label-ocr`, not a replacement for them, so losing it for one scan
+      // is not a correctness problem.
+      let imageBase64 = photo.base64;
+      if (cameraSize && guideRect && photo.width && photo.height) {
+        const crop = coverFitCropRect(cameraSize, { width: photo.width, height: photo.height }, guideRect);
+        if (crop) {
+          try {
+            const cropped = await manipulateAsync(photo.uri, [{ crop }], {
+              base64: true,
+              compress: 0.8,
+              format: SaveFormat.JPEG,
+            });
+            if (cropped.base64) imageBase64 = cropped.base64;
+          } catch {
+            // Fall through with the uncropped photo — see comment above.
+          }
+        }
+      }
+
       // A phone photo carries GPS coordinates, a device identifier and a
       // capture timestamp in its EXIF block, and this image is on its way to
       // Google Vision — so a home address would cross a third-party boundary
       // attached to a picture of a bottle. `skipProcessing: true` above makes
       // that worse on Android, where it hands back the raw sensor JPEG.
+      // `expo-image-manipulator` re-encodes as part of cropping and could
+      // reintroduce its own metadata, so this still runs unconditionally on
+      // whichever image — cropped or not — is about to be sent.
       //
       // `label-ocr` strips again on ingest and that is the actual control;
       // this pass is what keeps the coordinates from leaving the handset in
       // the first place. Failing closed rather than falling back to the
       // original: an image we cannot parse is an image we should not forward.
-      const clean = stripBase64ImageMetadata(photo.base64);
+      const clean = stripBase64ImageMetadata(imageBase64);
       if (!clean.ok) {
         setStatus({
           kind: "failed",
@@ -134,12 +193,20 @@ export default function ScanLabel() {
 
   return (
     <View className="flex-1 bg-black">
-      <CameraView ref={camera} style={StyleSheet.absoluteFill} facing="back" />
+      <CameraView
+        ref={camera}
+        style={StyleSheet.absoluteFill}
+        facing="back"
+        onLayout={onCameraLayout}
+      />
 
       {/* A frame, because "fill this box with the ingredients" is the single
-          instruction that most improves what the OCR gets back. */}
+          instruction that most improves what the OCR gets back — and, as of
+          issue #16, what actually gets cropped and sent: see onGuideLayout
+          and coverFitCropRect above. */}
       <View className="flex-1 items-center justify-center px-6" pointerEvents="none">
         <View
+          onLayout={onGuideLayout}
           style={{ height: "38%", width: "100%", borderColor: "rgba(255,255,255,0.8)" }}
           className="rounded-card border-2"
         />
