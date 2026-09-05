@@ -48,7 +48,18 @@ const SHARED_FUNCTIONS = [
  * lines, so what remains is the logic itself.
  */
 function extractFunctionBody(source: string, name: string): string {
-  const lines = source.split("\n");
+  // Normalised once, up front, rather than patched per check below: this repo
+  // checks out CRLF on Windows (core.autocrlf=true, no .gitattributes), so a
+  // raw line here is e.g. "}\r", not "}". That silently broke two things at
+  // once — not just the closing-brace scan (every case failed with "closing
+  // brace ... not found"), but also the comment-strip regex a few lines down:
+  // `.replace(/\/\/.*$/, "")` anchors `$` at the true end of the string, and
+  // `.` never matches `\r`, so on a line like "code; // comment\r" the match
+  // can't reach `$` and the whole comment survives as visible text. Since
+  // comments are exactly what this test is supposed to look past, that
+  // produced spurious diffs on every comment-only line even when the actual
+  // logic was byte-identical.
+  const lines = source.replace(/\r\n/g, "\n").split("\n");
   const startPattern = new RegExp(`^(?:export )?function ${name}\\(`);
   const start = lines.findIndex((line) => startPattern.test(line));
   if (start === -1) {
@@ -70,7 +81,7 @@ describe("label-ocr's parser stays in step with lib/inci.ts", () => {
   const client = fs.readFileSync(CLIENT_PATH, "utf8");
   const edge = fs.readFileSync(EDGE_PATH, "utf8");
 
-  it.each(SHARED_FUNCTIONS)("%s is identical in both copies", (name) => {
+  it.each(SHARED_FUNCTIONS)("%s is identical in both copies", (name: string) => {
     const clientBody = extractFunctionBody(client, name);
     const edgeBody = extractFunctionBody(edge, name);
     expect(edgeBody).toBe(clientBody);

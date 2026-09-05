@@ -96,6 +96,14 @@ export default function IngredientList() {
     () => (product ? matchProduct(product, profile) : null),
     [product, profile]
   );
+  // A stable fallback instant for the "label read ..." line below, for the
+  // rare product with no fetchedAt — computed once per mount rather than
+  // fresh on every render. react-hooks/purity flags Date.now() anywhere in
+  // render, including inside useMemo; memoizing it is still the right call
+  // (a ticking "now" would make the relative-time label drift on every
+  // re-render), so this is a deliberate, narrow exception, not an oversight.
+  // eslint-disable-next-line react-hooks/purity
+  const now = useMemo(() => Date.now(), []);
 
   if (loading || !match) {
     return (
@@ -197,7 +205,7 @@ export default function IngredientList() {
           {total} ingredient{total === 1 ? "" : "s"} · Tap for details
         </Text>
         <Text className="pb-3.5 text-center text-[10.5px] text-ink-faint">
-          Label read {relativeTime(Date.parse(product.fetchedAt ?? "") || Date.now())}
+          Label read {relativeTime(Date.parse(product.fetchedAt ?? "") || now)}
         </Text>
         <View className="h-px bg-hairline" />
 

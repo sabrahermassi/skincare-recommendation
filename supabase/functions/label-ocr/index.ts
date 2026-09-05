@@ -176,52 +176,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
     expires_at: null,
   };
 
-  const { error: ingredientsError } = await db.from("ingredients").upsert(
-    parsed
-      .filter((p) => !known.has(p.inci_name))
-      .map((p) => ({
-        inci_name: p.inci_name,
-        // Not "curated" — nothing has reviewed this, it's a stub so
-        // `product_ingredients` has a name to point at. See migration 0007.
-        source: "unmatched",
-        safety: "safe",
-        verified: false,
-        note: "Read from a label, not matched to the ingredient dictionary.",
-      })),
-    { onConflict: "inci_name", ignoreDuplicates: true }
-  );
-  if (ingredientsError) {
-    console.error("ingredients upsert failed:", ingredientsError);
-    return json(req, { error: "Could not save the scan" }, 502);
-  }
-
-  const { error: productError } = await db.from("products").upsert(product, { onConflict: "id" });
-  if (productError) {
-    console.error("products upsert failed:", productError);
-    return json(req, { error: "Could not save the scan" }, 502);
-  }
-
-  // Delete-then-insert: both checked, because an unchecked failure on either
-  // leg would leave the row silently short a formula while this handler still
-  // reports success.
-  const { error: deleteError } = await db
-    .from("product_ingredients")
-    .delete()
-    .eq("product_id", product.id);
-  if (deleteError) {
-    console.error("product_ingredients delete failed:", deleteError);
-    return json(req, { error: "Could not save the scan" }, 502);
-  }
-
-  const { error: insertError } = await db.from("product_ingredients").insert(
-    parsed.map((p) => ({
-      product_id: product.id,
-      inci_name: p.inci_name,
-      position: p.position,
-    }))
-  );
-  if (insertError) {
-    console.error("product_ingredients insert failed:", insertError);
+  // One RPC, one transaction: the stub ingredient rows, the product, and the
+  // replacement of its formula either all commit or none do (migration 0008).
+  // The three separate PostgREST calls this replaces each committed on their
+  // own, so a failed insert after a successful delete left the product holding
+  // zero ingredients while still reading as a complete row. See issue #40.
+  //
+  // Every parsed name is sent, not just the ones missing from `known`: the RPC
+  // inserts stubs ON CONFLICT DO NOTHING, so a name already in the dictionary
+  // is left exactly as it was, and the full list is what has to drive
+  // `product_ingredients` regardless.
+  const { error: persistError } = await db.rpc("replace_product_with_ingredients", {
+    p_product: product,
+    p_ingredients: parsed,
+    p_stub_note: "Read from a label, not matched to the ingredient dictionary.",
+  });
+  if (persistError) {
+    console.error("replace_product_with_ingredients failed:", persistError);
     return json(req, { error: "Could not save the scan" }, 502);
   }
 
