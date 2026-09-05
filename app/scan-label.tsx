@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { analyseLabel } from "@/data/api";
+import { stripBase64ImageMetadata } from "@/lib/image-metadata";
 
 /**
  * Photograph the ingredient list.
@@ -45,7 +46,27 @@ export default function ScanLabel() {
         return;
       }
 
-      const result = await analyseLabel(photo.base64, { barcode });
+      // A phone photo carries GPS coordinates, a device identifier and a
+      // capture timestamp in its EXIF block, and this image is on its way to
+      // Google Vision — so a home address would cross a third-party boundary
+      // attached to a picture of a bottle. `skipProcessing: true` above makes
+      // that worse on Android, where it hands back the raw sensor JPEG.
+      //
+      // `label-ocr` strips again on ingest and that is the actual control;
+      // this pass is what keeps the coordinates from leaving the handset in
+      // the first place. Failing closed rather than falling back to the
+      // original: an image we cannot parse is an image we should not forward.
+      const clean = stripBase64ImageMetadata(photo.base64);
+      if (clean === null) {
+        setStatus({
+          kind: "failed",
+          message: "We couldn't read that image.",
+          hint: "Try again with steadier hands or better light.",
+        });
+        return;
+      }
+
+      const result = await analyseLabel(clean, { barcode });
 
       // The server's "did we find enough text to try" check happens before it
       // knows whether any of that text is actually an ingredient. A photo of
