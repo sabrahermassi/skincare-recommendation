@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -28,11 +27,16 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(url as string, anonKey as string, {
       auth: {
         // There are no accounts. Persisting or refreshing a session would be
-        // machinery for a feature that does not exist.
+        // machinery for a feature that does not exist — and `storage` is
+        // deliberately absent: @supabase/auth-js ignores it entirely while
+        // persistSession is false, so naming AsyncStorage here bought nothing
+        // and left a trap. Flipping persistSession to true would have started
+        // writing tokens to plaintext AsyncStorage with no other line
+        // changing. See docs/device-storage-policy.md for what must be
+        // passed instead, once there is a session to persist.
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false,
-        storage: AsyncStorage,
       },
     })
   : null;

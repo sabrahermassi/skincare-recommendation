@@ -293,7 +293,12 @@ export const useAppStore = create<AppState>()(
         }) | undefined;
         if (!state) return state;
         if (version < 3) {
-          if (!state.profile) return state;
+          // A missing profile shouldn't happen, but returning `state` as-is
+          // here would hand back an object without the `profile` key the
+          // PersistedState contract requires — fall back to the same empty
+          // profile a first run gets, rather than trust a merge elsewhere
+          // to paper over it.
+          if (!state.profile) return { ...state, profile: EMPTY_PROFILE } as PersistedState;
           const { skinTypeSource: _dropped, ...profile } = state.profile;
           return { ...state, profile } as PersistedState;
         }
