@@ -59,6 +59,25 @@ second table is planned; if that ever changes, it gets its own row.
 
 - **Device ↔ AsyncStorage.** Today's real boundary: anything here survives
   app data extraction on a lost or shared device. Currently unencrypted.
+- **Device ↔ camera/image-manipulation cache** (issue #27). `takePictureAsync`
+  and, since #16, `expo-image-manipulator`'s crop step each write a photo of
+  the ingredient label to the app's cache directory — and neither Expo
+  library deletes its own file afterward, confirmed against the Expo
+  community's own documented experience with exactly this. Left alone, every
+  scan leaves up to two copies of a label photo sitting in cache
+  indefinitely.
+
+  The platform defaults on that cache directory are better than they look
+  and needed no code to get: iOS gives a newly-created third-party-app file
+  `NSFileProtectionCompleteUntilFirstUserAuthentication` since iOS 7 with no
+  entitlement required, and Android's app-specific cache has been encrypted
+  via File-Based Encryption by default since API 29. Neither is something
+  Expo's file APIs expose control over, and neither needed to be touched —
+  what actually needed fixing was that the files existed at all past the
+  point they were still needed. `app/scan-label.tsx` now deletes both in a
+  `finally` block covering every exit path (success, every failure branch,
+  and the outer catch), so a photographed label has no reason to outlive the
+  scan that took it.
 - **Client ↔ backend (Supabase).** Anon key today; will carry a session token
   once accounts exist. This is where every RLS policy does its work.
 - **Backend ↔ Google Vision.** One image per label scan, in transit only.
@@ -209,6 +228,18 @@ Per-user isolation is enforced by construction, not by discipline:
 - **No photo storage, ever.** Label images are processed in memory and
   discarded, as they are today. This includes never storing a thumbnail, a
   cached copy, or a "just in case" retry artifact.
+
+  **Application-layer encryption at rest for photos (issue #27): evaluated,
+  declined.** Per-user-key encryption protects data held in a store; there is
+  no store. Adopting it now would mean building real key-management
+  infrastructure — generation, secure storage, rotation, destruction, with a
+  lost key meaning permanently unrecoverable data — for a category of data
+  this non-goal already rules out keeping. **Revisit this specific decision**
+  the same moment either of the two paths that could reopen it happens:
+  photo storage stops being a non-goal, or the "No face or skin imagery"
+  non-goal below is ever revisited. Either revision must include this
+  decision, made against that feature's real backup and retention posture,
+  not reused unchanged from here.
 - **No image metadata reaches a third party.** Every metadata container —
   EXIF, XMP, IPTC, and any format-specific equivalent — is removed from a
   label photo before it leaves the device and again on ingest, by
@@ -223,7 +254,7 @@ Per-user isolation is enforced by construction, not by discipline:
 - **No third-party analytics or crash reporting that receives health-adjacent
   fields** (concerns, skin type, scan history) in identifiable form.
 
-Recording these here is deliberate: it's what lets #23, #27, and #28 (all
+Recording these here is deliberate: it's what lets #23 and #28 (both
 photo-*storage* hardening issues) be closed as not-applicable rather than
 carried indefinitely, as long as this boundary holds.
 
@@ -242,6 +273,15 @@ needs derivatives, and re-encoding *before storage* needs storage. The rest of
 it — proving the bytes are an image, and capping how big an image we will act
 on — is about ingest, and ingest happens whether or not anything is kept. Those
 are implemented; see §6.
+
+**#27 the same way — only the server-side half was actually closed by this
+non-goal.** No backend storage genuinely disposes of application-layer
+encryption at rest, decided above. But #27 also asks about the on-device
+cache, and a device's own filesystem is not the storage this non-goal is
+about — a temp file sitting in `Camera`/`ImageManipulator` cache is neither
+in memory nor discarded just because the *backend* never persists anything.
+That half was a real, separate gap (two files per scan, never deleted) and
+is fixed in Trust Boundaries above, not by anything this section rules out.
 
 ## 6. What we check before acting on a label photo
 
