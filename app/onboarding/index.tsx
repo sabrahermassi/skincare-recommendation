@@ -40,7 +40,7 @@ function useEntranceProgress(
   easing: EasingFunction | EasingFunctionFactory
 ) {
   const reducedMotion = useReducedMotion();
-  const progress = useSharedValue(1);
+  const progress = useSharedValue(reducedMotion ? 1 : 0);
   // Captured once: an inline Easing.* call creates a new function every
   // render, and this effect must fire only on mount, not on every re-render
   // that would otherwise put a fresh easing reference in its deps.
@@ -48,7 +48,6 @@ function useEntranceProgress(
 
   useEffect(() => {
     if (reducedMotion) return;
-    progress.value = 0;
     progress.value = withDelay(
       config.delayMs,
       withTiming(1, { duration: config.durationMs, easing: config.easing })
