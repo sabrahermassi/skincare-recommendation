@@ -72,6 +72,48 @@ second table is planned; if that ever changes, it gets its own row.
   `label-ocr` now strips every metadata container before the call, and the
   client strips before the upload — see the non-goals below for why the
   server pass is the control and the client pass is not.
+
+  **What happens to the image once it's there (issue #16).** This was an
+  open question — `.claude/claude-security-guidance.md`'s AI/LLM section says
+  outright "no AI/LLM features exist... revisit this section then, and
+  confirm whether the third-party AI provider retains or trains on submitted
+  images." That revisit never happened when OCR shipped. It has now:
+  Google's own [Vision API Data Usage
+  page](https://docs.cloud.google.com/vision/docs/data-usage) states it does
+  not use submitted content to train or improve its models, and that the
+  synchronous endpoint this app calls (`images:annotate` — not the async
+  batch endpoints, which we don't use) processes the image in memory without
+  writing it to disk; request metadata is logged briefly for abuse
+  detection. Google's [Cloud Data Processing
+  Addendum](https://cloud.google.com/terms/data-processing-addendum) is
+  incorporated by reference into the standard GCP Terms of Service, which
+  covers any GCP project the moment it's created — there is no separate
+  contract to negotiate for API-key-only usage like this app's, and none was
+  pursued because none is needed. The one thing worth confirming outside of
+  code: that the Google Cloud project behind `GOOGLE_VISION_API_KEY` belongs
+  to this project's own account, since these terms bind whoever holds it.
+
+  **Send the minimum.** Until issue #16, the on-screen guide box in
+  `app/scan-label.tsx` was decoration — `takePictureAsync` returns the full
+  sensor frame regardless of what's drawn over it, so everything around the
+  bottle (background, a hand, whatever else was in frame) went to Vision
+  along with the label. `lib/crop-to-guide.ts` now maps that guide box
+  through the camera preview's cover-fit scaling into the photo's own pixel
+  coordinates, and `scan-label.tsx` crops to it (plus a small margin for
+  imperfect framing) before anything is stripped or sent. This sits on top
+  of, not instead of, the server-side caps in §6 — a crop that fails for any
+  reason falls back to the uncropped photo rather than blocking the scan.
+
+  **On-device OCR: evaluated, not adopted.** The privacy-preserving default
+  would be to never send the image anywhere at all. Every on-device option
+  (ML Kit wrappers, Vision-framework wrappers) is a native module requiring a
+  custom dev build, which conflicts with this project's Expo Go constraint —
+  installing on a physical iPhone with no weekly re-signing, see `CLAUDE.md`.
+  `label-ocr/index.ts`'s own header comment already made this call when OCR
+  shipped; this is that decision promoted from an implicit code comment to an
+  explicit one. **Revisit if a dev build is ever adopted for some other
+  reason** — at that point the calculus changes and on-device OCR is worth
+  measuring for real, not just ruling out on architectural grounds.
 - **Backend ↔ third-party product sources** (Open Beauty Facts, UPCitemdb,
   INCI API). Untrusted data in, already treated as such by the existing
   cascade and `source`/`verified` columns. Not a user-data boundary.
