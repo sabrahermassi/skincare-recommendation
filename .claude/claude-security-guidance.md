@@ -50,6 +50,10 @@ If a *second* AI/LLM feature is ever added, it needs the same treatment: confirm
 - Never commit `.env` files (should be gitignored). Watch for accidental secret leakage through other checked-in files (scratch request files, test fixtures with real tokens/keys embedded).
 - Avoid exposing secrets through logs, error responses, tests, or generated files.
 
+**"Comes from an environment variable" is not sufficient on this stack (issue #15).** Expo inlines any `EXPO_PUBLIC_*` variable directly into the shipped JavaScript bundle at build time, and `app.json`'s `web.output: "single"` means that bundle is a static file anyone can download and read. A secret in an `EXPO_PUBLIC_` variable is not "in an environment variable" in the safe sense — it's printed on a billboard.
+
+**The rule: `EXPO_PUBLIC_*` may hold only values that are safe to print on a billboard, and nothing else, ever.** Today that's exactly two values — the Supabase URL and the Supabase anon key, both designed to be public since Row Level Security is what actually gates access to them. `.env.example` is the enumerated list of every other secret this project holds (`SUPABASE_SERVICE_ROLE_KEY`, `INCI_API_KEY`, `GOOGLE_VISION_API_KEY` as of writing) — every one of those lives only in the Supabase Edge Function environment, never in `.env`, `app.json`, or any file Metro can reach. `.github/workflows/secret-scan.yml` enforces this in CI by grepping every exported platform's bundle for those exact variable names and for known provider key formats.
+
 ## Security review priorities
 
 Beyond the categories above, also watch for: injection vulnerabilities (should be rare if using a query builder/ORM or Supabase client — flag any raw SQL or dynamic query construction), and changes that weaken an existing security boundary (rate limiting, CORS origin list, security headers, Row Level Security policies).
