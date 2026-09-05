@@ -45,7 +45,8 @@ constraints below, not defaults that might slide.
 | Account identifier | email or OAuth provider id | PII | Does not exist yet | Supabase Auth `auth.users`, referenced by every owner column | Until account deletion |
 | Session token | proof of authenticated identity | Credential-equivalent | Does not exist yet | Short-lived, refreshable; storage mechanism is #12's problem, not this doc's | Session lifetime |
 | Caller IP | used for rate-limiting in `_shared/http.ts` | PII under GDPR — a dynamic IP can identify a person even without being combined with other logs | Held in-memory per Edge Function isolate, never persisted | Same, unless logging is added later | Ephemeral (isolate lifetime) |
-| Label photo | photographed ingredient list, sent to `label-ocr` | Not stored — this is a fixed non-goal, see below | Forwarded to Google Vision, response used, image discarded | No change | N/A — never persisted |
+| Label photo | photographed ingredient list, sent to `label-ocr` | Not stored — this is a fixed non-goal, see below | Stripped of EXIF/XMP/IPTC on the device and again on ingest, forwarded to Google Vision, response used, image discarded | No change | N/A — never persisted |
+| Photo metadata | GPS coordinates, device identifier and capture timestamp, written into the file by the camera | PII, and the highest-consequence field in this table — a coordinate is a home address | Removed before the image leaves the handset and again in `label-ocr`, by `_shared/strip-metadata.ts` | No change | N/A — never persisted, and deliberately not promoted to a column |
 
 Nothing above is a face, skin, or body photograph. None currently exists.
 
@@ -62,7 +63,15 @@ second table is planned; if that ever changes, it gets its own row.
   once accounts exist. This is where every RLS policy does its work.
 - **Backend ↔ Google Vision.** One image per label scan, in transit only.
   Response text is trusted only as far as `label-ocr`'s existing parsing
-  guards go — this boundary is already handled and out of scope here.
+  guards go.
+
+  Outbound, this is the boundary the app's most sensitive field crosses, and
+  it is the one place where "we never store photos" buys nothing: a camera
+  writes GPS coordinates into the file, so until issue #22 the image handed
+  to Google carried the user's location whether or not we kept a copy.
+  `label-ocr` now strips every metadata container before the call, and the
+  client strips before the upload — see the non-goals below for why the
+  server pass is the control and the client pass is not.
 - **Backend ↔ third-party product sources** (Open Beauty Facts, UPCitemdb,
   INCI API). Untrusted data in, already treated as such by the existing
   cascade and `source`/`verified` columns. Not a user-data boundary.
@@ -131,15 +140,32 @@ Per-user isolation is enforced by construction, not by discipline:
 - **No photo storage, ever.** Label images are processed in memory and
   discarded, as they are today. This includes never storing a thumbnail, a
   cached copy, or a "just in case" retry artifact.
+- **No image metadata reaches a third party.** Every metadata container —
+  EXIF, XMP, IPTC, and any format-specific equivalent — is removed from a
+  label photo before it leaves the device and again on ingest, by
+  `supabase/functions/_shared/strip-metadata.ts`. Nothing recovered from it is
+  promoted to a column: we do not retain the capture timestamp, the device
+  identifier, or the coordinates in any form. A future feature that wants one
+  of those adds an explicit column with a stated purpose; it does not read it
+  back out of a file we were supposed to have cleaned.
 - **No face or skin imagery**, now or after accounts. If a future feature
   wants this, it needs its own threat-model revision and its own regulatory
   review — it does not fall under what's approved here.
 - **No third-party analytics or crash reporting that receives health-adjacent
   fields** (concerns, skin type, scan history) in identifiable form.
 
-Recording these here is deliberate: it's what lets #21, #22, #23, #27, and #28
-(all photo-storage hardening issues) be closed as not-applicable rather than
+Recording these here is deliberate: it's what lets #21, #23, #27, and #28 (all
+photo-*storage* hardening issues) be closed as not-applicable rather than
 carried indefinitely, as long as this boundary holds.
+
+**#22 was on that list and should not have been.** The others are about bytes
+at rest, which the no-storage non-goal genuinely disposes of. #22 is not: the
+metadata leaves the device and crosses a third-party boundary *in transit*,
+and the absence of a bucket does nothing about that. It was a real gap for as
+long as the list said otherwise, and it is fixed above by stripping rather
+than by anything this section rules out. The lesson generalises — "we don't
+store it" answers questions about retention, not about egress, so check which
+kind an issue is before this section is allowed to close it.
 
 ## What this changes right now, before accounts exist
 

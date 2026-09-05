@@ -22,6 +22,7 @@ import {
   type RateLimit,
 } from "../_shared/http.ts";
 import { paginateOrdered } from "../_shared/paginate.ts";
+import { stripBase64ImageMetadata } from "../_shared/strip-metadata.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -72,6 +73,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!withinRateLimit(callerKey(req), RATE_LIMIT)) {
     return json(req, { error: "Too many requests" }, 429);
   }
+
+  // Strip EXIF/XMP/IPTC before this image goes anywhere. A phone photo carries
+  // GPS coordinates, and the next thing that happens to it is a POST to Google
+  // Cloud Vision — so without this a user's home address crosses a third-party
+  // boundary attached to a photo of a shampoo bottle. Nothing is stored here,
+  // which is exactly why the leak is in transit rather than at rest, and why
+  // the no-photo-storage non-goal in `docs/threat-model.md` does not cover it.
+  //
+  // The client strips too, but that is a convenience: this endpoint is
+  // unauthenticated, so a hostile or simply outdated client will not cooperate
+  // and the server pass is the control.
+  //
+  // Placed after the rate limit so an attacker meets the limiter before we
+  // spend anything, and before the short-circuit below so the format check
+  // runs on every request rather than only the ones that reach Vision.
+  //
+  // Reassigning `imageBase64` itself rather than binding a second name is
+  // deliberate: nothing in scope then holds the original bytes, so a later
+  // edit cannot route the unstripped image to Vision by accident.
+  const cleaned = stripBase64ImageMetadata(imageBase64);
+  if (cleaned === null) {
+    // Unreachable from our own client, which only ever sends camera JPEG —
+    // hence no dedicated failure copy. `data/api.ts` maps any unrecognised
+    // status to "unreadable", which is honest enough for a hand-rolled caller.
+    return json(req, { error: "Unsupported image format" }, 415);
+  }
+  imageBase64 = cleaned;
 
   // A formula we already hold for this barcode came from a source that had
   // the list in machine-readable form — commas intact, every name canonical.
