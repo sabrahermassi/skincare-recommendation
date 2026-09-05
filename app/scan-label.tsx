@@ -1,10 +1,14 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { File } from "expo-file-system";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 
 import { Text } from "@/components/Text";
 import { analyseLabel } from "@/data/api";
+import { coverFitCropRect, type Rect, type Size } from "@/lib/crop-to-guide";
+import { stripBase64ImageMetadata } from "@/lib/image-metadata";
 
 /**
  * Photograph the ingredient list.
@@ -27,9 +31,41 @@ export default function ScanLabel() {
   const [status, setStatus] = useState<Status>({ kind: "framing" });
   const camera = useRef<CameraView>(null);
 
+  // Measured via onLayout rather than `Dimensions.get('window')`: this route
+  // is presented as a modal (`app/_layout.tsx`) and whether that costs any
+  // vertical space to a header is not something worth depending on. Both are
+  // populated well before `capture()` can run (the shutter button doesn't
+  // exist until this view has already rendered once), so a missing
+  // measurement here only ever means "layout hasn't happened yet" and is
+  // handled by falling back to the uncropped photo, never by guessing.
+  const [cameraSize, setCameraSize] = useState<Size | null>(null);
+  const [guideRect, setGuideRect] = useState<Rect | null>(null);
+
+  function onCameraLayout(event: LayoutChangeEvent) {
+    const { width, height } = event.nativeEvent.layout;
+    setCameraSize({ width, height });
+  }
+
+  function onGuideLayout(event: LayoutChangeEvent) {
+    const { x, y, width, height } = event.nativeEvent.layout;
+    setGuideRect({ x, y, width, height });
+  }
+
   async function capture() {
     if (status.kind === "reading") return;
     setStatus({ kind: "reading" });
+
+    // Both files, once they exist, are deleted in `finally` below regardless
+    // of how this function exits. iOS gives a freshly-created file
+    // NSFileProtectionCompleteUntilFirstUserAuthentication by default (no
+    // entitlement needed) and Android's cache directory is encrypted at rest
+    // via File-Based Encryption since API 29 — reasonable against a
+    // powered-off device, but neither is a reason to let a photographed
+    // ingredient label sit in cache indefinitely. Community experience with
+    // this exact library confirms neither file is cleaned up on its own. See
+    // issue #27.
+    let capturedUri: string | undefined;
+    let croppedUri: string | undefined;
 
     try {
       const photo = await camera.current?.takePictureAsync({
@@ -44,8 +80,73 @@ export default function ScanLabel() {
         setStatus({ kind: "failed", message: "The camera didn't return an image." });
         return;
       }
+      capturedUri = photo.uri;
 
-      const result = await analyseLabel(photo.base64, { barcode });
+      // Crop to the on-screen guide box before anything leaves the device.
+      // Until this existed, the box drawn below was decoration only —
+      // takePictureAsync returns the full sensor frame regardless of what's
+      // drawn over it, so whatever sat around the bottle (a hand, a shelf,
+      // the rest of the room) was sent to Google Vision along with the
+      // label. See issue #16: "send the minimum."
+      //
+      // The camera preview fills its container the way CSS `background-size:
+      // cover` does — scaled up and clipped, not stretched — so the guide
+      // box's on-screen position has to be mapped through that same
+      // transform to land on the right pixels of the actual photo, which
+      // `coverFitCropRect` does. A failure here (a manipulation error, or a
+      // layout measurement that hasn't landed yet) falls back to the
+      // uncropped photo rather than blocking the scan — this is a privacy
+      // improvement layered on top of the server-side controls in
+      // `label-ocr`, not a replacement for them, so losing it for one scan
+      // is not a correctness problem.
+      let imageBase64 = photo.base64;
+      if (cameraSize && guideRect && photo.width && photo.height) {
+        const crop = coverFitCropRect(cameraSize, { width: photo.width, height: photo.height }, guideRect);
+        if (crop) {
+          try {
+            const cropped = await manipulateAsync(photo.uri, [{ crop }], {
+              base64: true,
+              compress: 0.8,
+              format: SaveFormat.JPEG,
+            });
+            croppedUri = cropped.uri;
+            if (cropped.base64) imageBase64 = cropped.base64;
+          } catch {
+            // Fall through with the uncropped photo — see comment above.
+          }
+        }
+      }
+
+      // A phone photo carries GPS coordinates, a device identifier and a
+      // capture timestamp in its EXIF block, and this image is on its way to
+      // Google Vision — so a home address would cross a third-party boundary
+      // attached to a picture of a bottle. `skipProcessing: true` above makes
+      // that worse on Android, where it hands back the raw sensor JPEG.
+      // `expo-image-manipulator` re-encodes as part of cropping and could
+      // reintroduce its own metadata, so this still runs unconditionally on
+      // whichever image — cropped or not — is about to be sent.
+      //
+      // `label-ocr` strips again on ingest and that is the actual control;
+      // this pass is what keeps the coordinates from leaving the handset in
+      // the first place. Failing closed rather than falling back to the
+      // original: an image we cannot parse is an image we should not forward.
+      const clean = stripBase64ImageMetadata(imageBase64);
+      if (!clean.ok) {
+        setStatus({
+          kind: "failed",
+          message:
+            clean.reason === "too_large"
+              ? "That photo is too large to read."
+              : "We couldn't read that image.",
+          hint:
+            clean.reason === "too_large"
+              ? "Try again — the ingredient panel alone is enough, it doesn't need the whole box."
+              : "Try again with steadier hands or better light.",
+        });
+        return;
+      }
+
+      const result = await analyseLabel(clean.base64, { barcode });
 
       // The server's "did we find enough text to try" check happens before it
       // knows whether any of that text is actually an ingredient. A photo of
@@ -77,6 +178,9 @@ export default function ScanLabel() {
         message: "Something went wrong reading that.",
         hint: "Try again - and check you have a connection.",
       });
+    } finally {
+      deleteTempFile(capturedUri);
+      deleteTempFile(croppedUri);
     }
   }
 
@@ -107,12 +211,20 @@ export default function ScanLabel() {
 
   return (
     <View className="flex-1 bg-black">
-      <CameraView ref={camera} style={StyleSheet.absoluteFill} facing="back" />
+      <CameraView
+        ref={camera}
+        style={StyleSheet.absoluteFill}
+        facing="back"
+        onLayout={onCameraLayout}
+      />
 
       {/* A frame, because "fill this box with the ingredients" is the single
-          instruction that most improves what the OCR gets back. */}
+          instruction that most improves what the OCR gets back — and, as of
+          issue #16, what actually gets cropped and sent: see onGuideLayout
+          and coverFitCropRect above. */}
       <View className="flex-1 items-center justify-center px-6" pointerEvents="none">
         <View
+          onLayout={onGuideLayout}
           style={{ height: "38%", width: "100%", borderColor: "rgba(255,255,255,0.8)" }}
           className="rounded-card border-2"
         />
@@ -171,6 +283,27 @@ export default function ScanLabel() {
       </View>
     </View>
   );
+}
+
+/**
+ * Remove a temp photo file from cache once `capture()` no longer needs it —
+ * see issue #27. Best-effort: a file the OS will eventually reclaim from
+ * cache on its own is a smaller problem than a cleanup step throwing and
+ * masking the scan result the user is already looking at.
+ *
+ * The `file://` guard isn't just defensive — `CameraCapturedPicture.uri`'s
+ * own doc comment says web has no filesystem and returns the base64 string
+ * as `uri` instead, so this is a correct, self-documented no-op there rather
+ * than something that happens to survive by falling into the `catch`.
+ */
+function deleteTempFile(uri: string | undefined) {
+  if (!uri || !uri.startsWith("file://")) return;
+  try {
+    const file = new File(uri);
+    if (file.exists) file.delete();
+  } catch {
+    // Nothing to do — see above.
+  }
 }
 
 /** Each failure gets a different next action, because they have different fixes. */

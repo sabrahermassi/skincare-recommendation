@@ -40,13 +40,19 @@
 
 ## AI / LLM features
 
-No AI/LLM features exist in this codebase today (as of this writing). If one is added — e.g. AI-assisted skin analysis from photos, or LLM-generated recommendations — quiz/photo content sent to it needs the same isolation and no-unnecessary-retention treatment as everywhere else in this app. Revisit this section then, and confirm whether the third-party AI provider retains or trains on submitted images.
+**Stale as of issue #16 — this section said to revisit "if one is added," and one was: `label-ocr` sends label photos to Google Cloud Vision.** That revisit now lives in `docs/threat-model.md`'s Trust Boundaries section (Backend ↔ Google Vision) — per that document's own note, it is the authoritative one wherever the two conflict, until #26 rewrites this file properly. It covers Google's retention/training policy with sources, the DPA, the on-device-OCR evaluation, and the client-side crop that sends less than the full frame.
+
+If a *second* AI/LLM feature is ever added, it needs the same treatment: confirm the provider's retention/training terms before shipping, not after.
 
 ## Secrets and configuration
 
 - Secrets (API keys, database URLs, JWT secrets if applicable) must come from environment variables — never hardcoded.
 - Never commit `.env` files (should be gitignored). Watch for accidental secret leakage through other checked-in files (scratch request files, test fixtures with real tokens/keys embedded).
 - Avoid exposing secrets through logs, error responses, tests, or generated files.
+
+**"Comes from an environment variable" is not sufficient on this stack (issue #15).** Expo inlines any `EXPO_PUBLIC_*` variable directly into the shipped JavaScript bundle at build time, and `app.json`'s `web.output: "single"` means that bundle is a static file anyone can download and read. A secret in an `EXPO_PUBLIC_` variable is not "in an environment variable" in the safe sense — it's printed on a billboard.
+
+**The rule: `EXPO_PUBLIC_*` may hold only values that are safe to print on a billboard, and nothing else, ever.** Today that's exactly two values — the Supabase URL and the Supabase anon key, both designed to be public since Row Level Security is what actually gates access to them. `.env.example` is the enumerated list of every other secret this project holds (`SUPABASE_SERVICE_ROLE_KEY`, `INCI_API_KEY`, `GOOGLE_VISION_API_KEY` as of writing) — every one of those lives only in the Supabase Edge Function environment, never in `.env`, `app.json`, or any file Metro can reach. `.github/workflows/secret-scan.yml` enforces this in CI by grepping every exported platform's bundle for those exact variable names and for known provider key formats.
 
 ## Security review priorities
 
