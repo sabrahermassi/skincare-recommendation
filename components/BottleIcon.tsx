@@ -9,14 +9,14 @@ import type { PackagingType, ProductType } from "@/data/types";
  * placeholder vessel (the old `ProductIllustration`) replaced with these
  * eight, per `design_handoff_skintel_onboarding/bottle-set.html`.
  *
- * Same transcription convention as `LogoMark.tsx` and
- * `components/OnboardingBottles.tsx`: each source file
+ * Same transcription convention as `LogoMark.tsx`: each source file
  * (`assets/btl-<type>.svg`) wraps a handful of real paths in a large C2PA
  * metadata blob, so the metadata is dropped and the geometry copied
  * verbatim. This file holds WEIGHT 1 (full colour, `#463F57` stroke,
- * category-tinted fill) — WEIGHT 2 (`-pale`, background scatter only) stays
- * in `OnboardingBottles.tsx`, since the design doc is explicit that the pale
- * weight must never appear in the foreground.
+ * category-tinted fill) — WEIGHT 2 (`-pale`, background scatter only) is a
+ * separate asset per bottle (`assets/images/v2/btl-<type>-pale.png`), used
+ * only by `components/WelcomeBackdrop.tsx`, since the design doc is explicit
+ * that the pale weight must never appear in the foreground.
  */
 
 const INK = "#463F57";
@@ -225,6 +225,11 @@ type Props = {
  * canvas), so a second tinted layer behind it just competed with the art.
  */
 export function BottleIcon({ type, size, height, radius = "rounded-card" }: Props) {
+  // react-hooks/static-components can't see that bottleIconFor always
+  // returns one of a fixed set of module-level components (never one
+  // created on the fly) — memoizing the lookup doesn't change that it's
+  // still a runtime value assigned to a JSX tag, so the rule still fires
+  // where it's rendered below.
   const Icon = bottleIconFor(type);
   // 62% of the tile, same proportion the old vessel drawing used — enough
   // margin around the bottle that it reads as a thumbnail, not a crop.
@@ -237,6 +242,7 @@ export function BottleIcon({ type, size, height, radius = "rounded-card" }: Prop
       }`}
       style={size ? { width: size, height: height ?? size } : undefined}
     >
+      {/* eslint-disable-next-line react-hooks/static-components -- see bottleIconFor's own comment above */}
       <Icon width={iconWidth} />
     </View>
   );

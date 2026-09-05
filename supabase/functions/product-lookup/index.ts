@@ -294,48 +294,24 @@ class PersistError extends Error {}
 
 async function persist(fetched: Fetched) {
   const { product, ingredients } = fetched;
-
-  // Ingredients we've never seen are inserted unrated rather than guessed at.
-  // A fabricated comedogenic rating would be indistinguishable from a measured
-  // one, which is the one mistake this table must not make.
-  if (ingredients.length > 0) {
-    const { error } = await db.from("ingredients").upsert(
-      ingredients.map((i) => ({
-        inci_name: i.inci_name,
-        // Not "curated" — nothing has reviewed this, it's a stub so
-        // `product_ingredients` has a name to point at. See migration 0007.
-        source: "unmatched",
-        safety: "safe",
-        // Parsed off a label, not matched to CosIng. The UI says so.
-        verified: false,
-        note: "No published rating for this ingredient yet.",
-      })),
-      { onConflict: "inci_name", ignoreDuplicates: true }
-    );
-    if (error) throw new PersistError(`ingredients upsert: ${error.message}`);
-  }
-
-  const { error: productError } = await db.from("products").upsert(product, { onConflict: "id" });
-  if (productError) throw new PersistError(`products upsert: ${productError.message}`);
-
   const id = product.id as string;
 
-  // Delete-then-insert. Not a transaction — PostgREST has no multi-statement
-  // one here — so both legs are checked rather than fired and forgotten: an
-  // unchecked failure on either would leave the row silently short a formula
-  // while the handler still reports success.
-  const { error: deleteError } = await db
-    .from("product_ingredients")
-    .delete()
-    .eq("product_id", id);
-  if (deleteError) throw new PersistError(`product_ingredients delete: ${deleteError.message}`);
-
-  if (ingredients.length > 0) {
-    const { error: insertError } = await db.from("product_ingredients").insert(
-      ingredients.map((i) => ({ product_id: id, inci_name: i.inci_name, position: i.position }))
-    );
-    if (insertError) throw new PersistError(`product_ingredients insert: ${insertError.message}`);
-  }
+  // One RPC, one transaction: the stub ingredient rows, the product, and the
+  // replacement of its formula either all commit or none do (migration 0008).
+  // Three separate PostgREST calls could not give that — and the delete leg in
+  // particular committed on its own, so a failed insert left the product
+  // holding zero ingredients while still looking like a complete row to every
+  // later read. See issue #40.
+  //
+  // Ingredients we've never seen are stored unrated rather than guessed at. A
+  // fabricated comedogenic rating would be indistinguishable from a measured
+  // one, which is the one mistake this table must not make.
+  const { error } = await db.rpc("replace_product_with_ingredients", {
+    p_product: product,
+    p_ingredients: ingredients,
+    p_stub_note: "No published rating for this ingredient yet.",
+  });
+  if (error) throw new PersistError(`replace_product_with_ingredients: ${error.message}`);
 
   const { data, error: readbackError } = await db
     .from("products")

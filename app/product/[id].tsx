@@ -70,6 +70,10 @@ export default function ProductScreen() {
 
   useEffect(() => {
     let cancelled = false;
+    // `loading` starts true for the initial mount, but this effect also
+    // re-runs when `id` changes while the screen stays mounted — without
+    // resetting it here too, the previous product stays on screen while
+    // the new one fetches.
     setLoading(true);
     fetchProduct(id)
       .then((result) => {
