@@ -31,6 +31,20 @@ const BODY_TYPE_FILTERS: (ProductType | "all")[] = [
   "hand-cream",
 ];
 
+const TYPE_LABEL: Record<ProductType | "all", string> = {
+  all: "All",
+  cleanser: "Cleanser",
+  toner: "Toner",
+  essence: "Essence",
+  serum: "Serum",
+  ampoule: "Ampoule",
+  moisturizer: "Moisturizer",
+  sunscreen: "Sunscreen",
+  "body-wash": "Body wash",
+  "body-lotion": "Body lotion",
+  "hand-cream": "Hand cream",
+};
+
 export default function Browse() {
   const insets = useSafeAreaInsets();
   const [products, setProducts] = useState<ProductWithIngredients[] | null>(null);
@@ -114,7 +128,7 @@ export default function Browse() {
             {typeFilters.map((type) => (
               <Chip
                 key={type}
-                label={type === "all" ? "All" : type}
+                label={TYPE_LABEL[type]}
                 selected={typeFilter === type}
                 onPress={() => setTypeFilter(type)}
               />

@@ -547,7 +547,9 @@ function BarcodeStage({
         {status.kind === "missed" && (
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Pressable
-              onPress={() => router.push(`/scan-label?barcode=${status.code}`)}
+              onPress={() =>
+                router.push({ pathname: "/scan-label", params: { barcode: status.code } })
+              }
               className="flex-1 items-center rounded-full bg-canvas py-2.5 active:opacity-80"
             >
               <Text className="text-[11.5px] font-semibold text-ink">
@@ -687,6 +689,7 @@ function SearchPane() {
   useEffect(() => {
     if (query.trim().length < 2) {
       setResults([]);
+      setSearching(false);
       return;
     }
     let cancelled = false;
@@ -696,6 +699,10 @@ function SearchPane() {
       searchProducts(query)
         .then((found) => {
           if (!cancelled) setResults(found);
+        })
+        .catch((err) => {
+          console.warn("searchProducts failed:", err);
+          if (!cancelled) setResults([]);
         })
         .finally(() => {
           if (!cancelled) setSearching(false);
