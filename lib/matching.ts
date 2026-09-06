@@ -1,8 +1,10 @@
-import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
+import type { Concern, Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
+import { poreCloggingHits, type CloggerHit } from "./pore-clogging";
 import { isPersonalized, isSensitive } from "./profile";
 import {
   CATEGORY_LABEL,
   contactWeight,
+  functionSignal,
   INGREDIENT_RULES,
   positionWeight,
   ruleMatches,
@@ -84,28 +86,102 @@ export type MatchResult = {
   /** How much of the formula we could actually identify, 0–1. */
   coverage: number;
   /**
-   * Why `verdict` is "unknown" — `undefined` otherwise. Three genuinely
-   * different situations all produce a null score, and `verdictHeadline`
-   * cannot tell them apart from `coverage` alone: an unpersonalised profile
-   * can still show high coverage (it's computed before the profile is even
-   * checked), and so can a formula we read fine but that contained nothing
-   * this profile's rules speak to.
+   * How much to trust the score, 0–1 — a separate axis from what the score
+   * says. Built from coverage and from how many ingredients actually carried
+   * evidence, so "we read 27 of 29 names and 2 of them meant anything" reads
+   * as the weak result it is instead of a confident number.
    */
-  unknownReason?: "not_personalized" | "low_coverage" | "no_evidence";
+  confidence: number;
+  /**
+   * Why `verdict` is "unknown" — `undefined` otherwise. The two remaining
+   * cases need different copy and cannot be told apart from `coverage` alone:
+   * an unpersonalised profile can still show high coverage, because coverage
+   * is computed before the profile is even looked at.
+   *
+   * There used to be a third, `no_evidence`, for a formula we read fine but
+   * had nothing to say about. That is now a low-CONFIDENCE score rather than
+   * a refusal — see `confidence` above.
+   */
+  unknownReason?: "not_personalized" | "low_coverage";
 };
 
-/** Neutral starting point. Movement away from it has to be earned. */
-const BASE_SCORE = 62;
+/**
+ * A formula that matches your profile but does nothing dramatic lands here —
+ * mid "Fair". Movement in either direction has to be earned from ingredients.
+ */
+const ANCHOR = 30;
+const FIT_LEVER = 0.7;
 
 /**
- * Below this share of recognised ingredients we decline to score. An OCR'd or
- * badly transcribed label can yield a list where most entries are unreadable,
- * and a confident percentage over that is worse than admitting we can't tell.
+ * How much evidence counts as a full-strength signal, per concern.
+ *
+ * These are not arbitrary: they are the 75th percentile of positive evidence
+ * a real formula can actually offer that concern, measured across the
+ * catalogue. Without them, "dehydrated" (where humectants are in 84% of
+ * products) is graded on the same curve as "fine lines" (where the actives
+ * are rare), and a dehydrated user sees 80s while everyone else sees 60s for
+ * formulas that serve them equally well.
  */
-const MIN_COVERAGE = 0.5;
+const CONCERN_SATURATION: Record<Concern, number> = {
+  dehydrated: 16.6,
+  atopic: 14.4,
+  hyperpigmentation: 7.4,
+  redness: 6.6,
+  "large-pores": 6.5,
+  "fine-lines": 4,
+  dullness: 4,
+  // Acne fit is carried by pore-clogging risk below, not by collecting
+  // actives, so this only scales the bonus when a formula does contain them.
+  "acne-prone": 4,
+};
 
-/** Fewer identifiable ingredients than this is not a formula, it's a fragment. */
-const MIN_IDENTIFIED = 4;
+const TYPE_SATURATION = 12;
+const IRRITATION_SATURATION = 14;
+const PORE_SATURATION = 9;
+
+const MAX_IRRITATION_PENALTY = 34;
+const MAX_PORE_PENALTY = 22;
+
+/** Concerns whose fit is decided by pore-cleanliness rather than by actives. */
+const PORE_LED_CONCERNS: Concern[] = ["acne-prone", "large-pores"];
+
+/**
+ * How much a formula's pore-clogging load matters as a *penalty*.
+ *
+ * Zero when the user named a pore-led concern, because for them cleanliness
+ * is already the larger half of concern fit — charging it twice put every
+ * ordinary formula in "Poor" for an acne-prone user, which is the same
+ * never-any-good-news failure this phase exists to fix.
+ */
+function poreRelevance(profile: SkinProfile): number {
+  if (profile.concerns.some((c) => PORE_LED_CONCERNS.includes(c))) return 0;
+  if (profile.baseSkinType === "oily" || profile.baseSkinType === "combination") return 0.4;
+  return 0.15;
+}
+
+/** Irritants are judged harder the more reactive the user says they are. */
+const SENSITIVITY_MULTIPLIER: Record<NonNullable<SkinProfile["sensitivity"]>, number> = {
+  none: 0.5,
+  some: 1,
+  high: 1.6,
+};
+
+/** Confidence-tier weight for a pore-clogging hit. Contested ones count zero. */
+const CLOGGER_WEIGHT: Record<CloggerHit["confidence"], number> = {
+  high: 3,
+  moderate: 1.8,
+  contested: 0,
+};
+
+/**
+ * Diminishing returns. A 60-ingredient list must not out-score a good
+ * 20-ingredient one by sheer length.
+ */
+const saturate = (value: number, k: number) => value / (value + k);
+
+/** Below this there is genuinely nothing to read — not merely nothing to say. */
+const MIN_COVERAGE = 0.25;
+const MIN_IDENTIFIED = 3;
 
 export function matchProduct(
   product: ProductWithIngredients,
@@ -113,108 +189,184 @@ export function matchProduct(
 ): MatchResult {
   const warnings = contraindications(product.ingredients, profile);
   const coverage = formulaCoverage(product.ingredients);
+  const identified = product.ingredients.filter(isVerified).length;
+
+  const refuse = (unknownReason: MatchResult["unknownReason"]): MatchResult => ({
+    score: null,
+    verdict: "unknown",
+    warnings,
+    reasons: [],
+    factors: [],
+    coverage,
+    confidence: 0,
+    unknownReason,
+  });
 
   if (!isPersonalized(profile)) {
     // Hazards are still worth flagging with no profile — they aren't
     // profile-dependent — but there is nothing to match against.
-    return {
-      score: null,
-      verdict: "unknown",
-      warnings,
-      reasons: [],
-      factors: [],
-      coverage,
-      unknownReason: "not_personalized",
-    };
+    return refuse("not_personalized");
   }
+  if (identified < MIN_IDENTIFIED || coverage < MIN_COVERAGE) return refuse("low_coverage");
 
-  const identified = product.ingredients.filter(isVerified).length;
-  if (identified < MIN_IDENTIFIED || coverage < MIN_COVERAGE) {
-    return {
-      score: null,
-      verdict: "unknown",
-      warnings,
-      reasons: [],
-      factors: [],
-      coverage,
-      unknownReason: "low_coverage",
-    };
-  }
+  // The rules table speaks a boolean; sensitivity has three levels, and the
+  // magnitude is applied to the irritation penalty rather than to whether a
+  // rule fires at all.
+  const target = { ...profile, sensitive: isSensitive(profile) };
+  const contact = contactWeight(product.type);
 
   const reasons: MatchReason[] = [];
-  let score = BASE_SCORE;
-
-  // The rules table still speaks a boolean. Sensitivity has three levels now,
-  // and Phase 3 will let the magnitude matter; until then any sensitivity at
-  // all reads as the old `sensitive: true`, which is what it always meant.
-  const target = { ...profile, sensitive: isSensitive(profile) };
+  const concernEvidence = new Map<Concern, number>(profile.concerns.map((c) => [c, 0]));
+  let typeEvidence = 0;
+  let irritation = 0;
+  let scored = 0;
 
   product.ingredients.forEach((ingredient, position) => {
     // An unrecognised name supports no claim in either direction.
     if (!isVerified(ingredient)) return;
+    const weightAt = positionWeight(position) * contact;
 
     const rule = findRule(ingredient);
-    if (!rule) return;
+    if (rule) {
+      const weight = rule.weight * weightAt;
+      const helps = targetApplies(rule.helps, target);
+      const hurts = targetApplies(rule.hurts, target);
 
-    const weight = rule.weight * positionWeight(position) * contactWeight(product.type);
-    const helps = targetApplies(rule.helps, target);
-    const hurts = targetApplies(rule.hurts, target);
+      // A rule can both help and hurt the same person — salicylic acid on
+      // oily, sensitive skin. That is a genuine tension, not a bug, so both
+      // are recorded and the net effect is what moves the score.
+      let effect = 0;
+      if (helps) effect += weight;
+      if (hurts) effect -= weight;
 
-    // A rule can both help and hurt the same person — salicylic acid on oily,
-    // sensitive skin. That is a genuine tension, not a bug, so both are
-    // recorded and the net effect is what moves the score.
-    let effect = 0;
-    if (helps) effect += weight;
-    if (hurts) effect -= weight;
-    if (effect === 0) return;
+      for (const concern of profile.concerns) {
+        if (rule.helps?.concerns?.includes(concern)) bump(concernEvidence, concern, weight);
+        if (rule.hurts?.concerns?.includes(concern)) bump(concernEvidence, concern, -weight);
+      }
+      if (profile.baseSkinType) {
+        if (rule.helps?.skinTypes?.includes(profile.baseSkinType)) typeEvidence += weight;
+        if (rule.hurts?.skinTypes?.includes(profile.baseSkinType)) typeEvidence -= weight;
+      }
+      if (rule.helps?.sensitive && isSensitive(profile)) typeEvidence += weight * 0.6;
+      if (IRRITANT_CATEGORIES.has(rule.category) && hurts) irritation += weight;
 
-    score += effect;
-    reasons.push({
-      ingredient: ingredient.name,
-      reason: rule.reason,
-      category: rule.category,
-      effect,
-    });
+      if (effect !== 0) {
+        scored++;
+        reasons.push({
+          ingredient: ingredient.name,
+          reason: rule.reason,
+          category: rule.category,
+          effect,
+        });
+      }
+      return;
+    }
+
+    // Layer 2. Only reached when no curated rule claims this ingredient, so a
+    // named rule always wins and nothing is counted twice.
+    for (const declared of ingredient.functions ?? []) {
+      const signal = functionSignal(declared);
+      if (!signal || !targetApplies(signal.helps, target)) continue;
+      const weight = signal.weight * weightAt;
+      for (const concern of profile.concerns) {
+        if (signal.helps.concerns?.includes(concern)) bump(concernEvidence, concern, weight);
+      }
+      if (profile.baseSkinType && signal.helps.skinTypes?.includes(profile.baseSkinType)) {
+        typeEvidence += weight;
+      }
+      scored++;
+      reasons.push({
+        ingredient: ingredient.name,
+        reason: FUNCTION_REASON[signal.category] ?? "Declared function relevant to your skin",
+        category: signal.category,
+        effect: weight,
+      });
+    }
   });
 
-  // Contraindications are hazards rather than preferences, so they cap rather
-  // than merely subtract: a formula the checker objects to must not outrank
-  // one it doesn't, however well the rest of it reads.
-  if (warnings.length > 0) {
-    score = Math.min(score, 45) - (warnings.length - 1) * 5;
+  // Regulatory caution flags add irritation risk for anyone who said their
+  // skin reacts — the rules table names specific sensitisers, this catches
+  // the EU-restricted ones it does not.
+  for (const [position, ingredient] of product.ingredients.entries()) {
+    if (!isVerified(ingredient) || ingredient.safety !== "caution") continue;
+    if (!isSensitive(profile)) continue;
+    irritation += 2.5 * positionWeight(position) * contact;
   }
 
-  // Reading a formula and having something to say about it are different
-  // questions, and the gate above only asks the first. A formula can be 92%
-  // recognised and still contain nothing this profile cares about — most of a
-  // jar is solvent, thickener, chelator and preservative — in which case
-  // `score` is still BASE_SCORE and returning it would present a default as a
-  // finding.
+  // Acne fit is "what is in here that clogs pores", not "does it contain acne
+  // actives" — a plain gentle moisturiser is a good match for blemish-prone
+  // skin precisely because it does nothing. Detection lives in
+  // lib/pore-clogging.ts, which has no profile argument, no netting and no
+  // truncation; this only decides how loudly it lands.
+  const cloggers = poreCloggingHits(product.ingredients);
+  const poreLoad = cloggers.reduce(
+    (sum, hit) => sum + CLOGGER_WEIGHT[hit.confidence] * positionWeight(hit.position - 1) * contact,
+    0
+  );
+
+  // 100 when the formula contains nothing that clogs, falling as it does.
+  const poreSafety = 100 - 100 * saturate(poreLoad, PORE_SATURATION);
+
+  const concernFits = profile.concerns.map((concern) => {
+    const evidence = concernEvidence.get(concern) ?? 0;
+    const k = CONCERN_SATURATION[concern];
+    const fromActives =
+      50 + 50 * (evidence >= 0 ? saturate(evidence, k) : -saturate(-evidence, k));
+
+    // For blemishes and pores, "does it contain anything that will clog me"
+    // is the question, and a plain gentle formula containing no actives at
+    // all is a genuinely good answer — not causing breakouts IS the win.
+    // Scoring these on actives alone made a clean moisturiser look mediocre
+    // to the exact user it suits, because the median real formula carries no
+    // acne active whatsoever. Actives still count, as the smaller half.
+    // Cleanliness is necessary but not sufficient: at 45% it cannot on its own
+    // carry a formula into the top bands (a clean jar with nothing helpful in
+    // it lands mid-Fair), but a formula that clogs cannot climb out of Poor
+    // however good its actives are.
+    if (PORE_LED_CONCERNS.includes(concern)) return 0.45 * poreSafety + 0.55 * fromActives;
+    return fromActives;
+  });
+  const concernFit = concernFits.length
+    ? concernFits.reduce((a, b) => a + b, 0) / concernFits.length
+    : null;
+  const typeFit =
+    50 +
+    50 *
+      (typeEvidence >= 0
+        ? saturate(typeEvidence, TYPE_SATURATION)
+        : -saturate(-typeEvidence, TYPE_SATURATION));
+
+  // Concerns dominate when the user named any; skin type carries it alone
+  // when they chose "I don't know" for type or named no concerns.
+  const fit = concernFit === null ? typeFit : 0.7 * concernFit + 0.3 * typeFit;
+
+  const irritationPenalty =
+    MAX_IRRITATION_PENALTY *
+    saturate(irritation * SENSITIVITY_MULTIPLIER[profile.sensitivity ?? "none"], IRRITATION_SATURATION);
+  const porePenalty =
+    MAX_PORE_PENALTY * poreRelevance(profile) * saturate(poreLoad, PORE_SATURATION);
+
+  let score = ANCHOR + FIT_LEVER * fit - irritationPenalty - porePenalty;
+
+  // Hazards cap rather than merely subtract: a formula containing something
+  // best avoided must not outrank one that doesn't, however well the rest of
+  // it reads.
   //
-  // This was measured before it was fixed: no rule fired at all on 54 of 104
-  // real products for an oily, acne-prone profile, and 61 for a pigmentation
-  // one. Widening the table to cover the emollients, humectants and occlusives
-  // those profiles actually meet brought that to 29 and 37, which is what makes
-  // refusing here honest rather than merely unhelpful — it is now the minority
-  // case, and it is the truthful answer when it happens.
-  if (reasons.length === 0 && warnings.length === 0) {
-    return {
-      score: null,
-      verdict: "unknown",
-      warnings,
-      reasons: [],
-      factors: [],
-      coverage,
-      unknownReason: "no_evidence",
-    };
-  }
+  // Only the `hazard` tier does this. The `irritant` tier — an EU-restricted
+  // ingredient on skin the user says reacts — is still listed as a warning,
+  // but it is charged to the irritation penalty above instead, where the
+  // three sensitivity levels can scale it. Capping on it too was both a
+  // double charge and a cliff: it put 40% of the catalogue at "Poor" for
+  // anyone who ticked "somewhat sensitive".
+  const hazards = warnings.filter((w) => w.severity === "hazard");
+  if (hazards.length > 0) score = Math.min(score, 45) - (hazards.length - 1) * 5;
 
   const finalScore = clamp(score);
   reasons.sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect));
 
   return {
     score: finalScore,
-    verdict: verdictFor(finalScore, warnings.length),
+    verdict: verdictFor(finalScore, hazards.length),
     warnings,
     // Capped for the "Why" list, which is a readable summary…
     reasons: reasons.slice(0, 6),
@@ -222,7 +374,36 @@ export function matchProduct(
     // a factor made of many small effects.
     factors: buildFactors(reasons),
     coverage,
+    confidence: confidenceFor(coverage, scored),
   };
+}
+
+function bump(map: Map<Concern, number>, key: Concern, by: number) {
+  map.set(key, (map.get(key) ?? 0) + by);
+}
+
+const IRRITANT_CATEGORIES = new Set<RuleCategory>(["fragrance", "alcohol", "irritants"]);
+
+/** Layer 2 has no per-ingredient sentence, so the category supplies one. */
+const FUNCTION_REASON: Partial<Record<RuleCategory, string>> = {
+  hydration: "Declared as a humectant - draws and holds water in the skin",
+  barrier: "Declared as an emollient or barrier ingredient - softens and slows water loss",
+  soothing: "Declared as a soothing ingredient",
+  actives: "Declared as an active with a relevant effect",
+};
+
+/**
+ * How much to trust the number, separately from what the number says.
+ *
+ * This replaces a third refusal gate. The engine used to return "can't tell"
+ * whenever no rule fired at all, which happened on 29-37 of 104 products
+ * depending on the profile — an honest answer, but the wrong one: reading a
+ * formula and finding little to say about it is a low-confidence result, not
+ * an absent one. Unknown ingredients still vouch for nothing either way; they
+ * lower confidence rather than blocking an answer.
+ */
+export function confidenceFor(coverage: number, scoredIngredients: number): number {
+  return Math.max(0, Math.min(1, 0.55 * coverage + 0.45 * Math.min(1, scoredIngredients / 8)));
 }
 
 /** Share of the ingredient list we could identify. */
@@ -238,8 +419,8 @@ function findRule(ingredient: Ingredient): IngredientRule | undefined {
 /** MVP score bands: 90-100 excellent, 75-89 good, 60-74 fair, 0-59 poor. */
 export const SCORE_BANDS = { excellent: 90, good: 75, fair: 60 } as const;
 
-function verdictFor(score: number, warningCount: number): Verdict {
-  if (warningCount > 0) return "poor";
+function verdictFor(score: number, hazardCount: number): Verdict {
+  if (hazardCount > 0) return "poor";
   if (score >= SCORE_BANDS.excellent) return "excellent";
   if (score >= SCORE_BANDS.good) return "good";
   if (score >= SCORE_BANDS.fair) return "fair";
@@ -259,19 +440,13 @@ export function verdictHeadline(result: MatchResult): string {
     case "fair":
       return "Could work, with a caveat or two";
     case "poor":
-      return result.warnings.length > 0
+      return result.warnings.some((w) => w.severity === "hazard")
         ? "Contains something worth avoiding for your skin"
         : "Probably not the right pick for you";
     case "unknown":
       switch (result.unknownReason) {
         case "low_coverage":
           return "We couldn't read enough of this formula to judge it";
-        case "no_evidence":
-          // The formula read fine — this is not the low-coverage case above —
-          // it simply contains nothing our rules have an opinion on for this
-          // profile. Telling the user to "answer a few questions" would be
-          // wrong: they already have, and coverage was good enough to score.
-          return "We read this formula but found nothing that speaks to your skin";
         case "not_personalized":
         default:
           return "Answer a few questions and we can tell you how this suits you";
