@@ -1,4 +1,5 @@
 import type { Ingredient, SkinProfile } from "@/data/types";
+import { isSensitive } from "./profile";
 
 /**
  * Single source of truth for ingredient risk. Previously this predicate was
@@ -70,7 +71,8 @@ export function contraindications(
   profile: SkinProfile
 ): Contraindication[] {
   const found: Contraindication[] = [];
-  const { concerns, sensitive } = profile;
+  const { concerns } = profile;
+  const sensitive = isSensitive(profile);
 
   for (const ingredient of ingredients) {
     // An unrecognised name supports no claim in either direction. Skipping it

@@ -84,7 +84,7 @@ describe("scoreFactors", () => {
     const result = matchProduct(many.length ? synthetic(many) : synthetic(FILLER), profile({
       baseSkinType: "dry",
       concerns: ["dehydrated", "redness"],
-      sensitive: true,
+      sensitivity: "some",
     }));
     const counted = result.factors.reduce((n, f) => n + f.ingredients.length, 0);
     expect(result.reasons.length).toBeLessThanOrEqual(6);
@@ -104,7 +104,7 @@ describe("scoreFactors", () => {
   it("scales magnitude against the largest factor so bars stay readable", () => {
     const result = matchProduct(
       synthetic(["water", "parfum", "glycerin", ...FILLER]),
-      profile({ baseSkinType: "dry", concerns: ["dehydrated"], sensitive: true })
+      profile({ baseSkinType: "dry", concerns: ["dehydrated"], sensitivity: "some" })
     );
     const magnitudes = result.factors.map((f) => f.magnitude);
     expect(Math.max(...magnitudes)).toBeCloseTo(1);
@@ -117,7 +117,7 @@ describe("scoreFactors", () => {
   it("orders factors by how much they moved the score", () => {
     const result = matchProduct(
       synthetic(["water", "parfum", "niacinamide", "glycerin", ...FILLER]),
-      profile({ baseSkinType: "oily", concerns: ["large-pores"], sensitive: true })
+      profile({ baseSkinType: "oily", concerns: ["large-pores"], sensitivity: "some" })
     );
     const sizes = result.factors.map((f) => Math.abs(f.delta));
     expect([...sizes].sort((a, b) => b - a)).toEqual(sizes);
@@ -134,7 +134,7 @@ describe("biggestConcern", () => {
   it("names the largest factor working against the profile", () => {
     const result = matchProduct(
       synthetic(["water", "parfum", "glycerin", ...FILLER]),
-      profile({ baseSkinType: "dry", concerns: ["dehydrated"], sensitive: true })
+      profile({ baseSkinType: "dry", concerns: ["dehydrated"], sensitivity: "some" })
     );
     const concern = biggestConcern(result);
     expect(concern?.category).toBe("fragrance");
