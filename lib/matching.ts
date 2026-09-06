@@ -32,7 +32,14 @@ import { contraindications, isVerified, type Contraindication } from "./safety";
  * comedogenic number, and no score at all for a formula we could not read.
  */
 
-export type Verdict = "good" | "mixed" | "poor" | "unknown";
+/**
+ * The four bands the MVP locks, plus "unknown" for a formula we decline to
+ * score. Thresholds live in `verdictFor` and are the single definition — the
+ * score ring, the result panel and the badges all read this rather than
+ * re-deriving their own cutoffs, which is how the old 75/55 verdict and 80/65
+ * badge tones came to disagree with each other on the same product.
+ */
+export type Verdict = "excellent" | "good" | "fair" | "poor" | "unknown";
 
 export type MatchReason = {
   ingredient: string;
@@ -223,10 +230,14 @@ function findRule(ingredient: Ingredient): IngredientRule | undefined {
   return INGREDIENT_RULES.find((rule) => ruleMatches(rule, ingredient.name));
 }
 
+/** MVP score bands: 90-100 excellent, 75-89 good, 60-74 fair, 0-59 poor. */
+export const SCORE_BANDS = { excellent: 90, good: 75, fair: 60 } as const;
+
 function verdictFor(score: number, warningCount: number): Verdict {
   if (warningCount > 0) return "poor";
-  if (score >= 75) return "good";
-  if (score >= 55) return "mixed";
+  if (score >= SCORE_BANDS.excellent) return "excellent";
+  if (score >= SCORE_BANDS.good) return "good";
+  if (score >= SCORE_BANDS.fair) return "fair";
   return "poor";
 }
 
@@ -236,9 +247,11 @@ function verdictFor(score: number, warningCount: number): Verdict {
  */
 export function verdictHeadline(result: MatchResult): string {
   switch (result.verdict) {
+    case "excellent":
+      return "One of the better matches for your skin";
     case "good":
       return "Looks like a good fit for your skin";
-    case "mixed":
+    case "fair":
       return "Could work, with a caveat or two";
     case "poor":
       return result.warnings.length > 0
@@ -261,14 +274,20 @@ export function verdictHeadline(result: MatchResult): string {
   }
 }
 
+/**
+ * Three visual tones for the compact badges, derived from the same cutoffs as
+ * `verdictFor` rather than from their own. Excellent and good share a tone —
+ * a badge has one colour to spend and both are "yes".
+ */
 export function matchTone(score: number): "high" | "medium" | "low" {
-  if (score >= 80) return "high";
-  if (score >= 65) return "medium";
+  if (score >= SCORE_BANDS.good) return "high";
+  if (score >= SCORE_BANDS.fair) return "medium";
   return "low";
 }
 
+/** 100 is reachable: the MVP's top band is 90-100, not 90-99. */
 function clamp(score: number): number {
-  return Math.max(0, Math.min(99, Math.round(score)));
+  return Math.max(0, Math.min(100, Math.round(score)));
 }
 
 /** Re-exported so screens don't need a second import to render warnings. */

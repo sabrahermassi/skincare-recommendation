@@ -46,10 +46,18 @@ import { useAppStore } from "@/store/useAppStore";
  * on top of the answer.
  */
 
+/**
+ * Labels are the MVP's locked wording, not a paraphrase: the four bands are a
+ * product decision the user reads the same way every time, so "Fair match"
+ * rather than the older "Worth a look". Excellent and good share the sage
+ * palette — the label carries the distinction, which keeps the screen from
+ * needing a fifth colour that means "yes, but more so".
+ */
 const PANEL: Record<Verdict, { bg: string; border: string; label: string; ink: string }> = {
+  excellent: { bg: "#EAF3EC", border: "#CFE4D6", label: "Excellent match", ink: "#3F6B50" },
   good: { bg: "#EAF3EC", border: "#DCEBE0", label: "Good match", ink: "#4B7A5E" },
-  mixed: { bg: "#FBF0E4", border: "#F2E2CE", label: "Worth a look", ink: "#8A6314" },
-  poor: { bg: "#FBEAEC", border: "#F2D8DC", label: "Not for you", ink: "#A2521F" },
+  fair: { bg: "#FBF0E4", border: "#F2E2CE", label: "Fair match", ink: "#8A6314" },
+  poor: { bg: "#FBEAEC", border: "#F2D8DC", label: "Poor match", ink: "#A2521F" },
   unknown: { bg: "#F3EFEA", border: "#E9E4DD", label: "Can't tell yet", ink: "#5C5566" },
 };
 
@@ -117,7 +125,7 @@ export default function ProductScreen() {
         <ScreenHeader />
         <View className="flex-1 items-center justify-center gap-4 px-8">
           <Text className="font-display text-2xl text-ink">Product not found</Text>
-          <PrimaryButton label="Scan another" onPress={() => router.replace("/scan")} />
+          <PrimaryButton label="Scan another" onPress={() => router.replace("/")} />
         </View>
       </View>
     );

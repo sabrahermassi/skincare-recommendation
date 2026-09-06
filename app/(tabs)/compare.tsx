@@ -77,7 +77,7 @@ export default function Compare() {
           <Text className="text-center text-base text-ink-muted">
             Nothing selected yet. Add two products from a product page.
           </Text>
-          <Link href="/" className="font-semibold text-accent-text underline">
+          <Link href="/browse" className="font-semibold text-accent-text underline">
             Back to browse
           </Link>
         </View>
@@ -194,7 +194,7 @@ export default function Compare() {
             // having nothing left to compare means the natural next stop is
             // the product list, so go there directly.
             clearCompare();
-            router.replace("/");
+            router.replace("/browse");
           }}
         />
       </View>

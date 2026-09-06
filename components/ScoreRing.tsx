@@ -3,6 +3,7 @@ import Svg, { Circle } from "react-native-svg";
 
 import { Text } from "@/components/Text";
 import { COLORS } from "@/lib/colors";
+import type { Verdict } from "@/lib/matching";
 
 /**
  * The match dial.
@@ -24,9 +25,12 @@ import { COLORS } from "@/lib/colors";
  * unrelated scheme. `unknown` keeps the previous ink-on-ink treatment, since
  * a null score never draws a fill arc anyway.
  */
-const RING_TONE: Record<"good" | "mixed" | "poor" | "unknown", { track: string; fill: string }> = {
+const RING_TONE: Record<Verdict, { track: string; fill: string }> = {
+  // Excellent and good share the sage pairing: both are a yes, and the number
+  // inside the ring is what separates 92 from 78.
+  excellent: { track: "#D3E6D9", fill: COLORS.toneGood },
   good: { track: "#D3E6D9", fill: COLORS.toneGood },
-  mixed: { track: "#F3E6D5", fill: COLORS.toneWatch },
+  fair: { track: "#F3E6D5", fill: COLORS.toneWatch },
   poor: { track: "#F3DEDD", fill: COLORS.toneFlag },
   unknown: { track: COLORS.ink, fill: COLORS.ink },
 };
@@ -40,7 +44,7 @@ export function ScoreRing({
   score: number | null;
   size?: number;
   label?: string;
-  tone?: "good" | "mixed" | "poor" | "unknown";
+  tone?: Verdict;
 }) {
   const stroke = Math.round(size * 0.09);
   const radius = (size - stroke) / 2;
