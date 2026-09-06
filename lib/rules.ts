@@ -483,11 +483,24 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     weight: 12,
   },
   {
-    names: ["kaolin", "bentonite", "montmorillonite", "silica", "solum fullonum"],
+    names: ["kaolin", "bentonite", "montmorillonite", "solum fullonum"],
     category: "actives",
     helps: { skinTypes: ["oily"], concerns: ["large-pores", "acne-prone"] },
     reason: "An absorbent clay that lifts surface oil - a shiny T-zone looks less congested",
     weight: 6,
+  },
+  {
+    // Split out from the clay group above: bare "silica" is as often an
+    // anti-caking or opacifying filler as an oil-absorbing mattifier, and
+    // the two aren't distinguishable from the INCI name alone. Weighted
+    // well below the named clays rather than dropped outright — it is
+    // genuinely used as a mattifier often enough to be worth a mild
+    // positive, just not the full claim a true absorbent clay earns.
+    names: ["silica"],
+    category: "actives",
+    helps: { skinTypes: ["oily"], concerns: ["large-pores", "acne-prone"] },
+    reason: "Often used to absorb surface oil, though the same name also covers non-absorbent filler grades",
+    weight: 3,
   },
   {
     names: [/^houttuynia/],

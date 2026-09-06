@@ -336,10 +336,13 @@ export function matchProduct(
     // Scoring these on actives alone made a clean moisturiser look mediocre
     // to the exact user it suits, because the median real formula carries no
     // acne active whatsoever. Actives still count, as the smaller half.
-    // Cleanliness is necessary but not sufficient: at 45% it cannot on its own
-    // carry a formula into the top bands (a clean jar with nothing helpful in
-    // it lands mid-Fair), but a formula that clogs cannot climb out of Poor
-    // however good its actives are.
+    // Cleanliness is weighted more heavily than the active-ingredient half,
+    // but it is a blend, not a floor or a ceiling. Worked through: a fully
+    // clean, otherwise inert formula (poreSafety 100, fromActives 50 at zero
+    // evidence) already reaches ~76 ("good") on cleanliness alone, and a
+    // fully clogged one (poreSafety 0) paired with strong actives and a
+    // matching skin type can climb to a similar score through the other
+    // 55%. Cleanliness moves the number; it does not gate the band.
     if (PORE_LED_CONCERNS.includes(concern)) return 0.45 * poreSafety + 0.55 * fromActives;
     return fromActives;
   });
