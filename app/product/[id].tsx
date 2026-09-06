@@ -406,10 +406,11 @@ export default function ProductScreen() {
         {/*
           One caveat, at the bottom. There were two — a grey box mid-screen
           and this one — which is both redundant and, in the middle of the
-          screen, in the way of the answer. It stays required (the INCI API
+          screen, in the way of the answer. It stays required: the INCI API
           terms forbid presenting their data as medically validated without a
-          disclaimer, and `lib/matching.ts` is still an explicit placeholder),
-          but it is a footnote, not a headline.
+          disclaimer, and the MVP is explicit that this is an ingredient-based
+          compatibility assessment rather than a safety guarantee. A footnote,
+          not a headline.
         */}
         <View style={{ marginHorizontal: 24, marginTop: 30, marginBottom: 8 }}>
           <Text className="text-[10.5px] leading-[15px] text-ink-faint">
