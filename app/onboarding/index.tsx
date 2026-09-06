@@ -92,7 +92,7 @@ export default function Welcome() {
   }
 
   function setUpProfileFirst() {
-    router.push("/onboarding/about-you");
+    router.push("/onboarding/concerns");
   }
 
   // Delays/durations/easings straight from the handoff's entrance table. The
@@ -161,7 +161,7 @@ export default function Welcome() {
               color: "#8C8592",
             }}
           >
-            Answer four questions about your skin, then scan a barcode or
+            Answer three questions about your skin, then scan a barcode or
             ingredient list to see how well that product suits you.
           </Text>
         </Animated.View>

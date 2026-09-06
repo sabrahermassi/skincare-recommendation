@@ -1,6 +1,7 @@
 import {
   EMPTY_PROFILE,
   HISTORY_LIMIT,
+  migratePersisted,
   PERSISTED_KEYS,
   partializeState,
   useAppStore,
@@ -63,11 +64,11 @@ describe("editing the profile via setProfile", () => {
   });
 
   it("shallow-merges, leaving other answers untouched", () => {
-    s().setProfile({ baseSkinType: "dry", sensitive: true });
+    s().setProfile({ baseSkinType: "dry", sensitivity: "some" });
     s().setProfile({ baseSkinType: "oily" });
 
     expect(s().profile.baseSkinType).toBe("oily");
-    expect(s().profile.sensitive).toBe(true);
+    expect(s().profile.sensitivity).toBe("some");
   });
 });
 
@@ -233,7 +234,7 @@ describe("history log", () => {
    */
   it("does not rewrite a recorded score when the profile changes later", () => {
     s().recordView({ id: "a", known: true, score: 91, warnings: 2 });
-    s().setProfile({ baseSkinType: "oily", sensitive: true });
+    s().setProfile({ baseSkinType: "oily", sensitivity: "some" });
     s().toggleConcern("acne-prone");
 
     expect(s().history[0].scoreAtView).toBe(91);
@@ -271,7 +272,7 @@ describe("resetApp", () => {
    */
   it("returns every slice to its first-run value", () => {
     s().completeOnboarding();
-    s().setProfile({ baseSkinType: "oily", sensitive: true });
+    s().setProfile({ baseSkinType: "oily", sensitivity: "some" });
     s().toggleConcern("redness");
     s().saveProduct("a");
     s().recordView({ id: "b", known: true, score: 70, warnings: 0 });
@@ -291,6 +292,76 @@ describe("resetApp", () => {
     expect(s().hasSeenOnboarding).toBe(true);
     s().resetApp();
     expect(s().hasSeenOnboarding).toBe(false);
+  });
+});
+
+/**
+ * The migration is the one thing in the store that can silently destroy a
+ * real person's data — they would find out by watching every score change —
+ * so it gets pinned rather than trusted.
+ */
+describe("v3 -> v4 migration", () => {
+  const v3 = () => ({
+    profile: {
+      gender: "female",
+      ageGroup: "25-34",
+      area: "face" as const,
+      concerns: ["acne-prone"] as const,
+      baseSkinType: "oily" as const,
+      sensitive: true,
+    },
+    hasSeenOnboarding: true,
+    savedProducts: [{ id: "hanbang-rice-serum", savedAt: 1 }],
+    savedIngredients: ["niacinamide"],
+    history: [],
+    productSuggestions: [],
+  });
+
+  it("keeps every answer the user still has a question for", () => {
+    const migrated = migratePersisted(v3(), 3);
+    expect(migrated?.profile.baseSkinType).toBe("oily");
+    expect(migrated?.profile.concerns).toEqual(["acne-prone"]);
+    // Not an onboarding question any more, but the browse filter reads it.
+    expect(migrated?.profile.area).toBe("face");
+  });
+
+  it("maps the old boolean to the middle level, not the harshest", () => {
+    // The old toggle asked "is your skin also sensitive" — that is "somewhat".
+    // Promoting everyone to "high" would re-judge their saved products against
+    // a stricter rule than they ever agreed to.
+    expect(migratePersisted(v3(), 3)?.profile.sensitivity).toBe("some");
+
+    const notSensitive = v3();
+    notSensitive.profile.sensitive = false;
+    // They saw the toggle and left it off: an answer, not a blank.
+    expect(migratePersisted(notSensitive, 3)?.profile.sensitivity).toBe("none");
+  });
+
+  it("drops the fields nothing reads", () => {
+    const migrated = migratePersisted(v3(), 3) as Record<string, unknown> | undefined;
+    const profile = migrated?.profile as Record<string, unknown>;
+    expect(profile).not.toHaveProperty("gender");
+    expect(profile).not.toHaveProperty("ageGroup");
+    expect(profile).not.toHaveProperty("sensitive");
+  });
+
+  it("leaves the shelf and the log alone", () => {
+    const migrated = migratePersisted(v3(), 3);
+    expect(migrated?.savedProducts).toEqual([{ id: "hanbang-rice-serum", savedAt: 1 }]);
+    expect(migrated?.savedIngredients).toEqual(["niacinamide"]);
+    expect(migrated?.hasSeenOnboarding).toBe(true);
+  });
+
+  it("passes a current store through untouched", () => {
+    const v4 = { ...v3(), profile: { ...EMPTY_PROFILE, sensitivity: "high" as const } };
+    expect(migratePersisted(v4, 4)?.profile.sensitivity).toBe("high");
+  });
+
+  it("does not invent a profile out of nothing", () => {
+    expect(migratePersisted(undefined, 3)).toBeUndefined();
+    // A stored blob with no profile is corrupt, not a first run — but it must
+    // still come back with the key the rest of the app destructures.
+    expect(migratePersisted({ hasSeenOnboarding: true }, 3)?.profile).toEqual(EMPTY_PROFILE);
   });
 });
 

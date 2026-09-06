@@ -12,6 +12,7 @@ import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { comedogenicLabel } from "@/lib/format";
 import { matchProduct, positionWeightLabel, ruleFor, rungFor, type Rung } from "@/lib/matching";
+import { isSensitive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
@@ -197,8 +198,10 @@ export default function IngredientDetail() {
   const meta = RUNG[rung];
 
   const rule = ruleFor(ingredient);
-  const helps = rule ? targetApplies(rule.helps, profile) : false;
-  const hurts = rule ? targetApplies(rule.hurts, profile) : false;
+  // The rules table takes a boolean; sensitivity has three levels now.
+  const target = { ...profile, sensitive: isSensitive(profile) };
+  const helps = rule ? targetApplies(rule.helps, target) : false;
+  const hurts = rule ? targetApplies(rule.hurts, target) : false;
 
   const total = product?.ingredients.length ?? 0;
   const position = index >= 0 ? index + 1 : null;

@@ -5,7 +5,7 @@
 
 export type SkinType = "oily" | "dry" | "combination" | "normal" | "sensitive";
 
-/** Skin type minus the "sensitive" modifier — see `SkinProfile.sensitive`. */
+/** Skin type minus the "sensitive" modifier — see `SkinProfile.sensitivity`. */
 export type BaseSkinType = Exclude<SkinType, "sensitive">;
 
 /**
@@ -25,24 +25,38 @@ export type Concern =
   | "hyperpigmentation"
   | "atopic";
 
-export type Gender = "female" | "male" | "nonbinary" | "undisclosed";
-
-export type AgeGroup = "18-24" | "25-34" | "35-44" | "45-54" | "55-64" | "65+";
-
 export type BodyArea = "face" | "body";
 
 /**
- * The onboarding quiz's answers. `gender` and `ageGroup` are stored for
- * copy/personalisation but deliberately do not affect `matchProduct` —
- * inventing a scoring rule for them would be fabricating dermatology.
+ * How reactive the user says their skin is. Three levels rather than a
+ * boolean, because "stings at everything" and "occasionally tingles" want
+ * different verdicts on the same fragranced formula, and the old toggle
+ * collapsed them.
+ */
+export type Sensitivity = "none" | "some" | "high";
+
+/**
+ * The onboarding quiz's answers.
+ *
+ * Gender and age used to live here. Both were collected, stored, and read by
+ * nothing — `matchProduct` never scored on either — so they implied a
+ * personalisation the app did not deliver, and the MVP drops them.
+ *
+ * `area` is NOT an onboarding question any more, but the field stays: the
+ * browse screen filters the catalogue on it (`app/(tabs)/browse.tsx`) and it
+ * is still editable from the profile screen.
  */
 export type SkinProfile = {
-  gender: Gender | null;
-  ageGroup: AgeGroup | null;
   area: BodyArea | null;
   concerns: Concern[];
+  /** `null` is a real answer: the MVP's "I don't know" option. */
   baseSkinType: BaseSkinType | null;
-  sensitive: boolean;
+  /**
+   * `null` means unanswered, which is not the same as "none" — the quiz has
+   * to tell "I skipped this" from "my skin is not sensitive", and a boolean
+   * plus a separate answered flag would be two fields that can disagree.
+   */
+  sensitivity: Sensitivity | null;
 };
 
 export type ProductType =

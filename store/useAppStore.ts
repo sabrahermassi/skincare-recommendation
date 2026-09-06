@@ -55,12 +55,10 @@ const MAX_COMPARE = 2;
 export const HISTORY_LIMIT = 50;
 
 export const EMPTY_PROFILE: SkinProfile = {
-  gender: null,
-  ageGroup: null,
   area: null,
   concerns: [],
   baseSkinType: null,
-  sensitive: false,
+  sensitivity: null,
 };
 
 type AppState = {
@@ -178,6 +176,62 @@ export const INITIAL_STATE = {
   productSuggestions: [] as ProductSuggestion[],
 };
 
+/**
+ * Storage schema upgrades. Exported so the riskiest thing in this file is
+ * testable: a migration that quietly drops a key resets a real person's
+ * profile, and they find out by watching every score change.
+ *
+ * v2 carried `skinTypeSource`, which existed only to tell a hand-picked skin
+ * type apart from one the two-question diagnostic worked out. That screen is
+ * gone, so the field is dropped rather than left to rot in storage — a stored
+ * key with no reader is a trap for the next person to read the type.
+ *
+ * v3 -> v4 drops `gender` and `ageGroup`, which the app collected and never
+ * read, and widens the `sensitive` boolean into the three-level
+ * `sensitivity`. An existing `true` becomes "some", not "high": the old
+ * toggle asked "is your skin also sensitive", which is the middle answer, and
+ * promoting everyone to the harshest setting would silently re-judge every
+ * saved product against a stricter rule than they agreed to. An existing
+ * `false` becomes "none" rather than null — they saw the toggle and left it
+ * off, which is an answer.
+ */
+export function migratePersisted(persisted: unknown, version: number): PersistedState | undefined {
+  const state = persisted as (PersistedState & {
+    profile?: Partial<SkinProfile> & {
+      skinTypeSource?: unknown;
+      gender?: unknown;
+      ageGroup?: unknown;
+      sensitive?: boolean;
+    };
+  }) | undefined;
+
+  if (!state) return state;
+
+  // A missing profile shouldn't happen, but returning `state` as-is here
+  // would hand back an object without the `profile` key the PersistedState
+  // contract requires — fall back to the same empty profile a first run
+  // gets, rather than trust a merge elsewhere to paper over it.
+  if (!state.profile) return { ...state, profile: EMPTY_PROFILE };
+  if (version >= 4) return state as PersistedState;
+
+  const {
+    skinTypeSource: _droppedSource,
+    gender: _droppedGender,
+    ageGroup: _droppedAge,
+    sensitive,
+    ...rest
+  } = state.profile;
+
+  return {
+    ...state,
+    profile: {
+      ...EMPTY_PROFILE,
+      ...rest,
+      sensitivity: rest.sensitivity ?? (sensitive === undefined ? null : sensitive ? "some" : "none"),
+    },
+  };
+}
+
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
@@ -277,33 +331,10 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "skintel-store",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: partializeState,
-      /*
-        v2 carried `skinTypeSource`, which existed only to tell a hand-picked
-        skin type apart from one the two-question diagnostic worked out. That
-        screen is gone, so the field is dropped rather than left to rot in
-        storage — a stored key with no reader is a trap for the next person to
-        read the type. The skin type itself is untouched.
-      */
-      migrate: (persisted, version) => {
-        const state = persisted as (PersistedState & {
-          profile?: { skinTypeSource?: unknown };
-        }) | undefined;
-        if (!state) return state;
-        if (version < 3) {
-          // A missing profile shouldn't happen, but returning `state` as-is
-          // here would hand back an object without the `profile` key the
-          // PersistedState contract requires — fall back to the same empty
-          // profile a first run gets, rather than trust a merge elsewhere
-          // to paper over it.
-          if (!state.profile) return { ...state, profile: EMPTY_PROFILE } as PersistedState;
-          const { skinTypeSource: _dropped, ...profile } = state.profile;
-          return { ...state, profile } as PersistedState;
-        }
-        return state;
-      },
+      migrate: migratePersisted,
     }
   )
 );
