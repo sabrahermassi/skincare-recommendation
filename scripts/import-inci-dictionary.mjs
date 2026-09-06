@@ -19,6 +19,8 @@
 
 import { createClient } from "@supabase/supabase-js";
 
+import { parseFunctions } from "./lib/normalise-function.mjs";
+
 const DRY_RUN = process.argv.includes("--dry-run");
 const TAXONOMY = "https://static.openbeautyfacts.org/data/taxonomies/ingredients.json";
 const ATTRIBUTION_NOTE = "Ingredient reference from Open Beauty Facts / EU CosIng.";
@@ -95,10 +97,10 @@ function toRows(taxonomy) {
     if (canonical.length < 2) continue;
 
     const { safety, note } = safetyFrom(entry.inci_restriction);
-    const functions = (pickEn(entry.inci_functions) ?? "")
-      .split(",")
-      .map((f) => f.trim().replace(/^en:/, ""))
-      .filter(Boolean);
+    // Shared with import-cosing so the same role is never written two ways —
+    // this importer used to emit the OBF taxonomy's hyphenated, mixed-case
+    // form while CosIng emitted a lowercase spaced one.
+    const functions = parseFunctions(pickEn(entry.inci_functions), ",");
 
     const row = {
       cas_number: pickEn(entry.cas) || null,

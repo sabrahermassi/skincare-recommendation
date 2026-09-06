@@ -253,6 +253,16 @@ async function lookupBarcodeDb(barcode: string): Promise<Fetched | null> {
   const item = body?.items?.[0];
   if (!item?.title) return null;
 
+  // This source indexes every barcode there is, not just cosmetics, and it
+  // returns no ingredients — so an unfiltered hit writes a row the app can
+  // only ever render as "we know this product but not what's in it". The
+  // catalogue currently holds a bag of ORGANIC BLUE CORN TORTILLA CHIPS,
+  // brand "N/A", typed as a serum, which arrived exactly this way.
+  //
+  // A miss is the better outcome: the user is told we don't have it and
+  // offered the label-photo path, which works on anything.
+  if (!looksCosmetic(`${item.category ?? ""} ${item.title}`)) return null;
+
   return {
     product: {
       id: `upc-${barcode}`,
@@ -383,23 +393,47 @@ function normalise(raw: string): string {
 }
 
 /**
+ * Whether a barcode-database hit is plausibly a cosmetic at all.
+ *
+ * Positive evidence required, rather than a denylist of everything that is
+ * not skincare — that list has no end, and the failure mode of guessing wrong
+ * is a food product sitting in a skincare catalogue.
+ */
+function looksCosmetic(text: string): boolean {
+  return /beauty|cosmetic|personal care|skin|face|facial|body care|hair care|lotion|cream|crème|creme|serum|cleanser|shampoo|toner|sunscreen|spf|balm|moisturi|nettoyant|reinigings|limpiador|crema/i
+    .test(text);
+}
+
+/**
  * Best-effort mapping onto our product types. Deliberately falls back to
  * "serum" rather than inventing a new type, because the browse filter bar is
  * driven by this closed set.
+ *
+ * The patterns were English-only, and this catalogue is not: "CeraVe
+ * Schuimende Reinigingsgel", "nettoyant moussant visage" and "Huile lavante
+ * Lipikar" are all cleansers that fell through to "serum", which then scored
+ * them as leave-on (contact weight 1.0 instead of 0.4) and overstated both
+ * their actives and their irritants. The added terms are the ones that
+ * actually appear on labels in this catalogue's languages.
  */
 function guessType(tags: string[], text: string): string {
   const haystack = `${tags.join(" ")} ${text}`.toLowerCase();
   const table: [RegExp, string][] = [
-    [/hand.?cream/, "hand-cream"],
-    [/body.?(wash|gel)|shower/, "body-wash"],
-    [/body.?(lotion|milk|butter)/, "body-lotion"],
-    [/cleanser|foam|cleansing|micellar/, "cleanser"],
-    [/sun|spf|uv/, "sunscreen"],
-    [/toner|tonic/, "toner"],
+    [/hand.?cream|crème mains|handcreme/, "hand-cream"],
+    [/body.?(wash|gel)|shower|douche|duschgel/, "body-wash"],
+    [/body.?(lotion|milk|butter)|body ?lotion|lait corporel/, "body-lotion"],
+    [
+      // nettoyant/lavant (fr), reinigings/schuimende (nl), limpiador (es),
+      // detergente (it), waschgel (de) — plus "huile lavante", a washing oil.
+      /cleanser|foam|cleansing|micellar|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
+      "cleanser",
+    ],
+    [/sun|spf|uv|solaire|zonnebrand/, "sunscreen"],
+    [/toner|tonic|lotion tonique/, "toner"],
     [/essence/, "essence"],
     [/ampoule/, "ampoule"],
-    [/serum/, "serum"],
-    [/cream|moisturi[sz]er|lotion|emulsion/, "moisturizer"],
+    [/serum|sérum/, "serum"],
+    [/cream|moisturi[sz]er|lotion|emulsion|crème|creme|crema|gezichtscrème/, "moisturizer"],
   ];
   for (const [pattern, type] of table) if (pattern.test(haystack)) return type;
   return "serum";
