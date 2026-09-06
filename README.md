@@ -2,8 +2,8 @@
 
 Skincare product & ingredient lookup — one codebase for iOS, Android and web.
 
-Built on **Expo SDK 54** (React Native 0.81.5) with Expo Router, NativeWind, Zustand
-and `expo-camera` barcode scanning.
+Built on **Expo SDK 57** with Expo Router, NativeWind, Zustand and
+`expo-camera` barcode scanning.
 
 ## Run it
 
@@ -15,12 +15,17 @@ npx expo start --web  # web only
 
 ### On your phone (Expo Go)
 
-- **iPhone** — install Expo Go from the App Store. The store build tracks SDK 54,
-  which matches this project. Scan the terminal QR with the Camera app.
-- **Android** — the Play Store build may be newer than SDK 54 and will then refuse
-  the project. Get the matching build with `npx expo-go download android 54`
-  (or [expo.dev/go](https://expo.dev/go) → SDK 54), sideload it, and scan the QR
-  from inside Expo Go.
+- **iPhone** — check that Expo Go's current App Store build actually matches
+  this project's SDK version first ([expo.dev/go](https://expo.dev/go) lists
+  it). The App Store build lags behind the newest SDKs, so a plain install
+  may refuse this project; if so, use `eas go` (needs an Apple Developer
+  Program membership and TestFlight) or sign.expo.dev re-signing instead.
+- **Android** — the Play Store build can be newer *or* older than this
+  project and will then refuse it either way. Get a matching build with
+  `npx expo-go download android <sdk>` (swap `<sdk>` for whatever this
+  project is on — see `package.json`'s `expo` version) or via
+  [expo.dev/go](https://expo.dev/go), sideload it, and scan the QR from
+  inside Expo Go.
 
 Phone and computer must share a Wi-Fi network. If the QR doesn't connect, allow
 Node.js through Windows Firewall on private networks, or use `npx expo start --tunnel`.
@@ -42,9 +47,11 @@ tailwind.config.js   nativewind preset + content globs
 
 - **Tailwind must stay on v3.** NativeWind 4's runtime declares `tailwindcss: "~3"`
   as a hard peer; Tailwind 4 breaks it.
-- **Barcode scanning on web is QR-only.** SDK 54's `expo-camera` uses jsQR in the
-  browser. EAN-13 / UPC-A product barcodes scan on iOS and Android only; the scan
-  screen shows a notice on web rather than failing silently.
+- **Barcode scanning on web was QR-only as of SDK 54** (`expo-camera` used jsQR
+  in the browser; EAN-13 / UPC-A scanned on iOS and Android only, with the scan
+  screen showing a notice on web rather than failing silently) — **unverified
+  since the SDK 57 upgrade**, which added a `barcode-detector` ponyfill with
+  full web format support. See `CLAUDE.md` and issue #11.
 - Web camera needs a secure context — `localhost` is fine, a LAN IP is not.
 - `experiments.reactCompiler` is off; it conflicts with NativeWind's
   `jsxImportSource`. Re-enable and retest once the app is stable.

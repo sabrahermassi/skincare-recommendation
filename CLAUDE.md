@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 @AGENTS.md
 
 A universal (iOS / Android / web) Korean skincare product and ingredient
-lookup app. Expo SDK 54 + Expo Router + NativeWind + Zustand.
+lookup app. Expo SDK 57 + Expo Router + NativeWind + Zustand.
 
 Currently a demo running entirely on fabricated data. Open gaps are
 tracked as GitHub issues on the "Skin Recommendation" project board.
@@ -22,7 +22,7 @@ npm test -- safety         # one suite, by filename fragment
 npm test -- -t "compare"   # one test, by name
 npm run typecheck          # tsc --noEmit
 npm run lint               # expo lint (eslint-config-expo)
-npx expo-doctor@latest     # SDK 54 dependency alignment
+npx expo-doctor@latest     # SDK dependency alignment
 ```
 
 ### Dictionary imports
@@ -120,10 +120,29 @@ duplicated across three screens before and drifted.
 
 ## Constraints that look like bugs
 
-**SDK 54 is pinned on purpose. Do not upgrade casually.** It is the last
-version Expo Go ships on the Apple App Store, so it installs on a physical
-iPhone with no weekly re-signing via sign.expo.dev. It also puts us on
-React Native 0.81.5, avoiding a NativeWind prop-interop bug on RN 0.86.
+**Expo Go's App Store build lags behind the newest SDKs — check before
+upgrading.** The project was pinned to SDK 54 for a while because that was
+the last version Expo Go shipped on the Apple App Store, which let it
+install on a physical iPhone with no weekly re-signing via sign.expo.dev.
+The project has since upgraded to SDK 57, and that convenience does not
+carry forward automatically: Expo Go's App Store build tracks one SDK
+version at a time, so an upgrade can put physical-device testing a step
+ahead of whatever Expo Go currently ships. When that happens, a plain App
+Store install of Expo Go will refuse the project (the same failure Android
+already had at SDK 54 — see "Running on a device" below) — the workaround is
+`eas go` (needs an Apple Developer Program membership and TestFlight) or
+sign.expo.dev re-signing, not a plain install. Check
+[Expo's changelog](https://expo.dev/changelog/expo-go-and-app-store-may-2026)
+for Expo Go's current App Store SDK before upgrading, so this trade-off is a
+decision rather than a surprise. See `docs/threat-model.md`'s on-device-OCR
+section for where this exact staleness was tracked down and corrected once
+already (issue #16).
+
+The SDK 54 pin was also credited with avoiding a NativeWind prop-interop bug
+on React Native 0.86 — the project is now on RN 0.86.3 regardless, so either
+that bug no longer applies at the NativeWind version in use, or it's a live
+latent issue nobody's re-checked since the upgrade. Worth confirming, not
+assumed either way here.
 
 **Tailwind must stay on v3.** NativeWind 4's runtime
 (`react-native-css-interop`) declares `tailwindcss: "~3"` as a hard peer.
@@ -145,16 +164,30 @@ browser APIs — the camera screen specifically.
 That shape trips NativeWind's prop interop. Use `className` with the
 `active:` variant.
 
-**Web barcode scanning is QR-only.** SDK 54's `expo-camera` uses jsQR in
-the browser; EAN-13 / UPC-A scan on native only. `app/scan.tsx` narrows
-`barcodeTypes` by platform so it degrades rather than crashing (issue #11).
+**Web barcode scanning is QR-only, as of SDK 54 — unverified since the SDK
+57 upgrade.** `expo-camera` used jsQR in the browser at SDK 54; EAN-13 /
+UPC-A scanned on native only. `app/scan.tsx` narrows `barcodeTypes` by
+platform so it degrades rather than crashing (issue #11). Issue #11 itself
+notes SDK 57's `expo-camera` added a `barcode-detector` ponyfill with full
+web format support — if that holds, the platform split in `scan.tsx` may
+now be unnecessary. Nobody has re-tested this since the upgrade; don't
+assume either way without checking.
 
 ## Running on a device
 
-`expo-camera` is bundled in the SDK 54 Expo Go client, so scanning works
-without a development build. iPhone: install Expo Go from the App Store
-(its build tracks SDK 54). Android: the Play Store build may be newer and
-will refuse the project — use `npx expo-go download android 54`.
+`expo-camera` is bundled in Expo Go, so scanning works without a development
+build — but Expo Go's own build has to match the project's SDK version, and
+the widely-installed App Store build lags behind (stuck at SDK 54 as of this
+project's SDK 57 upgrade — see "Constraints that look like bugs" above).
+
+- **iPhone:** a plain App Store install of Expo Go no longer opens this
+  project. Use `eas go` (needs an Apple Developer Program membership and
+  TestFlight) or sign.expo.dev re-signing instead.
+- **Android:** the Play Store build has the same problem for a different
+  reason (it's often *newer* than the project, not older) and will refuse
+  it — use `npx expo-go download android <sdk>`, swapping `<sdk>` for
+  whatever this project is on, not a hardcoded number that will rot the
+  same way this section just did.
 
 Two Windows-specific traps:
 

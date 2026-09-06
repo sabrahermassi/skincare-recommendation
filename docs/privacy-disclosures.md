@@ -20,11 +20,15 @@ was never kept once OCR shipped.
 
 ### Google Cloud Vision API
 
-**What's sent:** a photo of a product's printed ingredient list, cropped
-client-side to the labeled region before it leaves the device (see
-`lib/crop-to-guide.ts`) and stripped of all EXIF/XMP/IPTC metadata — no GPS
-coordinates, device identifiers, or capture timestamps are included (see
-`supabase/functions/_shared/strip-metadata.ts`).
+**What's sent:** a photo of a product's printed ingredient list, normally
+cropped client-side to the labeled region before it leaves the device (see
+`lib/crop-to-guide.ts`) — this is the standard path, but a crop that fails
+for any reason (a layout measurement not yet landed, a degenerate frame, a
+manipulation error) falls back to the uncropped photo rather than blocking
+the scan, per `docs/threat-model.md`'s "Send the minimum" section. Always
+stripped of all EXIF/XMP/IPTC metadata regardless of whether the crop
+applied — no GPS coordinates, device identifiers, or capture timestamps are
+included (see `supabase/functions/_shared/strip-metadata.ts`).
 
 **When:** only when a user actively photographs a label through the "Read
 the label" flow. Never in the background, never for any other feature.
@@ -42,14 +46,28 @@ the label" flow. Never in the background, never for any other feature.
   Addendum](https://cloud.google.com/terms/data-processing-addendum) is
   incorporated by reference into the standard GCP Terms of Service — the
   agreement in effect for any Google Cloud project, including one used only
-  through an API key. No separate contract was negotiated because none was
-  needed.
+  through an API key. No separate contract was negotiated, since there is
+  none to negotiate for API-key-only usage. **Whether that standard,
+  incorporated DPA is sufficient for this project's obligations is a
+  determination this document cannot make** — see issue #14 (open at time of
+  writing) and `docs/threat-model.md`'s trust-boundary section.
 
 **What this app itself retains from that exchange:** only the recognized
 text, parsed into ingredient names, stored against the product. The
 photograph itself — cropped or not, before or after stripping — is never
 written anywhere and exists only for the duration of the request. See
 `docs/threat-model.md`'s "No photo storage, ever" non-goal.
+
+**In-app disclosure:** `app.json`'s `expo-camera` plugin sets the iOS
+camera-access purpose string (`NSCameraUsageDescription`) to name both uses
+— barcode scanning and label photography. That string is **inert in Expo
+Go**, which ships its own `Info.plist` — it only takes effect through
+prebuild, a development build, or a store build, which is exactly when it
+becomes a real store declaration rather than a no-op. `app/scan-label.tsx`
+carries the disclosure on every platform in the meantime: a persistent line
+in the capture screen and a fuller sentence on the permission-request
+screen, so a user is told where the photo goes independent of which build
+they're running.
 
 ### Open Beauty Facts, the INCI API, UPCitemdb
 
