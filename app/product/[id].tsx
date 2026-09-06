@@ -14,8 +14,14 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { fetchProduct } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
-import { matchProduct, verdictHeadline, type Verdict } from "@/lib/matching";
-import { CATEGORY_LABEL } from "@/lib/rules";
+import {
+  confidenceLabel,
+  matchProduct,
+  scoreExplanation,
+  verdictHeadline,
+  type MatchReason,
+  type Verdict,
+} from "@/lib/matching";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -61,10 +67,40 @@ const PANEL: Record<Verdict, { bg: string; border: string; label: string; ink: s
   unknown: { bg: "#F3EFEA", border: "#E9E4DD", label: "Can't tell yet", ink: "#5C5566" },
 };
 
+/**
+ * One line of "why", naming the ingredient and carrying its own sentence.
+ *
+ * The sentence comes from `lib/rules.ts`, where every claim the app makes is
+ * written next to the rule that makes it — so anything on screen here can be
+ * traced to a line of code and argued with.
+ */
+function ReasonLine({ reason }: { reason: MatchReason }) {
+  const positive = reason.effect > 0;
+  return (
+    <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+      <View
+        style={{ width: 18, height: 18, borderRadius: 9, marginTop: 1 }}
+        className={`items-center justify-center ${positive ? "bg-tint-mint" : "bg-tint-pink"}`}
+      >
+        <Text className="text-[11px] font-bold leading-[13px] text-ink">
+          {positive ? "+" : "−"}
+        </Text>
+      </View>
+      <View style={{ flex: 1, gap: 1 }}>
+        <Text className="text-[13px] font-semibold capitalize text-ink">
+          {reason.ingredient.toLowerCase()}
+        </Text>
+        <Text className="text-[12px] leading-[17px] text-ink-muted">{reason.reason}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   const profile = useAppStore((s) => s.profile);
   const savedProducts = useAppStore((s) => s.savedProducts);
@@ -136,15 +172,14 @@ export default function ProductScreen() {
   const total = product.ingredients.length;
   const recognised = product.ingredients.filter(isVerified).length;
 
-  // The same factors the weighted bars used to draw, said as words. The
-  // direction of each factor is the part a shopper can act on; the magnitude
-  // was never anything but our own rule weight.
-  const helps = match.factors
-    .filter((f) => f.delta > 0)
-    .map((f) => CATEGORY_LABEL[f.category].toLowerCase());
-  const against = match.factors
-    .filter((f) => f.delta < 0)
-    .map((f) => CATEGORY_LABEL[f.category].toLowerCase());
+  // The MVP asks for the top 2-3 positives and 1-3 concerns, each naming the
+  // ingredient behind it. The engine has produced these sentences all along —
+  // this screen used to throw them away and print category words instead
+  // ("hydration, fragrance"), which named a direction but never a reason.
+  const helps = match.reasons.filter((r) => r.effect > 0).slice(0, 3);
+  const against = match.reasons.filter((r) => r.effect < 0).slice(0, 3);
+  const explanation = scoreExplanation(match);
+  const confidence = confidenceLabel(match.confidence);
 
   async function share() {
     if (!product) return;
@@ -207,8 +242,17 @@ export default function ProductScreen() {
         </View>
 
         {/* The verdict, before anything else. Never colour alone — the panel
-            carries a word too. */}
-        <View
+            carries a word too. Tapping it opens the breakdown in place rather
+            than pushing a screen: the answer and its reasoning belong on the
+            same surface when someone is holding the bottle in a shop. */}
+        <Pressable
+          onPress={() => setShowBreakdown((open) => !open)}
+          disabled={explanation.length === 0}
+          accessibilityRole="button"
+          accessibilityLabel={
+            showBreakdown ? "Hide how this score was worked out" : "How was this score worked out?"
+          }
+          accessibilityState={{ expanded: showBreakdown }}
           className="flex-row items-center rounded-card border"
           style={{
             marginHorizontal: 24,
@@ -236,6 +280,11 @@ export default function ProductScreen() {
             <Text className="text-[13px] leading-[18.5px] text-ink-body">
               {verdictHeadline(match)}
             </Text>
+            {explanation.length > 0 && (
+              <Text className="pt-0.5 text-[11.5px] font-semibold" style={{ color: panel.ink }}>
+                {showBreakdown ? "Hide the breakdown" : "How was this worked out?"}
+              </Text>
+            )}
           </View>
 
           <Pressable
@@ -255,7 +304,34 @@ export default function ProductScreen() {
               />
             </Svg>
           </Pressable>
-        </View>
+        </Pressable>
+
+        {/* What the number is actually made of, strongest first. The sentences
+            come from lib/matching so the words and the arithmetic cannot
+            drift apart. */}
+        {showBreakdown && explanation.length > 0 && (
+          <View
+            style={{ marginHorizontal: 24, marginTop: 10, gap: 12, padding: 16 }}
+            className="rounded-card border border-hairline bg-surface"
+          >
+            {explanation.map((line) => (
+              <View key={line.label} style={{ flexDirection: "row", gap: 10 }}>
+                <View
+                  style={{ width: 3, borderRadius: 2 }}
+                  className={line.direction === "up" ? "bg-tone-good" : "bg-tone-flag"}
+                />
+                <View style={{ flex: 1, gap: 1 }}>
+                  <Text className="text-[12.5px] font-semibold text-ink">{line.label}</Text>
+                  <Text className="text-[12px] leading-[17px] text-ink-muted">{line.detail}</Text>
+                </View>
+              </View>
+            ))}
+            <Text className="text-[11px] leading-[15px] text-ink-faint">
+              Ordered by how much each moved the score. Based on {recognised} of {total}{" "}
+              ingredients we could identify — {confidence} confidence.
+            </Text>
+          </View>
+        )}
 
         {/* Two boxes, directly under the score: the only two risks the screen
             states as a verdict. Each one is a button when it has something to
@@ -293,21 +369,23 @@ export default function ProductScreen() {
           nothing.
         */}
         {(helps.length > 0 || against.length > 0) && (
-          <View style={{ marginHorizontal: 24, marginTop: 22, gap: 6 }}>
-            {helps.length > 0 && (
-              <Text className="text-[12.5px] leading-[18px] text-ink-body">
-                <Text className="font-semibold text-ink">Works for you: </Text>
-                {helps.join(", ")}.
-              </Text>
-            )}
-            {against.length > 0 && (
-              <Text className="text-[12.5px] leading-[18px] text-ink-body">
-                <Text className="font-semibold text-ink">Works against you: </Text>
-                {against.join(", ")}.
-              </Text>
-            )}
-            <Text className="pt-1 text-[11px] text-ink-faint">
-              From {recognised} of {total} ingredients we could identify.
+          <View style={{ marginHorizontal: 24, marginTop: 26, gap: 14 }}>
+            <Text className="text-[9px] font-semibold uppercase tracking-[1.53px] text-[#565060]">
+              Why this score
+            </Text>
+
+            <View style={{ gap: 10 }}>
+              {helps.map((reason) => (
+                <ReasonLine key={`+${reason.ingredient}`} reason={reason} />
+              ))}
+              {against.map((reason) => (
+                <ReasonLine key={`-${reason.ingredient}`} reason={reason} />
+              ))}
+            </View>
+
+            <Text className="text-[11px] leading-[15px] text-ink-faint">
+              From {recognised} of {total} ingredients we could identify
+              {confidence === "high" ? "" : ` — ${confidence} confidence`}.
             </Text>
           </View>
         )}
