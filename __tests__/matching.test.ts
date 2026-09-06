@@ -1,6 +1,6 @@
 import { fetchProduct, fetchProducts } from "@/data/api";
 import type { ProductWithIngredients, SkinProfile } from "@/data/types";
-import { matchProduct, matchTone } from "@/lib/matching";
+import { matchProduct, matchTone, SCORE_BANDS } from "@/lib/matching";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 async function load(id: string): Promise<ProductWithIngredients> {
@@ -155,11 +155,22 @@ describe("matchProduct", () => {
 });
 
 describe("matchTone", () => {
-  it("maps scores to bands at the documented boundaries", () => {
-    expect(matchTone(80)).toBe("high");
-    expect(matchTone(79)).toBe("medium");
-    expect(matchTone(65)).toBe("medium");
-    expect(matchTone(64)).toBe("low");
+  // The MVP locks these four bands, so they are pinned rather than left to a
+  // comment: 90-100 excellent, 75-89 good, 60-74 fair, 0-59 poor.
+  it("maps scores to bands at the MVP boundaries", () => {
+    expect(matchTone(75)).toBe("high");
+    expect(matchTone(74)).toBe("medium");
+    expect(matchTone(60)).toBe("medium");
+    expect(matchTone(59)).toBe("low");
+  });
+
+  it("uses the same cutoffs the verdict bands do", () => {
+    expect(SCORE_BANDS).toEqual({ excellent: 90, good: 75, fair: 60 });
+    // A badge has one colour to spend, so excellent and good share "high" —
+    // but they must not disagree about where "high" starts.
+    expect(matchTone(SCORE_BANDS.excellent)).toBe("high");
+    expect(matchTone(SCORE_BANDS.good)).toBe("high");
+    expect(matchTone(SCORE_BANDS.fair)).toBe("medium");
   });
 });
 

@@ -97,7 +97,7 @@ export default function ProfileScreen() {
   // to go back *to*, so the arrow falls back to Browse instead of erroring.
   function goBack() {
     if (router.canGoBack()) router.back();
-    else router.replace("/");
+    else router.replace("/browse");
   }
 
   return (

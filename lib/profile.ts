@@ -101,9 +101,12 @@ export function nextQuizRoute(current: QuizRoute): QuizRoute | null {
  * Where finishing (or skipping) the quiz lands you.
  *
  * Defined once because it was wrong four times: every exit called
- * `router.replace("/")`, and `/` resolves to the browse grid — so the skin
- * analysis ended on a list of products, which is exactly what this app stopped
- * being. Reordering the tab bar did not help, because these navigations name
- * the destination explicitly.
+ * `router.replace("/")`, and `/` used to resolve to the browse grid — so the
+ * skin analysis ended on a list of products, which is exactly what this app
+ * stopped being. Reordering the tab bar did not help, because these
+ * navigations name the destination explicitly.
+ *
+ * `/` is now the scanner itself (`app/(tabs)/index.tsx`), so this and a cold
+ * start agree by construction rather than by two routes being kept in step.
  */
-export const POST_ONBOARDING_ROUTE = "/scan" as const;
+export const POST_ONBOARDING_ROUTE = "/" as const;

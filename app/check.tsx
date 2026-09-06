@@ -63,7 +63,7 @@ export default function CheckScreen() {
             Nothing to check - paste an ingredient list on the Scan tab and it
             will show up here.
           </Text>
-          <PrimaryButton label="Back to scanning" onPress={() => router.replace("/scan")} />
+          <PrimaryButton label="Back to scanning" onPress={() => router.replace("/")} />
         </View>
       </View>
     );
