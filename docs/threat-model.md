@@ -376,3 +376,32 @@ If any of the three is ambiguous against this document, the document isn't
 done. Once the first user-data migration is written, confirm it creates the
 table and its RLS policies in the same file — that's the concrete test that
 this changed anything.
+
+**A policy is not verified until a negative test fails without it (issue
+#17).** RLS failures are silent — a wrong policy doesn't error, it returns
+another user's row, so "the migration includes an RLS policy" is not
+evidence the policy does anything. None of the three features above exist
+yet: as of this writing there is no `auth.users`-referencing table, no
+owner column, and no storage bucket anywhere in `supabase/migrations`
+(confirmed by grep, not assumed). That makes this the right point to fix
+the requirement rather than the code, so it isn't relitigated per-migration:
+
+- **Every migration that creates or alters a user-owned table must land a
+  negative authorization test in the same PR** — user A cannot read,
+  update, or delete user B's row — run directly against the database (a
+  real Postgres client authenticated as each user, or the local Supabase
+  RLS test harness), not only through the app's own queries. A query that
+  never asks for another user's data proves nothing about whether the
+  policy would stop it.
+- **The same applies to the storage bucket**, whenever one is provisioned:
+  a signed-URL or object-read test proving user A cannot obtain user B's
+  object, alongside the five bucket rules already required above.
+- **"Not found" vs. "forbidden" must be asserted, not just chosen.** §1's
+  authorization guidance already picks a convention; the negative test is
+  what confirms the code doesn't leak which one applies to a request for
+  someone else's data.
+
+This doesn't retroactively create tests for tables that don't exist —
+nothing here is exempt from CLAUDE.md's aversion to speculative machinery.
+It's the acceptance bar the *first* migration that adds one has to clear,
+written down now so it's a review checklist item then, not a debate.
