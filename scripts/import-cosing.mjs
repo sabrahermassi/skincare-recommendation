@@ -33,6 +33,7 @@
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
+import { parseFunctions } from "./lib/normalise-function.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 const DEFAULT_SOURCE =
@@ -182,13 +183,7 @@ async function main() {
     byName.set(name, {
       inci_name: name,
       cas_number: iCas !== -1 ? (row[iCas] ?? "").trim() || null : null,
-      functions:
-        iFunction !== -1
-          ? (row[iFunction] ?? "")
-              .split(/[,/]/)
-              .map((f) => f.trim().toLowerCase())
-              .filter(Boolean)
-          : [],
+      functions: iFunction !== -1 ? parseFunctions(row[iFunction]) : [],
       source: "cosing",
       // The whole point of this import.
       verified: true,
