@@ -29,7 +29,7 @@ export default function ConcernsStep() {
 
   return (
     <QuizStep
-      step={3}
+      step={1}
       title="What are your main skin concerns?"
       subtitle={`Pick up to ${MAX}. You can change these later.`}
       onNext={() => router.push("/onboarding/skin-type")}

@@ -1,5 +1,5 @@
 import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
-import { isPersonalized } from "./profile";
+import { isPersonalized, isSensitive } from "./profile";
 import {
   CATEGORY_LABEL,
   contactWeight,
@@ -144,6 +144,11 @@ export function matchProduct(
   const reasons: MatchReason[] = [];
   let score = BASE_SCORE;
 
+  // The rules table still speaks a boolean. Sensitivity has three levels now,
+  // and Phase 3 will let the magnitude matter; until then any sensitivity at
+  // all reads as the old `sensitive: true`, which is what it always meant.
+  const target = { ...profile, sensitive: isSensitive(profile) };
+
   product.ingredients.forEach((ingredient, position) => {
     // An unrecognised name supports no claim in either direction.
     if (!isVerified(ingredient)) return;
@@ -152,8 +157,8 @@ export function matchProduct(
     if (!rule) return;
 
     const weight = rule.weight * positionWeight(position) * contactWeight(product.type);
-    const helps = targetApplies(rule.helps, profile);
-    const hurts = targetApplies(rule.hurts, profile);
+    const helps = targetApplies(rule.helps, target);
+    const hurts = targetApplies(rule.hurts, target);
 
     // A rule can both help and hurt the same person — salicylic acid on oily,
     // sensitive skin. That is a genuine tension, not a bug, so both are

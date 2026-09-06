@@ -73,7 +73,7 @@ describe("contraindications", () => {
   });
 
   it("flags 'caution' irritants only for sensitive skin", () => {
-    const sensitive = profile({ sensitive: true });
+    const sensitive = profile({ sensitivity: "some" });
     const notSensitive = profile({ baseSkinType: "oily" });
     expect(contraindications([cautionIrritant], sensitive)).toHaveLength(1);
     expect(contraindications([cautionIrritant], notSensitive)).toEqual([]);
@@ -82,7 +82,7 @@ describe("contraindications", () => {
   it("reports each problem ingredient once", () => {
     // coconut-oil is both caution AND comedogenic 4; a sensitive acne-prone
     // user must not see it listed twice.
-    const p = profile({ sensitive: true, concerns: ["acne-prone"] });
+    const p = profile({ sensitivity: "some", concerns: ["acne-prone"] });
     const result = contraindications([moderate], p);
     expect(result).toHaveLength(1);
   });

@@ -62,8 +62,8 @@ describe("matchProduct", () => {
 
   it("rewards sensitivity matching a product's suitableFor list", async () => {
     const p = await load("aqua-ceramide-cream"); // suitableFor includes 'sensitive'
-    const withSensitive = matchProduct(p, profile({ baseSkinType: "dry", sensitive: true }));
-    const without = matchProduct(p, profile({ baseSkinType: "dry", sensitive: false }));
+    const withSensitive = matchProduct(p, profile({ baseSkinType: "dry", sensitivity: "some" }));
+    const without = matchProduct(p, profile({ baseSkinType: "dry", sensitivity: "none" }));
     expect(withSensitive.score).toBeGreaterThan(without.score as number);
   });
 
@@ -74,7 +74,7 @@ describe("matchProduct", () => {
    */
   it("weights a rinse-off product's ingredients below a leave-on one's", async () => {
     const cleanser = await load("mugwort-gel-cleanser");
-    const prof = profile({ baseSkinType: "dry", sensitive: true });
+    const prof = profile({ baseSkinType: "dry", sensitivity: "some" });
     const result = matchProduct(cleanser, prof);
     if (result.reasons.length > 0) {
       const strongest = Math.max(...result.reasons.map((r) => Math.abs(r.effect)));
@@ -107,10 +107,13 @@ describe("matchProduct", () => {
       expect(matchProduct(p, EMPTY_PROFILE).score).toBeNull();
     });
 
-    it("demographics alone (no skin type, no concerns) still yield a null score", async () => {
+    // Sensitivity scales how harshly irritants are judged; it does not say
+    // what a formula should be doing for you, so on its own it is not a
+    // profile to match against.
+    it("sensitivity alone (no skin type, no concerns) still yields a null score", async () => {
       const p = await load("hanbang-rice-serum");
-      const demographicsOnly = profile({ gender: "female", ageGroup: "25-34" });
-      expect(matchProduct(p, demographicsOnly).score).toBeNull();
+      const sensitivityOnly = profile({ sensitivity: "high" });
+      expect(matchProduct(p, sensitivityOnly).score).toBeNull();
     });
 
     it("still flags 'avoid' ingredients for a user with no profile", async () => {
@@ -220,7 +223,7 @@ describe("verdict engine", () => {
    * same word last is a trace, and the score has to say so.
    */
   it("weights an irritant by where it sits in the INCI list", () => {
-    const prof = profile({ baseSkinType: "normal", sensitive: true });
+    const prof = profile({ baseSkinType: "normal", sensitivity: "some" });
     const high = matchProduct(synthetic(["water", "parfum", ...FILLER]), prof);
     const low = matchProduct(synthetic(["water", ...FILLER, ...FILLER, ...FILLER, "parfum"]), prof);
 
@@ -232,7 +235,7 @@ describe("verdict engine", () => {
     // Salicylic acid suits oily/acne-prone and works against sensitive skin.
     const result = matchProduct(
       synthetic(["water", "salicylic acid", ...FILLER]),
-      profile({ baseSkinType: "oily", concerns: ["acne-prone"], sensitive: true })
+      profile({ baseSkinType: "oily", concerns: ["acne-prone"], sensitivity: "some" })
     );
     const entry = result.reasons.find((r) => r.ingredient === "salicylic acid");
     // Net zero: the tension is real, so it moves the score nowhere and is not
