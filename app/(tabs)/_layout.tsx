@@ -44,8 +44,16 @@ export default function TabsLayout() {
         },
       }}
     >
+      {/*
+        The scanner is the index route, so `/` lands on it. That is what makes
+        a returning user open into the camera rather than a product list — the
+        MVP's returning-user flow is Open -> Scanner, and the initial URL on a
+        cold start is always `/`. Setting `initialRouteName` alone would not do
+        it: that anchors the back stack, it does not change which screen `/`
+        resolves to.
+      */}
       <Tabs.Screen
-        name="scan"
+        name="index"
         options={{
           title: "Scan a product",
           tabBarLabel: "Scan",
@@ -57,7 +65,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="index"
+        name="browse"
         options={{
           title: "Skintel",
           tabBarLabel: "Browse",
