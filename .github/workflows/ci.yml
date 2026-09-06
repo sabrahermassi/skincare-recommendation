@@ -1,0 +1,40 @@
+name: CI
+
+# Issue #17: `npm test` has run locally throughout this project's history —
+# 240+ tests as of writing — but nothing enforced it. A broken test, a type
+# error, or a lint violation could merge with nothing stopping it. This
+# closes exactly that gap: typecheck, lint and the full test suite, required
+# to pass on every PR.
+#
+# Deliberately not doing here: the three-platform `expo export` bundling
+# check. That's already covered by secret-scan.yml, which exports every
+# platform on the same triggers — a broken bundle already fails CI today via
+# that workflow, so duplicating the export here would only double the cost
+# for no new coverage.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
