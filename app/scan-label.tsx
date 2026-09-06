@@ -196,7 +196,9 @@ export default function ScanLabel() {
     return (
       <View className="flex-1 items-center justify-center gap-4 bg-surface px-6">
         <Text className="text-center text-base text-ink-muted">
-          We need camera access to read the ingredient list.
+          We need camera access to read the ingredient list. To do that we
+          send the photo to Google Cloud Vision — we crop to the frame first,
+          strip location data, and never store the image.
         </Text>
         <Pressable
           onPress={requestPermission}
@@ -236,6 +238,9 @@ export default function ScanLabel() {
         </Text>
         <Text style={{ color: "rgba(255,255,255,0.7)" }} className="mt-1 text-center text-sm">
           Usually the smallest print on the back. Hold steady.
+        </Text>
+        <Text style={{ color: "rgba(255,255,255,0.55)" }} className="mt-3 text-center text-xs">
+          The photo is sent to Google to read the text, then discarded.
         </Text>
       </View>
 

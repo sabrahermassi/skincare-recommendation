@@ -38,9 +38,10 @@ import { useAppStore } from "@/store/useAppStore";
  */
 
 /**
- * SDK 54's expo-camera decodes only QR codes on web (it uses jsQR). Native
- * iOS/Android handle the full list, including the EAN-13 / UPC-A printed on
- * packaging — which is why Search exists as a mode rather than a nicety.
+ * expo-camera decoded only QR codes on web as of SDK 54 (it used jsQR).
+ * Native iOS/Android handle the full list, including the EAN-13 / UPC-A
+ * printed on packaging — which is why Search exists as a mode rather than a
+ * nicety. Unverified since the SDK 57 upgrade; see CLAUDE.md and issue #11.
  */
 const IS_WEB = Platform.OS === "web";
 const BARCODE_TYPES = IS_WEB
@@ -212,7 +213,8 @@ export default function Scan() {
           {/*
             Three reasons the frame can be dark, and it has to say which:
             permission not asked for yet, permission refused, or the browser
-            (where SDK 54's expo-camera is QR-only — issue #11). A silent black
+            (where expo-camera was QR-only as of SDK 54, unverified since —
+            issue #11). A silent black
             rectangle reads as "the scanner is gone".
           */}
           {mode === "Barcode" && !permission?.granted && (

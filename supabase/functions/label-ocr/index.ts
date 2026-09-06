@@ -8,9 +8,13 @@
 // country. Every result is stored against the barcode, so the catalogue grows
 // from real use instead of from a bulk import that does not exist.
 //
-// Google Cloud Vision rather than on-device ML Kit: ML Kit is free and works
-// offline, but needs a custom dev build, and SDK 54 was chosen to keep Expo Go
-// working. The key stays here, never in the bundle.
+// Google Cloud Vision rather than on-device ML Kit: every on-device OCR
+// option is a native module, and a native module needs a development build,
+// which this project does not use. That trade-off — a third-party trust
+// boundary in exchange for staying on Expo Go — is recorded, with its
+// revisit trigger, in docs/threat-model.md's "Backend <-> Google Vision"
+// section. Do not re-derive it here; that doc is the one to update if the
+// calculus changes. The key stays here, never in the bundle.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 

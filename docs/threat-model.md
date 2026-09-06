@@ -110,10 +110,21 @@ second table is planned; if that ever changes, it gets its own row.
   Addendum](https://cloud.google.com/terms/data-processing-addendum) is
   incorporated by reference into the standard GCP Terms of Service, which
   covers any GCP project the moment it's created — there is no separate
-  contract to negotiate for API-key-only usage like this app's, and none was
-  pursued because none is needed. The one thing worth confirming outside of
-  code: that the Google Cloud project behind `GOOGLE_VISION_API_KEY` belongs
-  to this project's own account, since these terms bind whoever holds it.
+  contract to negotiate for API-key-only usage like this app's, so none has
+  been. That is as far as this document can settle the question: **whether
+  the standard, incorporated-by-reference DPA is *sufficient* for this
+  project's obligations is not an engineering determination** — it depends
+  on whether GDPR applies to this controller at all, whether the data is
+  Art. 9, and whether the standard terms (sub-processor list, SCCs, transfer
+  assessment) are adequate for that classification. That is issue #14's
+  question, still open at time of writing. This document states the DPA is
+  *in force*; it does not and cannot state that it is *adequate*.
+
+  **Confirmed:** the Google Cloud project behind `GOOGLE_VISION_API_KEY`
+  belongs to the project owner's own account, not a personal sandbox, an
+  employer's org, or a borrowed key — which matters because these terms bind
+  whoever holds the project, and the reasoning above only transfers if that
+  holder is this project.
 
   **Send the minimum.** Until issue #16, the on-screen guide box in
   `app/scan-label.tsx` was decoration — `takePictureAsync` returns the full
@@ -128,14 +139,27 @@ second table is planned; if that ever changes, it gets its own row.
 
   **On-device OCR: evaluated, not adopted.** The privacy-preserving default
   would be to never send the image anywhere at all. Every on-device option
-  (ML Kit wrappers, Vision-framework wrappers) is a native module requiring a
-  custom dev build, which conflicts with this project's Expo Go constraint —
-  installing on a physical iPhone with no weekly re-signing, see `CLAUDE.md`.
-  `label-ocr/index.ts`'s own header comment already made this call when OCR
-  shipped; this is that decision promoted from an implicit code comment to an
-  explicit one. **Revisit if a dev build is ever adopted for some other
-  reason** — at that point the calculus changes and on-device OCR is worth
-  measuring for real, not just ruling out on architectural grounds.
+  (ML Kit wrappers, Vision-framework wrappers) is a native module, and a
+  native module needs a real development build — this project does not use
+  one, and stays on Expo Go instead. `label-ocr/index.ts`'s own header
+  comment already made this call when OCR shipped; this is that decision
+  promoted from an implicit code comment to an explicit one.
+
+  An earlier version of this reasoning also cited "no weekly re-signing on a
+  physical iPhone" as the cost being avoided. That framing tied a durable
+  architectural argument to a moving fact about Expo Go's own release cadence
+  — Expo Go's App Store build tracks one SDK version at a time, so every SDK
+  upgrade this project makes (SDK 57 as of writing) can put physical-device
+  testing a step behind whatever Expo Go currently ships, independent of
+  anything decided here. That is a real, ongoing cost of the Expo Go
+  constraint itself, not a cost specific to on-device OCR — see `CLAUDE.md`'s
+  Expo SDK section for the current state of that trade-off. The conclusion
+  above does not change: on-device OCR still needs a development build
+  either way, and this project still does not have one.
+
+  **Revisit if a development build is ever adopted for some other reason**
+  — at that point the calculus changes and on-device OCR is worth measuring
+  for real, not just ruling out on architectural grounds.
 - **Backend ↔ third-party product sources** (Open Beauty Facts, UPCitemdb,
   INCI API). Untrusted data in, already treated as such by the existing
   cascade and `source`/`verified` columns. Not a user-data boundary.

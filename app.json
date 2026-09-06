@@ -40,7 +40,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to scan product barcodes.",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to scan product barcodes and photograph ingredient labels.",
           "recordAudioAndroid": false
         }
       ]

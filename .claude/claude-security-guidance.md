@@ -41,7 +41,7 @@
 
 ## AI / LLM features
 
-**Stale as of issue #16 — this section said to revisit "if one is added," and one was: `label-ocr` sends label photos to Google Cloud Vision.** That revisit now lives in `docs/threat-model.md`'s Trust Boundaries section (Backend ↔ Google Vision) — per that document's own note, it is the authoritative one wherever the two conflict, until #26 rewrites this file properly. It covers Google's retention/training policy with sources, the DPA, the on-device-OCR evaluation, and the client-side crop that sends less than the full frame.
+**Stale as of issue #16 — this section said to revisit "if one is added," and one was: `label-ocr` sends label photos to Google Cloud Vision.** That revisit now lives in `docs/threat-model.md`'s Trust Boundaries section (Backend ↔ Google Vision) — per that document's own note, it is the authoritative one wherever the two conflict, until #26 rewrites this file properly. It covers Google's retention/training policy with sources, the on-device-OCR evaluation, and the client-side crop that sends less than the full frame. The DPA is the one item not settled there — a standard DPA is confirmed in force by Google's terms, but whether it's *sufficient* for this project is issue #14's determination, not this codebase's.
 
 If a *second* AI/LLM feature is ever added, it needs the same treatment: confirm the provider's retention/training terms before shipping, not after.
 
