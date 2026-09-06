@@ -260,6 +260,26 @@ describe("verdict engine", () => {
       expect(forDry).toBeGreaterThan(forAcne + 15);
     });
 
+    /**
+     * Pore risk for acne-prone skin has two separate channels: the graduated
+     * one above (poreCloggingHits, matched by INCI name, folded into concern
+     * fit) and lib/safety.ts's `comedogenic >= 4` hazard, which hard-caps the
+     * score. `synthetic()` sets comedogenic: 0 on every ingredient, so CLOGGY
+     * never exercises the second channel — this uses a name absent from
+     * lib/pore-clogging.ts's pattern list, so poreSafety reads it as clean,
+     * and isolates the rating-based hazard cap on its own.
+     */
+    it("also caps the score via the comedogenic-rating hazard tier", () => {
+      const ratedClogger = synthetic(["water", "glycerin", "unlisted-rated-clogger", "niacinamide"]);
+      ratedClogger.ingredients[2].comedogenic = 5;
+
+      const prof = profile({ baseSkinType: "oily", concerns: ["acne-prone"] });
+      const { score, warnings } = matchProduct(ratedClogger, prof);
+
+      expect(warnings.some((w) => w.severity === "hazard")).toBe(true);
+      expect(score as number).toBeLessThanOrEqual(45);
+    });
+
     it("scales an irritant by the three sensitivity levels", () => {
       const fragranced = ["water", "parfum", "limonene", "glycerin", "allantoin"];
       const at = (sensitivity: "none" | "some" | "high") =>

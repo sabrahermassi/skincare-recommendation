@@ -9,6 +9,7 @@ import {
   positionWeight,
   ruleMatches,
   targetApplies,
+  type FunctionSignal,
   type IngredientRule,
   type RuleCategory,
 } from "./rules";
@@ -264,9 +265,21 @@ export function matchProduct(
 
     // Layer 2. Only reached when no curated rule claims this ingredient, so a
     // named rule always wins and nothing is counted twice.
-    for (const declared of ingredient.functions ?? []) {
-      const signal = functionSignal(declared);
-      if (!signal || !targetApplies(signal.helps, target)) continue;
+    //
+    // One ingredient contributes once, via its single strongest applicable
+    // signal — not the sum of every declared role. CosIng co-declares roles
+    // on the same ingredient ("humectant" + "moisturising" both map to
+    // hydration at weight 3), and summing them let a verbose entry outvote
+    // a named rule despite the invariant above FUNCTION_SIGNALS in
+    // lib/rules.ts, and double-listed the ingredient in buildFactors.
+    const signals = (ingredient.functions ?? [])
+      .map(functionSignal)
+      .filter((s): s is FunctionSignal => !!s && targetApplies(s.helps, target));
+    const signal = signals.reduce<FunctionSignal | undefined>(
+      (best, s) => (!best || s.weight > best.weight ? s : best),
+      undefined
+    );
+    if (signal) {
       const weight = signal.weight * weightAt;
       for (const concern of profile.concerns) {
         if (signal.helps.concerns?.includes(concern)) bump(concernEvidence, concern, weight);
@@ -286,10 +299,14 @@ export function matchProduct(
 
   // Regulatory caution flags add irritation risk for anyone who said their
   // skin reacts — the rules table names specific sensitisers, this catches
-  // the EU-restricted ones it does not.
+  // the EU-restricted ones it does not. Skips anything a curated rule
+  // already matched: that rule already charged its own irritation (line
+  // 251 above) if it applies here, and charging it a second time under this
+  // fallback would double it.
   for (const [position, ingredient] of product.ingredients.entries()) {
     if (!isVerified(ingredient) || ingredient.safety !== "caution") continue;
     if (!isSensitive(profile)) continue;
+    if (findRule(ingredient)) continue;
     irritation += 2.5 * positionWeight(position) * contact;
   }
 
