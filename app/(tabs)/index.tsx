@@ -3,7 +3,6 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -38,15 +37,17 @@ import { useAppStore } from "@/store/useAppStore";
  */
 
 /**
- * expo-camera decoded only QR codes on web as of SDK 54 (it used jsQR).
- * Native iOS/Android handle the full list, including the EAN-13 / UPC-A
- * printed on packaging — which is why Search exists as a mode rather than a
- * nicety. Unverified since the SDK 57 upgrade; see CLAUDE.md and issue #11.
+ * One list on every platform, as of SDK 57 (issue #11).
+ *
+ * This used to narrow web to `["qr"]`, because expo-camera decoded QR codes
+ * only in the browser at SDK 54 — it used jsQR. That is no longer true:
+ * `expo-camera@57.0.4` uses the browser's own `BarcodeDetector` where it
+ * exists and falls back to the `barcode-detector` ponyfill it now depends on,
+ * and both handle the EAN-13 / UPC-A printed on packaging. See
+ * `node_modules/expo-camera/build/web/WebBarcodeScanner.js`, whose format map
+ * covers ean_13, ean_8, upc_a, upc_e and code_128.
  */
-const IS_WEB = Platform.OS === "web";
-const BARCODE_TYPES = IS_WEB
-  ? (["qr"] as const)
-  : (["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as const);
+const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as const;
 
 type Mode = "Barcode" | "Label photo" | "Search" | "Paste list";
 type Status = { kind: "idle" } | { kind: "looking"; code: string } | { kind: "missed"; code: string };
@@ -121,7 +122,11 @@ const MODES: {
 export default function Scan() {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
-  const [mode, setMode] = useState<Mode>(IS_WEB ? "Search" : "Barcode");
+  // Barcode everywhere now. Web used to open on Search because the browser
+  // could only decode QR codes, which made a barcode viewfinder a dead end
+  // there; SDK 57's detector handles retail formats, so the MVP's "barcode is
+  // the default mode" holds on every platform.
+  const [mode, setMode] = useState<Mode>("Barcode");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const profile = useAppStore((s) => s.profile);
@@ -423,10 +428,9 @@ function BarcodeStage({
       )}
 
       {/*
-        Three reasons the frame can be dark, and it has to say which:
-        permission not asked for yet, permission refused, or the browser (where
-        expo-camera was QR-only as of SDK 54, unverified since — issue #11). A
-        silent black rectangle reads as "the scanner is gone".
+        Two reasons the frame can be dark, and it has to say which: permission
+        not asked for yet, or permission refused. A silent black rectangle
+        reads as "the scanner is gone".
       */}
       {!permission?.granted && (
         <View className="flex-1 items-center justify-center gap-4 px-10">
@@ -451,9 +455,7 @@ function BarcodeStage({
             style={{ color: "rgba(250,247,243,0.5)" }}
             className="text-center text-xs leading-4"
           >
-            {IS_WEB
-              ? "In a browser only QR codes can be read. Scan a barcode from the phone app, or use Search."
-              : "Or switch to Label photo or Search below."}
+            Or switch to Label photo or Search below.
           </Text>
         </View>
       )}

@@ -334,9 +334,8 @@ export async function analyseLabel(
 
 /**
  * Search the catalogue by name or brand — the design's third scan mode, and
- * the graceful degradation when there is no usable camera. That matters on
- * web, where expo-camera decoded QR codes only as of SDK 54 — unverified
- * since the SDK 57 upgrade, see CLAUDE.md and issue #11.
+ * the graceful degradation when there is no usable camera at all: a denied
+ * permission, a desktop without one, a barcode too worn to read.
  */
 /**
  * Look up already-parsed INCI names in the dictionary, preserving label order.
