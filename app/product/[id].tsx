@@ -117,8 +117,10 @@ export default function ProductScreen() {
     // `loading` starts true for the initial mount, but this effect also
     // re-runs when `id` changes while the screen stays mounted — without
     // resetting it here too, the previous product stays on screen while
-    // the new one fetches.
+    // the new one fetches. Same reasoning for `showBreakdown`: without the
+    // reset, an expanded breakdown on one product carries over onto the next.
     setLoading(true);
+    setShowBreakdown(false);
     fetchProduct(id)
       .then((result) => {
         if (cancelled) return;

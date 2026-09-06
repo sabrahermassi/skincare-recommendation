@@ -317,6 +317,21 @@ describe("verdict engine", () => {
       expect(lines[0].direction).toBe("down");
     });
 
+    it("weighs a fit line against a penalty in the same final-score points", () => {
+      // The score applies FIT_LEVER to the whole fit term, so a fit line's
+      // real weight in final-score points is FIT_LEVER * 0.7, not bare 0.7 —
+      // the penalty lines are already in final-score points. Without
+      // FIT_LEVER here, this concern-fit line (raw weight ~19.7) would have
+      // outranked an irritation penalty (~15.2) that actually moves the score
+      // more; with it (~13.8), the penalty correctly leads.
+      const prof = profile({ baseSkinType: null, concerns: ["dehydrated"], sensitivity: "high" });
+      const lines = scoreExplanation(
+        matchProduct(synthetic(["glycerin", "sodium hyaluronate", "urea", "parfum"]), prof)
+      );
+      expect(lines[0].label).toBe("Irritation risk");
+      expect(lines[1].label).toBe("Your concerns");
+    });
+
     it("has nothing to explain when it declined to score", () => {
       const unscored = matchProduct(synthetic(["water", "glycerin"]), EMPTY_PROFILE);
       expect(unscored.score).toBeNull();
@@ -378,6 +393,25 @@ describe("verdict engine", () => {
     for (const r of result.reasons) {
       expect(r.reason.trim().length).toBeGreaterThan(10);
     }
+  });
+
+  it("keeps a real negative reason even when six positives individually outrank it", () => {
+    // Six dehydrated/dry humectants at the front of the list, each on its own
+    // stronger than the fragrance buried near the end. A cap that picks the
+    // top 6 by raw magnitude would keep all six positives and drop the
+    // fragrance entirely, even though it is a real, relevant negative.
+    const positives = [
+      "glycerin", "sodium hyaluronate", "squalane", "cholesterol", "urea", "dimethicone",
+    ];
+    const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"], sensitivity: "some" });
+    const result = matchProduct(
+      synthetic([...positives, ...Array(14).fill("water"), "parfum"]),
+      prof
+    );
+    const positiveReasons = result.reasons.filter((r) => r.effect > 0);
+    const negativeReasons = result.reasons.filter((r) => r.effect < 0);
+    expect(positiveReasons.length).toBeGreaterThanOrEqual(3);
+    expect(negativeReasons.some((r) => r.ingredient === "parfum")).toBe(true);
   });
 
   describe("refusing to guess", () => {

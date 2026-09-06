@@ -384,8 +384,11 @@ export function matchProduct(
     score: finalScore,
     verdict: verdictFor(finalScore, hazards.length),
     warnings,
-    // Capped for the "Why" list, which is a readable summary…
-    reasons: reasons.slice(0, 6),
+    // Capped for the "Why" list, which is a readable summary — per direction,
+    // not globally: a global top-6 by magnitude could let six positives crowd
+    // out a real negative (or the reverse), so the "why" would go quiet on a
+    // genuine concern the product actually has.
+    reasons: capReasonsPerDirection(reasons, 3),
     // …but the bars aggregate every contribution, or they would under-report
     // a factor made of many small effects.
     factors: buildFactors(reasons),
@@ -397,6 +400,17 @@ export function matchProduct(
 
 function bump(map: Map<Concern, number>, key: Concern, by: number) {
   map.set(key, (map.get(key) ?? 0) + by);
+}
+
+/**
+ * Caps `reasons` (already sorted by absolute effect, strongest first) to `n`
+ * per direction rather than `2n` overall, then re-sorts the survivors so the
+ * single strongest reason — whichever direction it favours — still leads.
+ */
+function capReasonsPerDirection(reasons: MatchReason[], n: number): MatchReason[] {
+  const positive = reasons.filter((r) => r.effect > 0).slice(0, n);
+  const negative = reasons.filter((r) => r.effect < 0).slice(0, n);
+  return [...positive, ...negative].sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect));
 }
 
 const IRRITANT_CATEGORIES = new Set<RuleCategory>(["fragrance", "alcohol", "irritants"]);
@@ -503,7 +517,11 @@ export function scoreExplanation(result: MatchResult): ScoreLine[] {
             ? "This formula works against what you asked about"
             : "Little here speaks to what you asked about",
       direction: above >= 0 ? "up" : "down",
-      weight: Math.abs(above) * 0.7,
+      // FIT_LEVER included: the score applies it to `fit` as a whole, so a
+      // fit line's real weight in final-score points is FIT_LEVER * 0.7, not
+      // bare 0.7 — the penalty lines below are already in final-score points,
+      // and this line has to be comparable to them for the sort to be honest.
+      weight: Math.abs(above) * FIT_LEVER * 0.7,
     });
   }
 
@@ -513,7 +531,7 @@ export function scoreExplanation(result: MatchResult): ScoreLine[] {
       label: "Your skin type",
       detail: typeAbove > 0 ? "Suits how your skin behaves" : "Not built for your skin type",
       direction: typeAbove > 0 ? "up" : "down",
-      weight: Math.abs(typeAbove) * 0.3,
+      weight: Math.abs(typeAbove) * FIT_LEVER * 0.3,
     });
   }
 
