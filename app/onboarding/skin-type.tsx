@@ -29,11 +29,18 @@ const OPTIONS: { value: BaseSkinType; label: string; hint: string }[] = [
 export default function SkinTypeStep() {
   const baseSkinType = useAppStore((s) => s.profile.baseSkinType);
   const setProfile = useAppStore((s) => s.setProfile);
+  const hasSeenOnboarding = useAppStore((s) => s.hasSeenOnboarding);
   // "I don't know" writes null, which is also the unanswered value — so the
   // screen tracks the tap locally rather than inferring an answer from the
   // store. Someone who genuinely doesn't know their skin type still gets to
   // continue; we simply score on their concerns instead.
-  const [picked, setPicked] = useState(baseSkinType !== null);
+  //
+  // `hasSeenOnboarding` only flips true at the end of the quiz, so it is a
+  // reliable "already answered" marker on the Retake-the-quiz remount: a
+  // first-time run never sees it true this early, but a retake always does,
+  // which lets an explicit null from a prior run stay a valid answer instead
+  // of looking unanswered.
+  const [picked, setPicked] = useState(baseSkinType !== null || hasSeenOnboarding);
 
   function next() {
     const route = nextQuizRoute("/onboarding/skin-type");
