@@ -1,6 +1,12 @@
 import { fetchProduct, fetchProducts } from "@/data/api";
 import type { ProductWithIngredients, SkinProfile } from "@/data/types";
-import { matchProduct, matchTone, SCORE_BANDS } from "@/lib/matching";
+import {
+  confidenceLabel,
+  matchProduct,
+  matchTone,
+  SCORE_BANDS,
+  scoreExplanation,
+} from "@/lib/matching";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 async function load(id: string): Promise<ProductWithIngredients> {
@@ -297,6 +303,31 @@ describe("verdict engine", () => {
       expect(matchProduct(withHumectant, prof).score as number).toBeGreaterThan(
         matchProduct(bare, prof).score as number
       );
+    });
+
+    it("explains the score in order of what actually moved it", () => {
+      // A fragranced formula for someone with redness: irritation should be
+      // the loudest line, not buried under a neutral concern-fit note.
+      const prof = profile({ baseSkinType: "normal", concerns: ["redness"], sensitivity: "high" });
+      const lines = scoreExplanation(
+        matchProduct(synthetic(["water", "parfum", "limonene", "glycerin"]), prof)
+      );
+      expect(lines.length).toBeGreaterThan(0);
+      expect(lines[0].label).toBe("Irritation risk");
+      expect(lines[0].direction).toBe("down");
+    });
+
+    it("has nothing to explain when it declined to score", () => {
+      const unscored = matchProduct(synthetic(["water", "glycerin"]), EMPTY_PROFILE);
+      expect(unscored.score).toBeNull();
+      expect(scoreExplanation(unscored)).toEqual([]);
+    });
+
+    it("reports lower confidence for a formula it mostly could not read", () => {
+      const garbled = synthetic(["water", "glycerin", "niacinamide", ...FILLER]);
+      for (const ingredient of garbled.ingredients.slice(3)) ingredient.verified = false;
+      const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+      expect(confidenceLabel(matchProduct(garbled, prof).confidence)).not.toBe("high");
     });
 
     it("lets a named rule outrank a declared function for the same ingredient", () => {
