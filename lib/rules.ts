@@ -242,7 +242,10 @@ export const INGREDIENT_RULES: IngredientRule[] = [
   {
     names: [/centella/, "madecassoside", "asiaticoside", "asiatic acid", "madecassic acid"],
     category: "soothing",
-    helps: { concerns: ["redness"], sensitive: true },
+    // Cica is the backbone of Korean blemish ranges as well as the calming
+    // ones — it suits inflamed, breakout-prone skin for the same reason it
+    // suits reactive skin.
+    helps: { concerns: ["redness", "acne-prone"], sensitive: true },
     reason: "Centella (cica) has good evidence for calming redness and supporting repair",
     weight: 8,
   },
@@ -379,9 +382,24 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     weight: 6,
   },
   {
+    // Tea tree is pulled out of the essential-oil family below and listed
+    // FIRST, because `findRule` takes the first match: left in that group it
+    // would only ever read as an irritant, and its anti-blemish evidence —
+    // the reason it is in half the acne products on the shelf — could never
+    // fire. Both are true at once, which the engine already supports (see
+    // salicylic acid), and the net effect is what moves the score.
+    names: ["tea tree oil", /^melaleuca/],
+    category: "actives",
+    helps: { concerns: ["acne-prone"] },
+    hurts: { sensitive: true, concerns: ["atopic"] },
+    reason:
+      "Tea tree oil has real evidence against blemishes, and is a common irritant on reactive skin",
+    weight: 7,
+  },
+  {
     names: [
       /lavandula/, /mentha/, "peppermint oil", /eucalyptus/, /citrus .*(peel oil|oil)/,
-      "tea tree oil", /melaleuca/, /cymbopogon/, /rosmarinus/, "clove oil", /eugenia caryophyllus/,
+      /cymbopogon/, /rosmarinus/, "clove oil", /eugenia caryophyllus/,
     ],
     category: "fragrance",
     hurts: { sensitive: true, concerns: ["redness", "atopic"] },
@@ -439,7 +457,184 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     reason: "A rich occlusive that tends to sit heavily on congestion-prone skin",
     weight: 5,
   },
+
+  // ── Blemish-prone skin ────────────────────────────────────────────────────
+  // Measured before these were added: for an acne-prone profile the median
+  // real formula produced ZERO positive evidence, so no product could ever
+  // read as a good match however gentle it was. Pore-clogging detection
+  // (lib/pore-clogging.ts) answers "will this cause breakouts"; these answer
+  // the other half, "does anything here actually help".
+  {
+    names: ["sulfur", "colloidal sulfur"],
+    category: "actives",
+    helps: { concerns: ["acne-prone"], skinTypes: ["oily"] },
+    hurts: { skinTypes: ["dry"] },
+    reason:
+      "Sulfur is antibacterial and mildly keratolytic - one of the oldest acne treatments still in use",
+    weight: 8,
+  },
+  {
+    names: ["benzoyl peroxide"],
+    category: "actives",
+    helps: { concerns: ["acne-prone"] },
+    hurts: { sensitive: true, skinTypes: ["dry"] },
+    reason:
+      "Benzoyl peroxide kills acne bacteria directly - the strongest over-the-counter option, and drying with it",
+    weight: 12,
+  },
+  {
+    names: ["kaolin", "bentonite", "montmorillonite", "silica", "solum fullonum"],
+    category: "actives",
+    helps: { skinTypes: ["oily"], concerns: ["large-pores", "acne-prone"] },
+    reason: "An absorbent clay that lifts surface oil - a shiny T-zone looks less congested",
+    weight: 6,
+  },
+  {
+    names: [/^houttuynia/],
+    category: "soothing",
+    helps: { concerns: ["acne-prone", "redness"], sensitive: true },
+    reason: "Houttuynia is the calming anti-blemish botanical Korean acne ranges are built around",
+    weight: 6,
+  },
+  {
+    names: [/^propolis/, "bee propolis"],
+    category: "actives",
+    helps: { concerns: ["acne-prone"] },
+    reason: "Propolis is mildly antibacterial and wound-healing, common in Korean blemish care",
+    weight: 5,
+  },
+  {
+    names: ["capryloyl glycine"],
+    category: "actives",
+    helps: { concerns: ["acne-prone", "large-pores"], skinTypes: ["oily"] },
+    reason: "Capryloyl glycine helps regulate sebum and limit the bacteria behind blemishes",
+    weight: 5,
+  },
+  {
+    names: ["lauroyl lysine", "sarcosine", "sodium cocoyl alaninate"],
+    category: "actives",
+    helps: { concerns: ["large-pores"], skinTypes: ["oily"] },
+    reason: "Helps moderate oil and refine the look of pores",
+    weight: 4,
+  },
+
+  // ── Dullness and fine lines ───────────────────────────────────────────────
+  // The other two starved concerns: 1.6 and 1.9 points of evidence available
+  // at the 75th percentile before these.
+  {
+    names: ["bakuchiol"],
+    category: "actives",
+    helps: { concerns: ["fine-lines", "acne-prone"] },
+    reason: "Bakuchiol gives retinol-like smoothing with far less irritation - the gentle alternative",
+    weight: 7,
+  },
+  {
+    names: ["ubiquinone", "coenzyme q-10", "ubiquinol"],
+    category: "actives",
+    helps: { concerns: ["fine-lines", "dullness"] },
+    reason: "CoQ10 is an antioxidant skin makes less of with age",
+    weight: 5,
+  },
+  {
+    names: ["resveratrol", "polygonum cuspidatum root extract"],
+    category: "actives",
+    helps: { concerns: ["fine-lines", "dullness"] },
+    reason: "Resveratrol is a plant antioxidant that limits day-to-day oxidative damage",
+    weight: 5,
+  },
+  {
+    names: ["glutathione"],
+    category: "actives",
+    helps: { concerns: ["hyperpigmentation", "dullness"] },
+    reason: "Glutathione is the brightening antioxidant Korean tone-care is built on",
+    weight: 6,
+  },
+  {
+    names: [
+      /^palmitoyl (tri|penta|hexa|oligo)peptide/, "acetyl hexapeptide-8",
+      "copper tripeptide-1", /^sh-oligopeptide/, /^sh-polypeptide/,
+    ],
+    category: "actives",
+    helps: { concerns: ["fine-lines"] },
+    reason: "A signal peptide - nudges skin to rebuild the support it loses with age",
+    weight: 5,
+  },
+  {
+    names: [/^panax ginseng/, "ginseng root extract"],
+    category: "actives",
+    helps: { concerns: ["fine-lines", "dullness"] },
+    reason: "Ginseng is antioxidant and circulation-boosting, an anchor of Korean anti-ageing formulas",
+    weight: 5,
+  },
+
+  // ── Gentle surfactants ────────────────────────────────────────────────────
+  // Cleansers previously collected no positive signal at all: the table knew
+  // how to punish a harsh surfactant and had nothing to say about a mild one,
+  // so every wash read as neutral at best.
+  {
+    names: [
+      "sodium cocoyl isethionate", "sodium methyl cocoyl taurate", "sodium lauroyl lactylate",
+      "coco-betaine", "disodium cocoamphodiacetate", "lauryl glucoside", "decyl glucoside",
+      "coco-glucoside", "sodium lauroyl sarcosinate",
+    ],
+    category: "soothing",
+    helps: { sensitive: true, skinTypes: ["dry"], concerns: ["atopic"] },
+    reason: "A mild surfactant chosen to clean without stripping - much gentler than a sulfate",
+    weight: 4,
+  },
 ];
+
+/**
+ * Layer 2 — CosIng functional roles, for the ~83% of catalogue ingredients
+ * that carry them. Nothing scored on these before; they were a UI subtitle.
+ *
+ * WHY BENEFIT ONLY
+ *
+ * These are per-INGREDIENT capability lists, not per-formula roles. Measured
+ * across the catalogue, "perfuming" tags 83% of products and "denaturant"
+ * 75%, because botanical extracts and solvents carry those capabilities
+ * whether or not they act that way in the jar. Scoring irritation from them
+ * punished essentially every product by the same amount — a constant offset,
+ * not a signal. Irritation risk therefore stays entirely with the named rules
+ * above, which are precise, plus the regulatory `safety` flag.
+ *
+ * Weights sit well below Layer 1's 4-14: a functional class is weaker
+ * evidence than a named ingredient and must never outvote one.
+ */
+export type FunctionSignal = {
+  category: RuleCategory;
+  weight: number;
+  helps: RuleTarget;
+};
+
+export const FUNCTION_SIGNALS: Record<string, FunctionSignal> = {
+  humectant: { category: "hydration", weight: 3, helps: { concerns: ["dehydrated"], skinTypes: ["dry"] } },
+  moisturising: { category: "hydration", weight: 3, helps: { concerns: ["dehydrated"], skinTypes: ["dry"] } },
+  emollient: { category: "barrier", weight: 2.5, helps: { skinTypes: ["dry"] } },
+  "skin-protecting": { category: "barrier", weight: 2.5, helps: { skinTypes: ["dry"], concerns: ["atopic"] } },
+  refatting: { category: "barrier", weight: 3, helps: { skinTypes: ["dry"], concerns: ["atopic"] } },
+  "film-forming": { category: "barrier", weight: 1.5, helps: { concerns: ["dehydrated"] } },
+  antioxidant: { category: "actives", weight: 3, helps: { concerns: ["dullness", "fine-lines", "hyperpigmentation"] } },
+  soothing: { category: "soothing", weight: 4, helps: { concerns: ["redness", "atopic"], sensitive: true } },
+  "uv-filter": { category: "actives", weight: 4, helps: { concerns: ["hyperpigmentation", "fine-lines"] } },
+  "uv-absorber": { category: "actives", weight: 3.5, helps: { concerns: ["hyperpigmentation", "fine-lines"] } },
+  smoothing: { category: "actives", weight: 2, helps: { concerns: ["fine-lines", "dullness"] } },
+  absorbent: { category: "actives", weight: 2.5, helps: { skinTypes: ["oily"], concerns: ["large-pores"] } },
+  tonic: { category: "soothing", weight: 1.5, helps: { concerns: ["redness"] } },
+};
+
+/**
+ * CosIng writes the same role two ways ("skin-conditioning" and "skin
+ * conditioning"), so every lookup normalises first.
+ */
+export function normaliseFunction(name: string): string {
+  return name.trim().toLowerCase().replace(/[\s_]+/g, "-");
+}
+
+/** The signal for a declared function, if we score on that role at all. */
+export function functionSignal(name: string): FunctionSignal | undefined {
+  return FUNCTION_SIGNALS[normaliseFunction(name)];
+}
 
 /**
  * How much of an ingredient's effect survives the way the product is used.
@@ -463,15 +658,16 @@ export function contactWeight(type: ProductType): number {
  * different things at position 2 and position 30 — a fragrance high in the
  * list is a real exposure, the same word last is a trace.
  *
- * Nothing in the app used this before, and it is the single most informative
- * signal the catalogue actually carries.
+ * A smooth decay with a FLOOR at 0.3, rather than the banded cliff this used
+ * to be. The old shape dropped to 0.1 past position 20, which in a
+ * 24-ingredient median formula made most of the list invisible — and Korean
+ * formulas routinely put their actives at positions 10-25. The floor exists
+ * because INCI order is only regulated above 1%; below that the order is the
+ * formulator's choice, so position stops carrying information rather than
+ * continuing to decay towards nothing.
  */
 export function positionWeight(position: number): number {
-  if (position <= 2) return 1;
-  if (position <= 5) return 0.8;
-  if (position <= 10) return 0.5;
-  if (position <= 20) return 0.25;
-  return 0.1;
+  return Math.max(0.3, Math.min(1, 1 / (1 + 0.09 * position)));
 }
 
 /** Matches an ingredient name against a rule's name patterns. */

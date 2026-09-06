@@ -50,6 +50,21 @@ export type Contraindication = {
   ingredient: Ingredient;
   /** Short, user-facing reason this specific profile should be careful. */
   reason: string;
+  /**
+   * How hard this lands on the score.
+   *
+   * `hazard`  — the ingredient is a problem in its own right. Caps the score.
+   * `irritant` — it is restricted or commonly reactive, and the user said
+   *   their skin reacts. Worth showing, but graduated rather than absolute.
+   *
+   * The distinction exists because collapsing the two capped 40% of the
+   * catalogue at "Poor" for anyone who ticked "somewhat sensitive" — 97 of
+   * 100 warnings were the `caution` kind — so a sensitive user could never
+   * receive good news however gentle a formula was. Sensitivity has three
+   * levels now, and the irritation penalty in `lib/matching.ts` is where
+   * that nuance belongs; a hard cap has none.
+   */
+  severity: "hazard" | "irritant";
 };
 
 /**
@@ -81,7 +96,7 @@ export function contraindications(
 
     // "avoid" applies to everyone — it is not profile-dependent.
     if (ingredient.safety === "avoid") {
-      found.push({ ingredient, reason: "Flagged as best avoided" });
+      found.push({ ingredient, reason: "Flagged as best avoided", severity: "hazard" });
       continue;
     }
 
@@ -92,12 +107,17 @@ export function contraindications(
       found.push({
         ingredient,
         reason: `Pore-clogging (${ingredient.comedogenic}/5) and you flagged acne-prone skin`,
+        severity: "hazard",
       });
       continue;
     }
 
     if (sensitive && ingredient.safety === "caution") {
-      found.push({ ingredient, reason: "Common irritant for sensitive skin" });
+      found.push({
+        ingredient,
+        reason: "Common irritant for sensitive skin",
+        severity: "irritant",
+      });
     }
   }
 

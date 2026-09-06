@@ -43,14 +43,11 @@ describe("matchProduct", () => {
     // …but the difference must come from the formula, not from them.
     expect(dry.score).not.toBeNull();
     expect(dry.reasons.some((r) => /ceramide|squalane/i.test(r.ingredient))).toBe(true);
-    // Verified rather than branched on: this fixture's formula (ceramide,
-    // shea butter, squalane, panthenol, centella) has nothing in the rules
-    // table for a plain oily profile with no stated concern, so the engine
-    // declines outright — a stronger contrast than a lower score would be. A
-    // silent if/else here previously let this assertion go unexercised.
-    expect(oily.score).toBeNull();
-    expect(oily.verdict).toBe("unknown");
-    expect(oily.unknownReason).toBe("no_evidence");
+    // This fixture is barrier-repair: ceramide, shea butter, squalane,
+    // panthenol, centella. All of it speaks to dry skin and none of it to a
+    // plain oily profile, so the gap has to be visible in the number.
+    expect(oily.score).not.toBeNull();
+    expect(dry.score as number).toBeGreaterThan(oily.score as number);
   });
 
   it("rewards overlapping concerns", async () => {
@@ -212,10 +209,107 @@ describe("verdict engine", () => {
         safety: "safe" as const,
         verified: true,
       })),
+      // Was declared and never applied, so every caller silently got a
+      // leave-on serum however it asked. Nothing exercised it until the
+      // rinse-off test below.
+      ...overrides,
     };
   }
 
   const FILLER = ["water", "butylene glycol", "glycerin", "1,2-hexanediol", "xanthan gum"];
+
+  /**
+   * The behaviours the rebuilt engine exists to produce, pinned as numbers so
+   * a future weight change has to declare what it moved rather than sliding
+   * the whole scale quietly. Ranges rather than exact values: these assert the
+   * band and the gap, which is what a user sees, not the arithmetic.
+   */
+  describe("golden behaviours", () => {
+    const CLEAN = ["water", "glycerin", "niacinamide", "panthenol", "allantoin"];
+    // Coconut oil, IPM and myristyl myristate are the high-confidence entries
+    // in lib/pore-clogging.ts — the ones every published list agrees on.
+    const CLOGGY = [
+      "water", "cocos nucifera oil", "isopropyl myristate", "myristyl myristate", "glycerin",
+    ];
+
+    it("rates a clean formula well for blemish-prone skin, even with no acne actives", () => {
+      // Not causing breakouts IS the win. Scoring acne on "does it contain
+      // salicylic acid" made an ordinary gentle moisturiser look mediocre to
+      // exactly the person it suits — the median real formula carries no acne
+      // active at all.
+      const prof = profile({ baseSkinType: "oily", concerns: ["acne-prone"] });
+      expect(matchProduct(synthetic(CLEAN), prof).score as number).toBeGreaterThanOrEqual(75);
+    });
+
+    it("punishes a pore-clogging formula for the same profile", () => {
+      const prof = profile({ baseSkinType: "oily", concerns: ["acne-prone"] });
+      const clean = matchProduct(synthetic(CLEAN), prof).score as number;
+      const cloggy = matchProduct(synthetic(CLOGGY), prof).score as number;
+      expect(cloggy).toBeLessThan(60);
+      expect(clean - cloggy).toBeGreaterThan(20);
+    });
+
+    it("does not punish that same formula for dry skin", () => {
+      // Coconut oil and IPM are emollients. They are a problem for congestion,
+      // not for dryness, and the score has to say so rather than treating
+      // "pore-clogging" as a property of the jar.
+      const acne = profile({ baseSkinType: "oily", concerns: ["acne-prone"] });
+      const dry = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+      const forDry = matchProduct(synthetic(CLOGGY), dry).score as number;
+      const forAcne = matchProduct(synthetic(CLOGGY), acne).score as number;
+      expect(forDry).toBeGreaterThan(forAcne + 15);
+    });
+
+    it("scales an irritant by the three sensitivity levels", () => {
+      const fragranced = ["water", "parfum", "limonene", "glycerin", "allantoin"];
+      const at = (sensitivity: "none" | "some" | "high") =>
+        matchProduct(
+          synthetic(fragranced),
+          profile({ baseSkinType: "normal", concerns: ["redness"], sensitivity })
+        ).score as number;
+
+      // Strictly decreasing: this is the whole point of widening the old
+      // boolean, and a monotonic assertion catches a multiplier that stops
+      // being applied at all.
+      expect(at("none")).toBeGreaterThan(at("some"));
+      expect(at("some")).toBeGreaterThan(at("high"));
+    });
+
+    it("softens the same formula when it rinses off", () => {
+      const fragranced = ["water", "parfum", "limonene", "glycerin", "allantoin"];
+      const prof = profile({ baseSkinType: "normal", concerns: ["redness"], sensitivity: "high" });
+      const leaveOn = matchProduct(synthetic(fragranced), prof).score as number;
+      const rinseOff = matchProduct(
+        synthetic(fragranced, { type: "cleanser" }),
+        prof
+      ).score as number;
+      expect(rinseOff).toBeGreaterThan(leaveOn);
+    });
+
+    it("scores from a declared function when no curated rule applies", () => {
+      // Layer 2: ~83% of catalogue ingredients carry CosIng roles, and nothing
+      // scored on them before. `sodium pca` has no rule, but is declared a
+      // humectant, which is a real fact about it.
+      const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+      const bare = synthetic(["water", "xanthan gum", "carbomer", "disodium edta"]);
+      const withHumectant = synthetic(["water", "sodium pca", "xanthan gum", "carbomer"]);
+      withHumectant.ingredients[1].functions = ["humectant"];
+      expect(matchProduct(withHumectant, prof).score as number).toBeGreaterThan(
+        matchProduct(bare, prof).score as number
+      );
+    });
+
+    it("lets a named rule outrank a declared function for the same ingredient", () => {
+      // Glycerin has both a curated rule and a `humectant` role. It must be
+      // counted once, by the rule — double-counting would let an ingredient
+      // with a verbose CosIng entry quietly outweigh a stronger one.
+      const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+      const plain = synthetic(["water", "glycerin", "xanthan gum", "carbomer"]);
+      const tagged = synthetic(["water", "glycerin", "xanthan gum", "carbomer"]);
+      tagged.ingredients[1].functions = ["humectant", "skin-conditioning"];
+      expect(matchProduct(tagged, prof).score).toBe(matchProduct(plain, prof).score);
+    });
+  });
 
   /**
    * INCI order is regulated descending-concentration data, and nothing in the
@@ -270,14 +364,34 @@ describe("verdict engine", () => {
      * `lib/rules.ts` by design — they are exactly the "genuinely inert"
      * ingredients the gate exists for, not merely inert today by omission.
      */
-    it("declines to score a formula it has nothing to say about", () => {
+    it("scores a formula it has nothing to say about, but with low confidence", () => {
       const p = synthetic(["water", "disodium edta", "xanthan gum", "carbomer", "phenoxyethanol"]);
       const irrelevant = matchProduct(p, profile({ concerns: ["hyperpigmentation"] }));
       expect(irrelevant.reasons).toHaveLength(0);
       expect(irrelevant.warnings).toHaveLength(0);
-      expect(irrelevant.score).toBeNull();
-      expect(irrelevant.verdict).toBe("unknown");
-      expect(irrelevant.unknownReason).toBe("no_evidence");
+
+      // This used to be a third refusal, which fired on 29-37 of 104 real
+      // products depending on the profile. Reading a formula and finding
+      // little to say about it is a LOW-CONFIDENCE result, not an absent one
+      // — refusing here told a user "we can't tell" about a jar of entirely
+      // inert excipients, which is itself the answer.
+      expect(irrelevant.score).not.toBeNull();
+      expect(irrelevant.confidence).toBeLessThan(0.6);
+
+      // …and it must not read as a recommendation. Nothing here helps the
+      // stated concern, so it cannot land in the top bands.
+      expect(irrelevant.score as number).toBeLessThan(75);
+    });
+
+    it("is more confident about a formula it recognises and can speak to", () => {
+      const inert = synthetic(["water", "disodium edta", "xanthan gum", "carbomer", "phenoxyethanol"]);
+      const substantive = synthetic([
+        "water", "glycerin", "niacinamide", "sodium hyaluronate", "panthenol", "allantoin",
+      ]);
+      const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+      expect(matchProduct(substantive, prof).confidence).toBeGreaterThan(
+        matchProduct(inert, prof).confidence
+      );
     });
 
     it("returns no score when too little of the formula is recognised", () => {
