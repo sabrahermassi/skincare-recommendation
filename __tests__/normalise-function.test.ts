@@ -31,6 +31,12 @@ describe("normaliseFunction", () => {
       "UV Filter",
       "emulsion stabilising",
       "Foam boosting",
+      // The one case the two implementations used to disagree on: the
+      // write side stripped OBF's `en:` taxonomy prefix, the read side
+      // didn't, so a value written before that read-side fix would have
+      // silently stopped matching `FUNCTION_SIGNALS`.
+      "en:skin-protecting",
+      "en:humectant",
     ]) {
       expect(normaliseFunction(raw)).toBe(readSide(raw));
     }
