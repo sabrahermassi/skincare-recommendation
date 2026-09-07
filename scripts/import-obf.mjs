@@ -15,6 +15,7 @@
  * not shipped code, and this way they need no build step and no new devDeps.
  */
 
+import { pathToFileURL } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -93,7 +94,7 @@ function parseInci(text) {
  * "nettoyant moussant visage" and "Huile lavante" were all typed as serums
  * and then scored as leave-on products.
  */
-function guessType(tags, text) {
+export function guessType(tags, text) {
   const hay = `${(tags ?? []).join(" ")} ${text}`.toLowerCase();
   const table = [
     [/hand.?cream|crème mains|handcreme/, "hand-cream"],
@@ -233,7 +234,14 @@ async function main() {
   console.log(`\nWrote ${all.length} products and ${joins.length} ingredient links.`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only run when executed directly (`node scripts/import-obf.mjs`), not when
+// a test imports guessType from this module — __tests__/guess-type.test.ts
+// does exactly that, and without this guard, importing the file for its
+// pure functions triggered a real live fetch (and, with the right env vars
+// set, a real Supabase write) as a side effect of running `npm test`.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

@@ -625,10 +625,14 @@ export const FUNCTION_SIGNALS: Record<string, FunctionSignal> = {
 
 /**
  * CosIng writes the same role two ways ("skin-conditioning" and "skin
- * conditioning"), so every lookup normalises first.
+ * conditioning"), so every lookup normalises first. Mirrors
+ * `scripts/lib/normalise-function.mjs` exactly, `en:` strip included: the
+ * OBF taxonomy prefixes its raw tags that way, and this read-side copy has
+ * to resolve whatever's actually sitting in `ingredients.functions`, not
+ * just what the current importer chooses to write.
  */
 export function normaliseFunction(name: string): string {
-  return name.trim().toLowerCase().replace(/[\s_]+/g, "-");
+  return name.trim().replace(/^en:/i, "").toLowerCase().replace(/[\s_]+/g, "-");
 }
 
 /** The signal for a declared function, if we score on that role at all. */
