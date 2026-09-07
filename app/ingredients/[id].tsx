@@ -1,18 +1,18 @@
 import * as Clipboard from "expo-clipboard";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
-import Svg, { Circle, Path, Rect } from "react-native-svg";
+import { ActivityIndicator, Pressable, View } from "react-native";
+import Svg, { Circle, Path } from "react-native-svg";
 
+import { CopyIcon } from "@/components/CopyIcon";
+import { IngredientTabsList, TABS, type Tab } from "@/components/IngredientTabsList";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { fetchProduct } from "@/data/api";
-import type { Ingredient, ProductWithIngredients } from "@/data/types";
+import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { relativeTime } from "@/lib/format";
-import { matchProduct, ruleFor, RUNG_META, rungFor, type Rung } from "@/lib/matching";
-import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
-import { isVerified } from "@/lib/safety";
+import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -23,42 +23,6 @@ import { useAppStore } from "@/store/useAppStore";
  * this and reading the back of the box.
  */
 
-const TABS = ["All", "Actives", "Watch-outs", "Pore clogging"] as const;
-type Tab = (typeof TABS)[number];
-
-/**
- * Copy / copied — one icon, two states, so tapping it doesn't need a toast
- * the rest of this app has no component for. The check holds for 1.5s, long
- * enough to register as confirmation without needing a dismiss.
- */
-function CopyIcon({ copied }: { copied: boolean }) {
-  if (copied) {
-    return (
-      <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-        <Path
-          d="m5 12.6 4.6 4.6L19 6.8"
-          stroke="#4B7A5E"
-          strokeWidth={2.2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </Svg>
-    );
-  }
-  return (
-    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-      <Rect x={8.5} y={8.5} width={11} height={11} rx={2.2} stroke="#453F4E" strokeWidth={1.7} />
-      <Path
-        d="M15 8.5V6.7a2.2 2.2 0 0 0-2.2-2.2H6.7a2.2 2.2 0 0 0-2.2 2.2v6.1a2.2 2.2 0 0 0 2.2 2.2h1.8"
-        stroke="#453F4E"
-        strokeWidth={1.7}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 export default function IngredientList() {
   // `tab` arrives from the product screen's pore-clogging list, which deep
   // links straight into the filtered view rather than dropping you on "All"
@@ -66,9 +30,6 @@ export default function IngredientList() {
   const { id, tab: initialTab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>(
-    TABS.includes(initialTab as Tab) ? (initialTab as Tab) : "All"
-  );
   const [copied, setCopied] = useState(false);
 
   const profile = useAppStore((s) => s.profile);
@@ -121,15 +82,7 @@ export default function IngredientList() {
     );
   }
 
-  const visible = product.ingredients.filter((i) => {
-    if (tab === "Actives") return ruleFor(i) !== undefined;
-    if (tab === "Watch-outs") return rungFor(i, match) !== "good";
-    if (tab === "Pore clogging") return isPoreClogging(i);
-    return true;
-  });
-
   const total = product.ingredients.length;
-  const cloggerCount = poreCloggingHits(product.ingredients).length;
 
   // Plain, comma-separated names in label order — the format someone would
   // paste straight into a second app to compare by hand, which is the actual
@@ -160,75 +113,19 @@ export default function IngredientList() {
         }
       />
 
-      <ScrollView contentContainerClassName="pb-4">
-        {/* Scrolls rather than dividing the width four ways: at flex-1 the
-            fourth pill squeezed the labels below legibility. Pills keep their
-            44pt height and the app's own option-label size. */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 10, paddingHorizontal: 24, paddingTop: 20 }}
-        >
-          {TABS.map((label) => {
-            const active = tab === label;
-            // The count earns the tab its place: "Pore clogging 3" answers the
-            // question before you have tapped anything.
-            const suffix = label === "Pore clogging" && cloggerCount > 0 ? ` ${cloggerCount}` : "";
-            return (
-              <Pressable
-                key={label}
-                onPress={() => setTab(label)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
-                style={{ height: 44, paddingHorizontal: 18 }}
-                className={`items-center justify-center rounded-full border ${
-                  active ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
-                }`}
-              >
-                <Text
-                  className={`text-[14.5px] font-semibold ${
-                    active ? "text-accent-text" : "text-ink-muted"
-                  }`}
-                >
-                  {label}
-                  {suffix}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        {/* Formulas change. Saying when we last read the label is the
-            difference between data and a claim — it was on this screen before
-            the redesign and is worth more than the design's info icon. */}
-        <Text className="pb-1 pt-3.5 text-center text-[10.5px] text-ink-muted">
-          {total} ingredient{total === 1 ? "" : "s"} · Tap for details
-        </Text>
-        <Text className="pb-3.5 text-center text-[10.5px] text-ink-faint">
-          Label read {relativeTime(Date.parse(product.fetchedAt ?? "") || now)}
-        </Text>
-        <View className="h-px bg-hairline" />
-
-        {visible.length === 0 ? (
-          <Text className="bg-surface py-10 text-center text-sm text-ink-muted">
-            Nothing in this group - which is good news.
-          </Text>
-        ) : (
-          visible.map((ingredient) => (
-            <IngredientListRow
-              key={ingredient.id}
-              ingredient={ingredient}
-              rung={rungFor(ingredient, match)}
-              onPress={() =>
-                router.push({
-                  pathname: "/ingredient/[inci]",
-                  params: { inci: ingredient.name, product: product.id },
-                })
-              }
-            />
-          ))
-        )}
-      </ScrollView>
+      <IngredientTabsList
+        ingredients={product.ingredients}
+        match={match}
+        initialTab={TABS.includes(initialTab as Tab) ? (initialTab as Tab) : "All"}
+        metaLine={`${total} ingredient${total === 1 ? "" : "s"} · Tap for details`}
+        subMetaLine={`Label read ${relativeTime(Date.parse(product.fetchedAt ?? "") || now)}`}
+        onIngredientPress={(ingredient) =>
+          router.push({
+            pathname: "/ingredient/[inci]",
+            params: { inci: ingredient.name, product: product.id },
+          })
+        }
+      />
 
       {/* INCI order is regulated information, and it is the single fact that
           makes this list readable rather than just long. */}
@@ -251,86 +148,4 @@ export default function IngredientList() {
       </View>
     </View>
   );
-}
-
-function IngredientListRow({
-  ingredient,
-  rung,
-  onPress,
-}: {
-  ingredient: Ingredient;
-  rung: Rung;
-  onPress: () => void;
-}) {
-  const meta = RUNG_META[rung];
-  const rule = ruleFor(ingredient);
-  const clogs = isWarnedPoreClogging(ingredient);
-
-  // The most specific thing we hold, in order: pore-clogging (the reason
-  // someone opened this screen), a curated rule, the row's own note, then the
-  // regulator's declared function list.
-  const subtitle = !isVerified(ingredient)
-    ? "Not recognised - we can't assess this one"
-    : clogs
-      ? "On the published pore-clogging lists"
-      : rule
-        ? rule.reason.split(" - ")[0].trim()
-        : (ingredient.note ?? functionLabel(ingredient));
-
-  return (
-    <Pressable
-      onPress={onPress}
-      style={{ gap: 11 }}
-      className="flex-row items-start border-b border-hairline-soft bg-surface px-6 py-3.5 active:bg-canvas"
-    >
-      <View style={{ width: 9, height: 9, marginTop: 6 }} className={`rounded-full ${meta.dot}`} />
-
-      <View className="flex-1 gap-0.5">
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Text
-            className="text-[13.5px] font-medium capitalize leading-[18px] text-ink"
-            style={{ flexShrink: 1 }}
-          >
-            {ingredient.name}
-          </Text>
-          {/* The highlight the external checkers give you, on the row itself. */}
-          {clogs ? (
-            <View
-              style={{ backgroundColor: "#FBE2E7", paddingHorizontal: 6, paddingVertical: 2 }}
-              className="rounded-full"
-            >
-              {/* "Clogging", not "Pore clogging": the badge sits inline beside
-                  the ingredient name, and the full phrase crowds the row off
-                  the screen. The tab it filters to says the whole thing. */}
-              <Text style={{ color: "#A4526A", fontSize: 9.5 }} className="font-bold uppercase">
-                Clogging
-              </Text>
-            </View>
-          ) : null}
-        </View>
-        <Text className="text-[11px] leading-[16px] text-ink-muted">{subtitle}</Text>
-      </View>
-
-      <View className={`mt-px rounded-full px-3 py-1 ${meta.pill}`}>
-        <Text className={`text-[11px] font-medium ${meta.ink}`}>{meta.label}</Text>
-      </View>
-
-      <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" style={{ marginTop: 5 }}>
-        <Path
-          d="m9 5 7 7-7 7"
-          stroke="#BDB6C2"
-          strokeWidth={2.2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </Svg>
-    </Pressable>
-  );
-}
-
-/** Falls back to the CosIng function list when no curated rule applies. */
-function functionLabel(ingredient: Ingredient): string {
-  return ingredient.functions && ingredient.functions.length > 0
-    ? ingredient.functions.slice(0, 2).join(" · ")
-    : "No concerns for your profile";
 }
