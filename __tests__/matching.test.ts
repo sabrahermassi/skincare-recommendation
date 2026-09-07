@@ -330,6 +330,45 @@ describe("verdict engine", () => {
       expect(confidenceLabel(matchProduct(garbled, prof).confidence)).not.toBe("high");
     });
 
+    /**
+     * Real catalogue formulas across five profiles, rather than only the
+     * constructed ones above. Bands and orderings rather than exact numbers:
+     * those are what a user sees, and a pinned integer would fail on any
+     * weight change without saying whether the change was wrong.
+     */
+    it("scores real fixtures differently for the profiles they suit", async () => {
+      const barrier = await load("aqua-ceramide-cream"); // ceramide, shea, squalane, panthenol, centella
+      const eczema = matchProduct(
+        barrier,
+        profile({ baseSkinType: "dry", concerns: ["redness", "atopic"], sensitivity: "high" })
+      ).score as number;
+      const pigment = matchProduct(
+        barrier,
+        profile({ baseSkinType: "combination", concerns: ["hyperpigmentation", "dullness"] })
+      ).score as number;
+
+      // A barrier-repair cream is what eczema-prone skin wants and does
+      // nothing at all for pigmentation. The gap is the personalisation.
+      expect(eczema).toBeGreaterThanOrEqual(75);
+      expect(eczema - pigment).toBeGreaterThan(12);
+    });
+
+    it("caps a hazard formula at the same score for every profile", async () => {
+      // snail-repair-ampoule carries isopropyl myristate, rated "avoid" in the
+      // sample catalogue. A hazard is not profile-dependent: it must not be
+      // scoreable away by an otherwise-flattering match, and it must land
+      // identically on skin it would otherwise suit.
+      const hazardous = await load("snail-repair-ampoule");
+      const scores = [
+        profile({ baseSkinType: "oily", concerns: ["acne-prone"] }),
+        profile({ baseSkinType: "dry", concerns: ["dehydrated"], sensitivity: "some" }),
+        profile({ baseSkinType: "normal", concerns: ["fine-lines"], sensitivity: "high" }),
+      ].map((p) => matchProduct(hazardous, p).score as number);
+
+      expect(new Set(scores).size).toBe(1);
+      expect(scores[0]).toBeLessThan(60);
+    });
+
     it("lets a named rule outrank a declared function for the same ingredient", () => {
       // Glycerin has both a curated rule and a `humectant` role. It must be
       // counted once, by the rule — double-counting would let an ingredient

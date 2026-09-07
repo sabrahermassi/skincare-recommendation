@@ -15,23 +15,28 @@ import {
 import { contraindications, isVerified, type Contraindication } from "./safety";
 
 /**
- * The verdict engine.
+ * The verdict engine — fit minus penalties.
  *
- * This used to be a placeholder: a base value plus a hash of the product id,
- * scored against product-level `suitableFor`/`targets` tags. That was tolerable
- * while the app was a browsable demo. It is not tolerable now the whole app is
- * one question — "does this suit me, and why" — and it stopped working
- * regardless, because every product from a real source arrives with those tags
- * empty. Only the hand-written sample catalogue ever had them.
+ *   FIT   = 0.7 x concern fit + 0.3 x skin-type fit   (each 0-100, 50 = neutral)
+ *   SCORE = ANCHOR + FIT_LEVER x FIT - irritation - pore
  *
- * So scoring now reads the formula, which is the only thing we reliably hold:
+ * It reads the formula and nothing else. Product-level `suitableFor`/`targets`
+ * tags are ignored: they are author-supplied, they contradict the INCI list
+ * often enough to matter, and every product from a real source arrives with
+ * them empty anyway.
  *
- *   1. Curated rules  — `lib/rules.ts`, ~35 entries, each with a stated reason
- *   2. INCI position  — regulated descending-concentration order
- *   3. Contraindications — the existing per-profile hazard check
+ * Three sources of evidence, in precedence order:
  *
- * Everything else contributes nothing. There is no jitter, no invented
- * comedogenic number, and no score at all for a formula we could not read.
+ *   1. Curated rules — `lib/rules.ts`, each carrying the sentence shown to the
+ *      user, so every claim traces to a line of code.
+ *   2. Declared CosIng functions — breadth for the ~83% of ingredients that
+ *      carry them. BENEFIT ONLY, and only where no rule already applies.
+ *   3. `lib/pore-clogging.ts` — owns acne and large-pores fit outright.
+ *
+ * Two things that look like omissions and are not: there is no invented
+ * comedogenic number (see `ComedogenicRating` in data/types.ts), and an
+ * ingredient we cannot identify contributes nothing in either direction —
+ * it lowers `confidence` rather than moving the score.
  */
 
 /**
@@ -152,7 +157,7 @@ const CONCERN_SATURATION: Record<Concern, number> = {
 
 const TYPE_SATURATION = 12;
 const IRRITATION_SATURATION = 14;
-const PORE_SATURATION = 9;
+const PORE_SATURATION = 3;
 
 const MAX_IRRITATION_PENALTY = 34;
 const MAX_PORE_PENALTY = 22;
@@ -257,7 +262,16 @@ export function matchProduct(
 
       for (const concern of profile.concerns) {
         if (rule.helps?.concerns?.includes(concern)) bump(concernEvidence, concern, weight);
-        if (rule.hurts?.concerns?.includes(concern)) bump(concernEvidence, concern, -weight);
+        if (!rule.hurts?.concerns?.includes(concern)) continue;
+        // `lib/pore-clogging.ts` owns clogging for the pore-led concerns, and
+        // it already supplies 45% of their fit. The rules table names several
+        // of the same ingredients (coconut oil, isopropyl myristate, cocoa
+        // butter), so charging both counts one ingredient twice against the
+        // same concern. The rule still contributes its skin-type effect and
+        // still supplies the sentence shown under "Why this score" — it just
+        // does not get to bill the concern a second time.
+        if (rule.category === "pore-clogging" && PORE_LED_CONCERNS.includes(concern)) continue;
+        bump(concernEvidence, concern, -weight);
       }
       if (profile.baseSkinType) {
         if (rule.helps?.skinTypes?.includes(profile.baseSkinType)) typeEvidence += weight;
@@ -335,11 +349,14 @@ export function matchProduct(
     // Scoring these on actives alone made a clean moisturiser look mediocre
     // to the exact user it suits, because the median real formula carries no
     // acne active whatsoever. Actives still count, as the smaller half.
-    // Cleanliness is necessary but not sufficient: at 45% it cannot on its own
-    // carry a formula into the top bands (a clean jar with nothing helpful in
-    // it lands mid-Fair), but a formula that clogs cannot climb out of Poor
-    // however good its actives are.
-    if (PORE_LED_CONCERNS.includes(concern)) return 0.45 * poreSafety + 0.55 * fromActives;
+    // Cleanliness carries most of the answer, because for these concerns it
+    // IS most of the answer. Weighted at 65% rather than the ~45% a first
+    // pass used: the rules table used to charge cloggers to this concern as
+    // well, and removing that double count (one ingredient, two debits) left
+    // the honest single path too weak to separate a coconut-oil formula from
+    // a clean one. Actives remain the other 35%, so a formula that actively
+    // treats blemishes still outscores one that merely avoids harming.
+    if (PORE_LED_CONCERNS.includes(concern)) return 0.65 * poreSafety + 0.35 * fromActives;
     return fromActives;
   });
   const concernFit = concernFits.length
