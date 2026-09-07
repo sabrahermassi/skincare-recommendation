@@ -852,7 +852,7 @@ function PastePane() {
     if (!ready) return;
     setPastedIngredients(parsed.map((p) => p.inci_name));
     setText("");
-    router.push("/check");
+    router.push("/ingredients/pasted");
   }
 
   return (
