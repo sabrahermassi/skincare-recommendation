@@ -3,24 +3,25 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
-import { ProductRow } from "@/components/ProductRow";
-import { AppHeader, HEADER_GUTTER, ProfilePill } from "@/components/AppHeader";
 import { Text } from "@/components/Text";
-import { fetchProductByBarcode, fetchProductsByIds, searchProducts } from "@/data/api";
+import { fetchProductByBarcode, searchProducts } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { parseIngredientBlock } from "@/lib/inci";
 import { matchProduct } from "@/lib/matching";
-import { profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -120,7 +121,6 @@ const MODES: {
 ];
 
 export default function Scan() {
-  const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   // Barcode everywhere now. Web used to open on Search because the browser
   // could only decode QR codes, which made a barcode viewfinder a dead end
@@ -130,7 +130,6 @@ export default function Scan() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const profile = useAppStore((s) => s.profile);
-  const history = useAppStore((s) => s.history);
   const recordView = useAppStore((s) => s.recordView);
 
   const busy = useRef(false);
@@ -141,6 +140,19 @@ export default function Scan() {
         setStatus({ kind: "idle" });
         busy.current = false;
       };
+    }, [])
+  );
+
+  // expo-router owns focus state itself as of SDK 56 - it no longer re-exports
+  // react-navigation, so this tracks focus the same way the effect above does
+  // rather than importing @react-navigation/native directly (that import now
+  // fails the bundler outright: "expo-router is no longer compatible with
+  // react-navigation").
+  const [isFocused, setIsFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
     }, [])
   );
 
@@ -180,8 +192,13 @@ export default function Scan() {
     [profile, recordView]
   );
 
-  const summary = profileSummary(profile);
-  const live = mode === "Barcode" && status.kind === "idle" && permission?.granted;
+  // Most devices only let one CameraView hold the camera at a time. This
+  // screen is a tab root, so pushing /scan-label on top of it (after a missed
+  // barcode, or from Label photo mode) does not unmount it — without this
+  // check `live` stayed true underneath, and the new screen's camera lost the
+  // contest and rendered black, looking like a broken camera rather than a
+  // second one that never got the hardware.
+  const live = isFocused && mode === "Barcode" && status.kind === "idle" && permission?.granted;
 
   /*
     Barcode mode is the full screen, per the MVP's scanner spec: live camera
@@ -197,7 +214,6 @@ export default function Scan() {
         requestPermission={requestPermission}
         live={!!live}
         status={status}
-        summary={summary}
         onBarcode={handleBarcode}
         onDismissStatus={() => {
           setStatus({ kind: "idle" });
@@ -208,98 +224,16 @@ export default function Scan() {
     );
   }
 
+  // Search, Paste list and Label photo share the same full-screen dark stage
+  // Barcode uses — a fixed-height card here used to shrink the whole screen
+  // down every time you switched away from Barcode, which read as the app
+  // losing its own layout rather than a deliberate choice.
   return (
-    // The tab group hides the native header, so this screen pads for the
-    // status bar itself.
-    <View className="flex-1 bg-canvas" style={{ paddingTop: insets.top }}>
-      <ScrollView contentContainerClassName="pb-10">
-        <AppHeader right={<ProfilePill summary={summary} />} />
-
-        {/* Height inline: the panes below are absolutely positioned or flex to
-            fill, so if this card's height is ever dropped the whole surface
-            collapses to nothing and reads as "the scanner is gone". */}
-        <View
-          // Background colour inline, not `bg-[#17161B]`: bracketed arbitrary
-          // Tailwind classes are the same class of bug that made Label photo
-          // and Search read as empty — the class silently failed to compile,
-          // the card fell back to transparent over the light canvas, and
-          // every off-white label/placeholder text drawn for a *dark* card
-          // vanished into a near-white background instead.
-          style={{ height: 293, marginHorizontal: 26, backgroundColor: "#17161B" }}
-          className="overflow-hidden rounded-control"
-        >
-          {mode === "Search" && <SearchPane />}
-
-          {mode === "Paste list" && <PastePane />}
-
-          {mode === "Label photo" && (
-            <View
-              style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 18, paddingHorizontal: 30 }}
-            >
-              {/* A drawn label with an ingredient list on it — the mode was a
-                  paragraph and a button in an otherwise empty black box, which
-                  reads as a screen that failed to load rather than a choice. */}
-              <Svg width={78} height={92} viewBox="0 0 78 92" fill="none">
-                <Rect
-                  x={9}
-                  y={5}
-                  width={60}
-                  height={82}
-                  rx={9}
-                  stroke="#FDFCFA"
-                  strokeOpacity={0.55}
-                  strokeWidth={2}
-                />
-                <Path
-                  d="M21 24h36M21 36h36M21 48h26M21 60h32M21 72h20"
-                  stroke="#FDFCFA"
-                  strokeOpacity={0.35}
-                  strokeWidth={3}
-                  strokeLinecap="round"
-                />
-                <Circle cx={58} cy={70} r={15} fill="#17161B" />
-                <Circle cx={56} cy={68} r={9.5} stroke={COLORS.toneGood} strokeWidth={2.6} />
-                <Path
-                  d="m63 75 6.5 6.5"
-                  stroke={COLORS.toneGood}
-                  strokeWidth={2.6}
-                  strokeLinecap="round"
-                />
-              </Svg>
-
-              <Text
-                style={{ color: "rgba(250,247,243,0.8)" }}
-                className="text-center text-sm leading-5"
-              >
-                Photograph the ingredient list on the back and we&apos;ll read it.
-                Works on anything, even products we&apos;ve never seen.
-              </Text>
-              <Pressable
-                onPress={() => router.push("/scan-label")}
-                style={{ height: 44 }}
-                className="items-center justify-center rounded-full bg-canvas px-6 active:opacity-80"
-              >
-                <Text className="text-sm font-semibold text-ink">Open the camera</Text>
-              </Pressable>
-            </View>
-          )}
-
-        </View>
-
-        <ModeSwitcher mode={mode} setMode={setMode} />
-
-        <Recents history={history} />
-
-        <Pressable onPress={() => router.push("/scan-label")} className="items-center px-5 pt-4">
-          <Text className="text-xs text-ink-muted">
-            No barcode?{" "}
-            <Text className="font-semibold text-ink underline">
-              Photograph the label instead
-            </Text>
-          </Text>
-        </Pressable>
-      </ScrollView>
-    </View>
+    <FullScreenPane modeSwitcher={<ModeSwitcher mode={mode} setMode={setMode} floating />}>
+      {mode === "Search" && <SearchPane />}
+      {mode === "Paste list" && <PastePane />}
+      {mode === "Label photo" && <LabelPhotoPane />}
+    </FullScreenPane>
   );
 }
 
@@ -394,7 +328,6 @@ function BarcodeStage({
   requestPermission,
   live,
   status,
-  summary,
   onBarcode,
   onDismissStatus,
   modeSwitcher,
@@ -403,7 +336,6 @@ function BarcodeStage({
   requestPermission: () => void;
   live: boolean;
   status: Status;
-  summary: string;
   onBarcode: (data: string) => void;
   onDismissStatus: () => void;
   modeSwitcher: ReactElement;
@@ -460,46 +392,7 @@ function BarcodeStage({
         </View>
       )}
 
-      {/* Top row: the way out on the left, the profile it matches against on
-          the right. Both sit above the camera, padded for the notch. */}
-      <View
-        style={{
-          position: "absolute",
-          top: insets.top + 8,
-          left: 16,
-          right: 16,
-          flexDirection: "row",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 12,
-        }}
-      >
-        <Pressable
-          onPress={() => router.push("/browse")}
-          accessibilityRole="button"
-          accessibilityLabel="Close the scanner"
-          hitSlop={10}
-          style={{
-            height: 44,
-            width: 44,
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: 22,
-            backgroundColor: "rgba(23,22,27,0.55)",
-          }}
-        >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M6 6l12 12M18 6L6 18"
-              stroke={COLORS.canvas}
-              strokeWidth={2.2}
-              strokeLinecap="round"
-            />
-          </Svg>
-        </Pressable>
-
-        <ProfilePill summary={summary} />
-      </View>
+      <ScannerTopRow insets={insets} />
 
       {/* Status, then the switcher, stacked off the bottom edge. */}
       <View
@@ -579,6 +472,146 @@ function BarcodeStage({
 
         {modeSwitcher}
       </View>
+    </View>
+  );
+}
+
+/**
+ * The way out, top-left on every mode's stage. Used to also carry the
+ * profile summary on the right — dropped as redundant with the Profile tab
+ * already in the bottom navigation, so this is just the close control now.
+ */
+function ScannerTopRow({ insets }: { insets: { top: number } }) {
+  return (
+    <View style={{ position: "absolute", top: insets.top + 8, left: 16 }}>
+      <Pressable
+        onPress={() => router.push("/browse")}
+        accessibilityRole="button"
+        accessibilityLabel="Close the scanner"
+        hitSlop={10}
+        style={{
+          height: 44,
+          width: 44,
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 22,
+          backgroundColor: "rgba(23,22,27,0.55)",
+        }}
+      >
+        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M6 6l12 12M18 6L6 18"
+            stroke={COLORS.canvas}
+            strokeWidth={2.2}
+            strokeLinecap="round"
+          />
+        </Svg>
+      </Pressable>
+    </View>
+  );
+}
+
+/**
+ * The stage Search, Paste list and Label photo share — full screen and dark,
+ * exactly like Barcode's, so switching modes never changes the size of the
+ * scanner. It used to be a 293pt card in a scrollable light page, which
+ * shrank the whole screen down the moment you left Barcode mode and read as
+ * the app losing its own layout rather than a deliberate choice.
+ */
+function FullScreenPane({
+  modeSwitcher,
+  children,
+}: {
+  modeSwitcher: ReactElement;
+  children: ReactElement | (ReactElement | false)[];
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#17161B" }}>
+      <View
+        style={{
+          flex: 1,
+          paddingTop: insets.top + 64,
+          paddingBottom: Math.max(20, insets.bottom + 12) + 64,
+        }}
+      >
+        {children}
+      </View>
+
+      <ScannerTopRow insets={insets} />
+
+      <View
+        style={{
+          position: "absolute",
+          left: 20,
+          right: 20,
+          bottom: Math.max(20, insets.bottom + 12),
+        }}
+      >
+        {modeSwitcher}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Label photo mode's content — just the explainer and the one action it
+ * needs. There used to be a second, redundant way into the same camera
+ * ("No barcode? Photograph the label instead") sitting below the mode
+ * switcher; with Open the camera already right here, it named the same
+ * action twice.
+ */
+function LabelPhotoPane() {
+  return (
+    <View
+      style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 18, paddingHorizontal: 30 }}
+    >
+      {/* A drawn label with an ingredient list on it — the mode was a
+          paragraph and a button on an otherwise empty dark screen, which
+          reads as a screen that failed to load rather than a choice. */}
+      <Svg width={78} height={92} viewBox="0 0 78 92" fill="none">
+        <Rect
+          x={9}
+          y={5}
+          width={60}
+          height={82}
+          rx={9}
+          stroke="#FDFCFA"
+          strokeOpacity={0.55}
+          strokeWidth={2}
+        />
+        <Path
+          d="M21 24h36M21 36h36M21 48h26M21 60h32M21 72h20"
+          stroke="#FDFCFA"
+          strokeOpacity={0.35}
+          strokeWidth={3}
+          strokeLinecap="round"
+        />
+        <Circle cx={58} cy={70} r={15} fill="#17161B" />
+        <Circle cx={56} cy={68} r={9.5} stroke={COLORS.toneGood} strokeWidth={2.6} />
+        <Path
+          d="m63 75 6.5 6.5"
+          stroke={COLORS.toneGood}
+          strokeWidth={2.6}
+          strokeLinecap="round"
+        />
+      </Svg>
+
+      <Text
+        style={{ color: "rgba(250,247,243,0.8)" }}
+        className="text-center text-sm leading-5"
+      >
+        Photograph the ingredient list on the back and we&apos;ll read it.
+        Works on anything, even products we&apos;ve never seen.
+      </Text>
+      <Pressable
+        onPress={() => router.push("/scan-label")}
+        style={{ height: 44 }}
+        className="items-center justify-center rounded-full bg-canvas px-6 active:opacity-80"
+      >
+        <Text className="text-sm font-semibold text-ink">Open the camera</Text>
+      </Pressable>
     </View>
   );
 }
@@ -823,158 +856,56 @@ function PastePane() {
   }
 
   return (
-    <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 14, gap: 10 }}>
-      <TextInput
-        value={text}
-        onChangeText={setText}
-        placeholder="Paste the ingredient list here - water, glycerin, niacinamide…"
-        placeholderTextColor="rgba(253,251,249,0.45)"
-        multiline
-        textAlignVertical="top"
-        autoCorrect={false}
-        autoCapitalize="none"
-        className="rounded-control px-3 py-3 text-canvas"
-        style={{
-          flex: 1,
-          fontSize: 13,
-          lineHeight: 18,
-          backgroundColor: "rgba(250,247,243,0.14)",
-        }}
-      />
+    // The Check button used to sit right under the text field with nothing
+    // accounting for the keyboard, so on a full-screen pane the keyboard
+    // covered it entirely with no way to see or reach it. KeyboardAvoidingView
+    // lifts this whole pane above the keyboard, and tapping outside the field
+    // dismisses it — the multiline input has no return-key affordance for
+    // that on its own.
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={{ flex: 1 }}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 14, gap: 10 }}>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="Paste the ingredient list here - water, glycerin, niacinamide…"
+            placeholderTextColor="rgba(253,251,249,0.45)"
+            multiline
+            textAlignVertical="top"
+            autoCorrect={false}
+            autoCapitalize="none"
+            className="rounded-control px-3 py-3 text-canvas"
+            style={{
+              flex: 1,
+              fontSize: 13,
+              lineHeight: 18,
+              backgroundColor: "rgba(250,247,243,0.14)",
+            }}
+          />
 
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Text style={{ color: "rgba(250,247,243,0.6)", flex: 1 }} className="text-[11px]">
-          {text.trim().length === 0
-            ? "Copy it from anywhere - we read it on your phone."
-            : `${parsed.length} ingredient${parsed.length === 1 ? "" : "s"} found`}
-        </Text>
-        <Pressable
-          onPress={check}
-          disabled={!ready}
-          accessibilityRole="button"
-          accessibilityLabel="Check this ingredient list"
-          style={{ height: 40, opacity: ready ? 1 : 0.4 }}
-          className="items-center justify-center rounded-full bg-canvas px-5 active:opacity-80"
-        >
-          <Text className="text-[13px] font-semibold text-ink">Check</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-/**
- * "Scanned in this store" — the shopping-trip memory. Reads the history log
- * the store already keeps, so it costs nothing and answers the most common
- * in-aisle question: have I already looked at this?
- */
-function Recents({ history }: { history: { id: string; known: boolean }[] }) {
-  const profile = useAppStore((s) => s.profile);
-  const ids = useMemo(
-    () => history.filter((h) => h.known).slice(0, 3).map((h) => h.id),
-    [history]
-  );
-  const [products, setProducts] = useState<ProductWithIngredients[]>([]);
-
-  useEffect(() => {
-    if (ids.length === 0) {
-      setProducts([]);
-      return;
-    }
-    let cancelled = false;
-    fetchProductsByIds(ids)
-      .then((found) => {
-        if (!cancelled) setProducts(found);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.warn("fetchProductsByIds failed:", err);
-        setProducts([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [ids]);
-
-  // Nothing scanned yet in this session — the space below the mode switcher
-  // used to sit empty until the first scan, which read as an unfinished
-  // screen. A short explainer fills it instead, and this is the only branch
-  // where it shows: the moment `ids` is non-empty it's replaced by the real
-  // rows below, never both at once.
-  if (ids.length === 0) return <FirstScanTip />;
-  if (products.length === 0) return null;
-
-  return (
-    <View style={{ gap: 10, paddingHorizontal: HEADER_GUTTER, paddingTop: 26 }}>
-      <View className="flex-row items-center justify-between gap-3">
-        <Text className="text-[9px] font-semibold uppercase tracking-[1.53px] text-[#565060]">
-          Scanned in this store
-        </Text>
-        <Pressable onPress={() => router.push("/saved")} hitSlop={8}>
-          <Text className="text-xs text-accent-text">View all</Text>
-        </Pressable>
-      </View>
-
-      {/*
-        The same row the browse list uses, scored the same way and opening the
-        same screen. It was a bespoke row here — its own tile, its own type
-        scale, its own badge treatment — so the products you had just scanned
-        looked like a different kind of thing from the products you browsed.
-
-        Live scores rather than the scan-time snapshot: these are things on the
-        shelf in front of you. The snapshot rule still holds where it means
-        something, on the History tab, which is a log of what you saw and when.
-      */}
-      <View className="overflow-hidden rounded-control border border-hairline bg-surface">
-        {ids.map((id, index) => {
-          const product = products.find((p) => p.id === id);
-          if (!product) return null;
-          return (
-            <ProductRow
-              key={id}
-              product={product}
-              match={matchProduct(product, profile)}
-              last={index === ids.length - 1}
-            />
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-/**
- * First-run filler for the "Scanned in this store" slot, shown until there's
- * a real scan to put there. Same eyebrow label position as `Recents` so the
- * swap between the two doesn't shift anything else on the screen.
- */
-const FIRST_SCAN_STEPS = [
-  { n: "1", text: "Point the camera at a barcode, or photograph the ingredient list." },
-  { n: "2", text: "We read the formula and check it against your skin profile." },
-  { n: "3", text: "See your match score and anything flagged, right here as you shop." },
-];
-
-function FirstScanTip() {
-  return (
-    <View style={{ gap: 14, paddingHorizontal: HEADER_GUTTER, paddingTop: 26 }}>
-      <Text className="text-[9px] font-semibold uppercase tracking-[1.53px] text-[#565060]">
-        How scanning works
-      </Text>
-      <View style={{ gap: 12 }}>
-        {FIRST_SCAN_STEPS.map((step) => (
-          <View key={step.n} style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-            <View
-              style={{ width: 22, height: 22, borderRadius: 11 }}
-              className="items-center justify-center bg-tint-lilac"
-            >
-              <Text className="text-[11px] font-bold text-accent-text">{step.n}</Text>
-            </View>
-            <Text className="flex-1 text-[12.5px] leading-[18px] text-ink-muted">
-              {step.text}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Text style={{ color: "rgba(250,247,243,0.6)", flex: 1 }} className="text-[11px]">
+              {text.trim().length === 0
+                ? "Copy it from anywhere - we read it on your phone."
+                : `${parsed.length} ingredient${parsed.length === 1 ? "" : "s"} found`}
             </Text>
+            <Pressable
+              onPress={check}
+              disabled={!ready}
+              accessibilityRole="button"
+              accessibilityLabel="Check this ingredient list"
+              style={{ height: 40, opacity: ready ? 1 : 0.4 }}
+              className="items-center justify-center rounded-full bg-canvas px-5 active:opacity-80"
+            >
+              <Text className="text-[13px] font-semibold text-ink">Check</Text>
+            </Pressable>
           </View>
-        ))}
-      </View>
-    </View>
+        </View>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
+
