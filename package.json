@@ -71,6 +71,22 @@
     "preset": "jest-expo",
     "setupFilesAfterEnv": [
       "<rootDir>/jest.setup.js"
+    ],
+    "transform": {
+      "^.+\\.[jt]sx?$": "babel-jest",
+      "^.+\\.mjs$": "babel-jest"
+    },
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json",
+      "mjs"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/.claude/"
     ]
   }
 }

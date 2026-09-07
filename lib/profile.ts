@@ -1,12 +1,32 @@
-import type { AgeGroup, Concern, Gender, SkinProfile } from "@/data/types";
+import type { Concern, Sensitivity, SkinProfile } from "@/data/types";
 
 /**
- * A profile "counts" for matching once it carries a skin signal. Demographics
- * alone (gender, age) do not — `matchProduct` never scores on them — so
- * answering only those questions must not unlock match percentages.
+ * A profile "counts" for matching once it carries a skin signal. Sensitivity
+ * alone does not: it scales how harshly irritants are judged, it does not say
+ * what the formula should be doing for you.
  */
 export function isPersonalized(profile: SkinProfile): boolean {
   return profile.baseSkinType !== null || profile.concerns.length > 0;
+}
+
+/**
+ * The boolean the rules table still speaks. Derived rather than stored, so
+ * there is one source of truth and no way for the two to drift — which is
+ * exactly what happened when `sensitive` and the skin type were separate
+ * stored answers.
+ */
+export function isSensitive(profile: { sensitivity: Sensitivity | null }): boolean {
+  return profile.sensitivity === "some" || profile.sensitivity === "high";
+}
+
+const SENSITIVITY_LABEL: Record<Sensitivity, string> = {
+  none: "Not sensitive",
+  some: "Somewhat sensitive",
+  high: "Very sensitive",
+};
+
+export function sensitivityLabel(sensitivity: Sensitivity): string {
+  return SENSITIVITY_LABEL[sensitivity];
 }
 
 const CONCERN_LABEL: Record<Concern, string> = {
@@ -20,40 +40,22 @@ const CONCERN_LABEL: Record<Concern, string> = {
   atopic: "eczema-prone",
 };
 
-const GENDER_LABEL: Record<Gender, string> = {
-  female: "Female",
-  male: "Male",
-  nonbinary: "Non-binary",
-  undisclosed: "Prefer not to say",
-};
-
-const AGE_LABEL: Record<AgeGroup, string> = {
-  "18-24": "18–24",
-  "25-34": "25–34",
-  "35-44": "35–44",
-  "45-54": "45–54",
-  "55-64": "55–64",
-  "65+": "65+",
-};
-
-export function genderLabel(gender: Gender): string {
-  return GENDER_LABEL[gender];
-}
-
-export function ageGroupLabel(ageGroup: AgeGroup): string {
-  return AGE_LABEL[ageGroup];
-}
-
-/** The short summary shown in the browse header, e.g. "Combination · sensitive · dehydrated, redness". */
+/** The short summary shown in the browse header, e.g. "Combination, sensitive · dehydrated, redness". */
 export function profileSummary(profile: SkinProfile): string {
   const parts: string[] = [];
 
   if (profile.baseSkinType) {
     parts.push(
-      profile.sensitive
-        ? `${capitalize(profile.baseSkinType)}, sensitive`
+      isSensitive(profile)
+        ? `${capitalize(profile.baseSkinType)}, ${
+            profile.sensitivity === "high" ? "very sensitive" : "sensitive"
+          }`
         : capitalize(profile.baseSkinType)
     );
+  } else if (profile.sensitivity !== null && profile.sensitivity !== "none") {
+    // Skin type can be "I don't know" now, and a sensitivity answer on its own
+    // is still worth showing rather than leaving the pill blank.
+    parts.push(sensitivityLabel(profile.sensitivity));
   }
 
   if (profile.concerns.length > 0) {
@@ -67,12 +69,19 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** Every onboarding route, in order. Same flow for face and body. */
+/**
+ * Every onboarding route, in order — exactly the three answers the MVP asks
+ * for, and nothing else.
+ *
+ * Gone: "about you" (gender and age, both collected and read by nothing) and
+ * the face/body step. `area` is still a real field, still editable from the
+ * profile screen and still what the browse filter reads; it just isn't a
+ * question standing between someone and their first scan.
+ */
 const STEPS = [
-  "/onboarding/about-you",
-  "/onboarding/area",
   "/onboarding/concerns",
   "/onboarding/skin-type",
+  "/onboarding/sensitivity",
 ] as const;
 
 export type QuizRoute = (typeof STEPS)[number];

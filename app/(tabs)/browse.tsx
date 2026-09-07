@@ -140,7 +140,7 @@ export default function Browse() {
           <View className="mx-5 mt-3 flex-row items-center gap-2 rounded-card bg-tint-lilac px-4 py-3">
             <Pressable onPress={() => router.push("/profile")} className="flex-1">
               <Text className="text-sm font-semibold text-accent-text">
-                Answer five quick questions to see how each product suits your skin →
+                Answer three quick questions to see how each product suits your skin →
               </Text>
             </Pressable>
             <Pressable onPress={() => setBannerDismissed(true)} hitSlop={8}>

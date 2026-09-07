@@ -7,8 +7,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A universal (iOS / Android / web) Korean skincare product and ingredient
 lookup app. Expo SDK 57 + Expo Router + NativeWind + Zustand.
 
-Currently a demo running entirely on fabricated data. Open gaps are
-tracked as GitHub issues on the "Skin Recommendation" project board.
+**This is not a mock.** Supabase is the live backend, and both Edge
+Functions are deployed: `product-lookup` (barcode cascade) and `label-ocr`
+(Google Cloud Vision). The catalogue holds ~36k dictionary ingredients with
+~25k synonyms, and ~140 products. `data/api.ts` still falls back to eight
+fabricated sample products when `EXPO_PUBLIC_SUPABASE_URL`/`_ANON_KEY` are
+absent, which is what keeps a fresh checkout runnable and the test suite
+hermetic — but with a `.env` present you are querying real data.
+
+Launch scope is defined by `SKINTEL_MVP.md`, which is the source of truth
+for what ships. Remaining gaps are tracked as GitHub issues on the "Skin
+Recommendation" project board.
 
 ## Commands
 
@@ -73,11 +82,20 @@ Expo Router (file-based, built on React Navigation) in `app/`. Web routing
 is a first-class requirement, not an afterthought — changes must work in a
 browser as well as on device.
 
+**The scanner is `/`.** `app/(tabs)/index.tsx` *is* the scanner, and Browse
+lives at `/browse`. That is what makes a returning user open into the camera
+rather than a product list, per the MVP's Open → Scanner flow: a cold start
+always resolves `/`, so the landing screen is decided by which file is named
+`index`, not by tab order. `initialRouteName` does **not** do this — it
+anchors the back stack, it does not change what `/` resolves to. A root
+`app/index.tsx` is impossible: it collides with `app/(tabs)/index.tsx`,
+since both claim `/`.
+
 **Never navigate from a layout file.** `router.replace()` in a root-layout
 `useEffect` throws `Attempted to navigate before mounting the Root Layout
 component` on device — this has already happened once. Gate with a
-declarative `<Redirect>` rendered *inside* the Stack (see the
-onboarding gate in `app/index.tsx`), or navigate from a user event.
+declarative `<Redirect>` rendered *inside* the navigator (see the onboarding
+gate in `app/(tabs)/_layout.tsx`), or navigate from a user event.
 
 **Adding a route requires regenerating typed routes.** `experiments.typedRoutes`
 is on, so `href` strings are type-checked against `.expo/types/router.d.ts`.
@@ -86,6 +104,12 @@ do it. After adding or renaming a route, start the dev server once or
 `tsc` will fail on a valid path. If the generated types look wrong (e.g.
 non-route directories appearing as routes), delete `.expo/types` and
 restart the server.
+
+**`expo start` needs a real TTY.** Piping its output (`| tee`, `> log`, or
+any tool that captures stdout) makes it exit immediately without writing
+the types — which looks like the generator silently doing nothing. Run it in
+a terminal you can see. `router.d.ts` is committed precisely so `tsc` works
+without it.
 
 ### State
 
@@ -100,23 +124,77 @@ restart. **`store/useAppStore.ts` is the one file allowed to import
 AsyncStorage** — see `docs/device-storage-policy.md` for which data class
 goes where, and why auth/session material must never take this same path.
 
+**The profile is exactly what the MVP asks for**: concerns (max 3), skin
+type (nullable — "I don't know" is a real answer), and `sensitivity`
+(`"none" | "some" | "high" | null`, where `null` means unanswered). Gender
+and age were removed: both were collected, stored, and read by nothing.
+`area` is no longer an onboarding question but is still a field — the
+browse list filters on it and the profile screen still edits it.
+
+**Bump the store version when you change the profile shape.** The migration
+in `migratePersisted` is exported specifically so it can be tested; it is
+the one thing here that can silently destroy a real person's data, and they
+would find out by watching every score change.
+
 ### Scoring
 
-`lib/matching.ts` is a placeholder — a deterministic hash of product id +
-profile, weighted by declared `suitableFor` / `targets`. Deliberately not
-`Math.random()`, which re-rolls every render and reads as a bug. Real
-logic replaces this file only; no callers should change (issue #5).
+`lib/matching.ts` computes **fit minus penalties**, never a hash and never
+product tags:
 
-**It must keep reading the ingredient list, not just the tags.** Product
-`targets` are author-supplied and can contradict the formula: the sample
-catalogue has an ampoule tagged `acne-prone` whose INCI list contains
-isopropyl myristate (comedogenic 5, "avoid"). Scoring on tags alone put
-it at 99% for exactly the users it is worst for, while the detail screen
-warned about that ingredient one tap later. `lib/safety.ts` owns this —
-`isFlagged` for the general case, `contraindications` for
-profile-specific ones — and is the single source of truth for ingredient
-risk. Do not re-inline the `comedogenic >= 3` predicate; it was
-duplicated across three screens before and drifted.
+```
+FIT   = 0.7 × concern fit + 0.3 × skin-type fit     (each 0-100, 50 = neutral)
+SCORE = 30 + 0.7 × FIT − irritation penalty − pore penalty
+```
+
+Bands are the MVP's, defined once in `SCORE_BANDS`: 90–100 excellent, 75–89
+good, 60–74 fair, 0–59 poor. Everything — verdict, badge tone, result panel —
+reads that constant. The verdict and the badges once used different cutoffs
+(75/55 vs 80/65) and disagreed about the same product.
+
+Evidence comes from three layers:
+
+1. **`lib/rules.ts`** — ~60 curated rules, each carrying the sentence shown
+   to the user, so any claim traces to a line of code.
+2. **CosIng `functions`** — ~83% of ingredients declare functional roles.
+   **Benefit only.** These are per-*ingredient capability* lists, not
+   per-formula roles: "perfuming" tags 83% of products, so scoring irritation
+   from them punishes everything equally. A named rule always beats a
+   declared function, so nothing counts twice.
+3. **`lib/pore-clogging.ts`** — 28 clogger families with confidence tiers.
+   This owns acne fit.
+
+**Acne is about what clogs, not what treats.** A formula containing no
+pore-clogging ingredients is a good match for blemish-prone skin — not
+causing breakouts *is* the win. Scoring acne on "does it contain salicylic
+acid" made an ordinary gentle moisturiser look mediocre to exactly the
+person it suits, because the median real formula carries no acne active at
+all. Pore-cleanliness is 45% of concern fit for `acne-prone` and
+`large-pores`; contested clogger entries count zero, matching the fact they
+are never warned about.
+
+**Per-concern saturation is not optional.** Each concern's constant is the
+75th percentile of evidence a real formula can actually offer it. Without
+them, "dehydrated" (humectants in 84% of products) is graded on the same
+curve as "fine lines", and dehydrated users see 80s while everyone else sees
+60s for formulas that serve them equally well.
+
+**Confidence is separate from score.** Reading a formula and finding little
+to say about it is a low-confidence result, not an absent one. Refusal is
+reserved for genuinely unreadable formulas (under 3 identified ingredients,
+or under 25% coverage). Unknown ingredients vouch for nothing in either
+direction — they lower confidence rather than blocking an answer.
+
+**Contraindications have two tiers.** `hazard` caps the score at 45;
+`irritant` is listed as a warning and charged to the graduated irritation
+penalty instead. Capping on both put 40% of the catalogue at "Poor" for
+anyone who ticked "somewhat sensitive" — 97 of 100 warnings were the
+`irritant` kind — so a sensitive user could never receive good news.
+
+`lib/safety.ts` remains the single source of truth for ingredient risk. Do
+not re-inline the `comedogenic >= 3` predicate; it was duplicated across
+three screens before and drifted. Same rule for the scoring *words*:
+`scoreExplanation` and `confidenceLabel` live in `lib/matching.ts` so the
+sentences and the arithmetic cannot come apart.
 
 ## Constraints that look like bugs
 
@@ -139,14 +217,21 @@ section for where this exact staleness was tracked down and corrected once
 already (issue #16).
 
 The SDK 54 pin was also credited with avoiding a NativeWind prop-interop bug
-on React Native 0.86 — the project is now on RN 0.86.3 regardless, so either
-that bug no longer applies at the NativeWind version in use, or it's a live
-latent issue nobody's re-checked since the upgrade. Worth confirming, not
-assumed either way here.
+on React Native 0.86. What is now established: the project runs
+`nativewind@4.2.6` on `react-native@0.86.3`, and its runtime
+`react-native-css-interop@0.2.6` declares `react-native: "*"` — no upper
+bound, so there is no *declared* incompatibility. The codebase also contains
+no function-valued `style` on `Pressable`, so the workaround below is being
+observed rather than merely documented.
+
+What is still **not** established: whether the rendering bug itself would
+occur. That needs eyes on a running app, and nobody has done that since the
+upgrade. Treat it as "no evidence of a problem", not "confirmed fine".
 
 **Tailwind must stay on v3.** NativeWind 4's runtime
-(`react-native-css-interop`) declares `tailwindcss: "~3"` as a hard peer.
-Tailwind 4 breaks styling silently.
+(`react-native-css-interop@0.2.6`) declares `tailwindcss: "~3"` as a hard
+peer — still true at the installed version. Tailwind 4 breaks styling
+silently.
 
 **`babel-preset-expo` is an explicit devDependency.** `babel.config.js` is
 hand-written and references it by name, so it must resolve from the
@@ -164,14 +249,18 @@ browser APIs — the camera screen specifically.
 That shape trips NativeWind's prop interop. Use `className` with the
 `active:` variant.
 
-**Web barcode scanning is QR-only, as of SDK 54 — unverified since the SDK
-57 upgrade.** `expo-camera` used jsQR in the browser at SDK 54; EAN-13 /
-UPC-A scanned on native only. `app/scan.tsx` narrows `barcodeTypes` by
-platform so it degrades rather than crashing (issue #11). Issue #11 itself
-notes SDK 57's `expo-camera` added a `barcode-detector` ponyfill with full
-web format support — if that holds, the platform split in `scan.tsx` may
-now be unnecessary. Nobody has re-tested this since the upgrade; don't
-assume either way without checking.
+**Web barcode scanning works at SDK 57 — the old QR-only split is gone.**
+`expo-camera` used jsQR in the browser at SDK 54, so EAN-13 / UPC-A scanned
+on native only and the scanner narrowed `barcodeTypes` by platform.
+`expo-camera@57.0.4` now depends on `barcode-detector` and uses the
+browser's own `BarcodeDetector` where it exists; its format map covers
+ean_13, ean_8, upc_a, upc_e, code_128 and more — see
+`node_modules/expo-camera/build/web/WebBarcodeScanner.js`. One barcode list
+on every platform, and Barcode is the default mode everywhere (issue #11).
+
+That is read from the shipped source, not from a browser session — the
+formats are certainly declared; nobody has yet held a bottle up to a laptop
+webcam and watched it decode.
 
 ## Running on a device
 

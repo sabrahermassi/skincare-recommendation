@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 
 import { Text } from "@/components/Text";
@@ -22,15 +22,18 @@ const OPTIONS: { value: BaseSkinType; label: string; hint: string }[] = [
  * one with art: the design draws a 44pt illustrated tile per skin type, and a
  * picture of the thing is worth more here than consistency with a text chip.
  *
- * Base type and sensitivity are asked separately — "dry + oily" is a
- * contradiction, but "sensitive" pairs with any base type, so it cannot share
- * the same single-select control.
+ * Sensitivity is its own step now rather than a toggle at the bottom of this
+ * one: it has three levels, and it answers a different question — not what
+ * your skin is, but how harshly to judge what you put on it.
  */
 export default function SkinTypeStep() {
   const baseSkinType = useAppStore((s) => s.profile.baseSkinType);
-  const sensitive = useAppStore((s) => s.profile.sensitive);
   const setProfile = useAppStore((s) => s.setProfile);
-  const completeOnboarding = useAppStore((s) => s.completeOnboarding);
+  // "I don't know" writes null, which is also the unanswered value — so the
+  // screen tracks the tap locally rather than inferring an answer from the
+  // store. Someone who genuinely doesn't know their skin type still gets to
+  // continue; we simply score on their concerns instead.
+  const [picked, setPicked] = useState(baseSkinType !== null);
 
   function next() {
     const route = nextQuizRoute("/onboarding/skin-type");
@@ -38,18 +41,16 @@ export default function SkinTypeStep() {
       router.push(route);
       return;
     }
-    completeOnboarding();
     router.replace(POST_ONBOARDING_ROUTE);
   }
 
   return (
     <QuizStep
-      step={4}
+      step={2}
       title="What's your skin type?"
       subtitle="Pick the closest match."
       onNext={next}
-      nextDisabled={!baseSkinType}
-      nextLabel="See my matches"
+      nextDisabled={!picked}
     >
       <View style={{ gap: 12 }}>
         {OPTIONS.map((option) => (
@@ -59,30 +60,22 @@ export default function SkinTypeStep() {
             label={option.label}
             hint={option.hint}
             selected={baseSkinType === option.value}
-            onPress={() => setProfile({ baseSkinType: option.value })}
+            onPress={() => {
+              setProfile({ baseSkinType: option.value });
+              setPicked(true);
+            }}
           />
         ))}
 
         <TypeCard
-          icon="sensitive"
-          label="My skin is also sensitive"
-          hint="Stings or reddens easily, regardless of type."
-          selected={sensitive}
-          onPress={() => setProfile({ sensitive: !sensitive })}
-          // A modifier, not a fifth type — so it announces as a switch and
-          // shows a track rather than a tick.
-          role="switch"
-          trailing={
-            <View
-              style={{ height: 24, width: 44 }}
-              className={`rounded-full p-0.5 ${sensitive ? "bg-accent" : "bg-hairline"}`}
-            >
-              <View
-                style={{ height: 20, width: 20 }}
-                className={`rounded-full bg-white ${sensitive ? "ml-auto" : ""}`}
-              />
-            </View>
-          }
+          icon="unsure"
+          label="I don't know"
+          hint="We'll match on your concerns instead."
+          selected={picked && baseSkinType === null}
+          onPress={() => {
+            setProfile({ baseSkinType: null });
+            setPicked(true);
+          }}
         />
       </View>
     </QuizStep>

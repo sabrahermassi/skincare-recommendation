@@ -11,23 +11,20 @@ import { Chip, CHIP_ROW } from "@/components/Chip";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Avatar } from "@/components/Avatar";
 import type {
-  AgeGroup,
   BaseSkinType,
   BodyArea,
   Concern,
-  Gender,
+  Sensitivity,
   SkinProfile,
 } from "@/data/types";
 import {
-  ageGroupLabel,
-  genderLabel,
   POST_ONBOARDING_ROUTE,
   profileSummary,
+  sensitivityLabel,
 } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
-const GENDERS: Gender[] = ["female", "male", "nonbinary", "undisclosed"];
-const AGE_GROUPS: AgeGroup[] = ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
+const SENSITIVITY_OPTIONS: Sensitivity[] = ["none", "some", "high"];
 const AREAS: { value: BodyArea; label: string }[] = [
   { value: "face", label: "Face" },
   { value: "body", label: "Body" },
@@ -136,27 +133,9 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <Section title="About you">
-          <View style={CHIP_ROW}>
-            {GENDERS.map((gender) => (
-              <Chip
-                key={gender}
-                label={genderLabel(gender)}
-                selected={draft.gender === gender}
-                onPress={() => patch({ gender })}
-              />
-            ))}
-            {AGE_GROUPS.map((ageGroup) => (
-              <Chip
-                key={ageGroup}
-                label={ageGroupLabel(ageGroup)}
-                selected={draft.ageGroup === ageGroup}
-                onPress={() => patch({ ageGroup })}
-              />
-            ))}
-          </View>
-        </Section>
-
+        {/* Gender and age are gone: both were collected and read by nothing.
+            Face or body stays — it is not an onboarding question any more,
+            but the browse list still filters on it. */}
         <Section title="Face or body">
           <View style={CHIP_ROW}>
             {AREAS.map((option) => (
@@ -182,32 +161,22 @@ export default function ProfileScreen() {
             ))}
           </View>
 
-          <Pressable
-            onPress={() => patch({ sensitive: !draft.sensitive })}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: draft.sensitive }}
-            style={{ minHeight: 52, marginTop: 12 }}
-            className={`flex-row items-center justify-between rounded-field border-2 px-3 ${
-              draft.sensitive ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
-            }`}
-          >
-            <Text
-              className={`text-[14.5px] font-semibold ${
-                draft.sensitive ? "text-accent-text" : "text-ink"
-              }`}
-            >
-              Also sensitive
-            </Text>
-            <View
-              className={`h-6 w-11 rounded-full p-0.5 ${
-                draft.sensitive ? "bg-accent" : "bg-hairline"
-              }`}
-            >
-              <View
-                className={`h-5 w-5 rounded-full bg-white ${draft.sensitive ? "ml-auto" : ""}`}
+        </Section>
+
+        {/* Its own section now, not a toggle under skin type: three levels
+            answering a different question — how harshly to judge irritants,
+            rather than what your skin is. */}
+        <Section title="Sensitivity">
+          <View style={CHIP_ROW}>
+            {SENSITIVITY_OPTIONS.map((option) => (
+              <Chip
+                key={option}
+                label={sensitivityLabel(option)}
+                selected={draft.sensitivity === option}
+                onPress={() => patch({ sensitivity: option })}
               />
-            </View>
-          </Pressable>
+            ))}
+          </View>
         </Section>
 
         <Section title="Skin concerns" note={`${draft.concerns.length} of ${MAX_CONCERNS}`}>
