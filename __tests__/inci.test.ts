@@ -124,6 +124,26 @@ describe("parseIngredientBlock", () => {
   });
 
   /**
+   * The case the test above doesn't actually cover: a comma with NO space
+   * before a digit-led name. `,(?!\d)` alone can't tell that apart from a
+   * locant comma like "1,2-Hexanediol" — both have a digit immediately after
+   * the comma — so a lookahead-only check fused "Water,4-Terpineol" into one
+   * unmatchable token. The fix also has to check what's before the comma: a
+   * locant sits between two digits, a real separator doesn't.
+   */
+  it("splits a separator comma with no space before a number-led name, while still protecting a locant comma", () => {
+    const parsed = parseIngredientBlock(
+      "Ingredients: Water,4-Terpineol, Glycerin, 1,2-Hexanediol"
+    );
+    expect(parsed.map((p) => p.inci_name)).toEqual([
+      "water",
+      "4-terpineol",
+      "glycerin",
+      "1,2-hexanediol",
+    ]);
+  });
+
+  /**
    * Real trailing OCR text from the same La Roche-Posay label used elsewhere
    * in this file: after the formula, the net-quantity mark and distributor
    * boilerplate follow directly with no "Directions"-style heading of their
