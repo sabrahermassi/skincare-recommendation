@@ -19,7 +19,7 @@ import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/po
  * pasted list has no fetch date, so `subMetaLine` is simply omitted there.
  */
 
-const TABS = ["All", "Actives", "Watch-outs", "Pore clogging"] as const;
+export const TABS = ["All", "Actives", "Watch-outs", "Pore clogging"] as const;
 export type Tab = (typeof TABS)[number];
 
 export function IngredientTabsList({

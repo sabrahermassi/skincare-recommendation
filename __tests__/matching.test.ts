@@ -2,6 +2,7 @@ import { fetchProduct, fetchProducts } from "@/data/api";
 import type { ProductWithIngredients, SkinProfile } from "@/data/types";
 import {
   confidenceLabel,
+  matchIngredients,
   matchProduct,
   matchTone,
   SCORE_BANDS,
@@ -378,6 +379,35 @@ describe("verdict engine", () => {
       const tagged = synthetic(["water", "glycerin", "xanthan gum", "carbomer"]);
       tagged.ingredients[1].functions = ["humectant", "skin-conditioning"];
       expect(matchProduct(tagged, prof).score).toBe(matchProduct(plain, prof).score);
+    });
+  });
+
+  /**
+   * A pasted list has no product record behind it, so `matchIngredients`
+   * (the entry point `app/ingredients/pasted.tsx` scores through) supplies a
+   * synthetic `type` rather than a fabricated product. These pin that it is
+   * a thin wrapper — same arithmetic as `matchProduct`, same `type` default.
+   */
+  describe("matchIngredients", () => {
+    it("scores a raw ingredient list exactly as matchProduct scores the same type", () => {
+      const ingredients = synthetic([
+        "water", "cocos nucifera oil", "isopropyl myristate", "glycerin",
+      ]).ingredients;
+      const prof = profile({ baseSkinType: "oily", concerns: ["acne-prone"] });
+      expect(matchIngredients(ingredients, prof)).toEqual(
+        matchProduct({ type: "serum", ingredients }, prof)
+      );
+    });
+
+    it("defaults to full contact weight, not a cleanser's discount", () => {
+      const fragranced = synthetic(["water", "parfum", "limonene", ...FILLER]).ingredients;
+      const prof = profile({ baseSkinType: "normal", concerns: ["redness"], sensitivity: "high" });
+      const defaulted = matchIngredients(fragranced, prof).score as number;
+      const asCleanser = matchIngredients(fragranced, prof, "cleanser").score as number;
+      // Same list, same profile - only the assumed contact time differs, and
+      // a cleanser's 0.4 weight must land higher (less irritation charged)
+      // than the conservative "full exposure" default a pasted list gets.
+      expect(asCleanser).toBeGreaterThan(defaulted);
     });
   });
 

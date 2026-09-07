@@ -2,9 +2,10 @@ import * as Clipboard from "expo-clipboard";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
-import Svg, { Circle, Path, Rect } from "react-native-svg";
+import Svg, { Circle, Path } from "react-native-svg";
 
-import { IngredientTabsList, type Tab } from "@/components/IngredientTabsList";
+import { CopyIcon } from "@/components/CopyIcon";
+import { IngredientTabsList, TABS, type Tab } from "@/components/IngredientTabsList";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { fetchProduct } from "@/data/api";
@@ -21,41 +22,6 @@ import { useAppStore } from "@/store/useAppStore";
  * the pill say whether it works for you, which is the whole difference between
  * this and reading the back of the box.
  */
-
-const TABS = ["All", "Actives", "Watch-outs", "Pore clogging"] as const;
-
-/**
- * Copy / copied — one icon, two states, so tapping it doesn't need a toast
- * the rest of this app has no component for. The check holds for 1.5s, long
- * enough to register as confirmation without needing a dismiss.
- */
-function CopyIcon({ copied }: { copied: boolean }) {
-  if (copied) {
-    return (
-      <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-        <Path
-          d="m5 12.6 4.6 4.6L19 6.8"
-          stroke="#4B7A5E"
-          strokeWidth={2.2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </Svg>
-    );
-  }
-  return (
-    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-      <Rect x={8.5} y={8.5} width={11} height={11} rx={2.2} stroke="#453F4E" strokeWidth={1.7} />
-      <Path
-        d="M15 8.5V6.7a2.2 2.2 0 0 0-2.2-2.2H6.7a2.2 2.2 0 0 0-2.2 2.2v6.1a2.2 2.2 0 0 0 2.2 2.2h1.8"
-        stroke="#453F4E"
-        strokeWidth={1.7}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
 
 export default function IngredientList() {
   // `tab` arrives from the product screen's pore-clogging list, which deep
