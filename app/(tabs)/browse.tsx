@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Chip } from "@/components/Chip";
@@ -8,7 +8,7 @@ import { AppHeader, HEADER_GUTTER, ProfilePill } from "@/components/AppHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
 import { Text } from "@/components/Text";
-import { fetchProducts } from "@/data/api";
+import { fetchProducts, searchProducts } from "@/data/api";
 import type { ProductType, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { matchProduct } from "@/lib/matching";
@@ -53,6 +53,15 @@ export default function Browse() {
   const [typeFilter, setTypeFilter] = useState<ProductType | "all">("all");
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
+  // Search overrides the type-filtered browse list entirely while active,
+  // the same way Search is its own mode on the Scan tab rather than a
+  // filter layered on top of Barcode. `searchResults` is null until a query
+  // of at least 2 characters has actually been searched.
+  const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<ProductWithIngredients[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const searchActive = query.trim().length >= 2;
+
   const profile = useAppStore((s) => s.profile);
   const compareIds = useAppStore((s) => s.compareIds);
 
@@ -84,6 +93,35 @@ export default function Browse() {
     setTypeFilter("all");
   }, [profile.area]);
 
+  // Debounced the same way the Scan tab's Search pane is: a query per
+  // keystroke would hammer the backend for nothing.
+  useEffect(() => {
+    if (!searchActive) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(() => {
+      searchProducts(query)
+        .then((found) => {
+          if (!cancelled) setSearchResults(found);
+        })
+        .catch((err) => {
+          console.warn("searchProducts failed:", err);
+          if (!cancelled) setSearchResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, searchActive]);
+
   const scored = useMemo(() => {
     if (!products) return null;
     const withScores = products.map((product) => ({
@@ -96,9 +134,22 @@ export default function Browse() {
     return [...withScores].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0));
   }, [products, profile, personalized]);
 
+  const scoredSearch = useMemo(() => {
+    if (!searchResults) return null;
+    const withScores = searchResults.map((product) => ({
+      product,
+      match: matchProduct(product, profile),
+    }));
+    if (!personalized) return withScores;
+    return [...withScores].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0));
+  }, [searchResults, profile, personalized]);
+
   return (
     <View className="flex-1 bg-canvas" style={{ paddingTop: insets.top }}>
-      <ScrollView contentContainerClassName="pb-28" stickyHeaderIndices={[1]}>
+      {/* The type-filter row is only the second child (index 1) when it is
+          actually rendered — it disappears entirely while a search is
+          active, so there is nothing to stick in that case. */}
+      <ScrollView contentContainerClassName="pb-28" stickyHeaderIndices={searchActive ? [] : [1]}>
         <View style={{ gap: 18, paddingBottom: 8 }}>
           {/* The same masthead the scanner draws — same mark, same wordmark,
               same strapline, same size and colour. It used to be written out
@@ -110,33 +161,48 @@ export default function Browse() {
               tiles — redundant once the tab bar already puts all three one
               tap away, and the profile chip in the header above covers
               "who am I browsing as" on its own. */}
-          <View style={{ paddingHorizontal: HEADER_GUTTER }}>
-            <Text className="text-[11.5px] text-ink-muted">
-              {personalized
-                ? `Ranked for ${profileSummary(profile).toLowerCase()}`
-                : "No profile yet - showing unsorted results"}
-            </Text>
+          <View style={{ paddingHorizontal: HEADER_GUTTER, gap: 10 }}>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search products or brands"
+              placeholderTextColor={COLORS.inkFaint}
+              autoCorrect={false}
+              className="rounded-control border border-hairline bg-surface px-4 py-3 text-[13px] text-ink"
+            />
+            {!searchActive && (
+              <Text className="text-[11.5px] text-ink-muted">
+                {personalized
+                  ? `Ranked for ${profileSummary(profile).toLowerCase()}`
+                  : "No profile yet - showing unsorted results"}
+              </Text>
+            )}
           </View>
         </View>
 
-        <View style={{ paddingBottom: 16 }} className="bg-canvas">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8, paddingHorizontal: HEADER_GUTTER, paddingTop: 10 }}
-          >
-            {typeFilters.map((type) => (
-              <Chip
-                key={type}
-                label={TYPE_LABEL[type]}
-                selected={typeFilter === type}
-                onPress={() => setTypeFilter(type)}
-              />
-            ))}
-          </ScrollView>
-        </View>
+        {/* Search replaces the type-filtered browse list entirely while
+            active, the same way Search is its own mode on the Scan tab
+            rather than a filter layered on top of Barcode. */}
+        {!searchActive && (
+          <View style={{ paddingBottom: 16 }} className="bg-canvas">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, paddingHorizontal: HEADER_GUTTER, paddingTop: 10 }}
+            >
+              {typeFilters.map((type) => (
+                <Chip
+                  key={type}
+                  label={TYPE_LABEL[type]}
+                  selected={typeFilter === type}
+                  onPress={() => setTypeFilter(type)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
-        {!personalized && !bannerDismissed && (
+        {!searchActive && !personalized && !bannerDismissed && (
           <View className="mx-5 mt-3 flex-row items-center gap-2 rounded-card bg-tint-lilac px-4 py-3">
             <Pressable onPress={() => router.push("/profile")} className="flex-1">
               <Text className="text-sm font-semibold text-accent-text">
@@ -149,7 +215,29 @@ export default function Browse() {
           </View>
         )}
 
-        {error ? (
+        {searchActive ? (
+          searching ? (
+            <View className="items-center justify-center py-24">
+              <ActivityIndicator color={COLORS.accent} />
+            </View>
+          ) : scoredSearch === null || scoredSearch.length === 0 ? (
+            <View className="items-center gap-2 px-10 pt-20">
+              <Text className="text-center font-display text-lg text-ink">
+                We don&apos;t have this product in our library yet.
+              </Text>
+              <Text className="text-center text-[13px] leading-[19px] text-ink-muted">
+                Try the Scan tab to scan its barcode or ingredients instead.
+              </Text>
+              <PrimaryButton label="Go to Scan" onPress={() => router.push("/")} />
+            </View>
+          ) : (
+            <View>
+              {scoredSearch.map(({ product, match }) => (
+                <ProductRow key={product.id} product={product} match={match} />
+              ))}
+            </View>
+          )
+        ) : error ? (
           <View className="items-center gap-3 px-8 py-24">
             <Text className="text-center text-ink-faint">
               Couldn&apos;t load products. Check your connection and try again.
