@@ -13,7 +13,6 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
@@ -144,6 +143,19 @@ export default function Scan() {
     }, [])
   );
 
+  // expo-router owns focus state itself as of SDK 56 - it no longer re-exports
+  // react-navigation, so this tracks focus the same way the effect above does
+  // rather than importing @react-navigation/native directly (that import now
+  // fails the bundler outright: "expo-router is no longer compatible with
+  // react-navigation").
+  const [isFocused, setIsFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, [])
+  );
+
   const handleBarcode = useCallback(
     async (data: string) => {
       if (busy.current) return;
@@ -186,7 +198,6 @@ export default function Scan() {
   // check `live` stayed true underneath, and the new screen's camera lost the
   // contest and rendered black, looking like a broken camera rather than a
   // second one that never got the hardware.
-  const isFocused = useIsFocused();
   const live = isFocused && mode === "Barcode" && status.kind === "idle" && permission?.granted;
 
   /*
