@@ -15,6 +15,7 @@
  * not shipped code, and this way they need no build step and no new devDeps.
  */
 
+import { pathToFileURL } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -83,19 +84,32 @@ function parseInci(text) {
     .map((inci_name, position) => ({ inci_name, position }));
 }
 
-function guessType(tags, text) {
+/**
+ * Keep in step with `guessType` in supabase/functions/product-lookup — the
+ * two run on different runtimes (Node here, Deno there) so they cannot share
+ * a module, and a product typed one way at import and another way on a live
+ * scan is a real inconsistency, not a cosmetic one: `contactWeight` reads it.
+ *
+ * The patterns were English-only, which is why "Schuimende Reinigingsgel",
+ * "nettoyant moussant visage" and "Huile lavante" were all typed as serums
+ * and then scored as leave-on products.
+ */
+export function guessType(tags, text) {
   const hay = `${(tags ?? []).join(" ")} ${text}`.toLowerCase();
   const table = [
-    [/hand.?cream/, "hand-cream"],
-    [/body.?(wash|gel)|shower/, "body-wash"],
-    [/body.?(lotion|milk|butter)/, "body-lotion"],
-    [/cleanser|foam|cleansing|micellar/, "cleanser"],
-    [/sun|spf|uv/, "sunscreen"],
-    [/toner|tonic/, "toner"],
+    [/hand.?cream|crème mains|handcreme/, "hand-cream"],
+    [/body.?(wash|gel)|shower|douche|duschgel/, "body-wash"],
+    [/body.?(lotion|milk|butter)|body ?lotion|lait corporel/, "body-lotion"],
+    [
+      /cleanser|foam|cleansing|micellar|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
+      "cleanser",
+    ],
+    [/sun|spf|uv|solaire|zonnebrand/, "sunscreen"],
+    [/toner|tonic|lotion tonique/, "toner"],
     [/essence/, "essence"],
     [/ampoule/, "ampoule"],
-    [/serum/, "serum"],
-    [/cream|moisturi[sz]er|lotion|emulsion/, "moisturizer"],
+    [/serum|sérum/, "serum"],
+    [/cream|moisturi[sz]er|lotion|emulsion|crème|creme|crema|gezichtscrème/, "moisturizer"],
   ];
   for (const [re, type] of table) if (re.test(hay)) return type;
   return "serum";
@@ -220,7 +234,14 @@ async function main() {
   console.log(`\nWrote ${all.length} products and ${joins.length} ingredient links.`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only run when executed directly (`node scripts/import-obf.mjs`), not when
+// a test imports guessType from this module — __tests__/guess-type.test.ts
+// does exactly that, and without this guard, importing the file for its
+// pure functions triggered a real live fetch (and, with the right env vars
+// set, a real Supabase write) as a side effect of running `npm test`.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
