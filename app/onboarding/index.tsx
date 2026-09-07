@@ -8,39 +8,31 @@ import { Text } from "@/components/Text";
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
-const HERO = require("@/assets/illustrations/illustration-22.png");
+const HERO_BASE = require("@/assets/illustrations/onboarding/hero-base.png");
+const HERO_ARM = require("@/assets/illustrations/onboarding/hero-arm.png");
+const HERO_SPARKLES = require("@/assets/illustrations/onboarding/hero-sparkles.png");
+const SCAN_BASE = require("@/assets/illustrations/onboarding/scan-base.png");
+const SCAN_BARCODE = require("@/assets/illustrations/onboarding/scan-barcode.png");
+const SCAN_SPARKLE = require("@/assets/illustrations/onboarding/scan-sparkle.png");
+const ANALYZE_PAPER = require("@/assets/illustrations/onboarding/analyze-paper.png");
+const ANALYZE_MAGNIFIER = require("@/assets/illustrations/onboarding/analyze-magnifier.png");
+const KNOW_BASE = require("@/assets/illustrations/onboarding/know-base.png");
+const KNOW_CHECKMARK = require("@/assets/illustrations/onboarding/know-checkmark.png");
+const KNOW_SPARKLE = require("@/assets/illustrations/onboarding/know-sparkle.png");
 
-const FEATURES: { source: number; label: string; aspectRatio: number }[] = [
-  { source: require("@/assets/illustrations/illustration-25.png"), label: "Scan", aspectRatio: 533 / 446 },
-  { source: require("@/assets/illustrations/illustration-40.png"), label: "Analyze", aspectRatio: 460 / 418 },
-  { source: require("@/assets/illustrations/illustration-30.png"), label: "Know", aspectRatio: 391 / 410 },
-];
+const ABS_FILL = { position: "absolute", width: "100%", height: "100%" } as const;
 
 /**
  * Welcome — the first screen of the app, from
- * `assets/design_handoff_manassa_onboarding` (`onboarding.html`). Replaces
- * the earlier Ellow-branded Welcome screen.
- *
- * Two load-bearing details from the handoff, kept exactly as measured:
- *
- * - The 54px gap between the wordmark block and the icon row is fixed, not
- *   a third `flex:1` spacer. An earlier revision split the leftover height
- *   three ways and opened a ~170px void there — wider than the gap above
- *   the hero, which read as a bug. All the elastic air lives in the two
- *   spacers above and below instead, weighted 1 : 1.4 so the CTA gets more
- *   breathing room than the hero does.
- * - The icon row sits in a fixed 72px-tall, bottom-aligned box per icon.
- *   The three illustrations have different aspect ratios (1.21 / 1.11 /
- *   0.95); sized by width alone they'd land at three different heights and
- *   put "Scan" / "Analyze" / "Know" on three different baselines.
- *
- * Muted text uses `#96605A` rather than the handoff's literal `#9B665B` —
- * both are used for it in the handoff, but only `#96605A` clears 4.5:1 body
- * text contrast against the canvas (4.68:1 vs 4.34:1), and the handoff
- * calls the swap "visually indistinguishable". The button fill's low
- * contrast against the canvas (1.51:1) is left as specified — the handoff
- * flags a hairline border as the fix but says that call belongs to the
- * designer, since it departs from the "no border, no shadow" spec.
+ * `design_handoff_manassa_onboarding_animated` (`onboarding.html`), laid out
+ * and asset-complete but deliberately **static for now**: an animated build
+ * of this same screen (Reanimated-driven hero lean/arm swing/sparkle fades,
+ * a scan sweep, a pulsing checkmark) caused the app to exit outright in Expo
+ * Go, with no JS-catchable error to diagnose from. That investigation is
+ * parked rather than blocking the rest of the app — this static version uses
+ * the same final layout and the same eleven layered PNGs (they were built
+ * for the animated version but read here as plain stacked images), so
+ * nothing about the visual design is lost, only the motion.
  */
 export default function Welcome() {
   const insets = useSafeAreaInsets();
@@ -60,73 +52,56 @@ export default function Welcome() {
       <View style={{ flex: 1, minHeight: Math.max(20, insets.top) }} />
 
       <View style={{ alignItems: "center", paddingHorizontal: 24 }}>
-        <Image
-          source={HERO}
-          style={{ width: "100%", maxWidth: 300, aspectRatio: 637 / 541 }}
-          contentFit="contain"
-          accessibilityLabel=""
-        />
+        <View style={{ width: "100%", maxWidth: 300, aspectRatio: 637 / 541 }}>
+          <Image source={HERO_BASE} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
+          <Image source={HERO_ARM} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
+          <Image source={HERO_SPARKLES} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
+        </View>
       </View>
 
       <View style={{ alignItems: "center", gap: 12, paddingHorizontal: 24, paddingTop: 22 }}>
-        <Text
-          style={{
-            fontFamily: "PlayfairDisplay_500Medium",
-            fontSize: 40,
-            lineHeight: 40,
-            letterSpacing: 40 * -0.018,
-            color: "#5A342C",
-          }}
-        >
+        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 40, color: "#5A342C" }}>
           Manassa
         </Text>
-        <Text
-          style={{
-            fontSize: 15,
-            fontWeight: "400",
-            lineHeight: 22.5,
-            color: "#96605A",
-            textAlign: "center",
-          }}
-        >
+        <Text style={{ fontSize: 15, color: "#96605A", textAlign: "center" }}>
           Find your skin’s perfect match
         </Text>
       </View>
 
-      {/* Fixed, not elastic — see the module doc comment. */}
       <View style={{ height: 54 }} />
 
-      <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 24 }}>
-        {FEATURES.map(({ source, label, aspectRatio }) => (
-          <View key={label} style={{ flex: 1, alignItems: "center", gap: 10, minWidth: 0 }}>
-            <View
-              style={{
-                height: 72,
-                width: "100%",
-                alignItems: "center",
-                justifyContent: "flex-end",
-              }}
-            >
-              <Image
-                source={source}
-                style={{ height: 72, maxWidth: "100%", aspectRatio }}
-                contentFit="contain"
-                accessibilityLabel=""
-              />
+      <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 24 }}>
+        <View style={{ alignItems: "center", gap: 10 }}>
+          <View style={{ height: 84, width: "100%", alignItems: "center", justifyContent: "center" }}>
+            <View style={{ width: 98.5, height: 82.4 }}>
+              <Image source={SCAN_BASE} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
+              <Image source={SCAN_BARCODE} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
+              <Image source={SCAN_SPARKLE} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
             </View>
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: "600",
-                letterSpacing: 12 * -0.004,
-                color: "#5A342C",
-                textAlign: "center",
-              }}
-            >
-              {label}
-            </Text>
           </View>
-        ))}
+          <Text style={{ fontSize: 12, fontWeight: "600", color: "#5A342C" }}>Scan</Text>
+        </View>
+
+        <View style={{ alignItems: "center", gap: 10 }}>
+          <View style={{ height: 84, width: "100%", alignItems: "center", justifyContent: "center" }}>
+            <View style={{ width: 78, height: 70.9 }}>
+              <Image source={ANALYZE_PAPER} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
+              <Image source={ANALYZE_MAGNIFIER} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
+            </View>
+          </View>
+          <Text style={{ fontSize: 12, fontWeight: "600", color: "#5A342C" }}>Analyze</Text>
+        </View>
+
+        <View style={{ alignItems: "center", gap: 10 }}>
+          <View style={{ height: 84, width: "100%", alignItems: "center", justifyContent: "center" }}>
+            <View style={{ width: 56, height: 58.7 }}>
+              <Image source={KNOW_BASE} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
+              <Image source={KNOW_CHECKMARK} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
+              <Image source={KNOW_SPARKLE} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
+            </View>
+          </View>
+          <Text style={{ fontSize: 12, fontWeight: "600", color: "#5A342C" }}>Know</Text>
+        </View>
       </View>
 
       <View style={{ flex: 1.4, minHeight: 28 }} />
@@ -135,13 +110,13 @@ export default function Welcome() {
         <Pressable
           onPress={scanFirstProduct}
           accessibilityRole="button"
-          style={({ pressed }) => ({
+          style={{
             minHeight: 50,
             borderRadius: 26,
-            backgroundColor: pressed ? "#E8AC8E" : "#F2BFA6",
+            backgroundColor: "#F2BFA6",
             alignItems: "center",
             justifyContent: "center",
-          })}
+          }}
         >
           <Text style={{ fontSize: 15, fontWeight: "500", color: "#5A342C" }}>
             Scan my first product
@@ -150,12 +125,7 @@ export default function Welcome() {
         <Pressable
           onPress={setUpProfileFirst}
           accessibilityRole="button"
-          style={({ pressed }) => ({
-            minHeight: 44,
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: pressed ? 0.6 : 1,
-          })}
+          style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}
         >
           <Text style={{ fontSize: 13.5, fontWeight: "500", color: "#96605A", textAlign: "center" }}>
             Set up my skin profile first

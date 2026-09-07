@@ -1,11 +1,7 @@
-import { router } from "expo-router";
 import type { ReactNode } from "react";
-import { Pressable, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import { View } from "react-native";
 
-import { Avatar } from "@/components/Avatar";
 import { LogoMark } from "@/components/LogoMark";
-import { Text } from "@/components/Text";
 import { Eyebrow, Wordmark } from "@/components/Wordmark";
 
 /**
@@ -44,57 +40,5 @@ export function AppHeader({ right }: { right?: ReactNode }) {
 
       {right}
     </View>
-  );
-}
-
-/**
- * The profile pill on the right of the masthead. It shrinks and its text column
- * flexes, so a long profile summary wraps inside the pill instead of pushing it
- * off the screen.
- */
-export function ProfilePill({ summary }: { summary: string }) {
-  return (
-    <Pressable
-      onPress={() => router.push("/profile")}
-      accessibilityRole="button"
-      accessibilityLabel="Your skin profile"
-      style={{
-        height: 52,
-        flexShrink: 1,
-        maxWidth: 186,
-        paddingHorizontal: 10,
-        gap: 9,
-        flexDirection: "row",
-        alignItems: "center",
-      }}
-      className="rounded-full bg-tint-lilac"
-    >
-      <Avatar size={30} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text
-          className="font-semibold text-[#736C7F]"
-          style={{ fontSize: 7.5, letterSpacing: 0.98 }}
-          numberOfLines={1}
-        >
-          YOUR SKIN PROFILE
-        </Text>
-        <Text
-          className="text-[#413B4B]"
-          style={{ fontSize: 9.5, lineHeight: 12.5 }}
-          numberOfLines={2}
-        >
-          {summary || "No profile yet - tap to start"}
-        </Text>
-      </View>
-      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-        <Path
-          d="m9 5 7 7-7 7"
-          stroke="#5C5566"
-          strokeWidth={2.2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </Svg>
-    </Pressable>
   );
 }

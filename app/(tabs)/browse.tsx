@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from "react
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Chip } from "@/components/Chip";
-import { AppHeader, HEADER_GUTTER, ProfilePill } from "@/components/AppHeader";
+import { AppHeader, HEADER_GUTTER } from "@/components/AppHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
 import { Text } from "@/components/Text";
@@ -155,12 +155,14 @@ export default function Browse() {
               same strapline, same size and colour. It used to be written out
               again here a few points smaller and in a different ink, so the
               top of the app resized itself as you moved between tabs. */}
-          <AppHeader right={<ProfilePill summary={profileSummary(profile)} />} />
+          <AppHeader />
 
           {/* Scan, Saved and Profile used to repeat here as quick-action
               tiles — redundant once the tab bar already puts all three one
-              tap away, and the profile chip in the header above covers
-              "who am I browsing as" on its own. */}
+              tap away. The profile pill that used to sit in the header above
+              is gone too (same reason: the Profile tab already covers "who
+              am I browsing as"), so that's carried by the "Ranked for…" line
+              below instead. */}
           <View style={{ paddingHorizontal: HEADER_GUTTER, gap: 10 }}>
             <TextInput
               value={query}
