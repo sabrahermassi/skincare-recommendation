@@ -94,6 +94,21 @@ export type MatchResult = {
    */
   confidence: number;
   /**
+   * What the score is made of, for the "why this score" explanation. Each
+   * fit is 0–100 with 50 meaning "nothing either way"; each penalty is the
+   * points it removed. `concernFit` is null when the user named no concerns.
+   *
+   * Exposed because the screen was previously reduced to naming categories
+   * ("hydration, fragrance") — it could say which direction a factor pushed
+   * but never how much, or which of the two mattered more.
+   */
+  breakdown: {
+    concernFit: number | null;
+    typeFit: number;
+    irritationPenalty: number;
+    porePenalty: number;
+  };
+  /**
    * Why `verdict` is "unknown" — `undefined` otherwise. The two remaining
    * cases need different copy and cannot be told apart from `coverage` alone:
    * an unpersonalised profile can still show high coverage, because coverage
@@ -200,6 +215,7 @@ export function matchProduct(
     factors: [],
     coverage,
     confidence: 0,
+    breakdown: { concernFit: null, typeFit: 50, irritationPenalty: 0, porePenalty: 0 },
     unknownReason,
   });
 
@@ -388,18 +404,33 @@ export function matchProduct(
     score: finalScore,
     verdict: verdictFor(finalScore, hazards.length),
     warnings,
-    // Capped for the "Why" list, which is a readable summary…
-    reasons: reasons.slice(0, 6),
+    // Capped for the "Why" list, which is a readable summary — per direction,
+    // not globally: a global top-6 by magnitude could let six positives crowd
+    // out a real negative (or the reverse), so the "why" would go quiet on a
+    // genuine concern the product actually has.
+    reasons: capReasonsPerDirection(reasons, 3),
     // …but the bars aggregate every contribution, or they would under-report
     // a factor made of many small effects.
     factors: buildFactors(reasons),
     coverage,
     confidence: confidenceFor(coverage, scored),
+    breakdown: { concernFit, typeFit, irritationPenalty, porePenalty },
   };
 }
 
 function bump(map: Map<Concern, number>, key: Concern, by: number) {
   map.set(key, (map.get(key) ?? 0) + by);
+}
+
+/**
+ * Caps `reasons` (already sorted by absolute effect, strongest first) to `n`
+ * per direction rather than `2n` overall, then re-sorts the survivors so the
+ * single strongest reason — whichever direction it favours — still leads.
+ */
+function capReasonsPerDirection(reasons: MatchReason[], n: number): MatchReason[] {
+  const positive = reasons.filter((r) => r.effect > 0).slice(0, n);
+  const negative = reasons.filter((r) => r.effect < 0).slice(0, n);
+  return [...positive, ...negative].sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect));
 }
 
 const IRRITANT_CATEGORIES = new Set<RuleCategory>(["fragrance", "alcohol", "irritants"]);
@@ -479,6 +510,85 @@ export function verdictHeadline(result: MatchResult): string {
  * `verdictFor` rather than from their own. Excellent and good share a tone —
  * a badge has one colour to spend and both are "yes".
  */
+/**
+ * The score explanation, in words — one line per thing that actually moved
+ * the number, strongest first.
+ *
+ * Lives here rather than in the screen so the sentences and the arithmetic
+ * cannot drift apart. The screen used to derive its own summary from category
+ * labels, which meant it could name a direction but never a magnitude, and it
+ * had no way to say which of two factors mattered more.
+ */
+export type ScoreLine = { label: string; detail: string; direction: "up" | "down" };
+
+export function scoreExplanation(result: MatchResult): ScoreLine[] {
+  if (result.score === null) return [];
+  const { concernFit, typeFit, irritationPenalty, porePenalty } = result.breakdown;
+  const lines: (ScoreLine & { weight: number })[] = [];
+
+  if (concernFit !== null) {
+    const above = concernFit - 50;
+    lines.push({
+      label: "Your concerns",
+      detail:
+        above > 8
+          ? "This formula works on what you asked about"
+          : above < -8
+            ? "This formula works against what you asked about"
+            : "Little here speaks to what you asked about",
+      direction: above >= 0 ? "up" : "down",
+      // FIT_LEVER included: the score applies it to `fit` as a whole, so a
+      // fit line's real weight in final-score points is FIT_LEVER * 0.7, not
+      // bare 0.7 — the penalty lines below are already in final-score points,
+      // and this line has to be comparable to them for the sort to be honest.
+      weight: Math.abs(above) * FIT_LEVER * 0.7,
+    });
+  }
+
+  const typeAbove = typeFit - 50;
+  if (Math.abs(typeAbove) > 4) {
+    lines.push({
+      label: "Your skin type",
+      detail: typeAbove > 0 ? "Suits how your skin behaves" : "Not built for your skin type",
+      direction: typeAbove > 0 ? "up" : "down",
+      weight: Math.abs(typeAbove) * FIT_LEVER * 0.3,
+    });
+  }
+
+  if (irritationPenalty > 1) {
+    lines.push({
+      label: "Irritation risk",
+      detail: "Contains ingredients that commonly cause reactions",
+      direction: "down",
+      weight: irritationPenalty,
+    });
+  }
+
+  if (porePenalty > 1) {
+    lines.push({
+      label: "Pore-clogging risk",
+      detail: "Contains ingredients associated with congestion",
+      direction: "down",
+      weight: porePenalty,
+    });
+  }
+
+  return lines
+    .sort((a, b) => b.weight - a.weight)
+    .map(({ label, detail, direction }) => ({ label, detail, direction }));
+}
+
+/**
+ * How much to say about `confidence` on screen. Deliberately three words
+ * rather than a percentage: the number is a heuristic, and showing "62%
+ * confident" implies a precision it does not have.
+ */
+export function confidenceLabel(confidence: number): "high" | "moderate" | "low" {
+  if (confidence >= 0.75) return "high";
+  if (confidence >= 0.5) return "moderate";
+  return "low";
+}
+
 export function matchTone(score: number): "high" | "medium" | "low" {
   if (score >= SCORE_BANDS.good) return "high";
   if (score >= SCORE_BANDS.fair) return "medium";
