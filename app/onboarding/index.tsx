@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
+import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -45,6 +46,12 @@ const FEATURES: { source: number; label: string; aspectRatio: number }[] = [
 export default function Welcome() {
   const insets = useSafeAreaInsets();
   const skipOnboarding = useAppStore((s) => s.skipOnboarding);
+  // Press state as local state feeding a plain style object, not a
+  // function-valued `style` prop on Pressable — that shape trips
+  // NativeWind's prop interop on this project (see CLAUDE.md) and silently
+  // drops every style in it, which is exactly why this button was invisible.
+  const [primaryPressed, setPrimaryPressed] = useState(false);
+  const [secondaryPressed, setSecondaryPressed] = useState(false);
 
   function scanFirstProduct() {
     skipOnboarding();
@@ -134,14 +141,16 @@ export default function Welcome() {
       <View style={{ paddingHorizontal: 24, paddingBottom: Math.max(32, insets.bottom + 16), gap: 4 }}>
         <Pressable
           onPress={scanFirstProduct}
+          onPressIn={() => setPrimaryPressed(true)}
+          onPressOut={() => setPrimaryPressed(false)}
           accessibilityRole="button"
-          style={({ pressed }) => ({
+          style={{
             minHeight: 50,
             borderRadius: 26,
-            backgroundColor: pressed ? "#E8AC8E" : "#F2BFA6",
+            backgroundColor: primaryPressed ? "#E8AC8E" : "#F2BFA6",
             alignItems: "center",
             justifyContent: "center",
-          })}
+          }}
         >
           <Text style={{ fontSize: 15, fontWeight: "500", color: "#5A342C" }}>
             Scan my first product
@@ -149,13 +158,15 @@ export default function Welcome() {
         </Pressable>
         <Pressable
           onPress={setUpProfileFirst}
+          onPressIn={() => setSecondaryPressed(true)}
+          onPressOut={() => setSecondaryPressed(false)}
           accessibilityRole="button"
-          style={({ pressed }) => ({
+          style={{
             minHeight: 44,
             alignItems: "center",
             justifyContent: "center",
-            opacity: pressed ? 0.6 : 1,
-          })}
+            opacity: secondaryPressed ? 0.6 : 1,
+          }}
         >
           <Text style={{ fontSize: 13.5, fontWeight: "500", color: "#96605A", textAlign: "center" }}>
             Set up my skin profile first
