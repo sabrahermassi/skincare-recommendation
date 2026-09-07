@@ -33,7 +33,7 @@ import { useAppStore } from "@/store/useAppStore";
  *
  * The camera is a card, not the whole screen. That leaves room for the profile
  * and for what you already scanned in this shop, and it means the permission
- * prompt is not the first thing that happens after five quiz questions.
+ * prompt is not the first thing that happens after three quiz questions.
  */
 
 /**

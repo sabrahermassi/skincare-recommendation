@@ -117,7 +117,7 @@ No personalization questionnaire is required before scanning.
 
 Flow:
 
-**Welcome → Personalize My Results → Age → Skin Concerns → Skin Type → Sensitivity → Scanner**
+**Welcome → Personalize My Results → Skin Concerns → Skin Type → Sensitivity → Scanner**
 
 The scanner opens **immediately after the Sensitivity page**.
 
@@ -135,18 +135,16 @@ A subtle progress indicator is allowed during onboarding.
 
 Personalized onboarding collects exactly:
 
-1. Age
-2. Skin concerns
-3. Skin type
-4. Skin sensitivity
+1. Skin concerns
+2. Skin type
+3. Skin sensitivity
 
 ## Age
 
-Age remains in the MVP.
-
-The exact input format and exact way age affects scoring are **TBD until the existing code and scoring algorithm are audited**.
-
-Do not invent an age-scoring rule before reviewing the implementation.
+Age is **not** collected. It was evaluated and dropped: the field used to be
+collected, stored, and read by nothing, so it implied a personalisation the
+app never delivered. See `CLAUDE.md`'s "Personalization / Skin Profile"
+section. Do not reintroduce an age question or an age-scoring rule.
 
 ## Skin type
 
@@ -739,7 +737,6 @@ Specifically inspect:
 - skin-type logic;
 - concern logic;
 - sensitivity logic;
-- age handling;
 - positive ingredient handling;
 - negative ingredient handling;
 - pore-clogging logic;
@@ -758,7 +755,7 @@ The score must be:
 
 ### Age
 
-The exact effect of age on the score is **TBD until the existing implementation is reviewed**.
+Not applicable — age is not collected (see §7).
 
 ---
 
@@ -878,7 +875,6 @@ Skintel is ready to move toward launch when a new user can reliably:
 1. Open the app.
 2. Choose Quick Scan or Personalize.
 3. If personalizing, answer:
-   - Age;
    - Skin concerns;
    - Skin type;
    - Sensitivity.
@@ -932,11 +928,6 @@ Ensure the product handles user data appropriately and does not make unsupported
 
 Only implementation/code-review questions remain open.
 
-## Age
-
-- Exact input format: TBD if not already finalized in the implementation.
-- Exact effect on scoring: TBD until scoring is audited.
-
 ## Barcode implementation
 
 The exact barcode library/SDK must be determined by inspecting the existing codebase.
@@ -953,7 +944,7 @@ Audit the current ingredient data sources and coverage before deciding what must
 
 ## Scoring implementation
 
-Audit the current algorithm before deciding exact factor weights or age behavior.
+Audit the current algorithm before deciding exact factor weights.
 
 These are audit questions, not invitations to expand product scope.
 
