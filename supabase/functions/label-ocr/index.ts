@@ -339,11 +339,16 @@ const MAX_WINDOW_WORDS = 6;
 /**
  * Split a printed list on its separators. A comma directly between two digits
  * belongs to the name — "1,2-Hexanediol" is one ingredient, and splitting there
- * yields a bare "1" and a "2-hexanediol" that matches nothing. Kept in step
- * with `lib/inci.ts`.
+ * yields a bare "1" and a "2-hexanediol" that matches nothing. Both sides of
+ * the comma are checked, not just the one after — a lookahead alone let
+ * "Water,4-Terpineol" fuse into one token. Kept in step with `lib/inci.ts`.
  */
 function splitOnSeparators(text: string): string[] {
-  return text.split(/[;•·]|,(?!\d)/);
+  const PLACEHOLDER = "";
+  const protectedText = text.replace(/,(?=\d)/g, (match, offset: number) =>
+    offset > 0 && /\d/.test(text[offset - 1]) ? PLACEHOLDER : match
+  );
+  return protectedText.split(/[;•·]|,/).map((s) => s.replace(new RegExp(PLACEHOLDER, "g"), ","));
 }
 
 /**
