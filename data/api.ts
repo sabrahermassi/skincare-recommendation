@@ -3,7 +3,6 @@ import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@
 import { INGREDIENTS } from "./ingredients";
 import { PRODUCTS } from "./products";
 import type {
-  BodyArea,
   Ingredient,
   Product,
   ProductType,
@@ -94,7 +93,6 @@ type CatalogueRow = {
   brand: string;
   name: string;
   type: string;
-  area: string;
   description: string | null;
   image_url: string | null;
   volume: string | null;
@@ -118,7 +116,7 @@ type CatalogueRow = {
 };
 
 const SELECT = `
-  id, barcode, brand, name, type, area, description, image_url, volume,
+  id, barcode, brand, name, type, description, image_url, volume,
   price_krw, in_stock, suitable_for, targets, attribution, fetched_at,
   product_ingredients ( position, ingredients ( inci_name, comedogenic, safety, note, verified, functions ) )
 `;
@@ -157,7 +155,6 @@ function rowToProduct(row: CatalogueRow): ProductWithIngredients {
     // Real catalogue rows don't carry a packaging shape yet, so it's derived
     // from the merchandising type they do have.
     productType: defaultPackagingType(row.type as ProductType),
-    area: row.area as BodyArea,
     price: row.price_krw ?? 0,
     volume: row.volume ?? "",
     suitableFor: row.suitable_for as ProductWithIngredients["suitableFor"],
@@ -178,7 +175,6 @@ function rowToProduct(row: CatalogueRow): ProductWithIngredients {
 
 export type ProductFilters = {
   type?: ProductType | "all";
-  area?: BodyArea;
 };
 
 /**
@@ -190,21 +186,18 @@ export type ProductFilters = {
 export async function fetchProducts(
   filters: ProductFilters = {}
 ): Promise<ProductWithIngredients[]> {
-  const { type = "all", area } = filters;
+  const { type = "all" } = filters;
 
   if (usingSupabase()) {
     let query = supabase!.from("products").select(SELECT);
     if (type !== "all") query = query.eq("type", type);
-    if (area) query = query.eq("area", area);
 
     const { data, error } = await query;
     if (error) throw new Error(`fetchProducts: ${error.message}`);
     return (data as unknown as CatalogueRow[]).map(rowToProduct);
   }
 
-  const results = PRODUCTS.filter((p) => type === "all" || p.type === type)
-    .filter((p) => !area || p.area === area)
-    .map(resolveIngredients);
+  const results = PRODUCTS.filter((p) => type === "all" || p.type === type).map(resolveIngredients);
   return delay(results);
 }
 
@@ -225,7 +218,7 @@ export async function fetchProduct(
   return delay(product ? resolveIngredients(product) : null);
 }
 
-/** Used by the compare and saved screens, which need several at once. */
+/** Used by the saved screen, which needs several at once. */
 export async function fetchProductsByIds(
   ids: string[]
 ): Promise<ProductWithIngredients[]> {

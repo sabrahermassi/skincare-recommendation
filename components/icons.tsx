@@ -33,29 +33,3 @@ export function HeartIcon({
     </Svg>
   );
 }
-
-/**
- * Compare. The design has no compare entry point — it dropped the grid card
- * that used to carry one — so this glyph is ours, drawn to match the weight
- * and cap height of the design's own stroked icons rather than the "⇄"
- * character it replaced.
- */
-export function CompareIcon({
-  size = 19,
-  color = COLORS.ink,
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 8.5h13.5M14 5l3.5 3.5L14 12M20 15.5H6.5M10 12 6.5 15.5 10 19"
-        stroke={color}
-        strokeWidth={1.7}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}

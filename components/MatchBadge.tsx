@@ -3,41 +3,23 @@ import { View } from "react-native";
 import { Text } from "@/components/Text";
 
 import { matchTone } from "@/lib/matching";
+import { SURFACE, VERDICT, withAlpha } from "@/lib/tokens";
 
 /**
  * A match score is a "should I buy this" signal, so it always carries a word
  * alongside the colour, never colour alone.
  *
- * Two registers, both drawn by the design. `solid` is white on the status ramp
- * and states the number itself — the standalone badge. `soft` is the tinted
- * pill the scanner's shelf uses, where the number is already set underneath it
- * in full-contrast ink and a solid block in every row reads as an alarm.
+ * Two registers. `solid` states the number itself on the verdict's full
+ * colour — the standalone badge. `soft` is the tinted pill a list row uses,
+ * where the number is already set underneath it in full-contrast ink and a
+ * solid block in every row would read as an alarm.
+ *
+ * NOTE: nothing imports this today. `ProductRow` and the Saved screen draw
+ * their own badge inline because each pairs it with a leading colour bar the
+ * badge knows nothing about. It is kept, and kept reading from `VERDICT`
+ * rather than its own copy of the ramp, so it cannot drift out of step with
+ * the screens that do the same job.
  */
-const TONE_BG = {
-  high: "bg-status-safe",
-  medium: "bg-status-caution",
-  low: "bg-status-watch",
-} as const;
-
-const SOFT_BG = {
-  high: "bg-level-good-tint",
-  medium: "bg-level-watch-tint",
-  low: "bg-level-watch-tint",
-} as const;
-
-const SOFT_INK = {
-  high: "text-level-good-ink",
-  medium: "text-level-watch-ink",
-  low: "text-level-watch-ink",
-} as const;
-
-const TONE_LABEL = {
-  high: "Great match",
-  medium: "Fair match",
-  low: "Poor match",
-} as const;
-
-/** Renders nothing when `score` is `null` — there is no profile to match against. */
 export function MatchBadge({
   score,
   variant = "solid",
@@ -47,21 +29,40 @@ export function MatchBadge({
 }) {
   if (score === null) return null;
 
-  const tone = matchTone(score);
+  const verdict = VERDICT[matchTone(score)];
 
   if (variant === "soft") {
     return (
-      <View className={`rounded-full px-2.5 py-[4.5px] ${SOFT_BG[tone]}`}>
-        <Text className={`text-[11px] font-medium ${SOFT_INK[tone]}`}>{TONE_LABEL[tone]}</Text>
+      <View
+        style={{
+          borderRadius: 999,
+          paddingHorizontal: 10,
+          paddingVertical: 4.5,
+          backgroundColor: verdict.tint,
+        }}
+      >
+        <Text style={{ fontSize: 11, fontWeight: "600", color: verdict.deep }}>
+          {verdict.label}
+        </Text>
       </View>
     );
   }
 
   return (
-    <View className={`flex-row items-center gap-1 rounded-chip px-2.5 py-1 ${TONE_BG[tone]}`}>
-      <Text className="text-xs font-bold tabular-nums text-white">{score}%</Text>
-      <Text style={{ color: "rgba(255,255,255,0.9)" }} className="text-[11px] font-medium">
-        · {TONE_LABEL[tone]}
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        backgroundColor: verdict.solid,
+      }}
+    >
+      <Text style={{ fontSize: 12, fontWeight: "700", color: SURFACE }}>{score}%</Text>
+      <Text style={{ fontSize: 11, fontWeight: "500", color: withAlpha(SURFACE, 0.9) }}>
+        · {verdict.label}
       </Text>
     </View>
   );

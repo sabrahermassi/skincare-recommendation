@@ -18,7 +18,7 @@ import {
   type IngredientRule,
   type RuleCategory,
 } from "./rules";
-import { contraindications, isVerified, type Contraindication } from "./safety";
+import { contraindications, formulaCoverage, isVerified, type Contraindication } from "./safety";
 
 /**
  * The verdict engine — fit minus penalties.
@@ -159,6 +159,13 @@ const CONCERN_SATURATION: Record<Concern, number> = {
   // Acne fit is carried by pore-clogging risk below, not by collecting
   // actives, so this only scales the bonus when a formula does contain them.
   "acne-prone": 4,
+  // Estimated, not measured against the catalogue like its siblings above —
+  // post-acne-marks is scored entirely by extending the hyperpigmentation
+  // and redness rules in lib/rules.ts (no dedicated evidence of its own), so
+  // this sits between those two saturation values rather than at a real
+  // 75th-percentile figure. Revisit once the catalogue has enough
+  // post-acne-marks-targeted formulas to measure properly.
+  "post-acne-marks": 7,
 };
 
 const TYPE_SATURATION = 12;
@@ -424,14 +431,14 @@ export function matchProduct(
  * `ingredients` off its argument, so this just supplies a neutral `type`
  * rather than duplicating the scoring logic.
  *
- * "serum" defaults to full contact weight (`contactWeight` only discounts
+ * "unknown" defaults to full contact weight (`contactWeight` only discounts
  * cleanser/body-wash): a pasted list's actual contact time is unknown, and
  * assuming full exposure is the conservative choice for a watch-outs screen.
  */
 export function matchIngredients(
   ingredients: Ingredient[],
   profile: SkinProfile,
-  type: ProductType = "serum"
+  type: ProductType = "unknown"
 ): MatchResult {
   return matchProduct({ type, ingredients }, profile);
 }
@@ -462,12 +469,6 @@ const FUNCTION_REASON: Partial<Record<RuleCategory, string>> = {
  */
 export function confidenceFor(coverage: number, scoredIngredients: number): number {
   return Math.max(0, Math.min(1, 0.55 * coverage + 0.45 * Math.min(1, scoredIngredients / 8)));
-}
-
-/** Share of the ingredient list we could identify. */
-export function formulaCoverage(ingredients: Ingredient[]): number {
-  if (ingredients.length === 0) return 0;
-  return ingredients.filter(isVerified).length / ingredients.length;
 }
 
 function findRule(ingredient: Ingredient): IngredientRule | undefined {

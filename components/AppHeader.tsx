@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { View } from "react-native";
 
-import { LogoMark } from "@/components/LogoMark";
 import { Eyebrow, Wordmark } from "@/components/Wordmark";
 
 /**
@@ -11,6 +10,11 @@ import { Eyebrow, Wordmark } from "@/components/Wordmark";
  * size, different colour, a mono strapline on one and none on the other — so
  * the top of the app resized and recoloured itself as you moved between tabs.
  * It is one component now and takes no size props: that is the point.
+ *
+ * No app-mark icon any more — just the wordmark and the strapline. The
+ * bracket-and-dropper glyph (`components/LogoMark.tsx`) was the "SkinTell"
+ * mark specifically and didn't carry over to Manassa; deleted rather than
+ * recoloured, since nothing else referenced it.
  *
  * The gutter matches the content below it (26pt, the scanner's camera card),
  * so nothing in the header hangs off the edge of the screen.
@@ -31,10 +35,7 @@ export function AppHeader({ right }: { right?: ReactNode }) {
       }}
     >
       <View style={{ gap: 7, flexShrink: 1 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
-          <LogoMark size={30} />
-          <Wordmark size={26} />
-        </View>
+        <Wordmark size={26} />
         <Eyebrow size={8.5} />
       </View>
 

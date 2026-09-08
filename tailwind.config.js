@@ -131,11 +131,27 @@ module.exports = {
         // AA for body text at the 11px the design sets them. Pills always
         // carry a word, and the row states the same thing in `ink` at full
         // contrast, so the pill is never the only channel.
+        //
+        // Values as of this pass are the *same* colours as `VERDICT` /
+        // `VERDICT_NEUTRAL` in lib/tokens.ts (good→high, watch→medium,
+        // avoid→low), not a parallel palette that happens to rhyme with it.
+        // This ramp used to be a separate, older "Skintel Screens" green/
+        // amber/pink set — legible on its own, but it meant the same "good
+        // for you" verdict was one colour on the score ring and a visibly
+        // different one on the ingredient list one tap later. `neutral`
+        // deliberately does NOT take `VERDICT_NEUTRAL.solid` (`LINE`,
+        // `#E4D3C8`) for its `DEFAULT`: that's a hairline-strength tone
+        // meant for borders, and the 8-9px "not recognised" dot and the
+        // ingredient-detail heart icon both draw from `DEFAULT` at icon
+        // scale, where `LINE` would be close to invisible against canvas.
+        // `MUTED` (`#6B5A54`, also `VERDICT_NEUTRAL.deep`) is the nearest
+        // token that stays legible there while still reading as "neutral,
+        // not a verdict."
         level: {
-          good: { DEFAULT: "#6FA783", tint: "#E7F1E9", ink: "#4E7A5F" },
-          watch: { DEFAULT: "#E2A45E", tint: "#FBEBD5", ink: "#A9713C" },
-          neutral: { DEFAULT: "#C3BDC7", tint: "#EFEBE6", ink: "#797280" },
-          avoid: { DEFAULT: "#DE7E93", tint: "#FBE2E7", ink: "#A4526A" },
+          good: { DEFAULT: "#3E7D5A", tint: "#DCEBE0", ink: "#2E5F44" },
+          watch: { DEFAULT: "#C2662B", tint: "#FAE3CE", ink: "#8F4A1C" },
+          neutral: { DEFAULT: "#6B5A54", tint: "#F1EAE4", ink: "#6B5A54" },
+          avoid: { DEFAULT: "#B23A32", tint: "#F7D9D5", ink: "#8C2A24" },
         },
 
         // A calm affirmative panel, distinct from `tint-mint`: it carries a

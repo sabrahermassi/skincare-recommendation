@@ -23,9 +23,13 @@ export type Concern =
   | "fine-lines"
   | "large-pores"
   | "hyperpigmentation"
-  | "atopic";
-
-export type BodyArea = "face" | "body";
+  | "atopic"
+  // Post-inflammatory erythema/hyperpigmentation left behind by acne — its
+  // own concern rather than folded into `hyperpigmentation`/`redness`,
+  // because the quiz asks about it separately (design/DESIGN_SYSTEM.md's
+  // quiz spec). Scored by extending those two concerns' existing rules
+  // rather than new ingredient evidence — see lib/rules.ts.
+  | "post-acne-marks";
 
 /**
  * How reactive the user says their skin is. Three levels rather than a
@@ -36,18 +40,23 @@ export type BodyArea = "face" | "body";
 export type Sensitivity = "none" | "some" | "high";
 
 /**
+ * Pregnancy/breastfeeding status — the quiz's 4th question. Unlike the old
+ * gender/age fields this replaced the *idea* of (both "collected, stored,
+ * and read by nothing"), this one is read: `lib/safety.ts` flags retinoids,
+ * salicylic acid, hydroquinone and essential oils as a caution when the
+ * answer is "pregnant" or "breastfeeding" — see `lib/pregnancy-caution.ts`.
+ */
+export type Pregnancy = "pregnant" | "breastfeeding" | "neither" | "prefer-not-to-say";
+
+/**
  * The onboarding quiz's answers.
  *
  * Gender and age used to live here. Both were collected, stored, and read by
  * nothing — `matchProduct` never scored on either — so they implied a
  * personalisation the app did not deliver, and the MVP drops them.
  *
- * `area` is NOT an onboarding question any more, but the field stays: the
- * browse screen filters the catalogue on it (`app/(tabs)/browse.tsx`) and it
- * is still editable from the profile screen.
  */
 export type SkinProfile = {
-  area: BodyArea | null;
   concerns: Concern[];
   /** `null` is a real answer: the MVP's "I don't know" option. */
   baseSkinType: BaseSkinType | null;
@@ -57,6 +66,8 @@ export type SkinProfile = {
    * plus a separate answered flag would be two fields that can disagree.
    */
   sensitivity: Sensitivity | null;
+  /** `null` means unanswered — distinct from "neither" or "prefer-not-to-say". */
+  pregnancyStatus: Pregnancy | null;
 };
 
 export type ProductType =
@@ -69,7 +80,30 @@ export type ProductType =
   | "sunscreen"
   | "body-wash"
   | "body-lotion"
-  | "hand-cream";
+  | "hand-cream"
+  // A genuinely undetermined type — not a tenth category to browse by, a
+  // "we don't know" state. Both server-side type-guessers (the product-lookup
+  // Edge Function's `guessType`, the OCR Edge Function's identity fallback)
+  // used to default to "serum" whenever they couldn't tell, which is how a
+  // scanned foot cream ended up labelled "Serum" on screen: a wrong specific
+  // answer looks more true than an honest "we don't know", not less. Anything
+  // genuinely unidentified should say so rather than guess.
+  | "unknown";
+
+/** Human label for every `ProductType`, including the "we don't know" state. */
+export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
+  cleanser: "Cleanser",
+  toner: "Toner",
+  essence: "Essence",
+  serum: "Serum",
+  ampoule: "Ampoule",
+  moisturizer: "Moisturizer",
+  sunscreen: "Sunscreen",
+  "body-wash": "Body wash",
+  "body-lotion": "Body lotion",
+  "hand-cream": "Hand cream",
+  unknown: "Unknown",
+};
 
 /**
  * Which of the eight illustrated bottle shapes represents this product on
@@ -149,8 +183,6 @@ export type Product = {
   type: ProductType;
   /** Which bottle icon to draw — see `PackagingType`. */
   productType: PackagingType;
-  /** Face or body — matches the quiz's area question. */
-  area: BodyArea;
   /** Price in KRW. */
   price: number;
   volume: string;

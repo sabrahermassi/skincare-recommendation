@@ -1,10 +1,11 @@
 import type { Ingredient, SkinProfile } from "@/data/types";
+import { pregnancyCautionHits } from "./pregnancy-caution";
 import { isSensitive } from "./profile";
 
 /**
  * Single source of truth for ingredient risk. Previously this predicate was
- * copy-pasted into three screens, which meant the compare screen's "Flagged"
- * count could drift out of step with the detail screen's banner.
+ * copy-pasted across several screens, which let a "Flagged" count drift out
+ * of step with the detail screen's banner.
  */
 
 /** Comedogenic rating at or above which we consider an ingredient pore-clogging. */
@@ -20,6 +21,24 @@ export const COMEDOGENIC_SEVERE_THRESHOLD = 4;
  */
 export function isVerified(ingredient: Ingredient): boolean {
   return ingredient.verified !== false;
+}
+
+/**
+ * Share of the ingredient list we could identify.
+ *
+ * Lives here rather than in `lib/matching.ts`, which is where it used to be:
+ * `matching.ts` calls into `lib/pore-clogging.ts` (for `poreCloggingHits`),
+ * and `pore-clogging.ts` needed this back — a require cycle that "Require
+ * cycles are allowed, but can result in uninitialized values" was warning
+ * about on every cold start. It never actually broke anything (both call
+ * sites read it well after module load, inside a function body, not at
+ * module-evaluation time), but a warning that says a class of bug is possible
+ * shouldn't be left standing when the fix is moving four lines to the module
+ * both callers already depend on regardless.
+ */
+export function formulaCoverage(ingredients: Ingredient[]): number {
+  if (ingredients.length === 0) return 0;
+  return ingredients.filter(isVerified).length / ingredients.length;
 }
 
 /**
@@ -118,6 +137,23 @@ export function contraindications(
         reason: "Common irritant for sensitive skin",
         severity: "irritant",
       });
+    }
+  }
+
+  // Checked as its own pass, not folded into the loop above: pregnancy
+  // caution is a name-pattern match (see lib/pregnancy-caution.ts), not a
+  // dictionary field, so — like pore-clogging — it still fires on an
+  // unrecognised name. A false negative here (missing "retinol" because the
+  // row never matched our dictionary) is worse than a redundant warning.
+  if (profile.pregnancyStatus === "pregnant" || profile.pregnancyStatus === "breastfeeding") {
+    for (const hit of pregnancyCautionHits(ingredients)) {
+      // An ingredient already flagged above (e.g. a dictionary "caution" hit
+      // for a sensitive profile) must not be pushed a second time here —
+      // `warnings` feeds a plain count (RiskCards' "N flagged", the History
+      // log's snapshot), and two entries for one ingredient would overstate
+      // it rather than add a second, distinct problem.
+      if (found.some((f) => f.ingredient.id === hit.ingredient.id)) continue;
+      found.push({ ingredient: hit.ingredient, reason: hit.reason, severity: "irritant" });
     }
   }
 

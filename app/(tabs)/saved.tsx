@@ -4,28 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BottleIcon } from "@/components/BottleIcon";
+import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { Text } from "@/components/Text";
 import { fetchProductsByIds } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
-import { COLORS } from "@/lib/colors";
 import { relativeTime } from "@/lib/format";
 import { matchProduct, matchTone } from "@/lib/matching";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
 
 type Tab = "saved" | "history";
-
-const TONE_BG = {
-  high: "bg-status-safe",
-  medium: "bg-status-caution",
-  low: "bg-status-watch",
-} as const;
-
-const TONE_LABEL = {
-  high: "Great match",
-  medium: "Fair match",
-  low: "Poor match",
-} as const;
 
 /**
  * The shelf and the log, on one screen.
@@ -33,8 +21,12 @@ const TONE_LABEL = {
  * They look similar but obey different rules, and the difference is the point:
  * saved rows are re-scored live against the current profile, because a shelf
  * should say what you think today. History rows show the score as it stood
- * when you looked — a log that rewrites its own past entries is worse than no
- * log — so their verdict is rendered quietly, never as a live badge.
+ * when you looked - a log that rewrites its own past entries is worse than no
+ * log.
+ *
+ * That distinction survives the verdict colours: a saved row carries both the
+ * leading bar and the badge, a history row carries only the bar, tinted by the
+ * score it had at the time. The bar is a colour, not a claim about now.
  */
 export default function Saved() {
   const insets = useSafeAreaInsets();
@@ -89,12 +81,14 @@ export default function Saved() {
   }, [idsToResolve, retryKey]);
 
   return (
-    <View className="flex-1 bg-canvas">
-      <View className="bg-surface px-5 pb-0" style={{ paddingTop: insets.top + 10 }}>
-        <Text className="text-center text-base font-semibold text-ink">Saved</Text>
+    <View style={{ flex: 1, backgroundColor: CANVAS }}>
+      <View style={{ backgroundColor: CANVAS, paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 10 }}>
+        <Text style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>
+          Saved
+        </Text>
       </View>
 
-      <View style={{ gap: 8 }} className="flex-row border-b border-hairline bg-surface px-4 py-3.5">
+      <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingVertical: 14 }}>
         <SegmentButton
           label={savedProducts.length ? `Saved (${savedProducts.length})` : "Saved"}
           active={tab === "saved"}
@@ -108,17 +102,19 @@ export default function Saved() {
       </View>
 
       {error ? (
-        <View className="items-center gap-3 px-10 pt-24">
-          <Text className="text-center text-sm leading-5 text-ink-muted">
+        <View style={{ alignItems: "center", gap: 12, paddingHorizontal: 40, paddingTop: 96 }}>
+          <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
             Couldn&apos;t load your saved products. Check your connection and try again.
           </Text>
           <Pressable onPress={() => setRetryKey((k) => k + 1)}>
-            <Text className="text-sm font-semibold text-accent-text underline">Try again</Text>
+            <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+              Try again
+            </Text>
           </Pressable>
         </View>
       ) : byId === null ? (
-        <View className="items-center justify-center py-24">
-          <ActivityIndicator color={COLORS.accent} />
+        <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 96 }}>
+          <ActivityIndicator color={INK} />
         </View>
       ) : tab === "saved" ? (
         savedIds.length === 0 ? (
@@ -127,32 +123,40 @@ export default function Saved() {
             body="Tap Save on any product and it will wait for you here - including next time you open the app."
           />
         ) : (
-          <ScrollView contentContainerStyle={{ gap: 16, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 32 }}>
+          <ScrollView contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
             {savedIds.map((id) => {
               const product = byId[id];
               if (!product) return null;
               const { score } = matchProduct(product, profile);
               const tone = score === null ? null : matchTone(score);
+              const verdict = tone ? VERDICT[tone] : VERDICT_NEUTRAL;
               return (
-                <Row key={id} product={product}>
-                  <View className="flex-row items-center justify-between gap-2.5 pt-1.5">
+                <Row key={id} product={product} bar={verdict.solid}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingTop: 7 }}>
                     {tone && score !== null ? (
-                      <View className={`flex-row items-center gap-1 rounded-chip px-2.5 py-1 ${TONE_BG[tone]}`}>
-                        <Text className="text-xs font-bold tabular-nums text-white">
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 5,
+                          borderRadius: 999,
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          backgroundColor: verdict.tint,
+                        }}
+                      >
+                        <Text style={{ fontSize: 11.5, fontWeight: "700", color: verdict.deep }}>
                           {score}%
                         </Text>
-                        <Text
-                          style={{ color: "rgba(255,255,255,0.9)" }}
-                          className="text-[11px] font-medium"
-                        >
-                          · {TONE_LABEL[tone]}
+                        <Text style={{ fontSize: 11, fontWeight: "600", color: verdict.deep }}>
+                          · {verdict.label}
                         </Text>
                       </View>
                     ) : (
                       <View />
                     )}
                     <Pressable onPress={() => toggleSaved(id)} hitSlop={8}>
-                      <Text className="text-[11.5px] font-semibold text-accent-text">Remove</Text>
+                      <Text style={{ fontSize: 11.5, fontWeight: "600", color: INK }}>Remove</Text>
                     </Pressable>
                   </View>
                 </Row>
@@ -166,20 +170,27 @@ export default function Saved() {
           body="Every product you open or scan is logged here automatically, so you can tell at a glance whether you have already checked something."
         />
       ) : (
-        <ScrollView contentContainerStyle={{ gap: 16, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 32 }}>
+        <ScrollView contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
           {history.map((entry) => {
             const product = entry.known ? byId[entry.id] : undefined;
+            // The bar reflects the score this entry carried when it was
+            // logged, not a fresh one - re-scoring the log is exactly what
+            // this screen refuses to do.
+            const snapshotTone = entry.scoreAtView === null ? null : matchTone(entry.scoreAtView);
+            const bar = snapshotTone ? VERDICT[snapshotTone].solid : VERDICT_NEUTRAL.solid;
             return product ? (
-              <Row key={entry.id} product={product}>
+              <Row key={entry.id} product={product} bar={bar}>
                 <HistoryMeta entry={entry} action />
               </Row>
             ) : (
-              <UnknownRow key={entry.id} entry={entry} />
+              <UnknownRow key={entry.id} entry={entry} bar={bar} />
             );
           })}
 
-          <Pressable onPress={clearHistory} className="items-center py-3">
-            <Text className="text-sm font-medium text-accent-text underline">Clear history</Text>
+          <Pressable onPress={clearHistory} style={{ alignItems: "center", paddingVertical: 12 }}>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+              Clear history
+            </Text>
           </Pressable>
         </ScrollView>
       )}
@@ -201,43 +212,66 @@ function SegmentButton({
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
-      // 48pt inline. It was padding-derived, which put it at roughly 34 —
+      // 48pt inline. It was padding-derived, which put it at roughly 34 -
       // shorter than everything else on the screen and the first thing you
       // touch on it.
-      style={{ height: 48 }}
-      className={`flex-1 items-center justify-center rounded-control border-2 ${
-        active ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
-      }`}
+      style={{
+        flex: 1,
+        height: 48,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: RADIUS_SELECTOR,
+        borderWidth: active ? 1.5 : 1,
+        borderColor: active ? INK : BORDER_INACTIVE,
+        backgroundColor: active ? SELECTED : CANVAS,
+      }}
     >
-      <Text
-        className={`text-[13.5px] font-semibold ${active ? "text-accent-text" : "text-ink-muted"}`}
-      >
+      <Text style={{ fontSize: 13.5, fontWeight: "600", color: active ? INK : MUTED }}>
         {label}
       </Text>
     </Pressable>
   );
 }
 
+/** A white card with the verdict down its leading edge — same object as a
+ *  browse row (`components/ProductRow.tsx`), laid out for a taller shelf card. */
 function Row({
   product,
+  bar,
   children,
 }: {
   product: ProductWithIngredients;
+  bar: string;
   children: ReactNode;
 }) {
   return (
     <Link href={`/product/${product.id}`} asChild>
-      <Pressable style={{ gap: 13, padding: 13 }}
-        className="flex-row items-start rounded-panel bg-surface shadow-sm active:opacity-80">
-        <BottleIcon type={product.productType} size={56} />
-        <View className="flex-1">
-          <Text className="text-[9.5px] font-semibold uppercase tracking-[0.7px] text-ink-faint">
-            {product.brand}
-          </Text>
-          <Text className="mt-0.5 font-display text-[15px] leading-[19px] text-ink" numberOfLines={2}>
-            {product.name}
-          </Text>
-          {children}
+      <Pressable
+        style={{
+          flexDirection: "row",
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: BORDER_INACTIVE,
+          backgroundColor: SURFACE,
+          overflow: "hidden",
+        }}
+        className="active:opacity-70"
+      >
+        <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
+        <View style={{ flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 13, padding: 13 }}>
+          <ProductThumbnail product={product} size={56} radius={14} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 9.5, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
+              {product.brand}
+            </Text>
+            <Text
+              style={{ marginTop: 2, fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, lineHeight: 19, color: INK }}
+              numberOfLines={2}
+            >
+              {product.name}
+            </Text>
+            {children}
+          </View>
         </View>
       </Pressable>
     </Link>
@@ -250,21 +284,21 @@ function Row({
  */
 function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: boolean }) {
   return (
-    <View className="mt-1.5 flex-row items-end justify-between gap-2.5">
-      <View className="flex-1 flex-row flex-wrap items-center gap-x-2 gap-y-1">
-        <Text className="text-[11.5px] text-ink-muted">{relativeTime(entry.lastSeenAt)}</Text>
+    <View style={{ marginTop: 6, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 10 }}>
+      <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 8, rowGap: 4 }}>
+        <Text style={{ fontSize: 11.5, color: MUTED }}>{relativeTime(entry.lastSeenAt)}</Text>
         {entry.seenCount > 1 && (
-          <Text className="text-[11.5px] tabular-nums text-ink-faint">
+          <Text style={{ fontSize: 11.5, color: MUTED_FAINT }}>
             · checked {entry.seenCount} times
           </Text>
         )}
         {entry.scoreAtView !== null && (
-          <Text className="text-[11.5px] tabular-nums text-ink-faint">
+          <Text style={{ fontSize: 11.5, color: MUTED_FAINT }}>
             · {entry.scoreAtView}% then
           </Text>
         )}
         {entry.warningsAtView > 0 && (
-          <Text className="text-[11.5px] font-semibold text-status-watch">
+          <Text style={{ fontSize: 11.5, fontWeight: "600", color: WARN }}>
             · {entry.warningsAtView} flagged
           </Text>
         )}
@@ -272,30 +306,42 @@ function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: 
       {/* The row is already a link; this is the affordance that says so, and
           the design puts one on every history row. */}
       {action ? (
-        <Text className="text-[11.5px] font-semibold text-accent-text">View</Text>
+        <Text style={{ fontSize: 11.5, fontWeight: "600", color: INK }}>View</Text>
       ) : null}
     </View>
   );
 }
 
-/** A barcode that resolved to nothing — still worth logging as "already checked". */
-function UnknownRow({ entry }: { entry: HistoryEntry }) {
+/** A barcode that resolved to nothing - still worth logging as "already checked". */
+function UnknownRow({ entry, bar }: { entry: HistoryEntry; bar: string }) {
   return (
-    <View style={{ padding: 13 }} className="rounded-panel border border-hairline bg-surface">
-      <Text className="text-[9.5px] font-semibold uppercase tracking-[0.7px] text-ink-faint">
-        Scanned · not in our catalogue
-      </Text>
-      <Text className="mt-0.5 text-sm tabular-nums text-ink">{entry.id}</Text>
-      <HistoryMeta entry={entry} />
+    <View
+      style={{
+        flexDirection: "row",
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: BORDER_INACTIVE,
+        backgroundColor: SURFACE,
+        overflow: "hidden",
+      }}
+    >
+      <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
+      <View style={{ flex: 1, padding: 13 }}>
+        <Text style={{ fontSize: 9.5, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
+          Scanned · not in our catalogue
+        </Text>
+        <Text style={{ marginTop: 2, fontSize: 14, color: INK }}>{entry.id}</Text>
+        <HistoryMeta entry={entry} />
+      </View>
     </View>
   );
 }
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <View className="items-center gap-2 px-10 pt-24">
-      <Text className="font-display text-xl text-ink">{title}</Text>
-      <Text className="text-center text-sm leading-5 text-ink-muted">{body}</Text>
+    <View style={{ alignItems: "center", gap: 8, paddingHorizontal: 40, paddingTop: 96 }}>
+      <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
+      <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
     </View>
   );
 }

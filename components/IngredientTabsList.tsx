@@ -7,6 +7,12 @@ import type { Ingredient } from "@/data/types";
 import { isVerified } from "@/lib/safety";
 import { ruleFor, RUNG_META, rungFor, type MatchResult, type Rung } from "@/lib/matching";
 import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, MUTED_SOFT, RADIUS_SELECTOR, SELECTED } from "@/lib/tokens";
+
+// Manassa system (design/DESIGN_SYSTEM.md). RUNG_META's good/watch/avoid
+// colors are semantic (the per-ingredient verdict, the whole point of this
+// screen) and stay untouched — only the tab pills, dividers and body text
+// move to this system.
 
 /**
  * The tabbed ingredient list — shared by a scanned product's ingredient
@@ -69,16 +75,18 @@ export function IngredientTabsList({
               onPress={() => setTab(label)}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
-              style={{ height: 44, paddingHorizontal: 18 }}
-              className={`items-center justify-center rounded-full border ${
-                active ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
-              }`}
+              style={{
+                height: 44,
+                paddingHorizontal: 18,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: RADIUS_SELECTOR,
+                borderWidth: active ? 1.5 : 1,
+                borderColor: active ? INK : BORDER_INACTIVE,
+                backgroundColor: active ? SELECTED : CANVAS,
+              }}
             >
-              <Text
-                className={`text-[14.5px] font-semibold ${
-                  active ? "text-accent-text" : "text-ink-muted"
-                }`}
-              >
+              <Text style={{ fontSize: 14.5, fontWeight: "600", color: active ? INK : MUTED }}>
                 {label}
                 {suffix}
               </Text>
@@ -90,16 +98,20 @@ export function IngredientTabsList({
       {/* Formulas change. Saying when we last read the label is the
           difference between data and a claim — it was on this screen before
           the redesign and is worth more than the design's info icon. */}
-      <Text className="pb-1 pt-3.5 text-center text-[10.5px] text-ink-muted">{metaLine}</Text>
+      <Text style={{ paddingBottom: 4, paddingTop: 14, textAlign: "center", fontSize: 10.5, color: MUTED }}>
+        {metaLine}
+      </Text>
       {subMetaLine ? (
-        <Text className="pb-3.5 text-center text-[10.5px] text-ink-faint">{subMetaLine}</Text>
+        <Text style={{ paddingBottom: 14, textAlign: "center", fontSize: 10.5, color: MUTED_FAINT }}>
+          {subMetaLine}
+        </Text>
       ) : (
         <View className="pb-3.5" />
       )}
-      <View className="h-px bg-hairline" />
+      <View style={{ height: 1, backgroundColor: BORDER_INACTIVE }} />
 
       {visible.length === 0 ? (
-        <Text className="bg-surface py-10 text-center text-sm text-ink-muted">
+        <Text style={{ backgroundColor: CANVAS, paddingVertical: 40, textAlign: "center", fontSize: 14, color: MUTED }}>
           Nothing in this group - which is good news.
         </Text>
       ) : (
@@ -143,16 +155,31 @@ function IngredientListRow({
   return (
     <Pressable
       onPress={onPress}
-      style={{ gap: 11 }}
-      className="flex-row items-start border-b border-hairline-soft bg-surface px-6 py-3.5 active:bg-canvas"
+      style={{
+        gap: 11,
+        flexDirection: "row",
+        alignItems: "flex-start",
+        borderBottomWidth: 1,
+        borderBottomColor: BORDER_INACTIVE,
+        backgroundColor: CANVAS,
+        paddingHorizontal: 24,
+        paddingVertical: 14,
+      }}
+      className="active:opacity-70"
     >
       <View style={{ width: 9, height: 9, marginTop: 6 }} className={`rounded-full ${meta.dot}`} />
 
-      <View className="flex-1 gap-0.5">
+      <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
           <Text
-            className="text-[13.5px] font-medium capitalize leading-[18px] text-ink"
-            style={{ flexShrink: 1 }}
+            style={{
+              flexShrink: 1,
+              fontSize: 13.5,
+              fontWeight: "500",
+              textTransform: "capitalize",
+              lineHeight: 18,
+              color: INK,
+            }}
           >
             {ingredient.name}
           </Text>
@@ -171,7 +198,7 @@ function IngredientListRow({
             </View>
           ) : null}
         </View>
-        <Text className="text-[11px] leading-[16px] text-ink-muted">{subtitle}</Text>
+        <Text style={{ fontSize: 11, lineHeight: 16, color: MUTED }}>{subtitle}</Text>
       </View>
 
       <View className={`mt-px rounded-full px-3 py-1 ${meta.pill}`}>
@@ -181,7 +208,7 @@ function IngredientListRow({
       <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" style={{ marginTop: 5 }}>
         <Path
           d="m9 5 7 7-7 7"
-          stroke="#BDB6C2"
+          stroke={MUTED_SOFT}
           strokeWidth={2.2}
           strokeLinecap="round"
           strokeLinejoin="round"

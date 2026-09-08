@@ -259,7 +259,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
   {
     names: [/^glycyrrhiza/, "licorice root extract", "dipotassium glycyrrhizate"],
     category: "soothing",
-    helps: { concerns: ["redness", "hyperpigmentation"] },
+    helps: { concerns: ["redness", "hyperpigmentation", "post-acne-marks"] },
     reason: "Licorice root both calms redness and mildly evens tone",
     weight: 6,
   },
@@ -279,7 +279,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: ["niacinamide", "nicotinamide"],
     category: "barrier",
     helps: {
-      concerns: ["large-pores", "hyperpigmentation", "redness", "atopic"],
+      concerns: ["large-pores", "hyperpigmentation", "redness", "atopic", "post-acne-marks"],
       skinTypes: ["oily", "combination"],
     },
     reason: "Niacinamide moderates oil, evens tone and strengthens the barrier - unusually versatile",
@@ -296,7 +296,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
   {
     names: ["glycolic acid", "lactic acid", "mandelic acid", "aha", "malic acid", "tartaric acid"],
     category: "actives",
-    helps: { concerns: ["dullness", "hyperpigmentation"] },
+    helps: { concerns: ["dullness", "hyperpigmentation", "post-acne-marks"] },
     hurts: { sensitive: true },
     reason: "Alpha hydroxy acids resurface and brighten, at the cost of tolerance on reactive skin",
     weight: 8,
@@ -312,7 +312,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
   {
     names: ["ascorbic acid", "l-ascorbic acid", "3-o-ethyl ascorbic acid", "ascorbyl glucoside", "magnesium ascorbyl phosphate"],
     category: "actives",
-    helps: { concerns: ["dullness", "hyperpigmentation"] },
+    helps: { concerns: ["dullness", "hyperpigmentation", "post-acne-marks"] },
     hurts: { sensitive: true },
     reason: "Vitamin C brightens and protects against oxidative damage; the acidic forms can sting",
     weight: 8,
@@ -320,14 +320,14 @@ export const INGREDIENT_RULES: IngredientRule[] = [
   {
     names: ["alpha-arbutin", "arbutin", "tranexamic acid", "kojic acid", "ferulic acid"],
     category: "actives",
-    helps: { concerns: ["hyperpigmentation", "dullness"] },
+    helps: { concerns: ["hyperpigmentation", "dullness", "post-acne-marks"] },
     reason: "Targets pigment production directly, without the irritation of an acid",
     weight: 8,
   },
   {
     names: ["azelaic acid", "potassium azeloyl diglycinate"],
     category: "actives",
-    helps: { concerns: ["redness", "acne-prone", "hyperpigmentation"] },
+    helps: { concerns: ["redness", "acne-prone", "hyperpigmentation", "post-acne-marks"] },
     reason: "Azelaic acid is one of the few actives that suits redness and congestion at once",
     weight: 9,
   },

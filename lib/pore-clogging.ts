@@ -1,6 +1,5 @@
 import type { Ingredient } from "@/data/types";
-import { formulaCoverage } from "@/lib/matching";
-import { isVerified } from "@/lib/safety";
+import { formulaCoverage, isVerified } from "@/lib/safety";
 
 /**
  * Pore-clogging detection — a property of the formula, not a score.

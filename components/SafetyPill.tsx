@@ -9,8 +9,8 @@ import { SAFETY_LABEL } from "@/lib/format";
  * The regulatory verdict, in two registers.
  *
  * `solid` is the shouting one — white on the status ramp — for the places a
- * verdict has to carry across a dense column (compare) or head a tier
- * (product detail). `soft` is the tinted pill the long list screens use, where
+ * verdict has to head a tier (product detail). `soft` is the tinted pill the
+ * long list screens use, where
  * a column of solid blocks reads as an alarm rather than a list.
  *
  * Both say the same word. The colour is never the only channel.

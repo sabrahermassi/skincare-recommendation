@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Manassa — 3-screen onboarding (design reference)</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#EFE7E1;font-family:-apple-system,"SF Pro Text",system-ui,sans-serif;color:#5A342C;padding:40px;display:flex;gap:26px;justify-content:center;align-items:flex-start;flex-wrap:wrap}
+  a{color:#9B665B}a:hover{color:#5A342C}
+  /* Presentation only — do NOT port. Port the contents of .screen. */
+  .device{width:375px;height:812px;border-radius:44px;overflow:hidden;box-shadow:0 22px 64px rgba(90,52,44,.18);flex:none}
+  .cap{font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:.09em;color:#7A4F45;text-align:center;margin-bottom:10px}
+</style>
+</head>
+<body>
+<div>
+  <div class="cap">01 · SCAN</div>
+  <div class="device">
+<div class="screen" style="width:375px;height:812px;display:flex;flex-direction:column;background:#FBF4EE;font-family:-apple-system,'SF Pro Text',system-ui,sans-serif;color:#5A342C">
+
+          <div style="display:flex;justify-content:flex-end;padding:54px 16px 0">
+            <div style="min-height:44px;min-width:56px;display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:500;color:#9B665B;cursor:pointer" role="button" tabindex="0">Skip</div>
+          </div>
+
+          <div style="height:430px;flex:none;display:flex;align-items:center;justify-content:center;box-sizing:border-box;overflow:hidden">
+            <img src="assets/onb-scan.png" alt="" style="width:400px;max-width:400px;display:block">
+          </div>
+
+          <div style="flex:1.9;min-height:18px"></div>
+
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 22px">
+            <div style="height:68px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',Georgia,serif;font-size:30px;font-weight:500;line-height:1.08;letter-spacing:-.018em;color:#5A342C;text-align:center;text-wrap:pretty">Scan any product</div>
+            <div style="height:44px;display:flex;align-items:flex-start;justify-content:center;font-size:14.5px;font-weight:400;line-height:1.5;color:#9B665B;text-align:center;text-wrap:pretty">Point your camera at a barcode or ingredient list</div>
+            <div style="display:flex;align-items:center;gap:7px"><span style="width:20px;height:6px;border-radius:3px;background:#5A342C;display:block"></span><span style="width:6px;height:6px;border-radius:6px;background:#E4D3C8;display:block"></span><span style="width:6px;height:6px;border-radius:6px;background:#E4D3C8;display:block"></span></div>
+          </div>
+
+          <div style="flex:1;min-height:12px"></div>
+
+          <div style="display:flex;flex-direction:column;padding:0 24px 32px">
+            <div style="align-self:stretch;padding:15px 20px;border-radius:26px;background:#F2BFA6;box-shadow:0 3px 12px rgba(90,52,44,.13);min-height:52px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;color:#5A342C;cursor:pointer" role="button" tabindex="0">Next</div>
+          </div>
+        </div>
+  </div>
+</div>
+<div>
+  <div class="cap">02 · ANALYZE</div>
+  <div class="device">
+<div class="screen" style="width:375px;height:812px;display:flex;flex-direction:column;background:#FBF4EE;font-family:-apple-system,'SF Pro Text',system-ui,sans-serif;color:#5A342C">
+
+          <div style="display:flex;justify-content:flex-end;padding:54px 16px 0">
+            <div style="min-height:44px;min-width:56px;display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:500;color:#9B665B;cursor:pointer" role="button" tabindex="0">Skip</div>
+          </div>
+
+          <div style="height:430px;flex:none;display:flex;align-items:center;justify-content:center;box-sizing:border-box">
+            <img src="assets/onb-think.png" alt="" style="height:404px;max-width:375px;max-height:430px;display:block">
+          </div>
+
+          <div style="flex:1.9;min-height:18px"></div>
+
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 22px">
+            <div style="height:68px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',Georgia,serif;font-size:30px;font-weight:500;line-height:1.08;letter-spacing:-.018em;color:#5A342C;text-align:center;text-wrap:pretty">We check every ingredient</div>
+            <div style="height:44px;display:flex;align-items:flex-start;justify-content:center;font-size:14.5px;font-weight:400;line-height:1.5;color:#9B665B;text-align:center;text-wrap:pretty">Matched against your skin profile</div>
+            <div style="display:flex;align-items:center;gap:7px"><span style="width:6px;height:6px;border-radius:6px;background:#E4D3C8;display:block"></span><span style="width:20px;height:6px;border-radius:3px;background:#5A342C;display:block"></span><span style="width:6px;height:6px;border-radius:6px;background:#E4D3C8;display:block"></span></div>
+          </div>
+
+          <div style="flex:1;min-height:12px"></div>
+
+          <div style="display:flex;flex-direction:column;padding:0 24px 32px">
+            <div style="align-self:stretch;padding:15px 20px;border-radius:26px;background:#F2BFA6;box-shadow:0 3px 12px rgba(90,52,44,.13);min-height:52px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;color:#5A342C;cursor:pointer" role="button" tabindex="0">Next</div>
+          </div>
+        </div>
+  </div>
+</div>
+<div>
+  <div class="cap">03 · KNOW</div>
+  <div class="device">
+<div class="screen" style="width:375px;height:812px;display:flex;flex-direction:column;background:#FBF4EE;font-family:-apple-system,'SF Pro Text',system-ui,sans-serif;color:#5A342C">
+
+          <div style="display:flex;justify-content:flex-end;padding:54px 16px 0">
+            <div style="min-height:44px;min-width:56px;display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:500;color:#9B665B;cursor:pointer" role="button" tabindex="0">Skip</div>
+          </div>
+
+          <div style="height:430px;flex:none;display:flex;align-items:center;justify-content:center;box-sizing:border-box">
+            <img src="assets/onb-face.png" alt="" style="height:404px;max-width:375px;max-height:430px;display:block">
+          </div>
+
+          <div style="flex:1.9;min-height:18px"></div>
+
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 22px">
+            <div style="height:68px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',Georgia,serif;font-size:30px;font-weight:500;line-height:1.08;letter-spacing:-.018em;color:#5A342C;text-align:center;text-wrap:pretty">Know what suits you</div>
+            <div style="height:44px;display:flex;align-items:flex-start;justify-content:center;font-size:14.5px;font-weight:400;line-height:1.5;color:#9B665B;text-align:center;text-wrap:pretty">Clear answers in seconds, wherever you're shopping</div>
+            <div style="display:flex;align-items:center;gap:7px"><span style="width:6px;height:6px;border-radius:6px;background:#E4D3C8;display:block"></span><span style="width:6px;height:6px;border-radius:6px;background:#E4D3C8;display:block"></span><span style="width:20px;height:6px;border-radius:3px;background:#5A342C;display:block"></span></div>
+          </div>
+
+          <div style="flex:1;min-height:12px"></div>
+
+          <div style="display:flex;flex-direction:column;padding:0 24px 32px">
+            <div style="align-self:stretch;padding:15px 20px;border-radius:26px;background:#F2BFA6;box-shadow:0 3px 12px rgba(90,52,44,.13);min-height:52px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;color:#5A342C;cursor:pointer" role="button" tabindex="0">Get started</div>
+          </div>
+        </div>
+  </div>
+</div>
+</body>
+</html>

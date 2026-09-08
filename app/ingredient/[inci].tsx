@@ -16,9 +16,17 @@ import { isSensitive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+
+// Manassa system (design/DESIGN_SYSTEM.md). RUNG's `hero`/pill/panel colors
+// (below) are semantic — the per-ingredient verdict, the point of this
+// screen — and stay untouched. The footer's "Next ingredient" CTA draws from
+// `PrimaryButton`'s `tone="cta"`, same as app/product/[id].tsx — see that
+// file's own note on why the shared component gained that tone rather than
+// this screen keeping its own hand-rolled copy.
 
 /**
- * Ingredient detail — screen 5 of the Skintel Screens design.
+ * Ingredient detail — screen 5 of the Manassa Screens design.
  *
  * The design fills this screen with encyclopaedia copy: a written definition,
  * a personalised verdict, and a list of things to know. We hold none of that
@@ -59,7 +67,7 @@ const RUNG: Record<
     dot: "bg-level-good",
     label: "Good for you",
     panel: "bg-panel-success border-panel-success-line",
-    chip: "#E7F1E9", // tailwind.config.js level.good.tint
+    chip: VERDICT.high.tint,
     hero: COLORS.levelGood,
   },
   watch: {
@@ -68,7 +76,7 @@ const RUNG: Record<
     dot: "bg-level-watch",
     label: "Worth knowing",
     panel: "bg-tint-peach border-tint-peach",
-    chip: "#FBEBD5", // tailwind.config.js level.watch.tint
+    chip: VERDICT.medium.tint,
     hero: COLORS.levelWatch,
   },
   avoid: {
@@ -77,7 +85,7 @@ const RUNG: Record<
     dot: "bg-level-avoid",
     label: "Flagged for you",
     panel: "bg-tint-pink border-tint-pink",
-    chip: "#FBE2E7", // tailwind.config.js level.avoid.tint
+    chip: VERDICT.low.tint,
     hero: COLORS.levelAvoid,
   },
   neutral: {
@@ -86,11 +94,10 @@ const RUNG: Record<
     dot: "bg-level-neutral",
     label: "Not recognised",
     panel: "bg-hairline border-hairline",
-    chip: "#EFEBE6", // tailwind.config.js level.neutral.tint
+    chip: VERDICT_NEUTRAL.tint,
     hero: COLORS.levelNeutral,
   },
 };
-
 
 function HeartIcon({ color }: { color: string }) {
   return (
@@ -170,8 +177,8 @@ export default function IngredientDetail() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-canvas">
-        <ActivityIndicator color={COLORS.accent} />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS }}>
+        <ActivityIndicator color={INK} />
       </View>
     );
   }
@@ -226,7 +233,7 @@ export default function IngredientDetail() {
   ].filter((n): n is string => n !== null);
 
   return (
-    <View className="flex-1 bg-canvas">
+    <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader
         right={
           <Pressable
@@ -243,11 +250,28 @@ export default function IngredientDetail() {
       <ScrollView contentContainerClassName="pb-40">
         <View style={{ gap: 18, paddingTop: 30 }} className="flex-row items-start px-6">
           <View style={{ flex: 1, gap: 9 }}>
-            <Text className="font-display text-[34px] capitalize leading-[36px] tracking-[-0.61px] text-[#463F57]">
+            <Text
+              style={{
+                fontFamily: "PlayfairDisplay_500Medium",
+                fontSize: 34,
+                textTransform: "capitalize",
+                lineHeight: 36,
+                letterSpacing: -0.61,
+                color: INK,
+              }}
+            >
               {primary}
             </Text>
             {secondary ? (
-              <Text className="font-display text-[19px] capitalize leading-[19px] text-[#5C5468]">
+              <Text
+                style={{
+                  fontFamily: "PlayfairDisplay_500Medium",
+                  fontSize: 19,
+                  textTransform: "capitalize",
+                  lineHeight: 19,
+                  color: MUTED,
+                }}
+              >
                 {secondary}
               </Text>
             ) : null}
@@ -270,7 +294,7 @@ export default function IngredientDetail() {
         </View>
 
         <Section title="What it does">
-          <Text className="text-[13.5px] leading-[21px] text-ink-body">
+          <Text style={{ fontSize: 13.5, lineHeight: 21, color: INK }}>
             {whatItDoes(ingredient, rule?.reason)}
           </Text>
         </Section>
@@ -286,7 +310,7 @@ export default function IngredientDetail() {
                 {fitHeadline(rung, helps, hurts, verified)}
               </Text>
             </View>
-            <Text className="text-[13px] leading-[19.5px] text-ink-body">
+            <Text style={{ fontSize: 13, lineHeight: 19.5, color: INK }}>
               {fitBody(rung, helps, hurts, verified, Boolean(rule))}
             </Text>
             {/* The small qualifier pill the design puts under the verdict. */}
@@ -315,35 +339,51 @@ export default function IngredientDetail() {
                       strokeLinejoin="round"
                     />
                   </Svg>
-                  <Text className="flex-1 text-[13px] leading-[18px] text-ink-body">{note}</Text>
+                  <Text style={{ flex: 1, fontSize: 13, lineHeight: 18, color: INK }}>{note}</Text>
                 </View>
               ))}
             </View>
           ) : (
-            <Text className="text-[13px] leading-[19px] text-ink-body">
+            <Text style={{ fontSize: 13, lineHeight: 19, color: INK }}>
               We hold no regulatory record, declared function or pore rating for
               this name — which is itself the thing worth knowing about it.
             </Text>
           )}
         </Section>
 
+        {/* Plain bordered card, not a tinted lilac panel — the Manassa
+            system keeps no tinted panels (design/DESIGN_SYSTEM.md's Colour
+            section): an earlier onboarding revision tried them and the
+            illustrations' own colour shapes competed with the panel. */}
         <Pressable
           onPress={() =>
             void Linking.openURL(
               `https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(ingredient.name)}`
             ).catch((err) => console.warn("openURL failed:", err))
           }
-          style={{ marginTop: 28, marginHorizontal: 24 }}
-          className="flex-row items-center justify-between rounded-panel bg-tint-lilac px-5 py-4 active:opacity-80"
+          style={{
+            marginTop: 28,
+            marginHorizontal: 24,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: BORDER_INACTIVE,
+            backgroundColor: CANVAS,
+            paddingHorizontal: 20,
+            paddingVertical: 16,
+          }}
+          className="active:opacity-80"
         >
           <View className="gap-0.5">
-            <Text className="text-[14.5px] font-semibold text-ink">Want to learn more?</Text>
-            <Text className="text-[12.5px] text-ink-muted">See studies and evidence</Text>
+            <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Want to learn more?</Text>
+            <Text style={{ fontSize: 12.5, color: MUTED }}>See studies and evidence</Text>
           </View>
           <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
             <Path
               d="m9 5 7 7-7 7"
-              stroke="#332E3A"
+              stroke={INK}
               strokeWidth={2.2}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -351,14 +391,49 @@ export default function IngredientDetail() {
           </Svg>
         </Pressable>
 
-        <Text className="px-6 pt-9 text-[11.5px] text-ink-faint">
+        <Text style={{ paddingHorizontal: 24, paddingTop: 36, fontSize: 11.5, color: MUTED_FAINT }}>
           Reference data from Open Beauty Facts and EU CosIng.
         </Text>
       </ScrollView>
 
-      <View className="absolute inset-x-0 bottom-0 flex-row gap-3 border-t border-hairline bg-canvas px-6 pb-8 pt-3">
+      <View
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          flexDirection: "row",
+          gap: 12,
+          borderTopWidth: 1,
+          borderTopColor: BORDER_INACTIVE,
+          backgroundColor: CANVAS,
+          paddingHorizontal: 24,
+          paddingBottom: 32,
+          paddingTop: 12,
+        }}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            flex: 1,
+            height: 56,
+            alignItems: "center",
+            justifyContent: "center",
+            // True-pill radius (height / 2), matching the CTA beside it —
+            // was RADIUS_SELECTOR (14), the same drifted radius the CTA used
+            // to carry before it moved onto PrimaryButton's shared cta tone.
+            borderRadius: 28,
+            borderWidth: 1,
+            borderColor: BORDER_INACTIVE,
+            backgroundColor: CANVAS,
+          }}
+        >
+          <Text style={{ fontSize: 15.5, fontWeight: "600", color: INK }}>Back to list</Text>
+        </Pressable>
         <PrimaryButton
-          className="flex-1"
+          tone="cta"
+          size={56}
+          style={{ flex: 1 }}
           label="Next ingredient"
           onPress={() => {
             if (!product || index < 0) return router.back();
@@ -369,7 +444,6 @@ export default function IngredientDetail() {
             });
           }}
         />
-        <PrimaryButton variant="outline" label="Back to list" onPress={() => router.back()} />
       </View>
     </View>
   );
@@ -388,8 +462,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <View style={{ paddingTop: top, gap }} className="px-6">
-      <Text className="text-[15.5px] font-semibold tracking-[-0.12px] text-ink">{title}</Text>
+    <View style={{ paddingTop: top, gap, paddingHorizontal: 24 }}>
+      <Text style={{ fontSize: 15.5, fontWeight: "600", letterSpacing: -0.12, color: INK }}>
+        {title}
+      </Text>
       {children}
     </View>
   );

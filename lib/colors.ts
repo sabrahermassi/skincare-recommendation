@@ -36,10 +36,12 @@ export const COLORS = {
   statusAvoid: "#B04A3F",
 
   // The soft register of the same four rungs — see `level` in the config.
-  levelGood: "#6FA783",
-  levelWatch: "#E2A45E",
-  levelNeutral: "#C3BDC7",
-  levelAvoid: "#DE7E93",
+  // Kept equal to that config's DEFAULT values (which are themselves the
+  // VERDICT ramp in lib/tokens.ts) rather than a third copy of the palette.
+  levelGood: "#3E7D5A",
+  levelWatch: "#C2662B",
+  levelNeutral: "#6B5A54",
+  levelAvoid: "#B23A32",
 
   panelSuccess: "#EAF3EC",
   panelSuccessLine: "#DCEBE0",

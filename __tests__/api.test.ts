@@ -74,16 +74,10 @@ describe("fetchProducts", () => {
     await expect(fetchProducts({ type: "toner" })).resolves.toEqual([]);
   });
 
-  it("filters by area", async () => {
-    const bodyProducts = await fetchProducts({ area: "body" });
-    expect(bodyProducts.length).toBe(3);
-    expect(bodyProducts.every((p) => p.area === "body")).toBe(true);
-  });
-
-  it("combines type and area filters", async () => {
-    const faceCleansers = await fetchProducts({ type: "cleanser", area: "face" });
-    expect(faceCleansers.length).toBeGreaterThan(0);
-    expect(faceCleansers.every((p) => p.type === "cleanser" && p.area === "face")).toBe(true);
+  it("has no area filter - a formula is judged on its own merits, not which part of the body it's for", async () => {
+    const products = await fetchProducts();
+    expect(products.some((p) => p.type === "body-wash" || p.type === "body-lotion" || p.type === "hand-cream")).toBe(true);
+    expect(products.some((p) => p.type === "serum" || p.type === "cleanser")).toBe(true);
   });
 });
 
