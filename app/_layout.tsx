@@ -85,7 +85,6 @@ export default function RootLayout() {
         <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="result/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="ingredients/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="ingredients/pasted" options={{ headerShown: false }} />
         <Stack.Screen name="ingredient/[inci]" options={{ headerShown: false }} />
         <Stack.Screen
           name="scan-label"
