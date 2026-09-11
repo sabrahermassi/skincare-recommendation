@@ -57,7 +57,7 @@ export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
   {
     names: [
       /essential oil$/,
-      /^(lavandula|citrus|mentha|rosmarinus|eucalyptus|melaleuca|cinnamomum|origanum|thymus|salvia) .*(oil|extract)$/,
+      /^(lavandula|citrus|mentha|rosmarinus|eucalyptus|melaleuca|cinnamomum|origanum|thymus|salvia) .*oil$/,
     ],
     category: "essential-oil",
     reason:

@@ -9,7 +9,7 @@ import { Text } from "@/components/Text";
 import { analyseLabel } from "@/data/api";
 import { coverFitCropRect, type Rect, type Size } from "@/lib/crop-to-guide";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
-import { CANVAS, CTA, INK, MUTED } from "@/lib/tokens";
+import { CANVAS, CTA, INK, MUTED, withAlpha } from "@/lib/tokens";
 
 // Manassa system (design/DESIGN_SYSTEM.md). The live camera view stays plain
 // black, same reasoning as the scanner's own dark stage — only the
@@ -291,7 +291,7 @@ export default function ScanLabel() {
             justifyContent: "center",
             gap: 8,
             borderRadius: 14,
-            backgroundColor: status.kind === "reading" ? "rgba(255,255,255,0.4)" : CTA,
+            backgroundColor: status.kind === "reading" ? withAlpha(CANVAS, 0.75) : CTA,
           }}
           className="active:opacity-90"
         >

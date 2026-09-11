@@ -1,7 +1,7 @@
 import { View } from "react-native";
 
 import { Text } from "@/components/Text";
-import { INK, MUTED_FAINT } from "@/lib/tokens";
+import { INK, MUTED, MUTED_FAINT } from "@/lib/tokens";
 
 // Manassa system (design/DESIGN_SYSTEM.md).
 
@@ -46,7 +46,7 @@ export function Eyebrow({ size = 9.5 }: { size?: number }) {
             <Text style={{ fontSize: size, color: MUTED_FAINT }}>·</Text>
           ) : null}
           <Text
-            style={{ fontSize: size, letterSpacing: size * 0.17, fontWeight: "600", color: MUTED_FAINT }}
+            style={{ fontSize: size, letterSpacing: size * 0.17, fontWeight: "600", color: MUTED }}
           >
             {word}
           </Text>
