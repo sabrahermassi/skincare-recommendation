@@ -1,9 +1,9 @@
 import { Image } from "expo-image";
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, View, useWindowDimensions, type LayoutChangeEvent } from "react-native";
 
 import { Text } from "@/components/Text";
-import { BrandLockup } from "@/components/shell/BrandLockup";
+import { BrandLockup, wordmarkBoxBelowInk } from "@/components/shell/BrandLockup";
 import { CANVAS, CHARCOAL, FONT, H_PADDING, MUTED, PrimaryButton, ProgressDots } from "@/components/shell/shared";
 
 // NOTE: pixel-measuring design-watercolor/onboarding screen 1.png found the
@@ -35,19 +35,21 @@ const BODY_SIZE = 17;
 const BANDS = {
   wordmark: { top: 10.4, bottom: 14.2 },
   tagline: { top: 14.2, bottom: 21.2 },
-  skip: { top: 13.9, bottom: 15.8 },
+  // top matches wordmark.top exactly, per explicit "same level as the
+  // wordmark" request — was 13.9, its own independently-tuned value.
+  skip: { top: 10.4, bottom: 15.8 },
   // top nudged from 21.3 to 23.8: the wordmark's own font-size grew across
-  // several rounds (44 -> 52 -> 58) after these bands were first measured
-  // against a much smaller wordmark, and at 58px its natural (uncapped,
-  // to avoid clipping — see BrandLockup) rendered height plus the tagline
-  // below it were consuming the entire original 21.3-10.4=10.9% budget,
-  // with no margin — reported as the tagline overlapping the illustration.
-  // This is the one exception to BrandLockup being the only file touched
-  // for wordmark-lockup requests: the fix genuinely requires more room
-  // from its neighbour, not just tighter internal spacing. Shrinks the
-  // illustration band by ~2.5% of screen height (~21px at 852pt) — a
-  // small, mostly imperceptible reduction in hero size, not a layout change.
-  illustration: { top: 23.8, bottom: 67.9 },
+  // several rounds (44 -> 52 -> ... -> 111, then back down some) after
+  // these bands were first measured against a much smaller wordmark. A
+  // later attempt pushed this to 31 to make room for the tagline, which
+  // was reverted — illustration size is explicitly off-limits, so the
+  // wordmark/tagline space crunch this band's own comment used to describe
+  // is resolved inside BrandLockup.tsx only (a smaller wordmark), not by
+  // taking room from the hero image.
+  // Then 23.8/67.9 -> 21.9/66.0 (same height, box moved up 1.9%), paired
+  // with ILLUSTRATION_SCALE below, per explicit request to match the
+  // reference: art starts ~3% of screen height higher and is ~5% bigger.
+  illustration: { top: 21.9, bottom: 66.0 },
   headline: { top: 68.8, bottom: 79.0 },
   copy: { top: 80.7, bottom: 85.3 },
   dots: { top: 87.4, bottom: 88.8 },
@@ -61,6 +63,17 @@ function pct(n: number) {
 function bandHeight(band: { top: number; bottom: number }) {
   return pct(band.bottom - band.top);
 }
+
+/** Minimum breathing room between the header's actual measured bottom edge
+ *  and wherever the illustration is allowed to start. */
+const HEADER_SAFETY_GAP_PX = 8;
+/** Painted above the illustration regardless of layout — belt-and-braces
+ *  alongside the reserved-space fix below, per explicit request for both. */
+const HEADER_Z_INDEX = 10;
+/** Screens 2/3's art already spans the full screen width, so "5% bigger"
+ *  has to scale the image itself — the PNGs' 5-8% transparent side margins
+ *  are what go off-screen, not artwork. */
+const ILLUSTRATION_SCALE = 1.05;
 
 export type OnboardingScreenContent = {
   /** Explicit line breaks, not auto-wrap — up to 2 lines; the headline band
@@ -94,7 +107,43 @@ type OnboardingShellProps = {
  */
 export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: OnboardingShellProps) {
   const [skipPressed, setSkipPressed] = useState(false);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // Measured actual bottom edge of the wordmark/tagline block (in px, via
+  // onLayout below — RN's layout.y is already relative to this component's
+  // own root View, so it's the on-screen position directly, no separate
+  // top-offset bookkeeping needed). null until the first layout pass runs;
+  // the illustration falls back to its band position until then, which
+  // matches what it always did before this existed.
+  const [headerBottomPx, setHeaderBottomPx] = useState<number | null>(null);
+
+  function onHeaderLayout(e: LayoutChangeEvent) {
+    const { y, height } = e.nativeEvent.layout;
+    setHeaderBottomPx(y + height);
+  }
+
   const screen = screens[activeIndex];
+
+  // Explicit request, two mitigations: (1) HEADER_Z_INDEX below paints the
+  // header in front of the illustration regardless of layout, so overlap
+  // is never visible even if it happens; (2) this is the actual structural
+  // fix — the illustration's own top/height are computed from the header's
+  // REAL measured size, not just a fixed percentage tuned by hand against
+  // one specific wordmark size (which is exactly how the wordmark growing
+  // across several rounds kept silently eating into the illustration's
+  // space until it visibly collided). Math.max keeps the illustration at
+  // its normal band position whenever the header is short enough to fit,
+  // and only pushes it down when the header actually needs more room.
+  // Clears the "f"'s visible ink, not the header's layout box: the box
+  // reaches ~16px below the ink (empty font line-box space), and clearing
+  // the box held the illustration lower than requested.
+  const bandIllustrationTopPx = (BANDS.illustration.top / 100) * windowHeight;
+  const wordmarkInkBottomPx = headerBottomPx != null ? headerBottomPx - wordmarkBoxBelowInk(windowWidth) : null;
+  const illustrationTopPx =
+    wordmarkInkBottomPx != null
+      ? Math.max(bandIllustrationTopPx, wordmarkInkBottomPx + HEADER_SAFETY_GAP_PX)
+      : bandIllustrationTopPx;
+  const bandIllustrationBottomPx = (BANDS.illustration.bottom / 100) * windowHeight;
+  const illustrationHeightPx = Math.max(0, bandIllustrationBottomPx - illustrationTopPx);
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
@@ -106,8 +155,18 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
           Text clips glyph overshoot at the text's own box edge — see that
           component for the full explanation), keeping the visible letters
           aligned with H_PADDING like everything else while giving the
-          flourish room to render without being cut off. */}
-      <View style={{ position: "absolute", top: pct(BANDS.wordmark.top), left: H_PADDING - 9 }}>
+          flourish room to render without being cut off.
+          onLayout is what drives illustrationTopPx above — this View's
+          children (BrandLockup's wordmark+tagline) are in normal flow, so
+          its own measured height genuinely reflects how tall the lockup
+          rendered, unlike a wrapper whose children are all
+          position:"absolute" (which report zero height regardless of
+          their content). zIndex is the first of the two requested
+          overlap mitigations. */}
+      <View
+        onLayout={onHeaderLayout}
+        style={{ position: "absolute", top: pct(BANDS.wordmark.top), left: H_PADDING - 9, zIndex: HEADER_Z_INDEX }}
+      >
         <BrandLockup />
       </View>
 
@@ -125,6 +184,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
           alignItems: "center",
           justifyContent: "center",
           opacity: skipPressed ? 0.6 : 1,
+          zIndex: HEADER_Z_INDEX,
         }}
       >
         {/* Same font+size as the supporting-copy text (BODY_SIZE, bodyRegular)
@@ -136,17 +196,20 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
       <View
         style={{
           position: "absolute",
-          top: pct(BANDS.illustration.top),
-          height: bandHeight(BANDS.illustration),
+          top: illustrationTopPx,
+          height: illustrationHeightPx,
           left: 0,
           right: 0,
           alignItems: "center",
           justifyContent: "center",
+          // The scaled image extends ~9pt past this box; onb2-scan has no
+          // transparent top margin, so clipping here would cut the hair.
+          overflow: "visible",
         }}
       >
         <Image
           source={screen.illustrationSource}
-          style={{ width: "100%", height: "100%" }}
+          style={{ width: "100%", height: "100%", transform: [{ scale: ILLUSTRATION_SCALE }] }}
           contentFit="contain"
           accessibilityLabel=""
         />
@@ -205,7 +268,8 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
             style={{
               fontFamily: FONT.bodyRegular,
               fontSize: BODY_SIZE,
-              lineHeight: BODY_SIZE * 1.3,
+              // 1.3 * 1.16: explicit "16% more space between lines".
+              lineHeight: BODY_SIZE * 1.3 * 1.16,
               color: CHARCOAL,
               textAlign: "center",
             }}

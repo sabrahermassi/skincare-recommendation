@@ -17,21 +17,21 @@ const ONB2_CONFIDENCE = require("@/assets/illustrations/onboarding/onb2-confiden
 
 const SCREENS: OnboardingScreenContent[] = [
   {
-    headline: ["Scan any", "product"],
+    headline: ["Scan any", "skincare product"],
     supportingCopy: ["Point your camera at a barcode", "or ingredient list."],
-    buttonLabel: "Continue →",
+    buttonLabel: "Continue",
     illustrationSource: ONB2_SCAN,
   },
   {
-    headline: ["Get clear", "answers"],
-    supportingCopy: ["We analyse the ingredients and explain", "what they mean for your skin."],
-    buttonLabel: "Continue →",
+    headline: ["Ingredients,", "made simple"],
+    supportingCopy: ["See what the ingredients", "mean for your skin."],
+    buttonLabel: "Continue",
     illustrationSource: ONB2_INGREDIENTS,
   },
   {
     headline: ["Choose with", "confidence"],
-    supportingCopy: ["Discover products that fit your skin,", "your goals and your lifestyle."],
-    buttonLabel: "Continue →",
+    supportingCopy: ["Discover products that fit", "your skin, goals and lifestyle."],
+    buttonLabel: "Continue",
     illustrationSource: ONB2_CONFIDENCE,
   },
 ];
