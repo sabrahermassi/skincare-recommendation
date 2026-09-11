@@ -6,8 +6,9 @@ import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/Text";
-import { quizStepCount } from "@/lib/profile";
+import { POST_ONBOARDING_ROUTE, quizStepCount } from "@/lib/profile";
 import { CANVAS, CTA, CTA_PRESSED, DOT_INACTIVE, INK, MUTED } from "@/lib/tokens";
+import { useAppStore } from "@/store/useAppStore";
 
 type Props = {
   /** 1-based index into the quiz. */
@@ -51,7 +52,19 @@ export function QuizScreen({
   const insets = useSafeAreaInsets();
   const totalSteps = quizStepCount();
   const [pressed, setPressed] = useState(false);
+  const [skipPressed, setSkipPressed] = useState(false);
   const steps = Array.from({ length: totalSteps }, (_, i) => i + 1);
+  const completeOnboarding = useAppStore((s) => s.completeOnboarding);
+
+  // Skip the quiz, not the app: lands on the scanner exactly like finishing
+  // the quiz normally would, just without answering the remaining
+  // questions — same "no profile is a fully supported state" reasoning the
+  // onboarding intro's own Skip uses. Added once here, in the shared shell,
+  // so all 4 quiz steps get it without a new prop to thread through each one.
+  function skipQuiz() {
+    completeOnboarding();
+    router.replace(POST_ONBOARDING_ROUTE);
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
@@ -87,7 +100,22 @@ export function QuizScreen({
           ))}
         </View>
 
-        <View style={{ minWidth: 44, minHeight: 44 }} />
+        <Pressable
+          onPress={skipQuiz}
+          onPressIn={() => setSkipPressed(true)}
+          onPressOut={() => setSkipPressed(false)}
+          hitSlop={10}
+          accessibilityRole="button"
+          style={{
+            minHeight: 44,
+            minWidth: 44,
+            alignItems: "flex-end",
+            justifyContent: "center",
+            opacity: skipPressed ? 0.6 : 1,
+          }}
+        >
+          <Text style={{ fontSize: 14, color: MUTED }}>Skip</Text>
+        </Pressable>
       </View>
 
       <View style={{ paddingHorizontal: 24, paddingTop: 26, flexDirection: "row", alignItems: "flex-start", gap: 14 }}>
