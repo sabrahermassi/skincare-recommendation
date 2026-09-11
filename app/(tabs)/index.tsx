@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
+import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { Text } from "@/components/Text";
 import { fetchProductByBarcode, searchProducts } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -23,6 +24,7 @@ import { COLORS } from "@/lib/colors";
 import { parseIngredientBlock } from "@/lib/inci";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
+import { CANVAS, CTA, INK, LINE, MUTED, withAlpha } from "@/lib/tokens";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -52,6 +54,17 @@ const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as co
 
 type Mode = "Barcode" | "Label photo" | "Search" | "Paste list";
 type Status = { kind: "idle" } | { kind: "looking"; code: string } | { kind: "missed"; code: string };
+
+// Manassa system (design/DESIGN_SYSTEM.md) — the dark #17161B camera stage
+// itself stays (it's deliberate chrome, not part of the light onboarding
+// palette), but every light-surface color drawn on top of it moves to this
+// system instead of the app's older canvas/ink tokens. Press feedback on the
+// peach buttons below stays this screen's existing opacity-based convention
+// (`active:opacity-90`, matching every other button already on this stage)
+// rather than the onboarding screens' darken-to-CTA_PRESSED technique - this
+// file doesn't otherwise do per-button darken states, and introducing one
+// convention for four buttons while every other control on the same screen
+// uses opacity would be its own inconsistency.
 
 /**
  * Icons for the mode switcher, paths copied from the Scanner mockup. The row
@@ -134,8 +147,32 @@ export default function Scan() {
 
   const busy = useRef(false);
 
+  // Only two things are allowed to reset this screen back to Barcode: the X
+  // button, and switching to another tab and back. Nothing else — not the
+  // keyboard closing, not opening a search result and returning, not
+  // cancelling out of the label camera — is "leaving the scanner", and this
+  // screen should never guess otherwise. The problem is that React
+  // Navigation can't tell those apart on its own: pushing a screen from
+  // *within* this tab (a search result, the label-photo modal, the pasted
+  // list) blurs this tab's focus exactly the same way switching to a sibling
+  // tab does, because both put another screen on top of it. `preserveMode`
+  // is how every one of those internal pushes tells this effect "this isn't
+  // an exit" — it's called right before each one, and consumed the moment
+  // this screen is focused again. Anything that does NOT call it first (the
+  // X button, a genuine tab switch) resets to Barcode, which is the default
+  // this effect falls back to when nothing has told it otherwise.
+  const skipResetOnNextFocus = useRef(false);
+  const preserveMode = useCallback(() => {
+    skipResetOnNextFocus.current = true;
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
+      if (skipResetOnNextFocus.current) {
+        skipResetOnNextFocus.current = false;
+      } else {
+        setMode("Barcode");
+      }
       return () => {
         setStatus({ kind: "idle" });
         busy.current = false;
@@ -181,6 +218,7 @@ export default function Scan() {
             ? matchProduct(product, profile)
             : { score: null, warnings: [] };
         recordView({ id: product.id, known: true, score, warnings: warnings.length });
+        preserveMode();
         router.push({ pathname: "/result/[id]", params: { id: product.id } });
         return; // `busy` clears on blur
       }
@@ -189,7 +227,7 @@ export default function Scan() {
       setStatus({ kind: "missed", code: data });
       busy.current = false;
     },
-    [profile, recordView]
+    [profile, recordView, preserveMode]
   );
 
   // Most devices only let one CameraView hold the camera at a time. This
@@ -219,6 +257,7 @@ export default function Scan() {
           setStatus({ kind: "idle" });
           busy.current = false;
         }}
+        preserveMode={preserveMode}
         modeSwitcher={<ModeSwitcher mode={mode} setMode={setMode} floating />}
       />
     );
@@ -230,9 +269,9 @@ export default function Scan() {
   // losing its own layout rather than a deliberate choice.
   return (
     <FullScreenPane modeSwitcher={<ModeSwitcher mode={mode} setMode={setMode} floating />}>
-      {mode === "Search" && <SearchPane />}
-      {mode === "Paste list" && <PastePane />}
-      {mode === "Label photo" && <LabelPhotoPane />}
+      {mode === "Search" && <SearchPane preserveMode={preserveMode} />}
+      {mode === "Paste list" && <PastePane preserveMode={preserveMode} />}
+      {mode === "Label photo" && <LabelPhotoPane preserveMode={preserveMode} />}
     </FullScreenPane>
   );
 }
@@ -267,6 +306,7 @@ function ModeSwitcher({
     >
       {MODES.map(({ label, Icon }) => {
         const on = mode === label;
+        const color = floating ? (on ? INK : CANVAS) : on ? COLORS.accentText : COLORS.ink;
         return (
           <Pressable
             key={label}
@@ -282,9 +322,9 @@ function ModeSwitcher({
                     alignItems: "center",
                     justifyContent: "center",
                     borderRadius: 26,
-                    backgroundColor: on ? "rgba(250,247,243,0.95)" : "rgba(23,22,27,0.55)",
+                    backgroundColor: on ? withAlpha(CANVAS, 0.95) : "rgba(23,22,27,0.55)",
                     borderWidth: 1,
-                    borderColor: on ? "transparent" : "rgba(250,247,243,0.3)",
+                    borderColor: on ? "transparent" : withAlpha(CANVAS, 0.3),
                   }
                 : { height: 48 }
             }
@@ -296,17 +336,20 @@ function ModeSwitcher({
                   }`
             }
           >
-            <Icon
-              color={
-                floating
-                  ? on
-                    ? COLORS.ink
-                    : COLORS.canvas
-                  : on
-                    ? COLORS.accentText
-                    : COLORS.ink
-              }
-            />
+            {floating ? (
+              // A visible label under the glyph, not just accessibilityLabel
+              // below — this is the screen the app opens on, and two of
+              // these four icons (a photo frame, a clipboard) have no fixed
+              // meaning the way a magnifying glass or barcode bars do.
+              <View style={{ alignItems: "center", gap: 2 }}>
+                <Icon color={color} />
+                <Text style={{ fontSize: 9, fontWeight: "600", color }} numberOfLines={1}>
+                  {label}
+                </Text>
+              </View>
+            ) : (
+              <Icon color={color} />
+            )}
           </Pressable>
         );
       })}
@@ -323,6 +366,39 @@ function ModeSwitcher({
  * and it needs a visible way out. It goes to Browse rather than popping,
  * because this is a tab root and there is nothing to pop to.
  */
+/**
+ * Current keyboard height in px, 0 when hidden.
+ *
+ * `KeyboardAvoidingView`'s "padding"/"height" behaviors only push around
+ * normal-flow layout — they do nothing for a `position: absolute` child,
+ * which is what the bottom status panel below is. Without this, the keyboard
+ * slides up over that panel and buries the "Tell us its name" field entirely;
+ * the only way to see what you'd typed was to hit return and dismiss the
+ * keyboard first. This tracks the keyboard's own height so that panel's
+ * `bottom` offset can grow to match and the field stays in view while typing.
+ */
+function useKeyboardHeight(): number {
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    // iOS fires the "will" events ahead of the animation, which is what lets
+    // this track the keyboard smoothly; Android does not reliably fire them
+    // at all, so it uses "did" instead.
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const onShow = Keyboard.addListener(showEvent, (e) => setHeight(e.endCoordinates.height));
+    const onHide = Keyboard.addListener(hideEvent, () => setHeight(0));
+
+    return () => {
+      onShow.remove();
+      onHide.remove();
+    };
+  }, []);
+
+  return height;
+}
+
 function BarcodeStage({
   permission,
   requestPermission,
@@ -330,6 +406,7 @@ function BarcodeStage({
   status,
   onBarcode,
   onDismissStatus,
+  preserveMode,
   modeSwitcher,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
@@ -338,9 +415,13 @@ function BarcodeStage({
   status: Status;
   onBarcode: (data: string) => void;
   onDismissStatus: () => void;
+  /** Call before any navigation away from this stage that isn't the close
+   *  button — see `Scan`'s own `preserveMode` doc comment for why. */
+  preserveMode: () => void;
   modeSwitcher: ReactElement;
 }) {
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
 
   return (
     <View style={{ flex: 1, backgroundColor: "#17161B" }}>
@@ -367,7 +448,7 @@ function BarcodeStage({
       {!permission?.granted && (
         <View className="flex-1 items-center justify-center gap-4 px-10">
           <Text
-            style={{ color: "rgba(250,247,243,0.8)" }}
+            style={{ color: withAlpha(CANVAS, 0.8) }}
             className="text-center text-sm leading-5"
           >
             {permission?.canAskAgain === false
@@ -377,14 +458,21 @@ function BarcodeStage({
           {permission?.canAskAgain === false ? null : (
             <Pressable
               onPress={requestPermission}
-              style={{ height: 44 }}
-              className="items-center justify-center rounded-full bg-canvas px-6 active:opacity-80"
+              style={{
+                height: 44,
+                paddingHorizontal: 24,
+                borderRadius: 22,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: CTA,
+              }}
+              className="active:opacity-90"
             >
-              <Text className="text-sm font-semibold text-ink">Enable camera</Text>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: INK }}>Enable camera</Text>
             </Pressable>
           )}
           <Text
-            style={{ color: "rgba(250,247,243,0.5)" }}
+            style={{ color: withAlpha(CANVAS, 0.5) }}
             className="text-center text-xs leading-4"
           >
             Or switch to Label photo or Search below.
@@ -394,13 +482,15 @@ function BarcodeStage({
 
       <ScannerTopRow insets={insets} />
 
-      {/* Status, then the switcher, stacked off the bottom edge. */}
+      {/* Status, then the switcher, stacked off the bottom edge. Rises by
+          `keyboardHeight` while the name field below is focused, so the
+          keyboard opening doesn't slide the whole group underneath it. */}
       <View
         style={{
           position: "absolute",
           left: 20,
           right: 20,
-          bottom: Math.max(20, insets.bottom + 12),
+          bottom: Math.max(20, insets.bottom + 12) + keyboardHeight,
           gap: 12,
         }}
       >
@@ -409,7 +499,7 @@ function BarcodeStage({
             style={{
               gap: 12,
               borderRadius: 18,
-              backgroundColor: "rgba(250,247,243,0.95)",
+              backgroundColor: withAlpha(CANVAS, 0.95),
             }}
             className="flex-row items-center px-4 py-3"
           >
@@ -419,18 +509,18 @@ function BarcodeStage({
               }`}
             >
               {status.kind === "looking" ? (
-                <ActivityIndicator size="small" color={COLORS.ink} />
+                <ActivityIndicator size="small" color={INK} />
               ) : (
-                <Text className="text-sm font-bold text-ink">!</Text>
+                <Text style={{ fontSize: 14, fontWeight: "bold", color: INK }}>!</Text>
               )}
             </View>
             <View className="flex-1">
-              <Text className="text-[12.5px] font-bold text-ink">
+              <Text style={{ fontSize: 12.5, fontWeight: "bold", color: INK }}>
                 {status.kind === "looking"
                   ? `Barcode found · ${status.code}`
                   : "Not in our catalogue yet"}
               </Text>
-              <Text className="text-[11px] text-ink-muted">
+              <Text style={{ fontSize: 11, color: MUTED }}>
                 {status.kind === "looking"
                   ? "Reading the ingredients…"
                   : "Photograph the label and we'll add it"}
@@ -442,21 +532,34 @@ function BarcodeStage({
         {status.kind === "missed" && (
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Pressable
-              onPress={() =>
-                router.push({ pathname: "/scan-label", params: { barcode: status.code } })
-              }
-              className="flex-1 items-center rounded-full bg-canvas py-2.5 active:opacity-80"
+              onPress={() => {
+                preserveMode();
+                router.push({ pathname: "/scan-label", params: { barcode: status.code } });
+              }}
+              style={{
+                flex: 1,
+                alignItems: "center",
+                borderRadius: 999,
+                paddingVertical: 10,
+                backgroundColor: CTA,
+              }}
+              className="active:opacity-90"
             >
-              <Text className="text-[11.5px] font-semibold text-ink">
+              <Text style={{ fontSize: 11.5, fontWeight: "600", color: INK }}>
                 Photograph the label
               </Text>
             </Pressable>
             <Pressable
               onPress={onDismissStatus}
-              style={{ backgroundColor: "rgba(250,247,243,0.2)" }}
-              className="flex-1 items-center rounded-full py-2.5"
+              style={{
+                flex: 1,
+                alignItems: "center",
+                borderRadius: 999,
+                paddingVertical: 10,
+                backgroundColor: withAlpha(CANVAS, 0.2),
+              }}
             >
-              <Text className="text-[11.5px] font-semibold text-canvas">Try another</Text>
+              <Text style={{ fontSize: 11.5, fontWeight: "600", color: CANVAS }}>Try another</Text>
             </Pressable>
           </View>
         )}
@@ -465,7 +568,7 @@ function BarcodeStage({
             the one place on the stage that takes typed input, and its label
             and field were built for the light canvas. */}
         {status.kind === "missed" && (
-          <View className="rounded-card bg-canvas py-2">
+          <View style={{ borderRadius: 18, paddingVertical: 8, backgroundColor: CANVAS }}>
             <UnknownProductNote barcode={status.code} />
           </View>
         )}
@@ -562,7 +665,7 @@ function FullScreenPane({
  * switcher; with Open the camera already right here, it named the same
  * action twice.
  */
-function LabelPhotoPane() {
+function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
   return (
     <View
       style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 18, paddingHorizontal: 30 }}
@@ -599,18 +702,28 @@ function LabelPhotoPane() {
       </Svg>
 
       <Text
-        style={{ color: "rgba(250,247,243,0.8)" }}
+        style={{ color: withAlpha(CANVAS, 0.8) }}
         className="text-center text-sm leading-5"
       >
         Photograph the ingredient list on the back and we&apos;ll read it.
         Works on anything, even products we&apos;ve never seen.
       </Text>
       <Pressable
-        onPress={() => router.push("/scan-label")}
-        style={{ height: 44 }}
-        className="items-center justify-center rounded-full bg-canvas px-6 active:opacity-80"
+        onPress={() => {
+          preserveMode();
+          router.push("/scan-label");
+        }}
+        style={{
+          height: 44,
+          paddingHorizontal: 24,
+          borderRadius: 22,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: CTA,
+        }}
+        className="active:opacity-90"
       >
-        <Text className="text-sm font-semibold text-ink">Open the camera</Text>
+        <Text style={{ fontSize: 14, fontWeight: "600", color: INK }}>Open the camera</Text>
       </Pressable>
     </View>
   );
@@ -640,7 +753,7 @@ function UnknownProductNote({ barcode }: { barcode: string }) {
   if (submitted) {
     return (
       <View style={{ paddingHorizontal: 26, paddingTop: 10 }}>
-        <Text className="text-center text-xs text-ink-muted">
+        <Text style={{ textAlign: "center", fontSize: 12, color: MUTED }}>
           Saved on your phone — thanks for helping fill in what we&apos;re missing.
         </Text>
       </View>
@@ -649,15 +762,20 @@ function UnknownProductNote({ barcode }: { barcode: string }) {
 
   if (!open) {
     return (
-      <Pressable onPress={() => setOpen(true)} className="items-center px-5 pt-2">
-        <Text className="text-xs text-ink-muted">
+      <Pressable onPress={() => setOpen(true)} style={{ alignItems: "center", paddingHorizontal: 20, paddingTop: 8 }}>
+        <Text style={{ fontSize: 12, color: MUTED }}>
           Know what this is?{" "}
-          <Text className="font-semibold text-accent-text underline">
+          <Text style={{ fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
             Tell us its name
           </Text>
         </Text>
       </Pressable>
     );
+  }
+
+  function save() {
+    if (name.trim().length === 0) return;
+    submit(barcode, name.trim());
   }
 
   return (
@@ -666,20 +784,38 @@ function UnknownProductNote({ barcode }: { barcode: string }) {
         value={name}
         onChangeText={setName}
         placeholder="Brand and product name"
-        placeholderTextColor={COLORS.inkFaint}
+        placeholderTextColor={MUTED}
         autoFocus
-        className="rounded-control border border-hairline bg-surface px-4 py-3 text-[13px] text-ink"
-      />
-      <Pressable
-        onPress={() => {
-          if (name.trim().length === 0) return;
-          submit(barcode, name.trim());
+        returnKeyType="done"
+        onSubmitEditing={save}
+        style={{
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: LINE,
+          backgroundColor: CANVAS,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          fontSize: 13,
+          color: INK,
         }}
+      />
+      {/* Not peach — this is a minor, deeply nested confirm action within an
+          optional sub-flow, not the mode's primary action (that's the
+          camera/scan itself). Peach stays reserved for that. */}
+      <Pressable
+        onPress={save}
         disabled={name.trim().length === 0}
-        style={{ height: 44, opacity: name.trim().length === 0 ? 0.5 : 1 }}
-        className="items-center justify-center rounded-control bg-accent px-6 active:bg-accent-deep"
+        style={{
+          height: 44,
+          opacity: name.trim().length === 0 ? 0.5 : 1,
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 14,
+          paddingHorizontal: 24,
+          backgroundColor: INK,
+        }}
       >
-        <Text className="text-[13.5px] font-semibold text-white">Save the name</Text>
+        <Text style={{ fontSize: 13.5, fontWeight: "600", color: CANVAS }}>Save the name</Text>
       </Pressable>
     </View>
   );
@@ -716,7 +852,7 @@ function Viewfinder() {
 }
 
 /** Search by name — the fallback when there's no barcode or no camera. */
-function SearchPane() {
+function SearchPane({ preserveMode }: { preserveMode: () => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ProductWithIngredients[]>([]);
   const [searching, setSearching] = useState(false);
@@ -751,17 +887,54 @@ function SearchPane() {
 
   return (
     <View className="flex-1 px-4 pb-[70px] pt-5">
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Product or brand name"
-        placeholderTextColor="rgba(253,251,249,0.45)"
-        autoCorrect={false}
-        className="rounded-full px-4 py-3 text-canvas"
-        style={{ fontWeight: "500", fontSize: 14, backgroundColor: "rgba(250,247,243,0.14)" }}
-      />
+      <View style={{ position: "relative" }}>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Product or brand name"
+          placeholderTextColor={withAlpha(CANVAS, 0.45)}
+          autoCorrect={false}
+          style={{
+            borderRadius: 999,
+            paddingHorizontal: 16,
+            // Room for the clear button once there's something to clear.
+            paddingRight: query.length > 0 ? 40 : 16,
+            paddingVertical: 12,
+            fontWeight: "500",
+            fontSize: 14,
+            color: CANVAS,
+            backgroundColor: withAlpha(CANVAS, 0.14),
+          }}
+        />
+        {query.length > 0 && (
+          <Pressable
+            onPress={() => setQuery("")}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+            style={{
+              position: "absolute",
+              right: 12,
+              top: 0,
+              bottom: 0,
+              width: 24,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M6 6l12 12M18 6 6 18"
+                stroke={withAlpha(CANVAS, 0.6)}
+                strokeWidth={2.2}
+                strokeLinecap="round"
+              />
+            </Svg>
+          </Pressable>
+        )}
+      </View>
       <ScrollView className="mt-3" keyboardShouldPersistTaps="handled">
-        {searching && <ActivityIndicator color={COLORS.canvas} className="mt-4" />}
+        {searching && <ActivityIndicator color={CANVAS} className="mt-4" />}
 
         {/* An empty search pane looked broken. It now says what it searches
             and when it will start, so the blankness is expected rather than a
@@ -773,20 +946,20 @@ function SearchPane() {
                 cx={10.6}
                 cy={10.6}
                 r={6.9}
-                stroke={COLORS.canvas}
+                stroke={CANVAS}
                 strokeOpacity={0.4}
                 strokeWidth={1.9}
               />
               <Path
                 d="m15.6 15.6 4.4 4.4"
-                stroke={COLORS.canvas}
+                stroke={CANVAS}
                 strokeOpacity={0.4}
                 strokeWidth={1.9}
                 strokeLinecap="round"
               />
             </Svg>
             <Text
-              style={{ color: "rgba(250,247,243,0.6)", lineHeight: 17 }}
+              style={{ color: withAlpha(CANVAS, 0.6), lineHeight: 17 }}
               className="text-center text-xs"
             >
               Search the catalogue by product or brand - type two letters to
@@ -796,27 +969,31 @@ function SearchPane() {
         )}
 
         {!searching && query.trim().length >= 2 && results.length === 0 && (
-          <Text style={{ color: "rgba(250,247,243,0.6)" }} className="mt-4 text-center text-xs">
+          <Text style={{ color: withAlpha(CANVAS, 0.6) }} className="mt-4 text-center text-xs">
             Nothing matched. Try the barcode, or photograph the label.
           </Text>
         )}
         {results.map((product) => (
           <Pressable
             key={product.id}
-            onPress={() => router.push({ pathname: "/result/[id]", params: { id: product.id } })}
-            style={{ borderBottomColor: "rgba(250,247,243,0.1)" }}
+            onPress={() => {
+              preserveMode();
+              router.push({ pathname: "/result/[id]", params: { id: product.id } });
+            }}
+            style={{ borderBottomColor: withAlpha(CANVAS, 0.1) }}
             className="flex-row items-center gap-3 border-b py-3"
           >
+            <ProductThumbnail product={product} size={38} radius={10} />
             <View className="flex-1">
-              <Text className="text-[13px] font-semibold text-canvas" numberOfLines={1}>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: CANVAS }} numberOfLines={1}>
                 {product.name}
               </Text>
-              <Text style={{ color: "rgba(250,247,243,0.6)", fontSize: 11 }}>{product.brand}</Text>
+              <Text style={{ color: withAlpha(CANVAS, 0.6), fontSize: 11 }}>{product.brand}</Text>
             </View>
             <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
               <Path
                 d="m9 5 7 7-7 7"
-                stroke={COLORS.canvas}
+                stroke={CANVAS}
                 strokeOpacity={0.4}
                 strokeWidth={2.2}
                 strokeLinecap="round"
@@ -841,7 +1018,7 @@ function SearchPane() {
  * nothing and needs no network — and because pore-clogging is judged against a
  * table on the device, neither does the answer.
  */
-function PastePane() {
+function PastePane({ preserveMode }: { preserveMode: () => void }) {
   const [text, setText] = useState("");
   const setPastedIngredients = useAppStore((s) => s.setPastedIngredients);
 
@@ -851,7 +1028,15 @@ function PastePane() {
   function check() {
     if (!ready) return;
     setPastedIngredients(parsed.map((p) => p.inci_name));
-    setText("");
+    // Tells the scanner this push is a continuation of the paste, not a
+    // reason to reset to Barcode when we come back — see `Scan`'s own
+    // `preserveMode` doc comment for why every internal push needs this.
+    preserveMode();
+    // Not cleared: this pane stays mounted underneath the pushed
+    // ingredients screen, so clearing it here meant going back showed an
+    // empty box — as if the paste had never happened, when the app had it
+    // the whole time. It's a paste box, not a form; nothing needs a fresh
+    // start until you deliberately type over it.
     router.push("/ingredients/pasted");
   }
 
@@ -872,22 +1057,45 @@ function PastePane() {
             value={text}
             onChangeText={setText}
             placeholder="Paste the ingredient list here - water, glycerin, niacinamide…"
-            placeholderTextColor="rgba(253,251,249,0.45)"
+            placeholderTextColor={withAlpha(CANVAS, 0.45)}
             multiline
             textAlignVertical="top"
             autoCorrect={false}
             autoCapitalize="none"
-            className="rounded-control px-3 py-3 text-canvas"
             style={{
               flex: 1,
+              borderRadius: 14,
+              paddingHorizontal: 12,
+              paddingVertical: 12,
               fontSize: 13,
               lineHeight: 18,
-              backgroundColor: "rgba(250,247,243,0.14)",
+              color: CANVAS,
+              backgroundColor: withAlpha(CANVAS, 0.14),
             }}
           />
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Text style={{ color: "rgba(250,247,243,0.6)", flex: 1 }} className="text-[11px]">
+            {/* Left side, mirroring Check on the right: clears the box in one
+                tap instead of holding backspace or selecting all by hand. */}
+            <Pressable
+              onPress={() => setText("")}
+              disabled={text.length === 0}
+              accessibilityRole="button"
+              accessibilityLabel="Clear the pasted list"
+              style={{
+                height: 40,
+                opacity: text.length === 0 ? 0.35 : 1,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 999,
+                paddingHorizontal: 16,
+                borderWidth: 1,
+                borderColor: withAlpha(CANVAS, 0.35),
+              }}
+            >
+              <Text style={{ fontSize: 12.5, fontWeight: "600", color: CANVAS }}>Clear</Text>
+            </Pressable>
+            <Text style={{ color: withAlpha(CANVAS, 0.6), flex: 1 }} className="text-[11px]">
               {text.trim().length === 0
                 ? "Copy it from anywhere - we read it on your phone."
                 : `${parsed.length} ingredient${parsed.length === 1 ? "" : "s"} found`}
@@ -897,10 +1105,17 @@ function PastePane() {
               disabled={!ready}
               accessibilityRole="button"
               accessibilityLabel="Check this ingredient list"
-              style={{ height: 40, opacity: ready ? 1 : 0.4 }}
-              className="items-center justify-center rounded-full bg-canvas px-5 active:opacity-80"
+              style={{
+                height: 40,
+                opacity: ready ? 1 : 0.4,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 999,
+                paddingHorizontal: 20,
+                backgroundColor: CTA,
+              }}
             >
-              <Text className="text-[13px] font-semibold text-ink">Check</Text>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>Check</Text>
             </Pressable>
           </View>
         </View>

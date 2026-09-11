@@ -20,11 +20,11 @@ describe("isPersonalized", () => {
     expect(isPersonalized(EMPTY_PROFILE)).toBe(false);
   });
 
-  it("is false when only sensitivity and area are answered", () => {
+  it("is false when only sensitivity is answered", () => {
     // Sensitivity scales how harshly irritants are judged; it does not say
     // what a formula should be doing for you, so it must not on its own
     // unlock a match score.
-    expect(isPersonalized(profile({ sensitivity: "high", area: "face" }))).toBe(false);
+    expect(isPersonalized(profile({ sensitivity: "high" }))).toBe(false);
   });
 
   it("is true once a base skin type is set", () => {
@@ -85,10 +85,11 @@ describe("sensitivity", () => {
 });
 
 describe("quiz flow", () => {
-  // The MVP asks for exactly three: concerns, skin type, sensitivity. Age and
-  // gender were dropped, and face/body is no longer a question.
-  it("has three steps", () => {
-    expect(quizStepCount()).toBe(3);
+  // Four steps as of the Manassa design-system rollout: concerns, skin type,
+  // sensitivity, pregnancy/breastfeeding. Age and gender were dropped
+  // earlier and stay dropped; face/body is still not a question.
+  it("has four steps", () => {
+    expect(quizStepCount()).toBe(4);
   });
 
   it("no longer asks for demographics or body area", () => {
@@ -96,9 +97,13 @@ describe("quiz flow", () => {
     expect(quizRoutes()).not.toContain("/onboarding/area");
   });
 
-  it("treats sensitivity as the last step", () => {
+  it("treats pregnancy as the last step", () => {
     // null means "finish onboarding", not "navigate".
-    expect(nextQuizRoute("/onboarding/sensitivity")).toBeNull();
+    expect(nextQuizRoute("/onboarding/pregnancy")).toBeNull();
+  });
+
+  it("moves from sensitivity to pregnancy, not straight to finishing", () => {
+    expect(nextQuizRoute("/onboarding/sensitivity")).toBe("/onboarding/pregnancy");
   });
 
   it("walks the whole flow end to end", () => {

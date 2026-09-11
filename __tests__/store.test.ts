@@ -16,7 +16,6 @@ beforeEach(() => {
       hasSeenOnboarding: false,
       savedProducts: [],
       history: [],
-      compareIds: [],
     },
     false
   );
@@ -39,7 +38,7 @@ describe("onboarding gate", () => {
    * bounced straight back to onboarding because the gate was still closed.
    */
   it("skipping also opens the gate, leaving the profile empty", () => {
-    s().skipOnboarding();
+    s().completeOnboarding();
     expect(s().hasSeenOnboarding).toBe(true);
     expect(s().profile).toEqual(EMPTY_PROFILE);
   });
@@ -50,17 +49,15 @@ describe("editing the profile via setProfile", () => {
    * Regression: editing used to be wired to a reset that wiped the entire
    * store, so changing skin type silently deleted the wishlist. Editing is
    * now a plain navigation to /profile plus a `setProfile` patch — it must
-   * never touch savedProducts or compareIds.
+   * never touch savedProducts.
    */
-  it("preserves the wishlist and compare tray", () => {
+  it("preserves the wishlist", () => {
     s().saveProduct("hanbang-rice-serum");
-    s().toggleCompare("aqua-ceramide-cream");
     s().completeOnboarding();
 
     s().setProfile({ baseSkinType: "dry" });
 
     expect(s().savedProducts.map((p) => p.id)).toEqual(["hanbang-rice-serum"]);
-    expect(s().compareIds).toEqual(["aqua-ceramide-cream"]);
   });
 
   it("shallow-merges, leaving other answers untouched", () => {
@@ -118,36 +115,8 @@ describe("concerns", () => {
   });
 });
 
-describe("compare tray", () => {
-  it("holds at most two, dropping the oldest", () => {
-    s().toggleCompare("a");
-    s().toggleCompare("b");
-    s().toggleCompare("c");
-    expect(s().compareIds).toEqual(["b", "c"]);
-  });
-
-  it("deselects an already-selected product rather than re-adding it", () => {
-    s().toggleCompare("a");
-    s().toggleCompare("a");
-    expect(s().compareIds).toEqual([]);
-  });
-
-  it("clearCompare empties the tray without touching saved products", () => {
-    s().saveProduct("keep-me");
-    s().toggleCompare("a");
-    s().clearCompare();
-    expect(s().compareIds).toEqual([]);
-    expect(s().savedProducts).toHaveLength(1);
-  });
-});
-
 describe("what survives an app restart", () => {
-  /**
-   * The compare tray is an in-session selection. Restoring "2 selected" from
-   * three weeks ago would put a floating bar over the browse list for no
-   * reason, so it is deliberately left out of the persisted slice.
-   */
-  it("persists the profile, gate, shelf and log — but not the compare tray", () => {
+  it("persists the profile, gate, shelf and log", () => {
     expect([...PERSISTED_KEYS].sort()).toEqual([
       "hasSeenOnboarding",
       "history",
@@ -157,12 +126,10 @@ describe("what survives an app restart", () => {
       "savedProducts",
     ]);
 
-    s().toggleCompare("a");
     s().saveProduct("keep-me");
 
     const persisted = partializeState(useAppStore.getState());
     expect(Object.keys(persisted).sort()).toEqual([...PERSISTED_KEYS].sort());
-    expect(persisted).not.toHaveProperty("compareIds");
     expect(persisted.savedProducts.map((p) => p.id)).toEqual(["keep-me"]);
   });
 
@@ -276,7 +243,6 @@ describe("resetApp", () => {
     s().toggleConcern("redness");
     s().saveProduct("a");
     s().recordView({ id: "b", known: true, score: 70, warnings: 0 });
-    s().toggleCompare("c");
 
     s().resetApp();
 
@@ -284,7 +250,6 @@ describe("resetApp", () => {
     expect(s().profile).toEqual(EMPTY_PROFILE);
     expect(s().savedProducts).toEqual([]);
     expect(s().history).toEqual([]);
-    expect(s().compareIds).toEqual([]);
   });
 
   it("re-opens the onboarding gate, which is the whole point", () => {
@@ -321,8 +286,6 @@ describe("v3 -> v4 migration", () => {
     const migrated = migratePersisted(v3(), 3);
     expect(migrated?.profile.baseSkinType).toBe("oily");
     expect(migrated?.profile.concerns).toEqual(["acne-prone"]);
-    // Not an onboarding question any more, but the browse filter reads it.
-    expect(migrated?.profile.area).toBe("face");
   });
 
   it("maps the old boolean to the middle level, not the harshest", () => {
@@ -343,6 +306,9 @@ describe("v3 -> v4 migration", () => {
     expect(profile).not.toHaveProperty("gender");
     expect(profile).not.toHaveProperty("ageGroup");
     expect(profile).not.toHaveProperty("sensitive");
+    // v5 -> v6: area never fed scoring, and split the browse list's type
+    // filter by face/body, which worked against the app's own point.
+    expect(profile).not.toHaveProperty("area");
   });
 
   it("leaves the shelf and the log alone", () => {
@@ -353,8 +319,25 @@ describe("v3 -> v4 migration", () => {
   });
 
   it("passes a current store through untouched", () => {
+    const v6 = { ...v3(), profile: { ...EMPTY_PROFILE, sensitivity: "high" as const } };
+    expect(migratePersisted(v6, 6)?.profile.sensitivity).toBe("high");
+  });
+
+  it("drops a v5 profile's area even though nothing else about it changed", () => {
+    const v5 = { ...v3(), profile: { ...EMPTY_PROFILE, sensitivity: "high" as const, area: "body" } };
+    const migrated = migratePersisted(v5, 5) as Record<string, unknown> | undefined;
+    const profile = migrated?.profile as Record<string, unknown>;
+    expect(profile).not.toHaveProperty("area");
+  });
+
+  // v4 -> v5 adds pregnancyStatus. An existing profile has no opinion either
+  // way, so it becomes null (unanswered) rather than a guess like "neither".
+  it("adds pregnancyStatus as unanswered, migrating from v3 or v4", () => {
+    expect(migratePersisted(v3(), 3)?.profile.pregnancyStatus).toBeNull();
+
     const v4 = { ...v3(), profile: { ...EMPTY_PROFILE, sensitivity: "high" as const } };
-    expect(migratePersisted(v4, 4)?.profile.sensitivity).toBe("high");
+    delete (v4.profile as Record<string, unknown>).pregnancyStatus;
+    expect(migratePersisted(v4, 4)?.profile.pregnancyStatus).toBeNull();
   });
 
   it("does not invent a profile out of nothing", () => {

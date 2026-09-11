@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
+import { INK } from "@/lib/tokens";
 
 /**
  * The top row every pushed screen in the design carries: a back chevron on the
@@ -41,7 +42,7 @@ export function ScreenHeader({
         <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
           <Path
             d="m15 5-7 7 7 7"
-            stroke="#453F4E"
+            stroke={INK}
             strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -51,7 +52,8 @@ export function ScreenHeader({
 
       {title ? (
         <Text
-          className="flex-1 text-center text-base font-medium tracking-tight text-ink"
+          style={{ color: INK }}
+          className="flex-1 text-center text-base font-medium tracking-tight"
           numberOfLines={1}
         >
           {title}

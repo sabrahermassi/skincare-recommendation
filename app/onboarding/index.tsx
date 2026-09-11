@@ -1,135 +1,339 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { Pressable, View } from "react-native";
+import { useEffect, useRef, useState, type ReactElement } from "react";
+import {
+  BackHandler,
+  Dimensions,
+  Pressable,
+  ScrollView,
+  View,
+  type LayoutChangeEvent,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/Text";
 
-import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
+import { POST_ONBOARDING_ROUTE, quizRoutes } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
+import { CANVAS, CTA, CTA_PRESSED, DOT_INACTIVE, INK, MUTED } from "@/lib/tokens";
 
-const HERO_BASE = require("@/assets/illustrations/onboarding/hero-base.png");
-const HERO_ARM = require("@/assets/illustrations/onboarding/hero-arm.png");
-const HERO_SPARKLES = require("@/assets/illustrations/onboarding/hero-sparkles.png");
-const SCAN_BASE = require("@/assets/illustrations/onboarding/scan-base.png");
-const SCAN_BARCODE = require("@/assets/illustrations/onboarding/scan-barcode.png");
-const SCAN_SPARKLE = require("@/assets/illustrations/onboarding/scan-sparkle.png");
-const ANALYZE_PAPER = require("@/assets/illustrations/onboarding/analyze-paper.png");
-const ANALYZE_MAGNIFIER = require("@/assets/illustrations/onboarding/analyze-magnifier.png");
-const KNOW_BASE = require("@/assets/illustrations/onboarding/know-base.png");
-const KNOW_CHECKMARK = require("@/assets/illustrations/onboarding/know-checkmark.png");
-const KNOW_SPARKLE = require("@/assets/illustrations/onboarding/know-sparkle.png");
+const ONB_SCAN = require("@/assets/illustrations/onboarding/onb-scan.png");
+const ONB_THINK = require("@/assets/illustrations/onboarding/onb-think.png");
+const ONB_FACE = require("@/assets/illustrations/onboarding/onb-face.png");
 
-const ABS_FILL = { position: "absolute", width: "100%", height: "100%" } as const;
+// Measured from the actual files, not the handoff's rounded ~650×1050 /
+// ~920×1045 — see design_handoff_manassa_onboarding_3/README.md's Assets
+// section for why these three can't share one sizing rule.
+const SCAN_ASPECT = 637 / 541;
+const THINK_ASPECT = 766 / 1228;
+const FACE_ASPECT = 927 / 1056;
+
+type ScreenContent = {
+  headline: string;
+  copy: string;
+  buttonLabel: string;
+  illustration: () => ReactElement;
+};
+
+const SCREENS: ScreenContent[] = [
+  {
+    headline: "Scan any product",
+    copy: "Point your camera at a barcode or ingredient list",
+    buttonLabel: "Next",
+    illustration: () => (
+      // Sized by width, not height — at 400px wide it deliberately bleeds
+      // ~12px past the frame on each side (the block below clips it), which
+      // is what lets the figure read at a comparable size to screens 2 and 3
+      // without cutting her hair or the dropper bottle. See the handoff's
+      // Assets section — this is the one most likely to get "fixed" wrong.
+      <Image
+        source={ONB_SCAN}
+        style={{ width: 400, aspectRatio: SCAN_ASPECT }}
+        contentFit="contain"
+        accessibilityLabel=""
+      />
+    ),
+  },
+  {
+    headline: "We check every ingredient",
+    copy: "Matched against your skin profile",
+    buttonLabel: "Next",
+    illustration: () => (
+      <Image
+        source={ONB_THINK}
+        style={{ height: 404, maxWidth: 375, aspectRatio: THINK_ASPECT }}
+        contentFit="contain"
+        accessibilityLabel=""
+      />
+    ),
+  },
+  {
+    headline: "Know what suits you",
+    copy: "Clear answers in seconds, wherever you’re shopping",
+    buttonLabel: "Get started",
+    illustration: () => (
+      <Image
+        source={ONB_FACE}
+        style={{ height: 404, maxWidth: 375, aspectRatio: FACE_ASPECT }}
+        contentFit="contain"
+        accessibilityLabel=""
+      />
+    ),
+  },
+];
 
 /**
- * Welcome — the first screen of the app, from
- * `design_handoff_manassa_onboarding_animated` (`onboarding.html`), laid out
- * and asset-complete but deliberately **static for now**: an animated build
- * of this same screen (Reanimated-driven hero lean/arm swing/sparkle fades,
- * a scan sweep, a pulsing checkmark) caused the app to exit outright in Expo
- * Go, with no JS-catchable error to diagnose from. That investigation is
- * parked rather than blocking the rest of the app — this static version uses
- * the same final layout and the same eleven layered PNGs (they were built
- * for the animated version but read here as plain stacked images), so
- * nothing about the visual design is lost, only the motion.
+ * Onboarding — the three-screen first-launch carousel, from
+ * `design_handoff_manassa_onboarding_3` (`onboarding.html`). Replaces the
+ * earlier single-screen Welcome.
+ *
+ * All three screens share one layout (`Page` below); only the illustration,
+ * the two copy lines, the active dot and the button label differ. Two things
+ * from the handoff are load-bearing, not styling flourish:
+ *
+ * - The headline (68px) and supporting-copy (44px) boxes are fixed height.
+ *   Screen 2's headline and screen 3's copy each wrap to two lines while the
+ *   other screens' don't — with auto height, the dots and button would land
+ *   at a different y per screen and visibly jump while swiping.
+ * - The two spacers are weighted 1.9 : 1 (not equal), so the air above the
+ *   text group is roughly double the air below it.
+ *
+ * `hasSeenOnboarding` (via `completeOnboarding`) is set on both `Get
+ * started` and `Skip` — same destination either way: the quiz, always. This
+ * used to branch on whether the profile already had answers, so `Skip` sent
+ * an answered profile straight to the scanner — which broke the moment
+ * "Retake the quiz" on the profile screen became the only way back into this
+ * carousel, since retaking the quiz is exactly the case where the profile is
+ * already answered. Which screen a mid-carousel exit leaves on is not persisted (`onboardingIndex` in the
+ * handoff's own State Management section is just what drives the dots here,
+ * as local state) — restarting the carousel from screen 1 on a relaunch
+ * before it's been completed is an entirely reasonable outcome, and
+ * `store/useAppStore.ts` is the one file allowed to touch device storage
+ * (see `docs/device-storage-policy.md`), so this doesn't add a second,
+ * screen-local key to approximate it.
  */
-export default function Welcome() {
+export default function Onboarding() {
   const insets = useSafeAreaInsets();
-  const skipOnboarding = useAppStore((s) => s.skipOnboarding);
+  const completeOnboarding = useAppStore((s) => s.completeOnboarding);
 
-  function scanFirstProduct() {
-    skipOnboarding();
+  const [pageWidth, setPageWidth] = useState(Dimensions.get("window").width);
+  const [index, setIndex] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+
+  function onLayout(e: LayoutChangeEvent) {
+    setPageWidth(e.nativeEvent.layout.width);
+  }
+
+  function onMomentumScrollEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    setIndex(Math.round(e.nativeEvent.contentOffset.x / pageWidth));
+  }
+
+  function goTo(i: number) {
+    scrollRef.current?.scrollTo({ x: i * pageWidth, animated: true });
+    setIndex(i);
+  }
+
+  function finish() {
+    completeOnboarding();
+    // "Get started" only - completing the carousel intentionally leads into
+    // the quiz. This used to also be Skip's destination, branching on
+    // `isPersonalized(profile)` to send an already-answered profile straight
+    // to the scanner. That reads sensibly until you notice the only way to
+    // re-enter this carousel is "Retake the quiz" on the profile screen -
+    // which left you skipping past the very quiz you asked to retake, back
+    // to where you started. A first run has an empty profile and lands on
+    // the quiz either way, so the branch never bought anything it did not
+    // also break.
+    router.push(quizRoutes()[0]);
+  }
+
+  // Skip means skip - straight to the scanner, not a detour through four
+  // more mandatory screens. The rest of the app already treats "no profile"
+  // as a fully supported state (browse's `isPersonalized` branch, the
+  // "Answer four quick questions" banner it shows there), so there is
+  // nothing the quiz provides that Skip needs to force.
+  function skipToApp() {
+    completeOnboarding();
     router.replace(POST_ONBOARDING_ROUTE);
   }
 
-  function setUpProfileFirst() {
-    router.push("/onboarding/concerns");
-  }
+  // "Back from screen 2 or 3 should return to the previous screen, not exit
+  // the flow" — Android's hardware back button is the one way to trigger
+  // that outside the carousel's own UI. On screen 1 there's nothing to
+  // intercept: falling through to the default behaviour is correct there.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (index === 0) return false;
+      goTo(index - 1);
+      return true;
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, pageWidth]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#FBF4EE" }}>
-      <View style={{ flex: 1, minHeight: Math.max(20, insets.top) }} />
+    <View style={{ flex: 1, backgroundColor: CANVAS }} onLayout={onLayout}>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onMomentumScrollEnd}
+        scrollEventThrottle={16}
+      >
+        {SCREENS.map((screen, i) => (
+          <Page
+            key={screen.headline}
+            width={pageWidth}
+            insets={insets}
+            screen={screen}
+            activeIndex={i}
+            onNext={() => (i === SCREENS.length - 1 ? finish() : goTo(i + 1))}
+            onSkip={skipToApp}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
 
-      <View style={{ alignItems: "center", paddingHorizontal: 24 }}>
-        <View style={{ width: "100%", maxWidth: 300, aspectRatio: 637 / 541 }}>
-          <Image source={HERO_BASE} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
-          <Image source={HERO_ARM} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
-          <Image source={HERO_SPARKLES} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
-        </View>
-      </View>
+function Page({
+  width,
+  insets,
+  screen,
+  activeIndex,
+  onNext,
+  onSkip,
+}: {
+  width: number;
+  insets: { top: number; bottom: number };
+  screen: ScreenContent;
+  activeIndex: number;
+  onNext: () => void;
+  onSkip: () => void;
+}) {
+  const [nextPressed, setNextPressed] = useState(false);
+  const [skipPressed, setSkipPressed] = useState(false);
 
-      <View style={{ alignItems: "center", gap: 12, paddingHorizontal: 24, paddingTop: 22 }}>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 40, color: "#5A342C" }}>
-          Manassa
-        </Text>
-        <Text style={{ fontSize: 15, color: "#96605A", textAlign: "center" }}>
-          Find your skin’s perfect match
-        </Text>
-      </View>
-
-      <View style={{ height: 54 }} />
-
-      <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 24 }}>
-        <View style={{ alignItems: "center", gap: 10 }}>
-          <View style={{ height: 84, width: "100%", alignItems: "center", justifyContent: "center" }}>
-            <View style={{ width: 98.5, height: 82.4 }}>
-              <Image source={SCAN_BASE} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
-              <Image source={SCAN_BARCODE} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
-              <Image source={SCAN_SPARKLE} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
-            </View>
-          </View>
-          <Text style={{ fontSize: 12, fontWeight: "600", color: "#5A342C" }}>Scan</Text>
-        </View>
-
-        <View style={{ alignItems: "center", gap: 10 }}>
-          <View style={{ height: 84, width: "100%", alignItems: "center", justifyContent: "center" }}>
-            <View style={{ width: 78, height: 70.9 }}>
-              <Image source={ANALYZE_PAPER} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
-              <Image source={ANALYZE_MAGNIFIER} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
-            </View>
-          </View>
-          <Text style={{ fontSize: 12, fontWeight: "600", color: "#5A342C" }}>Analyze</Text>
-        </View>
-
-        <View style={{ alignItems: "center", gap: 10 }}>
-          <View style={{ height: 84, width: "100%", alignItems: "center", justifyContent: "center" }}>
-            <View style={{ width: 56, height: 58.7 }}>
-              <Image source={KNOW_BASE} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
-              <Image source={KNOW_CHECKMARK} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
-              <Image source={KNOW_SPARKLE} style={ABS_FILL} contentFit="contain" accessibilityLabel="" />
-            </View>
-          </View>
-          <Text style={{ fontSize: 12, fontWeight: "600", color: "#5A342C" }}>Know</Text>
-        </View>
-      </View>
-
-      <View style={{ flex: 1.4, minHeight: 28 }} />
-
-      <View style={{ paddingHorizontal: 24, paddingBottom: Math.max(32, insets.bottom + 16), gap: 4 }}>
+  return (
+    <View style={{ width, flex: 1 }}>
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "flex-end",
+          paddingTop: Math.max(54, insets.top + 16),
+          paddingHorizontal: 16,
+        }}
+      >
         <Pressable
-          onPress={scanFirstProduct}
+          onPress={onSkip}
+          onPressIn={() => setSkipPressed(true)}
+          onPressOut={() => setSkipPressed(false)}
           accessibilityRole="button"
           style={{
-            minHeight: 50,
-            borderRadius: 26,
-            backgroundColor: "#F2BFA6",
+            minHeight: 44,
+            minWidth: 56,
             alignItems: "center",
             justifyContent: "center",
+            opacity: skipPressed ? 0.6 : 1,
           }}
         >
-          <Text style={{ fontSize: 15, fontWeight: "500", color: "#5A342C" }}>
-            Scan my first product
-          </Text>
+          <Text style={{ fontSize: 13.5, fontWeight: "500", color: MUTED }}>Skip</Text>
         </Pressable>
-        <Pressable
-          onPress={setUpProfileFirst}
-          accessibilityRole="button"
-          style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}
-        >
-          <Text style={{ fontSize: 13.5, fontWeight: "500", color: "#96605A", textAlign: "center" }}>
-            Set up my skin profile first
+      </View>
+
+      {/* Fixed 430 regardless of which illustration it holds — see the
+          handoff's "Do not simplify these" #3. Only screen 1 needs the clip:
+          it's the one sized by width, deliberately bleeding past the frame. */}
+      <View
+        style={{
+          height: 430,
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: activeIndex === 0 ? "hidden" : "visible",
+        }}
+      >
+        {screen.illustration()}
+      </View>
+
+      <View style={{ flex: 1.9, minHeight: 18 }} />
+
+      <View style={{ alignItems: "center", gap: 10, paddingHorizontal: 22 }}>
+        {/* Explicit width, not the parent's alignItems:"center" shrink-wrap
+            — screen 2's headline and screen 3's copy must wrap to two lines
+            to fit these fixed-height boxes, and a box with no width of its
+            own is not a reliable way to guarantee that wrap happens at the
+            same point CSS's version does. */}
+        <View style={{ height: 68, width: width - 44, justifyContent: "center" }}>
+          <Text
+            style={{
+              fontFamily: "PlayfairDisplay_500Medium",
+              fontSize: 30,
+              lineHeight: 30 * 1.08,
+              letterSpacing: 30 * -0.018,
+              color: INK,
+              textAlign: "center",
+            }}
+          >
+            {screen.headline}
           </Text>
+        </View>
+        <View style={{ height: 44, width: width - 44, justifyContent: "flex-start" }}>
+          <Text
+            style={{
+              fontSize: 14.5,
+              fontWeight: "400",
+              lineHeight: 14.5 * 1.5,
+              color: MUTED,
+              textAlign: "center",
+            }}
+          >
+            {screen.copy}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+          {SCREENS.map((s, i) => (
+            <View
+              key={s.headline}
+              style={
+                i === activeIndex
+                  ? { width: 20, height: 6, borderRadius: 3, backgroundColor: INK }
+                  : { width: 6, height: 6, borderRadius: 6, backgroundColor: DOT_INACTIVE }
+              }
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={{ flex: 1, minHeight: 12 }} />
+
+      <View style={{ paddingHorizontal: 24, paddingBottom: Math.max(32, insets.bottom + 16) }}>
+        <Pressable
+          onPress={onNext}
+          onPressIn={() => setNextPressed(true)}
+          onPressOut={() => setNextPressed(false)}
+          accessibilityRole="button"
+          style={{
+            minHeight: 52,
+            paddingHorizontal: 20,
+            borderRadius: 26,
+            backgroundColor: nextPressed ? CTA_PRESSED : CTA,
+            alignItems: "center",
+            justifyContent: "center",
+            // The fill is only 1.51:1 against the canvas (no border, per
+            // spec) — this shadow is the one thing separating the CTA from
+            // the page. Do not remove it. Android has no colour-matched
+            // shadow API via plain elevation; it still reads as "raised".
+            shadowColor: INK,
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 0.13,
+            shadowRadius: 12,
+            elevation: 6,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "500", color: INK }}>{screen.buttonLabel}</Text>
         </Pressable>
       </View>
     </View>

@@ -49,16 +49,15 @@ export type ProductSuggestion = {
 };
 
 const MAX_CONCERNS = 3;
-const MAX_COMPARE = 2;
 
 /** Oldest entries fall off the end. Long enough to cover months of casual use. */
 export const HISTORY_LIMIT = 50;
 
 export const EMPTY_PROFILE: SkinProfile = {
-  area: null,
   concerns: [],
   baseSkinType: null,
   sensitivity: null,
+  pregnancyStatus: null,
 };
 
 type AppState = {
@@ -81,13 +80,10 @@ type AppState = {
   // ── History: automatic, written on every product view and scan ──
   history: HistoryEntry[];
 
-  // ── Compare tray: at most two products at a time ──
-  compareIds: string[];
-
   /**
    * An ingredient list pasted into the scanner, awaiting the check screen.
-   * In-memory like `compareIds`: it is a single interaction, and restoring a
-   * list you pasted three weeks ago would be noise.
+   * In-memory: it is a single interaction, and restoring a list you pasted
+   * three weeks ago would be noise.
    */
   pastedIngredients: string[] | null;
 
@@ -100,7 +96,6 @@ type AppState = {
   toggleConcern: (concern: Concern) => void;
 
   completeOnboarding: () => void;
-  skipOnboarding: () => void;
 
   /** Idempotent add. Use where re-triggering must not un-save. */
   saveProduct: (id: string) => void;
@@ -119,9 +114,6 @@ type AppState = {
   }) => void;
   clearHistory: () => void;
 
-  toggleCompare: (id: string) => void;
-  clearCompare: () => void;
-
   setPastedIngredients: (names: string[] | null) => void;
 
   /** Idempotent per barcode — retyping the same one just updates the name. */
@@ -137,9 +129,7 @@ type AppState = {
 };
 
 /**
- * What survives an app restart. `compareIds` is deliberately absent: the
- * compare tray is an in-session selection, and restoring "2 selected" from
- * three weeks ago would put a floating bar over the browse list for no reason.
+ * What survives an app restart.
  */
 export const PERSISTED_KEYS = [
   "profile",
@@ -171,7 +161,6 @@ export const INITIAL_STATE = {
   savedProducts: [] as SavedProduct[],
   savedIngredients: [] as string[],
   history: [] as HistoryEntry[],
-  compareIds: [] as string[],
   pastedIngredients: null as string[] | null,
   productSuggestions: [] as ProductSuggestion[],
 };
@@ -194,6 +183,28 @@ export const INITIAL_STATE = {
  * saved product against a stricter rule than they agreed to. An existing
  * `false` becomes "none" rather than null — they saw the toggle and left it
  * off, which is an answer.
+ *
+ * v4 -> v5 adds `pregnancyStatus`, the quiz's new 4th question. An existing
+ * profile has no opinion either way, so it becomes `null` (unanswered) —
+ * the same convention `sensitivity: null` already uses, not a guess like
+ * "neither".
+ *
+ * v5 -> v6 drops `area` (face/body) from the client. It never fed scoring —
+ * `matchProduct` has never read it — and the one place it did anything was
+ * narrowing the browse list's type-filter chips, which now shows every
+ * product type regardless of area: the whole point of the app is judging a
+ * formula against a skin profile, and a body lotion is not disqualified from
+ * that by being a body lotion. An existing profile simply loses the field;
+ * there is nothing to migrate it to.
+ *
+ * This is a client-side, `SkinProfile`-only removal — it says nothing about
+ * `products.area` in the catalogue database. That column is a separate
+ * `NOT NULL CHECK`-constrained field on a different table
+ * (`supabase/migrations/0001_catalogue.sql`), still written by both the
+ * product-lookup and label-ocr Edge Functions on every insert (currently a
+ * hardcoded `"face"`, since nothing upstream of either function still
+ * determines a real area either). Dropping that column is a separate,
+ * not-yet-made decision — it wasn't touched here.
  */
 export function migratePersisted(persisted: unknown, version: number): PersistedState | undefined {
   const state = persisted as (PersistedState & {
@@ -202,6 +213,7 @@ export function migratePersisted(persisted: unknown, version: number): Persisted
       gender?: unknown;
       ageGroup?: unknown;
       sensitive?: boolean;
+      area?: unknown;
     };
   }) | undefined;
 
@@ -212,12 +224,13 @@ export function migratePersisted(persisted: unknown, version: number): Persisted
   // contract requires — fall back to the same empty profile a first run
   // gets, rather than trust a merge elsewhere to paper over it.
   if (!state.profile) return { ...state, profile: EMPTY_PROFILE };
-  if (version >= 4) return state as PersistedState;
+  if (version >= 6) return state as PersistedState;
 
   const {
     skinTypeSource: _droppedSource,
     gender: _droppedGender,
     ageGroup: _droppedAge,
+    area: _droppedArea,
     sensitive,
     ...rest
   } = state.profile;
@@ -253,9 +266,6 @@ export const useAppStore = create<AppState>()(
         }),
 
       completeOnboarding: () => set({ hasSeenOnboarding: true }),
-
-      /** Dismiss onboarding without answering. Leaves the profile empty. */
-      skipOnboarding: () => set({ hasSeenOnboarding: true }),
 
       saveProduct: (id) =>
         set((state) =>
@@ -301,17 +311,6 @@ export const useAppStore = create<AppState>()(
 
       clearHistory: () => set({ history: [] }),
 
-      /** Selecting a third product drops the oldest, so the tray always holds <= 2. */
-      toggleCompare: (id) =>
-        set((state) => {
-          if (state.compareIds.includes(id)) {
-            return { compareIds: state.compareIds.filter((c) => c !== id) };
-          }
-          return { compareIds: [...state.compareIds, id].slice(-MAX_COMPARE) };
-        }),
-
-      clearCompare: () => set({ compareIds: [] }),
-
       setPastedIngredients: (names) => set({ pastedIngredients: names }),
 
       submitProductSuggestion: (barcode, name) =>
@@ -331,7 +330,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "skintel-store",
-      version: 4,
+      version: 6,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: partializeState,
       migrate: migratePersisted,

@@ -86,6 +86,60 @@ describe("contraindications", () => {
     const result = contraindications([moderate], p);
     expect(result).toHaveLength(1);
   });
+
+  // Pregnancy caution is a name-pattern match (lib/pregnancy-caution.ts), not
+  // a dictionary field — verified: true here specifically to prove it isn't
+  // riding on the "unverified is unassessed" skip the loop above applies to
+  // ingredient.safety/comedogenic checks.
+  const retinol: Ingredient = {
+    id: "retinol",
+    name: "Retinol",
+    comedogenic: 0,
+    safety: "safe",
+    verified: true,
+  };
+
+  it("flags a pregnancy-caution ingredient only when pregnant or breastfeeding", () => {
+    expect(contraindications([retinol], profile({ pregnancyStatus: "pregnant" }))).toHaveLength(1);
+    expect(
+      contraindications([retinol], profile({ pregnancyStatus: "breastfeeding" }))
+    ).toHaveLength(1);
+    expect(contraindications([retinol], profile({ pregnancyStatus: "neither" }))).toEqual([]);
+    expect(contraindications([retinol], profile({ pregnancyStatus: null }))).toEqual([]);
+  });
+
+  it("flags a pregnancy-caution ingredient even when unrecognised", () => {
+    // Unlike the safety/comedogenic checks above, this is a name-pattern
+    // match — a false negative here (missing "retinol" because the row
+    // never matched our dictionary) is worse than a redundant warning.
+    const unverifiedRetinol: Ingredient = { ...retinol, verified: false };
+    const result = contraindications(
+      [unverifiedRetinol],
+      profile({ pregnancyStatus: "pregnant" })
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].severity).toBe("irritant");
+  });
+
+  it("reports an ingredient once even when both sensitivity and pregnancy flag it", () => {
+    // Same shape as "reports each problem ingredient once" above, but for the
+    // two checks that live in separate passes rather than the same loop:
+    // salicylic acid is both a dictionary "caution" entry (sensitivity) and a
+    // named pregnancy-caution pattern. A user who is both sensitive and
+    // pregnant must see it once, not twice.
+    const salicylicAcid: Ingredient = {
+      id: "salicylic-acid",
+      name: "Salicylic Acid",
+      comedogenic: 0,
+      safety: "caution",
+      verified: true,
+    };
+    const result = contraindications(
+      [salicylicAcid],
+      profile({ sensitivity: "some", pregnancyStatus: "pregnant" })
+    );
+    expect(result).toHaveLength(1);
+  });
 });
 
 /**

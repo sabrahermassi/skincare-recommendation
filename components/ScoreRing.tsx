@@ -2,7 +2,7 @@ import { View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 import { Text } from "@/components/Text";
-import { COLORS } from "@/lib/colors";
+import { LINE, VERDICT, toneForVerdict } from "@/lib/tokens";
 import type { Verdict } from "@/lib/matching";
 
 /**
@@ -17,23 +17,22 @@ import type { Verdict } from "@/lib/matching";
  */
 
 /**
- * Track/fill colors, tone-keyed. The Skintel Screens Result mockup shows only
- * one state (a "good" score: sage-green fill on a pale sage track) — `mixed`,
- * `poor` and `unknown` extend that same tone pairing using the app's existing
- * good/watch/flag ramp (already used for this exact verdict elsewhere on this
- * screen, see `HERO` in app/result/[id].tsx) rather than inventing an
- * unrelated scheme. `unknown` keeps the previous ink-on-ink treatment, since
- * a null score never draws a fill arc anyway.
+ * Track/fill colors, tone-keyed via `toneForVerdict` — the same bridge
+ * `matchTone`'s callers use, rather than a second hand-collapse of
+ * excellent/good onto one tone. Two independent copies of that collapse
+ * (this one, and product/[id].tsx's `PANEL`) is exactly the drift the MVP
+ * hit once already: "the verdict and the badges once used different cutoffs
+ * ... and disagreed about the same product." `unknown` keeps the previous
+ * ink-on-ink treatment, since a null score never draws a fill arc anyway.
  */
-const RING_TONE: Record<Verdict, { track: string; fill: string }> = {
-  // Excellent and good share the sage pairing: both are a yes, and the number
-  // inside the ring is what separates 92 from 78.
-  excellent: { track: "#D3E6D9", fill: COLORS.toneGood },
-  good: { track: "#D3E6D9", fill: COLORS.toneGood },
-  fair: { track: "#F3E6D5", fill: COLORS.toneWatch },
-  poor: { track: "#F3DEDD", fill: COLORS.toneFlag },
-  unknown: { track: COLORS.ink, fill: COLORS.ink },
-};
+function ringTone(verdict: Verdict): { track: string; fill: string } {
+  const tone = toneForVerdict(verdict);
+  if (!tone) return { track: LINE, fill: LINE };
+  // Track is the verdict tint, fill is its solid - the same pairing the row
+  // badges and the leading bars use, so one product reads as one colour
+  // wherever it appears.
+  return { track: VERDICT[tone].tint, fill: VERDICT[tone].solid };
+}
 
 export function ScoreRing({
   score,
@@ -50,7 +49,7 @@ export function ScoreRing({
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const filled = score === null ? 0 : (score / 100) * circumference;
-  const { track, fill } = RING_TONE[tone];
+  const { track, fill } = ringTone(tone);
 
   return (
     <View style={{ width: size, height: size }} className="items-center justify-center">

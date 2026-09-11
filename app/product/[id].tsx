@@ -5,15 +5,14 @@ import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
 
-import { BottleIcon } from "@/components/BottleIcon";
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
-import { CompareIcon, HeartIcon } from "@/components/icons";
-import { PrimaryButton } from "@/components/PrimaryButton";
+import { HeartIcon } from "@/components/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { fetchProduct } from "@/data/api";
-import type { ProductWithIngredients } from "@/data/types";
-import { COLORS } from "@/lib/colors";
+import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import {
   confidenceLabel,
   matchProduct,
@@ -24,6 +23,16 @@ import {
 } from "@/lib/matching";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SELECTED_STRONG, VERDICT, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
+
+// Manassa system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
+// draw from the shared `PrimaryButton` component's `tone="cta"` — added
+// specifically so this screen (and browse, the pasted-list empty state, and
+// ingredient detail) stop hand-rolling the same button and drifting apart,
+// which they already had by the time this was written (three different
+// corner radii across the four files). `PrimaryButton`'s *default* tone is
+// still the old purple/lilac fill every screen not yet restyled to Manassa
+// uses — `tone="cta"` opts a call site in, it never changes the default.
 
 /**
  * The product screen — one screen, however you arrive at it.
@@ -59,13 +68,29 @@ import { useAppStore } from "@/store/useAppStore";
  * palette — the label carries the distinction, which keeps the screen from
  * needing a fifth colour that means "yes, but more so".
  */
-const PANEL: Record<Verdict, { bg: string; border: string; label: string; ink: string }> = {
-  excellent: { bg: "#EAF3EC", border: "#CFE4D6", label: "Excellent match", ink: "#3F6B50" },
-  good: { bg: "#EAF3EC", border: "#DCEBE0", label: "Good match", ink: "#4B7A5E" },
-  fair: { bg: "#FBF0E4", border: "#F2E2CE", label: "Fair match", ink: "#8A6314" },
-  poor: { bg: "#FBEAEC", border: "#F2D8DC", label: "Poor match", ink: "#A2521F" },
-  unknown: { bg: "#F3EFEA", border: "#E9E4DD", label: "Can't tell yet", ink: "#5C5566" },
+// The five bands' display label - the one thing that still needs full
+// per-Verdict granularity, since excellent/good share a tone but not a word.
+const PANEL_LABEL: Record<Verdict, string> = {
+  excellent: "Excellent match",
+  good: "Good match",
+  fair: "Fair match",
+  poor: "Poor match",
+  unknown: VERDICT_NEUTRAL.label,
 };
+
+/**
+ * Excellent and good are both a yes — they share the green and are told
+ * apart by the number in the ring, not by a fourth colour. Colours come from
+ * `toneForVerdict`, the one place that collapse happens, rather than a
+ * second hand-copy of it here disagreeing with `ScoreRing`'s someday.
+ */
+function panelFor(verdict: Verdict): { bg: string; border: string; label: string; ink: string } {
+  const tone = toneForVerdict(verdict);
+  const colors = tone
+    ? { bg: VERDICT[tone].tint, border: VERDICT[tone].solid, ink: VERDICT[tone].deep }
+    : { bg: VERDICT_NEUTRAL.tint, border: BORDER_INACTIVE, ink: VERDICT_NEUTRAL.deep };
+  return { ...colors, label: PANEL_LABEL[verdict] };
+}
 
 /**
  * One line of "why", naming the ingredient and carrying its own sentence.
@@ -78,19 +103,31 @@ function ReasonLine({ reason }: { reason: MatchReason }) {
   const positive = reason.effect > 0;
   return (
     <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+      {/* Inline style, not a Tailwind className: `bg-tint-mint`/`bg-tint-pink`
+          are also the scanner's unrelated "looking/missed" status icon, so
+          they can't be repointed at the verdict ramp without recoloring that
+          too. This reads the same VERDICT tokens the score ring above uses,
+          rather than a third green/pink pair. */}
       <View
-        style={{ width: 18, height: 18, borderRadius: 9, marginTop: 1 }}
-        className={`items-center justify-center ${positive ? "bg-tint-mint" : "bg-tint-pink"}`}
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 9,
+          marginTop: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: positive ? VERDICT.high.tint : VERDICT.low.tint,
+        }}
       >
-        <Text className="text-[11px] font-bold leading-[13px] text-ink">
+        <Text style={{ fontSize: 11, fontWeight: "bold", lineHeight: 13, color: INK }}>
           {positive ? "+" : "−"}
         </Text>
       </View>
       <View style={{ flex: 1, gap: 1 }}>
-        <Text className="text-[13px] font-semibold capitalize text-ink">
-          {reason.ingredient.toLowerCase()}
+        <Text style={{ fontSize: 13, fontWeight: "600", textTransform: "capitalize", color: INK }}>
+          {(reason.ingredient ?? "").toLowerCase()}
         </Text>
-        <Text className="text-[12px] leading-[17px] text-ink-muted">{reason.reason}</Text>
+        <Text style={{ fontSize: 12, lineHeight: 17, color: MUTED }}>{reason.reason}</Text>
       </View>
     </View>
   );
@@ -105,11 +142,8 @@ export default function ProductScreen() {
   const profile = useAppStore((s) => s.profile);
   const savedProducts = useAppStore((s) => s.savedProducts);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
-  const compareIds = useAppStore((s) => s.compareIds);
-  const toggleCompare = useAppStore((s) => s.toggleCompare);
   const recordView = useAppStore((s) => s.recordView);
   const saved = savedProducts.some((p) => p.id === id);
-  const inCompare = compareIds.includes(id);
   const loggedId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -149,26 +183,28 @@ export default function ProductScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-canvas">
-        <ActivityIndicator color={COLORS.accent} />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS }}>
+        <ActivityIndicator color={INK} />
       </View>
     );
   }
 
   if (!product) {
     return (
-      <View className="flex-1 bg-canvas">
+      <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader />
-        <View className="flex-1 items-center justify-center gap-4 px-8">
-          <Text className="font-display text-2xl text-ink">Product not found</Text>
-          <PrimaryButton label="Scan another" onPress={() => router.replace("/")} />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
+          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: INK }}>
+            Product not found
+          </Text>
+          <PrimaryButton tone="cta" size={52} label="Scan another" onPress={() => router.replace("/")} />
         </View>
       </View>
     );
   }
 
   const match = matchProduct(product, profile);
-  const panel = PANEL[match.verdict];
+  const panel = panelFor(match.verdict);
   const total = product.ingredients.length;
   const recognised = product.ingredients.filter(isVerified).length;
 
@@ -185,8 +221,8 @@ export default function ProductScreen() {
     if (!product) return;
     const line =
       match.score === null
-        ? `${product.brand} ${product.name} - checked on Skintell`
-        : `${product.brand} ${product.name} - ${match.score}/100 for my skin, on Skintell`;
+        ? `${product.brand} ${product.name} - checked on Manassa`
+        : `${product.brand} ${product.name} - ${match.score}/100 for my skin, on Manassa`;
     try {
       await Share.share({ message: line });
     } catch (err) {
@@ -195,14 +231,14 @@ export default function ProductScreen() {
   }
 
   return (
-    <View className="flex-1 bg-canvas">
+    <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader
         right={
           <Pressable onPress={share} hitSlop={12} accessibilityLabel="Share this result">
             <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M12 15.5V3.4M7.8 7.6 12 3.4l4.2 4.2M5 13.6V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.4"
-                stroke="#453F4E"
+                stroke={INK}
                 strokeWidth={1.8}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -221,18 +257,45 @@ export default function ProductScreen() {
           looking at the right bottle.
         */}
         <View style={{ alignItems: "center", paddingHorizontal: 20, paddingTop: 18 }}>
-          <BottleIcon type={product.productType} size={150} />
+          <ProductThumbnail product={product} size={150} radius={24} />
         </View>
 
         <View style={{ alignItems: "center", gap: 6, paddingHorizontal: 20, paddingTop: 18 }}>
-          <Text className="text-[10px] font-semibold uppercase tracking-[0.9px] text-ink-faint">
+          <Text style={{ fontSize: 10, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.9, color: MUTED_FAINT }}>
             {product.brand}
           </Text>
-          <Text className="text-center font-display text-[23px] leading-[28px] tracking-[-0.28px] text-ink">
+          <Text
+            style={{
+              textAlign: "center",
+              fontFamily: "PlayfairDisplay_500Medium",
+              fontSize: 23,
+              lineHeight: 28,
+              letterSpacing: -0.28,
+              color: INK,
+            }}
+          >
             {product.name}
           </Text>
-          <Text className="text-[12.5px] text-ink-muted">
-            {[product.volume, product.type, total > 0 ? `${total} ingredients` : null]
+          <Text style={{ fontSize: 12.5, color: MUTED }}>
+            {[
+              product.volume,
+              // A genuinely unidentified product says so nowhere near here —
+              // showing "Unknown" as if it were a category answers a
+              // question nobody asked. Just the size and the count stand on
+              // their own for that state.
+              //
+              // Same reasoning extends to `brand === "Unknown"`: that's the
+              // fallback the lookup/OCR/import paths write whenever the
+              // source has no brand data for this barcode at all, which is
+              // "we don't actually know this product" just as much as an
+              // unclassified type is — showing a specific inferred category
+              // (e.g. "Serum") directly under an admitted-unknown brand read
+              // as a contradiction: unsure who made it, but sure what it is.
+              product.type === "unknown" || product.brand === "Unknown"
+                ? null
+                : PRODUCT_TYPE_LABEL[product.type],
+              total > 0 ? `${total} ingredients` : null,
+            ]
               .filter(Boolean)
               .join("  ·  ")}
           </Text>
@@ -272,16 +335,21 @@ export default function ProductScreen() {
           />
           <View className="flex-1 gap-1.5 pr-6">
             <Text
-              className="font-display text-[21px] leading-[23px] tracking-tight"
-              style={{ color: panel.ink }}
+              style={{
+                fontFamily: "PlayfairDisplay_500Medium",
+                fontSize: 21,
+                lineHeight: 23,
+                letterSpacing: -0.3,
+                color: panel.ink,
+              }}
             >
               {panel.label}
             </Text>
-            <Text className="text-[13px] leading-[18.5px] text-ink-body">
+            <Text style={{ fontSize: 13, lineHeight: 18.5, color: INK }}>
               {verdictHeadline(match)}
             </Text>
             {explanation.length > 0 && (
-              <Text className="pt-0.5 text-[11.5px] font-semibold" style={{ color: panel.ink }}>
+              <Text style={{ paddingTop: 2, fontSize: 11.5, fontWeight: "600", color: panel.ink }}>
                 {showBreakdown ? "Hide the breakdown" : "How was this worked out?"}
               </Text>
             )}
@@ -311,8 +379,16 @@ export default function ProductScreen() {
             drift apart. */}
         {showBreakdown && explanation.length > 0 && (
           <View
-            style={{ marginHorizontal: 24, marginTop: 10, gap: 12, padding: 16 }}
-            className="rounded-card border border-hairline bg-surface"
+            style={{
+              marginHorizontal: 24,
+              marginTop: 10,
+              gap: 12,
+              padding: 16,
+              borderRadius: 15,
+              borderWidth: 1,
+              borderColor: BORDER_INACTIVE,
+              backgroundColor: CANVAS,
+            }}
           >
             {explanation.map((line) => (
               <View key={line.label} style={{ flexDirection: "row", gap: 10 }}>
@@ -321,12 +397,12 @@ export default function ProductScreen() {
                   className={line.direction === "up" ? "bg-tone-good" : "bg-tone-flag"}
                 />
                 <View style={{ flex: 1, gap: 1 }}>
-                  <Text className="text-[12.5px] font-semibold text-ink">{line.label}</Text>
-                  <Text className="text-[12px] leading-[17px] text-ink-muted">{line.detail}</Text>
+                  <Text style={{ fontSize: 12.5, fontWeight: "600", color: INK }}>{line.label}</Text>
+                  <Text style={{ fontSize: 12, lineHeight: 17, color: MUTED }}>{line.detail}</Text>
                 </View>
               </View>
             ))}
-            <Text className="text-[11px] leading-[15px] text-ink-faint">
+            <Text style={{ fontSize: 11, lineHeight: 15, color: MUTED_FAINT }}>
               Ordered by how much each moved the score. Based on {recognised} of {total}{" "}
               ingredients we could identify — {confidence} confidence.
             </Text>
@@ -370,7 +446,7 @@ export default function ProductScreen() {
         */}
         {(helps.length > 0 || against.length > 0) && (
           <View style={{ marginHorizontal: 24, marginTop: 26, gap: 14 }}>
-            <Text className="text-[9px] font-semibold uppercase tracking-[1.53px] text-[#565060]">
+            <Text style={{ fontSize: 9, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.53, color: MUTED_FAINT }}>
               Why this score
             </Text>
 
@@ -383,7 +459,7 @@ export default function ProductScreen() {
               ))}
             </View>
 
-            <Text className="text-[11px] leading-[15px] text-ink-faint">
+            <Text style={{ fontSize: 11, lineHeight: 15, color: MUTED_FAINT }}>
               From {recognised} of {total} ingredients we could identify
               {confidence === "high" ? "" : ` — ${confidence} confidence`}.
             </Text>
@@ -391,11 +467,22 @@ export default function ProductScreen() {
         )}
 
         {total === 0 && (
-          <View style={{ marginHorizontal: 20, marginTop: 28, gap: 12, padding: 18 }} className="rounded-card bg-tint-lilac">
-            <Text className="text-[13px] font-semibold text-accent-text">
+          <View
+            style={{
+              marginHorizontal: 20,
+              marginTop: 28,
+              gap: 12,
+              padding: 18,
+              borderRadius: 15,
+              borderWidth: 1,
+              borderColor: BORDER_INACTIVE,
+              backgroundColor: CANVAS,
+            }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>
               We know this product but not what&apos;s in it
             </Text>
-            <Text className="text-[12.5px] leading-[19px] text-accent-text">
+            <Text style={{ fontSize: 12.5, lineHeight: 19, color: MUTED }}>
               Nobody has read this label yet, so there is no ingredient list to
               judge. Photograph the back of the pack and we&apos;ll read it —
               once, for everyone.
@@ -413,7 +500,7 @@ export default function ProductScreen() {
           not a headline.
         */}
         <View style={{ marginHorizontal: 24, marginTop: 30, marginBottom: 8 }}>
-          <Text className="text-[10.5px] leading-[15px] text-ink-faint">
+          <Text style={{ fontSize: 10.5, lineHeight: 15, color: MUTED_FAINT }}>
             Based on your skin profile and public ingredient data - not medical
             advice. Formulas change and label data can be out of date, so check
             the packaging for anything that matters.
@@ -421,37 +508,33 @@ export default function ProductScreen() {
         </View>
 
         {product.attribution ? (
-          <Text className="px-6 pt-5 text-[10.5px] leading-4 text-ink-faint">
+          <Text style={{ paddingHorizontal: 24, paddingTop: 20, fontSize: 10.5, lineHeight: 16, color: MUTED_FAINT }}>
             {product.attribution}
           </Text>
         ) : null}
       </ScrollView>
 
-      {/*
-        Thumb zone. The design draws two controls here — the primary action and
-        the heart. Compare is the third, because the design's browse list
-        dropped the "Add to compare" button the grid card used to carry, and
-        without an entry point somewhere the compare screen is unreachable.
-
-        It used to be an unlabelled square with a two-headed arrow in it, which
-        told nobody what it did. It says what it does now, on its own row.
-      */}
+      {/* Thumb zone. The design draws two controls here — the primary action
+          and the heart. */}
       <View
         style={{
           position: "absolute",
           left: 0,
           right: 0,
           bottom: 0,
-          gap: 10,
           paddingHorizontal: 20,
           paddingTop: 12,
           paddingBottom: 32,
+          borderTopWidth: 1,
+          borderTopColor: BORDER_INACTIVE,
+          backgroundColor: CANVAS,
         }}
-        className="border-t border-hairline bg-canvas"
       >
         <View style={{ flexDirection: "row", gap: 12 }}>
           <PrimaryButton
-            className="flex-1"
+            tone="cta"
+            size={56}
+            style={{ flex: 1 }}
             label={total > 0 ? "View ingredients" : "Photograph the ingredients"}
             onPress={() =>
               total > 0
@@ -465,23 +548,20 @@ export default function ProductScreen() {
             accessibilityRole="button"
             accessibilityLabel={saved ? "Remove from saved" : "Save"}
             accessibilityState={{ selected: saved }}
-            style={{ height: 56, width: 56 }}
-            className={`items-center justify-center rounded-control border ${
-              saved ? "border-transparent bg-tint-pink" : "border-hairline bg-surface"
-            }`}
+            style={{
+              height: 56,
+              width: 56,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 28,
+              borderWidth: saved ? 0 : 1,
+              borderColor: BORDER_INACTIVE,
+              backgroundColor: saved ? SELECTED_STRONG : CANVAS,
+            }}
           >
             <HeartIcon size={20} filled={saved} />
           </Pressable>
         </View>
-
-        <PrimaryButton
-          variant="outline"
-          size={50}
-          active={inCompare}
-          label={inCompare ? "In your comparison" : "Add to comparison"}
-          onPress={() => toggleCompare(product.id)}
-          icon={<CompareIcon size={17} color={inCompare ? COLORS.accentText : COLORS.ink} />}
-        />
       </View>
     </View>
   );

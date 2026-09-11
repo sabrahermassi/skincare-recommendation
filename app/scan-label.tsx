@@ -9,6 +9,12 @@ import { Text } from "@/components/Text";
 import { analyseLabel } from "@/data/api";
 import { coverFitCropRect, type Rect, type Size } from "@/lib/crop-to-guide";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
+import { CANVAS, CTA, INK, MUTED, withAlpha } from "@/lib/tokens";
+
+// Manassa system (design/DESIGN_SYSTEM.md). The live camera view stays plain
+// black, same reasoning as the scanner's own dark stage — only the
+// surrounding light-surface chrome (permission screens, the shutter button)
+// moves to this system.
 
 /**
  * Photograph the ingredient list.
@@ -186,26 +192,42 @@ export default function ScanLabel() {
 
   if (!permission) {
     return (
-      <View className="flex-1 items-center justify-center bg-surface">
-        <Text className="text-ink-muted">Checking camera permission…</Text>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS }}>
+        <Text style={{ color: MUTED }}>Checking camera permission…</Text>
       </View>
     );
   }
 
   if (!permission.granted) {
     return (
-      <View className="flex-1 items-center justify-center gap-4 bg-surface px-6">
-        <Text className="text-center text-base text-ink-muted">
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+          paddingHorizontal: 24,
+          backgroundColor: CANVAS,
+        }}
+      >
+        <Text style={{ textAlign: "center", fontSize: 16, color: MUTED }}>
           We need camera access to read the ingredient list. To do that we
           send the photo to Google Cloud Vision — we crop to the frame first,
           strip location data, and never store the image.
         </Text>
         <Pressable
           onPress={requestPermission}
-          style={{ height: 52 }}
-          className="items-center justify-center rounded-control bg-accent px-6 active:bg-accent-deep"
+          style={{
+            height: 52,
+            paddingHorizontal: 24,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 14,
+            backgroundColor: CTA,
+          }}
+          className="active:opacity-90"
         >
-          <Text className="text-base font-semibold text-white">Grant permission</Text>
+          <Text style={{ fontSize: 16, fontWeight: "600", color: INK }}>Grant permission</Text>
         </Pressable>
       </View>
     );
@@ -264,14 +286,17 @@ export default function ScanLabel() {
           disabled={status.kind === "reading"}
           style={{
             height: 52,
-            backgroundColor: status.kind === "reading" ? "rgba(255,255,255,0.4)" : undefined,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            borderRadius: 14,
+            backgroundColor: status.kind === "reading" ? withAlpha(CANVAS, 0.75) : CTA,
           }}
-          className={`flex-row items-center justify-center gap-2 rounded-control ${
-            status.kind === "reading" ? "" : "bg-white active:bg-hairline"
-          }`}
+          className="active:opacity-90"
         >
-          {status.kind === "reading" && <ActivityIndicator color="#000" />}
-          <Text className="text-base font-semibold text-ink">
+          {status.kind === "reading" && <ActivityIndicator color={INK} />}
+          <Text style={{ fontSize: 16, fontWeight: "600", color: INK }}>
             {status.kind === "reading"
               ? "Reading the label…"
               : status.kind === "failed"

@@ -10,13 +10,15 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { fetchProduct } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
-import { COLORS } from "@/lib/colors";
 import { relativeTime } from "@/lib/format";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
+import { CANVAS, INK, MUTED } from "@/lib/tokens";
+
+// Manassa system (design/DESIGN_SYSTEM.md).
 
 /**
- * The full ingredient list — screen 3 of the Skintel Screens design.
+ * The full ingredient list — screen 3 of the Manassa Screens design.
  *
  * Every row is judged against *this* profile, not in the abstract: the dot and
  * the pill say whether it works for you, which is the whole difference between
@@ -68,16 +70,18 @@ export default function IngredientList() {
 
   if (loading || !match) {
     return (
-      <View className="flex-1 items-center justify-center bg-canvas">
-        <ActivityIndicator color={COLORS.accent} />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS }}>
+        <ActivityIndicator color={INK} />
       </View>
     );
   }
 
   if (!product) {
     return (
-      <View className="flex-1 items-center justify-center bg-canvas px-8">
-        <Text className="font-display text-2xl text-ink">Product not found</Text>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS, paddingHorizontal: 32 }}>
+        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: INK }}>
+          Product not found
+        </Text>
       </View>
     );
   }
@@ -96,7 +100,7 @@ export default function IngredientList() {
   }
 
   return (
-    <View className="flex-1 bg-canvas">
+    <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader
         title="Ingredients"
         right={
@@ -130,19 +134,27 @@ export default function IngredientList() {
       {/* INCI order is regulated information, and it is the single fact that
           makes this list readable rather than just long. */}
       <View
-        style={{ backgroundColor: "#F3EFEA" }}
-        className="flex-row items-center justify-center gap-2.5 px-6 pb-8 pt-4"
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 10,
+          paddingHorizontal: 24,
+          paddingBottom: 32,
+          paddingTop: 16,
+          backgroundColor: CANVAS,
+        }}
       >
         <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-          <Circle cx={12} cy={12} r={9} stroke={COLORS.inkMuted} strokeWidth={1.8} />
+          <Circle cx={12} cy={12} r={9} stroke={MUTED} strokeWidth={1.8} />
           <Path
             d="M12 11v5.4M12 7.7v.1"
-            stroke={COLORS.inkMuted}
+            stroke={MUTED}
             strokeWidth={1.8}
             strokeLinecap="round"
           />
         </Svg>
-        <Text className="text-[10.5px] text-ink-muted">
+        <Text style={{ fontSize: 10.5, color: MUTED }}>
           Ingredients are listed in order of concentration.
         </Text>
       </View>

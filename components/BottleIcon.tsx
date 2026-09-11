@@ -9,7 +9,7 @@ import type { PackagingType, ProductType } from "@/data/types";
  * placeholder vessel (the old `ProductIllustration`) replaced with these
  * eight, per `design_handoff_skintel_onboarding/bottle-set.html`.
  *
- * Same transcription convention as `LogoMark.tsx`: each source file
+ * Same transcription convention the deleted app-mark icon used: each source file
  * (`assets/btl-<type>.svg`) wraps a handful of real paths in a large C2PA
  * metadata blob, so the metadata is dropped and the geometry copied
  * verbatim. This file holds WEIGHT 1 (full colour, `#463F57` stroke,
@@ -202,12 +202,16 @@ export function defaultPackagingType(type: ProductType): PackagingType {
       return "sunscreen";
     case "body-lotion":
       return "lotion-pump";
+    // No real shape to draw for a type we don't know — same fallback
+    // `bottleIconFor` already uses for a genuinely missing packaging type.
+    case "unknown":
+      return "serum";
   }
 }
 
 type Props = {
   type: PackagingType | null | undefined;
-  /** Fixed pixel size (detail hero, compare thumbnail). Omit to fill the parent. */
+  /** Fixed pixel size (detail hero, row thumbnail). Omit to fill the parent. */
   size?: number;
   /**
    * Taller than it is wide, matching the shelf and result tiles (48×56,

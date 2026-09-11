@@ -175,7 +175,11 @@ async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
       brand: (p.brands ?? "Unknown").split(",")[0].trim(),
       name,
       type: guessType(p.categories_tags ?? [], name),
-      area: guessArea(p.categories_tags ?? [], name),
+      // Required by the `products` table's NOT NULL CHECK constraint, but no
+      // longer computed: the client dropped `area` entirely (nothing reads
+      // it back — see store/useAppStore.ts's v5 -> v6 migration note), so
+      // guessing a real value for it was wasted work.
+      area: "face",
       description: null,
       image_url: USE_SOURCE_PHOTOS ? (p.image_url ?? null) : null,
       volume: p.quantity ?? null,
@@ -216,7 +220,8 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
       brand: p.brand ?? "Unknown",
       name: p.name,
       type: guessType(category, p.name),
-      area: guessArea(category, p.name),
+      // See the note on the other `area: "face"` above.
+      area: "face",
       description: null,
       // Their terms don't address re-hosting, so we don't: the URL is
       // referenced, never copied into our own storage.
@@ -270,7 +275,8 @@ async function lookupBarcodeDb(barcode: string): Promise<Fetched | null> {
       brand: (item.brand ?? "Unknown").trim(),
       name: String(item.title).trim().slice(0, 200),
       type: guessType([], `${item.category ?? ""} ${item.title}`),
-      area: guessArea([], `${item.category ?? ""} ${item.title}`),
+      // See the note on the other `area: "face"` above.
+      area: "face",
       description: null,
       image_url: null,
       volume: null,
@@ -436,11 +442,8 @@ function guessType(tags: string[], text: string): string {
     [/cream|moisturi[sz]er|lotion|emulsion|crème|creme|crema|gezichtscrème/, "moisturizer"],
   ];
   for (const [pattern, type] of table) if (pattern.test(haystack)) return type;
-  return "serum";
-}
-
-function guessArea(tags: string[], text: string): string {
-  return /body|hand|foot|shower/.test(`${tags.join(" ")} ${text}`.toLowerCase())
-    ? "body"
-    : "face";
+  // Was "serum" — a wrong specific guess reads as more true than an honest
+  // "we don't know", which is how a barcode-identified foot cream (title text
+  // that matched none of the patterns above) got shown as a Serum on screen.
+  return "unknown";
 }

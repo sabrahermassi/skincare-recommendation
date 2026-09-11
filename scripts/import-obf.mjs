@@ -111,13 +111,10 @@ function guessType(tags, text) {
     [/cream|moisturi[sz]er|lotion|emulsion|crème|creme|crema|gezichtscrème/, "moisturizer"],
   ];
   for (const [re, type] of table) if (re.test(hay)) return type;
-  return "serum";
-}
-
-function guessArea(tags, text) {
-  return /body|hand|foot|shower/.test(`${(tags ?? []).join(" ")} ${text}`.toLowerCase())
-    ? "body"
-    : "face";
+  // Parity with the Edge Function's guessType (supabase/functions/product-lookup) —
+  // was "serum" in both places, which is how the catalogue ended up with real
+  // non-serums (e.g. a foot cream) mistyped and mis-scored.
+  return "unknown";
 }
 
 /**
@@ -140,7 +137,11 @@ function toRow(p) {
       brand: (p.brands ?? "Unknown").split(",")[0].trim(),
       name,
       type: guessType(p.categories_tags, name),
-      area: guessArea(p.categories_tags, name),
+      // Required by the `products` table's NOT NULL CHECK constraint, but no
+      // longer computed: the client dropped `area` entirely (nothing reads
+      // it back — see store/useAppStore.ts's v5 -> v6 migration note), so
+      // guessing a real value for it was wasted work.
+      area: "face",
       description: null,
       image_url: USE_SOURCE_PHOTOS ? (p.image_url ?? null) : null,
       volume: p.quantity ?? null,

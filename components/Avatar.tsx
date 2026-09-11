@@ -1,17 +1,20 @@
 import { Image } from "expo-image";
 
 /**
- * The profile portrait from the design project (`assets/avatar-round.png`).
+ * The profile portrait, next to "Your skin profile" on the profile screen.
  *
- * An earlier pass substituted the user's skin-type tile here, on the reasoning
- * that a generic face says nothing true about the profile. That was a judgement
- * the design had already made — the illustration is the author's own, it is in
- * the project, and swapping it for a different icon was not mine to do.
+ * Replaces the design project's original round headshot
+ * (`assets/images/avatar-round.png`, deleted — nothing else referenced it)
+ * with the new illustration set's `girl-mirror` piece
+ * (`assets/illustrations/profile/girl-mirror.png`), moved out of the
+ * unsorted `assets/new illustrations/` drop folder into a proper home,
+ * matching how the onboarding artwork lives under
+ * `assets/illustrations/onboarding/`.
  */
 export function Avatar({ size = 52 }: { size?: number }) {
   return (
     <Image
-      source={require("@/assets/images/avatar-round.png")}
+      source={require("@/assets/illustrations/profile/girl-mirror.png")}
       style={{ width: size, height: size, borderRadius: size / 2 }}
       contentFit="cover"
       transition={120}

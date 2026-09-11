@@ -74,7 +74,7 @@ export default function RootLayout() {
         }}
       >
         {/* Titled as a fallback for anything that ignores the display mode. */}
-        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Skintell" }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Manassa" }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         {/*
           No native header on any of these. The design draws its own top row on
@@ -85,8 +85,8 @@ export default function RootLayout() {
         <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="result/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="ingredients/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="ingredients/pasted" options={{ headerShown: false }} />
         <Stack.Screen name="ingredient/[inci]" options={{ headerShown: false }} />
-        <Stack.Screen name="check" options={{ headerShown: false }} />
         <Stack.Screen
           name="scan-label"
           options={{ title: "Read the label", presentation: "modal" }}

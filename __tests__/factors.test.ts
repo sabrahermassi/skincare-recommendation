@@ -15,7 +15,6 @@ function synthetic(names: string[]): ProductWithIngredients {
     name: "Test",
     type: "serum",
     productType: "serum",
-    area: "face",
     price: 0,
     volume: "",
     suitableFor: [],

@@ -1,4 +1,4 @@
-import type { Concern, Sensitivity, SkinProfile } from "@/data/types";
+import type { Concern, Pregnancy, Sensitivity, SkinProfile } from "@/data/types";
 
 /**
  * A profile "counts" for matching once it carries a skin signal. Sensitivity
@@ -38,7 +38,19 @@ const CONCERN_LABEL: Record<Concern, string> = {
   "fine-lines": "fine lines",
   hyperpigmentation: "dark spots",
   atopic: "eczema-prone",
+  "post-acne-marks": "post-acne marks",
 };
+
+const PREGNANCY_LABEL: Record<Pregnancy, string> = {
+  pregnant: "Pregnant",
+  breastfeeding: "Breastfeeding",
+  neither: "Neither",
+  "prefer-not-to-say": "Prefer not to say",
+};
+
+export function pregnancyLabel(status: Pregnancy): string {
+  return PREGNANCY_LABEL[status];
+}
 
 /** The short summary shown in the browse header, e.g. "Combination, sensitive · dehydrated, redness". */
 export function profileSummary(profile: SkinProfile): string {
@@ -70,18 +82,23 @@ function capitalize(s: string): string {
 }
 
 /**
- * Every onboarding route, in order — exactly the three answers the MVP asks
- * for, and nothing else.
+ * Every onboarding route, in order.
  *
  * Gone: "about you" (gender and age, both collected and read by nothing) and
- * the face/body step. `area` is still a real field, still editable from the
- * profile screen and still what the browse filter reads; it just isn't a
- * question standing between someone and their first scan.
+ * the face/body step — `area` has been removed from every client-side
+ * consumer of it (this list, `SkinProfile`, `Product`, the browse filter). It
+ * never fed scoring, and the one thing it did do (splitting the browse
+ * list's type filter by face/body) worked against the app's own premise: a
+ * formula is judged against a skin profile, not disqualified from that
+ * judgement by which part of the body it's for. The database column itself
+ * is a separate matter — see the note on `migratePersisted`'s v5 -> v6 step
+ * in `store/useAppStore.ts`.
  */
 const STEPS = [
   "/onboarding/concerns",
   "/onboarding/skin-type",
   "/onboarding/sensitivity",
+  "/onboarding/pregnancy",
 ] as const;
 
 export type QuizRoute = (typeof STEPS)[number];
@@ -104,6 +121,17 @@ export function nextQuizRoute(current: QuizRoute): QuizRoute | null {
   const i = STEPS.indexOf(current);
   if (i === -1 || i === STEPS.length - 1) return null;
   return STEPS[i + 1];
+}
+
+/**
+ * The 1-based "Step N of M" number for a quiz route — each screen used to
+ * pass this to `QuizScreen` as a hardcoded literal (1, 2, 3, 4), the same
+ * class of bug `nextQuizRoute` exists to prevent for navigation: if `STEPS`
+ * is ever reordered, a hardcoded literal keeps highlighting the wrong dot on
+ * the progress rail with no compiler or test signal.
+ */
+export function quizStepNumber(route: QuizRoute): number {
+  return STEPS.indexOf(route) + 1;
 }
 
 /**

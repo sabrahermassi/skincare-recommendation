@@ -2,13 +2,14 @@ import { router } from "expo-router";
 import { useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 
+import { QuizScreen } from "@/components/QuizScreen";
 import { Text } from "@/components/Text";
 
-import { QuizStep } from "@/components/QuizStep";
 import { SkinTypeIcon, type SkinTypeIconName } from "@/components/SkinTypeIcon";
 import type { BaseSkinType } from "@/data/types";
-import { nextQuizRoute, POST_ONBOARDING_ROUTE } from "@/lib/profile";
+import { nextQuizRoute, POST_ONBOARDING_ROUTE, quizStepNumber } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, RADIUS_SELECTOR, SELECTED } from "@/lib/tokens";
 
 const OPTIONS: { value: BaseSkinType; label: string; hint: string }[] = [
   { value: "dry", label: "Dry", hint: "Tight, flaky, rarely shiny" },
@@ -18,13 +19,12 @@ const OPTIONS: { value: BaseSkinType; label: string; hint: string }[] = [
 ];
 
 /**
- * The one screen in the quiz that is cards rather than chips, because it is the
- * one with art: the design draws a 44pt illustrated tile per skin type, and a
- * picture of the thing is worth more here than consistency with a text chip.
- *
- * Sensitivity is its own step now rather than a toggle at the bottom of this
- * one: it has three levels, and it answers a different question — not what
- * your skin is, but how harshly to judge what you put on it.
+ * Same layout as before this session's restyle: cards, not chips — the one
+ * step with art, per `SkinTypeIcon`'s own illustrated tiles. Only the shell
+ * (`QuizStep` → `QuizScreen`) and `TypeCard`'s colors move to the Manassa
+ * system; `SkinTypeIcon`'s per-type tile colors are untouched, same reasoning
+ * as the onboarding illustrations' own accent shapes — they're artwork, not
+ * UI chrome, and don't shift with the surrounding palette.
  */
 export default function SkinTypeStep() {
   const baseSkinType = useAppStore((s) => s.profile.baseSkinType);
@@ -45,10 +45,11 @@ export default function SkinTypeStep() {
   }
 
   return (
-    <QuizStep
-      step={2}
+    <QuizScreen
+      step={quizStepNumber("/onboarding/skin-type")}
       title="What's your skin type?"
       subtitle="Pick the closest match."
+      illustration={require("@/assets/illustrations/girl-applying-cream.png")}
       onNext={next}
       nextDisabled={!picked}
     >
@@ -78,7 +79,7 @@ export default function SkinTypeStep() {
           }}
         />
       </View>
-    </QuizStep>
+    </QuizScreen>
   );
 }
 
@@ -106,32 +107,42 @@ function TypeCard({
       accessibilityState={role === "switch" ? { checked: selected } : { selected }}
       // Border width is constant so selecting never nudges the layout, and the
       // height is inline so the card cannot collapse onto its label.
-      style={{ minHeight: 76, gap: 13, paddingHorizontal: 14, paddingVertical: 16 }}
-      className={`flex-row items-center rounded-card border-2 ${
-        selected ? "border-accent bg-tint-lilac" : "border-hairline bg-surface active:bg-canvas"
-      }`}
+      style={{
+        minHeight: 76,
+        gap: 13,
+        paddingHorizontal: 14,
+        paddingVertical: 16,
+        flexDirection: "row",
+        alignItems: "center",
+        borderRadius: RADIUS_SELECTOR,
+        borderWidth: selected ? 1.5 : 1,
+        borderColor: selected ? INK : BORDER_INACTIVE,
+        backgroundColor: selected ? SELECTED : CANVAS,
+      }}
     >
       <SkinTypeIcon name={icon} />
 
       <View style={{ flex: 1, gap: 2 }}>
-        <Text
-          className={`text-[16px] font-semibold ${
-            selected ? "text-accent-text" : "text-ink"
-          }`}
-        >
-          {label}
-        </Text>
-        <Text className="text-[13px] leading-[17.5px] text-ink-muted">{hint}</Text>
+        <Text style={{ fontSize: 16, fontWeight: "600", color: INK }}>{label}</Text>
+        <Text style={{ fontSize: 13, lineHeight: 17.5, color: MUTED }}>{hint}</Text>
       </View>
 
       {trailing ?? (
-        <View style={{ height: 20, width: 20 }} className="items-center justify-center">
+        <View style={{ height: 20, width: 20, alignItems: "center", justifyContent: "center" }}>
           {selected ? (
             <View
-              style={{ height: 20, width: 20 }}
-              className="items-center justify-center rounded-full bg-accent"
+              style={{
+                height: 20,
+                width: 20,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 10,
+                backgroundColor: INK,
+              }}
             >
-              <Text className="text-[11px] font-bold leading-[13px] text-white">✓</Text>
+              <Text style={{ fontSize: 11, fontWeight: "bold", lineHeight: 13, color: CANVAS }}>
+                ✓
+              </Text>
             </View>
           ) : null}
         </View>

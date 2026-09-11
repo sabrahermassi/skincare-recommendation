@@ -233,8 +233,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     name:
       (existing?.name ?? name ?? "Scanned product").trim().slice(0, 200) || "Scanned product",
     // Whatever the barcode source already established about the product is
-    // better than this function's fallbacks — it only read the formula.
-    type: existing?.type ?? "serum",
+    // better than this function's fallbacks — it only read the formula. A
+    // fresh OCR-only scan has no basis to guess a category from a photographed
+    // ingredient list, so it says "unknown" rather than defaulting to
+    // "serum" — the bug that had a photographed foot cream displayed as one.
+    type: existing?.type ?? "unknown",
     area: existing?.area ?? "face",
     description: null,
     image_url: null,

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 
-import { COLORS } from "@/lib/colors";
+import { CANVAS, INK, LINE, MUTED } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 export default function TabsLayout() {
@@ -32,12 +32,12 @@ export default function TabsLayout() {
           pads for the status bar itself using the safe-area inset.
         */
         headerShown: false,
-        tabBarActiveTintColor: COLORS.accentText,
-        tabBarInactiveTintColor: COLORS.inkFaint,
+        tabBarActiveTintColor: INK,
+        tabBarInactiveTintColor: MUTED,
         tabBarLabelStyle: { fontWeight: "500", fontSize: 11 },
         tabBarStyle: {
-          backgroundColor: COLORS.surface,
-          borderTopColor: COLORS.hairline,
+          backgroundColor: CANVAS,
+          borderTopColor: LINE,
           height: 64,
           paddingBottom: 10,
           paddingTop: 8,
@@ -67,7 +67,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="browse"
         options={{
-          title: "Skintel",
+          title: "Manassa",
           tabBarLabel: "Browse",
           tabBarIcon: ({ color }) => <Ionicons name="home" size={22} color={color} />,
         }}
@@ -80,14 +80,6 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="heart" size={22} color={color} />,
         }}
       />
-      {/*
-        Compare keeps its route and stays reachable from the tray on the browse
-        screen, but it isn't a destination — you get there by picking two
-        products, and the tray is capped at two. `href: null` drops it from the
-        bar without deleting the route, which is also how the design draws it:
-        a pushed screen with a back chevron and a centred title.
-      */}
-      <Tabs.Screen name="compare" options={{ title: "Compare", href: null }} />
       <Tabs.Screen
         name="profile"
         options={{
