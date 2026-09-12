@@ -74,19 +74,33 @@ const LATENCY_MS =
 const NETWORK_TIMEOUT_MS = 12_000;
 
 /**
- * Rejects if `work` has not settled within {@link NETWORK_TIMEOUT_MS}.
+ * Rejects if the query built from `attachSignal` has not settled within
+ * {@link NETWORK_TIMEOUT_MS}. Takes a builder function, not a built query,
+ * because `.abortSignal()` has to land at the right point in each call
+ * site's own chain — after `.maybeSingle()` narrows a Supabase builder to a
+ * type that no longer exposes `.abortSignal()`, so `fetchProduct`'s call
+ * site needs it earlier in the chain than the others do. A single shared
+ * "attach it to whatever you're given" version can't express that.
  *
  * Wraps each awaited Supabase read so a hung connection becomes an ordinary
  * error the callers already handle, rather than an indefinite spinner. The
  * timer is always cleared, so a settled request leaves nothing pending for
  * Jest to wait on at teardown.
+ *
+ * Also aborts the underlying fetch on timeout, not just this wrapper's own
+ * promise — the first version of this only gave up on the *UI* side and left
+ * the real request running, which meant a hung connection plus Browse's own
+ * "Try again" button could pile up several in-flight requests behind one
+ * unresponsive network path.
  */
-function withTimeout<T>(work: PromiseLike<T>, label: string): Promise<T> {
+function withTimeout<T>(attachSignal: (signal: AbortSignal) => PromiseLike<T>, label: string): Promise<T> {
+  const controller = new AbortController();
+  const work = attachSignal(controller.signal);
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`${label}: no response after ${NETWORK_TIMEOUT_MS}ms`)),
-      NETWORK_TIMEOUT_MS,
-    );
+    const timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error(`${label}: no response after ${NETWORK_TIMEOUT_MS}ms`));
+    }, NETWORK_TIMEOUT_MS);
     Promise.resolve(work).then(
       (value) => {
         clearTimeout(timer);
@@ -234,7 +248,7 @@ export async function fetchProducts(
     let query = supabase!.from("products").select(SELECT);
     if (type !== "all") query = query.eq("type", type);
 
-    const { data, error } = await withTimeout(query, "fetchProducts");
+    const { data, error } = await withTimeout((signal) => query.abortSignal(signal), "fetchProducts");
     if (error) throw new Error(`fetchProducts: ${error.message}`);
     return (data as unknown as CatalogueRow[]).map(rowToProduct);
   }
@@ -248,7 +262,9 @@ export async function fetchProduct(
 ): Promise<ProductWithIngredients | null> {
   if (usingSupabase()) {
     const { data, error } = await withTimeout(
-      supabase!.from("products").select(SELECT).eq("id", id).maybeSingle(),
+      // abortSignal has to come before maybeSingle: maybeSingle narrows the
+      // builder to a type that no longer has abortSignal on it.
+      (signal) => supabase!.from("products").select(SELECT).eq("id", id).abortSignal(signal).maybeSingle(),
       "fetchProduct",
     );
     if (error) throw new Error(`fetchProduct: ${error.message}`);
@@ -267,7 +283,7 @@ export async function fetchProductsByIds(
 
   if (usingSupabase()) {
     const { data, error } = await withTimeout(
-      supabase!.from("products").select(SELECT).in("id", ids),
+      (signal) => supabase!.from("products").select(SELECT).in("id", ids).abortSignal(signal),
       "fetchProductsByIds",
     );
     if (error) throw new Error(`fetchProductsByIds: ${error.message}`);
@@ -285,7 +301,7 @@ export async function fetchProductsByIds(
 export async function fetchProductTypes(): Promise<ProductType[]> {
   if (usingSupabase()) {
     const { data, error } = await withTimeout(
-      supabase!.from("products").select("type"),
+      (signal) => supabase!.from("products").select("type").abortSignal(signal),
       "fetchProductTypes",
     );
     if (error) throw new Error(`fetchProductTypes: ${error.message}`);
@@ -420,10 +436,12 @@ export async function resolveIngredientNames(names: string[]): Promise<Ingredien
     // timeout here degrades to the unverified stubs this function already
     // promises, instead of leaving the paste-list screen waiting forever.
     const { data, error } = await withTimeout(
-      supabase!
-        .from("ingredients")
-        .select("inci_name, comedogenic, safety, note, verified, functions")
-        .in("inci_name", names),
+      (signal) =>
+        supabase!
+          .from("ingredients")
+          .select("inci_name, comedogenic, safety, note, verified, functions")
+          .in("inci_name", names)
+          .abortSignal(signal),
       "resolveIngredientNames",
     );
 
@@ -456,11 +474,13 @@ export async function searchProducts(query: string): Promise<ProductWithIngredie
   if (usingSupabase()) {
     const escaped = trimmed.replace(/[%,()]/g, " ");
     const { data, error } = await withTimeout(
-      supabase!
-        .from("products")
-        .select(SELECT)
-        .or(`name.ilike.%${escaped}%,brand.ilike.%${escaped}%`)
-        .limit(20),
+      (signal) =>
+        supabase!
+          .from("products")
+          .select(SELECT)
+          .or(`name.ilike.%${escaped}%,brand.ilike.%${escaped}%`)
+          .limit(20)
+          .abortSignal(signal),
       "searchProducts",
     );
     if (error) throw new Error(`searchProducts: ${error.message}`);

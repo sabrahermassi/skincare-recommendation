@@ -50,6 +50,22 @@ export type ProductSuggestion = {
 
 const MAX_CONCERNS = 3;
 
+// "Eczema-prone" was dropped from the quiz's own concerns screen — it isn't
+// offered as an option there any more, though `atopic`'s scoring rules stay
+// intact for any profile that already carries it from before that change.
+// toggleConcern's cap has to know about that: without this, a profile
+// holding `["atopic", ...2 visible picks]` reads as already at MAX_CONCERNS,
+// and a user who can see only 2 chosen concerns gets silently refused a 3rd
+// they can actually see and tap. Concerns.tsx's own OPTIONS list is the
+// other half of this — it excludes atopic from what a user can toggle at
+// all, so the two lists agree on what "visible" means without importing
+// from each other across the store/screen boundary.
+const CAP_EXCLUDED_CONCERNS = new Set<Concern>(["atopic"]);
+
+function visibleConcernCount(concerns: Concern[]): number {
+  return concerns.filter((c) => !CAP_EXCLUDED_CONCERNS.has(c)).length;
+}
+
 /** Oldest entries fall off the end. Long enough to cover months of casual use. */
 export const HISTORY_LIMIT = 50;
 
@@ -261,7 +277,7 @@ export const useAppStore = create<AppState>()(
               profile: { ...state.profile, concerns: concerns.filter((c) => c !== concern) },
             };
           }
-          if (concerns.length >= MAX_CONCERNS) return state;
+          if (visibleConcernCount(concerns) >= MAX_CONCERNS) return state;
           return { profile: { ...state.profile, concerns: [...concerns, concern] } };
         }),
 

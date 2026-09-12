@@ -26,7 +26,13 @@ export { CANVAS };
 export const TERRACOTTA = "#C4654F";
 export const SAND = "#E8DDD1";
 export const CHARCOAL = "#2E2E2E";
-export const MUTED = "#7A706B";
+// #7A706B on CANVAS (#FBF6EE) measured 4.479:1 — just under the 4.5:1 AA
+// floor for regular-weight text, which is what OnboardingShell renders Skip
+// at (17px, Montserrat_400Regular, resting opacity 1 — no bold, no dimming
+// to lean on). Darkened to the nearest value that clears it with a little
+// room (5.35:1), rather than the smallest possible nudge, so it stays clear
+// of the line on later re-measurement.
+export const MUTED = "#6E645F";
 export const CTA_TEXT = "#FFFFFF";
 
 export const FONT = {

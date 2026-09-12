@@ -61,6 +61,15 @@ const NONE_ICON = require("@/assets/illustrations/quiz/concern-none.png");
 
 const MAX = 3;
 
+// What OPTIONS actually offers — used to count only concerns a user can see
+// and toggle here, not the raw profile array. A profile can carry `atopic`
+// (dropped as a selectable option per this session's design decision, but
+// its scoring stays intact — see OPTIONS' own comment), and counting it
+// toward MAX would show "3 of 3" and disable every card for someone who has
+// only picked 2 things they can actually see. store/useAppStore.ts's
+// toggleConcern has the matching fix on the write side.
+const OPTION_VALUES = new Set(OPTIONS.map((o) => o.value));
+
 export default function ConcernsStep() {
   const concerns = useAppStore((s) => s.profile.concerns);
   const toggleConcern = useAppStore((s) => s.toggleConcern);
@@ -71,7 +80,8 @@ export default function ConcernsStep() {
   // uses for baseSkinType: null vs. unanswered.
   const [noneChosen, setNoneChosen] = useState(false);
 
-  const atLimit = concerns.length >= MAX;
+  const visibleCount = concerns.filter((c) => OPTION_VALUES.has(c)).length;
+  const atLimit = visibleCount >= MAX;
 
   function pickConcern(value: Concern) {
     setNoneChosen(false);
@@ -130,7 +140,7 @@ export default function ConcernsStep() {
           ? "No concerns selected."
           : atLimit
             ? `${MAX} chosen – deselect one to swap.`
-            : `${concerns.length} of ${MAX} chosen.`}
+            : `${visibleCount} of ${MAX} chosen.`}
       </Text>
     </QuizScreen>
   );

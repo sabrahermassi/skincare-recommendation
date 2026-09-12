@@ -5,9 +5,11 @@ import { Text } from "@/components/Text";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { CANVAS, INK, LINE, RADIUS_SELECTOR, SELECTED } from "@/lib/tokens";
 
-/** One height for every answer button on all four screens — the concerns
- *  grid and the single-column steps — so they can't drift apart, whether a
- *  name wraps to one line or two. */
+/** Shared minimum height for every answer button on all four screens — the
+ *  concerns grid and the single-column steps — so they stay identical at
+ *  default text size, whether a name wraps to one line or two. Cards only
+ *  grow past this at accessibility font scales large enough to need a 3rd
+ *  line; see the minHeight usage below. */
 const CARD_HEIGHT = 76;
 
 type Props = {
@@ -54,7 +56,14 @@ export function QuizOptionCard({
       hitSlop={4}
       style={{
         width: grid ? "48%" : undefined,
-        height: CARD_HEIGHT,
+        // minHeight, not height: at the default font scale every card still
+        // renders at exactly CARD_HEIGHT (alignItems:"center" does the
+        // rest), so nothing here changes normally. It only grows past 76 for
+        // accessibility font sizes large enough to wrap a label onto a 3rd
+        // line — same fix, same reasoning, as the quiz question box above
+        // these cards (see QuizScreen.tsx).
+        minHeight: CARD_HEIGHT,
+        paddingVertical: 10,
         marginBottom: 10,
         flexDirection: "row",
         alignItems: "center",
@@ -79,7 +88,6 @@ export function QuizOptionCard({
 
       <View style={{ flex: 1 }}>
         <Text
-          numberOfLines={2}
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: grid ? 14 : 18.5,

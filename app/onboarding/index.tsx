@@ -57,9 +57,14 @@ export default function Onboarding() {
   // onboarding seen, go to the quiz's first step. Skip used to jump straight
   // to the scanner, bypassing the quiz the user was never offered a choice
   // about — it now only skips the 3 intro screens it's attached to.
+  //
+  // replace, not push: onboarding is finished either way this is called, so
+  // it has no business staying on the back stack. With push, Back from the
+  // first quiz step returned to a completed onboarding screen with nothing
+  // left to do on it.
   function goToQuiz() {
     completeOnboarding();
-    router.push(quizRoutes()[0]);
+    router.replace(quizRoutes()[0]);
   }
 
   function onNext() {

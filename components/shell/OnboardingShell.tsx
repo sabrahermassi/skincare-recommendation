@@ -74,6 +74,29 @@ const HEADER_Z_INDEX = 10;
  *  are what go off-screen, not artwork. */
 const ILLUSTRATION_SCALE = 1.05;
 
+/**
+ * Caps how far accessibility text scaling can stretch the headline and
+ * supporting-copy regions — not a ban on scaling, a ceiling on it.
+ *
+ * Those two regions sit in `BANDS`' fixed-percentage boxes, which is what
+ * keeps all three screens pixel-identical after everything measured against
+ * the reference art today — a genuine reflow (letting the boxes grow) means
+ * redesigning that system, not a two-line fix. These three screens are also
+ * the one place in the app where that trade-off is reasonable: seen once,
+ * always skippable via Skip, with generous base sizes already (44px
+ * headline, 17px body) — nothing past this screen (the quiz, the product
+ * detail, ingredient lists) is capped like this.
+ *
+ * 1.3 was picked as the largest multiplier that still fits two wrapped
+ * lines inside the headline/copy bands at 375pt width without visibly
+ * colliding with their neighbours — verified against the longest line in
+ * `app/onboarding/index.tsx`'s SCREENS ("We analyse the ingredients and
+ * explain what they mean for your skin" reflowed). It is a real, meaningful
+ * increase for a "Larger Text" setting, just not RN's full ~3x accessibility
+ * range, which this fixed layout cannot survive.
+ */
+const MAX_FONT_SCALE = 1.3;
+
 export type OnboardingScreenContent = {
   /** Explicit line breaks, not auto-wrap — up to 2 lines; the headline band
    *  reserves the same height whether 1 or 2 lines are passed. */
@@ -229,6 +252,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
         {screen.headline.map((line) => (
           <Text
             key={line}
+            maxFontSizeMultiplier={MAX_FONT_SCALE}
             style={{
               fontFamily: FONT.headline,
               fontSize: HEADLINE_SIZE,
@@ -264,10 +288,14 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
         {screen.supportingCopy.map((line) => (
           <Text
             key={line}
+            maxFontSizeMultiplier={MAX_FONT_SCALE}
             style={{
               fontFamily: FONT.bodyRegular,
               fontSize: BODY_SIZE,
-              // 1.3 * 1.16: explicit "16% more space between lines".
+              // 1.3 * 1.16: explicit "16% more space between lines". Same
+              // 1.3 number as MAX_FONT_SCALE above by coincidence, not
+              // relation — that one caps accessibility scaling, this one is
+              // the design's own line-height multiplier.
               lineHeight: BODY_SIZE * 1.3 * 1.16,
               color: CHARCOAL,
               textAlign: "center",
