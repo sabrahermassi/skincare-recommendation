@@ -89,7 +89,6 @@ type AppState = {
   toggleConcern: (concern: Concern) => void;
 
   completeOnboarding: () => void;
-  skipOnboarding: () => void;
 
   /** Idempotent add. Use where re-triggering must not un-save. */
   saveProduct: (id: string) => void;
@@ -257,9 +256,6 @@ export const useAppStore = create<AppState>()(
         }),
 
       completeOnboarding: () => set({ hasSeenOnboarding: true }),
-
-      /** Dismiss onboarding without answering. Leaves the profile empty. */
-      skipOnboarding: () => set({ hasSeenOnboarding: true }),
 
       saveProduct: (id) =>
         set((state) =>

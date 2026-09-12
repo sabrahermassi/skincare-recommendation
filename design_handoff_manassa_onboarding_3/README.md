@@ -135,7 +135,7 @@ minimum. This exact bug appeared twice during design. Use `min-height`.
 ## Components
 
 **1 · Skip**
-- Text `Skip`, system sans **13.5px / 500**, colour `#9B665B`
+- Text `Skip`, system sans **13.5px / 500**, colour `#6B5A54`
 - `min-height:44px; min-width:56px`, flex-centred — no background, no border
 - Right-aligned in a row with `padding:54px 16px 0`
 - Present on all three screens, including the last
@@ -151,7 +151,7 @@ minimum. This exact bug appeared twice during design. Use `min-height`.
 - In the fixed 68px box, vertically centred
 
 **4 · Supporting copy**
-- System sans **14.5px / 400**, `line-height:1.5`, colour `#9B665B`, centred,
+- System sans **14.5px / 400**, `line-height:1.5`, colour `#6B5A54`, centred,
   `text-wrap:pretty`
 - In the fixed 44px box, **top-aligned** (`align-items:flex-start`) — so a one-line and a
   two-line version both start at the same y
@@ -178,11 +178,12 @@ The shadow is load-bearing, not decoration — see Accessibility.
 ## Interactions & Behavior
 
 - **`Next`** (screens 1, 2) → advance to the next screen.
-- **`Get started`** (screen 3) → leave onboarding and enter the app.
-- **`Skip`** (all three) → same destination as `Get started`.
-- Both exits should route to the **skin-profile quiz** if no profile exists, otherwise the
-  scanner. If the user reaches the scanner with no profile, degrade gracefully: show the
-  ingredient breakdown but suppress the personal match score rather than inventing one.
+- **`Get started`** (screen 3) → leave onboarding and route to the **skin-profile
+  quiz**, always — regardless of whether a profile already exists.
+- **`Skip`** (all three) → leave onboarding and go straight to the **scanner**,
+  always — regardless of whether a profile exists. If the user reaches the scanner
+  with no profile, degrade gracefully: show the ingredient breakdown but suppress the
+  personal match score rather than inventing one.
 - **First-launch only.** Persist a `hasSeenOnboarding` flag and skip the flow on later
   launches.
 - **Swipe** left/right between screens if the platform's carousel idiom expects it; the
@@ -222,7 +223,7 @@ Downstream, for context only: the quiz collects `skinType`
 |---|---|---|
 | Canvas | `#FBF4EE` | screen background (flat, no pattern, no panels) |
 | Ink | `#5A342C` | headline, button text, active dot |
-| Muted | `#9B665B` | supporting copy, Skip |
+| Muted | `#6B5A54` | supporting copy, Skip |
 | Peach (button) | `#F2BFA6` | primary button fill |
 | Dot inactive | `#E4D3C8` | inactive progress dots |
 | Button shadow | `rgba(90,52,44,.13)` | `0 3px 12px` under the primary button |
@@ -312,10 +313,11 @@ acceptable at 3× device pixel ratios without re-export.
 
 Disclosed rather than silently changed, because the values were chosen intentionally.
 
-**1 · Muted text is marginally under threshold.** `#9B665B` on `#FBF4EE` measures
-**4.34:1**, just under the 4.5:1 minimum for body text. It carries the supporting copy
-(14.5px) and `Skip` (13.5px). `#96605A` measures **4.68:1**, is visually
-indistinguishable, and clears it. Swapping is a one-line change — the designer's call.
+**1 · Muted text — resolved.** The original mockup colour, `#9B665B` on `#FBF4EE`,
+measured **4.34:1**, just under the 4.5:1 minimum for body text (it carries the
+supporting copy at 14.5px and `Skip` at 13.5px). The shipped app uses the existing
+`MUTED` token, `#6B5A54`, which measures **6.0:1** and clears the threshold with
+room to spare.
 
 **2 · The button's edge is faint, which is why it has a shadow.** The label is fine —
 `#5A342C` on `#F2BFA6` is **6.51:1**. But the fill sits only **1.51:1** against the

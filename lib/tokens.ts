@@ -1,3 +1,5 @@
+import type { Verdict } from "./matching";
+
 /**
  * THE MANASSA DESIGN TOKENS — the single source of truth for colour.
  *
@@ -159,7 +161,7 @@ export const VERDICT_NEUTRAL = {
  * glance. This is the bridge: excellent and good are both a yes, and the
  * number beside the badge is what separates 92 from 78.
  */
-export function toneForVerdict(verdict: string): VerdictTone | null {
+export function toneForVerdict(verdict: Verdict): VerdictTone | null {
   if (verdict === "excellent" || verdict === "good") return "high";
   if (verdict === "fair") return "medium";
   if (verdict === "poor") return "low";

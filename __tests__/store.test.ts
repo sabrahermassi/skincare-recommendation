@@ -38,7 +38,7 @@ describe("onboarding gate", () => {
    * bounced straight back to onboarding because the gate was still closed.
    */
   it("skipping also opens the gate, leaving the profile empty", () => {
-    s().skipOnboarding();
+    s().completeOnboarding();
     expect(s().hasSeenOnboarding).toBe(true);
     expect(s().profile).toEqual(EMPTY_PROFILE);
   });
