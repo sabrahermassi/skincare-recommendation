@@ -26,6 +26,14 @@ type Props = {
   onNext: () => void;
   nextLabel?: string;
   nextDisabled?: boolean;
+  /** False only on the quiz's first step. Onboarding's Skip/Continue lands
+   *  here via router.replace (see app/onboarding/index.tsx and QuizFrame's
+   *  skipQuiz), not push, specifically so a finished onboarding screen never
+   *  sits on the back stack — which means the first quiz step has nothing
+   *  behind it. router.back() there threw, since there was nothing to pop.
+   *  Every later step is reached by push (see nextQuizRoute), so it does
+   *  have a real previous step to return to and keeps the arrow. */
+  showBack?: boolean;
   children: ReactNode;
 };
 
@@ -42,6 +50,7 @@ export function QuizScreen({
   onNext,
   nextLabel = "Continue",
   nextDisabled = false,
+  showBack = true,
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -98,21 +107,28 @@ export function QuizScreen({
         ))}
       </View>
 
-      <Pressable
-        onPress={() => router.back()}
-        hitSlop={10}
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        style={{
-          marginLeft: 20,
-          minHeight: 44,
-          minWidth: 44,
-          alignItems: "flex-start",
-          justifyContent: "center",
-        }}
-      >
-        <Ionicons name="chevron-back" size={24} color={INK} />
-      </Pressable>
+      {showBack ? (
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          style={{
+            marginLeft: 20,
+            minHeight: 44,
+            minWidth: 44,
+            alignItems: "flex-start",
+            justifyContent: "center",
+          }}
+        >
+          <Ionicons name="chevron-back" size={24} color={INK} />
+        </Pressable>
+      ) : (
+        // Same-height empty spacer, not just omitted: dropping the row
+        // entirely would pull this step's question title up ~44pt relative
+        // to the other three screens, which all still show the arrow.
+        <View style={{ minHeight: 44 }} />
+      )}
 
       <View style={{ paddingHorizontal: 24, paddingTop: 6, gap: 8 }}>
         {/* Reserved box, not auto-height — see design/DESIGN_SYSTEM.md's

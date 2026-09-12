@@ -28,7 +28,9 @@ const OPTIONS: { value: Pregnancy; label: string; icon: number }[] = [
   {
     value: "prefer-not-to-say",
     label: "Prefer not to say",
-    icon: require("@/assets/illustrations/quiz/pregnancy-prefer-not.png"),
+    // Reuses sensitivity.tsx's "I don't know" icon (unsure.png), per
+    // explicit request, rather than pregnancy-prefer-not.png.
+    icon: require("@/assets/illustrations/quiz/unsure.png"),
   },
 ];
 

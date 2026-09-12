@@ -114,6 +114,11 @@ export default function ConcernsStep() {
       subtitle={`Pick up to ${MAX}. You can change these later.`}
       onNext={next}
       nextDisabled={concerns.length === 0 && !noneChosen}
+      // This is the quiz's first step. Onboarding replaces into it rather
+      // than pushing (see app/onboarding/index.tsx), so there is nothing on
+      // the back stack for router.back() to pop — it errored. Every later
+      // step is reached by push and keeps its arrow.
+      showBack={false}
     >
       <View style={QUIZ_OPTION_GRID}>
         {OPTIONS.map((option) => {
