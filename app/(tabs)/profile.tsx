@@ -26,7 +26,7 @@ import { BORDER_INACTIVE, CANVAS, CTA, DANGER, INK, MUTED, RADIUS_SELECTOR, SELE
 // Manassa system (design/DESIGN_SYSTEM.md).
 
 const SENSITIVITY_OPTIONS: Sensitivity[] = ["none", "some", "high"];
-// Same set and order as the quiz's concerns step (app/onboarding/concerns.tsx)
+// Same set and order as the quiz's concerns step (app/onboarding/(quiz)/concerns.tsx)
 // — "Eczema-prone" is not offered here either, per this session's design
 // decision to drop it from every selectable surface (the `atopic` concern and
 // its scoring rules stay intact for any profile that already carries it).

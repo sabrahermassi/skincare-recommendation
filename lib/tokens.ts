@@ -18,8 +18,16 @@ import type { Verdict } from "./matching";
 
 // ── Surfaces ────────────────────────────────────────────────────────────────
 
-/** The page ground everywhere. */
-export const CANVAS = "#FBF4EE";
+/**
+ * The page ground everywhere — including onboarding and the quiz, whose
+ * shells (`components/shell/shared.tsx`) re-export this rather than keeping
+ * a second local copy. `#FBF6EE` is the FOR.ME reskin's second, slightly
+ * warmer cream — it replaced this file's original `#FDF8F3` and
+ * `lib/colors.ts` / `tailwind.config.js`'s older `#FAF7F3` in the same pass,
+ * so every screen, old system or new, now shares one background value.
+ * Contrast figures below were re-verified against this value.
+ */
+export const CANVAS = "#FBF6EE";
 
 /**
  * Raised card fill. White, not a tint of the canvas — a card has to separate
@@ -37,7 +45,7 @@ export const SURFACE = "#FFFFFF";
  */
 export const INK = "#241F1E";
 
-/** Secondary text, 6.0:1. The old #96605A was close enough to the accent
+/** Secondary text, 6.1:1. The old #96605A was close enough to the accent
  *  browns that a muted line and a peach surface read as the same weight. */
 export const MUTED = "#6B5A54";
 
@@ -173,6 +181,20 @@ export const WARN = VERDICT.medium.deep;
 
 /** Destructive actions — "erase my profile", and nothing else. */
 export const DANGER = VERDICT.low.deep;
+
+// ── Camera stage ────────────────────────────────────────────────────────────
+
+/**
+ * The scanner's full-bleed dark ground, and the only dark surface in the app.
+ *
+ * A camera stage cannot sit on CANVAS: the viewfinder has to read as a
+ * surface you are *inside*, and cream around a live frame reads as a card.
+ * This was hand-typed as `#17161B` at three sites and as
+ * `rgba(23,22,27,0.55)` at two more — the same colour in five places, which
+ * is exactly what this file exists to stop. Pair it with {@link withAlpha}
+ * for the translucent chrome rather than re-typing the triplet.
+ */
+export const CAMERA_STAGE = "#17161B";
 
 /**
  * A token color at partial opacity, as an `rgba()` string — for translucent
