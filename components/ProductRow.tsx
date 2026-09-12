@@ -1,4 +1,5 @@
 import { Link } from "expo-router";
+import { memo } from "react";
 import { Pressable, View } from "react-native";
 
 import { Text } from "@/components/Text";
@@ -24,7 +25,12 @@ import { ProductThumbnail } from "./ProductThumbnail";
  * and a badge that spells it out once you stop on a row. Both come from
  * `VERDICT` in lib/tokens — neither is written here.
  */
-export function ProductRow({
+/**
+ * Memoized: Browse renders this inside a `FlatList` over the full catalogue
+ * (150+ rows), and neither `product` nor `match` change identity on a
+ * re-render that isn't actually about this row.
+ */
+export const ProductRow = memo(function ProductRow({
   product,
   match,
   last = false,
@@ -129,4 +135,4 @@ export function ProductRow({
       </Pressable>
     </Link>
   );
-}
+});
