@@ -25,6 +25,8 @@ export function quizTopPadding(insetTop: number) {
 type QuizFrameValue = {
   /** Called by the step that's showing, so the fixed button acts for it. */
   setFooter: (label: string, disabled: boolean, onPress: () => void) => void;
+  /** Re-arms the footer button after a step change — see `navigatingRef`. */
+  releaseFooter: () => void;
 };
 
 const QuizFrameContext = createContext<QuizFrameValue | null>(null);
@@ -51,6 +53,12 @@ export function QuizFrame({ children }: { children: ReactNode }) {
   // A ref, not state: steps pass a new function on every render, and storing
   // it as state would re-render the frame (and so the step) every time.
   const onPressRef = useRef<() => void>(() => {});
+  // Latched on press, cleared when the next step takes focus. A step's own
+  // `next()` calls router.push, which isn't instant — two fast taps would
+  // otherwise push the same route twice and leave a duplicate on the back
+  // stack. A ref rather than state for the same reason as onPressRef: a
+  // state flag here would re-render the frame on every tap.
+  const navigatingRef = useRef(false);
 
   const value = useMemo<QuizFrameValue>(
     () => ({
@@ -59,9 +67,18 @@ export function QuizFrame({ children }: { children: ReactNode }) {
         setDisabled(nextDisabled);
         onPressRef.current = onPress;
       },
+      releaseFooter() {
+        navigatingRef.current = false;
+      },
     }),
     [],
   );
+
+  function pressFooter() {
+    if (navigatingRef.current) return;
+    navigatingRef.current = true;
+    onPressRef.current();
+  }
 
   // Skip the quiz, not the app: lands on the scanner exactly like finishing
   // the quiz would, just without the remaining answers.
@@ -86,7 +103,7 @@ export function QuizFrame({ children }: { children: ReactNode }) {
 
         <View style={{ paddingHorizontal: 24, paddingBottom: Math.max(28, insets.bottom + 14) }}>
           <Pressable
-            onPress={() => onPressRef.current()}
+            onPress={pressFooter}
             disabled={disabled}
             onPressIn={() => setPressed(true)}
             onPressOut={() => setPressed(false)}

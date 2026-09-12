@@ -182,6 +182,20 @@ export const WARN = VERDICT.medium.deep;
 /** Destructive actions — "erase my profile", and nothing else. */
 export const DANGER = VERDICT.low.deep;
 
+// ── Camera stage ────────────────────────────────────────────────────────────
+
+/**
+ * The scanner's full-bleed dark ground, and the only dark surface in the app.
+ *
+ * A camera stage cannot sit on CANVAS: the viewfinder has to read as a
+ * surface you are *inside*, and cream around a live frame reads as a card.
+ * This was hand-typed as `#17161B` at three sites and as
+ * `rgba(23,22,27,0.55)` at two more — the same colour in five places, which
+ * is exactly what this file exists to stop. Pair it with {@link withAlpha}
+ * for the translucent chrome rather than re-typing the triplet.
+ */
+export const CAMERA_STAGE = "#17161B";
+
 /**
  * A token color at partial opacity, as an `rgba()` string — for translucent
  * overlays a plain hex can't express (light-on-dark camera chrome, a pressed

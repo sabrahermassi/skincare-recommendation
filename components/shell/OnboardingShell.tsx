@@ -34,7 +34,6 @@ const BODY_SIZE = 17;
  */
 const BANDS = {
   wordmark: { top: 10.4, bottom: 14.2 },
-  tagline: { top: 14.2, bottom: 21.2 },
   // top matches wordmark.top exactly, per explicit "same level as the
   // wordmark" request — was 13.9, its own independently-tuned value.
   skip: { top: 10.4, bottom: 15.8 },
@@ -94,7 +93,7 @@ type OnboardingShellProps = {
 };
 
 /**
- * Owns the entire onboarding flow's chrome — wordmark, tagline, Skip, the
+ * Owns the entire onboarding flow's chrome — wordmark, Skip, the
  * hero/headline/copy content, dots, and the CTA — as ONE persistent tree,
  * not one instance per screen. Only the hero/headline/copy region reads
  * `screens[activeIndex]` and re-renders in place when it changes; the

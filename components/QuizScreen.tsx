@@ -45,7 +45,7 @@ export function QuizScreen({
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const { setFooter } = useQuizFrame();
+  const { setFooter, releaseFooter } = useQuizFrame();
   const [opacity] = useState(() => new Animated.Value(0));
   const steps = Array.from({ length: quizStepCount() }, (_, i) => i + 1);
 
@@ -54,7 +54,11 @@ export function QuizScreen({
   useFocusEffect(
     useCallback(() => {
       setFooter(nextLabel, nextDisabled, onNext);
-    }, [setFooter, nextLabel, nextDisabled, onNext]),
+      // Re-arms the button for this step: it's latched while a push is in
+      // flight, and Back would otherwise return to a step whose button
+      // never fires again.
+      releaseFooter();
+    }, [setFooter, releaseFooter, nextLabel, nextDisabled, onNext]),
   );
 
   // Steps switch with no slide (a see-through page sliding over another
@@ -111,11 +115,15 @@ export function QuizScreen({
       </Pressable>
 
       <View style={{ paddingHorizontal: 24, paddingTop: 6, gap: 8 }}>
-        {/* Fixed box, not auto-height — see design/DESIGN_SYSTEM.md's
+        {/* Reserved box, not auto-height — see design/DESIGN_SYSTEM.md's
             fixed-height-text rule. A question can run one or two lines
             depending on its wording; without this the answers below would
-            land at a different y per screen. */}
-        <View style={{ height: 64, justifyContent: "center" }}>
+            land at a different y per screen.
+            minHeight, not height: 64pt holds two lines at 28pt, but a narrow
+            screen (<=375pt) wraps the longest question onto a third, and a
+            hard height clipped it. The reservation still aligns every screen
+            that fits; only a screen that would otherwise be cut grows. */}
+        <View style={{ minHeight: 64, justifyContent: "center" }}>
           <Text
             style={{
               fontFamily: "PlayfairDisplay_600SemiBold",
@@ -129,7 +137,7 @@ export function QuizScreen({
           </Text>
         </View>
         {subtitle ? (
-          <View style={{ height: 34, justifyContent: "flex-start" }}>
+          <View style={{ minHeight: 34, justifyContent: "flex-start" }}>
             <Text style={{ fontSize: 15, lineHeight: 15 * 1.45, color: MUTED }}>{subtitle}</Text>
           </View>
         ) : null}
