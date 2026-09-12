@@ -1,6 +1,9 @@
 import "../global.css";
 
+import { CormorantGaramond_500Medium } from "@expo-google-fonts/cormorant-garamond";
 import { IBMPlexMono_500Medium } from "@expo-google-fonts/ibm-plex-mono";
+import { Montserrat_300Light, Montserrat_400Regular } from "@expo-google-fonts/montserrat";
+import { MrsSaintDelafield_400Regular } from "@expo-google-fonts/mrs-saint-delafield";
 import {
   PlayfairDisplay_500Medium,
   PlayfairDisplay_600SemiBold,
@@ -23,10 +26,22 @@ export default function RootLayout() {
   // screen's tagline face (design_handoff_ellow_welcome) — a signature of
   // the system per that handoff, not a fallback, so it earns its own load
   // rather than rendering in the UI font while it's briefly missing.
+  //
+  // The Cormorant Garamond / Montserrat / Mrs Saint Delafield trio is the
+  // FOR.ME onboarding reskin (design-watercolor/FOR_ME_Onboarding_Design_Spec.md)
+  // — loaded here for the same reason: onboarding is the first thing a new
+  // install renders, so its fonts can't be missing on first paint either.
+  // Mrs Saint Delafield is explicitly locked for the wordmark (see
+  // components/shell/BrandLockup.tsx) — an Alex Brush trial round was
+  // reverted.
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_500Medium,
     PlayfairDisplay_600SemiBold,
     IBMPlexMono_500Medium,
+    CormorantGaramond_500Medium,
+    Montserrat_300Light,
+    Montserrat_400Regular,
+    MrsSaintDelafield_400Regular,
   });
 
   // Reading persisted state off disk is async, so on a cold start the store

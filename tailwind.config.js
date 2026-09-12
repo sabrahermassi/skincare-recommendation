@@ -8,7 +8,7 @@ module.exports = {
         // Skintel Screens (Claude Design, project 9c113a1f) — replaces the
         // milky-pastel palette. Values taken directly from the mockup HTML
         // (Result/Scanner/Quiz), not invented, except where noted below.
-        canvas: "#FAF7F3",
+        canvas: "#FBF6EE",
         surface: "#FFFFFF",
 
         // The five Milky pastel colors, untouched. All five sit between
@@ -68,16 +68,16 @@ module.exports = {
         // (e.g. "250 ml / Toner" at 11.5px) — flagging rather than silently
         // darkening it past what the design shows.
         ink: {
-          DEFAULT: "#332E3A", // 12.35:1 on canvas (was 9.58:1)
+          DEFAULT: "#332E3A", // 12.26:1 on canvas (was 9.58:1)
           // Long-form body copy. The design does NOT set running prose in
           // `muted` — the ingredient-detail screen, which carries the most
           // continuous text in the app, uses #4A4453 for it and reserves
           // #8C8592 for captions and meta lines. Reading `muted` as "any text
-          // that isn't a heading" was a misreading, and it put 3.34:1 text
-          // under whole paragraphs. This is 8.02:1 on canvas — comfortably AA.
+          // that isn't a heading" was a misreading, and it put 3.32:1 text
+          // under whole paragraphs. This is 8.70:1 on canvas — comfortably AA.
           body: "#4A4453",
-          muted: "#8C8592", // 3.34:1 on canvas — below AA for body text, see above
-          faint: "#9E98A3", // ~2.63:1 on canvas — computed, decorative / large text only
+          muted: "#8C8592", // 3.32:1 on canvas — below AA for body text, see above
+          faint: "#9E98A3", // ~2.61:1 on canvas — computed, decorative / large text only
         },
 
         // `DEFAULT` is the card/control border. `soft` is the list-row

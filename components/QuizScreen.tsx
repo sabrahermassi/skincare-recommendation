@@ -1,28 +1,28 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image, type ImageSource } from "expo-image";
-import { router } from "expo-router";
-import { useState, type ReactNode } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState, type ReactNode } from "react";
+import { Animated, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { quizTopPadding, useQuizFrame } from "@/components/QuizFrame";
 import { Text } from "@/components/Text";
+import { TERRACOTTA } from "@/components/shell/shared";
 import { quizStepCount } from "@/lib/profile";
-import { CANVAS, CTA, CTA_PRESSED, DOT_INACTIVE, INK, MUTED } from "@/lib/tokens";
+import { DOT_INACTIVE, INK, MUTED } from "@/lib/tokens";
+
+// How long a step's content takes to fade in when it becomes the one showing.
+const CONTENT_FADE_MS = 200;
+/** Gaps measured off design-watercolor/skin quiz/screens, at 393pt wide:
+ *  Skip sits on the first row, the dots ~95pt below it, then the back arrow,
+ *  then the question. */
+const DOTS_TOP = 44;
+const DOT_SIZE = 12;
 
 type Props = {
   /** 1-based index into the quiz. */
   step: number;
   title: string;
   subtitle?: string;
-  /**
-   * A small companion illustration beside the question, from the same set
-   * as the profile avatar — makes each step visually distinct rather than
-   * four back-to-back walls of chips. Deliberately optional and small: this
-   * is a supporting detail next to the headline, not a hero image, and the
-   * headline's fixed-height box is unchanged so nothing shifts between
-   * illustrated and non-illustrated steps.
-   */
-  illustration?: ImageSource;
   onNext: () => void;
   nextLabel?: string;
   nextDisabled?: boolean;
@@ -30,141 +30,126 @@ type Props = {
 };
 
 /**
- * The Manassa-system quiz shell — see design/DESIGN_SYSTEM.md's "Quiz
- * skeleton" section. Replaces `components/QuizStep.tsx`'s purple styling and
- * `StepProgress`'s numbered-circle rail (swapped for the onboarding
- * carousel's dot pattern) for the four quiz screens. Fixed header + scrolling
- * body + fixed footer, not the carousel's elastic spacers — a chip grid can
- * run longer than one screen on a small device, which an elastic-spacer
- * layout has no room to accommodate.
+ * One quiz step's content — progress dots, back arrow, question and answers —
+ * on a see-through page. The background, the hand-lettered lines, Skip and the
+ * Continue button belong to QuizFrame and stay put; this step hands its button
+ * label, state and action to QuizFrame while it's the step showing.
  */
 export function QuizScreen({
   step,
   title,
   subtitle,
-  illustration,
   onNext,
   nextLabel = "Continue",
   nextDisabled = false,
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const totalSteps = quizStepCount();
-  const [pressed, setPressed] = useState(false);
-  const steps = Array.from({ length: totalSteps }, (_, i) => i + 1);
+  const { setFooter, releaseFooter } = useQuizFrame();
+  const [opacity] = useState(() => new Animated.Value(0));
+  const steps = Array.from({ length: quizStepCount() }, (_, i) => i + 1);
+
+  // Re-runs whenever the label, state or action changes while this step is
+  // showing, and again when it becomes the one showing after Back.
+  useFocusEffect(
+    useCallback(() => {
+      setFooter(nextLabel, nextDisabled, onNext);
+      // Re-arms the button for this step: it's latched while a push is in
+      // flight, and Back would otherwise return to a step whose button
+      // never fires again.
+      releaseFooter();
+    }, [setFooter, releaseFooter, nextLabel, nextDisabled, onNext]),
+  );
+
+  // Steps switch with no slide (a see-through page sliding over another
+  // would show both questions at once), so the content fades in instead.
+  useFocusEffect(
+    useCallback(() => {
+      opacity.setValue(0);
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: CONTENT_FADE_MS,
+        useNativeDriver: Platform.OS !== "web",
+      }).start();
+    }, [opacity]),
+  );
 
   return (
-    <View style={{ flex: 1, backgroundColor: CANVAS }}>
+    <Animated.View style={{ flex: 1, opacity }}>
       <View
         style={{
+          marginTop: quizTopPadding(insets.top) + DOTS_TOP,
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "space-between",
-          paddingTop: Math.max(20, insets.top + 10),
-          paddingHorizontal: 24,
+          justifyContent: "center",
+          gap: 10,
         }}
       >
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          style={{ minHeight: 44, minWidth: 44, alignItems: "flex-start", justifyContent: "center" }}
-        >
-          <Ionicons name="chevron-back" size={22} color={INK} />
-        </Pressable>
-
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
-          {steps.map((s) => (
-            <View
-              key={s}
-              style={
-                s === step
-                  ? { width: 20, height: 6, borderRadius: 3, backgroundColor: INK }
-                  : { width: 6, height: 6, borderRadius: 6, backgroundColor: DOT_INACTIVE }
-              }
-            />
-          ))}
-        </View>
-
-        <View style={{ minWidth: 44, minHeight: 44 }} />
+        {steps.map((s) => (
+          <View
+            key={s}
+            style={{
+              width: DOT_SIZE,
+              height: DOT_SIZE,
+              borderRadius: DOT_SIZE / 2,
+              backgroundColor: s === step ? TERRACOTTA : DOT_INACTIVE,
+            }}
+          />
+        ))}
       </View>
 
-      <View style={{ paddingHorizontal: 24, paddingTop: 26, flexDirection: "row", alignItems: "flex-start", gap: 14 }}>
-        <View style={{ flex: 1, gap: 8 }}>
-          {/* Fixed box, not auto-height — see design/DESIGN_SYSTEM.md's
-              fixed-height-text rule. A quiz question can run one or two lines
-              depending on its wording; without this the content below would
-              land at a different y per screen. */}
-          <View style={{ height: 70, justifyContent: "center" }}>
-            <Text
-              style={{
-                fontFamily: "PlayfairDisplay_500Medium",
-                fontSize: 26,
-                lineHeight: 26 * 1.15,
-                letterSpacing: 26 * -0.018,
-                color: INK,
-              }}
-            >
-              {title}
-            </Text>
-          </View>
-          {subtitle ? (
-            <View style={{ height: 44, justifyContent: "flex-start" }}>
-              <Text style={{ fontSize: 14.5, fontWeight: "400", lineHeight: 14.5 * 1.5, color: MUTED }}>
-                {subtitle}
-              </Text>
-            </View>
-          ) : null}
-        </View>
+      <Pressable
+        onPress={() => router.back()}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        style={{
+          marginLeft: 20,
+          minHeight: 44,
+          minWidth: 44,
+          alignItems: "flex-start",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name="chevron-back" size={24} color={INK} />
+      </Pressable>
 
-        {illustration ? (
-          <Image
-            source={illustration}
-            style={{ width: 60, height: 60, borderRadius: 30, marginTop: 4 }}
-            contentFit="cover"
-            transition={120}
-          />
+      <View style={{ paddingHorizontal: 24, paddingTop: 6, gap: 8 }}>
+        {/* Reserved box, not auto-height — see design/DESIGN_SYSTEM.md's
+            fixed-height-text rule. A question can run one or two lines
+            depending on its wording; without this the answers below would
+            land at a different y per screen.
+            minHeight, not height: 64pt holds two lines at 28pt, but a narrow
+            screen (<=375pt) wraps the longest question onto a third, and a
+            hard height clipped it. The reservation still aligns every screen
+            that fits; only a screen that would otherwise be cut grows. */}
+        <View style={{ minHeight: 64, justifyContent: "center" }}>
+          <Text
+            style={{
+              fontFamily: "PlayfairDisplay_600SemiBold",
+              fontSize: 28,
+              lineHeight: 28 * 1.12,
+              letterSpacing: 28 * -0.015,
+              color: INK,
+            }}
+          >
+            {title}
+          </Text>
+        </View>
+        {subtitle ? (
+          <View style={{ minHeight: 34, justifyContent: "flex-start" }}>
+            <Text style={{ fontSize: 15, lineHeight: 15 * 1.45, color: MUTED }}>{subtitle}</Text>
+          </View>
         ) : null}
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 22, paddingBottom: 24 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 14, paddingBottom: 24 }}
         keyboardShouldPersistTaps="handled"
       >
         {children}
       </ScrollView>
-
-      <View style={{ paddingHorizontal: 24, paddingBottom: Math.max(32, insets.bottom + 16) }}>
-        <Pressable
-          onPress={onNext}
-          disabled={nextDisabled}
-          onPressIn={() => setPressed(true)}
-          onPressOut={() => setPressed(false)}
-          accessibilityRole="button"
-          style={{
-            minHeight: 52,
-            borderRadius: 26,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: nextDisabled ? DOT_INACTIVE : pressed ? CTA_PRESSED : CTA,
-            // See design/DESIGN_SYSTEM.md's Buttons section — the shadow is
-            // load-bearing for the peach fill's low contrast, not decoration.
-            // Dropped when disabled: a de-emphasised control shouldn't also
-            // read as "raised and ready to tap".
-            shadowColor: INK,
-            shadowOffset: { width: 0, height: 3 },
-            shadowOpacity: nextDisabled ? 0 : 0.13,
-            shadowRadius: 12,
-            elevation: nextDisabled ? 0 : 6,
-          }}
-        >
-          <Text style={{ fontSize: 15, fontWeight: "500", color: nextDisabled ? MUTED : INK }}>
-            {nextLabel}
-          </Text>
-        </Pressable>
-      </View>
-    </View>
+    </Animated.View>
   );
 }

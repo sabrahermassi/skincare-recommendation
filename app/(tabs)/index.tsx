@@ -19,7 +19,7 @@ import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
-import { CANVAS, CTA, INK, LINE, MUTED, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, CTA, INK, LINE, MUTED, withAlpha } from "@/lib/tokens";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -50,9 +50,10 @@ const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as co
 type Mode = "Barcode" | "Label photo";
 type Status = { kind: "idle" } | { kind: "looking"; code: string } | { kind: "missed"; code: string };
 
-// Manassa system (design/DESIGN_SYSTEM.md) — the dark #17161B camera stage
-// itself stays (it's deliberate chrome, not part of the light onboarding
-// palette), but every light-surface color drawn on top of it moves to this
+// Manassa system (design/DESIGN_SYSTEM.md) — the dark camera stage itself
+// stays (it's deliberate chrome, not part of the light onboarding palette,
+// and now owned by lib/tokens' CAMERA_STAGE rather than hand-typed at five
+// sites), but every light-surface color drawn on top of it moves to this
 // system instead of the app's older canvas/ink tokens. Press feedback on the
 // peach buttons below stays this screen's existing opacity-based convention
 // (`active:opacity-90`, matching every other button already on this stage)
@@ -289,7 +290,7 @@ function ModeSwitcher({
                     alignItems: "center",
                     justifyContent: "center",
                     borderRadius: 26,
-                    backgroundColor: on ? withAlpha(CANVAS, 0.95) : "rgba(23,22,27,0.55)",
+                    backgroundColor: on ? withAlpha(CANVAS, 0.95) : withAlpha(CAMERA_STAGE, 0.55),
                     borderWidth: 1,
                     borderColor: on ? "transparent" : withAlpha(CANVAS, 0.3),
                   }
@@ -390,7 +391,7 @@ function BarcodeStage({
   const keyboardHeight = useKeyboardHeight();
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#17161B" }}>
+    <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>
       {live ? (
         <CameraView
           style={StyleSheet.absoluteFill}
@@ -564,7 +565,7 @@ function ScannerTopRow({ insets }: { insets: { top: number } }) {
           alignItems: "center",
           justifyContent: "center",
           borderRadius: 22,
-          backgroundColor: "rgba(23,22,27,0.55)",
+          backgroundColor: withAlpha(CAMERA_STAGE, 0.55),
         }}
       >
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -597,7 +598,7 @@ function FullScreenPane({
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#17161B" }}>
+    <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>
       <View
         style={{
           flex: 1,
@@ -657,7 +658,7 @@ function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
           strokeWidth={3}
           strokeLinecap="round"
         />
-        <Circle cx={58} cy={70} r={15} fill="#17161B" />
+        <Circle cx={58} cy={70} r={15} fill={CAMERA_STAGE} />
         <Circle cx={56} cy={68} r={9.5} stroke={COLORS.toneGood} strokeWidth={2.6} />
         <Path
           d="m63 75 6.5 6.5"

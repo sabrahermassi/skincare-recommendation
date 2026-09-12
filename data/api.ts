@@ -58,6 +58,62 @@ const IS_TEST =
 const LATENCY_MS =
   !IS_TEST && typeof __DEV__ !== "undefined" && __DEV__ ? 180 : 0;
 
+/**
+ * How long a network read may hang before it is treated as a failure.
+ *
+ * A rejected request already has a path through every screen — browse shows
+ * "Couldn't load products" with a Try again, the scanner surfaces its own
+ * status. A request that never settles had none: the promise stayed pending,
+ * the screen's `products` stayed null, and the spinner ran forever with no
+ * message and no way to retry. That is the state this bounds.
+ *
+ * Reads only. `analyseLabel` is deliberately left unbounded — OCR on a photo
+ * legitimately takes longer than any figure sensible here, and cutting it off
+ * would discard work the user waited for.
+ */
+const NETWORK_TIMEOUT_MS = 12_000;
+
+/**
+ * Rejects if the query built from `attachSignal` has not settled within
+ * {@link NETWORK_TIMEOUT_MS}. Takes a builder function, not a built query,
+ * because `.abortSignal()` has to land at the right point in each call
+ * site's own chain — after `.maybeSingle()` narrows a Supabase builder to a
+ * type that no longer exposes `.abortSignal()`, so `fetchProduct`'s call
+ * site needs it earlier in the chain than the others do. A single shared
+ * "attach it to whatever you're given" version can't express that.
+ *
+ * Wraps each awaited Supabase read so a hung connection becomes an ordinary
+ * error the callers already handle, rather than an indefinite spinner. The
+ * timer is always cleared, so a settled request leaves nothing pending for
+ * Jest to wait on at teardown.
+ *
+ * Also aborts the underlying fetch on timeout, not just this wrapper's own
+ * promise — the first version of this only gave up on the *UI* side and left
+ * the real request running, which meant a hung connection plus Browse's own
+ * "Try again" button could pile up several in-flight requests behind one
+ * unresponsive network path.
+ */
+function withTimeout<T>(attachSignal: (signal: AbortSignal) => PromiseLike<T>, label: string): Promise<T> {
+  const controller = new AbortController();
+  const work = attachSignal(controller.signal);
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error(`${label}: no response after ${NETWORK_TIMEOUT_MS}ms`));
+    }, NETWORK_TIMEOUT_MS);
+    Promise.resolve(work).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 function delay<T>(value: T): Promise<T> {
   if (LATENCY_MS === 0) return Promise.resolve(value);
   return new Promise((resolve) => setTimeout(() => resolve(value), LATENCY_MS));
@@ -192,7 +248,7 @@ export async function fetchProducts(
     let query = supabase!.from("products").select(SELECT);
     if (type !== "all") query = query.eq("type", type);
 
-    const { data, error } = await query;
+    const { data, error } = await withTimeout((signal) => query.abortSignal(signal), "fetchProducts");
     if (error) throw new Error(`fetchProducts: ${error.message}`);
     return (data as unknown as CatalogueRow[]).map(rowToProduct);
   }
@@ -205,11 +261,12 @@ export async function fetchProduct(
   id: string
 ): Promise<ProductWithIngredients | null> {
   if (usingSupabase()) {
-    const { data, error } = await supabase!
-      .from("products")
-      .select(SELECT)
-      .eq("id", id)
-      .maybeSingle();
+    const { data, error } = await withTimeout(
+      // abortSignal has to come before maybeSingle: maybeSingle narrows the
+      // builder to a type that no longer has abortSignal on it.
+      (signal) => supabase!.from("products").select(SELECT).eq("id", id).abortSignal(signal).maybeSingle(),
+      "fetchProduct",
+    );
     if (error) throw new Error(`fetchProduct: ${error.message}`);
     return data ? rowToProduct(data as unknown as CatalogueRow) : null;
   }
@@ -225,10 +282,10 @@ export async function fetchProductsByIds(
   if (ids.length === 0) return [];
 
   if (usingSupabase()) {
-    const { data, error } = await supabase!
-      .from("products")
-      .select(SELECT)
-      .in("id", ids);
+    const { data, error } = await withTimeout(
+      (signal) => supabase!.from("products").select(SELECT).in("id", ids).abortSignal(signal),
+      "fetchProductsByIds",
+    );
     if (error) throw new Error(`fetchProductsByIds: ${error.message}`);
     return (data as unknown as CatalogueRow[]).map(rowToProduct);
   }
@@ -243,7 +300,10 @@ export async function fetchProductsByIds(
 /** Distinct product types present in the catalog, for the filter bar. */
 export async function fetchProductTypes(): Promise<ProductType[]> {
   if (usingSupabase()) {
-    const { data, error } = await supabase!.from("products").select("type");
+    const { data, error } = await withTimeout(
+      (signal) => supabase!.from("products").select("type").abortSignal(signal),
+      "fetchProductTypes",
+    );
     if (error) throw new Error(`fetchProductTypes: ${error.message}`);
     return [
       ...new Set((data as { type: string }[]).map((r) => r.type)),
@@ -372,10 +432,18 @@ export async function resolveIngredientNames(names: string[]): Promise<Ingredien
   }
 
   try {
-    const { data, error } = await supabase!
-      .from("ingredients")
-      .select("inci_name, comedogenic, safety, note, verified, functions")
-      .in("inci_name", names);
+    // Bounded like the catalogue reads, and the catch below is why: a
+    // timeout here degrades to the unverified stubs this function already
+    // promises, instead of leaving the paste-list screen waiting forever.
+    const { data, error } = await withTimeout(
+      (signal) =>
+        supabase!
+          .from("ingredients")
+          .select("inci_name, comedogenic, safety, note, verified, functions")
+          .in("inci_name", names)
+          .abortSignal(signal),
+      "resolveIngredientNames",
+    );
 
     if (error) throw error;
 
@@ -405,11 +473,16 @@ export async function searchProducts(query: string): Promise<ProductWithIngredie
 
   if (usingSupabase()) {
     const escaped = trimmed.replace(/[%,()]/g, " ");
-    const { data, error } = await supabase!
-      .from("products")
-      .select(SELECT)
-      .or(`name.ilike.%${escaped}%,brand.ilike.%${escaped}%`)
-      .limit(20);
+    const { data, error } = await withTimeout(
+      (signal) =>
+        supabase!
+          .from("products")
+          .select(SELECT)
+          .or(`name.ilike.%${escaped}%,brand.ilike.%${escaped}%`)
+          .limit(20)
+          .abortSignal(signal),
+      "searchProducts",
+    );
     if (error) throw new Error(`searchProducts: ${error.message}`);
     return (data as unknown as CatalogueRow[]).map(rowToProduct);
   }

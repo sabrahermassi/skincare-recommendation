@@ -320,7 +320,6 @@ All of these read `VERDICT` from `lib/tokens.ts`; none carries its own copy:
 |---|---|
 | `app/product/[id].tsx` | verdict panel — `tint` background, `solid` border, `deep` text |
 | `components/ScoreRing.tsx` | ring track is `tint`, fill is `solid` |
-| `app/(tabs)/compare.tsx` | match row value in `deep` (rest of that screen is still on the old system) |
 | `components/MatchBadge.tsx` | unused today, but reads the tokens so it can't drift |
 
 **The five score bands collapse onto three tones.** `Verdict` has five values because the
@@ -338,8 +337,10 @@ app, not three of each.
 
 ## Profile-screen chip (extension)
 
-`app/(tabs)/profile.tsx`'s own `ProfileChip` — same border/fill/ink language as the quiz's
-`QuizChip` (selected = 1.5px `INK` border + `SELECTED` fill + ink text; unselected =
+`app/(tabs)/profile.tsx`'s own `ProfileChip` — same border/fill/ink language the quiz's
+`QuizChip` used before it was removed (the quiz now answers with
+`components/QuizOptionCard.tsx`, which carries a `TERRACOTTA` border and a watercolour icon
+instead): selected = 1.5px `INK` border + `SELECTED` fill + ink text; unselected =
 1px `LINE` border + canvas fill + muted text; `RADIUS_SELECTOR` corner, same as everywhere
 else), but **auto-width and wrap-flowed**, not a fixed 48%-of-row grid. The quiz's 2-per-row
 grid assumes a small, fixed option count; the profile screen edits a variable number of
@@ -362,9 +363,8 @@ app. A body lotion is not disqualified from being judged on its ingredients by b
 lotion. The `products` table's `area` column is untouched in the database and the OBF
 importer still writes it — this was a client-side removal, not a schema migration.
 
-The old shared `components/Chip.tsx` has no remaining consumers after this — Browse and
-Profile were its only two call sites. Left in place as dead code, same reasoning as
-`MatchBadge.tsx` above.
+The old shared `components/Chip.tsx` had no remaining consumers after this — Browse and
+Profile were its only two call sites — and has since been deleted.
 
 ---
 
