@@ -441,7 +441,7 @@ function BarcodeStage({
             style={{ color: withAlpha(CANVAS, 0.5) }}
             className="text-center text-xs leading-4"
           >
-            Or switch to Label photo below.
+            Or close the scanner and find the product in Browse.
           </Text>
         </View>
       )}
