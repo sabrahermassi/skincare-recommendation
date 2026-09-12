@@ -1,4 +1,4 @@
-import { fetchProduct, fetchProducts } from "@/data/api";
+import { fetchProduct } from "@/data/api";
 import type { ProductWithIngredients, SkinProfile } from "@/data/types";
 import {
   confidenceLabel,
