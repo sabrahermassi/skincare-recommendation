@@ -1,27 +1,22 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   TextInput,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
-import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { Text } from "@/components/Text";
-import { fetchProductByBarcode, searchProducts } from "@/data/api";
+import { fetchProductByBarcode } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
-import { parseIngredientBlock } from "@/lib/inci";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, CTA, INK, LINE, MUTED, withAlpha } from "@/lib/tokens";
@@ -52,7 +47,7 @@ import { CANVAS, CTA, INK, LINE, MUTED, withAlpha } from "@/lib/tokens";
  */
 const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as const;
 
-type Mode = "Barcode" | "Label photo" | "Search" | "Paste list";
+type Mode = "Barcode" | "Label photo";
 type Status = { kind: "idle" } | { kind: "looking"; code: string } | { kind: "missed"; code: string };
 
 // Manassa system (design/DESIGN_SYSTEM.md) — the dark #17161B camera stage
@@ -63,13 +58,13 @@ type Status = { kind: "idle" } | { kind: "looking"; code: string } | { kind: "mi
 // (`active:opacity-90`, matching every other button already on this stage)
 // rather than the onboarding screens' darken-to-CTA_PRESSED technique - this
 // file doesn't otherwise do per-button darken states, and introducing one
-// convention for four buttons while every other control on the same screen
+// convention for two buttons while every other control on the same screen
 // uses opacity would be its own inconsistency.
 
 /**
  * Icons for the mode switcher, paths copied from the Scanner mockup. The row
- * is icon-only now — no label under Barcode/Label photo/Search — so these
- * are drawn bigger (22pt) than the icon-plus-text version was.
+ * is icon-only now — no label under Barcode/Label photo — so these are drawn
+ * bigger (22pt) than the icon-plus-text version was.
  */
 function BarcodeIcon({ color, size = 22 }: { color: string; size?: number }) {
   return (
@@ -99,38 +94,12 @@ function PhotoIcon({ color, size = 22 }: { color: string; size?: number }) {
   );
 }
 
-function SearchIcon({ color, size = 22 }: { color: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx={11} cy={11} r={6.4} stroke={color} strokeWidth={1.8} />
-      <Path d="m15.8 15.8 4 4" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function PasteIcon({ color, size = 22 }: { color: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x={5} y={4.5} width={14} height={16} rx={2.6} stroke={color} strokeWidth={1.6} />
-      <Rect x={9} y={2.6} width={6} height={3.8} rx={1.3} stroke={color} strokeWidth={1.6} />
-      <Path
-        d="M8.6 11.5h6.8M8.6 15h4.4"
-        stroke={color}
-        strokeWidth={1.6}
-        strokeLinecap="round"
-      />
-    </Svg>
-  );
-}
-
 const MODES: {
   label: Mode;
   Icon: (props: { color: string; size?: number }) => ReactElement;
 }[] = [
   { label: "Barcode", Icon: BarcodeIcon },
   { label: "Label photo", Icon: PhotoIcon },
-  { label: "Search", Icon: SearchIcon },
-  { label: "Paste list", Icon: PasteIcon },
 ];
 
 export default function Scan() {
@@ -263,15 +232,13 @@ export default function Scan() {
     );
   }
 
-  // Search, Paste list and Label photo share the same full-screen dark stage
-  // Barcode uses — a fixed-height card here used to shrink the whole screen
-  // down every time you switched away from Barcode, which read as the app
-  // losing its own layout rather than a deliberate choice.
+  // Label photo shares the same full-screen dark stage Barcode uses — a
+  // fixed-height card here used to shrink the whole screen down every time
+  // you switched away from Barcode, which read as the app losing its own
+  // layout rather than a deliberate choice.
   return (
     <FullScreenPane modeSwitcher={<ModeSwitcher mode={mode} setMode={setMode} floating />}>
-      {mode === "Search" && <SearchPane preserveMode={preserveMode} />}
-      {mode === "Paste list" && <PastePane preserveMode={preserveMode} />}
-      {mode === "Label photo" && <LabelPhotoPane preserveMode={preserveMode} />}
+      <LabelPhotoPane preserveMode={preserveMode} />
     </FullScreenPane>
   );
 }
@@ -283,9 +250,9 @@ export default function Scan() {
  * white cards over a viewfinder hide the thing you are aiming. Otherwise it is
  * the light row under the card, as the Scanner mockup draws it.
  *
- * Icon-only: each mode is named once by the surface it opens (a viewfinder, a
- * camera, a search box), and a text label beside an icon that already says the
- * same thing just crowded a small row.
+ * Icon-only: each mode is named once by the surface it opens (a viewfinder or
+ * a camera), and a text label beside an icon that already says the same thing
+ * just crowded a small row.
  */
 function ModeSwitcher({
   mode,
@@ -338,9 +305,8 @@ function ModeSwitcher({
           >
             {floating ? (
               // A visible label under the glyph, not just accessibilityLabel
-              // below — this is the screen the app opens on, and two of
-              // these four icons (a photo frame, a clipboard) have no fixed
-              // meaning the way a magnifying glass or barcode bars do.
+              // below — this is the screen the app opens on, and the photo
+              // frame icon has no fixed meaning the way barcode bars do.
               <View style={{ alignItems: "center", gap: 2 }}>
                 <Icon color={color} />
                 <Text style={{ fontSize: 9, fontWeight: "600", color }} numberOfLines={1}>
@@ -475,7 +441,7 @@ function BarcodeStage({
             style={{ color: withAlpha(CANVAS, 0.5) }}
             className="text-center text-xs leading-4"
           >
-            Or switch to Label photo or Search below.
+            Or close the scanner and find the product in Browse.
           </Text>
         </View>
       )}
@@ -615,18 +581,18 @@ function ScannerTopRow({ insets }: { insets: { top: number } }) {
 }
 
 /**
- * The stage Search, Paste list and Label photo share — full screen and dark,
- * exactly like Barcode's, so switching modes never changes the size of the
- * scanner. It used to be a 293pt card in a scrollable light page, which
- * shrank the whole screen down the moment you left Barcode mode and read as
- * the app losing its own layout rather than a deliberate choice.
+ * Label photo's stage — full screen and dark, exactly like Barcode's, so
+ * switching modes never changes the size of the scanner. It used to be a
+ * 293pt card in a scrollable light page, which shrank the whole screen down
+ * the moment you left Barcode mode and read as the app losing its own layout
+ * rather than a deliberate choice.
  */
 function FullScreenPane({
   modeSwitcher,
   children,
 }: {
   modeSwitcher: ReactElement;
-  children: ReactElement | (ReactElement | false)[];
+  children: ReactElement;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -851,276 +817,4 @@ function Viewfinder() {
   );
 }
 
-/** Search by name — the fallback when there's no barcode or no camera. */
-function SearchPane({ preserveMode }: { preserveMode: () => void }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<ProductWithIngredients[]>([]);
-  const [searching, setSearching] = useState(false);
-
-  useEffect(() => {
-    if (query.trim().length < 2) {
-      setResults([]);
-      setSearching(false);
-      return;
-    }
-    let cancelled = false;
-    setSearching(true);
-    // Debounced: a query per keystroke would hammer the backend for nothing.
-    const timer = setTimeout(() => {
-      searchProducts(query)
-        .then((found) => {
-          if (!cancelled) setResults(found);
-        })
-        .catch((err) => {
-          console.warn("searchProducts failed:", err);
-          if (!cancelled) setResults([]);
-        })
-        .finally(() => {
-          if (!cancelled) setSearching(false);
-        });
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [query]);
-
-  return (
-    <View className="flex-1 px-4 pb-[70px] pt-5">
-      <View style={{ position: "relative" }}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Product or brand name"
-          placeholderTextColor={withAlpha(CANVAS, 0.45)}
-          autoCorrect={false}
-          style={{
-            borderRadius: 999,
-            paddingHorizontal: 16,
-            // Room for the clear button once there's something to clear.
-            paddingRight: query.length > 0 ? 40 : 16,
-            paddingVertical: 12,
-            fontWeight: "500",
-            fontSize: 14,
-            color: CANVAS,
-            backgroundColor: withAlpha(CANVAS, 0.14),
-          }}
-        />
-        {query.length > 0 && (
-          <Pressable
-            onPress={() => setQuery("")}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Clear search"
-            style={{
-              position: "absolute",
-              right: 12,
-              top: 0,
-              bottom: 0,
-              width: 24,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M6 6l12 12M18 6 6 18"
-                stroke={withAlpha(CANVAS, 0.6)}
-                strokeWidth={2.2}
-                strokeLinecap="round"
-              />
-            </Svg>
-          </Pressable>
-        )}
-      </View>
-      <ScrollView className="mt-3" keyboardShouldPersistTaps="handled">
-        {searching && <ActivityIndicator color={CANVAS} className="mt-4" />}
-
-        {/* An empty search pane looked broken. It now says what it searches
-            and when it will start, so the blankness is expected rather than a
-            failure. */}
-        {!searching && query.trim().length < 2 && (
-          <View style={{ alignItems: "center", gap: 8, paddingTop: 26, paddingHorizontal: 12 }}>
-            <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
-              <Circle
-                cx={10.6}
-                cy={10.6}
-                r={6.9}
-                stroke={CANVAS}
-                strokeOpacity={0.4}
-                strokeWidth={1.9}
-              />
-              <Path
-                d="m15.6 15.6 4.4 4.4"
-                stroke={CANVAS}
-                strokeOpacity={0.4}
-                strokeWidth={1.9}
-                strokeLinecap="round"
-              />
-            </Svg>
-            <Text
-              style={{ color: withAlpha(CANVAS, 0.6), lineHeight: 17 }}
-              className="text-center text-xs"
-            >
-              Search the catalogue by product or brand - type two letters to
-              start. Use this when a barcode won&apos;t scan.
-            </Text>
-          </View>
-        )}
-
-        {!searching && query.trim().length >= 2 && results.length === 0 && (
-          <Text style={{ color: withAlpha(CANVAS, 0.6) }} className="mt-4 text-center text-xs">
-            Nothing matched. Try the barcode, or photograph the label.
-          </Text>
-        )}
-        {results.map((product) => (
-          <Pressable
-            key={product.id}
-            onPress={() => {
-              preserveMode();
-              router.push({ pathname: "/result/[id]", params: { id: product.id } });
-            }}
-            style={{ borderBottomColor: withAlpha(CANVAS, 0.1) }}
-            className="flex-row items-center gap-3 border-b py-3"
-          >
-            <ProductThumbnail product={product} size={38} radius={10} />
-            <View className="flex-1">
-              <Text style={{ fontSize: 13, fontWeight: "600", color: CANVAS }} numberOfLines={1}>
-                {product.name}
-              </Text>
-              <Text style={{ color: withAlpha(CANVAS, 0.6), fontSize: 11 }}>{product.brand}</Text>
-            </View>
-            <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="m9 5 7 7-7 7"
-                stroke={CANVAS}
-                strokeOpacity={0.4}
-                strokeWidth={2.2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </Pressable>
-        ))}
-      </ScrollView>
-    </View>
-  );
-}
-
-/**
- * Paste an ingredient list — the mode that replaces the copy-from-INCIDecoder,
- * paste-into-a-website routine.
- *
- * `parseIngredientBlock` with no dictionary argument is exactly the right tool:
- * it strips a leading "Ingredients:" heading, splits on commas while protecting
- * names like 1,2-Hexanediol, cuts off at directions and legal boilerplate,
- * normalises each entry and dedupes. Pure and synchronous, so the parse costs
- * nothing and needs no network — and because pore-clogging is judged against a
- * table on the device, neither does the answer.
- */
-function PastePane({ preserveMode }: { preserveMode: () => void }) {
-  const [text, setText] = useState("");
-  const setPastedIngredients = useAppStore((s) => s.setPastedIngredients);
-
-  const parsed = useMemo(() => parseIngredientBlock(text), [text]);
-  const ready = parsed.length >= 2;
-
-  function check() {
-    if (!ready) return;
-    setPastedIngredients(parsed.map((p) => p.inci_name));
-    // Tells the scanner this push is a continuation of the paste, not a
-    // reason to reset to Barcode when we come back — see `Scan`'s own
-    // `preserveMode` doc comment for why every internal push needs this.
-    preserveMode();
-    // Not cleared: this pane stays mounted underneath the pushed
-    // ingredients screen, so clearing it here meant going back showed an
-    // empty box — as if the paste had never happened, when the app had it
-    // the whole time. It's a paste box, not a form; nothing needs a fresh
-    // start until you deliberately type over it.
-    router.push("/ingredients/pasted");
-  }
-
-  return (
-    // The Check button used to sit right under the text field with nothing
-    // accounting for the keyboard, so on a full-screen pane the keyboard
-    // covered it entirely with no way to see or reach it. KeyboardAvoidingView
-    // lifts this whole pane above the keyboard, and tapping outside the field
-    // dismisses it — the multiline input has no return-key affordance for
-    // that on its own.
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1 }}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 14, gap: 10 }}>
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="Paste the ingredient list here - water, glycerin, niacinamide…"
-            placeholderTextColor={withAlpha(CANVAS, 0.45)}
-            multiline
-            textAlignVertical="top"
-            autoCorrect={false}
-            autoCapitalize="none"
-            style={{
-              flex: 1,
-              borderRadius: 14,
-              paddingHorizontal: 12,
-              paddingVertical: 12,
-              fontSize: 13,
-              lineHeight: 18,
-              color: CANVAS,
-              backgroundColor: withAlpha(CANVAS, 0.14),
-            }}
-          />
-
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            {/* Left side, mirroring Check on the right: clears the box in one
-                tap instead of holding backspace or selecting all by hand. */}
-            <Pressable
-              onPress={() => setText("")}
-              disabled={text.length === 0}
-              accessibilityRole="button"
-              accessibilityLabel="Clear the pasted list"
-              style={{
-                height: 40,
-                opacity: text.length === 0 ? 0.35 : 1,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 999,
-                paddingHorizontal: 16,
-                borderWidth: 1,
-                borderColor: withAlpha(CANVAS, 0.35),
-              }}
-            >
-              <Text style={{ fontSize: 12.5, fontWeight: "600", color: CANVAS }}>Clear</Text>
-            </Pressable>
-            <Text style={{ color: withAlpha(CANVAS, 0.6), flex: 1 }} className="text-[11px]">
-              {text.trim().length === 0
-                ? "Copy it from anywhere - we read it on your phone."
-                : `${parsed.length} ingredient${parsed.length === 1 ? "" : "s"} found`}
-            </Text>
-            <Pressable
-              onPress={check}
-              disabled={!ready}
-              accessibilityRole="button"
-              accessibilityLabel="Check this ingredient list"
-              style={{
-                height: 40,
-                opacity: ready ? 1 : 0.4,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 999,
-                paddingHorizontal: 20,
-                backgroundColor: CTA,
-              }}
-            >
-              <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>Check</Text>
-            </Pressable>
-          </View>
-        </View>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
-  );
-}
 

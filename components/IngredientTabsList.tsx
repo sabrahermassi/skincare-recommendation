@@ -15,14 +15,12 @@ import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, MUTED_SOFT, RADIUS_SE
 // move to this system.
 
 /**
- * The tabbed ingredient list — shared by a scanned product's ingredient
- * screen (`app/ingredients/[id].tsx`) and a pasted list's
- * (`app/ingredients/pasted.tsx`), so both read exactly the same way: All /
- * Actives / Watch-outs / Pore clogging, each row judged against `match`.
+ * The tabbed ingredient list for a scanned product's ingredient screen
+ * (`app/ingredients/[id].tsx`): All / Actives / Watch-outs / Pore clogging,
+ * each row judged against `match`.
  *
- * `metaLine`/`subMetaLine` are the two lines above the divider — a real
- * product shows an ingredient count and when the label was last read; a
- * pasted list has no fetch date, so `subMetaLine` is simply omitted there.
+ * `metaLine`/`subMetaLine` are the two lines above the divider — an
+ * ingredient count and when the label was last read.
  */
 
 export const TABS = ["All", "Actives", "Watch-outs", "Pore clogging"] as const;
