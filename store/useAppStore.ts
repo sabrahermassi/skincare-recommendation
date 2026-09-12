@@ -96,13 +96,6 @@ type AppState = {
   // ── History: automatic, written on every product view and scan ──
   history: HistoryEntry[];
 
-  /**
-   * An ingredient list pasted into the scanner, awaiting the check screen.
-   * In-memory: it is a single interaction, and restoring a list you pasted
-   * three weeks ago would be noise.
-   */
-  pastedIngredients: string[] | null;
-
   /** Names typed in for barcodes we didn't recognise. See `ProductSuggestion`. */
   productSuggestions: ProductSuggestion[];
 
@@ -129,8 +122,6 @@ type AppState = {
     warnings: number;
   }) => void;
   clearHistory: () => void;
-
-  setPastedIngredients: (names: string[] | null) => void;
 
   /** Idempotent per barcode — retyping the same one just updates the name. */
   submitProductSuggestion: (barcode: string, name: string) => void;
@@ -177,7 +168,6 @@ export const INITIAL_STATE = {
   savedProducts: [] as SavedProduct[],
   savedIngredients: [] as string[],
   history: [] as HistoryEntry[],
-  pastedIngredients: null as string[] | null,
   productSuggestions: [] as ProductSuggestion[],
 };
 
@@ -326,8 +316,6 @@ export const useAppStore = create<AppState>()(
         }),
 
       clearHistory: () => set({ history: [] }),
-
-      setPastedIngredients: (names) => set({ pastedIngredients: names }),
 
       submitProductSuggestion: (barcode, name) =>
         set((state) => ({

@@ -1,7 +1,6 @@
 import type {
   Concern,
   Ingredient,
-  ProductType,
   ProductWithIngredients,
   SkinProfile,
 } from "@/data/types";
@@ -423,24 +422,6 @@ export function matchProduct(
     confidence: confidenceFor(coverage, scored),
     breakdown: { concernFit, typeFit, irritationPenalty, porePenalty },
   };
-}
-
-/**
- * Score a raw ingredient list with no product attached — a pasted formula.
- * `matchProduct` only ever reads `type` (for `contactWeight`) and
- * `ingredients` off its argument, so this just supplies a neutral `type`
- * rather than duplicating the scoring logic.
- *
- * "unknown" defaults to full contact weight (`contactWeight` only discounts
- * cleanser/body-wash): a pasted list's actual contact time is unknown, and
- * assuming full exposure is the conservative choice for a watch-outs screen.
- */
-export function matchIngredients(
-  ingredients: Ingredient[],
-  profile: SkinProfile,
-  type: ProductType = "unknown"
-): MatchResult {
-  return matchProduct({ type, ingredients }, profile);
 }
 
 function bump(map: Map<Concern, number>, key: Concern, by: number) {

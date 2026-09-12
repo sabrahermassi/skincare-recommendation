@@ -1,287 +1,193 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code in this repo. Incident history and anything not
+yet fully established: `docs/decisions.md` — read it for *why*, not before
+every task.
 
 @AGENTS.md
 
-A universal (iOS / Android / web) Korean skincare product and ingredient
-lookup app. Expo SDK 57 + Expo Router + NativeWind + Zustand.
+## Project
 
-**This is not a mock.** Supabase is the live backend, and both Edge
-Functions are deployed: `product-lookup` (barcode cascade) and `label-ocr`
-(Google Cloud Vision). The catalogue holds ~36k dictionary ingredients with
-~25k synonyms, and ~140 products. `data/api.ts` still falls back to eight
-fabricated sample products when `EXPO_PUBLIC_SUPABASE_URL`/`_ANON_KEY` are
-absent, which is what keeps a fresh checkout runnable and the test suite
-hermetic — but with a `.env` present you are querying real data.
+Universal (iOS / Android / web) Korean skincare lookup app. Expo SDK 57 +
+Expo Router + NativeWind + Zustand.
 
-Launch scope is defined by `SKINTEL_MVP.md`, which is the source of truth
-for what ships. Remaining gaps are tracked as GitHub issues on the "Skin
-Recommendation" project board.
+Supabase is the live backend (Edge Functions `product-lookup`, `label-ocr`
+deployed). `data/api.ts` falls back to 8 sample products only when
+`EXPO_PUBLIC_SUPABASE_URL`/`_ANON_KEY` are absent — keeps checkouts and
+tests hermetic. Live catalogue: ~140 products, ~36k dictionary ingredients,
+~25k synonyms.
+
+`SKINTEL_MVP.md` is launch scope. Track gaps as GitHub issues on the "Skin
+Recommendation" board, not here.
 
 ## Commands
 
 ```bash
 npm start                  # dev server; press w for web, or scan the QR with Expo Go
-npx expo start --clear     # same, clearing Metro's cache (NativeWind caches aggressively)
 npm run web                # web only
-
 npm test                   # jest (jest-expo preset)
 npm test -- safety         # one suite, by filename fragment
-npm test -- -t "compare"   # one test, by name
+npm test -- -t "flags on comedogenic"   # one test, by name
 npm run typecheck          # tsc --noEmit
-npm run lint               # expo lint (eslint-config-expo)
-npx expo-doctor@latest     # SDK dependency alignment
+npm run lint               # expo lint
 ```
 
-### Dictionary imports
+**Every change:** `npm run typecheck && npm run lint && npm test` (narrow
+with `--` for a small change).
 
-These populate `ingredients`, the table `verified` is judged against. All take
-`--dry-run`, and all need `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` in the
-shell to write (the service-role key is not in `.env` — read it from the
-dashboard, or `supabase projects api-keys --project-ref <ref>`).
-
-```bash
-npm run import:inci-dictionary   # Open Beauty Facts taxonomy (~31k rows, the bulk)
-npm run import:cosing            # EU CosIng; no argument = fetch the mirrored export
-npm run import:obf               # products, not the dictionary
-```
-
-**`import:cosing` never overwrites a row another source already verified** — it
-only adds new names and promotes unverified ones, so re-running it is safe. Its
-default source is a 2016 mirror of the Commission's export (the live CosIng UI
-hands the CSV out only through a session-bound download); pass a path to a
-fresher export when one is available.
-
-**Full pre-merge check.** Tests cover the pure logic — store,
-matching, safety classification and the `data/api.ts` contract — but
-there are no component or navigation tests yet (issue #10), so bundling
-remains a separate gate. A web-only pass does not prove
-native bundling works — always export all three platforms:
+**Pre-merge only** — slow, and unit tests already cover logic, not
+rendering; this is the only thing that catches a native bundling break:
 
 ```bash
 npm run typecheck && npm run lint && npm test && \
   npx expo export --platform web --platform ios --platform android --output-dir /tmp/verify
 ```
 
+**Dictionary imports** — populate `ingredients` (what `verified` is judged
+against). All take `--dry-run`; writing needs `SUPABASE_URL` +
+`SUPABASE_SERVICE_ROLE_KEY` in the shell (not in `.env` — get it from the
+dashboard or `supabase projects api-keys --project-ref <ref>`).
+
+```bash
+npm run import:inci-dictionary   # Open Beauty Facts taxonomy (~31k rows, the bulk)
+npm run import:cosing            # EU CosIng; no argument = the mirrored export
+npm run import:obf               # products, not the dictionary
+```
+
+`import:cosing` never overwrites a row another source already verified —
+re-running it is safe.
+
+## You have no TTY — regenerating route types
+
+`href` strings are type-checked against `.expo/types/router.d.ts`, which
+only `expo start` regenerates (`expo export` does not). The QR needs a real
+TTY to draw — **type generation does not**, it happens on disk regardless.
+
+**On any route add/rename/remove:** run `npx expo start --port <free-port>`
+backgrounded with output redirected to a file (ignore the missing QR line);
+wait until `.expo/types/router.d.ts` changes, or ~10s after the log shows
+`Waiting on http://localhost:<port>`; kill it; re-run `npm run typecheck`;
+tell the user a route changed so their own dev server picks up the file
+too. If types look wrong (non-route dirs appearing as routes), delete
+`.expo/types` and repeat.
+
 ## Architecture
 
-### `data/api.ts` is the only data seam
+**`data/api.ts` is the only data seam.** No component imports
+`data/products.ts` / `data/ingredients.ts` directly — always go through
+`fetchProducts` / `fetchProduct` / `fetchProductsByIds`. This already *is*
+the real backend; the invariant keeps the seam clean for the day it isn't.
 
-No component imports `data/products.ts` or `data/ingredients.ts`. Screens
-call `fetchProducts` / `fetchProduct` / `fetchProductsByIds`, which are
-already `async` (with simulated latency) so the mock-to-HTTP swap needs no
-caller changes. `data/types.ts` documents the shape a real API must return.
+**Routing** — Expo Router (file-based) in `app/`; web must work, not just
+native.
 
-**Keep this invariant.** Reaching past `api.ts` into the mock files is the
-one thing that would make the eventual backend migration painful.
+- **`/` is `app/(tabs)/index.tsx`** (the scanner), not a product list.
+  `initialRouteName` doesn't change what `/` resolves to. A root
+  `app/index.tsx` is impossible — it collides with `app/(tabs)/index.tsx`.
+- **Never navigate from a layout file.** Gate with a declarative
+  `<Redirect>` inside the navigator, or navigate from a user event.
+- Regenerate typed routes (above) whenever routes change.
 
-### Routing
+**State** — `store/useAppStore.ts`, one Zustand store: skin profile,
+onboarding flag, wishlist. Persisted via `persist` + AsyncStorage, gated on
+`useAppStore.persist.hasHydrated()` in `app/_layout.tsx`.
+**`store/useAppStore.ts` is the only file allowed to import AsyncStorage**
+— see `docs/device-storage-policy.md` for which data class goes where.
 
-Expo Router (file-based, built on React Navigation) in `app/`. Web routing
-is a first-class requirement, not an afterthought — changes must work in a
-browser as well as on device.
+Profile shape: `concerns` (max `MAX_CONCERNS` = 3), `baseSkinType`
+(nullable — "I don't know" is a real answer), `sensitivity`
+(`"none" | "some" | "high" | null`), `pregnancyStatus` (nullable). No
+`area`, gender, or age — all removed.
 
-**The scanner is `/`.** `app/(tabs)/index.tsx` *is* the scanner, and Browse
-lives at `/browse`. That is what makes a returning user open into the camera
-rather than a product list, per the MVP's Open → Scanner flow: a cold start
-always resolves `/`, so the landing screen is decided by which file is named
-`index`, not by tab order. `initialRouteName` does **not** do this — it
-anchors the back stack, it does not change what `/` resolves to. A root
-`app/index.tsx` is impossible: it collides with `app/(tabs)/index.tsx`,
-since both claim `/`.
+**Bump the store version and add a `migratePersisted` case for any profile
+shape change.** `migratePersisted` is exported so it's testable — it's the
+one thing here that can silently corrupt real user data.
 
-**Never navigate from a layout file.** `router.replace()` in a root-layout
-`useEffect` throws `Attempted to navigate before mounting the Root Layout
-component` on device — this has already happened once. Gate with a
-declarative `<Redirect>` rendered *inside* the navigator (see the onboarding
-gate in `app/(tabs)/_layout.tsx`), or navigate from a user event.
-
-**Adding a route requires regenerating typed routes.** `experiments.typedRoutes`
-is on, so `href` strings are type-checked against `.expo/types/router.d.ts`.
-That file is only regenerated by `expo start` — `expo export` does **not**
-do it. After adding or renaming a route, start the dev server once or
-`tsc` will fail on a valid path. If the generated types look wrong (e.g.
-non-route directories appearing as routes), delete `.expo/types` and
-restart the server.
-
-**`expo start` needs a real TTY.** Piping its output (`| tee`, `> log`, or
-any tool that captures stdout) makes it exit immediately without writing
-the types — which looks like the generator silently doing nothing. Run it in
-a terminal you can see. `router.d.ts` is committed precisely so `tsc` works
-without it.
-
-### State
-
-`store/useAppStore.ts` — one Zustand store: skin profile, onboarding flag,
-wishlist, compare tray (capped at 2, drops oldest).
-
-**Persisted via Zustand's `persist` middleware (issue #2), backed by
-AsyncStorage, with a rehydration guard in `app/_layout.tsx` gating on
-`useAppStore.persist.hasHydrated()`.** `compareIds` and `pastedIngredients`
-are deliberately excluded — session state, not worth restoring after a
-restart. **`store/useAppStore.ts` is the one file allowed to import
-AsyncStorage** — see `docs/device-storage-policy.md` for which data class
-goes where, and why auth/session material must never take this same path.
-
-**The profile is exactly what the MVP asks for**: concerns (max 3), skin
-type (nullable — "I don't know" is a real answer), and `sensitivity`
-(`"none" | "some" | "high" | null`, where `null` means unanswered). Gender
-and age were removed: both were collected, stored, and read by nothing.
-`area` is no longer an onboarding question but is still a field — the
-browse list filters on it and the profile screen still edits it.
-
-**Bump the store version when you change the profile shape.** The migration
-in `migratePersisted` is exported specifically so it can be tested; it is
-the one thing here that can silently destroy a real person's data, and they
-would find out by watching every score change.
-
-### Scoring
-
-`lib/matching.ts` computes **fit minus penalties**, never a hash and never
-product tags:
+**Scoring** — `lib/matching.ts` computes fit minus penalties, never a hash
+and never product tags:
 
 ```
 FIT   = 0.7 × concern fit + 0.3 × skin-type fit     (each 0-100, 50 = neutral)
 SCORE = 30 + 0.7 × FIT − irritation penalty − pore penalty
 ```
 
-Bands are the MVP's, defined once in `SCORE_BANDS`: 90–100 excellent, 75–89
-good, 60–74 fair, 0–59 poor. Everything — verdict, badge tone, result panel —
-reads that constant. The verdict and the badges once used different cutoffs
-(75/55 vs 80/65) and disagreed about the same product.
+(`ANCHOR = 30`, `FIT_LEVER = 0.7` in code.) Bands are `SCORE_BANDS`
+(90/75/60 excellent/good/fair, else poor) — **always read that constant,
+never hardcode a cutoff.**
 
-Evidence comes from three layers:
+Evidence, in priority order: **`lib/rules.ts`** (59 curated rules, each
+carrying the sentence shown to the user) > **CosIng `functions`**
+(benefit-only signal; a named rule always beats a declared function,
+nothing counts twice) > **`lib/pore-clogging.ts`** (27 clogger families
+with confidence tiers, owns acne fit).
 
-1. **`lib/rules.ts`** — ~60 curated rules, each carrying the sentence shown
-   to the user, so any claim traces to a line of code.
-2. **CosIng `functions`** — ~83% of ingredients declare functional roles.
-   **Benefit only.** These are per-*ingredient capability* lists, not
-   per-formula roles: "perfuming" tags 83% of products, so scoring irritation
-   from them punishes everything equally. A named rule always beats a
-   declared function, so nothing counts twice.
-3. **`lib/pore-clogging.ts`** — 28 clogger families with confidence tiers.
-   This owns acne fit.
+- Acne/`large-pores` fit is 45% pore-cleanliness-weighted; contested
+  clogger entries count zero.
+- Per-concern saturation constants are mandatory — do not remove them.
+- **Confidence is separate from score.** Refusal is only for genuinely
+  unreadable formulas (< 3 identified ingredients, or < 25% coverage);
+  unknown ingredients lower confidence, never block an answer.
+- `hazard` warnings cap the score at 45 and subtract 5 per additional
+  hazard. `irritant` warnings go through the graduated irritation penalty
+  instead — **do not merge these two tiers.**
+- Import `COMEDOGENIC_FLAG_THRESHOLD` (3) / `COMEDOGENIC_SEVERE_THRESHOLD`
+  (4) from `lib/safety.ts` — never re-inline a comedogenic check.
+  `scoreExplanation` / `confidenceLabel` live in `lib/matching.ts` with the
+  arithmetic they describe.
 
-**Acne is about what clogs, not what treats.** A formula containing no
-pore-clogging ingredients is a good match for blemish-prone skin — not
-causing breakouts *is* the win. Scoring acne on "does it contain salicylic
-acid" made an ordinary gentle moisturiser look mediocre to exactly the
-person it suits, because the median real formula carries no acne active at
-all. Pore-cleanliness is 45% of concern fit for `acne-prone` and
-`large-pores`; contested clogger entries count zero, matching the fact they
-are never warned about.
+## Design system
 
-**Per-concern saturation is not optional.** Each concern's constant is the
-75th percentile of evidence a real formula can actually offer it. Without
-them, "dehydrated" (humectants in 84% of products) is graded on the same
-curve as "fine lines", and dehydrated users see 80s while everyone else sees
-60s for formulas that serve them equally well.
+- **Tokens: `tailwind.config.js`** (everything reachable via `className`)
+  **+ `lib/colors.ts`** (raw-hex mirror for RN props that take a literal
+  color — `ActivityIndicator.color`, `headerTintColor`, `react-native-svg`
+  `fill`). Keep both in sync; never hardcode a hex that has a token.
+- **Verified vs. inferred hex** — mark a color verified only when read
+  directly off a mockup or computed with a stated contrast ratio, per the
+  pattern in `tailwind.config.js`'s own comments. Otherwise say so
+  ("inferred", "computed").
+- **Assets:** `assets/illustrations/` (general set) +
+  `assets/illustrations/onboarding/` (onboarding-scoped); `assets/images/`
+  for one-off references. New illustrations go under `assets/illustrations/`.
+- **`design_handoff_*/` folders are intent, not measurement** — an HTML
+  reference + README + assets to build *from*, not code to paste. Follow
+  this codebase's existing component patterns. **When a mockup value
+  contradicts an existing token, ask** before changing the token or
+  overriding it. PNGs a handoff's README marks as final artwork get copied
+  in as-is, never redrawn.
+- **Never put a real third-party brand name, logo, or product photo in a
+  shipped asset.**
 
-**Confidence is separate from score.** Reading a formula and finding little
-to say about it is a low-confidence result, not an absent one. Refusal is
-reserved for genuinely unreadable formulas (under 3 identified ingredients,
-or under 25% coverage). Unknown ingredients vouch for nothing in either
-direction — they lower confidence rather than blocking an answer.
+## Constraints
 
-**Contraindications have two tiers.** `hazard` caps the score at 45;
-`irritant` is listed as a warning and charged to the graduated irritation
-penalty instead. Capping on both put 40% of the catalogue at "Poor" for
-anyone who ticked "somewhat sensitive" — 97 of 100 warnings were the
-`irritant` kind — so a sensitive user could never receive good news.
-
-`lib/safety.ts` remains the single source of truth for ingredient risk. Do
-not re-inline the `comedogenic >= 3` predicate; it was duplicated across
-three screens before and drifted. Same rule for the scoring *words*:
-`scoreExplanation` and `confidenceLabel` live in `lib/matching.ts` so the
-sentences and the arithmetic cannot come apart.
-
-## Constraints that look like bugs
-
-**Expo Go's App Store build lags behind the newest SDKs — check before
-upgrading.** The project was pinned to SDK 54 for a while because that was
-the last version Expo Go shipped on the Apple App Store, which let it
-install on a physical iPhone with no weekly re-signing via sign.expo.dev.
-The project has since upgraded to SDK 57, and that convenience does not
-carry forward automatically: Expo Go's App Store build tracks one SDK
-version at a time, so an upgrade can put physical-device testing a step
-ahead of whatever Expo Go currently ships. When that happens, a plain App
-Store install of Expo Go will refuse the project (the same failure Android
-already had at SDK 54 — see "Running on a device" below) — the workaround is
-`eas go` (needs an Apple Developer Program membership and TestFlight) or
-sign.expo.dev re-signing, not a plain install. Check
-[Expo's changelog](https://expo.dev/changelog/expo-go-and-app-store-may-2026)
-for Expo Go's current App Store SDK before upgrading, so this trade-off is a
-decision rather than a surprise. See `docs/threat-model.md`'s on-device-OCR
-section for where this exact staleness was tracked down and corrected once
-already (issue #16).
-
-The SDK 54 pin was also credited with avoiding a NativeWind prop-interop bug
-on React Native 0.86. What is now established: the project runs
-`nativewind@4.2.6` on `react-native@0.86.3`, and its runtime
-`react-native-css-interop@0.2.6` declares `react-native: "*"` — no upper
-bound, so there is no *declared* incompatibility. The codebase also contains
-no function-valued `style` on `Pressable`, so the workaround below is being
-observed rather than merely documented.
-
-What is still **not** established: whether the rendering bug itself would
-occur. That needs eyes on a running app, and nobody has done that since the
-upgrade. Treat it as "no evidence of a problem", not "confirmed fine".
-
-**Tailwind must stay on v3.** NativeWind 4's runtime
-(`react-native-css-interop@0.2.6`) declares `tailwindcss: "~3"` as a hard
-peer — still true at the installed version. Tailwind 4 breaks styling
-silently.
-
-**`babel-preset-expo` is an explicit devDependency.** `babel.config.js` is
-hand-written and references it by name, so it must resolve from the
-project root rather than from inside `expo`'s own tree. Removing it breaks
-bundling with `Cannot find module 'babel-preset-expo'`.
-
-**`web.output` is `"single"` (SPA), not the template's `"static"`.** Static
-prerenders each route server-side, which crashes on any component touching
-browser APIs — the camera screen specifically.
-
-**`experiments.reactCompiler` is off.** It conflicts with NativeWind's
-`jsxImportSource: "nativewind"`.
-
-**Avoid function-valued `style` on `Pressable`** (`style={({pressed}) => …}`).
-That shape trips NativeWind's prop interop. Use `className` with the
-`active:` variant.
-
-**Web barcode scanning works at SDK 57 — the old QR-only split is gone.**
-`expo-camera` used jsQR in the browser at SDK 54, so EAN-13 / UPC-A scanned
-on native only and the scanner narrowed `barcodeTypes` by platform.
-`expo-camera@57.0.4` now depends on `barcode-detector` and uses the
-browser's own `BarcodeDetector` where it exists; its format map covers
-ean_13, ean_8, upc_a, upc_e, code_128 and more — see
-`node_modules/expo-camera/build/web/WebBarcodeScanner.js`. One barcode list
-on every platform, and Barcode is the default mode everywhere (issue #11).
-
-That is read from the shipped source, not from a browser session — the
-formats are certainly declared; nobody has yet held a bottle up to a laptop
-webcam and watched it decode.
+- **Tailwind stays on v3** — NativeWind's runtime
+  (`react-native-css-interop@0.2.6`) declares `tailwindcss: "~3"` as a hard
+  peer; v4 breaks styling silently.
+- **`babel-preset-expo` is an explicit devDependency**, named directly in
+  `babel.config.js` — removing it breaks bundling.
+- **`web.output` is `"single"` (SPA), not `"static"`** — static
+  prerendering crashes on any component touching browser APIs (the camera
+  screen).
+- **`experiments.reactCompiler` is off** — conflicts with NativeWind's
+  `jsxImportSource`.
+- **Never use a function-valued `style` on `Pressable`**
+  (`style={({pressed}) => …}`) — trips NativeWind's prop interop. Use
+  `className` with `active:` instead.
+- **Check Expo Go's current App Store SDK before upgrading this project's
+  SDK** — an upgrade can put device testing ahead of what Expo Go ships;
+  see `docs/decisions.md`.
 
 ## Running on a device
 
-`expo-camera` is bundled in Expo Go, so scanning works without a development
-build — but Expo Go's own build has to match the project's SDK version, and
-the widely-installed App Store build lags behind (stuck at SDK 54 as of this
-project's SDK 57 upgrade — see "Constraints that look like bugs" above).
+`expo-camera` is bundled in Expo Go — no dev build needed, *if* Expo Go's
+installed SDK matches this project's.
 
-- **iPhone:** a plain App Store install of Expo Go no longer opens this
-  project. Use `eas go` (needs an Apple Developer Program membership and
-  TestFlight) or sign.expo.dev re-signing instead.
-- **Android:** the Play Store build has the same problem for a different
-  reason (it's often *newer* than the project, not older) and will refuse
-  it — use `npx expo-go download android <sdk>`, swapping `<sdk>` for
-  whatever this project is on, not a hardcoded number that will rot the
-  same way this section just did.
+- **iPhone:** if a plain App Store Expo Go refuses the project, use
+  `eas go` (Apple Developer Program + TestFlight) or sign.expo.dev
+  re-signing.
+- **Android:** if the Play Store build refuses it, run
+  `npx expo-go download android <sdk>` with this project's *actual* SDK.
 
-Two Windows-specific traps:
-
-- **Do not pipe `expo start`.** Expo only draws the QR code when stdout is
-  a real TTY; any pipe (`| tee`, `>`) silently suppresses it.
-- If a WSL/Hyper-V virtual adapter is present, Expo may advertise that
-  adapter's IP and the phone will not connect. Pin it with
-  `REACT_NATIVE_PACKAGER_HOSTNAME=<your Wi-Fi IP>`.
+Windows: **never pipe `expo start`'s output** — the QR needs a real TTY
+(type generation does not, see above). If a WSL/Hyper-V adapter is
+advertising the wrong IP, pin
+`REACT_NATIVE_PACKAGER_HOSTNAME=<your Wi-Fi IP>`.

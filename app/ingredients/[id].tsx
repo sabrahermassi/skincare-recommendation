@@ -1,10 +1,8 @@
-import * as Clipboard from "expo-clipboard";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
-import { CopyIcon } from "@/components/CopyIcon";
 import { IngredientTabsList, TABS, type Tab } from "@/components/IngredientTabsList";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
@@ -32,7 +30,6 @@ export default function IngredientList() {
   const { id, tab: initialTab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
 
   const profile = useAppStore((s) => s.profile);
 
@@ -88,34 +85,9 @@ export default function IngredientList() {
 
   const total = product.ingredients.length;
 
-  // Plain, comma-separated names in label order — the format someone would
-  // paste straight into a second app to compare by hand, which is the actual
-  // point: this app's own verdict is one tap away already, so the only reason
-  // to copy the list is to check it against something else.
-  async function copyList() {
-    if (!product || product.ingredients.length === 0) return;
-    await Clipboard.setStringAsync(product.ingredients.map((i) => i.name).join(", "));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenHeader
-        title="Ingredients"
-        right={
-          total > 0 ? (
-            <Pressable
-              onPress={copyList}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel={copied ? "Ingredient list copied" : "Copy ingredient list"}
-            >
-              <CopyIcon copied={copied} />
-            </Pressable>
-          ) : undefined
-        }
-      />
+      <ScreenHeader title="Ingredients" />
 
       <IngredientTabsList
         ingredients={product.ingredients}
