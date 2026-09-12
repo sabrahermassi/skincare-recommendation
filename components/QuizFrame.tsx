@@ -114,13 +114,11 @@ export function QuizFrame({ children }: { children: ReactNode }) {
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "center",
-              gap: 10,
               backgroundColor: disabled ? DOT_INACTIVE : TERRACOTTA,
               opacity: pressed ? 0.9 : 1,
             }}
           >
             <Text style={{ fontSize: 16, fontWeight: "500", color: disabled ? MUTED : CTA_TEXT }}>{label}</Text>
-            <Text style={{ fontSize: 16, color: disabled ? MUTED : CTA_TEXT }}>→</Text>
           </Pressable>
         </View>
 
