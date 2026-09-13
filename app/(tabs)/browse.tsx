@@ -293,10 +293,6 @@ export default function Browse() {
         stickyHeaderIndices={searchActive ? [] : [1]}
         ListHeaderComponent={
           <View style={{ gap: 18, paddingBottom: 8, backgroundColor: CANVAS }}>
-            {/* The same masthead the scanner draws — same mark, same wordmark,
-                same strapline, same size and colour. It used to be written out
-                again here a few points smaller and in a different ink, so the
-                top of the app resized itself as you moved between tabs. */}
             <AppHeader />
 
             {/* Scan, Saved and Profile used to repeat here as quick-action

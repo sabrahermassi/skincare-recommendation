@@ -419,19 +419,34 @@ const SAVED_EMPTY_SHELF = require("@/assets/illustrations/saved-empty-shelf.png"
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    // flex: 1 + centered content, not a fixed top padding — the point is
-    // an empty tab never reads as a blank screen, on either Saved or
-    // History, so the artwork sits in the middle of whatever room is left
-    // under the header and segmented control rather than hugging the top.
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10, paddingHorizontal: 40 }}>
-      <Image
-        source={SAVED_EMPTY_SHELF}
-        style={{ width: 286, height: 203 }}
-        contentFit="contain"
-        accessibilityLabel=""
-      />
-      <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
-      <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
+    // Asymmetric flex spacers (0.4/0.6), not `justifyContent: "center"" —
+    // a true center split the leftover room evenly above and below, which
+    // read as too much empty air above the art specifically. This keeps
+    // the block off-center toward the top by a fixed ratio instead, so it
+    // scales the same way on any screen height.
+    <View style={{ flex: 1, alignItems: "center", paddingHorizontal: 40 }}>
+      <View style={{ flex: 0.4 }} />
+      <View style={{ alignItems: "center", gap: 10 }}>
+        {/* Aspect ratio is the source art's own (1400x892, cropped to
+            content) — matching it keeps `contain` from letterboxing. */}
+        <Image
+          source={SAVED_EMPTY_SHELF}
+          style={{ width: 286, height: 182 }}
+          contentFit="contain"
+          accessibilityLabel=""
+        />
+        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
+        {/* minHeight reserves room for the longer of the two bodies this
+            renders with (History's wraps to 3 lines at this width, Saved's
+            to 2) — without it, the shorter body made this whole block a
+            few px shorter, and centering a shorter block shifted the art
+            above it a few px lower. Same reserved height on both means the
+            art now lands at the exact same position on both tabs. */}
+        <View style={{ minHeight: 57, justifyContent: "flex-start" }}>
+          <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
+        </View>
+      </View>
+      <View style={{ flex: 0.6 }} />
     </View>
   );
 }

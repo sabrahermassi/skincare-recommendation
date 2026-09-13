@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { View } from "react-native";
 
-import { Eyebrow, Wordmark } from "@/components/Wordmark";
+import { Wordmark } from "@/components/Wordmark";
 
 /**
  * The masthead, identical on every tab that shows one.
@@ -11,10 +11,12 @@ import { Eyebrow, Wordmark } from "@/components/Wordmark";
  * the top of the app resized and recoloured itself as you moved between tabs.
  * It is one component now and takes no size props: that is the point.
  *
- * No app-mark icon any more — just the wordmark and the strapline. The
- * bracket-and-dropper glyph (`components/LogoMark.tsx`) was an earlier
- * brand's mark specifically and didn't carry over; deleted rather than
- * recoloured, since nothing else referenced it.
+ * No app-mark icon any more — just the wordmark. The bracket-and-dropper
+ * glyph (`components/LogoMark.tsx`) was an earlier brand's mark specifically
+ * and didn't carry over; deleted rather than recoloured, since nothing else
+ * referenced it. The "SCAN · ANALYZE · KNOW" strapline (`Eyebrow`, formerly
+ * exported alongside `Wordmark`) is gone the same way, per explicit request
+ * — deleted rather than left unused.
  *
  * The gutter matches the content below it (26pt, the scanner's camera card),
  * so nothing in the header hangs off the edge of the screen.
@@ -34,9 +36,8 @@ export function AppHeader({ right }: { right?: ReactNode }) {
         paddingBottom: 14,
       }}
     >
-      <View style={{ gap: 7, flexShrink: 1 }}>
-        <Wordmark size={26} />
-        <Eyebrow size={8.5} />
+      <View style={{ flexShrink: 1 }}>
+        <Wordmark size={39} />
       </View>
 
       {right}
