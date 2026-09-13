@@ -11,11 +11,11 @@ import { HeartMark } from "@/components/icons/HeartMark";
  * the top of the app resized and recoloured itself as you moved between tabs.
  * It is one component now and takes no size props: that is the point.
  *
- * Draws the heart mark, not the script wordmark — the redesign moved the
- * "for.me" script onto the splash only (`components/splash/BrandSplash.tsx`);
- * every other brand touchpoint (here, the app icon) uses the same
- * `HeartMark` glyph instead. `components/Wordmark.tsx` (the script face at
- * masthead scale) is deleted, not left orphaned — this was its only caller.
+ * Draws the heart mark, not the script wordmark — the redesign retired the
+ * "for.me" script face everywhere in the app; every brand touchpoint (here,
+ * the app icon) now uses the same `HeartMark` glyph instead.
+ * `components/Wordmark.tsx` (the script face at masthead scale) is deleted,
+ * not left orphaned — this was its only caller.
  *
  * No app-mark icon any more beyond the heart. The bracket-and-dropper glyph
  * (`components/LogoMark.tsx`) was an earlier brand's mark specifically and

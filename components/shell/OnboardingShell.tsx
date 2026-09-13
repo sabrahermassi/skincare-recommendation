@@ -25,12 +25,11 @@ const BODY_SIZE = 17;
  * flex flow to keep things from drifting.
  */
 const BANDS = {
-  // The wordmark/heart lockup that used to anchor this band moved to the
-  // splash (components/splash/BrandSplash.tsx) — branding no longer lives
-  // on onboarding at all. Skip moved up into the space that freed (was
-  // 10.4/15.8, matched to the old wordmark's own top), and the illustration
-  // was given the rest of it (was 21.9/66.0) rather than leaving a bare gap
-  // at the top of every screen.
+  // The wordmark/heart lockup that used to anchor this band is gone —
+  // branding no longer lives on onboarding at all. Skip moved up into the
+  // space that freed (was 10.4/15.8, matched to the old wordmark's own
+  // top), and the illustration was given the rest of it (was 21.9/66.0)
+  // rather than leaving a bare gap at the top of every screen.
   skip: { top: 6.0, bottom: 11.4 },
   illustration: { top: 13.0, bottom: 66.0 },
   headline: { top: 68.8, bottom: 79.0 },

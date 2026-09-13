@@ -1,11 +1,12 @@
 import { Image } from "expo-image";
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
@@ -146,6 +147,7 @@ export default function Saved() {
           <EmptyState
             title="Nothing saved yet"
             body="Tap Save on any product and it will wait for you here - including next time you open the app."
+            actionLabel="Scan a product"
           />
         ) : (
           <ScrollView contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
@@ -188,6 +190,7 @@ export default function Saved() {
         <EmptyState
           title="No history yet"
           body="Every product you open or scan is logged here automatically, so you can tell at a glance whether you have already checked something."
+          actionLabel="Scan a product"
         />
       ) : (
         <ScrollView contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
@@ -417,7 +420,7 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
 
 const SAVED_EMPTY_SHELF = require("@/assets/illustrations/saved-empty-shelf.png");
 
-function EmptyState({ title, body }: { title: string; body: string }) {
+function EmptyState({ title, body, actionLabel }: { title: string; body: string; actionLabel?: string }) {
   return (
     // Asymmetric flex spacers (0.4/0.6), not `justifyContent: "center"" —
     // a true center split the leftover room evenly above and below, which
@@ -445,6 +448,18 @@ function EmptyState({ title, body }: { title: string; body: string }) {
         <View style={{ minHeight: 57, justifyContent: "flex-start" }}>
           <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
         </View>
+        {/* The one-tap way back to the scanner — without this, an empty
+            Saved/History tab (the near-certain first visit to either) was a
+            dead end you had to know to escape yourself, via the tab bar. */}
+        {actionLabel && (
+          <PrimaryButton
+            tone="cta"
+            size={50}
+            label={actionLabel}
+            onPress={() => router.push("/")}
+            style={{ marginTop: 8 }}
+          />
+        )}
       </View>
       <View style={{ flex: 0.6 }} />
     </View>

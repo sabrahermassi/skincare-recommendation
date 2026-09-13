@@ -2,6 +2,7 @@ import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -120,8 +121,8 @@ function StarIcon({ filled }: { filled: boolean }) {
     <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
       <Path
         d={d}
-        fill={filled ? "#332E3A" : "none"}
-        stroke="#332E3A"
+        fill={filled ? COLORS.ink : "none"}
+        stroke={COLORS.ink}
         strokeWidth={1.6}
         strokeLinejoin="round"
       />
@@ -130,6 +131,7 @@ function StarIcon({ filled }: { filled: boolean }) {
 }
 
 export default function IngredientDetail() {
+  const insets = useSafeAreaInsets();
   const { inci, product: productId } = useLocalSearchParams<{
     inci: string;
     product?: string;
@@ -418,7 +420,9 @@ export default function IngredientDetail() {
           borderTopColor: BORDER_INACTIVE,
           backgroundColor: CANVAS,
           paddingHorizontal: 24,
-          paddingBottom: 32,
+          // Was a bare 32 — see app/product/[id].tsx's own note on why that's
+          // not guaranteed to clear Android's nav/gesture bar.
+          paddingBottom: Math.max(32, insets.bottom + 12),
           paddingTop: 12,
         }}
       >
