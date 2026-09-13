@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
+import { SavedEmptyIllustration } from "@/components/SavedEmptyIllustration";
 import { Text } from "@/components/Text";
 import { fetchProductsByIds } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -351,7 +352,12 @@ function EmptyState({
   action?: boolean;
 }) {
   return (
-    <View style={{ alignItems: "center", gap: 8, paddingHorizontal: 40, paddingTop: 96 }}>
+    // The illustration below fills the same vertical space the old flat 96pt
+    // top padding used to reserve — only shrink it when there's actually
+    // artwork to occupy that space, or the history empty state (no action,
+    // no illustration) sits too close to the segmented control above it.
+    <View style={{ alignItems: "center", gap: 8, paddingHorizontal: 40, paddingTop: action ? 48 : 96 }}>
+      {action && <SavedEmptyIllustration width={180} />}
       <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
       <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
       {action && (
