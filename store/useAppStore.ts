@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 
 import type { Concern, SkinProfile } from "@/data/types";
 
@@ -254,6 +254,36 @@ export function migratePersisted(persisted: unknown, version: number): Persisted
   };
 }
 
+const OLD_STORAGE_KEY = "skintel-store";
+const NEW_STORAGE_KEY = "forme-store";
+
+/**
+ * A rebrand renamed the persisted key from `skintel-store` to `forme-store`.
+ * AsyncStorage has no notion of "the same store under a new name" — without
+ * this, `persist` would just find nothing under the new key and every
+ * existing install's profile, saved shelf and history would reset to
+ * `INITIAL_STATE`, the same class of silent data loss `migratePersisted`
+ * above exists to prevent. This runs the one-time copy on first read, then
+ * gets out of the way; `migratePersisted` still runs on whatever comes back,
+ * new install or migrated one alike.
+ */
+export const formeStorage: StateStorage = {
+  getItem: async (name) => {
+    const [current, legacy] = await Promise.all([
+      AsyncStorage.getItem(name),
+      AsyncStorage.getItem(OLD_STORAGE_KEY),
+    ]);
+    if (current === null && legacy !== null) {
+      await AsyncStorage.setItem(name, legacy);
+      await AsyncStorage.removeItem(OLD_STORAGE_KEY);
+      return legacy;
+    }
+    return current;
+  },
+  setItem: (name, value) => AsyncStorage.setItem(name, value),
+  removeItem: (name) => AsyncStorage.removeItem(name),
+};
+
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
@@ -338,9 +368,9 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: "forme-store",
+      name: NEW_STORAGE_KEY,
       version: 6,
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => formeStorage),
       partialize: partializeState,
       migrate: migratePersisted,
     }
