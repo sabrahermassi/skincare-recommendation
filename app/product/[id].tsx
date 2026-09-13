@@ -466,8 +466,7 @@ export default function ProductScreen() {
             </Text>
             <Text style={{ fontSize: 12.5, lineHeight: 19, color: MUTED }}>
               Nobody has read this label yet, so there is no ingredient list to
-              judge. Photograph the back of the pack and we&apos;ll read it —
-              once, for everyone.
+              judge.
             </Text>
           </View>
         )}
@@ -512,18 +511,24 @@ export default function ProductScreen() {
           backgroundColor: CANVAS,
         }}
       >
-        <View style={{ flexDirection: "row", gap: 12 }}>
-          <PrimaryButton
-            tone="cta"
-            size={56}
-            style={{ flex: 1 }}
-            label={total > 0 ? "View ingredients" : "Photograph the ingredients"}
-            onPress={() =>
-              total > 0
-                ? router.push({ pathname: "/ingredients/[id]", params: { id: product.id } })
-                : router.push(`/scan-label?barcode=${product.barcode}`)
-            }
-          />
+        <View style={{ flexDirection: "row", gap: 12, justifyContent: total > 0 ? "flex-start" : "center" }}>
+          {/* No CTA at all when this product has no ingredients on file —
+              "Photograph the ingredients" used to sit here regardless, but
+              it opened the barcode scanner for a product we've already
+              matched and are looking at, which doesn't make sense: that
+              flow is for identifying an unknown product, not fixing one
+              that's already in the catalogue. The message box above
+              already says what's true ("we know this product but not
+              what's in it") without implying an action that doesn't fit. */}
+          {total > 0 && (
+            <PrimaryButton
+              tone="cta"
+              size={56}
+              style={{ flex: 1 }}
+              label="View ingredients"
+              onPress={() => router.push({ pathname: "/ingredients/[id]", params: { id: product.id } })}
+            />
+          )}
 
           <Pressable
             onPress={() => toggleSaved(product.id)}
