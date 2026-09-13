@@ -128,9 +128,9 @@ export default function Scan() {
   // tab does, because both put another screen on top of it. `preserveMode`
   // is how every one of those internal pushes tells this effect "this isn't
   // an exit" — it's called right before each one, and consumed the moment
-  // this screen is focused again. Anything that does NOT call it first (the
-  // X button, a genuine tab switch) resets to Barcode, which is the default
-  // this effect falls back to when nothing has told it otherwise.
+  // this screen is focused again. Anything that does NOT call it first (a
+  // genuine tab switch) resets to Barcode, which is the default this effect
+  // falls back to when nothing has told it otherwise.
   const skipResetOnNextFocus = useRef(false);
   const preserveMode = useCallback(() => {
     skipResetOnNextFocus.current = true;
@@ -327,11 +327,6 @@ function ModeSwitcher({
 /**
  * Barcode mode, full screen — the MVP's scanner: live camera edge to edge,
  * automatic detection, no shutter button, no confirmation step.
- *
- * The close control top-left is what the MVP asks for and is not redundant
- * with the tab bar: a full-bleed camera reads as a surface you are *inside*,
- * and it needs a visible way out. It goes to Browse rather than popping,
- * because this is a tab root and there is nothing to pop to.
  */
 /**
  * Current keyboard height in px, 0 when hidden.
@@ -382,8 +377,8 @@ function BarcodeStage({
   status: Status;
   onBarcode: (data: string) => void;
   onDismissStatus: () => void;
-  /** Call before any navigation away from this stage that isn't the close
-   *  button — see `Scan`'s own `preserveMode` doc comment for why. */
+  /** Call before any navigation away from this stage that isn't a tab
+   *  switch — see `Scan`'s own `preserveMode` doc comment for why. */
   preserveMode: () => void;
   modeSwitcher: ReactElement;
 }) {

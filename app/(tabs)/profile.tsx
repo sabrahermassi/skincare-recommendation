@@ -432,7 +432,7 @@ export default function ProfileScreen() {
                 onPress={() => {
                   setConfirmingErase(false);
                   resetApp();
-                  router.replace("/onboarding");
+                  router.replace({ pathname: "/onboarding", params: { erased: "1" } });
                 }}
                 style={{
                   minHeight: 48,

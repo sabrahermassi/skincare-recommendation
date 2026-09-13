@@ -271,10 +271,10 @@ The existing barcode implementation should be audited for:
 
 The scanner has:
 
-- Back/Close in the top-left;
 - a control to switch between barcode mode and ingredient-list photo mode.
 
-There is **no dedicated flash button for MVP**.
+There is **no dedicated flash button for MVP**, and no in-screen back/close
+control — the scanner is a tab root, so leaving it means switching tabs.
 
 ---
 
@@ -297,8 +297,6 @@ If permission can still be requested, request it.
 If permission has been permanently denied, provide an action to open the phone's Settings.
 
 Do not create an additional permission-education screen.
-
-The Back/Close control remains available.
 
 ---
 
