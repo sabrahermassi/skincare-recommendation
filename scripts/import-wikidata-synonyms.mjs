@@ -34,7 +34,7 @@ const DRY_RUN = args.includes("--dry-run");
 const LIMIT = Number(args[args.indexOf("--limit") + 1]) || Infinity;
 
 const ENDPOINT = "https://query.wikidata.org/sparql";
-const USER_AGENT = "Skintel/1.0 (https://github.com/sabrahermassi/skincare-recommendation)";
+const USER_AGENT = "for.me/1.0 (https://github.com/sabrahermassi/skincare-recommendation)";
 
 /** Languages a cosmetics label in our markets might actually be printed in. */
 const LOCALES = ["en", "fr", "de", "es", "it", "pt", "nl", "ja", "ko", "zh"];

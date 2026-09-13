@@ -19,7 +19,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const OBF = "https://world.openbeautyfacts.org";
-const USER_AGENT = "Skintel/1.0 (https://github.com/sabrahermassi/skincare-recommendation)";
+const USER_AGENT = "for.me/1.0 (https://github.com/sabrahermassi/skincare-recommendation)";
 const ATTRIBUTION = "Product data from Open Beauty Facts, used under ODbL.";
 
 /**

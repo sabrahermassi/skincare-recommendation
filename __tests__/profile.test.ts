@@ -85,7 +85,7 @@ describe("sensitivity", () => {
 });
 
 describe("quiz flow", () => {
-  // Four steps as of the Manassa design-system rollout: concerns, skin type,
+  // Four steps as of the for.me design-system rollout: concerns, skin type,
   // sensitivity, pregnancy/breastfeeding. Age and gender were dropped
   // earlier and stay dropped; face/body is still not a question.
   it("has four steps", () => {

@@ -17,7 +17,7 @@ deployed). `data/api.ts` falls back to 8 sample products only when
 tests hermetic. Live catalogue: ~140 products, ~36k dictionary ingredients,
 ~25k synonyms.
 
-`SKINTEL_MVP.md` is launch scope. Track gaps as GitHub issues on the "Skin
+`FOR_ME_MVP.md` is launch scope. Track gaps as GitHub issues on the "Skin
 Recommendation" board, not here.
 
 ## Commands

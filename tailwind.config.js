@@ -5,7 +5,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Skintel Screens (Claude Design, project 9c113a1f) — replaces the
+        // for.me Screens (Claude Design, project 9c113a1f) — replaces the
         // milky-pastel palette. Values taken directly from the mockup HTML
         // (Result/Scanner/Quiz), not invented, except where noted below.
         canvas: "#FBF6EE",
@@ -135,7 +135,7 @@ module.exports = {
         // Values as of this pass are the *same* colours as `VERDICT` /
         // `VERDICT_NEUTRAL` in lib/tokens.ts (good→high, watch→medium,
         // avoid→low), not a parallel palette that happens to rhyme with it.
-        // This ramp used to be a separate, older "Skintel Screens" green/
+        // This ramp used to be a separate, older "for.me Screens" green/
         // amber/pink set — legible on its own, but it meant the same "good
         // for you" verdict was one colour on the score ring and a visibly
         // different one on the ingredient list one tap later. `neutral`

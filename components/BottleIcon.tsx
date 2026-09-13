@@ -7,7 +7,7 @@ import type { PackagingType, ProductType } from "@/data/types";
 /**
  * The full-colour bottle icon set — every product image and hand-drawn
  * placeholder vessel (the old `ProductIllustration`) replaced with these
- * eight, per `design_handoff_skintel_onboarding/bottle-set.html`.
+ * eight, per `design_handoff_forme_onboarding/bottle-set.html`.
  *
  * Same transcription convention the deleted app-mark icon used: each source file
  * (`assets/btl-<type>.svg`) wraps a handful of real paths in a large C2PA

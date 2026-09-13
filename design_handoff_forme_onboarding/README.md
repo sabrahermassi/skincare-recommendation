@@ -1,8 +1,8 @@
-# Handoff: Manassa — Onboarding screen
+# Handoff: for.me — Onboarding screen
 
 ## The prompt to give Claude Code
 
-> Read `design/onboarding/README.md` and implement the Manassa onboarding screen in this
+> Read `design/onboarding/README.md` and implement the for.me onboarding screen in this
 > codebase. Copy `design/onboarding/assets/` into the app's asset folder. Follow the
 > codebase's existing component and styling patterns — the HTML file is a design reference,
 > not code to paste. Match every value in the Design Tokens and Layout sections exactly.
@@ -14,7 +14,7 @@ other context.
 
 ## Overview
 
-Manassa is a Korean-skincare ingredient scanner. The user scans a product's barcode or
+for.me is a Korean-skincare ingredient scanner. The user scans a product's barcode or
 ingredient list and gets a match score for their own skin, based on a short skin-profile
 quiz. It is an intelligence tool, not a shop — no prices, no buy buttons.
 
@@ -102,7 +102,7 @@ actions       y 682 → 812   (button 682→732, link 736→780, 32px bottom pad
 - Renders 300 × 255 (native 637 × 541, aspect 1.19)
 
 **2 · Wordmark**
-- The string `Manassa`
+- The string `for.me`
 - **Playfair Display**, weight **500**, size **40px**, `line-height:1`,
   `letter-spacing:-.018em`, colour `#5A342C`
 
@@ -293,7 +293,7 @@ so they are sharp at 2× and 3× device pixel ratios without re-export.
 | `onboarding.html` | Design reference. Open in a browser. Port the contents of `.screen`. |
 | `assets/*.png` | Final production artwork. Copy as-is. |
 
-Source of truth in the design project: `Manassa Onboarding Backgrounds.dc.html`, variant
+Source of truth in the design project: `for.me Onboarding Backgrounds.dc.html`, variant
 `3a`.
 
 ## Not included

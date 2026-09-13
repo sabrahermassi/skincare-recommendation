@@ -50,7 +50,7 @@ const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as co
 type Mode = "Barcode" | "Label photo";
 type Status = { kind: "idle" } | { kind: "looking"; code: string } | { kind: "missed"; code: string };
 
-// Manassa system (design/DESIGN_SYSTEM.md) — the dark camera stage itself
+// The design system (design/DESIGN_SYSTEM.md) — the dark camera stage itself
 // stays (it's deliberate chrome, not part of the light onboarding palette,
 // and now owned by lib/tokens' CAMERA_STAGE rather than hand-typed at five
 // sites), but every light-surface color drawn on top of it moves to this

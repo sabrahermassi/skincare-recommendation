@@ -1,5 +1,6 @@
 import {
   EMPTY_PROFILE,
+  formeStorage,
   HISTORY_LIMIT,
   migratePersisted,
   PERSISTED_KEYS,
@@ -345,6 +346,50 @@ describe("v3 -> v4 migration", () => {
     // A stored blob with no profile is corrupt, not a first run — but it must
     // still come back with the key the rest of the app destructures.
     expect(migratePersisted({ hasSeenOnboarding: true }, 3)?.profile).toEqual(EMPTY_PROFILE);
+  });
+});
+
+// The for.me rebrand renamed the persisted key from "skintel-store" to
+// "forme-store". Without a read-through, an existing install's profile,
+// shelf and history would silently reset to INITIAL_STATE the first time
+// `persist` looked for data under the new name and found nothing.
+describe("formeStorage (skintel-store -> forme-store migration)", () => {
+  beforeEach(async () => {
+    await formeStorage.removeItem("skintel-store");
+    await formeStorage.removeItem("forme-store");
+  });
+
+  it("copies an existing skintel-store record to forme-store on first read", async () => {
+    await formeStorage.setItem("skintel-store", '{"state":{"hasSeenOnboarding":true}}');
+
+    const result = await formeStorage.getItem("forme-store");
+
+    expect(result).toBe('{"state":{"hasSeenOnboarding":true}}');
+    expect(await formeStorage.getItem("forme-store")).toBe('{"state":{"hasSeenOnboarding":true}}');
+  });
+
+  it("removes the old key once the new one is written, so it only copies once", async () => {
+    await formeStorage.setItem("skintel-store", '{"state":{"hasSeenOnboarding":true}}');
+
+    await formeStorage.getItem("forme-store");
+
+    // Reading "skintel-store" back through formeStorage checks the same key
+    // for both `current` and `legacy`, so this is null only if the
+    // underlying record is actually gone - not just shadowed.
+    expect(await formeStorage.getItem("skintel-store")).toBeNull();
+  });
+
+  it("leaves a fresh install alone when neither key has ever been written", async () => {
+    expect(await formeStorage.getItem("forme-store")).toBeNull();
+  });
+
+  it("never overwrites a forme-store record that already exists", async () => {
+    await formeStorage.setItem("skintel-store", '{"state":{"hasSeenOnboarding":true}}');
+    await formeStorage.setItem("forme-store", '{"state":{"hasSeenOnboarding":false}}');
+
+    const result = await formeStorage.getItem("forme-store");
+
+    expect(result).toBe('{"state":{"hasSeenOnboarding":false}}');
   });
 });
 

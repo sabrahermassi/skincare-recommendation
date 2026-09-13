@@ -1,7 +1,7 @@
 import type { Verdict } from "./matching";
 
 /**
- * THE MANASSA DESIGN TOKENS — the single source of truth for colour.
+ * THE DESIGN TOKENS — the single source of truth for colour.
  *
  * Every screen imports from here. Nothing re-declares a hex locally: that was
  * the phased-migration compromise while half the app still ran on the old

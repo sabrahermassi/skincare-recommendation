@@ -111,7 +111,7 @@ export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
  * already covers. A gel cleanser and a body wash are different `type`s but
  * the same vessel, so both take `productType: "cleanser-tube"`.
  *
- * Matches `design_handoff_skintel_onboarding/bottle-set.html` exactly, one
+ * Matches `design_handoff_forme_onboarding/bottle-set.html` exactly, one
  * value per `btl-<name>.svg` — see `components/BottleIcon.tsx`.
  */
 export type PackagingType =

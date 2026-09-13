@@ -12,7 +12,7 @@ import { ruleFor, RUNG_META, rungFor, type MatchResult, type Rung } from "@/lib/
 import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
 import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, MUTED_SOFT, RADIUS_SELECTOR, SELECTED } from "@/lib/tokens";
 
-// Manassa system (design/DESIGN_SYSTEM.md). RUNG_META's good/watch/avoid
+// The design system (design/DESIGN_SYSTEM.md). RUNG_META's good/watch/avoid
 // colors are semantic (the per-ingredient verdict, the whole point of this
 // screen) and stay untouched — only the tab pills, dividers and body text
 // move to this system.

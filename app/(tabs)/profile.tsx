@@ -26,7 +26,7 @@ import {
 import { useAppStore } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CANVAS, CTA, DANGER, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE } from "@/lib/tokens";
 
-// Manassa system (design/DESIGN_SYSTEM.md), restyled per
+// The design system (design/DESIGN_SYSTEM.md), restyled per
 // design-watercolor/reference.png's "My profile" screen.
 
 const SENSITIVITY_OPTIONS: Sensitivity[] = ["none", "some", "high"];
