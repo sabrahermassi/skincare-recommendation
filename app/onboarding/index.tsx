@@ -1,9 +1,13 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { BackHandler, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { OnboardingShell, type OnboardingScreenContent } from "@/components/shell/OnboardingShell";
+import { Text } from "@/components/Text";
+import { TERRACOTTA } from "@/components/shell/shared";
 import { quizRoutes } from "@/lib/profile";
+import { CANVAS, INK } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // Extracted from correctly-proportioned source art (real iPhone aspect, not
@@ -52,6 +56,21 @@ const SCREENS: OnboardingScreenContent[] = [
 export default function Onboarding() {
   const completeOnboarding = useAppStore((s) => s.completeOnboarding);
   const [index, setIndex] = useState(0);
+  const insets = useSafeAreaInsets();
+
+  // Profile's "Erase my profile" confirm lands here (a wiped profile has
+  // nothing left to do but re-onboard) with `?erased=1`. Landing on a fresh
+  // onboarding screen is itself proof the wipe worked, but a silent
+  // redirect with no acknowledgment at all still reads as "did that
+  // actually do anything?" for a second — this brief toast closes that gap
+  // without needing a toast library this app doesn't otherwise have.
+  const { erased } = useLocalSearchParams<{ erased?: string }>();
+  const [showErasedToast, setShowErasedToast] = useState(erased === "1");
+  useEffect(() => {
+    if (!showErasedToast) return;
+    const timer = setTimeout(() => setShowErasedToast(false), 3000);
+    return () => clearTimeout(timer);
+  }, [showErasedToast]);
 
   // Skipping the intro and finishing it both mean the same thing now: mark
   // onboarding seen, go to the quiz's first step. Skip used to jump straight
@@ -91,6 +110,44 @@ export default function Onboarding() {
   return (
     <View style={{ flex: 1 }}>
       <OnboardingShell screens={SCREENS} activeIndex={index} onNext={onNext} onSkip={goToQuiz} />
+
+      {showErasedToast && (
+        <View
+          accessible
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          style={{
+            position: "absolute",
+            left: 20,
+            right: 20,
+            top: insets.top + 12,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            borderRadius: 14,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            backgroundColor: CANVAS,
+            borderWidth: 1,
+            borderColor: TERRACOTTA,
+          }}
+        >
+          <View
+            importantForAccessibility="no-hide-descendants"
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: 10,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: TERRACOTTA,
+            }}
+          >
+            <Text style={{ fontSize: 11, fontWeight: "700", color: CANVAS }}>✓</Text>
+          </View>
+          <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>Your profile has been erased</Text>
+        </View>
+      )}
     </View>
   );
 }
