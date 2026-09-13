@@ -354,24 +354,6 @@ export default function ProductScreen() {
               </Text>
             )}
           </View>
-
-          <Pressable
-            onPress={() => toggleSaved(product.id)}
-            hitSlop={10}
-            accessibilityLabel={saved ? "Remove from shelf" : "Save to my shelf"}
-            accessibilityState={{ selected: saved }}
-            className="absolute right-4 top-4"
-          >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill={saved ? panel.ink : "none"}>
-              <Path
-                d="M12 20.2s-7.6-4.7-7.6-9.7A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 7.6 2.8c0 5-7.6 9.7-7.6 9.7Z"
-                stroke={panel.ink}
-                strokeWidth={1.7}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </Pressable>
         </Pressable>
 
         {/* What the number is actually made of, strongest first. The sentences

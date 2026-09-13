@@ -1,9 +1,10 @@
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { Text } from "@/components/Text";
 import { fetchProductsByIds } from "@/data/api";
@@ -121,6 +122,7 @@ export default function Saved() {
           <EmptyState
             title="Nothing saved yet"
             body="Tap Save on any product and it will wait for you here - including next time you open the app."
+            action
           />
         ) : (
           <ScrollView contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
@@ -337,11 +339,30 @@ function UnknownRow({ entry, bar }: { entry: HistoryEntry; bar: string }) {
   );
 }
 
-function EmptyState({ title, body }: { title: string; body: string }) {
+function EmptyState({
+  title,
+  body,
+  action = false,
+}: {
+  title: string;
+  body: string;
+  /** MVP §23: the "no saved products" empty state gets a "Scan a product"
+   *  action; the history one doesn't call for it. */
+  action?: boolean;
+}) {
   return (
     <View style={{ alignItems: "center", gap: 8, paddingHorizontal: 40, paddingTop: 96 }}>
       <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
       <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
+      {action && (
+        <PrimaryButton
+          tone="cta"
+          size={52}
+          label="Scan a product"
+          onPress={() => router.push("/")}
+          style={{ marginTop: 8 }}
+        />
+      )}
     </View>
   );
 }

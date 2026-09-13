@@ -96,20 +96,24 @@ Everything in the MVP should support this core experience.
 
 # 6. First App Open
 
-The first-ever app open starts with a short welcome/value-proposition screen.
+The first-ever app open starts with a 3-screen welcome/value-proposition
+carousel (`app/onboarding/index.tsx`).
 
-Immediately after the welcome screen, the user chooses:
-
-- **Quick Scan**
-- **Personalize My Results**
+The carousel leads into personalization by default — both "Continue" on its
+last screen and "Skip" on any of its 3 screens go to the same place, the
+quiz's first step. The Quick Scan / Personalize choice is realized through
+the quiz's own Skip control rather than a dedicated welcome-time screen:
+Skip is available on every quiz step and jumps straight to the scanner,
+while completing all 4 steps finishes personalization first.
 
 ## Quick Scan
 
-Quick Scan is prominent because a user may be shopping and want the fastest possible scan.
+Quick Scan is reachable at any point during the quiz — the shopping-in-a-
+hurry user doesn't have to answer any question to reach it.
 
 Flow:
 
-**Welcome → Quick Scan → Scanner**
+**Welcome carousel → Quiz → Skip (any step) → Scanner**
 
 No personalization questionnaire is required before scanning.
 
@@ -117,9 +121,9 @@ No personalization questionnaire is required before scanning.
 
 Flow:
 
-**Welcome → Personalize My Results → Skin Concerns → Skin Type → Sensitivity → Scanner**
+**Welcome carousel → Quiz (Concerns → Skin Type → Sensitivity → Pregnancy) → Scanner**
 
-The scanner opens **immediately after the Sensitivity page**.
+The scanner opens **immediately after the last quiz step**.
 
 There is:
 
@@ -127,7 +131,8 @@ There is:
 - no summary/confirmation screen;
 - no extra educational screen.
 
-A subtle progress indicator is allowed during onboarding.
+A subtle progress indicator is allowed during onboarding (the quiz's 4 dots,
+`components/QuizScreen.tsx`).
 
 ---
 
@@ -138,6 +143,7 @@ Personalized onboarding collects exactly:
 1. Skin concerns
 2. Skin type
 3. Skin sensitivity
+4. Pregnancy / breastfeeding status
 
 ## Age
 
@@ -184,6 +190,19 @@ Available options:
 - Very sensitive
 
 Sensitivity **affects the personalized score**.
+
+## Pregnancy / breastfeeding
+
+Available options:
+
+- Pregnant
+- Breastfeeding
+- Neither
+- Prefer not to say
+
+This affects the personalized score: `lib/safety.ts` flags retinoids,
+salicylic acid, hydroquinone, and essential oils as a caution when the
+answer is "Pregnant" or "Breastfeeding" (`lib/pregnancy-caution.ts`).
 
 ## Information explicitly removed
 
@@ -877,7 +896,8 @@ Skintel is ready to move toward launch when a new user can reliably:
 3. If personalizing, answer:
    - Skin concerns;
    - Skin type;
-   - Sensitivity.
+   - Sensitivity;
+   - Pregnancy / breastfeeding status.
 4. Reach the scanner immediately.
 5. Scan a product by barcode **or** photograph its ingredient list.
 6. Successfully retrieve/read ingredient information.
