@@ -248,8 +248,16 @@ export default function IngredientDetail() {
       />
 
       <ScrollView contentContainerClassName="pb-40">
-        <View style={{ gap: 18, paddingTop: 30 }} className="flex-row items-start px-6">
-          <View style={{ flex: 1, gap: 9 }}>
+        {/* flexWrap: at the image's larger size, a merely-medium-length name
+            like "Niacinamide" no longer has room beside it (390pt viewport
+            minus the image's own width, gap and horizontal padding) and, with
+            no minWidth reservation, the text column would shrink to fit
+            instead of wrapping — breaking the word itself mid-letter rather
+            than at a word boundary. Reserving 170 forces a wrap instead:
+            short names still sit beside the image, longer ones drop it to
+            its own line below rather than mangling the headline. */}
+        <View style={{ gap: 18, paddingTop: 30, flexWrap: "wrap" }} className="flex-row items-start px-6">
+          <View style={{ flex: 1, minWidth: 170, gap: 9 }}>
             <Text
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
@@ -282,14 +290,13 @@ export default function IngredientDetail() {
               <Text className={`text-[12.5px] font-medium ${meta.ink}`}>{meta.label}</Text>
             </View>
           </View>
-          {/* design-watercolor/flask_with_serum.png, replacing the old round
-              flask icon — its own soft watercolor blob is already roughly
-              circular, so this shows the full illustration (`contain`, no
-              crop) rather than forcing it through a circular mask meant for
-              the old icon's shape. */}
+          {/* design-watercolor/ingredient image.png — a flask + dropper
+              bottle scene, wider than the old single-flask icon, so the
+              slot is sized to its own aspect ratio (1400x1001, cropped to
+              content) rather than the old icon's square. */}
           <Image
             source={require("@/assets/illustrations/flask-with-serum.png")}
-            style={{ width: 92, height: 92 }}
+            style={{ width: 168, height: 120 }}
             contentFit="contain"
             transition={120}
             accessibilityLabel=""
