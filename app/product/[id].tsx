@@ -25,13 +25,13 @@ import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SELECTED_STRONG, VERDICT, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
 
-// Manassa system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
+// The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
 // draw from the shared `PrimaryButton` component's `tone="cta"` — added
 // specifically so this screen (and browse, the pasted-list empty state, and
 // ingredient detail) stop hand-rolling the same button and drifting apart,
 // which they already had by the time this was written (three different
 // corner radii across the four files). `PrimaryButton`'s *default* tone is
-// still the old purple/lilac fill every screen not yet restyled to Manassa
+// still the old purple/lilac fill every screen not yet restyled to for.me
 // uses — `tone="cta"` opts a call site in, it never changes the default.
 
 /**
@@ -221,8 +221,8 @@ export default function ProductScreen() {
     if (!product) return;
     const line =
       match.score === null
-        ? `${product.brand} ${product.name} - checked on Manassa`
-        : `${product.brand} ${product.name} - ${match.score}/100 for my skin, on Manassa`;
+        ? `${product.brand} ${product.name} - checked on for.me`
+        : `${product.brand} ${product.name} - ${match.score}/100 for my skin, on for.me`;
     try {
       await Share.share({ message: line });
     } catch (err) {

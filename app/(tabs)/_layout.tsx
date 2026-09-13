@@ -85,7 +85,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="browse"
         options={{
-          title: "Manassa",
+          title: "for.me",
           tabBarLabel: "Browse",
           tabBarAccessibilityLabel: "Browse",
           tabBarIcon: ({ color }) => <Ionicons name="home" size={22} color={color} />,

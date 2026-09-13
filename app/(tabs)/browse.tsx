@@ -19,7 +19,7 @@ import { isPersonalized, profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED } from "@/lib/tokens";
 
-// Manassa system (design/DESIGN_SYSTEM.md).
+// The design system (design/DESIGN_SYSTEM.md).
 
 // One list, every product type together. This used to split into a
 // face-only set and a body-only set, chosen by the profile's `area` field —

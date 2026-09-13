@@ -12,8 +12,8 @@ import { Eyebrow, Wordmark } from "@/components/Wordmark";
  * It is one component now and takes no size props: that is the point.
  *
  * No app-mark icon any more — just the wordmark and the strapline. The
- * bracket-and-dropper glyph (`components/LogoMark.tsx`) was the "SkinTell"
- * mark specifically and didn't carry over to Manassa; deleted rather than
+ * bracket-and-dropper glyph (`components/LogoMark.tsx`) was an earlier
+ * brand's mark specifically and didn't carry over; deleted rather than
  * recoloured, since nothing else referenced it.
  *
  * The gutter matches the content below it (26pt, the scanner's camera card),

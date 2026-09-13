@@ -11,7 +11,7 @@ import { coverFitCropRect, type Rect, type Size } from "@/lib/crop-to-guide";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
 import { CANVAS, CTA, INK, MUTED, withAlpha } from "@/lib/tokens";
 
-// Manassa system (design/DESIGN_SYSTEM.md). The live camera view stays plain
+// The design system (design/DESIGN_SYSTEM.md). The live camera view stays plain
 // black, same reasoning as the scanner's own dark stage — only the
 // surrounding light-surface chrome (permission screens, the shutter button)
 // moves to this system.

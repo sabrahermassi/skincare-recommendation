@@ -18,7 +18,7 @@ import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 
-// Manassa system (design/DESIGN_SYSTEM.md). RUNG's `hero`/pill/panel colors
+// The design system (design/DESIGN_SYSTEM.md). RUNG's `hero`/pill/panel colors
 // (below) are semantic — the per-ingredient verdict, the point of this
 // screen — and stay untouched. The footer's "Next ingredient" CTA draws from
 // `PrimaryButton`'s `tone="cta"`, same as app/product/[id].tsx — see that
@@ -26,7 +26,7 @@ import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, VERDICT, VERDICT_NEUT
 // this screen keeping its own hand-rolled copy.
 
 /**
- * Ingredient detail — screen 5 of the Manassa Screens design.
+ * Ingredient detail — screen 5 of the for.me Screens design.
  *
  * The design fills this screen with encyclopaedia copy: a written definition,
  * a personalised verdict, and a list of things to know. We hold none of that
@@ -354,7 +354,7 @@ export default function IngredientDetail() {
           )}
         </Section>
 
-        {/* Plain bordered card, not a tinted lilac panel — the Manassa
+        {/* Plain bordered card, not a tinted lilac panel — the design
             system keeps no tinted panels (design/DESIGN_SYSTEM.md's Colour
             section): an earlier onboarding revision tried them and the
             illustrations' own colour shapes competed with the panel. */}

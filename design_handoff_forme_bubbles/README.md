@@ -1,9 +1,9 @@
-# Handoff: SkinTel — bubble motion layer (ADDITIVE)
+# Handoff: for.me — bubble motion layer (ADDITIVE)
 
 ## Read this first
 
 **This is not a new screen.** The Welcome / onboarding screen already exists in the
-codebase — built from the earlier `design_handoff_skintel_onboarding` package (avatar,
+codebase — built from the earlier `design_handoff_forme_onboarding` package (avatar,
 logo + wordmark lockup, tagline, copy, "Get started" / "Skip for now", scattered pale
 bottles on `#FAF7F3`).
 
@@ -243,8 +243,8 @@ RN has no CSS keyframes. Use `react-native-reanimated`:
 | `bubble-motion.html` | Live reference. Toggle button shows the resting state. |
 | `assets/avatar-round.png` | The existing avatar — included only so the reference renders. **Already in the codebase; do not re-add.** |
 
-Source of truth in the design project: `Skintel Welcome Bubbles.dc.html`.
+Source of truth in the design project: `for.me Welcome Bubbles.dc.html`.
 
-There is also a sparkle variant (`Skintel Welcome Sparkle.dc.html`) using gold and lilac
+There is also a sparkle variant (`for.me Welcome Sparkle.dc.html`) using gold and lilac
 four-point stars instead of bubbles, same structure. Not part of this handoff — ask if you
 want it packaged.

@@ -1,8 +1,8 @@
-# Handoff: Manassa — three-screen onboarding
+# Handoff: for.me — three-screen onboarding
 
 ## The prompt to give Claude Code
 
-> Read `design/onboarding/README.md` and implement the Manassa three-screen onboarding
+> Read `design/onboarding/README.md` and implement the for.me three-screen onboarding
 > flow in this codebase. Copy `design/onboarding/assets/` into the app's asset folder.
 > Follow the codebase's existing component and styling patterns — the HTML file is a design
 > reference, not code to paste. Match every value in the Design Tokens and Layout sections
@@ -22,7 +22,7 @@ Two optional additions:
 
 ## Overview
 
-Manassa is a Korean-skincare ingredient scanner. The user scans a product's barcode or
+for.me is a Korean-skincare ingredient scanner. The user scans a product's barcode or
 ingredient list and gets a match score for their own skin, based on a short skin-profile
 quiz. It is an intelligence tool, not a shop — no prices, no buy buttons.
 
@@ -339,7 +339,7 @@ Also: warming the canvas past `#FBF4EE` makes both worse — at `#FAF1E9` the te
 | `onboarding.html` | Design reference, all three screens. Open in a browser. Port the contents of each `.screen`. |
 | `assets/*.png` | Final production artwork. Copy as-is. |
 
-Source of truth in the design project: `Manassa Onboarding Sequence 3.dc.html`.
+Source of truth in the design project: `for.me Onboarding Sequence 3.dc.html`.
 
 ## Not included
 

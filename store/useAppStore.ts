@@ -338,7 +338,7 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: "skintel-store",
+      name: "forme-store",
       version: 6,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: partializeState,

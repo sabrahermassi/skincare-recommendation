@@ -1,8 +1,8 @@
-# Manassa design system
+# for.me design system
 
 Extracted from the two onboarding handoffs and what actually shipped from them:
-`design_handoff_manassa_onboarding` (single welcome screen) and
-`design_handoff_manassa_onboarding_3` (three-screen carousel), as implemented in
+`design_handoff_forme_onboarding` (single welcome screen) and
+`design_handoff_forme_onboarding_3` (three-screen carousel), as implemented in
 `app/onboarding/index.tsx`.
 
 **Every new screen builds from this file.** If a screen needs something this file doesn't
@@ -372,7 +372,7 @@ Profile were its only two call sites — and has since been deleted.
 
 | Source | What it covers |
 |---|---|
-| `design_handoff_manassa_onboarding/README.md` | Single-screen welcome: layout, tokens, the 33.6px button-padding bug, the peach/muted accessibility findings |
-| `design_handoff_manassa_onboarding_animated/README.md` | The same screen's (parked) animation system — entrance stagger, ambient loop timings, transform-origin math |
-| `design_handoff_manassa_onboarding_3/README.md` | Three-screen carousel: fixed-height boxes, 1.9:1 spacers, progress dots, per-illustration sizing rules |
+| `design_handoff_forme_onboarding/README.md` | Single-screen welcome: layout, tokens, the 33.6px button-padding bug, the peach/muted accessibility findings |
+| `design_handoff_forme_onboarding_animated/README.md` | The same screen's (parked) animation system — entrance stagger, ambient loop timings, transform-origin math |
+| `design_handoff_forme_onboarding_3/README.md` | Three-screen carousel: fixed-height boxes, 1.9:1 spacers, progress dots, per-illustration sizing rules |
 | `app/onboarding/index.tsx` | What actually shipped — the static carousel implementation this file's rules are checked against |

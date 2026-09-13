@@ -33,7 +33,7 @@ type Props = {
   /**
    * Which fill a "filled" button draws from. "accent" (default) is the
    * original lilac/purple system (`bg-accent`) that every screen not yet
-   * restyled to Manassa still uses. "cta" is the Manassa peach CTA
+   * restyled to for.me still uses. "cta" is the for.me peach CTA
    * (`lib/tokens.ts`'s `CTA`) with dark ink text and a true pill radius
    * (radius = height/2) — every hand-rolled peach button in the app (browse's
    * "Go to Scan", the pasted-list empty state, the product screen's "Scan
@@ -78,7 +78,7 @@ export function PrimaryButton({
         ? "border border-accent bg-tint-lilac"
         : "border border-hairline bg-surface active:bg-canvas";
 
-  // The cta tone's text uses the size/weight the Manassa CTAs it was
+  // The cta tone's text uses the size/weight the for.me CTAs it was
   // unified from already agreed on (onboarding's Next, the quiz's Continue,
   // browse's "Go to Scan") — 15px/500, not this component's own 15.5px/600,
   // which belongs to the accent tone it hasn't touched.

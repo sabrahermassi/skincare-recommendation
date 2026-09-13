@@ -1,8 +1,8 @@
-# Handoff: Manassa — Onboarding screen
+# Handoff: for.me — Onboarding screen
 
 ## The prompt to give Claude Code
 
-> Read `design/onboarding/README.md` and implement the Manassa onboarding screen in this
+> Read `design/onboarding/README.md` and implement the for.me onboarding screen in this
 > codebase. Copy `design/onboarding/assets/` into the app's asset folder. Follow the
 > codebase's existing component and styling patterns — the HTML file is a design reference,
 > not code to paste. Match every value in the Design Tokens, Layout and Animation sections
@@ -14,7 +14,7 @@ That is all it needs. Everything below is written for an implementer with no oth
 
 ## Overview
 
-Manassa is a Korean-skincare ingredient scanner. The user scans a product's barcode or
+for.me is a Korean-skincare ingredient scanner. The user scans a product's barcode or
 ingredient list and gets a match score for their own skin, based on a short profile quiz.
 It is an intelligence tool, not a shop — no prices, no buy buttons.
 
@@ -115,7 +115,7 @@ base so it can rotate independently, and the sparkles above both.
 
 ### 2 · Wordmark
 
-`Manassa` — **Playfair Display**, weight **500**, **40px**, `line-height:1`,
+`for.me` — **Playfair Display**, weight **500**, **40px**, `line-height:1`,
 `letter-spacing:-.018em`, colour `#5A342C`.
 
 Centred by `align-items:center` on its container, **not** by `text-align` — so it stays
@@ -275,7 +275,7 @@ figure look detached from the page. Rotation only.
 ### First-launch gate
 
 ```js
-var SEEN_KEY = 'manassa-onboarding-seen';
+var SEEN_KEY = 'forme-onboarding-seen';
 ```
 
 Read on mount; if unset, add the `intro` class and write the flag. Wrap both in `try/catch`
@@ -451,7 +451,7 @@ RN has no CSS keyframes or custom properties. Use `react-native-reanimated`:
 | `onboarding.html` | Design reference. Open in a browser. Port the contents of `.screen`; the animation CSS is fenced with a `PORT EVERYTHING BELOW THIS LINE` comment. Includes a Replay button. |
 | `assets/*.png` | Final production artwork, 11 files. Copy as-is. |
 
-Source of truth in the design project: `Manassa Onboarding 3a.dc.html`.
+Source of truth in the design project: `for.me Onboarding 3a.dc.html`.
 
 ## Not included
 

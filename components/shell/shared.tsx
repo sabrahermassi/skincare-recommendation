@@ -7,7 +7,7 @@ import { CANVAS } from "@/lib/tokens";
 /**
  * FOR.ME shell tokens — shared by `OnboardingShell` and `QuizShell` only.
  *
- * Not `lib/tokens.ts`: that file is the Manassa system's single source of
+ * Not `lib/tokens.ts`: that file is the app's single source of
  * colour, and these are a different, unrelated palette (per
  * design-watercolor/FOR_ME_Onboarding_Design_Spec.md §2), used verbatim, not
  * sampled from a screenshot. `CANVAS` is the one exception — the FOR.ME
@@ -72,7 +72,7 @@ type PrimaryButtonProps = {
  * `components/PrimaryButton.tsx` was unified (see that file's own comment).
  *
  * This is a distinct component from `components/PrimaryButton.tsx` — that
- * one is the Manassa system's button (accent/cta tone, sizes 50/52/56) and
+ * one is the app's main button (accent/cta tone, sizes 50/52/56) and
  * still backs every screen outside onboarding/quiz. Same name, different
  * module, imported nowhere in common: not a collision.
  */

@@ -1,28 +1,26 @@
 import { View } from "react-native";
 
 import { Text } from "@/components/Text";
-import { INK, MUTED, MUTED_FAINT } from "@/lib/tokens";
+import { FONT, TERRACOTTA } from "@/components/shell/shared";
+import { MUTED, MUTED_FAINT } from "@/lib/tokens";
 
-// Manassa system (design/DESIGN_SYSTEM.md).
+// The design system (design/DESIGN_SYSTEM.md).
 
 /**
- * "Manassa", drawn rather than typed: the leading M is set larger than the
- * rest of the word, the single-oversized-letter version of the app's former
- * "SkinTell" mark (which had two capitals mid-word to enlarge). Appears on
- * Browse (its only consumer) at one size.
+ * "for.me", in the same script face and colour as the onboarding hero
+ * wordmark (`components/shell/BrandLockup.tsx`'s `FONT.wordmark`/
+ * `TERRACOTTA`) — same brand mark, not a second one. `BrandLockup` itself
+ * isn't reused here: its ratios (WORDMARK_MIN/MAX, the heart-over-the-dot
+ * placement) are hand-tuned specifically for the onboarding hero's large
+ * scale and screen-width-relative layout, not this masthead's small,
+ * fixed-size row — reusing it verbatim at this size would either render far
+ * too large or need most of those ratios re-tuned for a context they
+ * weren't built for. No explicit lineHeight: a tight one clips the top of
+ * this script font's tall strokes (same note as BrandLockup's own).
  */
 export function Wordmark({ size = 31 }: { size?: number }) {
   return (
-    <Text
-      className="font-display"
-      // `leading-none` set the line height to 1x the *outer* font size — no
-      // room for the M, which renders at 1.19x that and would clip along the
-      // top edge otherwise. Line height is sized off the larger nested glyph,
-      // with a little headroom, not off the smaller letters around it.
-      style={{ fontSize: size, letterSpacing: size * -0.011, lineHeight: size * 1.32, color: INK }}
-    >
-      <Text style={{ fontSize: size * 1.19 }}>M</Text>anassa
-    </Text>
+    <Text style={{ fontFamily: FONT.wordmark, fontSize: size, color: TERRACOTTA }}>for.me</Text>
   );
 }
 

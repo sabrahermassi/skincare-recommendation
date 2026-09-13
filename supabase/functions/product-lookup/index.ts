@@ -31,7 +31,7 @@ const INCI_BASE = "https://inciapi.com/v1";
 const UPCITEMDB_BASE = "https://api.upcitemdb.com/prod/trial/lookup";
 
 /** Open Beauty Facts asks that clients identify themselves. */
-const USER_AGENT = "Skintel/1.0 (https://github.com/sabrahermassi/skincare-recommendation)";
+const USER_AGENT = "for.me/1.0 (https://github.com/sabrahermassi/skincare-recommendation)";
 
 /**
  * Fallback cache lifetime for INCI API rows when the response carries no

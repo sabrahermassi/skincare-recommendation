@@ -13,10 +13,10 @@ import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, INK, MUTED } from "@/lib/tokens";
 
-// Manassa system (design/DESIGN_SYSTEM.md).
+// The design system (design/DESIGN_SYSTEM.md).
 
 /**
- * The full ingredient list — screen 3 of the Manassa Screens design.
+ * The full ingredient list — screen 3 of the for.me Screens design.
  *
  * Every row is judged against *this* profile, not in the abstract: the dot and
  * the pill say whether it works for you, which is the whole difference between

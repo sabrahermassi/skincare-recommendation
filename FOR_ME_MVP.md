@@ -1,7 +1,7 @@
-# Skintel — MVP Source of Truth
+# for.me — MVP Source of Truth
 
 **Status:** Locked product decisions  
-**Purpose:** This document defines the Skintel MVP and is the source of truth for launch scope.
+**Purpose:** This document defines the for.me MVP and is the source of truth for launch scope.
 
 > The existing GitHub repository may contain functionality beyond this MVP. Existing functionality does not automatically belong to the MVP. Working non-MVP functionality does not need to be deleted; it should simply not receive additional scope or priority before launch.
 
@@ -9,9 +9,9 @@
 
 # 1. Product Definition
 
-## What Skintel does
+## What for.me does
 
-Skintel helps people quickly understand whether a skincare product **appears compatible with their skin** by analyzing its ingredients.
+for.me helps people quickly understand whether a skincare product **appears compatible with their skin** by analyzing its ingredients.
 
 ## Core question
 
@@ -27,11 +27,11 @@ The user should be able to:
 4. See the main ingredient-related reasons behind that assessment.
 5. Make their own decision about the product.
 
-Skintel informs the user's decision. It does **not** decide whether the user should buy or use a product.
+for.me informs the user's decision. It does **not** decide whether the user should buy or use a product.
 
-## What Skintel is not
+## What for.me is not
 
-Skintel does not:
+for.me does not:
 
 - diagnose skin conditions;
 - diagnose allergies;
@@ -45,7 +45,7 @@ Skintel does not:
 
 # 2. Target User
 
-Skintel is for people who buy skincare products and want to quickly determine whether a product appears to be a good fit for their skin before buying or using it.
+for.me is for people who buy skincare products and want to quickly determine whether a product appears to be a good fit for their skin before buying or using it.
 
 The MVP particularly helps users understand whether ingredients may be relevant to:
 
@@ -60,11 +60,11 @@ The MVP particularly helps users understand whether ingredients may be relevant 
 
 Choosing skincare often requires researching ingredients across multiple websites and sources.
 
-The problem Skintel solves is the fragmented manual research process:
+The problem for.me solves is the fragmented manual research process:
 
 **Product → copy ingredients → research multiple websites → compare information → decide**
 
-Skintel aims to simplify this into:
+for.me aims to simplify this into:
 
 **Product → Scan → Analyze → Understand**
 
@@ -72,7 +72,7 @@ Skintel aims to simplify this into:
 
 # 4. Differentiation
 
-Skintel's key differentiation is:
+for.me's key differentiation is:
 
 > **Streamlining scattered manual skincare ingredient research into one quick scan and personalized ingredient-compatibility analysis.**
 
@@ -780,7 +780,7 @@ Not applicable — age is not collected (see §7).
 
 # 28. Safety & Claims
 
-Skintel's analysis is an:
+for.me's analysis is an:
 
 > **Ingredient-based compatibility assessment**
 
@@ -889,7 +889,7 @@ These should not delay MVP launch.
 
 # 32. MVP Finish Line
 
-Skintel is ready to move toward launch when a new user can reliably:
+for.me is ready to move toward launch when a new user can reliably:
 
 1. Open the app.
 2. Choose Quick Scan or Personalize.
@@ -1014,7 +1014,7 @@ A feature existing in the repository does not mean it needs to be completed, exp
 
 # 37. Final MVP Definition
 
-> **Skintel lets a skincare shopper scan a product, analyze its ingredients, and quickly understand how compatible that product appears with their skin through an explainable personalized compatibility score and ingredient-level findings.**
+> **for.me lets a skincare shopper scan a product, analyze its ingredients, and quickly understand how compatible that product appears with their skin through an explainable personalized compatibility score and ingredient-level findings.**
 
 The MVP's job is to do this **quickly, clearly, reliably, and safely**.
 
