@@ -282,12 +282,15 @@ export default function IngredientDetail() {
               <Text className={`text-[12.5px] font-medium ${meta.ink}`}>{meta.label}</Text>
             </View>
           </View>
-          {/* The design project's own hero illustration
-              (assets/icon-flask-round.png), not a redraw of it. */}
+          {/* design-watercolor/flask_with_serum.png, replacing the old round
+              flask icon — its own soft watercolor blob is already roughly
+              circular, so this shows the full illustration (`contain`, no
+              crop) rather than forcing it through a circular mask meant for
+              the old icon's shape. */}
           <Image
-            source={require("@/assets/images/icon-flask-round.png")}
-            style={{ width: 86, height: 86, borderRadius: 43 }}
-            contentFit="cover"
+            source={require("@/assets/illustrations/flask-with-serum.png")}
+            style={{ width: 92, height: 92 }}
+            contentFit="contain"
             transition={120}
             accessibilityLabel=""
           />

@@ -122,6 +122,9 @@ type AppState = {
     warnings: number;
   }) => void;
   clearHistory: () => void;
+  /** Removes one entry from the log — the per-row "x" on the History tab,
+   *  as opposed to `clearHistory`'s wipe-everything action. */
+  removeHistoryEntry: (id: string) => void;
 
   /** Idempotent per barcode — retyping the same one just updates the name. */
   submitProductSuggestion: (barcode: string, name: string) => void;
@@ -316,6 +319,8 @@ export const useAppStore = create<AppState>()(
         }),
 
       clearHistory: () => set({ history: [] }),
+      removeHistoryEntry: (id) =>
+        set((state) => ({ history: state.history.filter((h) => h.id !== id) })),
 
       submitProductSuggestion: (barcode, name) =>
         set((state) => ({

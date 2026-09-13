@@ -8,6 +8,9 @@ import { AppHeader, HEADER_GUTTER } from "@/components/AppHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
 import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
+// One selected-outline color app-wide — see profile.tsx's own note on why
+// this FOR.ME shell token is reused outside its original scope.
+import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { fetchProducts, searchProducts } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients } from "@/data/types";
@@ -383,7 +386,7 @@ function TypeChip({
         justifyContent: "center",
         borderRadius: RADIUS_SELECTOR,
         borderWidth: selected ? 1.5 : 1,
-        borderColor: selected ? INK : BORDER_INACTIVE,
+        borderColor: selected ? TERRACOTTA : BORDER_INACTIVE,
         backgroundColor: selected ? SELECTED : CANVAS,
       }}
     >

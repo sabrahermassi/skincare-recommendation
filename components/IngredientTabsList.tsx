@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
+// One selected-outline color app-wide — see profile.tsx's own note on why
+// this FOR.ME shell token is reused outside its original scope.
+import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import type { Ingredient } from "@/data/types";
 import { isVerified } from "@/lib/safety";
@@ -80,7 +83,7 @@ export function IngredientTabsList({
                 justifyContent: "center",
                 borderRadius: RADIUS_SELECTOR,
                 borderWidth: active ? 1.5 : 1,
-                borderColor: active ? INK : BORDER_INACTIVE,
+                borderColor: active ? TERRACOTTA : BORDER_INACTIVE,
                 backgroundColor: active ? SELECTED : CANVAS,
               }}
             >

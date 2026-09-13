@@ -1,11 +1,15 @@
-import { Link, router } from "expo-router";
+import { Image } from "expo-image";
+import { Link } from "expo-router";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
 
-import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
+// One selected-outline color app-wide — see profile.tsx's own note on why
+// this FOR.ME shell token is reused outside its original scope.
+import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { fetchProductsByIds } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -38,6 +42,7 @@ export default function Saved() {
   const history = useAppStore((s) => s.history);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
   const clearHistory = useAppStore((s) => s.clearHistory);
+  const removeHistoryEntry = useAppStore((s) => s.removeHistoryEntry);
 
   // Newest first in both lists. `history` is already ordered by the store.
   const savedIds = useMemo(
@@ -55,21 +60,40 @@ export default function Saved() {
   );
 
   const [byId, setById] = useState<Record<string, ProductWithIngredients> | null>(null);
+  // Kept in sync via its own effect, not written during render (the lint
+  // rule here is right that a render-time ref write is unsafe) — read from
+  // inside the id-resolving effect below without needing `byId` itself as a
+  // dependency, which would re-run that effect every time it calls setById.
+  const byIdRef = useRef(byId);
+  useEffect(() => {
+    byIdRef.current = byId;
+  });
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setError(false);
+
     if (idsToResolve.length === 0) {
       setById({});
       return;
     }
-    setById(null);
-    fetchProductsByIds(idsToResolve)
+
+    // Removing a saved or history row only ever shrinks this list — the
+    // "x" never introduces an id we haven't already resolved — so skip the
+    // fetch (and the full-screen spinner this effect used to flash on every
+    // single removal) whenever nothing here actually needs fetching.
+    const current = byIdRef.current;
+    const missing = current ? idsToResolve.filter((id) => !(id in current)) : idsToResolve;
+    if (current && missing.length === 0) {
+      return;
+    }
+
+    fetchProductsByIds(current ? missing : idsToResolve)
       .then((products) => {
         if (cancelled) return;
-        setById(Object.fromEntries(products.map((p) => [p.id, p])));
+        setById((prev) => ({ ...(prev ?? {}), ...Object.fromEntries(products.map((p) => [p.id, p])) }));
       })
       .catch((err) => {
         if (cancelled) return;
@@ -122,7 +146,6 @@ export default function Saved() {
           <EmptyState
             title="Nothing saved yet"
             body="Tap Save on any product and it will wait for you here - including next time you open the app."
-            action
           />
         ) : (
           <ScrollView contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
@@ -133,34 +156,29 @@ export default function Saved() {
               const tone = score === null ? null : matchTone(score);
               const verdict = tone ? VERDICT[tone] : VERDICT_NEUTRAL;
               return (
-                <Row key={id} product={product} bar={verdict.solid}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingTop: 7 }}>
-                    {tone && score !== null ? (
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 5,
-                          borderRadius: 999,
-                          paddingHorizontal: 10,
-                          paddingVertical: 4,
-                          backgroundColor: verdict.tint,
-                        }}
-                      >
-                        <Text style={{ fontSize: 11.5, fontWeight: "700", color: verdict.deep }}>
-                          {score}%
-                        </Text>
-                        <Text style={{ fontSize: 11, fontWeight: "600", color: verdict.deep }}>
-                          · {verdict.label}
-                        </Text>
-                      </View>
-                    ) : (
-                      <View />
-                    )}
-                    <Pressable onPress={() => toggleSaved(id)} hitSlop={8}>
-                      <Text style={{ fontSize: 11.5, fontWeight: "600", color: INK }}>Remove</Text>
-                    </Pressable>
-                  </View>
+                <Row key={id} product={product} bar={verdict.solid} onRemove={() => toggleSaved(id)}>
+                  {tone && score !== null && (
+                    <View
+                      style={{
+                        marginTop: 7,
+                        alignSelf: "flex-start",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 5,
+                        borderRadius: 999,
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        backgroundColor: verdict.tint,
+                      }}
+                    >
+                      <Text style={{ fontSize: 11.5, fontWeight: "700", color: verdict.deep }}>
+                        {score}%
+                      </Text>
+                      <Text style={{ fontSize: 11, fontWeight: "600", color: verdict.deep }}>
+                        · {verdict.label}
+                      </Text>
+                    </View>
+                  )}
                 </Row>
               );
             })}
@@ -181,11 +199,11 @@ export default function Saved() {
             const snapshotTone = entry.scoreAtView === null ? null : matchTone(entry.scoreAtView);
             const bar = snapshotTone ? VERDICT[snapshotTone].solid : VERDICT_NEUTRAL.solid;
             return product ? (
-              <Row key={entry.id} product={product} bar={bar}>
+              <Row key={entry.id} product={product} bar={bar} onRemove={() => removeHistoryEntry(entry.id)}>
                 <HistoryMeta entry={entry} action />
               </Row>
             ) : (
-              <UnknownRow key={entry.id} entry={entry} bar={bar} />
+              <UnknownRow key={entry.id} entry={entry} bar={bar} onRemove={() => removeHistoryEntry(entry.id)} />
             );
           })}
 
@@ -224,7 +242,7 @@ function SegmentButton({
         justifyContent: "center",
         borderRadius: RADIUS_SELECTOR,
         borderWidth: active ? 1.5 : 1,
-        borderColor: active ? INK : BORDER_INACTIVE,
+        borderColor: active ? TERRACOTTA : BORDER_INACTIVE,
         backgroundColor: active ? SELECTED : CANVAS,
       }}
     >
@@ -236,47 +254,103 @@ function SegmentButton({
 }
 
 /** A white card with the verdict down its leading edge — same object as a
- *  browse row (`components/ProductRow.tsx`), laid out for a taller shelf card. */
+ *  browse row (`components/ProductRow.tsx`), laid out for a taller shelf card.
+ *  The whole card is a link to the product; the "x" is a second, nested
+ *  `Pressable` that captures its own tap without also triggering the link
+ *  underneath — the same nesting this file's old "Remove" text link already
+ *  relied on. */
 function Row({
   product,
   bar,
+  onRemove,
   children,
 }: {
   product: ProductWithIngredients;
   bar: string;
+  onRemove: () => void;
   children: ReactNode;
 }) {
   return (
-    <Link href={`/product/${product.id}`} asChild>
-      <Pressable
-        style={{
-          flexDirection: "row",
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: BORDER_INACTIVE,
-          backgroundColor: SURFACE,
-          overflow: "hidden",
-        }}
-        className="active:opacity-70"
-      >
-        <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
-        <View style={{ flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 13, padding: 13 }}>
-          <ProductThumbnail product={product} size={56} radius={14} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 9.5, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
-              {product.brand}
-            </Text>
-            <Text
-              style={{ marginTop: 2, fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, lineHeight: 19, color: INK }}
-              numberOfLines={2}
-            >
-              {product.name}
-            </Text>
-            {children}
+    // The card's chrome lives on a plain View, not the Link/Pressable
+    // itself — `Link asChild` renders an actual `<a>` on web, and a click
+    // anywhere inside an anchor triggers its navigation, `stopPropagation`
+    // on a nested Pressable notwithstanding (confirmed: it doesn't stop the
+    // anchor's own default action). Keeping `RemoveButton` as a sibling
+    // outside the anchor, not a descendant of it, is the only fix that
+    // actually holds on web.
+    <View
+      style={{
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: BORDER_INACTIVE,
+        backgroundColor: SURFACE,
+        overflow: "hidden",
+      }}
+    >
+      <Link href={`/product/${product.id}`} asChild>
+        <Pressable style={{ flexDirection: "row" }} className="active:opacity-70">
+          <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
+          <View style={{ flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 13, padding: 13 }}>
+            <ProductThumbnail product={product} size={56} radius={14} />
+            <View style={{ flex: 1, paddingRight: 28 }}>
+              <Text style={{ fontSize: 9.5, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
+                {product.brand}
+              </Text>
+              <Text
+                style={{ marginTop: 2, fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, lineHeight: 19, color: INK }}
+                numberOfLines={2}
+              >
+                {product.name}
+              </Text>
+              {children}
+            </View>
           </View>
-        </View>
-      </Pressable>
-    </Link>
+        </Pressable>
+      </Link>
+
+      <RemoveButton onPress={onRemove} />
+    </View>
+  );
+}
+
+/** The "x" in the top-right corner of every Saved/History card — unsaves a
+ *  shelf row, or drops one entry from the log (see the two different store
+ *  actions each call site passes in). Rendered as a sibling of `Row`'s
+ *  `Link`, never nested inside it — see that component's own comment for
+ *  why. */
+function RemoveButton({ onPress }: { onPress: () => void }) {
+  // A soft terracotta badge with a rounded, slightly-imperfect hand-drawn
+  // stroke — as close to the onboarding/quiz's warm watercolor language as
+  // a vector icon can get. It's still a drawn line, not painted artwork —
+  // see the note on this in chat; that needs an actual image asset, which
+  // isn't something this pass can generate.
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel="Remove"
+      style={{
+        position: "absolute",
+        top: 6,
+        right: 6,
+        width: 30,
+        height: 30,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 15,
+        backgroundColor: SELECTED,
+      }}
+    >
+      <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M6.5 6.5c3 3.2 8 8.2 11 11M17.5 6.5c-3 3.2-8 8.2-11 11"
+          stroke={TERRACOTTA}
+          strokeWidth={2.4}
+          strokeLinecap="round"
+        />
+      </Svg>
+    </Pressable>
   );
 }
 
@@ -315,7 +389,7 @@ function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: 
 }
 
 /** A barcode that resolved to nothing - still worth logging as "already checked". */
-function UnknownRow({ entry, bar }: { entry: HistoryEntry; bar: string }) {
+function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string; onRemove: () => void }) {
   return (
     <View
       style={{
@@ -328,41 +402,36 @@ function UnknownRow({ entry, bar }: { entry: HistoryEntry; bar: string }) {
       }}
     >
       <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
-      <View style={{ flex: 1, padding: 13 }}>
+      <View style={{ flex: 1, padding: 13, paddingRight: 36 }}>
         <Text style={{ fontSize: 9.5, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
           Scanned · not in our catalogue
         </Text>
         <Text style={{ marginTop: 2, fontSize: 14, color: INK }}>{entry.id}</Text>
         <HistoryMeta entry={entry} />
       </View>
+
+      <RemoveButton onPress={onRemove} />
     </View>
   );
 }
 
-function EmptyState({
-  title,
-  body,
-  action = false,
-}: {
-  title: string;
-  body: string;
-  /** MVP §23: the "no saved products" empty state gets a "Scan a product"
-   *  action; the history one doesn't call for it. */
-  action?: boolean;
-}) {
+const SAVED_EMPTY_SHELF = require("@/assets/illustrations/saved-empty-shelf.png");
+
+function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <View style={{ alignItems: "center", gap: 8, paddingHorizontal: 40, paddingTop: 96 }}>
+    // flex: 1 + centered content, not a fixed top padding — the point is
+    // an empty tab never reads as a blank screen, on either Saved or
+    // History, so the artwork sits in the middle of whatever room is left
+    // under the header and segmented control rather than hugging the top.
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10, paddingHorizontal: 40 }}>
+      <Image
+        source={SAVED_EMPTY_SHELF}
+        style={{ width: 286, height: 203 }}
+        contentFit="contain"
+        accessibilityLabel=""
+      />
       <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
       <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
-      {action && (
-        <PrimaryButton
-          tone="cta"
-          size={52}
-          label="Scan a product"
-          onPress={() => router.push("/")}
-          style={{ marginTop: 8 }}
-        />
-      )}
     </View>
   );
 }
