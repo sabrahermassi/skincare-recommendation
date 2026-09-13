@@ -16,7 +16,7 @@ const CONTENT_FADE_MS = 200;
  *  Skip sits on the first row, the dots ~95pt below it, then the back arrow,
  *  then the question. */
 const DOTS_TOP = 44;
-const DOT_SIZE = 12;
+const DOT_SIZE = 7.2;
 
 type Props = {
   /** 1-based index into the quiz. */
