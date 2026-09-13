@@ -1,25 +1,15 @@
 import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
-import type {
-  BaseSkinType,
-  Concern,
-  Pregnancy,
-  Sensitivity,
-  SkinProfile,
-} from "@/data/types";
-import {
-  POST_ONBOARDING_ROUTE,
-  pregnancyLabel,
-  sensitivityLabel,
-} from "@/lib/profile";
+import type { BaseSkinType, Concern, Pregnancy, Sensitivity } from "@/data/types";
+import { pregnancyLabel, sensitivityLabel } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CANVAS, CTA, DANGER, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE } from "@/lib/tokens";
 
@@ -66,6 +56,7 @@ const PREGNANCY_ICONS: Record<Pregnancy, number> = {
 };
 
 const UNSURE_ICON = require("@/assets/illustrations/quiz/unsure.png");
+const NO_CONCERNS_ICON = require("@/assets/illustrations/quiz/concern-none.png");
 
 const MAX_CONCERNS = 3;
 
@@ -73,18 +64,18 @@ type SectionKey = "concerns" | "skinType" | "sensitivity" | "pregnancy";
 
 /**
  * A read-only summary of all four quiz answers, each expandable in place
- * into its own editor — a local draft, committed with a single "Find my
- * matches" once something has actually changed. A half-changed profile
- * must never re-score the browse list underneath it, so nothing here writes
- * to the store until that button is pressed.
+ * into its own editor. Every tap commits straight to the store — same
+ * immediate-apply model the onboarding quiz already uses for these same
+ * fields (`setProfile`/`toggleConcern` in store/useAppStore.ts) — so there is
+ * no draft, no save step, and nothing to lose by leaving.
  */
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const storedProfile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
+  const toggleConcern = useAppStore((s) => s.toggleConcern);
   const resetApp = useAppStore((s) => s.resetApp);
 
-  const [draft, setDraft] = useState<SkinProfile>(storedProfile);
   const [expanded, setExpanded] = useState<SectionKey | null>(null);
   // Gates `resetApp()` behind a second, explicit tap. This is the one
   // irreversible action on this screen — it wipes the profile, the saved
@@ -94,62 +85,20 @@ export default function ProfileScreen() {
   // codebase uses Alert, and this app treats web as first-class, where
   // Alert's behavior on this React Native Web version isn't established.
   const [confirmingReset, setConfirmingReset] = useState(false);
-  // Same inline-confirm reasoning as `confirmingReset` below, gating the
-  // back chevron instead of the reset link: the new expand-in-place editors
-  // make it easy to tap a couple of chips and then reflexively tap back,
-  // which used to discard that draft with no warning at all.
-  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   // Tab screens stay mounted across a switch, so without this, confirming
-  // partway, tapping another tab and coming back would still show "Erase
-  // everything?" (or "Discard changes?") with no reminder of what was being
-  // confirmed.
+  // partway and tapping another tab and back would still show "Erase
+  // everything?" with no reminder of what was being confirmed.
   useFocusEffect(
     useCallback(() => {
       return () => {
         setConfirmingReset(false);
-        setConfirmingDiscard(false);
       };
     }, [])
   );
 
-  function patch(p: Partial<SkinProfile>) {
-    setDraft((d) => ({ ...d, ...p }));
-  }
-
-  function toggleDraftConcern(concern: Concern) {
-    setDraft((d) => {
-      if (d.concerns.includes(concern)) {
-        return { ...d, concerns: d.concerns.filter((c) => c !== concern) };
-      }
-      if (d.concerns.length >= MAX_CONCERNS) return d;
-      return { ...d, concerns: [...d.concerns, concern] };
-    });
-  }
-
   function toggleSection(section: SectionKey) {
     setExpanded((cur) => (cur === section ? null : section));
   }
-
-  // Only true once something in the draft actually differs from what's
-  // stored — the reference's clean read-only view has nothing to commit
-  // until then, so the save bar has no reason to be on screen yet.
-  // `concerns` is sorted before comparing: toggling one off and back on
-  // re-appends it at the end of the array, which would otherwise read as
-  // "changed" even though the resulting set is identical.
-  const dirty = useMemo(() => {
-    const normalize = (p: SkinProfile) => JSON.stringify({ ...p, concerns: [...p.concerns].sort() });
-    return normalize(draft) !== normalize(storedProfile);
-  }, [draft, storedProfile]);
-
-  function save() {
-    setProfile(draft);
-    // Profile is a tab now rather than a pushed modal, so router.back() has
-    // nothing reliable to return to - go straight to the tab that shows the
-    // effect of the save.
-    router.replace(POST_ONBOARDING_ROUTE);
-  }
-
-  const atLimit = draft.concerns.length >= MAX_CONCERNS;
 
   // Profile is a tab, so it normally has no back arrow - that's the right
   // default for the tab bar. But the profile pill on Scan and Browse also
@@ -163,21 +112,15 @@ export default function ProfileScreen() {
     else router.replace("/browse");
   }
 
-  function goBack() {
-    // An in-progress edit (a chip tapped, nothing saved yet) used to vanish
-    // silently the moment this was tapped — the expand-in-place editors make
-    // that easy to hit by accident now that browsing between cards happens
-    // before the one save action, not during every keystroke.
-    if (dirty) {
-      setConfirmingDiscard(true);
-      return;
-    }
-    leave();
-  }
+  // Same exclusion the quiz's own `visibleCount` applies (concerns.tsx): a
+  // profile carrying the no-longer-selectable `atopic` concern must not
+  // count toward the cap, or it would show "3 of 3" and disable every chip
+  // for someone who has only picked 2 things they can actually see.
+  const atLimit = storedProfile.concerns.filter((c) => CONCERN_LOOKUP.has(c)).length >= MAX_CONCERNS;
 
   const concernRows: SummaryRow[] =
-    draft.concerns.length > 0
-      ? draft.concerns.map((c) => {
+    storedProfile.concerns.length > 0
+      ? storedProfile.concerns.map((c) => {
           const option = CONCERN_LOOKUP.get(c);
           // `atopic` is the one Concern value with no selectable option or
           // quiz icon (dropped from every picker, but a profile from before
@@ -189,24 +132,27 @@ export default function ProfileScreen() {
             ? { icon: option.icon, label: option.label }
             : { icon: UNSURE_ICON, label: "Eczema-prone" };
         })
-      : [{ icon: null, label: "Not set" }];
+      : // An empty array only happens via the "I don't have any concerns" chip
+        // below — a real, explicit answer, not an unanswered field (unlike
+        // `baseSkinType`/`sensitivity`, which are nullable for that case).
+        [{ icon: NO_CONCERNS_ICON, label: "I don't have any concerns" }];
 
-  const skinTypeOption = draft.baseSkinType ? SKIN_TYPE_LOOKUP.get(draft.baseSkinType) : undefined;
+  const skinTypeOption = storedProfile.baseSkinType ? SKIN_TYPE_LOOKUP.get(storedProfile.baseSkinType) : undefined;
   const skinTypeRows: SummaryRow[] = [
     skinTypeOption
       ? { icon: skinTypeOption.icon, label: skinTypeOption.label }
-      : { icon: draft.baseSkinType ? null : UNSURE_ICON, label: draft.baseSkinType ? "Not set" : "I don't know" },
+      : { icon: storedProfile.baseSkinType ? null : UNSURE_ICON, label: storedProfile.baseSkinType ? "Not set" : "I don't know" },
   ];
 
   const sensitivityRows: SummaryRow[] = [
-    draft.sensitivity
-      ? { icon: SENSITIVITY_ICONS[draft.sensitivity], label: sensitivityLabel(draft.sensitivity) }
+    storedProfile.sensitivity
+      ? { icon: SENSITIVITY_ICONS[storedProfile.sensitivity], label: sensitivityLabel(storedProfile.sensitivity) }
       : { icon: UNSURE_ICON, label: "I don't know" },
   ];
 
   const pregnancyRows: SummaryRow[] = [
-    draft.pregnancyStatus
-      ? { icon: PREGNANCY_ICONS[draft.pregnancyStatus], label: pregnancyLabel(draft.pregnancyStatus) }
+    storedProfile.pregnancyStatus
+      ? { icon: PREGNANCY_ICONS[storedProfile.pregnancyStatus], label: pregnancyLabel(storedProfile.pregnancyStatus) }
       : { icon: null, label: "Not set" },
   ];
 
@@ -214,7 +160,7 @@ export default function ProfileScreen() {
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <View style={{ paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: 2 }}>
         <Pressable
-          onPress={goBack}
+          onPress={leave}
           hitSlop={14}
           accessibilityRole="button"
           accessibilityLabel="Back"
@@ -232,48 +178,11 @@ export default function ProfileScreen() {
         </Pressable>
       </View>
 
-      {confirmingDiscard && (
-        <View
-          style={{
-            marginHorizontal: 20,
-            marginBottom: 4,
-            padding: 14,
-            gap: 10,
-            borderRadius: 14,
-            borderWidth: 1,
-            borderColor: BORDER_INACTIVE,
-            backgroundColor: SURFACE,
-          }}
-        >
-          <Text style={{ fontSize: 12.5, lineHeight: 17, color: MUTED }}>
-            You have unsaved changes. Leave without saving?
-          </Text>
-          <View style={{ flexDirection: "row", gap: 20 }}>
-            <Pressable onPress={() => setConfirmingDiscard(false)} hitSlop={8}>
-              <Text style={{ fontSize: 12, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-                Keep editing
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                setConfirmingDiscard(false);
-                leave();
-              }}
-              hitSlop={8}
-            >
-              <Text style={{ fontSize: 12, fontWeight: "600", color: DANGER, textDecorationLine: "underline" }}>
-                Discard changes
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
-
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 10,
-          paddingBottom: dirty ? 170 : 60,
+          paddingBottom: 60,
           gap: 20,
         }}
       >
@@ -289,7 +198,7 @@ export default function ProfileScreen() {
         <Section title="Skin concerns" expanded={expanded === "concerns"} onToggleEdit={() => toggleSection("concerns")} rows={concernRows}>
           <View style={CHIP_ROW}>
             {CONCERN_OPTIONS.map((option) => {
-              const selected = draft.concerns.includes(option.value);
+              const selected = storedProfile.concerns.includes(option.value);
               return (
                 <ProfileChip
                   key={option.value}
@@ -297,7 +206,7 @@ export default function ProfileScreen() {
                   label={option.label}
                   selected={selected}
                   disabled={!selected && atLimit}
-                  onPress={() => toggleDraftConcern(option.value)}
+                  onPress={() => toggleConcern(option.value)}
                 />
               );
             })}
@@ -308,11 +217,11 @@ export default function ProfileScreen() {
           <ProfileChip
             label="I don't have any concerns"
             role="button"
-            selected={draft.concerns.length === 0}
-            onPress={() => patch({ concerns: [] })}
+            selected={storedProfile.concerns.length === 0}
+            onPress={() => setProfile({ concerns: [] })}
           />
           <Text style={{ fontSize: 10.5, color: MUTED }}>
-            {atLimit ? `${MAX_CONCERNS} chosen – deselect one to swap.` : `${draft.concerns.length} of ${MAX_CONCERNS} chosen.`}
+            {atLimit ? `${MAX_CONCERNS} chosen – deselect one to swap.` : `${storedProfile.concerns.length} of ${MAX_CONCERNS} chosen.`}
           </Text>
         </Section>
 
@@ -322,16 +231,16 @@ export default function ProfileScreen() {
               <ProfileChip
                 key={option.value}
                 label={option.label}
-                selected={draft.baseSkinType === option.value}
-                onPress={() => patch({ baseSkinType: option.value })}
+                selected={storedProfile.baseSkinType === option.value}
+                onPress={() => setProfile({ baseSkinType: option.value })}
               />
             ))}
             {/* `null` is a real answer here too, same as the quiz's identical
                 "I don't know" option (skin-type.tsx) — not just "unanswered". */}
             <ProfileChip
               label="I don't know"
-              selected={draft.baseSkinType === null}
-              onPress={() => patch({ baseSkinType: null })}
+              selected={storedProfile.baseSkinType === null}
+              onPress={() => setProfile({ baseSkinType: null })}
             />
           </View>
         </Section>
@@ -345,15 +254,15 @@ export default function ProfileScreen() {
               <ProfileChip
                 key={option}
                 label={sensitivityLabel(option)}
-                selected={draft.sensitivity === option}
-                onPress={() => patch({ sensitivity: option })}
+                selected={storedProfile.sensitivity === option}
+                onPress={() => setProfile({ sensitivity: option })}
               />
             ))}
             {/* Same identical "I don't know" precedent as skin type, above. */}
             <ProfileChip
               label="I don't know"
-              selected={draft.sensitivity === null}
-              onPress={() => patch({ sensitivity: null })}
+              selected={storedProfile.sensitivity === null}
+              onPress={() => setProfile({ sensitivity: null })}
             />
           </View>
         </Section>
@@ -368,8 +277,8 @@ export default function ProfileScreen() {
               <ProfileChip
                 key={option}
                 label={pregnancyLabel(option)}
-                selected={draft.pregnancyStatus === option}
-                onPress={() => patch({ pregnancyStatus: option })}
+                selected={storedProfile.pregnancyStatus === option}
+                onPress={() => setProfile({ pregnancyStatus: option })}
               />
             ))}
           </View>
@@ -417,37 +326,6 @@ export default function ProfileScreen() {
           </Pressable>
         )}
       </ScrollView>
-
-      {dirty && (
-        <View
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            borderTopWidth: 1,
-            borderTopColor: BORDER_INACTIVE,
-            backgroundColor: CANVAS,
-            paddingHorizontal: 20,
-            paddingBottom: 32,
-            paddingTop: 14,
-          }}
-        >
-          <Pressable
-            onPress={save}
-            style={{
-              minHeight: 52,
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 26,
-              backgroundColor: CTA,
-            }}
-            className="active:opacity-90"
-          >
-            <Text style={{ fontSize: 15, fontWeight: "500", color: INK }}>Find my matches</Text>
-          </Pressable>
-        </View>
-      )}
     </View>
   );
 }
