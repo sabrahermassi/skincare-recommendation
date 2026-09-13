@@ -11,33 +11,44 @@ import type { ProductType } from "@/data/types";
  * ## The mapping
  *
  * Keyed by `ProductType`, not by a finer merchandising category — that's
- * all the catalogue currently carries. The source table this was built from
- * groups containers by category names finer than ours ("face oil", "sleeping
- * mask", "BB cream", …) — those map onto one of the `ProductType`s below,
- * and the container groups that had no `ProductType` at all to receive them
- * (mist bottle, foil sachet, twist-up stick, roll-on) are recorded but unused
- * — ready for the day the catalogue carries a real `category` field finer
- * than `ProductType`, without reworking this file.
+ * all the catalogue currently carries. Drawn from `design-watercolor/
+ * skincare icons/`, a named-by-shape set (dropper, pump, jar, tube, …)
+ * replacing this file's original arbitrarily-numbered `illustration-XX.png`
+ * set — the shape names below are literal, not inferred.
  *
  * | Container | ProductType(s) | Files |
  * |---|---|---|
- * | Glass dropper bottle | serum, ampoule, essence | 03, 04 |
- * | Tall pump bottle | cleanser, body-wash, body-lotion | 05, 15, 36 |
- * | Wide squat jar | moisturizer | 07 |
- * | Squeeze tube, flip cap | sunscreen, hand-cream | 12 |
- * | Flat wide-mouth bottle | toner | 14 |
- * | (unused today) Spray / mist | — | 08 |
- * | (unused today) Foil sachet | — | 18, 38 |
- * | (unused today) Twist-up stick | — | 19, 39 |
- * | (unused today) Roll-on | — | 20, 42 |
+ * | Glass dropper bottle | serum, essence | dropper, dropper-round |
+ * | Ampoule vial | ampoule | ampoule-vial |
+ * | Pump bottle | cleanser, body-wash, body-lotion | pump, pump-tall |
+ * | Jar | moisturizer | jar, pot-spatula |
+ * | Dedicated sunscreen bottle | sunscreen | sunscreen |
+ * | Squeeze tube | hand-cream | squeeze-tube |
+ * | Flip-top bottle | toner | flip-top |
+ * | (unused today) Spray mister | — | spray-mister |
+ * | (unused today) Roll-on | — | roll-on |
+ * | (unused today) Stick tube | — | stick-tube |
+ * | (unused today) Compact | — | compact |
+ * | (unused today) Eye-cream tube | — | squeeze-tube-eye |
  *
- * `cleanser` is genuinely ambiguous in the source table — it's listed under
- * both the pump bottle and the squeeze-tube groups, since real cleansers ship
- * in both. Assigned to the pump-bottle group here, since that's the more
- * common shape for the liquid/gel cleansers this catalogue actually has
- * ("nettoyant moussant visage", "Low pH good morning gel cleanser") — a foam
- * cleanser specifically would want the tube, but `ProductType` doesn't
- * distinguish the two.
+ * The "unused today" row is recorded, not deleted, the same way the
+ * previous set's unused container groups were — ready for the day the
+ * catalogue carries a `category` finer than `ProductType` (mist, roll-on,
+ * stick, compact/makeup, eye cream all have no `ProductType` of their own
+ * yet) without reworking this file.
+ *
+ * `ampoule` and `sunscreen` each get their own dedicated icon now — the
+ * previous set didn't have shapes distinct enough to give them one, so both
+ * borrowed a neighboring container's file. `hand-cream` no longer shares
+ * sunscreen's file either, for the same reason.
+ *
+ * `cleanser` is genuinely ambiguous in the source reference — real
+ * cleansers ship in both pump bottles and squeeze tubes. Assigned to the
+ * pump-bottle group here, since that's the more common shape for the
+ * liquid/gel cleansers this catalogue actually has ("nettoyant moussant
+ * visage", "Low pH good morning gel cleanser") — a foam cleanser
+ * specifically would want the tube, but `ProductType` doesn't distinguish
+ * the two.
  *
  * `unknown` (a product whose type genuinely couldn't be determined — see
  * `data/types.ts`) gets the same fallback as a `ProductType` we've simply
@@ -46,31 +57,29 @@ import type { ProductType } from "@/data/types";
  * what's known the way showing "Serum" as text would.
  */
 
-const GLASS_DROPPER = ["illustration-03.png", "illustration-04.png"];
-const TALL_PUMP = ["illustration-05.png", "illustration-15.png", "illustration-36.png"];
-const WIDE_JAR = ["illustration-07.png"];
-const SQUEEZE_TUBE = ["illustration-12.png"];
-const FLAT_BOTTLE = ["illustration-14.png"];
+const GLASS_DROPPER = ["bottle-dropper.png", "bottle-dropper-round.png"];
+const AMPOULE = ["bottle-ampoule-vial.png"];
+const PUMP = ["bottle-pump.png", "bottle-pump-tall.png"];
+const JAR = ["bottle-jar.png", "bottle-pot-spatula.png"];
+const SUNSCREEN = ["bottle-sunscreen.png"];
+const SQUEEZE_TUBE = ["bottle-squeeze-tube.png"];
+const FLIP_TOP = ["bottle-flip-top.png"];
 
 /** The fallback everything else — including `unknown` — resolves to. */
-const FALLBACK = TALL_PUMP[0];
+const FALLBACK = PUMP[0];
 
 const CONTAINER_BY_TYPE: Record<ProductType, string[]> = {
   serum: GLASS_DROPPER,
-  ampoule: GLASS_DROPPER,
   essence: GLASS_DROPPER,
-  cleanser: TALL_PUMP,
-  "body-wash": TALL_PUMP,
-  "body-lotion": TALL_PUMP,
-  moisturizer: WIDE_JAR,
-  // Kept as its own key, not merged into hand-cream's, even though both
-  // resolve to the same file today — see the module doc's "Known gap":
-  // a sun-marked variant can replace this one line without touching
-  // hand-cream's.
-  sunscreen: SQUEEZE_TUBE,
+  ampoule: AMPOULE,
+  cleanser: PUMP,
+  "body-wash": PUMP,
+  "body-lotion": PUMP,
+  moisturizer: JAR,
+  sunscreen: SUNSCREEN,
   "hand-cream": SQUEEZE_TUBE,
-  toner: FLAT_BOTTLE,
-  unknown: TALL_PUMP,
+  toner: FLIP_TOP,
+  unknown: PUMP,
 };
 
 /**
@@ -120,14 +129,16 @@ export function productIllustration(product: {
  * is exactly what `expo-image`'s `source` prop accepts alongside `{ uri }`.
  */
 export const ILLUSTRATION_SOURCE: Record<string, number> = {
-  "illustration-03.png": require("@/assets/illustrations/illustration-03.png"),
-  "illustration-04.png": require("@/assets/illustrations/illustration-04.png"),
-  "illustration-05.png": require("@/assets/illustrations/illustration-05.png"),
-  "illustration-07.png": require("@/assets/illustrations/illustration-07.png"),
-  "illustration-12.png": require("@/assets/illustrations/illustration-12.png"),
-  "illustration-14.png": require("@/assets/illustrations/illustration-14.png"),
-  "illustration-15.png": require("@/assets/illustrations/illustration-15.png"),
-  "illustration-36.png": require("@/assets/illustrations/illustration-36.png"),
+  "bottle-dropper.png": require("@/assets/illustrations/bottle-dropper.png"),
+  "bottle-dropper-round.png": require("@/assets/illustrations/bottle-dropper-round.png"),
+  "bottle-ampoule-vial.png": require("@/assets/illustrations/bottle-ampoule-vial.png"),
+  "bottle-pump.png": require("@/assets/illustrations/bottle-pump.png"),
+  "bottle-pump-tall.png": require("@/assets/illustrations/bottle-pump-tall.png"),
+  "bottle-jar.png": require("@/assets/illustrations/bottle-jar.png"),
+  "bottle-pot-spatula.png": require("@/assets/illustrations/bottle-pot-spatula.png"),
+  "bottle-sunscreen.png": require("@/assets/illustrations/bottle-sunscreen.png"),
+  "bottle-squeeze-tube.png": require("@/assets/illustrations/bottle-squeeze-tube.png"),
+  "bottle-flip-top.png": require("@/assets/illustrations/bottle-flip-top.png"),
 };
 
 /** What a caller actually renders — resolves a real-photo URI or a local file key alike. */

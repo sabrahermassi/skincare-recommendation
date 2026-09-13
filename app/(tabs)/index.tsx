@@ -403,7 +403,7 @@ function BarcodeStage({
 
       {permission?.granted && status.kind === "idle" && (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Viewfinder />
+          <Viewfinder insets={insets} />
         </View>
       )}
 
@@ -442,12 +442,10 @@ function BarcodeStage({
             style={{ color: withAlpha(CANVAS, 0.5) }}
             className="text-center text-xs leading-4"
           >
-            Or close the scanner and find the product in Browse.
+            Or find the product in Browse instead.
           </Text>
         </View>
       )}
-
-      <ScannerTopRow insets={insets} />
 
       {/* Status, then the switcher, stacked off the bottom edge. Rises by
           `keyboardHeight` while the name field below is focused, so the
@@ -547,41 +545,6 @@ function BarcodeStage({
 }
 
 /**
- * The way out, top-left on every mode's stage. Used to also carry the
- * profile summary on the right — dropped as redundant with the Profile tab
- * already in the bottom navigation, so this is just the close control now.
- */
-function ScannerTopRow({ insets }: { insets: { top: number } }) {
-  return (
-    <View style={{ position: "absolute", top: insets.top + 8, left: 16 }}>
-      <Pressable
-        onPress={() => router.push("/browse")}
-        accessibilityRole="button"
-        accessibilityLabel="Close the scanner"
-        hitSlop={10}
-        style={{
-          height: 44,
-          width: 44,
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 22,
-          backgroundColor: withAlpha(CAMERA_STAGE, 0.55),
-        }}
-      >
-        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-          <Path
-            d="M6 6l12 12M18 6L6 18"
-            stroke={COLORS.canvas}
-            strokeWidth={2.2}
-            strokeLinecap="round"
-          />
-        </Svg>
-      </Pressable>
-    </View>
-  );
-}
-
-/**
  * Label photo's stage — full screen and dark, exactly like Barcode's, so
  * switching modes never changes the size of the scanner. It used to be a
  * 293pt card in a scrollable light page, which shrank the whole screen down
@@ -602,14 +565,12 @@ function FullScreenPane({
       <View
         style={{
           flex: 1,
-          paddingTop: insets.top + 64,
+          paddingTop: insets.top + 24,
           paddingBottom: Math.max(20, insets.bottom + 12) + 64,
         }}
       >
         {children}
       </View>
-
-      <ScannerTopRow insets={insets} />
 
       <View
         style={{
@@ -795,10 +756,21 @@ function UnknownProductNote({ barcode }: { barcode: string }) {
  * fixed 236×150 box floated in the middle, which put the frame in a different
  * place on every screen width.
  */
-function Viewfinder() {
+// The floating mode switcher's own pill height (see ModeSwitcher's
+// `floating` style) plus the same bottom offset its wrapping View uses
+// (`Math.max(20, insets.bottom + 12)`) and a margin above it — this frame
+// used to be measured off a 293pt card that no longer exists (the stage is
+// full-bleed now), so a fixed bottom inset put the frame's bottom edge, and
+// its instruction text, underneath the switcher rather than clear of it.
+const SWITCHER_HEIGHT = 52;
+const FRAME_MARGIN_ABOVE_SWITCHER = 24;
+
+function Viewfinder({ insets }: { insets: { top: number; bottom: number } }) {
   const corner = "absolute h-8 w-8 border-[#FDFCFA]";
+  const bottomInset =
+    Math.max(20, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
   return (
-    <View style={{ position: "absolute", top: 29, bottom: 71, left: 33, right: 33 }}>
+    <View style={{ position: "absolute", top: insets.top + 24, bottom: bottomInset, left: 33, right: 33 }}>
       <View className={`${corner} left-0 top-0 rounded-tl-lg border-l-[3px] border-t-[3px]`} />
       <View className={`${corner} right-0 top-0 rounded-tr-lg border-r-[3px] border-t-[3px]`} />
       <View className={`${corner} bottom-0 left-0 rounded-bl-lg border-b-[3px] border-l-[3px]`} />

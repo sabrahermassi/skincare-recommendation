@@ -2,12 +2,15 @@ import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Modal, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
-import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
+// TERRACOTTA is otherwise a FOR.ME shell-only token (see shared.tsx's own
+// header comment) — reused here specifically because "match the quiz's
+// selected-chip color" was an explicit request, not a guess at a value.
+import { TERRACOTTA } from "@/components/shell/shared";
 import type {
   BaseSkinType,
   Concern,
@@ -86,27 +89,23 @@ export default function ProfileScreen() {
 
   const [draft, setDraft] = useState<SkinProfile>(storedProfile);
   const [expanded, setExpanded] = useState<SectionKey | null>(null);
-  // Gates `resetApp()` behind a second, explicit tap. This is the one
-  // irreversible action on this screen — it wipes the profile, the saved
-  // shelf and the whole history, then clears AsyncStorage so the wipe
-  // survives a relaunch — so a single mis-tap must not be able to trigger
-  // it. An inline confirm rather than `Alert.alert`: nothing else in this
-  // codebase uses Alert, and this app treats web as first-class, where
-  // Alert's behavior on this React Native Web version isn't established.
-  const [confirmingReset, setConfirmingReset] = useState(false);
-  // Same inline-confirm reasoning as `confirmingReset` below, gating the
-  // back chevron instead of the reset link: the new expand-in-place editors
-  // make it easy to tap a couple of chips and then reflexively tap back,
-  // which used to discard that draft with no warning at all.
+  // Gates `resetApp()` behind a second, explicit tap in a real Modal — this
+  // is the one irreversible action on this screen (wipes the profile, the
+  // saved shelf and the whole history, then clears AsyncStorage so the wipe
+  // survives a relaunch), so a single mis-tap must not be able to trigger it.
+  const [confirmingErase, setConfirmingErase] = useState(false);
+  // Gates the back chevron instead: the new expand-in-place editors make it
+  // easy to tap a couple of chips and then reflexively tap back, which used
+  // to discard that draft with no warning at all.
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   // Tab screens stay mounted across a switch, so without this, confirming
   // partway, tapping another tab and coming back would still show "Erase
-  // everything?" (or "Discard changes?") with no reminder of what was being
+  // your profile?" (or "Discard changes?") with no reminder of what was being
   // confirmed.
   useFocusEffect(
     useCallback(() => {
       return () => {
-        setConfirmingReset(false);
+        setConfirmingErase(false);
         setConfirmingDiscard(false);
       };
     }, [])
@@ -375,48 +374,94 @@ export default function ProfileScreen() {
           </View>
         </Section>
 
-        <PrimaryButton variant="outline" label="Retake the quiz" onPress={() => router.replace("/onboarding")} />
-
         {/*
-          Distinct from "Retake the quiz", which keeps your shelf and history.
-          This is the way back to a genuinely first-run app - needed precisely
-          because persistence works: once onboarding is done it stays done.
+          "Retake the quiz" is gone — every section above is already
+          individually editable in place, so a separate full-quiz replay
+          button was doing nothing a section's own "Edit" doesn't already do.
+          This is now the one remaining irreversible action on the screen: it
+          wipes the profile, the saved shelf and the whole history, then
+          clears AsyncStorage so the wipe survives a relaunch — hence the
+          real confirmation modal below rather than a single tap.
         */}
-        {confirmingReset ? (
-          <View style={{ alignItems: "center", gap: 8, paddingVertical: 4 }}>
-            <Text style={{ textAlign: "center", fontSize: 11, lineHeight: 15, color: MUTED }}>
+        <Pressable
+          onPress={() => setConfirmingErase(true)}
+          style={{
+            minHeight: 52,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 26,
+            borderWidth: 1,
+            borderColor: DANGER,
+          }}
+          className="active:opacity-70"
+        >
+          <Text style={{ fontSize: 15, fontWeight: "500", color: DANGER }}>Erase my profile</Text>
+        </Pressable>
+      </ScrollView>
+
+      <Modal
+        visible={confirmingErase}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmingErase(false)}
+      >
+        <Pressable
+          onPress={() => setConfirmingErase(false)}
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(36,31,30,0.45)",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingHorizontal: 32,
+          }}
+        >
+          {/* Swallows its own tap so tapping the card doesn't also hit the
+              scrim's onPress behind it and dismiss the confirmation. */}
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{ width: "100%", maxWidth: 340, borderRadius: 20, backgroundColor: SURFACE, padding: 24, gap: 16 }}
+          >
+            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 19, color: INK }}>
+              Are you sure?
+            </Text>
+            <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>
               This erases your profile, shelf and history. It can&apos;t be undone.
             </Text>
-            <View style={{ flexDirection: "row", gap: 20 }}>
-              <Pressable onPress={() => setConfirmingReset(false)} hitSlop={8}>
-                <Text style={{ fontSize: 11, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-                  Cancel
-                </Text>
-              </Pressable>
+            <View style={{ gap: 10 }}>
               <Pressable
                 onPress={() => {
+                  setConfirmingErase(false);
                   resetApp();
                   router.replace("/onboarding");
                 }}
-                hitSlop={8}
+                style={{
+                  minHeight: 48,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 24,
+                  backgroundColor: DANGER,
+                }}
+                className="active:opacity-90"
               >
-                <Text style={{ fontSize: 11, fontWeight: "600", color: DANGER, textDecorationLine: "underline" }}>
-                  Erase everything
-                </Text>
+                <Text style={{ fontSize: 14.5, fontWeight: "600", color: SURFACE }}>Yes, delete my profile</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setConfirmingErase(false)}
+                style={{
+                  minHeight: 48,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 24,
+                  borderWidth: 1,
+                  borderColor: BORDER_INACTIVE,
+                }}
+              >
+                <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Cancel</Text>
               </Pressable>
             </View>
-          </View>
-        ) : (
-          <Pressable
-            onPress={() => setConfirmingReset(true)}
-            style={{ alignItems: "center", paddingVertical: 4 }}
-          >
-            <Text style={{ fontSize: 11, fontWeight: "600", color: DANGER, textDecorationLine: "underline" }}>
-              Start over - erase my profile, shelf and history
-            </Text>
           </Pressable>
-        )}
-      </ScrollView>
+        </Pressable>
+      </Modal>
 
       {dirty && (
         <View
@@ -500,7 +545,7 @@ function ProfileChip({
         justifyContent: "center",
         borderRadius: RADIUS_SELECTOR,
         borderWidth: selected ? 1.5 : 1,
-        borderColor: selected ? INK : BORDER_INACTIVE,
+        borderColor: selected ? TERRACOTTA : BORDER_INACTIVE,
         backgroundColor: selected ? SELECTED : CANVAS,
         opacity: disabled ? 0.4 : 1,
       }}
