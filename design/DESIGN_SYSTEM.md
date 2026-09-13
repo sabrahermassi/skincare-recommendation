@@ -25,7 +25,7 @@ files. Import from the token module; if a value you need isn't there, add it the
 
 | Token | Hex | Contrast on canvas | Used for |
 |---|---|---|---|
-| `CANVAS` | `#FBF4EE` | — | screen background — flat, no pattern, no panels |
+| `CANVAS` | `#FBF6EE` | — | screen background — flat, no pattern, no panels |
 | `SURFACE` | `#FFFFFF` | — | raised card fill |
 | `INK` | `#241F1E` | 15:1 | headlines, body copy, button text, active progress dots |
 | `MUTED` | `#6B5A54` | 6.0:1 | secondary copy, plain-text secondary actions |
@@ -82,10 +82,26 @@ file's reasoning, not to pick a new hex.
 - **Playfair Display**, weight 500 — headlines only.
 - **System sans** (`-apple-system, "SF Pro Text", system-ui`) — everything else.
 
+**Correction (post-redesign):** the table below is this file's original spec, written
+against the two onboarding handoffs named in Provenance. What actually shipped diverged on
+two points, both later, deliberate decisions rather than drift to silently paper over:
+
+- **The onboarding carousel's screen headline renders in Cormorant Garamond
+  (`CormorantGaramond_500Medium`, `components/shell/shared.tsx`'s `FONT.headline`), not
+  Playfair Display.** This followed `design-watercolor/FOR_ME_Onboarding_Design_Spec.md`, a
+  later handoff not listed in this file's own Provenance table. Playfair Display is still
+  real and still used — the product screen, and the quiz's own question headline
+  (`PlayfairDisplay_600SemiBold`, hardcoded directly in `components/QuizScreen.tsx` rather
+  than read from a shared constant) — just not by the carousel this section originally
+  described.
+- **The "Onboarding wordmark" row no longer applies.** A later redesign removed the
+  wordmark and heart from every onboarding screen entirely — branding now lives on the app
+  icon and the tab-bar mark only (`components/icons/HeartMark.tsx`), not as text on any
+  onboarding screen. There is nothing to size or color here any more.
+
 | Role | Size | Weight | Line-height | Tracking |
 |---|---|---|---|---|
-| Onboarding wordmark | 40 | 500 | 1 | −.018em |
-| Screen headline (carousel) | 30 | 500 | 1.08 | −.018em |
+| Screen headline (carousel) — **Cormorant Garamond 500, see correction above** | 30 | 500 | 1.08 | −.018em |
 | Tagline / supporting copy | 15 (single-screen) / 14.5 (carousel) | 400 | 1.5 | — |
 | Icon label | 12 | 600 | normal | −.004em |
 | Button label | 15 | 500 | normal | — |
@@ -93,7 +109,8 @@ file's reasoning, not to pick a new hex.
 
 Playfair Display 500 is already bundled and loaded in `app/_layout.tsx`
 (`PlayfairDisplay_500Medium`) — no new font work needed. Use the exact `fontFamily` string
-`"PlayfairDisplay_500Medium"`.
+`"PlayfairDisplay_500Medium"` for the screens that do use it (see correction above for which
+ones currently don't).
 
 **Extension — quiz question headline** (added here, not one-offed in the quiz screens):
 Playfair Display 500, **26px**, `line-height: 1.15` (~30), `letter-spacing: -.018em`, ink.
@@ -120,7 +137,7 @@ recalculated for this size/line-height at up to two lines).
 ## Screen skeleton
 
 Both onboarding screens are a single full-screen column (`flex-direction: column`,
-`background: #FBF4EE`) built from **elastic spacers with explicit weights**, not equal
+`background: #FBF6EE`) built from **elastic spacers with explicit weights**, not equal
 `flex:1` spacers and not auto-margins:
 
 | Screen | Spacer weights | Resolves to (375×812) |
@@ -320,7 +337,6 @@ All of these read `VERDICT` from `lib/tokens.ts`; none carries its own copy:
 |---|---|
 | `app/product/[id].tsx` | verdict panel — `tint` background, `solid` border, `deep` text |
 | `components/ScoreRing.tsx` | ring track is `tint`, fill is `solid` |
-| `components/MatchBadge.tsx` | unused today, but reads the tokens so it can't drift |
 
 **The five score bands collapse onto three tones.** `Verdict` has five values because the
 MVP's `SCORE_BANDS` do; there are three colours because that is how many a person can tell
