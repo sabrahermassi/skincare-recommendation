@@ -1,18 +1,10 @@
 import { Image } from "expo-image";
 import { useState } from "react";
-import { Pressable, View, useWindowDimensions, type LayoutChangeEvent } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { Text } from "@/components/Text";
-import { BrandLockup, wordmarkBoxBelowInk } from "@/components/shell/BrandLockup";
-import { CANVAS, CHARCOAL, FONT, H_PADDING, MUTED, PrimaryButton, ProgressDots } from "@/components/shell/shared";
+import { CANVAS, CHARCOAL, FONT, H_PADDING, PrimaryButton, ProgressDots, TERRACOTTA } from "@/components/shell/shared";
 
-// NOTE: pixel-measuring design-watercolor/onboarding screen 1.png found the
-// wordmark's own leftmost ink (in its top band, 11-14% of screen height —
-// the top of the "f" stem, before its tail loops down-left) sits at 17-22%
-// of screen width, not the ~7% the loop's tail swings down/left to. That
-// repositioning (from the current H_PADDING-based left edge to a ~17%-based
-// one) is a separate, not-yet-applied change — paused mid-edit pending
-// confirmation, tracked here rather than silently dropped.
 const HEADLINE_SIZE = 44;
 const BODY_SIZE = 17;
 
@@ -33,22 +25,14 @@ const BODY_SIZE = 17;
  * flex flow to keep things from drifting.
  */
 const BANDS = {
-  wordmark: { top: 10.4, bottom: 14.2 },
-  // top matches wordmark.top exactly, per explicit "same level as the
-  // wordmark" request — was 13.9, its own independently-tuned value.
-  skip: { top: 10.4, bottom: 15.8 },
-  // top nudged from 21.3 to 23.8: the wordmark's own font-size grew across
-  // several rounds (44 -> 52 -> ... -> 111, then back down some) after
-  // these bands were first measured against a much smaller wordmark. A
-  // later attempt pushed this to 31 to make room for the tagline, which
-  // was reverted — illustration size is explicitly off-limits, so the
-  // wordmark/tagline space crunch this band's own comment used to describe
-  // is resolved inside BrandLockup.tsx only (a smaller wordmark), not by
-  // taking room from the hero image.
-  // Then 23.8/67.9 -> 21.9/66.0 (same height, box moved up 1.9%), paired
-  // with ILLUSTRATION_SCALE below, per explicit request to match the
-  // reference: art starts ~3% of screen height higher and is ~5% bigger.
-  illustration: { top: 21.9, bottom: 66.0 },
+  // The wordmark/heart lockup that used to anchor this band moved to the
+  // splash (components/splash/BrandSplash.tsx) — branding no longer lives
+  // on onboarding at all. Skip moved up into the space that freed (was
+  // 10.4/15.8, matched to the old wordmark's own top), and the illustration
+  // was given the rest of it (was 21.9/66.0) rather than leaving a bare gap
+  // at the top of every screen.
+  skip: { top: 6.0, bottom: 11.4 },
+  illustration: { top: 13.0, bottom: 66.0 },
   headline: { top: 68.8, bottom: 79.0 },
   copy: { top: 80.7, bottom: 85.3 },
   dots: { top: 87.4, bottom: 88.8 },
@@ -63,12 +47,6 @@ function bandHeight(band: { top: number; bottom: number }) {
   return pct(band.bottom - band.top);
 }
 
-/** Minimum breathing room between the header's actual measured bottom edge
- *  and wherever the illustration is allowed to start. */
-const HEADER_SAFETY_GAP_PX = 8;
-/** Painted above the illustration regardless of layout — belt-and-braces
- *  alongside the reserved-space fix below, per explicit request for both. */
-const HEADER_Z_INDEX = 10;
 /** Screens 2/3's art already spans the full screen width, so "5% bigger"
  *  has to scale the image itself — the PNGs' 5-8% transparent side margins
  *  are what go off-screen, not artwork. */
@@ -116,8 +94,8 @@ type OnboardingShellProps = {
 };
 
 /**
- * Owns the entire onboarding flow's chrome — wordmark, Skip, the
- * hero/headline/copy content, dots, and the CTA — as ONE persistent tree,
+ * Owns the entire onboarding flow's chrome — Skip, the hero/headline/copy
+ * content, dots, and the CTA — as ONE persistent tree,
  * not one instance per screen. Only the hero/headline/copy region reads
  * `screens[activeIndex]` and re-renders in place when it changes; the
  * header and footer (dots + button) are written unconditionally, so they
@@ -129,69 +107,10 @@ type OnboardingShellProps = {
  */
 export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: OnboardingShellProps) {
   const [skipPressed, setSkipPressed] = useState(false);
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  // Measured actual bottom edge of the wordmark/tagline block (in px, via
-  // onLayout below — RN's layout.y is already relative to this component's
-  // own root View, so it's the on-screen position directly, no separate
-  // top-offset bookkeeping needed). null until the first layout pass runs;
-  // the illustration falls back to its band position until then, which
-  // matches what it always did before this existed.
-  const [headerBottomPx, setHeaderBottomPx] = useState<number | null>(null);
-
-  function onHeaderLayout(e: LayoutChangeEvent) {
-    const { y, height } = e.nativeEvent.layout;
-    setHeaderBottomPx(y + height);
-  }
-
   const screen = screens[activeIndex];
-
-  // Explicit request, two mitigations: (1) HEADER_Z_INDEX below paints the
-  // header in front of the illustration regardless of layout, so overlap
-  // is never visible even if it happens; (2) this is the actual structural
-  // fix — the illustration's own top/height are computed from the header's
-  // REAL measured size, not just a fixed percentage tuned by hand against
-  // one specific wordmark size (which is exactly how the wordmark growing
-  // across several rounds kept silently eating into the illustration's
-  // space until it visibly collided). Math.max keeps the illustration at
-  // its normal band position whenever the header is short enough to fit,
-  // and only pushes it down when the header actually needs more room.
-  // Clears the "f"'s visible ink, not the header's layout box: the box
-  // reaches ~16px below the ink (empty font line-box space), and clearing
-  // the box held the illustration lower than requested.
-  const bandIllustrationTopPx = (BANDS.illustration.top / 100) * windowHeight;
-  const wordmarkInkBottomPx = headerBottomPx != null ? headerBottomPx - wordmarkBoxBelowInk(windowWidth) : null;
-  const illustrationTopPx =
-    wordmarkInkBottomPx != null
-      ? Math.max(bandIllustrationTopPx, wordmarkInkBottomPx + HEADER_SAFETY_GAP_PX)
-      : bandIllustrationTopPx;
-  const bandIllustrationBottomPx = (BANDS.illustration.bottom / 100) * windowHeight;
-  const illustrationHeightPx = Math.max(0, bandIllustrationBottomPx - illustrationTopPx);
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      {/* Left-aligned at the same content edge as the hero/headline/button
-          below (H_PADDING) — the reference screenshot's own "~17% from left
-          edge" reading is where the rendered script glyph's ink begins, not
-          this container's edge. The 9pt pullback matches BrandLockup's own
-          paddingLeft-9 clip-clearance fix for the "f" flourish (RN's native
-          Text clips glyph overshoot at the text's own box edge — see that
-          component for the full explanation), keeping the visible letters
-          aligned with H_PADDING like everything else while giving the
-          flourish room to render without being cut off.
-          onLayout is what drives illustrationTopPx above — this View's
-          children (BrandLockup's wordmark+tagline) are in normal flow, so
-          its own measured height genuinely reflects how tall the lockup
-          rendered, unlike a wrapper whose children are all
-          position:"absolute" (which report zero height regardless of
-          their content). zIndex is the first of the two requested
-          overlap mitigations. */}
-      <View
-        onLayout={onHeaderLayout}
-        style={{ position: "absolute", top: pct(BANDS.wordmark.top), left: H_PADDING - 9, zIndex: HEADER_Z_INDEX }}
-      >
-        <BrandLockup />
-      </View>
-
       <Pressable
         onPress={onSkip}
         onPressIn={() => setSkipPressed(true)}
@@ -206,20 +125,21 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
           alignItems: "center",
           justifyContent: "center",
           opacity: skipPressed ? 0.6 : 1,
-          zIndex: HEADER_Z_INDEX,
         }}
       >
-        {/* Same font+size as the supporting-copy text (BODY_SIZE, bodyRegular)
-            per explicit request — kept on MUTED grey rather than the copy's
-            CHARCOAL, since Skip is a secondary action, not body content. */}
-        <Text style={{ fontFamily: FONT.bodyRegular, fontSize: BODY_SIZE, color: MUTED }}>Skip</Text>
+        {/* Same font+size as the supporting-copy text (BODY_SIZE, bodyRegular).
+            TERRACOTTA, not the old MUTED grey — that grey cleared AA (5.35:1)
+            but still read as washed-out low-contrast on cream; terracotta is
+            the app's own accent and is unambiguously legible here (6.1:1 on
+            CANVAS). */}
+        <Text style={{ fontFamily: FONT.bodyRegular, fontSize: BODY_SIZE, color: TERRACOTTA }}>Skip</Text>
       </Pressable>
 
       <View
         style={{
           position: "absolute",
-          top: illustrationTopPx,
-          height: illustrationHeightPx,
+          top: pct(BANDS.illustration.top),
+          height: bandHeight(BANDS.illustration),
           left: 0,
           right: 0,
           alignItems: "center",
@@ -306,24 +226,21 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
         ))}
       </View>
 
-      {/* Hidden on screen 1 (activeIndex 0) — per explicit request, dots
-          only appear once the user has advanced past the first screen,
-          starting at position 2 of 3 (activeIndex 1) on screen 2. */}
-      {activeIndex > 0 && (
-        <View
-          style={{
-            position: "absolute",
-            top: pct(BANDS.dots.top),
-            height: bandHeight(BANDS.dots),
-            left: 0,
-            right: 0,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <ProgressDots count={screens.length} activeIndex={activeIndex} />
-        </View>
-      )}
+      {/* Shown on every screen, including the first — per the redesign
+          spec, dots are no longer withheld until the user has advanced. */}
+      <View
+        style={{
+          position: "absolute",
+          top: pct(BANDS.dots.top),
+          height: bandHeight(BANDS.dots),
+          left: 0,
+          right: 0,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ProgressDots count={screens.length} activeIndex={activeIndex} />
+      </View>
 
       <View
         style={{

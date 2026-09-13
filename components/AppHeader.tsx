@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { View } from "react-native";
 
-import { Wordmark } from "@/components/Wordmark";
+import { HeartMark } from "@/components/icons/HeartMark";
 
 /**
  * The masthead, identical on every tab that shows one.
@@ -11,9 +11,15 @@ import { Wordmark } from "@/components/Wordmark";
  * the top of the app resized and recoloured itself as you moved between tabs.
  * It is one component now and takes no size props: that is the point.
  *
- * No app-mark icon any more — just the wordmark. The bracket-and-dropper
- * glyph (`components/LogoMark.tsx`) was an earlier brand's mark specifically
- * and didn't carry over; deleted rather than recoloured, since nothing else
+ * Draws the heart mark, not the script wordmark — the redesign moved the
+ * "for.me" script onto the splash only (`components/splash/BrandSplash.tsx`);
+ * every other brand touchpoint (here, the app icon) uses the same
+ * `HeartMark` glyph instead. `components/Wordmark.tsx` (the script face at
+ * masthead scale) is deleted, not left orphaned — this was its only caller.
+ *
+ * No app-mark icon any more beyond the heart. The bracket-and-dropper glyph
+ * (`components/LogoMark.tsx`) was an earlier brand's mark specifically and
+ * didn't carry over; deleted rather than recoloured, since nothing else
  * referenced it. The "SCAN · ANALYZE · KNOW" strapline (`Eyebrow`, formerly
  * exported alongside `Wordmark`) is gone the same way, per explicit request
  * — deleted rather than left unused.
@@ -36,9 +42,7 @@ export function AppHeader({ right }: { right?: ReactNode }) {
         paddingBottom: 14,
       }}
     >
-      <View style={{ flexShrink: 1 }}>
-        <Wordmark size={39} />
-      </View>
+      <HeartMark size={26} variant="outline" strokeWidth={1.8} />
 
       {right}
     </View>

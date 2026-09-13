@@ -287,6 +287,14 @@ export default function Browse() {
         keyExtractor={(item) => (item.kind === "skeleton" ? item.id : item.kind === "product" ? item.product.id : item.kind)}
         renderItem={renderItem}
         contentContainerStyle={{ paddingBottom: 112 }}
+        // The search box lives in this same list's header, so with the
+        // keyboard up, the default "never" meant a row's first tap only
+        // dismissed the keyboard — the tap was consumed as "outside the
+        // input" rather than reaching the row, so opening a result took two
+        // taps. "handled" lets a tap that lands on an actual interactive
+        // element (a row's Pressable) fire immediately; a tap on genuinely
+        // empty list space still dismisses the keyboard as before.
+        keyboardShouldPersistTaps="handled"
         // The type-filter row (index 1, once ListHeaderComponent claims index
         // 0) sticks while browsing; a search replaces the whole list below
         // the search box, so there's nothing of this screen's own to stick.
