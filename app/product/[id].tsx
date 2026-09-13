@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Share, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
@@ -134,6 +135,7 @@ function ReasonLine({ reason }: { reason: MatchReason }) {
 }
 
 export default function ProductScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [loading, setLoading] = useState(true);
@@ -505,7 +507,10 @@ export default function ProductScreen() {
           bottom: 0,
           paddingHorizontal: 20,
           paddingTop: 12,
-          paddingBottom: 32,
+          // Was a bare 32 — enough on most iPhones, not guaranteed on Android's
+          // gesture bar/nav bar. Grows to clear whatever the device actually
+          // reserves at the bottom, same pattern (tabs)/index.tsx already uses.
+          paddingBottom: Math.max(32, insets.bottom + 12),
           borderTopWidth: 1,
           borderTopColor: BORDER_INACTIVE,
           backgroundColor: CANVAS,

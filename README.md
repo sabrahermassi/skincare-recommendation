@@ -33,14 +33,27 @@ Node.js through Windows Firewall on private networks, or use `npx expo start --t
 ## Layout
 
 ```
-app/                 file-based routes (expo-router)
-  _layout.tsx        root Stack; imports global.css
-  index.tsx          home
-  details.tsx        second screen
-  scan.tsx           barcode scanner
-store/useAppStore.ts skin profile, saved products, onboarding flag
-global.css           tailwind directives
-tailwind.config.js   nativewind preset + content globs
+app/                       file-based routes (expo-router)
+  _layout.tsx               root Stack; font loading, store-hydration gate
+  (tabs)/                    bottom-tab group — the returning-user experience
+    _layout.tsx               tab bar; redirects to onboarding if unseen
+    index.tsx                 Scan — landing tab, barcode/label-photo camera
+    browse.tsx                Browse — searchable product catalogue
+    saved.tsx                 Saved shelf + scan history
+    profile.tsx                skin-profile summary/editor
+  onboarding/
+    index.tsx                 3-screen first-launch carousel
+    (quiz)/                    4-step skin-profile quiz
+  product/[id].tsx            the one product/result screen (scan and browse both land here)
+  result/[id].tsx             re-exports product/[id] — the scanner's own route name for it
+  ingredients/[id].tsx        full ingredient list for a product
+  ingredient/[inci].tsx       single-ingredient detail
+  scan-label.tsx              ingredient-label photo capture (modal)
+store/useAppStore.ts       skin profile, saved products, scan history, onboarding flag
+data/api.ts                 the only data seam — Supabase-backed, sample-data fallback
+lib/                        scoring engine, ingredient rules, design tokens
+global.css                  tailwind directives
+tailwind.config.js          nativewind preset + content globs
 ```
 
 ## Notes

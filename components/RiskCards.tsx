@@ -6,6 +6,7 @@ import type { ProductWithIngredients } from "@/data/types";
 import type { MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
 import { isVerified } from "@/lib/safety";
+import { MUTED_SOFT } from "@/lib/tokens";
 
 /**
  * The two risks people actually ask about, side by side, both computed from
@@ -108,6 +109,20 @@ function RiskCard({
         >
           {title}
         </Text>
+        {/* Same chevron IngredientTabsList uses for the identical "tap this
+            row for detail" affordance — without it, a card reading
+            "Elevated" gave no visual sign that tapping it explains why. */}
+        {onPress && (
+          <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="m9 5 7 7-7 7"
+              stroke={MUTED_SOFT}
+              strokeWidth={2.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        )}
       </View>
       <View style={{ gap: 3 }}>
         <Text className={`font-display text-[21px] leading-[24px] ${style.ink}`}>{level}</Text>
