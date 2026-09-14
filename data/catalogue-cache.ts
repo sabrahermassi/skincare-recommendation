@@ -113,6 +113,24 @@ let diskRead: Promise<MemoryEntry | null> | null = null;
 let diskReadAbandoned = false;
 
 /**
+ * Bumped every time something other than the disk read replaces or clears the
+ * memory layer.
+ *
+ * The disk read captures this before it awaits and checks it before it
+ * installs, because a read that has been given up on can still land — that is
+ * the whole premise of `abandonDiskRead`. By then the network path it made way
+ * for may already have written a *newer* catalogue, and an unconditional
+ * `memory = buildEntry(...)` would replace that with the copy from disk. Every
+ * later read would then serve the old catalogue for the rest of the session,
+ * from a read the app had deliberately stopped waiting for.
+ *
+ * `abandonDiskRead` does not bump it. A late read landing on an untouched
+ * memory layer is still useful, and that was the point of not clearing
+ * `memory` when the timeout won.
+ */
+let catalogueGeneration = 0;
+
+/**
  * Stop waiting on the in-flight disk read and let subsequent reads miss.
  *
  * Called by the splash warm when its timeout wins. Deliberately does not clear
@@ -252,6 +270,9 @@ export async function readCatalogue(): Promise<MemoryEntry | null> {
   if (diskReadAbandoned) return null;
   if (diskRead) return diskRead;
 
+  // Captured before the first await, compared before the install below.
+  const readGeneration = catalogueGeneration;
+
   diskRead = (async () => {
     try {
       const rawMeta = await AsyncStorage.getItem(META_KEY);
@@ -276,6 +297,15 @@ export async function readCatalogue(): Promise<MemoryEntry | null> {
       // network path is right there — so validating down to the fields those
       // consumers actually dereference is enough.
       if (!products.every(isUsableProduct)) return null;
+
+      // Something replaced or cleared the memory layer while this read was in
+      // flight — almost certainly the network fetch that ran because this read
+      // was too slow. Whatever it wrote is newer than what is on disk, so this
+      // result is returned to whoever is still waiting on it but is not
+      // installed. See `catalogueGeneration`.
+      if (readGeneration !== catalogueGeneration) {
+        return buildEntry(products, meta.watermark, meta.storedAt);
+      }
 
       memory = buildEntry(products, meta.watermark, meta.storedAt);
       return memory;
@@ -320,6 +350,7 @@ export function putCatalogue(
   if (products.length === 0) return entry;
 
   memory = entry;
+  catalogueGeneration++;
 
   // Fire and forget: a screen must never wait on a cache write, and a failed
   // write only costs the next cold start a spinner.
@@ -551,6 +582,7 @@ export function addScannedToCatalogue(product: ProductWithIngredients): void {
     : [product, ...memory.products];
 
   memory = buildEntry(products, memory.watermark, memory.storedAt);
+  catalogueGeneration++;
   void persist(memory.products, {
     watermark: memory.watermark,
     storedAt: memory.storedAt,
@@ -567,6 +599,7 @@ export function addScannedToCatalogue(product: ProductWithIngredients): void {
  */
 export function forgetMemoryLayer(): void {
   memory = null;
+  catalogueGeneration++;
   diskRead = null;
   diskReadAbandoned = false;
 }
@@ -587,6 +620,7 @@ export function forgetMemoryLayer(): void {
  */
 export async function resetCatalogueCache(): Promise<void> {
   memory = null;
+  catalogueGeneration++;
   diskRead = null;
   diskReadAbandoned = false;
   checkedThisLaunch = false;

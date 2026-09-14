@@ -163,6 +163,45 @@ describe("disk layer", () => {
    * every later read returns that same never-settling promise and Browse waits
    * on it forever — a launch that recovered into a skeleton that cannot.
    */
+  /**
+   * The other half of abandoning a read: it can still land. By then the
+   * network fetch it made way for may have written a newer catalogue, and an
+   * unconditional install would replace that with the copy from disk — every
+   * later read serving the old catalogue for the rest of the session, from a
+   * read the app had deliberately stopped waiting for.
+   */
+  it("does not let a late disk read overwrite a fresher catalogue", async () => {
+    await AsyncStorage.setItem(
+      "forme-catalogue-meta-v1",
+      JSON.stringify({ watermark: WATERMARK, storedAt: Date.now() }),
+    );
+    await AsyncStorage.setItem("forme-catalogue-v1", JSON.stringify(CATALOGUE));
+
+    let release: (value: string | null) => void = () => {};
+    const real = AsyncStorage.getItem;
+    AsyncStorage.getItem = ((key: string) =>
+      key.includes("meta")
+        ? new Promise<string | null>((resolve) => {
+            release = resolve;
+          })
+        : real(key)) as typeof AsyncStorage.getItem;
+
+    try {
+      const late = readCatalogue();
+      abandonDiskRead();
+
+      // The network path wins the race and installs a newer catalogue.
+      putCatalogue([product("fresh", "serum")], { count: 1, newest: "2026-09-09T00:00:00Z" });
+
+      release(JSON.stringify({ watermark: WATERMARK, storedAt: Date.now() }));
+      await late;
+    } finally {
+      AsyncStorage.getItem = real;
+    }
+
+    expect(peekCatalogue()!.products.map((p) => p.id)).toEqual(["fresh"]);
+  });
+
   it("misses instead of hanging once a stuck read is abandoned", async () => {
     // Swapped by hand rather than with `jest.spyOn`. AsyncStorage is already a
     // module mock, and `mockRestore` on one of those does not give the working
