@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 import type { Verdict } from "./matching";
 
 /**
@@ -195,6 +197,53 @@ export const DANGER = VERDICT.low.deep;
  * for the translucent chrome rather than re-typing the triplet.
  */
 export const CAMERA_STAGE = "#17161B";
+
+/**
+ * The type scale, as raw numbers.
+ *
+ * The mirror of `tailwind.config.js`'s `fontSize` block, and the reasoning for
+ * the six steps lives there rather than being restated here. Keep the two in
+ * sync — the same standing rule the palette carries.
+ *
+ * A mirror rather than a migration to `className` on purpose. Most text in this
+ * app is styled with an inline `fontSize`, and moving all ~130 of them to
+ * utilities would be betting that NativeWind's emitted CSS survives
+ * react-native-web's style compiler. That bet has already been lost once in
+ * this codebase, with `fontFamily` — see the long note in
+ * `components/Text.tsx` about every screen rendering its body copy in Times
+ * New Roman. Numbers are safe where a family was not, but there is no reason
+ * to find out the hard way a second time.
+ *
+ * Migrate a screen at a time. Both mechanisms are valid throughout, so nothing
+ * is half-broken in between:
+ *
+ *   fontSize: 13        ->  fontSize: TYPE.body
+ *   className="text-[11.5px]"  ->  className="text-caption"
+ */
+/**
+ * The minimum height of anything tappable.
+ *
+ * Platform-split on purpose, because the two guidelines disagree and neither
+ * is "the" number: Apple's HIG asks for 44pt, Material for 48dp. Shipping 44
+ * everywhere is the common shortcut and leaves every Android control 4dp short
+ * of its own platform's floor — invisible on the reviewer's iPhone, real on the
+ * device it is wrong on.
+ *
+ * Web is a third answer again (WCAG 2.2 SC 2.5.8 is 24 CSS px, with
+ * exceptions), and `react-native-web` reports as neither iOS nor Android, so it
+ * falls to the `default` branch. 44 there is well above the requirement and
+ * matches what a phone-shaped layout wants anyway.
+ */
+export const TOUCH_TARGET = Platform.select({ ios: 44, android: 48, default: 44 }) as number;
+
+export const TYPE = {
+  caption: 12,
+  label: 14,
+  body: 16,
+  title: 20,
+  heading: 24,
+  display: 34,
+} as const;
 
 /**
  * A token color at partial opacity, as an `rgba()` string — for translucent
