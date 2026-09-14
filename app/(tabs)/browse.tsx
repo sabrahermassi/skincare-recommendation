@@ -195,7 +195,15 @@ export default function Browse() {
         })
         .catch((err) => {
           console.warn("searchProducts failed:", err);
-          if (!cancelled) setSearchResults([]);
+          if (cancelled) return;
+          // A failed request is not an empty catalogue. `effectiveResults`
+          // below reads `searchResults ?? localMatches`, so writing `[]` here
+          // made the failure authoritative: with a warm cache and no network,
+          // matches that were already on screen were replaced by "not in our
+          // library" — the one answer we know to be wrong. Leaving it null
+          // lets the local narrowing stand. Only with no cache to fall back on
+          // does an empty list mean what it says.
+          setSearchResults(localMatches === null ? [] : null);
         })
         .finally(() => {
           if (!cancelled) setSearching(false);
