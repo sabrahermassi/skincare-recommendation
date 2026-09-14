@@ -1,6 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ["./app/**/*.{js,jsx,ts,tsx}", "./components/**/*.{js,jsx,ts,tsx}"],
+  // Must be "class", not the default "media". On web, react-native-css-interop
+  // watches <head> for the stylesheet, then calls colorScheme.set() — which
+  // throws unconditionally when the mode is "media", crashing the app before
+  // first paint. No-op visually: this app ships zero `dark:` variants.
+  darkMode: "class",
   presets: [require("nativewind/preset")],
   theme: {
     extend: {

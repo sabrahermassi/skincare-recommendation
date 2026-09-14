@@ -17,7 +17,7 @@ import { isSensitive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG's `hero`/pill/panel colors
 // (below) are semantic — the per-ingredient verdict, the point of this
@@ -403,7 +403,7 @@ export default function IngredientDetail() {
           </Svg>
         </Pressable>
 
-        <Text style={{ paddingHorizontal: 24, paddingTop: 36, fontSize: 11.5, color: MUTED_FAINT }}>
+        <Text style={{ paddingHorizontal: 24, paddingTop: 36, fontSize: TYPE.caption, color: MUTED_FAINT }}>
           Reference data from Open Beauty Facts and EU CosIng.
         </Text>
       </ScrollView>

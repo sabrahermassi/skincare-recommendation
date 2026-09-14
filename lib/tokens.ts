@@ -51,8 +51,22 @@ export const INK = "#241F1E";
  *  browns that a muted line and a peach surface read as the same weight. */
 export const MUTED = "#6B5A54";
 
-/** Third-level text — meta lines, timestamps, "/100" suffixes. */
-export const MUTED_FAINT = "rgba(107,90,84,0.65)";
+/**
+ * Third-level text — meta lines, timestamps, "/100" suffixes, and the brand
+ * eyebrow on every product row.
+ *
+ * Alpha is 0.88, not the 0.65 this used to be, because all of that is text
+ * carrying information rather than decoration: WCAG 2.2 SC 1.4.3 asks 4.5:1
+ * and 0.65 measured 2.95:1 on SURFACE and 2.85:1 on CANVAS — the brand name,
+ * which is how someone confirms they are looking at the right bottle, was
+ * the first thing to disappear in bright light. 0.88 computes to 4.88:1 on
+ * SURFACE and 4.61:1 on CANVAS; 0.85 clears white but not CANVAS, so it is
+ * the cream ground that sets the floor here.
+ *
+ * Still visibly lighter than MUTED (6.07:1), so the three-level hierarchy
+ * survives. Marks that are *not* text keep MUTED_SOFT below.
+ */
+export const MUTED_FAINT = "rgba(107,90,84,0.88)";
 
 /** Chevrons and other non-text marks that must not compete with a label. */
 export const MUTED_SOFT = "rgba(107,90,84,0.45)";
@@ -177,6 +191,32 @@ export function toneForVerdict(verdict: Verdict): VerdictTone | null {
   if (verdict === "poor") return "low";
   return null; // "unknown" — use VERDICT_NEUTRAL
 }
+
+/**
+ * The word shown for a verdict, everywhere one is shown.
+ *
+ * Keyed by `Verdict`, not by tone, because the tone collapse above is about
+ * *colour* — it exists so a person is not asked to tell four greens apart.
+ * The label has no such limit, and collapsing it too made a list row and the
+ * product screen disagree out loud: an 89 read "Great match" in Browse (via
+ * `VERDICT[tone].label`) and "Good match" on its own screen. Same product,
+ * same score, two words. One map, read by both, is what stops that.
+ *
+ * It also restores what the badge is for. On a list sorted by score, every
+ * row from 75 up carried the identical "Great match" — constant exactly
+ * where the user is choosing between them.
+ *
+ * The wording is the MVP's locked wording, not a paraphrase: the bands are a
+ * product decision the user reads the same way every time, so "Fair match"
+ * rather than the older "Worth a look".
+ */
+export const VERDICT_LABEL: Record<Verdict, string> = {
+  excellent: "Excellent match",
+  good: "Good match",
+  fair: "Fair match",
+  poor: "Poor match",
+  unknown: VERDICT_NEUTRAL.label,
+};
 
 /** Warning text that is not a verdict: flagged-ingredient counts, cautions. */
 export const WARN = VERDICT.medium.deep;

@@ -87,12 +87,36 @@ const SHOW_SOURCE_PHOTOS = false;
  * still open.
  */
 function isIdentifiable(row: CatalogueRow): boolean {
+  // A name that is just digits is the barcode wearing the name's clothes —
+  // imported rows where the source had no title. It renders in Browse and
+  // search as a product called "3606000537750", which no one can recognise
+  // as the bottle in their hand. Same rule as the OCR case below and for the
+  // same reason: findable by id, not offered in a list.
+  if (isBarcodeShapedName(row.name)) return false;
+
   // An absent `source` means the row came from a producer that does not select
   // the column (see `CatalogueRow.source`), not that it is an OCR row. Treating
   // unknown as identifiable is the safe default: the alternative hides real
   // products because of a missing column.
   if (row.source === undefined) return true;
   return !(row.source === "ocr" && row.barcode === null);
+}
+
+/**
+ * A "name" that is only digits (and separators), long enough to be a barcode
+ * rather than a product genuinely called "24" or "100".
+ *
+ * Deliberately not expressed in `IDENTIFIABLE_SQL`: that form exists to keep
+ * `fetchWatermark`'s *count* describing the cached population, and a name
+ * predicate there would make the two forms harder to keep in step for a rule
+ * that is about presentation, not about what the cache holds. The count may
+ * therefore include a few rows the list does not show, which moves the
+ * watermark no more often than it already moves.
+ */
+function isBarcodeShapedName(name: string | null): boolean {
+  if (!name) return false;
+  const bare = name.replace(/[\s-]/g, "");
+  return bare.length >= 6 && /^\d+$/.test(bare);
 }
 
 /**
@@ -797,6 +821,16 @@ export async function resolveIngredientNames(names: string[]): Promise<Ingredien
   }
 }
 
+/**
+ * How many search results any path may return.
+ *
+ * Exported because Browse narrows the cached catalogue itself on every
+ * keystroke and only falls back to this function behind a debounce. If the
+ * two disagree, the list visibly shrinks when the slower answer replaces the
+ * faster one — so both read this.
+ */
+export const SEARCH_RESULT_LIMIT = 20;
+
 export async function searchProducts(query: string): Promise<ProductWithIngredients[]> {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
@@ -809,7 +843,7 @@ export async function searchProducts(query: string): Promise<ProductWithIngredie
           .from("products")
           .select(SELECT)
           .or(`name.ilike.%${escaped}%,brand.ilike.%${escaped}%`)
-          .limit(20)
+          .limit(SEARCH_RESULT_LIMIT)
           .abortSignal(signal),
       "searchProducts",
     );
@@ -822,6 +856,8 @@ export async function searchProducts(query: string): Promise<ProductWithIngredie
     PRODUCTS.filter(
       (p) =>
         p.name.toLowerCase().includes(needle) || p.brand.toLowerCase().includes(needle)
-    ).map(resolveIngredients)
+    )
+      .slice(0, SEARCH_RESULT_LIMIT)
+      .map(resolveIngredients)
   );
 }

@@ -24,7 +24,7 @@ import {
   sensitivityLabel,
 } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, CTA, DANGER, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CTA, DANGER, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md), restyled per
 // design-watercolor/reference.png's "My profile" screen.
@@ -310,7 +310,7 @@ export default function ProfileScreen() {
             selected={draft.concerns.length === 0}
             onPress={() => patch({ concerns: [] })}
           />
-          <Text style={{ fontSize: 10.5, color: MUTED }}>
+          <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
             {atLimit ? `${MAX_CONCERNS} chosen – deselect one to swap.` : `${draft.concerns.length} of ${MAX_CONCERNS} chosen.`}
           </Text>
         </Section>

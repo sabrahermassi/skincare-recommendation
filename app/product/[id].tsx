@@ -27,7 +27,7 @@ import { relativeTime } from "@/lib/format";
 import { isPersonalized } from "@/lib/profile";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SELECTED_STRONG, TYPE, VERDICT, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SELECTED_STRONG, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
 // draw from the shared `PrimaryButton` component's `tone="cta"` — added
@@ -65,22 +65,10 @@ import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SELECTED_STRONG, TYPE
  * on top of the answer.
  */
 
-/**
- * Labels are the MVP's locked wording, not a paraphrase: the four bands are a
- * product decision the user reads the same way every time, so "Fair match"
- * rather than the older "Worth a look". Excellent and good share the sage
- * palette — the label carries the distinction, which keeps the screen from
- * needing a fifth colour that means "yes, but more so".
- */
-// The five bands' display label - the one thing that still needs full
-// per-Verdict granularity, since excellent/good share a tone but not a word.
-const PANEL_LABEL: Record<Verdict, string> = {
-  excellent: "Excellent match",
-  good: "Good match",
-  fair: "Fair match",
-  poor: "Poor match",
-  unknown: VERDICT_NEUTRAL.label,
-};
+// The display label lives in lib/tokens as `VERDICT_LABEL`, with the note on
+// why the wording is locked. It moved there because the browse and saved
+// lists need the same words — they used to take theirs from the tone, which
+// is how an 89 read "Great match" in a list and "Good match" here.
 
 /**
  * Excellent and good are both a yes — they share the green and are told
@@ -93,7 +81,7 @@ function panelFor(verdict: Verdict): { bg: string; border: string; label: string
   const colors = tone
     ? { bg: VERDICT[tone].tint, border: VERDICT[tone].solid, ink: VERDICT[tone].deep }
     : { bg: VERDICT_NEUTRAL.tint, border: BORDER_INACTIVE, ink: VERDICT_NEUTRAL.deep };
-  return { ...colors, label: PANEL_LABEL[verdict] };
+  return { ...colors, label: VERDICT_LABEL[verdict] };
 }
 
 /**

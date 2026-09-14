@@ -12,12 +12,12 @@ import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
 // this FOR.ME shell token is reused outside its original scope.
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
-import { fetchProducts, peekProducts, searchProducts } from "@/data/api";
+import { fetchProducts, peekProducts, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients } from "@/data/types";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized, profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TOUCH_TARGET } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md).
 
@@ -122,6 +122,35 @@ export default function Browse() {
     };
   }, [typeFilter, retryKey]);
 
+  // Narrow the cached catalogue on every keystroke, with no network and no
+  // wait. `peekProducts` is synchronous and already holds the whole
+  // catalogue (it is what the splash warms), so the answer is normally
+  // already on the device — the debounced server search below only has to
+  // catch what the cache is missing. Null means "no cache to search", which
+  // is the one case that still has to wait.
+  //
+  // Capped at `SEARCH_RESULT_LIMIT`, the same number the server applies: the
+  // two answers replace each other, so a wider local list would visibly
+  // shrink when the narrower server one landed. The cap also bounds the
+  // scoring below, which runs over these rows on every keystroke.
+  const localMatches = useMemo(() => {
+    if (!searchActive) return null;
+    const cached = peekProducts("all");
+    if (!cached) return null;
+    const needle = query.trim().toLowerCase();
+    const hits: ProductWithIngredients[] = [];
+    for (const product of cached) {
+      if (
+        product.name.toLowerCase().includes(needle) ||
+        product.brand.toLowerCase().includes(needle)
+      ) {
+        hits.push(product);
+        if (hits.length === SEARCH_RESULT_LIMIT) break;
+      }
+    }
+    return hits;
+  }, [query, searchActive]);
+
   // Debounced the same way the Scan tab's Search pane is: a query per
   // keystroke would hammer the backend for nothing.
   useEffect(() => {
@@ -131,7 +160,13 @@ export default function Browse() {
       return;
     }
     let cancelled = false;
-    setSearching(true);
+    // The previous query's server results do not describe this one, so they
+    // go immediately — `localMatches` covers the gap. Skeletons are only for
+    // a genuinely cold search, where there is no cache to fall back on;
+    // showing them on every keystroke is what made typing feel like it
+    // blanked the list and then thought about it for a second.
+    setSearchResults(null);
+    setSearching(localMatches === null);
     const timer = setTimeout(() => {
       searchProducts(query)
         .then((found) => {
@@ -149,7 +184,7 @@ export default function Browse() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query, searchActive]);
+  }, [query, searchActive, localMatches]);
 
   const scored = useMemo(() => {
     if (!products) return null;
@@ -163,15 +198,20 @@ export default function Browse() {
     return [...withScores].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0));
   }, [products, profile, personalized]);
 
+  // Server results win once they land; until then the local narrowing is
+  // what the list shows, so each keystroke visibly shrinks the results
+  // instead of clearing them.
+  const effectiveResults = searchResults ?? localMatches;
+
   const scoredSearch = useMemo(() => {
-    if (!searchResults) return null;
-    const withScores = searchResults.map((product) => ({
+    if (!effectiveResults) return null;
+    const withScores = effectiveResults.map((product) => ({
       product,
       match: matchProduct(product, profile),
     }));
     if (!personalized) return withScores;
     return [...withScores].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0));
-  }, [searchResults, profile, personalized]);
+  }, [effectiveResults, profile, personalized]);
 
   // Everything the list scrolls, as one flat array — see `BrowseItem`. The
   // type-filter chips are index 0 here and land at index 1 once
@@ -365,7 +405,7 @@ export default function Browse() {
                 )}
               </View>
               {!searchActive && (
-                <Text style={{ fontSize: 11.5, color: MUTED }}>
+                <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
                   {personalized
                     ? `Ranked for ${profileSummary(profile).toLowerCase()}`
                     : "No profile yet - showing unsorted results"}
