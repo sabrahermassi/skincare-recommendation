@@ -3,7 +3,6 @@ import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@
 import {
   abandonDiskRead,
   addScannedToCatalogue,
-  DISK_TTL_MS,
   hasCheckedThisLaunch,
   markCheckedThisLaunch,
   msSinceLastCheck,
@@ -644,10 +643,10 @@ export async function fetchProducts(
     // ceiling: a copy past its TTL is refetched outright rather than checked,
     // which also covers an app the OS has kept alive long enough for the
     // memory layer to outlive the disk window.
+    // No TTL check here any more: `readCatalogue` enforces it for every
+    // fetcher, so a hit is by definition inside the window.
     const cached = await readCatalogue();
-    if (cached && Date.now() - cached.storedAt <= DISK_TTL_MS) {
-      return productsForType(cached, type);
-    }
+    if (cached) return productsForType(cached, type);
 
     // Cold: watermark first, then rows — sequential on purpose.
     //

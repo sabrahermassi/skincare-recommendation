@@ -1,6 +1,8 @@
-Work autonomously through this entire task without pausing for approval between steps. Install any needed packages, edit files, generate assets, and run whatever commands are required, then summarize everything at the end.
+Work autonomously through this entire task without pausing for approval between steps. Edit files, generate assets, and run the build, test and lint commands this project already defines, then summarize everything at the end.
 
-If you encounter an ambiguous decision, make the most reasonable choice consistent with the rest of this spec, note it in your final report, and keep going — do not stop to ask me. Only stop if you hit something genuinely blocking (something you truly cannot proceed past), and if so, explain it clearly and continue with everything else you can do.
+Keep the work inside this repository. **Stop and ask me first** before any of these three, even if it blocks the step you are on: adding, removing or upgrading a dependency; running anything destructive (deleting files you did not create, `git reset --hard`, force-pushing, rewriting history); or anything that changes state outside this checkout (pushing, opening a PR, deploying, calling a paid API, writing to the database). Everything else proceeds without asking.
+
+If you encounter an ambiguous design decision, make the most reasonable choice consistent with the rest of this spec, note it in your final report, and keep going — do not stop to ask me, beyond the three exceptions above. Only stop if you hit something genuinely blocking (something you truly cannot proceed past), and if so, explain it clearly and continue with everything else you can do.
 
 I'm making changes to my React Native / Expo skincare app "for.me". Do everything in code — I do not want to create or export any design assets manually. Where something genuinely cannot be done in code (e.g. a color baked into a bitmap illustration), flag it clearly at the end instead of guessing or silently skipping it.
 

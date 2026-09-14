@@ -230,12 +230,22 @@ function isUsableProduct(value: unknown): value is ProductWithIngredients {
 /**
  * The cached catalogue, or null if there isn't a usable one.
  *
- * Memory first; then disk, once, if the stored copy is inside its TTL. A
- * failure at any point here is not an error the caller should see — a cache
+ * Memory first; then disk, once. Either way the copy has to be inside the 24h
+ * window: the TTL is enforced *here* so that it cannot be forgotten at a call
+ * site. It used to live in `fetchProducts` alone, which meant the three other
+ * fetchers — a product by id, the saved shelf, the type list — would serve a
+ * copy of any age. A phone does not close an app, so "the memory layer has no
+ * expiry while the app is open" and "this data is at most a day old" were two
+ * promises the code could not keep at once.
+ *
+ * A failure at any point here is not an error the caller should see — a cache
  * that cannot be read is a cache miss, and the network path handles it.
  */
 export async function readCatalogue(): Promise<MemoryEntry | null> {
-  if (memory) return memory;
+  // `touchCatalogue` moves `storedAt` forward whenever a freshness check
+  // confirms nothing changed, so this measures time since the copy was last
+  // known good rather than since it was first fetched.
+  if (memory) return Date.now() - memory.storedAt > DISK_TTL_MS ? null : memory;
   // Before the `diskRead` check, not after: the abandoned read is still the
   // one held there, so testing that first would hand it straight back and the
   // flag would never be reached. See `abandonDiskRead`.
@@ -418,6 +428,15 @@ export function productsForType(
  * other read here is async because the disk might be involved, and an async
  * read — however fast — still resolves a tick late, which is one frame of
  * skeleton the user did not need to see.
+ */
+/**
+ * The memory layer as it stands, with no TTL check and no disk read.
+ *
+ * Deliberately the one reader that will hand back a copy past its window:
+ * this exists so the first frame has something to draw (see `peekProducts`),
+ * and a day-old list on screen for the moment before the real read lands is
+ * better than a skeleton. Every caller follows it with a `readCatalogue` path
+ * that will correct it. Do not reach for this to avoid the TTL.
  */
 export function peekCatalogue(): MemoryEntry | null {
   return memory;

@@ -33,10 +33,12 @@ function mockMakeQuery(selectArg: string) {
   // Recorded so `maybeSingle` can honour the id it was asked for. Without it
   // the by-id test passes even when the wrong product comes back.
   let wantedId: string | undefined;
-  const chain = (name: string) => (...args: unknown[]) => {
-    if (name === "eq" && args[0] === "id") wantedId = args[1] as string;
-    return builder;
-  };
+  const chain =
+    (name: string) =>
+    (...args: unknown[]) => {
+      if (name === "eq" && args[0] === "id") wantedId = args[1] as string;
+      return builder;
+    };
   // The range the caller asked for, so the stand-in can actually paginate
   // rather than handing back the whole set for every page — the difference
   // between a pagination test that means something and one that cannot fail.
@@ -56,10 +58,16 @@ function mockMakeQuery(selectArg: string) {
   };
   builder.then = (resolve: (v: unknown) => void) => {
     mockCalls.push(isWatermark ? "watermark" : "rows");
-    const paged = range ? mockProductRows.slice(range[0], range[1] + 1) : mockProductRows;
+    const paged = range
+      ? mockProductRows.slice(range[0], range[1] + 1)
+      : mockProductRows;
     return Promise.resolve(
       isWatermark
-        ? { data: [{ fetched_at: mockNewestFetchedAt }], error: null, count: mockRowCount }
+        ? {
+            data: [{ fetched_at: mockNewestFetchedAt }],
+            error: null,
+            count: mockRowCount,
+          }
         : { data: paged, error: null, count: null },
     ).then(resolve);
   };
@@ -181,7 +189,9 @@ describe("cache hits", () => {
   it("hands back the same array instance for a repeated filter", async () => {
     await fetchProducts();
 
-    expect(await fetchProducts({ type: "serum" })).toBe(await fetchProducts({ type: "serum" }));
+    expect(await fetchProducts({ type: "serum" })).toBe(
+      await fetchProducts({ type: "serum" }),
+    );
   });
 
   it("serves the filter bar's types from the cache instead of querying", async () => {
@@ -259,6 +269,65 @@ describe("the 24h ceiling", () => {
       Date.now = realNow;
     }
   });
+
+  /**
+   * The ceiling used to be enforced at one call site — `fetchProducts` — so
+   * the other three fetchers served a memory entry of any age. A phone does
+   * not close an app, so "no expiry while open" and "at most a day old" were
+   * two promises the code could not keep at once. It now lives in
+   * `readCatalogue`, where no caller can forget it.
+   */
+  it.each([
+    [
+      "a product by id",
+      async () => {
+        await fetchProduct("a");
+      },
+    ],
+    [
+      "the saved shelf",
+      async () => {
+        await fetchProductsByIds(["a"]);
+      },
+    ],
+    [
+      "the type list",
+      async () => {
+        await fetchProductTypes();
+      },
+    ],
+  ] as const)(
+    "does not serve %s from a copy past the window",
+    async (_label: string, read: () => Promise<void>) => {
+      await fetchProducts();
+      mockCalls.length = 0;
+
+      const realNow = Date.now;
+      Date.now = () => realNow() + DISK_TTL_MS + 1;
+      try {
+        await read();
+        expect(mockCalls).not.toEqual([]);
+      } finally {
+        Date.now = realNow;
+      }
+    },
+  );
+
+  /**
+   * `peekCatalogue` is the deliberate exception, and the splash depends on it:
+   * a day-old list for the frame before the real read lands beats a skeleton.
+   */
+  it("still lets the first frame paint from an expired copy", async () => {
+    await fetchProducts();
+
+    const realNow = Date.now;
+    Date.now = () => realNow() + DISK_TTL_MS + 1;
+    try {
+      expect(peekCatalogue()).not.toBeNull();
+    } finally {
+      Date.now = realNow;
+    }
+  });
 });
 
 describe("rows nobody can identify", () => {
@@ -271,7 +340,13 @@ describe("rows nobody can identify", () => {
   it("keeps barcode-less OCR rows out of Browse and search", async () => {
     mockProductRows = [
       row("a"),
-      { ...row("ghost"), source: "ocr", barcode: null, brand: "Unknown", name: "Scanned product" },
+      {
+        ...row("ghost"),
+        source: "ocr",
+        barcode: null,
+        brand: "Unknown",
+        name: "Scanned product",
+      },
     ];
     mockRowCount = 2;
 
@@ -287,7 +362,10 @@ describe("rows nobody can identify", () => {
     mockProductRows = [row("a"), { ...row("real"), source: "ocr" }];
     mockRowCount = 2;
 
-    expect((await fetchProducts()).map((p) => p.id).sort()).toEqual(["a", "real"]);
+    expect((await fetchProducts()).map((p) => p.id).sort()).toEqual([
+      "a",
+      "real",
+    ]);
   });
 
   /**
@@ -296,12 +374,20 @@ describe("rows nobody can identify", () => {
    */
   it("still resolves one by id, so a just-scanned result opens", async () => {
     mockProductRows = [
-      { ...row("ghost"), source: "ocr", barcode: null, brand: "Unknown", name: "Scanned product" },
+      {
+        ...row("ghost"),
+        source: "ocr",
+        barcode: null,
+        brand: "Unknown",
+        name: "Scanned product",
+      },
     ];
     mockRowCount = 1;
 
     expect((await fetchProduct("ghost"))?.id).toBe("ghost");
-    expect((await fetchProductsByIds(["ghost"])).map((p) => p.id)).toEqual(["ghost"]);
+    expect((await fetchProductsByIds(["ghost"])).map((p) => p.id)).toEqual([
+      "ghost",
+    ]);
     // And the stand-in really is keyed on the id, so the assertion above means
     // what it says.
     expect(await fetchProduct("no-such-product")).toBeNull();
@@ -422,7 +508,9 @@ describe("a catalogue larger than one page", () => {
    */
   it("walks every page rather than storing the first one", async () => {
     const total = CATALOGUE_PAGE_SIZE + 25;
-    mockProductRows = Array.from({ length: total }, (_, i) => row(`p${String(i).padStart(5, "0")}`));
+    mockProductRows = Array.from({ length: total }, (_, i) =>
+      row(`p${String(i).padStart(5, "0")}`),
+    );
     mockRowCount = total;
 
     const products = await fetchProducts();
@@ -510,5 +598,7 @@ describe("a label read", () => {
  * this project's tsconfig does not pull in.
  */
 function invokeMock(): { mockResolvedValue: (value: unknown) => void } {
-  return supabase!.functions.invoke as unknown as { mockResolvedValue: (value: unknown) => void };
+  return supabase!.functions.invoke as unknown as {
+    mockResolvedValue: (value: unknown) => void;
+  };
 }
