@@ -19,7 +19,7 @@ import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, CTA, INK, LINE, MUTED, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, CTA, INK, LINE, MUTED, TOUCH_TARGET, withAlpha } from "@/lib/tokens";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -421,7 +421,7 @@ function BarcodeStage({
             <Pressable
               onPress={requestPermission}
               style={{
-                height: 44,
+                height: TOUCH_TARGET,
                 paddingHorizontal: 24,
                 borderRadius: 22,
                 alignItems: "center",
@@ -498,14 +498,15 @@ function BarcodeStage({
               }}
               style={{
                 flex: 1,
+                height: TOUCH_TARGET,
                 alignItems: "center",
+                justifyContent: "center",
                 borderRadius: 999,
-                paddingVertical: 10,
                 backgroundColor: CTA,
               }}
               className="active:opacity-90"
             >
-              <Text style={{ fontSize: 11.5, fontWeight: "600", color: INK }}>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>
                 Photograph the label
               </Text>
             </Pressable>
@@ -513,13 +514,14 @@ function BarcodeStage({
               onPress={onDismissStatus}
               style={{
                 flex: 1,
+                height: TOUCH_TARGET,
                 alignItems: "center",
+                justifyContent: "center",
                 borderRadius: 999,
-                paddingVertical: 10,
                 backgroundColor: withAlpha(CANVAS, 0.2),
               }}
             >
-              <Text style={{ fontSize: 11.5, fontWeight: "600", color: CANVAS }}>Try another</Text>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: CANVAS }}>Try another</Text>
             </Pressable>
           </View>
         )}
@@ -637,7 +639,7 @@ function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
           router.push("/scan-label");
         }}
         style={{
-          height: 44,
+          height: TOUCH_TARGET,
           paddingHorizontal: 24,
           borderRadius: 22,
           alignItems: "center",
@@ -729,7 +731,7 @@ function UnknownProductNote({ barcode }: { barcode: string }) {
         onPress={save}
         disabled={name.trim().length === 0}
         style={{
-          height: 44,
+          height: TOUCH_TARGET,
           opacity: name.trim().length === 0 ? 0.5 : 1,
           alignItems: "center",
           justifyContent: "center",

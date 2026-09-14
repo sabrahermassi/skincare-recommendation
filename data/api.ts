@@ -1,5 +1,22 @@
 import { defaultPackagingType } from "@/components/BottleIcon";
 import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@/lib/supabase";
+import {
+  addScannedToCatalogue,
+  DISK_TTL_MS,
+  hasCheckedThisLaunch,
+  markCheckedThisLaunch,
+  peekCatalogue,
+  productById,
+  productsForType,
+  putCatalogue,
+  putScanned,
+  readCatalogue,
+  readScanned,
+  touchCatalogue,
+  typesFrom,
+  watermarksMatch,
+  type CatalogueWatermark,
+} from "./catalogue-cache";
 import { INGREDIENTS } from "./ingredients";
 import { PRODUCTS } from "./products";
 import type {
@@ -48,6 +65,49 @@ const usingSupabase = () => isSupabaseConfigured && supabase !== null;
 const SHOW_SOURCE_PHOTOS = false;
 
 /**
+ * Whether a row can be matched back to a physical product by anyone other than
+ * the person who created it.
+ *
+ * A label scanned without a barcode is written to the catalogue anyway
+ * (`supabase/functions/label-ocr`, which mints `ocr-<uuid>` when no barcode was
+ * supplied) with the placeholder brand "Unknown" and name "Scanned product".
+ * That row answers the person holding the bottle perfectly — scoring reads the
+ * formula, not the name — but it has no key anyone can reach it by and no words
+ * anyone can recognise it from. In a browsable list it is noise that accrues
+ * with every user and never leaves.
+ *
+ * Filtered at the read boundary rather than only at write, for the same reason
+ * `SHOW_SOURCE_PHOTOS` is: rows written before this existed are already in the
+ * table, and a guarantee that holds regardless of what is stored is worth more
+ * than one that depends on every writer having behaved.
+ *
+ * Deliberately narrow. It excludes these rows from *lists* only — `fetchProduct`
+ * and `fetchProductsByIds` still resolve them, because the scanner navigates
+ * straight to the result it just created, and a saved or logged product must
+ * still open.
+ */
+function isIdentifiable(row: CatalogueRow): boolean {
+  // An absent `source` means the row came from a producer that does not select
+  // the column (see `CatalogueRow.source`), not that it is an OCR row. Treating
+  // unknown as identifiable is the safe default: the alternative hides real
+  // products because of a missing column.
+  if (row.source === undefined) return true;
+  return !(row.source === "ocr" && row.barcode === null);
+}
+
+/**
+ * The same rule as {@link isIdentifiable}, expressed for PostgREST.
+ *
+ * Both forms exist on purpose and must move together. The SQL form keeps the
+ * *count* in `fetchWatermark` describing the same population the cache holds —
+ * without it, one person photographing a label with no barcode changes the
+ * global row count, and every other install then sees a moved watermark and
+ * pulls a full catalogue to render an identical list. The TypeScript form is
+ * what the tests can actually exercise, and it still guards `searchProducts`.
+ */
+const IDENTIFIABLE_SQL = "source.neq.ocr,barcode.not.is.null";
+
+/**
  * Simulated latency for the sample catalog, so loading states are exercised
  * while developing. Development only: it must never delay a real network call
  * in production, and must not run under test, where pending timers slow the
@@ -72,6 +132,34 @@ const LATENCY_MS =
  * would discard work the user waited for.
  */
 const NETWORK_TIMEOUT_MS = 12_000;
+
+/**
+ * How long the splash screen will wait for the cached catalogue to come off
+ * disk before giving up and rendering anyway.
+ *
+ * Generous against the ~130ms this actually measures at on device, because the
+ * only thing it needs to catch is a storage layer that has stopped answering
+ * altogether — and short enough that a user never sits in front of a blank
+ * screen wondering whether the app launched.
+ */
+const WARM_TIMEOUT_MS = 2_000;
+
+// Freshness is checked once per launch, in `warmCatalogue`, and not again —
+// the flag itself lives in the cache module so a reset clears it with
+// everything else (`hasCheckedThisLaunch`).
+//
+// The obvious alternative — check whenever a read finds the cache warm — meant
+// a request per type-filter tap, because Browse asks for products on every
+// filter change. Throttling that on a timer works, but a timer is a proxy for
+// the thing actually wanted, and no interval is defensible: five minutes and an
+// hour behave identically, because sessions are shorter than either.
+//
+// A check is only useful at the start of a session anyway. The catalogue
+// changes overnight, and one that lands mid-session cannot repaint a screen
+// that is already mounted. So it happens exactly once, where it can still
+// change what the first screen renders, and `DISK_TTL_MS` stays the hard
+// ceiling behind it — including for a memory layer kept alive for days by an OS
+// that never killed the app.
 
 /**
  * Rejects if the query built from `attachSignal` has not settled within
@@ -146,6 +234,15 @@ function resolveIngredients(product: Product): ProductWithIngredients {
 type CatalogueRow = {
   id: string;
   barcode: string | null;
+  /**
+   * Optional because one producer of this shape does not return it: the
+   * `product-lookup` Edge Function has its own narrower `SELECT` with no
+   * `source` column, and `fetchProductByBarcode` casts that response to this
+   * type. Declaring it required would be a type that lies — and the lie would
+   * surface as `undefined === "ocr"` quietly evaluating false somewhere.
+   * `isIdentifiable` handles the absent case explicitly.
+   */
+  source?: string;
   brand: string;
   name: string;
   type: string;
@@ -172,7 +269,7 @@ type CatalogueRow = {
 };
 
 const SELECT = `
-  id, barcode, brand, name, type, description, image_url, volume,
+  id, barcode, brand, name, type, source, description, image_url, volume,
   price_krw, in_stock, suitable_for, targets, attribution, fetched_at,
   product_ingredients ( position, ingredients ( inci_name, comedogenic, safety, note, verified, functions ) )
 `;
@@ -234,6 +331,171 @@ export type ProductFilters = {
 };
 
 /**
+ * Pull the disk cache into memory before anything renders.
+ *
+ * Called from the splash gate in `app/_layout.tsx`, which is already waiting
+ * on fonts and store rehydration. Without it, Browse mounts with an empty
+ * memory layer, draws a skeleton, and only then gets the rows back from disk
+ * a tick later — measured at ~130ms on device, which is short but visible.
+ * Doing the read behind the splash makes the first frame of the list the real
+ * list.
+ *
+ * Never throws and never touches the network: a cache that cannot be read
+ * just leaves the app in the state it would have been in anyway.
+ */
+/**
+ * The session's single freshness check, wherever it is reached from.
+ *
+ * Not awaited by any caller: the splash must not wait on the network, and the
+ * only outcomes are "refetch in the background" and "do nothing".
+ */
+function checkFreshnessOnce(known: CatalogueWatermark): void {
+  if (hasCheckedThisLaunch()) return;
+  markCheckedThisLaunch();
+  revalidateCatalogue(known);
+}
+
+export async function warmCatalogue(): Promise<void> {
+  if (!usingSupabase()) return;
+  try {
+    // Bounded, because the splash gate in `app/_layout.tsx` renders nothing
+    // until this resolves. `readCatalogue` swallows its own errors, but a
+    // storage layer that never *answers* would otherwise leave the app on a
+    // blank screen with no error and no retry. Losing the race costs a
+    // skeleton on one screen; the read continues in the background and
+    // populates the memory layer whenever it does land.
+    // The timer is cleared whichever side wins, for the same reason
+    // `withTimeout` clears its own: a pending timer keeps Jest workers alive
+    // after the suite has finished, and on device it holds a closure for two
+    // seconds past a launch that already completed.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const read = readCatalogue();
+    const cached = await Promise.race([
+      read,
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), WARM_TIMEOUT_MS);
+      }),
+    ]).finally(() => clearTimeout(timer));
+
+    if (cached) {
+      checkFreshnessOnce(cached.watermark);
+      return;
+    }
+
+    // The timeout won, or there was nothing cached. Those look identical here
+    // and are not: a slow read still lands, and if it lands with a catalogue
+    // then this launch would otherwise perform no freshness check at all —
+    // because reads no longer check either. Following the read to its end
+    // closes that hole without holding the splash open for it. A genuine miss
+    // resolves null and correctly checks nothing, since the cold fetch that
+    // follows is fresher than any check.
+    void read.then((late) => {
+      if (late) checkFreshnessOnce(late.watermark);
+    }).catch(() => {
+      // `readCatalogue` does not reject; this is belt and braces.
+    });
+  } catch {
+    // Belt and braces — see above.
+  }
+}
+
+/**
+ * Cached rows for a type filter, synchronously, or null if there are none yet.
+ *
+ * The one non-async member of this seam, and it earns the exception: it lets a
+ * screen paint cached products on its first frame instead of showing a
+ * skeleton for a tick while an already-resolved cache resolves a promise. It
+ * never reaches the network and never touches the disk — a miss just means
+ * "ask properly", which every caller already does.
+ *
+ * "Peek" describes what it costs the caller, not strict purity: asking for a
+ * type this session has not filtered by yet builds that filtered array and
+ * keeps it, because the whole point is that the same array instance comes back
+ * next time. The observable result is identical either way.
+ */
+export function peekProducts(
+  type: ProductType | "all" = "all"
+): ProductWithIngredients[] | null {
+  if (!usingSupabase()) return null;
+  const entry = peekCatalogue();
+  return entry ? productsForType(entry, type) : null;
+}
+
+/**
+ * "Has anything changed?" for ~200 bytes instead of ~937KB.
+ *
+ * `fetched_at` is already a column and already in `SELECT`, so this needs no
+ * schema work: the exact row count plus the newest timestamp catches both
+ * kinds of write the importers make — a new product moves the count, a
+ * rewritten formula moves the timestamp. PostgREST returns the count in a
+ * header and `limit(1)` keeps the body to a single date.
+ */
+async function fetchWatermark(): Promise<CatalogueWatermark> {
+  const { data, error, count } = await withTimeout(
+    (signal) =>
+      supabase!
+        .from("products")
+        .select("fetched_at", { count: "exact" })
+        .or(IDENTIFIABLE_SQL)
+        .order("fetched_at", { ascending: false, nullsFirst: false })
+        .limit(1)
+        .abortSignal(signal),
+    "fetchWatermark",
+  );
+  if (error) throw new Error(`fetchWatermark: ${error.message}`);
+
+  const rows = (data ?? []) as { fetched_at: string | null }[];
+  return { count: count ?? 0, newest: rows[0]?.fetched_at ?? null };
+}
+
+/** The whole catalogue, unfiltered. Type filtering happens on the device. */
+async function fetchAllRows(): Promise<ProductWithIngredients[]> {
+  const { data, error } = await withTimeout(
+    (signal) => supabase!.from("products").select(SELECT).or(IDENTIFIABLE_SQL).abortSignal(signal),
+    "fetchProducts",
+  );
+  if (error) throw new Error(`fetchProducts: ${error.message}`);
+  return (data as unknown as CatalogueRow[]).filter(isIdentifiable).map(rowToProduct);
+}
+
+/**
+ * Guards against several screens mounting at once and each starting its own
+ * background check.
+ */
+let revalidating: Promise<void> | null = null;
+
+/**
+ * Check for updates without making anyone wait.
+ *
+ * The caller has already been handed cached data by the time this runs, so
+ * every failure here is silent: a background refresh that cannot reach the
+ * network has cost the user nothing.
+ *
+ * Known limitation, and a deliberate one for now: if this *does* find new
+ * data, the screen currently showing the old list will not repaint — the tab
+ * stays mounted, so its effect does not run again. The next filter change or
+ * cold start picks it up. Worth a subscription only if the import cadence
+ * ever gets faster than a person's session.
+ */
+function revalidateCatalogue(known: CatalogueWatermark): void {
+  if (revalidating) return;
+  revalidating = (async () => {
+    try {
+      const watermark = await fetchWatermark();
+      if (watermarksMatch(known, watermark)) {
+        touchCatalogue(watermark);
+        return;
+      }
+      putCatalogue(await fetchAllRows(), watermark);
+    } catch {
+      // See above.
+    } finally {
+      revalidating = null;
+    }
+  })();
+}
+
+/**
  * Returns products with ingredients resolved. The list screen needs them:
  * scoring reads the formula, not just the product-level tags, so that a
  * product whose INCI list contradicts its marketing cannot be surfaced as a
@@ -245,12 +507,30 @@ export async function fetchProducts(
   const { type = "all" } = filters;
 
   if (usingSupabase()) {
-    let query = supabase!.from("products").select(SELECT);
-    if (type !== "all") query = query.eq("type", type);
+    // No freshness check here — that happened once, at launch, in
+    // `warmCatalogue`. The only thing a read still enforces is the hard
+    // ceiling: a copy past its TTL is refetched outright rather than checked,
+    // which also covers an app the OS has kept alive long enough for the
+    // memory layer to outlive the disk window.
+    const cached = await readCatalogue();
+    if (cached && Date.now() - cached.storedAt <= DISK_TTL_MS) {
+      return productsForType(cached, type);
+    }
 
-    const { data, error } = await withTimeout((signal) => query.abortSignal(signal), "fetchProducts");
-    if (error) throw new Error(`fetchProducts: ${error.message}`);
-    return (data as unknown as CatalogueRow[]).map(rowToProduct);
+    // Cold: watermark first, then rows — sequential on purpose.
+    //
+    // Fetching the two concurrently is one round trip cheaper and quietly
+    // wrong. If an import commits between the two responses landing, the cache
+    // can end up holding the *old* rows under the *new* watermark, and every
+    // later freshness check then agrees that nothing has changed — stale for
+    // the full 24h TTL, in the one path no freshness check can rescue.
+    //
+    // This order fails the safe way round: a write in the gap leaves the
+    // stored watermark behind reality, so the next check sees a difference and
+    // refetches. The cost is one extra round trip of 51 bytes, once per cold
+    // start. `revalidateCatalogue` reads in this same order, for this reason.
+    const watermark = await fetchWatermark();
+    return productsForType(putCatalogue(await fetchAllRows(), watermark), type);
   }
 
   const results = PRODUCTS.filter((p) => type === "all" || p.type === type).map(resolveIngredients);
@@ -261,6 +541,13 @@ export async function fetchProduct(
   id: string
 ): Promise<ProductWithIngredients | null> {
   if (usingSupabase()) {
+    // A product opened from Browse or Saved is already in the cached
+    // catalogue — the detail screen should not re-request a row the list
+    // just handed it.
+    const cached = await readCatalogue();
+    const hit = cached ? productById(cached, id) : undefined;
+    if (hit) return hit;
+
     const { data, error } = await withTimeout(
       // abortSignal has to come before maybeSingle: maybeSingle narrows the
       // builder to a type that no longer has abortSignal on it.
@@ -282,12 +569,27 @@ export async function fetchProductsByIds(
   if (ids.length === 0) return [];
 
   if (usingSupabase()) {
+    // The saved shelf is almost always a subset of the catalogue already on
+    // the device. Resolve what we can locally and ask only for the rest —
+    // usually nothing, which makes opening Saved free.
+    const cached = await readCatalogue();
+    const resolved: ProductWithIngredients[] = [];
+    const missing: string[] = [];
+
+    for (const id of ids) {
+      const hit = cached ? productById(cached, id) : undefined;
+      if (hit) resolved.push(hit);
+      else missing.push(id);
+    }
+
+    if (missing.length === 0) return resolved;
+
     const { data, error } = await withTimeout(
-      (signal) => supabase!.from("products").select(SELECT).in("id", ids).abortSignal(signal),
+      (signal) => supabase!.from("products").select(SELECT).in("id", missing).abortSignal(signal),
       "fetchProductsByIds",
     );
     if (error) throw new Error(`fetchProductsByIds: ${error.message}`);
-    return (data as unknown as CatalogueRow[]).map(rowToProduct);
+    return [...resolved, ...(data as unknown as CatalogueRow[]).map(rowToProduct)];
   }
 
   const results = ids
@@ -300,6 +602,11 @@ export async function fetchProductsByIds(
 /** Distinct product types present in the catalog, for the filter bar. */
 export async function fetchProductTypes(): Promise<ProductType[]> {
   if (usingSupabase()) {
+    // The filter bar's types are derivable from the list it filters, so once
+    // the catalogue is cached this stops being a request at all.
+    const cached = await readCatalogue();
+    if (cached) return typesFrom(cached);
+
     const { data, error } = await withTimeout(
       (signal) => supabase!.from("products").select("type").abortSignal(signal),
       "fetchProductTypes",
@@ -327,6 +634,13 @@ export async function fetchProductByBarcode(
   barcode: string
 ): Promise<ProductWithIngredients | null> {
   if (usingSupabase()) {
+    // One hour, in memory only — see `readScanned` for why this one never
+    // reaches the disk. Re-scanning the same bottle within a session (or
+    // backing out of the result and scanning again) should not re-run the
+    // whole cascade.
+    const remembered = readScanned(barcode);
+    if (remembered !== undefined) return remembered;
+
     const { data, error } = await supabase!.functions.invoke(LOOKUP_FUNCTION, {
       body: { barcode },
     });
@@ -334,10 +648,19 @@ export async function fetchProductByBarcode(
       // A 404 from the cascade means "in no source we consulted", which is a
       // null result, not a failure. Anything else is worth surfacing.
       const status = (error as { context?: { status?: number } }).context?.status;
-      if (status === 404) return null;
+      if (status === 404) {
+        putScanned(barcode, null);
+        return null;
+      }
       throw new Error(`fetchProductByBarcode: ${error.message}`);
     }
-    return data ? rowToProduct(data as CatalogueRow) : null;
+    const product = data ? rowToProduct(data as CatalogueRow) : null;
+    putScanned(barcode, product);
+    // The cascade writes anything it resolves back to the catalogue, so a hit
+    // here can be a row this device's cached list does not have yet. Folding it
+    // in is what stops a just-scanned product being missing from Browse.
+    if (product) addScannedToCatalogue(product);
+    return product;
   }
 
   const product = PRODUCTS.find((p) => p.barcode === barcode);
@@ -377,9 +700,16 @@ export async function analyseLabel(
 
   if (!data?.product) return { ok: false, reason: "unreadable" };
 
+  // A label read is the other way a product enters the catalogue mid-session,
+  // and the one the user most expects to find afterwards — they just did the
+  // work of photographing it. See `addScannedToCatalogue` for why this is an
+  // insert rather than something a freshness check should have to discover.
+  const scannedProduct = rowToProduct(data.product as CatalogueRow);
+  addScannedToCatalogue(scannedProduct);
+
   return {
     ok: true,
-    product: rowToProduct(data.product as CatalogueRow),
+    product: scannedProduct,
     recognised: Number(data.recognised ?? 0),
     total: Number(data.total ?? 0),
   };
@@ -484,7 +814,7 @@ export async function searchProducts(query: string): Promise<ProductWithIngredie
       "searchProducts",
     );
     if (error) throw new Error(`searchProducts: ${error.message}`);
-    return (data as unknown as CatalogueRow[]).map(rowToProduct);
+    return (data as unknown as CatalogueRow[]).filter(isIdentifiable).map(rowToProduct);
   }
 
   const needle = trimmed.toLowerCase();

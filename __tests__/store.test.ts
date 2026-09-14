@@ -1,4 +1,11 @@
 import {
+  peekCatalogue,
+  putCatalogue,
+  putScanned,
+  readScanned,
+} from "@/data/catalogue-cache";
+import type { ProductWithIngredients } from "@/data/types";
+import {
   EMPTY_PROFILE,
   formeStorage,
   HISTORY_LIMIT,
@@ -258,6 +265,29 @@ describe("resetApp", () => {
     expect(s().hasSeenOnboarding).toBe(true);
     s().resetApp();
     expect(s().hasSeenOnboarding).toBe(false);
+  });
+
+  /**
+   * The one piece of this reset that lives outside the store. Barcodes looked
+   * up during a session are held in the catalogue cache's memory layer, and
+   * the set of them is a record of what this person pointed a camera at — so
+   * "erase my profile" has to reach it, even though it never touches the disk.
+   *
+   * The cached catalogue is deliberately *not* cleared alongside it: it is
+   * public, identical on every install, and dropping it would cost a spinner
+   * while protecting nothing.
+   */
+  it("forgets barcodes scanned this session, but keeps the public catalogue", () => {
+    putScanned("8801234567890", null);
+    putCatalogue(
+      [{ id: "a", type: "serum" } as unknown as ProductWithIngredients],
+      { count: 1, newest: null },
+    );
+
+    s().resetApp();
+
+    expect(readScanned("8801234567890")).toBeUndefined();
+    expect(peekCatalogue()).not.toBeNull();
   });
 });
 

@@ -2,6 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 
+import { forgetScannedBarcodes } from "@/data/catalogue-cache";
+
 import type { Concern, SkinProfile } from "@/data/types";
 
 export type SavedProduct = {
@@ -131,9 +133,10 @@ type AppState = {
 
   /**
    * Back to a first-run state: empty profile, closed onboarding gate, empty
-   * shelf and log. Needed because persistence works — once onboarding is
-   * completed it stays completed, and without this there is no way back to it
-   * short of deleting the app.
+   * shelf and log, and the barcodes looked up this session forgotten. Needed
+   * because persistence works — once onboarding is completed it stays
+   * completed, and without this there is no way back to it short of deleting
+   * the app.
    */
   resetApp: () => void;
 };
@@ -365,6 +368,15 @@ export const useAppStore = create<AppState>()(
         // Also wipe what is on disk. Without this the in-memory reset is
         // undone by the next rehydration and the app "forgets" the reset.
         void useAppStore.persist.clearStorage();
+        // Barcodes looked up this session live outside the store, in the
+        // catalogue cache's memory layer. They are a record of what this
+        // person pointed a camera at, so they belong to this reset even though
+        // they never reach the disk. It lives here rather than in the screen
+        // that offers the button so that "erase everything" cannot drift out
+        // of sync with a second caller later. The cached *catalogue* is
+        // deliberately left alone — it is public and identical on every
+        // install; see `forgetScannedBarcodes` for why the two differ.
+        forgetScannedBarcodes();
       },
     }),
     {

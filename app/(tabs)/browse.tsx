@@ -12,12 +12,12 @@ import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
 // this FOR.ME shell token is reused outside its original scope.
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
-import { fetchProducts, searchProducts } from "@/data/api";
+import { fetchProducts, peekProducts, searchProducts } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients } from "@/data/types";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized, profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TOUCH_TARGET } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md).
 
@@ -48,6 +48,11 @@ const TYPE_LABEL: Record<ProductType | "all", string> = {
   ...PRODUCT_TYPE_LABEL,
 };
 
+// Which chip the screen opens on. Named because two pieces of state read it —
+// the filter itself and the cache peek that seeds the first frame — and they
+// have to agree or the list paints one filter's rows under another's chip.
+const INITIAL_TYPE_FILTER: ProductType | "all" = "all";
+
 // How many placeholder rows stand in for the real list while it loads —
 // enough to fill a phone screen without pretending to know the real count.
 const SKELETON_ROWS = 6;
@@ -72,10 +77,14 @@ function skeletonRows(): BrowseItem[] {
 
 export default function Browse() {
   const insets = useSafeAreaInsets();
-  const [products, setProducts] = useState<ProductWithIngredients[] | null>(null);
+  // Seeded from the catalogue cache so a warm start paints rows on the first
+  // frame instead of a skeleton. Null on a cold start, exactly as before.
+  const [products, setProducts] = useState<ProductWithIngredients[] | null>(() =>
+    peekProducts(INITIAL_TYPE_FILTER),
+  );
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
-  const [typeFilter, setTypeFilter] = useState<ProductType | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<ProductType | "all">(INITIAL_TYPE_FILTER);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Search overrides the type-filtered browse list entirely while active,
@@ -93,7 +102,11 @@ export default function Browse() {
 
   useEffect(() => {
     let cancelled = false;
-    setProducts(null);
+    // Cached: swap to the new filter's rows immediately. Cold: clear, so the
+    // previous filter's products don't sit under the new chip while the
+    // network answers — which is what the unconditional reset here used to be
+    // for, back when every chip tap was a round trip.
+    setProducts(peekProducts(typeFilter));
     setError(false);
     fetchProducts({ type: typeFilter })
       .then((result) => {
@@ -384,7 +397,7 @@ function TypeChip({
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
       style={{
-        height: 44,
+        height: TOUCH_TARGET,
         paddingHorizontal: 16,
         alignItems: "center",
         justifyContent: "center",

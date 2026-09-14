@@ -14,6 +14,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 
 import { COLORS } from "@/lib/colors";
+import { warmCatalogue } from "@/data/api";
 import { useAppStore } from "@/store/useAppStore";
 
 SplashScreen.preventAutoHideAsync();
@@ -53,7 +54,24 @@ export default function RootLayout() {
     return unsubscribe;
   }, []);
 
-  const ready = fontsLoaded && hydrated;
+  // Same reasoning as the hydration gate above, for the catalogue: reading it
+  // off disk is async, so without this the browse screen paints a skeleton and
+  // swaps in the cached list a tick later. Doing it here spends that time on a
+  // splash the user is already looking at. It cannot fail the launch — a cache
+  // miss resolves like a hit and the screen falls back to fetching.
+  const [catalogueWarm, setCatalogueWarm] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    warmCatalogue().finally(() => {
+      if (!cancelled) setCatalogueWarm(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const ready = fontsLoaded && hydrated && catalogueWarm;
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();
