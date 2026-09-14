@@ -137,7 +137,7 @@ See [`data/types.ts`](data/types.ts) and [`store/useAppStore.ts`](store/useAppSt
 
 Zustand is the only global state manager. Persistence is versioned at schema version 6 and includes migration from the old `skintel-store` key and earlier profile formats: [`store/useAppStore.ts`](store/useAppStore.ts).
 
-Catalogue data is held in component-local state and refetched by screens. There is no query/cache library, normalization layer, shared request state, or offline catalogue cache.
+Catalogue data is cached behind the `data/api.ts` seam by [`data/catalogue-cache.ts`](data/catalogue-cache.ts): a memory layer with no expiry while the app is open, and a 24h AsyncStorage layer, with a count-plus-newest-timestamp watermark standing in for a full refetch. There is still no query library, normalization layer, or shared request state; screens hold the result in component-local state as before and learn nothing about the cache.
 
 ## Recommendation and matching logic
 
@@ -246,7 +246,7 @@ Remaining concerns:
 I ran the existing read-only verification commands:
 
 - TypeScript: passed.
-- Jest: 14/14 suites passed, 276/276 tests passed, 0 snapshots.
+- Jest: 17/17 suites passed, 312/312 tests passed, 0 snapshots.
 - Lint: exited successfully with seven warnings, all `react-hooks/set-state-in-effect`.
 
 Coverage is strong for:

@@ -99,6 +99,30 @@ let memory: MemoryEntry | null = null;
 let diskRead: Promise<MemoryEntry | null> | null = null;
 
 /**
+ * Set when a disk read has been waited on and given up for lost.
+ *
+ * `diskRead` is cleared in a `finally`, which only runs when the read settles.
+ * If AsyncStorage never settles — the exact failure `warmCatalogue`'s timeout
+ * race exists to survive — that `finally` never runs, `diskRead` stays
+ * assigned, and every later `readCatalogue()` hands back the same permanently
+ * pending promise. The splash carries on, and then Browse awaits that promise
+ * forever: a skeleton that never resolves and never falls back to the network.
+ * The flag is what lets the fallback happen. A late read that does eventually
+ * land still populates the memory layer, so nothing is lost by moving on.
+ */
+let diskReadAbandoned = false;
+
+/**
+ * Stop waiting on the in-flight disk read and let subsequent reads miss.
+ *
+ * Called by the splash warm when its timeout wins. Deliberately does not clear
+ * `memory`: if the read lands later it is still the fastest source available.
+ */
+export function abandonDiskRead(): void {
+  if (diskRead) diskReadAbandoned = true;
+}
+
+/**
  * Whether this launch has already asked the server "has anything changed?".
  *
  * Lives here rather than next to the code that reads it so that
@@ -138,6 +162,36 @@ export function watermarksMatch(a: CatalogueWatermark, b: CatalogueWatermark): b
 }
 
 /**
+ * Validates the metadata blob, which is asserted rather than parsed everywhere
+ * else it is touched. `storedAt` drives the TTL comparison and `watermark.count`
+ * the freshness check, so a `NaN` or a missing field here does not fail loudly —
+ * it makes `Date.now() - storedAt > DISK_TTL_MS` false and serves the copy
+ * forever.
+ */
+function parseMeta(value: unknown): CatalogueMeta | null {
+  if (typeof value !== "object" || value === null) return null;
+  const meta = value as Partial<CatalogueMeta>;
+  const mark = meta.watermark;
+  if (typeof meta.storedAt !== "number" || !Number.isFinite(meta.storedAt)) return null;
+  if (typeof mark !== "object" || mark === null) return null;
+  if (typeof mark.count !== "number" || !Number.isFinite(mark.count)) return null;
+  if (mark.newest !== null && typeof mark.newest !== "string") return null;
+  return { watermark: { count: mark.count, newest: mark.newest }, storedAt: meta.storedAt };
+}
+
+/**
+ * The fields a persisted product must actually have for the screens to render
+ * it: an id to key and resolve by, a type to filter on, and — the one that
+ * throws rather than merely looking wrong — an ingredients array, which
+ * `matchProduct` and `ProductRow` both dereference without checking.
+ */
+function isUsableProduct(value: unknown): value is ProductWithIngredients {
+  if (typeof value !== "object" || value === null) return false;
+  const p = value as Partial<ProductWithIngredients>;
+  return typeof p.id === "string" && typeof p.type === "string" && Array.isArray(p.ingredients);
+}
+
+/**
  * The cached catalogue, or null if there isn't a usable one.
  *
  * Memory first; then disk, once, if the stored copy is inside its TTL. A
@@ -146,6 +200,10 @@ export function watermarksMatch(a: CatalogueWatermark, b: CatalogueWatermark): b
  */
 export async function readCatalogue(): Promise<MemoryEntry | null> {
   if (memory) return memory;
+  // Before the `diskRead` check, not after: the abandoned read is still the
+  // one held there, so testing that first would hand it straight back and the
+  // flag would never be reached. See `abandonDiskRead`.
+  if (diskReadAbandoned) return null;
   if (diskRead) return diskRead;
 
   diskRead = (async () => {
@@ -153,14 +211,25 @@ export async function readCatalogue(): Promise<MemoryEntry | null> {
       const rawMeta = await AsyncStorage.getItem(META_KEY);
       if (rawMeta === null) return null;
 
-      const meta = JSON.parse(rawMeta) as CatalogueMeta;
+      const meta = parseMeta(JSON.parse(rawMeta) as unknown);
+      if (!meta) return null;
       if (Date.now() - meta.storedAt > DISK_TTL_MS) return null;
 
       const rawProducts = await AsyncStorage.getItem(PRODUCTS_KEY);
       if (rawProducts === null) return null;
 
-      const products = JSON.parse(rawProducts) as ProductWithIngredients[];
+      const products = JSON.parse(rawProducts) as unknown;
       if (!Array.isArray(products) || products.length === 0) return null;
+      // The cast this replaces asserted a shape nothing had checked. A blob
+      // written by an older build — or half-written, or hand-edited — could
+      // put `[{}]` here, and the first thing to touch it is
+      // `matchProduct`/`ProductRow` reading `product.ingredients.length`,
+      // which throws while rendering rather than anywhere it can be caught.
+      // `isIdentifiable` guards the *network* rows before `rowToProduct`;
+      // nothing guarded the persisted ones. A miss is recoverable — the
+      // network path is right there — so validating down to the fields those
+      // consumers actually dereference is enough.
+      if (!products.every(isUsableProduct)) return null;
 
       memory = buildEntry(products, meta.watermark, meta.storedAt);
       return memory;
@@ -170,6 +239,10 @@ export async function readCatalogue(): Promise<MemoryEntry | null> {
       return null;
     } finally {
       diskRead = null;
+      // It settled, so it was never lost — whatever a timeout concluded
+      // earlier, the next read starts clean rather than inheriting a verdict
+      // about a read that has now finished.
+      diskReadAbandoned = false;
     }
   })();
 
@@ -352,20 +425,30 @@ export function forgetScannedBarcodes(): void {
  * in the meantime. Leaving it stale means the next check refetches, which is
  * correct.
  *
- * Ignores anything unidentifiable (no barcode) and anything already present:
- * a row that cannot be reached from a list has no business appearing in one,
- * and re-scanning a known product must not duplicate it.
+ * Ignores anything unidentifiable (no barcode): a row that cannot be reached
+ * from a list has no business appearing in one.
+ *
+ * A product we already hold is **replaced, not skipped**. Re-scanning a known
+ * bottle must not duplicate it, which is what the earlier early-return was
+ * for — but the lookup that just ran returned the row as it stands *now*, and
+ * the cached copy may predate a reformulation. Discarding the fresher one
+ * meant the scanner navigated by id, `fetchProduct` resolved that id from the
+ * cache, and the result screen scored the stale ingredient list the user had
+ * just re-photographed to get away from.
  */
 export function addScannedToCatalogue(product: ProductWithIngredients): void {
   if (!memory) return;
   if (!product.barcode) return;
-  if (memory.byId.has(product.id)) return;
 
-  // A new array rather than a push: the existing one is handed to screens as a
-  // stable reference and memoised on its identity, so mutating it in place
-  // would leave Browse showing the old list with no way to know it changed.
-  // Replacing the entry is what makes the new product appear.
-  memory = buildEntry([product, ...memory.products], memory.watermark, memory.storedAt);
+  // A new array rather than a push or an in-place splice: the existing one is
+  // handed to screens as a stable reference and memoised on its identity, so
+  // mutating it would leave Browse showing the old list with no way to know it
+  // changed. Replacing the entry is what makes the change appear.
+  const products = memory.byId.has(product.id)
+    ? memory.products.map((p) => (p.id === product.id ? product : p))
+    : [product, ...memory.products];
+
+  memory = buildEntry(products, memory.watermark, memory.storedAt);
   void persist(memory.products, { watermark: memory.watermark, storedAt: memory.storedAt });
 }
 
@@ -380,6 +463,7 @@ export function addScannedToCatalogue(product: ProductWithIngredients): void {
 export function forgetMemoryLayer(): void {
   memory = null;
   diskRead = null;
+  diskReadAbandoned = false;
 }
 
 /**
@@ -399,6 +483,7 @@ export function forgetMemoryLayer(): void {
 export async function resetCatalogueCache(): Promise<void> {
   memory = null;
   diskRead = null;
+  diskReadAbandoned = false;
   checkedThisLaunch = false;
   scanned.clear();
   try {

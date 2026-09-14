@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
+  abandonDiskRead,
   addScannedToCatalogue,
   DISK_TTL_MS,
   peekCatalogue,
@@ -128,6 +129,53 @@ describe("disk layer", () => {
 
     await expect(readCatalogue()).resolves.toBeNull();
   });
+
+  /**
+   * Valid JSON of the wrong shape is the case a `JSON.parse` + cast cannot
+   * catch. It reaches `buildEntry` intact and only fails later, inside render,
+   * where `matchProduct` and `ProductRow` dereference `product.ingredients`.
+   */
+  it.each([
+    ["a product missing its ingredients array", JSON.stringify([{ id: "a", type: "serum" }])],
+    ["an array of empty objects", JSON.stringify([{}])],
+    ["metadata with a non-numeric storedAt", null],
+  ] as const)("treats %s as a miss", async (_label: string, rawProducts: string | null) => {
+    if (rawProducts === null) {
+      await AsyncStorage.setItem(
+        "forme-catalogue-meta-v1",
+        JSON.stringify({ watermark: WATERMARK, storedAt: "yesterday" }),
+      );
+      await AsyncStorage.setItem("forme-catalogue-v1", JSON.stringify(CATALOGUE));
+    } else {
+      await AsyncStorage.setItem(
+        "forme-catalogue-meta-v1",
+        JSON.stringify({ watermark: WATERMARK, storedAt: Date.now() }),
+      );
+      await AsyncStorage.setItem("forme-catalogue-v1", rawProducts);
+    }
+
+    await expect(readCatalogue()).resolves.toBeNull();
+  });
+
+  /**
+   * The splash gives up on a disk read after two seconds. Without releasing it,
+   * every later read returns that same never-settling promise and Browse waits
+   * on it forever — a launch that recovered into a skeleton that cannot.
+   */
+  it("misses instead of hanging once a stuck read is abandoned", async () => {
+    const getItem = jest
+      .spyOn(AsyncStorage, "getItem")
+      .mockReturnValue(new Promise<string | null>(() => {}));
+
+    try {
+      void readCatalogue();
+      abandonDiskRead();
+
+      await expect(readCatalogue()).resolves.toBeNull();
+    } finally {
+      getItem.mockRestore();
+    }
+  });
 });
 
 describe("scanned barcodes", () => {
@@ -198,13 +246,29 @@ describe("a product scanned this session", () => {
     expect(productsForType((await readCatalogue())!, "all")).not.toBe(before);
   });
 
-  it("ignores a product already in the list, and one with no barcode", async () => {
+  it("ignores a product with no barcode", async () => {
     putCatalogue(CATALOGUE, WATERMARK);
 
-    addScannedToCatalogue(CATALOGUE[0]);
     addScannedToCatalogue({ ...product("ghost", "serum"), barcode: "" });
 
     expect((await readCatalogue())!.products).toHaveLength(CATALOGUE.length);
+  });
+
+  /**
+   * A re-scan must not duplicate the row, which an earlier version achieved by
+   * discarding the scan entirely — so a bottle re-photographed *because* its
+   * formula had changed kept scoring against the old ingredient list, since
+   * `fetchProduct` resolves the id straight out of this cache.
+   */
+  it("replaces a product already in the list rather than discarding the fresh row", async () => {
+    putCatalogue(CATALOGUE, WATERMARK);
+
+    const reformulated = { ...CATALOGUE[0], name: "Product a, reformulated" };
+    addScannedToCatalogue(reformulated);
+
+    const entry = (await readCatalogue())!;
+    expect(entry.products).toHaveLength(CATALOGUE.length);
+    expect(entry.byId.get("a")!.name).toBe("Product a, reformulated");
   });
 
   /**

@@ -1,6 +1,7 @@
 import { defaultPackagingType } from "@/components/BottleIcon";
 import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@/lib/supabase";
 import {
+  abandonDiskRead,
   addScannedToCatalogue,
   DISK_TTL_MS,
   hasCheckedThisLaunch,
@@ -413,6 +414,14 @@ export async function warmCatalogue(): Promise<void> {
     // closes that hole without holding the splash open for it. A genuine miss
     // resolves null and correctly checks nothing, since the cold fetch that
     // follows is fresher than any check.
+    //
+    // Release the read first. Surviving the timeout here is only half the job:
+    // the same in-flight promise is what `readCatalogue` hands to every later
+    // caller, so a read that never settles would leave Browse awaiting it
+    // forever — a splash that recovered into a skeleton that cannot. See
+    // `abandonDiskRead`; the `then` below still runs if it does land.
+    abandonDiskRead();
+
     void read.then((late) => {
       if (late) checkFreshnessOnce(late.watermark);
     }).catch(() => {
@@ -730,6 +739,16 @@ export async function analyseLabel(
   // insert rather than something a freshness check should have to discover.
   const scannedProduct = rowToProduct(data.product as CatalogueRow);
   addScannedToCatalogue(scannedProduct);
+
+  // The barcode cascade that sent the user here may have cached a miss for
+  // this exact barcode, and that entry outlives the label read by up to an
+  // hour. Without this, re-scanning the bottle the user just photographed
+  // returns the remembered `null` and offers the label flow a second time —
+  // for a product that now exists. Record the real answer against whichever
+  // barcode we know: the one the caller passed, or the one the row came back
+  // with when the OCR function resolved it itself.
+  const scannedBarcode = opts.barcode ?? scannedProduct.barcode;
+  if (scannedBarcode) putScanned(scannedBarcode, scannedProduct);
 
   return {
     ok: true,

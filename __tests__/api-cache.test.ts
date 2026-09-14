@@ -70,6 +70,7 @@ jest.mock("@/lib/supabase", () => ({
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
+  analyseLabel,
   fetchProduct,
   fetchProducts,
   fetchProductsByIds,
@@ -77,7 +78,14 @@ import {
   searchProducts,
   warmCatalogue,
 } from "@/data/api";
-import { DISK_TTL_MS, peekCatalogue, resetCatalogueCache } from "@/data/catalogue-cache";
+import {
+  DISK_TTL_MS,
+  peekCatalogue,
+  putScanned,
+  readScanned,
+  resetCatalogueCache,
+} from "@/data/catalogue-cache";
+import { supabase } from "@/lib/supabase";
 
 function row(id: string, type = "serum") {
   return {
@@ -319,4 +327,65 @@ describe("an empty result", () => {
 async function flush(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
   await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+describe("a label read", () => {
+  /**
+   * The barcode cascade caches its misses for an hour, and a label read is
+   * what the user does *because* of one — so the miss is always already there
+   * when the OCR result lands. Leaving it means re-scanning the bottle they
+   * just photographed returns the remembered `null` and offers the label flow
+   * again, for a product that now exists.
+   */
+  it("overwrites the cached miss for the barcode that sent the user there", async () => {
+    invokeMock().mockResolvedValue({
+      data: { product: row("scanned"), recognised: 12, total: 14 },
+      error: null,
+    });
+    putScanned("barcode-scanned", null);
+    expect(readScanned("barcode-scanned")).toBeNull();
+
+    const result = await analyseLabel("base64", { barcode: "barcode-scanned" });
+
+    expect(result.ok).toBe(true);
+    expect(readScanned("barcode-scanned")?.id).toBe("scanned");
+  });
+
+  /**
+   * The OCR function resolves the barcode itself when the caller had none —
+   * the paste/photo-first entry points. The row it returns is then the only
+   * place that barcode appears, so it is what the next scan will be keyed on.
+   */
+  it("records the barcode the row came back with when the caller passed none", async () => {
+    invokeMock().mockResolvedValue({
+      data: { product: row("scanned"), recognised: 12, total: 14 },
+      error: null,
+    });
+
+    await analyseLabel("base64");
+
+    expect(readScanned("barcode-scanned")?.id).toBe("scanned");
+  });
+
+  /** A failed read must not be remembered as an answer of any kind. */
+  it("leaves the cache alone when the read fails", async () => {
+    invokeMock().mockResolvedValue({
+      data: null,
+      error: { context: { status: 422 } },
+    });
+
+    const result = await analyseLabel("base64", { barcode: "barcode-scanned" });
+
+    expect(result).toEqual({ ok: false, reason: "too_little_text" });
+    expect(readScanned("barcode-scanned")).toBeUndefined();
+  });
+});
+
+/**
+ * The `functions.invoke` stand-in from the module mock, narrowed to the one
+ * method these tests drive it through. `jest.Mock` itself is a namespace type
+ * this project's tsconfig does not pull in.
+ */
+function invokeMock(): { mockResolvedValue: (value: unknown) => void } {
+  return supabase!.functions.invoke as unknown as { mockResolvedValue: (value: unknown) => void };
 }
