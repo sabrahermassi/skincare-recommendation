@@ -37,9 +37,17 @@ function mockMakeQuery(selectArg: string) {
     if (name === "eq" && args[0] === "id") wantedId = args[1] as string;
     return builder;
   };
+  // The range the caller asked for, so the stand-in can actually paginate
+  // rather than handing back the whole set for every page — the difference
+  // between a pagination test that means something and one that cannot fail.
+  let range: [number, number] | null = null;
   for (const m of ["eq", "in", "or", "order", "limit", "abortSignal"]) {
     builder[m] = chain(m);
   }
+  builder.range = (from: number, to: number) => {
+    range = [from, to];
+    return builder;
+  };
   // `fetchProduct` ends its chain here rather than awaiting the builder.
   builder.maybeSingle = () => {
     mockCalls.push("rows");
@@ -48,10 +56,11 @@ function mockMakeQuery(selectArg: string) {
   };
   builder.then = (resolve: (v: unknown) => void) => {
     mockCalls.push(isWatermark ? "watermark" : "rows");
+    const paged = range ? mockProductRows.slice(range[0], range[1] + 1) : mockProductRows;
     return Promise.resolve(
       isWatermark
         ? { data: [{ fetched_at: mockNewestFetchedAt }], error: null, count: mockRowCount }
-        : { data: mockProductRows, error: null, count: null },
+        : { data: paged, error: null, count: null },
     ).then(resolve);
   };
   return builder;
@@ -71,6 +80,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
   analyseLabel,
+  CATALOGUE_PAGE_SIZE,
   fetchProduct,
   fetchProducts,
   fetchProductsByIds,
@@ -328,6 +338,47 @@ async function flush(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
+
+describe("a catalogue larger than one page", () => {
+  /**
+   * PostgREST caps a response server-side, so an unpaginated select comes back
+   * truncated rather than refused — and `fetchWatermark` asks for an *exact*
+   * count over the same filter. A truncated fetch would therefore be stored
+   * under a watermark describing the full table, which every later freshness
+   * check would compare against itself and agree was current. The catalogue
+   * would settle at one page and never heal.
+   */
+  it("walks every page rather than storing the first one", async () => {
+    const total = CATALOGUE_PAGE_SIZE + 25;
+    mockProductRows = Array.from({ length: total }, (_, i) => row(`p${String(i).padStart(5, "0")}`));
+    mockRowCount = total;
+
+    const products = await fetchProducts();
+
+    expect(products).toHaveLength(total);
+    expect(mockCalls).toEqual(["watermark", "rows", "rows"]);
+  });
+
+  /** One page that is exactly full still has to ask whether there is another. */
+  it("asks for a second page when the first comes back exactly full", async () => {
+    mockProductRows = Array.from({ length: CATALOGUE_PAGE_SIZE }, (_, i) =>
+      row(`p${String(i).padStart(5, "0")}`),
+    );
+    mockRowCount = CATALOGUE_PAGE_SIZE;
+
+    const products = await fetchProducts();
+
+    expect(products).toHaveLength(CATALOGUE_PAGE_SIZE);
+    expect(mockCalls).toEqual(["watermark", "rows", "rows"]);
+  });
+
+  /** The common case must not have paid for pagination with a second request. */
+  it("issues one request for a catalogue that fits in a page", async () => {
+    await fetchProducts();
+
+    expect(mockCalls).toEqual(["watermark", "rows"]);
+  });
+});
 
 describe("a label read", () => {
   /**

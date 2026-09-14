@@ -459,9 +459,16 @@ export function peekProducts(
  *
  * `fetched_at` is already a column and already in `SELECT`, so this needs no
  * schema work: the exact row count plus the newest timestamp catches both
- * kinds of write the importers make — a new product moves the count, a
- * rewritten formula moves the timestamp. PostgREST returns the count in a
- * header and `limit(1)` keeps the body to a single date.
+ * kinds of write — a new product moves the count, a rewritten formula moves
+ * the timestamp. PostgREST returns the count in a header and `limit(1)` keeps
+ * the body to a single date.
+ *
+ * The second half of that only became true in migration 0009. Before it,
+ * nothing wrote `fetched_at` after the insert, so a formula rewrite moved
+ * neither term of the key: the watermark matched on the next launch,
+ * `touchCatalogue` renewed the 24h window, and a device could serve an
+ * obsolete formula indefinitely. This function is unchanged — the fix was to
+ * make the column mean what this comment always claimed.
  */
 async function fetchWatermark(): Promise<CatalogueWatermark> {
   const { data, error, count } = await withTimeout(
@@ -481,14 +488,68 @@ async function fetchWatermark(): Promise<CatalogueWatermark> {
   return { count: count ?? 0, newest: rows[0]?.fetched_at ?? null };
 }
 
-/** The whole catalogue, unfiltered. Type filtering happens on the device. */
+/**
+ * Rows per request when reading the whole catalogue.
+ *
+ * PostgREST caps a response server-side, so an unpaginated select is silently
+ * truncated rather than refused. Exported for the test that walks more than
+ * one page.
+ */
+export const CATALOGUE_PAGE_SIZE = 1000;
+
+/**
+ * Stops a server that ignores `range` from looping forever. At the page size
+ * above this is 100k products — far past the point where a whole-catalogue
+ * mirror is the right design at all (see `persist`'s AsyncStorage ceiling).
+ */
+const MAX_CATALOGUE_PAGES = 100;
+
+/**
+ * The whole catalogue, unfiltered. Type filtering happens on the device.
+ *
+ * Paginated, and the ordering is what makes that safe rather than a detail:
+ * `range` is an offset into whatever order the server chose, so without a
+ * deterministic sort the same row can appear on two pages while another
+ * appears on none.
+ *
+ * Truncation here is worse than a plain missing page, because of what reads
+ * the result next. `fetchWatermark` asks for an *exact* count over the same
+ * filter, so a truncated fetch is stored under a watermark describing the full
+ * table — and every later freshness check then compares that watermark against
+ * itself, agrees nothing has changed, and renews the window. The catalogue
+ * would settle at one page and never heal.
+ */
 async function fetchAllRows(): Promise<ProductWithIngredients[]> {
-  const { data, error } = await withTimeout(
-    (signal) => supabase!.from("products").select(SELECT).or(IDENTIFIABLE_SQL).abortSignal(signal),
-    "fetchProducts",
+  const rows: CatalogueRow[] = [];
+
+  for (let page = 0; page < MAX_CATALOGUE_PAGES; page++) {
+    const from = page * CATALOGUE_PAGE_SIZE;
+    const { data, error } = await withTimeout(
+      (signal) =>
+        supabase!
+          .from("products")
+          .select(SELECT)
+          .or(IDENTIFIABLE_SQL)
+          .order("id")
+          .range(from, from + CATALOGUE_PAGE_SIZE - 1)
+          .abortSignal(signal),
+      "fetchProducts",
+    );
+    if (error) throw new Error(`fetchProducts: ${error.message}`);
+
+    const batch = (data ?? []) as unknown as CatalogueRow[];
+    rows.push(...batch);
+    // A short page is the last one. An empty page ends it too, which is the
+    // case where `from` has walked past the end.
+    if (batch.length < CATALOGUE_PAGE_SIZE) return rows.filter(isIdentifiable).map(rowToProduct);
+  }
+
+  // Only reachable if the server kept returning full pages past the bound —
+  // which means `range` was ignored, so the rows collected above are some
+  // number of copies of the first page rather than a catalogue.
+  throw new Error(
+    `fetchProducts: catalogue exceeded ${MAX_CATALOGUE_PAGES} pages; refusing to cache a partial read`,
   );
-  if (error) throw new Error(`fetchProducts: ${error.message}`);
-  return (data as unknown as CatalogueRow[]).filter(isIdentifiable).map(rowToProduct);
 }
 
 /**

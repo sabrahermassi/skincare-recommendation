@@ -120,7 +120,7 @@ The schema is defined in [`supabase/migrations/0001_catalogue.sql`](supabase/mig
 
 There are no user, profile, saved-product, or history tables. Consequently, there is no cross-device sync.
 
-RLS is enabled for all catalogue tables. Anonymous/authenticated clients receive public `SELECT` access but no table-write policy. Writes happen with the service role inside Edge Functions. The formula-replacement RPC is explicitly revoked from public roles and granted only to `service_role`: [`supabase/migrations/0008_replace_product_ingredients.sql`](supabase/migrations/0008_replace_product_ingredients.sql).
+RLS is enabled for all catalogue tables. Anonymous/authenticated clients receive public `SELECT` access but no table-write policy. Writes happen with the service role inside Edge Functions. The formula-replacement RPC is explicitly revoked from public roles and granted only to `service_role`: [`supabase/migrations/0008_replace_product_ingredients.sql`](supabase/migrations/0008_replace_product_ingredients.sql). Its current definition is [`0009`](supabase/migrations/0009_bump_fetched_at_on_formula_rewrite.sql), which adds the `fetched_at` bump that lets the client's freshness key observe a formula rewrite.
 
 One model mismatch remains: the database still requires `products.area`, while the client removed area completely. Both Edge Functions currently hardcode `"face"`. The client also has `productType` packaging metadata that the database lacks, so it is inferred from product category: [`supabase/migrations/0001_catalogue.sql`](supabase/migrations/0001_catalogue.sql), [`store/useAppStore.ts`](store/useAppStore.ts).
 
