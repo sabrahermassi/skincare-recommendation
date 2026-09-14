@@ -11,6 +11,7 @@ class, per platform, and what enforces it.
 | Auth / session material (access token, refresh token, PKCE verifier, any credential-equivalent) | `expo-secure-store` (Keychain), `WHEN_UNLOCKED_THIS_DEVICE_ONLY` | `expo-secure-store` (Keystore), backup-excluded | **Memory only.** Never `localStorage`, `sessionStorage`, IndexedDB, or a non-`HttpOnly` cookie |
 | Skin profile, quiz answers, scan history, saved products, saved ingredients, product suggestions | AsyncStorage | AsyncStorage | AsyncStorage (`localStorage`-backed by `react-native-web`) |
 | UI-only state (onboarding flag, future filter state) | AsyncStorage | AsyncStorage | AsyncStorage |
+| Cached catalogue data (product rows, ingredient dictionary, freshness watermark) | AsyncStorage | AsyncStorage | AsyncStorage (`localStorage`-backed by `react-native-web`) |
 | Session-scoped state (compare tray, pasted ingredient list) | not persisted | not persisted | not persisted |
 
 **None of row 1 exists yet.** There is no sign-in, no session, and no token
@@ -54,6 +55,43 @@ Go) — or the first store submission, whichever comes first. The actual
 control belongs to issue #14 (regulatory determination) and #24 (retention),
 which are where "health-adjacent data in a consumer cloud backup" gets
 adjudicated; this document only names the gap and the trigger.
+
+## Why cached catalogue data is its own class, in its own file
+
+Every other row in the table above is *the user's*. The catalogue cache is
+not: it holds product rows and ingredient definitions that are public,
+identical for every install, and re-downloadable at any time. Losing it costs
+a spinner. Losing the skin profile costs the user their answers.
+
+That difference is why it gets a second allowed file rather than a seventh key
+inside `useAppStore`:
+
+- **It is server state, not client state.** It goes stale on its own schedule
+  and needs refetching, freshness checks and invalidation — machinery the
+  profile never needs. The widely-followed split is to keep server caches out
+  of the client-state store rather than reimplement that machinery inside it.
+- **Store writes would churn.** `partializeState` serialises the whole
+  persisted blob on change. Feeding ~937KB of catalogue through that path
+  would make every unrelated profile edit pay for it.
+- **The audit story stays intact.** The point of confining AsyncStorage to one
+  file was never the number one — it was that every write site is known and
+  reviewable. Two named files with stated, disjoint contents preserves that;
+  an unreviewed third would not.
+
+**The boundary, stated so it can be enforced:**
+`data/catalogue-cache.ts` may persist catalogue rows, the ingredient
+dictionary and freshness watermarks, and **nothing derived from the user** —
+no profile, no saved shelf, no scan history, no free-text the user typed. If a
+cache key would differ between two installs with the same catalogue, it does
+not belong in this file.
+
+**Size, and the open question it raises.** The persisted store is 7-8KB; this
+cache is two orders of magnitude larger, and AsyncStorage deserialises a value
+whole on read. That is the size class where AsyncStorage is known to hurt and
+where MMKV is the usual answer — but MMKV cannot run in Expo Go, which is this
+project's only device-testing path today (see the same revisit trigger above,
+which it shares). Ship on AsyncStorage, measure the cold-start read, and let
+that measurement decide; do not pay for a development build in advance.
 
 ## Why web tokens are memory-only, not an httpOnly cookie
 

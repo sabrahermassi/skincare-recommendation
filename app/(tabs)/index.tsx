@@ -19,7 +19,7 @@ import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, CTA, INK, LINE, MUTED, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, CTA, INK, LINE, MUTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -310,7 +310,7 @@ function ModeSwitcher({
               // frame icon has no fixed meaning the way barcode bars do.
               <View style={{ alignItems: "center", gap: 2 }}>
                 <Icon color={color} />
-                <Text style={{ fontSize: 9, fontWeight: "600", color }} numberOfLines={1}>
+                <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color }} numberOfLines={1}>
                   {label}
                 </Text>
               </View>
@@ -421,7 +421,7 @@ function BarcodeStage({
             <Pressable
               onPress={requestPermission}
               style={{
-                height: 44,
+                height: TOUCH_TARGET,
                 paddingHorizontal: 24,
                 borderRadius: 22,
                 alignItems: "center",
@@ -433,12 +433,29 @@ function BarcodeStage({
               <Text style={{ fontSize: 14, fontWeight: "600", color: INK }}>Enable camera</Text>
             </Pressable>
           )}
-          <Text
-            style={{ color: withAlpha(CANVAS, 0.5) }}
-            className="text-center text-xs leading-4"
+          {/* This fires at the worst moment — camera access just failed — so
+              the one sentence offering a way forward has to actually be the
+              way forward. It was a plain Text: it named Browse and could not
+              take you there, leaving the user to work out that "Browse" meant
+              the second tab icon. Underlined and given the standard target
+              height so it reads as the action it always claimed to be. */}
+          <Pressable
+            onPress={() => router.push("/browse")}
+            accessibilityRole="link"
+            style={{
+              minHeight: TOUCH_TARGET,
+              justifyContent: "center",
+              paddingHorizontal: 12,
+            }}
+            className="active:opacity-70"
           >
-            Or find the product in Browse instead.
-          </Text>
+            <Text
+              style={{ color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}
+              className="text-center text-xs leading-4"
+            >
+              Or find the product in Browse instead.
+            </Text>
+          </Pressable>
         </View>
       )}
 
@@ -480,7 +497,7 @@ function BarcodeStage({
                   ? `Barcode found · ${status.code}`
                   : "Not in our catalogue yet"}
               </Text>
-              <Text style={{ fontSize: 11, color: MUTED }}>
+              <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
                 {status.kind === "looking"
                   ? "Reading the ingredients…"
                   : "Photograph the label and we'll add it"}
@@ -498,14 +515,15 @@ function BarcodeStage({
               }}
               style={{
                 flex: 1,
+                height: TOUCH_TARGET,
                 alignItems: "center",
+                justifyContent: "center",
                 borderRadius: 999,
-                paddingVertical: 10,
                 backgroundColor: CTA,
               }}
               className="active:opacity-90"
             >
-              <Text style={{ fontSize: 11.5, fontWeight: "600", color: INK }}>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>
                 Photograph the label
               </Text>
             </Pressable>
@@ -513,13 +531,14 @@ function BarcodeStage({
               onPress={onDismissStatus}
               style={{
                 flex: 1,
+                height: TOUCH_TARGET,
                 alignItems: "center",
+                justifyContent: "center",
                 borderRadius: 999,
-                paddingVertical: 10,
                 backgroundColor: withAlpha(CANVAS, 0.2),
               }}
             >
-              <Text style={{ fontSize: 11.5, fontWeight: "600", color: CANVAS }}>Try another</Text>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: CANVAS }}>Try another</Text>
             </Pressable>
           </View>
         )}
@@ -637,7 +656,7 @@ function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
           router.push("/scan-label");
         }}
         style={{
-          height: 44,
+          height: TOUCH_TARGET,
           paddingHorizontal: 24,
           borderRadius: 22,
           alignItems: "center",
@@ -729,7 +748,7 @@ function UnknownProductNote({ barcode }: { barcode: string }) {
         onPress={save}
         disabled={name.trim().length === 0}
         style={{
-          height: 44,
+          height: TOUCH_TARGET,
           opacity: name.trim().length === 0 ? 0.5 : 1,
           alignItems: "center",
           justifyContent: "center",

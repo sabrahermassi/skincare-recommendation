@@ -16,7 +16,7 @@ import { fetchProductsByIds } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
 import { matchProduct, matchTone } from "@/lib/matching";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
 
 type Tab = "saved" | "history";
@@ -154,7 +154,8 @@ export default function Saved() {
             {savedIds.map((id) => {
               const product = byId[id];
               if (!product) return null;
-              const { score } = matchProduct(product, profile);
+              const match = matchProduct(product, profile);
+              const score = match.score;
               const tone = score === null ? null : matchTone(score);
               const verdict = tone ? VERDICT[tone] : VERDICT_NEUTRAL;
               return (
@@ -173,11 +174,11 @@ export default function Saved() {
                         backgroundColor: verdict.tint,
                       }}
                     >
-                      <Text style={{ fontSize: 11.5, fontWeight: "700", color: verdict.deep }}>
+                      <Text style={{ fontSize: TYPE.caption, fontWeight: "700", color: verdict.deep }}>
                         {score}%
                       </Text>
-                      <Text style={{ fontSize: 11, fontWeight: "600", color: verdict.deep }}>
-                        · {verdict.label}
+                      <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: verdict.deep }}>
+                        · {VERDICT_LABEL[match.verdict]}
                       </Text>
                     </View>
                   )}
@@ -296,7 +297,7 @@ function Row({
           <View style={{ flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 13, padding: 13 }}>
             <ProductThumbnail product={product} size={56} radius={14} />
             <View style={{ flex: 1, paddingRight: 28 }}>
-              <Text style={{ fontSize: 9.5, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
+              <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
                 {product.brand}
               </Text>
               <Text
@@ -365,19 +366,19 @@ function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: 
   return (
     <View style={{ marginTop: 6, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 10 }}>
       <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 8, rowGap: 4 }}>
-        <Text style={{ fontSize: 11.5, color: MUTED }}>{relativeTime(entry.lastSeenAt)}</Text>
+        <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{relativeTime(entry.lastSeenAt)}</Text>
         {entry.seenCount > 1 && (
-          <Text style={{ fontSize: 11.5, color: MUTED_FAINT }}>
+          <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>
             · checked {entry.seenCount} times
           </Text>
         )}
         {entry.scoreAtView !== null && (
-          <Text style={{ fontSize: 11.5, color: MUTED_FAINT }}>
+          <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>
             · {entry.scoreAtView}% then
           </Text>
         )}
         {entry.warningsAtView > 0 && (
-          <Text style={{ fontSize: 11.5, fontWeight: "600", color: WARN }}>
+          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WARN }}>
             · {entry.warningsAtView} flagged
           </Text>
         )}
@@ -385,7 +386,7 @@ function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: 
       {/* The row is already a link; this is the affordance that says so, and
           the design puts one on every history row. */}
       {action ? (
-        <Text style={{ fontSize: 11.5, fontWeight: "600", color: INK }}>View</Text>
+        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>View</Text>
       ) : null}
     </View>
   );
@@ -406,7 +407,7 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
     >
       <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
       <View style={{ flex: 1, padding: 13, paddingRight: 36 }}>
-        <Text style={{ fontSize: 9.5, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
+        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
           Scanned · not in our catalogue
         </Text>
         <Text style={{ marginTop: 2, fontSize: 14, color: INK }}>{entry.id}</Text>

@@ -10,7 +10,7 @@ import type { Ingredient } from "@/data/types";
 import { isVerified } from "@/lib/safety";
 import { ruleFor, RUNG_META, rungFor, type MatchResult, type Rung } from "@/lib/matching";
 import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, MUTED_SOFT, RADIUS_SELECTOR, SELECTED } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, MUTED_SOFT, RADIUS_SELECTOR, SELECTED, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG_META's good/watch/avoid
 // colors are semantic (the per-ingredient verdict, the whole point of this
@@ -99,11 +99,11 @@ export function IngredientTabsList({
       {/* Formulas change. Saying when we last read the label is the
           difference between data and a claim — it was on this screen before
           the redesign and is worth more than the design's info icon. */}
-      <Text style={{ paddingBottom: 4, paddingTop: 14, textAlign: "center", fontSize: 10.5, color: MUTED }}>
+      <Text style={{ paddingBottom: 4, paddingTop: 14, textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>
         {metaLine}
       </Text>
       {subMetaLine ? (
-        <Text style={{ paddingBottom: 14, textAlign: "center", fontSize: 10.5, color: MUTED_FAINT }}>
+        <Text style={{ paddingBottom: 14, textAlign: "center", fontSize: TYPE.caption, color: MUTED_FAINT }}>
           {subMetaLine}
         </Text>
       ) : (
@@ -193,13 +193,13 @@ function IngredientListRow({
               {/* "Clogging", not "Pore clogging": the badge sits inline beside
                   the ingredient name, and the full phrase crowds the row off
                   the screen. The tab it filters to says the whole thing. */}
-              <Text style={{ color: "#A4526A", fontSize: 9.5 }} className="font-bold uppercase">
+              <Text style={{ color: "#A4526A", fontSize: TYPE.caption }} className="font-bold uppercase">
                 Clogging
               </Text>
             </View>
           ) : null}
         </View>
-        <Text style={{ fontSize: 11, lineHeight: 16, color: MUTED }}>{subtitle}</Text>
+        <Text style={{ fontSize: TYPE.caption, lineHeight: 16, color: MUTED }}>{subtitle}</Text>
       </View>
 
       <View className={`mt-px rounded-full px-3 py-1 ${meta.pill}`}>

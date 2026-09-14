@@ -12,8 +12,10 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
+import { AppState } from "react-native";
 
 import { COLORS } from "@/lib/colors";
+import { revalidateOnForeground, warmCatalogue } from "@/data/api";
 import { useAppStore } from "@/store/useAppStore";
 
 SplashScreen.preventAutoHideAsync();
@@ -53,7 +55,36 @@ export default function RootLayout() {
     return unsubscribe;
   }, []);
 
-  const ready = fontsLoaded && hydrated;
+  // Same reasoning as the hydration gate above, for the catalogue: reading it
+  // off disk is async, so without this the browse screen paints a skeleton and
+  // swaps in the cached list a tick later. Doing it here spends that time on a
+  // splash the user is already looking at. It cannot fail the launch — a cache
+  // miss resolves like a hit and the screen falls back to fetching.
+  const [catalogueWarm, setCatalogueWarm] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    warmCatalogue().finally(() => {
+      if (!cancelled) setCatalogueWarm(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // A phone backgrounds an app rather than closing it, so the launch check can
+  // be the only one a week of use ever performs — and the memory layer has no
+  // expiry while the app is open. Coming back to the app is the moment that
+  // matters: it is when someone looks at the list again. Rate-limited inside
+  // `revalidateOnForeground`, so app-switching costs nothing.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") revalidateOnForeground();
+    });
+    return () => subscription.remove();
+  }, []);
+
+  const ready = fontsLoaded && hydrated && catalogueWarm;
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();

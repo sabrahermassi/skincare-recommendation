@@ -1,6 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ["./app/**/*.{js,jsx,ts,tsx}", "./components/**/*.{js,jsx,ts,tsx}"],
+  // Must be "class", not the default "media". On web, react-native-css-interop
+  // watches <head> for the stylesheet, then calls colorScheme.set() — which
+  // throws unconditionally when the mode is "media", crashing the app before
+  // first paint. No-op visually: this app ships zero `dark:` variants.
+  darkMode: "class",
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
@@ -187,6 +192,42 @@ module.exports = {
         sheet: "18px", // modals, bottom sheets
         // `full` stays for genuinely circular things only: avatars, the FAB,
         // step dots, the toggle knob, and the pill-shaped filter tabs.
+      },
+
+      // Six steps, derived from what the app already does rather than invented.
+      // A survey of every `fontSize:` and `text-[Npx]` in app/ and components/
+      // found 24 distinct sizes across ~130 declarations — 9, 9.5, 10, 10.5,
+      // 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16, 18, 19, 20, 21,
+      // 23, 24, 26, 28, 34 — with no scale defined anywhere. Type was the one
+      // part of the design system with no tokens at all.
+      //
+      // That is not a tidiness problem. 12 vs 12.5 vs 13 is invisible to a
+      // reader, so the differences encoded nothing while the hierarchy they
+      // were meant to express collapsed — and in a product whose small print
+      // is the *cautionary* print, "everything looks equally important" is a
+      // safety-adjacent flaw, not a cosmetic one.
+      //
+      // The bands below are where the 24 actually clustered. `body` absorbs
+      // roughly half of all declarations on its own, which is the measure of
+      // how little the old spread was buying.
+      //
+      // Mirrored as raw numbers in `lib/tokens.ts` (`TYPE`), for the same
+      // reason `lib/colors.ts` mirrors the palette: most text in this codebase
+      // is styled with an inline `fontSize`, not a className, and both need to
+      // read from one source. Keep the two in sync.
+      // `label` and `body` are deliberately different things, and the naming is
+      // the whole point of the split: 16px is the floor for running prose on
+      // mobile, but a filter chip or a list row is not prose and 16 makes those
+      // screens shout. So paragraphs take `body`, interface text takes `label`,
+      // and the step you reach for is decided by what the text *is* rather than
+      // by how big it looked in the mockup.
+      fontSize: {
+        caption: "12px", // metadata, uppercase eyebrows, attribution, footnotes
+        label: "14px", // chips, list rows, option labels, buttons — not prose
+        body: "16px", // running text anyone is expected to actually read
+        title: "20px", // screen titles, card headings
+        heading: "24px", // the one headline on a screen that has one
+        display: "34px", // the score number, and nothing else
       },
 
       fontFamily: {

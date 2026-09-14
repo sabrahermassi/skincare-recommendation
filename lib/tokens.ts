@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 import type { Verdict } from "./matching";
 
 /**
@@ -49,8 +51,22 @@ export const INK = "#241F1E";
  *  browns that a muted line and a peach surface read as the same weight. */
 export const MUTED = "#6B5A54";
 
-/** Third-level text — meta lines, timestamps, "/100" suffixes. */
-export const MUTED_FAINT = "rgba(107,90,84,0.65)";
+/**
+ * Third-level text — meta lines, timestamps, "/100" suffixes, and the brand
+ * eyebrow on every product row.
+ *
+ * Alpha is 0.88, not the 0.65 this used to be, because all of that is text
+ * carrying information rather than decoration: WCAG 2.2 SC 1.4.3 asks 4.5:1
+ * and 0.65 measured 2.95:1 on SURFACE and 2.85:1 on CANVAS — the brand name,
+ * which is how someone confirms they are looking at the right bottle, was
+ * the first thing to disappear in bright light. 0.88 computes to 4.88:1 on
+ * SURFACE and 4.61:1 on CANVAS; 0.85 clears white but not CANVAS, so it is
+ * the cream ground that sets the floor here.
+ *
+ * Still visibly lighter than MUTED (6.07:1), so the three-level hierarchy
+ * survives. Marks that are *not* text keep MUTED_SOFT below.
+ */
+export const MUTED_FAINT = "rgba(107,90,84,0.88)";
 
 /** Chevrons and other non-text marks that must not compete with a label. */
 export const MUTED_SOFT = "rgba(107,90,84,0.45)";
@@ -176,6 +192,32 @@ export function toneForVerdict(verdict: Verdict): VerdictTone | null {
   return null; // "unknown" — use VERDICT_NEUTRAL
 }
 
+/**
+ * The word shown for a verdict, everywhere one is shown.
+ *
+ * Keyed by `Verdict`, not by tone, because the tone collapse above is about
+ * *colour* — it exists so a person is not asked to tell four greens apart.
+ * The label has no such limit, and collapsing it too made a list row and the
+ * product screen disagree out loud: an 89 read "Great match" in Browse (via
+ * `VERDICT[tone].label`) and "Good match" on its own screen. Same product,
+ * same score, two words. One map, read by both, is what stops that.
+ *
+ * It also restores what the badge is for. On a list sorted by score, every
+ * row from 75 up carried the identical "Great match" — constant exactly
+ * where the user is choosing between them.
+ *
+ * The wording is the MVP's locked wording, not a paraphrase: the bands are a
+ * product decision the user reads the same way every time, so "Fair match"
+ * rather than the older "Worth a look".
+ */
+export const VERDICT_LABEL: Record<Verdict, string> = {
+  excellent: "Excellent match",
+  good: "Good match",
+  fair: "Fair match",
+  poor: "Poor match",
+  unknown: VERDICT_NEUTRAL.label,
+};
+
 /** Warning text that is not a verdict: flagged-ingredient counts, cautions. */
 export const WARN = VERDICT.medium.deep;
 
@@ -195,6 +237,53 @@ export const DANGER = VERDICT.low.deep;
  * for the translucent chrome rather than re-typing the triplet.
  */
 export const CAMERA_STAGE = "#17161B";
+
+/**
+ * The type scale, as raw numbers.
+ *
+ * The mirror of `tailwind.config.js`'s `fontSize` block, and the reasoning for
+ * the six steps lives there rather than being restated here. Keep the two in
+ * sync — the same standing rule the palette carries.
+ *
+ * A mirror rather than a migration to `className` on purpose. Most text in this
+ * app is styled with an inline `fontSize`, and moving all ~130 of them to
+ * utilities would be betting that NativeWind's emitted CSS survives
+ * react-native-web's style compiler. That bet has already been lost once in
+ * this codebase, with `fontFamily` — see the long note in
+ * `components/Text.tsx` about every screen rendering its body copy in Times
+ * New Roman. Numbers are safe where a family was not, but there is no reason
+ * to find out the hard way a second time.
+ *
+ * Migrate a screen at a time. Both mechanisms are valid throughout, so nothing
+ * is half-broken in between:
+ *
+ *   fontSize: 13        ->  fontSize: TYPE.body
+ *   className="text-[11.5px]"  ->  className="text-caption"
+ */
+/**
+ * The minimum height of anything tappable.
+ *
+ * Platform-split on purpose, because the two guidelines disagree and neither
+ * is "the" number: Apple's HIG asks for 44pt, Material for 48dp. Shipping 44
+ * everywhere is the common shortcut and leaves every Android control 4dp short
+ * of its own platform's floor — invisible on the reviewer's iPhone, real on the
+ * device it is wrong on.
+ *
+ * Web is a third answer again (WCAG 2.2 SC 2.5.8 is 24 CSS px, with
+ * exceptions), and `react-native-web` reports as neither iOS nor Android, so it
+ * falls to the `default` branch. 44 there is well above the requirement and
+ * matches what a phone-shaped layout wants anyway.
+ */
+export const TOUCH_TARGET = Platform.select({ ios: 44, android: 48, default: 44 }) as number;
+
+export const TYPE = {
+  caption: 12,
+  label: 14,
+  body: 16,
+  title: 20,
+  heading: 24,
+  display: 34,
+} as const;
 
 /**
  * A token color at partial opacity, as an `rgba()` string — for translucent

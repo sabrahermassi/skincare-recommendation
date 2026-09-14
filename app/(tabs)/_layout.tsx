@@ -88,7 +88,13 @@ export default function TabsLayout() {
           title: "for.me",
           tabBarLabel: "Browse",
           tabBarAccessibilityLabel: "Browse",
-          tabBarIcon: ({ color }) => <Ionicons name="home" size={22} color={color} />,
+          // A list glyph, not a house. With labels hidden (see above) the
+          // icon carries the whole meaning, and a house promises "back to the
+          // start" — but the start route `/` is the scanner in the first
+          // position, so the house sat in slot two pointing at a product
+          // list. The two icons were telling the user the tab order was the
+          // reverse of what it is.
+          tabBarIcon: ({ color }) => <Ionicons name="list" size={22} color={color} />,
         }}
       />
       <Tabs.Screen

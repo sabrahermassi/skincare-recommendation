@@ -30,6 +30,11 @@ module.exports = defineConfig([
     files: ['**/*.{ts,tsx}'],
     ignores: [
       'store/useAppStore.{ts,tsx}', // the approved AsyncStorage seam (issue #2)
+      'data/catalogue-cache.{ts,tsx}', // the approved AsyncStorage seam for cached
+                                   // catalogue data — public, non-personal and
+                                   // disposable, per docs/device-storage-policy.md.
+                                   // Narrowed again by the block below: this file is
+                                   // exempt from the AsyncStorage ban and nothing else.
       // 'lib/secure-storage.{ts,tsx}', // uncomment with the auth PR — the only
                                    // file permitted to import expo-secure-store
     ],
@@ -70,6 +75,49 @@ module.exports = defineConfig([
         { name: 'sessionStorage', message: 'Not a secure store. See docs/device-storage-policy.md.' },
       ],
       // ...and the qualified forms, which no-restricted-globals does not see.
+      'no-restricted-properties': ['error',
+        { object: 'window', property: 'localStorage', message: 'See docs/device-storage-policy.md.' },
+        { object: 'window', property: 'sessionStorage', message: 'See docs/device-storage-policy.md.' },
+        { object: 'globalThis', property: 'localStorage', message: 'See docs/device-storage-policy.md.' },
+        { object: 'globalThis', property: 'sessionStorage', message: 'See docs/device-storage-policy.md.' },
+      ],
+    },
+  },
+  {
+    // The catalogue cache is exempted above from the AsyncStorage ban, because
+    // caching public product rows is what it exists to do. It is not exempt
+    // from the rest, and a blanket `ignores` entry would have made it so —
+    // silently allowing this file to reach for expo-secure-store or
+    // localStorage. Restating the other restrictions here keeps the hole the
+    // exact size of the reason for it. See docs/device-storage-policy.md.
+    files: ['data/catalogue-cache.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [
+          {
+            name: 'expo-secure-store',
+            message:
+              'expo-secure-store may only be imported from lib/secure-storage.ts. ' +
+              'The catalogue cache holds public, non-personal data and has no ' +
+              'business here — see docs/device-storage-policy.md.',
+          },
+        ],
+      }],
+      'no-restricted-syntax': ['error',
+        {
+          selector:
+            "CallExpression[callee.name='require'][arguments.0.value=/expo-secure-store/]",
+          message: 'Same rule as no-restricted-imports — see docs/device-storage-policy.md.',
+        },
+        {
+          selector: "ImportExpression[source.value=/expo-secure-store/]",
+          message: 'Same rule as no-restricted-imports — see docs/device-storage-policy.md.',
+        },
+      ],
+      'no-restricted-globals': ['error',
+        { name: 'localStorage', message: 'Reach AsyncStorage, not localStorage. See docs/device-storage-policy.md.' },
+        { name: 'sessionStorage', message: 'Not a store this file may use. See docs/device-storage-policy.md.' },
+      ],
       'no-restricted-properties': ['error',
         { object: 'window', property: 'localStorage', message: 'See docs/device-storage-policy.md.' },
         { object: 'window', property: 'sessionStorage', message: 'See docs/device-storage-policy.md.' },

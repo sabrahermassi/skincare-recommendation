@@ -2,6 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 
+import { forgetScannedBarcodes } from "@/data/catalogue-cache";
+
 import type { Concern, SkinProfile } from "@/data/types";
 
 export type SavedProduct = {
@@ -121,6 +123,24 @@ type AppState = {
     score: number | null;
     warnings: number;
   }) => void;
+  /**
+   * Fills in the score on an entry that was logged without one.
+   *
+   * `recordView` captures the score as it stood when the screen opened, which
+   * for someone with no profile is no score at all. The inline prompt on the
+   * result screen then collects the two answers that produce one, and the log
+   * would otherwise keep the blank forever.
+   *
+   * Deliberately only fills a blank, never corrects a number. The log is a
+   * record of what the user was told at the time, and rewriting a score
+   * because the profile changed later would make it a record of nothing —
+   * see the "does not rewrite a recorded score" test, which this must not
+   * break. An entry that never had a score has no such history to protect.
+   *
+   * Leaves `seenCount`, both timestamps and the list order alone: this is the
+   * same visit, better informed.
+   */
+  fillInViewScore: (id: string, view: { score: number | null; warnings: number }) => void;
   clearHistory: () => void;
   /** Removes one entry from the log — the per-row "x" on the History tab,
    *  as opposed to `clearHistory`'s wipe-everything action. */
@@ -131,9 +151,10 @@ type AppState = {
 
   /**
    * Back to a first-run state: empty profile, closed onboarding gate, empty
-   * shelf and log. Needed because persistence works — once onboarding is
-   * completed it stays completed, and without this there is no way back to it
-   * short of deleting the app.
+   * shelf and log, and the barcodes looked up this session forgotten. Needed
+   * because persistence works — once onboarding is completed it stays
+   * completed, and without this there is no way back to it short of deleting
+   * the app.
    */
   resetApp: () => void;
 };
@@ -348,6 +369,23 @@ export const useAppStore = create<AppState>()(
           };
         }),
 
+      fillInViewScore: (id, { score, warnings }) =>
+        set((state) => {
+          const previous = state.history.find((h) => h.id === id);
+          // Nothing logged, already scored, or still nothing to record.
+          // Returning an empty patch rather than a rebuilt array keeps every
+          // history selector on its existing reference, so the common case —
+          // this runs on every open, right after `recordView` — costs no
+          // re-render.
+          if (!previous || previous.scoreAtView !== null || score === null) return {};
+
+          return {
+            history: state.history.map((h) =>
+              h.id === id ? { ...h, scoreAtView: score, warningsAtView: warnings } : h,
+            ),
+          };
+        }),
+
       clearHistory: () => set({ history: [] }),
       removeHistoryEntry: (id) =>
         set((state) => ({ history: state.history.filter((h) => h.id !== id) })),
@@ -365,6 +403,15 @@ export const useAppStore = create<AppState>()(
         // Also wipe what is on disk. Without this the in-memory reset is
         // undone by the next rehydration and the app "forgets" the reset.
         void useAppStore.persist.clearStorage();
+        // Barcodes looked up this session live outside the store, in the
+        // catalogue cache's memory layer. They are a record of what this
+        // person pointed a camera at, so they belong to this reset even though
+        // they never reach the disk. It lives here rather than in the screen
+        // that offers the button so that "erase everything" cannot drift out
+        // of sync with a second caller later. The cached *catalogue* is
+        // deliberately left alone — it is public and identical on every
+        // install; see `forgetScannedBarcodes` for why the two differ.
+        forgetScannedBarcodes();
       },
     }),
     {

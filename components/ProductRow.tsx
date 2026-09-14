@@ -7,7 +7,7 @@ import { Text } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import { matchTone, type MatchResult } from "@/lib/matching";
 import { flaggedIngredients } from "@/lib/safety";
-import { INK, LINE, MUTED, MUTED_FAINT, SURFACE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { INK, LINE, MUTED, MUTED_FAINT, SURFACE, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { ProductThumbnail } from "./ProductThumbnail";
 
 /**
@@ -44,6 +44,10 @@ export const ProductRow = memo(function ProductRow({
   const flagged = flaggedIngredients(product.ingredients).length;
   const tone = match.score === null ? null : matchTone(match.score);
   const verdict = tone ? VERDICT[tone] : VERDICT_NEUTRAL;
+  // Colour from the tone, word from the verdict — see `VERDICT_LABEL`. The
+  // row used to take both from the tone, which is why a product's badge
+  // could disagree with its own detail screen.
+  const verdictLabel = VERDICT_LABEL[match.verdict];
 
   const meta =
     total === 0
@@ -89,7 +93,7 @@ export const ProductRow = memo(function ProductRow({
           <View style={{ flex: 1 }}>
             <Text
               style={{
-                fontSize: 9.5,
+                fontSize: TYPE.caption,
                 fontWeight: "600",
                 textTransform: "uppercase",
                 letterSpacing: 0.7,
@@ -101,13 +105,21 @@ export const ProductRow = memo(function ProductRow({
             <Text style={{ marginTop: 2, fontSize: 13.5, fontWeight: "500", lineHeight: 18, color: INK }}>
               {product.name}
             </Text>
-            <Text style={{ marginTop: 2, fontSize: 10.5, color: flagged > 0 ? WARN : MUTED }}>
+            <Text style={{ marginTop: 2, fontSize: TYPE.caption, color: flagged > 0 ? WARN : MUTED }}>
               {meta}
             </Text>
           </View>
 
           {/* No score means no profile to score against — the row still lists,
-              it just doesn't pretend to rank. */}
+              it just doesn't pretend to rank.
+
+              The column stays 92 and the badge wraps instead. "Excellent
+              match" — the 90+ label — measures 85px against the 67px this
+              column leaves inside the pill, so it cannot sit on one line.
+              Widening the column to fit it took 18px from every product name
+              on the screen, wrapping the meta line on rows that never show
+              that label; letting the badge run to two lines spends the space
+              only on the rare row that needs it. */}
           {tone && match.score !== null ? (
             <View style={{ alignItems: "center", gap: 6, width: 92 }}>
               <View
@@ -119,15 +131,15 @@ export const ProductRow = memo(function ProductRow({
                 }}
               >
                 <Text
-                  style={{ fontSize: 11, fontWeight: "600", color: verdict.deep }}
-                  numberOfLines={1}
+                  style={{ fontSize: TYPE.caption, fontWeight: "600", textAlign: "center", color: verdict.deep }}
+                  numberOfLines={2}
                 >
-                  {verdict.label}
+                  {verdictLabel}
                 </Text>
               </View>
               <View style={{ flexDirection: "row", alignItems: "baseline", gap: 1 }}>
                 <Text style={{ fontSize: 16, fontWeight: "600", color: INK }}>{match.score}</Text>
-                <Text style={{ fontSize: 10.5, fontWeight: "500", color: MUTED_FAINT }}>/100</Text>
+                <Text style={{ fontSize: TYPE.caption, fontWeight: "500", color: MUTED_FAINT }}>/100</Text>
               </View>
             </View>
           ) : null}

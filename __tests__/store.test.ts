@@ -1,4 +1,11 @@
 import {
+  peekCatalogue,
+  putCatalogue,
+  putScanned,
+  readScanned,
+} from "@/data/catalogue-cache";
+import type { ProductWithIngredients } from "@/data/types";
+import {
   EMPTY_PROFILE,
   formeStorage,
   HISTORY_LIMIT,
@@ -209,6 +216,48 @@ describe("history log", () => {
     expect(s().history[0].warningsAtView).toBe(2);
   });
 
+  /**
+   * The reported bug: someone with no profile opens a product, the visit is
+   * logged with no score, they answer the two questions on the result screen,
+   * and the log keeps the blank forever.
+   */
+  it("fills in a score the visit was logged without", () => {
+    s().recordView({ id: "a", known: true, score: null, warnings: 0 });
+    const loggedAt = s().history[0].lastSeenAt;
+
+    s().fillInViewScore("a", { score: 82, warnings: 1 });
+
+    expect(s().history[0].scoreAtView).toBe(82);
+    expect(s().history[0].warningsAtView).toBe(1);
+    // The same visit, better informed — not a second one.
+    expect(s().history[0].seenCount).toBe(1);
+    expect(s().history[0].lastSeenAt).toBe(loggedAt);
+  });
+
+  /**
+   * The other half of the rule above. Filling a blank is a correction;
+   * overwriting a number the user was actually shown would make the log a
+   * record of nothing. This runs on every profile change while a product
+   * screen is open, so the guard has to be in the store, not the caller.
+   */
+  it("never overwrites a score the visit already had", () => {
+    s().recordView({ id: "a", known: true, score: 91, warnings: 2 });
+
+    s().fillInViewScore("a", { score: 40, warnings: 5 });
+
+    expect(s().history[0].scoreAtView).toBe(91);
+    expect(s().history[0].warningsAtView).toBe(2);
+  });
+
+  it("does nothing for a product that was never logged, or with no score to give", () => {
+    s().fillInViewScore("never-opened", { score: 82, warnings: 1 });
+    expect(s().history).toEqual([]);
+
+    s().recordView({ id: "a", known: true, score: null, warnings: 0 });
+    s().fillInViewScore("a", { score: null, warnings: 0 });
+    expect(s().history[0].scoreAtView).toBeNull();
+  });
+
   it("records an unresolved barcode as an unknown entry", () => {
     s().recordView({ id: "8800000000000", known: false, score: null, warnings: 0 });
     expect(s().history[0]).toMatchObject({ known: false, scoreAtView: null });
@@ -258,6 +307,29 @@ describe("resetApp", () => {
     expect(s().hasSeenOnboarding).toBe(true);
     s().resetApp();
     expect(s().hasSeenOnboarding).toBe(false);
+  });
+
+  /**
+   * The one piece of this reset that lives outside the store. Barcodes looked
+   * up during a session are held in the catalogue cache's memory layer, and
+   * the set of them is a record of what this person pointed a camera at — so
+   * "erase my profile" has to reach it, even though it never touches the disk.
+   *
+   * The cached catalogue is deliberately *not* cleared alongside it: it is
+   * public, identical on every install, and dropping it would cost a spinner
+   * while protecting nothing.
+   */
+  it("forgets barcodes scanned this session, but keeps the public catalogue", () => {
+    putScanned("8801234567890", null);
+    putCatalogue(
+      [{ id: "a", type: "serum" } as unknown as ProductWithIngredients],
+      { count: 1, newest: null },
+    );
+
+    s().resetApp();
+
+    expect(readScanned("8801234567890")).toBeUndefined();
+    expect(peekCatalogue()).not.toBeNull();
   });
 });
 

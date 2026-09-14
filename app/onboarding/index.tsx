@@ -116,10 +116,19 @@ export default function Onboarding() {
           accessible
           accessibilityLiveRegion="polite"
           accessibilityRole="alert"
+          // Stops short of Skip instead of spanning the full width. Skip sits
+          // at H_PADDING (24) from the right with a 44pt minimum target, so
+          // the box ends clear of it — someone who just erased their profile
+          // is on their way somewhere, and the confirmation must not stand in
+          // the doorway for its full 3s. Deliberately NOT `pointerEvents:
+          // "none"`: the geometry is what keeps Skip tappable, and that prop
+          // takes the toast out of the accessibility tree on iOS, where
+          // `accessibilityLiveRegion` does nothing and being focusable is the
+          // only way this text reaches VoiceOver.
           style={{
             position: "absolute",
             left: 20,
-            right: 20,
+            right: 80,
             top: insets.top + 12,
             flexDirection: "row",
             alignItems: "center",

@@ -11,6 +11,7 @@ import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { HeartIcon } from "@/components/icons";
+import { InlineProfilePrompt } from "@/components/InlineProfilePrompt";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { fetchProduct } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
@@ -22,9 +23,11 @@ import {
   type MatchReason,
   type Verdict,
 } from "@/lib/matching";
+import { relativeTime } from "@/lib/format";
+import { isPersonalized } from "@/lib/profile";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SELECTED_STRONG, VERDICT, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SELECTED_STRONG, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
 // draw from the shared `PrimaryButton` component's `tone="cta"` — added
@@ -62,22 +65,10 @@ import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SELECTED_STRONG, VERD
  * on top of the answer.
  */
 
-/**
- * Labels are the MVP's locked wording, not a paraphrase: the four bands are a
- * product decision the user reads the same way every time, so "Fair match"
- * rather than the older "Worth a look". Excellent and good share the sage
- * palette — the label carries the distinction, which keeps the screen from
- * needing a fifth colour that means "yes, but more so".
- */
-// The five bands' display label - the one thing that still needs full
-// per-Verdict granularity, since excellent/good share a tone but not a word.
-const PANEL_LABEL: Record<Verdict, string> = {
-  excellent: "Excellent match",
-  good: "Good match",
-  fair: "Fair match",
-  poor: "Poor match",
-  unknown: VERDICT_NEUTRAL.label,
-};
+// The display label lives in lib/tokens as `VERDICT_LABEL`, with the note on
+// why the wording is locked. It moved there because the browse and saved
+// lists need the same words — they used to take theirs from the tone, which
+// is how an 89 read "Great match" in a list and "Good match" here.
 
 /**
  * Excellent and good are both a yes — they share the green and are told
@@ -90,7 +81,7 @@ function panelFor(verdict: Verdict): { bg: string; border: string; label: string
   const colors = tone
     ? { bg: VERDICT[tone].tint, border: VERDICT[tone].solid, ink: VERDICT[tone].deep }
     : { bg: VERDICT_NEUTRAL.tint, border: BORDER_INACTIVE, ink: VERDICT_NEUTRAL.deep };
-  return { ...colors, label: PANEL_LABEL[verdict] };
+  return { ...colors, label: VERDICT_LABEL[verdict] };
 }
 
 /**
@@ -120,19 +111,22 @@ function ReasonLine({ reason }: { reason: MatchReason }) {
           backgroundColor: positive ? VERDICT.high.tint : VERDICT.low.tint,
         }}
       >
-        <Text style={{ fontSize: 11, fontWeight: "bold", lineHeight: 13, color: INK }}>
+        <Text style={{ fontSize: TYPE.caption, fontWeight: "bold", lineHeight: 14, color: INK }}>
           {positive ? "+" : "−"}
         </Text>
       </View>
       <View style={{ flex: 1, gap: 1 }}>
-        <Text style={{ fontSize: 13, fontWeight: "600", textTransform: "capitalize", color: INK }}>
+        <Text style={{ fontSize: TYPE.label, fontWeight: "600", textTransform: "capitalize", color: INK }}>
           {(reason.ingredient ?? "").toLowerCase()}
         </Text>
-        <Text style={{ fontSize: 12, lineHeight: 17, color: MUTED }}>{reason.reason}</Text>
+        <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{reason.reason}</Text>
       </View>
     </View>
   );
 }
+
+// See `staleNotice`.
+const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 
 export default function ProductScreen() {
   const insets = useSafeAreaInsets();
@@ -141,10 +135,23 @@ export default function ProductScreen() {
   const [loading, setLoading] = useState(true);
   const [showBreakdown, setShowBreakdown] = useState(false);
 
+  // Captured once, on arrival, rather than read live. `isPersonalized` flips as
+  // soon as a skin type is chosen, so a live check would unmount the panel on
+  // the first tap and take the sensitivity question with it — the user would
+  // answer one thing and watch the other vanish. Held for the visit instead:
+  // the score above fills in, the answers stay visible and changeable, and it
+  // is gone next time the screen opens.
+  const [askForProfile] = useState(() => !isPersonalized(useAppStore.getState().profile));
+
+  // Pinned at mount for the same reason the ingredient screen pins its own:
+  // `react-hooks/purity` flags `Date.now()` during render.
+  const [renderedAt] = useState(() => Date.now());
+
   const profile = useAppStore((s) => s.profile);
   const savedProducts = useAppStore((s) => s.savedProducts);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
   const recordView = useAppStore((s) => s.recordView);
+  const fillInViewScore = useAppStore((s) => s.fillInViewScore);
   const saved = savedProducts.some((p) => p.id === id);
   const loggedId = useRef<string | null>(null);
 
@@ -183,6 +190,21 @@ export default function ProductScreen() {
     recordView({ id: product.id, known: true, score, warnings: warnings.length });
   }, [product, recordView]);
 
+  // The effect above captures the score as it stood when the screen opened,
+  // which for someone with no profile is no score at all. The inline prompt
+  // below then collects the two answers that produce one — and history would
+  // otherwise keep the blank. This fills it in without logging a second visit.
+  //
+  // It runs on every profile change while this screen is open, but
+  // `fillInViewScore` only ever fills a blank: a log that rewrote its own past
+  // entries whenever the profile changed would be a record of nothing, which
+  // is a property the store tests hold directly.
+  useEffect(() => {
+    if (!product || loggedId.current !== product.id) return;
+    const { score, warnings } = matchProduct(product, profile);
+    fillInViewScore(product.id, { score, warnings: warnings.length });
+  }, [product, profile, fillInViewScore]);
+
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS }}>
@@ -196,7 +218,7 @@ export default function ProductScreen() {
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: INK }}>
+          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, color: INK }}>
             Product not found
           </Text>
           <PrimaryButton tone="cta" size={52} label="Scan another" onPress={() => router.replace("/")} />
@@ -218,6 +240,16 @@ export default function ProductScreen() {
   const against = match.reasons.filter((r) => r.effect < 0).slice(0, 3);
   const explanation = scoreExplanation(match);
   const confidence = confidenceLabel(match.confidence);
+
+  // Six months. Long enough that a fresh catalogue never mentions it, short
+  // enough to catch a formula that predates a plausible reformulation — brands
+  // change one roughly every year or two, and the source finds out later
+  // still. A row with no `fetchedAt` says nothing rather than guessing old.
+  const fetchedAtMs = product.fetchedAt ? Date.parse(product.fetchedAt) : NaN;
+  const staleNotice =
+    Number.isFinite(fetchedAtMs) && renderedAt - fetchedAtMs > STALE_AFTER_MS
+      ? `This formula was read ${relativeTime(fetchedAtMs, renderedAt)}. If the brand has reformulated since, the verdict above is judging the old list.`
+      : null;
 
   async function share() {
     if (!product) return;
@@ -263,14 +295,14 @@ export default function ProductScreen() {
         </View>
 
         <View style={{ alignItems: "center", gap: 6, paddingHorizontal: 20, paddingTop: 18 }}>
-          <Text style={{ fontSize: 10, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.9, color: MUTED_FAINT }}>
+          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.9, color: MUTED_FAINT }}>
             {product.brand}
           </Text>
           <Text
             style={{
               textAlign: "center",
               fontFamily: "PlayfairDisplay_500Medium",
-              fontSize: 23,
+              fontSize: TYPE.heading,
               lineHeight: 28,
               letterSpacing: -0.28,
               color: INK,
@@ -278,7 +310,7 @@ export default function ProductScreen() {
           >
             {product.name}
           </Text>
-          <Text style={{ fontSize: 12.5, color: MUTED }}>
+          <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
             {[
               product.volume,
               // A genuinely unidentified product says so nowhere near here —
@@ -339,7 +371,7 @@ export default function ProductScreen() {
             <Text
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
-                fontSize: 21,
+                fontSize: TYPE.title,
                 lineHeight: 23,
                 letterSpacing: -0.3,
                 color: panel.ink,
@@ -347,16 +379,42 @@ export default function ProductScreen() {
             >
               {panel.label}
             </Text>
-            <Text style={{ fontSize: 13, lineHeight: 18.5, color: INK }}>
+            <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
               {verdictHeadline(match)}
             </Text>
             {explanation.length > 0 && (
-              <Text style={{ paddingTop: 2, fontSize: 11.5, fontWeight: "600", color: panel.ink }}>
+              <Text style={{ paddingTop: 2, fontSize: TYPE.label, fontWeight: "600", color: panel.ink }}>
                 {showBreakdown ? "Hide the breakdown" : "How was this worked out?"}
               </Text>
             )}
           </View>
         </Pressable>
+
+        {askForProfile && <InlineProfilePrompt />}
+
+        {/*
+          How old the formula is, but only once it is old enough to matter.
+          Nothing refreshes a catalogue row after it is written, so a verdict
+          can be computed from a list read months ago and stated with exactly
+          the same confidence as one read yesterday. The ingredient screen has
+          always shown this; the screen that delivers the *judgement* did not,
+          which is the wrong way round. Hidden below the threshold so it stays
+          a signal rather than furniture — the pipeline fix for the underlying
+          staleness is a separate, larger job.
+        */}
+        {staleNotice && (
+          <Text
+            style={{
+              paddingHorizontal: 24,
+              paddingTop: 12,
+              fontSize: TYPE.label,
+              lineHeight: 17,
+              color: MUTED_FAINT,
+            }}
+          >
+            {staleNotice}
+          </Text>
+        )}
 
         {/* What the number is actually made of, strongest first. The sentences
             come from lib/matching so the words and the arithmetic cannot
@@ -381,12 +439,12 @@ export default function ProductScreen() {
                   className={line.direction === "up" ? "bg-tone-good" : "bg-tone-flag"}
                 />
                 <View style={{ flex: 1, gap: 1 }}>
-                  <Text style={{ fontSize: 12.5, fontWeight: "600", color: INK }}>{line.label}</Text>
-                  <Text style={{ fontSize: 12, lineHeight: 17, color: MUTED }}>{line.detail}</Text>
+                  <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{line.label}</Text>
+                  <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{line.detail}</Text>
                 </View>
               </View>
             ))}
-            <Text style={{ fontSize: 11, lineHeight: 15, color: MUTED_FAINT }}>
+            <Text style={{ fontSize: TYPE.caption, lineHeight: 16, color: MUTED_FAINT }}>
               Ordered by how much each moved the score. Based on {recognised} of {total}{" "}
               ingredients we could identify — {confidence} confidence.
             </Text>
@@ -430,7 +488,7 @@ export default function ProductScreen() {
         */}
         {(helps.length > 0 || against.length > 0) && (
           <View style={{ marginHorizontal: 24, marginTop: 26, gap: 14 }}>
-            <Text style={{ fontSize: 9, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.53, color: MUTED_FAINT }}>
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.53, color: MUTED_FAINT }}>
               Why this score
             </Text>
 
@@ -443,7 +501,7 @@ export default function ProductScreen() {
               ))}
             </View>
 
-            <Text style={{ fontSize: 11, lineHeight: 15, color: MUTED_FAINT }}>
+            <Text style={{ fontSize: TYPE.caption, lineHeight: 16, color: MUTED_FAINT }}>
               From {recognised} of {total} ingredients we could identify
               {confidence === "high" ? "" : ` — ${confidence} confidence`}.
             </Text>
@@ -463,10 +521,10 @@ export default function ProductScreen() {
               backgroundColor: CANVAS,
             }}
           >
-            <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>
+            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
               We know this product but not what&apos;s in it
             </Text>
-            <Text style={{ fontSize: 12.5, lineHeight: 19, color: MUTED }}>
+            <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>
               Nobody has read this label yet, so there is no ingredient list to
               judge.
             </Text>
@@ -483,7 +541,7 @@ export default function ProductScreen() {
           not a headline.
         */}
         <View style={{ marginHorizontal: 24, marginTop: 30, marginBottom: 8 }}>
-          <Text style={{ fontSize: 10.5, lineHeight: 15, color: MUTED_FAINT }}>
+          <Text style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED_FAINT }}>
             Based on your skin profile and public ingredient data - not medical
             advice. Formulas change and label data can be out of date, so check
             the packaging for anything that matters.
@@ -491,7 +549,7 @@ export default function ProductScreen() {
         </View>
 
         {product.attribution ? (
-          <Text style={{ paddingHorizontal: 24, paddingTop: 20, fontSize: 10.5, lineHeight: 16, color: MUTED_FAINT }}>
+          <Text style={{ paddingHorizontal: 24, paddingTop: 20, fontSize: TYPE.caption, lineHeight: 17, color: MUTED_FAINT }}>
             {product.attribution}
           </Text>
         ) : null}

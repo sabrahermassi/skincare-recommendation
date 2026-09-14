@@ -11,7 +11,7 @@ import type { ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
-import { CANVAS, INK, MUTED } from "@/lib/tokens";
+import { CANVAS, INK, MUTED, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md).
 
@@ -126,7 +126,7 @@ export default function IngredientList() {
             strokeLinecap="round"
           />
         </Svg>
-        <Text style={{ fontSize: 10.5, color: MUTED }}>
+        <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
           Ingredients are listed in order of concentration.
         </Text>
       </View>
