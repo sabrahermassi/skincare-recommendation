@@ -6,6 +6,7 @@ import {
   DISK_TTL_MS,
   hasCheckedThisLaunch,
   markCheckedThisLaunch,
+  msSinceLastCheck,
   peekCatalogue,
   productById,
   productsForType,
@@ -378,6 +379,43 @@ function checkFreshnessOnce(known: CatalogueWatermark): void {
   if (hasCheckedThisLaunch()) return;
   markCheckedThisLaunch();
   revalidateCatalogue(known);
+}
+
+/**
+ * How long the app can be away before returning to it is worth a fresh check.
+ *
+ * A phone does not close an app, it backgrounds it — so "once per launch" can
+ * mean once a week. Short enough that a day-old list is never what you come
+ * back to; long enough that flicking to another app and straight back costs
+ * nothing.
+ */
+export const FOREGROUND_RECHECK_MS = 5 * 60 * 1000;
+
+/**
+ * "Has anything changed?", asked again on returning to the app.
+ *
+ * The launch check is deliberately once-only, guarded by `hasCheckedThisLaunch`
+ * so that several screens mounting together cannot each start one. That guard
+ * is right for a launch and wrong for a session: the 24h ceiling only applies
+ * to a copy read back from disk, and the memory layer has no expiry at all
+ * while the app is open, so a process alive for days would keep serving — and
+ * scoring against — the list it read on the first morning.
+ *
+ * Deliberately not awaited, and silent on failure. The worst outcome is the
+ * list you already had.
+ */
+export function revalidateOnForeground(): void {
+  if (!usingSupabase()) return;
+  if (msSinceLastCheck() < FOREGROUND_RECHECK_MS) return;
+
+  // Only meaningful against a catalogue we hold. With nothing cached there is
+  // no watermark to compare and nothing on screen to correct — the next read
+  // goes to the network on its own.
+  const entry = peekCatalogue();
+  if (!entry) return;
+
+  markCheckedThisLaunch();
+  revalidateCatalogue(entry.watermark);
 }
 
 export async function warmCatalogue(): Promise<void> {

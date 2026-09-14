@@ -132,16 +132,40 @@ export function abandonDiskRead(): void {
  */
 let checkedThisLaunch = false;
 
+/**
+ * When the last "has anything changed?" check ran, or null if none has.
+ *
+ * Separate from the boolean because the two answer different questions. The
+ * flag gates the *launch* check, which must happen exactly once however many
+ * screens mount at the same moment. The timestamp gates the foreground
+ * re-check, which must happen repeatedly but not on every app switch.
+ */
+let lastCheckedAt: number | null = null;
+
 export function hasCheckedThisLaunch(): boolean {
   return checkedThisLaunch;
 }
 
 export function markCheckedThisLaunch(): void {
   checkedThisLaunch = true;
+  lastCheckedAt = Date.now();
+}
+
+/**
+ * How long since the catalogue was last checked against the server.
+ *
+ * `Infinity` when it never has been, so a caller comparing against an
+ * interval reads "overdue" rather than "just done" — the safe way round.
+ */
+export function msSinceLastCheck(): number {
+  return lastCheckedAt === null ? Infinity : Date.now() - lastCheckedAt;
 }
 
 /** Barcode lookups. Memory only — see `readScanned`. */
-const scanned = new Map<string, { product: ProductWithIngredients | null; at: number }>();
+const scanned = new Map<
+  string,
+  { product: ProductWithIngredients | null; at: number }
+>();
 
 function buildEntry(
   products: ProductWithIngredients[],
@@ -157,7 +181,10 @@ function buildEntry(
   return { products, watermark, storedAt, byType, byId, types: null };
 }
 
-export function watermarksMatch(a: CatalogueWatermark, b: CatalogueWatermark): boolean {
+export function watermarksMatch(
+  a: CatalogueWatermark,
+  b: CatalogueWatermark,
+): boolean {
   return a.count === b.count && a.newest === b.newest;
 }
 
@@ -172,11 +199,16 @@ function parseMeta(value: unknown): CatalogueMeta | null {
   if (typeof value !== "object" || value === null) return null;
   const meta = value as Partial<CatalogueMeta>;
   const mark = meta.watermark;
-  if (typeof meta.storedAt !== "number" || !Number.isFinite(meta.storedAt)) return null;
+  if (typeof meta.storedAt !== "number" || !Number.isFinite(meta.storedAt))
+    return null;
   if (typeof mark !== "object" || mark === null) return null;
-  if (typeof mark.count !== "number" || !Number.isFinite(mark.count)) return null;
+  if (typeof mark.count !== "number" || !Number.isFinite(mark.count))
+    return null;
   if (mark.newest !== null && typeof mark.newest !== "string") return null;
-  return { watermark: { count: mark.count, newest: mark.newest }, storedAt: meta.storedAt };
+  return {
+    watermark: { count: mark.count, newest: mark.newest },
+    storedAt: meta.storedAt,
+  };
 }
 
 /**
@@ -188,7 +220,11 @@ function parseMeta(value: unknown): CatalogueMeta | null {
 function isUsableProduct(value: unknown): value is ProductWithIngredients {
   if (typeof value !== "object" || value === null) return false;
   const p = value as Partial<ProductWithIngredients>;
-  return typeof p.id === "string" && typeof p.type === "string" && Array.isArray(p.ingredients);
+  return (
+    typeof p.id === "string" &&
+    typeof p.type === "string" &&
+    Array.isArray(p.ingredients)
+  );
 }
 
 /**
@@ -296,24 +332,61 @@ export function touchCatalogue(watermark: CatalogueWatermark): void {
   void persistMeta({ watermark, storedAt: memory.storedAt });
 }
 
-async function persist(products: ProductWithIngredients[], meta: CatalogueMeta): Promise<void> {
-  try {
-    await AsyncStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-    await persistMeta(meta);
-  } catch (err) {
-    // Never fatal — see `putCatalogue`. Surfaced in development only, because a
-    // write that silently fails looks exactly like a cache that works until the
-    // next cold start, which is an unpleasant thing to debug twice.
-    if (__DEV__) console.warn("[catalogue-cache] disk write failed:", err);
-  }
+/**
+ * Serialises every disk write, so two of them cannot interleave.
+ *
+ * A save is two `setItem` calls — the products blob, then the metadata that
+ * describes it — and nothing used to make one save wait for another. A
+ * refresh and a scanned product writing at the same time could therefore
+ * commit as products(A), products(B), meta(B), meta(A), leaving metadata on
+ * disk that describes a blob it did not come from: a `watermark.count` that
+ * disagrees with the rows beside it, which is the one value the freshness
+ * check trusts to decide whether to refetch.
+ *
+ * Both legs of the chain are the same function, so a failed write cannot
+ * stall the queue behind it — `persist` and `persistMeta` swallow their own
+ * errors anyway, and this only guarantees ordering, never success.
+ */
+let writeQueue: Promise<void> = Promise.resolve();
+
+function enqueueWrite(write: () => Promise<void>): Promise<void> {
+  writeQueue = writeQueue.then(write, write);
+  return writeQueue;
+}
+
+/**
+ * Resolves once every write queued so far has finished. For tests, which
+ * otherwise have to guess at how many ticks a two-part write takes.
+ */
+export function writesSettled(): Promise<void> {
+  return writeQueue;
+}
+
+async function persist(
+  products: ProductWithIngredients[],
+  meta: CatalogueMeta,
+): Promise<void> {
+  return enqueueWrite(async () => {
+    try {
+      await AsyncStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+      await AsyncStorage.setItem(META_KEY, JSON.stringify(meta));
+    } catch (err) {
+      // Never fatal — see `putCatalogue`. Surfaced in development only, because a
+      // write that silently fails looks exactly like a cache that works until the
+      // next cold start, which is an unpleasant thing to debug twice.
+      if (__DEV__) console.warn("[catalogue-cache] disk write failed:", err);
+    }
+  });
 }
 
 async function persistMeta(meta: CatalogueMeta): Promise<void> {
-  try {
-    await AsyncStorage.setItem(META_KEY, JSON.stringify(meta));
-  } catch {
-    // See `putCatalogue`.
-  }
+  return enqueueWrite(async () => {
+    try {
+      await AsyncStorage.setItem(META_KEY, JSON.stringify(meta));
+    } catch {
+      // See `putCatalogue`.
+    }
+  });
 }
 
 /**
@@ -350,14 +423,19 @@ export function peekCatalogue(): MemoryEntry | null {
   return memory;
 }
 
-export function productById(entry: MemoryEntry, id: string): ProductWithIngredients | undefined {
+export function productById(
+  entry: MemoryEntry,
+  id: string,
+): ProductWithIngredients | undefined {
   return entry.byId.get(id);
 }
 
 /** Distinct types present, cached so the filter bar stops issuing its own query. */
 export function typesFrom(entry: MemoryEntry): ProductType[] {
   if (entry.types) return entry.types;
-  entry.types = [...new Set(entry.products.map((p) => p.type))] as ProductType[];
+  entry.types = [
+    ...new Set(entry.products.map((p) => p.type)),
+  ] as ProductType[];
   return entry.types;
 }
 
@@ -375,7 +453,9 @@ export function typesFrom(entry: MemoryEntry): ProductType[] {
  * consulted" is an ordinary answer and worth not re-asking within a session.
  * The miss is `undefined`.
  */
-export function readScanned(barcode: string): ProductWithIngredients | null | undefined {
+export function readScanned(
+  barcode: string,
+): ProductWithIngredients | null | undefined {
   const hit = scanned.get(barcode);
   if (!hit) return undefined;
   if (Date.now() - hit.at > SCANNED_TTL_MS) {
@@ -385,7 +465,10 @@ export function readScanned(barcode: string): ProductWithIngredients | null | un
   return hit.product;
 }
 
-export function putScanned(barcode: string, product: ProductWithIngredients | null): void {
+export function putScanned(
+  barcode: string,
+  product: ProductWithIngredients | null,
+): void {
   scanned.set(barcode, { product, at: Date.now() });
 }
 
@@ -449,7 +532,10 @@ export function addScannedToCatalogue(product: ProductWithIngredients): void {
     : [product, ...memory.products];
 
   memory = buildEntry(products, memory.watermark, memory.storedAt);
-  void persist(memory.products, { watermark: memory.watermark, storedAt: memory.storedAt });
+  void persist(memory.products, {
+    watermark: memory.watermark,
+    storedAt: memory.storedAt,
+  });
 }
 
 /**
@@ -485,6 +571,7 @@ export async function resetCatalogueCache(): Promise<void> {
   diskRead = null;
   diskReadAbandoned = false;
   checkedThisLaunch = false;
+  lastCheckedAt = null;
   scanned.clear();
   try {
     await AsyncStorage.multiRemove([PRODUCTS_KEY, META_KEY]);

@@ -28,6 +28,31 @@ it's gone now, not just hidden from the quiz.
 stored, and read by nothing. Classic dead data — nothing scored against
 them, nothing displayed them.
 
+**Open question: should the catalogue cache notify screens instead of being
+re-read?** The catalogue lives in a module (`data/catalogue-cache.ts`) and
+each screen keeps its own copy in component state, so nothing hears about a
+change. When a scan or a label read replaces a product mid-session, an
+already-mounted Browse kept showing the old list until a filter change or a
+reload.
+
+Two ways to solve that, and we took the smaller one: **Browse re-reads the
+cache when the tab regains focus** (`useFocusEffect` + `peekProducts`). It
+is synchronous, hits no network, and returns the same array instance when
+nothing changed, so an ordinary tab switch renders nothing. Cheap, and
+correct for the two screens that actually show a list.
+
+The other option is the one the rest of this app already uses for profile
+and saved items: **make the cache observable** — screens subscribe, the
+cache emits on change, everything showing the list updates at once. That is
+the more correct shape, and it is what React Query, SWR and Zustand do.
+
+Worth revisiting if any of these become true: a third or fourth screen
+starts holding its own catalogue copy; something needs to update while
+visible rather than on return (a background refresh landing, a push); or
+the focus re-read starts being wrong rather than merely late. Until then
+the subscription is machinery for a problem one line of `useFocusEffect`
+already answers.
+
 ## Scoring
 
 **Why `SCORE_BANDS` is the single source for band cutoffs:** the verdict

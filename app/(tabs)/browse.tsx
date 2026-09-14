@@ -1,5 +1,5 @@
-import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, ScrollView, TextInput, View, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -121,6 +121,27 @@ export default function Browse() {
       cancelled = true;
     };
   }, [typeFilter, retryKey]);
+
+  // Re-read the cache whenever this tab comes back.
+  //
+  // The catalogue lives in a module, and this screen keeps its own copy in
+  // state. A product contributed mid-session — a scan, a label read — replaces
+  // the module's entry, and an already-mounted Browse has no way to hear about
+  // it: the effect above only runs again on a filter change or a retry. So the
+  // product the user just added was missing from the list until they touched a
+  // chip or reloaded.
+  //
+  // `peekProducts` is synchronous, hits no network, and hands back the *same
+  // array instance* when nothing has changed, so an ordinary tab switch sets
+  // state to the value it already holds and React renders nothing. Null means
+  // there is no cache to read, which is not the same as an empty catalogue —
+  // leave what is on screen and let the effect above do the fetching.
+  useFocusEffect(
+    useCallback(() => {
+      const cached = peekProducts(typeFilter);
+      if (cached) setProducts(cached);
+    }, [typeFilter]),
+  );
 
   // Narrow the cached catalogue on every keystroke, with no network and no
   // wait. `peekProducts` is synchronous and already holds the whole

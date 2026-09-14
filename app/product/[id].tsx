@@ -151,6 +151,7 @@ export default function ProductScreen() {
   const savedProducts = useAppStore((s) => s.savedProducts);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
   const recordView = useAppStore((s) => s.recordView);
+  const fillInViewScore = useAppStore((s) => s.fillInViewScore);
   const saved = savedProducts.some((p) => p.id === id);
   const loggedId = useRef<string | null>(null);
 
@@ -188,6 +189,21 @@ export default function ProductScreen() {
     const { score, warnings } = matchProduct(product, useAppStore.getState().profile);
     recordView({ id: product.id, known: true, score, warnings: warnings.length });
   }, [product, recordView]);
+
+  // The effect above captures the score as it stood when the screen opened,
+  // which for someone with no profile is no score at all. The inline prompt
+  // below then collects the two answers that produce one — and history would
+  // otherwise keep the blank. This fills it in without logging a second visit.
+  //
+  // It runs on every profile change while this screen is open, but
+  // `fillInViewScore` only ever fills a blank: a log that rewrote its own past
+  // entries whenever the profile changed would be a record of nothing, which
+  // is a property the store tests hold directly.
+  useEffect(() => {
+    if (!product || loggedId.current !== product.id) return;
+    const { score, warnings } = matchProduct(product, profile);
+    fillInViewScore(product.id, { score, warnings: warnings.length });
+  }, [product, profile, fillInViewScore]);
 
   if (loading) {
     return (

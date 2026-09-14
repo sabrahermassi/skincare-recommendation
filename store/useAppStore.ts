@@ -123,6 +123,24 @@ type AppState = {
     score: number | null;
     warnings: number;
   }) => void;
+  /**
+   * Fills in the score on an entry that was logged without one.
+   *
+   * `recordView` captures the score as it stood when the screen opened, which
+   * for someone with no profile is no score at all. The inline prompt on the
+   * result screen then collects the two answers that produce one, and the log
+   * would otherwise keep the blank forever.
+   *
+   * Deliberately only fills a blank, never corrects a number. The log is a
+   * record of what the user was told at the time, and rewriting a score
+   * because the profile changed later would make it a record of nothing —
+   * see the "does not rewrite a recorded score" test, which this must not
+   * break. An entry that never had a score has no such history to protect.
+   *
+   * Leaves `seenCount`, both timestamps and the list order alone: this is the
+   * same visit, better informed.
+   */
+  fillInViewScore: (id: string, view: { score: number | null; warnings: number }) => void;
   clearHistory: () => void;
   /** Removes one entry from the log — the per-row "x" on the History tab,
    *  as opposed to `clearHistory`'s wipe-everything action. */
@@ -347,6 +365,23 @@ export const useAppStore = create<AppState>()(
             history: [entry, ...state.history.filter((h) => h.id !== id)].slice(
               0,
               HISTORY_LIMIT
+            ),
+          };
+        }),
+
+      fillInViewScore: (id, { score, warnings }) =>
+        set((state) => {
+          const previous = state.history.find((h) => h.id === id);
+          // Nothing logged, already scored, or still nothing to record.
+          // Returning an empty patch rather than a rebuilt array keeps every
+          // history selector on its existing reference, so the common case —
+          // this runs on every open, right after `recordView` — costs no
+          // re-render.
+          if (!previous || previous.scoreAtView !== null || score === null) return {};
+
+          return {
+            history: state.history.map((h) =>
+              h.id === id ? { ...h, scoreAtView: score, warningsAtView: warnings } : h,
             ),
           };
         }),

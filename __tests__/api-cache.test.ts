@@ -85,6 +85,8 @@ import {
   fetchProducts,
   fetchProductsByIds,
   fetchProductTypes,
+  FOREGROUND_RECHECK_MS,
+  revalidateOnForeground,
   searchProducts,
   warmCatalogue,
 } from "@/data/api";
@@ -338,6 +340,76 @@ async function flush(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
+
+describe("returning to the app", () => {
+  /**
+   * A phone backgrounds an app rather than closing it, so "once per launch"
+   * can mean once a week — and the memory layer has no expiry while the app is
+   * open, so nothing else would ever catch it. Coming back is the moment
+   * someone looks at the list again.
+   */
+  it("checks again once enough time has passed", async () => {
+    await fetchProducts();
+    mockCalls.length = 0;
+
+    const realNow = Date.now;
+    Date.now = () => realNow() + FOREGROUND_RECHECK_MS + 1;
+    try {
+      revalidateOnForeground();
+      await flush();
+    } finally {
+      Date.now = realNow;
+    }
+
+    expect(mockCalls).toEqual(["watermark"]);
+  });
+
+  /**
+   * Flicking to another app and straight back must cost nothing. `warmCatalogue`
+   * is what stamps the launch check, so it stands in for the splash here — a
+   * cold `fetchProducts` alone leaves the app never having checked, which is
+   * the case the test above covers.
+   */
+  it("does nothing when the last check was recent", async () => {
+    await fetchProducts();
+    await warmCatalogue();
+    await flush();
+    mockCalls.length = 0;
+
+    revalidateOnForeground();
+    await flush();
+
+    expect(mockCalls).toEqual([]);
+  });
+
+  /** Refetches in full when the check says the catalogue moved. */
+  it("refetches when the watermark has changed since", async () => {
+    await fetchProducts();
+    mockCalls.length = 0;
+    mockProductRows = [row("a"), row("b", "cleanser"), row("c")];
+    mockRowCount = 3;
+
+    const realNow = Date.now;
+    Date.now = () => realNow() + FOREGROUND_RECHECK_MS + 1;
+    try {
+      revalidateOnForeground();
+      await flush();
+    } finally {
+      Date.now = realNow;
+    }
+
+    expect(mockCalls).toEqual(["watermark", "rows"]);
+    expect(peekCatalogue()!.products).toHaveLength(3);
+  });
+
+  /** Nothing cached means no watermark to compare and nothing on screen to fix. */
+  it("does nothing with no catalogue held", async () => {
+    revalidateOnForeground();
+    await flush();
+
+    expect(mockCalls).toEqual([]);
+  });
+});
 
 describe("a catalogue larger than one page", () => {
   /**

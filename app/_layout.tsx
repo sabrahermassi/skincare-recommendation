@@ -12,9 +12,10 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
+import { AppState } from "react-native";
 
 import { COLORS } from "@/lib/colors";
-import { warmCatalogue } from "@/data/api";
+import { revalidateOnForeground, warmCatalogue } from "@/data/api";
 import { useAppStore } from "@/store/useAppStore";
 
 SplashScreen.preventAutoHideAsync();
@@ -69,6 +70,18 @@ export default function RootLayout() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // A phone backgrounds an app rather than closing it, so the launch check can
+  // be the only one a week of use ever performs — and the memory layer has no
+  // expiry while the app is open. Coming back to the app is the moment that
+  // matters: it is when someone looks at the list again. Rate-limited inside
+  // `revalidateOnForeground`, so app-switching costs nothing.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") revalidateOnForeground();
+    });
+    return () => subscription.remove();
   }, []);
 
   const ready = fontsLoaded && hydrated && catalogueWarm;

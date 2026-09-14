@@ -10,6 +10,7 @@ import {
   putCatalogue,
   forgetMemoryLayer,
   putScanned,
+  writesSettled,
   readCatalogue,
   readScanned,
   resetCatalogueCache,
@@ -163,9 +164,13 @@ describe("disk layer", () => {
    * on it forever — a launch that recovered into a skeleton that cannot.
    */
   it("misses instead of hanging once a stuck read is abandoned", async () => {
-    const getItem = jest
-      .spyOn(AsyncStorage, "getItem")
-      .mockReturnValue(new Promise<string | null>(() => {}));
+    // Swapped by hand rather than with `jest.spyOn`. AsyncStorage is already a
+    // module mock, and `mockRestore` on one of those does not give the working
+    // implementation back — it leaves every later test in this file reading
+    // undefined from storage, which fails somewhere far from here.
+    const real = AsyncStorage.getItem;
+    AsyncStorage.getItem = (() =>
+      new Promise<string | null>(() => {})) as typeof AsyncStorage.getItem;
 
     try {
       void readCatalogue();
@@ -173,8 +178,59 @@ describe("disk layer", () => {
 
       await expect(readCatalogue()).resolves.toBeNull();
     } finally {
-      getItem.mockRestore();
+      AsyncStorage.getItem = real;
     }
+  });
+});
+
+describe("two saves at once", () => {
+  /**
+   * A save is two writes — the products blob, then the metadata describing it
+   * — and nothing used to make one save wait for another. A refresh and a
+   * scanned product could commit as products(A), products(B), meta(B),
+   * meta(A), leaving metadata on disk that describes a blob it did not come
+   * from. `watermark.count` is the one value the freshness check trusts to
+   * decide whether to refetch, so a mismatch there is agreed with rather than
+   * noticed.
+   */
+  it("finishes one before starting the next", async () => {
+    const order: string[] = [];
+    // Swapped by hand rather than with `jest.spyOn`: AsyncStorage is already a
+    // module mock here, and restoring a spy on one of those does not reliably
+    // give the working implementation back — it leaves later tests writing
+    // into a void, which fails somewhere else entirely.
+    const real = AsyncStorage.setItem;
+    AsyncStorage.setItem = (async (key: string, value: string) => {
+      const leg = key.includes("meta") ? "meta" : "products";
+      order.push(leg);
+      // The products blob is the slow half, and the gap a second save used to
+      // slip into.
+      if (leg === "products") await new Promise((resolve) => setTimeout(resolve, 5));
+      return real(key, value);
+    }) as typeof AsyncStorage.setItem;
+
+    try {
+      putCatalogue(CATALOGUE, WATERMARK);
+      putCatalogue(CATALOGUE.slice(0, 2), { count: 2, newest: WATERMARK.newest });
+      await writesSettled();
+
+      expect(order).toEqual(["products", "meta", "products", "meta"]);
+    } finally {
+      AsyncStorage.setItem = real;
+    }
+  });
+
+  /** And the copy left on disk is one save's, not a blend of two. */
+  it("leaves metadata describing the blob it was written with", async () => {
+    putCatalogue(CATALOGUE, WATERMARK);
+    putCatalogue(CATALOGUE.slice(0, 2), { count: 2, newest: WATERMARK.newest });
+    await writesSettled();
+
+    const products = JSON.parse((await AsyncStorage.getItem("forme-catalogue-v1"))!);
+    const meta = JSON.parse((await AsyncStorage.getItem("forme-catalogue-meta-v1"))!);
+
+    expect(products).toHaveLength(2);
+    expect(meta.watermark.count).toBe(2);
   });
 });
 
@@ -309,5 +365,7 @@ describe("the sample-data path", () => {
 
 /** `putCatalogue` writes in the background on purpose; tests need it landed. */
 async function flushWrites(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  // Writes are queued, so a fixed number of ticks is a guess. This waits for
+  // the queue itself.
+  await writesSettled();
 }
