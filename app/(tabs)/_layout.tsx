@@ -85,12 +85,22 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="browse"
         options={{
-          // Was "for.me". Every sibling header names the place you are in —
-          // "Scan a product", "Saved", "Your skin profile" — and this one
-          // named the app instead, which the user already knows: they opened
-          // it. The wordmark's homes are the icon and onboarding, not a
-          // header on one tab out of four.
-          title: "Browse products",
+          // Stays "for.me", and is not the in-app header it looks like.
+          // `headerShown` is false for this whole group (see screenOptions
+          // above), so no `title` here renders on screen at all — Browse draws
+          // `AppHeader`, which is the heart mark, the script wordmark having
+          // been retired everywhere in the UI.
+          //
+          // What `title` actually sets is the web document title: the browser
+          // tab, the bookmark, the history entry. The app name is the right
+          // thing there, and the reasoning that it should not be repeated
+          // inside the app does not reach it.
+          //
+          // The siblings naming a place rather than the app ("Saved", "Scan a
+          // product") is the real inconsistency, but the fix for that is to
+          // give every tab both — "Saved · for.me" — not to strip the name off
+          // the one screen that has it. Out of scope here.
+          title: "for.me",
           tabBarLabel: "Browse",
           tabBarAccessibilityLabel: "Browse",
           // A list glyph, not a house. With labels hidden (see above) the
