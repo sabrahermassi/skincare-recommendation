@@ -619,7 +619,7 @@ function reconstructFromDictionary(
 
 const PRODUCT_SELECT = `id, barcode, brand, name, type, area, description, image_url, volume,
    price_krw, in_stock, suitable_for, targets, source, attribution,
-   product_ingredients ( position, ingredients ( inci_name, comedogenic, safety, note, verified ) )`;
+   product_ingredients ( position, ingredients ( inci_name, comedogenic, safety, note, verified, functions ) )`;
 
 type ExistingProduct = {
   id: string;

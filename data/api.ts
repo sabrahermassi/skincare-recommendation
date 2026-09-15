@@ -87,7 +87,7 @@ const SHOW_SOURCE_PHOTOS = false;
  * straight to the result it just created, and a saved or logged product must
  * still open.
  */
-function isIdentifiable(row: CatalogueRow): boolean {
+function isIdentifiable(row: Pick<CatalogueRow, "name" | "source" | "barcode">): boolean {
   // A name that is just digits is the barcode wearing the name's clothes —
   // imported rows where the source had no title. It renders in Browse and
   // search as a product called "3606000537750", which no one can recognise
@@ -293,21 +293,56 @@ type CatalogueRow = {
   }[];
 };
 
-const SELECT = `
+/**
+ * The same product, read the cheap way: the join carries a name and a
+ * position, and the definitions arrive once in a separate read.
+ *
+ * `product_ingredients.inci_name` is a real column on the join table — the
+ * foreign key itself — so this needs no join to `ingredients` at all.
+ */
+type CatalogueListRow = Omit<CatalogueRow, "product_ingredients"> & {
+  product_ingredients: { position: number; inci_name: string }[];
+};
+
+/** One ingredient definition, keyed by INCI name. */
+export type IngredientDictionary = Map<string, Ingredient>;
+
+const PRODUCT_COLUMNS = `
   id, barcode, brand, name, type, source, description, image_url, volume,
-  price_krw, in_stock, suitable_for, targets, attribution, fetched_at,
+  price_krw, in_stock, suitable_for, targets, attribution, fetched_at`;
+
+/** One product, with its formula inlined. For reads of a single row. */
+const SELECT = `${PRODUCT_COLUMNS},
   product_ingredients ( position, ingredients ( inci_name, comedogenic, safety, note, verified, functions ) )
 `;
 
-function rowToProduct(row: CatalogueRow): ProductWithIngredients {
-  const ingredients = row.product_ingredients
-    .filter((join) => join.ingredients !== null)
-    .sort((a, b) => a.position - b.position)
-    .map((join) => {
-      const source = join.ingredients as NonNullable<typeof join.ingredients>;
-      return {
-        id: source.inci_name,
-        name: source.inci_name,
+/**
+ * The whole catalogue, without repeating a definition per product.
+ *
+ * The fat select above inlines all six ingredient columns *inside* the join,
+ * so `Aqua` travels with its full note and function list once for every
+ * product containing it — measured at 3,819 rows for 1,049 distinct
+ * ingredients, every definition sent 3.6 times over. This asks only for what
+ * is unique to the product: which names, in which order.
+ */
+const LIST_SELECT = `${PRODUCT_COLUMNS},
+  product_ingredients ( position, inci_name )
+`;
+
+const DICTIONARY_SELECT = "inci_name, comedogenic, safety, note, verified, functions";
+
+/** One dictionary row to the shape screens and scoring read. */
+function toIngredient(source: {
+  inci_name: string;
+  comedogenic: number | null;
+  safety: SafetyLevel;
+  note: string | null;
+  verified: boolean;
+  functions: string[] | null;
+}): Ingredient {
+  return {
+    id: source.inci_name,
+    name: source.inci_name,
         // No real catalogue row carries a comedogenic rating and none should —
         // see `ComedogenicRating` for why. Collapsing the absence to 0 keeps
         // the scale numeric, and callers must read it as "not rated" rather
@@ -316,14 +351,64 @@ function rowToProduct(row: CatalogueRow): ProductWithIngredients {
         // decided by `INGREDIENT_RULES` instead. Left as 0 rather than made
         // nullable because the sample catalogue does rate its ingredients and
         // the two paths share this type.
-        comedogenic: (source.comedogenic ?? 0) as Ingredient["comedogenic"],
-        safety: source.safety,
-        note: source.note ?? undefined,
-        verified: source.verified,
-        functions: source.functions ?? undefined,
-      };
-    });
+    comedogenic: (source.comedogenic ?? 0) as Ingredient["comedogenic"],
+    safety: source.safety,
+    note: source.note ?? undefined,
+    verified: source.verified,
+    functions: source.functions ?? undefined,
+  };
+}
 
+/**
+ * A name the dictionary did not carry.
+ *
+ * Reachable in one narrow race: a product written between the dictionary read
+ * and the product read references a name the dictionary snapshot predates.
+ * Shown as unverified rather than dropped, for the same reason
+ * `resolveIngredientNames` keeps its unknowns — a shortened list would be a
+ * quieter, worse lie than an unrecognised name.
+ */
+function stubIngredient(inciName: string): Ingredient {
+  return { id: inciName, name: inciName, comedogenic: 0, safety: "safe", verified: false };
+}
+
+function rowToProduct(row: CatalogueRow): ProductWithIngredients {
+  const ingredients = row.product_ingredients
+    // `!= null` rather than `!== null`: a join whose `ingredients` is absent
+    // entirely — an Edge Function response built from a narrower select than
+    // this type claims — would otherwise pass the guard and throw one line
+    // later, inside a map, on a field nothing had checked.
+    .filter((join) => join.ingredients != null)
+    .sort((a, b) => a.position - b.position)
+    .map((join) => toIngredient(join.ingredients as NonNullable<typeof join.ingredients>));
+
+  return buildProduct(row, ingredients);
+}
+
+/**
+ * The lean row, resolved against the dictionary that arrived with it.
+ *
+ * Every product containing `Aqua` gets the *same* `Aqua` object, not a copy of
+ * it. That reference sharing is the half of this that the wire format cannot
+ * buy on its own: `rowToProduct` built a fresh object per join row, so memory
+ * held 3,819 ingredient objects for 1,049 distinct ingredients long after the
+ * bytes had been parsed.
+ */
+function listRowToProduct(
+  row: CatalogueListRow,
+  dictionary: IngredientDictionary
+): ProductWithIngredients {
+  const ingredients = [...row.product_ingredients]
+    .sort((a, b) => a.position - b.position)
+    .map((join) => dictionary.get(join.inci_name) ?? stubIngredient(join.inci_name));
+
+  return buildProduct(row, ingredients);
+}
+
+function buildProduct(
+  row: Omit<CatalogueRow, "product_ingredients">,
+  ingredients: Ingredient[]
+): ProductWithIngredients {
   return {
     id: row.id,
     barcode: row.barcode ?? "",
@@ -508,21 +593,84 @@ export function peekProducts(
  * make the column mean what this comment always claimed.
  */
 async function fetchWatermark(): Promise<CatalogueWatermark> {
-  const { data, error, count } = await withTimeout(
-    (signal) =>
-      supabase!
-        .from("products")
-        .select("fetched_at", { count: "exact" })
-        .or(IDENTIFIABLE_SQL)
-        .order("fetched_at", { ascending: false, nullsFirst: false })
-        .limit(1)
-        .abortSignal(signal),
-    "fetchWatermark",
-  );
-  if (error) throw new Error(`fetchWatermark: ${error.message}`);
+  const [products, dictionary] = await Promise.all([
+    withTimeout(
+      (signal) =>
+        supabase!
+          .from("products")
+          .select("fetched_at", { count: "exact" })
+          .or(IDENTIFIABLE_SQL)
+          .order("fetched_at", { ascending: false, nullsFirst: false })
+          .limit(1)
+          .abortSignal(signal),
+      "fetchWatermark",
+    ),
+    // The dictionary's own term, and not an optional refinement: once the
+    // definitions are fetched and cached separately from the products, a
+    // CosIng re-import that rewrites twenty thousand notes and adds no
+    // products moves neither `count` nor `newest`. Without this the device
+    // agrees it is current and serves the old definitions indefinitely — the
+    // same failure `products.fetched_at` had, one table across.
+    withTimeout(
+      (signal) =>
+        supabase!
+          .from("catalogue_ingredients")
+          .select("updated_at", { count: "exact" })
+          .order("updated_at", { ascending: false, nullsFirst: false })
+          .limit(1)
+          .abortSignal(signal),
+      "fetchWatermark:dictionary",
+    ),
+  ]);
 
-  const rows = (data ?? []) as { fetched_at: string | null }[];
-  return { count: count ?? 0, newest: rows[0]?.fetched_at ?? null };
+  if (products.error) throw new Error(`fetchWatermark: ${products.error.message}`);
+  if (dictionary.error) throw new Error(`fetchWatermark: ${dictionary.error.message}`);
+
+  const productRows = (products.data ?? []) as { fetched_at: string | null }[];
+  const dictionaryRows = (dictionary.data ?? []) as { updated_at: string | null }[];
+
+  return {
+    count: products.count ?? 0,
+    newest: productRows[0]?.fetched_at ?? null,
+    ingredientCount: dictionary.count ?? 0,
+    ingredientNewest: dictionaryRows[0]?.updated_at ?? null,
+  };
+}
+
+/**
+ * Every ingredient definition the catalogue references, once each.
+ *
+ * Reads `catalogue_ingredients` (migration 0011), a view already scoped to
+ * ingredients used by a product the client can reach — so this is one
+ * paginated read rather than a 1,049-item filter built from a response we
+ * would first have to parse.
+ */
+async function fetchIngredientDictionary(): Promise<IngredientDictionary> {
+  const dictionary: IngredientDictionary = new Map();
+
+  for (let page = 0; page < MAX_CATALOGUE_PAGES; page++) {
+    const from = page * CATALOGUE_PAGE_SIZE;
+    const { data, error } = await withTimeout(
+      (signal) =>
+        supabase!
+          .from("catalogue_ingredients")
+          .select(DICTIONARY_SELECT)
+          .order("inci_name")
+          .range(from, from + CATALOGUE_PAGE_SIZE - 1)
+          .abortSignal(signal),
+      "fetchIngredientDictionary",
+    );
+    if (error) throw new Error(`fetchIngredientDictionary: ${error.message}`);
+
+    const batch = (data ?? []) as unknown as Parameters<typeof toIngredient>[0][];
+    for (const row of batch) dictionary.set(row.inci_name, toIngredient(row));
+
+    if (batch.length < CATALOGUE_PAGE_SIZE) return dictionary;
+  }
+
+  throw new Error(
+    `fetchIngredientDictionary: exceeded ${MAX_CATALOGUE_PAGES} pages; refusing to cache a partial dictionary`,
+  );
 }
 
 /**
@@ -557,7 +705,15 @@ const MAX_CATALOGUE_PAGES = 100;
  * would settle at one page and never heal.
  */
 async function fetchAllRows(): Promise<ProductWithIngredients[]> {
-  const rows: CatalogueRow[] = [];
+  // Concurrent on purpose: they are two halves of one snapshot and neither
+  // depends on the other's result. The ordering that matters — watermark
+  // before rows — is `fetchProducts`' and `revalidateCatalogue`'s to keep.
+  const [rows, dictionary] = await Promise.all([fetchAllListRows(), fetchIngredientDictionary()]);
+  return rows.filter(isIdentifiable).map((row) => listRowToProduct(row, dictionary));
+}
+
+async function fetchAllListRows(): Promise<CatalogueListRow[]> {
+  const rows: CatalogueListRow[] = [];
 
   for (let page = 0; page < MAX_CATALOGUE_PAGES; page++) {
     const from = page * CATALOGUE_PAGE_SIZE;
@@ -565,7 +721,7 @@ async function fetchAllRows(): Promise<ProductWithIngredients[]> {
       (signal) =>
         supabase!
           .from("products")
-          .select(SELECT)
+          .select(LIST_SELECT)
           .or(IDENTIFIABLE_SQL)
           .order("id")
           .range(from, from + CATALOGUE_PAGE_SIZE - 1)
@@ -574,11 +730,11 @@ async function fetchAllRows(): Promise<ProductWithIngredients[]> {
     );
     if (error) throw new Error(`fetchProducts: ${error.message}`);
 
-    const batch = (data ?? []) as unknown as CatalogueRow[];
+    const batch = (data ?? []) as unknown as CatalogueListRow[];
     rows.push(...batch);
     // A short page is the last one. An empty page ends it too, which is the
     // case where `from` has walked past the end.
-    if (batch.length < CATALOGUE_PAGE_SIZE) return rows.filter(isIdentifiable).map(rowToProduct);
+    if (batch.length < CATALOGUE_PAGE_SIZE) return rows;
   }
 
   // Only reachable if the server kept returning full pages past the bound —

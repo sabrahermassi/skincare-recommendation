@@ -1,6 +1,15 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import type { ProductType, ProductWithIngredients } from "./types";
+import type { Ingredient, ProductType, ProductWithIngredients } from "./types";
+
+/** A product as it is written to disk: the formula lives in the dictionary. */
+type PersistedProduct = Omit<ProductWithIngredients, "ingredients">;
+
+/** The whole v2 blob — one dictionary, and products that reference it by name. */
+type PersistedCatalogue = {
+  dictionary: Ingredient[];
+  products: PersistedProduct[];
+};
 
 /**
  * The catalogue cache.
@@ -33,8 +42,16 @@ import type { ProductType, ProductWithIngredients } from "./types";
  * installs holding the same catalogue, it does not belong in this file.
  */
 
-/** Bumped when the persisted shape changes, so an old blob is ignored rather than misread. */
-const SCHEMA_VERSION = 1;
+/**
+ * Bumped when the persisted shape changes, so an old blob is ignored rather
+ * than misread.
+ *
+ * v2 stores the ingredient dictionary once and gives each product only the
+ * names it contains, rebuilding the arrays on read. v1 blobs wrote every
+ * definition into every product that contained it, so they are both a
+ * different shape and several times larger.
+ */
+const SCHEMA_VERSION = 2;
 
 const PRODUCTS_KEY = `forme-catalogue-v${SCHEMA_VERSION}`;
 const META_KEY = `forme-catalogue-meta-v${SCHEMA_VERSION}`;
@@ -69,6 +86,17 @@ export const SCANNED_TTL_MS = 60 * 60 * 1000;
 export type CatalogueWatermark = {
   count: number;
   newest: string | null;
+  /**
+   * The ingredient dictionary's own terms.
+   *
+   * Not a refinement. Once the definitions travel and cache separately from
+   * the products, a dictionary rewrite that adds no products moves neither
+   * `count` nor `newest`, so a device would agree it was current and serve
+   * stale definitions indefinitely. Migration 0011 makes `updated_at` move
+   * when a row actually changes; these two terms are what notices.
+   */
+  ingredientCount: number;
+  ingredientNewest: string | null;
 };
 
 type CatalogueMeta = {
@@ -199,11 +227,25 @@ function buildEntry(
   return { products, watermark, storedAt, byType, byId, types: null };
 }
 
+/**
+ * All four terms, not two.
+ *
+ * The dictionary halves are as load-bearing as the product ones now that the
+ * definitions are fetched and cached separately: a CosIng re-import rewrites
+ * ingredient rows and adds no products, so comparing only `count` and `newest`
+ * would agree nothing had changed while every definition on the device was
+ * out of date.
+ */
 export function watermarksMatch(
   a: CatalogueWatermark,
   b: CatalogueWatermark,
 ): boolean {
-  return a.count === b.count && a.newest === b.newest;
+  return (
+    a.count === b.count &&
+    a.newest === b.newest &&
+    a.ingredientCount === b.ingredientCount &&
+    a.ingredientNewest === b.ingredientNewest
+  );
 }
 
 /**
@@ -223,8 +265,19 @@ function parseMeta(value: unknown): CatalogueMeta | null {
   if (typeof mark.count !== "number" || !Number.isFinite(mark.count))
     return null;
   if (mark.newest !== null && typeof mark.newest !== "string") return null;
+  // The dictionary terms are validated as strictly as the product ones: a
+  // missing `ingredientCount` would otherwise read as 0 and make the next
+  // check disagree with itself forever.
+  if (typeof mark.ingredientCount !== "number" || !Number.isFinite(mark.ingredientCount))
+    return null;
+  if (mark.ingredientNewest !== null && typeof mark.ingredientNewest !== "string") return null;
   return {
-    watermark: { count: mark.count, newest: mark.newest },
+    watermark: {
+      count: mark.count,
+      newest: mark.newest,
+      ingredientCount: mark.ingredientCount,
+      ingredientNewest: mark.ingredientNewest,
+    },
     storedAt: meta.storedAt,
   };
 }
@@ -235,14 +288,66 @@ function parseMeta(value: unknown): CatalogueMeta | null {
  * throws rather than merely looking wrong — an ingredients array, which
  * `matchProduct` and `ProductRow` both dereference without checking.
  */
-function isUsableProduct(value: unknown): value is ProductWithIngredients {
+function isUsableProduct(value: unknown): value is PersistedProduct {
   if (typeof value !== "object" || value === null) return false;
-  const p = value as Partial<ProductWithIngredients>;
+  const p = value as Partial<PersistedProduct>;
   return (
     typeof p.id === "string" &&
     typeof p.type === "string" &&
-    Array.isArray(p.ingredients)
+    // `ingredientIds` is what the formula is rebuilt from in v2, so it is the
+    // field whose absence would throw during render rather than merely look
+    // wrong — the same role `ingredients` held in v1.
+    Array.isArray(p.ingredientIds)
   );
+}
+
+function isUsableIngredient(value: unknown): value is Ingredient {
+  if (typeof value !== "object" || value === null) return false;
+  const i = value as Partial<Ingredient>;
+  return typeof i.id === "string" && typeof i.name === "string";
+}
+
+/**
+ * A name the stored dictionary did not carry.
+ *
+ * Twin of `stubIngredient` in `data/api.ts`, duplicated rather than imported
+ * because this module is below that one — `data/api.ts` imports this file, and
+ * the other direction would close the loop. Three fields and a comment is a
+ * cheaper price than a cycle.
+ */
+function stubIngredient(inciName: string): Ingredient {
+  return { id: inciName, name: inciName, comedogenic: 0, safety: "safe", verified: false };
+}
+
+/**
+ * Rebuild each product's formula from the shared dictionary.
+ *
+ * Every product containing `Aqua` ends up pointing at the *same* `Aqua`
+ * object, exactly as it did when the network path stitched it — so a cold
+ * start restores the deduplicated heap rather than re-inflating it. A
+ * `JSON.parse` of the v1 blob did the opposite: fresh objects per product,
+ * 3,819 of them for 1,049 distinct ingredients.
+ */
+function rehydrate(stored: PersistedCatalogue): ProductWithIngredients[] {
+  const dictionary = new Map(stored.dictionary.map((i) => [i.id, i]));
+  return stored.products.map((product) => ({
+    ...product,
+    ingredients: product.ingredientIds.map((name) => dictionary.get(name) ?? stubIngredient(name)),
+  }));
+}
+
+/** Collapse the products' shared ingredient objects back into one list. */
+function extractDictionary(products: ProductWithIngredients[]): Ingredient[] {
+  const dictionary: Ingredient[] = [];
+  const seen = new Set<string>();
+  for (const product of products) {
+    for (const ingredient of product.ingredients) {
+      if (seen.has(ingredient.id)) continue;
+      seen.add(ingredient.id);
+      dictionary.push(ingredient);
+    }
+  }
+  return dictionary;
 }
 
 /**
@@ -285,8 +390,12 @@ export async function readCatalogue(): Promise<MemoryEntry | null> {
       const rawProducts = await AsyncStorage.getItem(PRODUCTS_KEY);
       if (rawProducts === null) return null;
 
-      const products = JSON.parse(rawProducts) as unknown;
+      const stored = JSON.parse(rawProducts) as unknown;
+      if (typeof stored !== "object" || stored === null) return null;
+      const { dictionary, products } = stored as Partial<PersistedCatalogue>;
       if (!Array.isArray(products) || products.length === 0) return null;
+      if (!Array.isArray(dictionary)) return null;
+      if (!dictionary.every(isUsableIngredient)) return null;
       // The cast this replaces asserted a shape nothing had checked. A blob
       // written by an older build — or half-written, or hand-edited — could
       // put `[{}]` here, and the first thing to touch it is
@@ -297,6 +406,7 @@ export async function readCatalogue(): Promise<MemoryEntry | null> {
       // network path is right there — so validating down to the fields those
       // consumers actually dereference is enough.
       if (!products.every(isUsableProduct)) return null;
+      const rehydrated = rehydrate({ dictionary, products });
 
       // Something replaced or cleared the memory layer while this read was in
       // flight — almost certainly the network fetch that ran because this read
@@ -304,10 +414,10 @@ export async function readCatalogue(): Promise<MemoryEntry | null> {
       // result is returned to whoever is still waiting on it but is not
       // installed. See `catalogueGeneration`.
       if (readGeneration !== catalogueGeneration) {
-        return buildEntry(products, meta.watermark, meta.storedAt);
+        return buildEntry(rehydrated, meta.watermark, meta.storedAt);
       }
 
-      memory = buildEntry(products, meta.watermark, meta.storedAt);
+      memory = buildEntry(rehydrated, meta.watermark, meta.storedAt);
       return memory;
     } catch {
       // Corrupt JSON, a schema that no longer parses, storage unavailable —
@@ -409,7 +519,16 @@ async function persist(
 ): Promise<void> {
   return enqueueWrite(async () => {
     try {
-      await AsyncStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+      // Normalised on the way out, for the same reason it is normalised on the
+      // wire: the v1 blob wrote every definition into every product that
+      // contained it, so the file was several times larger than the
+      // information in it — and Android's AsyncStorage is a SQLite database
+      // with a 6MB ceiling.
+      const payload: PersistedCatalogue = {
+        dictionary: extractDictionary(products),
+        products: products.map(({ ingredients: _formula, ...rest }) => rest),
+      };
+      await AsyncStorage.setItem(PRODUCTS_KEY, JSON.stringify(payload));
       await AsyncStorage.setItem(META_KEY, JSON.stringify(meta));
     } catch (err) {
       // Never fatal — see `putCatalogue`. Surfaced in development only, because a

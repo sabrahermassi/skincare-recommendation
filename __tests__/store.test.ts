@@ -323,7 +323,7 @@ describe("resetApp", () => {
     putScanned("8801234567890", null);
     putCatalogue(
       [{ id: "a", type: "serum" } as unknown as ProductWithIngredients],
-      { count: 1, newest: null },
+      { count: 1, newest: null, ingredientCount: 0, ingredientNewest: null },
     );
 
     s().resetApp();
