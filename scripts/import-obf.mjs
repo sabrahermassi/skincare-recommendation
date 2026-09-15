@@ -159,12 +159,20 @@ function toRow(p) {
 async function main() {
   const rows = new Map();
   let seen = 0;
+  // The watermark this run reaches: the newest `last_modified_t` across every
+  // product OBF returned, kept or not. A rejected row (no name, no formula) is
+  // still evidence of how far into OBF's data this run looked — only the
+  // catalogue write should be conditional on usability, not the bookmark.
+  let newestModifiedAt = null;
 
   for (const brand of BRANDS) {
     const products = await searchBrand(brand);
     seen += products.length;
     let kept = 0;
     for (const p of products) {
+      if (typeof p.last_modified_t === "number") {
+        newestModifiedAt = Math.max(newestModifiedAt ?? 0, p.last_modified_t);
+      }
       const row = toRow(p);
       if (row && !rows.has(row.product.id)) {
         rows.set(row.product.id, row);
@@ -184,6 +192,7 @@ async function main() {
   );
 
   if (DRY_RUN) {
+    console.log(`--dry-run: would record watermark "${newestModifiedAt ?? "null"}" for source "obf".`);
     console.log("\n--dry-run: nothing written. Sample:");
     for (const r of all.slice(0, 3)) {
       console.log(`  ${r.product.brand} — ${r.product.name}`);
@@ -232,6 +241,21 @@ async function main() {
   }
 
   console.log(`\nWrote ${all.length} products and ${joins.length} ingredient links.`);
+
+  // Step 3 of the data-strategy plan: record how far this run got, so an
+  // eventual incremental version has somewhere to resume from, and so a
+  // silently-stopped nightly job becomes a query (`last_run_at` gone stale)
+  // instead of a catalogue that quietly stops growing with no signal why.
+  // One row per source — upserted, not appended — matching what the plan
+  // itself asks for: the watermark reached *last time*, singular.
+  await db.from("sync_bookmarks").upsert(
+    {
+      source: "obf",
+      watermark: newestModifiedAt === null ? null : String(newestModifiedAt),
+      last_run_at: new Date().toISOString(),
+    },
+    { onConflict: "source" }
+  );
 }
 
 main().catch((err) => {
