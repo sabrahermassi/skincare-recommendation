@@ -153,11 +153,29 @@ const LATENCY_MS =
  * the screen's `products` stayed null, and the spinner ran forever with no
  * message and no way to retry. That is the state this bounds.
  *
- * Reads only. `analyseLabel` is deliberately left unbounded — OCR on a photo
- * legitimately takes longer than any figure sensible here, and cutting it off
- * would discard work the user waited for.
+ * Reads only. `analyseLabel` gets `OCR_TIMEOUT_MS` below instead — the
+ * reasoning that kept it unbounded was right about this number and wrong about
+ * the conclusion.
  */
 const NETWORK_TIMEOUT_MS = 12_000;
+
+/**
+ * The same bound for reading a label, at a figure that suits the work.
+ *
+ * This call was deliberately left unbounded, and the reason was sound: OCR
+ * uploads an image and waits on Google Vision behind it, so it legitimately
+ * takes longer than a catalogue read, and cutting it at twelve seconds would
+ * throw away work the user stood there waiting for.
+ *
+ * But unbounded is not the only alternative to too-short. With no deadline at
+ * all the label camera spins until the platform gives up, with no message and
+ * no way out but backing out of the screen and losing the photo anyway — so
+ * the user loses the work *and* learns nothing. Forty-five seconds is well
+ * past what a slow upload on shop wifi needs and still finite, and
+ * `scan-label` already renders a failure with a retry, so the timeout lands
+ * somewhere real.
+ */
+const OCR_TIMEOUT_MS = 45_000;
 
 /**
  * How long the splash screen will wait for the cached catalogue to come off
@@ -945,8 +963,17 @@ export async function fetchProductByBarcode(
     const remembered = readScanned(barcode);
     if (remembered !== undefined) return remembered;
 
+    // A deadline, for the same reason the direct reads have one — and this is
+    // the call that needed it most. The barcode cascade tries its sources in
+    // sequence, so it is the slowest thing the app does, and without this the
+    // scanner sat in "looking" until the platform gave up. A timeout the user
+    // can retry is a state; an indefinite wait is not.
+    //
+    // `functions.invoke` takes this natively and aborts the underlying request,
+    // so it needs none of `withTimeout`'s wrapping.
     const { data, error } = await supabase!.functions.invoke(LOOKUP_FUNCTION, {
       body: { barcode },
+      timeout: NETWORK_TIMEOUT_MS,
     });
     if (error) {
       // A 404 from the cascade means "in no source we consulted", which is a
@@ -990,8 +1017,11 @@ export async function analyseLabel(
 ): Promise<LabelAnalysis> {
   if (!usingSupabase()) return { ok: false, reason: "not_configured" };
 
+  // Bounded, but on its own clock — see OCR_TIMEOUT_MS. Not the read timeout:
+  // this uploads an image and waits on Google Vision behind it.
   const { data, error } = await supabase!.functions.invoke(OCR_FUNCTION, {
     body: { imageBase64, ...opts },
+    timeout: OCR_TIMEOUT_MS,
   });
 
   if (error) {
