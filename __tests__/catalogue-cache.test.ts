@@ -10,6 +10,7 @@ import {
   productsForType,
   putCatalogue,
   forgetMemoryLayer,
+  lastCacheWrite,
   putScanned,
   writesSettled,
   readCatalogue,
@@ -499,3 +500,155 @@ async function flushWrites(): Promise<void> {
   // the queue itself.
   await writesSettled();
 }
+
+
+/**
+ * Step 6, item 1: "stop the failures that do not announce themselves".
+ *
+ * `persist` used to catch everything and warn in development, so an
+ * over-quota Android device simply stopped caching and every layer above it
+ * went on believing the cache worked. These pin the two halves of the fix —
+ * that an oversized payload is measured and skipped rather than attempted and
+ * half-written, and that every outcome is recorded where the app can read it.
+ */
+describe("disk writes announce what happened", () => {
+  it("records a successful write, with its size", async () => {
+    putCatalogue(CATALOGUE, WATERMARK);
+    await writesSettled();
+
+    const outcome = lastCacheWrite();
+    expect(outcome?.kind).toBe("ok");
+    if (outcome?.kind !== "ok") throw new Error("expected a successful write");
+    expect(outcome.bytes).toBeGreaterThan(0);
+    // The blob really landed, not just the bookkeeping.
+    expect(await AsyncStorage.getItem(PRODUCTS_KEY)).not.toBeNull();
+  });
+
+  it("skips an oversized payload and keeps the copy already on disk", async () => {
+    // A good, small catalogue first.
+    putCatalogue(CATALOGUE, WATERMARK);
+    await writesSettled();
+    const good = await AsyncStorage.getItem(PRODUCTS_KEY);
+    expect(good).not.toBeNull();
+
+    // Then one that cannot fit. `description` is a plain string on the
+    // persisted product, so this inflates the blob without changing its shape.
+    const huge = Array.from({ length: 60 }, (_, i) => ({
+      ...product(`huge-${i}`, "serum"),
+      description: "x".repeat(100_000),
+    })) as unknown as typeof CATALOGUE;
+    putCatalogue(huge, { ...WATERMARK, count: huge.length });
+    await writesSettled();
+
+    const outcome = lastCacheWrite();
+    expect(outcome?.kind).toBe("too-large");
+    if (outcome?.kind !== "too-large") throw new Error("expected an over-budget skip");
+    expect(outcome.bytes).toBeGreaterThan(outcome.budget);
+
+    // The point of skipping rather than attempting: what was already there
+    // survives, so the app falls back to a stale-but-whole catalogue instead
+    // of a truncated one.
+    expect(await AsyncStorage.getItem(PRODUCTS_KEY)).toBe(good);
+  });
+
+  it("records a storage failure instead of swallowing it", async () => {
+    const realSetItem = AsyncStorage.setItem;
+    // Reassigned by hand rather than with jest.spyOn: AsyncStorage is a module
+    // mock here, and `mockRestore` on it does not restore — it leaves every
+    // later test reading undefined from storage, failing far from the cause.
+    (AsyncStorage as unknown as { setItem: unknown }).setItem = () =>
+      Promise.reject(new Error("database or disk is full"));
+    try {
+      putCatalogue(CATALOGUE, WATERMARK);
+      await writesSettled();
+    } finally {
+      (AsyncStorage as unknown as { setItem: unknown }).setItem = realSetItem;
+    }
+
+    const outcome = lastCacheWrite();
+    expect(outcome?.kind).toBe("failed");
+    if (outcome?.kind !== "failed") throw new Error("expected a recorded failure");
+    expect(outcome.message).toContain("disk is full");
+  });
+
+  it("does not take the app down when a product cannot be serialised", async () => {
+    // The shape a test fixture produced for as long as this file has existed:
+    // a product with no `ingredients`, which `extractDictionary` iterates.
+    // It always threw; the old catch swallowed it and the cache silently never
+    // wrote. Still not fatal — `putCatalogue` depends on that — but now said.
+    const malformed = [{ id: "a", type: "serum" }] as unknown as typeof CATALOGUE;
+    expect(() => putCatalogue(malformed, WATERMARK)).not.toThrow();
+    await writesSettled();
+
+    expect(lastCacheWrite()?.kind).toBe("failed");
+    expect(await AsyncStorage.getItem(PRODUCTS_KEY)).toBeNull();
+  });
+});
+
+
+/**
+ * Step 6's done-when, minus the half that needs a handset: "a synthetic
+ * catalogue of 5,000 products cold-starts without a failed write."
+ *
+ * Sized against the real thing rather than the small fixtures above. Step 2
+ * measured the live catalogue at 369KB for 500 products once normalised —
+ * about 740 bytes each — so these carry a comparable amount of text, a real
+ * formula length, and the multi-byte characters a Korean catalogue is full of.
+ * A budget checked against ASCII-only fixtures would pass here and fail on a
+ * device.
+ */
+describe("a five-thousand product catalogue", () => {
+  function formulaFor(i: number) {
+    // `name`, not `inciName` — `isUsableIngredient` checks `id` and `name`,
+    // and a dictionary entry missing either makes the whole blob unreadable on
+    // the next cold start. The small fixtures above all carry an empty
+    // formula, so nothing exercised that until this test.
+    return Array.from({ length: 30 }, (_, n) => ({
+      id: `ing-${(i + n) % 900}`,
+      name: `Ingredient Name ${(i + n) % 900}`,
+      comedogenic: 0 as const,
+      safety: "safe" as const,
+      verified: true,
+      note: "No published concern at the concentrations used in leave-on products.",
+    }));
+  }
+
+  function realisticProduct(i: number): ProductWithIngredients {
+    return {
+      ...product(`p-${i}`, i % 2 === 0 ? "serum" : "cleanser"),
+      // Korean names are three UTF-8 bytes per character, which is exactly what
+      // `String.length` would under-count.
+      name: `수분 진정 세럼 ${i} — Hydrating Calming Serum`,
+      brand: `브랜드 ${i % 50}`,
+      description: "A lightweight daily serum for dehydrated, easily irritated skin.",
+      // `ingredientIds` is what `rehydrate` rebuilds the formula from — the
+      // persisted product drops `ingredients` and keeps the names, so a
+      // fixture that fills one and not the other round-trips to an empty
+      // formula.
+      ingredientIds: formulaFor(i).map((ing) => ing.id),
+      ingredients: formulaFor(i),
+    } as unknown as ProductWithIngredients;
+  }
+
+  it("writes and reads back without a failed write", async () => {
+    const many = Array.from({ length: 5000 }, (_, i) => realisticProduct(i));
+
+    putCatalogue(many, { ...WATERMARK, count: many.length });
+    await writesSettled();
+
+    const outcome = lastCacheWrite();
+    // Reported either way, so a failure here says how far over it went rather
+    // than just that it did.
+    if (outcome?.kind !== "ok") {
+      throw new Error(`expected a clean write, got ${JSON.stringify(outcome)}`);
+    }
+    expect(outcome.bytes).toBeGreaterThan(0);
+
+    // A cold start: drop memory entirely, then read from disk alone.
+    forgetMemoryLayer();
+    const restored = await readCatalogue();
+    expect(restored?.products).toHaveLength(5000);
+    // The formula survives the normalise/rehydrate round trip, not just the row.
+    expect(restored?.products[0].ingredients).toHaveLength(30);
+  });
+});

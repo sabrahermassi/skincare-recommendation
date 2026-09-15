@@ -534,6 +534,85 @@ export function touchCatalogue(watermark: CatalogueWatermark): void {
  * stall the queue behind it — `persist` and `persistMeta` swallow their own
  * errors anyway, and this only guarantees ordering, never success.
  */
+/**
+ * How many bytes of the device's storage the catalogue blob may take.
+ *
+ * Android's AsyncStorage is a SQLite database with a default ceiling around
+ * 6MB, shared with everything else the app persists — the Zustand store, its
+ * own bookkeeping. This is the catalogue's share of that, left deliberately
+ * short of the ceiling so the store is never the thing that fails because the
+ * catalogue filled the database.
+ *
+ * At the post-step-2 payload size (369KB for 500 products, normalised) this is
+ * roughly 5,000 products of headroom, which is the figure step 6 is measured
+ * against. It is a budget rather than a row count because the ceiling is
+ * measured in bytes and rows vary by an order of magnitude in length.
+ *
+ * Raising Android's ceiling is possible — it is a configurable SQLite size,
+ * not a platform constant — but this is a managed Expo project with no native
+ * directories, so it needs `expo-build-properties` and a rebuild. Left as
+ * follow-up: a budget that fits the default helps every install today,
+ * including ones that never get a new binary.
+ */
+const DISK_BUDGET_BYTES = 4 * 1024 * 1024;
+
+/**
+ * What happened to the last attempted catalogue write.
+ *
+ * Step 6 calls this "stop the failures that do not announce themselves". The
+ * write path could only fail silently: `persist` caught everything, warned in
+ * development, and returned — so an over-quota device simply stopped caching
+ * and every layer above it went on believing the cache worked. This is the
+ * record that makes it answerable.
+ */
+export type CacheWriteOutcome =
+  | { kind: "ok"; bytes: number; at: number }
+  | { kind: "too-large"; bytes: number; budget: number; at: number }
+  | { kind: "failed"; message: string; at: number };
+
+let lastWrite: CacheWriteOutcome | null = null;
+
+function recordWrite(outcome: CacheWriteOutcome): void {
+  lastWrite = outcome;
+}
+
+/**
+ * The last write's outcome, or null if nothing has been written this launch.
+ *
+ * Read-only and deliberately not reactive: this exists so the app *can* act —
+ * a diagnostics screen, a one-off report, a test — not so a screen re-renders
+ * on it. Nothing in the UI consumes it yet; the point of this step is that the
+ * information now exists at all.
+ */
+export function lastCacheWrite(): CacheWriteOutcome | null {
+  return lastWrite;
+}
+
+/**
+ * Length of a string once encoded as UTF-8, which is what storage measures.
+ *
+ * `String.length` counts UTF-16 code units and would under-count every
+ * non-ASCII character in the catalogue — Korean product names are three bytes
+ * each, and accented Latin two — so a blob checked with `.length` could pass a
+ * byte budget and still be rejected by the database. Counted rather than
+ * encoded so a 4MB payload does not allocate a 4MB byte array just to be
+ * measured.
+ */
+function utf8Length(value: string): number {
+  let bytes = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code < 0x80) bytes += 1;
+    else if (code < 0x800) bytes += 2;
+    else if (code >= 0xd800 && code <= 0xdbff) {
+      // A surrogate pair is one code point and four bytes; skip its low half.
+      bytes += 4;
+      i += 1;
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
 let writeQueue: Promise<void> = Promise.resolve();
 
 function enqueueWrite(write: () => Promise<void>): Promise<void> {
@@ -554,6 +633,20 @@ async function persist(
   meta: CatalogueMeta,
 ): Promise<void> {
   return enqueueWrite(async () => {
+    // Everything from here is inside the guard, serialisation included.
+    //
+    // It was not, briefly, while this budget check was being added — and the
+    // test suite immediately turned up a caller handing `persist` a product
+    // with no `ingredients` array, which `extractDictionary` iterates. That
+    // had always thrown; the old catch swallowed it, so the cache simply never
+    // wrote and nothing said why. Exactly the failure this step exists to
+    // stop, found by moving one expression out of a try block.
+    //
+    // So the shape is: nothing here is allowed to be fatal — `putCatalogue`
+    // depends on that, a failed cache write must never take a screen down —
+    // but every way out is recorded.
+    let serialised: string;
+    let bytes: number;
     try {
       // Normalised on the way out, for the same reason it is normalised on the
       // wire: the v1 blob wrote every definition into every product that
@@ -564,12 +657,44 @@ async function persist(
         dictionary: extractDictionary(products),
         products: products.map(({ ingredients: _formula, ...rest }) => rest),
       };
-      await AsyncStorage.setItem(PRODUCTS_KEY, JSON.stringify(payload));
-      await AsyncStorage.setItem(META_KEY, JSON.stringify(meta));
+      serialised = JSON.stringify(payload);
+      bytes = utf8Length(serialised);
     } catch (err) {
-      // Never fatal — see `putCatalogue`. Surfaced in development only, because a
-      // write that silently fails looks exactly like a cache that works until the
-      // next cold start, which is an unpleasant thing to debug twice.
+      recordWrite({ kind: "failed", message: `could not serialise: ${String(err)}`, at: Date.now() });
+      if (__DEV__) console.warn("[catalogue-cache] could not serialise the catalogue:", err);
+      return;
+    }
+
+    // Measured before the write, not discovered by attempting it.
+    //
+    // Over quota, `setItem` rejects — and on Android it can do so partway,
+    // leaving a truncated row behind. That is strictly worse than not writing:
+    // the next cold start reads a blob that parses into fewer products than
+    // the meta beside it claims, and the app serves a quietly incomplete
+    // catalogue. Skipping the write leaves the previous good copy in place and
+    // costs one refetch.
+    if (bytes > DISK_BUDGET_BYTES) {
+      recordWrite({ kind: "too-large", bytes, budget: DISK_BUDGET_BYTES, at: Date.now() });
+      if (__DEV__) {
+        console.warn(
+          `[catalogue-cache] skipped a ${Math.round(bytes / 1024)}KB write — ` +
+            `over the ${Math.round(DISK_BUDGET_BYTES / 1024)}KB budget. ` +
+            "The previous cached copy is kept.",
+        );
+      }
+      return;
+    }
+
+    try {
+      await AsyncStorage.setItem(PRODUCTS_KEY, serialised);
+      await AsyncStorage.setItem(META_KEY, JSON.stringify(meta));
+      recordWrite({ kind: "ok", bytes, at: Date.now() });
+    } catch (err) {
+      // Never fatal — see `putCatalogue`. But no longer only a dev warning:
+      // a write that silently fails looks exactly like a cache that works
+      // until the next cold start, and nothing above this could tell the
+      // difference. `lastCacheWrite` is how the app finds out.
+      recordWrite({ kind: "failed", message: String(err), at: Date.now() });
       if (__DEV__) console.warn("[catalogue-cache] disk write failed:", err);
     }
   });
