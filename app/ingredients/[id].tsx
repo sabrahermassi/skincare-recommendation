@@ -65,7 +65,11 @@ export default function IngredientList() {
   // eslint-disable-next-line react-hooks/purity
   const now = useMemo(() => Date.now(), []);
 
-  if (loading || !match) {
+  // `match` is null exactly when `product` is, so testing it here made the
+  // not-found branch below unreachable: a deleted product, a malformed id or a
+  // failed fetch all left the user on a spinner that never resolved. Loading
+  // first, then the product, then anything derived from it.
+  if (loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS }}>
         <ActivityIndicator color={INK} />
@@ -73,7 +77,7 @@ export default function IngredientList() {
     );
   }
 
-  if (!product) {
+  if (!product || !match) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS, paddingHorizontal: 32 }}>
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: INK }}>

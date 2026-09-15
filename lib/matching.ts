@@ -634,8 +634,18 @@ function noteFor(ingredients: string[]): string {
   return `${shown.join(", ")} and ${ingredients.length - 2} more`;
 }
 
+/**
+ * Capitalises the first letter of each word.
+ *
+ * The regex here held a literal backspace byte (0x08) where the word-boundary
+ * escape was meant: the two-character escape had been resolved into the source
+ * at some point rather than written into it. A backspace followed by a
+ * lowercase letter is a sequence no ingredient name contains, so the replace
+ * matched nothing, this returned its input unchanged, and every name it
+ * touched rendered lower-case. Nothing failed loudly, which is why it lasted.
+ */
 function titleCase(name: string): string {
-  return name.replace(/[a-z]/g, (c) => c.toUpperCase());
+  return name.replace(/\b[a-z]/g, (c) => c.toUpperCase());
 }
 
 /**
@@ -696,9 +706,17 @@ export const RUNG_META: Record<Rung, { dot: string; pill: string; ink: string; l
 };
 
 export function rungFor(ingredient: Ingredient, match: MatchResult): Rung {
-  if (!isVerified(ingredient)) return "neutral";
+  // Tone first, because a warning outranks not knowing. Pregnancy matching
+  // deliberately fires on an exact name even when OCR left the row unverified
+  // (see `lib/safety.ts`), and reading verification first meant the product
+  // said "Elevated" while the ingredient responsible for it sat in the quiet
+  // grey rung — the screen contradicting its own safety result.
   const tone = ingredientTone(ingredient, match);
-  return tone === "flag" ? "avoid" : tone;
+  if (tone === "flag") return "avoid";
+  // Everything else unverified stays neutral: not good, not a warning, just
+  // unassessed.
+  if (!isVerified(ingredient)) return "neutral";
+  return tone;
 }
 
 /**

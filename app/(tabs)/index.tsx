@@ -17,7 +17,6 @@ import { Text } from "@/components/Text";
 import { fetchProductByBarcode } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
-import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
 import { CAMERA_STAGE, CANVAS, CTA, INK, LINE, MUTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 
@@ -112,7 +111,6 @@ export default function Scan() {
   const [mode, setMode] = useState<Mode>("Barcode");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
-  const profile = useAppStore((s) => s.profile);
   const recordView = useAppStore((s) => s.recordView);
 
   const busy = useRef(false);
@@ -183,11 +181,12 @@ export default function Scan() {
       }
 
       if (product) {
-        const { score, warnings } =
-          product.ingredients.length > 0
-            ? matchProduct(product, profile)
-            : { score: null, warnings: [] };
-        recordView({ id: product.id, known: true, score, warnings: warnings.length });
+        // Deliberately not recorded here. `/result/[id]` re-exports the
+        // product screen, which logs the view once it has loaded — so doing it
+        // here too counted one physical scan as two, and the two entries were
+        // scored from different evidence: the lookup response omits
+        // `ingredients.functions`, the direct fetch behind that screen does
+        // not. One owner, and it is the screen that shows the verdict.
         preserveMode();
         router.push({ pathname: "/result/[id]", params: { id: product.id } });
         return; // `busy` clears on blur
@@ -197,7 +196,7 @@ export default function Scan() {
       setStatus({ kind: "missed", code: data });
       busy.current = false;
     },
-    [profile, recordView, preserveMode]
+    [recordView, preserveMode]
   );
 
   // Most devices only let one CameraView hold the camera at a time. This
