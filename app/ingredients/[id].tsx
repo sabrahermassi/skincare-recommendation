@@ -45,6 +45,12 @@ export default function IngredientList() {
       .catch((err) => {
         if (cancelled) return;
         console.warn("fetchProduct failed:", err);
+        // Without this, a failed request left the *previous* id's product in
+        // state. `loading` gates the spinner so nothing renders it mid-request,
+        // but the moment this resolves, the not-found branch below is skipped
+        // and the prior product renders under the new route's id — for a
+        // request that never actually answered for it.
+        setProduct(null);
         setLoading(false);
       });
     return () => {
