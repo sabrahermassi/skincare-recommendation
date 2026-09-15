@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   abandonDiskRead,
   addScannedToCatalogue,
+  dropLegacyBlobs,
   DISK_TTL_MS,
   peekCatalogue,
   productById,
@@ -48,7 +49,21 @@ function product(id: string, type: ProductWithIngredients["type"]): ProductWithI
   } as unknown as ProductWithIngredients;
 }
 
-const WATERMARK: CatalogueWatermark = { count: 3, newest: "2026-09-14T00:00:00Z" };
+const WATERMARK: CatalogueWatermark = { count: 3, newest: "2026-09-14T00:00:00Z", ingredientCount: 0, ingredientNewest: null };
+
+const PRODUCTS_KEY = "forme-catalogue-v2";
+const META_KEY = "forme-catalogue-meta-v2";
+
+/** The v2 blob shape: one dictionary, products referencing it by name. */
+function blob(products: typeof CATALOGUE) {
+  const dictionary = [...new Map(
+    products.flatMap((p) => p.ingredients).map((i) => [i.id, i]),
+  ).values()];
+  return JSON.stringify({
+    dictionary,
+    products: products.map(({ ingredients: _formula, ...rest }) => rest),
+  });
+}
 
 const CATALOGUE = [
   product("a", "serum"),
@@ -113,20 +128,60 @@ describe("disk layer", () => {
     expect(productById(restored!, "b")?.name).toBe("Product b");
   });
 
+  /**
+   * The property the whole deduplication rests on, asserted on the disk path
+   * as well as the network one. `rehydrate` builds a single map and hands the
+   * same object to every product that names it — a future refactor that
+   * rebuilt per product would restore the 3.6x heap silently, since nothing
+   * about the rendered output would change.
+   */
+  it("restores one shared object per ingredient, not a copy per product", async () => {
+    const aqua = { id: "aqua", name: "Aqua", comedogenic: 0, safety: "safe", verified: true };
+    const sharing = [
+      { ...product("a", "serum"), ingredientIds: ["aqua"], ingredients: [aqua] },
+      { ...product("b", "cleanser"), ingredientIds: ["aqua"], ingredients: [aqua] },
+    ] as unknown as ProductWithIngredients[];
+
+    putCatalogue(sharing, WATERMARK);
+    await flushWrites();
+    forgetMemoryLayer();
+
+    const restored = (await readCatalogue())!;
+
+    expect(restored.products[0].ingredients[0]).toBe(restored.products[1].ingredients[0]);
+    expect(restored.products[0].ingredients[0].name).toBe("Aqua");
+  });
+
+  /**
+   * Bumping the schema version hides an old blob; it does not delete one. What
+   * would be stranded is a full-size copy of the catalogue, against Android's
+   * 6MB AsyncStorage ceiling — so a change that halved the live blob would
+   * have raised disk use on every existing install.
+   */
+  it("deletes the blobs an earlier schema version left behind", async () => {
+    await AsyncStorage.setItem("forme-catalogue-v1", JSON.stringify([{ id: "old" }]));
+    await AsyncStorage.setItem("forme-catalogue-meta-v1", "{}");
+
+    await dropLegacyBlobs();
+
+    expect(await AsyncStorage.getItem("forme-catalogue-v1")).toBeNull();
+    expect(await AsyncStorage.getItem("forme-catalogue-meta-v1")).toBeNull();
+  });
+
   it("ignores a stored catalogue past its TTL", async () => {
     putCatalogue(CATALOGUE, WATERMARK);
     await flushWrites();
 
-    const meta = JSON.parse((await AsyncStorage.getItem("forme-catalogue-meta-v1"))!);
+    const meta = JSON.parse((await AsyncStorage.getItem(META_KEY))!);
     meta.storedAt = Date.now() - DISK_TTL_MS - 1;
-    await AsyncStorage.setItem("forme-catalogue-meta-v1", JSON.stringify(meta));
+    await AsyncStorage.setItem(META_KEY, JSON.stringify(meta));
     forgetMemoryLayer();
 
     expect(await readCatalogue()).toBeNull();
   });
 
   it("treats unreadable stored data as a miss rather than throwing", async () => {
-    await AsyncStorage.setItem("forme-catalogue-meta-v1", "{not json");
+    await AsyncStorage.setItem(META_KEY, "{not json");
 
     await expect(readCatalogue()).resolves.toBeNull();
   });
@@ -137,22 +192,29 @@ describe("disk layer", () => {
    * where `matchProduct` and `ProductRow` dereference `product.ingredients`.
    */
   it.each([
-    ["a product missing its ingredients array", JSON.stringify([{ id: "a", type: "serum" }])],
-    ["an array of empty objects", JSON.stringify([{}])],
+    [
+      "a product with no ingredient names to rebuild from",
+      JSON.stringify({ dictionary: [], products: [{ id: "a", type: "serum" }] }),
+    ],
+    ["a product list of empty objects", JSON.stringify({ dictionary: [], products: [{}] })],
+    [
+      "a dictionary entry with no name",
+      JSON.stringify({ dictionary: [{ id: "aqua" }], products: [{ id: "a", type: "serum", ingredientIds: [] }] }),
+    ],
     ["metadata with a non-numeric storedAt", null],
   ] as const)("treats %s as a miss", async (_label: string, rawProducts: string | null) => {
     if (rawProducts === null) {
       await AsyncStorage.setItem(
-        "forme-catalogue-meta-v1",
+        META_KEY,
         JSON.stringify({ watermark: WATERMARK, storedAt: "yesterday" }),
       );
-      await AsyncStorage.setItem("forme-catalogue-v1", JSON.stringify(CATALOGUE));
+      await AsyncStorage.setItem(PRODUCTS_KEY, blob(CATALOGUE));
     } else {
       await AsyncStorage.setItem(
-        "forme-catalogue-meta-v1",
+        META_KEY,
         JSON.stringify({ watermark: WATERMARK, storedAt: Date.now() }),
       );
-      await AsyncStorage.setItem("forme-catalogue-v1", rawProducts);
+      await AsyncStorage.setItem(PRODUCTS_KEY, rawProducts);
     }
 
     await expect(readCatalogue()).resolves.toBeNull();
@@ -172,10 +234,10 @@ describe("disk layer", () => {
    */
   it("does not let a late disk read overwrite a fresher catalogue", async () => {
     await AsyncStorage.setItem(
-      "forme-catalogue-meta-v1",
+      META_KEY,
       JSON.stringify({ watermark: WATERMARK, storedAt: Date.now() }),
     );
-    await AsyncStorage.setItem("forme-catalogue-v1", JSON.stringify(CATALOGUE));
+    await AsyncStorage.setItem(PRODUCTS_KEY, blob(CATALOGUE));
 
     let release: (value: string | null) => void = () => {};
     const real = AsyncStorage.getItem;
@@ -191,7 +253,7 @@ describe("disk layer", () => {
       abandonDiskRead();
 
       // The network path wins the race and installs a newer catalogue.
-      putCatalogue([product("fresh", "serum")], { count: 1, newest: "2026-09-09T00:00:00Z" });
+      putCatalogue([product("fresh", "serum")], { count: 1, newest: "2026-09-09T00:00:00Z", ingredientCount: 0, ingredientNewest: null });
 
       release(JSON.stringify({ watermark: WATERMARK, storedAt: Date.now() }));
       await late;
@@ -250,7 +312,7 @@ describe("two saves at once", () => {
 
     try {
       putCatalogue(CATALOGUE, WATERMARK);
-      putCatalogue(CATALOGUE.slice(0, 2), { count: 2, newest: WATERMARK.newest });
+      putCatalogue(CATALOGUE.slice(0, 2), { count: 2, newest: WATERMARK.newest, ingredientCount: 0, ingredientNewest: null });
       await writesSettled();
 
       expect(order).toEqual(["products", "meta", "products", "meta"]);
@@ -262,13 +324,13 @@ describe("two saves at once", () => {
   /** And the copy left on disk is one save's, not a blend of two. */
   it("leaves metadata describing the blob it was written with", async () => {
     putCatalogue(CATALOGUE, WATERMARK);
-    putCatalogue(CATALOGUE.slice(0, 2), { count: 2, newest: WATERMARK.newest });
+    putCatalogue(CATALOGUE.slice(0, 2), { count: 2, newest: WATERMARK.newest, ingredientCount: 0, ingredientNewest: null });
     await writesSettled();
 
-    const products = JSON.parse((await AsyncStorage.getItem("forme-catalogue-v1"))!);
-    const meta = JSON.parse((await AsyncStorage.getItem("forme-catalogue-meta-v1"))!);
+    const stored = JSON.parse((await AsyncStorage.getItem(PRODUCTS_KEY))!);
+    const meta = JSON.parse((await AsyncStorage.getItem(META_KEY))!);
 
-    expect(products).toHaveLength(2);
+    expect(stored.products).toHaveLength(2);
     expect(meta.watermark.count).toBe(2);
   });
 });
@@ -364,6 +426,35 @@ describe("a product scanned this session", () => {
     const entry = (await readCatalogue())!;
     expect(entry.products).toHaveLength(CATALOGUE.length);
     expect(entry.byId.get("a")!.name).toBe("Product a, reformulated");
+  });
+
+  /**
+   * The trap the previous fix left behind: this product's fresh ingredient
+   * objects don't replace what every *other* product in memory still points
+   * at for the same name. Left alone, `extractDictionary`'s first-wins merge
+   * could persist the stale one — discarding the update this scan was for,
+   * and serving it back even to the product just rescanned after the next
+   * disk round-trip. Restoring the sharing invariant immediately is what
+   * makes that merge's iteration order stop mattering.
+   */
+  it("propagates a rescanned ingredient's fresh definition to every product sharing it", async () => {
+    const aquaStale = { id: "aqua", name: "Aqua", comedogenic: 0 as const, safety: "safe" as const, verified: true, note: "old" };
+    const withAqua = (id: string) => ({
+      ...product(id, "serum"),
+      ingredientIds: ["aqua"],
+      ingredients: [aquaStale],
+    });
+    putCatalogue([withAqua("a"), withAqua("b")], WATERMARK);
+
+    const aquaFresh = { ...aquaStale, note: "corrected", safety: "avoid" as const };
+    addScannedToCatalogue({ ...withAqua("a"), ingredients: [aquaFresh] } as unknown as ProductWithIngredients);
+
+    const entry = (await readCatalogue())!;
+    const a = entry.byId.get("a")!.ingredients[0];
+    const b = entry.byId.get("b")!.ingredients[0];
+    expect(a.note).toBe("corrected");
+    expect(b.note).toBe("corrected");
+    expect(b).toBe(a);
   });
 
   /**

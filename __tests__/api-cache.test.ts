@@ -17,6 +17,9 @@ const mockCalls: string[] = [];
 let mockProductRows: Record<string, unknown>[] = [];
 let mockRowCount = 0;
 let mockNewestFetchedAt: string | null = null;
+let mockDictionaryRows: Record<string, unknown>[] = [];
+let mockDictionaryCount = 0;
+let mockNewestUpdatedAt: string | null = null;
 
 /**
  * A Supabase stand-in thin enough to read.
@@ -27,8 +30,39 @@ let mockNewestFetchedAt: string | null = null;
  * to the matching shape — the distinction being what most of these tests turn
  * on.
  */
-function mockMakeQuery(selectArg: string) {
-  const isWatermark = selectArg.trim() === "fetched_at";
+function mockMakeQuery(table: string, selectArg: string) {
+  const select = selectArg.trim();
+  // Two tables answer for the dictionary: the view serves the definitions,
+  // and `ingredients` serves the watermark directly — the view's per-row
+  // `exists` is the wrong price on a check that runs every foreground.
+  const dictionary = table === "catalogue_ingredients" || table === "ingredients";
+  const isWatermark = select === "fetched_at" || select === "updated_at";
+  const label = dictionary
+    ? isWatermark
+      ? "dict-watermark"
+      : "dict"
+    : isWatermark
+      ? "watermark"
+      : "rows";
+  const source = dictionary ? mockDictionaryRows : mockProductRows;
+  // Single-row reads and the Edge Functions still ask for the formula inlined;
+  // only the catalogue read takes the lean join. The stand-in answers in
+  // whichever shape it was asked for, so a test cannot pass against a shape
+  // the server would never send.
+  // Matching on the nested select, not on "ingredients (" — the lean join is
+  // spelled `product_ingredients ( position, inci_name )`, which contains that
+  // substring too and would send every catalogue read the fat shape.
+  const inlined = select.includes("ingredients ( inci_name");
+  const expand = (r: Record<string, unknown>) => ({
+    ...r,
+    product_ingredients: (r.product_ingredients as { position: number; inci_name: string }[]).map(
+      (join) => ({
+        position: join.position,
+        ingredients: mockDictionaryRows.find((d) => d.inci_name === join.inci_name) ?? null,
+      }),
+    ),
+  });
+  const shape = (rows: Record<string, unknown>[]) => (inlined ? rows.map(expand) : rows);
   const builder: Record<string, unknown> = {};
   // Recorded so `maybeSingle` can honour the id it was asked for. Without it
   // the by-id test passes even when the wrong product comes back.
@@ -52,23 +86,18 @@ function mockMakeQuery(selectArg: string) {
   };
   // `fetchProduct` ends its chain here rather than awaiting the builder.
   builder.maybeSingle = () => {
-    mockCalls.push("rows");
+    mockCalls.push(label);
     const match = mockProductRows.find((r) => r.id === wantedId) ?? null;
-    return Promise.resolve({ data: match, error: null });
+    return Promise.resolve({ data: match ? shape([match])[0] : null, error: null });
   };
   builder.then = (resolve: (v: unknown) => void) => {
-    mockCalls.push(isWatermark ? "watermark" : "rows");
-    const paged = range
-      ? mockProductRows.slice(range[0], range[1] + 1)
-      : mockProductRows;
+    mockCalls.push(label);
+    const paged = shape(range ? source.slice(range[0], range[1] + 1) : source);
+    const watermark = dictionary
+      ? { data: [{ updated_at: mockNewestUpdatedAt }], error: null, count: mockDictionaryCount }
+      : { data: [{ fetched_at: mockNewestFetchedAt }], error: null, count: mockRowCount };
     return Promise.resolve(
-      isWatermark
-        ? {
-            data: [{ fetched_at: mockNewestFetchedAt }],
-            error: null,
-            count: mockRowCount,
-          }
-        : { data: paged, error: null, count: null },
+      isWatermark ? watermark : { data: paged, error: null, count: null },
     ).then(resolve);
   };
   return builder;
@@ -79,7 +108,7 @@ jest.mock("@/lib/supabase", () => ({
   LOOKUP_FUNCTION: "product-lookup",
   OCR_FUNCTION: "label-ocr",
   supabase: {
-    from: () => ({ select: (arg: string) => mockMakeQuery(arg) }),
+    from: (table: string) => ({ select: (arg: string) => mockMakeQuery(table, arg) }),
     functions: { invoke: jest.fn() },
   },
 }));
@@ -124,7 +153,37 @@ function row(id: string, type = "serum") {
     source: "obf",
     attribution: "Open Beauty Facts, ODbL",
     fetched_at: "2026-09-08T11:26:56Z",
-    product_ingredients: [],
+    // The lean join the catalogue read asks for: a name and a position, with
+    // the definition arriving once in the dictionary read beside it.
+    product_ingredients: [{ position: 1, inci_name: "aqua" }],
+  };
+}
+
+/**
+ * The same product as the Edge Functions return it: formula inlined. They do
+ * not use the lean catalogue select, so a test that fed them `row()` would be
+ * asserting against a shape the server never sends.
+ */
+function inlinedRow(id: string) {
+  const base = row(id);
+  return {
+    ...base,
+    product_ingredients: base.product_ingredients.map((join) => ({
+      position: join.position,
+      ingredients: dictionaryRow(join.inci_name),
+    })),
+  };
+}
+
+function dictionaryRow(inciName: string) {
+  return {
+    inci_name: inciName,
+    comedogenic: null,
+    safety: "safe",
+    note: null,
+    verified: true,
+    functions: ["solvent"],
+    updated_at: "2026-09-08T11:26:56Z",
   };
 }
 
@@ -135,6 +194,9 @@ beforeEach(async () => {
   mockProductRows = [row("a"), row("b", "cleanser")];
   mockRowCount = 2;
   mockNewestFetchedAt = "2026-09-08T11:26:56Z";
+  mockDictionaryRows = [dictionaryRow("aqua")];
+  mockDictionaryCount = 1;
+  mockNewestUpdatedAt = "2026-09-08T11:26:56Z";
 });
 
 describe("the cold path", () => {
@@ -148,7 +210,7 @@ describe("the cold path", () => {
   it("reads the watermark before the rows", async () => {
     await fetchProducts();
 
-    expect(mockCalls).toEqual(["watermark", "rows"]);
+    expect(mockCalls).toEqual(["watermark", "dict-watermark", "rows", "dict"]);
   });
 
   it("populates the cache and returns the products", async () => {
@@ -228,7 +290,7 @@ describe("freshness checking", () => {
 
     await warmCatalogue();
     await flush();
-    expect(mockCalls).toEqual(["watermark"]);
+    expect(mockCalls).toEqual(["watermark", "dict-watermark"]);
 
     mockCalls.length = 0;
     await warmCatalogue();
@@ -245,7 +307,7 @@ describe("freshness checking", () => {
     await warmCatalogue();
     await flush();
 
-    expect(mockCalls).toEqual(["watermark", "rows"]);
+    expect(mockCalls).toEqual(["watermark", "dict-watermark", "rows", "dict"]);
     expect(await fetchProducts()).toHaveLength(3);
   });
 });
@@ -264,7 +326,7 @@ describe("the 24h ceiling", () => {
     Date.now = () => realNow() + DISK_TTL_MS + 1;
     try {
       await fetchProducts();
-      expect(mockCalls).toEqual(["watermark", "rows"]);
+      expect(mockCalls).toEqual(["watermark", "dict-watermark", "rows", "dict"]);
     } finally {
       Date.now = realNow;
     }
@@ -417,7 +479,7 @@ describe("an empty result", () => {
 
     await fetchProducts();
 
-    expect(mockCalls).toEqual(["watermark", "rows"]);
+    expect(mockCalls).toEqual(["watermark", "dict-watermark", "rows", "dict"]);
   });
 });
 
@@ -447,7 +509,7 @@ describe("returning to the app", () => {
       Date.now = realNow;
     }
 
-    expect(mockCalls).toEqual(["watermark"]);
+    expect(mockCalls).toEqual(["watermark", "dict-watermark"]);
   });
 
   /**
@@ -484,7 +546,7 @@ describe("returning to the app", () => {
       Date.now = realNow;
     }
 
-    expect(mockCalls).toEqual(["watermark", "rows"]);
+    expect(mockCalls).toEqual(["watermark", "dict-watermark", "rows", "dict"]);
     expect(peekCatalogue()!.products).toHaveLength(3);
   });
 
@@ -516,7 +578,7 @@ describe("a catalogue larger than one page", () => {
     const products = await fetchProducts();
 
     expect(products).toHaveLength(total);
-    expect(mockCalls).toEqual(["watermark", "rows", "rows"]);
+    expect(mockCalls.filter((c) => c === "rows")).toHaveLength(2);
   });
 
   /** One page that is exactly full still has to ask whether there is another. */
@@ -529,14 +591,76 @@ describe("a catalogue larger than one page", () => {
     const products = await fetchProducts();
 
     expect(products).toHaveLength(CATALOGUE_PAGE_SIZE);
-    expect(mockCalls).toEqual(["watermark", "rows", "rows"]);
+    expect(mockCalls.filter((c) => c === "rows")).toHaveLength(2);
   });
 
   /** The common case must not have paid for pagination with a second request. */
   it("issues one request for a catalogue that fits in a page", async () => {
     await fetchProducts();
 
-    expect(mockCalls).toEqual(["watermark", "rows"]);
+    expect(mockCalls).toEqual(["watermark", "dict-watermark", "rows", "dict"]);
+  });
+});
+
+describe("the ingredient dictionary", () => {
+  /**
+   * The point of the whole change. Every product containing `aqua` must hold
+   * the *same* object, not a copy — the wire saving is undone on arrival if
+   * each product rebuilds its own, which is what `rowToProduct` did: 3,819
+   * ingredient objects resident for 1,049 distinct ingredients.
+   */
+  it("gives every product the same object for the same ingredient", async () => {
+    const products = await fetchProducts();
+
+    expect(products).toHaveLength(2);
+    expect(products[0].ingredients[0]).toBe(products[1].ingredients[0]);
+    expect(products[0].ingredients[0].functions).toEqual(["solvent"]);
+  });
+
+  /**
+   * A name the dictionary snapshot predates — a product written between the
+   * two reads. Shown as unverified rather than dropped, because a silently
+   * shortened formula is a quieter lie than an unrecognised name.
+   */
+  it("keeps a name the dictionary did not carry, as unverified", async () => {
+    mockProductRows = [
+      { ...row("a"), product_ingredients: [{ position: 1, inci_name: "mystery" }] },
+    ];
+    mockRowCount = 1;
+
+    const [product] = await fetchProducts();
+
+    expect(product.ingredients.map((i) => i.name)).toEqual(["mystery"]);
+    expect(product.ingredients[0].verified).toBe(false);
+  });
+
+  /**
+   * The trap this step had to close. Once definitions cache separately from
+   * products, a dictionary rewrite that adds no products moves neither the
+   * product count nor the newest `fetched_at` — so without its own terms in
+   * the key, every device would agree it was current and serve stale
+   * definitions indefinitely. Same failure `products.fetched_at` had, one
+   * table across.
+   */
+  it("refetches when only an ingredient definition changed", async () => {
+    await fetchProducts();
+    await warmCatalogue();
+    await flush();
+    mockCalls.length = 0;
+
+    // No product moved: same count, same newest fetched_at.
+    mockNewestUpdatedAt = "2026-09-20T00:00:00Z";
+
+    const realNow = Date.now;
+    Date.now = () => realNow() + FOREGROUND_RECHECK_MS + 1;
+    try {
+      revalidateOnForeground();
+      await flush();
+    } finally {
+      Date.now = realNow;
+    }
+
+    expect(mockCalls).toContain("rows");
   });
 });
 
@@ -550,7 +674,7 @@ describe("a label read", () => {
    */
   it("overwrites the cached miss for the barcode that sent the user there", async () => {
     invokeMock().mockResolvedValue({
-      data: { product: row("scanned"), recognised: 12, total: 14 },
+      data: { product: inlinedRow("scanned"), recognised: 12, total: 14 },
       error: null,
     });
     putScanned("barcode-scanned", null);
@@ -569,7 +693,7 @@ describe("a label read", () => {
    */
   it("records the barcode the row came back with when the caller passed none", async () => {
     invokeMock().mockResolvedValue({
-      data: { product: row("scanned"), recognised: 12, total: 14 },
+      data: { product: inlinedRow("scanned"), recognised: 12, total: 14 },
       error: null,
     });
 
