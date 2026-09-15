@@ -64,6 +64,32 @@ const MAX_REQUESTS = 40;
 const PAGE_SIZE = 100;
 
 /**
+ * Minimum gap between search requests, and how long to sit out a rate limit.
+ *
+ * Open Beauty Facts documents **10 requests per minute per IP for search**
+ * (any `/api/vN/search`, and `/cgi/search.pl`; product reads get 15/min, which
+ * this import does not use). That is one request every 6 seconds, and 6.5
+ * leaves margin for clock skew and for where the server's window boundary
+ * happens to fall.
+ *
+ * This was 300ms, which is four times over the documented limit. Runs did not
+ * trip it only because they finish in about seven requests — under the cap by
+ * count, not by rate. A run that walked further, or a higher TARGET_ROWS,
+ * would have collected a 429 and aborted the whole import, since `fetchPage`
+ * throws and nothing above it retries.
+ *
+ * The cost is real: a seven-request run goes from roughly two seconds to
+ * forty-five, and a full MAX_REQUESTS run would take about four minutes. For
+ * an operator script run by hand a few times a year, against a service run by
+ * volunteers, that is the right side of the trade.
+ *
+ * RATE_LIMIT_WINDOW_MS is one full minute because the limit is per minute:
+ * having sent nothing for that long, the window has certainly rolled.
+ */
+const SEARCH_INTERVAL_MS = 6_500;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+/**
  * The categories this import pages, most specific first.
  *
  * This is the relevance filter, and it exists because the first widened run
@@ -177,14 +203,60 @@ const FIELDS = [
   "last_modified_t",
 ].join(",");
 
-async function fetchPage(category, page) {
+/**
+ * How long `Retry-After` is asking us to wait, in ms, or null if the header is
+ * absent or unparseable.
+ *
+ * The header comes in two forms per RFC 9110 — delay-seconds, or an HTTP date
+ * — and OBF has not committed to either, so both are read. A date in the past
+ * clamps to zero rather than going negative.
+ */
+function retryAfterMs(res) {
+  const header = res.headers.get("retry-after");
+  if (!header) return null;
+
+  const seconds = Number(header);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+
+  const at = Date.parse(header);
+  return Number.isNaN(at) ? null : Math.max(0, at - Date.now());
+}
+
+async function fetchPage(category, page, retried = false) {
   const url =
     `${OBF}/api/v2/search?categories_tags=${encodeURIComponent(category)}` +
     `&states_tags=en:ingredients-completed` +
     `&fields=${FIELDS}&page_size=${PAGE_SIZE}&page=${page}`;
   const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
+
+  // Once, and only once. The documented limit is per *minute*, so having sent
+  // nothing for a full window we are definitionally clear of it — a second 429
+  // after that means something this script cannot fix by waiting again
+  // (another process sharing the IP, or a longer-lived block), and retrying
+  // into it is just load on a volunteer-run service. So the second one fails
+  // loudly instead.
+  //
+  // `Retry-After` wins when present: that is the server saying exactly how
+  // long, and it knows where in the window we are. Without it, a full window
+  // is the only interval guaranteed to have rolled.
+  if (res.status === 429 && !retried) {
+    const wait = retryAfterMs(res) ?? RATE_LIMIT_WINDOW_MS;
+    console.warn(
+      `\n  ! Rate-limited by OBF on ${category} page ${page}. ` +
+        `Waiting ${Math.ceil(wait / 1000)}s and retrying once.`
+    );
+    await sleep(wait);
+    return fetchPage(category, page, true);
+  }
+
   if (!res.ok) {
-    throw new Error(`OBF ${category} page ${page} returned ${res.status} ${res.statusText}`);
+    throw new Error(
+      `OBF ${category} page ${page} returned ${res.status} ${res.statusText}` +
+        (res.status === 429
+          ? " — still rate-limited after waiting a full window. Check whether " +
+            "something else is querying Open Beauty Facts from this address."
+          : "")
+    );
   }
   const body = await res.json();
   if (!Array.isArray(body.products)) {
@@ -471,6 +543,12 @@ async function main() {
         break category;
       }
 
+      // Paced before the request rather than after the page, so the gap sits
+      // between consecutive requests exactly once and no run pays for a sleep
+      // it never uses — the old placement slept, then immediately broke out of
+      // the category, wasting one interval per category and one at the cap.
+      if (pagesRead > 0) await sleep(SEARCH_INTERVAL_MS);
+
       const products = await fetchPage(category, page);
       pagesRead += 1;
       if (products.length === 0) break; // this category is exhausted
@@ -505,8 +583,6 @@ async function main() {
           `  ${String(duplicates).padStart(3)} dup` +
           `  ${String(rows.size).padStart(3)}/${TARGET_ROWS} total`
       );
-      await sleep(300); // be a good citizen against a volunteer-run service
-
       if (products.length < PAGE_SIZE) break; // last page of this category
     }
   }
