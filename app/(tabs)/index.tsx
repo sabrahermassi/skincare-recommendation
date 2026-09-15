@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
+import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { fetchProductByBarcode } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -384,8 +385,23 @@ function BarcodeStage({
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight();
 
+  // One sentence per state, shared by the spoken announcement and the visible
+  // panel's own label so the two can never drift apart.
+  //
+  // The "looking" line deliberately drops the 13 digits the panel prints.
+  // Those are there so a sighted user can confirm the scan landed on the right
+  // item; read aloud during a state that resolves in a second or two, they are
+  // noise in front of the part that matters.
+  const announcement =
+    status.kind === "looking"
+      ? "Barcode found. Reading the ingredients."
+      : status.kind === "missed"
+        ? "Not in our catalogue yet. Photograph the label and we'll add it."
+        : "";
+
   return (
     <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>
+      <ScreenReaderAnnouncer message={announcement} />
       {live ? (
         <CameraView
           style={StyleSheet.absoluteFill}
@@ -472,6 +488,16 @@ function BarcodeStage({
       >
         {status.kind !== "idle" && (
           <View
+            // Grouped into one node so a screen reader reaching this panel
+            // reads one sentence rather than the icon, a headline and a
+            // subhead as three fragments — and so the bare "!" glyph below
+            // stays out of it.
+            //
+            // The *announcement* is not made here; see `ScanAnnouncer`. A
+            // live region declared on a conditionally-rendered element is
+            // announced by roughly one platform of the three.
+            accessible
+            accessibilityLabel={announcement}
             style={{
               gap: 12,
               borderRadius: 18,

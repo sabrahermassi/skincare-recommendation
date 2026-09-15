@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 
+import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { analyseLabel } from "@/data/api";
 import { coverFitCropRect, type Rect, type Size } from "@/lib/crop-to-guide";
@@ -233,8 +234,24 @@ export default function ScanLabel() {
     );
   }
 
+  // What a screen reader is told, per state. The failure case is the one that
+  // matters: the button below re-labels itself to "Try again", so focus
+  // sitting on it may re-announce that much, but the *reason* was never
+  // spoken — and the reason is the value here, since the hints say what to do
+  // differently ("the ingredient panel alone is enough"). Without it the
+  // retry is a guess that fails the same way.
+  const failureSpeech =
+    status.kind === "failed"
+      ? status.hint
+        ? `${status.message} ${status.hint}`
+        : status.message
+      : status.kind === "reading"
+        ? "Reading the label."
+        : "";
+
   return (
     <View className="flex-1 bg-black">
+      <ScreenReaderAnnouncer message={failureSpeech} />
       <CameraView
         ref={camera}
         style={StyleSheet.absoluteFill}
@@ -271,7 +288,15 @@ export default function ScanLabel() {
         className="absolute inset-x-0 bottom-0 gap-3 p-6"
       >
         {status.kind === "failed" && (
-          <View className="gap-1">
+          <View
+            // Grouped so the message and its hint read as one sentence rather
+            // than two fragments. The announcement itself is made by
+            // `ScreenReaderAnnouncer` above — a live region on this
+            // conditionally-rendered block would be silent on iOS and web.
+            accessible
+            accessibilityLabel={failureSpeech}
+            className="gap-1"
+          >
             <Text className="text-base font-semibold text-tint-peach">{status.message}</Text>
             {status.hint && (
               <Text style={{ color: "rgba(255,255,255,0.7)" }} className="text-sm">

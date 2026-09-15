@@ -392,8 +392,33 @@ function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: 
   );
 }
 
+/**
+ * Exactly what `label-ocr` accepts as a barcode — `\d{8,14}`, per the check at
+ * the top of its handler, which answers anything else with a 400.
+ *
+ * Tested rather than assumed, because two different things reach `UnknownRow`
+ * with an `id` that is not a barcode at all:
+ *
+ *  - A *known* product that failed to resolve. The row renderer above falls
+ *    back to this component whenever `byId[entry.id]` is missing, not only
+ *    when the entry was a miss, and for those `entry.id` is a catalogue
+ *    product id — `obf-8801234567890`, `hanbang-rice-serum`.
+ *  - A missed QR or Code 128 scan. `BARCODE_TYPES` in the scanner covers both,
+ *    and a miss logs the raw payload as the id, so a URL can sit here as a
+ *    `known: false` entry.
+ *
+ * Either would send someone into the label camera to frame and shoot a photo,
+ * and then fail on the server — worse than the dead end the capture action
+ * exists to remove.
+ */
+const BARCODE_SHAPE = /^\d{8,14}$/;
+
 /** A barcode that resolved to nothing - still worth logging as "already checked". */
 function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string; onRemove: () => void }) {
+  // Both halves matter: a missed QR scan is `known: false` too, and still not
+  // something label-ocr can attach a photo to.
+  const canPhotographLabel = !entry.known && BARCODE_SHAPE.test(entry.id);
+
   return (
     <View
       style={{
@@ -412,6 +437,45 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
         </Text>
         <Text style={{ marginTop: 2, fontSize: 14, color: INK }}>{entry.id}</Text>
         <HistoryMeta entry={entry} />
+
+        {/*
+          The way out of this row. The scanner already offers it at the moment
+          of the miss — "Photograph the label and we'll add it", pushing
+          /scan-label with the barcode attached — but that offer expired the
+          moment the miss became history, leaving a bare 13-digit number whose
+          only action was Remove. Someone who scans four misses in a shop and
+          opens this screen at home could delete them and nothing else.
+
+          `HistoryMeta`'s own action slot is not the place for it: that renders
+          plain text, because a known row is wrapped in a Link and the whole
+          row is the target. Nothing here is a link — there is no product to
+          open — so this has to be a control of its own.
+
+          `hitSlop` rather than a 44pt minHeight: the target has to clear 44
+          (Apple HIG / WCAG 2.2 AA), but spending that much vertical space
+          inside a compact list row would push the other rows off screen.
+        */}
+        {canPhotographLabel && (
+          <Pressable
+            onPress={() => router.push({ pathname: "/scan-label", params: { barcode: entry.id } })}
+            accessibilityRole="button"
+            accessibilityLabel={`Photograph the label for barcode ${entry.id}`}
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            style={{ marginTop: 8, alignSelf: "flex-start" }}
+            className="active:opacity-70"
+          >
+            <Text
+              style={{
+                fontSize: TYPE.caption,
+                fontWeight: "600",
+                color: INK,
+                textDecorationLine: "underline",
+              }}
+            >
+              Photograph the label
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <RemoveButton onPress={onRemove} />
