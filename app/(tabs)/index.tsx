@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
+import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { fetchProductByBarcode } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -384,8 +385,23 @@ function BarcodeStage({
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight();
 
+  // One sentence per state, shared by the spoken announcement and the visible
+  // panel's own label so the two can never drift apart.
+  //
+  // The "looking" line deliberately drops the 13 digits the panel prints.
+  // Those are there so a sighted user can confirm the scan landed on the right
+  // item; read aloud during a state that resolves in a second or two, they are
+  // noise in front of the part that matters.
+  const announcement =
+    status.kind === "looking"
+      ? "Barcode found. Reading the ingredients."
+      : status.kind === "missed"
+        ? "Not in our catalogue yet. Photograph the label and we'll add it."
+        : "";
+
   return (
     <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>
+      <ScreenReaderAnnouncer message={announcement} />
       {live ? (
         <CameraView
           style={StyleSheet.absoluteFill}
@@ -472,35 +488,16 @@ function BarcodeStage({
       >
         {status.kind !== "idle" && (
           <View
-            // The only feedback this screen gives, and it was silent to a
-            // screen reader. A barcode is detected, the lookup runs, and on a
-            // miss two buttons appear below this panel — none of it announced,
-            // so the recovery the copy offers was unreachable by anyone not
-            // watching the screen. A success survived by accident, because
-            // navigating to the result screen announces itself.
+            // Grouped into one node so a screen reader reaching this panel
+            // reads one sentence rather than the icon, a headline and a
+            // subhead as three fragments — and so the bare "!" glyph below
+            // stays out of it.
             //
-            // One region on the container rather than one per line: competing
-            // live regions interrupt each other, and what should be spoken is
-            // a single contextual sentence. `accessible` collapses the icon
-            // and both lines into that one node, which also keeps the bare "!"
-            // glyph below out of the announcement.
-            //
-            // Both props, because the platforms disagree on which they honour:
-            // `accessibilityLiveRegion` is Android and react-native-web, and
-            // iOS VoiceOver acts on `accessibilityRole="alert"`.
+            // The *announcement* is not made here; see `ScanAnnouncer`. A
+            // live region declared on a conditionally-rendered element is
+            // announced by roughly one platform of the three.
             accessible
-            accessibilityRole="alert"
-            accessibilityLiveRegion="polite"
-            accessibilityLabel={
-              status.kind === "looking"
-                ? // Deliberately not the 13 digits the panel shows. They are
-                  // there so a sighted user can check the scan landed on the
-                  // right item; read aloud during a state that resolves in a
-                  // second or two, they are noise ahead of the part that
-                  // matters.
-                  "Barcode found. Reading the ingredients."
-                : "Not in our catalogue yet. Photograph the label and we'll add it."
-            }
+            accessibilityLabel={announcement}
             style={{
               gap: 12,
               borderRadius: 18,
