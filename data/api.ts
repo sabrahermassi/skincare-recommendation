@@ -984,6 +984,27 @@ export type LabelAnalysis =
   | { ok: true; product: ProductWithIngredients; recognised: number; total: number }
   | { ok: false; reason: "not_configured" | "unreadable" | "too_little_text" | "rate_limited"; rawText?: string };
 
+/**
+ * Whether `analyseLabel` can attach a photo to this identifier.
+ *
+ * `label-ocr` validates `barcode` against `\d{8,14}` before it does anything
+ * else and answers a 400 otherwise, so anything failing this here would fail
+ * there — after the user had framed and taken a photo. Every screen offering
+ * "photograph the label" has to ask this first.
+ *
+ * It lives beside `analyseLabel` because that is what it describes: not "is
+ * this a valid GTIN" in the abstract, but "will the function below accept it".
+ * If the Edge Function's rule changes, this is the line that changes with it.
+ *
+ * Two things reach these screens with an id that is not a barcode at all — a
+ * catalogue product id (`obf-…`, `hanbang-rice-serum`) for a row we know but
+ * could not load, and the raw payload of a missed QR or Code 128 scan, since
+ * the scanner reads those formats too and logs whatever they contained.
+ */
+export function canPhotographLabelFor(identifier: string | null | undefined): boolean {
+  return typeof identifier === "string" && /^\d{8,14}$/.test(identifier);
+}
+
 export async function analyseLabel(
   imageBase64: string,
   opts: { barcode?: string; name?: string; brand?: string } = {}

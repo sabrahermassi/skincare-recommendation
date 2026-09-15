@@ -12,7 +12,7 @@ import { ProductThumbnail } from "@/components/ProductThumbnail";
 // this FOR.ME shell token is reused outside its original scope.
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
-import { fetchProductsByIds } from "@/data/api";
+import { canPhotographLabelFor, fetchProductsByIds } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
 import { matchProduct, matchTone } from "@/lib/matching";
@@ -392,32 +392,11 @@ function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: 
   );
 }
 
-/**
- * Exactly what `label-ocr` accepts as a barcode — `\d{8,14}`, per the check at
- * the top of its handler, which answers anything else with a 400.
- *
- * Tested rather than assumed, because two different things reach `UnknownRow`
- * with an `id` that is not a barcode at all:
- *
- *  - A *known* product that failed to resolve. The row renderer above falls
- *    back to this component whenever `byId[entry.id]` is missing, not only
- *    when the entry was a miss, and for those `entry.id` is a catalogue
- *    product id — `obf-8801234567890`, `hanbang-rice-serum`.
- *  - A missed QR or Code 128 scan. `BARCODE_TYPES` in the scanner covers both,
- *    and a miss logs the raw payload as the id, so a URL can sit here as a
- *    `known: false` entry.
- *
- * Either would send someone into the label camera to frame and shoot a photo,
- * and then fail on the server — worse than the dead end the capture action
- * exists to remove.
- */
-const BARCODE_SHAPE = /^\d{8,14}$/;
-
 /** A barcode that resolved to nothing - still worth logging as "already checked". */
 function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string; onRemove: () => void }) {
   // Both halves matter: a missed QR scan is `known: false` too, and still not
   // something label-ocr can attach a photo to.
-  const canPhotographLabel = !entry.known && BARCODE_SHAPE.test(entry.id);
+  const canPhotographLabel = !entry.known && canPhotographLabelFor(entry.id);
 
   return (
     <View

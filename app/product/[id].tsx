@@ -13,7 +13,7 @@ import { ScoreRing } from "@/components/ScoreRing";
 import { HeartIcon } from "@/components/icons";
 import { InlineProfilePrompt } from "@/components/InlineProfilePrompt";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { fetchProduct } from "@/data/api";
+import { canPhotographLabelFor, fetchProduct } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import {
   confidenceLabel,
@@ -575,15 +575,30 @@ export default function ProductScreen() {
         }}
       >
         <View style={{ flexDirection: "row", gap: 12, justifyContent: total > 0 ? "flex-start" : "center" }}>
-          {/* No CTA at all when this product has no ingredients on file —
-              "Photograph the ingredients" used to sit here regardless, but
-              it opened the barcode scanner for a product we've already
-              matched and are looking at, which doesn't make sense: that
-              flow is for identifying an unknown product, not fixing one
-              that's already in the catalogue. The message box above
-              already says what's true ("we know this product but not
-              what's in it") without implying an action that doesn't fit. */}
-          {total > 0 && (
+          {/* Two different CTAs, because there are two different situations.
+
+              With a formula, the action is to read it.
+
+              Without one, this screen used to offer nothing at all. That was
+              a deliberate correction of something worse — the old
+              "Photograph the ingredients" button opened the *barcode
+              scanner* for a product already matched and on screen, which
+              made no sense — but it left a dead end: a product we recognise,
+              with nothing to judge, and no way to supply what is missing.
+              UPCitemdb creates exactly these rows, they count as successful
+              lookups, and this screen opens on them.
+
+              The route that does make sense is the label camera, carrying
+              this product's barcode so the formula is written back against
+              the row that already exists rather than minting a second one.
+              The backend has always supported that; only the way in was
+              missing.
+
+              Guarded on the barcode's shape via `canPhotographLabelFor`,
+              which encodes what `label-ocr` accepts — offering a button that
+              can only 400 after someone has framed and taken a photo is
+              worse than offering none. */}
+          {total > 0 ? (
             <PrimaryButton
               tone="cta"
               size={56}
@@ -591,7 +606,20 @@ export default function ProductScreen() {
               label="View ingredients"
               onPress={() => router.push({ pathname: "/ingredients/[id]", params: { id: product.id } })}
             />
-          )}
+          ) : canPhotographLabelFor(product.barcode) ? (
+            <PrimaryButton
+              tone="cta"
+              size={56}
+              style={{ flex: 1 }}
+              label="Photograph the label"
+              onPress={() =>
+                router.push({
+                  pathname: "/scan-label",
+                  params: { barcode: product.barcode },
+                })
+              }
+            />
+          ) : null}
 
           <Pressable
             onPress={() => toggleSaved(product.id)}
