@@ -32,7 +32,10 @@ let mockNewestUpdatedAt: string | null = null;
  */
 function mockMakeQuery(table: string, selectArg: string) {
   const select = selectArg.trim();
-  const dictionary = table === "catalogue_ingredients";
+  // Two tables answer for the dictionary: the view serves the definitions,
+  // and `ingredients` serves the watermark directly — the view's per-row
+  // `exists` is the wrong price on a check that runs every foreground.
+  const dictionary = table === "catalogue_ingredients" || table === "ingredients";
   const isWatermark = select === "fetched_at" || select === "updated_at";
   const label = dictionary
     ? isWatermark

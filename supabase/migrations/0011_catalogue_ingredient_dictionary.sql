@@ -87,8 +87,32 @@ with (security_invoker = true) as
 -- for anonymous callers and products would render with unresolved names.
 grant select on catalogue_ingredients to anon, authenticated;
 
--- Supports the `exists` above, which otherwise scans product_ingredients per
--- ingredient row. The primary key is (product_id, position), so inci_name has
--- no index of its own today.
-create index if not exists product_ingredients_inci_name_idx
-  on product_ingredients (inci_name);
+-- 3 ── What the freshness check reads.
+--
+-- Deliberately NOT the view. The client asks two questions of the dictionary:
+-- "give me every definition" (the view, once per refetch) and "has anything
+-- changed?" (this, on every launch and every return to the foreground). Running
+-- the second through the view would evaluate that `exists` once per ingredient
+-- row — ~36,000 of them — on a path step 1 spent real effort making nearly
+-- free.
+--
+-- So the watermark reads `ingredients` directly, and this index makes that a
+-- single index lookup. The cost is that it is a *superset*: it moves when any
+-- ingredient changes, including one no product references, so a CosIng import
+-- touching only unused rows makes every device refetch once for nothing. That
+-- is the safe direction to be wrong in, and CosIng is a quarterly manual
+-- check — see the cadence table in the data-strategy plan.
+--
+-- `nulls last` matches the client's `order("updated_at", { nullsFirst: false })`,
+-- so the ordering can be served from the index rather than re-sorted. The
+-- column is `not null`, which makes that moot today and correct if it ever
+-- stops being.
+create index if not exists ingredients_updated_at_idx
+  on ingredients (updated_at desc nulls last);
+
+-- No index is added on `product_ingredients (inci_name)` for the `exists`
+-- above: `0001_catalogue.sql` already creates `product_ingredients_inci_idx`
+-- on exactly that column. An earlier draft of this file added a second one
+-- under a different name — `if not exists` guards the name, not the column
+-- set, so it would have shipped a duplicate B-tree maintained on every
+-- formula insert, in a schema whose import path writes them 500 at a time.

@@ -3,6 +3,7 @@ import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@
 import {
   abandonDiskRead,
   addScannedToCatalogue,
+  dropLegacyBlobs,
   hasCheckedThisLaunch,
   markCheckedThisLaunch,
   msSinceLastCheck,
@@ -504,6 +505,11 @@ export function revalidateOnForeground(): void {
 
 export async function warmCatalogue(): Promise<void> {
   if (!usingSupabase()) return;
+
+  // Not awaited: the splash is already waiting on this function, and removing
+  // dead bytes has no bearing on what it renders. See `dropLegacyBlobs`.
+  void dropLegacyBlobs();
+
   try {
     // Bounded, because the splash gate in `app/_layout.tsx` renders nothing
     // until this resolves. `readCatalogue` swallows its own errors, but a
@@ -611,10 +617,21 @@ async function fetchWatermark(): Promise<CatalogueWatermark> {
     // products moves neither `count` nor `newest`. Without this the device
     // agrees it is current and serves the old definitions indefinitely — the
     // same failure `products.fetched_at` had, one table across.
+    //
+    // Reads `ingredients`, not `catalogue_ingredients`. The view carries an
+    // `exists` per row, which is the right price to pay once per refetch and
+    // the wrong one to pay on every launch and every return to the foreground.
+    // Against the table this is a single index lookup (migration 0011).
+    //
+    // The trade is that this term is a superset: it also moves for an
+    // ingredient no product references, so an import touching only unused rows
+    // costs every device one needless refetch. Refetching when nothing
+    // relevant changed is the harmless direction; the other one is what this
+    // whole term exists to prevent.
     withTimeout(
       (signal) =>
         supabase!
-          .from("catalogue_ingredients")
+          .from("ingredients")
           .select("updated_at", { count: "exact" })
           .order("updated_at", { ascending: false, nullsFirst: false })
           .limit(1)

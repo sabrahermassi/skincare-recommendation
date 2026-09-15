@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   abandonDiskRead,
   addScannedToCatalogue,
+  dropLegacyBlobs,
   DISK_TTL_MS,
   peekCatalogue,
   productById,
@@ -125,6 +126,46 @@ describe("disk layer", () => {
     expect(restored).not.toBeNull();
     expect(restored!.products).toHaveLength(3);
     expect(productById(restored!, "b")?.name).toBe("Product b");
+  });
+
+  /**
+   * The property the whole deduplication rests on, asserted on the disk path
+   * as well as the network one. `rehydrate` builds a single map and hands the
+   * same object to every product that names it — a future refactor that
+   * rebuilt per product would restore the 3.6x heap silently, since nothing
+   * about the rendered output would change.
+   */
+  it("restores one shared object per ingredient, not a copy per product", async () => {
+    const aqua = { id: "aqua", name: "Aqua", comedogenic: 0, safety: "safe", verified: true };
+    const sharing = [
+      { ...product("a", "serum"), ingredientIds: ["aqua"], ingredients: [aqua] },
+      { ...product("b", "cleanser"), ingredientIds: ["aqua"], ingredients: [aqua] },
+    ] as unknown as ProductWithIngredients[];
+
+    putCatalogue(sharing, WATERMARK);
+    await flushWrites();
+    forgetMemoryLayer();
+
+    const restored = (await readCatalogue())!;
+
+    expect(restored.products[0].ingredients[0]).toBe(restored.products[1].ingredients[0]);
+    expect(restored.products[0].ingredients[0].name).toBe("Aqua");
+  });
+
+  /**
+   * Bumping the schema version hides an old blob; it does not delete one. What
+   * would be stranded is a full-size copy of the catalogue, against Android's
+   * 6MB AsyncStorage ceiling — so a change that halved the live blob would
+   * have raised disk use on every existing install.
+   */
+  it("deletes the blobs an earlier schema version left behind", async () => {
+    await AsyncStorage.setItem("forme-catalogue-v1", JSON.stringify([{ id: "old" }]));
+    await AsyncStorage.setItem("forme-catalogue-meta-v1", "{}");
+
+    await dropLegacyBlobs();
+
+    expect(await AsyncStorage.getItem("forme-catalogue-v1")).toBeNull();
+    expect(await AsyncStorage.getItem("forme-catalogue-meta-v1")).toBeNull();
   });
 
   it("ignores a stored catalogue past its TTL", async () => {

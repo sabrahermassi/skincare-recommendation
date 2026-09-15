@@ -56,6 +56,42 @@ const SCHEMA_VERSION = 2;
 const PRODUCTS_KEY = `forme-catalogue-v${SCHEMA_VERSION}`;
 const META_KEY = `forme-catalogue-meta-v${SCHEMA_VERSION}`;
 
+/**
+ * Keys written by earlier schema versions, which nothing else will ever remove.
+ *
+ * Bumping `SCHEMA_VERSION` makes an old blob invisible, not absent: the reader
+ * looks under the new key and misses, and the old one sits there for the life
+ * of the install. That matters more here than it sounds, because the thing
+ * being stranded is a full-size copy of the catalogue and Android's
+ * AsyncStorage is a SQLite database with a 6MB default ceiling — so shipping
+ * v2 to halve the live blob while leaving v1 behind would have raised disk use
+ * on every existing install rather than lowering it.
+ *
+ * Listed explicitly rather than derived from a loop over older versions, so
+ * that a key whose *name* changed is still removed and a reader can see
+ * exactly what is deleted.
+ */
+const LEGACY_KEYS = ["forme-catalogue-v1", "forme-catalogue-meta-v1"];
+
+let legacyDropped = false;
+
+/**
+ * Delete the blobs earlier versions wrote. Once per launch, fire and forget.
+ *
+ * Called from `warmCatalogue`, which already runs exactly once behind the
+ * splash. A failure is not worth reporting: the worst case is that the dead
+ * bytes survive until the next launch tries again.
+ */
+export async function dropLegacyBlobs(): Promise<void> {
+  if (legacyDropped) return;
+  legacyDropped = true;
+  try {
+    await AsyncStorage.multiRemove(LEGACY_KEYS);
+  } catch {
+    // See above.
+  }
+}
+
 /** How long a disk-cached catalogue may be served before it is refetched. */
 export const DISK_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -692,6 +728,14 @@ export function addScannedToCatalogue(product: ProductWithIngredients): void {
   if (!memory) return;
   if (!product.barcode) return;
 
+  // Note that this product's ingredient objects are its own, not references
+  // into the shared dictionary: it arrived through the inlined single-row
+  // select, which is the right shape for one row. `extractDictionary` folds
+  // them back in on the next persist, so the sharing invariant holds again
+  // from the next disk read — but it does not hold for this product in memory
+  // until then. Nothing depends on it holding, and correctness does not: both
+  // copies come from the same rows.
+  //
   // A new array rather than a push or an in-place splice: the existing one is
   // handed to screens as a stable reference and memoised on its identity, so
   // mutating it would leave Browse showing the old list with no way to know it
@@ -744,6 +788,7 @@ export async function resetCatalogueCache(): Promise<void> {
   diskReadAbandoned = false;
   checkedThisLaunch = false;
   lastCheckedAt = null;
+  legacyDropped = false;
   scanned.clear();
   try {
     await AsyncStorage.multiRemove([PRODUCTS_KEY, META_KEY]);
