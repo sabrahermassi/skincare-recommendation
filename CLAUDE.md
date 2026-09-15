@@ -121,7 +121,7 @@ carrying the sentence shown to the user) > **CosIng `functions`**
 nothing counts twice) > **`lib/pore-clogging.ts`** (27 clogger families
 with confidence tiers, owns acne fit).
 
-- Acne/`large-pores` fit is 45% pore-cleanliness-weighted; contested
+- Acne/`large-pores` fit is 65% pore-cleanliness-weighted; contested
   clogger entries count zero.
 - Per-concern saturation constants are mandatory — do not remove them.
 - **Confidence is separate from score.** Refusal is only for genuinely

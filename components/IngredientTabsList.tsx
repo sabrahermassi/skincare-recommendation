@@ -8,7 +8,7 @@ import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import type { Ingredient } from "@/data/types";
 import { isVerified } from "@/lib/safety";
-import { ruleFor, RUNG_META, rungFor, type MatchResult, type Rung } from "@/lib/matching";
+import { ruleFor, RUNG_META, rungFor, type Contraindication, type MatchResult, type Rung } from "@/lib/matching";
 import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
 import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, MUTED_SOFT, RADIUS_SELECTOR, SELECTED, TYPE } from "@/lib/tokens";
 
@@ -121,6 +121,9 @@ export function IngredientTabsList({
             key={ingredient.id}
             ingredient={ingredient}
             rung={rungFor(ingredient, match)}
+            // The one thing that outranks not knowing — see `rungFor` and the
+            // subtitle logic below, which both read this the same way.
+            warning={match.warnings.find((w) => w.ingredient.id === ingredient.id)}
             onPress={() => onIngredientPress(ingredient)}
           />
         ))
@@ -132,21 +135,34 @@ export function IngredientTabsList({
 function IngredientListRow({
   ingredient,
   rung,
+  warning,
   onPress,
 }: {
   ingredient: Ingredient;
   rung: Rung;
+  warning?: Contraindication;
   onPress: () => void;
 }) {
   const meta = RUNG_META[rung];
   const rule = ruleFor(ingredient);
   const clogs = isWarnedPoreClogging(ingredient);
 
-  // The most specific thing we hold, in order: pore-clogging (the reason
-  // someone opened this screen), a curated rule, the row's own note, then the
-  // regulator's declared function list.
+  // A warning outranks not knowing, the same precedence `rungFor` itself
+  // uses: pregnancy matching fires on an exact name even when OCR left the
+  // row unverified, so the badge can already read "Avoid" here while this
+  // subtitle used to still say "we can't assess this one" underneath it —
+  // the row contradicting its own rung. `warning` can still be absent on an
+  // unverified "avoid" row — `rungFor` also flags a negative match reason
+  // with no `Contraindication` behind it — which is what the fallback covers.
+  //
+  // The verified branch is untouched: the most specific thing we hold there,
+  // in order, is pore-clogging (the reason someone opened this screen), a
+  // curated rule, the row's own note, then the regulator's declared function
+  // list.
   const subtitle = !isVerified(ingredient)
-    ? "Not recognised - we can't assess this one"
+    ? rung === "avoid" && warning
+      ? warning.reason
+      : "Not recognised - we can't assess this one"
     : clogs
       ? "On the published pore-clogging lists"
       : rule

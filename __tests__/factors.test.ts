@@ -1,5 +1,5 @@
 import type { ProductWithIngredients, SkinProfile } from "@/data/types";
-import { biggestConcern, matchProduct, positionWeightLabel } from "@/lib/matching";
+import { biggestConcern, matchProduct, positionWeightLabel, rungFor } from "@/lib/matching";
 import { CATEGORY_LABEL, INGREDIENT_RULES, type RuleCategory } from "@/lib/rules";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
@@ -157,5 +157,59 @@ describe("positionWeightLabel", () => {
     expect(positionWeightLabel(8)).toBe("moderate");
     expect(positionWeightLabel(15)).toBe("low");
     expect(positionWeightLabel(30)).toBe("trace");
+  });
+});
+
+describe("how a factor names its evidence", () => {
+  /**
+   * `titleCase` held a literal backspace byte where the word-boundary escape
+   * was meant, so its replace matched nothing and returned the name unchanged.
+   * Nothing failed — the notes just rendered lower-case — which is why it
+   * survived. Asserting on the rendered string rather than the helper, since
+   * the helper is private and the string is what a person sees.
+   */
+  it("capitalises the ingredient names it quotes", () => {
+    const concern = biggestConcern(
+      matchProduct(
+        synthetic(["water", "parfum", "glycerin", ...FILLER]),
+        profile({ baseSkinType: "dry", concerns: ["dehydrated"], sensitivity: "some" })
+      )
+    );
+
+    expect(concern).not.toBeNull();
+    expect(concern!.note).toContain("Parfum");
+    expect(concern!.note).not.toContain("parfum");
+  });
+});
+
+describe("the rung an ingredient row shows", () => {
+  /**
+   * Pregnancy matching is a name-pattern match and deliberately fires on an
+   * exact name even when OCR left the row unverified. `rungFor` used to return
+   * "neutral" for anything unverified before it consulted the warnings, so the
+   * product could say "Elevated" while the ingredient responsible for it sat
+   * in the quiet grey rung — the screen contradicting its own safety result.
+   */
+  it("shows an unverified ingredient as avoid when it carries a warning", () => {
+    const product = synthetic(["retinol", ...FILLER]);
+    const unverified = { ...product.ingredients[0], verified: false };
+    const withUnverified = {
+      ...product,
+      ingredients: [unverified, ...product.ingredients.slice(1)],
+    };
+
+    const match = matchProduct(withUnverified, profile({ pregnancyStatus: "pregnant" }));
+
+    expect(match.warnings.length).toBeGreaterThan(0);
+    expect(rungFor(unverified, match)).toBe("avoid");
+  });
+
+  /** Everything else unverified stays in the grey rung: unassessed, not bad. */
+  it("leaves an unverified ingredient with no warning neutral", () => {
+    const product = synthetic(["some unknown botanical", ...FILLER]);
+    const unverified = { ...product.ingredients[0], verified: false };
+    const match = matchProduct(product, profile());
+
+    expect(rungFor(unverified, match)).toBe("neutral");
   });
 });

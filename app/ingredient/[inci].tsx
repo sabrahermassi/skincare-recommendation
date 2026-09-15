@@ -12,7 +12,7 @@ import { fetchProduct, resolveIngredientNames } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { comedogenicLabel } from "@/lib/format";
-import { matchProduct, positionWeightLabel, ruleFor, rungFor, type Rung } from "@/lib/matching";
+import { matchProduct, positionWeightLabel, ruleFor, rungFor, type Contraindication, type Rung } from "@/lib/matching";
 import { isSensitive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
@@ -204,6 +204,11 @@ export default function IngredientDetail() {
   // otherwise-recognised ingredient reads as "worth knowing" rather than a
   // verdict `rungFor` has no way to give it.
   const rung: Rung = match ? rungFor(ingredient, match) : verified ? "watch" : "neutral";
+  // Threaded into fitHeadline/fitBody/fitPill so they can give a warning
+  // precedence over "unverified", the same way `rungFor` itself already does
+  // — without it, an unverified ingredient flagged by pregnancy matching wore
+  // an "avoid" rung with copy underneath it that denied anything was wrong.
+  const warning = match?.warnings.find((w) => w.ingredient.id === ingredient.id);
   const meta = RUNG[rung];
 
   const rule = ruleFor(ingredient);
@@ -319,11 +324,11 @@ export default function IngredientDetail() {
             <View className="flex-row items-center gap-2.5">
               <HeartIcon color={meta.hero} />
               <Text className={`font-display text-[18px] leading-[21px] ${meta.ink}`}>
-                {fitHeadline(rung, helps, hurts, verified)}
+                {fitHeadline(rung, helps, hurts, verified, warning)}
               </Text>
             </View>
             <Text style={{ fontSize: 13, lineHeight: 19.5, color: INK }}>
-              {fitBody(rung, helps, hurts, verified, Boolean(rule))}
+              {fitBody(rung, helps, hurts, verified, Boolean(rule), warning)}
             </Text>
             {/* The small qualifier pill the design puts under the verdict. */}
             <View
@@ -331,7 +336,7 @@ export default function IngredientDetail() {
               className="self-start rounded-full px-3 py-1.5"
             >
               <Text className={`text-[11.5px] font-medium ${meta.ink}`}>
-                {fitPill(rung, helps, hurts, verified)}
+                {fitPill(rung, helps, hurts, verified, warning)}
               </Text>
             </View>
           </View>
@@ -516,8 +521,14 @@ function whatItDoes(ingredient: Ingredient, ruleReason: string | undefined): str
   return "We hold no declared function for this one yet.";
 }
 
-function fitHeadline(rung: Rung, helps: boolean, hurts: boolean, verified: boolean): string {
-  if (!verified) return "We can't judge this one";
+function fitHeadline(
+  rung: Rung,
+  helps: boolean,
+  hurts: boolean,
+  verified: boolean,
+  warning?: Contraindication
+): string {
+  if (!verified) return rung === "avoid" && warning ? "Flagged for you" : "We can't judge this one";
   if (hurts) return "Works against your profile";
   if (helps) return "Great match";
   if (rung === "avoid") return "Flagged for everyone";
@@ -530,10 +541,13 @@ function fitBody(
   helps: boolean,
   hurts: boolean,
   verified: boolean,
-  hasRule: boolean
+  hasRule: boolean,
+  warning?: Contraindication
 ): string {
   if (!verified) {
-    return "An unrecognised name supports no claim in either direction, so this one neither counts for nor against the product's score.";
+    return rung === "avoid" && warning
+      ? warning.reason
+      : "An unrecognised name supports no claim in either direction, so this one neither counts for nor against the product's score.";
   }
   if (hurts) return "This is one of the things pulling the score down for the skin you described.";
   if (helps) return "This actively helps with what you told us about your skin.";
@@ -549,8 +563,14 @@ function fitBody(
   return "Neither helps nor hurts, given the answers you gave.";
 }
 
-function fitPill(rung: Rung, helps: boolean, hurts: boolean, verified: boolean): string {
-  if (!verified) return "Unassessed";
+function fitPill(
+  rung: Rung,
+  helps: boolean,
+  hurts: boolean,
+  verified: boolean,
+  warning?: Contraindication
+): string {
+  if (!verified) return rung === "avoid" && warning ? "Flagged for you" : "Unassessed";
   if (hurts) return "Counts against your goals";
   if (helps) return "Good for your goals";
   if (rung === "avoid") return "Best avoided generally";
