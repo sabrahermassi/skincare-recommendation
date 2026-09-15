@@ -429,6 +429,35 @@ describe("a product scanned this session", () => {
   });
 
   /**
+   * The trap the previous fix left behind: this product's fresh ingredient
+   * objects don't replace what every *other* product in memory still points
+   * at for the same name. Left alone, `extractDictionary`'s first-wins merge
+   * could persist the stale one — discarding the update this scan was for,
+   * and serving it back even to the product just rescanned after the next
+   * disk round-trip. Restoring the sharing invariant immediately is what
+   * makes that merge's iteration order stop mattering.
+   */
+  it("propagates a rescanned ingredient's fresh definition to every product sharing it", async () => {
+    const aquaStale = { id: "aqua", name: "Aqua", comedogenic: 0, safety: "safe" as const, verified: true, note: "old" };
+    const withAqua = (id: string) => ({
+      ...product(id, "serum"),
+      ingredientIds: ["aqua"],
+      ingredients: [aquaStale],
+    });
+    putCatalogue([withAqua("a"), withAqua("b")], WATERMARK);
+
+    const aquaFresh = { ...aquaStale, note: "corrected", safety: "avoid" as const };
+    addScannedToCatalogue({ ...withAqua("a"), ingredients: [aquaFresh] } as unknown as ProductWithIngredients);
+
+    const entry = (await readCatalogue())!;
+    const a = entry.byId.get("a")!.ingredients[0];
+    const b = entry.byId.get("b")!.ingredients[0];
+    expect(a.note).toBe("corrected");
+    expect(b.note).toBe("corrected");
+    expect(b).toBe(a);
+  });
+
+  /**
    * The watermark describes what the server had at the last check. Advancing it
    * here would make the next check agree nothing had changed and swallow every
    * other write that landed meanwhile.

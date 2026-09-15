@@ -728,14 +728,6 @@ export function addScannedToCatalogue(product: ProductWithIngredients): void {
   if (!memory) return;
   if (!product.barcode) return;
 
-  // Note that this product's ingredient objects are its own, not references
-  // into the shared dictionary: it arrived through the inlined single-row
-  // select, which is the right shape for one row. `extractDictionary` folds
-  // them back in on the next persist, so the sharing invariant holds again
-  // from the next disk read — but it does not hold for this product in memory
-  // until then. Nothing depends on it holding, and correctness does not: both
-  // copies come from the same rows.
-  //
   // A new array rather than a push or an in-place splice: the existing one is
   // handed to screens as a stable reference and memoised on its identity, so
   // mutating it would leave Browse showing the old list with no way to know it
@@ -744,7 +736,31 @@ export function addScannedToCatalogue(product: ProductWithIngredients): void {
     ? memory.products.map((p) => (p.id === product.id ? product : p))
     : [product, ...memory.products];
 
-  memory = buildEntry(products, memory.watermark, memory.storedAt);
+  // The scanned product's ingredient objects are its own, not references into
+  // the shared dictionary — it arrived through the inlined single-row select,
+  // the right shape for one row. But they can be *more current* than what
+  // every other product in memory still points at for the same name: the
+  // whole reason to rescan a bottle is that its formula, or an ingredient's
+  // safety rating, may have changed since the catalogue was last fetched.
+  //
+  // `extractDictionary` below is first-wins by array order, not freshness-
+  // aware — left alone, whichever object it meets first for a given name
+  // could just as easily be the stale one, discarding the update this scan
+  // was for. Worse, that stale object would then persist, and on the next
+  // disk rehydration even *this* product — the one just rescanned — would
+  // revert to it, since `rehydrate` resolves every product's formula through
+  // that one dictionary. Propagating the fresh objects to every product that
+  // shares a name restores the sharing invariant immediately, so there is
+  // only ever one object per name by the time `extractDictionary` runs and
+  // its iteration order stops mattering.
+  const refreshed = new Map(product.ingredients.map((i) => [i.id, i]));
+  const reconciled = products.map((p) =>
+    p.id === product.id
+      ? p
+      : { ...p, ingredients: p.ingredients.map((i) => refreshed.get(i.id) ?? i) }
+  );
+
+  memory = buildEntry(reconciled, memory.watermark, memory.storedAt);
   catalogueGeneration++;
   void persist(memory.products, {
     watermark: memory.watermark,
