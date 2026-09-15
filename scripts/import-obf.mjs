@@ -210,10 +210,27 @@ async function main() {
   }
   const db = createClient(url, key, { auth: { persistSession: false } });
 
+  // Every write below is checked and fails loudly, narrowly for the reason
+  // the block after them exists: `sync_bookmarks` is a promise that a run
+  // recorded here actually wrote what it claims to. supabase-js resolves
+  // `{ data, error }` on a database-level failure rather than throwing — a
+  // bad row, an RLS violation, a dropped connection returned as a normal
+  // response — so an unchecked call here would let a partially-failed
+  // catalogue write reach the bookmark and record success. Throwing hands it
+  // to the existing top-level `main().catch()` below, so nothing here needs
+  // its own exit call.
+  //
+  // This is deliberately not a wider fix. Making the delete-then-insert pair
+  // below atomic — the RPC that already exists for exactly this,
+  // `replace_product_with_ingredients` — and gating what a widened import is
+  // allowed to write are both step 4/5's job, planned as one bundled unit for
+  // a reason: a bigger import without the gates is a worse catalogue, not a
+  // bigger one. Checking these results only stops this table from lying
+  // about which of the two happened.
   const distinct = [...new Set(all.flatMap((r) => r.ingredients.map((i) => i.inci_name)))];
   // Unrated rather than guessed: a fabricated comedogenic score would be
   // indistinguishable from a measured one.
-  await db.from("ingredients").upsert(
+  const { error: ingredientsError } = await db.from("ingredients").upsert(
     distinct.map((inci_name) => ({
       inci_name,
       // Not "curated" — an unreviewed stub so `product_ingredients` has a
@@ -225,8 +242,12 @@ async function main() {
     })),
     { onConflict: "inci_name", ignoreDuplicates: true }
   );
+  if (ingredientsError) throw new Error(`ingredients upsert failed: ${ingredientsError.message}`);
 
-  await db.from("products").upsert(all.map((r) => r.product), { onConflict: "id" });
+  const { error: productsError } = await db
+    .from("products")
+    .upsert(all.map((r) => r.product), { onConflict: "id" });
+  if (productsError) throw new Error(`products upsert failed: ${productsError.message}`);
 
   const joins = all.flatMap((r) =>
     r.ingredients.map((i) => ({
@@ -235,9 +256,19 @@ async function main() {
       position: i.position,
     }))
   );
-  await db.from("product_ingredients").delete().in("product_id", all.map((r) => r.product.id));
+  const { error: deleteError } = await db
+    .from("product_ingredients")
+    .delete()
+    .in("product_id", all.map((r) => r.product.id));
+  if (deleteError) throw new Error(`product_ingredients delete failed: ${deleteError.message}`);
+
   for (let i = 0; i < joins.length; i += 500) {
-    await db.from("product_ingredients").insert(joins.slice(i, i + 500));
+    const { error: insertError } = await db
+      .from("product_ingredients")
+      .insert(joins.slice(i, i + 500));
+    if (insertError) {
+      throw new Error(`product_ingredients insert failed at batch ${i / 500}: ${insertError.message}`);
+    }
   }
 
   console.log(`\nWrote ${all.length} products and ${joins.length} ingredient links.`);
@@ -247,8 +278,11 @@ async function main() {
   // silently-stopped nightly job becomes a query (`last_run_at` gone stale)
   // instead of a catalogue that quietly stops growing with no signal why.
   // One row per source — upserted, not appended — matching what the plan
-  // itself asks for: the watermark reached *last time*, singular.
-  await db.from("sync_bookmarks").upsert(
+  // itself asks for: the watermark reached *last time*, singular. Only
+  // reachable once every write above has succeeded, per the checks added
+  // alongside this: a `last_run_at` written after a silent failure would be
+  // worse than no bookmark at all.
+  const { error: bookmarkError } = await db.from("sync_bookmarks").upsert(
     {
       source: "obf",
       watermark: newestModifiedAt === null ? null : String(newestModifiedAt),
@@ -256,6 +290,7 @@ async function main() {
     },
     { onConflict: "source" }
   );
+  if (bookmarkError) throw new Error(`sync_bookmarks upsert failed: ${bookmarkError.message}`);
 }
 
 main().catch((err) => {
