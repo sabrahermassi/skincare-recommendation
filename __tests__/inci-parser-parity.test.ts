@@ -87,3 +87,69 @@ describe("label-ocr's parser stays in step with lib/inci.ts", () => {
     expect(edgeBody).toBe(clientBody);
   });
 });
+
+/**
+ * The import scripts are the *third* set of copies, and they drifted exactly
+ * as the block comment above predicted. `scripts/import-obf.mjs` carried a
+ * bare `split(/[,;]/)` where `parseIngredientBlock` strips an "Ingredients:"
+ * heading, truncates at legal boilerplate, and protects the comma inside
+ * "1,2-Hexanediol". Measured against 549 live Open Beauty Facts rows, 42 of
+ * them — 7.6% — were written with a first ingredient like
+ * `"ingredients/ingrédients: aqua"`: a junk name inserted into the shared
+ * dictionary, and the real most-concentrated ingredient swallowed with it.
+ *
+ * Two checks, because the scripts are `.mjs` and only partly comparable.
+ * `normalise` is copied verbatim into all four and can be compared as a whole.
+ * `parseInci` deliberately is *not* a copy of `parseIngredientBlock` — it has
+ * no dictionary reconstruction, no aliases, no dedupe — so what is pinned
+ * instead is the two regexes it lifted, which is where the drift actually was.
+ */
+const IMPORTER_PATHS = [
+  "import-obf.mjs",
+  "import-cosing.mjs",
+  "import-inci-dictionary.mjs",
+  "import-wikidata-synonyms.mjs",
+].map((name) => path.join(__dirname, "..", "scripts", name));
+
+/**
+ * Extract the one-line regex literal containing `marker`, through its `/i`.
+ *
+ * Found by substring rather than line prefix: prettier leaves the stop clause
+ * alone on its own line but keeps the heading regex after `const heading = `,
+ * and neither file should have to hold a particular line shape for this test
+ * to work.
+ */
+function extractRegexLiteral(source: string, marker: string): string {
+  const line = source
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l.includes(marker));
+  if (line === undefined) {
+    throw new Error(`regex literal containing ${marker} not found`);
+  }
+  const start = line.indexOf(marker);
+  const end = line.indexOf("/i", start + marker.length);
+  if (end === -1) throw new Error(`no /i terminator on ${marker}`);
+  return line.slice(start, end + 2);
+}
+
+describe("the import scripts stay in step with lib/inci.ts", () => {
+  const client = fs.readFileSync(CLIENT_PATH, "utf8");
+  // The scripts are plain .mjs, so the canonical body has to lose its type
+  // annotations before the two can be compared.
+  const clientNormalise = extractFunctionBody(client, "normalise").replace(/: string/g, "");
+
+  it.each(IMPORTER_PATHS)("%s has the canonical normalise()", (scriptPath: string) => {
+    const script = fs.readFileSync(scriptPath, "utf8");
+    expect(extractFunctionBody(script, "normalise")).toBe(clientNormalise);
+  });
+
+  it.each([
+    ["the Ingredients: heading strip", "/(?:ingredients?|"],
+    ["the boilerplate stop clause", "/(?:\\bdirections?\\b"],
+  ])("import-obf.mjs reuses %s verbatim", (_label: string, marker: string) => {
+    const obf = fs.readFileSync(path.join(__dirname, "..", "scripts", "import-obf.mjs"), "utf8");
+    expect(extractRegexLiteral(obf, marker)).toBe(extractRegexLiteral(client, marker));
+  });
+});

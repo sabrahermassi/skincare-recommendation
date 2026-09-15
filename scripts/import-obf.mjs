@@ -55,14 +55,51 @@ const USE_SOURCE_PHOTOS = false;
  * be allowed to grow without the paging work in steps 7-8 landing first. 500
  * is comfortably inside that budget at the post-step-2 payload size.
  *
- * MAX_PAGES exists so a malformed or unchanging response can never loop
- * forever — with `TARGET_ROWS` reached in ~9 pages at the measured yield, 30
- * is slack, not a working limit. Hitting it is a signal something is wrong,
- * and the run says so.
+ * MAX_REQUESTS exists so a malformed or unchanging response can never loop
+ * forever. It is a budget across every category, not per category — hitting
+ * it is a signal something is wrong, and the run says so.
  */
 const TARGET_ROWS = 500;
-const MAX_PAGES = 30;
+const MAX_REQUESTS = 40;
 const PAGE_SIZE = 100;
+
+/**
+ * The categories this import pages, most specific first.
+ *
+ * This is the relevance filter, and it exists because the first widened run
+ * did not have one. Dropping the 34 hand-typed brands removed a constraint
+ * nobody had written down: every one of those brands sold skincare, so the
+ * sweep could not return anything else. Replacing it with
+ * `states:ingredients-completed` alone swapped a relevance filter for a
+ * completeness one, and the result was a 500-row catalogue of deodorant,
+ * shampoo, toothpaste and dish soap — measured, 352 of 549 passing rows were
+ * products this app has no way to score.
+ *
+ * Filtering server-side rather than discarding after the fact, because OBF
+ * supports it and the density difference is the whole cost model: the counts
+ * below carry `ingredients-completed` already, and every row they return is
+ * skincare by OBF's own categorisation.
+ *
+ *   en:face          844      en:skin-care      27
+ *   en:suncare       410      en:creams         24
+ *   en:cleansers     195      en:moisturizers   11
+ *
+ * Roughly 1,500 before overlap, against a 500 cap — enough supply to be
+ * selective, which is what lets the gates below stay strict.
+ *
+ * The trade is untagged products: about half of OBF's completed rows carry no
+ * category at all, and those are now unreachable. That is the right side to
+ * err on. An untagged row cannot be shown to be skincare, and with three times
+ * the needed supply already tagged, guessing costs more than it gains.
+ */
+const CATEGORIES = [
+  "en:face",
+  "en:suncare",
+  "en:cleansers",
+  "en:skin-care",
+  "en:creams",
+  "en:moisturizers",
+];
 
 /**
  * How much of a parsed formula must be names the dictionary already knows for
@@ -116,6 +153,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * old brand sweep. So the filtered subset is both far larger than 34 brands
  * and about three times as dense.
  *
+ * Intersected with one category at a time (see CATEGORIES), because
+ * completeness alone is not relevance: OBF's completed rows are dominated by
+ * hygiene — toothpaste, mouthwash, shower gel, deodorant — and this app scores
+ * skincare.
+ *
  * `api/v2/search` rather than the older `cgi/search.pl`, for `fields`: without
  * it a page carries every field OBF holds, including nutrition and packaging
  * trees this import ignores. Asking for the nine fields below took a 100-row
@@ -134,15 +176,20 @@ const FIELDS = [
   "last_modified_t",
 ].join(",");
 
-async function fetchPage(page) {
+async function fetchPage(category, page) {
   const url =
-    `${OBF}/api/v2/search?states_tags=en:ingredients-completed` +
+    `${OBF}/api/v2/search?categories_tags=${encodeURIComponent(category)}` +
+    `&states_tags=en:ingredients-completed` +
     `&fields=${FIELDS}&page_size=${PAGE_SIZE}&page=${page}`;
   const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
-  if (!res.ok) throw new Error(`OBF page ${page} returned ${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    throw new Error(`OBF ${category} page ${page} returned ${res.status} ${res.statusText}`);
+  }
   const body = await res.json();
   if (!Array.isArray(body.products)) {
-    throw new Error(`OBF page ${page} returned no products array — the endpoint shape may have changed`);
+    throw new Error(
+      `OBF ${category} page ${page} returned no products array — the endpoint shape may have changed`
+    );
   }
   return body.products;
 }
@@ -175,11 +222,49 @@ function normalise(raw) {
     .replace(/^[^a-z0-9]+|[^a-z0-9)]+$/g, "");
 }
 
+/**
+ * Kept in step with `parseIngredientBlock`'s delimited path in `lib/inci.ts`,
+ * which is the version under test. This copy had drifted: it was a bare
+ * `split(/[,;]/)`, missing all four of the steps below.
+ *
+ * Measured on 549 live rows, 42 of them — 7.6% — carried a first "ingredient"
+ * like `"ingredients/ingrédients: aqua"` or
+ * `"matorimushin lagos made in nigeria. customer care number: nafdac reg n"`.
+ * Both halves of that are damage: a junk name is written into the shared
+ * `ingredients` dictionary, and the real first ingredient — the one INCI order
+ * says is most concentrated — is swallowed with it.
+ */
 function parseInci(text) {
-  return text
-    .split(/[,;]/)
+  const flat = text.replace(/\r/g, "").replace(/\n+/g, " ").replace(/\s+/g, " ");
+
+  // 1 ── Drop everything up to and including an "Ingredients:" heading. Same
+  // pattern as lib/inci.ts, Korean forms included.
+  const heading = /(?:ingredients?|전성분|성분)\s*[:：]?\s*/i.exec(flat);
+  let block = heading ? flat.slice(heading.index + heading[0].length) : flat;
+
+  // 2 ── ...and truncate at whatever shares the back of the label. Legal
+  // boilerplate and net-quantity marks reliably follow the formula.
+  const stop =
+    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b)/i.exec(
+      block
+    );
+  if (stop) block = block.slice(0, stop.index);
+
+  // 3 ── Split, protecting a comma between two digits: "1,2-Hexanediol" is one
+  // ingredient, and splitting there produced a bare "1" and a "2-hexanediol"
+  // that matches nothing — lib/inci.ts calls this the most common bad name in
+  // the catalogue, and this copy was still producing it.
+  const PLACEHOLDER = "\uE000";
+  const protectedText = block.replace(/,(?=\d)/g, (match, offset) =>
+    offset > 0 && /\d/.test(block[offset - 1]) ? PLACEHOLDER : match
+  );
+
+  return protectedText
+    .split(/[;•·]|,/)
+    .map((s) => s.replace(new RegExp(PLACEHOLDER, "g"), ","))
     .map(normalise)
-    .filter((p) => p.length > 1 && p.length < 120)
+    // 4 ── A token with no letter in it is a quantity or a code, not a name.
+    .filter((p) => p.length > 1 && p.length < 120 && /[a-z]/.test(p))
     .map((inci_name, position) => ({ inci_name, position }));
 }
 
@@ -317,48 +402,70 @@ async function main() {
   // which is a different query, not a different constant.
   let newestModifiedAt = null;
 
-  for (let page = 1; page <= MAX_PAGES && rows.size < TARGET_ROWS; page += 1) {
-    const products = await fetchPage(page);
-    pagesRead = page;
-    if (products.length === 0) break; // ran off the end of the result set
-    seen += products.length;
+  // Categories are walked in order, each paged to exhaustion, until the cap is
+  // reached. A product tagged with two of them is fetched twice and kept once —
+  // the `rows` map is keyed on product id, so the overlap between `en:face` and
+  // `en:face-creams` costs requests, not duplicate rows.
+  category: for (const category of CATEGORIES) {
+    for (let page = 1; ; page += 1) {
+      if (rows.size >= TARGET_ROWS) break category;
+      if (pagesRead >= MAX_REQUESTS) {
+        console.warn(`\n  ! Hit the ${MAX_REQUESTS}-request budget. Stopping early.`);
+        break category;
+      }
 
-    let kept = 0;
-    for (const p of products) {
-      if (typeof p.last_modified_t === "number") {
-        newestModifiedAt = Math.max(newestModifiedAt ?? 0, p.last_modified_t);
+      const products = await fetchPage(category, page);
+      pagesRead += 1;
+      if (products.length === 0) break; // this category is exhausted
+
+      seen += products.length;
+      let kept = 0;
+      let duplicates = 0;
+      for (const p of products) {
+        if (typeof p.last_modified_t === "number") {
+          newestModifiedAt = Math.max(newestModifiedAt ?? 0, p.last_modified_t);
+        }
+        const row = toRow(p, known, rejectSamples);
+        if (typeof row === "string") {
+          rejected.set(row, (rejected.get(row) ?? 0) + 1);
+          continue;
+        }
+        if (rows.has(row.product.id)) {
+          duplicates += 1;
+          continue;
+        }
+        rows.set(row.product.id, row);
+        kept += 1;
+        // Checked inside the loop, not just between pages: without this the cap
+        // is "500 rounded up to a page boundary" rather than 500.
+        if (rows.size >= TARGET_ROWS) break;
       }
-      const row = toRow(p, known, rejectSamples);
-      if (typeof row === "string") {
-        rejected.set(row, (rejected.get(row) ?? 0) + 1);
-        continue;
-      }
-      if (rows.has(row.product.id)) continue;
-      rows.set(row.product.id, row);
-      kept += 1;
-      // Checked inside the loop, not just between pages: without this the cap
-      // is "500 rounded up to a page boundary" rather than 500.
-      if (rows.size >= TARGET_ROWS) break;
+
+      console.log(
+        `  ${category.padEnd(16)} p${String(page).padStart(2)}` +
+          `  ${String(products.length).padStart(3)} found` +
+          `  ${String(kept).padStart(3)} new` +
+          `  ${String(duplicates).padStart(3)} dup` +
+          `  ${String(rows.size).padStart(3)}/${TARGET_ROWS} total`
+      );
+      await sleep(300); // be a good citizen against a volunteer-run service
+
+      if (products.length < PAGE_SIZE) break; // last page of this category
     }
-
-    console.log(
-      `  page ${String(page).padStart(2)}  ${String(products.length).padStart(3)} found` +
-        `  ${String(kept).padStart(3)} usable  ${String(rows.size).padStart(3)}/${TARGET_ROWS} total`
-    );
-    await sleep(300); // be a good citizen against a volunteer-run service
   }
 
   const all = [...rows.values()];
   const withImage = all.filter((r) => r.product.image_url).length;
   if (!USE_SOURCE_PHOTOS) console.log("  (photos disabled — see USE_SOURCE_PHOTOS)");
-  if (all.length < TARGET_ROWS && pagesRead >= MAX_PAGES) {
+  if (all.length < TARGET_ROWS) {
     console.warn(
-      `\n  ! Stopped at the ${MAX_PAGES}-page ceiling with only ${all.length} rows. ` +
-        `Expected ${TARGET_ROWS} within ~9 pages — check the search filter and the gates below.`
+      `\n  ! Only ${all.length} of ${TARGET_ROWS} rows after every category was exhausted. ` +
+        "Not itself an error — it means the skincare categories are the limit, not the cap.\n" +
+        "    Add a category to CATEGORIES if the catalogue needs to be bigger."
     );
   }
   console.log(
-    `\n${seen} records seen over ${pagesRead} page(s), ${all.length} usable ` +
+    `\n${seen} records seen over ${pagesRead} request(s), ${all.length} usable ` +
       `(${withImage} with a photo), ` +
       `${new Set(all.flatMap((r) => r.ingredients.map((i) => i.inci_name))).size} distinct ingredients`
   );
