@@ -259,13 +259,48 @@ function parseInci(text) {
     offset > 0 && /\d/.test(block[offset - 1]) ? PLACEHOLDER : match
   );
 
-  return protectedText
+  const delimited = protectedText
     .split(/[;•·]|,/)
     .map((s) => s.replace(new RegExp(PLACEHOLDER, "g"), ","))
     .map(normalise)
     // 4 ── A token with no letter in it is a quantity or a code, not a name.
     .filter((p) => p.length > 1 && p.length < 120 && /[a-z]/.test(p))
     .map((inci_name, position) => ({ inci_name, position }));
+
+  // 5 ── ...and drop repeats, renumbering as it goes. Both of
+  // `parseIngredientBlock`'s return paths end in this; this copy did not,
+  // which is the one place it still diverged.
+  return dedupe(delimited);
+}
+
+/**
+ * Kept in step with `dedupe` in `lib/inci.ts`.
+ *
+ * A name printed twice is one ingredient, and `product_ingredients` is keyed
+ * on `(product_id, position)` rather than on the name — so a repeat does not
+ * fail the insert, it silently stores a second row. Nothing downstream removes
+ * it: neither `data/api.ts` nor `lib/matching.ts` deduplicates, so the scorer
+ * applies `positionWeight` to that ingredient twice and weights it heavier
+ * than the label warrants.
+ *
+ * Measured across the 500 rows one run imports: 16 products (3.2%) carry a
+ * repeat, 22 join rows of 11,687. Small, but it is wrong in the direction that
+ * matters — bilingual EU labels are the common cause, and they repeat the head
+ * of the formula, which is exactly where position weight is highest.
+ *
+ * Positions are reassigned from the surviving order rather than preserved, so
+ * the stored list stays 0..n-1 with no gaps, matching what the canonical
+ * parser produces.
+ */
+function dedupe(parsed) {
+  const seen = new Set();
+  const out = [];
+  for (const p of parsed) {
+    if (seen.has(p.inci_name)) continue;
+    seen.add(p.inci_name);
+    out.push({ inci_name: p.inci_name, position: out.length });
+  }
+  return out;
 }
 
 /**

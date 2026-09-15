@@ -134,15 +134,37 @@ function extractRegexLiteral(source: string, marker: string): string {
   return line.slice(start, end + 2);
 }
 
+/**
+ * The scripts are plain .mjs, so the canonical body has to lose its type
+ * annotations before the two can be compared. Named explicitly rather than
+ * stripped by a general-purpose TypeScript regex: the list is short, and a
+ * loose stripper that silently ate part of the logic would turn this test
+ * into one that passes for the wrong reason.
+ */
+function stripTypes(body: string): string {
+  return body
+    .replace(/: ParsedIngredient\[\]/g, "")
+    .replace(/<string>/g, "")
+    .replace(/: string/g, "");
+}
+
 describe("the import scripts stay in step with lib/inci.ts", () => {
   const client = fs.readFileSync(CLIENT_PATH, "utf8");
-  // The scripts are plain .mjs, so the canonical body has to lose its type
-  // annotations before the two can be compared.
-  const clientNormalise = extractFunctionBody(client, "normalise").replace(/: string/g, "");
+  const clientNormalise = stripTypes(extractFunctionBody(client, "normalise"));
+  const clientDedupe = stripTypes(extractFunctionBody(client, "dedupe"));
 
   it.each(IMPORTER_PATHS)("%s has the canonical normalise()", (scriptPath: string) => {
     const script = fs.readFileSync(scriptPath, "utf8");
     expect(extractFunctionBody(script, "normalise")).toBe(clientNormalise);
+  });
+
+  // Only import-obf writes product formulas, so it is the only script that
+  // needs this one — and it is the script that shipped without it, storing a
+  // repeated name as a second `product_ingredients` row that the scorer then
+  // weighted twice.
+  it("import-obf.mjs has the canonical dedupe()", () => {
+    const obf = fs.readFileSync(path.join(__dirname, "..", "scripts", "import-obf.mjs"), "utf8");
+    expect(extractFunctionBody(obf, "dedupe")).toBe(clientDedupe);
   });
 
   it.each([
