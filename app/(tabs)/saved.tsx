@@ -412,6 +412,43 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
         </Text>
         <Text style={{ marginTop: 2, fontSize: 14, color: INK }}>{entry.id}</Text>
         <HistoryMeta entry={entry} />
+
+        {/*
+          The way out of this row. The scanner already offers it at the moment
+          of the miss — "Photograph the label and we'll add it", pushing
+          /scan-label with the barcode attached — but that offer expired the
+          moment the miss became history, leaving a bare 13-digit number whose
+          only action was Remove. Someone who scans four misses in a shop and
+          opens this screen at home could delete them and nothing else.
+
+          `HistoryMeta`'s own action slot is not the place for it: that renders
+          plain text, because a known row is wrapped in a Link and the whole
+          row is the target. Nothing here is a link — there is no product to
+          open — so this has to be a control of its own.
+
+          `hitSlop` rather than a 44pt minHeight: the target has to clear 44
+          (Apple HIG / WCAG 2.2 AA), but spending that much vertical space
+          inside a compact list row would push the other rows off screen.
+        */}
+        <Pressable
+          onPress={() => router.push({ pathname: "/scan-label", params: { barcode: entry.id } })}
+          accessibilityRole="button"
+          accessibilityLabel={`Photograph the label for barcode ${entry.id}`}
+          hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+          style={{ marginTop: 8, alignSelf: "flex-start" }}
+          className="active:opacity-70"
+        >
+          <Text
+            style={{
+              fontSize: TYPE.caption,
+              fontWeight: "600",
+              color: INK,
+              textDecorationLine: "underline",
+            }}
+          >
+            Photograph the label
+          </Text>
+        </Pressable>
       </View>
 
       <RemoveButton onPress={onRemove} />

@@ -85,7 +85,12 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="browse"
         options={{
-          title: "for.me",
+          // Was "for.me". Every sibling header names the place you are in —
+          // "Scan a product", "Saved", "Your skin profile" — and this one
+          // named the app instead, which the user already knows: they opened
+          // it. The wordmark's homes are the icon and onboarding, not a
+          // header on one tab out of four.
+          title: "Browse products",
           tabBarLabel: "Browse",
           tabBarAccessibilityLabel: "Browse",
           // A list glyph, not a house. With labels hidden (see above) the

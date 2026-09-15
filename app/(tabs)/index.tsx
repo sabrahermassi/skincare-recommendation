@@ -472,6 +472,35 @@ function BarcodeStage({
       >
         {status.kind !== "idle" && (
           <View
+            // The only feedback this screen gives, and it was silent to a
+            // screen reader. A barcode is detected, the lookup runs, and on a
+            // miss two buttons appear below this panel — none of it announced,
+            // so the recovery the copy offers was unreachable by anyone not
+            // watching the screen. A success survived by accident, because
+            // navigating to the result screen announces itself.
+            //
+            // One region on the container rather than one per line: competing
+            // live regions interrupt each other, and what should be spoken is
+            // a single contextual sentence. `accessible` collapses the icon
+            // and both lines into that one node, which also keeps the bare "!"
+            // glyph below out of the announcement.
+            //
+            // Both props, because the platforms disagree on which they honour:
+            // `accessibilityLiveRegion` is Android and react-native-web, and
+            // iOS VoiceOver acts on `accessibilityRole="alert"`.
+            accessible
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={
+              status.kind === "looking"
+                ? // Deliberately not the 13 digits the panel shows. They are
+                  // there so a sighted user can check the scan landed on the
+                  // right item; read aloud during a state that resolves in a
+                  // second or two, they are noise ahead of the part that
+                  // matters.
+                  "Barcode found. Reading the ingredients."
+                : "Not in our catalogue yet. Photograph the label and we'll add it."
+            }
             style={{
               gap: 12,
               borderRadius: 18,

@@ -271,7 +271,22 @@ export default function ScanLabel() {
         className="absolute inset-x-0 bottom-0 gap-3 p-6"
       >
         {status.kind === "failed" && (
-          <View className="gap-1">
+          <View
+            // The button below re-labels itself to "Try again" on failure, so
+            // a screen reader whose focus is still on it may re-announce that
+            // much. What was never spoken is *why* — and the why is the whole
+            // value here, since the hints say what to do differently ("the
+            // ingredient panel alone is enough"). Without it the retry is a
+            // guess that fails the same way.
+            //
+            // Grouped and announced as one sentence, for the same reason the
+            // scanner's status panel is: two live lines interrupt each other.
+            accessible
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={status.hint ? `${status.message} ${status.hint}` : status.message}
+            className="gap-1"
+          >
             <Text className="text-base font-semibold text-tint-peach">{status.message}</Text>
             {status.hint && (
               <Text style={{ color: "rgba(255,255,255,0.7)" }} className="text-sm">
