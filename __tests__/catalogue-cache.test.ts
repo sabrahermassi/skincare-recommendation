@@ -438,7 +438,7 @@ describe("a product scanned this session", () => {
    * makes that merge's iteration order stop mattering.
    */
   it("propagates a rescanned ingredient's fresh definition to every product sharing it", async () => {
-    const aquaStale = { id: "aqua", name: "Aqua", comedogenic: 0, safety: "safe" as const, verified: true, note: "old" };
+    const aquaStale = { id: "aqua", name: "Aqua", comedogenic: 0 as const, safety: "safe" as const, verified: true, note: "old" };
     const withAqua = (id: string) => ({
       ...product(id, "serum"),
       ingredientIds: ["aqua"],
