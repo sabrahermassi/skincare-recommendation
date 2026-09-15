@@ -112,11 +112,12 @@ const CATEGORIES = [
  * language the parser split on the wrong character. Below this threshold the
  * row is rejected outright rather than written and left to score badly.
  *
- * 0.6 is measured, not guessed. Against the live 36,281-name dictionary over
- * 600 sampled products: the median real formula scores 0.94, so the threshold
- * sits far below anything genuine, and what it rejects reads as junk — a
- * French dish soap, a Romanian dental leaflet, two foods, a box of tampons,
- * and several OCR smears.
+ * 0.6 is measured, not guessed. Against the live dictionary — 35,805 verified
+ * names, which is what `fetchKnownIngredients` reads and why that filter
+ * matters — over 1,218 sampled products: the median real formula scores 0.94,
+ * so the threshold sits far below anything genuine, and what it rejects reads
+ * as junk — a French dish soap, a Romanian dental leaflet, two foods, a box of
+ * tampons, and several OCR smears.
  *
  * Do not raise it without re-measuring. The 0.60-0.80 band is almost entirely
  * *good* products — Korean sunscreens, an Italian face mask, shampoos — that
@@ -207,6 +208,27 @@ async function fetchKnownIngredients(db) {
   const rows = await paginateOrdered(db, "ingredients", {
     select: "inci_name",
     cursorColumn: "inci_name",
+    // `verified` only, matching `fetchDictionary` in
+    // supabase/functions/label-ocr, whose comment calls the same restriction
+    // load-bearing — and for the same reason, which applies here with more
+    // force.
+    //
+    // Every name this import fails to recognise is written back as an
+    // unverified stub so `product_ingredients` has a foreign key to point at
+    // (the RPC below does it, migration 0007 names those rows "unread noise").
+    // Reading them back in would let one bad run teach the next: a junk name
+    // written today counts as a recognised ingredient tomorrow, so a formula
+    // full of the previous run's garbage clears the 60% gate and is persisted.
+    //
+    // The importer is the worst place to leave that open. One OCR scan adds a
+    // handful of stubs; one import at TARGET_ROWS adds around 650, so the
+    // unverified pool — 476 rows today — would roughly triple on the first
+    // run and grow with every one after.
+    //
+    // Nearly free: measured over 1,218 candidates, verified-only passes 1,110
+    // against 1,112 unfiltered, and the median formula scores 0.94 rather than
+    // 0.96. The threshold below is unaffected.
+    filter: (q) => q.eq("verified", true),
   });
   return new Set(rows.map((r) => r.inci_name.toLowerCase()));
 }
@@ -514,6 +536,29 @@ async function main() {
     for (const sample of rejectSamples) console.log(`    ${sample}`);
   }
 
+  // Nothing usable is a failure, not an empty success — and this is checked
+  // before the dry-run return below, not after it, which is where it first
+  // sat. A preflight that reports an empty import and still exits 0 hides the
+  // exact breakage this guard exists to surface: an API shape change, a
+  // renamed state tag, a gate that started rejecting everything. The dry run
+  // is the run that is *supposed* to catch those, so it must not be the one
+  // run that cannot.
+  //
+  // Everything diagnostic — the per-page lines, the totals, the rejection
+  // breakdown by reason — has already printed by the time this throws, so the
+  // operator still gets the full picture, then a non-zero exit.
+  //
+  // In write mode it also protects the bookmark below: a `last_run_at`
+  // refreshed after importing nothing would hide the same breakage behind a
+  // healthy-looking timestamp.
+  if (all.length === 0) {
+    throw new Error(
+      `No usable products found across ${pagesRead} page(s) of ${seen} records. ` +
+        "Check the OBF endpoint and the gates above." +
+        (DRY_RUN ? "" : " Refusing to record a bookmark.")
+    );
+  }
+
   if (DRY_RUN) {
     console.log(`\n--dry-run: would record watermark "${newestModifiedAt ?? "null"}" for source "obf".`);
     console.log("--dry-run: nothing written. Sample:");
@@ -523,18 +568,6 @@ async function main() {
       console.log(`    ${r.ingredients.length} ingredients: ${r.ingredients.slice(0, 5).map((i) => i.inci_name).join(", ")}…`);
     }
     return;
-  }
-
-  // Nothing usable is a failure, not an empty success. The bookmark below is a
-  // claim that this run worked; writing one after importing zero products
-  // would refresh `last_run_at` and hide exactly the breakage it exists to
-  // surface — an API shape change, a renamed state tag, a gate that started
-  // rejecting everything — behind a healthy-looking timestamp.
-  if (all.length === 0) {
-    throw new Error(
-      `No usable products found across ${pagesRead} page(s) of ${seen} records. ` +
-        "Refusing to record a bookmark — check the OBF endpoint and the gates above."
-    );
   }
 
   // One transactional call per product, replacing the four hand-rolled write
