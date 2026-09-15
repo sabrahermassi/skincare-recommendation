@@ -699,15 +699,23 @@ function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
 /**
  * A tiny way to say "I know what this is" after a barcode comes back empty.
  *
- * Nothing writes to the catalogue from here — every ingredient and product
- * table only accepts writes from the service role
- * (`supabase/migrations/0001_catalogue.sql`), and there is no endpoint yet
- * that takes a name from a stranger and turns it into a trusted row. What
- * this genuinely does is keep the name on the device, the same way
- * `savedIngredients` does, rather than losing it the moment the camera moves
- * on. The copy says exactly that — "saved on your phone" — instead of
- * implying it reached anyone, which would be the fabricated-promise problem
- * this app avoids everywhere else.
+ * Typing a name here still writes nothing on its own — every ingredient and
+ * product table accepts writes only from the service role
+ * (`supabase/migrations/0001_catalogue.sql`), and no endpoint turns a typed
+ * name from a stranger into a trusted row. The name is kept on the device,
+ * the same way `savedIngredients` is.
+ *
+ * It is no longer *only* local, though, and the copy below had to change with
+ * that. `scan-label` now reads this store and sends the name alongside a label
+ * photograph, because a photograph is evidence in a way a typed name is not:
+ * `label-ocr` accepts an optional `name`, refuses to rename a row that already
+ * has a real one, and would otherwise call the row it creates "Scanned
+ * product". So the name can reach the shared catalogue — but only attached to
+ * a photo the same person chose to take.
+ *
+ * The old copy said "saved on your phone" full stop, which was true when
+ * written and would now be a promise this screen no longer keeps. Saying less
+ * than the truth is the same fabricated-promise problem as saying more.
  */
 function UnknownProductNote({ barcode }: { barcode: string }) {
   const submitted = useAppStore((s) =>
@@ -721,7 +729,7 @@ function UnknownProductNote({ barcode }: { barcode: string }) {
     return (
       <View style={{ paddingHorizontal: 26, paddingTop: 10 }}>
         <Text style={{ textAlign: "center", fontSize: 12, color: MUTED }}>
-          Saved on your phone — thanks for helping fill in what we&apos;re missing.
+          Saved. Photograph the label and we&apos;ll use this name for it.
         </Text>
       </View>
     );
