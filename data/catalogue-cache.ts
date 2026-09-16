@@ -535,26 +535,41 @@ export function touchCatalogue(watermark: CatalogueWatermark): void {
  * errors anyway, and this only guarantees ordering, never success.
  */
 /**
- * How many bytes of the device's storage the catalogue blob may take.
+ * How many bytes the catalogue blob may take in a single AsyncStorage value.
  *
- * Android's AsyncStorage is a SQLite database with a default ceiling around
- * 6MB, shared with everything else the app persists — the Zustand store, its
- * own bookkeeping. This is the catalogue's share of that, left deliberately
- * short of the ceiling so the store is never the thing that fails because the
- * catalogue filled the database.
+ * Android has two different limits and this is bounded by the *smaller* one,
+ * which is not the one everybody quotes:
  *
- * At the post-step-2 payload size (369KB for 500 products, normalised) this is
- * roughly 5,000 products of headroom, which is the figure step 6 is measured
- * against. It is a budget rather than a row count because the ceiling is
- * measured in bytes and rows vary by an order of magnitude in length.
+ *  - The 6MB figure is the SQLite **database** ceiling, shared with everything
+ *    else the app persists. It is what the `persist` comment above and most
+ *    write-ups mean.
+ *  - A single **value** is bounded separately by Android's `CursorWindow`,
+ *    around 2MB, and that one binds on *read*. A blob over it writes happily
+ *    and then cannot be retrieved: the query fails with "row too big to fit
+ *    into CursorWindow" on the next cold start.
  *
- * Raising Android's ceiling is possible — it is a configurable SQLite size,
- * not a platform constant — but this is a managed Expo project with no native
- * directories, so it needs `expo-build-properties` and a rebuild. Left as
- * follow-up: a budget that fits the default helps every install today,
- * including ones that never get a new binary.
+ * The second is the dangerous one, because the failure surfaces nowhere near
+ * the write and the JavaScript AsyncStorage mock used in tests has no such
+ * limit — a blob between the two figures passes every test here, records a
+ * clean `ok`, and is unreadable on a handset. This budget was briefly 4MB for
+ * exactly that reason.
+ *
+ * 1.5MB leaves margin below the CursorWindow figure for the row's own
+ * overhead. At the post-step-2 payload size (369KB for 500 products, measured)
+ * that is roughly 2,000 products — four times the current import cap, so it
+ * binds on nothing today.
+ *
+ * It does *not* reach the 5,000 products step 6 is measured against. Five
+ * thousand serialises to about 3.1MB, so it cannot live in one value on
+ * Android at any budget: that needs the payload split across several keys, or
+ * the windowing in step 6's item 3 so the whole catalogue is never resident.
+ * Step 7 lifts the import cap and must not do so before one of those lands.
+ *
+ * Raising the *database* ceiling is possible — it is a configurable SQLite
+ * size — but it does not move the CursorWindow limit, so it would not help
+ * here even if this project had the native directories to configure it in.
  */
-const DISK_BUDGET_BYTES = 4 * 1024 * 1024;
+const DISK_BUDGET_BYTES = Math.floor(1.5 * 1024 * 1024);
 
 /**
  * What happened to the last attempted catalogue write.
@@ -572,8 +587,36 @@ export type CacheWriteOutcome =
 
 let lastWrite: CacheWriteOutcome | null = null;
 
+/**
+ * Whether what is on disk is older than what is in memory.
+ *
+ * Set whenever a catalogue write does not land — skipped as too large, or
+ * failed — and cleared by the next one that does. It exists to stop a
+ * metadata-only write from blessing a blob it does not describe:
+ *
+ *   1. A good catalogue is on disk, at watermark W1.
+ *   2. A larger refresh arrives, is skipped, and stays in memory only. Disk
+ *      still holds W1's products; memory holds W2's.
+ *   3. A foreground revalidation finds the server still at W2, so
+ *      `touchCatalogue` writes *metadata alone* — W2, beside W1's products.
+ *   4. The next cold start reads W1's products believing they are W2, and
+ *      every freshness check from then on agrees nothing needs refetching.
+ *
+ * The device is then pinned to the old catalogue permanently, and the skip in
+ * step 2 — which exists to protect the copy on disk — is what caused it.
+ *
+ * Holding the metadata back instead leaves the stale pair intact and honest:
+ * the old products keep rendering instantly on a cold start, their old
+ * watermark no longer matches the server, and the refetch that repairs
+ * everything happens on its own.
+ */
+let diskBlobStale = false;
+
 function recordWrite(outcome: CacheWriteOutcome): void {
   lastWrite = outcome;
+  // A write that did not land leaves disk behind memory; one that did brings
+  // them back into step. See `diskBlobStale`.
+  diskBlobStale = outcome.kind !== "ok";
 }
 
 /**
@@ -701,6 +744,10 @@ async function persist(
 }
 
 async function persistMeta(meta: CatalogueMeta): Promise<void> {
+  // Metadata alone describes whatever products are already on disk. If those
+  // are not the ones this metadata belongs to, writing it makes a stale blob
+  // look current and nothing ever refetches. See `diskBlobStale`.
+  if (diskBlobStale) return;
   return enqueueWrite(async () => {
     try {
       await AsyncStorage.setItem(META_KEY, JSON.stringify(meta));
@@ -903,6 +950,8 @@ export function addScannedToCatalogue(product: ProductWithIngredients): void {
  */
 export function forgetMemoryLayer(): void {
   memory = null;
+  // Nothing in memory can be ahead of disk once memory is empty.
+  diskBlobStale = false;
   catalogueGeneration++;
   diskRead = null;
   diskReadAbandoned = false;

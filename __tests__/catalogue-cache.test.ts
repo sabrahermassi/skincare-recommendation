@@ -587,17 +587,22 @@ describe("disk writes announce what happened", () => {
 
 
 /**
- * Step 6's done-when, minus the half that needs a handset: "a synthetic
- * catalogue of 5,000 products cold-starts without a failed write."
+ * How far one AsyncStorage value actually stretches.
  *
- * Sized against the real thing rather than the small fixtures above. Step 2
+ * Sized against the real thing rather than the small fixtures above: step 2
  * measured the live catalogue at 369KB for 500 products once normalised —
- * about 740 bytes each — so these carry a comparable amount of text, a real
- * formula length, and the multi-byte characters a Korean catalogue is full of.
- * A budget checked against ASCII-only fixtures would pass here and fail on a
- * device.
+ * about 740 bytes each — so these carry comparable text, a real formula
+ * length, and the multi-byte characters a Korean catalogue is full of. A
+ * budget checked against ASCII-only fixtures would pass here and fail on a
+ * handset.
+ *
+ * Note what these tests cannot do. The AsyncStorage mock is JavaScript and has
+ * no size limit at all, so nothing here would notice Android's real
+ * `CursorWindow` ceiling on its own — that is precisely how a 4MB budget
+ * survived review once. What they pin is that the *budget* behaves, and the
+ * budget is set from the device limit rather than from what the mock tolerates.
  */
-describe("a five-thousand product catalogue", () => {
+describe("how much fits in one value", () => {
   function formulaFor(i: number) {
     // `name`, not `inciName` — `isUsableIngredient` checks `id` and `name`,
     // and a dictionary entry missing either makes the whole blob unreadable on
@@ -630,25 +635,113 @@ describe("a five-thousand product catalogue", () => {
     } as unknown as ProductWithIngredients;
   }
 
-  it("writes and reads back without a failed write", async () => {
+  it("keeps a catalogue that fits, formulas intact, across a cold start", async () => {
+    // Comfortably inside the 1.5MB budget at ~740 bytes a row.
+    const many = Array.from({ length: 1500 }, (_, i) => realisticProduct(i));
+
+    putCatalogue(many, { ...WATERMARK, count: many.length });
+    await writesSettled();
+
+    const outcome = lastCacheWrite();
+    if (outcome?.kind !== "ok") {
+      throw new Error(`expected a clean write, got ${JSON.stringify(outcome)}`);
+    }
+    expect(outcome.bytes).toBeLessThan(1.5 * 1024 * 1024);
+
+    // A cold start: drop memory entirely, then read from disk alone.
+    forgetMemoryLayer();
+    const restored = await readCatalogue();
+    expect(restored?.products).toHaveLength(1500);
+    // The formula survives the normalise/rehydrate round trip, not just the row.
+    expect(restored?.products[0].ingredients).toHaveLength(30);
+  });
+
+  /**
+   * Step 6's stated done-when is 5,000 products, and this records honestly that
+   * a single value does not get there.
+   *
+   * Five thousand serialises to roughly 3.1MB. That is under the 6MB SQLite
+   * *database* ceiling everyone quotes, and well over the ~2MB `CursorWindow`
+   * limit that applies to reading one value — so at 4MB it wrote cleanly here
+   * and would have been unreadable on the next Android cold start, with the
+   * failure surfacing nowhere near the write.
+   *
+   * Refused at the budget instead. Reaching 5,000 needs the payload split
+   * across keys, or the windowing in step 6's item 3 so the whole catalogue is
+   * never resident. Step 7 lifts the import cap and must not land before one
+   * of those does.
+   */
+  it("refuses a five-thousand product catalogue rather than writing an unreadable one", async () => {
     const many = Array.from({ length: 5000 }, (_, i) => realisticProduct(i));
 
     putCatalogue(many, { ...WATERMARK, count: many.length });
     await writesSettled();
 
     const outcome = lastCacheWrite();
-    // Reported either way, so a failure here says how far over it went rather
-    // than just that it did.
-    if (outcome?.kind !== "ok") {
-      throw new Error(`expected a clean write, got ${JSON.stringify(outcome)}`);
-    }
-    expect(outcome.bytes).toBeGreaterThan(0);
+    expect(outcome?.kind).toBe("too-large");
+    if (outcome?.kind !== "too-large") throw new Error("expected an over-budget skip");
+    // The figure the comment above is reasoning about, pinned so a future
+    // change to the payload shape shows up here rather than in the field.
+    expect(outcome.bytes).toBeGreaterThan(2 * 1024 * 1024);
+  });
+});
 
-    // A cold start: drop memory entirely, then read from disk alone.
+
+/**
+ * The trap the "keep the previous copy" skip opens, and the guard that closes
+ * it.
+ *
+ * Skipping an oversized write protects what is on disk — but memory then holds
+ * a catalogue disk does not. A foreground revalidation that finds the server
+ * unchanged calls `touchCatalogue`, which writes *metadata alone*. Left
+ * unguarded that stamps the new watermark beside the old products, and the
+ * next cold start reads a stale catalogue believing it is current: every
+ * freshness check agrees, and the device never refetches again.
+ */
+describe("metadata never blesses a blob it does not describe", () => {
+  it("holds back the watermark while disk is behind memory", async () => {
+    // A good, small catalogue lands on disk at the first watermark.
+    putCatalogue(CATALOGUE, WATERMARK);
+    await writesSettled();
+    const metaBefore = await AsyncStorage.getItem(META_KEY);
+    expect(metaBefore).not.toBeNull();
+
+    // An oversized refresh is skipped: memory moves on, disk does not.
+    const huge = Array.from({ length: 60 }, (_, i) => ({
+      ...product(`huge-${i}`, "serum"),
+      description: "x".repeat(100_000),
+    })) as unknown as typeof CATALOGUE;
+    const newer: CatalogueWatermark = { ...WATERMARK, count: 9999, newest: "2027-01-01T00:00:00Z" };
+    putCatalogue(huge, newer);
+    await writesSettled();
+    expect(lastCacheWrite()?.kind).toBe("too-large");
+
+    // The revalidation that would otherwise do the damage.
+    touchCatalogue(newer);
+    await writesSettled();
+
+    // Metadata on disk is untouched, so it still describes the products that
+    // are actually there.
+    expect(await AsyncStorage.getItem(META_KEY)).toBe(metaBefore);
+
+    // And the consequence that matters: a cold start restores the old
+    // catalogue with its *old* watermark, which no longer matches the server —
+    // so the refetch that repairs everything still happens.
     forgetMemoryLayer();
     const restored = await readCatalogue();
-    expect(restored?.products).toHaveLength(5000);
-    // The formula survives the normalise/rehydrate round trip, not just the row.
-    expect(restored?.products[0].ingredients).toHaveLength(30);
+    expect(restored?.products).toHaveLength(CATALOGUE.length);
+    expect(watermarksMatch(restored!.watermark, newer)).toBe(false);
+  });
+
+  it("writes metadata again once a write has landed", async () => {
+    putCatalogue(CATALOGUE, WATERMARK);
+    await writesSettled();
+
+    const later: CatalogueWatermark = { ...WATERMARK, newest: "2026-12-31T00:00:00Z" };
+    touchCatalogue(later);
+    await writesSettled();
+
+    const meta = JSON.parse((await AsyncStorage.getItem(META_KEY)) ?? "null");
+    expect(meta.watermark.newest).toBe("2026-12-31T00:00:00Z");
   });
 });
