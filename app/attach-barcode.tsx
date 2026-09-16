@@ -15,12 +15,17 @@ import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED } from "@/lib/tokens";
  * switcher: there is exactly one thing to do here, attach a barcode to the
  * product this screen was pushed for.
  *
- * Same barcode formats `app/(tabs)/index.tsx` scans for — kept in step
- * deliberately, since a code this screen fails to recognise but the main
- * scanner would have is a worse experience than either screen having its
- * own list quietly drift from the other's.
+ * Narrower than `app/(tabs)/index.tsx`'s own scanner list, deliberately:
+ * that screen treats any scanned payload as an opaque lookup key and shows
+ * a graceful "not found" for a miss, so QR/Code 128 cost it nothing. This
+ * screen calls `resolve-scan`, which requires an 8-14 digit barcode — a QR
+ * or Code 128 payload reaches it, fails that check, and the client can't
+ * tell that apart from a real save failure, so it shows a "check your
+ * connection" message for what is actually "wrong kind of code." Found in
+ * review on PR #109; simplest fix is to just not scan for formats this
+ * screen can never accept.
  */
-const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as const;
+const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e"] as const;
 
 type Status =
   | { kind: "idle" }
@@ -177,11 +182,13 @@ export default function AttachBarcode() {
           </View>
         )}
 
-        <Pressable onPress={() => router.back()} hitSlop={12} className="items-center py-1">
-          <Text style={{ color: "rgba(255,255,255,0.8)" }} className="text-sm font-medium underline">
-            Cancel
-          </Text>
-        </Pressable>
+        {status.kind !== "attaching" && (
+          <Pressable onPress={() => router.back()} hitSlop={12} className="items-center py-1">
+            <Text style={{ color: "rgba(255,255,255,0.8)" }} className="text-sm font-medium underline">
+              Cancel
+            </Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );

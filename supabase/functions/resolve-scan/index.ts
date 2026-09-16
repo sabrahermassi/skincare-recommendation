@@ -129,26 +129,61 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq("barcode", barcode)
     .maybeSingle();
   if (collision) {
-    // A genuine conflict, not a decline: this row is left exactly as it
-    // was (still on its grace timer) rather than discarded, since the
-    // person did try to do the right thing. The client surfaces this and
-    // can offer a retry with a different scan.
-    return json(
-      req,
-      { error: "barcode_taken", message: "This barcode is already linked to another product." },
-      409
-    );
+    if (collision.id !== productId) {
+      // A genuine conflict, not a decline: this row is left exactly as it
+      // was (still on its grace timer) rather than discarded, since the
+      // person did try to do the right thing. The client surfaces this
+      // and can offer a retry with a different scan.
+      return json(
+        req,
+        { error: "barcode_taken", message: "This barcode is already linked to another product." },
+        409
+      );
+    }
+    // Same product, same barcode, already attached — a retry racing the
+    // token deletion below (two requests in flight before the first one's
+    // delete commits), or a double-tap before the first response landed.
+    // Found in review on PR #109: without this branch a retry read as a
+    // conflict with itself. Treat it as success and hand back the same
+    // product a fresh attach would have.
+    const { data: product, error: readError } = await db
+      .from("products")
+      .select(PRODUCT_SELECT)
+      .eq("id", productId)
+      .maybeSingle();
+    if (readError || !product) {
+      console.error("resolve-scan idempotent readback failed:", readError);
+      return json(req, { error: "Could not read back the product" }, 502);
+    }
+    return json(req, { product }, 200);
   }
 
+  // Selects the full row on the update itself instead of a separate
+  // readback after — one fewer round trip, and one fewer window where the
+  // barcode is committed but a follow-up read could still fail and report
+  // a false 502. Found in review on PR #109.
   const { error: updateError, data: updated } = await db
     .from("products")
     .update({ barcode, expires_at: null })
     .eq("id", productId)
     .eq("source", "ocr")
     .is("barcode", null)
-    .select("id")
+    .select(PRODUCT_SELECT)
     .maybeSingle();
   if (updateError) {
+    // 23505 = unique_violation. The collision check above can't fully
+    // serialise two concurrent attach-barcode calls for the same barcode
+    // on different rows — both can pass it before either commits. The
+    // constraint is what actually decides that race; whichever request
+    // loses it gets the same barcode_taken response the check above would
+    // have given it outright. Found in review on PR #109.
+    if (updateError.code === "23505") {
+      return json(
+        req,
+        { error: "barcode_taken", message: "This barcode is already linked to another product." },
+        409
+      );
+    }
     console.error("resolve-scan attach-barcode failed:", updateError);
     return json(req, { error: "Could not attach the barcode" }, 502);
   }
@@ -166,15 +201,5 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // row via the foreign key (migration 0015).
   await db.from("scan_tokens").delete().eq("product_id", productId);
 
-  const { data: product, error: readbackError } = await db
-    .from("products")
-    .select(PRODUCT_SELECT)
-    .eq("id", productId)
-    .maybeSingle();
-  if (readbackError || !product) {
-    console.error("resolve-scan post-update readback failed:", readbackError);
-    return json(req, { error: "Could not read back the product" }, 502);
-  }
-
-  return json(req, { product }, 200);
+  return json(req, { product: updated }, 200);
 });

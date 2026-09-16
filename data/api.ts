@@ -1195,12 +1195,24 @@ export async function discardUnreachableScan(
  * on them: an unrecognised name can still be an exact match against the
  * curated table.
  *
- * Degrades rather than throws. With no Supabase configured, or with no
- * network, every name comes back as a stub and the caller still gets a usable
- * pore-clogging answer — which is the whole point of doing that check on the
- * device.
+ * Degrades rather than throws by default. With no Supabase configured, or
+ * with no network, every name comes back as a stub and the caller still gets
+ * a usable pore-clogging answer — which is the whole point of doing that
+ * check on the device.
+ *
+ * `strict: true` turns off that degrade for a live-database failure only
+ * (never the no-Supabase-configured branch, which isn't a failure) —
+ * `saved.tsx`'s starred-ingredients tab needs to tell "we don't recognise
+ * this ingredient" apart from "the lookup itself failed," which an
+ * unverified stub can't do on its own. Review on PR #109 caught that its
+ * retry UI existed but could never actually trigger, since this function's
+ * own catch already turned every failure into the same stubs a genuine miss
+ * produces.
  */
-export async function resolveIngredientNames(names: string[]): Promise<Ingredient[]> {
+export async function resolveIngredientNames(
+  names: string[],
+  opts?: { strict?: boolean }
+): Promise<Ingredient[]> {
   const stub = (name: string): Ingredient => ({
     id: name,
     name,
@@ -1255,6 +1267,7 @@ export async function resolveIngredientNames(names: string[]): Promise<Ingredien
     return names.map((name) => byName.get(name) ?? stub(name));
   } catch (err) {
     console.warn("resolveIngredientNames failed:", err);
+    if (opts?.strict) throw err;
     return names.map(stub);
   }
 }

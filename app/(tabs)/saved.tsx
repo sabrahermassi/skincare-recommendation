@@ -682,7 +682,7 @@ function IngredientsTab({ names }: { names: string[] }) {
     const missing = current ? names.filter((n) => !(n in current)) : names;
     if (current && missing.length === 0) return;
 
-    resolveIngredientNames(current ? missing : names)
+    resolveIngredientNames(current ? missing : names, { strict: true })
       .then((resolved) => {
         if (cancelled) return;
         setByName((prev) => ({
