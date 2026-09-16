@@ -31,7 +31,7 @@ import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { parseInci } from "./lib/inci-parse.mjs";
+import { normalise, parseInci } from "./lib/inci-parse.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -148,6 +148,141 @@ function inactiveIngredients(xml) {
 }
 
 /**
+ * The US OTC sunscreen filters, keyed by the drug name a label prints and
+ * mapped to the INCI name the dictionary holds.
+ *
+ * This table exists because the two nomenclatures genuinely differ and the
+ * dictionary only speaks one of them. Checked against the live dictionary:
+ * "avobenzone", "octisalate", "octinoxate" and "ensulizole" are absent as
+ * printed, while all four are present under their INCI names. Prepending the
+ * drug names raw would have written four unmatched stubs into the shared
+ * ingredient table and pushed every chemical sunscreen toward the plausibility
+ * gate — importing the filters badly rather than not at all.
+ *
+ * Safe to hardcode because it is closed and regulated: 21 CFR 352.10 lists the
+ * filters permitted in a US OTC monograph sunscreen, and a new one requires
+ * rulemaking. This is not a heuristic that will quietly rot.
+ *
+ * Fifteen of the sixteen resolve to a name already in the verified dictionary.
+ * "trolamine salicylate" does not, and is mapped anyway: an unrecognised name
+ * costs one stub on the rare product using it, where dropping it would silently
+ * lose an active ingredient.
+ */
+const UV_FILTERS = {
+  "aminobenzoic acid": "paba",
+  avobenzone: "butyl methoxydibenzoylmethane",
+  cinoxate: "cinoxate",
+  dioxybenzone: "benzophenone-8",
+  ensulizole: "phenylbenzimidazole sulfonic acid",
+  homosalate: "homosalate",
+  meradimate: "menthyl anthranilate",
+  octinoxate: "ethylhexyl methoxycinnamate",
+  octisalate: "ethylhexyl salicylate",
+  octocrylene: "octocrylene",
+  oxybenzone: "benzophenone-3",
+  "padimate o": "ethylhexyl dimethyl paba",
+  sulisobenzone: "benzophenone-4",
+  "titanium dioxide": "titanium dioxide",
+  "trolamine salicylate": "triethanolamine salicylate",
+  "zinc oxide": "zinc oxide",
+};
+
+/**
+ * The UV filters, read off the SPL title's parenthetical.
+ *
+ * A sunscreen without its filters is not a sunscreen. DailyMed separates
+ * actives from inactives, and an earlier version of this importer stored only
+ * the inactive list — so every imported sunscreen arrived missing the
+ * ingredients it exists for. `lib/rules.ts` scores zinc oxide and titanium
+ * dioxide explicitly for sensitive skin, and `formulaKey` below would have
+ * collapsed a mineral and a chemical sunscreen that happened to share a base.
+ *
+ * The title is tried first because it is already in hand — the search result
+ * carries it — and falls back to the label body, which is where the filters
+ * live when the title does not name them.
+ */
+function activeIngredients(title, xml) {
+  const fromTitle = filtersIn(title.match(/\(([^)]+)\)/)?.[1]);
+  if (fromTitle.length > 0) return fromTitle;
+
+  // Not every title lists its filters. Two real examples: "(SUNSCREEN)" and
+  // "(BROAD SPECTRUM SPF30)" — the convention is common, not universal, and a
+  // third of kept products were still arriving with no actives once the title
+  // path alone was working.
+  //
+  // The label body carries them under its own heading. Reading it needs one
+  // piece of care: "ACTIVE INGREDIENT" is a substring of "INACTIVE
+  // INGREDIENT", so an unanchored search finds the inactive list and silently
+  // stores it as the actives. The word boundary is what separates them — there
+  // is none between the "n" of "Inactive" and the "a" of "active".
+  if (!xml) return [];
+  const flat = xml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  const marks = [...flat.matchAll(/\bactive\s+ingredients?\b[:\s]*/gi)];
+  if (marks.length === 0) return [];
+
+  const body = flat
+    .slice(marks[0].index + marks[0][0].length)
+    .split(/\b(?:Uses|Warnings|Inactive|Directions)\b/i)[0];
+  return filtersByScan(body);
+}
+
+/**
+ * The filters named anywhere in a fragment, in the order they appear.
+ *
+ * The body does not punctuate the way a title does. A real Drug Facts panel
+ * flattens to "Octisalate 3.0% Sunscreen Octinoxate 7.5% Sunscreen Zinc Oxide
+ * 8.0% Sunscreen" — each filter trailed by its strength and its purpose, with
+ * no separator anywhere. Splitting that produces one unrecognisable token,
+ * which is why the three sunscreens that prompted this fallback still had no
+ * actives after it was first written.
+ *
+ * Scanning for the names instead works whatever the punctuation. It is safe
+ * here in a way it would not be generally, for two reasons: `UV_FILTERS` is a
+ * closed regulated list of specific chemical names that do not occur by
+ * accident, and the caller has already narrowed the text to the active section
+ * — so an "Inactive Ingredients: ... Zinc Oxide" further down is out of scope
+ * rather than a false positive.
+ *
+ * Ordered by position so the stored formula matches the label, since INCI
+ * order is concentration order and position drives weighting.
+ */
+function filtersByScan(text) {
+  const haystack = text.toLowerCase();
+  const found = [];
+  for (const [drug, inci] of Object.entries(UV_FILTERS)) {
+    const at = haystack.indexOf(drug);
+    if (at !== -1) found.push({ at, inci });
+  }
+  return found.sort((a, b) => a.at - b.at).map((f) => f.inci);
+}
+
+/**
+ * The recognised UV filters in a fragment, or nothing at all.
+ *
+ * All-or-nothing on purpose. Titles do not all follow the convention: one real
+ * example reads "(TINTED LIP GLOSS WITH SPF 30 SUNSCREEN)", which is a
+ * description. Trusting a fragment partially would write that phrase into the
+ * catalogue as an ingredient, so a single unrecognised part discards the lot.
+ */
+function filtersIn(fragment) {
+  if (!fragment) return [];
+
+  const parts = fragment
+    .split(/[,/]/)
+    // "A, B, C, AND D" is ordinary English list punctuation and real titles use
+    // it — "AVOBENZONE, HOMOSALATE, OCTISALATE, AND OCTOCRYLENE" is a live
+    // example. Without this the conjunction fails to resolve, the all-or-
+    // nothing rule below discards the whole list, and a genuine chemical
+    // sunscreen is imported with no filters at all.
+    .map((part) => normalise(part).replace(/^and\s+/, ""))
+    .filter((part) => part.length > 0);
+  if (parts.length === 0) return [];
+
+  const mapped = parts.map((part) => UV_FILTERS[part]).filter(Boolean);
+  return mapped.length === parts.length ? mapped : [];
+}
+
+/**
  * Split an SPL title into the parts we store.
  *
  * DailyMed titles follow one shape: "NAME (ACTIVE INGREDIENTS) DOSAGE FORM
@@ -172,6 +307,24 @@ function tidy(value) {
 }
 
 /**
+ * Products that came back from a sunscreen search without being skincare.
+ *
+ * Step 4 learned this the expensive way: widening a source without a relevance
+ * filter filled the catalogue with deodorant and shampoo, because the new
+ * filter selected for *data completeness* and the old hand-written brand list
+ * had been quietly supplying relevance all along. The same shape is here —
+ * "sunscreen" as a search term matches any SPF product, and lip balms carry
+ * SPF.
+ *
+ * Measured on thirty live labels: four of the twelve kept rows were lip balms
+ * or a lip gloss. They have real formulas, but they are not what a face-first
+ * skincare catalogue is for, and the app has no lip category to file them
+ * under — so they would arrive typed "sunscreen", which is the same
+ * wrong-but-confident answer `guessType` was changed to stop giving.
+ */
+const NOT_SKINCARE = /\blip\s?(?:balm|gloss|stick|treatment)\b/i;
+
+/**
  * Build the row, or a string naming why this SPL was rejected.
  *
  * Same contract as `toRow` in `scripts/import-obf.mjs`, including the
@@ -182,11 +335,20 @@ function tidy(value) {
 function toRow(spl, xml, known, samples) {
   const { name, labeler } = parseTitle(spl.title ?? "");
   if (!name || !spl.setid) return "no name or setid";
+  // Checked against the whole title, not the trimmed name: the giveaway is
+  // often in the parenthetical ("(SUNSCREEN SKIN PROTECTANT LIP BALM)").
+  if (NOT_SKINCARE.test(spl.title ?? "")) return "not a skincare product";
 
   const inci = inactiveIngredients(xml);
   if (!inci) return "no inactive-ingredient section";
 
-  const ingredients = parseInci(inci);
+  // Actives first. A US OTC label prints them first on its Drug Facts panel
+  // and they sit at 10-25% in a sunscreen, so they belong near the head of a
+  // concentration-ordered list. Prepending overstates them slightly against
+  // water; dropping them, which is what this did before, understates them
+  // completely. `parseInci` deduplicates, so a filter that also appears in the
+  // inactive list is kept once at the higher position.
+  const ingredients = parseInci([...activeIngredients(spl.title ?? "", xml), inci].join(", "));
   if (ingredients.length < 2) return "fewer than 2 parsed ingredients";
 
   const hits = ingredients.filter((i) => known.has(i.inci_name)).length;
@@ -465,4 +627,4 @@ if (invokedDirectly()) {
   });
 }
 
-export { inactiveIngredients, parseTitle, tidy, toRow, identityKey, formulaKey };
+export { inactiveIngredients, activeIngredients, parseTitle, tidy, toRow, identityKey, formulaKey };

@@ -1,4 +1,8 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import {
+  activeIngredients,
   formulaKey,
   identityKey,
   inactiveIngredients,
@@ -29,6 +33,11 @@ function expectKept<T>(result: T | string): T {
 }
 
 const KNOWN = new Set([
+  "zinc oxide",
+  "butyl methoxydibenzoylmethane",
+  "ethylhexyl salicylate",
+  "octocrylene",
+  "homosalate",
   "water",
   "c15-19 alkane",
   "silica",
@@ -105,7 +114,10 @@ describe("building a row", () => {
     expect(row.product.expires_at).toBeNull();
     // No barcode: DailyMed identifies by NDC, which is not what a camera reads.
     expect(row.product.barcode).toBeNull();
-    expect(row.ingredients[0].inci_name).toBe("water");
+    // Zinc oxide leads: the title's active comes first. See the UV-filter
+    // block below.
+    expect(row.ingredients[0].inci_name).toBe("zinc oxide");
+    expect(row.ingredients[1].inci_name).toBe("water");
   });
 
   it("title-cases the shouted names DailyMed publishes", () => {
@@ -122,7 +134,11 @@ describe("building a row", () => {
       "no name or setid"
     );
     expect(toRow(SUMMARY, "<document/>", KNOWN, [])).toBe("no inactive-ingredient section");
-    expect(toRow(SUMMARY, splXml("Water"), KNOWN, [])).toBe("fewer than 2 parsed ingredients");
+    // A title whose parenthetical is not a filter list, so nothing is
+    // prepended and the single inactive really is the whole formula.
+    expect(
+      toRow({ ...SUMMARY, title: "PLAIN (SOMETHING ELSE) CREAM [B]" }, splXml("Water"), KNOWN, [])
+    ).toBe("fewer than 2 parsed ingredients");
   });
 
   // The failure mode measured on live data: two SPLs in ten print their
@@ -188,5 +204,188 @@ describe("the same bottle under two labelers", () => {
     const a = formulaKey([{ inci_name: "water" }, { inci_name: "silica" }]);
     const b = formulaKey([{ inci_name: "silica" }, { inci_name: "water" }]);
     expect(a).not.toBe(b);
+  });
+});
+
+describe("a sunscreen keeps its UV filters", () => {
+  /**
+   * DailyMed separates actives from inactives, and an earlier version of this
+   * importer stored only the inactive list — so every imported sunscreen
+   * arrived without the ingredients it exists for. `lib/rules.ts` scores zinc
+   * oxide and titanium dioxide explicitly, so the omission changed what a user
+   * was told.
+   */
+  it("reads the filters off the title and puts them first", () => {
+    const xml = splXml("Water, Silica, Undecane");
+    const row = expectKept(toRow(SUMMARY, xml, KNOWN, []));
+    expect(row.ingredients[0].inci_name).toBe("zinc oxide");
+    expect(row.ingredients[1].inci_name).toBe("water");
+  });
+
+  /**
+   * The nomenclature problem. US labels print drug names; the dictionary holds
+   * INCI names, and they are not the same words — "avobenzone" is absent from
+   * the live dictionary while "butyl methoxydibenzoylmethane" is present.
+   * Prepending the printed names raw would write unmatched stubs into the
+   * shared ingredient table and drag chemical sunscreens toward the gate.
+   */
+  it("translates US drug names into the INCI names the dictionary holds", () => {
+    expect(activeIngredients("X (AVOBENZONE,OCTISALATE) LOTION [Y]")).toEqual([
+      "butyl methoxydibenzoylmethane",
+      "ethylhexyl salicylate",
+    ]);
+    expect(activeIngredients("X (ZINC OXIDE) CREAM [Y]")).toEqual(["zinc oxide"]);
+    // "A, B, C, AND D" is ordinary list punctuation and real titles use it.
+    // Without handling the conjunction the all-or-nothing rule below discards
+    // the whole list and a genuine chemical sunscreen imports with no filters.
+    expect(
+      activeIngredients("X (AVOBENZONE, HOMOSALATE, OCTISALATE, AND OCTOCRYLENE) SPRAY [Y]")
+    ).toEqual([
+      "butyl methoxydibenzoylmethane",
+      "homosalate",
+      "ethylhexyl salicylate",
+      "octocrylene",
+    ]);
+  });
+
+  /**
+   * Not every parenthetical is an active list. One real title reads
+   * "(TINTED LIP GLOSS WITH SPF 30 SUNSCREEN)" — a description. Trusting it
+   * partially would write that phrase into the catalogue as an ingredient, so
+   * every part must resolve or none of it is used.
+   */
+  it("discards a parenthetical that is a description, not a filter list", () => {
+    expect(activeIngredients("X (TINTED LIP GLOSS WITH SPF 30 SUNSCREEN) [Y]")).toEqual([]);
+    expect(activeIngredients("X (ZINC OXIDE, SOMETHING ELSE) [Y]")).toEqual([]);
+    expect(activeIngredients("X CREAM [Y]")).toEqual([]);
+  });
+
+  it("does not list a filter twice when it also appears among the inactives", () => {
+    const xml = splXml("Water, Zinc Oxide, Silica");
+    const row = expectKept(toRow(SUMMARY, xml, KNOWN, []));
+    const zinc = row.ingredients.filter((i: { inci_name: string }) => i.inci_name === "zinc oxide");
+    expect(zinc).toHaveLength(1);
+    expect(zinc[0].position).toBe(0);
+  });
+
+  /**
+   * The consequence for deduplication: two sunscreens sharing an inactive base
+   * but using different filters are different products and must not collapse.
+   */
+  it("keeps a mineral and a chemical sunscreen apart", () => {
+    const xml = splXml("Water, Silica, Undecane");
+    const mineral = expectKept(toRow({ ...SUMMARY, title: "A (ZINC OXIDE) CREAM [B]" }, xml, KNOWN, []));
+    const chemical = expectKept(
+      toRow({ ...SUMMARY, title: "A (AVOBENZONE,OCTOCRYLENE) CREAM [B]" }, xml, KNOWN, [])
+    );
+    expect(formulaKey(mineral.ingredients)).not.toBe(formulaKey(chemical.ingredients));
+  });
+});
+
+describe("what came back from a sunscreen search but is not skincare", () => {
+  /**
+   * The step 4 lesson, arriving again from a different direction. Widening a
+   * source without a relevance filter filled the catalogue with deodorant and
+   * shampoo, because the new filter selected for data completeness while the
+   * old hand-written brand list had been quietly supplying relevance.
+   *
+   * "Sunscreen" as a search term matches any SPF product, and lip balms carry
+   * SPF: four of twelve kept rows in a thirty-label sample were lip products.
+   * They have real formulas, but a face-first catalogue has no lip category to
+   * file them under, so they would arrive typed "sunscreen" — the same
+   * wrong-but-confident answer `guessType` was changed to stop giving.
+   */
+  it("rejects lip balms and glosses that carry SPF", () => {
+    const xml = splXml("Water, Silica");
+    for (const title of [
+      "JACK BLACK LAVENDER LIP BALM (LIP BALM SUNSCREEN) OINTMENT [J]",
+      "MESTRACT TINTED LIP GLOSS WITH SPF 30 SUNSCREEN (X) [Y]",
+      "INTENSE THERAPY LIP BALM PINEAPPLE MINT (SUNSCREEN SKIN PROTECTANT LIP BALM) [Z]",
+    ]) {
+      expect(toRow({ ...SUMMARY, title }, xml, KNOWN, [])).toBe("not a skincare product");
+    }
+  });
+
+  it("keeps a face sunscreen", () => {
+    const xml = splXml("Water, Silica");
+    const row = expectKept(
+      toRow({ ...SUMMARY, title: "SQWEEN MINERAL SUNSCREEN SPF 30 (ZINC OXIDE) CREAM [S]" }, xml, KNOWN, [])
+    );
+    expect(row.product.type).toBe("sunscreen");
+  });
+
+  /**
+   * Written after the regex for the check above was committed carrying a
+   * literal 0x08 byte where a word boundary was meant — the second time that
+   * exact corruption has happened in this repository (see `titleCase` in
+   * `lib/matching.ts`). A pattern that silently matches nothing is invisible
+   * in review and invisible in a passing test that only asserts the happy
+   * path, so the bytes are checked directly.
+   */
+  it("has no control characters in its source", () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, "..", "scripts", "import-dailymed.mjs"),
+      "utf8"
+    );
+    const offenders = [...src].filter((c) => {
+      const code = c.charCodeAt(0);
+      // Compared as numbers, not as escaped literals: this very line was
+      // written twice with a mangled escape before it survived intact.
+      return code < 32 && code !== 10 && code !== 13 && code !== 9;
+    });
+    expect(offenders).toHaveLength(0);
+  });
+});
+
+describe("filters the title does not name", () => {
+  /**
+   * The title convention is common, not universal — "(SUNSCREEN)" and
+   * "(BROAD SPECTRUM SPF30)" are real examples. A third of kept products were
+   * still arriving with no actives once the title path alone worked.
+   *
+   * The label body has them, but does not punctuate like a title: a real Drug
+   * Facts panel flattens to "Octisalate 3.0% Sunscreen Octinoxate 7.5%
+   * Sunscreen Zinc Oxide 8.0% Sunscreen" — no separator anywhere. Splitting
+   * that yields one unrecognisable token, so the names are scanned for
+   * instead.
+   */
+  const labelWith = (actives: string) =>
+    `<x><y>Active Ingredients ${actives}</y><y>Inactive Ingredients Water, Silica</y></x>`;
+
+  it("reads filters out of an unpunctuated Drug Facts panel", () => {
+    expect(
+      activeIngredients(
+        "A (SUNSCREEN) LOTION [B]",
+        labelWith("Octisalate 3.0% Sunscreen Octinoxate 7.5% Sunscreen Zinc Oxide 8.0% Sunscreen Uses Helps")
+      )
+    ).toEqual(["ethylhexyl salicylate", "ethylhexyl methoxycinnamate", "zinc oxide"]);
+  });
+
+  it("orders them as the label does, because position is concentration", () => {
+    expect(
+      activeIngredients("A (BROAD SPECTRUM SPF30) CREAM [B]", labelWith("Zinc Oxide 7.5% Titanium Dioxide 3.2%"))
+    ).toEqual(["zinc oxide", "titanium dioxide"]);
+  });
+
+  /**
+   * "ACTIVE INGREDIENT" is a substring of "INACTIVE INGREDIENT". Without a
+   * word boundary the search finds the inactive list and stores it as the
+   * actives — there is no boundary between the "n" of "Inactive" and the "a"
+   * of "active", which is what keeps them apart.
+   */
+  it("does not mistake the inactive list for the active one", () => {
+    expect(
+      activeIngredients("A (SUNSCREEN) [B]", "<x><y>Inactive Ingredients Water, Zinc Oxide, Silica</y></x>")
+    ).toEqual([]);
+  });
+
+  it("prefers the title when it names them", () => {
+    expect(activeIngredients("A (ZINC OXIDE) CREAM [B]", labelWith("Avobenzone 2.2%"))).toEqual([
+      "zinc oxide",
+    ]);
+  });
+
+  it("returns nothing when the label names none", () => {
+    expect(activeIngredients("A (SUNSCREEN) [B]", "<x>nothing here</x>")).toEqual([]);
   });
 });
