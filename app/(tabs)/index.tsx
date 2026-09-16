@@ -755,7 +755,7 @@ function UnknownProductNote({ barcode }: { barcode: string }) {
     return (
       <View style={{ paddingHorizontal: 26, paddingTop: 10 }}>
         <Text style={{ textAlign: "center", fontSize: 12, color: MUTED }}>
-          Saved on your phone, so you&apos;ll recognise it next time.
+          Saved on your phone — you won&apos;t be asked again for this one.
         </Text>
       </View>
     );

@@ -198,7 +198,12 @@ export default function Saved() {
           <ActivityIndicator color={INK} />
         </View>
       ) : tab === "saved" ? (
-        savedIds.length === 0 ? (
+        // Not just `savedIds.length === 0` — removing the *last* saved row
+        // makes that true immediately, before the four-second Undo window
+        // has any chance to show. A pending "saved" undo keeps the list
+        // view (now rendering nothing but the bar) on screen instead of
+        // jumping straight to the empty state.
+        savedIds.length === 0 && undo?.kind !== "saved" ? (
           <EmptyState
             title="Nothing saved yet"
             body="Tap Save on any product and it will wait for you here - including next time you open the app."
@@ -254,7 +259,10 @@ export default function Saved() {
             )}
           </ScrollView>
         )
-      ) : history.length === 0 ? (
+      ) : history.length === 0 && undo?.kind !== "history" ? (
+        // Same reasoning as the Saved branch above: removing the last
+        // history row must not skip past the Undo window straight to the
+        // empty state.
         <EmptyState
           title="No history yet"
           body="Every product you open or scan is logged here automatically, so you can tell at a glance whether you have already checked something."

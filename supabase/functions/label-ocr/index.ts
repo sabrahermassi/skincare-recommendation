@@ -229,7 +229,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Only names our dictionary already knows are trusted. The rest are stored
   // unverified, so the UI shows them as unrecognised rather than pretending we
   // assessed them — OCR on a curved bottle produces plenty of nonsense.
-  const known = await knownIngredients(parsed.map((p) => p.inci_name));
+  let known: Set<string>;
+  try {
+    known = await knownIngredients(parsed.map((p) => p.inci_name));
+  } catch (err) {
+    console.error("knownIngredients failed:", err);
+    return json(req, { error: "Could not read the ingredient dictionary" }, 502);
+  }
 
   // The gate, run before anything is written — not after, which is what let
   // a photo of a wall or a receipt clear the four-fragment floor above and
@@ -713,11 +719,17 @@ async function fetchAliases(): Promise<Map<string, string>> {
 async function knownIngredients(names: string[]): Promise<Set<string>> {
   const found = new Set<string>();
   for (let i = 0; i < names.length; i += 200) {
-    const { data } = await db
+    const { data, error } = await db
       .from("ingredients")
       .select("inci_name")
       .eq("verified", true)
       .in("inci_name", names.slice(i, i + 200));
+    // Thrown, not swallowed: the plausibility gate below reads `found.size`
+    // as "how much of this photo did we recognise", and a query that failed
+    // partway through is indistinguishable from one that recognised nothing
+    // — a transient DB error would otherwise read as a bad photo and tell
+    // the user to retake it, which is the wrong failure entirely.
+    if (error) throw new Error(`knownIngredients: ${error.message}`);
     for (const row of data ?? []) found.add(row.inci_name as string);
   }
   return found;
