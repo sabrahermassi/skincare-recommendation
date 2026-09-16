@@ -733,7 +733,39 @@ describe("metadata never blesses a blob it does not describe", () => {
     expect(watermarksMatch(restored!.watermark, newer)).toBe(false);
   });
 
-  it("writes metadata again once a write has landed", async () => {
+/**
+   * The same trap, reached by ordering rather than by state.
+   *
+   * The order these are called in is not the order they run in: a catalogue
+   * write is queued first and a metadata write can be queued behind it while
+   * that one is still pending. Checking the flag at call time reads it before
+   * the catalogue write has set it, so a write later skipped as oversized
+   * still lets the metadata through.
+   *
+   * Deliberately does not await between the two calls, because awaiting is
+   * what hides the bug.
+   */
+  it("holds back metadata queued before the write that fails", async () => {
+    putCatalogue(CATALOGUE, WATERMARK);
+    await writesSettled();
+    const metaBefore = await AsyncStorage.getItem(META_KEY);
+
+    const huge = Array.from({ length: 60 }, (_, i) => ({
+      ...product(`huge-${i}`, "serum"),
+      description: "x".repeat(100_000),
+    })) as unknown as typeof CATALOGUE;
+    const newer: CatalogueWatermark = { ...WATERMARK, count: 9999, newest: "2027-01-01T00:00:00Z" };
+
+    // Both queued before either runs.
+    putCatalogue(huge, newer);
+    touchCatalogue(newer);
+    await writesSettled();
+
+    expect(lastCacheWrite()?.kind).toBe("too-large");
+    expect(await AsyncStorage.getItem(META_KEY)).toBe(metaBefore);
+  });
+
+    it("writes metadata again once a write has landed", async () => {
     putCatalogue(CATALOGUE, WATERMARK);
     await writesSettled();
 

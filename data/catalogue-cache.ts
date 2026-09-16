@@ -744,11 +744,24 @@ async function persist(
 }
 
 async function persistMeta(meta: CatalogueMeta): Promise<void> {
-  // Metadata alone describes whatever products are already on disk. If those
-  // are not the ones this metadata belongs to, writing it makes a stale blob
-  // look current and nothing ever refetches. See `diskBlobStale`.
-  if (diskBlobStale) return;
   return enqueueWrite(async () => {
+    // Checked here, inside the queued job, rather than before enqueuing it.
+    //
+    // The order these are *called* in is not the order they *run* in. A
+    // catalogue write is queued first and a metadata write can be queued
+    // behind it while that one is still pending — `putCatalogue` followed by a
+    // foreground revalidation does exactly that. Testing the flag at call time
+    // reads it before the catalogue write has had a chance to set it, so a
+    // write that is then skipped as oversized still lets the metadata through
+    // and stamps the new watermark onto the retained old products. That is the
+    // cold-start state this guard exists to prevent, arriving by a different
+    // route.
+    //
+    // Inside the callback the queue has already drained everything ahead of
+    // it, so the flag reflects the outcome of the write this metadata is
+    // supposed to describe.
+    if (diskBlobStale) return;
+
     try {
       await AsyncStorage.setItem(META_KEY, JSON.stringify(meta));
     } catch {
