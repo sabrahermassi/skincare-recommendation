@@ -568,6 +568,33 @@ function BarcodeStage({
           </View>
         )}
 
+        {/* A miss is the common case here, not the exception — the catalogue
+            covers a fraction of what's on shelves — so the recovery options
+            above (photograph it, try again) need a third: check whether it's
+            already in the library under a different lookup path. Same
+            pattern as the permission-denied panel's own Browse link above. */}
+        {status.kind === "missed" && (
+          <Pressable
+            onPress={() => {
+              preserveMode();
+              router.push("/browse");
+            }}
+            accessibilityRole="link"
+            style={{
+              minHeight: TOUCH_TARGET,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            className="active:opacity-70"
+          >
+            <Text
+              style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}
+            >
+              Or find it in Browse instead.
+            </Text>
+          </Pressable>
+        )}
+
         {/* Drawn on a panel rather than straight onto the viewfinder: this is
             the one place on the stage that takes typed input, and its label
             and field were built for the light canvas. */}
@@ -708,6 +735,13 @@ function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
  * on. The copy says exactly that — "saved on your phone" — instead of
  * implying it reached anyone, which would be the fabricated-promise problem
  * this app avoids everywhere else.
+ *
+ * `scan-label` deliberately does NOT read this store. An unverified,
+ * device-local name reaching a permanent, shared catalogue row — with no way
+ * for anyone to ever correct it once `label-ocr` sets one — was flagged in
+ * review as a real data-integrity risk, not just a UX nicety. Wiring it up
+ * needs a server-side correction/moderation path first (the still-open
+ * server half of step 5), not just a client-side pass-through.
  */
 function UnknownProductNote({ barcode }: { barcode: string }) {
   const submitted = useAppStore((s) =>

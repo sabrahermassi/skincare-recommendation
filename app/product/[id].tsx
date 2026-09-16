@@ -13,7 +13,7 @@ import { ScoreRing } from "@/components/ScoreRing";
 import { HeartIcon } from "@/components/icons";
 import { InlineProfilePrompt } from "@/components/InlineProfilePrompt";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { fetchProduct } from "@/data/api";
+import { canPhotographLabelFor, fetchProduct } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import {
   confidenceLabel,
@@ -27,7 +27,7 @@ import { relativeTime } from "@/lib/format";
 import { isPersonalized } from "@/lib/profile";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SELECTED_STRONG, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, MUTED_SOFT, SELECTED_STRONG, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
 // draw from the shared `PrimaryButton` component's `tone="cta"` — added
@@ -222,6 +222,19 @@ export default function ProductScreen() {
             Product not found
           </Text>
           <PrimaryButton tone="cta" size={52} label="Scan another" onPress={() => router.replace("/")} />
+          {/* "Scan another" assumes a physical bottle in hand, which isn't
+              true for everyone who lands here — a stale link, a bookmark to
+              a removed product. Same escape hatch the missed-barcode panel
+              offers, for the same reason. */}
+          <Pressable
+            onPress={() => router.push("/browse")}
+            accessibilityRole="link"
+            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+          >
+            <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+              Browse instead
+            </Text>
+          </Pressable>
         </View>
       </View>
     );
@@ -383,9 +396,30 @@ export default function ProductScreen() {
               {verdictHeadline(match)}
             </Text>
             {explanation.length > 0 && (
-              <Text style={{ paddingTop: 2, fontSize: TYPE.label, fontWeight: "600", color: panel.ink }}>
-                {showBreakdown ? "Hide the breakdown" : "How was this worked out?"}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingTop: 2 }}>
+                <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: panel.ink }}>
+                  {showBreakdown ? "Hide the breakdown" : "How was this worked out?"}
+                </Text>
+                {/* Same chevron RiskCards uses for its own "tap for detail"
+                    affordance — this panel had none, relying on the text
+                    alone to signal it's tappable underneath a much louder
+                    score and headline. Rotates to point down while open. */}
+                <Svg
+                  width={11}
+                  height={11}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  style={{ transform: [{ rotate: showBreakdown ? "90deg" : "0deg" }] }}
+                >
+                  <Path
+                    d="m9 5 7 7-7 7"
+                    stroke={MUTED_SOFT}
+                    strokeWidth={2.4}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </View>
             )}
           </View>
         </Pressable>
@@ -575,15 +609,30 @@ export default function ProductScreen() {
         }}
       >
         <View style={{ flexDirection: "row", gap: 12, justifyContent: total > 0 ? "flex-start" : "center" }}>
-          {/* No CTA at all when this product has no ingredients on file —
-              "Photograph the ingredients" used to sit here regardless, but
-              it opened the barcode scanner for a product we've already
-              matched and are looking at, which doesn't make sense: that
-              flow is for identifying an unknown product, not fixing one
-              that's already in the catalogue. The message box above
-              already says what's true ("we know this product but not
-              what's in it") without implying an action that doesn't fit. */}
-          {total > 0 && (
+          {/* Two different CTAs, because there are two different situations.
+
+              With a formula, the action is to read it.
+
+              Without one, this screen used to offer nothing at all. That was
+              a deliberate correction of something worse — the old
+              "Photograph the ingredients" button opened the *barcode
+              scanner* for a product already matched and on screen, which
+              made no sense — but it left a dead end: a product we recognise,
+              with nothing to judge, and no way to supply what is missing.
+              UPCitemdb creates exactly these rows, they count as successful
+              lookups, and this screen opens on them.
+
+              The route that does make sense is the label camera, carrying
+              this product's barcode so the formula is written back against
+              the row that already exists rather than minting a second one.
+              The backend has always supported that; only the way in was
+              missing.
+
+              Guarded on the barcode's shape via `canPhotographLabelFor`,
+              which encodes what `label-ocr` accepts — offering a button that
+              can only 400 after someone has framed and taken a photo is
+              worse than offering none. */}
+          {total > 0 ? (
             <PrimaryButton
               tone="cta"
               size={56}
@@ -591,7 +640,20 @@ export default function ProductScreen() {
               label="View ingredients"
               onPress={() => router.push({ pathname: "/ingredients/[id]", params: { id: product.id } })}
             />
-          )}
+          ) : canPhotographLabelFor(product.barcode) ? (
+            <PrimaryButton
+              tone="cta"
+              size={56}
+              style={{ flex: 1 }}
+              label="Photograph the label"
+              onPress={() =>
+                router.push({
+                  pathname: "/scan-label",
+                  params: { barcode: product.barcode },
+                })
+              }
+            />
+          ) : null}
 
           <Pressable
             onPress={() => toggleSaved(product.id)}

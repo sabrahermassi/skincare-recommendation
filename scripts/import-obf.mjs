@@ -19,6 +19,9 @@
  * not shipped code, and this way they need no build step and no new devDeps.
  */
 
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { createClient } from "@supabase/supabase-js";
 
 import { paginateOrdered } from "./lib/paginate.mjs";
@@ -716,7 +719,40 @@ async function main() {
   if (bookmarkError) throw new Error(`sync_bookmarks upsert failed: ${bookmarkError.message}`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+/**
+ * Only sweep Open Beauty Facts when this file is what was run.
+ *
+ * Step 5's done-when is "a deliberately mangled ingredient list is rejected by
+ * the dry run", and until now the only way to check that was to run the import
+ * and read the output — which needs credentials, hits a volunteer-run API, and
+ * proves nothing about the next change. The gates are ordinary functions and
+ * deserve an ordinary test; the single thing stopping one was this call
+ * running on import.
+ *
+ * Compared as real paths rather than by comparing `import.meta.url` to
+ * `process.argv[1]` directly: the two are different shapes (a file URL and a
+ * platform path), and on Windows they also disagree about separators and drive
+ * letter case. `realpathSync` on both sides settles all of it.
+ */
+function invokedDirectly() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    // An entry path that no longer resolves is not this file.
+    return false;
+  }
+}
+
+if (invokedDirectly()) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
+// Exported for `__tests__/import-obf-gates.test.ts`. Deliberately just the
+// pure parts — the gates and the parser — so a test never needs a network or a
+// service-role key to pin the behaviour this step is measured on.
+export { parseInci, toRow, guessType, normalise, MIN_KNOWN_INGREDIENT_RATIO };

@@ -6,9 +6,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { quizTopPadding, useQuizFrame } from "@/components/QuizFrame";
 import { Text } from "@/components/Text";
-import { TERRACOTTA } from "@/components/shell/shared";
-import { quizStepCount } from "@/lib/profile";
-import { DOT_INACTIVE, INK, MUTED } from "@/lib/tokens";
+import { ProgressDots } from "@/components/shell/shared";
+import { ONBOARDING_INTRO_SCREEN_COUNT, TOTAL_ONBOARDING_STEPS } from "@/lib/profile";
+import { INK, MUTED } from "@/lib/tokens";
 
 // How long a step's content takes to fade in when it becomes the one showing.
 const CONTENT_FADE_MS = 200;
@@ -16,7 +16,6 @@ const CONTENT_FADE_MS = 200;
  *  Skip sits on the first row, the dots ~95pt below it, then the back arrow,
  *  then the question. */
 const DOTS_TOP = 44;
-const DOT_SIZE = 7.2;
 
 type Props = {
   /** 1-based index into the quiz. */
@@ -56,7 +55,6 @@ export function QuizScreen({
   const insets = useSafeAreaInsets();
   const { setFooter, releaseFooter } = useQuizFrame();
   const [opacity] = useState(() => new Animated.Value(0));
-  const steps = Array.from({ length: quizStepCount() }, (_, i) => i + 1);
 
   // Re-runs whenever the label, state or action changes while this step is
   // showing, and again when it becomes the one showing after Back.
@@ -85,26 +83,15 @@ export function QuizScreen({
 
   return (
     <Animated.View style={{ flex: 1, opacity }}>
-      <View
-        style={{
-          marginTop: quizTopPadding(insets.top) + DOTS_TOP,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-        }}
-      >
-        {steps.map((s) => (
-          <View
-            key={s}
-            style={{
-              width: DOT_SIZE,
-              height: DOT_SIZE,
-              borderRadius: DOT_SIZE / 2,
-              backgroundColor: s === step ? TERRACOTTA : DOT_INACTIVE,
-            }}
-          />
-        ))}
+      {/* Part of the same rail the intro's 3 dots draw (see
+          lib/profile.ts's TOTAL_ONBOARDING_STEPS) rather than a fresh 4-dot
+          sequence of its own — finishing the intro used to look like
+          finishing onboarding, right before a second countdown started. */}
+      <View style={{ marginTop: quizTopPadding(insets.top) + DOTS_TOP }}>
+        <ProgressDots
+          count={TOTAL_ONBOARDING_STEPS}
+          activeIndex={ONBOARDING_INTRO_SCREEN_COUNT + step - 1}
+        />
       </View>
 
       {showBack ? (

@@ -1,5 +1,24 @@
 {
   "enabledPlugins": {
     "expo@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint)",
+      "Bash(npm test)",
+      "Bash(tasklist *)",
+      "Bash(git fetch *)",
+      "Bash(npx expo lint)",
+      "Bash(gh project field-list *)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx jest)",
+      "PowerShell(git status *)",
+      "PowerShell(git diff *)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Get-NetFirewallRule *)",
+      "PowerShell(Get-NetIPAddress *)"
+    ]
   }
 }
