@@ -10,7 +10,6 @@ import { Text } from "@/components/Text";
 import { analyseLabel } from "@/data/api";
 import { coverFitCropRect, type Rect, type Size } from "@/lib/crop-to-guide";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
-import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, CTA, INK, MUTED, withAlpha } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). The live camera view stays plain
@@ -35,28 +34,6 @@ type Status =
 
 export default function ScanLabel() {
   const { barcode } = useLocalSearchParams<{ barcode?: string }>();
-
-  /**
-   * The name the user already told us, if they did.
-   *
-   * When a barcode misses, the scanner offers "Know what this is? Tell us its
-   * name", and `UnknownProductNote` keeps the answer in `productSuggestions`.
-   * That store is deliberately device-only — nothing writes a stranger's typed
-   * name into the shared catalogue, and the copy says so.
-   *
-   * A photograph is different. It is evidence, `label-ocr` already accepts an
-   * optional `name` and already refuses to overwrite a row that has a real one,
-   * and without this the row it creates is called "Scanned product". So the
-   * name rides along with the photo that justifies it, and stays unused
-   * otherwise.
-   *
-   * Read from the store rather than passed as a route param, so it works from
-   * every entry point — the scanner's miss panel, a history row, the product
-   * screen — without each one having to remember to forward it.
-   */
-  const suggestedName = useAppStore((s) =>
-    barcode ? s.productSuggestions.find((p) => p.barcode === barcode)?.name : undefined
-  );
   const [permission, requestPermission] = useCameraPermissions();
   const [status, setStatus] = useState<Status>({ kind: "framing" });
   const camera = useRef<CameraView>(null);
@@ -176,7 +153,7 @@ export default function ScanLabel() {
         return;
       }
 
-      const result = await analyseLabel(clean.base64, { barcode, name: suggestedName });
+      const result = await analyseLabel(clean.base64, { barcode });
 
       // The server's "did we find enough text to try" check happens before it
       // knows whether any of that text is actually an ingredient. A photo of
