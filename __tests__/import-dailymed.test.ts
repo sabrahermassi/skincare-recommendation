@@ -163,16 +163,30 @@ describe("one bottle, many labels", () => {
    * five times in a ten-row sample while this was written. Without an identity
    * key the catalogue fills with duplicates of one bottle.
    */
-  it("treats the same brand and name as one product", () => {
-    const a = identityKey({ brand: "SQWEEN LLC", name: "Sqween Mineral Sunscreen SPF 30" });
-    const b = identityKey({ brand: "Sqween  LLC", name: "SQWEEN MINERAL SUNSCREEN SPF 30" });
-    expect(a).toBe(b);
+  it("treats two labels with the same title as one product", () => {
+    expect(identityKey("SQWEEN SUNSCREEN (ZINC OXIDE) CREAM [SQWEEN LLC]")).toBe(
+      identityKey("sqween  sunscreen  (zinc oxide)  cream [sqween llc] ")
+    );
   });
 
   it("keeps genuinely different products apart", () => {
-    const a = identityKey({ brand: "SQWEEN LLC", name: "Sunscreen SPF 30" });
-    const b = identityKey({ brand: "SQWEEN LLC", name: "Sunscreen SPF 50" });
-    expect(a).not.toBe(b);
+    expect(identityKey("A SUNSCREEN SPF 30 (ZINC OXIDE) CREAM [B]")).not.toBe(
+      identityKey("A SUNSCREEN SPF 50 (ZINC OXIDE) CREAM [B]")
+    );
+  });
+
+  /**
+   * Keyed on the whole title rather than the brand and trimmed name it used
+   * to be. `parseTitle` strips the parenthetical and the dosage form, which is
+   * exactly where two different sunscreens differ — both of these reduced to
+   * "b|a", so the second was skipped before its label was ever fetched and
+   * `formulaKey` never got to keep them apart. A mineral and a chemical
+   * sunscreen are not the same product.
+   */
+  it("does not collapse a mineral and a chemical sunscreen sharing a name", () => {
+    expect(identityKey("A (ZINC OXIDE) CREAM [B]")).not.toBe(
+      identityKey("A (AVOBENZONE,OCTOCRYLENE) CREAM [B]")
+    );
   });
 });
 
@@ -435,5 +449,37 @@ describe("the actives cannot rescue a malformed inactive list", () => {
     const row = expectKept(toRow({ ...SUMMARY, title }, xml, KNOWN, []));
     expect(row.ingredients[0].inci_name).toBe("butyl methoxydibenzoylmethane");
     expect(row.ingredients.map((i: { inci_name: string }) => i.inci_name)).toContain("water");
+  });
+});
+
+describe("one filter name inside another", () => {
+  const labelWith = (actives: string) =>
+    `<x><y>Active Ingredients ${actives}</y><y>Inactive Ingredients Water, Silica</y></x>`;
+
+  /**
+   * "oxybenzone" is a substring of "dioxybenzone" and both are filters in
+   * their own right, so a plain substring scan reported benzophenone-8, which
+   * is correct, *and* benzophenone-3, which is not in the product at all.
+   *
+   * An invented ingredient is worse than a missing one: it is scored, shown to
+   * the user as fact, and folded into the key that decides whether two
+   * products are the same.
+   */
+  it("does not invent benzophenone-3 from a dioxybenzone label", () => {
+    expect(activeIngredients("A (SUNSCREEN) [B]", labelWith("Dioxybenzone 3% Sunscreen"))).toEqual([
+      "benzophenone-8",
+    ]);
+  });
+
+  it("still finds oxybenzone when the label really names it", () => {
+    expect(activeIngredients("A (SUNSCREEN) [B]", labelWith("Oxybenzone 4% Sunscreen"))).toEqual([
+      "benzophenone-3",
+    ]);
+  });
+
+  it("finds both when both are present", () => {
+    expect(
+      activeIngredients("A (SUNSCREEN) [B]", labelWith("Dioxybenzone 3% Oxybenzone 4%"))
+    ).toEqual(["benzophenone-8", "benzophenone-3"]);
   });
 });

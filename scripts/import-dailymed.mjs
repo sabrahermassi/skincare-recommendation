@@ -250,10 +250,44 @@ function filtersByScan(text) {
   const haystack = text.toLowerCase();
   const found = [];
   for (const [drug, inci] of Object.entries(UV_FILTERS)) {
-    const at = haystack.indexOf(drug);
+    const at = standaloneIndexOf(haystack, drug);
     if (at !== -1) found.push({ at, inci });
   }
   return found.sort((a, b) => a.at - b.at).map((f) => f.inci);
+}
+
+/**
+ * Where `needle` appears in `haystack` as a whole name, or -1.
+ *
+ * A plain `indexOf` is not enough, and the comment above this function used to
+ * claim otherwise — that these names are specific enough not to occur by
+ * accident. One pair falsifies it: "oxybenzone" is a substring of
+ * "dioxybenzone", and both are filters in their own right. A label listing
+ * Dioxybenzone therefore produced benzophenone-8, which is correct, *and*
+ * benzophenone-3, which is not in the product at all.
+ *
+ * An invented ingredient is worse than a missing one. It is scored, shown to
+ * the user as fact, and folded into the formula key that decides whether two
+ * products are the same — so it would have quietly changed verdicts on every
+ * label carrying the one filter that triggers it.
+ *
+ * Boundaries are checked by character class rather than a regex: building one
+ * per name means escaping, and a `\b` written into this file has twice been
+ * eaten in transit and arrived as a literal backspace.
+ */
+function standaloneIndexOf(haystack, needle) {
+  const isLetter = (ch) => ch !== undefined && ch >= "a" && ch <= "z";
+  let from = 0;
+  for (;;) {
+    const at = haystack.indexOf(needle, from);
+    if (at === -1) return -1;
+    const before = haystack[at - 1];
+    const after = haystack[at + needle.length];
+    if (!isLetter(before) && !isLetter(after)) return at;
+    // Embedded in a longer word — keep looking, since the same label may name
+    // it properly further on.
+    from = at + 1;
+  }
 }
 
 /**
@@ -419,14 +453,23 @@ async function fetchKnownIngredients(db) {
 /**
  * DailyMed publishes one SPL per labeler per revision, so the same physical
  * product appears many times over — a single sunscreen turned up five times in
- * a ten-row sample. Without this the catalogue fills with duplicates of one
- * bottle.
+ * a ten-row sample. This is what stops a second request being spent on a label
+ * already seen, before the formula that would settle it has been fetched.
  *
- * Keyed on brand and name rather than on any identifier, because there is no
- * shared identifier to key on: setid is per-SPL and NDC is per-package.
+ * The whole title, not the brand and trimmed name it was keyed on first.
+ * `parseTitle` strips the parenthetical and the dosage form, which is exactly
+ * where two different sunscreens differ: "A (ZINC OXIDE) CREAM [B]" and
+ * "A (AVOBENZONE, OCTOCRYLENE) CREAM [B]" both reduce to "b|a", so the second
+ * was skipped here and `formulaKey` — which would have kept them apart — never
+ * got to see it. A mineral and a chemical sunscreen are not the same product.
+ *
+ * Keying on the title rather than an identifier because there is no shared one:
+ * setid is per-SPL and NDC is per-package. Two SPLs whose titles agree
+ * completely are the same product; anything the title does not settle is left
+ * to `formulaKey` after the label is in hand.
  */
-function identityKey(product) {
-  return `${product.brand}|${product.name}`.toLowerCase().replace(/\s+/g, " ");
+function identityKey(title) {
+  return (title ?? "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
 /**
@@ -505,12 +548,12 @@ async function main() {
       }
 
       // Cheapest rejections first, before spending a request on the label.
-      const { name, labeler } = parseTitle(spl.title ?? "");
+      const { name } = parseTitle(spl.title ?? "");
       if (!name) {
         rejected.set("no name or setid", (rejected.get("no name or setid") ?? 0) + 1);
         continue;
       }
-      const identity = identityKey({ brand: labeler ?? "Unknown", name });
+      const identity = identityKey(spl.title);
       if (seenIdentity.has(identity)) {
         duplicates += 1;
         continue;
