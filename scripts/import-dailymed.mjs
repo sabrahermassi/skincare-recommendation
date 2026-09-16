@@ -79,6 +79,45 @@ const MIN_KNOWN_INGREDIENT_RATIO = 0.6;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
+ * How long a single DailyMed request may hang before this script gives up on
+ * it and treats it as failed. DailyMed publishes no SLA; long enough for a
+ * slow but real response, short enough that a stalled connection cannot hang
+ * a run that would otherwise finish in minutes.
+ */
+const REQUEST_TIMEOUT_MS = 20_000;
+
+/**
+ * `fetch`, with a timeout and one retry for a failure that looks transient —
+ * a network error, an abort, or a 5xx. Same shape as the OBF importer's 429
+ * retry: once, after a short wait, and a second failure in a row is treated
+ * as real rather than retried again, so a page 50 pages into a run cannot
+ * turn a five-minute import into an indefinite one.
+ */
+async function fetchWithRetry(url, description, retried = false) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: controller.signal });
+  } catch (err) {
+    clearTimeout(timer);
+    if (retried) throw err;
+    const reason = err.name === "AbortError" ? `timed out after ${REQUEST_TIMEOUT_MS}ms` : err.message;
+    console.warn(`\n  ! ${description} failed (${reason}). Waiting and retrying once.`);
+    await sleep(REQUEST_INTERVAL_MS);
+    return fetchWithRetry(url, description, true);
+  }
+  clearTimeout(timer);
+
+  if (res.status >= 500 && !retried) {
+    console.warn(`\n  ! ${description} returned ${res.status}. Waiting and retrying once.`);
+    await sleep(REQUEST_INTERVAL_MS);
+    return fetchWithRetry(url, description, true);
+  }
+  return res;
+}
+
+/**
  * One page of sunscreen SPL summaries: setid, title, publication date.
  *
  * Identity only — the summary carries no ingredients, which is why each kept
@@ -86,7 +125,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  */
 async function fetchPage(page) {
   const url = `${DAILYMED}/spls.json?drug_name=sunscreen&pagesize=${PAGE_SIZE}&page=${page}`;
-  const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
+  const res = await fetchWithRetry(url, `DailyMed page ${page}`);
   if (!res.ok) throw new Error(`DailyMed page ${page} returned ${res.status} ${res.statusText}`);
   const body = await res.json();
   if (!Array.isArray(body.data)) {
@@ -104,9 +143,7 @@ async function fetchPage(page) {
  * which is what scoring reads, is only in the label text.
  */
 async function fetchLabel(setid) {
-  const res = await fetch(`${DAILYMED}/spls/${setid}.xml`, {
-    headers: { "User-Agent": USER_AGENT },
-  });
+  const res = await fetchWithRetry(`${DAILYMED}/spls/${setid}.xml`, `DailyMed SPL ${setid}`);
   if (!res.ok) throw new Error(`DailyMed SPL ${setid} returned ${res.status} ${res.statusText}`);
   return res.text();
 }
