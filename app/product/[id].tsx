@@ -27,7 +27,7 @@ import { relativeTime } from "@/lib/format";
 import { isPersonalized } from "@/lib/profile";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SELECTED_STRONG, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, MUTED_SOFT, SELECTED_STRONG, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
 // draw from the shared `PrimaryButton` component's `tone="cta"` — added
@@ -222,6 +222,19 @@ export default function ProductScreen() {
             Product not found
           </Text>
           <PrimaryButton tone="cta" size={52} label="Scan another" onPress={() => router.replace("/")} />
+          {/* "Scan another" assumes a physical bottle in hand, which isn't
+              true for everyone who lands here — a stale link, a bookmark to
+              a removed product. Same escape hatch the missed-barcode panel
+              offers, for the same reason. */}
+          <Pressable
+            onPress={() => router.push("/browse")}
+            accessibilityRole="link"
+            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+          >
+            <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+              Browse instead
+            </Text>
+          </Pressable>
         </View>
       </View>
     );
@@ -383,9 +396,30 @@ export default function ProductScreen() {
               {verdictHeadline(match)}
             </Text>
             {explanation.length > 0 && (
-              <Text style={{ paddingTop: 2, fontSize: TYPE.label, fontWeight: "600", color: panel.ink }}>
-                {showBreakdown ? "Hide the breakdown" : "How was this worked out?"}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingTop: 2 }}>
+                <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: panel.ink }}>
+                  {showBreakdown ? "Hide the breakdown" : "How was this worked out?"}
+                </Text>
+                {/* Same chevron RiskCards uses for its own "tap for detail"
+                    affordance — this panel had none, relying on the text
+                    alone to signal it's tappable underneath a much louder
+                    score and headline. Rotates to point down while open. */}
+                <Svg
+                  width={11}
+                  height={11}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  style={{ transform: [{ rotate: showBreakdown ? "90deg" : "0deg" }] }}
+                >
+                  <Path
+                    d="m9 5 7 7-7 7"
+                    stroke={MUTED_SOFT}
+                    strokeWidth={2.4}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </View>
             )}
           </View>
         </Pressable>

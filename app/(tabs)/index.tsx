@@ -568,6 +568,33 @@ function BarcodeStage({
           </View>
         )}
 
+        {/* A miss is the common case here, not the exception — the catalogue
+            covers a fraction of what's on shelves — so the recovery options
+            above (photograph it, try again) need a third: check whether it's
+            already in the library under a different lookup path. Same
+            pattern as the permission-denied panel's own Browse link above. */}
+        {status.kind === "missed" && (
+          <Pressable
+            onPress={() => {
+              preserveMode();
+              router.push("/browse");
+            }}
+            accessibilityRole="link"
+            style={{
+              minHeight: TOUCH_TARGET,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            className="active:opacity-70"
+          >
+            <Text
+              style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}
+            >
+              Or find it in Browse instead.
+            </Text>
+          </Pressable>
+        )}
+
         {/* Drawn on a panel rather than straight onto the viewfinder: this is
             the one place on the stage that takes typed input, and its label
             and field were built for the light canvas. */}

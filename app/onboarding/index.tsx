@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OnboardingShell, type OnboardingScreenContent } from "@/components/shell/OnboardingShell";
 import { Text } from "@/components/Text";
 import { TERRACOTTA } from "@/components/shell/shared";
-import { quizRoutes } from "@/lib/profile";
+import { quizRoutes, TOTAL_ONBOARDING_STEPS } from "@/lib/profile";
 import { CANVAS, INK } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -109,7 +109,13 @@ export default function Onboarding() {
 
   return (
     <View style={{ flex: 1 }}>
-      <OnboardingShell screens={SCREENS} activeIndex={index} onNext={onNext} onSkip={goToQuiz} />
+      <OnboardingShell
+        screens={SCREENS}
+        activeIndex={index}
+        onNext={onNext}
+        onSkip={goToQuiz}
+        totalDots={TOTAL_ONBOARDING_STEPS}
+      />
 
       {showErasedToast && (
         <View

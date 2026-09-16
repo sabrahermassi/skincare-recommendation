@@ -205,10 +205,14 @@ function poreRisk(product: ProductWithIngredients): Risk {
   // name, even the contested-only case, so the card is clickable throughout.
   const { hits, warned } = verdict;
   if (warned.length === 0) {
+    // Not `neutral` — that tone also means "Unknown" (no data at all) a few
+    // lines up, and "sources disagree" is a real signal, just an uncertain
+    // one. `watch` is the same "worth knowing" weight the ingredient detail
+    // screen gives its own middle rung.
     return {
       level: "Contested",
       note: `${hits.length} sources disagree`,
-      tone: "neutral",
+      tone: "watch",
       hasEntries: true,
     };
   }
