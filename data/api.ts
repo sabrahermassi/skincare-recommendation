@@ -1,5 +1,6 @@
 import { defaultPackagingType } from "@/components/BottleIcon";
 import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, RESOLVE_SCAN_FUNCTION, supabase } from "@/lib/supabase";
+import { useAppStore } from "@/store/useAppStore";
 import {
   abandonDiskRead,
   addScannedToCatalogue,
@@ -1013,7 +1014,18 @@ export async function fetchProductByBarcode(
  * the next person to scan the same product gets an instant hit.
  */
 export type LabelAnalysis =
-  | { ok: true; product: ProductWithIngredients; recognised: number; total: number }
+  | {
+      ok: true;
+      product: ProductWithIngredients;
+      recognised: number;
+      total: number;
+      /** Present only for a brand-new, barcode-less scan — the capability
+       *  `attachBarcodeToScan`/`discardUnreachableScan` need to resolve it
+       *  later. Absent whenever the row is already permanent (a barcode
+       *  was in hand, or an existing identity-only row was reused), since
+       *  there is nothing to resolve. See supabase/functions/resolve-scan. */
+      scanToken?: string;
+    }
   | { ok: false; reason: "not_configured" | "unreadable" | "too_little_text" | "rate_limited"; rawText?: string };
 
 /**
@@ -1082,6 +1094,7 @@ export async function analyseLabel(
     product: scannedProduct,
     recognised: Number(data.recognised ?? 0),
     total: Number(data.total ?? 0),
+    scanToken: typeof data.scanToken === "string" ? data.scanToken : undefined,
   };
 }
 
@@ -1102,12 +1115,13 @@ export type AttachBarcodeResult =
 
 export async function attachBarcodeToScan(
   productId: string,
-  barcode: string
+  barcode: string,
+  scanToken: string
 ): Promise<AttachBarcodeResult> {
   if (!usingSupabase()) return { ok: false, reason: "failed" };
 
   const { data, error } = await supabase!.functions.invoke(RESOLVE_SCAN_FUNCTION, {
-    body: { action: "attach-barcode", productId, barcode },
+    body: { action: "attach-barcode", productId, barcode, token: scanToken },
   });
 
   if (error) {
@@ -1131,21 +1145,36 @@ export async function attachBarcodeToScan(
 
 /**
  * The decline path for a barcode-less scan — deletes the row outright.
- * Silent about whether it was already gone (evicted by the grace-period
- * job, or discarded already): the caller only ever needs "there is
- * nothing left to show", not which of those it was.
  *
- * Not removed from the local cache here — the caller navigates away from
- * the now-deleted product immediately after this resolves, and nothing
- * else in this session holds its id to revisit. Same category of
- * staleness this app already tolerates elsewhere (the cache is a mirror,
- * not a live subscription) rather than a new gap.
+ * Also strips any local reference to it. Opening the product screen logs a
+ * `history` entry (and possibly a `savedProducts` one) *before* this screen
+ * ever gets a chance to run — review on PR #109 caught that without this,
+ * declining left a dead entry behind that Saved/History could never
+ * resolve, rendering as a bare OCR id forever.
+ *
+ * Cleanup only runs when the server confirms this call is what actually
+ * deleted the row (`discarded: true`), never on a no-op. A stale
+ * `offerBarcode` screen left underneath the stack after a successful
+ * attach (a race this function has no way to detect on its own) must not
+ * be able to strip a `history`/`savedProducts` reference to a product that
+ * is valid and permanent now just because someone tapped "No thanks" on
+ * the leftover screen — the `source='ocr' and barcode is null` scope on
+ * the server rejects that attempt as a no-op, and this mirrors that
+ * decision locally instead of assuming success.
  */
-export async function discardUnreachableScan(productId: string): Promise<void> {
+export async function discardUnreachableScan(
+  productId: string,
+  scanToken: string
+): Promise<void> {
   if (!usingSupabase()) return;
-  await supabase!.functions.invoke(RESOLVE_SCAN_FUNCTION, {
-    body: { action: "discard", productId },
+  const { data } = await supabase!.functions.invoke(RESOLVE_SCAN_FUNCTION, {
+    body: { action: "discard", productId, token: scanToken },
   });
+  if (!data?.discarded) return;
+
+  const { removeHistoryEntry, savedProducts, toggleSaved } = useAppStore.getState();
+  removeHistoryEntry(productId);
+  if (savedProducts.some((p) => p.id === productId)) toggleSaved(productId);
 }
 
 /**

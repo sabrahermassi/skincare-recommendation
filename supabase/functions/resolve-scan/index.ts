@@ -14,12 +14,21 @@
 // calls this function. See migration 0014 and `label-ocr`'s own
 // `OCR_GRACE_PERIOD_MS` comment for the rest of that story.
 //
-// Unauthenticated, like every other scan endpoint in this app — so every
-// operation below is scoped to `source = 'ocr' and barcode is null`. That
-// is not a convenience filter, it is the entire security boundary: it is
-// what stops this function from being usable to delete or re-key an
-// imported product, or a scan that already has a barcode, whatever id a
-// caller passes in.
+// Unauthenticated, like every other scan endpoint in this app. Two layers
+// scope what a caller can do:
+//
+//   `source = 'ocr' and barcode is null` on every query — this stops the
+//   function being usable against an imported product or a scan that
+//   already has a barcode, whatever id is passed in.
+//
+//   a per-scan token, checked against `scan_tokens` (migration 0015) — the
+//   filter above only limits WHAT KIND of row can be touched, not WHO gets
+//   to touch it. `products` is publicly readable, so an id-only check would
+//   let anyone enumerate every barcode-less scan currently on its grace
+//   timer and hijack or discard someone else's — including permanently
+//   attaching a wrong barcode to their formula, which would then poison
+//   every future lookup of that barcode via `label-ocr`'s own
+//   `productForBarcode` short-circuit. Found in review on PR #109.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -58,16 +67,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json(req, { error: "Body must be JSON" }, 400);
   }
 
-  const { action, productId } = body;
+  const { action, productId, token } = body;
   if (typeof productId !== "string" || productId.length === 0) {
     return json(req, { error: "productId is required" }, 400);
   }
   if (action !== "attach-barcode" && action !== "discard") {
     return json(req, { error: 'action must be "attach-barcode" or "discard"' }, 400);
   }
+  if (typeof token !== "string" || token.length === 0) {
+    return json(req, { error: "token is required" }, 400);
+  }
 
   if (!withinRateLimit(callerKey(req), RATE_LIMIT)) {
     return json(req, { error: "Too many requests" }, 429);
+  }
+
+  // Proof of ownership — see the file header. `not_found` rather than a
+  // more specific "forbidden" for a mismatch too: this is not a place to
+  // help a caller distinguish "wrong token" from "row already gone", since
+  // both should look identical to anyone who does not already hold the
+  // right token.
+  const { data: tokenRow } = await db
+    .from("scan_tokens")
+    .select("token")
+    .eq("product_id", productId)
+    .maybeSingle();
+  if (!tokenRow || tokenRow.token !== token) {
+    return json(req, { error: "not_found" }, 404);
   }
 
   if (action === "discard") {
@@ -133,6 +159,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // there is nothing left here for the client to attach to.
     return json(req, { error: "not_found" }, 404);
   }
+
+  // The row is permanent now, so the token that used to gate resolving it
+  // has nothing left to protect. A discard's equivalent cleanup needs no
+  // code of its own — deleting the product cascades onto its scan_tokens
+  // row via the foreign key (migration 0015).
+  await db.from("scan_tokens").delete().eq("product_id", productId);
 
   const { data: product, error: readbackError } = await db
     .from("products")

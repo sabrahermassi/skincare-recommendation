@@ -342,7 +342,37 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json(req, { error: "Could not save the scan" }, 502);
   }
 
-  return json(req, { product: data, recognised: known.size, total: parsed.length }, 200);
+  // The capability that lets this scan be resolved later — see migration
+  // 0015. Minted for exactly the rows that got the grace period above: a
+  // barcode-having write (fresh or reusing `existing`) has nothing to
+  // resolve, since it is already permanent and findable. `products` is
+  // publicly readable, so without this any caller could enumerate every
+  // barcode-less scan on its grace timer and hijack or delete someone
+  // else's — see resolve-scan's own header comment for what that would
+  // have allowed.
+  //
+  // Best-effort, not part of the write's own success: the product itself
+  // is already saved and correct at this point, and a token that failed to
+  // insert just means this particular scan cannot be resolved through the
+  // UI before it self-evicts — a safe, fail-closed degradation, not a
+  // reason to fail a scan that otherwise worked.
+  let scanToken: string | undefined;
+  if (!barcode) {
+    scanToken = crypto.randomUUID();
+    const { error: tokenError } = await db
+      .from("scan_tokens")
+      .insert({ product_id: product.id, token: scanToken });
+    if (tokenError) {
+      console.error("scan_tokens insert failed:", tokenError);
+      scanToken = undefined;
+    }
+  }
+
+  return json(
+    req,
+    { product: data, recognised: known.size, total: parsed.length, scanToken },
+    200
+  );
 });
 
 // ── OCR ─────────────────────────────────────────────────────────────────────

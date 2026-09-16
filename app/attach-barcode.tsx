@@ -29,7 +29,7 @@ type Status =
 
 export default function AttachBarcode() {
   const insets = useSafeAreaInsets();
-  const { productId } = useLocalSearchParams<{ productId: string }>();
+  const { productId, scanToken } = useLocalSearchParams<{ productId: string; scanToken: string }>();
   const [permission, requestPermission] = useCameraPermissions();
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const busy = useRef(false);
@@ -39,11 +39,12 @@ export default function AttachBarcode() {
     busy.current = true;
     setStatus({ kind: "attaching", code });
 
-    const result = await attachBarcodeToScan(productId, code);
+    const result = await attachBarcodeToScan(productId, code, scanToken);
     if (result.ok) {
-      // Replace, not push — the product screen behind this one still has
-      // `offerBarcode=1` in its own params, and going back to it would
-      // show the prompt again for a row that's already permanent now.
+      // Replace — `BarcodeOfferPrompt` already replaced the stale
+      // `offerBarcode` screen with this one rather than pushing on top of
+      // it (see that component's own comment on why), so there is nothing
+      // left underneath to worry about landing back on.
       router.replace({ pathname: "/product/[id]", params: { id: productId } });
       return;
     }

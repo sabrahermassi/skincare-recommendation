@@ -131,7 +131,11 @@ const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 
 export default function ProductScreen() {
   const insets = useSafeAreaInsets();
-  const { id, offerBarcode } = useLocalSearchParams<{ id: string; offerBarcode?: string }>();
+  const { id, offerBarcode, scanToken } = useLocalSearchParams<{
+    id: string;
+    offerBarcode?: string;
+    scanToken?: string;
+  }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -425,7 +429,9 @@ export default function ProductScreen() {
           </View>
         </Pressable>
 
-        {offerBarcode === "1" && <BarcodeOfferPrompt productId={id} />}
+        {offerBarcode === "1" && scanToken && (
+          <BarcodeOfferPrompt productId={id} scanToken={scanToken} />
+        )}
         {askForProfile && <InlineProfilePrompt />}
 
         {/*

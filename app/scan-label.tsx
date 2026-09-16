@@ -181,12 +181,16 @@ export default function ScanLabel() {
         // migration 0014 and resolve-scan). Flagging it here is what lets
         // the product screen offer the "scan the barcode too?" follow-up
         // only on the visit that just created the row, not on every later
-        // visit to it.
+        // visit to it. `scanToken` is threaded along too — without it
+        // there is nothing safe to resolve the offer with (see
+        // resolve-scan's ownership check), so the product screen treats a
+        // missing token the same as no offer at all.
         router.replace({
           pathname: "/result/[id]",
-          params: barcode
-            ? { id: result.product.id }
-            : { id: result.product.id, offerBarcode: "1" },
+          params:
+            barcode || !result.scanToken
+              ? { id: result.product.id }
+              : { id: result.product.id, offerBarcode: "1", scanToken: result.scanToken },
         });
         return;
       }

@@ -19,8 +19,19 @@ import { BORDER_INACTIVE, CANVAS, INK, MUTED, TYPE } from "@/lib/tokens";
  * not the only way it goes away — walking off without answering has the
  * same effect once that timer runs out. Only the "Scan barcode" path
  * changes the outcome.
+ *
+ * `scanToken` is the capability `resolve-scan` requires before it will
+ * touch this row — `products` is publicly readable, so an id alone would
+ * let anyone resolve anyone else's pending scan (see that function's own
+ * header comment). Both actions below pass it through unchanged.
  */
-export function BarcodeOfferPrompt({ productId }: { productId: string }) {
+export function BarcodeOfferPrompt({
+  productId,
+  scanToken,
+}: {
+  productId: string;
+  scanToken: string;
+}) {
   const [discarding, setDiscarding] = useState(false);
 
   async function decline() {
@@ -28,7 +39,7 @@ export function BarcodeOfferPrompt({ productId }: { productId: string }) {
     // Best-effort: if this fails (offline, a dropped connection), the grace
     // expiry still cleans the row up on its own — nothing here needs to
     // retry or block on the network succeeding.
-    await discardUnreachableScan(productId);
+    await discardUnreachableScan(productId, scanToken);
     router.replace("/");
   }
 
@@ -67,7 +78,18 @@ export function BarcodeOfferPrompt({ productId }: { productId: string }) {
           tone="cta"
           size={50}
           label="Scan barcode"
-          onPress={() => router.push({ pathname: "/attach-barcode", params: { productId } })}
+          // `replace`, not `push` — review on PR #109 caught that pushing
+          // left this screen (with its now-stale `offerBarcode` param)
+          // underneath attach-barcode in the stack. After a successful
+          // attach that screen replaced only the top of the stack, so
+          // Back from the clean product screen returned to this exact
+          // prompt for a product that already had its barcode — offering
+          // to attach one "already taken" by itself, or discard a row
+          // that no longer exists. Replacing here instead means there is
+          // nothing stale left underneath once attach-barcode takes over.
+          onPress={() =>
+            router.replace({ pathname: "/attach-barcode", params: { productId, scanToken } })
+          }
           style={{ flex: 1 }}
         />
         <Pressable
