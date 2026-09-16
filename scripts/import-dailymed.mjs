@@ -342,25 +342,40 @@ function toRow(spl, xml, known, samples) {
   const inci = inactiveIngredients(xml);
   if (!inci) return "no inactive-ingredient section";
 
-  // Actives first. A US OTC label prints them first on its Drug Facts panel
-  // and they sit at 10-25% in a sunscreen, so they belong near the head of a
-  // concentration-ordered list. Prepending overstates them slightly against
-  // water; dropping them, which is what this did before, understates them
-  // completely. `parseInci` deduplicates, so a filter that also appears in the
-  // inactive list is kept once at the higher position.
-  const ingredients = parseInci([...activeIngredients(spl.title ?? "", xml), inci].join(", "));
-  if (ingredients.length < 2) return "fewer than 2 parsed ingredients";
+  // The inactive list is judged on its own, before anything is merged into it.
+  //
+  // This order is load-bearing and was not obvious. Some SPLs print their
+  // inactive ingredients with no separator at all, which parses to one giant
+  // token — the gates below are what refuse those. But UV filters are
+  // recognised names by construction, so prepending four of them to that
+  // single junk token gives five ingredients at four recognised: 0.8, clear of
+  // the threshold. The malformed label would sail through the gate it was
+  // supposed to fail, and be stored as the filters plus one enormous
+  // ingredient with every real inactive lost.
+  //
+  // Gating the inactive list alone is strictly the stricter test, since merging
+  // recognised names can only raise the ratio.
+  const inactive = parseInci(inci);
+  if (inactive.length < 2) return "fewer than 2 parsed ingredients";
 
-  const hits = ingredients.filter((i) => known.has(i.inci_name)).length;
-  if (hits / ingredients.length < MIN_KNOWN_INGREDIENT_RATIO) {
+  const inactiveHits = inactive.filter((i) => known.has(i.inci_name)).length;
+  if (inactiveHits / inactive.length < MIN_KNOWN_INGREDIENT_RATIO) {
     if (samples.length < 5) {
       samples.push(
-        `${name} — ${hits}/${ingredients.length} recognised: ` +
-          ingredients.slice(0, 6).map((i) => i.inci_name).join(", ")
+        `${name} — ${inactiveHits}/${inactive.length} recognised: ` +
+          inactive.slice(0, 6).map((i) => i.inci_name).join(", ")
       );
     }
     return "formula not recognised by the dictionary";
   }
+
+  // Only now the actives, in front. A US OTC label prints them first on its
+  // Drug Facts panel and they sit at 10-25% in a sunscreen, so they belong
+  // near the head of a concentration-ordered list. Prepending overstates them
+  // slightly against water; dropping them, which is what this did before,
+  // understates them completely. `parseInci` deduplicates, so a filter that
+  // also appears in the inactive list is kept once at the higher position.
+  const ingredients = parseInci([...activeIngredients(spl.title ?? "", xml), inci].join(", "));
 
   return {
     product: {

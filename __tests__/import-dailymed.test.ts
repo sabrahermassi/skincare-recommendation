@@ -389,3 +389,51 @@ describe("filters the title does not name", () => {
     expect(activeIngredients("A (SUNSCREEN) [B]", "<x>nothing here</x>")).toEqual([]);
   });
 });
+
+describe("the actives cannot rescue a malformed inactive list", () => {
+  /**
+   * A regression introduced by prepending the UV filters, and the reason the
+   * gates now judge the inactive list on its own first.
+   *
+   * Some SPLs print their inactive ingredients with no separator, which parses
+   * to one giant token — the gates exist to refuse exactly that. But filters
+   * are recognised names by construction, so four of them in front of that one
+   * junk token gives five ingredients at four recognised: 0.8, comfortably
+   * past the threshold. The malformed label would have passed the gate it was
+   * supposed to fail, stored as the filters plus one enormous ingredient with
+   * every real inactive lost.
+   */
+  const FOUR_FILTERS = "A (AVOBENZONE, HOMOSALATE, OCTISALATE, AND OCTOCRYLENE) SPRAY [B]";
+
+  it("still rejects an unpunctuated label that carries four known filters", () => {
+    const xml = splXml(
+      "Purified Water Aloe Barbadensis Leaf Juice Dicaprylyl Carbonate Butyloctyl Salicylate Isononyl Isononanoate"
+    );
+    // Caught by the count gate, since the unpunctuated line yields one token —
+    // which gate stops it is incidental, that it is stopped is not.
+    expect(typeof toRow({ ...SUMMARY, title: FOUR_FILTERS }, xml, KNOWN, [])).toBe("string");
+  });
+
+  /**
+   * The arithmetic that made this worth fixing rather than reasoning about.
+   *
+   * Two unrecognised inactives on their own are 0/2 — nothing like believable.
+   * Prepend four recognised filters and it becomes 4/6, or 0.67, past the 0.6
+   * threshold. So a formula the gate would refuse outright is admitted purely
+   * because the product is a sunscreen.
+   */
+  it("rejects a formula the filters alone would have lifted over the threshold", () => {
+    const xml = splXml("zzz one, zzz two");
+    expect(toRow({ ...SUMMARY, title: FOUR_FILTERS }, xml, KNOWN, [])).toBe(
+      "formula not recognised by the dictionary"
+    );
+  });
+
+  it("still keeps a well-formed label with the same filters", () => {
+    const xml = splXml("Water, Silica, Glyceryl Stearate, Tocopheryl Acetate");
+    const title = "A (AVOBENZONE, HOMOSALATE, OCTISALATE, AND OCTOCRYLENE) SPRAY [B]";
+    const row = expectKept(toRow({ ...SUMMARY, title }, xml, KNOWN, []));
+    expect(row.ingredients[0].inci_name).toBe("butyl methoxydibenzoylmethane");
+    expect(row.ingredients.map((i: { inci_name: string }) => i.inci_name)).toContain("water");
+  });
+});
