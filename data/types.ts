@@ -112,7 +112,12 @@ export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
  * the same vessel, so both take `productType: "cleanser-tube"`.
  *
  * Matches `design_handoff_forme_onboarding/bottle-set.html` exactly, one
- * value per `btl-<name>.svg` — see `components/BottleIcon.tsx`.
+ * value per `btl-<name>.svg` in that handoff. The SVG set this type once
+ * mapped to (`components/BottleIcon.tsx`'s old `BottleIcon`/`Btl*`
+ * components) is gone — deleted as dead code once
+ * `lib/productIllustration.ts`'s PNG set had fully replaced it — but the
+ * axis itself is still real: `components/BottleIcon.tsx`'s surviving
+ * `defaultPackagingType` still maps into it.
  */
 export type PackagingType =
   | "serum"
@@ -199,10 +204,10 @@ export type Product = {
   benefits: string[];
   /**
    * Packaging photo from the source. Unused by every screen now —
-   * `components/BottleIcon.tsx` draws every product as its `productType`'s
-   * illustrated bottle instead, real photo or not (see `SHOW_SOURCE_PHOTOS`
-   * in `data/api.ts` for why). Kept on the type because a real catalogue
-   * endpoint will still return it.
+   * `components/ProductThumbnail.tsx` draws every product as its
+   * `productType`'s illustrated bottle instead, real photo or not (see
+   * `SHOW_SOURCE_PHOTOS` in `data/api.ts` for why). Kept on the type because
+   * a real catalogue endpoint will still return it.
    */
   imageUrl: string | null;
   /**

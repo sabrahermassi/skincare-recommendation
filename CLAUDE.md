@@ -49,9 +49,10 @@ against). All take `--dry-run`; writing needs `SUPABASE_URL` +
 dashboard or `supabase projects api-keys --project-ref <ref>`).
 
 ```bash
-npm run import:inci-dictionary   # Open Beauty Facts taxonomy (~31k rows, the bulk)
-npm run import:cosing            # EU CosIng; no argument = the mirrored export
-npm run import:obf               # products, not the dictionary
+npm run import:inci-dictionary       # Open Beauty Facts taxonomy (~31k rows, the bulk)
+npm run import:cosing                # EU CosIng; no argument = the mirrored export
+npm run import:obf                   # products, not the dictionary
+npm run import:wikidata-synonyms     # ingredient_synonyms only, CAS-matched (e.g. "glycérine" → glycerin)
 ```
 
 `import:cosing` never overwrites a row another source already verified —

@@ -2,11 +2,11 @@ import type { ProductType } from "@/data/types";
 
 /**
  * Maps a product to a bottle illustration when it has no real photo —
- * replaces the flat-vector `BottleIcon` set (`components/BottleIcon.tsx`)
- * anywhere a product appears in a list, per the container-shape reference
- * the illustration set was drawn against. `BottleIcon` isn't deleted: the
- * ingredient-detail and other non-product surfaces still use its plain
- * shape icons, and this module is additive, not a replacement for it there.
+ * replaces the flat-vector `BottleIcon` set anywhere a product appears in a
+ * list, per the container-shape reference the illustration set was drawn
+ * against. That set is gone now — deleted as dead code once nothing else in
+ * the tree still rendered it (hygiene audit); `components/BottleIcon.tsx`
+ * keeps only `defaultPackagingType`, which is unrelated to this module.
  *
  * ## The mapping
  *

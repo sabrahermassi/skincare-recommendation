@@ -12,14 +12,15 @@ import { ProductThumbnail } from "@/components/ProductThumbnail";
 // this FOR.ME shell token is reused outside its original scope.
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
-import { canPhotographLabelFor, fetchProductsByIds } from "@/data/api";
-import type { ProductWithIngredients } from "@/data/types";
+import { canPhotographLabelFor, fetchProductsByIds, resolveIngredientNames } from "@/data/api";
+import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
 import { matchProduct, matchTone } from "@/lib/matching";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
-import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
+import { isVerified } from "@/lib/safety";
+import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
 
-type Tab = "saved" | "history";
+type Tab = "saved" | "history" | "ingredients";
 
 /**
  * The shelf and the log, on one screen.
@@ -40,10 +41,46 @@ export default function Saved() {
 
   const profile = useAppStore((s) => s.profile);
   const savedProducts = useAppStore((s) => s.savedProducts);
+  const savedIngredients = useAppStore((s) => s.savedIngredients);
   const history = useAppStore((s) => s.history);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
+  const restoreSavedProduct = useAppStore((s) => s.restoreSavedProduct);
   const clearHistory = useAppStore((s) => s.clearHistory);
   const removeHistoryEntry = useAppStore((s) => s.removeHistoryEntry);
+  const restoreHistoryEntry = useAppStore((s) => s.restoreHistoryEntry);
+
+  // A removed row's own data, held just long enough to put it back — nothing
+  // here is written until a timer or a tab switch clears it, so Undo can
+  // always restore exactly what was on screen a moment ago rather than
+  // re-deriving it from whatever the list looks like by the time it's
+  // tapped.
+  const [undo, setUndo] = useState<
+    { kind: "saved"; product: SavedProduct } | { kind: "history"; entry: HistoryEntry } | null
+  >(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+    };
+  }, []);
+  function showUndo(next: NonNullable<typeof undo>) {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndo(next);
+    undoTimer.current = setTimeout(() => setUndo(null), 4000);
+  }
+  function dismissUndo() {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndo(null);
+  }
+
+  // The one irreversible action on this screen (see `clearHistory` below) —
+  // gated behind a second tap the same way `profile.tsx`'s erase/discard
+  // confirms are, rather than firing on a single tap the way this used to.
+  // Reset whenever a segment tap leaves History, so switching tabs and back
+  // doesn't strand the confirm mid-air with no reminder of what it was
+  // confirming — same reasoning as profile.tsx's own reset, done at the tap
+  // that causes it rather than in an effect reacting to it after the fact.
+  const [confirmingClear, setConfirmingClear] = useState(false);
 
   // Newest first in both lists. `history` is already ordered by the store.
   const savedIds = useMemo(
@@ -118,16 +155,34 @@ export default function Saved() {
         <SegmentButton
           label={savedProducts.length ? `Saved (${savedProducts.length})` : "Saved"}
           active={tab === "saved"}
-          onPress={() => setTab("saved")}
+          onPress={() => {
+            setTab("saved");
+            setConfirmingClear(false);
+          }}
         />
         <SegmentButton
           label={history.length ? `History (${history.length})` : "History"}
           active={tab === "history"}
           onPress={() => setTab("history")}
         />
+        {/* No count in parens here, unlike the two siblings — three segments
+            leaves each about a third of the row, and "Ingredients (12)" is
+            long enough at that width to risk wrapping inside the pill's
+            fixed 48pt height (Code-inferred, not visually verified in this
+            environment — kept deliberately short rather than risk it). */}
+        <SegmentButton
+          label="Ingredients"
+          active={tab === "ingredients"}
+          onPress={() => {
+            setTab("ingredients");
+            setConfirmingClear(false);
+          }}
+        />
       </View>
 
-      {error ? (
+      {tab === "ingredients" ? (
+        <IngredientsTab names={savedIngredients} />
+      ) : error ? (
         <View style={{ alignItems: "center", gap: 12, paddingHorizontal: 40, paddingTop: 96 }}>
           <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
             Couldn&apos;t load your saved products. Check your connection and try again.
@@ -159,7 +214,16 @@ export default function Saved() {
               const tone = score === null ? null : matchTone(score);
               const verdict = tone ? VERDICT[tone] : VERDICT_NEUTRAL;
               return (
-                <Row key={id} product={product} bar={verdict.solid} onRemove={() => toggleSaved(id)}>
+                <Row
+                  key={id}
+                  product={product}
+                  bar={verdict.solid}
+                  onRemove={() => {
+                    const saved = savedProducts.find((p) => p.id === id);
+                    toggleSaved(id);
+                    if (saved) showUndo({ kind: "saved", product: saved });
+                  }}
+                >
                   {tone && score !== null && (
                     <View
                       style={{
@@ -185,6 +249,9 @@ export default function Saved() {
                 </Row>
               );
             })}
+            {undo?.kind === "saved" && (
+              <UndoBar label="Removed" onUndo={() => { restoreSavedProduct(undo.product); dismissUndo(); }} />
+            )}
           </ScrollView>
         )
       ) : history.length === 0 ? (
@@ -202,20 +269,52 @@ export default function Saved() {
             // this screen refuses to do.
             const snapshotTone = entry.scoreAtView === null ? null : matchTone(entry.scoreAtView);
             const bar = snapshotTone ? VERDICT[snapshotTone].solid : VERDICT_NEUTRAL.solid;
+            const removeEntry = () => {
+              removeHistoryEntry(entry.id);
+              showUndo({ kind: "history", entry });
+            };
             return product ? (
-              <Row key={entry.id} product={product} bar={bar} onRemove={() => removeHistoryEntry(entry.id)}>
+              <Row key={entry.id} product={product} bar={bar} onRemove={removeEntry}>
                 <HistoryMeta entry={entry} action />
               </Row>
             ) : (
-              <UnknownRow key={entry.id} entry={entry} bar={bar} onRemove={() => removeHistoryEntry(entry.id)} />
+              <UnknownRow key={entry.id} entry={entry} bar={bar} onRemove={removeEntry} />
             );
           })}
+          {undo?.kind === "history" && (
+            <UndoBar label="Removed" onUndo={() => { restoreHistoryEntry(undo.entry); dismissUndo(); }} />
+          )}
 
-          <Pressable onPress={clearHistory} style={{ alignItems: "center", paddingVertical: 12 }}>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-              Clear history
-            </Text>
-          </Pressable>
+          {confirmingClear ? (
+            <View style={{ alignItems: "center", gap: 10, paddingVertical: 12 }}>
+              <Text style={{ fontSize: 12.5, color: MUTED }}>Clear your whole history?</Text>
+              <View style={{ flexDirection: "row", gap: 20 }}>
+                <Pressable onPress={() => setConfirmingClear(false)} hitSlop={8}>
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+                    Keep it
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setConfirmingClear(false);
+                    dismissUndo();
+                    clearHistory();
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: DANGER, textDecorationLine: "underline" }}>
+                    Clear it
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable onPress={() => setConfirmingClear(true)} style={{ alignItems: "center", paddingVertical: 12 }}>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+                Clear history
+              </Text>
+            </Pressable>
+          )}
         </ScrollView>
       )}
     </View>
@@ -250,7 +349,7 @@ function SegmentButton({
         backgroundColor: active ? SELECTED : CANVAS,
       }}
     >
-      <Text style={{ fontSize: 13.5, fontWeight: "600", color: active ? INK : MUTED }}>
+      <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: "600", color: active ? INK : MUTED }}>
         {label}
       </Text>
     </Pressable>
@@ -355,6 +454,36 @@ function RemoveButton({ onPress }: { onPress: () => void }) {
         />
       </Svg>
     </Pressable>
+  );
+}
+
+/** A brief "Removed — Undo" strip after a per-row remove, so a mis-tap or a
+ *  change of mind has a way back before the 4s window in `showUndo` closes
+ *  it. Sits at the end of whichever list just changed, not a floating
+ *  toast — the two lists never show a removal at the same time, so there is
+ *  never more than one of these on screen. */
+function UndoBar({ label, onUndo }: { label: string; onUndo: () => void }) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: BORDER_INACTIVE,
+        backgroundColor: SURFACE,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+      }}
+    >
+      <Text style={{ fontSize: 13, color: MUTED }}>{label}</Text>
+      <Pressable onPress={onUndo} hitSlop={8}>
+        <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+          Undo
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -506,6 +635,146 @@ function EmptyState({ title, body, actionLabel }: { title: string; body: string;
         )}
       </View>
       <View style={{ flex: 0.6 }} />
+    </View>
+  );
+}
+
+/**
+ * The destination `savedIngredients` never had. The star on
+ * `app/ingredient/[inci].tsx` has toggled this list since it shipped, but
+ * nothing anywhere rendered it — a real, persisted list with no reader at
+ * all, the exact dead end flagged in review.
+ *
+ * Resolved through `resolveIngredientNames`, the same dictionary lookup
+ * `app/ingredient/[inci].tsx` already uses for its own no-product-context
+ * path — there is no product here either, just a starred name.
+ */
+function IngredientsTab({ names }: { names: string[] }) {
+  const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
+  const [byName, setByName] = useState<Record<string, Ingredient> | null>(null);
+  const [error, setError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+  const byNameRef = useRef(byName);
+  useEffect(() => {
+    byNameRef.current = byName;
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    setError(false);
+
+    if (names.length === 0) {
+      setByName({});
+      return;
+    }
+
+    // Same shrink-only reasoning as the Saved/History fetch above: unstarring
+    // never introduces a name this tab hasn't already resolved.
+    const current = byNameRef.current;
+    const missing = current ? names.filter((n) => !(n in current)) : names;
+    if (current && missing.length === 0) return;
+
+    resolveIngredientNames(current ? missing : names)
+      .then((resolved) => {
+        if (cancelled) return;
+        setByName((prev) => ({
+          ...(prev ?? {}),
+          ...Object.fromEntries(resolved.map((i) => [i.name, i])),
+        }));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("resolveIngredientNames failed:", err);
+        setError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [names, retryKey]);
+
+  if (error) {
+    return (
+      <View style={{ alignItems: "center", gap: 12, paddingHorizontal: 40, paddingTop: 96 }}>
+        <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
+          Couldn&apos;t load your starred ingredients. Check your connection and try again.
+        </Text>
+        <Pressable onPress={() => setRetryKey((k) => k + 1)}>
+          <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+            Try again
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (byName === null) {
+    return (
+      <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 96 }}>
+        <ActivityIndicator color={INK} />
+      </View>
+    );
+  }
+
+  if (names.length === 0) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40, gap: 8 }}>
+        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK, textAlign: "center" }}>
+          No starred ingredients yet
+        </Text>
+        <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
+          Tap the star on any ingredient&apos;s page to keep track of it here.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
+      {names.map((name) => {
+        const ingredient: Ingredient =
+          byName[name] ?? { id: name, name, comedogenic: 0, safety: "safe", verified: false };
+        const verdict = isVerified(ingredient)
+          ? ingredient.safety === "avoid"
+            ? VERDICT.low
+            : ingredient.safety === "caution"
+              ? VERDICT.medium
+              : VERDICT.high
+          : VERDICT_NEUTRAL;
+        return (
+          <IngredientRow key={name} name={name} bar={verdict.solid} onRemove={() => toggleSavedIngredient(name)} />
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+/** One starred-ingredient row. Same shape as `Row` above it: the card is a
+ *  `Link`, the unstar control is a sibling `Pressable` rather than nested
+ *  inside it — see `Row`'s own comment for why nesting breaks the link on
+ *  web. */
+function IngredientRow({ name, bar, onRemove }: { name: string; bar: string; onRemove: () => void }) {
+  return (
+    <View
+      style={{
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: BORDER_INACTIVE,
+        backgroundColor: SURFACE,
+        overflow: "hidden",
+      }}
+    >
+      <Link href={{ pathname: "/ingredient/[inci]", params: { inci: name } }} asChild>
+        <Pressable style={{ flexDirection: "row" }} className="active:opacity-70">
+          <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
+          <View style={{ flex: 1, justifyContent: "center", padding: 16, paddingRight: 40 }}>
+            <Text style={{ fontSize: 14, textTransform: "capitalize", color: INK }} numberOfLines={2}>
+              {name}
+            </Text>
+          </View>
+        </Pressable>
+      </Link>
+
+      <RemoveButton onPress={onRemove} />
     </View>
   );
 }

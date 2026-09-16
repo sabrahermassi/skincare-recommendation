@@ -57,7 +57,8 @@ const usingSupabase = () => isSupabaseConfigured && supabase !== null;
  * official pack shot from someone holding the bottle in a bathroom mirror.
  * Many are review snapshots. There is no reliable way to tell them apart, so
  * none are shown — every product renders as its `productType`'s illustrated
- * bottle instead (`components/BottleIcon.tsx`), photo or no photo.
+ * bottle instead (`components/ProductThumbnail.tsx`, via
+ * `lib/productIllustration.ts`), photo or no photo.
  *
  * Enforced here, at the read boundary, rather than only at import: rows
  * written by an earlier import still hold their URLs, and this guarantees

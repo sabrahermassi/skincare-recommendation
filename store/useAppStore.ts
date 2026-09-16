@@ -112,6 +112,15 @@ type AppState = {
   saveProduct: (id: string) => void;
   /** Add/remove. Use for the wishlist control, where toggling is the intent. */
   toggleSaved: (id: string) => void;
+  /**
+   * Puts back a saved-shelf row exactly as it was — same `savedAt`, not a
+   * fresh one — for the Saved screen's remove-then-undo affordance.
+   * `toggleSaved` would re-add with today's timestamp and jump the row to
+   * the top of the newest-first sort; this restores its original position.
+   * A no-op if the id is already present, so a stale/duplicate Undo tap
+   * can't create a second row.
+   */
+  restoreSavedProduct: (product: SavedProduct) => void;
 
   /** Add/remove an ingredient name from the starred list. */
   toggleSavedIngredient: (name: string) => void;
@@ -145,6 +154,15 @@ type AppState = {
   /** Removes one entry from the log — the per-row "x" on the History tab,
    *  as opposed to `clearHistory`'s wipe-everything action. */
   removeHistoryEntry: (id: string) => void;
+  /**
+   * Puts back a removed history entry for the same remove-then-undo
+   * affordance `restoreSavedProduct` gives the shelf. Re-sorted by
+   * `lastSeenAt` rather than reinserted at a remembered index — the log is
+   * always kept newest-first, so sorting is what actually restores its
+   * original position rather than assuming nothing else changed in
+   * between. A no-op if the id is already present.
+   */
+  restoreHistoryEntry: (entry: HistoryEntry) => void;
 
   /** Idempotent per barcode — retyping the same one just updates the name. */
   submitProductSuggestion: (barcode: string, name: string) => void;
@@ -341,6 +359,13 @@ export const useAppStore = create<AppState>()(
             : [...state.savedProducts, { id, savedAt: Date.now() }],
         })),
 
+      restoreSavedProduct: (product) =>
+        set((state) =>
+          state.savedProducts.some((p) => p.id === product.id)
+            ? state
+            : { savedProducts: [...state.savedProducts, product] }
+        ),
+
       toggleSavedIngredient: (name) =>
         set((state) => ({
           savedIngredients: state.savedIngredients.includes(name)
@@ -389,6 +414,16 @@ export const useAppStore = create<AppState>()(
       clearHistory: () => set({ history: [] }),
       removeHistoryEntry: (id) =>
         set((state) => ({ history: state.history.filter((h) => h.id !== id) })),
+      restoreHistoryEntry: (entry) =>
+        set((state) =>
+          state.history.some((h) => h.id === entry.id)
+            ? state
+            : {
+                history: [...state.history, entry]
+                  .sort((a, b) => b.lastSeenAt - a.lastSeenAt)
+                  .slice(0, HISTORY_LIMIT),
+              }
+        ),
 
       submitProductSuggestion: (barcode, name) =>
         set((state) => ({

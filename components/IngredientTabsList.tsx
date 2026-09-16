@@ -10,7 +10,7 @@ import type { Ingredient } from "@/data/types";
 import { isVerified } from "@/lib/safety";
 import { ruleFor, RUNG_META, rungFor, type Contraindication, type MatchResult, type Rung } from "@/lib/matching";
 import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, MUTED_SOFT, RADIUS_SELECTOR, SELECTED, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, MUTED_SOFT, RADIUS_SELECTOR, SELECTED, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG_META's good/watch/avoid
 // colors are semantic (the per-ingredient verdict, the whole point of this
@@ -203,13 +203,13 @@ function IngredientListRow({
           {/* The highlight the external checkers give you, on the row itself. */}
           {clogs ? (
             <View
-              style={{ backgroundColor: "#FBE2E7", paddingHorizontal: 6, paddingVertical: 2 }}
+              style={{ backgroundColor: CLOG_BADGE_TINT, paddingHorizontal: 6, paddingVertical: 2 }}
               className="rounded-full"
             >
               {/* "Clogging", not "Pore clogging": the badge sits inline beside
                   the ingredient name, and the full phrase crowds the row off
                   the screen. The tab it filters to says the whole thing. */}
-              <Text style={{ color: "#A4526A", fontSize: TYPE.caption }} className="font-bold uppercase">
+              <Text style={{ color: CLOG_BADGE_INK, fontSize: TYPE.caption }} className="font-bold uppercase">
                 Clogging
               </Text>
             </View>

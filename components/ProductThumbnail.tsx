@@ -10,11 +10,12 @@ import { CANVAS } from "@/lib/tokens";
  * (`ProductRow.tsx`), Saved, History, and eventually the rest of
  * `lib/productIllustration.ts`'s own "Where to apply it" list.
  *
- * Same tile treatment `components/BottleIcon.tsx` used (canvas-fill square,
- * rounded corners, the art centred with margin around it so it reads as a
- * thumbnail rather than a crop) — this replaces what that tile drew, not the
- * component itself, which other, non-list surfaces still use for its plain
- * shape icons.
+ * Same tile treatment the old `BottleIcon` component used (canvas-fill
+ * square, rounded corners, the art centred with margin around it so it
+ * reads as a thumbnail rather than a crop) — this replaced what that tile
+ * drew. `BottleIcon` itself is gone now (deleted as dead code, hygiene
+ * audit); `components/BottleIcon.tsx` keeps only `defaultPackagingType`,
+ * which this file's caller still needs.
  */
 export function ProductThumbnail({
   product,
