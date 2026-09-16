@@ -109,6 +109,10 @@ const IMPORTER_PATHS = [
   "import-cosing.mjs",
   "import-inci-dictionary.mjs",
   "import-wikidata-synonyms.mjs",
+  // Not an importer: the shared parser the DailyMed import reads through,
+  // extracted so a fifth hand-copy was not made. Guarded here for exactly the
+  // reason the others are — a copy nobody watches is a copy that drifts.
+  "lib/inci-parse.mjs",
 ].map((name) => path.join(__dirname, "..", "scripts", name));
 
 /**

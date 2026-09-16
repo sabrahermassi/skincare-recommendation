@@ -1,0 +1,29 @@
+-- A product source for the US DailyMed register.
+--
+-- Step 10 of the data-strategy plan. `ingredient_source` has carried 'mfds'
+-- since the first migration, which makes it easy to assume the product side is
+-- equally ready — it is not. `product_source` was created in 0001 as ('obf',
+-- 'inci_api', 'curated') and gained 'barcode_db' and 'ocr' in 0005. Neither
+-- 'dailymed' nor 'mfds' is among them, so an importer writing either fails on
+-- insert with an enum violation and nothing before that point says so.
+--
+-- Only 'dailymed' is added here. 'mfds' belongs with step 9, which needs a
+-- Hangul-to-INCI mapping step before it can write a single row, and adding an
+-- enum value for a source nothing writes yet would be a promise this schema
+-- does not keep.
+--
+-- Why DailyMed rows are ours outright, like OBF's:
+--
+-- DailyMed is published by the US National Library of Medicine. Structured
+-- Product Labeling content is a work of the United States government and
+-- carries no copyright, so these rows are written with `expires_at = null`
+-- alongside `obf` rather than expiring like the `inci_api` tier. The
+-- attribution string the importer writes names the source anyway — not
+-- because a licence demands it, but because a user looking at an ingredient
+-- list should be able to see where it came from.
+--
+-- `add value if not exists` rather than a bare `add value`, matching 0005:
+-- re-running a migration must not fail, and Supabase's migration runner has no
+-- transaction around enum changes to roll back into.
+
+alter type product_source add value if not exists 'dailymed';
