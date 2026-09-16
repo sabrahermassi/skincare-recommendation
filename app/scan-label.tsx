@@ -176,7 +176,18 @@ export default function ScanLabel() {
       }
 
       if (result.ok) {
-        router.replace({ pathname: "/result/[id]", params: { id: result.product.id } });
+        // No barcode was in hand for this scan — the row `label-ocr` just
+        // wrote is on a grace timer and nobody else can ever find it (see
+        // migration 0014 and resolve-scan). Flagging it here is what lets
+        // the product screen offer the "scan the barcode too?" follow-up
+        // only on the visit that just created the row, not on every later
+        // visit to it.
+        router.replace({
+          pathname: "/result/[id]",
+          params: barcode
+            ? { id: result.product.id }
+            : { id: result.product.id, offerBarcode: "1" },
+        });
         return;
       }
 

@@ -11,6 +11,7 @@ import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { HeartIcon } from "@/components/icons";
+import { BarcodeOfferPrompt } from "@/components/BarcodeOfferPrompt";
 import { InlineProfilePrompt } from "@/components/InlineProfilePrompt";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { canPhotographLabelFor, fetchProduct } from "@/data/api";
@@ -130,7 +131,7 @@ const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 
 export default function ProductScreen() {
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, offerBarcode } = useLocalSearchParams<{ id: string; offerBarcode?: string }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -424,6 +425,7 @@ export default function ProductScreen() {
           </View>
         </Pressable>
 
+        {offerBarcode === "1" && <BarcodeOfferPrompt productId={id} />}
         {askForProfile && <InlineProfilePrompt />}
 
         {/*

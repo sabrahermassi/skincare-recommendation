@@ -1,5 +1,5 @@
 import { defaultPackagingType } from "@/components/BottleIcon";
-import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, RESOLVE_SCAN_FUNCTION, supabase } from "@/lib/supabase";
 import {
   abandonDiskRead,
   addScannedToCatalogue,
@@ -1083,6 +1083,69 @@ export async function analyseLabel(
     recognised: Number(data.recognised ?? 0),
     total: Number(data.total ?? 0),
   };
+}
+
+/**
+ * The "want to scan the barcode too?" follow-up to a barcode-less
+ * `analyseLabel` scan — step 5b's row-accrual answer. Accepting makes the
+ * scan permanent and findable by barcode; see `discardUnreachableScan` for
+ * the decline path.
+ *
+ * The row this attaches to is not deleted from the local cache on a
+ * `barcode_taken` conflict — that is a genuine collision, not a decline,
+ * and the row is left exactly as `resolve-scan` left it server-side (still
+ * on its grace timer, not discarded).
+ */
+export type AttachBarcodeResult =
+  | { ok: true; product: ProductWithIngredients }
+  | { ok: false; reason: "barcode_taken" | "not_found" | "failed" };
+
+export async function attachBarcodeToScan(
+  productId: string,
+  barcode: string
+): Promise<AttachBarcodeResult> {
+  if (!usingSupabase()) return { ok: false, reason: "failed" };
+
+  const { data, error } = await supabase!.functions.invoke(RESOLVE_SCAN_FUNCTION, {
+    body: { action: "attach-barcode", productId, barcode },
+  });
+
+  if (error) {
+    const status = (error as { context?: { status?: number } }).context?.status;
+    if (status === 409) return { ok: false, reason: "barcode_taken" };
+    if (status === 404) return { ok: false, reason: "not_found" };
+    return { ok: false, reason: "failed" };
+  }
+  if (!data?.product) return { ok: false, reason: "failed" };
+
+  // Refreshes the cached copy and records the barcode association, the
+  // same two calls `analyseLabel` makes on a fresh scan — this product is
+  // now exactly as findable as one that arrived with a barcode from the
+  // start.
+  const product = rowToProduct(data.product as CatalogueRow);
+  addScannedToCatalogue(product);
+  putScanned(barcode, product);
+
+  return { ok: true, product };
+}
+
+/**
+ * The decline path for a barcode-less scan — deletes the row outright.
+ * Silent about whether it was already gone (evicted by the grace-period
+ * job, or discarded already): the caller only ever needs "there is
+ * nothing left to show", not which of those it was.
+ *
+ * Not removed from the local cache here — the caller navigates away from
+ * the now-deleted product immediately after this resolves, and nothing
+ * else in this session holds its id to revisit. Same category of
+ * staleness this app already tolerates elsewhere (the cache is a mirror,
+ * not a live subscription) rather than a new gap.
+ */
+export async function discardUnreachableScan(productId: string): Promise<void> {
+  if (!usingSupabase()) return;
+  await supabase!.functions.invoke(RESOLVE_SCAN_FUNCTION, {
+    body: { action: "discard", productId },
+  });
 }
 
 /**

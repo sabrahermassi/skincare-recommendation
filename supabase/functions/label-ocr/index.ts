@@ -57,6 +57,20 @@ const MAX_IMAGE_CHARS = 5_500_000;
 const MIN_KNOWN_INGREDIENT_RATIO = 0.6;
 
 /**
+ * Grace period before a barcode-less scan self-evicts, via the same hourly
+ * `evict-expired-products` job that already runs unconditionally against
+ * anything carrying a deadline (0002_eviction_schedule.sql). Step 5b's
+ * row-accrual answer: nobody but the scanner can ever find an `ocr-<uuid>`
+ * row with no barcode, so it is offered a barcode afterward
+ * (`resolve-scan`'s `attach-barcode`, which clears this back to permanent)
+ * and discarded — immediately on an explicit decline, or automatically here
+ * if nobody ever answers. 24h, the same window this app's disk cache
+ * already uses elsewhere — long enough to get home from the shop and
+ * decide, short enough that an unanswered scan does not linger.
+ */
+const OCR_GRACE_PERIOD_MS = 24 * 60 * 60 * 1000;
+
+/**
  * Ceiling on the raw request body, checked against Content-Length before the
  * body is read at all. Sized as `MAX_IMAGE_CHARS` plus room for the JSON
  * envelope and the optional barcode/name/brand fields, so it never rejects a
@@ -290,7 +304,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     attribution: existing
       ? existing.attribution
       : "Ingredients read from the product label.",
-    expires_at: null,
+    // Permanent whenever a barcode is in hand — `existing`, when set, only
+    // ever came from a barcode lookup, so this covers both a brand-new
+    // barcode-tagged row and one reusing an identity-only hit. Only a
+    // genuinely orphaned, barcode-less `ocr-<uuid>` row gets the grace
+    // period: see OCR_GRACE_PERIOD_MS above.
+    expires_at: barcode ? null : new Date(Date.now() + OCR_GRACE_PERIOD_MS).toISOString(),
   };
 
   // One RPC, one transaction: the stub ingredient rows, the product, and the
