@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "import:cosing": "node scripts/import-cosing.mjs",
     "import:inci-dictionary": "node scripts/import-inci-dictionary.mjs",
-    "import:obf": "node scripts/import-obf.mjs"
+    "import:obf": "node scripts/import-obf.mjs",
+    "import:dailymed": "node scripts/import-dailymed.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/cormorant-garamond": "^0.4.1",
