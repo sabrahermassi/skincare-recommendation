@@ -41,6 +41,22 @@ const RATE_LIMIT: RateLimit = { windowSeconds: 300, maxRequests: 10 };
 const MAX_IMAGE_CHARS = 5_500_000;
 
 /**
+ * The same plausibility floor the import scripts use before they'll write a
+ * formula — `MIN_KNOWN_INGREDIENT_RATIO` in `scripts/import-obf.mjs` and
+ * `scripts/import-dailymed.mjs`. Step 5's gates apply to what we import;
+ * this is what applies the same bar to what our own OCR writes.
+ *
+ * Without it, this function committed a formula to the shared catalogue as
+ * soon as OCR produced four comma-separated fragments — regardless of
+ * whether any of them looked like a real ingredient. And because a barcode
+ * with *any* stored formula short-circuits straight to it (see `existing`
+ * below), a bad first photo didn't just create one bad row: it made every
+ * later, better photo of the same bottle return the bad formula forever,
+ * since Vision was never called again for that barcode.
+ */
+const MIN_KNOWN_INGREDIENT_RATIO = 0.6;
+
+/**
  * Ceiling on the raw request body, checked against Content-Length before the
  * body is read at all. Sized as `MAX_IMAGE_CHARS` plus room for the JSON
  * envelope and the optional barcode/name/brand fields, so it never rejects a
@@ -214,6 +230,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // unverified, so the UI shows them as unrecognised rather than pretending we
   // assessed them — OCR on a curved bottle produces plenty of nonsense.
   const known = await knownIngredients(parsed.map((p) => p.inci_name));
+
+  // The gate, run before anything is written — not after, which is what let
+  // a photo of a wall or a receipt clear the four-fragment floor above and
+  // get persisted as a real row before the client had any say. Same ratio,
+  // same reasoning as MIN_KNOWN_INGREDIENT_RATIO's own comment: a parsed
+  // formula that mostly misses the dictionary is not a rare formula, it is
+  // a bad read, and nothing downstream — the plausibility gate, the barcode
+  // short-circuit, `formulaKey`-equivalent identity — can tell the
+  // difference once it is sitting in the table as a normal row.
+  if (known.size / parsed.length < MIN_KNOWN_INGREDIENT_RATIO) {
+    return json(
+      req,
+      { error: "low_confidence", found: parsed.length, recognised: known.size, rawText: text.slice(0, 400) },
+      422
+    );
+  }
 
   // `products.barcode` is UNIQUE. When a row already exists for this barcode —
   // an identity-only hit from the barcode database, which knows the name but
