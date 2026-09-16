@@ -154,6 +154,16 @@ describe("building a row", () => {
     const xml = splXml("zzz alpha, zzz beta, zzz gamma, zzz delta, zzz epsilon");
     expect(toRow(SUMMARY, xml, KNOWN, [])).toBe("formula not recognised by the dictionary");
   });
+
+  // A sunscreen this importer cannot find a single recognised UV filter for —
+  // an unrecognised parenthetical, and a label body with no active section
+  // either — must not be stored anyway with a clean but filter-less formula.
+  it("rejects a sunscreen with no recognised UV filter, even with a good inactive list", () => {
+    const xml = splXml("Water, Silica");
+    expect(
+      toRow({ ...SUMMARY, title: "PLAIN (SOMETHING ELSE) CREAM [B]" }, xml, KNOWN, [])
+    ).toBe("no recognised UV filter");
+  });
 });
 
 describe("one bottle, many labels", () => {
@@ -272,6 +282,16 @@ describe("a sunscreen keeps its UV filters", () => {
     expect(activeIngredients("X (TINTED LIP GLOSS WITH SPF 30 SUNSCREEN) [Y]")).toEqual([]);
     expect(activeIngredients("X (ZINC OXIDE, SOMETHING ELSE) [Y]")).toEqual([]);
     expect(activeIngredients("X CREAM [Y]")).toEqual([]);
+  });
+
+  // Ecamsule ("Mexoryl SX") reached the US market through its own NDA, not
+  // the OTC monograph the rest of UV_FILTERS comes from — La Roche-Posay's
+  // Anthelios SX is a live label that would otherwise import with none of
+  // its actives recognised.
+  it("recognises ecamsule, the one filter outside the OTC monograph", () => {
+    expect(activeIngredients("X (ECAMSULE) LOTION [Y]")).toEqual([
+      "terephthalylidene dicamphor sulfonic acid",
+    ]);
   });
 
   it("does not list a filter twice when it also appears among the inactives", () => {

@@ -87,34 +87,62 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const REQUEST_TIMEOUT_MS = 20_000;
 
 /**
+ * Physical HTTP attempts spent this run, across every fetch and every retry
+ * of it — a module-level counter rather than one threaded through as a
+ * parameter, because a retry inside `fetchWithRetry` spends a request too.
+ * Counting anywhere but where the fetch actually happens either double-counts
+ * the happy path or, as review found, undercounts a retried one: a run that
+ * degrades and retries every request could spend twice `MAX_REQUESTS` in
+ * real attempts while this stayed at half that.
+ */
+let requestsSpent = 0;
+
+/**
  * `fetch`, with a timeout and one retry for a failure that looks transient —
  * a network error, an abort, or a 5xx. Same shape as the OBF importer's 429
  * retry: once, after a short wait, and a second failure in a row is treated
  * as real rather than retried again, so a page 50 pages into a run cannot
  * turn a five-minute import into an indefinite one.
+ *
+ * `read` runs *inside* the timed span, not after `fetchWithRetry` returns —
+ * `fetch()`'s own promise settles once headers arrive, so a timeout that only
+ * wrapped the call above would let DailyMed stall forever while streaming the
+ * body, and a body that fails to parse would bypass the retry entirely. Both
+ * get the same handling by reading here.
  */
-async function fetchWithRetry(url, description, retried = false) {
+async function fetchWithRetry(url, description, read, retried = false) {
+  requestsSpent += 1;
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  let res;
   try {
-    res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: controller.signal });
+    const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: controller.signal });
+
+    if (res.status >= 500) {
+      throw Object.assign(new Error(`${description} returned ${res.status} ${res.statusText}`), {
+        retryable: true,
+      });
+    }
+    if (!res.ok) {
+      throw Object.assign(new Error(`${description} returned ${res.status} ${res.statusText}`), {
+        retryable: false,
+      });
+    }
+
+    return await read(res);
   } catch (err) {
-    clearTimeout(timer);
-    if (retried) throw err;
+    // Retrying past the budget would spend a request the run has no room
+    // for — better to fail with the real error than with a budget message.
+    const canRetry = err.retryable !== false && !retried && requestsSpent < MAX_REQUESTS;
+    if (!canRetry) throw err;
+
     const reason = err.name === "AbortError" ? `timed out after ${REQUEST_TIMEOUT_MS}ms` : err.message;
     console.warn(`\n  ! ${description} failed (${reason}). Waiting and retrying once.`);
     await sleep(REQUEST_INTERVAL_MS);
-    return fetchWithRetry(url, description, true);
+    return fetchWithRetry(url, description, read, true);
+  } finally {
+    clearTimeout(timer);
   }
-  clearTimeout(timer);
-
-  if (res.status >= 500 && !retried) {
-    console.warn(`\n  ! ${description} returned ${res.status}. Waiting and retrying once.`);
-    await sleep(REQUEST_INTERVAL_MS);
-    return fetchWithRetry(url, description, true);
-  }
-  return res;
 }
 
 /**
@@ -125,9 +153,7 @@ async function fetchWithRetry(url, description, retried = false) {
  */
 async function fetchPage(page) {
   const url = `${DAILYMED}/spls.json?drug_name=sunscreen&pagesize=${PAGE_SIZE}&page=${page}`;
-  const res = await fetchWithRetry(url, `DailyMed page ${page}`);
-  if (!res.ok) throw new Error(`DailyMed page ${page} returned ${res.status} ${res.statusText}`);
-  const body = await res.json();
+  const body = await fetchWithRetry(url, `DailyMed page ${page}`, (res) => res.json());
   if (!Array.isArray(body.data)) {
     throw new Error(`DailyMed page ${page} returned no data array — the endpoint shape may have changed`);
   }
@@ -143,9 +169,7 @@ async function fetchPage(page) {
  * which is what scoring reads, is only in the label text.
  */
 async function fetchLabel(setid) {
-  const res = await fetchWithRetry(`${DAILYMED}/spls/${setid}.xml`, `DailyMed SPL ${setid}`);
-  if (!res.ok) throw new Error(`DailyMed SPL ${setid} returned ${res.status} ${res.statusText}`);
-  return res.text();
+  return fetchWithRetry(`${DAILYMED}/spls/${setid}.xml`, `DailyMed SPL ${setid}`, (res) => res.text());
 }
 
 /**
@@ -197,19 +221,28 @@ function inactiveIngredients(xml) {
  * gate — importing the filters badly rather than not at all.
  *
  * Safe to hardcode because it is closed and regulated: 21 CFR 352.10 lists the
- * filters permitted in a US OTC monograph sunscreen, and a new one requires
- * rulemaking. This is not a heuristic that will quietly rot.
+ * sixteen filters permitted in a US OTC monograph sunscreen, and a new one
+ * requires rulemaking. This is not a heuristic that will quietly rot.
  *
- * Fifteen of the sixteen resolve to a name already in the verified dictionary.
- * "trolamine salicylate" does not, and is mapped anyway: an unrecognised name
- * costs one stub on the rare product using it, where dropping it would silently
- * lose an active ingredient.
+ * One entry is not from that monograph. Ecamsule ("Mexoryl SX") reached the
+ * US market through its own NDA rather than the OTC monograph — La
+ * Roche-Posay's Anthelios SX is the label that surfaced the gap — so it has
+ * no CFR citation of its own, but it is a real, currently marketed US
+ * sunscreen active. Leaving it out did not make the importer skip those
+ * labels; it made `activeIngredients` fail to recognise the one filter that
+ * made them sunscreens, which is worse.
+ *
+ * Fifteen of the seventeen resolve to a name already in the verified
+ * dictionary. "trolamine salicylate" and "ecamsule" do not, and are mapped
+ * anyway: an unrecognised name costs one stub on the rare product using it,
+ * where dropping it would silently lose an active ingredient.
  */
 const UV_FILTERS = {
   "aminobenzoic acid": "paba",
   avobenzone: "butyl methoxydibenzoylmethane",
   cinoxate: "cinoxate",
   dioxybenzone: "benzophenone-8",
+  ecamsule: "terephthalylidene dicamphor sulfonic acid",
   ensulizole: "phenylbenzimidazole sulfonic acid",
   homosalate: "homosalate",
   meradimate: "menthyl anthranilate",
@@ -440,13 +473,24 @@ function toRow(spl, xml, known, samples) {
     return "formula not recognised by the dictionary";
   }
 
+  // A sunscreen with no recognised UV filter is worse than one this importer
+  // never saw at all: it would be typed "sunscreen" and stored with nothing
+  // known about the one thing that makes it one, and `formulaKey` would
+  // treat it as identical to any other product sharing its inactive base.
+  // Every candidate here came from a DailyMed sunscreen search, so a genuine
+  // zero is not expected — it means the label names an active `UV_FILTERS`
+  // does not recognise (see the note above it) or states its actives in a
+  // shape neither the title nor body path handles.
+  const actives = activeIngredients(spl.title ?? "", xml);
+  if (actives.length === 0) return "no recognised UV filter";
+
   // Only now the actives, in front. A US OTC label prints them first on its
   // Drug Facts panel and they sit at 10-25% in a sunscreen, so they belong
   // near the head of a concentration-ordered list. Prepending overstates them
   // slightly against water; dropping them, which is what this did before,
   // understates them completely. `parseInci` deduplicates, so a filter that
   // also appears in the inactive list is kept once at the higher position.
-  const ingredients = parseInci([...activeIngredients(spl.title ?? "", xml), inci].join(", "));
+  const ingredients = parseInci([...actives, inci].join(", "));
 
   return {
     product: {
@@ -485,6 +529,61 @@ async function fetchKnownIngredients(db) {
     filter: (q) => q.eq("verified", true),
   });
   return new Set(rows.map((r) => r.inci_name.toLowerCase()));
+}
+
+/**
+ * Every formula already sitting in the catalogue under `source = 'dailymed'`,
+ * as the same `formulaKey()` shape `main()` builds for a candidate. Dedup
+ * within one run is not enough: `seenFormula` starts empty on every
+ * invocation, so a labeler DailyMed happens to page to on a later run — one
+ * this run never fetched, carrying a formula this source already holds under
+ * a different setid — would pass every in-run check and be written as a
+ * second product for one bottle. Seeding from what is already persisted is
+ * what makes the dedup survive across runs, not just within one.
+ *
+ * Paged rather than read in one call, and the cursor holds back whichever
+ * product is last on a full page rather than splitting it: `product_id`
+ * alone does not identify a row here, so a plain `.gt(cursor)` would drop
+ * that product's remaining ingredients from this page and never revisit
+ * them, since the next page starts strictly after it.
+ */
+async function fetchPersistedDailymedFormulas(db) {
+  // Comfortably above any real formula's ingredient count, so the one case
+  // this pagination cannot make progress on — a single product's rows
+  // filling an entire page — is not a shape any real label produces.
+  const PAGE = 5000;
+  const byProduct = new Map();
+  let cursor = null;
+
+  for (;;) {
+    let query = db
+      .from("product_ingredients")
+      .select("product_id, position, inci_name, products!inner(source)")
+      .eq("products.source", "dailymed")
+      .order("product_id", { ascending: true })
+      .order("position", { ascending: true })
+      .limit(PAGE);
+    if (cursor !== null) query = query.gt("product_id", cursor);
+
+    const { data, error } = await query;
+    if (error) {
+      throw new Error(`product_ingredients (dailymed) page after ${cursor ?? "start"}: ${error.message}`);
+    }
+    if (!data || data.length === 0) break;
+
+    const full = data.length === PAGE;
+    const heldBackId = full ? data[data.length - 1].product_id : null;
+    for (const row of data) {
+      if (row.product_id === heldBackId) continue;
+      if (!byProduct.has(row.product_id)) byProduct.set(row.product_id, []);
+      byProduct.get(row.product_id).push(row.inci_name);
+    }
+
+    if (!full) break;
+    cursor = heldBackId;
+  }
+
+  return new Set([...byProduct.values()].map((names) => names.join("|")));
 }
 
 /**
@@ -546,12 +645,14 @@ async function main() {
   const known = await fetchKnownIngredients(db);
   console.log(`Dictionary: ${known.size} verified ingredient names.\n`);
 
+  const persistedFormulas = await fetchPersistedDailymedFormulas(db);
+  console.log(`Already on file: ${persistedFormulas.size} dailymed formula(s).\n`);
+
   const rows = new Map();
   const seenIdentity = new Set();
-  const seenFormula = new Set();
+  const seenFormula = new Set(persistedFormulas);
   const rejected = new Map();
   const rejectSamples = [];
-  let requests = 0;
   let seen = 0;
   // The newest publication date this run saw, kept in DailyMed's own format.
   // `sync_bookmarks.watermark` is text precisely so each source can record
@@ -559,11 +660,10 @@ async function main() {
   let newestPublished = null;
 
   page: for (let page = 1; ; page += 1) {
-    if (rows.size >= TARGET_ROWS || requests >= MAX_REQUESTS) break;
+    if (rows.size >= TARGET_ROWS || requestsSpent >= MAX_REQUESTS) break;
 
-    if (requests > 0) await sleep(REQUEST_INTERVAL_MS);
+    if (requestsSpent > 0) await sleep(REQUEST_INTERVAL_MS);
     const summaries = await fetchPage(page);
-    requests += 1;
     if (summaries.length === 0) break;
 
     seen += summaries.length;
@@ -572,7 +672,7 @@ async function main() {
 
     for (const spl of summaries) {
       if (rows.size >= TARGET_ROWS) break page;
-      if (requests >= MAX_REQUESTS) {
+      if (requestsSpent >= MAX_REQUESTS) {
         console.warn(`\n  ! Hit the ${MAX_REQUESTS}-request budget. Stopping early.`);
         break page;
       }
@@ -598,7 +698,6 @@ async function main() {
 
       await sleep(REQUEST_INTERVAL_MS);
       const xml = await fetchLabel(spl.setid);
-      requests += 1;
 
       const row = toRow(spl, xml, known, rejectSamples);
       if (typeof row === "string") {
@@ -634,7 +733,7 @@ async function main() {
 
   const all = [...rows.values()];
   console.log(
-    `\n${seen} labels seen over ${requests} request(s), ${all.length} usable, ` +
+    `\n${seen} labels seen over ${requestsSpent} request(s), ${all.length} usable, ` +
       `${new Set(all.flatMap((r) => r.ingredients.map((i) => i.inci_name))).size} distinct ingredients`
   );
   for (const [reason, count] of [...rejected.entries()].sort((a, b) => b[1] - a[1])) {
@@ -650,7 +749,7 @@ async function main() {
   // breakage it exists to surface.
   if (all.length === 0) {
     throw new Error(
-      `No usable sunscreens found across ${requests} request(s) of ${seen} labels. ` +
+      `No usable sunscreens found across ${requestsSpent} request(s) of ${seen} labels. ` +
         "Check the DailyMed endpoint and the gates above." +
         (DRY_RUN ? "" : " Refusing to record a bookmark.")
     );
