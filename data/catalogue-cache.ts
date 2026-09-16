@@ -555,15 +555,32 @@ export function touchCatalogue(watermark: CatalogueWatermark): void {
  * exactly that reason.
  *
  * 1.5MB leaves margin below the CursorWindow figure for the row's own
- * overhead. At the post-step-2 payload size (369KB for 500 products, measured)
- * that is roughly 2,000 products — four times the current import cap, so it
- * binds on nothing today.
+ * overhead. This was first sized against the post-step-2 payload (369KB for
+ * 500 products, ~740 bytes each), read at the time as roughly 2,000 products
+ * of headroom — four times the import cap.
  *
- * It does *not* reach the 5,000 products step 6 is measured against. Five
- * thousand serialises to about 3.1MB, so it cannot live in one value on
- * Android at any budget: that needs the payload split across several keys, or
- * the windowing in step 6's item 3 so the whole catalogue is never resident.
- * Step 7 lifts the import cap and must not do so before one of those lands.
+ * That estimate is already stale, and it is worth recording exactly how fast
+ * it moved. Once the real Open Beauty Facts import (step 4) and the DailyMed
+ * sunscreen import (step 10) both landed, the live catalogue measured 1.06MB
+ * for 647 products — about 1,640 bytes/product, more than double the figure
+ * above, because sunscreens' longer active-ingredient lists and wider
+ * category coverage cost more per row than the original fixture-based
+ * measurement assumed. At that real rate the budget holds roughly **900
+ * products** — under 2x today's import cap of 500, not 4x.
+ *
+ * The runtime check above is safe regardless of whether this comment is
+ * current: it measures real bytes at write time, not this estimate. Only the
+ * planning conclusion below depends on it, so re-measure against the live
+ * catalogue again before trusting a headroom figure here — it will keep
+ * moving as formula composition shifts.
+ *
+ * It does *not* reach the 5,000 products step 6 is measured against, at
+ * either measurement. Five thousand serialises to about 3.1MB (per the
+ * synthetic-but-realistic fixture in `__tests__/catalogue-cache.test.ts`), so
+ * it cannot live in one value on Android at any budget: that needs the
+ * payload split across several keys, or the windowing in step 6's item 3 so
+ * the whole catalogue is never resident. Step 7 lifts the import cap and must
+ * not do so before one of those lands.
  *
  * Raising the *database* ceiling is possible — it is a configurable SQLite
  * size — but it does not move the CursorWindow limit, so it would not help

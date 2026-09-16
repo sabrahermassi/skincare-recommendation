@@ -590,11 +590,20 @@ describe("disk writes announce what happened", () => {
  * How far one AsyncStorage value actually stretches.
  *
  * Sized against the real thing rather than the small fixtures above: step 2
- * measured the live catalogue at 369KB for 500 products once normalised —
- * about 740 bytes each — so these carry comparable text, a real formula
+ * originally measured the live catalogue at 369KB for 500 products, about 740
+ * bytes each, and these fixtures carry comparable text, a real formula
  * length, and the multi-byte characters a Korean catalogue is full of. A
  * budget checked against ASCII-only fixtures would pass here and fail on a
  * handset.
+ *
+ * That 740-byte figure is now understated. Once the real Open Beauty Facts
+ * and DailyMed imports landed, the live catalogue measured closer to 1,640
+ * bytes/product — see the note on `DISK_BUDGET_BYTES` in
+ * `data/catalogue-cache.ts` for the current number. These fixtures were not
+ * re-tuned to match: the two tests below still show the budget mechanism
+ * working correctly, but the specific row counts they exercise (1,500 fits,
+ * 5,000 doesn't) are no longer a tight read on what a real device holds —
+ * treat them as a lower bound on the risk, not the current margin.
  *
  * Note what these tests cannot do. The AsyncStorage mock is JavaScript and has
  * no size limit at all, so nothing here would notice Android's real
@@ -636,7 +645,8 @@ describe("how much fits in one value", () => {
   }
 
   it("keeps a catalogue that fits, formulas intact, across a cold start", async () => {
-    // Comfortably inside the 1.5MB budget at ~740 bytes a row.
+    // Comfortably inside the 1.5MB budget at this fixture's ~740 bytes a row
+    // — see the note above on how that compares to the live catalogue today.
     const many = Array.from({ length: 1500 }, (_, i) => realisticProduct(i));
 
     putCatalogue(many, { ...WATERMARK, count: many.length });

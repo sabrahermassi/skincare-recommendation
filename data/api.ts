@@ -157,7 +157,11 @@ const LATENCY_MS =
  * reasoning that kept it unbounded was right about this number and wrong about
  * the conclusion.
  */
-const NETWORK_TIMEOUT_MS = 12_000;
+// Exported alongside `OCR_TIMEOUT_MS` below so tests can assert the actual
+// figure reaches `functions.invoke`, the same pattern already used for
+// `CATALOGUE_PAGE_SIZE` and `FOREGROUND_RECHECK_MS` — a hardcoded number in
+// the test would silently stop meaning anything the moment this one changed.
+export const NETWORK_TIMEOUT_MS = 12_000;
 
 /**
  * The same bound for reading a label, at a figure that suits the work.
@@ -175,7 +179,7 @@ const NETWORK_TIMEOUT_MS = 12_000;
  * `scan-label` already renders a failure with a retry, so the timeout lands
  * somewhere real.
  */
-const OCR_TIMEOUT_MS = 45_000;
+export const OCR_TIMEOUT_MS = 45_000;
 
 /**
  * How long the splash screen will wait for the cached catalogue to come off

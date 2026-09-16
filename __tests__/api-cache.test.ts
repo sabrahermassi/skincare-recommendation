@@ -119,10 +119,13 @@ import {
   analyseLabel,
   CATALOGUE_PAGE_SIZE,
   fetchProduct,
+  fetchProductByBarcode,
   fetchProducts,
   fetchProductsByIds,
   fetchProductTypes,
   FOREGROUND_RECHECK_MS,
+  NETWORK_TIMEOUT_MS,
+  OCR_TIMEOUT_MS,
   revalidateOnForeground,
   searchProducts,
   warmCatalogue,
@@ -664,7 +667,69 @@ describe("the ingredient dictionary", () => {
   });
 });
 
+describe("a barcode lookup", () => {
+  /**
+   * Step 6a bounded this call so the scanner cannot sit in "looking"
+   * forever. The behaviour was verified by hand against the real
+   * `functions.invoke` implementation during self-review — this pins the one
+   * thing a review can't: that a later refactor can't silently drop the
+   * option while every other test here stays green.
+   */
+  it("bounds the lookup with the network timeout", async () => {
+    invokeMock().mockResolvedValue({ data: inlinedRow("scanned"), error: null });
+
+    await fetchProductByBarcode("barcode-scanned");
+
+    expect(lastInvokeOptions()).toMatchObject({ timeout: NETWORK_TIMEOUT_MS });
+  });
+
+  it("resolves a known barcode to a product", async () => {
+    invokeMock().mockResolvedValue({ data: inlinedRow("scanned"), error: null });
+
+    const found = await fetchProductByBarcode("barcode-scanned");
+
+    expect(found?.id).toBe("scanned");
+  });
+
+  /** A 404 from the cascade means "not in any source", a miss — not a failure. */
+  it("caches a miss rather than throwing, on a 404", async () => {
+    invokeMock().mockResolvedValue({ data: null, error: { context: { status: 404 } } });
+
+    const found = await fetchProductByBarcode("barcode-missing");
+
+    expect(found).toBeNull();
+    expect(readScanned("barcode-missing")).toBeNull();
+  });
+
+  /** Anything other than a 404 — including a timeout — is worth surfacing. */
+  it("throws on a non-404 failure rather than reporting a silent miss", async () => {
+    invokeMock().mockResolvedValue({
+      data: null,
+      error: { message: "no response after 12000ms", context: { status: 500 } },
+    });
+
+    await expect(fetchProductByBarcode("barcode-broken")).rejects.toThrow("no response after 12000ms");
+  });
+});
+
 describe("a label read", () => {
+  /**
+   * OCR gets its own, longer clock — see `OCR_TIMEOUT_MS` — precisely
+   * because an upload to Google Vision legitimately takes longer than a
+   * catalogue read. This is the other half of the barcode-lookup test above:
+   * that the two calls are bounded by different figures, not the same one.
+   */
+  it("bounds the read with the OCR timeout, not the network one", async () => {
+    invokeMock().mockResolvedValue({
+      data: { product: inlinedRow("scanned"), recognised: 12, total: 14 },
+      error: null,
+    });
+
+    await analyseLabel("base64", { barcode: "barcode-scanned" });
+
+    expect(lastInvokeOptions()).toMatchObject({ timeout: OCR_TIMEOUT_MS });
+  });
+
   /**
    * The barcode cascade caches its misses for an hour, and a label read is
    * what the user does *because* of one — so the miss is always already there
@@ -717,12 +782,27 @@ describe("a label read", () => {
 });
 
 /**
- * The `functions.invoke` stand-in from the module mock, narrowed to the one
- * method these tests drive it through. `jest.Mock` itself is a namespace type
+ * The `functions.invoke` stand-in from the module mock, narrowed to the two
+ * things these tests drive it through. `jest.Mock` itself is a namespace type
  * this project's tsconfig does not pull in.
+ *
+ * `mock.calls` accumulates for the life of the file — nothing here calls
+ * `mockClear`, and it shouldn't need to just to make one assertion safe.
+ * Always read the *last* call, never `[0]`: an earlier test's invocation is
+ * still sitting in this same array.
  */
-function invokeMock(): { mockResolvedValue: (value: unknown) => void } {
+function invokeMock(): {
+  mockResolvedValue: (value: unknown) => void;
+  mock: { calls: unknown[][] };
+} {
   return supabase!.functions.invoke as unknown as {
     mockResolvedValue: (value: unknown) => void;
+    mock: { calls: unknown[][] };
   };
+}
+
+/** The options object passed to the most recent `functions.invoke` call. */
+function lastInvokeOptions(): unknown {
+  const { calls } = invokeMock().mock;
+  return calls[calls.length - 1]?.[1];
 }
