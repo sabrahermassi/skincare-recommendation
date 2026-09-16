@@ -107,11 +107,11 @@ describe("the import rejects what it cannot believe", () => {
     // 6 of 10 recognised = 0.6 exactly.
     const onTheLine = expectKept(
       toRow(
-      obfProduct({
-        ingredients_text:
-          "Aqua, Glycerin, Niacinamide, Panthenol, Tocopherol, Phenoxyethanol, " +
-          "zzz alpha, zzz beta, zzz gamma, zzz delta",
-      }),
+        obfProduct({
+          ingredients_text:
+            "Aqua, Glycerin, Niacinamide, Panthenol, Tocopherol, Phenoxyethanol, " +
+            "zzz alpha, zzz beta, zzz gamma, zzz delta",
+        }),
         KNOWN,
         []
       )
