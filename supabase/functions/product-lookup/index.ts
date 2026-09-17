@@ -462,7 +462,11 @@ function guessType(tags: string[], text: string): string {
     [/hair mask/, "hair-mask"],
     [/facial oil|face oil/, "facial-oil"],
     [/hair oil/, "hair-oil"],
-    [/lip balm|lip butter/, "lip-balm"],
+    // "lèvres" (fr), "dudak" (tr), "губ" (ru/uk) — seen failing for real on
+    // lip sticks/balms carrying a UV filter, which without this fell through
+    // all the way to the ingredient-based fallback's sunscreen rule: a lip
+    // product with SPF is still a lip-balm, not a sunscreen.
+    [/lip balm|lip butter|lip ?care|l[èe]vres|dudak|губ/, "lip-balm"],
     [/perfume|eau de (parfum|toilette)/, "perfume"],
     [/facial mist|face mist/, "facial-mist"],
     [/deodorant|antiperspirant/, "deodorant"],

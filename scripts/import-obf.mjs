@@ -24,6 +24,7 @@ import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
+import { guessTypeFromIngredients } from "./lib/guess-type-from-ingredients.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -444,7 +445,11 @@ function guessType(tags, text) {
     [/hair mask/, "hair-mask"],
     [/facial oil|face oil/, "facial-oil"],
     [/hair oil/, "hair-oil"],
-    [/lip balm|lip butter/, "lip-balm"],
+    // "lèvres" (fr), "dudak" (tr), "губ" (ru/uk) — seen failing for real on
+    // lip sticks/balms carrying a UV filter, which without this fell through
+    // all the way to the ingredient-based fallback's sunscreen rule: a lip
+    // product with SPF is still a lip-balm, not a sunscreen.
+    [/lip balm|lip butter|lip ?care|l[èe]vres|dudak|губ/, "lip-balm"],
     [/perfume|eau de (parfum|toilette)/, "perfume"],
     [/facial mist|face mist/, "facial-mist"],
     [/deodorant|antiperspirant/, "deodorant"],
@@ -496,13 +501,20 @@ function toRow(p, known, samples) {
     return "formula not recognised by the dictionary";
   }
 
+  // Name/tags first; only falls to the ingredient-based guess when that
+  // finds nothing (a product named after its active, e.g. "Lactic Acid 10%",
+  // has no format word for guessType to catch) — see
+  // guessTypeFromIngredients's own header for why only these two rules.
+  const byName = guessType(p.categories_tags, name);
+  const type = byName !== "unknown" ? byName : guessTypeFromIngredients(name, ingredients);
+
   return {
     product: {
       id: `obf-${p.code}`,
       barcode: p.code,
       brand: (p.brands ?? "Unknown").split(",")[0].trim(),
       name,
-      type: guessType(p.categories_tags, name),
+      type,
       // Required by the `products` table's NOT NULL CHECK constraint, but no
       // longer computed: the client dropped `area` entirely (nothing reads
       // it back — see store/useAppStore.ts's v5 -> v6 migration note), so
