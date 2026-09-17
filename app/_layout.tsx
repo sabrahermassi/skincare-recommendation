@@ -1,7 +1,6 @@
 import "../global.css";
 
 import { CormorantGaramond_500Medium } from "@expo-google-fonts/cormorant-garamond";
-import { IBMPlexMono_500Medium } from "@expo-google-fonts/ibm-plex-mono";
 import { Montserrat_300Light, Montserrat_400Regular } from "@expo-google-fonts/montserrat";
 import {
   PlayfairDisplay_500Medium,
@@ -22,11 +21,8 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   // Body text no longer loads a custom font — it renders in the OS system
-  // font (see tailwind.config.js's `sans` family), so only the display and
-  // mono faces block startup now. IBM Plex Mono is the Ellow Welcome
-  // screen's tagline face (design_handoff_ellow_welcome) — a signature of
-  // the system per that handoff, not a fallback, so it earns its own load
-  // rather than rendering in the UI font while it's briefly missing.
+  // font (see tailwind.config.js's `sans` family), so only the display
+  // faces block startup now.
   //
   // The Cormorant Garamond / Montserrat pair is the FOR.ME onboarding
   // reskin (design-watercolor/FOR_ME_Onboarding_Design_Spec.md) — loaded
@@ -35,7 +31,6 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_500Medium,
     PlayfairDisplay_600SemiBold,
-    IBMPlexMono_500Medium,
     CormorantGaramond_500Medium,
     Montserrat_300Light,
     Montserrat_400Regular,

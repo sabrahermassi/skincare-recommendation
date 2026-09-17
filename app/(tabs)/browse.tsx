@@ -39,6 +39,22 @@ const TYPE_FILTERS: (ProductType | "all")[] = [
   "body-wash",
   "body-lotion",
   "hand-cream",
+  "eye-cream",
+  "facial-oil",
+  "night-mask",
+  "exfoliator",
+  "lip-balm",
+  "perfume",
+  "facial-mist",
+  "sheet-mask",
+  "deodorant",
+  "shampoo",
+  "conditioner",
+  "hair-oil",
+  "hair-mask",
+  "body-butter",
+  "body-scrub",
+  "foot-cream",
 ];
 
 // "unknown" is never in TYPE_FILTERS above — it's not a category to browse

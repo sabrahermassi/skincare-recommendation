@@ -81,6 +81,22 @@ export type ProductType =
   | "body-wash"
   | "body-lotion"
   | "hand-cream"
+  | "eye-cream"
+  | "facial-oil"
+  | "night-mask"
+  | "exfoliator"
+  | "lip-balm"
+  | "perfume"
+  | "facial-mist"
+  | "sheet-mask"
+  | "deodorant"
+  | "shampoo"
+  | "conditioner"
+  | "hair-oil"
+  | "hair-mask"
+  | "body-butter"
+  | "body-scrub"
+  | "foot-cream"
   // A genuinely undetermined type — not a tenth category to browse by, a
   // "we don't know" state. Both server-side type-guessers (the product-lookup
   // Edge Function's `guessType`, the OCR Edge Function's identity fallback)
@@ -102,6 +118,22 @@ export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
   "body-wash": "Body wash",
   "body-lotion": "Body lotion",
   "hand-cream": "Hand cream",
+  "eye-cream": "Eye cream",
+  "facial-oil": "Facial oil",
+  "night-mask": "Night mask",
+  exfoliator: "Exfoliator",
+  "lip-balm": "Lip balm",
+  perfume: "Perfume",
+  "facial-mist": "Facial mist",
+  "sheet-mask": "Sheet mask",
+  deodorant: "Deodorant",
+  shampoo: "Shampoo",
+  conditioner: "Conditioner",
+  "hair-oil": "Hair oil",
+  "hair-mask": "Hair mask",
+  "body-butter": "Body butter",
+  "body-scrub": "Body scrub",
+  "foot-cream": "Foot cream",
   unknown: "Unknown",
 };
 
@@ -111,10 +143,9 @@ export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
  * already covers. A gel cleanser and a body wash are different `type`s but
  * the same vessel, so both take `productType: "cleanser-tube"`.
  *
- * Matches `design_handoff_forme_onboarding/bottle-set.html` exactly, one
- * value per `btl-<name>.svg` in that handoff. The SVG set this type once
- * mapped to (`components/BottleIcon.tsx`'s old `BottleIcon`/`Btl*`
- * components) is gone — deleted as dead code once
+ * Originated from a since-deleted design handoff's bottle-shape reference.
+ * The SVG set this type once mapped to (`components/BottleIcon.tsx`'s old
+ * `BottleIcon`/`Btl*` components) is gone — deleted as dead code once
  * `lib/productIllustration.ts`'s PNG set had fully replaced it — but the
  * axis itself is still real: `components/BottleIcon.tsx`'s surviving
  * `defaultPackagingType` still maps into it.

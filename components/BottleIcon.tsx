@@ -28,11 +28,31 @@ export function defaultPackagingType(type: ProductType): PackagingType {
       return "ampoule";
     case "moisturizer":
     case "hand-cream":
+    case "eye-cream":
+    case "night-mask":
+    case "sheet-mask":
+    case "hair-mask":
+    case "body-butter":
+    case "body-scrub":
+    case "foot-cream":
+    case "lip-balm":
       return "cream-jar";
     case "sunscreen":
       return "sunscreen";
     case "body-lotion":
       return "lotion-pump";
+    case "facial-oil":
+    case "hair-oil":
+      return "serum";
+    case "exfoliator":
+    case "deodorant":
+      return "cleanser-tube";
+    case "shampoo":
+    case "conditioner":
+      return "lotion-pump";
+    case "perfume":
+    case "facial-mist":
+      return "mist";
     // No real shape to draw for a type we don't know.
     case "unknown":
       return "serum";

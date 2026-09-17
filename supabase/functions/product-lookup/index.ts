@@ -411,23 +411,39 @@ function looksCosmetic(text: string): boolean {
 }
 
 /**
- * Best-effort mapping onto our product types. Deliberately falls back to
- * "serum" rather than inventing a new type, because the browse filter bar is
- * driven by this closed set.
+ * Best-effort mapping onto our product types. Falls back to "unknown" rather
+ * than inventing a type — see the comment at the bottom of this function for
+ * why a wrong specific guess is worse than an honest "we don't know". The
+ * browse filter bar is driven by this same closed set (`ProductType`).
  *
  * The patterns were English-only, and this catalogue is not: "CeraVe
  * Schuimende Reinigingsgel", "nettoyant moussant visage" and "Huile lavante
  * Lipikar" are all cleansers that fell through to "serum", which then scored
  * them as leave-on (contact weight 1.0 instead of 0.4) and overstated both
  * their actives and their irritants. The added terms are the ones that
- * actually appear on labels in this catalogue's languages.
+ * actually appear on labels in this catalogue's languages. The 16 patterns
+ * below "hand-cream" follow the same rule: English-only until a real
+ * catalogue entry is seen failing in another language — not translated
+ * preemptively.
+ *
+ * Ordering matters — earlier entries win, so anything that could be mistaken
+ * for a broader pattern further down has to come first. Two cases mattered
+ * enough to call out: "body butter" used to fall into `body-lotion`'s
+ * `butter` alternative, so that's been removed from `body-lotion` now that
+ * `body-butter` is its own type and checked first; and `eye-cream` /
+ * `night-mask` / `foot-cream` all contain "cream" and have to be checked
+ * before the generic `moisturizer` catch-all or they'd never be reached.
  */
 function guessType(tags: string[], text: string): string {
   const haystack = `${tags.join(" ")} ${text}`.toLowerCase();
   const table: [RegExp, string][] = [
     [/hand.?cream|crème mains|handcreme/, "hand-cream"],
+    [/eye cream/, "eye-cream"],
+    [/body.?butter/, "body-butter"],
     [/body.?(wash|gel)|shower|douche|duschgel/, "body-wash"],
-    [/body.?(lotion|milk|butter)|body ?lotion|lait corporel/, "body-lotion"],
+    [/body.?scrub|body.?exfoliat/, "body-scrub"],
+    [/body.?(lotion|milk)|body ?lotion|lait corporel/, "body-lotion"],
+    [/foot cream|foot balm/, "foot-cream"],
     [
       // nettoyant/lavant (fr), reinigings/schuimende (nl), limpiador (es),
       // detergente (it), waschgel (de) — plus "huile lavante", a washing oil.
@@ -439,6 +455,20 @@ function guessType(tags: string[], text: string): string {
     [/essence/, "essence"],
     [/ampoule/, "ampoule"],
     [/serum|sérum/, "serum"],
+    // "sleeping"/"overnight" mask, not a bare "night cream" — that's a real
+    // moisturizer, not the K-beauty sleep-mask category.
+    [/sleeping mask|night mask|overnight mask/, "night-mask"],
+    [/sheet mask/, "sheet-mask"],
+    [/hair mask/, "hair-mask"],
+    [/facial oil|face oil/, "facial-oil"],
+    [/hair oil/, "hair-oil"],
+    [/lip balm|lip butter/, "lip-balm"],
+    [/perfume|eau de (parfum|toilette)/, "perfume"],
+    [/facial mist|face mist/, "facial-mist"],
+    [/deodorant|antiperspirant/, "deodorant"],
+    [/shampoo/, "shampoo"],
+    [/conditioner/, "conditioner"],
+    [/exfoliat|scrub|peel(ing)? pad/, "exfoliator"],
     [/cream|moisturi[sz]er|lotion|emulsion|crème|creme|crema|gezichtscrème/, "moisturizer"],
   ];
   for (const [pattern, type] of table) if (pattern.test(haystack)) return type;

@@ -408,14 +408,26 @@ function dedupe(parsed) {
  *
  * The patterns were English-only, which is why "Schuimende Reinigingsgel",
  * "nettoyant moussant visage" and "Huile lavante" were all typed as serums
- * and then scored as leave-on products.
+ * and then scored as leave-on products. The 16 patterns after "hand-cream"
+ * follow the same rule: English-only until a real catalogue entry is seen
+ * failing in another language.
+ *
+ * Ordering matters — earlier entries win. "Body butter" used to fall into
+ * `body-lotion`'s `butter` alternative, so that's been removed now that
+ * `body-butter` is its own type and checked first; `eye-cream` / `night-mask`
+ * / `foot-cream` all contain "cream" and have to be checked before the
+ * generic `moisturizer` catch-all or they'd never be reached.
  */
 function guessType(tags, text) {
   const hay = `${(tags ?? []).join(" ")} ${text}`.toLowerCase();
   const table = [
     [/hand.?cream|crème mains|handcreme/, "hand-cream"],
+    [/eye cream/, "eye-cream"],
+    [/body.?butter/, "body-butter"],
     [/body.?(wash|gel)|shower|douche|duschgel/, "body-wash"],
-    [/body.?(lotion|milk|butter)|body ?lotion|lait corporel/, "body-lotion"],
+    [/body.?scrub|body.?exfoliat/, "body-scrub"],
+    [/body.?(lotion|milk)|body ?lotion|lait corporel/, "body-lotion"],
+    [/foot cream|foot balm/, "foot-cream"],
     [
       /cleanser|foam|cleansing|micellar|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
       "cleanser",
@@ -425,6 +437,20 @@ function guessType(tags, text) {
     [/essence/, "essence"],
     [/ampoule/, "ampoule"],
     [/serum|sérum/, "serum"],
+    // "sleeping"/"overnight" mask, not a bare "night cream" — that's a real
+    // moisturizer, not the K-beauty sleep-mask category.
+    [/sleeping mask|night mask|overnight mask/, "night-mask"],
+    [/sheet mask/, "sheet-mask"],
+    [/hair mask/, "hair-mask"],
+    [/facial oil|face oil/, "facial-oil"],
+    [/hair oil/, "hair-oil"],
+    [/lip balm|lip butter/, "lip-balm"],
+    [/perfume|eau de (parfum|toilette)/, "perfume"],
+    [/facial mist|face mist/, "facial-mist"],
+    [/deodorant|antiperspirant/, "deodorant"],
+    [/shampoo/, "shampoo"],
+    [/conditioner/, "conditioner"],
+    [/exfoliat|scrub|peel(ing)? pad/, "exfoliator"],
     [/cream|moisturi[sz]er|lotion|emulsion|crème|creme|crema|gezichtscrème/, "moisturizer"],
   ];
   for (const [re, type] of table) if (re.test(hay)) return type;
