@@ -10,9 +10,10 @@ import {
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 async function load(id: string): Promise<ProductWithIngredients> {
-  const p = await fetchProduct(id);
-  if (!p) throw new Error(`fixture missing: ${id}`);
-  return p;
+  const result = await fetchProduct(id);
+  if (!result.ok) throw new Error(`fixture unreadable: ${id} (${result.failure.kind})`);
+  if (!result.value) throw new Error(`fixture missing: ${id}`);
+  return result.value;
 }
 
 function profile(overrides: Partial<SkinProfile> = {}): SkinProfile {

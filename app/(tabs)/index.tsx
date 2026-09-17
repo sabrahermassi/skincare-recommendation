@@ -15,8 +15,7 @@ import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
-import { fetchProductByBarcode } from "@/data/api";
-import type { ProductWithIngredients } from "@/data/types";
+import { failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { COLORS } from "@/lib/colors";
 import { useAppStore } from "@/store/useAppStore";
 import { CAMERA_STAGE, CANVAS, CTA, INK, LINE, MUTED, SCANNER_FRAME, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
@@ -48,7 +47,21 @@ import { CAMERA_STAGE, CANVAS, CTA, INK, LINE, MUTED, SCANNER_FRAME, TOUCH_TARGE
 const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as const;
 
 type Mode = "Barcode" | "Label photo";
-type Status = { kind: "idle" } | { kind: "looking"; code: string } | { kind: "missed"; code: string };
+/**
+ * `missed` and `unreachable` are deliberately separate.
+ *
+ * They used to be one state: every non-404 outcome — a timeout, a dead
+ * connection, a rate limit — landed in `missed` and the panel said "Not in our
+ * catalogue yet". So in a shop with one bar of signal the app stated that a
+ * product did not exist, logged that to history, and offered "Photograph the
+ * label" as the way out — which needs the same network that had just failed.
+ * Two failures in a row, on the one interaction this app exists for.
+ */
+type Status =
+  | { kind: "idle" }
+  | { kind: "looking"; code: string }
+  | { kind: "missed"; code: string }
+  | { kind: "unreachable"; code: string; failure: FetchFailure };
 
 // The design system (design/DESIGN_SYSTEM.md) — the dark camera stage itself
 // stays (it's deliberate chrome, not part of the light onboarding palette,
@@ -168,18 +181,18 @@ export default function Scan() {
       busy.current = true;
       setStatus({ kind: "looking", code: data });
 
-      // A miss reads as "not in our catalogue" whether the cascade genuinely
-      // found nothing or the lookup itself failed (bad rate limit, a scanned
-      // code that isn't actually a product barcode, a transient network
-      // error) — the recovery is identical either way: try again, search, or
-      // photograph the label. Letting the request throw here would crash the
-      // scan screen instead of just showing that state.
-      let product: ProductWithIngredients | null = null;
-      try {
-        product = await fetchProductByBarcode(data);
-      } catch (err) {
-        console.warn("fetchProductByBarcode failed:", err);
+      const result = await fetchProductByBarcode(data);
+
+      // Could not ask. Not a miss — and crucially not written to history,
+      // because an outage-caused "miss" is a false record the user has no way
+      // to tell from a real one, and it outlives the outage.
+      if (!result.ok) {
+        setStatus({ kind: "unreachable", code: data, failure: result.failure });
+        busy.current = false;
+        return;
       }
+
+      const product = result.value;
 
       if (product) {
         // Deliberately not recorded here. `/result/[id]` re-exports the
@@ -397,7 +410,9 @@ function BarcodeStage({
       ? "Barcode found. Reading the ingredients."
       : status.kind === "missed"
         ? "Not in our catalogue yet. Photograph the label and we'll add it."
-        : "";
+        : status.kind === "unreachable"
+          ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
+          : "";
 
   return (
     <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>
@@ -520,12 +535,16 @@ function BarcodeStage({
               <Text style={{ fontSize: 12.5, fontWeight: "bold", color: INK }}>
                 {status.kind === "looking"
                   ? `Barcode found · ${status.code}`
-                  : "Not in our catalogue yet"}
+                  : status.kind === "unreachable"
+                    ? "Couldn't check this barcode"
+                    : "Not in our catalogue yet"}
               </Text>
               <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
                 {status.kind === "looking"
                   ? "Reading the ingredients…"
-                  : "Photograph the label and we'll add it"}
+                  : status.kind === "unreachable"
+                    ? failureMessage(status.failure)
+                    : "Photograph the label and we'll add it"}
               </Text>
             </View>
           </View>
@@ -568,12 +587,51 @@ function BarcodeStage({
           </View>
         )}
 
+        {/* Deliberately not "Photograph the label": that needs the same
+            network that just failed, so offering it here would be the second
+            of two failures on one interaction. The only honest primary action
+            when we could not reach the catalogue is to ask it again. */}
+        {status.kind === "unreachable" && (
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Pressable
+              onPress={() => onBarcode(status.code)}
+              style={{
+                flex: 1,
+                height: TOUCH_TARGET,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 999,
+                backgroundColor: CTA,
+              }}
+              className="active:opacity-90"
+            >
+              <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>Try again</Text>
+            </Pressable>
+            <Pressable
+              onPress={onDismissStatus}
+              style={{
+                flex: 1,
+                height: TOUCH_TARGET,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 999,
+                backgroundColor: withAlpha(CANVAS, 0.2),
+              }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: "600", color: CANVAS }}>Try another</Text>
+            </Pressable>
+          </View>
+        )}
+
         {/* A miss is the common case here, not the exception — the catalogue
             covers a fraction of what's on shelves — so the recovery options
             above (photograph it, try again) need a third: check whether it's
             already in the library under a different lookup path. Same
-            pattern as the permission-denied panel's own Browse link above. */}
-        {status.kind === "missed" && (
+            pattern as the permission-denied panel's own Browse link above.
+            Offered after an unreachable lookup too, and it is the one
+            suggestion on this panel that still works with no connection:
+            Browse renders from the cached catalogue. */}
+        {(status.kind === "missed" || status.kind === "unreachable") && (
           <Pressable
             onPress={() => {
               preserveMode();

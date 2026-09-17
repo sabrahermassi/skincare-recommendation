@@ -39,18 +39,15 @@ export default function IngredientList() {
     fetchProduct(id)
       .then((result) => {
         if (cancelled) return;
-        setProduct(result);
-        setLoading(false);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.warn("fetchProduct failed:", err);
-        // Without this, a failed request left the *previous* id's product in
-        // state. `loading` gates the spinner so nothing renders it mid-request,
-        // but the moment this resolves, the not-found branch below is skipped
-        // and the prior product renders under the new route's id — for a
-        // request that never actually answered for it.
-        setProduct(null);
+        // A failure clears it for the same reason the old `catch` did: without
+        // this, a failed request left the *previous* id's product in state.
+        // `loading` gates the spinner so nothing renders it mid-request, but
+        // the moment this resolves, the not-found branch below is skipped and
+        // the prior product renders under the new route's id — for a request
+        // that never actually answered for it. This screen is about the
+        // ingredient, not the product, so it does not distinguish the two
+        // failure modes any further than that.
+        setProduct(result.ok ? result.value : null);
         setLoading(false);
       });
     return () => {
