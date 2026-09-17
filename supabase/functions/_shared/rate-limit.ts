@@ -190,10 +190,29 @@ function logSafe(value: string): string {
  *
  * It is the *count* that fixes it, because the count is the one value every
  * isolate already agrees on — `maxRequests + 1` happens exactly once per
- * window however many isolates are serving. For a shared refusal that count
- * comes from `consume_rate_limit`; for a local one it comes from this
- * isolate's own tally, which is as global as a local refusal can be, since
- * reaching one at all means this isolate served the whole allowance itself.
+ * window however many isolates are serving.
+ *
+ * **The two layers are bounded differently, and the difference is worth
+ * stating rather than glossing.** A `shared` line is exactly one per caller
+ * per window, globally: the count comes from `consume_rate_limit`, which every
+ * isolate shares. A `local` line is one per caller per window *per isolate*,
+ * because the local fast path returns before reaching the database and so has
+ * no global count to test against. Review pressed on this twice and was right
+ * to; an earlier version of this comment claimed a global bound for both.
+ *
+ * That looser bound is accepted rather than fixed, because of what a local
+ * line costs the caller who triggers it: reaching one means a single isolate
+ * served `maxRequests + 1` requests, so at `label-ocr`'s limit of 10 the worst
+ * case is one line per eleven attempts, and each additional line needs another
+ * warm isolate as well as another eleven requests. A hundred lines would take
+ * a hundred warm isolates and eleven hundred requests from one address inside
+ * five minutes — which is not a log bill, it is the thing the log exists to
+ * report.
+ *
+ * Closing the gap would mean consulting the database on the refusal path,
+ * which is the one path deliberately kept free of it: that path is the
+ * attacker's, and making it do work is how a rate limiter becomes an
+ * amplifier.
  *
  * The caller here is the address, not the fingerprint stored in the database.
  * Logs are short-lived and this is the only place the raw value survives at

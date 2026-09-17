@@ -419,10 +419,6 @@ describe("refusal logging across isolates", () => {
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("layer=shared"));
   });
 
-  /**
-   * A local refusal means this isolate served the whole allowance itself, so
-   * its own tally is as global a fact as a local refusal can have.
-   */
   it("logs a local refusal once and then stays quiet", async () => {
     const d = db(ALLOWED);
     for (let i = 0; i < LIMIT.maxRequests + 40; i++) {
@@ -455,5 +451,49 @@ describe("the boundary between the last allowed request and the first refused on
     resetRateLimits();
     const d = db({ data: LIMIT.maxRequests + 1, error: null });
     expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS)).toBe(false);
+  });
+});
+
+describe("what the local bound actually is", () => {
+  /**
+   * Review pressed twice on the claim that the log is bounded globally. It is
+   * not, for `local` refusals: that path returns before reaching the database,
+   * so it has no shared count to test against and each warm isolate logs its
+   * own line. This pins the real behaviour so the bound is documented where it
+   * can be checked rather than only asserted in a comment.
+   *
+   * It is accepted rather than closed because of the price. Reaching a local
+   * refusal at all means one isolate served `maxRequests + 1` requests, so
+   * each line costs the caller that many attempts *and* another warm isolate.
+   * Closing it would mean querying the database on the refusal path — the one
+   * path deliberately kept free of work, because it is the attacker's.
+   */
+  it("emits one local line per isolate, not one per attempt", async () => {
+    const d = db(ALLOWED);
+    const ISOLATES = 4;
+    const PER_ISOLATE = LIMIT.maxRequests + 25;
+
+    for (let isolate = 0; isolate < ISOLATES; isolate++) {
+      resetRateLimits(); // a fresh isolate: empty memory, same caller
+      for (let i = 0; i < PER_ISOLATE; i++) {
+        await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
+      }
+    }
+
+    // One per isolate — emphatically not one per attempt.
+    expect(console.warn).toHaveBeenCalledTimes(ISOLATES);
+    expect(ISOLATES).toBeLessThan(ISOLATES * PER_ISOLATE);
+  });
+
+  /**
+   * The other half of the bound, and the reason the looser one is affordable:
+   * a line is only ever reached by spending a whole allowance on one isolate.
+   */
+  it("says nothing at all until an isolate has spent the whole allowance", async () => {
+    const d = db(ALLOWED);
+    for (let i = 0; i < LIMIT.maxRequests; i++) {
+      await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
+    }
+    expect(console.warn).not.toHaveBeenCalled();
   });
 });
