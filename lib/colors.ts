@@ -48,4 +48,15 @@ export const COLORS = {
   panelRisk: "#EDF4EF",
   panelRiskLine: "#DFEBE3",
   panelWash: "#F3EFEA",
+
+  // The FOR.ME shell palette — onboarding, the quiz and the selected-outline
+  // accent that several screens reuse. It is a genuinely separate system from
+  // the palette above rather than a second copy of it, but it was declared in
+  // `components/shell/shared.tsx`, which made that file a third place raw hex
+  // lived. These are the values; `shared.tsx` re-exports them under its own
+  // names so its ten importers are unaffected.
+  shellTerracotta: "#C4654F",
+  shellSand: "#E8DDD1",
+  shellCharcoal: "#2E2E2E",
+  shellCtaText: "#FFFFFF",
 } as const;

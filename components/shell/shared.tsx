@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Pressable, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { Text } from "@/components/Text";
+import { COLORS } from "@/lib/colors";
 import { CANVAS } from "@/lib/tokens";
 
 /**
@@ -23,10 +24,14 @@ export { CANVAS };
  * shades for the wordmark ink vs. the button fill; this value is neither
  * of those measurements, it's the single color requested to replace both).
  */
-export const TERRACOTTA = "#C4654F";
-export const SAND = "#E8DDD1";
-export const CHARCOAL = "#2E2E2E";
-export const CTA_TEXT = "#FFFFFF";
+// Re-exported rather than declared, so the hex lives in `lib/colors.ts` with
+// every other literal color this app hands to an RN prop. The names stay here
+// because the reasoning above is about these names, and because ten files
+// import them from this path.
+export const TERRACOTTA = COLORS.shellTerracotta;
+export const SAND = COLORS.shellSand;
+export const CHARCOAL = COLORS.shellCharcoal;
+export const CTA_TEXT = COLORS.shellCtaText;
 
 export const FONT = {
   headline: "CormorantGaramond_500Medium",
