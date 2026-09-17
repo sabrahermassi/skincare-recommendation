@@ -472,6 +472,13 @@ function guessType(tags: string[], text: string): string {
     // and `spf` below would otherwise claim it first.
     // "lèvres" (fr), "dudak" (tr), "губ" (ru/uk) — all seen failing for real.
     [/lip[\s-]?(balm|butter|care)|l[èe]vres|dudak|губ/, "lip-balm"],
+    // Both above the cleanser rule: "Deep Cleansing Shampoo" carries both
+    // words, and tags and name share one haystack, so `cleansing` would take
+    // it even when the row is tagged `en:shampoos`.
+    [/shampoo/, "shampoo"],
+    // Not a bare `conditioner`: "Skin Conditioner" is a face product, and it
+    // was being given the hair-conditioner label and illustration.
+    [/(?<!skin[\s-])conditioner/, "conditioner"],
     [
       // nettoyant/lavant (fr), reinigings/schuimende (nl), limpiador (es),
       // detergente (it), waschgel (de) — plus "huile lavante", a washing oil.
@@ -495,8 +502,6 @@ function guessType(tags: string[], text: string): string {
     [/perfume|eau de (parfum|toilette)/, "perfume"],
     [/(facial|face)[\s-]?mist/, "facial-mist"],
     [/deodorant|antiperspirant/, "deodorant"],
-    [/shampoo/, "shampoo"],
-    [/conditioner/, "conditioner"],
     // No "peel pad" here: this type is rinse-off in `contactWeight`, and a
     // leave-on acid pad scored at 0.4 would understate both its actives and
     // its irritants. Those fall through to the ingredient rule instead, which
