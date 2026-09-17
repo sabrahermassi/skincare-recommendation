@@ -129,6 +129,7 @@ import {
   revalidateOnForeground,
   searchProducts,
   warmCatalogue,
+  type Fetched,
 } from "@/data/api";
 import {
   DISK_TTL_MS,
@@ -138,6 +139,20 @@ import {
   resetCatalogueCache,
 } from "@/data/catalogue-cache";
 import { supabase } from "@/lib/supabase";
+
+/**
+ * Asserts a read succeeded and hands back its value.
+ *
+ * The three fetchers that can answer "not in the catalogue" return a
+ * `Fetched`, so a test that wants the value has to say which case it expects.
+ * Throwing on a failure rather than returning null keeps that explicit: a test
+ * whose request unexpectedly fails reports the failure kind instead of quietly
+ * asserting against `undefined`.
+ */
+function unwrap<T>(result: Fetched<T>): T {
+  if (!result.ok) throw new Error(`expected a successful read, got "${result.failure.kind}"`);
+  return result.value;
+}
 
 function row(id: string, type = "serum") {
   return {
@@ -449,13 +464,14 @@ describe("rows nobody can identify", () => {
     ];
     mockRowCount = 1;
 
-    expect((await fetchProduct("ghost"))?.id).toBe("ghost");
-    expect((await fetchProductsByIds(["ghost"])).map((p) => p.id)).toEqual([
+    expect(unwrap(await fetchProduct("ghost"))?.id).toBe("ghost");
+    expect(unwrap(await fetchProductsByIds(["ghost"])).map((p) => p.id)).toEqual([
       "ghost",
     ]);
     // And the stand-in really is keyed on the id, so the assertion above means
-    // what it says.
-    expect(await fetchProduct("no-such-product")).toBeNull();
+    // what it says. `unwrap` matters here: a null *value* is the catalogue
+    // answering, which is what this asserts — a failed read would throw.
+    expect(unwrap(await fetchProduct("no-such-product"))).toBeNull();
   });
 });
 
@@ -688,27 +704,90 @@ describe("a barcode lookup", () => {
 
     const found = await fetchProductByBarcode("barcode-scanned");
 
-    expect(found?.id).toBe("scanned");
+    expect(unwrap(found)?.id).toBe("scanned");
   });
 
   /** A 404 from the cascade means "not in any source", a miss — not a failure. */
-  it("caches a miss rather than throwing, on a 404", async () => {
+  it("caches a miss rather than failing, on a 404", async () => {
     invokeMock().mockResolvedValue({ data: null, error: { context: { status: 404 } } });
 
     const found = await fetchProductByBarcode("barcode-missing");
 
-    expect(found).toBeNull();
+    // A successful read whose value is null: the catalogue answered.
+    expect(found).toEqual({ ok: true, value: null });
     expect(readScanned("barcode-missing")).toBeNull();
   });
 
-  /** Anything other than a 404 — including a timeout — is worth surfacing. */
-  it("throws on a non-404 failure rather than reporting a silent miss", async () => {
+  /**
+   * The distinction issue #93 turns on. A 500 is *not* a miss, and must not
+   * reach the scanner as one — it reports a failure the screen can retry, and
+   * nothing is written to the scanned cache, so a later attempt re-asks.
+   */
+  it("reports a non-404 failure rather than a silent miss", async () => {
     invokeMock().mockResolvedValue({
       data: null,
-      error: { message: "no response after 12000ms", context: { status: 500 } },
+      error: { message: "upstream exploded", context: { status: 500 } },
     });
 
-    await expect(fetchProductByBarcode("barcode-broken")).rejects.toThrow("no response after 12000ms");
+    const result = await fetchProductByBarcode("barcode-broken");
+
+    expect(result).toEqual({
+      ok: false,
+      failure: { kind: "server", message: "server responded 500" },
+    });
+    expect(readScanned("barcode-broken")).toBeUndefined();
+  });
+
+  /**
+   * Both of the next two cases arrive the way the real library delivers them,
+   * which is the point of writing them this way.
+   *
+   * `functions.invoke` never rejects: it catches everything and *returns*
+   * `{ data: null, error }`. It also implements its own `timeout` option by
+   * aborting the fetch, then wrapping whatever the fetch rejected with in a
+   * `FunctionsFetchError`. So a timeout and a dead connection reach us in the
+   * identical wrapper, separated only by the original error on `context`.
+   *
+   * An earlier version of this test used `mockRejectedValue`, which exercised
+   * a branch the library cannot reach — it passed while proving nothing.
+   */
+  it("reports a dead connection as offline, not as a miss", async () => {
+    invokeMock().mockResolvedValue({
+      data: null,
+      error: { name: "FunctionsFetchError", message: "Failed to send a request to the Edge Function", context: new TypeError("Network request failed") },
+    });
+
+    const result = await fetchProductByBarcode("barcode-offline");
+
+    expect(result).toEqual({ ok: false, failure: { kind: "offline" } });
+    expect(readScanned("barcode-offline")).toBeUndefined();
+  });
+
+  it("reports the lookup's own deadline as a timeout, not as offline", async () => {
+    // What `invoke` produces when its `timeout` fires: it aborts the fetch,
+    // and the AbortError is what ends up on `context`.
+    const aborted = new Error("The operation was aborted");
+    aborted.name = "AbortError";
+    invokeMock().mockResolvedValue({
+      data: null,
+      error: { name: "FunctionsFetchError", message: "Failed to send a request to the Edge Function", context: aborted },
+    });
+
+    const result = await fetchProductByBarcode("barcode-slow");
+
+    expect(result).toEqual({ ok: false, failure: { kind: "timeout" } });
+    expect(readScanned("barcode-slow")).toBeUndefined();
+  });
+
+  it("reports a rate limit as its own state", async () => {
+    invokeMock().mockResolvedValue({
+      data: null,
+      error: { message: "too many requests", context: { status: 429 } },
+    });
+
+    const result = await fetchProductByBarcode("barcode-throttled");
+
+    expect(result).toEqual({ ok: false, failure: { kind: "rate-limited" } });
   });
 });
 

@@ -14,7 +14,7 @@ import { HeartIcon } from "@/components/icons";
 import { BarcodeOfferPrompt } from "@/components/BarcodeOfferPrompt";
 import { InlineProfilePrompt } from "@/components/InlineProfilePrompt";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { canPhotographLabelFor, fetchProduct } from "@/data/api";
+import { canPhotographLabelFor, failureMessage, fetchProduct, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import {
   confidenceLabel,
@@ -138,6 +138,24 @@ export default function ProductScreen() {
   }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [loading, setLoading] = useState(true);
+  /**
+   * Set only when the catalogue could not be *asked*. Distinct from
+   * `product === null`, which is the catalogue answering that it does not have
+   * this id — "Product not found" is true of the second and a lie about the
+   * first.
+   */
+  const [failure, setFailure] = useState<FetchFailure | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
+  /**
+   * Which id the product in state belongs to.
+   *
+   * `product` is deliberately kept across a failed *retry* — what is already
+   * on screen beats an error page. That is only right while the id has not
+   * changed: without this, routing to a different product whose load then
+   * failed left the previous one rendering under the new id, which is the
+   * exact trap `app/ingredients/[id].tsx` documents on its own fetch.
+   */
+  const loadedFor = useRef<string | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
 
   // Captured once, on arrival, rather than read live. `isPersonalized` flips as
@@ -167,22 +185,29 @@ export default function ProductScreen() {
     // resetting it here too, the previous product stays on screen while
     // the new one fetches.
     setLoading(true);
+    setFailure(null);
     fetchProduct(id)
       .then((result) => {
         if (cancelled) return;
-        setProduct(result);
-        setLoading(false);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.warn("fetchProduct failed:", err);
-        setProduct(null);
+        if (result.ok) {
+          setProduct(result.value);
+          loadedFor.current = id;
+        } else {
+          // A failed retry of the id already on screen keeps that copy — it
+          // beats an error page. A failed load of a *different* id must not
+          // inherit it. See `loadedFor`.
+          if (loadedFor.current !== id) {
+            setProduct(null);
+            loadedFor.current = null;
+          }
+          setFailure(result.failure);
+        }
         setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, retryKey]);
 
   // Opening a product logs it, so "have I already checked this?" is answerable
   // without the user having had the foresight to save it. Keyed on the product
@@ -214,6 +239,36 @@ export default function ProductScreen() {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS }}>
         <ActivityIndicator color={INK} />
+      </View>
+    );
+  }
+
+  // Before the `!product` branch, and the order is the whole point: "Product
+  // not found" is the catalogue's answer, and we only have one if we reached
+  // it. An outage rendering that copy tells the user their product does not
+  // exist on the evidence of a failed request.
+  if (failure && !product) {
+    return (
+      <View style={{ flex: 1, backgroundColor: CANVAS }}>
+        <ScreenHeader />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
+          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, color: INK }}>
+            Couldn&apos;t load this product
+          </Text>
+          <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
+            {failureMessage(failure)}
+          </Text>
+          <PrimaryButton tone="cta" size={52} label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
+          <Pressable
+            onPress={() => router.push("/browse")}
+            accessibilityRole="link"
+            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+          >
+            <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+              Browse the catalogue
+            </Text>
+          </Pressable>
+        </View>
       </View>
     );
   }

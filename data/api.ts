@@ -231,13 +231,24 @@ const WARM_TIMEOUT_MS = 2_000;
  * "Try again" button could pile up several in-flight requests behind one
  * unresponsive network path.
  */
+/**
+ * Marks a rejection as "the deadline expired", so `classifyFailure` can tell it
+ * apart from the server answering with an error.
+ *
+ * A subclass rather than a message the classifier greps for: the message is
+ * user-facing prose in some paths and gets rewritten, and a classifier that
+ * depends on its wording silently degrades to "server" the first time someone
+ * edits it.
+ */
+class TimeoutError extends Error {}
+
 function withTimeout<T>(attachSignal: (signal: AbortSignal) => PromiseLike<T>, label: string): Promise<T> {
   const controller = new AbortController();
   const work = attachSignal(controller.signal);
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
       controller.abort();
-      reject(new Error(`${label}: no response after ${NETWORK_TIMEOUT_MS}ms`));
+      reject(new TimeoutError(`${label}: no response after ${NETWORK_TIMEOUT_MS}ms`));
     }, NETWORK_TIMEOUT_MS);
     Promise.resolve(work).then(
       (value) => {
@@ -250,6 +261,123 @@ function withTimeout<T>(attachSignal: (signal: AbortSignal) => PromiseLike<T>, l
       },
     );
   });
+}
+
+/**
+ * Why a read could not answer.
+ *
+ * **"Missing" is deliberately not one of these.** A product that genuinely is
+ * not in the catalogue is a successful read whose value is `null` — that is an
+ * answer, and the screens say so. Collapsing the two is the bug this type
+ * exists to make unrepresentable: the scanner used to catch every throw and
+ * render "Not in our catalogue yet", so in a shop with one bar of signal the
+ * app stated confidently that a product did not exist, wrote that to history,
+ * and then offered "Photograph the label" — which also needs the network.
+ *
+ * Every kind here is retryable. That is the point of separating them from a
+ * null: the recovery is "try again", not "this does not exist".
+ */
+export type FetchFailure =
+  | { kind: "offline" }
+  | { kind: "timeout" }
+  | { kind: "rate-limited" }
+  | { kind: "server"; message: string };
+
+/**
+ * A read that distinguishes "no" from "could not ask".
+ *
+ * Only the fetchers where **absence is itself an answer** return this:
+ * `fetchProduct`, `fetchProductsByIds` and `fetchProductByBarcode` all answer
+ * "is this specific product there?", and for them a missing row and an
+ * unreachable server look identical to a caller that only sees a throw.
+ *
+ * The list fetchers — `fetchProducts`, `searchProducts`, `fetchProductTypes` —
+ * keep throwing on purpose. They answer "what is there?", where an empty result
+ * means an empty catalogue rather than a specific absence, and their call sites
+ * already turn a throw into "couldn't load, try again". Adding a second idiom
+ * to them would churn the screens without changing what any of them can say.
+ *
+ * **A function returning this never rejects.** That is the contract the screens
+ * rely on: they stopped wrapping these calls in `try`, so a throw would land as
+ * an unhandled rejection rather than an error state. Every path that can throw
+ * — including row parsing, not just the request — belongs inside a guard that
+ * turns it into `{ ok: false }`.
+ */
+export type Fetched<T> = { ok: true; value: T } | { ok: false; failure: FetchFailure };
+
+/**
+ * Translate whatever a failed read threw into one of the four states above.
+ *
+ * Deliberately conservative: anything not positively identified as offline,
+ * timed out or rate-limited is reported as a server error, because the copy for
+ * `server` ("something went wrong, try again") is true of every case, while
+ * "you're offline" shown to someone with working signal is not.
+ */
+function classifyFailure(err: unknown): FetchFailure {
+  if (err instanceof TimeoutError) return { kind: "timeout" };
+
+  // `functions.invoke` surfaces the HTTP status here; PostgREST errors do not
+  // carry one, which is why this is checked rather than assumed.
+  const context = (err as { context?: unknown })?.context;
+  const status = (context as { status?: number } | undefined)?.status;
+  if (status === 429) return { kind: "rate-limited" };
+  if (typeof status === "number" && status >= 500) {
+    return { kind: "server", message: `server responded ${status}` };
+  }
+
+  // The barcode lookup's own deadline, which does not arrive as a
+  // `TimeoutError` because it is not ours.
+  //
+  // `functions.invoke` takes a `timeout` option and implements it by aborting
+  // the fetch with its own AbortController, then wrapping whatever the fetch
+  // rejected with in a `FunctionsFetchError` and *returning* it. So a lookup
+  // that ran out of time and a lookup with no connection arrive in exactly the
+  // same wrapper, and the only thing separating them is the original error
+  // kept on `context`: an abort for the first, a `TypeError` for the second.
+  // Without this check every slow scan reported "check your connection", and
+  // the `timeout` state was unreachable for the one call most likely to hit it.
+  if ((err as { name?: string })?.name === "FunctionsFetchError") {
+    const cause = context as { name?: string } | undefined;
+    return cause?.name === "AbortError" ? { kind: "timeout" } : { kind: "offline" };
+  }
+
+  // Not just `instanceof Error`: a Supabase read reports failure by *returning*
+  // a `PostgrestError`, which is a plain object with a `message` — passed
+  // straight to `String()` it would read "[object Object]" and every database
+  // error would classify identically.
+  const raw = (err as { message?: unknown })?.message;
+  const message = err instanceof Error ? err.message : typeof raw === "string" ? raw : String(err);
+
+  // What a dead connection looks like on the direct reads, which do not go
+  // through `functions.invoke`: React Native's fetch throws
+  // `TypeError: Network request failed` and the browser throws
+  // `TypeError: Failed to fetch`. A bare `AbortError` reaching here was not
+  // ours — our own deadline rejects as a `TimeoutError` above — so it is the
+  // platform giving up on the connection.
+  if (
+    /network request failed|failed to fetch|networkerror|load failed/i.test(message) ||
+    (err as { name?: string })?.name === "AbortError"
+  ) {
+    return { kind: "offline" };
+  }
+
+  return { kind: "server", message };
+}
+
+/** One sentence per failure, for a screen that has room for exactly one. */
+export function failureMessage(failure: FetchFailure): string {
+  switch (failure.kind) {
+    case "offline":
+      return "Couldn't reach our catalogue. Check your connection.";
+    case "timeout":
+      return "Our catalogue took too long to answer.";
+    case "rate-limited":
+      // Not "rate-limited": the person reading this is holding a bottle in a
+      // shop, and the word is ours, not theirs.
+      return "Too many lookups just now. Wait a moment and try again.";
+    case "server":
+      return "Something went wrong at our end.";
+  }
 }
 
 function delay<T>(value: T): Promise<T> {
@@ -865,36 +993,53 @@ export async function fetchProducts(
   return delay(results);
 }
 
+/**
+ * One product by id. `{ ok: true, value: null }` means the catalogue does not
+ * have it; `{ ok: false }` means we could not ask. See {@link Fetched}.
+ */
 export async function fetchProduct(
   id: string
-): Promise<ProductWithIngredients | null> {
+): Promise<Fetched<ProductWithIngredients | null>> {
   if (usingSupabase()) {
     // A product opened from Browse or Saved is already in the cached
     // catalogue — the detail screen should not re-request a row the list
     // just handed it.
     const cached = await readCatalogue();
     const hit = cached ? productById(cached, id) : undefined;
-    if (hit) return hit;
+    if (hit) return { ok: true, value: hit };
 
-    const { data, error } = await withTimeout(
-      // abortSignal has to come before maybeSingle: maybeSingle narrows the
-      // builder to a type that no longer has abortSignal on it.
-      (signal) => supabase!.from("products").select(SELECT).eq("id", id).abortSignal(signal).maybeSingle(),
-      "fetchProduct",
-    );
-    if (error) throw new Error(`fetchProduct: ${error.message}`);
-    return data ? rowToProduct(data as unknown as CatalogueRow) : null;
+    try {
+      const { data, error } = await withTimeout(
+        // abortSignal has to come before maybeSingle: maybeSingle narrows the
+        // builder to a type that no longer has abortSignal on it.
+        (signal) => supabase!.from("products").select(SELECT).eq("id", id).abortSignal(signal).maybeSingle(),
+        "fetchProduct",
+      );
+      if (error) return { ok: false, failure: classifyFailure(error) };
+      return { ok: true, value: data ? rowToProduct(data as unknown as CatalogueRow) : null };
+    } catch (err) {
+      return { ok: false, failure: classifyFailure(err) };
+    }
   }
 
   const product = PRODUCTS.find((p) => p.id === id);
-  return delay(product ? resolveIngredients(product) : null);
+  return delay({ ok: true, value: product ? resolveIngredients(product) : null });
 }
 
-/** Used by the saved screen, which needs several at once. */
+/**
+ * Used by the saved screen, which needs several at once.
+ *
+ * Returns a {@link Fetched} for the same reason `fetchProduct` does, and the
+ * distinction is sharper here than the array return suggests: an id the caller
+ * asked for and does not get back is *per-id absence*, which is data. On
+ * `ok: true` a missing id means the catalogue no longer has that row; on
+ * `ok: false` it means nothing at all. Saved history used to render both as
+ * "Scanned · not in our catalogue" beside a raw internal product id.
+ */
 export async function fetchProductsByIds(
   ids: string[]
-): Promise<ProductWithIngredients[]> {
-  if (ids.length === 0) return [];
+): Promise<Fetched<ProductWithIngredients[]>> {
+  if (ids.length === 0) return { ok: true, value: [] };
 
   if (usingSupabase()) {
     // The saved shelf is almost always a subset of the catalogue already on
@@ -910,21 +1055,28 @@ export async function fetchProductsByIds(
       else missing.push(id);
     }
 
-    if (missing.length === 0) return resolved;
+    if (missing.length === 0) return { ok: true, value: resolved };
 
-    const { data, error } = await withTimeout(
-      (signal) => supabase!.from("products").select(SELECT).in("id", missing).abortSignal(signal),
-      "fetchProductsByIds",
-    );
-    if (error) throw new Error(`fetchProductsByIds: ${error.message}`);
-    return [...resolved, ...(data as unknown as CatalogueRow[]).map(rowToProduct)];
+    try {
+      const { data, error } = await withTimeout(
+        (signal) => supabase!.from("products").select(SELECT).in("id", missing).abortSignal(signal),
+        "fetchProductsByIds",
+      );
+      if (error) return { ok: false, failure: classifyFailure(error) };
+      return {
+        ok: true,
+        value: [...resolved, ...(data as unknown as CatalogueRow[]).map(rowToProduct)],
+      };
+    } catch (err) {
+      return { ok: false, failure: classifyFailure(err) };
+    }
   }
 
   const results = ids
     .map((id) => PRODUCTS.find((p) => p.id === id))
     .filter((p): p is Product => Boolean(p))
     .map(resolveIngredients);
-  return delay(results);
+  return delay({ ok: true, value: results });
 }
 
 /** Distinct product types present in the catalog, for the filter bar. */
@@ -960,14 +1112,14 @@ export async function fetchProductTypes(): Promise<ProductType[]> {
  */
 export async function fetchProductByBarcode(
   barcode: string
-): Promise<ProductWithIngredients | null> {
+): Promise<Fetched<ProductWithIngredients | null>> {
   if (usingSupabase()) {
     // One hour, in memory only — see `readScanned` for why this one never
     // reaches the disk. Re-scanning the same bottle within a session (or
     // backing out of the result and scanning again) should not re-run the
     // whole cascade.
     const remembered = readScanned(barcode);
-    if (remembered !== undefined) return remembered;
+    if (remembered !== undefined) return { ok: true, value: remembered };
 
     // A deadline, for the same reason the direct reads have one — and this is
     // the call that needed it most. The barcode cascade tries its sources in
@@ -975,33 +1127,54 @@ export async function fetchProductByBarcode(
     // scanner sat in "looking" until the platform gave up. A timeout the user
     // can retry is a state; an indefinite wait is not.
     //
-    // `functions.invoke` takes this natively and aborts the underlying request,
-    // so it needs none of `withTimeout`'s wrapping.
+    // `functions.invoke` takes this natively and aborts the underlying
+    // request, so it needs none of `withTimeout`'s wrapping — and no `try`
+    // either. It catches everything internally and reports failure by
+    // *returning* `{ data: null, error }`, so a dead connection, its own
+    // timeout and a non-2xx response all arrive on `error` below rather than
+    // as a rejection. A guard here would be unreachable, and an earlier
+    // version of this carried one with a comment claiming the opposite, which
+    // is worse than no comment at all. It also means the timeout reaches
+    // `classifyFailure` wrapped as a fetch error rather than as our own
+    // `TimeoutError` — see the `FunctionsFetchError` branch there.
     const { data, error } = await supabase!.functions.invoke(LOOKUP_FUNCTION, {
       body: { barcode },
       timeout: NETWORK_TIMEOUT_MS,
     });
+
     if (error) {
       // A 404 from the cascade means "in no source we consulted", which is a
-      // null result, not a failure. Anything else is worth surfacing.
+      // null result, not a failure — the one genuine "not in our catalogue".
+      // Everything else is us being unable to ask, and must not be recorded as
+      // a miss.
       const status = (error as { context?: { status?: number } }).context?.status;
       if (status === 404) {
         putScanned(barcode, null);
-        return null;
+        return { ok: true, value: null };
       }
-      throw new Error(`fetchProductByBarcode: ${error.message}`);
+      return { ok: false, failure: classifyFailure(error) };
     }
-    const product = data ? rowToProduct(data as CatalogueRow) : null;
-    putScanned(barcode, product);
-    // The cascade writes anything it resolves back to the catalogue, so a hit
-    // here can be a row this device's cached list does not have yet. Folding it
-    // in is what stops a just-scanned product being missing from Browse.
-    if (product) addScannedToCatalogue(product);
-    return product;
+
+    // Inside the guard because `rowToProduct` reads nested fields off a
+    // response we did not shape, and the scanner no longer wraps this call in
+    // a `try` of its own — the whole point of returning a `Fetched` is that
+    // the caller does not have to. A malformed row must arrive as a failure it
+    // can retry, not as an unhandled rejection on the camera screen.
+    try {
+      const product = data ? rowToProduct(data as CatalogueRow) : null;
+      putScanned(barcode, product);
+      // The cascade writes anything it resolves back to the catalogue, so a hit
+      // here can be a row this device's cached list does not have yet. Folding it
+      // in is what stops a just-scanned product being missing from Browse.
+      if (product) addScannedToCatalogue(product);
+      return { ok: true, value: product };
+    } catch (err) {
+      return { ok: false, failure: classifyFailure(err) };
+    }
   }
 
   const product = PRODUCTS.find((p) => p.barcode === barcode);
-  return delay(product ? resolveIngredients(product) : null);
+  return delay({ ok: true, value: product ? resolveIngredients(product) : null });
 }
 
 /**

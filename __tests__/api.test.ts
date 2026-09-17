@@ -83,20 +83,21 @@ describe("fetchProducts", () => {
 });
 
 describe("fetchProduct", () => {
-  it("returns null for an unknown id", async () => {
-    await expect(fetchProduct("does-not-exist")).resolves.toBeNull();
+  it("returns a successful read whose value is null for an unknown id", async () => {
+    await expect(fetchProduct("does-not-exist")).resolves.toEqual({ ok: true, value: null });
   });
 });
 
 describe("fetchProductsByIds", () => {
   it("skips unknown ids instead of returning holes", async () => {
     const result = await fetchProductsByIds(["hanbang-rice-serum", "nope"]);
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("hanbang-rice-serum");
+    if (!result.ok) throw new Error("expected a successful read");
+    expect(result.value).toHaveLength(1);
+    expect(result.value[0].id).toBe("hanbang-rice-serum");
   });
 
   it("returns an empty list for no ids", async () => {
-    await expect(fetchProductsByIds([])).resolves.toEqual([]);
+    await expect(fetchProductsByIds([])).resolves.toEqual({ ok: true, value: [] });
   });
 });
 
@@ -143,14 +144,15 @@ describe("fetchProductByBarcode", () => {
   it("resolves a known barcode to that product, with ingredients", async () => {
     const [first] = await fetchProducts();
     const found = await fetchProductByBarcode(first.barcode);
+    if (!found.ok) throw new Error("expected a successful read");
 
-    expect(found?.id).toBe(first.id);
-    expect(found?.ingredients).toHaveLength(first.ingredientIds.length);
+    expect(found.value?.id).toBe(first.id);
+    expect(found.value?.ingredients).toHaveLength(first.ingredientIds.length);
   });
 
   /** A miss is an ordinary outcome for a scanner, not an error. */
-  it("returns null for a barcode that is not in the catalog", async () => {
-    expect(await fetchProductByBarcode("0000000000000")).toBeNull();
+  it("returns a successful read whose value is null for a barcode not in the catalog", async () => {
+    expect(await fetchProductByBarcode("0000000000000")).toEqual({ ok: true, value: null });
   });
 });
 

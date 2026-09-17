@@ -129,14 +129,19 @@ export default function Saved() {
     }
 
     fetchProductsByIds(current ? missing : idsToResolve)
-      .then((products) => {
+      .then((result) => {
         if (cancelled) return;
-        setById((prev) => ({ ...(prev ?? {}), ...Object.fromEntries(products.map((p) => [p.id, p])) }));
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.warn("fetchProductsByIds failed:", err);
-        setError(true);
+        if (!result.ok) {
+          setError(true);
+          return;
+        }
+        // Only reached when the read succeeded, which is what lets the rows
+        // below treat a still-unresolved id as "the catalogue does not have
+        // this" rather than "we could not ask". See `UnknownRow`.
+        setById((prev) => ({
+          ...(prev ?? {}),
+          ...Object.fromEntries(result.value.map((p) => [p.id, p])),
+        }));
       });
     return () => {
       cancelled = true;
@@ -529,7 +534,23 @@ function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: 
   );
 }
 
-/** A barcode that resolved to nothing - still worth logging as "already checked". */
+/**
+ * A history entry with no product to show. Two different situations, and this
+ * row used to state the first one for both.
+ *
+ * `known: false` — a scanned barcode the cascade found nothing for. "Not in our
+ * catalogue" is exactly right, and the id printed beside it is a real barcode
+ * the user can compare against the bottle.
+ *
+ * `known: true` — a catalogue product that did not come back. The id here is an
+ * internal one (`obf-8801234567890`, `hanbang-rice-serum`), and printing it
+ * under "Scanned · not in our catalogue" made two false claims at once: that
+ * the user had scanned that string, and that the product was never in the
+ * catalogue. It was — they opened it, which is why it is in their history.
+ * This branch is only reached after a *successful* read (a failed one puts the
+ * whole tab into its error state), so "no longer" is established rather than
+ * guessed.
+ */
 function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string; onRemove: () => void }) {
   // Both halves matter: a missed QR scan is `known: false` too, and still not
   // something label-ocr can attach a photo to.
@@ -549,9 +570,18 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
       <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
       <View style={{ flex: 1, padding: 13, paddingRight: 36 }}>
         <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
-          Scanned · not in our catalogue
+          {entry.known ? "Opened earlier · no longer in our catalogue" : "Scanned · not in our catalogue"}
         </Text>
-        <Text style={{ marginTop: 2, fontSize: 14, color: INK }}>{entry.id}</Text>
+        {/* Only the barcode is shown, and only because it is the user's own
+            evidence — it matches the digits printed on the bottle, so they can
+            check the scan landed on the right item. An internal product id
+            (`obf-8801234567890`) is ours, not theirs: there is nothing they can
+            do with it and nowhere they can take it, so the row is better
+            without it. The timestamp below is what actually distinguishes one
+            of these rows from another. */}
+        {!entry.known && (
+          <Text style={{ marginTop: 2, fontSize: 14, color: INK }}>{entry.id}</Text>
+        )}
         <HistoryMeta entry={entry} />
 
         {/*

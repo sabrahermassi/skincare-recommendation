@@ -151,12 +151,11 @@ export default function IngredientDetail() {
       fetchProduct(productId)
         .then((result) => {
           if (cancelled) return;
-          setProduct(result);
-          setLoading(false);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          console.warn("fetchProduct failed:", err);
+          // Only a successful read writes state, matching what the old `catch`
+          // did — the product is context for this ingredient, not the subject
+          // of the screen, so a failed read leaves it absent rather than
+          // raising an error of its own.
+          if (result.ok) setProduct(result.value);
           setLoading(false);
         });
     } else {
