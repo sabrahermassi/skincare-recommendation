@@ -1159,6 +1159,54 @@ describe("a catalogue split across values", () => {
     });
   });
 
+  /**
+   * The gap the first debris fix left, found by review on PR #113.
+   *
+   * Sweeping before a write only helps when a write happens. A catalogue that
+   * has grown past the budget for good is refused every time, and that return
+   * sits before the sweep — so an orphan from an earlier interrupted write was
+   * stranded permanently, holding up to a per-value budget of the shared 6MB
+   * database. `dropLegacyBlobs` would not take it either: it keeps
+   * current-schema chunks on purpose.
+   */
+  it("sweeps debris even when the write is refused as too large", async () => {
+    await onPlatform("android", async () => {
+      putCatalogue(chunky(), WATERMARK);
+      await writesSettled();
+      const live = await chunkKeys();
+      expect(live).toHaveLength(2);
+
+      // An interrupted chunked write leaves one orphan behind.
+      const realSetItem = AsyncStorage.setItem;
+      (AsyncStorage as unknown as { setItem: unknown }).setItem = (k: string, v: string) =>
+        k.startsWith(CHUNK_PREFIX) && k.endsWith("-1")
+          ? Promise.reject(new Error("database or disk is full"))
+          : realSetItem(k, v);
+      try {
+        putCatalogue(chunky(), { ...WATERMARK, count: 21 });
+        await writesSettled();
+      } finally {
+        (AsyncStorage as unknown as { setItem: unknown }).setItem = realSetItem;
+      }
+      expect((await chunkKeys()).length).toBeGreaterThan(live.length);
+
+      // Now the catalogue outgrows the budget, so every write from here is a
+      // refusal — including the one that has to take the litter out.
+      const huge = Array.from({ length: 60 }, (_, i) => ({
+        ...product(`huge-${i}`, "serum"),
+        description: "x".repeat(100_000),
+      })) as unknown as typeof CATALOGUE;
+      putCatalogue(huge, { ...WATERMARK, count: 60 });
+      await writesSettled();
+
+      expect(lastCacheWrite()?.kind).toBe("too-large");
+      // The live generation survives; the orphan does not.
+      expect((await chunkKeys()).sort()).toEqual(live.sort());
+      forgetMemoryLayer();
+      expect((await readCatalogue())?.products).toHaveLength(20);
+    });
+  });
+
   it("reassembles in manifest order rather than the order storage answers in", async () => {
     await onPlatform("android", async () => {
       putCatalogue(chunky(), WATERMARK);

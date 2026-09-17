@@ -925,6 +925,26 @@ async function liveGeneration(): Promise<{ readable: boolean; generation?: strin
   }
 }
 
+/**
+ * Remove chunks the live manifest does not name, writing nothing.
+ *
+ * The sweep inside `writeProductsBlob` only runs when a write actually
+ * proceeds, and a refusal returns before it. That gap matters once a
+ * catalogue has grown past the budget for good: every later write takes the
+ * same refusal, `dropLegacyBlobs` keeps current-schema chunks on purpose, and
+ * an orphan from an earlier interrupted write is left holding up to a
+ * per-value budget of the shared database forever — which is how a refused
+ * catalogue write ends up being what stops the profile or saved shelf saving.
+ *
+ * Refusing the write protects the copy already on disk. It should not also
+ * preserve the litter beside it.
+ */
+async function sweepOrphanChunks(): Promise<void> {
+  if (diskLimits().perValue === null) return;
+  const live = await liveGeneration();
+  if (live.readable) await clearChunks(live.generation);
+}
+
 async function writeProductsBlob(serialised: string, bytes: number): Promise<number> {
   const { perValue } = diskLimits();
 
@@ -1099,6 +1119,10 @@ async function persist(
             "The previous cached copy is kept.",
         );
       }
+      // Debris still goes, even though nothing is being written — see
+      // `sweepOrphanChunks` for why this return is the one path that would
+      // otherwise strand it permanently.
+      await sweepOrphanChunks();
       return;
     }
 
