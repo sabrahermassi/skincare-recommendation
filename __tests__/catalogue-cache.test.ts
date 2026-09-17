@@ -905,6 +905,95 @@ describe("a catalogue split across values", () => {
     expect(sliceEnd("🧴🧴", 2, 5)).toBe(4);
   });
 
+  /**
+   * The claim the whole design rests on, and the one thing a post-hoc chunk
+   * deletion does *not* prove: a write killed partway leaves the previous
+   * catalogue whole, because the manifest that would point at the new chunks
+   * is written last and never got written.
+   *
+   * Without that ordering this is the case that corrupts silently — the reader
+   * would follow a manifest to a chunk set that was never finished and serve a
+   * catalogue with products missing from the end.
+   */
+  it("leaves the previous catalogue whole when a write dies partway through", async () => {
+    await onPlatform("android", async () => {
+      putCatalogue(CATALOGUE, WATERMARK);
+      await writesSettled();
+      const good = await AsyncStorage.getItem(PRODUCTS_KEY);
+      expect(good).not.toBeNull();
+
+      // Fail on the second chunk: the first lands, nothing else does.
+      const realSetItem = AsyncStorage.setItem;
+      let writes = 0;
+      (AsyncStorage as unknown as { setItem: unknown }).setItem = (k: string, v: string) => {
+        if (k.startsWith(CHUNK_PREFIX) && writes++ >= 1) {
+          return Promise.reject(new Error("database or disk is full"));
+        }
+        return realSetItem(k, v);
+      };
+      try {
+        putCatalogue(chunky(), { ...WATERMARK, count: 20 });
+        await writesSettled();
+      } finally {
+        (AsyncStorage as unknown as { setItem: unknown }).setItem = realSetItem;
+      }
+
+      expect(lastCacheWrite()?.kind).toBe("failed");
+      // No manifest, so nothing points at the half-written set.
+      expect(await AsyncStorage.getItem(MANIFEST_KEY)).toBeNull();
+      // The old copy is untouched — it is only removed *after* a manifest lands.
+      expect(await AsyncStorage.getItem(PRODUCTS_KEY)).toBe(good);
+
+      // And the consequence that matters: a cold start still gets a whole
+      // catalogue, the old one, rather than a truncated new one.
+      forgetMemoryLayer();
+      const restored = await readCatalogue();
+      expect(restored?.products).toHaveLength(CATALOGUE.length);
+    });
+  });
+
+  it.each([
+    ["not json at all", "{not json"],
+    ["valid json of the wrong shape", JSON.stringify({ nope: true })],
+    ["a generation that is not a string", JSON.stringify({ generation: 7, chunks: 2 })],
+    ["a chunk count that is not a whole number", JSON.stringify({ generation: "g", chunks: 1.5 })],
+    ["a chunk count of zero", JSON.stringify({ generation: "g", chunks: 0 })],
+  ])("treats a manifest with %s as a miss", async (_label: string, raw: string) => {
+    await onPlatform("android", async () => {
+      putCatalogue(chunky(), WATERMARK);
+      await writesSettled();
+
+      await AsyncStorage.setItem(MANIFEST_KEY, raw);
+
+      // Never a throw and never a partial read: the network path is right
+      // there, and it is the only safe answer to a manifest we cannot trust.
+      forgetMemoryLayer();
+      await expect(readCatalogue()).resolves.toBeNull();
+    });
+  });
+
+  it("reassembles in manifest order rather than the order storage answers in", async () => {
+    await onPlatform("android", async () => {
+      putCatalogue(chunky(), WATERMARK);
+      await writesSettled();
+
+      // `multiGet` is documented to return a list of pairs, not to return them
+      // in the order asked. Reversing is the cheapest way to prove the join
+      // reads the manifest's order and not the response's.
+      const realMultiGet = AsyncStorage.multiGet;
+      (AsyncStorage as unknown as { multiGet: unknown }).multiGet = async (keys: string[]) =>
+        (await realMultiGet(keys)).slice().reverse();
+      try {
+        forgetMemoryLayer();
+        const restored = await readCatalogue();
+        expect(restored?.products).toHaveLength(20);
+        expect(restored?.products[19].description).toBe("x".repeat(100_000));
+      } finally {
+        (AsyncStorage as unknown as { multiGet: unknown }).multiGet = realMultiGet;
+      }
+    });
+  });
+
   it("sweeps the previous generation's chunks when it writes new ones", async () => {
     await onPlatform("android", async () => {
       putCatalogue(chunky(), WATERMARK);
