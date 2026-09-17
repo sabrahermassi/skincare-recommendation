@@ -19,7 +19,7 @@ import { fetchProductByBarcode } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, CTA, INK, LINE, MUTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, CTA, INK, LINE, MUTED, SCANNER_FRAME, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -674,13 +674,13 @@ function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
           width={60}
           height={82}
           rx={9}
-          stroke="#FDFCFA"
+          stroke={SCANNER_FRAME}
           strokeOpacity={0.55}
           strokeWidth={2}
         />
         <Path
           d="M21 24h36M21 36h36M21 48h26M21 60h32M21 72h20"
-          stroke="#FDFCFA"
+          stroke={SCANNER_FRAME}
           strokeOpacity={0.35}
           strokeWidth={3}
           strokeLinecap="round"
@@ -755,7 +755,7 @@ function UnknownProductNote({ barcode }: { barcode: string }) {
     return (
       <View style={{ paddingHorizontal: 26, paddingTop: 10 }}>
         <Text style={{ textAlign: "center", fontSize: 12, color: MUTED }}>
-          Saved on your phone — thanks for helping fill in what we&apos;re missing.
+          Saved on your phone — you won&apos;t be asked again for this one.
         </Text>
       </View>
     );
@@ -824,10 +824,10 @@ function UnknownProductNote({ barcode }: { barcode: string }) {
 
 /**
  * Corner brackets and a scan line — the design's framing affordance, at its
- * own measurements: 32pt brackets in 3pt of #FDFCFA, inset 33 from each side,
- * 29 from the top and 71 from the bottom of the 293pt card. It used to be a
- * fixed 236×150 box floated in the middle, which put the frame in a different
- * place on every screen width.
+ * own measurements: 32pt brackets in 3pt of SCANNER_FRAME, inset 33 from each
+ * side, 29 from the top and 71 from the bottom of the 293pt card. It used to
+ * be a fixed 236×150 box floated in the middle, which put the frame in a
+ * different place on every screen width.
  */
 // The floating mode switcher's own pill height (see ModeSwitcher's
 // `floating` style) plus the same bottom offset its wrapping View uses
@@ -839,23 +839,32 @@ const SWITCHER_HEIGHT = 52;
 const FRAME_MARGIN_ABOVE_SWITCHER = 24;
 
 function Viewfinder({ insets }: { insets: { top: number; bottom: number } }) {
-  const corner = "absolute h-8 w-8 border-[#FDFCFA]";
+  // Border-color as inline `style` rather than a `border-[${SCANNER_FRAME}]`
+  // className: NativeWind's arbitrary-value classes are picked up by
+  // scanning the literal source text, so an interpolated hex here would
+  // never be statically found and the border would silently not render —
+  // the same class of bug this file's own `fontFamily` note warns about.
+  // Border-width stays a className since those arbitrary values are plain
+  // numbers, not tied to the dynamic token.
+  const corner = "absolute h-8 w-8";
   const bottomInset =
     Math.max(20, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
   return (
     <View style={{ position: "absolute", top: insets.top + 24, bottom: bottomInset, left: 33, right: 33 }}>
-      <View className={`${corner} left-0 top-0 rounded-tl-lg border-l-[3px] border-t-[3px]`} />
-      <View className={`${corner} right-0 top-0 rounded-tr-lg border-r-[3px] border-t-[3px]`} />
-      <View className={`${corner} bottom-0 left-0 rounded-bl-lg border-b-[3px] border-l-[3px]`} />
-      <View className={`${corner} bottom-0 right-0 rounded-br-lg border-b-[3px] border-r-[3px]`} />
+      <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} left-0 top-0 rounded-tl-lg border-l-[3px] border-t-[3px]`} />
+      <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} right-0 top-0 rounded-tr-lg border-r-[3px] border-t-[3px]`} />
+      <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} bottom-0 left-0 rounded-bl-lg border-b-[3px] border-l-[3px]`} />
+      <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} bottom-0 right-0 rounded-br-lg border-b-[3px] border-r-[3px]`} />
       <View className="absolute inset-x-3 top-1/2 h-0.5 rounded-full bg-tone-good" />
 
       {/* The instruction the design sets inside the frame. Without it the
           viewfinder is four brackets over a black rectangle and says nothing
           about what to point it at. */}
       <View style={{ position: "absolute", left: 0, right: 0, top: 67 }} className="items-center">
-        <Text style={{ maxWidth: 200, fontSize: 14, lineHeight: 21 }}
-          className="text-center text-[#FDFCFA]/90">
+        <Text
+          style={{ maxWidth: 200, fontSize: 14, lineHeight: 21, color: withAlpha(SCANNER_FRAME, 0.9) }}
+          className="text-center"
+        >
           Position barcode or ingredient list in the frame
         </Text>
       </View>

@@ -46,3 +46,7 @@ export const LOOKUP_FUNCTION = "product-lookup";
 
 /** Reads an ingredient list off a photographed label. Holds the Vision key. */
 export const OCR_FUNCTION = "label-ocr";
+
+/** Attaches a barcode to, or discards, a barcode-less scan — the "want to
+ *  scan the barcode too?" follow-up. See supabase/functions/resolve-scan. */
+export const RESOLVE_SCAN_FUNCTION = "resolve-scan";

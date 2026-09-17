@@ -1,5 +1,6 @@
 import { defaultPackagingType } from "@/components/BottleIcon";
-import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, RESOLVE_SCAN_FUNCTION, supabase } from "@/lib/supabase";
+import { useAppStore } from "@/store/useAppStore";
 import {
   abandonDiskRead,
   addScannedToCatalogue,
@@ -57,7 +58,8 @@ const usingSupabase = () => isSupabaseConfigured && supabase !== null;
  * official pack shot from someone holding the bottle in a bathroom mirror.
  * Many are review snapshots. There is no reliable way to tell them apart, so
  * none are shown — every product renders as its `productType`'s illustrated
- * bottle instead (`components/BottleIcon.tsx`), photo or no photo.
+ * bottle instead (`components/ProductThumbnail.tsx`, via
+ * `lib/productIllustration.ts`), photo or no photo.
  *
  * Enforced here, at the read boundary, rather than only at import: rows
  * written by an earlier import still hold their URLs, and this guarantees
@@ -1012,7 +1014,18 @@ export async function fetchProductByBarcode(
  * the next person to scan the same product gets an instant hit.
  */
 export type LabelAnalysis =
-  | { ok: true; product: ProductWithIngredients; recognised: number; total: number }
+  | {
+      ok: true;
+      product: ProductWithIngredients;
+      recognised: number;
+      total: number;
+      /** Present only for a brand-new, barcode-less scan — the capability
+       *  `attachBarcodeToScan`/`discardUnreachableScan` need to resolve it
+       *  later. Absent whenever the row is already permanent (a barcode
+       *  was in hand, or an existing identity-only row was reused), since
+       *  there is nothing to resolve. See supabase/functions/resolve-scan. */
+      scanToken?: string;
+    }
   | { ok: false; reason: "not_configured" | "unreadable" | "too_little_text" | "rate_limited"; rawText?: string };
 
 /**
@@ -1081,7 +1094,87 @@ export async function analyseLabel(
     product: scannedProduct,
     recognised: Number(data.recognised ?? 0),
     total: Number(data.total ?? 0),
+    scanToken: typeof data.scanToken === "string" ? data.scanToken : undefined,
   };
+}
+
+/**
+ * The "want to scan the barcode too?" follow-up to a barcode-less
+ * `analyseLabel` scan — step 5b's row-accrual answer. Accepting makes the
+ * scan permanent and findable by barcode; see `discardUnreachableScan` for
+ * the decline path.
+ *
+ * The row this attaches to is not deleted from the local cache on a
+ * `barcode_taken` conflict — that is a genuine collision, not a decline,
+ * and the row is left exactly as `resolve-scan` left it server-side (still
+ * on its grace timer, not discarded).
+ */
+export type AttachBarcodeResult =
+  | { ok: true; product: ProductWithIngredients }
+  | { ok: false; reason: "barcode_taken" | "not_found" | "failed" };
+
+export async function attachBarcodeToScan(
+  productId: string,
+  barcode: string,
+  scanToken: string
+): Promise<AttachBarcodeResult> {
+  if (!usingSupabase()) return { ok: false, reason: "failed" };
+
+  const { data, error } = await supabase!.functions.invoke(RESOLVE_SCAN_FUNCTION, {
+    body: { action: "attach-barcode", productId, barcode, token: scanToken },
+  });
+
+  if (error) {
+    const status = (error as { context?: { status?: number } }).context?.status;
+    if (status === 409) return { ok: false, reason: "barcode_taken" };
+    if (status === 404) return { ok: false, reason: "not_found" };
+    return { ok: false, reason: "failed" };
+  }
+  if (!data?.product) return { ok: false, reason: "failed" };
+
+  // Refreshes the cached copy and records the barcode association, the
+  // same two calls `analyseLabel` makes on a fresh scan — this product is
+  // now exactly as findable as one that arrived with a barcode from the
+  // start.
+  const product = rowToProduct(data.product as CatalogueRow);
+  addScannedToCatalogue(product);
+  putScanned(barcode, product);
+
+  return { ok: true, product };
+}
+
+/**
+ * The decline path for a barcode-less scan — deletes the row outright.
+ *
+ * Also strips any local reference to it. Opening the product screen logs a
+ * `history` entry (and possibly a `savedProducts` one) *before* this screen
+ * ever gets a chance to run — review on PR #109 caught that without this,
+ * declining left a dead entry behind that Saved/History could never
+ * resolve, rendering as a bare OCR id forever.
+ *
+ * Cleanup only runs when the server confirms this call is what actually
+ * deleted the row (`discarded: true`), never on a no-op. A stale
+ * `offerBarcode` screen left underneath the stack after a successful
+ * attach (a race this function has no way to detect on its own) must not
+ * be able to strip a `history`/`savedProducts` reference to a product that
+ * is valid and permanent now just because someone tapped "No thanks" on
+ * the leftover screen — the `source='ocr' and barcode is null` scope on
+ * the server rejects that attempt as a no-op, and this mirrors that
+ * decision locally instead of assuming success.
+ */
+export async function discardUnreachableScan(
+  productId: string,
+  scanToken: string
+): Promise<void> {
+  if (!usingSupabase()) return;
+  const { data } = await supabase!.functions.invoke(RESOLVE_SCAN_FUNCTION, {
+    body: { action: "discard", productId, token: scanToken },
+  });
+  if (!data?.discarded) return;
+
+  const { removeHistoryEntry, savedProducts, toggleSaved } = useAppStore.getState();
+  removeHistoryEntry(productId);
+  if (savedProducts.some((p) => p.id === productId)) toggleSaved(productId);
 }
 
 /**
@@ -1102,12 +1195,24 @@ export async function analyseLabel(
  * on them: an unrecognised name can still be an exact match against the
  * curated table.
  *
- * Degrades rather than throws. With no Supabase configured, or with no
- * network, every name comes back as a stub and the caller still gets a usable
- * pore-clogging answer — which is the whole point of doing that check on the
- * device.
+ * Degrades rather than throws by default. With no Supabase configured, or
+ * with no network, every name comes back as a stub and the caller still gets
+ * a usable pore-clogging answer — which is the whole point of doing that
+ * check on the device.
+ *
+ * `strict: true` turns off that degrade for a live-database failure only
+ * (never the no-Supabase-configured branch, which isn't a failure) —
+ * `saved.tsx`'s starred-ingredients tab needs to tell "we don't recognise
+ * this ingredient" apart from "the lookup itself failed," which an
+ * unverified stub can't do on its own. Review on PR #109 caught that its
+ * retry UI existed but could never actually trigger, since this function's
+ * own catch already turned every failure into the same stubs a genuine miss
+ * produces.
  */
-export async function resolveIngredientNames(names: string[]): Promise<Ingredient[]> {
+export async function resolveIngredientNames(
+  names: string[],
+  opts?: { strict?: boolean }
+): Promise<Ingredient[]> {
   const stub = (name: string): Ingredient => ({
     id: name,
     name,
@@ -1162,6 +1267,7 @@ export async function resolveIngredientNames(names: string[]): Promise<Ingredien
     return names.map((name) => byName.get(name) ?? stub(name));
   } catch (err) {
     console.warn("resolveIngredientNames failed:", err);
+    if (opts?.strict) throw err;
     return names.map(stub);
   }
 }

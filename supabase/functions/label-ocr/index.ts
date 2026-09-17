@@ -41,6 +41,36 @@ const RATE_LIMIT: RateLimit = { windowSeconds: 300, maxRequests: 10 };
 const MAX_IMAGE_CHARS = 5_500_000;
 
 /**
+ * The same plausibility floor the import scripts use before they'll write a
+ * formula — `MIN_KNOWN_INGREDIENT_RATIO` in `scripts/import-obf.mjs` and
+ * `scripts/import-dailymed.mjs`. Step 5's gates apply to what we import;
+ * this is what applies the same bar to what our own OCR writes.
+ *
+ * Without it, this function committed a formula to the shared catalogue as
+ * soon as OCR produced four comma-separated fragments — regardless of
+ * whether any of them looked like a real ingredient. And because a barcode
+ * with *any* stored formula short-circuits straight to it (see `existing`
+ * below), a bad first photo didn't just create one bad row: it made every
+ * later, better photo of the same bottle return the bad formula forever,
+ * since Vision was never called again for that barcode.
+ */
+const MIN_KNOWN_INGREDIENT_RATIO = 0.6;
+
+/**
+ * Grace period before a barcode-less scan self-evicts, via the same hourly
+ * `evict-expired-products` job that already runs unconditionally against
+ * anything carrying a deadline (0002_eviction_schedule.sql). Step 5b's
+ * row-accrual answer: nobody but the scanner can ever find an `ocr-<uuid>`
+ * row with no barcode, so it is offered a barcode afterward
+ * (`resolve-scan`'s `attach-barcode`, which clears this back to permanent)
+ * and discarded — immediately on an explicit decline, or automatically here
+ * if nobody ever answers. 24h, the same window this app's disk cache
+ * already uses elsewhere — long enough to get home from the shop and
+ * decide, short enough that an unanswered scan does not linger.
+ */
+const OCR_GRACE_PERIOD_MS = 24 * 60 * 60 * 1000;
+
+/**
  * Ceiling on the raw request body, checked against Content-Length before the
  * body is read at all. Sized as `MAX_IMAGE_CHARS` plus room for the JSON
  * envelope and the optional barcode/name/brand fields, so it never rejects a
@@ -213,7 +243,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Only names our dictionary already knows are trusted. The rest are stored
   // unverified, so the UI shows them as unrecognised rather than pretending we
   // assessed them — OCR on a curved bottle produces plenty of nonsense.
-  const known = await knownIngredients(parsed.map((p) => p.inci_name));
+  let known: Set<string>;
+  try {
+    known = await knownIngredients(parsed.map((p) => p.inci_name));
+  } catch (err) {
+    console.error("knownIngredients failed:", err);
+    return json(req, { error: "Could not read the ingredient dictionary" }, 502);
+  }
+
+  // The gate, run before anything is written — not after, which is what let
+  // a photo of a wall or a receipt clear the four-fragment floor above and
+  // get persisted as a real row before the client had any say. Same ratio,
+  // same reasoning as MIN_KNOWN_INGREDIENT_RATIO's own comment: a parsed
+  // formula that mostly misses the dictionary is not a rare formula, it is
+  // a bad read, and nothing downstream — the plausibility gate, the barcode
+  // short-circuit, `formulaKey`-equivalent identity — can tell the
+  // difference once it is sitting in the table as a normal row.
+  if (known.size / parsed.length < MIN_KNOWN_INGREDIENT_RATIO) {
+    return json(
+      req,
+      { error: "low_confidence", found: parsed.length, recognised: known.size, rawText: text.slice(0, 400) },
+      422
+    );
+  }
 
   // `products.barcode` is UNIQUE. When a row already exists for this barcode —
   // an identity-only hit from the barcode database, which knows the name but
@@ -252,7 +304,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     attribution: existing
       ? existing.attribution
       : "Ingredients read from the product label.",
-    expires_at: null,
+    // Permanent whenever a barcode is in hand — `existing`, when set, only
+    // ever came from a barcode lookup, so this covers both a brand-new
+    // barcode-tagged row and one reusing an identity-only hit. Only a
+    // genuinely orphaned, barcode-less `ocr-<uuid>` row gets the grace
+    // period: see OCR_GRACE_PERIOD_MS above.
+    expires_at: barcode ? null : new Date(Date.now() + OCR_GRACE_PERIOD_MS).toISOString(),
   };
 
   // One RPC, one transaction: the stub ingredient rows, the product, and the
@@ -285,7 +342,37 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json(req, { error: "Could not save the scan" }, 502);
   }
 
-  return json(req, { product: data, recognised: known.size, total: parsed.length }, 200);
+  // The capability that lets this scan be resolved later — see migration
+  // 0015. Minted for exactly the rows that got the grace period above: a
+  // barcode-having write (fresh or reusing `existing`) has nothing to
+  // resolve, since it is already permanent and findable. `products` is
+  // publicly readable, so without this any caller could enumerate every
+  // barcode-less scan on its grace timer and hijack or delete someone
+  // else's — see resolve-scan's own header comment for what that would
+  // have allowed.
+  //
+  // Best-effort, not part of the write's own success: the product itself
+  // is already saved and correct at this point, and a token that failed to
+  // insert just means this particular scan cannot be resolved through the
+  // UI before it self-evicts — a safe, fail-closed degradation, not a
+  // reason to fail a scan that otherwise worked.
+  let scanToken: string | undefined;
+  if (!barcode) {
+    scanToken = crypto.randomUUID();
+    const { error: tokenError } = await db
+      .from("scan_tokens")
+      .insert({ product_id: product.id, token: scanToken });
+    if (tokenError) {
+      console.error("scan_tokens insert failed:", tokenError);
+      scanToken = undefined;
+    }
+  }
+
+  return json(
+    req,
+    { product: data, recognised: known.size, total: parsed.length, scanToken },
+    200
+  );
 });
 
 // ── OCR ─────────────────────────────────────────────────────────────────────
@@ -681,11 +768,17 @@ async function fetchAliases(): Promise<Map<string, string>> {
 async function knownIngredients(names: string[]): Promise<Set<string>> {
   const found = new Set<string>();
   for (let i = 0; i < names.length; i += 200) {
-    const { data } = await db
+    const { data, error } = await db
       .from("ingredients")
       .select("inci_name")
       .eq("verified", true)
       .in("inci_name", names.slice(i, i + 200));
+    // Thrown, not swallowed: the plausibility gate below reads `found.size`
+    // as "how much of this photo did we recognise", and a query that failed
+    // partway through is indistinguishable from one that recognised nothing
+    // — a transient DB error would otherwise read as a bad photo and tell
+    // the user to retake it, which is the wrong failure entirely.
+    if (error) throw new Error(`knownIngredients: ${error.message}`);
     for (const row of data ?? []) found.add(row.inci_name as string);
   }
   return found;

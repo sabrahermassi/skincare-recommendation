@@ -11,6 +11,7 @@ import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { HeartIcon } from "@/components/icons";
+import { BarcodeOfferPrompt } from "@/components/BarcodeOfferPrompt";
 import { InlineProfilePrompt } from "@/components/InlineProfilePrompt";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { canPhotographLabelFor, fetchProduct } from "@/data/api";
@@ -27,7 +28,7 @@ import { relativeTime } from "@/lib/format";
 import { isPersonalized } from "@/lib/profile";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, MUTED_SOFT, SELECTED_STRONG, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, MUTED_SOFT, SELECTED_STRONG, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN, toneForVerdict } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
 // draw from the shared `PrimaryButton` component's `tone="cta"` — added
@@ -130,7 +131,11 @@ const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 
 export default function ProductScreen() {
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, offerBarcode, scanToken } = useLocalSearchParams<{
+    id: string;
+    offerBarcode?: string;
+    scanToken?: string;
+  }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -424,6 +429,9 @@ export default function ProductScreen() {
           </View>
         </Pressable>
 
+        {offerBarcode === "1" && scanToken && (
+          <BarcodeOfferPrompt productId={id} scanToken={scanToken} />
+        )}
         {askForProfile && <InlineProfilePrompt />}
 
         {/*
@@ -437,13 +445,19 @@ export default function ProductScreen() {
           staleness is a separate, larger job.
         */}
         {staleNotice && (
+          // WARN, not MUTED_FAINT — it used to render identically to the
+          // page's routine disclaimer footnote below, which buried a
+          // trust-relevant claim (this specific verdict may be judging an
+          // old list) inside furniture text nobody reads. Same token
+          // `saved.tsx`'s history rows already use for "flagged" counts.
           <Text
             style={{
               paddingHorizontal: 24,
               paddingTop: 12,
               fontSize: TYPE.label,
               lineHeight: 17,
-              color: MUTED_FAINT,
+              fontWeight: "600",
+              color: WARN,
             }}
           >
             {staleNotice}

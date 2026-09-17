@@ -4,6 +4,7 @@ import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
@@ -33,6 +34,7 @@ type Status =
   | { kind: "failed"; message: string; hint?: string };
 
 export default function ScanLabel() {
+  const insets = useSafeAreaInsets();
   const { barcode } = useLocalSearchParams<{ barcode?: string }>();
   const [permission, requestPermission] = useCameraPermissions();
   const [status, setStatus] = useState<Status>({ kind: "framing" });
@@ -174,7 +176,22 @@ export default function ScanLabel() {
       }
 
       if (result.ok) {
-        router.replace({ pathname: "/result/[id]", params: { id: result.product.id } });
+        // No barcode was in hand for this scan — the row `label-ocr` just
+        // wrote is on a grace timer and nobody else can ever find it (see
+        // migration 0014 and resolve-scan). Flagging it here is what lets
+        // the product screen offer the "scan the barcode too?" follow-up
+        // only on the visit that just created the row, not on every later
+        // visit to it. `scanToken` is threaded along too — without it
+        // there is nothing safe to resolve the offer with (see
+        // resolve-scan's ownership check), so the product screen treats a
+        // missing token the same as no offer at all.
+        router.replace({
+          pathname: "/result/[id]",
+          params:
+            barcode || !result.scanToken
+              ? { id: result.product.id }
+              : { id: result.product.id, offerBarcode: "1", scanToken: result.scanToken },
+        });
         return;
       }
 
@@ -271,7 +288,11 @@ export default function ScanLabel() {
         />
       </View>
 
-      <View className="absolute inset-x-0 top-0 px-6 pt-16" pointerEvents="none">
+      <View
+        className="absolute inset-x-0 top-0 px-6"
+        style={{ paddingTop: insets.top + 16 }}
+        pointerEvents="none"
+      >
         <Text className="text-center text-base font-semibold text-white">
           Fill the frame with the ingredient list
         </Text>
@@ -284,8 +305,11 @@ export default function ScanLabel() {
       </View>
 
       <View
-        style={{ backgroundColor: "rgba(0,0,0,0.75)" }}
-        className="absolute inset-x-0 bottom-0 gap-3 p-6"
+        style={{
+          backgroundColor: "rgba(0,0,0,0.75)",
+          paddingBottom: Math.max(24, insets.bottom + 12),
+        }}
+        className="absolute inset-x-0 bottom-0 gap-3 px-6 pt-6"
       >
         {status.kind === "failed" && (
           <View
@@ -330,7 +354,7 @@ export default function ScanLabel() {
           </Text>
         </Pressable>
 
-        <Pressable onPress={() => router.back()} className="items-center py-1">
+        <Pressable onPress={() => router.back()} hitSlop={12} className="items-center py-1">
           <Text style={{ color: "rgba(255,255,255,0.8)" }} className="text-sm font-medium underline">
             Cancel
           </Text>

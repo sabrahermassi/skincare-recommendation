@@ -94,7 +94,6 @@ export const DOT_INACTIVE = LINE;
  */
 export const CTA = "#E09070";
 export const CTA_PRESSED = "#C97C58";
-export const CTA_INK = INK;
 
 /**
  * Selected-control fill — a very light, watery peach.
@@ -115,7 +114,6 @@ export const SELECTED_STRONG = "#F5DCCC";
 
 /** Neutral pressed/active wash for controls that are not selections. */
 export const INK_TINT = "rgba(36,31,30,0.06)";
-export const INK_TINT_STRONG = "rgba(36,31,30,0.08)";
 
 /**
  * One shape for every selectable control in the app — chips, option cards,
@@ -223,6 +221,29 @@ export const WARN = VERDICT.medium.deep;
 
 /** Destructive actions — "erase my profile", and nothing else. */
 export const DANGER = VERDICT.low.deep;
+
+// ── One-off screen accents ──────────────────────────────────────────────────
+// Repeated raw hex that had no name anywhere — extracted here rather than
+// left inline, per this file's own header. Values are unchanged from what
+// each screen already drew; this only gives them a name and a single place
+// to change from.
+
+/** The scanner's corner-bracket frame and its measurement caption
+ *  (`app/(tabs)/index.tsx`) — a hair warmer than white, read off the mockup
+ *  at its own stated measurements. */
+export const SCANNER_FRAME = "#FDFCFA";
+
+/** The result screen's two risk-card icon strokes (`components/RiskCards.tsx`) —
+ *  a muted sage, independent of each card's own good/watch/avoid tone. */
+export const RISK_ICON = "#6D9A7E";
+
+/** The result screen's risk-card titles (`components/RiskCards.tsx`). */
+export const RISK_TITLE = "#4C574F";
+
+/** The "Clogging" badge on a pore-clogging ingredient row
+ *  (`components/IngredientTabsList.tsx`) — fill and ink. */
+export const CLOG_BADGE_TINT = "#FBE2E7";
+export const CLOG_BADGE_INK = "#A4526A";
 
 // ── Camera stage ────────────────────────────────────────────────────────────
 

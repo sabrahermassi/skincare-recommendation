@@ -1,8 +1,9 @@
 import { Image } from "expo-image";
 import { Pressable, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
-import { TERRACOTTA } from "@/components/shell/shared";
+import { CTA_TEXT, TERRACOTTA } from "@/components/shell/shared";
 import { CANVAS, INK, LINE, RADIUS_SELECTOR, SELECTED } from "@/lib/tokens";
 
 /** Shared minimum height for every answer button on all four screens — the
@@ -76,7 +77,7 @@ export function QuizOptionCard({
         borderWidth: 1.5,
         borderColor: selected ? TERRACOTTA : LINE,
         backgroundColor: selected ? SELECTED : CANVAS,
-        opacity: disabled ? 0.55 : 1,
+        opacity: disabled ? 0.5 : 1,
       }}
     >
       <Image
@@ -113,7 +114,20 @@ export function QuizOptionCard({
             justifyContent: "center",
           }}
         >
-          <Text style={{ fontSize: tickSize * 0.5, lineHeight: tickSize * 0.62, color: "#FFFFFF" }}>✓</Text>
+          {/* A drawn checkmark, not the ✓ character — same shape this app
+              already draws elsewhere (see the "Things to know" bullets on
+              `app/ingredient/[inci].tsx`), so it renders identically on
+              every platform instead of picking up whatever glyph metrics
+              the system font happens to give that character. */}
+          <Svg width={tickSize * 0.55} height={tickSize * 0.55} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="m5 12.6 4.6 4.6L19 6.8"
+              stroke={CTA_TEXT}
+              strokeWidth={2.6}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
         </View>
       ) : null}
     </Pressable>

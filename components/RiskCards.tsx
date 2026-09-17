@@ -6,7 +6,7 @@ import type { ProductWithIngredients } from "@/data/types";
 import type { MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
 import { isVerified } from "@/lib/safety";
-import { MUTED_SOFT } from "@/lib/tokens";
+import { MUTED_SOFT, RISK_ICON, RISK_TITLE } from "@/lib/tokens";
 
 /**
  * The two risks people actually ask about, side by side, both computed from
@@ -52,7 +52,7 @@ export function RiskCards({
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
             <Path
               d="M12 3.2 5 6v5.6c0 4.3 2.9 7.6 7 9.2 4.1-1.6 7-4.9 7-9.2V6l-7-2.8Z"
-              stroke="#6D9A7E"
+              stroke={RISK_ICON}
               strokeWidth={1.7}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -66,10 +66,10 @@ export function RiskCards({
         onPress={pore.hasEntries ? onPorePress : undefined}
         icon={
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-            <Circle cx={8} cy={8} r={1.4} stroke="#6D9A7E" strokeWidth={1.7} />
-            <Circle cx={15.6} cy={9.4} r={1.4} stroke="#6D9A7E" strokeWidth={1.7} />
-            <Circle cx={10} cy={15.4} r={1.4} stroke="#6D9A7E" strokeWidth={1.7} />
-            <Circle cx={16.4} cy={16} r={1.4} stroke="#6D9A7E" strokeWidth={1.7} />
+            <Circle cx={8} cy={8} r={1.4} stroke={RISK_ICON} strokeWidth={1.7} />
+            <Circle cx={15.6} cy={9.4} r={1.4} stroke={RISK_ICON} strokeWidth={1.7} />
+            <Circle cx={10} cy={15.4} r={1.4} stroke={RISK_ICON} strokeWidth={1.7} />
+            <Circle cx={16.4} cy={16} r={1.4} stroke={RISK_ICON} strokeWidth={1.7} />
           </Svg>
         }
       />
@@ -103,8 +103,8 @@ function RiskCard({
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         {icon}
         <Text
-          className="text-[11.5px] leading-[15px] text-[#4C574F]"
-          style={{ flex: 1 }}
+          className="text-[11.5px] leading-[15px]"
+          style={{ flex: 1, color: RISK_TITLE }}
           numberOfLines={2}
         >
           {title}
