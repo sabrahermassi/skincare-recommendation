@@ -155,7 +155,11 @@ export default function AttachBarcode() {
 
       {status.kind === "attaching" && (
         <View style={StyleSheet.absoluteFill} className="items-center justify-center" pointerEvents="none">
-          <ActivityIndicator color="#FFFFFF" />
+          {/* The camera stage's light token, the same one the scanner uses on
+              this background — not a hardcoded white. `lib/colors.ts` exists
+              because ActivityIndicator takes a literal color rather than a
+              className, and a hex typed here is a value no token owns. */}
+          <ActivityIndicator color={CANVAS} />
         </View>
       )}
 

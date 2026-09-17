@@ -890,7 +890,7 @@ describe("a catalogue split across values", () => {
       // not catch this; an emoji is the case that does.
       const astral = Array.from({ length: 20 }, (_, i) => ({
         ...product(`astral-${i}`, "serum"),
-        description: "🧴".repeat(30_000),
+        description: "🧴".repeat(20_000),
       })) as unknown as typeof CATALOGUE;
 
       putCatalogue(astral, WATERMARK);
@@ -907,7 +907,7 @@ describe("a catalogue split across values", () => {
       forgetMemoryLayer();
       const restored = await readCatalogue();
       expect(restored?.products).toHaveLength(20);
-      expect(restored?.products[19].description).toBe("🧴".repeat(30_000));
+      expect(restored?.products[19].description).toBe("🧴".repeat(20_000));
     });
   });
 
@@ -990,6 +990,10 @@ describe("a catalogue split across values", () => {
     ["a generation that is not a string", JSON.stringify({ generation: 7, chunks: 2 })],
     ["a chunk count that is not a whole number", JSON.stringify({ generation: "g", chunks: 1.5 })],
     ["a chunk count of zero", JSON.stringify({ generation: "g", chunks: 0 })],
+    // Not merely absurd — `readProductsBlob` turns this straight into an array
+    // length, and an out-of-memory failure is not something the caller's catch
+    // can turn back into a cache miss the way every other bad shape is.
+    ["a chunk count past any real payload", JSON.stringify({ generation: "g", chunks: 5_000_000 })],
   ])("treats a manifest with %s as a miss", async (_label: string, raw: string) => {
     await onPlatform("android", async () => {
       putCatalogue(chunky(), WATERMARK);
@@ -1081,6 +1085,77 @@ describe("a catalogue split across values", () => {
       // And the catalogue on disk is still the one the manifest names.
       forgetMemoryLayer();
       expect((await readCatalogue())?.products).toHaveLength(20);
+    });
+  });
+
+  it("keeps the live chunks when the manifest cannot be read at all", async () => {
+    await onPlatform("android", async () => {
+      putCatalogue(chunky(), WATERMARK);
+      await writesSettled();
+      const live = await chunkKeys();
+      expect(live).toHaveLength(2);
+
+      // The manifest read throws rather than returning null, and the write
+      // that follows then fails. Both halves matter: a *successful* write
+      // sweeps the old generation legitimately, so the property only shows
+      // up when the replacement never lands. "I don't know what is live" must
+      // not be treated as "nothing is live" — a transient storage error is
+      // not a reason to throw a good catalogue away.
+      const realGetItem = AsyncStorage.getItem;
+      const realSetItem = AsyncStorage.setItem;
+      (AsyncStorage as unknown as { getItem: unknown }).getItem = (k: string) =>
+        k === MANIFEST_KEY
+          ? Promise.reject(new Error("storage unavailable"))
+          : realGetItem(k);
+      (AsyncStorage as unknown as { setItem: unknown }).setItem = (k: string, v: string) =>
+        k.startsWith(CHUNK_PREFIX)
+          ? Promise.reject(new Error("database or disk is full"))
+          : realSetItem(k, v);
+      try {
+        putCatalogue(chunky(), { ...WATERMARK, count: 21 });
+        await writesSettled();
+      } finally {
+        (AsyncStorage as unknown as { getItem: unknown }).getItem = realGetItem;
+        (AsyncStorage as unknown as { setItem: unknown }).setItem = realSetItem;
+      }
+
+      expect(lastCacheWrite()?.kind).toBe("failed");
+      const after = await chunkKeys();
+      for (const key of live) expect(after).toContain(key);
+
+      forgetMemoryLayer();
+      expect((await readCatalogue())?.products).toHaveLength(20);
+    });
+  });
+
+  it("drops a stranded single-value copy before writing, not after", async () => {
+    await onPlatform("android", async () => {
+      // A device that chunked once already, with a full-size `PRODUCTS_KEY`
+      // left beside the manifest by an interrupted write.
+      putCatalogue(chunky(), WATERMARK);
+      await writesSettled();
+      await AsyncStorage.setItem(PRODUCTS_KEY, "x".repeat(1_000_000));
+
+      // The write fails at the manifest — after the chunks, before the
+      // cleanup that used to be the only thing removing this key. That gap is
+      // the whole point: a test where the write succeeds passes either way,
+      // because the later cleanup gets there in the end. Only a failure shows
+      // whether the stranded copy was out of the way *during* the write, which
+      // is what decides whether three full-size copies meet at the peak.
+      const realSetItem = AsyncStorage.setItem;
+      (AsyncStorage as unknown as { setItem: unknown }).setItem = (k: string, v: string) =>
+        k === MANIFEST_KEY
+          ? Promise.reject(new Error("database or disk is full"))
+          : realSetItem(k, v);
+      try {
+        putCatalogue(chunky(), { ...WATERMARK, count: 21 });
+        await writesSettled();
+      } finally {
+        (AsyncStorage as unknown as { setItem: unknown }).setItem = realSetItem;
+      }
+
+      expect(lastCacheWrite()?.kind).toBe("failed");
+      expect(await AsyncStorage.getItem(PRODUCTS_KEY)).toBeNull();
     });
   });
 

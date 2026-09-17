@@ -95,11 +95,28 @@ const chunkKey = (generation: string, index: number) =>
 
 type ChunkManifest = { generation: string; chunks: number };
 
+/**
+ * An upper bound on how many pieces a manifest may claim.
+ *
+ * Not defensive padding: `readProductsBlob` turns this number straight into
+ * `Array.from({ length: chunks })`, so a corrupt manifest holding a large
+ * integer becomes a large allocation — and an out-of-memory failure is not
+ * something `readCatalogue`'s catch can turn back into the cache miss every
+ * other bad manifest produces. A crash on every cold start is the one failure
+ * here a user cannot recover from.
+ *
+ * 64 is far above anything the budgets can produce — the largest total budget
+ * divided by the per-value budget is two today — and small enough that the
+ * worst case is a wasted array rather than a dead app.
+ */
+const MAX_CHUNKS = 64;
+
 function parseManifest(raw: unknown): ChunkManifest | null {
   if (typeof raw !== "object" || raw === null) return null;
   const { generation, chunks } = raw as Partial<ChunkManifest>;
   if (typeof generation !== "string" || generation.length === 0) return null;
   if (typeof chunks !== "number" || !Number.isInteger(chunks) || chunks < 1) return null;
+  if (chunks > MAX_CHUNKS) return null;
   return { generation, chunks };
 }
 
@@ -668,12 +685,15 @@ const ANDROID_VALUE_BUDGET_BYTES = Math.floor(1.5 * 1024 * 1024);
  * PR #113 rather than on a device, where it would have looked like a phone
  * that quietly stopped caching.
  *
- * The arithmetic: 6MB ceiling, less a megabyte for everything else the app
- * persists — the profile, the saved shelf and the scan history all share it —
- * leaves 5MB, halved so a replacement always fits beside what it replaces.
+ * The arithmetic: two copies of the budget must fit, plus everything else the
+ * app persists — the profile, the saved shelf and the scan history all share
+ * the same database. At 2MB that is 4MB of catalogue and ~1MB of store against
+ * a 6MB ceiling, leaving a megabyte of margin. The obvious 2.5MB (half of
+ * 6 − 1) was rejected for arriving at *exactly* 6MB with nothing spare, which
+ * ignores that SQLite's file is always larger than the values inside it.
  *
  * The cost is real, and it is why step 7 cannot lift the import cap on this
- * alone: at the measured 1,640 bytes/product this holds roughly 1,500 products
+ * alone: at the measured 1,640 bytes/product this holds roughly 1,200 products
  * on Android, and past that the write is refused and the previous copy kept.
  * Raising it needs either a bigger database (AsyncStorage's `databaseSizeMB`,
  * which needs a config plugin and a dev build, and which Expo Go will not
@@ -681,13 +701,24 @@ const ANDROID_VALUE_BUDGET_BYTES = Math.floor(1.5 * 1024 * 1024);
  * with Browse ranking globally, since a product evicted from the cache cannot
  * be ranked against the ones still in it. Neither is a change to this constant.
  */
-const ANDROID_TOTAL_BUDGET_BYTES = Math.floor(2.5 * 1024 * 1024);
+const ANDROID_TOTAL_BUDGET_BYTES = 2 * 1024 * 1024;
 
 /** No platform limit to respect — this is a sanity ceiling, ~10x the 5,000-product payload. */
 const IOS_TOTAL_BUDGET_BYTES = 32 * 1024 * 1024;
 
-/** Conservative against an unverified ~5MB localStorage quota shared with the store. */
-const WEB_TOTAL_BUDGET_BYTES = 2 * 1024 * 1024;
+/**
+ * Conservative against an unverified ~5MB localStorage quota shared with the
+ * store — and against the unit mismatch, which is the part that bites.
+ *
+ * Everything else here is measured in UTF-8 bytes, because that is what the
+ * native stores write. Browsers bill localStorage in UTF-16 code units, so a
+ * megabyte of ASCII JSON costs *two* megabytes of quota. This figure is
+ * therefore the UTF-8 number whose worst-case quota cost — all-ASCII, two
+ * quota bytes per byte — is 2MB of roughly 5MB, leaving room for the profile
+ * and saved shelf that share the origin. Korean text costs less, not more
+ * (three UTF-8 bytes per character, two quota bytes), so ASCII is the bound.
+ */
+const WEB_TOTAL_BUDGET_BYTES = 1 * 1024 * 1024;
 
 type DiskLimits = {
   /** Largest payload worth attempting at all. Past this the write is refused. */
@@ -861,19 +892,26 @@ async function clearChunks(keep?: string): Promise<void> {
  * rather than a naive `-c0`/`-c1` convention.
  */
 /**
- * The generation the manifest currently names, when it names a usable one.
+ * What the manifest currently names, and whether it could be read at all.
  *
- * Anything else — no manifest, or one that does not parse — names nothing
- * reachable, since `readProductsBlob` treats an unreadable manifest as a miss.
- * Its chunks are debris like any other.
+ * The two are reported separately on purpose. An absent manifest and a
+ * manifest whose *read threw* look the same to a caller that only gets a
+ * generation back, and they call for opposite actions: the first means no
+ * chunk is reachable and all of them are debris, the second means we simply
+ * do not know — and sweeping on a guess would delete the live catalogue the
+ * sweep is documented never to touch. A transient `getItem` rejection is not
+ * a reason to throw away a good copy.
+ *
+ * A manifest that is present but does not parse *is* known: nothing reachable,
+ * since `readProductsBlob` treats it as a miss. Its chunks are debris.
  */
-async function liveGeneration(): Promise<string | undefined> {
+async function liveGeneration(): Promise<{ readable: boolean; generation?: string }> {
   try {
     const raw = await AsyncStorage.getItem(MANIFEST_KEY);
-    if (raw === null) return undefined;
-    return parseManifest(JSON.parse(raw) as unknown)?.generation;
+    if (raw === null) return { readable: true };
+    return { readable: true, generation: parseManifest(JSON.parse(raw) as unknown)?.generation };
   } catch {
-    return undefined;
+    return { readable: false };
   }
 }
 
@@ -903,7 +941,18 @@ async function writeProductsBlob(serialised: string, bytes: number): Promise<num
   // name is safe at any point: an unreferenced chunk is unreachable by
   // definition, and the live generation is never touched.
   const generation = nextGeneration();
-  await clearChunks(await liveGeneration());
+  const live = await liveGeneration();
+  if (live.readable) await clearChunks(live.generation);
+
+  // A `PRODUCTS_KEY` still sitting beside a live manifest is a leftover from
+  // before this device started chunking, or from a write killed between the
+  // manifest landing and the line below that removes it. Either way nothing
+  // reads it — the manifest wins — and it is full-size, so leaving it until
+  // after the new generation is written puts three copies against the ceiling
+  // at the peak instead of two. That is what turns one failed write into a
+  // refresh that can never succeed, because the cleanup it needs sits past
+  // the write that keeps failing.
+  if (live.generation !== undefined) await AsyncStorage.removeItem(PRODUCTS_KEY);
 
   const parts: string[] = [];
   for (let cursor = 0; cursor < serialised.length; ) {
