@@ -520,9 +520,19 @@ function BarcodeStage({
             }}
             className="flex-row items-center px-4 py-3"
           >
+            {/* Three states, three tints. `unreachable` used to share
+                `missed`'s pink, which made a network failure and a genuine
+                miss identical at a glance on a panel people see repeatedly in
+                a shop. Neutral rather than another verdict colour, because
+                that is what it is: pink says something about the product,
+                and this says nothing about the product at all. */}
             <View
               className={`h-8 w-8 items-center justify-center rounded-full ${
-                status.kind === "looking" ? "bg-tint-mint" : "bg-tint-pink"
+                status.kind === "looking"
+                  ? "bg-tint-mint"
+                  : status.kind === "unreachable"
+                    ? "bg-level-neutral-tint"
+                    : "bg-tint-pink"
               }`}
             >
               {status.kind === "looking" ? (

@@ -313,15 +313,32 @@ export type Fetched<T> = { ok: true; value: T } | { ok: false; failure: FetchFai
  * `server` ("something went wrong, try again") is true of every case, while
  * "you're offline" shown to someone with working signal is not.
  */
-export function classifyFailure(err: unknown): FetchFailure {
+function classifyFailure(err: unknown): FetchFailure {
   if (err instanceof TimeoutError) return { kind: "timeout" };
 
   // `functions.invoke` surfaces the HTTP status here; PostgREST errors do not
   // carry one, which is why this is checked rather than assumed.
-  const status = (err as { context?: { status?: number } })?.context?.status;
+  const context = (err as { context?: unknown })?.context;
+  const status = (context as { status?: number } | undefined)?.status;
   if (status === 429) return { kind: "rate-limited" };
   if (typeof status === "number" && status >= 500) {
     return { kind: "server", message: `server responded ${status}` };
+  }
+
+  // The barcode lookup's own deadline, which does not arrive as a
+  // `TimeoutError` because it is not ours.
+  //
+  // `functions.invoke` takes a `timeout` option and implements it by aborting
+  // the fetch with its own AbortController, then wrapping whatever the fetch
+  // rejected with in a `FunctionsFetchError` and *returning* it. So a lookup
+  // that ran out of time and a lookup with no connection arrive in exactly the
+  // same wrapper, and the only thing separating them is the original error
+  // kept on `context`: an abort for the first, a `TypeError` for the second.
+  // Without this check every slow scan reported "check your connection", and
+  // the `timeout` state was unreachable for the one call most likely to hit it.
+  if ((err as { name?: string })?.name === "FunctionsFetchError") {
+    const cause = context as { name?: string } | undefined;
+    return cause?.name === "AbortError" ? { kind: "timeout" } : { kind: "offline" };
   }
 
   // Not just `instanceof Error`: a Supabase read reports failure by *returning*
@@ -331,16 +348,14 @@ export function classifyFailure(err: unknown): FetchFailure {
   const raw = (err as { message?: unknown })?.message;
   const message = err instanceof Error ? err.message : typeof raw === "string" ? raw : String(err);
 
-  // What a dead connection actually looks like, per platform: React Native's
-  // fetch throws `TypeError: Network request failed`, the browser throws
-  // `TypeError: Failed to fetch`, and supabase-js wraps both in its own
-  // `FunctionsFetchError` before they reach us. An aborted request lands here
-  // too when the abort came from the platform rather than from our own timer —
-  // our timer's abort rejects as a `TimeoutError` above, so anything still
-  // reading as an abort at this point was not ours.
+  // What a dead connection looks like on the direct reads, which do not go
+  // through `functions.invoke`: React Native's fetch throws
+  // `TypeError: Network request failed` and the browser throws
+  // `TypeError: Failed to fetch`. A bare `AbortError` reaching here was not
+  // ours — our own deadline rejects as a `TimeoutError` above — so it is the
+  // platform giving up on the connection.
   if (
     /network request failed|failed to fetch|networkerror|load failed/i.test(message) ||
-    (err as { name?: string })?.name === "FunctionsFetchError" ||
     (err as { name?: string })?.name === "AbortError"
   ) {
     return { kind: "offline" };
@@ -357,7 +372,9 @@ export function failureMessage(failure: FetchFailure): string {
     case "timeout":
       return "Our catalogue took too long to answer.";
     case "rate-limited":
-      return "We're being rate-limited right now. Give it a moment.";
+      // Not "rate-limited": the person reading this is holding a bottle in a
+      // shop, and the word is ours, not theirs.
+      return "Too many lookups just now. Wait a moment and try again.";
     case "server":
       return "Something went wrong at our end.";
   }
@@ -1110,21 +1127,20 @@ export async function fetchProductByBarcode(
     // scanner sat in "looking" until the platform gave up. A timeout the user
     // can retry is a state; an indefinite wait is not.
     //
-    // `functions.invoke` takes this natively and aborts the underlying request,
-    // so it needs none of `withTimeout`'s wrapping.
-    let data: unknown;
-    let error: unknown;
-    try {
-      ({ data, error } = await supabase!.functions.invoke(LOOKUP_FUNCTION, {
-        body: { barcode },
-        timeout: NETWORK_TIMEOUT_MS,
-      }));
-    } catch (err) {
-      // `invoke` rejects rather than returning an error for a dead connection
-      // and for its own timeout, so this is the branch a scan in a shop with
-      // no signal actually takes.
-      return { ok: false, failure: classifyFailure(err) };
-    }
+    // `functions.invoke` takes this natively and aborts the underlying
+    // request, so it needs none of `withTimeout`'s wrapping — and no `try`
+    // either. It catches everything internally and reports failure by
+    // *returning* `{ data: null, error }`, so a dead connection, its own
+    // timeout and a non-2xx response all arrive on `error` below rather than
+    // as a rejection. A guard here would be unreachable, and an earlier
+    // version of this carried one with a comment claiming the opposite, which
+    // is worse than no comment at all. It also means the timeout reaches
+    // `classifyFailure` wrapped as a fetch error rather than as our own
+    // `TimeoutError` — see the `FunctionsFetchError` branch there.
+    const { data, error } = await supabase!.functions.invoke(LOOKUP_FUNCTION, {
+      body: { barcode },
+      timeout: NETWORK_TIMEOUT_MS,
+    });
 
     if (error) {
       // A 404 from the cascade means "in no source we consulted", which is a

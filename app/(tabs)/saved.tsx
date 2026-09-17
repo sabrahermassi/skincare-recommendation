@@ -572,20 +572,16 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
         <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
           {entry.known ? "Opened earlier · no longer in our catalogue" : "Scanned · not in our catalogue"}
         </Text>
-        {/* A scanned barcode is the user's own evidence — it matches the digits
-            printed on the bottle, so it is the row's identity and set like one.
-            An internal product id is a reference, not something they typed or
-            scanned, so it is set as secondary text rather than presented as
-            the thing they are looking at. */}
-        <Text
-          style={
-            entry.known
-              ? { marginTop: 2, fontSize: TYPE.caption, color: MUTED }
-              : { marginTop: 2, fontSize: 14, color: INK }
-          }
-        >
-          {entry.id}
-        </Text>
+        {/* Only the barcode is shown, and only because it is the user's own
+            evidence — it matches the digits printed on the bottle, so they can
+            check the scan landed on the right item. An internal product id
+            (`obf-8801234567890`) is ours, not theirs: there is nothing they can
+            do with it and nowhere they can take it, so the row is better
+            without it. The timestamp below is what actually distinguishes one
+            of these rows from another. */}
+        {!entry.known && (
+          <Text style={{ marginTop: 2, fontSize: 14, color: INK }}>{entry.id}</Text>
+        )}
         <HistoryMeta entry={entry} />
 
         {/*

@@ -146,6 +146,16 @@ export default function ProductScreen() {
    */
   const [failure, setFailure] = useState<FetchFailure | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  /**
+   * Which id the product in state belongs to.
+   *
+   * `product` is deliberately kept across a failed *retry* — what is already
+   * on screen beats an error page. That is only right while the id has not
+   * changed: without this, routing to a different product whose load then
+   * failed left the previous one rendering under the new id, which is the
+   * exact trap `app/ingredients/[id].tsx` documents on its own fetch.
+   */
+  const loadedFor = useRef<string | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
 
   // Captured once, on arrival, rather than read live. `isPersonalized` flips as
@@ -181,9 +191,15 @@ export default function ProductScreen() {
         if (cancelled) return;
         if (result.ok) {
           setProduct(result.value);
+          loadedFor.current = id;
         } else {
-          // Leave `product` alone rather than nulling it: on a retry that
-          // fails, the copy already on screen is still the best thing to show.
+          // A failed retry of the id already on screen keeps that copy — it
+          // beats an error page. A failed load of a *different* id must not
+          // inherit it. See `loadedFor`.
+          if (loadedFor.current !== id) {
+            setProduct(null);
+            loadedFor.current = null;
+          }
           setFailure(result.failure);
         }
         setLoading(false);

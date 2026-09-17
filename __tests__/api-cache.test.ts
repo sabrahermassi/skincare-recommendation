@@ -738,13 +738,45 @@ describe("a barcode lookup", () => {
     expect(readScanned("barcode-broken")).toBeUndefined();
   });
 
+  /**
+   * Both of the next two cases arrive the way the real library delivers them,
+   * which is the point of writing them this way.
+   *
+   * `functions.invoke` never rejects: it catches everything and *returns*
+   * `{ data: null, error }`. It also implements its own `timeout` option by
+   * aborting the fetch, then wrapping whatever the fetch rejected with in a
+   * `FunctionsFetchError`. So a timeout and a dead connection reach us in the
+   * identical wrapper, separated only by the original error on `context`.
+   *
+   * An earlier version of this test used `mockRejectedValue`, which exercised
+   * a branch the library cannot reach — it passed while proving nothing.
+   */
   it("reports a dead connection as offline, not as a miss", async () => {
-    invokeMock().mockRejectedValue(new TypeError("Network request failed"));
+    invokeMock().mockResolvedValue({
+      data: null,
+      error: { name: "FunctionsFetchError", message: "Failed to send a request to the Edge Function", context: new TypeError("Network request failed") },
+    });
 
     const result = await fetchProductByBarcode("barcode-offline");
 
     expect(result).toEqual({ ok: false, failure: { kind: "offline" } });
     expect(readScanned("barcode-offline")).toBeUndefined();
+  });
+
+  it("reports the lookup's own deadline as a timeout, not as offline", async () => {
+    // What `invoke` produces when its `timeout` fires: it aborts the fetch,
+    // and the AbortError is what ends up on `context`.
+    const aborted = new Error("The operation was aborted");
+    aborted.name = "AbortError";
+    invokeMock().mockResolvedValue({
+      data: null,
+      error: { name: "FunctionsFetchError", message: "Failed to send a request to the Edge Function", context: aborted },
+    });
+
+    const result = await fetchProductByBarcode("barcode-slow");
+
+    expect(result).toEqual({ ok: false, failure: { kind: "timeout" } });
+    expect(readScanned("barcode-slow")).toBeUndefined();
   });
 
   it("reports a rate limit as its own state", async () => {
@@ -840,14 +872,10 @@ describe("a label read", () => {
  */
 function invokeMock(): {
   mockResolvedValue: (value: unknown) => void;
-  /** For the paths where `invoke` rejects rather than returning an error —
-   *  a dead connection and its own timeout both arrive that way. */
-  mockRejectedValue: (value: unknown) => void;
   mock: { calls: unknown[][] };
 } {
   return supabase!.functions.invoke as unknown as {
     mockResolvedValue: (value: unknown) => void;
-    mockRejectedValue: (value: unknown) => void;
     mock: { calls: unknown[][] };
   };
 }
