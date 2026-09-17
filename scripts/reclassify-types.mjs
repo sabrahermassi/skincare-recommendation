@@ -50,6 +50,9 @@
  * same credentials either way.
  */
 
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { createClient } from "@supabase/supabase-js";
 
 import { guessType } from "./import-obf.mjs";
@@ -57,6 +60,24 @@ import { guessTypeFromIngredients } from "./lib/guess-type-from-ingredients.mjs"
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
+
+/**
+ * The two passes, as plain functions, each returning a type or null.
+ *
+ * Exported so the rule this script is built around is testable without a
+ * database: a row only ever moves OUT of "unknown", never between two real
+ * types — the table stores no category tags, so a re-guess from the name
+ * alone knows strictly less than the import did (see the file header).
+ */
+export function nameGuess(name) {
+  const guessed = guessType([], name);
+  return guessed === "unknown" ? null : guessed;
+}
+
+export function ingredientGuess(name, ingredients) {
+  const guessed = guessTypeFromIngredients(name, ingredients);
+  return guessed === "unknown" ? null : guessed;
+}
 
 /**
  * One product's ingredient list, for `guessTypeFromIngredients`. One query
@@ -95,16 +116,17 @@ async function main() {
   const changes = [];
   let ingredientFallbackTried = 0;
   for (const row of rows) {
-    const byName = guessType([], row.name);
-    if (byName !== "unknown") {
+    const byName = nameGuess(row.name);
+    if (byName) {
       changes.push({ ...row, guessed: byName, via: "name" });
       continue;
     }
 
+    // Only fetched once the name pass has given up, so the extra query lands
+    // on genuine candidates rather than on every row.
     ingredientFallbackTried += 1;
-    const ingredients = await fetchProductIngredients(db, row.id);
-    const byIngredients = guessTypeFromIngredients(row.name, ingredients);
-    if (byIngredients !== "unknown") changes.push({ ...row, guessed: byIngredients, via: "ingredients" });
+    const byIngredients = ingredientGuess(row.name, await fetchProductIngredients(db, row.id));
+    if (byIngredients) changes.push({ ...row, guessed: byIngredients, via: "ingredients" });
   }
   console.log(`Tried the ingredient-based fallback on ${ingredientFallbackTried} row(s).\n`);
 
@@ -156,7 +178,26 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+/**
+ * Only sweep when this file is what was run, so the two passes above can be
+ * imported by a test without a database. Same realpath comparison
+ * `import-obf.mjs` uses: `import.meta.url` and `process.argv[1]` are
+ * different shapes, and on Windows they also disagree about separators and
+ * drive-letter case.
+ */
+function invokedDirectly() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (invokedDirectly()) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
