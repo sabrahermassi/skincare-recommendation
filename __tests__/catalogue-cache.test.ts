@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 import {
   abandonDiskRead,
@@ -16,6 +17,7 @@ import {
   readCatalogue,
   readScanned,
   resetCatalogueCache,
+  sliceEnd,
   SCANNED_TTL_MS,
   touchCatalogue,
   watermarksMatch,
@@ -54,6 +56,30 @@ const WATERMARK: CatalogueWatermark = { count: 3, newest: "2026-09-14T00:00:00Z"
 
 const PRODUCTS_KEY = "forme-catalogue-v2";
 const META_KEY = "forme-catalogue-meta-v2";
+const MANIFEST_KEY = "forme-catalogue-manifest-v2";
+const CHUNK_PREFIX = "forme-catalogue-chunk-v2-";
+
+/**
+ * Run a test body as a given platform.
+ *
+ * The disk limits are platform-shaped since 6b-4 — Android carries a
+ * per-value `CursorWindow` budget and splits past it, iOS and web write one
+ * value against their own ceilings — so a test about a limit has to say which
+ * platform's limit it means. `jest-expo` reports `ios` by default, which is
+ * exactly the platform with no per-value cap.
+ *
+ * The write queue is drained inside the callback deliberately: `persist` reads
+ * the platform when it runs, not when it is queued.
+ */
+async function onPlatform(os: "ios" | "android" | "web", run: () => Promise<void>): Promise<void> {
+  const original = Platform.OS;
+  (Platform as { OS: string }).OS = os;
+  try {
+    await run();
+  } finally {
+    (Platform as { OS: string }).OS = original;
+  }
+}
 
 /** The v2 blob shape: one dictionary, products referencing it by name. */
 function blob(products: typeof CATALOGUE) {
@@ -167,6 +193,22 @@ describe("disk layer", () => {
 
     expect(await AsyncStorage.getItem("forme-catalogue-v1")).toBeNull();
     expect(await AsyncStorage.getItem("forme-catalogue-meta-v1")).toBeNull();
+  });
+
+  /**
+   * The same stranding, for chunks. A version bump hides them from the reader
+   * and nothing else would ever remove them — and unlike a v1 blob, what is
+   * left behind is a full catalogue spread over several keys, competing for
+   * the same Android ceiling as the live one.
+   */
+  it("deletes chunks an earlier schema version left behind, and keeps this one's", async () => {
+    await AsyncStorage.setItem("forme-catalogue-chunk-v1-abc-0", "stranded");
+    await AsyncStorage.setItem(`${CHUNK_PREFIX}abc-0`, "current");
+
+    await dropLegacyBlobs();
+
+    expect(await AsyncStorage.getItem("forme-catalogue-chunk-v1-abc-0")).toBeNull();
+    expect(await AsyncStorage.getItem(`${CHUNK_PREFIX}abc-0`)).toBe("current");
   });
 
   it("ignores a stored catalogue past its TTL", async () => {
@@ -524,31 +566,40 @@ describe("disk writes announce what happened", () => {
     expect(await AsyncStorage.getItem(PRODUCTS_KEY)).not.toBeNull();
   });
 
-  it("skips an oversized payload and keeps the copy already on disk", async () => {
-    // A good, small catalogue first.
-    putCatalogue(CATALOGUE, WATERMARK);
-    await writesSettled();
-    const good = await AsyncStorage.getItem(PRODUCTS_KEY);
-    expect(good).not.toBeNull();
+  // Android, because refusing is Android's last resort and only Android's:
+  // past the whole-database ceiling there is nowhere left to put the payload,
+  // where iOS and web are bounded by their own far larger budgets. Before
+  // 6b-4 this ran on every platform at 1.5MB, which is what refused an iPhone
+  // a cache it could hold comfortably.
+  it("skips a payload past the database ceiling and keeps the copy already on disk", async () => {
+    await onPlatform("android", async () => {
+      // A good, small catalogue first.
+      putCatalogue(CATALOGUE, WATERMARK);
+      await writesSettled();
+      const good = await AsyncStorage.getItem(PRODUCTS_KEY);
+      expect(good).not.toBeNull();
 
-    // Then one that cannot fit. `description` is a plain string on the
-    // persisted product, so this inflates the blob without changing its shape.
-    const huge = Array.from({ length: 60 }, (_, i) => ({
-      ...product(`huge-${i}`, "serum"),
-      description: "x".repeat(100_000),
-    })) as unknown as typeof CATALOGUE;
-    putCatalogue(huge, { ...WATERMARK, count: huge.length });
-    await writesSettled();
+      // Then one that cannot fit anywhere — over the 5MB total, not merely
+      // over the per-value budget, so chunking is not an answer either.
+      // `description` is a plain string on the persisted product, so this
+      // inflates the blob without changing its shape.
+      const huge = Array.from({ length: 60 }, (_, i) => ({
+        ...product(`huge-${i}`, "serum"),
+        description: "x".repeat(100_000),
+      })) as unknown as typeof CATALOGUE;
+      putCatalogue(huge, { ...WATERMARK, count: huge.length });
+      await writesSettled();
 
-    const outcome = lastCacheWrite();
-    expect(outcome?.kind).toBe("too-large");
-    if (outcome?.kind !== "too-large") throw new Error("expected an over-budget skip");
-    expect(outcome.bytes).toBeGreaterThan(outcome.budget);
+      const outcome = lastCacheWrite();
+      expect(outcome?.kind).toBe("too-large");
+      if (outcome?.kind !== "too-large") throw new Error("expected an over-budget skip");
+      expect(outcome.bytes).toBeGreaterThan(outcome.budget);
 
-    // The point of skipping rather than attempting: what was already there
-    // survives, so the app falls back to a stale-but-whole catalogue instead
-    // of a truncated one.
-    expect(await AsyncStorage.getItem(PRODUCTS_KEY)).toBe(good);
+      // The point of skipping rather than attempting: what was already there
+      // survives, so the app falls back to a stale-but-whole catalogue instead
+      // of a truncated one.
+      expect(await AsyncStorage.getItem(PRODUCTS_KEY)).toBe(good);
+    });
   });
 
   it("records a storage failure instead of swallowing it", async () => {
@@ -667,35 +718,247 @@ describe("how much fits in one value", () => {
   });
 
   /**
-   * Step 6's stated done-when is 5,000 products, and this records honestly that
-   * a single value does not get there.
+   * Step 6's stated done-when: 5,000 products cold-start without a failed
+   * write. Before 6b-4 this was the test that recorded honestly that a single
+   * value does not get there, and refused.
    *
-   * Five thousand serialises to roughly 3.1MB. That is under the 6MB SQLite
+   * Five thousand serialises to roughly 3.1MB — under the 6MB SQLite
    * *database* ceiling everyone quotes, and well over the ~2MB `CursorWindow`
-   * limit that applies to reading one value — so at 4MB it wrote cleanly here
+   * limit that applies to reading one value. So at 4MB it wrote cleanly here
    * and would have been unreadable on the next Android cold start, with the
    * failure surfacing nowhere near the write.
    *
-   * Refused at the budget instead. Reaching 5,000 needs the payload split
-   * across keys, or the windowing in step 6's item 3 so the whole catalogue is
-   * never resident. Step 7 lifts the import cap and must not land before one
-   * of those does.
+   * It is split across values now rather than refused, which is what makes the
+   * whole mirror survive without an eviction policy to get wrong. The
+   * reassembly is the part worth pinning: every chunk has to come back, in
+   * order, with the formulas intact.
    */
-  it("refuses a five-thousand product catalogue rather than writing an unreadable one", async () => {
-    const many = Array.from({ length: 5000 }, (_, i) => realisticProduct(i));
+  it("splits a five-thousand product catalogue across values on Android, and reads it back whole", async () => {
+    await onPlatform("android", async () => {
+      const many = Array.from({ length: 5000 }, (_, i) => realisticProduct(i));
 
-    putCatalogue(many, { ...WATERMARK, count: many.length });
-    await writesSettled();
+      putCatalogue(many, { ...WATERMARK, count: many.length });
+      await writesSettled();
 
-    const outcome = lastCacheWrite();
-    expect(outcome?.kind).toBe("too-large");
-    if (outcome?.kind !== "too-large") throw new Error("expected an over-budget skip");
-    // The figure the comment above is reasoning about, pinned so a future
-    // change to the payload shape shows up here rather than in the field.
-    expect(outcome.bytes).toBeGreaterThan(2 * 1024 * 1024);
+      const outcome = lastCacheWrite();
+      if (outcome?.kind !== "ok") {
+        throw new Error(`expected a clean chunked write, got ${JSON.stringify(outcome)}`);
+      }
+      // The figure the comment above reasons about, pinned so a change to the
+      // payload shape shows up here rather than in the field.
+      expect(outcome.bytes).toBeGreaterThan(2 * 1024 * 1024);
+      expect(outcome.chunks).toBeGreaterThan(1);
+
+      // The manifest is what a reader follows, and the single-value copy is
+      // gone — on Android it would count against the same database ceiling.
+      expect(await AsyncStorage.getItem(MANIFEST_KEY)).not.toBeNull();
+      expect(await AsyncStorage.getItem(PRODUCTS_KEY)).toBeNull();
+      const keys = await AsyncStorage.getAllKeys();
+      expect(keys.filter((k) => k.startsWith(CHUNK_PREFIX))).toHaveLength(outcome.chunks);
+
+      // A cold start: drop memory entirely, then reassemble from disk alone.
+      forgetMemoryLayer();
+      const restored = await readCatalogue();
+      expect(restored?.products).toHaveLength(5000);
+      expect(restored?.products[0].ingredients).toHaveLength(30);
+      // The join has to be in order, and a chunk boundary must not have eaten
+      // a multi-byte character: the last product is the one furthest from the
+      // start and so the likeliest casualty of a bad reassembly.
+      expect(restored?.products[4999].name).toBe(many[4999].name);
+    });
+  });
+
+  it("keeps a five-thousand product catalogue in one value on iOS", async () => {
+    await onPlatform("ios", async () => {
+      const many = Array.from({ length: 5000 }, (_, i) => realisticProduct(i));
+
+      putCatalogue(many, { ...WATERMARK, count: many.length });
+      await writesSettled();
+
+      const outcome = lastCacheWrite();
+      if (outcome?.kind !== "ok") {
+        throw new Error(`expected a clean write, got ${JSON.stringify(outcome)}`);
+      }
+      // No per-value cap to work around, so no chunking and no manifest: the
+      // Android workaround must not follow iOS around. This is the case that
+      // was refused outright before 6b-4.
+      expect(outcome.chunks).toBe(1);
+      expect(await AsyncStorage.getItem(MANIFEST_KEY)).toBeNull();
+      expect(await AsyncStorage.getItem(PRODUCTS_KEY)).not.toBeNull();
+
+      forgetMemoryLayer();
+      expect((await readCatalogue())?.products).toHaveLength(5000);
+    });
+  });
+
+  it("refuses on web, where the localStorage quota is the smallest of the three", async () => {
+    await onPlatform("web", async () => {
+      const many = Array.from({ length: 5000 }, (_, i) => realisticProduct(i));
+
+      putCatalogue(many, { ...WATERMARK, count: many.length });
+      await writesSettled();
+
+      // Chunking buys nothing here — the quota bounds the origin, not the
+      // value — so refusing and keeping whatever is already there is the only
+      // honest answer.
+      expect(lastCacheWrite()?.kind).toBe("too-large");
+    });
   });
 });
 
+
+/**
+ * The chunked write's own failure modes.
+ *
+ * Splitting one value into several reintroduces the exact hazard the budget
+ * check exists to prevent: a *partial* write is strictly worse than no write,
+ * because a catalogue that parses into fewer products than its metadata claims
+ * is served with no way for anyone to notice. The manifest is what makes that
+ * unrepresentable — written last, so it never names a chunk set that is not
+ * already complete — and these pin that it does.
+ */
+describe("a catalogue split across values", () => {
+  /** Over the 1.5MB per-value budget, under the 5MB total: chunks on Android. */
+  function chunky() {
+    return Array.from({ length: 20 }, (_, i) => ({
+      ...product(`chunk-${i}`, "serum"),
+      description: "x".repeat(100_000),
+    })) as unknown as typeof CATALOGUE;
+  }
+
+  async function chunkKeys() {
+    const keys = await AsyncStorage.getAllKeys();
+    return keys.filter((k) => k.startsWith(CHUNK_PREFIX));
+  }
+
+  it("reads as a miss when a chunk is gone, rather than serving half a catalogue", async () => {
+    await onPlatform("android", async () => {
+      putCatalogue(chunky(), WATERMARK);
+      await writesSettled();
+      const keys = await chunkKeys();
+      expect(keys.length).toBeGreaterThan(1);
+
+      // Storage lost one. The manifest still names it, so the reassembly is
+      // short — and a short catalogue must never reach a caller.
+      await AsyncStorage.removeItem(keys[0]);
+
+      forgetMemoryLayer();
+      expect(await readCatalogue()).toBeNull();
+    });
+  });
+
+  it("does not split a surrogate pair across a chunk boundary", async () => {
+    await onPlatform("android", async () => {
+      // Every boundary lands inside a run of astral characters, which are two
+      // UTF-16 code units and four UTF-8 bytes each. Slicing by code unit
+      // would leave a lone surrogate at the end of one chunk and its partner
+      // at the start of the next, and nothing guarantees storage round-trips
+      // those — the corruption would survive reassembly and surface as
+      // mojibake in a product name. Korean text is three-byte BMP and would
+      // not catch this; an emoji is the case that does.
+      const astral = Array.from({ length: 20 }, (_, i) => ({
+        ...product(`astral-${i}`, "serum"),
+        description: "🧴".repeat(30_000),
+      })) as unknown as typeof CATALOGUE;
+
+      putCatalogue(astral, WATERMARK);
+      await writesSettled();
+
+      const outcome = lastCacheWrite();
+      if (outcome?.kind !== "ok") throw new Error("expected a clean chunked write");
+      expect(outcome.chunks).toBeGreaterThan(1);
+
+      // Reassembly only. The property that no boundary splits a pair is
+      // pinned on `sliceEnd` directly, below — it cannot be caught from here,
+      // because a lone surrogate survives the JavaScript storage mock intact
+      // and `join("")` puts it back together.
+      forgetMemoryLayer();
+      const restored = await readCatalogue();
+      expect(restored?.products).toHaveLength(20);
+      expect(restored?.products[19].description).toBe("🧴".repeat(30_000));
+    });
+  });
+
+  /**
+   * The chunk boundary, tested where it can actually fail.
+   *
+   * A budget of 5 bytes is the case that separates a correct slice from a
+   * naive one: an emoji is four UTF-8 bytes and two UTF-16 code units, so a
+   * walk that charges three bytes per code unit stops after the *first* half
+   * and hands back an index that splits the pair. Real budgets are megabytes,
+   * where whether the split lands mid-pair is a matter of parity and luck —
+   * which is exactly why this is asserted on the function rather than on a
+   * payload sized to trip it.
+   */
+  it("never returns an index that splits a surrogate pair", () => {
+    // Room for one emoji but not two, and not for half of the second.
+    expect(sliceEnd("🧴🧴", 0, 5)).toBe(2);
+    // Not even room for one: better to return nothing than half a character.
+    expect(sliceEnd("🧴", 0, 3)).toBe(0);
+    // Exactly two fit.
+    expect(sliceEnd("🧴🧴", 0, 8)).toBe(4);
+    // Multi-byte but not astral: three bytes each, no pair to protect.
+    expect(sliceEnd("가가가", 0, 7)).toBe(2);
+    // ASCII is one byte per code unit.
+    expect(sliceEnd("abcdef", 0, 4)).toBe(4);
+    // Resumes from an offset without re-measuring what came before.
+    expect(sliceEnd("🧴🧴", 2, 5)).toBe(4);
+  });
+
+  it("sweeps the previous generation's chunks when it writes new ones", async () => {
+    await onPlatform("android", async () => {
+      putCatalogue(chunky(), WATERMARK);
+      await writesSettled();
+      const first = await chunkKeys();
+
+      putCatalogue(chunky(), { ...WATERMARK, count: 21 });
+      await writesSettled();
+      const second = await chunkKeys();
+
+      // A new generation writes new keys, so nothing a reader is still
+      // entitled to is overwritten mid-write — and the old set does not
+      // linger afterwards, which on Android would count against the same
+      // database ceiling twice over.
+      expect(second).toHaveLength(first.length);
+      expect(second.some((k) => first.includes(k))).toBe(false);
+
+      forgetMemoryLayer();
+      expect((await readCatalogue())?.products).toHaveLength(20);
+    });
+  });
+
+  it("drops the chunks and the manifest when a smaller catalogue fits in one value", async () => {
+    await onPlatform("android", async () => {
+      putCatalogue(chunky(), WATERMARK);
+      await writesSettled();
+      expect(await chunkKeys()).not.toHaveLength(0);
+
+      putCatalogue(CATALOGUE, WATERMARK);
+      await writesSettled();
+
+      // Otherwise the stale chunks outlive every later write, and a reader
+      // following a stale manifest would prefer them over the fresh value.
+      expect(await chunkKeys()).toHaveLength(0);
+      expect(await AsyncStorage.getItem(MANIFEST_KEY)).toBeNull();
+
+      forgetMemoryLayer();
+      expect((await readCatalogue())?.products).toHaveLength(CATALOGUE.length);
+    });
+  });
+
+  it("clears chunks along with everything else on reset", async () => {
+    await onPlatform("android", async () => {
+      putCatalogue(chunky(), WATERMARK);
+      await writesSettled();
+      expect(await chunkKeys()).not.toHaveLength(0);
+
+      await resetCatalogueCache();
+
+      expect(await chunkKeys()).toHaveLength(0);
+      expect(await AsyncStorage.getItem(MANIFEST_KEY)).toBeNull();
+    });
+  });
+});
 
 /**
  * The trap the "keep the previous copy" skip opens, and the guard that closes
@@ -709,38 +972,42 @@ describe("how much fits in one value", () => {
  * freshness check agrees, and the device never refetches again.
  */
 describe("metadata never blesses a blob it does not describe", () => {
+  // Android throughout: a skipped write is what opens this trap, and since
+  // 6b-4 that only happens past Android's database ceiling.
   it("holds back the watermark while disk is behind memory", async () => {
-    // A good, small catalogue lands on disk at the first watermark.
-    putCatalogue(CATALOGUE, WATERMARK);
-    await writesSettled();
-    const metaBefore = await AsyncStorage.getItem(META_KEY);
-    expect(metaBefore).not.toBeNull();
+    await onPlatform("android", async () => {
+      // A good, small catalogue lands on disk at the first watermark.
+      putCatalogue(CATALOGUE, WATERMARK);
+      await writesSettled();
+      const metaBefore = await AsyncStorage.getItem(META_KEY);
+      expect(metaBefore).not.toBeNull();
 
-    // An oversized refresh is skipped: memory moves on, disk does not.
-    const huge = Array.from({ length: 60 }, (_, i) => ({
-      ...product(`huge-${i}`, "serum"),
-      description: "x".repeat(100_000),
-    })) as unknown as typeof CATALOGUE;
-    const newer: CatalogueWatermark = { ...WATERMARK, count: 9999, newest: "2027-01-01T00:00:00Z" };
-    putCatalogue(huge, newer);
-    await writesSettled();
-    expect(lastCacheWrite()?.kind).toBe("too-large");
+      // An oversized refresh is skipped: memory moves on, disk does not.
+      const huge = Array.from({ length: 60 }, (_, i) => ({
+        ...product(`huge-${i}`, "serum"),
+        description: "x".repeat(100_000),
+      })) as unknown as typeof CATALOGUE;
+      const newer: CatalogueWatermark = { ...WATERMARK, count: 9999, newest: "2027-01-01T00:00:00Z" };
+      putCatalogue(huge, newer);
+      await writesSettled();
+      expect(lastCacheWrite()?.kind).toBe("too-large");
 
-    // The revalidation that would otherwise do the damage.
-    touchCatalogue(newer);
-    await writesSettled();
+      // The revalidation that would otherwise do the damage.
+      touchCatalogue(newer);
+      await writesSettled();
 
-    // Metadata on disk is untouched, so it still describes the products that
-    // are actually there.
-    expect(await AsyncStorage.getItem(META_KEY)).toBe(metaBefore);
+      // Metadata on disk is untouched, so it still describes the products that
+      // are actually there.
+      expect(await AsyncStorage.getItem(META_KEY)).toBe(metaBefore);
 
-    // And the consequence that matters: a cold start restores the old
-    // catalogue with its *old* watermark, which no longer matches the server —
-    // so the refetch that repairs everything still happens.
-    forgetMemoryLayer();
-    const restored = await readCatalogue();
-    expect(restored?.products).toHaveLength(CATALOGUE.length);
-    expect(watermarksMatch(restored!.watermark, newer)).toBe(false);
+      // And the consequence that matters: a cold start restores the old
+      // catalogue with its *old* watermark, which no longer matches the server —
+      // so the refetch that repairs everything still happens.
+      forgetMemoryLayer();
+      const restored = await readCatalogue();
+      expect(restored?.products).toHaveLength(CATALOGUE.length);
+      expect(watermarksMatch(restored!.watermark, newer)).toBe(false);
+    });
   });
 
 /**
@@ -756,23 +1023,25 @@ describe("metadata never blesses a blob it does not describe", () => {
    * what hides the bug.
    */
   it("holds back metadata queued before the write that fails", async () => {
-    putCatalogue(CATALOGUE, WATERMARK);
-    await writesSettled();
-    const metaBefore = await AsyncStorage.getItem(META_KEY);
+    await onPlatform("android", async () => {
+      putCatalogue(CATALOGUE, WATERMARK);
+      await writesSettled();
+      const metaBefore = await AsyncStorage.getItem(META_KEY);
 
-    const huge = Array.from({ length: 60 }, (_, i) => ({
-      ...product(`huge-${i}`, "serum"),
-      description: "x".repeat(100_000),
-    })) as unknown as typeof CATALOGUE;
-    const newer: CatalogueWatermark = { ...WATERMARK, count: 9999, newest: "2027-01-01T00:00:00Z" };
+      const huge = Array.from({ length: 60 }, (_, i) => ({
+        ...product(`huge-${i}`, "serum"),
+        description: "x".repeat(100_000),
+      })) as unknown as typeof CATALOGUE;
+      const newer: CatalogueWatermark = { ...WATERMARK, count: 9999, newest: "2027-01-01T00:00:00Z" };
 
-    // Both queued before either runs.
-    putCatalogue(huge, newer);
-    touchCatalogue(newer);
-    await writesSettled();
+      // Both queued before either runs.
+      putCatalogue(huge, newer);
+      touchCatalogue(newer);
+      await writesSettled();
 
-    expect(lastCacheWrite()?.kind).toBe("too-large");
-    expect(await AsyncStorage.getItem(META_KEY)).toBe(metaBefore);
+      expect(lastCacheWrite()?.kind).toBe("too-large");
+      expect(await AsyncStorage.getItem(META_KEY)).toBe(metaBefore);
+    });
   });
 
     it("writes metadata again once a write has landed", async () => {

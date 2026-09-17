@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 import type { Ingredient, ProductType, ProductWithIngredients } from "./types";
 
@@ -57,6 +58,60 @@ const PRODUCTS_KEY = `forme-catalogue-v${SCHEMA_VERSION}`;
 const META_KEY = `forme-catalogue-meta-v${SCHEMA_VERSION}`;
 
 /**
+ * Where a chunked Android payload records how to put itself back together.
+ *
+ * Its presence is what tells a reader to prefer chunks over `PRODUCTS_KEY`,
+ * which is why it is written *last* and removed *first*. See
+ * `writeProductsBlob` for why that ordering is the whole design.
+ */
+const MANIFEST_KEY = `forme-catalogue-manifest-v${SCHEMA_VERSION}`;
+
+/**
+ * Version-free, so `dropLegacyBlobs` can find chunks an older schema wrote.
+ *
+ * `LEGACY_KEYS` lists its keys explicitly, and chunk keys cannot be listed:
+ * they carry the generation that wrote them, so the set is not knowable in
+ * advance. Swept by prefix instead — and this matters more than the v1 blobs
+ * did, because what a version bump would strand here is a full-size copy of
+ * the catalogue spread over several keys, against the same Android ceiling
+ * the live one is competing for.
+ */
+const ANY_CHUNK_PREFIX = "forme-catalogue-chunk-";
+
+const CHUNK_PREFIX = `${ANY_CHUNK_PREFIX}v${SCHEMA_VERSION}-`;
+
+/**
+ * Chunk keys carry the generation that wrote them, so a half-finished write
+ * cannot overwrite the copy a reader is still entitled to.
+ *
+ * With fixed keys (`…-c0`, `…-c1`) a new write would land on top of the old
+ * chunks while the old manifest still pointed at them — and an app killed
+ * halfway would leave a set that reassembles cleanly into a catalogue made of
+ * two different generations. Generation-scoped keys make that unrepresentable:
+ * a new write touches no key the current manifest names.
+ */
+const chunkKey = (generation: string, index: number) =>
+  `${CHUNK_PREFIX}${generation}-${index}`;
+
+type ChunkManifest = { generation: string; chunks: number };
+
+function parseManifest(raw: unknown): ChunkManifest | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const { generation, chunks } = raw as Partial<ChunkManifest>;
+  if (typeof generation !== "string" || generation.length === 0) return null;
+  if (typeof chunks !== "number" || !Number.isInteger(chunks) || chunks < 1) return null;
+  return { generation, chunks };
+}
+
+let writeSequence = 0;
+
+/** Unique per write within a launch, and ordered across launches. */
+function nextGeneration(): string {
+  writeSequence += 1;
+  return `${Date.now().toString(36)}-${writeSequence}`;
+}
+
+/**
  * Keys written by earlier schema versions, which nothing else will ever remove.
  *
  * Bumping `SCHEMA_VERSION` makes an old blob invisible, not absent: the reader
@@ -86,7 +141,13 @@ export async function dropLegacyBlobs(): Promise<void> {
   if (legacyDropped) return;
   legacyDropped = true;
   try {
-    await AsyncStorage.multiRemove(LEGACY_KEYS);
+    // Chunks from an older schema version go too — see `ANY_CHUNK_PREFIX` for
+    // why those are found by prefix rather than named.
+    const keys = await AsyncStorage.getAllKeys();
+    const stranded = keys.filter(
+      (key) => key.startsWith(ANY_CHUNK_PREFIX) && !key.startsWith(CHUNK_PREFIX),
+    );
+    await AsyncStorage.multiRemove([...LEGACY_KEYS, ...stranded]);
   } catch {
     // See above.
   }
@@ -423,7 +484,7 @@ export async function readCatalogue(): Promise<MemoryEntry | null> {
       if (!meta) return null;
       if (Date.now() - meta.storedAt > DISK_TTL_MS) return null;
 
-      const rawProducts = await AsyncStorage.getItem(PRODUCTS_KEY);
+      const rawProducts = await readProductsBlob();
       if (rawProducts === null) return null;
 
       const stored = JSON.parse(rawProducts) as unknown;
@@ -535,58 +596,92 @@ export function touchCatalogue(watermark: CatalogueWatermark): void {
  * errors anyway, and this only guarantees ordering, never success.
  */
 /**
- * How many bytes the catalogue blob may take in a single AsyncStorage value.
+ * What the catalogue may take on disk — per platform, because the limits are
+ * not the same on each and until 6b-4 one Android-shaped number was applied to
+ * all three.
  *
- * Android has two different limits and this is bounded by the *smaller* one,
- * which is not the one everybody quotes:
+ * Read off the installed package rather than from memory:
  *
- *  - The 6MB figure is the SQLite **database** ceiling, shared with everything
- *    else the app persists. It is what the `persist` comment above and most
- *    write-ups mean.
- *  - A single **value** is bounded separately by Android's `CursorWindow`,
- *    around 2MB, and that one binds on *read*. A blob over it writes happily
- *    and then cannot be retrieved: the query fails with "row too big to fit
- *    into CursorWindow" on the next cold start.
+ *  - **Android** (`ReactDatabaseSupplier.java:44`) — AsyncStorage is SQLite.
+ *    `mMaximumDatabaseSize = BuildConfig.AsyncStorage_db_size * 1024L * 1024L`:
+ *    6MB by default, shared with everything else the app persists, and
+ *    configurable from Gradle. That is the figure most write-ups quote and it
+ *    is *not* the one that binds. A single **value** is bounded separately by
+ *    Android's `CursorWindow`, around 2MB, which is an OS constant and not
+ *    configurable at all — and it binds on *read*. A blob over it writes
+ *    happily and then cannot be retrieved: the query fails with "row too big
+ *    to fit into CursorWindow" on the next cold start.
+ *  - **iOS** (`ios/RNCAsyncStorage.mm:21`) — `RCTInlineValueThreshold = 1024`,
+ *    so anything over 1KB is written to its own file. No per-value cap, no
+ *    database ceiling; it is bounded by device storage. A 3.4MB catalogue is
+ *    simply a 3.4MB file. (Do not mistake the `2 * 1024 * 1024` at line 231
+ *    for a limit — that is an `NSCache` read cache, not storage.)
+ *  - **Web** — localStorage, whose per-origin quota is typically ~5MB, counted
+ *    in UTF-16 code units by most browsers and shared with the persisted
+ *    store. Not verified for this setup, so the figure below is deliberately
+ *    conservative rather than measured.
  *
- * The second is the dangerous one, because the failure surfaces nowhere near
- * the write and the JavaScript AsyncStorage mock used in tests has no such
- * limit — a blob between the two figures passes every test here, records a
- * clean `ok`, and is unreadable on a handset. This budget was briefly 4MB for
- * exactly that reason.
+ * The CursorWindow limit is the dangerous one, because the failure surfaces
+ * nowhere near the write and the JavaScript AsyncStorage mock used in tests
+ * has no such limit — a blob between the two Android figures passes every test
+ * here, records a clean `ok`, and is unreadable on a handset. The budget was
+ * briefly 4MB for exactly that reason.
  *
- * 1.5MB leaves margin below the CursorWindow figure for the row's own
- * overhead. This was first sized against the post-step-2 payload (369KB for
- * 500 products, ~740 bytes each), read at the time as roughly 2,000 products
- * of headroom — four times the import cap.
+ * **What changed in 6b-4.** The 1.5MB CursorWindow-safe figure was applied on
+ * every platform, so an iPhone or a browser was refused a cache it could hold
+ * without difficulty because of a constraint neither of them has. Android now
+ * keeps that figure as a *per-value* budget and splits a larger payload across
+ * several keys (see `writeProductsBlob`); iOS and web get a single value and a
+ * ceiling that reflects their own storage. Refusing the write survives only as
+ * a last resort, past the whole-database ceiling rather than at 1.5MB.
  *
- * That estimate is already stale, and it is worth recording exactly how fast
- * it moved. Once the real Open Beauty Facts import (step 4) and the DailyMed
- * sunscreen import (step 10) both landed, the live catalogue measured 1.06MB
- * for 647 products — about 1,640 bytes/product, more than double the figure
- * above, because sunscreens' longer active-ingredient lists and wider
- * category coverage cost more per row than the original fixture-based
- * measurement assumed. At that real rate the budget holds roughly **900
- * products** — under 2x today's import cap of 500, not 4x.
+ * Sizing history, worth keeping because of how fast it moved: first sized
+ * against the post-step-2 payload (369KB for 500 products, ~740 bytes each),
+ * read at the time as roughly 2,000 products of headroom. Once the real Open
+ * Beauty Facts import (step 4) and the DailyMed sunscreen import (step 10)
+ * both landed, the live catalogue measured 1.06MB for 647 products — about
+ * 1,640 bytes/product, more than double, because sunscreens' longer
+ * active-ingredient lists and wider category coverage cost more per row than
+ * the original fixture-based measurement assumed. The 5,000 products step 6 is
+ * measured against serialise to about 3.1MB (per the synthetic-but-realistic
+ * fixture in `__tests__/catalogue-cache.test.ts`) — three Android chunks, one
+ * iOS file, and over the conservative web budget.
  *
- * The runtime check above is safe regardless of whether this comment is
- * current: it measures real bytes at write time, not this estimate. Only the
- * planning conclusion below depends on it, so re-measure against the live
- * catalogue again before trusting a headroom figure here — it will keep
- * moving as formula composition shifts.
- *
- * It does *not* reach the 5,000 products step 6 is measured against, at
- * either measurement. Five thousand serialises to about 3.1MB (per the
- * synthetic-but-realistic fixture in `__tests__/catalogue-cache.test.ts`), so
- * it cannot live in one value on Android at any budget: that needs the
- * payload split across several keys, or the windowing in step 6's item 3 so
- * the whole catalogue is never resident. Step 7 lifts the import cap and must
- * not do so before one of those lands.
- *
- * Raising the *database* ceiling is possible — it is a configurable SQLite
- * size — but it does not move the CursorWindow limit, so it would not help
- * here even if this project had the native directories to configure it in.
+ * The runtime checks are safe regardless of whether this comment is current:
+ * they measure real bytes at write time, not this estimate. Only the planning
+ * conclusions depend on it, so re-measure before trusting a headroom figure —
+ * it will keep moving as formula composition shifts.
  */
-const DISK_BUDGET_BYTES = Math.floor(1.5 * 1024 * 1024);
+const ANDROID_VALUE_BUDGET_BYTES = Math.floor(1.5 * 1024 * 1024);
+
+/**
+ * Deliberately below the 6MB database ceiling, not at it: that ceiling covers
+ * everything the app persists, and the profile, the saved shelf and the scan
+ * history share it. Leaving a megabyte for them is the difference between a
+ * catalogue that refuses to grow and a store that silently cannot save.
+ */
+const ANDROID_TOTAL_BUDGET_BYTES = 5 * 1024 * 1024;
+
+/** No platform limit to respect — this is a sanity ceiling, ~10x the 5,000-product payload. */
+const IOS_TOTAL_BUDGET_BYTES = 32 * 1024 * 1024;
+
+/** Conservative against an unverified ~5MB localStorage quota shared with the store. */
+const WEB_TOTAL_BUDGET_BYTES = 2 * 1024 * 1024;
+
+type DiskLimits = {
+  /** Largest payload worth attempting at all. Past this the write is refused. */
+  total: number;
+  /** Largest single value, or null where the platform has no per-value cap. */
+  perValue: number | null;
+};
+
+function diskLimits(): DiskLimits {
+  if (Platform.OS === "android") {
+    return { total: ANDROID_TOTAL_BUDGET_BYTES, perValue: ANDROID_VALUE_BUDGET_BYTES };
+  }
+  if (Platform.OS === "web") return { total: WEB_TOTAL_BUDGET_BYTES, perValue: null };
+  return { total: IOS_TOTAL_BUDGET_BYTES, perValue: null };
+}
 
 /**
  * What happened to the last attempted catalogue write.
@@ -598,7 +693,8 @@ const DISK_BUDGET_BYTES = Math.floor(1.5 * 1024 * 1024);
  * record that makes it answerable.
  */
 export type CacheWriteOutcome =
-  | { kind: "ok"; bytes: number; at: number }
+  /** `chunks` is how many AsyncStorage values it took — 1 everywhere but a split Android write. */
+  | { kind: "ok"; bytes: number; chunks: number; at: number }
   | { kind: "too-large"; bytes: number; budget: number; at: number }
   | { kind: "failed"; message: string; at: number };
 
@@ -673,6 +769,147 @@ function utf8Length(value: string): number {
   return bytes;
 }
 
+/**
+ * The end index of the longest prefix of `value` from `start` that fits in
+ * `maxBytes` as UTF-8, never splitting a surrogate pair.
+ *
+ * Measured in bytes but sliced by code units, which is the whole difficulty:
+ * cutting between the halves of a surrogate pair leaves a lone surrogate at
+ * the end of one chunk and another at the start of the next, and nothing
+ * guarantees a storage layer round-trips those. Since `maxBytes` here is
+ * megabytes and the largest single code point is four bytes, the returned
+ * index is always greater than `start` — which is what stops the loop in
+ * `writeProductsBlob` from standing still.
+ *
+ * Exported for the same reason `migratePersisted` is: it is a pure function
+ * whose failure mode is silent corruption, and it cannot be pinned through the
+ * storage layer. A lone surrogate survives the JavaScript AsyncStorage mock
+ * unchanged and rejoins its partner on `join("")`, so an end-to-end test
+ * passes just as happily against a slice that splits pairs — it is only on a
+ * device, where the value is encoded as real UTF-8, that the character is
+ * lost. The property has to be asserted here or not at all.
+ */
+export function sliceEnd(value: string, start: number, maxBytes: number): number {
+  let bytes = 0;
+  let i = start;
+  while (i < value.length) {
+    const code = value.charCodeAt(i);
+    const pair = code >= 0xd800 && code <= 0xdbff && i + 1 < value.length;
+    const size = code < 0x80 ? 1 : code < 0x800 ? 2 : pair ? 4 : 3;
+    if (bytes + size > maxBytes) break;
+    bytes += size;
+    i += pair ? 2 : 1;
+  }
+  return i;
+}
+
+/**
+ * Drop chunk keys from every generation but `keep`.
+ *
+ * Swept by prefix rather than by a remembered list: the orphans worth removing
+ * are precisely the ones left behind by a write that did not finish, and a
+ * write that did not finish never got to record what it had written.
+ */
+async function clearChunks(keep?: string): Promise<void> {
+  const keys = await AsyncStorage.getAllKeys();
+  const stale = keys.filter(
+    (key) =>
+      key.startsWith(CHUNK_PREFIX) &&
+      (keep === undefined || !key.startsWith(`${CHUNK_PREFIX}${keep}-`)),
+  );
+  if (stale.length > 0) await AsyncStorage.multiRemove(stale);
+}
+
+/**
+ * Write the serialised catalogue, splitting it where the platform needs it.
+ * Returns how many values it took.
+ *
+ * **The ordering is the design.** A chunked write lands every chunk first and
+ * the manifest last, because the manifest is what a reader follows: until it
+ * points at the new generation, the old one is still whole and still being
+ * served. An app killed mid-write therefore loses nothing — it leaves orphan
+ * chunks that the next write sweeps up, not a catalogue assembled from two
+ * generations.
+ *
+ * That matters more here than it first appears. The budget check this sits
+ * behind exists because a *partial* write is strictly worse than no write: the
+ * next cold start reads a blob that parses into fewer products than the meta
+ * beside it claims, and the app serves a quietly incomplete catalogue with no
+ * way for anyone to notice. Splitting one value into several is exactly the
+ * kind of change that reintroduces that, which is why the manifest exists
+ * rather than a naive `-c0`/`-c1` convention.
+ */
+async function writeProductsBlob(serialised: string, bytes: number): Promise<number> {
+  const { perValue } = diskLimits();
+
+  // One value is enough: every platform without a per-value cap, and Android
+  // whenever the payload already fits under CursorWindow.
+  if (perValue === null || bytes <= perValue) {
+    await AsyncStorage.setItem(PRODUCTS_KEY, serialised);
+    // Manifest first, so a reader stops following chunks before they go. Dying
+    // between these two leaves a complete older chunk set nothing reads —
+    // wasted bytes until the next write, never a wrong answer.
+    await AsyncStorage.removeItem(MANIFEST_KEY);
+    await clearChunks();
+    return 1;
+  }
+
+  const generation = nextGeneration();
+  const parts: string[] = [];
+  for (let cursor = 0; cursor < serialised.length; ) {
+    const end = sliceEnd(serialised, cursor, perValue);
+    parts.push(serialised.slice(cursor, end));
+    cursor = end;
+  }
+
+  for (let i = 0; i < parts.length; i += 1) {
+    await AsyncStorage.setItem(chunkKey(generation, i), parts[i]);
+  }
+  await AsyncStorage.setItem(
+    MANIFEST_KEY,
+    JSON.stringify({ generation, chunks: parts.length } satisfies ChunkManifest),
+  );
+
+  // Only now is the single-value copy dead. It is removed rather than left
+  // because on Android it counts against the same 6MB database ceiling the
+  // chunks do — a stranded full-size copy is the one thing that could push a
+  // catalogue that now fits back over it.
+  await AsyncStorage.removeItem(PRODUCTS_KEY);
+  await clearChunks(generation);
+  return parts.length;
+}
+
+/**
+ * Read the serialised catalogue back, following the manifest when there is
+ * one. Null means "no usable copy", which every caller already treats as a
+ * miss.
+ */
+async function readProductsBlob(): Promise<string | null> {
+  const rawManifest = await AsyncStorage.getItem(MANIFEST_KEY);
+  if (rawManifest === null) return AsyncStorage.getItem(PRODUCTS_KEY);
+
+  const manifest = parseManifest(JSON.parse(rawManifest) as unknown);
+  if (!manifest) return null;
+
+  const keys = Array.from({ length: manifest.chunks }, (_, i) =>
+    chunkKey(manifest.generation, i),
+  );
+  const stored = new Map(await AsyncStorage.multiGet(keys));
+
+  const parts: string[] = [];
+  for (const key of keys) {
+    const value = stored.get(key);
+    // The manifest is written last, so its chunks were all written — a missing
+    // one means storage lost it rather than that a write was interrupted.
+    // Either way there is no complete catalogue here, and half of one must
+    // never be served.
+    if (typeof value !== "string") return null;
+    parts.push(value);
+  }
+  // Keyed lookup rather than trusting `multiGet` to answer in the order asked.
+  return parts.join("");
+}
+
 let writeQueue: Promise<void> = Promise.resolve();
 
 function enqueueWrite(write: () => Promise<void>): Promise<void> {
@@ -733,12 +970,13 @@ async function persist(
     // the meta beside it claims, and the app serves a quietly incomplete
     // catalogue. Skipping the write leaves the previous good copy in place and
     // costs one refetch.
-    if (bytes > DISK_BUDGET_BYTES) {
-      recordWrite({ kind: "too-large", bytes, budget: DISK_BUDGET_BYTES, at: Date.now() });
+    const limits = diskLimits();
+    if (bytes > limits.total) {
+      recordWrite({ kind: "too-large", bytes, budget: limits.total, at: Date.now() });
       if (__DEV__) {
         console.warn(
           `[catalogue-cache] skipped a ${Math.round(bytes / 1024)}KB write — ` +
-            `over the ${Math.round(DISK_BUDGET_BYTES / 1024)}KB budget. ` +
+            `over the ${Math.round(limits.total / 1024)}KB budget for ${Platform.OS}. ` +
             "The previous cached copy is kept.",
         );
       }
@@ -746,9 +984,9 @@ async function persist(
     }
 
     try {
-      await AsyncStorage.setItem(PRODUCTS_KEY, serialised);
+      const chunks = await writeProductsBlob(serialised, bytes);
       await AsyncStorage.setItem(META_KEY, JSON.stringify(meta));
-      recordWrite({ kind: "ok", bytes, at: Date.now() });
+      recordWrite({ kind: "ok", bytes, chunks, at: Date.now() });
     } catch (err) {
       // Never fatal — see `putCatalogue`. But no longer only a dev warning:
       // a write that silently fails looks exactly like a cache that works
@@ -1011,7 +1249,8 @@ export async function resetCatalogueCache(): Promise<void> {
   legacyDropped = false;
   scanned.clear();
   try {
-    await AsyncStorage.multiRemove([PRODUCTS_KEY, META_KEY]);
+    await AsyncStorage.multiRemove([PRODUCTS_KEY, META_KEY, MANIFEST_KEY]);
+    await clearChunks();
   } catch {
     // Nothing to do — the memory layer is already gone, which is what callers
     // actually depend on.
