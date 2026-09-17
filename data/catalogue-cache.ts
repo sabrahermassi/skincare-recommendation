@@ -839,6 +839,23 @@ async function clearChunks(keep?: string): Promise<void> {
  * kind of change that reintroduces that, which is why the manifest exists
  * rather than a naive `-c0`/`-c1` convention.
  */
+/**
+ * The generation the manifest currently names, when it names a usable one.
+ *
+ * Anything else — no manifest, or one that does not parse — names nothing
+ * reachable, since `readProductsBlob` treats an unreadable manifest as a miss.
+ * Its chunks are debris like any other.
+ */
+async function liveGeneration(): Promise<string | undefined> {
+  try {
+    const raw = await AsyncStorage.getItem(MANIFEST_KEY);
+    if (raw === null) return undefined;
+    return parseManifest(JSON.parse(raw) as unknown)?.generation;
+  } catch {
+    return undefined;
+  }
+}
+
 async function writeProductsBlob(serialised: string, bytes: number): Promise<number> {
   const { perValue } = diskLimits();
 
@@ -854,7 +871,19 @@ async function writeProductsBlob(serialised: string, bytes: number): Promise<num
     return 1;
   }
 
+  // Swept before the write, not only after it.
+  //
+  // `clearChunks` used to run only once a manifest had landed, so a write that
+  // died partway left its chunks with nothing to remove them — and the next
+  // attempt allocated a fresh generation and left its own beside them. On
+  // Android every one of those counts against the same database ceiling, so
+  // repeated failures ate the space that caused them, and eventually the space
+  // the profile and saved shelf need. Removing what the live manifest does not
+  // name is safe at any point: an unreferenced chunk is unreachable by
+  // definition, and the live generation is never touched.
   const generation = nextGeneration();
+  await clearChunks(await liveGeneration());
+
   const parts: string[] = [];
   for (let cursor = 0; cursor < serialised.length; ) {
     const end = sliceEnd(serialised, cursor, perValue);

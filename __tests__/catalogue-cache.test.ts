@@ -1006,6 +1006,52 @@ describe("a catalogue split across values", () => {
     });
   });
 
+  /**
+   * A failed write must not leave its debris for the next one to trip over.
+   *
+   * `clearChunks` only ran after a manifest landed, so a write that died
+   * partway left its chunks behind with nothing to remove them — and the next
+   * attempt allocated a *new* generation and left more. On Android every one
+   * of those counts against the same 6MB database ceiling, so repeated
+   * failures ate the space that made them fail, and eventually the space the
+   * profile and saved shelf need. Sweeping before the write bounds it.
+   */
+  it("does not accumulate debris across repeated failed writes", async () => {
+    await onPlatform("android", async () => {
+      putCatalogue(chunky(), WATERMARK);
+      await writesSettled();
+      const live = await chunkKeys();
+      expect(live).toHaveLength(2);
+
+      // Two writes that both die on their second chunk.
+      const realSetItem = AsyncStorage.setItem;
+      (AsyncStorage as unknown as { setItem: unknown }).setItem = (k: string, v: string) => {
+        if (k.startsWith(CHUNK_PREFIX) && k.endsWith("-1")) {
+          return Promise.reject(new Error("database or disk is full"));
+        }
+        return realSetItem(k, v);
+      };
+      try {
+        putCatalogue(chunky(), { ...WATERMARK, count: 21 });
+        await writesSettled();
+        putCatalogue(chunky(), { ...WATERMARK, count: 22 });
+        await writesSettled();
+      } finally {
+        (AsyncStorage as unknown as { setItem: unknown }).setItem = realSetItem;
+      }
+
+      // The live generation is untouched, and at most one failed attempt's
+      // worth of debris sits beside it — not one per attempt.
+      const after = await chunkKeys();
+      for (const key of live) expect(after).toContain(key);
+      expect(after.length).toBeLessThanOrEqual(live.length + 1);
+
+      // And the catalogue on disk is still the one the manifest names.
+      forgetMemoryLayer();
+      expect((await readCatalogue())?.products).toHaveLength(20);
+    });
+  });
+
   it("reassembles in manifest order rather than the order storage answers in", async () => {
     await onPlatform("android", async () => {
       putCatalogue(chunky(), WATERMARK);
