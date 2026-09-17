@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, ScrollView, TextInput, View, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -300,17 +300,25 @@ export default function Browse() {
     rows: ScoredProduct[];
   } | null>(null);
 
-  useEffect(() => {
+  // A layout effect, not a passive one: a passive effect only runs after the
+  // render it belongs to has already committed and painted, so the first
+  // chunk being computed "synchronously" inside it still meant a commit with
+  // `scoredState` still null landed on screen first — a skeleton flash on
+  // every mount and filter change, cached scores or not. A layout effect
+  // runs before that paint, which is what actually makes the first chunk
+  // synchronous from the screen's point of view, and is what lets a
+  // catalogue at or below `SCORE_CHUNK` — every catalogue this app has
+  // shipped with so far — settle in the same frame the `useMemo` this
+  // replaced did. Only the first chunk is inside that synchronous window;
+  // `setTimeout` still defers everything after it to its own macrotask, so a
+  // catalogue larger than one chunk still paints skeletons and fills in.
+  useLayoutEffect(() => {
     if (!products) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const rows: ScoredProduct[] = [];
     let i = 0;
 
-    // The first chunk runs synchronously, so a catalogue at or below
-    // `SCORE_CHUNK` — which is every catalogue this app has shipped with so
-    // far — settles before the browser ever paints, exactly as the `useMemo`
-    // this replaced did.
     const step = () => {
       if (cancelled) return;
       const end = Math.min(i + SCORE_CHUNK, products.length);
