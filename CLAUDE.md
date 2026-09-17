@@ -128,6 +128,12 @@ with confidence tiers, owns acne fit).
 - **Confidence is separate from score.** Refusal is only for genuinely
   unreadable formulas (< 3 identified ingredients, or < 25% coverage);
   unknown ingredients lower confidence, never block an answer.
+- **`contactWeight` (`lib/rules.ts`) is the only place a product's *type*
+  touches the score** — it scales every ingredient by how long the formula
+  stays on skin (0.25 rinsed within a minute, 0.5 sits then rinsed, 1
+  leave-on). **Any type whose exposure is ambiguous takes 1**, `unknown` and
+  `exfoliator` included, so a wrong type guess can only over-state a risk,
+  never hide one. Reasoning in `docs/decisions.md`.
 - `hazard` warnings cap the score at 45 and subtract 5 per additional
   hazard. `irritant` warnings go through the graduated irritation penalty
   instead — **do not merge these two tiers.**

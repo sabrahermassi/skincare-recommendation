@@ -30,7 +30,7 @@ describe("contactWeight", () => {
   });
 
   it("scores what sits for minutes between the two", () => {
-    for (const type of ["conditioner", "exfoliator", "body-scrub", "hair-mask"] as ProductType[]) {
+    for (const type of ["conditioner", "body-scrub", "hair-mask"] as ProductType[]) {
       expect(contactWeight(type)).toBe(0.5);
     }
   });
@@ -42,8 +42,36 @@ describe("contactWeight", () => {
   });
 
   it("orders the three bands, rather than only pinning their values", () => {
-    expect(contactWeight("cleanser")).toBeLessThan(contactWeight("exfoliator"));
-    expect(contactWeight("exfoliator")).toBeLessThan(contactWeight("serum"));
+    expect(contactWeight("cleanser")).toBeLessThan(contactWeight("hair-mask"));
+    expect(contactWeight("hair-mask")).toBeLessThan(contactWeight("serum"));
+  });
+
+  /**
+   * The invariant behind the table, not a sample of it: only the six types
+   * that genuinely wash away may be discounted. Without this, a later edit
+   * could quietly drop a leave-on type below full weight — which is the
+   * direction that under-counts an irritant, and the one failure this whole
+   * weighting is arranged to avoid.
+   */
+  it("discounts only the types that are genuinely washed off", () => {
+    const discounted = new Set<ProductType>([
+      "cleanser",
+      "body-wash",
+      "shampoo",
+      "conditioner",
+      "body-scrub",
+      "hair-mask",
+    ]);
+    for (const type of ALL_TYPES) {
+      if (discounted.has(type)) expect(contactWeight(type)).toBeLessThan(1);
+      else expect(contactWeight(type)).toBe(1);
+    }
+  });
+
+  it("gives an exfoliator full weight, because the type spans both exposures", () => {
+    // A physical scrub and a leave-on acid liquid both land on this type and
+    // no tag separates them, so it follows the same rule as `unknown`.
+    expect(contactWeight("exfoliator")).toBe(1);
   });
 
   it("scores an unknown type as full leave-on exposure, not a discount", () => {

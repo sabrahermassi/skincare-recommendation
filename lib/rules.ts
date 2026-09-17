@@ -678,12 +678,25 @@ const EXPOSURE_BY_TYPE: Record<ProductType, number> = {
   cleanser: 0.25,
   "body-wash": 0.25,
   shampoo: 0.25,
-  // Sits for minutes, then rinsed.
+  // Sits for minutes, then rinsed. Each of these is unambiguous about that:
+  // a scrub is scrubbed and washed away, a conditioner and a hair mask are
+  // rinsed out.
   conditioner: 0.5,
-  exfoliator: 0.5,
   "body-scrub": 0.5,
   "hair-mask": 0.5,
   // Left on.
+  //
+  // `exfoliator` is here rather than above despite the name, and that is the
+  // point of the rule below: the type covers a physical scrub AND a leave-on
+  // acid liquid, and nothing in a name or an OBF tag reliably separates them
+  // (`en:face-scrubs` is what both carry). Discounting it would quietly
+  // under-count an acid left on all night for reactive skin — the exact case
+  // that prompted this change — so an ambiguous type takes full weight and
+  // the cost lands on a scrub being judged a little harshly.
+  exfoliator: 1,
+  // A sheet mask's essence is patted in rather than rinsed, which is what
+  // separates it from the hair mask above.
+  "sheet-mask": 1,
   toner: 1,
   essence: 1,
   serum: 1,
@@ -698,7 +711,6 @@ const EXPOSURE_BY_TYPE: Record<ProductType, number> = {
   "lip-balm": 1,
   perfume: 1,
   "facial-mist": 1,
-  "sheet-mask": 1,
   deodorant: 1,
   "hair-oil": 1,
   "body-butter": 1,
