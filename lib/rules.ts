@@ -651,19 +651,64 @@ export function functionSignal(name: string): FunctionSignal | undefined {
  *
  * Not zero for rinse-off: surfactants and fragrance still cause real contact
  * reactions, which is why patch testing uses a wash-off protocol at all.
+ *
+ * Graded rather than the flat rinse-off/leave-on pair this replaces, for two
+ * reasons. One weight covered both a scrub rinsed off in thirty seconds and a
+ * hair mask worn for twenty minutes, which are not the same exposure. And
+ * `exfoliator` spans a physical scrub and a leave-on acid liquid — a real
+ * catalogue row, "6% Mandelic Acid + 2% Lactic Acid Liquid Exfoliant", was
+ * taking the rinse-off weight and having its acids *and its irritation*
+ * counted at 40%, for exactly the reactive skin that needed the warning.
+ *
+ * The bands follow how cosmetic exposure assessment actually works: the SCCS
+ * applies a retention factor per product type rather than a rinse-off
+ * boolean. Quantitative risk assessments built that way — MCI/MI, fragrance
+ * allergens — repeatedly put rinse-off scenarios below the
+ * sensitisation-induction threshold while leave-on scenarios of the same
+ * substance exceed it, which is also why those preservatives are capped lower
+ * in leave-on products than in rinse-off ones.
+ *
+ * Any type whose exposure is not obvious gets 1 — full leave-on weight —
+ * `unknown` included. That is the deliberate direction to fail in: guessing a
+ * type wrong can then only make this app over-cautious about a formula, never
+ * quietly under-count an irritant that sits on someone's face all night.
  */
-const RINSE_OFF_TYPES: ProductType[] = [
-  "cleanser",
-  "body-wash",
-  "exfoliator",
-  "shampoo",
-  "conditioner",
-  "hair-mask",
-  "body-scrub",
-];
+const EXPOSURE_BY_TYPE: Record<ProductType, number> = {
+  // Rinsed within about a minute.
+  cleanser: 0.25,
+  "body-wash": 0.25,
+  shampoo: 0.25,
+  // Sits for minutes, then rinsed.
+  conditioner: 0.5,
+  exfoliator: 0.5,
+  "body-scrub": 0.5,
+  "hair-mask": 0.5,
+  // Left on.
+  toner: 1,
+  essence: 1,
+  serum: 1,
+  ampoule: 1,
+  moisturizer: 1,
+  sunscreen: 1,
+  "body-lotion": 1,
+  "hand-cream": 1,
+  "eye-cream": 1,
+  "facial-oil": 1,
+  "night-mask": 1,
+  "lip-balm": 1,
+  perfume: 1,
+  "facial-mist": 1,
+  "sheet-mask": 1,
+  deodorant: 1,
+  "hair-oil": 1,
+  "body-butter": 1,
+  "foot-cream": 1,
+  // See above: not knowing is scored as full exposure on purpose.
+  unknown: 1,
+};
 
 export function contactWeight(type: ProductType): number {
-  return RINSE_OFF_TYPES.includes(type) ? 0.4 : 1;
+  return EXPOSURE_BY_TYPE[type];
 }
 
 /**

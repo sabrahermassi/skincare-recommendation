@@ -55,6 +55,36 @@ already answers.
 
 ## Scoring
 
+**Why exposure is graded per product type rather than a rinse-off flag:**
+product type touches the score in exactly one place — `contactWeight`, which
+scales how much each ingredient counts. Everything else comes from the
+formula. That weight used to be a boolean: 0.4 for a rinse-off list, 1 for
+everything else. Two things were wrong with it. A scrub rinsed off in thirty
+seconds and a hair mask worn for twenty minutes took the same number. And
+`exfoliator` covers both a physical scrub and a leave-on acid liquid — the
+catalogue holds "6% Mandelic Acid + 2% Lactic Acid Liquid Exfoliant", which
+was having its acids *and its irritation* counted at 40% for exactly the
+reactive skin that needed the warning.
+
+Three bands now: 0.25 for what rinses within a minute, 0.5 for what sits a
+few minutes first, 1 for leave-on. That follows how cosmetic exposure
+assessment is actually done — the SCCS applies a retention factor per product
+type, not a rinse-off boolean, and quantitative risk assessments built that
+way (MCI/MI, fragrance allergens) repeatedly put rinse-off scenarios below
+the sensitisation-induction threshold while leave-on scenarios of the same
+substance exceed it. It is also why those preservatives carry a lower cap in
+leave-on products than in rinse-off ones.
+
+The load-bearing part is the default: anything whose exposure is not obvious,
+`unknown` included, is scored at full leave-on weight. A wrong type guess can
+then only make the app over-cautious about a formula — never quietly
+under-count an irritant sitting on someone's face all night.
+
+Considered and rejected: dropping `contactWeight` entirely for pure
+ingredient scoring. It would remove the type dependency altogether, but a
+face wash and a night serum carrying the same actives would then score
+identically, and the wash genuinely does less — in both directions.
+
 **Why `SCORE_BANDS` is the single source for band cutoffs:** the verdict
 and the badge tone once read different cutoffs (75/55 vs 80/65) and
 disagreed about the same product. That's the failure mode the shared

@@ -215,8 +215,9 @@ describe("guessType", () => {
   });
 
   it("no longer routes leave-on peel pads into the rinse-off exfoliator type", () => {
-    // contactWeight treats `exfoliator` as rinse-off (0.4); a leave-on pad
-    // scored that way understates both its actives and its irritants.
+    // contactWeight scores `exfoliator` at 0.5 — it assumes something that
+    // sits a few minutes and is then rinsed. A leave-on pad counted that way
+    // understates both its actives and its irritants.
     expect(guessType([], "Glycolic Peeling Pads")).toBe("unknown");
     // Physical scrubs, which really are rinsed off, still land there.
     expect(guessType([], "Apricot Face Scrub")).toBe("exfoliator");
