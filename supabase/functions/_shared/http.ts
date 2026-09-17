@@ -1,6 +1,11 @@
 // Request plumbing shared by every Edge Function: CORS, JSON replies, and the
 // per-caller rate limit.
 //
+// The limiter itself now lives in `./rate-limit.ts` and is re-exported at the
+// bottom of this file, so every existing `from "../_shared/http.ts"` import
+// keeps working. It moved because this file reads `Deno.env`, which Jest and
+// Metro cannot resolve — and the limiter is the one piece here worth a test.
+//
 // It lives here rather than being copied into each function because the copies
 // had already drifted once — see the parity test in `__tests__/inci.test.ts`
 // for the same lesson learned on the parser.
@@ -70,42 +75,16 @@ export function json(req: Request, body: unknown, status: number): Response {
 
 // ── Rate limiting ───────────────────────────────────────────────────────────
 
-export type RateLimit = { windowSeconds: number; maxRequests: number };
-
-const hits = new Map<string, number[]>();
-
-/**
- * In-memory and therefore per-isolate, which is the right trade here: it costs
- * nothing, survives the only case that matters (one client looping), and a
- * burst spread across cold starts is still bounded by the upstream quota.
- *
- * Empty buckets are dropped rather than left behind. With the key derived from
- * the caller's address the set is bounded in practice, but a map that only ever
- * grows is a slow leak in an isolate that stays warm for hours.
- */
-export function withinRateLimit(key: string, limit: RateLimit): boolean {
-  const now = Date.now();
-  const cutoff = now - limit.windowSeconds * 1000;
-  const recent = (hits.get(key) ?? []).filter((t) => t > cutoff);
-
-  if (recent.length >= limit.maxRequests) {
-    hits.set(key, recent);
-    return false;
-  }
-
-  recent.push(now);
-  hits.set(key, recent);
-
-  // Opportunistic sweep — cheap, and keeps a long-lived isolate from
-  // accumulating a bucket per caller it has ever seen.
-  if (hits.size > 5_000) {
-    for (const [k, times] of hits) {
-      if (times.every((t) => t <= cutoff)) hits.delete(k);
-    }
-  }
-
-  return true;
-}
+// Re-exported rather than defined here: see the note at the top of this file.
+// `consumeRateLimit` is the one to call — `withinRateLimit` is its in-memory
+// fallback and is exported for the tests that pin that fallback.
+export {
+  consumeRateLimit,
+  resetRateLimits,
+  withinRateLimit,
+  type RateLimit,
+  type RateLimitDb,
+} from "./rate-limit.ts";
 
 /**
  * Who to charge a request to.

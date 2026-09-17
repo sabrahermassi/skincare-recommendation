@@ -22,7 +22,7 @@ import {
   callerKey,
   json,
   preflight,
-  withinRateLimit,
+  consumeRateLimit,
   type RateLimit,
 } from "../_shared/http.ts";
 import { paginateOrdered } from "../_shared/paginate.ts";
@@ -137,7 +137,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json(req, { error: "brand must be a string" }, 400);
   }
 
-  if (!withinRateLimit(callerKey(req), RATE_LIMIT)) {
+  if (!(await consumeRateLimit(db, "label-ocr", callerKey(req), RATE_LIMIT))) {
     return json(req, { error: "Too many requests" }, 429);
   }
 

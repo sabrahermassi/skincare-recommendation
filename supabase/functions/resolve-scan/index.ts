@@ -36,7 +36,7 @@ import {
   callerKey,
   json,
   preflight,
-  withinRateLimit,
+  consumeRateLimit,
   type RateLimit,
 } from "../_shared/http.ts";
 
@@ -78,7 +78,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json(req, { error: "token is required" }, 400);
   }
 
-  if (!withinRateLimit(callerKey(req), RATE_LIMIT)) {
+  if (!(await consumeRateLimit(db, "resolve-scan", callerKey(req), RATE_LIMIT))) {
     return json(req, { error: "Too many requests" }, 429);
   }
 
