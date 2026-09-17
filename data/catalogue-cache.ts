@@ -633,7 +633,7 @@ export function touchCatalogue(watermark: CatalogueWatermark): void {
  * keeps that figure as a *per-value* budget and splits a larger payload across
  * several keys (see `writeProductsBlob`); iOS and web get a single value and a
  * ceiling that reflects their own storage. Refusing the write survives only as
- * a last resort, past the whole-database ceiling rather than at 1.5MB.
+ * a last resort, past a total budget rather than at 1.5MB.
  *
  * Sizing history, worth keeping because of how fast it moved: first sized
  * against the post-step-2 payload (369KB for 500 products, ~740 bytes each),
@@ -644,8 +644,10 @@ export function touchCatalogue(watermark: CatalogueWatermark): void {
  * active-ingredient lists and wider category coverage cost more per row than
  * the original fixture-based measurement assumed. The 5,000 products step 6 is
  * measured against serialise to about 3.1MB (per the synthetic-but-realistic
- * fixture in `__tests__/catalogue-cache.test.ts`) — three Android chunks, one
- * iOS file, and over the conservative web budget.
+ * fixture in `__tests__/catalogue-cache.test.ts`) — one iOS file, and over the
+ * budget on both Android and web. Android reaches roughly 1,500 products here,
+ * not 5,000; see `ANDROID_TOTAL_BUDGET_BYTES` for why, and for what step 7
+ * would have to change to go further.
  *
  * The runtime checks are safe regardless of whether this comment is current:
  * they measure real bytes at write time, not this estimate. Only the planning
@@ -655,12 +657,31 @@ export function touchCatalogue(watermark: CatalogueWatermark): void {
 const ANDROID_VALUE_BUDGET_BYTES = Math.floor(1.5 * 1024 * 1024);
 
 /**
- * Deliberately below the 6MB database ceiling, not at it: that ceiling covers
- * everything the app persists, and the profile, the saved shelf and the scan
- * history share it. Leaving a megabyte for them is the difference between a
- * catalogue that refuses to grow and a store that silently cannot save.
+ * Half of what the ceiling would otherwise allow, because an atomic replace
+ * holds two catalogues at once.
+ *
+ * Writing a new generation before the manifest flips is what keeps the old
+ * copy readable the whole way through — and it means both exist at the peak.
+ * A budget checked against the incoming payload alone therefore passes writes
+ * that cannot fit: two 3.1MB generations need 6.2MB against a 6MB ceiling, so
+ * the write dies partway and the refresh can never succeed. Found by review on
+ * PR #113 rather than on a device, where it would have looked like a phone
+ * that quietly stopped caching.
+ *
+ * The arithmetic: 6MB ceiling, less a megabyte for everything else the app
+ * persists — the profile, the saved shelf and the scan history all share it —
+ * leaves 5MB, halved so a replacement always fits beside what it replaces.
+ *
+ * The cost is real, and it is why step 7 cannot lift the import cap on this
+ * alone: at the measured 1,640 bytes/product this holds roughly 1,500 products
+ * on Android, and past that the write is refused and the previous copy kept.
+ * Raising it needs either a bigger database (AsyncStorage's `databaseSizeMB`,
+ * which needs a config plugin and a dev build, and which Expo Go will not
+ * carry) or a catalogue that is not mirrored whole — and the second collides
+ * with Browse ranking globally, since a product evicted from the cache cannot
+ * be ranked against the ones still in it. Neither is a change to this constant.
  */
-const ANDROID_TOTAL_BUDGET_BYTES = 5 * 1024 * 1024;
+const ANDROID_TOTAL_BUDGET_BYTES = Math.floor(2.5 * 1024 * 1024);
 
 /** No platform limit to respect — this is a sanity ceiling, ~10x the 5,000-product payload. */
 const IOS_TOTAL_BUDGET_BYTES = 32 * 1024 * 1024;

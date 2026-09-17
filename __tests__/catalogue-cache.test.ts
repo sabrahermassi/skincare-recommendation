@@ -733,9 +733,12 @@ describe("how much fits in one value", () => {
    * reassembly is the part worth pinning: every chunk has to come back, in
    * order, with the formulas intact.
    */
-  it("splits a five-thousand product catalogue across values on Android, and reads it back whole", async () => {
+  it("splits a catalogue too big for one value across several, and reads it back whole", async () => {
     await onPlatform("android", async () => {
-      const many = Array.from({ length: 5000 }, (_, i) => realisticProduct(i));
+      // Over the 1.5MB per-value budget, inside the 2.5MB total: the case
+      // chunking exists for. Five thousand no longer reaches here — see the
+      // refusal test below for why.
+      const many = Array.from({ length: 2400 }, (_, i) => realisticProduct(i));
 
       putCatalogue(many, { ...WATERMARK, count: many.length });
       await writesSettled();
@@ -744,9 +747,7 @@ describe("how much fits in one value", () => {
       if (outcome?.kind !== "ok") {
         throw new Error(`expected a clean chunked write, got ${JSON.stringify(outcome)}`);
       }
-      // The figure the comment above reasons about, pinned so a change to the
-      // payload shape shows up here rather than in the field.
-      expect(outcome.bytes).toBeGreaterThan(2 * 1024 * 1024);
+      expect(outcome.bytes).toBeGreaterThan(1.5 * 1024 * 1024);
       expect(outcome.chunks).toBeGreaterThan(1);
 
       // The manifest is what a reader follows, and the single-value copy is
@@ -759,12 +760,43 @@ describe("how much fits in one value", () => {
       // A cold start: drop memory entirely, then reassemble from disk alone.
       forgetMemoryLayer();
       const restored = await readCatalogue();
-      expect(restored?.products).toHaveLength(5000);
+      expect(restored?.products).toHaveLength(2400);
       expect(restored?.products[0].ingredients).toHaveLength(30);
       // The join has to be in order, and a chunk boundary must not have eaten
       // a multi-byte character: the last product is the one furthest from the
       // start and so the likeliest casualty of a bad reassembly.
-      expect(restored?.products[4999].name).toBe(many[4999].name);
+      expect(restored?.products[2399].name).toBe(many[2399].name);
+    });
+  });
+
+  /**
+   * Step 6's done-when was 5,000 products cold-starting without a failed
+   * write, and on Android this records honestly that it does not get there.
+   *
+   * Not because 3.1MB will not fit — it is well under the 6MB database
+   * ceiling — but because an atomic replace holds two generations at once, so
+   * the peak is 6.2MB. The budget is halved for exactly that reason, which
+   * puts Android at roughly 1,500 products. Going further needs a bigger
+   * database or a catalogue that is not mirrored whole, and both are step 7's
+   * to decide; see `ANDROID_TOTAL_BUDGET_BYTES`.
+   *
+   * Refusing is the safe end of that: the previous copy stays, and the cost is
+   * a network fetch on each cold start rather than a half-written catalogue.
+   */
+  it("refuses a five-thousand product catalogue on Android, where a replace would need twice the ceiling", async () => {
+    await onPlatform("android", async () => {
+      const many = Array.from({ length: 5000 }, (_, i) => realisticProduct(i));
+
+      putCatalogue(many, { ...WATERMARK, count: many.length });
+      await writesSettled();
+
+      const outcome = lastCacheWrite();
+      expect(outcome?.kind).toBe("too-large");
+      if (outcome?.kind !== "too-large") throw new Error("expected an over-budget skip");
+      // The figure the reasoning above depends on, pinned so a change to the
+      // payload shape shows up here rather than in the field.
+      expect(outcome.bytes).toBeGreaterThan(2 * 1024 * 1024);
+      expect(outcome.bytes * 2).toBeGreaterThan(6 * 1024 * 1024);
     });
   });
 
