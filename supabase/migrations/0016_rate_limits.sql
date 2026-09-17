@@ -57,8 +57,15 @@ create index rate_limits_window_start_idx on rate_limits (window_start);
  * callers get N distinct counts.
  *
  * A refused request still increments. That is intentional: someone hammering
- * the endpoint should not get a fresh look the moment they cross the line, and
- * the count is what the eventual refusal log is counting.
+ * the endpoint should not get a fresh look the moment they cross the line.
+ *
+ * Returns the count rather than a verdict, and `p_max_requests` is therefore
+ * advisory here — the caller compares. One extra fact comes back for free that
+ * a boolean cannot carry: whether *this* request is the first to cross the
+ * line in this window, which is `count = p_max_requests + 1`. That is what
+ * lets the refusal log be bounded across every isolate rather than within
+ * each one, and a count is the only value in the system that every isolate
+ * already agrees on. Raised by review on PR #117.
  */
 create function consume_rate_limit(
   p_bucket         text,
@@ -66,7 +73,7 @@ create function consume_rate_limit(
   p_window_seconds integer,
   p_max_requests   integer
 )
-returns boolean
+returns integer
 language plpgsql
 -- SECURITY INVOKER (the default), stated rather than implied, matching
 -- `replace_product_with_ingredients` in 0008. The only caller holds the
@@ -97,7 +104,7 @@ begin
     do update set count = rate_limits.count + 1
   returning count into v_count;
 
-  return v_count <= p_max_requests;
+  return v_count;
 end;
 $$;
 

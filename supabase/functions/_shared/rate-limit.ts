@@ -83,16 +83,12 @@ type Tally = { window: number; windowSeconds: number; count: number };
 
 const hits = new Map<string, Tally>();
 
-/** Key → the moment its refusal-log suppression lapses, in ms. */
-const lastLogged = new Map<string, number>();
-
 /**
  * Drops every in-memory bucket. For tests, which would otherwise carry one
  * case's counts into the next.
  */
 export function resetRateLimits(): void {
   hits.clear();
-  lastLogged.clear();
 }
 
 /**
@@ -112,11 +108,23 @@ export function resetRateLimits(): void {
  * longer grows with the traffic it has seen.
  */
 export function withinRateLimit(key: string, limit: RateLimit): boolean {
+  return tally(key, limit) <= limit.maxRequests;
+}
+
+/**
+ * The caller's new count in the current window.
+ *
+ * Separate from `withinRateLimit` because the count carries one fact a verdict
+ * cannot: `maxRequests + 1` is the request that *first* crossed the line in
+ * this window, which is what bounds the refusal log without a second map to
+ * remember what has already been logged.
+ */
+function tally(key: string, limit: RateLimit): number {
   const now = Date.now();
   const current = windowStart(now, limit.windowSeconds);
-  const tally = hits.get(key);
+  const entry = hits.get(key);
 
-  if (!tally || tally.window !== current) {
+  if (!entry || entry.window !== current) {
     hits.set(key, { window: current, windowSeconds: limit.windowSeconds, count: 1 });
     // Opportunistic sweep — cheap, and keeps a long-lived isolate from
     // accumulating a bucket per caller it has ever seen. Each entry is judged
@@ -127,13 +135,12 @@ export function withinRateLimit(key: string, limit: RateLimit): boolean {
       for (const [k, t] of hits) {
         if (t.window + t.windowSeconds <= nowSeconds) hits.delete(k);
       }
-      for (const [k, until] of lastLogged) if (until <= now) lastLogged.delete(k);
     }
-    return true;
+    return 1;
   }
 
-  tally.count += 1;
-  return tally.count <= limit.maxRequests;
+  entry.count += 1;
+  return entry.count;
 }
 
 // ── Logging ─────────────────────────────────────────────────────────────────
@@ -169,12 +176,24 @@ function logSafe(value: string): string {
  * migration exists to catch. A run of `shared` refusals is a different story
  * from a run of `local` ones, and without this field they are the same line.
  *
- * **At most one line per caller per window.** The first version logged every
+ * **Called only for the request that first crosses the line in a window**, so
+ * one refusal is logged and the rest are silent. The first version logged every
  * refusal, which handed anyone looping against a throttled endpoint an
  * unbounded, metered log bill on what had been the free path — refusing costs
- * nothing, so the logging was the only thing left worth attacking. One line
- * still says everything the next one would: who, which operation, which layer.
- * Found in review.
+ * nothing, so the logging was the only thing left worth attacking.
+ *
+ * The second version bounded it with a `lastLogged` map, which was the same
+ * mistake this whole migration exists to correct, one layer up: that map was
+ * per-isolate, so "one line per window" meant "one line per window per
+ * isolate", and a burst that scales out or cold-starts repeatedly approaches a
+ * line per attempt again. Both versions found in review.
+ *
+ * It is the *count* that fixes it, because the count is the one value every
+ * isolate already agrees on — `maxRequests + 1` happens exactly once per
+ * window however many isolates are serving. For a shared refusal that count
+ * comes from `consume_rate_limit`; for a local one it comes from this
+ * isolate's own tally, which is as global as a local refusal can be, since
+ * reaching one at all means this isolate served the whole allowance itself.
  *
  * The caller here is the address, not the fingerprint stored in the database.
  * Logs are short-lived and this is the only place the raw value survives at
@@ -187,16 +206,7 @@ function refused(
   caller: string,
   layer: "local" | "shared",
   requestId: string,
-  limit: RateLimit,
 ): void {
-  const key = `${bucket}:${caller}`;
-  const now = Date.now();
-  // Suppressed until this caller's current window closes — stored as the
-  // expiry rather than the last-logged time, so the value carries its own
-  // window and a sweep needs no outside context to judge it.
-  if ((lastLogged.get(key) ?? 0) > now) return;
-  lastLogged.set(key, (windowStart(now, limit.windowSeconds) + limit.windowSeconds) * 1000);
-
   console.warn(
     `[rate-limit] refused bucket=${logSafe(bucket)} caller=${logSafe(caller)} ` +
       `layer=${layer} request=${logSafe(requestId)}`,
@@ -296,8 +306,9 @@ export async function consumeRateLimit(
 ): Promise<boolean> {
   const requestId = opts.requestId ?? "-";
 
-  if (!withinRateLimit(`${bucket}:${caller}`, limit)) {
-    refused(bucket, caller, "local", requestId, limit);
+  const local = tally(`${bucket}:${caller}`, limit);
+  if (local > limit.maxRequests) {
+    if (local === limit.maxRequests + 1) refused(bucket, caller, "local", requestId);
     return false;
   }
 
@@ -314,17 +325,21 @@ export async function consumeRateLimit(
       return true;
     }
 
-    // A non-boolean means the function returned something unexpected — a
+    // A non-number means the function returned something unexpected — a
     // signature drift, a migration half-applied. Treated as a failed check
     // rather than as a refusal, for the same reason as `error` above: this is
     // our fault, not the caller's.
-    if (typeof data !== "boolean") {
-      console.error("[rate-limit] consume_rate_limit returned a non-boolean:", data);
+    if (typeof data !== "number") {
+      console.error("[rate-limit] consume_rate_limit returned a non-number:", data);
       return true;
     }
 
-    if (!data) refused(bucket, caller, "shared", requestId, limit);
-    return data;
+    if (data > limit.maxRequests) {
+      // Exactly once per window across every isolate — see `refused`.
+      if (data === limit.maxRequests + 1) refused(bucket, caller, "shared", requestId);
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error("[rate-limit] durable check threw, using in-memory only:", err);
     return true;

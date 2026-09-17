@@ -25,7 +25,17 @@ const LIMIT: RateLimit = { windowSeconds: 60, maxRequests: 3 };
 const SECRET = "test-salt";
 const OPTS = { secret: SECRET, requestId: "req-1" };
 
-/** A database whose RPC always answers the same way, recording every call. */
+const ALLOWED = { data: 1, error: null };
+const FIRST_REFUSAL = { data: LIMIT.maxRequests + 1, error: null };
+const LATER_REFUSAL = { data: LIMIT.maxRequests + 9, error: null };
+
+/**
+ * A database whose RPC always answers the same way, recording every call.
+ *
+ * `consume_rate_limit` returns the caller's new count in the window, not a
+ * verdict — so `ALLOWED` is any count inside the limit and `FIRST_REFUSAL` is
+ * the one that crosses it, which is the value the refusal log keys on.
+ */
 function db(answer: { data: unknown; error: unknown }): RateLimitDb & { calls: unknown[] } {
   const calls: unknown[] = [];
   return {
@@ -87,7 +97,7 @@ describe("the in-memory fallback", () => {
 
 describe("the durable check", () => {
   it("passes the operation, the caller and the limit to the database", async () => {
-    const d = db({ data: true, error: null });
+    const d = db(ALLOWED);
     await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
 
     expect(d.calls).toEqual([
@@ -102,7 +112,7 @@ describe("the durable check", () => {
   });
 
   it("refuses when the database says so, even with room in memory", async () => {
-    const d = db({ data: false, error: null });
+    const d = db(FIRST_REFUSAL);
     expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS)).toBe(false);
     // The point of the shared counter: another isolate already spent this
     // caller's allowance, so the local map's opinion is irrelevant.
@@ -116,7 +126,7 @@ describe("the durable check", () => {
    * either way, only the database load differs.
    */
   it("does not reach the database once the in-memory limit is spent", async () => {
-    const d = db({ data: true, error: null });
+    const d = db(ALLOWED);
     for (let i = 0; i < LIMIT.maxRequests; i++) {
       expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS)).toBe(true);
     }
@@ -127,7 +137,7 @@ describe("the durable check", () => {
   });
 
   it("keeps separate counts per operation", async () => {
-    const d = db({ data: true, error: null });
+    const d = db(ALLOWED);
     for (let i = 0; i < LIMIT.maxRequests; i++) {
       await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
     }
@@ -146,7 +156,7 @@ describe("when the database cannot answer", () => {
    */
   const FAILURES: [string, { data: unknown; error: unknown }][] = [
     ["the rpc returns an error", { data: null, error: { message: "boom" } }],
-    ["the rpc returns a non-boolean", { data: "yes", error: null }],
+    ["the rpc returns a non-number", { data: "yes", error: null }],
   ];
 
   it.each(FAILURES)(
@@ -196,7 +206,7 @@ describe("refusal logging", () => {
    * popular", which is not a distinction anyone can make after the fact.
    */
   it("records a refusal the shared counter made, with the request id", async () => {
-    const d = db({ data: false, error: null });
+    const d = db(FIRST_REFUSAL);
     await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, { secret: SECRET, requestId: "req-abc" });
 
     expect(console.warn).toHaveBeenCalledWith(
@@ -211,7 +221,7 @@ describe("refusal logging", () => {
    * migration exists to catch. Same line without it.
    */
   it("distinguishes a local refusal from a shared one", async () => {
-    const d = db({ data: true, error: null });
+    const d = db(ALLOWED);
     for (let i = 0; i < LIMIT.maxRequests; i++) {
       await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, { secret: SECRET, requestId: "req-1" });
     }
@@ -223,7 +233,7 @@ describe("refusal logging", () => {
   });
 
   it("says nothing while requests are allowed", async () => {
-    const d = db({ data: true, error: null });
+    const d = db(ALLOWED);
     await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, { secret: SECRET, requestId: "req-1" });
     expect(console.warn).not.toHaveBeenCalled();
   });
@@ -233,7 +243,7 @@ describe("refusal logging", () => {
    * limit — so the parameter has a default rather than being required.
    */
   it("still refuses when no request id is supplied", async () => {
-    const d = db({ data: false, error: null });
+    const d = db(FIRST_REFUSAL);
     expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, { secret: SECRET })).toBe(false);
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("request=-"));
   });
@@ -246,7 +256,7 @@ describe("the caller fingerprint", () => {
    * not exist.
    */
   it("never hands the address to the database", async () => {
-    const d = db({ data: true, error: null });
+    const d = db(ALLOWED);
     await consumeRateLimit(d, "label-ocr", "81.229.14.22", LIMIT, OPTS);
     expect(JSON.stringify(d.calls)).not.toContain("81.229.14.22");
   });
@@ -276,7 +286,7 @@ describe("log volume and forgery", () => {
    * as long as the attacker cared to loop.
    */
   it("logs a caller at most once per window", async () => {
-    const d = db({ data: true, error: null });
+    const d = db(ALLOWED);
     for (let i = 0; i < LIMIT.maxRequests; i++) {
       await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
     }
@@ -287,7 +297,7 @@ describe("log volume and forgery", () => {
   });
 
   it("still logs a different caller in the same window", async () => {
-    const d = db({ data: false, error: null });
+    const d = db(FIRST_REFUSAL);
     await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
     await consumeRateLimit(d, "label-ocr", "5.6.7.8", LIMIT, OPTS);
     expect(console.warn).toHaveBeenCalledTimes(2);
@@ -299,7 +309,7 @@ describe("log volume and forgery", () => {
    * write their own `layer=` into the line that is meant to be grepped.
    */
   it("cannot be used to forge fields in the log line", async () => {
-    const d = db({ data: false, error: null });
+    const d = db(FIRST_REFUSAL);
     await consumeRateLimit(d, "label-ocr", "1.2.3.4 layer=local request=x", LIMIT, OPTS);
 
     // Structural cast rather than `jest.Mock` — the jest namespace is not in
@@ -374,3 +384,76 @@ describe("sweeping a map that holds more than one window length", () => {
 function hitsHolds(key: string, limit: RateLimit): boolean {
   return withinRateLimit(key, limit);
 }
+
+describe("refusal logging across isolates", () => {
+  /**
+   * Raised by review on PR #117, against the `lastLogged` map that used to
+   * bound this. That map was per-isolate — the exact shortcoming migration
+   * 0016 exists to correct, reintroduced one layer up. "One line per window"
+   * meant "one line per window per isolate", so a burst that scales out, or a
+   * run of cold starts, drifts back toward a line per attempt.
+   *
+   * `resetRateLimits()` between calls is a fresh isolate: empty memory, same
+   * caller, same window, and a shared counter that has already been passed.
+   */
+  it("stays silent on a fresh isolate when the line was already crossed", async () => {
+    const d = db(LATER_REFUSAL);
+    for (let isolate = 0; isolate < 20; isolate++) {
+      resetRateLimits();
+      expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS)).toBe(false);
+    }
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it("logs exactly once for the request that crosses the line", async () => {
+    const d = db(FIRST_REFUSAL);
+    resetRateLimits();
+    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
+    resetRateLimits();
+    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
+
+    // Two fresh isolates, but `maxRequests + 1` is a fact about the window
+    // rather than about either of them — in production only one request ever
+    // carries that count.
+    expect(console.warn).toHaveBeenCalledTimes(2);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("layer=shared"));
+  });
+
+  /**
+   * A local refusal means this isolate served the whole allowance itself, so
+   * its own tally is as global a fact as a local refusal can have.
+   */
+  it("logs a local refusal once and then stays quiet", async () => {
+    const d = db(ALLOWED);
+    for (let i = 0; i < LIMIT.maxRequests + 40; i++) {
+      await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
+    }
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("layer=local"));
+  });
+});
+
+describe("the boundary between the last allowed request and the first refused one", () => {
+  /**
+   * `consume_rate_limit` returns a count and this module decides the verdict,
+   * so the comparison here is the only thing keeping the two halves agreeing.
+   * A mutation test found `>` could become `>=` without any existing case
+   * noticing, which would silently cost every caller the last request of every
+   * window.
+   *
+   * Verified against real Postgres: at `maxRequests = 3` the RPC returns
+   * 1, 2, 3, 4, 5 — so 3 is the last allowed and 4 is the first refusal.
+   */
+  it("allows the request whose count equals the limit", async () => {
+    resetRateLimits();
+    const d = db({ data: LIMIT.maxRequests, error: null });
+    expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS)).toBe(true);
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it("refuses the very next one", async () => {
+    resetRateLimits();
+    const d = db({ data: LIMIT.maxRequests + 1, error: null });
+    expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS)).toBe(false);
+  });
+});
