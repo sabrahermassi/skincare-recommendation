@@ -22,8 +22,10 @@ import {
   callerKey,
   json,
   preflight,
+  callerSalt,
   consumeRateLimit,
   requestId,
+  retryAfterSeconds,
   type RateLimit,
 } from "../_shared/http.ts";
 import { paginateOrdered } from "../_shared/paginate.ts";
@@ -141,8 +143,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Minted before the check so the refusal log and the reply carry the same
   // id — the whole point is that a user quoting it lands on one line.
   const rid = requestId(req);
-  if (!(await consumeRateLimit(db, "label-ocr", callerKey(req), RATE_LIMIT, rid))) {
-    return json(req, { error: "Too many requests" }, 429, { "x-request-id": rid });
+  if (!(await consumeRateLimit(db, "label-ocr", callerKey(req), RATE_LIMIT, {
+    secret: callerSalt(),
+    requestId: rid,
+  }))) {
+    // `Retry-After` is computed from the window rather than guessed, so a
+    // client can back off exactly as long as it needs to and no longer.
+    return json(req, { error: "Too many requests" }, 429, {
+      "x-request-id": rid,
+      "Retry-After": String(retryAfterSeconds(RATE_LIMIT)),
+    });
   }
 
   // Strip EXIF/XMP/IPTC before this image goes anywhere. A phone photo carries

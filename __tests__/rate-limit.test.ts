@@ -1,6 +1,8 @@
 import {
   consumeRateLimit,
+  fingerprintCaller,
   resetRateLimits,
+  retryAfterSeconds,
   withinRateLimit,
   type RateLimit,
   type RateLimitDb,
@@ -20,6 +22,8 @@ import {
  */
 
 const LIMIT: RateLimit = { windowSeconds: 60, maxRequests: 3 };
+const SECRET = "test-salt";
+const OPTS = { secret: SECRET, requestId: "req-1" };
 
 /** A database whose RPC always answers the same way, recording every call. */
 function db(answer: { data: unknown; error: unknown }): RateLimitDb & { calls: unknown[] } {
@@ -57,14 +61,26 @@ describe("the in-memory fallback", () => {
     expect(withinRateLimit("5.6.7.8", LIMIT)).toBe(true);
   });
 
-  it("forgets hits once their window has passed", () => {
+  /**
+   * Fixed window, matching `consume_rate_limit`'s own arithmetic. The two
+   * layers used to disagree — this one slid, the database's did not — so a
+   * caller regained their allowance at different moments depending on which
+   * layer refused them.
+   */
+  it("resets on the window boundary, not a window after the last hit", () => {
     const now = jest.spyOn(Date, "now");
-    now.mockReturnValue(1_000_000);
+    // Mid-window: 30s into a 60s window that started at 1_000_020.
+    now.mockReturnValue(1_000_050_000);
     for (let i = 0; i < LIMIT.maxRequests; i++) withinRateLimit("1.2.3.4", LIMIT);
     expect(withinRateLimit("1.2.3.4", LIMIT)).toBe(false);
 
-    // One millisecond past the window, every recorded hit is outside it.
-    now.mockReturnValue(1_000_000 + LIMIT.windowSeconds * 1000 + 1);
+    // Still inside the same window a moment later — a sliding window would
+    // have started forgiving by now.
+    now.mockReturnValue(1_000_070_000);
+    expect(withinRateLimit("1.2.3.4", LIMIT)).toBe(false);
+
+    // The boundary itself clears it.
+    now.mockReturnValue(1_000_080_000);
     expect(withinRateLimit("1.2.3.4", LIMIT)).toBe(true);
   });
 });
@@ -72,12 +88,13 @@ describe("the in-memory fallback", () => {
 describe("the durable check", () => {
   it("passes the operation, the caller and the limit to the database", async () => {
     const d = db({ data: true, error: null });
-    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT);
+    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
 
     expect(d.calls).toEqual([
       {
         p_bucket: "label-ocr",
-        p_caller: "1.2.3.4",
+        // The fingerprint, never the address — see `fingerprintCaller`.
+        p_caller: await fingerprintCaller("1.2.3.4", SECRET),
         p_window_seconds: LIMIT.windowSeconds,
         p_max_requests: LIMIT.maxRequests,
       },
@@ -86,7 +103,7 @@ describe("the durable check", () => {
 
   it("refuses when the database says so, even with room in memory", async () => {
     const d = db({ data: false, error: null });
-    expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT)).toBe(false);
+    expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS)).toBe(false);
     // The point of the shared counter: another isolate already spent this
     // caller's allowance, so the local map's opinion is irrelevant.
     expect(d.calls).toHaveLength(1);
@@ -101,22 +118,22 @@ describe("the durable check", () => {
   it("does not reach the database once the in-memory limit is spent", async () => {
     const d = db({ data: true, error: null });
     for (let i = 0; i < LIMIT.maxRequests; i++) {
-      expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT)).toBe(true);
+      expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS)).toBe(true);
     }
     expect(d.calls).toHaveLength(LIMIT.maxRequests);
 
-    expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT)).toBe(false);
+    expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS)).toBe(false);
     expect(d.calls).toHaveLength(LIMIT.maxRequests);
   });
 
   it("keeps separate counts per operation", async () => {
     const d = db({ data: true, error: null });
     for (let i = 0; i < LIMIT.maxRequests; i++) {
-      await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT);
+      await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
     }
     // Same caller, different operation: a spent photo allowance must not
     // refuse a barcode lookup, which costs a different amount.
-    expect(await consumeRateLimit(d, "product-lookup", "1.2.3.4", LIMIT)).toBe(true);
+    expect(await consumeRateLimit(d, "product-lookup", "1.2.3.4", LIMIT, OPTS)).toBe(true);
   });
 });
 
@@ -139,10 +156,10 @@ describe("when the database cannot answer", () => {
 
       // Allowed while the local allowance lasts...
       for (let i = 0; i < LIMIT.maxRequests; i++) {
-        expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT)).toBe(true);
+        expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS)).toBe(true);
       }
       // ...and refused after it, rather than unbounded.
-      expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT)).toBe(false);
+      expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS)).toBe(false);
     },
   );
 
@@ -152,9 +169,9 @@ describe("when the database cannot answer", () => {
     };
 
     for (let i = 0; i < LIMIT.maxRequests; i++) {
-      expect(await consumeRateLimit(thrower, "label-ocr", "1.2.3.4", LIMIT)).toBe(true);
+      expect(await consumeRateLimit(thrower, "label-ocr", "1.2.3.4", LIMIT, OPTS)).toBe(true);
     }
-    expect(await consumeRateLimit(thrower, "label-ocr", "1.2.3.4", LIMIT)).toBe(false);
+    expect(await consumeRateLimit(thrower, "label-ocr", "1.2.3.4", LIMIT, OPTS)).toBe(false);
   });
 
   /**
@@ -164,7 +181,7 @@ describe("when the database cannot answer", () => {
    */
   it("says so in the logs", async () => {
     const d = db({ data: null, error: { message: "boom" } });
-    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT);
+    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
     expect(console.error).toHaveBeenCalledWith(
       expect.stringContaining("durable check failed"),
       expect.anything(),
@@ -180,7 +197,7 @@ describe("refusal logging", () => {
    */
   it("records a refusal the shared counter made, with the request id", async () => {
     const d = db({ data: false, error: null });
-    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, "req-abc");
+    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, { secret: SECRET, requestId: "req-abc" });
 
     expect(console.warn).toHaveBeenCalledWith(
       "[rate-limit] refused bucket=label-ocr caller=1.2.3.4 layer=shared request=req-abc",
@@ -196,9 +213,9 @@ describe("refusal logging", () => {
   it("distinguishes a local refusal from a shared one", async () => {
     const d = db({ data: true, error: null });
     for (let i = 0; i < LIMIT.maxRequests; i++) {
-      await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, "req-1");
+      await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, { secret: SECRET, requestId: "req-1" });
     }
-    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, "req-2");
+    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, { secret: SECRET, requestId: "req-2" });
 
     expect(console.warn).toHaveBeenCalledTimes(1);
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("layer=local"));
@@ -207,7 +224,7 @@ describe("refusal logging", () => {
 
   it("says nothing while requests are allowed", async () => {
     const d = db({ data: true, error: null });
-    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, "req-1");
+    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, { secret: SECRET, requestId: "req-1" });
     expect(console.warn).not.toHaveBeenCalled();
   });
 
@@ -217,7 +234,95 @@ describe("refusal logging", () => {
    */
   it("still refuses when no request id is supplied", async () => {
     const d = db({ data: false, error: null });
-    expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT)).toBe(false);
+    expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, { secret: SECRET })).toBe(false);
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("request=-"));
+  });
+});
+
+describe("the caller fingerprint", () => {
+  /**
+   * The finding this replaced: `rate_limits` held the raw address, turning a
+   * counter into a per-IP activity log that `docs/threat-model.md` said did
+   * not exist.
+   */
+  it("never hands the address to the database", async () => {
+    const d = db({ data: true, error: null });
+    await consumeRateLimit(d, "label-ocr", "81.229.14.22", LIMIT, OPTS);
+    expect(JSON.stringify(d.calls)).not.toContain("81.229.14.22");
+  });
+
+  it("is stable, so counting still works", async () => {
+    expect(await fingerprintCaller("1.2.3.4", SECRET)).toBe(
+      await fingerprintCaller("1.2.3.4", SECRET),
+    );
+  });
+
+  it("separates callers, and separates secrets", async () => {
+    const a = await fingerprintCaller("1.2.3.4", SECRET);
+    expect(await fingerprintCaller("1.2.3.5", SECRET)).not.toBe(a);
+    // Rotating the salt must invalidate old fingerprints rather than collide.
+    expect(await fingerprintCaller("1.2.3.4", "other-salt")).not.toBe(a);
+  });
+
+  it("is 128 bits of hex", async () => {
+    expect(await fingerprintCaller("1.2.3.4", SECRET)).toMatch(/^[0-9a-f]{32}$/);
+  });
+});
+
+describe("log volume and forgery", () => {
+  /**
+   * Refusing costs nothing, so before this the logging was the only part of a
+   * throttled request left worth attacking — one metered line per attempt, for
+   * as long as the attacker cared to loop.
+   */
+  it("logs a caller at most once per window", async () => {
+    const d = db({ data: true, error: null });
+    for (let i = 0; i < LIMIT.maxRequests; i++) {
+      await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
+    }
+    for (let i = 0; i < 50; i++) {
+      await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
+    }
+    expect(console.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("still logs a different caller in the same window", async () => {
+    const d = db({ data: false, error: null });
+    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
+    await consumeRateLimit(d, "label-ocr", "5.6.7.8", LIMIT, OPTS);
+    expect(console.warn).toHaveBeenCalledTimes(2);
+  });
+
+  /**
+   * `callerKey()` falls back to `x-real-ip`/`cf-connecting-ip`, which are
+   * entirely client-supplied, so without sanitising this an attacker could
+   * write their own `layer=` into the line that is meant to be grepped.
+   */
+  it("cannot be used to forge fields in the log line", async () => {
+    const d = db({ data: false, error: null });
+    await consumeRateLimit(d, "label-ocr", "1.2.3.4 layer=local request=x", LIMIT, OPTS);
+
+    // Structural cast rather than `jest.Mock` — the jest namespace is not in
+    // scope for tsc here, only the globals this repo declares.
+    const warn = console.warn as unknown as { mock: { calls: string[][] } };
+    const line = warn.mock.calls[0][0];
+    expect(line).toMatch(/layer=shared request=req-1$/);
+    expect(line.match(/layer=/g)).toHaveLength(1);
+  });
+});
+
+describe("retryAfterSeconds", () => {
+  // 1_000_020s is exactly a 60s boundary; 1_000_080s is the next one.
+  it("counts down to the window boundary", () => {
+    // 20s elapsed in a 60s window leaves 40.
+    expect(retryAfterSeconds(LIMIT, 1_000_040_000)).toBe(40);
+    expect(retryAfterSeconds(LIMIT, 1_000_079_000)).toBe(1);
+  });
+
+  it("never tells a client to retry immediately", () => {
+    // On the boundary the honest answer is a full window, not 0 — a
+    // `Retry-After: 0` invites the retry storm the header exists to stop.
+    expect(retryAfterSeconds(LIMIT, 1_000_020_000)).toBe(LIMIT.windowSeconds);
+    expect(retryAfterSeconds(LIMIT, 1_000_080_000)).toBe(LIMIT.windowSeconds);
   });
 });

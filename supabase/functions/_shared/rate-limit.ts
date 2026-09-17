@@ -2,13 +2,10 @@
 //
 // Moved here out of `_shared/http.ts` so it can be tested. That file reads
 // `Deno.env`, which Metro and Jest cannot resolve; this one touches no Deno
-// global and takes its database client as an argument, so `lib/rate-limit.ts`
-// re-exports it and `__tests__/rate-limit.test.ts` exercises the exact module
-// the Edge Functions run — the same arrangement `strip-metadata.ts` already
-// uses, and for the same reason.
-//
-// `http.ts` re-exports everything below, so existing imports from there keep
-// working.
+// global and takes its database client and its salt as arguments, so
+// `lib/rate-limit.ts` re-exports it and `__tests__/rate-limit.test.ts`
+// exercises the exact module the Edge Functions run — the same arrangement
+// `strip-metadata.ts` already uses, and for the same reason.
 
 export type RateLimit = { windowSeconds: number; maxRequests: number };
 
@@ -32,7 +29,45 @@ export type RateLimitDb = {
   ): PromiseLike<{ data: unknown; error: unknown }>;
 };
 
-const hits = new Map<string, number[]>();
+// ── Windows ─────────────────────────────────────────────────────────────────
+
+/**
+ * The start of the window `nowMs` falls in, in whole seconds.
+ *
+ * Deliberately the same arithmetic as `consume_rate_limit`'s
+ * `floor(extract(epoch from now()) / window) * window`. The two layers used to
+ * disagree — this one kept a sliding window of timestamps while the database
+ * kept a fixed one — so a caller refused locally and a caller refused in
+ * Postgres regained their allowance at different moments, and the fallback
+ * behaved unlike the thing it was standing in for. Found in review.
+ */
+function windowStart(nowMs: number, windowSeconds: number): number {
+  return Math.floor(nowMs / 1000 / windowSeconds) * windowSeconds;
+}
+
+/**
+ * Seconds until the caller's current window closes — the honest `Retry-After`.
+ *
+ * Always between 1 and `windowSeconds`, without needing a clamp to say so:
+ * flooring puts `elapsed` in `[0, windowSeconds - 1]`, so the difference is in
+ * `[1, windowSeconds]`. The first draft guarded the lower bound with
+ * `Math.max(1, ...)`, which no input could ever reach — a mutation test caught
+ * it surviving, which is the same evidence as it being unreachable.
+ *
+ * That the floor is 1 rather than 0 matters: `Retry-After: 0` invites the
+ * retry storm the header exists to prevent.
+ */
+export function retryAfterSeconds(limit: RateLimit, nowMs: number = Date.now()): number {
+  const elapsed = Math.floor(nowMs / 1000) - windowStart(nowMs, limit.windowSeconds);
+  return limit.windowSeconds - elapsed;
+}
+
+// ── The in-memory layer ─────────────────────────────────────────────────────
+
+type Tally = { window: number; count: number };
+
+const hits = new Map<string, Tally>();
+const lastLogged = new Map<string, number>();
 
 /**
  * Drops every in-memory bucket. For tests, which would otherwise carry one
@@ -40,6 +75,7 @@ const hits = new Map<string, number[]>();
  */
 export function resetRateLimits(): void {
   hits.clear();
+  lastLogged.clear();
 }
 
 /**
@@ -50,32 +86,53 @@ export function resetRateLimits(): void {
  * thing left standing when the database cannot be reached, and because it
  * costs nothing: no round trip, no failure mode of its own.
  *
- * Empty buckets are dropped rather than left behind. With the key derived from
- * the caller's address the set is bounded in practice, but a map that only ever
- * grows is a slow leak in an isolate that stays warm for hours.
+ * A refused request still increments, matching `consume_rate_limit`. Someone
+ * hammering the endpoint should not get a fresh look the moment they cross the
+ * line.
+ *
+ * One tally per key rather than an array of timestamps: a fixed window needs a
+ * counter and a boundary, not a history, so the memory a warm isolate holds no
+ * longer grows with the traffic it has seen.
  */
 export function withinRateLimit(key: string, limit: RateLimit): boolean {
   const now = Date.now();
-  const cutoff = now - limit.windowSeconds * 1000;
-  const recent = (hits.get(key) ?? []).filter((t) => t > cutoff);
+  const current = windowStart(now, limit.windowSeconds);
+  const tally = hits.get(key);
 
-  if (recent.length >= limit.maxRequests) {
-    hits.set(key, recent);
-    return false;
-  }
-
-  recent.push(now);
-  hits.set(key, recent);
-
-  // Opportunistic sweep — cheap, and keeps a long-lived isolate from
-  // accumulating a bucket per caller it has ever seen.
-  if (hits.size > 5_000) {
-    for (const [k, times] of hits) {
-      if (times.every((t) => t <= cutoff)) hits.delete(k);
+  if (!tally || tally.window !== current) {
+    hits.set(key, { window: current, count: 1 });
+    // Opportunistic sweep — cheap, and keeps a long-lived isolate from
+    // accumulating a bucket per caller it has ever seen.
+    if (hits.size > 5_000) {
+      for (const [k, t] of hits) if (t.window < current) hits.delete(k);
+      for (const [k, at] of lastLogged) {
+        if (at < now - limit.windowSeconds * 1000) lastLogged.delete(k);
+      }
     }
+    return true;
   }
 
-  return true;
+  tally.count += 1;
+  return tally.count <= limit.maxRequests;
+}
+
+// ── Logging ─────────────────────────────────────────────────────────────────
+
+/**
+ * Strip anything that could forge a second field in the one-line `key=value`
+ * format `refused()` writes.
+ *
+ * `callerKey()` normally returns an address the gateway observed, but it falls
+ * back to `x-real-ip` and `cf-connecting-ip`, which are entirely
+ * client-supplied — so on a direct invocation a caller could otherwise put a
+ * `layer=` or `request=` of their choosing into a log this module says will be
+ * grepped and counted. `requestId()` was already sanitised for exactly this
+ * reason; the caller was not. Found in review.
+ *
+ * `:` and `.` survive because an address is unreadable without them.
+ */
+function logSafe(value: string): string {
+  return value.replace(/[^\w.:-]/g, "").slice(0, 64) || "unknown";
 }
 
 /**
@@ -92,20 +149,93 @@ export function withinRateLimit(key: string, limit: RateLimit): boolean {
  * migration exists to catch. A run of `shared` refusals is a different story
  * from a run of `local` ones, and without this field they are the same line.
  *
- * Machine-greppable on purpose — `key=value`, one line, no interpolated prose
- * — because the thing anyone will actually do with it is count occurrences per
- * caller.
+ * **At most one line per caller per window.** The first version logged every
+ * refusal, which handed anyone looping against a throttled endpoint an
+ * unbounded, metered log bill on what had been the free path — refusing costs
+ * nothing, so the logging was the only thing left worth attacking. One line
+ * still says everything the next one would: who, which operation, which layer.
+ * Found in review.
  *
- * The caller is an IP address, which is personal data in the sense that
- * matters even though it is ordinary to log. It goes no further than the
- * function logs and is never written to a table; `docs/device-storage-policy.md`
- * governs what reaches a device, and nothing here does.
+ * The caller here is the address, not the fingerprint stored in the database.
+ * Logs are short-lived and this is the only place the raw value survives at
+ * all, which is what keeps identifying an abuser possible;
+ * `docs/threat-model.md` anticipated exactly this ("Same, unless logging is
+ * added later").
  */
-function refused(bucket: string, caller: string, layer: "local" | "shared", requestId: string): void {
+function refused(
+  bucket: string,
+  caller: string,
+  layer: "local" | "shared",
+  requestId: string,
+  limit: RateLimit,
+): void {
+  const key = `${bucket}:${caller}`;
+  const now = Date.now();
+  const previous = lastLogged.get(key);
+  if (previous !== undefined && previous >= windowStart(now, limit.windowSeconds) * 1000) return;
+  lastLogged.set(key, now);
+
   console.warn(
-    `[rate-limit] refused bucket=${bucket} caller=${caller} layer=${layer} request=${requestId}`,
+    `[rate-limit] refused bucket=${logSafe(bucket)} caller=${logSafe(caller)} ` +
+      `layer=${layer} request=${logSafe(requestId)}`,
   );
 }
+
+// ── The caller fingerprint ──────────────────────────────────────────────────
+
+const encoder = new TextEncoder();
+
+/**
+ * A stable, non-reversible stand-in for the caller's address.
+ *
+ * The limiter only ever asks "is this the same caller as a moment ago?", so
+ * equality is the entire requirement and the address itself does no work. What
+ * it *does* do is turn a counter table into an activity log: a row per address
+ * per operation per window, kept a day, is a record of who used which feature
+ * and when — health-adjacent by inference for this app, and classified in
+ * `docs/threat-model.md` as personal data it promised never to persist. Found
+ * in review, after the first version of this file wrote the address straight
+ * into `rate_limits.caller` while a comment three lines above claimed it did
+ * not.
+ *
+ * HMAC rather than a bare hash. There are only ~4 billion IPv4 addresses, so
+ * `sha256(ip)` is a lookup table anyone can build in an afternoon; the key is
+ * what makes the fingerprint irreversible to someone holding only the database.
+ *
+ * Truncated to 128 bits — far past collision risk for a keyspace this size,
+ * and it keeps the primary key narrow.
+ */
+export async function fingerprintCaller(caller: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(caller));
+  return Array.from(new Uint8Array(signature).slice(0, 16))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// ── The check ───────────────────────────────────────────────────────────────
+
+export type ConsumeOptions = {
+  /**
+   * The HMAC key for `fingerprintCaller`. Required rather than optional: a
+   * missing salt would mean either a raw address in the table or a per-boot
+   * random one that makes the shared counter useless, and both failures are
+   * invisible from the outside.
+   */
+  secret: string;
+  /**
+   * Threaded through only so a refusal can be tied back to the response the
+   * caller saw. Defaults to `-`, because a missing id should cost a log line
+   * its correlation, never a caller its limit.
+   */
+  requestId?: string;
+};
 
 /**
  * The real limit: one counter in Postgres, shared by every isolate and
@@ -132,28 +262,27 @@ function refused(bucket: string, caller: string, layer: "local" | "shared", requ
  *
  * Both layers are consulted when the database answers, and the in-memory one is
  * consulted *first*: it is free, and a caller already over the local limit
- * needs no round trip to be refused.
- *
- * `requestId` is threaded through only so a refusal can be tied back to the
- * response the caller saw. It defaults to `-` rather than being required,
- * because a missing id should degrade a log line, never a limit.
+ * needs no round trip — nor a fingerprint, which is a round of HMAC it also
+ * does not have to pay for.
  */
 export async function consumeRateLimit(
   db: RateLimitDb,
   bucket: string,
   caller: string,
   limit: RateLimit,
-  requestId = "-",
+  opts: ConsumeOptions,
 ): Promise<boolean> {
+  const requestId = opts.requestId ?? "-";
+
   if (!withinRateLimit(`${bucket}:${caller}`, limit)) {
-    refused(bucket, caller, "local", requestId);
+    refused(bucket, caller, "local", requestId, limit);
     return false;
   }
 
   try {
     const { data, error } = await db.rpc("consume_rate_limit", {
       p_bucket: bucket,
-      p_caller: caller,
+      p_caller: await fingerprintCaller(caller, opts.secret),
       p_window_seconds: limit.windowSeconds,
       p_max_requests: limit.maxRequests,
     });
@@ -172,7 +301,7 @@ export async function consumeRateLimit(
       return true;
     }
 
-    if (!data) refused(bucket, caller, "shared", requestId);
+    if (!data) refused(bucket, caller, "shared", requestId, limit);
     return data;
   } catch (err) {
     console.error("[rate-limit] durable check threw, using in-memory only:", err);

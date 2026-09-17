@@ -26,9 +26,16 @@ create table rate_limits (
   -- very different amounts per call, so they must not share a budget. See the
   -- data-strategy plan's step 11 — "limit per operation, not per function".
   bucket        text        not null,
-  -- Whatever `callerKey()` decided, which is an address rather than a person.
-  -- Deliberately not a device id: a client-supplied bucket is a bucket the
-  -- client can rotate, and that is the whole attack.
+  -- An HMAC fingerprint of whatever `callerKey()` decided, never the address
+  -- itself — see `fingerprintCaller`. Equality is the entire requirement here,
+  -- so the address does no work in this table while doing real harm: a row per
+  -- address per operation per window, kept a day, is an activity log rather
+  -- than a counter, and `docs/threat-model.md` classifies the caller IP as
+  -- personal data it does not persist. The first draft of this migration stored
+  -- it raw; review caught it.
+  --
+  -- Still not a device id, for the original reason: a client-supplied bucket is
+  -- a bucket the client can rotate, and that is the whole attack.
   caller        text        not null,
   window_start  timestamptz not null,
   count         integer     not null default 0,

@@ -54,6 +54,11 @@ export function corsHeaders(req: Request): Record<string, string> {
       req.headers.get("access-control-request-headers") ??
       "authorization, x-client-info, apikey, content-type, x-device-id",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+    // Without this the browser hands the page a response with these headers
+    // stripped, so `x-request-id` — the whole point of returning one — reads as
+    // null on web, and a client cannot honour `Retry-After` either. Native is
+    // unaffected, which is exactly how this went unnoticed until review.
+    "Access-Control-Expose-Headers": "x-request-id, retry-after",
     "Access-Control-Max-Age": "86400",
     // Only meaningful when an allowlist is configured, but harmless otherwise
     // and required for any shared cache in front of us to behave.
@@ -102,15 +107,36 @@ export function requestId(req: Request): string {
 // ── Rate limiting ───────────────────────────────────────────────────────────
 
 // Re-exported rather than defined here: see the note at the top of this file.
-// `consumeRateLimit` is the one to call — `withinRateLimit` is its in-memory
-// fallback and is exported for the tests that pin that fallback.
+// Only what an Edge Function actually calls — `withinRateLimit` and
+// `resetRateLimits` are internals of that module and its tests, and re-exporting
+// them here kept alive a surface no function used. Found in review.
 export {
   consumeRateLimit,
-  resetRateLimits,
-  withinRateLimit,
+  retryAfterSeconds,
   type RateLimit,
   type RateLimitDb,
 } from "./rate-limit.ts";
+
+/**
+ * The HMAC key that turns a caller's address into the fingerprint stored in
+ * `rate_limits` — see `fingerprintCaller`.
+ *
+ * `RATE_LIMIT_SALT` when set, and the service-role key otherwise. The fallback
+ * is deliberate rather than lazy: the salt has to be identical across every
+ * isolate or the shared counter silently stops being shared, and a value that
+ * must be configured before the limiter works correctly is a value someone will
+ * forget to configure. The service-role key is already required by all three
+ * functions, already secret, and already identical everywhere. Using it as an
+ * HMAC key reveals nothing about it — that is what one-way means — but setting
+ * the dedicated variable is still better hygiene, because it lets the key be
+ * rotated without rotating the database credential.
+ *
+ * Read at call time rather than at module load: the tests for the functions
+ * that use this set the environment per-case.
+ */
+export function callerSalt(): string {
+  return Deno.env.get("RATE_LIMIT_SALT") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+}
 
 /**
  * Who to charge a request to.
