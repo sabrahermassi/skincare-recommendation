@@ -79,6 +79,35 @@ export function withinRateLimit(key: string, limit: RateLimit): boolean {
 }
 
 /**
+ * Record that a request was turned away.
+ *
+ * `console.warn`, not `console.error`: a refusal is the limiter working, not
+ * the limiter failing. The two are different questions and want different
+ * severities — one of them is "someone is hammering us", the other is "our
+ * counter is broken and we are running on the fallback".
+ *
+ * `layer` is the part worth having. A `local` refusal means this isolate alone
+ * saw enough traffic to say no; a `shared` one means the caller had already
+ * spent its allowance elsewhere, which is the isolate-hopping this whole
+ * migration exists to catch. A run of `shared` refusals is a different story
+ * from a run of `local` ones, and without this field they are the same line.
+ *
+ * Machine-greppable on purpose — `key=value`, one line, no interpolated prose
+ * — because the thing anyone will actually do with it is count occurrences per
+ * caller.
+ *
+ * The caller is an IP address, which is personal data in the sense that
+ * matters even though it is ordinary to log. It goes no further than the
+ * function logs and is never written to a table; `docs/device-storage-policy.md`
+ * governs what reaches a device, and nothing here does.
+ */
+function refused(bucket: string, caller: string, layer: "local" | "shared", requestId: string): void {
+  console.warn(
+    `[rate-limit] refused bucket=${bucket} caller=${caller} layer=${layer} request=${requestId}`,
+  );
+}
+
+/**
  * The real limit: one counter in Postgres, shared by every isolate and
  * surviving a cold start.
  *
@@ -104,14 +133,22 @@ export function withinRateLimit(key: string, limit: RateLimit): boolean {
  * Both layers are consulted when the database answers, and the in-memory one is
  * consulted *first*: it is free, and a caller already over the local limit
  * needs no round trip to be refused.
+ *
+ * `requestId` is threaded through only so a refusal can be tied back to the
+ * response the caller saw. It defaults to `-` rather than being required,
+ * because a missing id should degrade a log line, never a limit.
  */
 export async function consumeRateLimit(
   db: RateLimitDb,
   bucket: string,
   caller: string,
   limit: RateLimit,
+  requestId = "-",
 ): Promise<boolean> {
-  if (!withinRateLimit(`${bucket}:${caller}`, limit)) return false;
+  if (!withinRateLimit(`${bucket}:${caller}`, limit)) {
+    refused(bucket, caller, "local", requestId);
+    return false;
+  }
 
   try {
     const { data, error } = await db.rpc("consume_rate_limit", {
@@ -135,6 +172,7 @@ export async function consumeRateLimit(
       return true;
     }
 
+    if (!data) refused(bucket, caller, "shared", requestId);
     return data;
   } catch (err) {
     console.error("[rate-limit] durable check threw, using in-memory only:", err);

@@ -18,6 +18,7 @@ import {
   json,
   preflight,
   consumeRateLimit,
+  requestId,
   type RateLimit,
 } from "../_shared/http.ts";
 
@@ -85,8 +86,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json(req, { error: "barcode must be 8-14 digits" }, 400);
   }
 
-  if (!(await consumeRateLimit(db, "product-lookup", callerKey(req), RATE_LIMIT))) {
-    return json(req, { error: "Too many requests" }, 429);
+  // Minted before the check so the refusal log and the reply carry the same
+  // id — the whole point is that a user quoting it lands on one line.
+  const rid = requestId(req);
+  if (!(await consumeRateLimit(db, "product-lookup", callerKey(req), RATE_LIMIT, rid))) {
+    return json(req, { error: "Too many requests" }, 429, { "x-request-id": rid });
   }
 
   // 1 ── our own catalogue, which already excludes anything past its deadline

@@ -37,6 +37,7 @@ import {
   json,
   preflight,
   consumeRateLimit,
+  requestId,
   type RateLimit,
 } from "../_shared/http.ts";
 
@@ -78,8 +79,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json(req, { error: "token is required" }, 400);
   }
 
-  if (!(await consumeRateLimit(db, "resolve-scan", callerKey(req), RATE_LIMIT))) {
-    return json(req, { error: "Too many requests" }, 429);
+  // Minted before the check so the refusal log and the reply carry the same
+  // id — the whole point is that a user quoting it lands on one line.
+  const rid = requestId(req);
+  if (!(await consumeRateLimit(db, "resolve-scan", callerKey(req), RATE_LIMIT, rid))) {
+    return json(req, { error: "Too many requests" }, 429, { "x-request-id": rid });
   }
 
   // Proof of ownership — see the file header. `not_found` rather than a

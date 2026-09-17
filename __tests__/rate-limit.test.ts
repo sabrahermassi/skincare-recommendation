@@ -36,6 +36,7 @@ function db(answer: { data: unknown; error: unknown }): RateLimitDb & { calls: u
 beforeEach(() => {
   resetRateLimits();
   jest.spyOn(console, "error").mockImplementation(() => {});
+  jest.spyOn(console, "warn").mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -168,5 +169,55 @@ describe("when the database cannot answer", () => {
       expect.stringContaining("durable check failed"),
       expect.anything(),
     );
+  });
+});
+
+describe("refusal logging", () => {
+  /**
+   * Without this the only place a throttled caller shows up is the provider's
+   * invoice. It is also what separates "someone is hammering us" from "we got
+   * popular", which is not a distinction anyone can make after the fact.
+   */
+  it("records a refusal the shared counter made, with the request id", async () => {
+    const d = db({ data: false, error: null });
+    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, "req-abc");
+
+    expect(console.warn).toHaveBeenCalledWith(
+      "[rate-limit] refused bucket=label-ocr caller=1.2.3.4 layer=shared request=req-abc",
+    );
+  });
+
+  /**
+   * The `layer` field is the one worth having. A local refusal is one isolate
+   * seeing enough traffic by itself; a shared one means the caller had already
+   * spent its allowance on another isolate, which is the isolate-hopping this
+   * migration exists to catch. Same line without it.
+   */
+  it("distinguishes a local refusal from a shared one", async () => {
+    const d = db({ data: true, error: null });
+    for (let i = 0; i < LIMIT.maxRequests; i++) {
+      await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, "req-1");
+    }
+    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, "req-2");
+
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("layer=local"));
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("request=req-2"));
+  });
+
+  it("says nothing while requests are allowed", async () => {
+    const d = db({ data: true, error: null });
+    await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, "req-1");
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A missing id should cost a log line its correlation, never a caller its
+   * limit — so the parameter has a default rather than being required.
+   */
+  it("still refuses when no request id is supplied", async () => {
+    const d = db({ data: false, error: null });
+    expect(await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT)).toBe(false);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("request=-"));
   });
 });

@@ -66,11 +66,37 @@ export function preflight(req: Request): Response {
   return new Response(null, { status: 204, headers: corsHeaders(req) });
 }
 
-export function json(req: Request, body: unknown, status: number): Response {
+export function json(
+  req: Request,
+  body: unknown,
+  status: number,
+  extraHeaders: Record<string, string> = {},
+): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", ...corsHeaders(req) },
+    headers: { "Content-Type": "application/json", ...corsHeaders(req), ...extraHeaders },
   });
+}
+
+/**
+ * A handle for one request, for tying a log line to the reply someone saw.
+ *
+ * Reuses an inbound `x-request-id` when there is one so a client or a proxy
+ * that already has a trace can keep it, and mints one otherwise. Trusting a
+ * client-supplied value is safe *here* precisely because it is not used for
+ * anything but correlation — this is the opposite of `callerKey`, which
+ * refuses client input for exactly the reason this accepts it.
+ *
+ * Returned on rate-limit replies via the `x-request-id` header, so "I keep
+ * getting an error" can become "here is the id" without anyone reading a log
+ * to guess which request they meant.
+ */
+export function requestId(req: Request): string {
+  const supplied = req.headers.get("x-request-id");
+  // Bounded and stripped of anything that could forge a second field in the
+  // one-line, key=value log format `refused()` writes.
+  if (supplied) return supplied.replace(/[^\w.-]/g, "").slice(0, 64) || crypto.randomUUID();
+  return crypto.randomUUID();
 }
 
 // ── Rate limiting ───────────────────────────────────────────────────────────

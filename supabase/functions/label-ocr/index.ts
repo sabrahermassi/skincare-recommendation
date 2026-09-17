@@ -23,6 +23,7 @@ import {
   json,
   preflight,
   consumeRateLimit,
+  requestId,
   type RateLimit,
 } from "../_shared/http.ts";
 import { paginateOrdered } from "../_shared/paginate.ts";
@@ -137,8 +138,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json(req, { error: "brand must be a string" }, 400);
   }
 
-  if (!(await consumeRateLimit(db, "label-ocr", callerKey(req), RATE_LIMIT))) {
-    return json(req, { error: "Too many requests" }, 429);
+  // Minted before the check so the refusal log and the reply carry the same
+  // id — the whole point is that a user quoting it lands on one line.
+  const rid = requestId(req);
+  if (!(await consumeRateLimit(db, "label-ocr", callerKey(req), RATE_LIMIT, rid))) {
+    return json(req, { error: "Too many requests" }, 429, { "x-request-id": rid });
   }
 
   // Strip EXIF/XMP/IPTC before this image goes anywhere. A phone photo carries
