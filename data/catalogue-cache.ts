@@ -745,7 +745,17 @@ function diskLimits(): DiskLimits {
  * record that makes it answerable.
  */
 export type CacheWriteOutcome =
-  /** `chunks` is how many AsyncStorage values it took — 1 everywhere but a split Android write. */
+  /**
+   * `chunks` is how many AsyncStorage values it took — 1 everywhere but a
+   * split Android write.
+   *
+   * Nothing outside the tests reads it, and that is the point rather than an
+   * oversight: this whole type exists because the write path could only fail
+   * silently, and "it wrote, across three values" and "it wrote, as one" are
+   * different enough answers that a diagnostic which cannot tell them apart
+   * would not have caught the peak-space problem on PR #113. Kept for the same
+   * reason `lastCacheWrite` itself is — so the information exists at all.
+   */
   | { kind: "ok"; bytes: number; chunks: number; at: number }
   | { kind: "too-large"; bytes: number; budget: number; at: number }
   | { kind: "failed"; message: string; at: number };
@@ -922,11 +932,21 @@ async function writeProductsBlob(serialised: string, bytes: number): Promise<num
   // whenever the payload already fits under CursorWindow.
   if (perValue === null || bytes <= perValue) {
     await AsyncStorage.setItem(PRODUCTS_KEY, serialised);
-    // Manifest first, so a reader stops following chunks before they go. Dying
-    // between these two leaves a complete older chunk set nothing reads —
-    // wasted bytes until the next write, never a wrong answer.
-    await AsyncStorage.removeItem(MANIFEST_KEY);
-    await clearChunks();
+
+    // Only where chunks can exist at all. `perValue === null` means this
+    // platform has no per-value cap and so has never taken the branch below,
+    // which makes the manifest removal and the sweep two storage round trips
+    // that can only ever find nothing — on every write, for the life of the
+    // install. The guard is sound exactly as long as that stays true: give a
+    // platform a per-value budget and it starts chunking, and its cleanup
+    // comes back with it.
+    if (perValue !== null) {
+      // Manifest first, so a reader stops following chunks before they go.
+      // Dying between these two leaves a complete older chunk set nothing
+      // reads — wasted bytes until the next write, never a wrong answer.
+      await AsyncStorage.removeItem(MANIFEST_KEY);
+      await clearChunks();
+    }
     return 1;
   }
 
