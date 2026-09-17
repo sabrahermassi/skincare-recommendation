@@ -22,6 +22,16 @@ describe("productIllustrationSource", () => {
     }
   });
 
+  it("gives every known type its own icon, not the unknown fallback", () => {
+    // Without this, a type missing from CONTAINER_BY_TYPE would resolve to the
+    // plain unlabeled `unknown` bottle and still satisfy the "is defined"
+    // check above — the icon would silently be wrong rather than absent.
+    const fallback = productIllustrationSource({ id: "x", type: "unknown" });
+    for (const type of ALL_TYPES.filter((t) => t !== "unknown")) {
+      expect(productIllustrationSource({ id: "x", type })).not.toBe(fallback);
+    }
+  });
+
   it("prefers a real photo over the type-based icon when one is present", () => {
     const source = productIllustrationSource({ id: "x", type: "serum", imageUrl: "https://example.com/a.jpg" });
     expect(source).toEqual({ uri: "https://example.com/a.jpg" });

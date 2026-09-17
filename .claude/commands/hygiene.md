@@ -20,7 +20,11 @@ Set up and run dead-code detection for this project.
 
 Also flag any old match-verdict colors still hardcoded instead of read from the current score-band tokens.
 
-**Report only — change nothing.** For each finding give: what it is, where it lives, why you believe it's unused, and your confidence. Group into **certain**, **probable**, and **needs my judgment**.
+**Report only — delete nothing.** Steps 1 and 2 may add the compiler flags and a
+`knip.json`, since those are what make the scan possible; nothing else in the
+project gets touched. For each finding give: what it is, where it lives, why you
+believe it's unused, and your confidence. Group into **certain**, **probable**,
+and **needs my judgment**.
 
 Be especially cautious with static assets. "Nothing imports this" is often wrong for files loaded by string path or dynamic require — put those in *needs my judgment*, never in *certain*.
 

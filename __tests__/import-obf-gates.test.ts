@@ -1,4 +1,5 @@
 import {
+  guessType,
   MIN_KNOWN_INGREDIENT_RATIO,
   parseInci,
   toRow,
@@ -184,5 +185,40 @@ describe("the parser matches lib/inci.ts", () => {
       "aqua",
       "glycerin",
     ]);
+  });
+});
+
+/**
+ * `guessType` is a first-match table, so both what it matches and the order it
+ * matches in are load-bearing. Every case below is one a review caught going
+ * the wrong way. Keep in step with the identical table in
+ * `supabase/functions/product-lookup/index.ts`.
+ */
+describe("guessType", () => {
+  it("reads hyphenated OBF category tags, not just spaced names", () => {
+    // `categories_tags` arrive as `en:eye-cream`. Written with a literal
+    // space, these patterns missed and the generic `cream` rule claimed them.
+    expect(guessType(["en:eye-cream"], "Brand X 30ml")).toBe("eye-cream");
+    expect(guessType(["en:sheet-masks"], "Brand X")).toBe("sheet-mask");
+    expect(guessType(["en:facial-oils"], "Brand X")).toBe("facial-oil");
+    expect(guessType(["en:hair-masks"], "Brand X")).toBe("hair-mask");
+    expect(guessType(["en:foot-cream"], "Brand X")).toBe("foot-cream");
+  });
+
+  it("keeps a lip product with SPF a lip balm, not a sunscreen", () => {
+    expect(guessType([], "Lip Balm SPF 15")).toBe("lip-balm");
+  });
+
+  it("prefers the specific type over a bare serum match", () => {
+    expect(guessType([], "Serum Sheet Mask")).toBe("sheet-mask");
+    expect(guessType([], "Serum Hair Mask")).toBe("hair-mask");
+  });
+
+  it("no longer routes leave-on peel pads into the rinse-off exfoliator type", () => {
+    // contactWeight treats `exfoliator` as rinse-off (0.4); a leave-on pad
+    // scored that way understates both its actives and its irritants.
+    expect(guessType([], "Glycolic Peeling Pads")).toBe("unknown");
+    // Physical scrubs, which really are rinsed off, still land there.
+    expect(guessType([], "Apricot Face Scrub")).toBe("exfoliator");
   });
 });

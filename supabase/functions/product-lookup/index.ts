@@ -13,6 +13,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+import { guessTypeFromIngredients } from "../_shared/guess-type-from-ingredients.ts";
 import {
   callerKey,
   json,
@@ -168,13 +169,21 @@ async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
   // the barcode permanently and stop the better source ever being consulted.
   if (!name || !inci) return null;
 
+  // Parsed before the type is decided, not after, so the ingredient fallback
+  // below has something to read. A live scan that skipped it stored "unknown"
+  // for a product the importer would have typed from the same formula — the
+  // same barcode ending up with two different types depending on how it
+  // arrived.
+  const ingredients = parseInci(inci);
+  const byName = guessType(p.categories_tags ?? [], name);
+
   return {
     product: {
       id: `obf-${barcode}`,
       barcode,
       brand: (p.brands ?? "Unknown").split(",")[0].trim(),
       name,
-      type: guessType(p.categories_tags ?? [], name),
+      type: byName !== "unknown" ? byName : guessTypeFromIngredients(name, ingredients),
       // Required by the `products` table's NOT NULL CHECK constraint, but no
       // longer computed: the client dropped `area` entirely (nothing reads
       // it back — see store/useAppStore.ts's v5 -> v6 migration note), so
@@ -190,7 +199,7 @@ async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
       attribution: ATTRIBUTION.obf,
       expires_at: null, // ODbL — ours to keep
     },
-    ingredients: parseInci(inci),
+    ingredients,
   };
 }
 
@@ -212,6 +221,9 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
   if (!p?.name) return null;
 
   const category: string[] = Array.isArray(p.category) ? p.category : [];
+  // Same ordering as the OBF branch above, and for the same reason.
+  const ingredients = parseInci(typeof p.ingredients === "string" ? p.ingredients : "");
+  const byName = guessType(category, p.name);
 
   return {
     product: {
@@ -219,7 +231,7 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
       barcode,
       brand: p.brand ?? "Unknown",
       name: p.name,
-      type: guessType(category, p.name),
+      type: byName !== "unknown" ? byName : guessTypeFromIngredients(p.name, ingredients),
       // See the note on the other `area: "face"` above.
       area: "face",
       description: null,
@@ -234,7 +246,7 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
       attribution: ATTRIBUTION.inci_api,
       expires_at: new Date(Date.now() + ttlFrom(res) * 1000).toISOString(),
     },
-    ingredients: parseInci(typeof p.ingredients === "string" ? p.ingredients : ""),
+    ingredients,
   };
 }
 
@@ -438,12 +450,16 @@ function guessType(tags: string[], text: string): string {
   const haystack = `${tags.join(" ")} ${text}`.toLowerCase();
   const table: [RegExp, string][] = [
     [/hand.?cream|crème mains|handcreme/, "hand-cream"],
-    [/eye cream/, "eye-cream"],
+    [/eye[\s-]?cream/, "eye-cream"],
     [/body.?butter/, "body-butter"],
     [/body.?(wash|gel)|shower|douche|duschgel/, "body-wash"],
     [/body.?scrub|body.?exfoliat/, "body-scrub"],
     [/body.?(lotion|milk)|body ?lotion|lait corporel/, "body-lotion"],
-    [/foot cream|foot balm/, "foot-cream"],
+    [/foot[\s-]?(cream|balm)/, "foot-cream"],
+    // Above the sunscreen rule on purpose: "Lip Balm SPF 15" is a lip balm,
+    // and `spf` below would otherwise claim it first.
+    // "lèvres" (fr), "dudak" (tr), "губ" (ru/uk) — all seen failing for real.
+    [/lip[\s-]?(balm|butter|care)|l[èe]vres|dudak|губ/, "lip-balm"],
     [
       // nettoyant/lavant (fr), reinigings/schuimende (nl), limpiador (es),
       // detergente (it), waschgel (de) — plus "huile lavante", a washing oil.
@@ -454,25 +470,26 @@ function guessType(tags: string[], text: string): string {
     [/toner|tonic|lotion tonique/, "toner"],
     [/essence/, "essence"],
     [/ampoule/, "ampoule"],
-    [/serum|sérum/, "serum"],
+    // All of these sit above the bare `serum` rule: a "serum sheet mask" or a
+    // "serum hair mask" is the specific thing, and `serum` would take it.
     // "sleeping"/"overnight" mask, not a bare "night cream" — that's a real
     // moisturizer, not the K-beauty sleep-mask category.
-    [/sleeping mask|night mask|overnight mask/, "night-mask"],
-    [/sheet mask/, "sheet-mask"],
-    [/hair mask/, "hair-mask"],
-    [/facial oil|face oil/, "facial-oil"],
-    [/hair oil/, "hair-oil"],
-    // "lèvres" (fr), "dudak" (tr), "губ" (ru/uk) — seen failing for real on
-    // lip sticks/balms carrying a UV filter, which without this fell through
-    // all the way to the ingredient-based fallback's sunscreen rule: a lip
-    // product with SPF is still a lip-balm, not a sunscreen.
-    [/lip balm|lip butter|lip ?care|l[èe]vres|dudak|губ/, "lip-balm"],
+    [/(sleeping|night|overnight)[\s-]?mask/, "night-mask"],
+    [/sheet[\s-]?mask/, "sheet-mask"],
+    [/hair[\s-]?mask/, "hair-mask"],
+    [/(facial|face)[\s-]?oil/, "facial-oil"],
+    [/hair[\s-]?oil/, "hair-oil"],
+    [/serum|sérum/, "serum"],
     [/perfume|eau de (parfum|toilette)/, "perfume"],
-    [/facial mist|face mist/, "facial-mist"],
+    [/(facial|face)[\s-]?mist/, "facial-mist"],
     [/deodorant|antiperspirant/, "deodorant"],
     [/shampoo/, "shampoo"],
     [/conditioner/, "conditioner"],
-    [/exfoliat|scrub|peel(ing)? pad/, "exfoliator"],
+    // No "peel pad" here: this type is rinse-off in `contactWeight`, and a
+    // leave-on acid pad scored at 0.4 would understate both its actives and
+    // its irritants. Those fall through to the ingredient rule instead, which
+    // types them "serum" — leave-on, full weight.
+    [/exfoliat|scrub/, "exfoliator"],
     [/cream|moisturi[sz]er|lotion|emulsion|crème|creme|crema|gezichtscrème/, "moisturizer"],
   ];
   for (const [pattern, type] of table) if (pattern.test(haystack)) return type;

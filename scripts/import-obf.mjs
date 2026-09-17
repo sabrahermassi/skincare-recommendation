@@ -423,12 +423,16 @@ function guessType(tags, text) {
   const hay = `${(tags ?? []).join(" ")} ${text}`.toLowerCase();
   const table = [
     [/hand.?cream|crème mains|handcreme/, "hand-cream"],
-    [/eye cream/, "eye-cream"],
+    [/eye[\s-]?cream/, "eye-cream"],
     [/body.?butter/, "body-butter"],
     [/body.?(wash|gel)|shower|douche|duschgel/, "body-wash"],
     [/body.?scrub|body.?exfoliat/, "body-scrub"],
     [/body.?(lotion|milk)|body ?lotion|lait corporel/, "body-lotion"],
-    [/foot cream|foot balm/, "foot-cream"],
+    [/foot[\s-]?(cream|balm)/, "foot-cream"],
+    // Above the sunscreen rule on purpose: "Lip Balm SPF 15" is a lip balm,
+    // and `spf` below would otherwise claim it first.
+    // "lèvres" (fr), "dudak" (tr), "губ" (ru/uk) — all seen failing for real.
+    [/lip[\s-]?(balm|butter|care)|l[èe]vres|dudak|губ/, "lip-balm"],
     [
       /cleanser|foam|cleansing|micellar|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
       "cleanser",
@@ -437,25 +441,26 @@ function guessType(tags, text) {
     [/toner|tonic|lotion tonique/, "toner"],
     [/essence/, "essence"],
     [/ampoule/, "ampoule"],
-    [/serum|sérum/, "serum"],
+    // All of these sit above the bare `serum` rule: a "serum sheet mask" or a
+    // "serum hair mask" is the specific thing, and `serum` would take it.
     // "sleeping"/"overnight" mask, not a bare "night cream" — that's a real
     // moisturizer, not the K-beauty sleep-mask category.
-    [/sleeping mask|night mask|overnight mask/, "night-mask"],
-    [/sheet mask/, "sheet-mask"],
-    [/hair mask/, "hair-mask"],
-    [/facial oil|face oil/, "facial-oil"],
-    [/hair oil/, "hair-oil"],
-    // "lèvres" (fr), "dudak" (tr), "губ" (ru/uk) — seen failing for real on
-    // lip sticks/balms carrying a UV filter, which without this fell through
-    // all the way to the ingredient-based fallback's sunscreen rule: a lip
-    // product with SPF is still a lip-balm, not a sunscreen.
-    [/lip balm|lip butter|lip ?care|l[èe]vres|dudak|губ/, "lip-balm"],
+    [/(sleeping|night|overnight)[\s-]?mask/, "night-mask"],
+    [/sheet[\s-]?mask/, "sheet-mask"],
+    [/hair[\s-]?mask/, "hair-mask"],
+    [/(facial|face)[\s-]?oil/, "facial-oil"],
+    [/hair[\s-]?oil/, "hair-oil"],
+    [/serum|sérum/, "serum"],
     [/perfume|eau de (parfum|toilette)/, "perfume"],
-    [/facial mist|face mist/, "facial-mist"],
+    [/(facial|face)[\s-]?mist/, "facial-mist"],
     [/deodorant|antiperspirant/, "deodorant"],
     [/shampoo/, "shampoo"],
     [/conditioner/, "conditioner"],
-    [/exfoliat|scrub|peel(ing)? pad/, "exfoliator"],
+    // No "peel pad" here: this type is rinse-off in `contactWeight`, and a
+    // leave-on acid pad scored at 0.4 would understate both its actives and
+    // its irritants. Those fall through to the ingredient rule instead, which
+    // types them "serum" — leave-on, full weight.
+    [/exfoliat|scrub/, "exfoliator"],
     [/cream|moisturi[sz]er|lotion|emulsion|crème|creme|crema|gezichtscrème/, "moisturizer"],
   ];
   for (const [re, type] of table) if (re.test(hay)) return type;

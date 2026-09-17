@@ -387,7 +387,7 @@ Profile were its only two call sites — and has since been deleted.
 
 ## Provenance
 
-The four `design_handoff_*` packages below are no longer in the repo — deleted
+The three `design_handoff_*` packages below are no longer in the repo — deleted
 once the current onboarding no longer matched any of them. Kept here as a
 historical record of what each one established, not as a live path.
 
