@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, ScrollView, TextInput, View, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -8,12 +8,13 @@ import { AppHeader, HEADER_GUTTER } from "@/components/AppHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
 import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
+import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { fetchProducts, peekProducts, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
-import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients } from "@/data/types";
+import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients, type SkinProfile } from "@/data/types";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized, profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
@@ -57,6 +58,39 @@ const INITIAL_TYPE_FILTER: ProductType | "all" = "all";
 // enough to fill a phone screen without pretending to know the real count.
 const SKELETON_ROWS = 6;
 
+/**
+ * How many scored rows are revealed at once, and how many more each time the
+ * list reaches its end.
+ *
+ * `FlatList` already virtualizes what it *draws*, so this is not about draw
+ * cost — it bounds the `BrowseItem` array this screen builds and re-builds on
+ * every filter change and every profile edit. At 5,000 products that array was
+ * rebuilt whole to show the forty rows a phone can scroll to.
+ */
+const BROWSE_PAGE_SIZE = 40;
+
+/**
+ * How many products are scored before yielding back to the UI thread.
+ *
+ * Ranking is global — the header promises "Ranked for…", and that is only true
+ * if every product was scored before sorting — so the pass cannot be shortened,
+ * only broken up. Measured cost of one pass, on a dev machine and so optimistic
+ * for a phone:
+ *
+ *     153 products    85ms      1,000 products    520ms
+ *     647 products   218ms      5,000 products  1,572ms
+ *
+ * Run synchronously in a `useMemo`, that is a frozen screen for a second and a
+ * half at the size step 7 is aiming for. Chunked, each hop is ~120ms and the
+ * thread stays live between them.
+ *
+ * The second pass is ~1ms at every size, because `matchProduct` caches (6b-2),
+ * so this only ever costs anything the first time a profile meets a catalogue.
+ */
+const SCORE_CHUNK = 400;
+
+type ScoredProduct = { product: ProductWithIngredients; match: MatchResult };
+
 // The FlatList's `data` is one of these per row, rather than always being a
 // scored product — the type-filter chips, the personalize banner, loading
 // placeholders and the empty/error states all need to scroll (and, for the
@@ -86,6 +120,29 @@ export default function Browse() {
   const [retryKey, setRetryKey] = useState(0);
   const [typeFilter, setTypeFilter] = useState<ProductType | "all">(INITIAL_TYPE_FILTER);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  /**
+   * How far down the ranked list the user has scrolled, tied to the exact rows
+   * it counts into.
+   *
+   * Paired with the products and profile it was counted against, rather than
+   * reset by an effect: those two are what a ranking is made of, so comparing
+   * identity means the count falls back to the first page on its own. An effect
+   * would do the same thing a render later — and would be a `setState` inside
+   * an effect, which is the cascade this screen's other effects already get
+   * warned about.
+   *
+   * It holds those two rather than the scored rows for a reason worth keeping:
+   * the catalogue and the store already own them, so nothing is kept alive that
+   * would otherwise be collected. Holding the rows array meant the *previous*
+   * filter's fully scored list — every product plus every verdict — stayed
+   * reachable from here until the next scroll, which is precisely the kind of
+   * retention step 6b-4 exists to remove.
+   */
+  const [page, setPage] = useState<{
+    source: ProductWithIngredients[] | null;
+    profile: SkinProfile | null;
+    count: number;
+  }>({ source: null, profile: null, count: BROWSE_PAGE_SIZE });
 
   // Search overrides the type-filtered browse list entirely while active,
   // the same way Search is its own mode on the Scan tab rather than a
@@ -215,17 +272,95 @@ export default function Browse() {
     };
   }, [query, searchActive, localMatches]);
 
-  const scored = useMemo(() => {
-    if (!products) return null;
-    const withScores = products.map((product) => ({
-      product,
-      match: matchProduct(product, profile),
-    }));
-    // Sorting by score only makes sense once there's a score to sort by —
-    // otherwise it silently reorders the catalogue for no reason.
-    if (!personalized) return withScores;
-    return [...withScores].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0));
+  /**
+   * The scored list, and the exact products array it was built from.
+   *
+   * Carrying the source array is what lets a stale result be *detected* rather
+   * than guarded against by clearing state up front. Clearing would flash
+   * skeletons on every filter tap even when the scores are already cached and
+   * the pass takes a millisecond; keeping the old rows on screen would show
+   * one filter's products under another's chip. Comparing identity does
+   * neither: a tab switch hands back the same array (the catalogue cache
+   * returns stable references, which is the whole reason it does) and nothing
+   * re-renders, while a filter change is a different array and the skeletons
+   * are correct for exactly as long as the scoring takes.
+   */
+  const [scoredState, setScoredState] = useState<{
+    source: ProductWithIngredients[];
+    /**
+     * The profile these scores were computed against, and not a formality.
+     * Editing the profile leaves `source` untouched — it is the same catalogue
+     * — so without this the stale check would pass and Browse would keep
+     * showing rows scored against the *previous* answers until the new pass
+     * finished. A stale ranking is the one kind of wrong this screen cannot
+     * afford to show silently, since a wrong number looks exactly like a right
+     * one.
+     */
+    profile: SkinProfile;
+    rows: ScoredProduct[];
+  } | null>(null);
+
+  // A layout effect, not a passive one: a passive effect only runs after the
+  // render it belongs to has already committed and painted, so the first
+  // chunk being computed "synchronously" inside it still meant a commit with
+  // `scoredState` still null landed on screen first — a skeleton flash on
+  // every mount and filter change, cached scores or not. A layout effect
+  // runs before that paint, which is what actually makes the first chunk
+  // synchronous from the screen's point of view, and is what lets a
+  // catalogue at or below `SCORE_CHUNK` — every catalogue this app has
+  // shipped with so far — settle in the same frame the `useMemo` this
+  // replaced did. Only the first chunk is inside that synchronous window;
+  // `setTimeout` still defers everything after it to its own macrotask, so a
+  // catalogue larger than one chunk still paints skeletons and fills in.
+  useLayoutEffect(() => {
+    if (!products) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const rows: ScoredProduct[] = [];
+    let i = 0;
+
+    const step = () => {
+      if (cancelled) return;
+      const end = Math.min(i + SCORE_CHUNK, products.length);
+      for (; i < end; i += 1) {
+        rows.push({ product: products[i], match: matchProduct(products[i], profile) });
+      }
+      if (i < products.length) {
+        timer = setTimeout(step, 0);
+        return;
+      }
+      // Sorting by score only makes sense once there's a score to sort by —
+      // otherwise it silently reorders the catalogue for no reason. It also
+      // has to happen here, after every product is scored: sorting a partial
+      // list would put the best of the first chunk above a better match that
+      // had not been reached yet, which is the one thing ranking must not do.
+      setScoredState({
+        source: products,
+        profile,
+        rows: personalized
+          ? [...rows].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0))
+          : rows,
+      });
+    };
+
+    step();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [products, profile, personalized]);
+
+  const scored =
+    scoredState && scoredState.source === products && scoredState.profile === profile
+      ? scoredState.rows
+      : null;
+  const visibleCount =
+    page.source === products && page.profile === profile ? page.count : BROWSE_PAGE_SIZE;
+
+  // The list is being ranked right now: there are products to score and no
+  // finished ranking for them yet. Distinct from having no products at all,
+  // which is the cold-fetch skeleton, and from `error`.
+  const ranking = products !== null && scored === null && !error;
 
   // Server results win once they land; until then the local narrowing is
   // what the list shows, so each keystroke visibly shrinks the results
@@ -264,10 +399,48 @@ export default function Browse() {
     } else if (scored.length === 0) {
       list.push({ kind: "empty-catalog" });
     } else {
-      list.push(...scored.map(({ product, match }) => ({ kind: "product", product, match }) as const));
+      // Sliced, not filtered: `scored` is already in final rank order, so the
+      // first `visibleCount` really are the best matches rather than the first
+      // ones to be scored.
+      list.push(
+        ...scored
+          .slice(0, visibleCount)
+          .map(({ product, match }) => ({ kind: "product", product, match }) as const),
+      );
     }
     return list;
-  }, [searchActive, searching, scoredSearch, error, scored, personalized, bannerDismissed]);
+  }, [searchActive, searching, scoredSearch, error, scored, personalized, bannerDismissed, visibleCount]);
+
+  // Search results are capped at `SEARCH_RESULT_LIMIT`, well under one page,
+  // so paging applies to the browse list only.
+  const canLoadMore = !searchActive && scored !== null && visibleCount < scored.length;
+
+  /**
+   * What a screen reader hears when the list changes state.
+   *
+   * Sighted users get the skeletons, then rows. Before this, a screen reader
+   * got nothing at all: ranking is now asynchronous, so editing the profile or
+   * tapping a filter chip left a blind user with silence and no way to tell
+   * whether the list was rebuilding, empty, or broken. The component is already
+   * used by the scanner for exactly this reason, and carries the notes on why
+   * `accessibilityLiveRegion` alone does not cover all three platforms.
+   *
+   * Search is excluded: that list has its own flow and announcing both would
+   * talk over the results as the user types.
+   */
+  const announcement = searchActive
+    ? ""
+    : error
+      ? "Couldn't load products."
+      : ranking
+        ? personalized
+          ? "Ranking products for your skin."
+          : "Loading products."
+        : scored
+          ? `${scored.length} ${scored.length === 1 ? "product" : "products"}${
+              personalized ? ", ranked for your skin" : ""
+            }.`
+          : "";
 
   const renderItem: ListRenderItem<BrowseItem> = ({ item }) => {
     switch (item.kind) {
@@ -364,6 +537,7 @@ export default function Browse() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
+      <ScreenReaderAnnouncer message={announcement} />
       <FlatList
         data={items}
         keyExtractor={(item) => (item.kind === "skeleton" ? item.id : item.kind === "product" ? item.product.id : item.kind)}
@@ -377,6 +551,16 @@ export default function Browse() {
         // element (a row's Pressable) fire immediately; a tap on genuinely
         // empty list space still dismisses the keyboard as before.
         keyboardShouldPersistTaps="handled"
+        // Infinite scroll rather than a "Load more" button: the next page is
+        // already scored and in memory, so there is nothing to wait for and a
+        // button would only add a tap between the user and rows that are
+        // ready. No footer spinner for the same reason — it would flash for a
+        // frame and say nothing.
+        onEndReachedThreshold={0.6}
+        onEndReached={() => {
+          if (!canLoadMore) return;
+          setPage({ source: products, profile, count: visibleCount + BROWSE_PAGE_SIZE });
+        }}
         // The type-filter row (index 1, once ListHeaderComponent claims index
         // 0) sticks while browsing; a search replaces the whole list below
         // the search box, so there's nothing of this screen's own to stick.
@@ -435,8 +619,15 @@ export default function Browse() {
               </View>
               {!searchActive && (
                 <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
+                  {/* Past tense only once it is true. Editing the profile
+                      re-ranks the whole catalogue, and this line used to claim
+                      the new ranking immediately while the list underneath was
+                      still skeletons — promising an order that did not exist
+                      yet, for as long as the scoring took. */}
                   {personalized
-                    ? `Ranked for ${profileSummary(profile).toLowerCase()}`
+                    ? ranking
+                      ? `Ranking for ${profileSummary(profile).toLowerCase()}…`
+                      : `Ranked for ${profileSummary(profile).toLowerCase()}`
                     : "No profile yet - showing unsorted results"}
                 </Text>
               )}
