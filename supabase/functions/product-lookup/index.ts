@@ -13,6 +13,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+import { guessTypeFromIngredients } from "../_shared/guess-type-from-ingredients.ts";
 import {
   callerKey,
   json,
@@ -182,13 +183,21 @@ async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
   // the barcode permanently and stop the better source ever being consulted.
   if (!name || !inci) return null;
 
+  // Parsed before the type is decided, not after, so the ingredient fallback
+  // below has something to read. A live scan that skipped it stored "unknown"
+  // for a product the importer would have typed from the same formula — the
+  // same barcode ending up with two different types depending on how it
+  // arrived.
+  const ingredients = parseInci(inci);
+  const byName = guessType(p.categories_tags ?? [], name);
+
   return {
     product: {
       id: `obf-${barcode}`,
       barcode,
       brand: (p.brands ?? "Unknown").split(",")[0].trim(),
       name,
-      type: guessType(p.categories_tags ?? [], name),
+      type: byName !== "unknown" ? byName : guessTypeFromIngredients(name, ingredients),
       // Required by the `products` table's NOT NULL CHECK constraint, but no
       // longer computed: the client dropped `area` entirely (nothing reads
       // it back — see store/useAppStore.ts's v5 -> v6 migration note), so
@@ -204,7 +213,7 @@ async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
       attribution: ATTRIBUTION.obf,
       expires_at: null, // ODbL — ours to keep
     },
-    ingredients: parseInci(inci),
+    ingredients,
   };
 }
 
@@ -226,6 +235,9 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
   if (!p?.name) return null;
 
   const category: string[] = Array.isArray(p.category) ? p.category : [];
+  // Same ordering as the OBF branch above, and for the same reason.
+  const ingredients = parseInci(typeof p.ingredients === "string" ? p.ingredients : "");
+  const byName = guessType(category, p.name);
 
   return {
     product: {
@@ -233,7 +245,7 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
       barcode,
       brand: p.brand ?? "Unknown",
       name: p.name,
-      type: guessType(category, p.name),
+      type: byName !== "unknown" ? byName : guessTypeFromIngredients(p.name, ingredients),
       // See the note on the other `area: "face"` above.
       area: "face",
       description: null,
@@ -248,7 +260,7 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
       attribution: ATTRIBUTION.inci_api,
       expires_at: new Date(Date.now() + ttlFrom(res) * 1000).toISOString(),
     },
-    ingredients: parseInci(typeof p.ingredients === "string" ? p.ingredients : ""),
+    ingredients,
   };
 }
 
@@ -369,7 +381,19 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
   // parsers simply disagreed.
   const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?ingredients?\s*[:：]\s*/i, "");
 
-  const parsed = withoutHeading
+  // ...and truncate at whatever shares the back of the label. Legal
+  // boilerplate and net-quantity marks reliably follow the formula, and
+  // without this the last ingredient is stored as "glycerin. made in
+  // nigeria" — a junk name that reaches the shared `ingredients` dictionary
+  // as a stub, and that no exact-name lookup (the UV-filter and acid lists
+  // in the ingredient fallback, for two) can match. `lib/inci.ts` and
+  // `import-obf.mjs` have always done this; this parser simply never did.
+  const stop =
+    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b)/i
+      .exec(withoutHeading);
+  const block = stop ? withoutHeading.slice(0, stop.index) : withoutHeading;
+
+  const parsed = block
     // A comma directly between two digits belongs to the name —
     // "1,2-Hexanediol" is one ingredient, and splitting there yields a bare
     // "1" and an orphaned "2-hexanediol". Kept in step with `lib/inci.ts`.
@@ -425,23 +449,50 @@ function looksCosmetic(text: string): boolean {
 }
 
 /**
- * Best-effort mapping onto our product types. Deliberately falls back to
- * "serum" rather than inventing a new type, because the browse filter bar is
- * driven by this closed set.
+ * Best-effort mapping onto our product types. Falls back to "unknown" rather
+ * than inventing a type — see the comment at the bottom of this function for
+ * why a wrong specific guess is worse than an honest "we don't know". The
+ * browse filter bar is driven by this same closed set (`ProductType`).
  *
  * The patterns were English-only, and this catalogue is not: "CeraVe
  * Schuimende Reinigingsgel", "nettoyant moussant visage" and "Huile lavante
  * Lipikar" are all cleansers that fell through to "serum", which then scored
  * them as leave-on (contact weight 1.0 instead of 0.4) and overstated both
  * their actives and their irritants. The added terms are the ones that
- * actually appear on labels in this catalogue's languages.
+ * actually appear on labels in this catalogue's languages. The 16 patterns
+ * below "hand-cream" follow the same rule: English-only until a real
+ * catalogue entry is seen failing in another language — not translated
+ * preemptively.
+ *
+ * Ordering matters — earlier entries win, so anything that could be mistaken
+ * for a broader pattern further down has to come first. Two cases mattered
+ * enough to call out: "body butter" used to fall into `body-lotion`'s
+ * `butter` alternative, so that's been removed from `body-lotion` now that
+ * `body-butter` is its own type and checked first; and `eye-cream` /
+ * `night-mask` / `foot-cream` all contain "cream" and have to be checked
+ * before the generic `moisturizer` catch-all or they'd never be reached.
  */
 function guessType(tags: string[], text: string): string {
   const haystack = `${tags.join(" ")} ${text}`.toLowerCase();
   const table: [RegExp, string][] = [
     [/hand.?cream|crème mains|handcreme/, "hand-cream"],
+    [/eye[\s-]?cream/, "eye-cream"],
+    [/body.?butter/, "body-butter"],
     [/body.?(wash|gel)|shower|douche|duschgel/, "body-wash"],
-    [/body.?(lotion|milk|butter)|body ?lotion|lait corporel/, "body-lotion"],
+    [/body.?scrub|body.?exfoliat/, "body-scrub"],
+    [/body.?(lotion|milk)|body ?lotion|lait corporel/, "body-lotion"],
+    [/foot[\s-]?(cream|balm)/, "foot-cream"],
+    // Above the sunscreen rule on purpose: "Lip Balm SPF 15" is a lip balm,
+    // and `spf` below would otherwise claim it first.
+    // "lèvres" (fr), "dudak" (tr), "губ" (ru/uk) — all seen failing for real.
+    [/lip[\s-]?(balm|butter|care)|l[èe]vres|dudak|губ/, "lip-balm"],
+    // Both above the cleanser rule: "Deep Cleansing Shampoo" carries both
+    // words, and tags and name share one haystack, so `cleansing` would take
+    // it even when the row is tagged `en:shampoos`.
+    [/shampoo/, "shampoo"],
+    // Not a bare `conditioner`: "Skin Conditioner" is a face product, and it
+    // was being given the hair-conditioner label and illustration.
+    [/(?<!skin[\s-])conditioner/, "conditioner"],
     [
       // nettoyant/lavant (fr), reinigings/schuimende (nl), limpiador (es),
       // detergente (it), waschgel (de) — plus "huile lavante", a washing oil.
@@ -452,7 +503,24 @@ function guessType(tags: string[], text: string): string {
     [/toner|tonic|lotion tonique/, "toner"],
     [/essence/, "essence"],
     [/ampoule/, "ampoule"],
+    // All of these sit above the bare `serum` rule: a "serum sheet mask" or a
+    // "serum hair mask" is the specific thing, and `serum` would take it.
+    // "sleeping"/"overnight" mask, not a bare "night cream" — that's a real
+    // moisturizer, not the K-beauty sleep-mask category.
+    [/(sleeping|night|overnight)[\s-]?mask/, "night-mask"],
+    [/sheet[\s-]?mask/, "sheet-mask"],
+    [/hair[\s-]?mask/, "hair-mask"],
+    [/(facial|face)[\s-]?oil/, "facial-oil"],
+    [/hair[\s-]?oil/, "hair-oil"],
     [/serum|sérum/, "serum"],
+    [/perfume|eau de (parfum|toilette)/, "perfume"],
+    [/(facial|face)[\s-]?mist/, "facial-mist"],
+    [/deodorant|antiperspirant/, "deodorant"],
+    // No "peel pad" here: this type is rinse-off in `contactWeight`, and a
+    // leave-on acid pad scored at 0.4 would understate both its actives and
+    // its irritants. Those fall through to the ingredient rule instead, which
+    // types them "serum" — leave-on, full weight.
+    [/exfoliat|scrub/, "exfoliator"],
     [/cream|moisturi[sz]er|lotion|emulsion|crème|creme|crema|gezichtscrème/, "moisturizer"],
   ];
   for (const [pattern, type] of table) if (pattern.test(haystack)) return type;

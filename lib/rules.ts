@@ -652,8 +652,18 @@ export function functionSignal(name: string): FunctionSignal | undefined {
  * Not zero for rinse-off: surfactants and fragrance still cause real contact
  * reactions, which is why patch testing uses a wash-off protocol at all.
  */
+const RINSE_OFF_TYPES: ProductType[] = [
+  "cleanser",
+  "body-wash",
+  "exfoliator",
+  "shampoo",
+  "conditioner",
+  "hair-mask",
+  "body-scrub",
+];
+
 export function contactWeight(type: ProductType): number {
-  return type === "cleanser" || type === "body-wash" ? 0.4 : 1;
+  return RINSE_OFF_TYPES.includes(type) ? 0.4 : 1;
 }
 
 /**

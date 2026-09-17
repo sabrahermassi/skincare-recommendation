@@ -24,6 +24,7 @@ import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
+import { guessTypeFromIngredients } from "./lib/guess-type-from-ingredients.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -408,14 +409,37 @@ function dedupe(parsed) {
  *
  * The patterns were English-only, which is why "Schuimende Reinigingsgel",
  * "nettoyant moussant visage" and "Huile lavante" were all typed as serums
- * and then scored as leave-on products.
+ * and then scored as leave-on products. The 16 patterns after "hand-cream"
+ * follow the same rule: English-only until a real catalogue entry is seen
+ * failing in another language.
+ *
+ * Ordering matters — earlier entries win. "Body butter" used to fall into
+ * `body-lotion`'s `butter` alternative, so that's been removed now that
+ * `body-butter` is its own type and checked first; `eye-cream` / `night-mask`
+ * / `foot-cream` all contain "cream" and have to be checked before the
+ * generic `moisturizer` catch-all or they'd never be reached.
  */
 function guessType(tags, text) {
   const hay = `${(tags ?? []).join(" ")} ${text}`.toLowerCase();
   const table = [
     [/hand.?cream|crème mains|handcreme/, "hand-cream"],
+    [/eye[\s-]?cream/, "eye-cream"],
+    [/body.?butter/, "body-butter"],
     [/body.?(wash|gel)|shower|douche|duschgel/, "body-wash"],
-    [/body.?(lotion|milk|butter)|body ?lotion|lait corporel/, "body-lotion"],
+    [/body.?scrub|body.?exfoliat/, "body-scrub"],
+    [/body.?(lotion|milk)|body ?lotion|lait corporel/, "body-lotion"],
+    [/foot[\s-]?(cream|balm)/, "foot-cream"],
+    // Above the sunscreen rule on purpose: "Lip Balm SPF 15" is a lip balm,
+    // and `spf` below would otherwise claim it first.
+    // "lèvres" (fr), "dudak" (tr), "губ" (ru/uk) — all seen failing for real.
+    [/lip[\s-]?(balm|butter|care)|l[èe]vres|dudak|губ/, "lip-balm"],
+    // Both above the cleanser rule: "Deep Cleansing Shampoo" carries both
+    // words, and tags and name share one haystack, so `cleansing` would take
+    // it even when the row is tagged `en:shampoos`.
+    [/shampoo/, "shampoo"],
+    // Not a bare `conditioner`: "Skin Conditioner" is a face product, and it
+    // was being given the hair-conditioner label and illustration.
+    [/(?<!skin[\s-])conditioner/, "conditioner"],
     [
       /cleanser|foam|cleansing|micellar|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
       "cleanser",
@@ -424,7 +448,24 @@ function guessType(tags, text) {
     [/toner|tonic|lotion tonique/, "toner"],
     [/essence/, "essence"],
     [/ampoule/, "ampoule"],
+    // All of these sit above the bare `serum` rule: a "serum sheet mask" or a
+    // "serum hair mask" is the specific thing, and `serum` would take it.
+    // "sleeping"/"overnight" mask, not a bare "night cream" — that's a real
+    // moisturizer, not the K-beauty sleep-mask category.
+    [/(sleeping|night|overnight)[\s-]?mask/, "night-mask"],
+    [/sheet[\s-]?mask/, "sheet-mask"],
+    [/hair[\s-]?mask/, "hair-mask"],
+    [/(facial|face)[\s-]?oil/, "facial-oil"],
+    [/hair[\s-]?oil/, "hair-oil"],
     [/serum|sérum/, "serum"],
+    [/perfume|eau de (parfum|toilette)/, "perfume"],
+    [/(facial|face)[\s-]?mist/, "facial-mist"],
+    [/deodorant|antiperspirant/, "deodorant"],
+    // No "peel pad" here: this type is rinse-off in `contactWeight`, and a
+    // leave-on acid pad scored at 0.4 would understate both its actives and
+    // its irritants. Those fall through to the ingredient rule instead, which
+    // types them "serum" — leave-on, full weight.
+    [/exfoliat|scrub/, "exfoliator"],
     [/cream|moisturi[sz]er|lotion|emulsion|crème|creme|crema|gezichtscrème/, "moisturizer"],
   ];
   for (const [re, type] of table) if (re.test(hay)) return type;
@@ -470,13 +511,20 @@ function toRow(p, known, samples) {
     return "formula not recognised by the dictionary";
   }
 
+  // Name/tags first; only falls to the ingredient-based guess when that
+  // finds nothing (a product named after its active, e.g. "Lactic Acid 10%",
+  // has no format word for guessType to catch) — see
+  // guessTypeFromIngredients's own header for why only these two rules.
+  const byName = guessType(p.categories_tags, name);
+  const type = byName !== "unknown" ? byName : guessTypeFromIngredients(name, ingredients);
+
   return {
     product: {
       id: `obf-${p.code}`,
       barcode: p.code,
       brand: (p.brands ?? "Unknown").split(",")[0].trim(),
       name,
-      type: guessType(p.categories_tags, name),
+      type,
       // Required by the `products` table's NOT NULL CHECK constraint, but no
       // longer computed: the client dropped `area` entirely (nothing reads
       // it back — see store/useAppStore.ts's v5 -> v6 migration note), so

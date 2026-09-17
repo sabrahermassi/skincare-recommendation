@@ -30,13 +30,10 @@ import type { ProductType } from "@/data/types";
  * | body-lotion | bottle-body-lotion.png |
  * | hand-cream | bottle-hand-cream.png |
  *
- * The source set has 18 more icons with no `ProductType` of their own yet
- * (eye cream, facial oil, night mask, exfoliator, lip balm, perfume,
- * facial mist, pressed powder, nail file, sheet mask, deodorant, shampoo,
- * conditioner, hair oil, hair mask, body butter, body scrub, foot cream —
- * see `design-watercolor/skincare icons/`) — not imported, since nothing
- * references them, but ready to pull in the day the catalogue grows a
- * `category` finer than `ProductType`.
+ * The source set had 18 icons with no `ProductType` of their own; 16 are now
+ * wired in below. `pressed-powder` and `nail-file` were deliberately left
+ * out — neither is a formula with an ingredient list to judge, so neither
+ * fits this app's scoring model.
  *
  * `unknown` (a product whose type genuinely couldn't be determined — see
  * `data/types.ts`) deliberately does NOT get one of the new labeled icons:
@@ -60,6 +57,22 @@ const CONTAINER_BY_TYPE: Record<ProductType, string> = {
   "body-wash": "bottle-body-wash.png",
   "body-lotion": "bottle-body-lotion.png",
   "hand-cream": "bottle-hand-cream.png",
+  "eye-cream": "bottle-eye-cream.png",
+  "facial-oil": "bottle-facial-oil.png",
+  "night-mask": "bottle-night-mask.png",
+  exfoliator: "bottle-exfoliator.png",
+  "lip-balm": "bottle-lip-balm.png",
+  perfume: "bottle-perfume.png",
+  "facial-mist": "bottle-facial-mist.png",
+  "sheet-mask": "bottle-sheet-mask.png",
+  deodorant: "bottle-deodorant.png",
+  shampoo: "bottle-shampoo.png",
+  conditioner: "bottle-conditioner.png",
+  "hair-oil": "bottle-hair-oil.png",
+  "hair-mask": "bottle-hair-mask.png",
+  "body-butter": "bottle-body-butter.png",
+  "body-scrub": "bottle-body-scrub.png",
+  "foot-cream": "bottle-foot-cream.png",
   unknown: FALLBACK,
 };
 
@@ -104,6 +117,22 @@ export const ILLUSTRATION_SOURCE: Record<string, number> = {
   "bottle-body-wash.png": require("@/assets/illustrations/bottle-body-wash.png"),
   "bottle-body-lotion.png": require("@/assets/illustrations/bottle-body-lotion.png"),
   "bottle-hand-cream.png": require("@/assets/illustrations/bottle-hand-cream.png"),
+  "bottle-eye-cream.png": require("@/assets/illustrations/bottle-eye-cream.png"),
+  "bottle-facial-oil.png": require("@/assets/illustrations/bottle-facial-oil.png"),
+  "bottle-night-mask.png": require("@/assets/illustrations/bottle-night-mask.png"),
+  "bottle-exfoliator.png": require("@/assets/illustrations/bottle-exfoliator.png"),
+  "bottle-lip-balm.png": require("@/assets/illustrations/bottle-lip-balm.png"),
+  "bottle-perfume.png": require("@/assets/illustrations/bottle-perfume.png"),
+  "bottle-facial-mist.png": require("@/assets/illustrations/bottle-facial-mist.png"),
+  "bottle-sheet-mask.png": require("@/assets/illustrations/bottle-sheet-mask.png"),
+  "bottle-deodorant.png": require("@/assets/illustrations/bottle-deodorant.png"),
+  "bottle-shampoo.png": require("@/assets/illustrations/bottle-shampoo.png"),
+  "bottle-conditioner.png": require("@/assets/illustrations/bottle-conditioner.png"),
+  "bottle-hair-oil.png": require("@/assets/illustrations/bottle-hair-oil.png"),
+  "bottle-hair-mask.png": require("@/assets/illustrations/bottle-hair-mask.png"),
+  "bottle-body-butter.png": require("@/assets/illustrations/bottle-body-butter.png"),
+  "bottle-body-scrub.png": require("@/assets/illustrations/bottle-body-scrub.png"),
+  "bottle-foot-cream.png": require("@/assets/illustrations/bottle-foot-cream.png"),
   "bottle-pump.png": require("@/assets/illustrations/bottle-pump.png"),
 };
 
