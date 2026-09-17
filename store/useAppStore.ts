@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 
 import { forgetScannedBarcodes } from "@/data/catalogue-cache";
+import { resetScoreCache } from "@/lib/matching";
 
 import type { Concern, SkinProfile } from "@/data/types";
 
@@ -447,6 +448,15 @@ export const useAppStore = create<AppState>()(
         // deliberately left alone — it is public and identical on every
         // install; see `forgetScannedBarcodes` for why the two differ.
         forgetScannedBarcodes();
+        // Same reasoning, one layer further out. The score cache holds a
+        // `{ profile, result }` beside every product it has scored, so it is
+        // carrying a copy of the concerns, sensitivity and pregnancy status
+        // this reset is supposed to erase — plus every verdict derived from
+        // them. It is keyed weakly, but the catalogue holds those products for
+        // the life of the session, so nothing would collect it on its own.
+        // Replacing the profile is not enough: the *old* profile object is
+        // what the cache kept.
+        resetScoreCache();
       },
     }),
     {

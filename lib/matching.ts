@@ -268,6 +268,26 @@ export function matchProduct(
   if (hit && hit.profile === profile) return hit.result;
 
   const result = computeMatch(product, profile);
+
+  // Handed to every screen that asks for this product, so one caller sorting
+  // `reasons` in place would reorder the "Why" list on all of them — and only
+  // after the first screen had rendered, which is the hardest kind of bug to
+  // attribute. Nothing does that today; this is what keeps it that way, by
+  // making the attempt throw where it is written rather than surfacing as a
+  // wrong list somewhere else.
+  //
+  // Dev only: the guarantee is about catching a mistake while it is being
+  // made, and freezing five objects per product is not worth paying for on a
+  // user's phone. The arrays are frozen individually because `Object.freeze`
+  // is shallow, and the arrays are the part anyone would be tempted to sort.
+  if (__DEV__) {
+    Object.freeze(result.warnings);
+    Object.freeze(result.reasons);
+    Object.freeze(result.factors);
+    Object.freeze(result.breakdown);
+    Object.freeze(result);
+  }
+
   scoreCache.set(product, { profile, result });
   return result;
 }

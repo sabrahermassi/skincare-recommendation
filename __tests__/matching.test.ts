@@ -488,8 +488,18 @@ describe("verdict engine", () => {
     });
 
     it("reports coverage so the UI can say how much it read", () => {
-      const p = synthetic(["water", "glycerin", "niacinamide", "panthenol"]);
-      p.ingredients[3] = { ...p.ingredients[3], verified: false };
+      const base = synthetic(["water", "glycerin", "niacinamide", "panthenol"]);
+      // Built as a new product rather than edited in place. The old version
+      // mutated `base.ingredients[3]` and was correct only by accident of
+      // ordering — nothing had scored `base` yet. Now that `matchProduct`
+      // caches on the product object, a score taken before such an edit would
+      // be served again afterwards, so the edit has to produce a new object.
+      const p = {
+        ...base,
+        ingredients: base.ingredients.map((ingredient, i) =>
+          i === 3 ? { ...ingredient, verified: false } : ingredient
+        ),
+      };
       expect(matchProduct(p, profile({ baseSkinType: "dry" })).coverage).toBeCloseTo(0.75);
     });
   });
@@ -562,5 +572,26 @@ describe("the score cache", () => {
     resetScoreCache();
 
     expect(matchProduct(p, prof)).not.toBe(first);
+  });
+});
+
+describe("the shared result", () => {
+  beforeEach(resetScoreCache);
+
+  /**
+   * A cache hit hands the *same* object to every screen showing the product,
+   * so one caller sorting `reasons` in place would reorder the "Why" list
+   * everywhere — and only after the first screen had rendered. Frozen in
+   * development so the attempt throws where it is written instead of
+   * surfacing as a wrong list somewhere else.
+   */
+  it("cannot be edited in place", async () => {
+    const p = await load("aqua-ceramide-cream");
+    const result = matchProduct(p, profile({ baseSkinType: "dry", concerns: ["dehydrated"] }));
+
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.reasons)).toBe(true);
+    expect(Object.isFrozen(result.warnings)).toBe(true);
+    expect(Object.isFrozen(result.factors)).toBe(true);
   });
 });
