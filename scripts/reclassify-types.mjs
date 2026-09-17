@@ -125,17 +125,35 @@ async function main() {
   }
 
   let written = 0;
+  let skipped = 0;
   for (const c of changes) {
-    const { error } = await db.from("products").update({ type: c.guessed }).eq("id", c.id);
+    // `.eq("type", c.type)` pins the write to the value this row had when we
+    // read it above — a real scan/lookup for this exact barcode landing in
+    // the gap between that read and this write would otherwise get its
+    // fresher type silently clobbered by this stale one. A 0-row result
+    // means someone else already changed it; skip rather than overwrite.
+    const { data, error } = await db
+      .from("products")
+      .update({ type: c.guessed })
+      .eq("id", c.id)
+      .eq("type", c.type)
+      .select("id");
     if (error) {
       throw new Error(
         `products update failed for ${c.id} (${written} of ${changes.length} already written): ${error.message}`
       );
     }
-    written += 1;
+    if ((data ?? []).length === 0) {
+      skipped += 1;
+    } else {
+      written += 1;
+    }
     process.stdout.write(`\r  ${written}/${changes.length}`);
   }
   console.log(`\nUpdated ${written} product(s).`);
+  if (skipped > 0) {
+    console.log(`Skipped ${skipped} — already changed elsewhere since this run started reading.`);
+  }
 }
 
 main().catch((err) => {

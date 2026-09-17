@@ -63,6 +63,18 @@ describe("guessTypeFromIngredients", () => {
     expect(guessTypeFromIngredients("Everyday Moisturizer", ingredients)).toBe("unknown");
   });
 
+  it("does not mistake maskara (Turkish for mascara) for a mask-named product", () => {
+    // A bare `mask` prefix also matches inside this real word — the acid
+    // rule must still apply normally here, not get suppressed by the guard
+    // meant for actual masks.
+    const ingredients = [
+      ingredient("aqua", 0),
+      ingredient("lactic acid", 1),
+      ingredient("glycerin", 2),
+    ];
+    expect(guessTypeFromIngredients("Maskara Siyah", ingredients)).toBe("serum");
+  });
+
   it("never applies the acid rule to a product whose name says mask, in any of the languages seen so far", () => {
     // A leading acid in a clay/mud mask is a real, common combination — but
     // there's no ProductType for a generic mask yet (issue #105), so the

@@ -1,9 +1,10 @@
 # for.me design system
 
-Extracted from the two onboarding handoffs and what actually shipped from them:
-`design_handoff_forme_onboarding` (single welcome screen) and
-`design_handoff_forme_onboarding_3` (three-screen carousel), as implemented in
-`app/onboarding/index.tsx`.
+Extracted from three now-deleted onboarding handoff packages and what actually
+shipped from them (single welcome screen, then a three-screen carousel), as
+implemented in `app/onboarding/index.tsx`. The handoffs themselves were removed
+once none still described the current implementation; see the Provenance
+section for what each one covered while it existed.
 
 **Every new screen builds from this file.** If a screen needs something this file doesn't
 cover, add it here first — don't invent one-off styling in the screen itself.
@@ -386,9 +387,16 @@ Profile were its only two call sites — and has since been deleted.
 
 ## Provenance
 
-| Source | What it covers |
+The four `design_handoff_*` packages below are no longer in the repo — deleted
+once the current onboarding no longer matched any of them. Kept here as a
+historical record of what each one established, not as a live path.
+
+| Source (deleted) | What it covered |
 |---|---|
-| `design_handoff_forme_onboarding/README.md` | Single-screen welcome: layout, tokens, the 33.6px button-padding bug, the peach/muted accessibility findings |
-| `design_handoff_forme_onboarding_animated/README.md` | The same screen's (parked) animation system — entrance stagger, ambient loop timings, transform-origin math |
-| `design_handoff_forme_onboarding_3/README.md` | Three-screen carousel: fixed-height boxes, 1.9:1 spacers, progress dots, per-illustration sizing rules |
+| `design_handoff_forme_onboarding` | Single-screen welcome: layout, tokens, the 33.6px button-padding bug, the peach/muted accessibility findings |
+| `design_handoff_forme_onboarding_animated` | The same screen's (parked) animation system — entrance stagger, ambient loop timings, transform-origin math |
+| `design_handoff_forme_onboarding_3` | Three-screen carousel: fixed-height boxes, 1.9:1 spacers, progress dots, per-illustration sizing rules |
+
+| Live source | What it covers |
+|---|---|
 | `app/onboarding/index.tsx` | What actually shipped — the static carousel implementation this file's rules are checked against |

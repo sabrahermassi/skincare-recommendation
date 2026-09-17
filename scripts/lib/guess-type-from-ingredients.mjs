@@ -102,9 +102,12 @@ const SHORT_INGREDIENT_LIST_MAX = 20;
  */
 // No trailing \b: German "Maske" and Turkish "Maskesi" both already start
 // with the literal four letters "mask", so a leading boundary alone covers
-// English/German/Turkish together. French and Italian spell it differently
-// and need their own alternatives.
-const MASK_NAME_PATTERN = /\bmask|\bmaschera|\bmasque|\bmascarilla/i;
+// English/German/Turkish together — but a bare `\bmask` with nothing after
+// it also matches inside "maskara" (Turkish for mascara, a real word in this
+// catalogue), so the lookahead pins what can follow "mask" to an e/i/s or a
+// word boundary, which every real spelling above needs and "maskara" doesn't.
+// French and Italian spell it differently and need their own alternatives.
+const MASK_NAME_PATTERN = /\bmask(?=[eis]|\b)|\bmaschera|\bmasque|\bmascarilla/i;
 
 /**
  * @param {string} name product name, used only for the mask-name guard above
