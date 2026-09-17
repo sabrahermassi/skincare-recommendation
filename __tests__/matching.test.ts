@@ -4,6 +4,7 @@ import {
   confidenceLabel,
   matchProduct,
   matchTone,
+  resetScoreCache,
   SCORE_BANDS,
   scoreExplanation,
 } from "@/lib/matching";
@@ -23,10 +24,14 @@ function profile(overrides: Partial<SkinProfile> = {}): SkinProfile {
 describe("matchProduct", () => {
   it("is deterministic for the same product and profile", async () => {
     const p = await load("hanbang-rice-serum");
-    const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
-    const a = matchProduct(p, prof);
-    const b = matchProduct(p, prof);
+    // Two equal but *distinct* profile objects, so the second call actually
+    // recomputes. Passing the same object twice would be answered by the score
+    // cache, and this assertion would hold even if the scoring were broken.
+    const a = matchProduct(p, profile({ baseSkinType: "dry", concerns: ["dehydrated"] }));
+    const b = matchProduct(p, profile({ baseSkinType: "dry", concerns: ["dehydrated"] }));
+    expect(a).not.toBe(b);
     expect(a.score).toBe(b.score);
+    expect(a.verdict).toBe(b.verdict);
   });
 
   /**
@@ -483,8 +488,18 @@ describe("verdict engine", () => {
     });
 
     it("reports coverage so the UI can say how much it read", () => {
-      const p = synthetic(["water", "glycerin", "niacinamide", "panthenol"]);
-      p.ingredients[3] = { ...p.ingredients[3], verified: false };
+      const base = synthetic(["water", "glycerin", "niacinamide", "panthenol"]);
+      // Built as a new product rather than edited in place. The old version
+      // mutated `base.ingredients[3]` and was correct only by accident of
+      // ordering — nothing had scored `base` yet. Now that `matchProduct`
+      // caches on the product object, a score taken before such an edit would
+      // be served again afterwards, so the edit has to produce a new object.
+      const p = {
+        ...base,
+        ingredients: base.ingredients.map((ingredient, i) =>
+          i === 3 ? { ...ingredient, verified: false } : ingredient
+        ),
+      };
       expect(matchProduct(p, profile({ baseSkinType: "dry" })).coverage).toBeCloseTo(0.75);
     });
   });
@@ -495,5 +510,88 @@ describe("verdict engine", () => {
     const b = synthetic(["water", "glycerin", "sodium hyaluronate", ...FILLER], {});
     b.id = "a-completely-different-id";
     expect(matchProduct(a, prof).score).toBe(matchProduct(b, prof).score);
+  });
+});
+
+/**
+ * The score cache sits inside `matchProduct`, so every screen gets it without
+ * asking. These pin the two properties that make that safe to do invisibly:
+ * a hit has to be the same answer, and a changed formula has to miss.
+ */
+describe("the score cache", () => {
+  beforeEach(resetScoreCache);
+
+  it("answers a repeat of the same product and profile from cache", async () => {
+    const p = await load("aqua-ceramide-cream");
+    const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+
+    // The identical instance, not merely an equal one — that is what makes a
+    // caller's `useMemo` on the result stable too.
+    expect(matchProduct(p, prof)).toBe(matchProduct(p, prof));
+  });
+
+  it("recomputes when the profile changes", async () => {
+    const p = await load("aqua-ceramide-cream");
+
+    const dry = matchProduct(p, profile({ baseSkinType: "dry", concerns: ["dehydrated"] }));
+    const oily = matchProduct(p, profile({ baseSkinType: "oily", concerns: ["acne-prone"] }));
+
+    expect(oily).not.toBe(dry);
+  });
+
+  /**
+   * The case an id-keyed cache gets wrong, and the reason this one is keyed on
+   * the product object instead.
+   *
+   * Re-scanning a bottle *because* it was reformulated produces a row with the
+   * same id and a different formula. `addScannedToCatalogue` folds that in as a
+   * new object rather than mutating the old one, so the new formula is a new
+   * key here and the old score cannot be served for it.
+   */
+  it("recomputes for a reformulated product carrying the same id", async () => {
+    const original = await load("aqua-ceramide-cream");
+    const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+
+    const before = matchProduct(original, prof);
+    expect(before.score).not.toBeNull();
+
+    const reformulated = { ...original, ingredients: original.ingredients.slice(0, 1) };
+    const after = matchProduct(reformulated, prof);
+
+    expect(after).not.toBe(before);
+    // Down to one ingredient, the engine declines rather than scoring — a
+    // difference that could only come from reading the new formula.
+    expect(after.unknownReason).toBe("low_coverage");
+  });
+
+  it("forgets everything on reset", async () => {
+    const p = await load("aqua-ceramide-cream");
+    const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+
+    const first = matchProduct(p, prof);
+    resetScoreCache();
+
+    expect(matchProduct(p, prof)).not.toBe(first);
+  });
+});
+
+describe("the shared result", () => {
+  beforeEach(resetScoreCache);
+
+  /**
+   * A cache hit hands the *same* object to every screen showing the product,
+   * so one caller sorting `reasons` in place would reorder the "Why" list
+   * everywhere — and only after the first screen had rendered. Frozen in
+   * development so the attempt throws where it is written instead of
+   * surfacing as a wrong list somewhere else.
+   */
+  it("cannot be edited in place", async () => {
+    const p = await load("aqua-ceramide-cream");
+    const result = matchProduct(p, profile({ baseSkinType: "dry", concerns: ["dehydrated"] }));
+
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.reasons)).toBe(true);
+    expect(Object.isFrozen(result.warnings)).toBe(true);
+    expect(Object.isFrozen(result.factors)).toBe(true);
   });
 });

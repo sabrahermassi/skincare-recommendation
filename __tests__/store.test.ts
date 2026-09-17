@@ -5,6 +5,7 @@ import {
   readScanned,
 } from "@/data/catalogue-cache";
 import type { ProductWithIngredients } from "@/data/types";
+import { matchProduct } from "@/lib/matching";
 import {
   EMPTY_PROFILE,
   formeStorage,
@@ -330,6 +331,44 @@ describe("resetApp", () => {
 
     expect(readScanned("8801234567890")).toBeUndefined();
     expect(peekCatalogue()).not.toBeNull();
+  });
+
+  /**
+   * The second piece living outside the store, and the less obvious one.
+   *
+   * `matchProduct` keeps a `{ profile, result }` beside every product it has
+   * scored. Replacing the profile does not touch it — the *old* profile object
+   * is what the cache kept, along with every verdict derived from the
+   * concerns, sensitivity and pregnancy status this reset exists to erase. It
+   * is keyed weakly, but the catalogue holds those products for the life of
+   * the session, so nothing collects it on its own.
+   */
+  it("drops scores computed from the erased profile", () => {
+    const product = {
+      type: "serum",
+      ingredients: [
+        { id: "niacinamide", name: "Niacinamide", comedogenic: 0, safety: "safe", verified: true },
+        { id: "glycerin", name: "Glycerin", comedogenic: 0, safety: "safe", verified: true },
+        { id: "panthenol", name: "Panthenol", comedogenic: 0, safety: "safe", verified: true },
+      ],
+    } as unknown as ProductWithIngredients;
+
+    s().setProfile({ baseSkinType: "oily" });
+    const erasedProfile = s().profile;
+
+    const before = matchProduct(product, erasedProfile);
+    // Same product, same profile object: a cache hit returns the identical
+    // instance, which is what makes the assertion after the reset meaningful.
+    expect(matchProduct(product, erasedProfile)).toBe(before);
+
+    s().resetApp();
+
+    // Scored against the *erased* profile object deliberately. Using
+    // `s().profile` here would pass whether or not the cache was cleared —
+    // the reset replaces the profile, so that lookup misses on identity alone
+    // and proves nothing. Re-using the old object is the only way to ask
+    // whether its entry is still in the cache.
+    expect(matchProduct(product, erasedProfile)).not.toBe(before);
   });
 });
 
