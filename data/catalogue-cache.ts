@@ -707,18 +707,29 @@ const ANDROID_TOTAL_BUDGET_BYTES = 2 * 1024 * 1024;
 const IOS_TOTAL_BUDGET_BYTES = 32 * 1024 * 1024;
 
 /**
- * Conservative against an unverified ~5MB localStorage quota shared with the
- * store — and against the unit mismatch, which is the part that bites.
+ * Quota bytes, not UTF-8 bytes — and that distinction is the whole point.
  *
- * Everything else here is measured in UTF-8 bytes, because that is what the
- * native stores write. Browsers bill localStorage in UTF-16 code units, so a
- * megabyte of ASCII JSON costs *two* megabytes of quota. This figure is
- * therefore the UTF-8 number whose worst-case quota cost — all-ASCII, two
- * quota bytes per byte — is 2MB of roughly 5MB, leaving room for the profile
- * and saved shelf that share the origin. Korean text costs less, not more
- * (three UTF-8 bytes per character, two quota bytes), so ASCII is the bound.
+ * Browsers bill localStorage in UTF-16 code units, two bytes each, against a
+ * per-origin quota commonly around 5MB and shared with the persisted store.
+ * The quota figure is the unverified part; the unit is not.
+ *
+ * Sized against a measurement rather than an assumption, because two guesses
+ * have already been wrong here. The first applied a worst-case all-ASCII
+ * haircut to a UTF-8 figure and landed at 1MB — *below* the live catalogue's
+ * 1.06MB, so every web user would have lost caching the day it shipped. The
+ * second assumed the opposite, that a Korean-heavy catalogue would cost about
+ * two thirds of its byte count. Measured, a live-sized payload costs **2.17MB
+ * of quota for 1.06MB of UTF-8**: close to the ASCII worst case, because the
+ * Korean is a product name or two among ids, English descriptions and INCI
+ * ingredient names that are all single-byte.
+ *
+ * 3MB therefore holds today's catalogue with roughly 25% of room to grow, and
+ * leaves the store its share of a 5MB origin. Erring large is deliberate: an
+ * over-large budget fails gracefully, since the write throws
+ * `QuotaExceededError`, gets caught, and keeps the previous copy — while an
+ * under-large one refuses unconditionally and caches nothing at all.
  */
-const WEB_TOTAL_BUDGET_BYTES = 1 * 1024 * 1024;
+const WEB_TOTAL_BUDGET_QUOTA_BYTES = 3 * 1024 * 1024;
 
 type DiskLimits = {
   /** Largest payload worth attempting at all. Past this the write is refused. */
@@ -731,8 +742,25 @@ function diskLimits(): DiskLimits {
   if (Platform.OS === "android") {
     return { total: ANDROID_TOTAL_BUDGET_BYTES, perValue: ANDROID_VALUE_BUDGET_BYTES };
   }
-  if (Platform.OS === "web") return { total: WEB_TOTAL_BUDGET_BYTES, perValue: null };
+  if (Platform.OS === "web") return { total: WEB_TOTAL_BUDGET_QUOTA_BYTES, perValue: null };
   return { total: IOS_TOTAL_BUDGET_BYTES, perValue: null };
+}
+
+/**
+ * What a payload costs against `total`, in the unit the platform bills.
+ *
+ * Native stores write UTF-8, so bytes are bytes and this is the identity. A
+ * browser bills localStorage in UTF-16 code units at two bytes each, which
+ * makes ASCII cost twice its byte count and Korean about two thirds of it.
+ * Those move in opposite directions and the mix decides which wins, which is
+ * exactly why no single fudge factor stands in for measuring: this catalogue
+ * measures near the ASCII end despite being a Korean skincare catalogue.
+ *
+ * `serialised.length` is already the UTF-16 code unit count, since that is
+ * what JavaScript strings are. No re-encoding needed.
+ */
+function storageCost(serialised: string, bytes: number): number {
+  return Platform.OS === "web" ? serialised.length * 2 : bytes;
 }
 
 /**
@@ -757,6 +785,11 @@ export type CacheWriteOutcome =
    * reason `lastCacheWrite` itself is — so the information exists at all.
    */
   | { kind: "ok"; bytes: number; chunks: number; at: number }
+  /**
+   * `bytes` and `budget` are both in the unit that platform bills, so they are
+   * always comparable to each other — UTF-8 bytes everywhere except web, where
+   * both are localStorage quota bytes. See `storageCost`.
+   */
   | { kind: "too-large"; bytes: number; budget: number; at: number }
   | { kind: "failed"; message: string; at: number };
 
@@ -1158,11 +1191,12 @@ async function persist(
     // catalogue. Skipping the write leaves the previous good copy in place and
     // costs one refetch.
     const limits = diskLimits();
-    if (bytes > limits.total) {
-      recordWrite({ kind: "too-large", bytes, budget: limits.total, at: Date.now() });
+    const cost = storageCost(serialised, bytes);
+    if (cost > limits.total) {
+      recordWrite({ kind: "too-large", bytes: cost, budget: limits.total, at: Date.now() });
       if (__DEV__) {
         console.warn(
-          `[catalogue-cache] skipped a ${Math.round(bytes / 1024)}KB write — ` +
+          `[catalogue-cache] skipped a ${Math.round(cost / 1024)}KB write — ` +
             `over the ${Math.round(limits.total / 1024)}KB budget for ${Platform.OS}. ` +
             "The previous cached copy is kept.",
         );

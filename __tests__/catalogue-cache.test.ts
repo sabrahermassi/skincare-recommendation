@@ -823,6 +823,35 @@ describe("how much fits in one value", () => {
     });
   });
 
+  /**
+   * The gap that let a live regression through: every size here was an
+   * extreme, and none was the size the catalogue actually is.
+   *
+   * The live catalogue measures ~1.06MB (647 products at ~1,640 bytes each),
+   * and a budget set by applying a worst-case all-ASCII haircut to a UTF-8
+   * figure landed at 1MB — just under it. Web would have stopped caching the
+   * day it shipped, silently, with 5,000-product tests passing either side of
+   * the hole. This pins the one size that matters most: the real one.
+   */
+  it("caches a payload the size of the live catalogue on web", async () => {
+    await onPlatform("web", async () => {
+      // ~1.06MB at this fixture's rate, matching the measured live payload.
+      const many = Array.from({ length: 1500 }, (_, i) => realisticProduct(i));
+
+      putCatalogue(many, { ...WATERMARK, count: many.length });
+      await writesSettled();
+
+      const outcome = lastCacheWrite();
+      if (outcome?.kind !== "ok") {
+        throw new Error(`live-sized catalogue must cache on web, got ${JSON.stringify(outcome)}`);
+      }
+      expect(outcome.bytes).toBeGreaterThan(1024 * 1024);
+
+      forgetMemoryLayer();
+      expect((await readCatalogue())?.products).toHaveLength(1500);
+    });
+  });
+
   it("refuses on web, where the localStorage quota is the smallest of the three", async () => {
     await onPlatform("web", async () => {
       const many = Array.from({ length: 5000 }, (_, i) => realisticProduct(i));
