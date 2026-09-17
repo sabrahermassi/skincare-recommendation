@@ -1207,6 +1207,79 @@ describe("a catalogue split across values", () => {
     });
   });
 
+  /**
+   * A manifest that is present but unparseable is *known*, not unknown.
+   *
+   * The parse used to share the storage read's catch, so a malformed manifest
+   * came back as "could not read" — which skipped the pre-write sweep and the
+   * stranded-copy drop, leaving the old chunks and a full-size PRODUCTS_KEY
+   * beside the new generation at exactly the peak the budget is sized for.
+   * Nothing behind a malformed manifest is reachable, so all of it is debris.
+   */
+  it("treats an unparseable manifest as known debris, not as an unreadable one", async () => {
+    await onPlatform("android", async () => {
+      putCatalogue(chunky(), WATERMARK);
+      await writesSettled();
+      const stale = await chunkKeys();
+      expect(stale).toHaveLength(2);
+
+      // A manifest that is there but garbage, plus a stranded full-size copy.
+      await AsyncStorage.setItem(MANIFEST_KEY, "{not json");
+      await AsyncStorage.setItem(PRODUCTS_KEY, "x".repeat(1_000_000));
+
+      // The write then fails, which is what makes the *pre*-write behaviour
+      // observable — a successful one cleans up afterwards either way.
+      const realSetItem = AsyncStorage.setItem;
+      (AsyncStorage as unknown as { setItem: unknown }).setItem = (k: string, v: string) =>
+        k.startsWith(CHUNK_PREFIX)
+          ? Promise.reject(new Error("database or disk is full"))
+          : realSetItem(k, v);
+      try {
+        putCatalogue(chunky(), { ...WATERMARK, count: 21 });
+        await writesSettled();
+      } finally {
+        (AsyncStorage as unknown as { setItem: unknown }).setItem = realSetItem;
+      }
+
+      // Both were unreachable the moment the manifest stopped parsing, so both
+      // should be gone rather than competing for the ceiling.
+      for (const key of stale) expect(await AsyncStorage.getItem(key)).toBeNull();
+      expect(await AsyncStorage.getItem(PRODUCTS_KEY)).toBeNull();
+    });
+  });
+
+  /**
+   * Cleanup runs after the manifest lands, which is the moment the write is
+   * committed — a reader is already being served the new generation. A failure
+   * in that tail used to be recorded as a failed write, which marks the blob
+   * stale and holds back the metadata for products that really did land: a
+   * cold start then reads the new catalogue under the old watermark and pays
+   * for a refetch nothing needed.
+   */
+  it("still reports a landed write as ok when only the cleanup fails", async () => {
+    await onPlatform("android", async () => {
+      const realRemoveItem = AsyncStorage.removeItem;
+      (AsyncStorage as unknown as { removeItem: unknown }).removeItem = (k: string) =>
+        k === PRODUCTS_KEY
+          ? Promise.reject(new Error("database or disk is full"))
+          : realRemoveItem(k);
+      try {
+        putCatalogue(chunky(), WATERMARK);
+        await writesSettled();
+      } finally {
+        (AsyncStorage as unknown as { removeItem: unknown }).removeItem = realRemoveItem;
+      }
+
+      expect(lastCacheWrite()?.kind).toBe("ok");
+      // And the metadata went with it, so the watermark describes what is
+      // actually on disk.
+      expect(await AsyncStorage.getItem(META_KEY)).not.toBeNull();
+
+      forgetMemoryLayer();
+      expect((await readCatalogue())?.products).toHaveLength(20);
+    });
+  });
+
   it("reassembles in manifest order rather than the order storage answers in", async () => {
     await onPlatform("android", async () => {
       putCatalogue(chunky(), WATERMARK);

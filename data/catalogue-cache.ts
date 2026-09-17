@@ -915,13 +915,37 @@ async function clearChunks(keep?: string): Promise<void> {
  * A manifest that is present but does not parse *is* known: nothing reachable,
  * since `readProductsBlob` treats it as a miss. Its chunks are debris.
  */
-async function liveGeneration(): Promise<{ readable: boolean; generation?: string }> {
+async function liveGeneration(): Promise<{
+  readable: boolean;
+  present: boolean;
+  generation?: string;
+}> {
+  let raw: string | null;
   try {
-    const raw = await AsyncStorage.getItem(MANIFEST_KEY);
-    if (raw === null) return { readable: true };
-    return { readable: true, generation: parseManifest(JSON.parse(raw) as unknown)?.generation };
+    raw = await AsyncStorage.getItem(MANIFEST_KEY);
   } catch {
-    return { readable: false };
+    // Only a *storage* failure is unknown. This is the one case where we must
+    // not act.
+    return { readable: false, present: false };
+  }
+
+  if (raw === null) return { readable: true, present: false };
+
+  try {
+    return {
+      readable: true,
+      present: true,
+      generation: parseManifest(JSON.parse(raw) as unknown)?.generation,
+    };
+  } catch {
+    // Present but unparseable, which the comment above has always called
+    // known: `readProductsBlob` treats it as a miss, so nothing behind it is
+    // reachable and its chunks are debris like any other. The code did not
+    // match that, because the parse shared the storage read's catch and a
+    // malformed manifest came back as "could not read" — which skipped the
+    // sweep and left old chunks beside the new ones at the peak. Found by
+    // review on PR #113.
+    return { readable: true, present: true };
   }
 }
 
@@ -964,8 +988,18 @@ async function writeProductsBlob(serialised: string, bytes: number): Promise<num
       // Manifest first, so a reader stops following chunks before they go.
       // Dying between these two leaves a complete older chunk set nothing
       // reads — wasted bytes until the next write, never a wrong answer.
+      //
+      // This removal is the commit here, not cleanup: until the manifest is
+      // gone a reader still follows it to the old chunks and never sees the
+      // value just written, so a failure is a genuinely failed write. What
+      // comes after it is cleanup, and is best effort for the same reason as
+      // the chunked branch below.
       await AsyncStorage.removeItem(MANIFEST_KEY);
-      await clearChunks();
+      try {
+        await clearChunks();
+      } catch {
+        // The next write sweeps whatever this missed.
+      }
     }
     return 1;
   }
@@ -992,7 +1026,10 @@ async function writeProductsBlob(serialised: string, bytes: number): Promise<num
   // at the peak instead of two. That is what turns one failed write into a
   // refresh that can never succeed, because the cleanup it needs sits past
   // the write that keeps failing.
-  if (live.generation !== undefined) await AsyncStorage.removeItem(PRODUCTS_KEY);
+  // Keyed on the manifest being *present*, not on it parsing. `readProductsBlob`
+  // only falls back to `PRODUCTS_KEY` when there is no manifest at all, so a
+  // manifest that exists — valid or not — already makes this key unreachable.
+  if (live.readable && live.present) await AsyncStorage.removeItem(PRODUCTS_KEY);
 
   const parts: string[] = [];
   for (let cursor = 0; cursor < serialised.length; ) {
@@ -1009,12 +1046,23 @@ async function writeProductsBlob(serialised: string, bytes: number): Promise<num
     JSON.stringify({ generation, chunks: parts.length } satisfies ChunkManifest),
   );
 
-  // Only now is the single-value copy dead. It is removed rather than left
-  // because on Android it counts against the same 6MB database ceiling the
-  // chunks do — a stranded full-size copy is the one thing that could push a
-  // catalogue that now fits back over it.
-  await AsyncStorage.removeItem(PRODUCTS_KEY);
-  await clearChunks(generation);
+  // Past this point the write is committed: the manifest names the new
+  // generation, so a reader is already being served it. Everything below is
+  // cleanup, and a cleanup failure must not be reported as a failed write —
+  // that marks the blob stale and holds back the metadata for products that
+  // did land, leaving a cold start reading the new catalogue under the old
+  // watermark and paying for a refetch nothing needed.
+  //
+  // The single-value copy is removed rather than left because on Android it
+  // counts against the same 6MB ceiling the chunks do — a stranded full-size
+  // copy is the one thing that could push a catalogue that now fits back over
+  // it. Worth doing, not worth failing over.
+  try {
+    await AsyncStorage.removeItem(PRODUCTS_KEY);
+    await clearChunks(generation);
+  } catch {
+    // The next write sweeps whatever this missed.
+  }
   return parts.length;
 }
 
