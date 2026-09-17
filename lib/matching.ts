@@ -215,7 +215,68 @@ const saturate = (value: number, k: number) => value / (value + k);
 const MIN_COVERAGE = 0.25;
 const MIN_IDENTIFIED = 3;
 
+/**
+ * Scores already computed, keyed by the product object they describe.
+ *
+ * `matchProduct` is called at eight sites and memoised per component, so the
+ * same product was re-scored by every screen that showed it — and two of those
+ * sites (the saved shelf and the ingredient screen) had no memo at all and
+ * re-scored their whole list on every render.
+ *
+ * **Keyed on the product object, not its id.** The id is stable across a
+ * change to the formula underneath it, which is exactly the case that must
+ * miss: a rescanned bottle whose ingredients were reformulated has the same id
+ * and a different score. `data/catalogue-cache.ts` never mutates a product in
+ * place — `addScannedToCatalogue` rebuilds the entry, and `rehydrate` builds
+ * fresh objects — so a changed product is always a new object and a new key.
+ * That invariant is what makes this safe; if a writer ever starts mutating a
+ * product in place, this cache is what will serve the stale answer.
+ *
+ * **Weak, so it holds nothing alive.** Entries disappear with the products
+ * they describe, which matters for 6b-4: an LRU that evicts products must not
+ * leave their scores pinned in a Map forever.
+ *
+ * The profile object doubles as the version. `setProfile` and `toggleConcern`
+ * both build a new profile rather than mutating, and `toggleConcern` returns
+ * the existing state untouched when it refuses to exceed `MAX_CONCERNS` — so
+ * identity changes exactly when the answer would.
+ */
+type ScoreCache = WeakMap<
+  Pick<ProductWithIngredients, "type" | "ingredients">,
+  { profile: SkinProfile; result: MatchResult }
+>;
+
+let scoreCache: ScoreCache = new WeakMap();
+
+/**
+ * Drops every cached score. For tests, which would otherwise carry one case's
+ * result into the next whenever they reuse a product fixture.
+ */
+export function resetScoreCache(): void {
+  // A WeakMap has no `clear`, so the map itself is replaced.
+  scoreCache = new WeakMap();
+}
+
 export function matchProduct(
+  product: Pick<ProductWithIngredients, "type" | "ingredients">,
+  profile: SkinProfile
+): MatchResult {
+  const hit = scoreCache.get(product);
+  // Identity, not deep equality: comparing two profiles field by field costs
+  // more than the cheap half of the scoring it would save, and the store never
+  // hands out an equal-but-different profile.
+  if (hit && hit.profile === profile) return hit.result;
+
+  const result = computeMatch(product, profile);
+  scoreCache.set(product, { profile, result });
+  return result;
+}
+
+/**
+ * The scoring itself. Pure — every input arrives as an argument, and the cache
+ * above depends on that staying true.
+ */
+function computeMatch(
   product: Pick<ProductWithIngredients, "type" | "ingredients">,
   profile: SkinProfile
 ): MatchResult {
