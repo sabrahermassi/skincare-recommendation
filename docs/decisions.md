@@ -67,11 +67,14 @@ was having its acids *and its irritation* counted at 40% for exactly the
 reactive skin that needed the warning.
 
 Three bands now: 0.25 for what rinses within a minute, 0.5 for what sits a
-few minutes and is then rinsed, 1 for leave-on. `exfoliator` sits in the last
-band despite its name — it covers a physical scrub *and* a leave-on acid
-liquid, and neither the product name nor the OBF tag separates them
-(`en:face-scrubs` is what both carry), so it follows the ambiguity rule
-below and a scrub is judged slightly harshly instead. That follows how
+few minutes and is then rinsed, 1 for leave-on. Only four types are
+discounted at all — cleanser, body-wash, shampoo, body-scrub — because those
+are the ones where "it washes off" is unambiguous. Three that look like they
+belong there do not: `exfoliator` covers a physical scrub *and* a leave-on
+acid liquid (`en:face-scrubs` is what OBF tags both), `conditioner` covers
+rinse-out and leave-in, and `hair-mask` covers rinsed-after-twenty-minutes
+and left-in-overnight. Each follows the ambiguity rule below instead, and the
+rinse-off variants are judged slightly harshly as the price. That follows how
 cosmetic exposure
 assessment is actually done — the SCCS applies a retention factor per product
 type, not a rinse-off boolean, and quantitative risk assessments built that

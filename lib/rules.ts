@@ -678,24 +678,27 @@ const EXPOSURE_BY_TYPE: Record<ProductType, number> = {
   cleanser: 0.25,
   "body-wash": 0.25,
   shampoo: 0.25,
-  // Sits for minutes, then rinsed. Each of these is unambiguous about that:
-  // a scrub is scrubbed and washed away, a conditioner and a hair mask are
-  // rinsed out.
-  conditioner: 0.5,
+  // Sits for minutes, then rinsed. A body scrub is the one type where that is
+  // unambiguous: it is scrubbed on and washed straight off.
   "body-scrub": 0.5,
-  "hair-mask": 0.5,
   // Left on.
   //
-  // `exfoliator` is here rather than above despite the name, and that is the
-  // point of the rule below: the type covers a physical scrub AND a leave-on
-  // acid liquid, and nothing in a name or an OBF tag reliably separates them
-  // (`en:face-scrubs` is what both carry). Discounting it would quietly
-  // under-count an acid left on all night for reactive skin — the exact case
-  // that prompted this change — so an ambiguous type takes full weight and
-  // the cost lands on a scrub being judged a little harshly.
+  // The three below look like they belong above and deliberately do not,
+  // because each spans both exposures with nothing to separate them:
+  //
+  //   exfoliator   a physical scrub AND a leave-on acid liquid — OBF tags
+  //                both `en:face-scrubs`
+  //   conditioner  rinse-out AND leave-in
+  //   hair-mask    rinsed after twenty minutes AND left in overnight
+  //
+  // Discounting an ambiguous type quietly under-counts an irritant that was
+  // in fact left on, which is the failure this weighting exists to prevent.
+  // So they take full weight, the cost lands on the rinse-off variants being
+  // judged a little harshly, and the rule is the same one `unknown` follows.
   exfoliator: 1,
-  // A sheet mask's essence is patted in rather than rinsed, which is what
-  // separates it from the hair mask above.
+  conditioner: 1,
+  "hair-mask": 1,
+  // Not ambiguous, just not rinsed: a sheet mask's essence is patted in.
   "sheet-mask": 1,
   toner: 1,
   essence: 1,
