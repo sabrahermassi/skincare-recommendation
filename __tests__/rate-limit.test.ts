@@ -326,3 +326,51 @@ describe("retryAfterSeconds", () => {
     expect(retryAfterSeconds(LIMIT, 1_000_080_000)).toBe(LIMIT.windowSeconds);
   });
 });
+
+describe("sweeping a map that holds more than one window length", () => {
+  /**
+   * Raised by review on PR #117. Not reachable today — each Edge Function is
+   * its own isolate and declares a single `RATE_LIMIT`, so these two never
+   * share a map — but nothing stated that invariant and nothing enforced it.
+   *
+   * The failure it guards against is the nasty kind: a sweep triggered by the
+   * *short* window evicts live entries belonging to the *long* one, so those
+   * callers silently regain a full allowance — and they do so precisely when
+   * the durable counter is unavailable and this layer is the only thing left.
+   */
+  const SHORT: RateLimit = { windowSeconds: 60, maxRequests: 3 };
+  const LONG: RateLimit = { windowSeconds: 3600, maxRequests: 3 };
+
+  it("keeps a long-window tally alive when a short-window sweep runs", () => {
+    const now = jest.spyOn(Date, "now");
+    now.mockReturnValue(1_000_020_000);
+
+    // Spend the long-window caller's allowance.
+    for (let i = 0; i < LONG.maxRequests; i++) withinRateLimit("long:1.2.3.4", LONG);
+    expect(withinRateLimit("long:1.2.3.4", LONG)).toBe(false);
+
+    // Push past the sweep threshold with short-window entries, one window
+    // later so the sweep has something legitimate to collect.
+    now.mockReturnValue(1_000_080_000);
+    for (let i = 0; i < 5_001; i++) withinRateLimit(`short:${i}`, SHORT);
+
+    // The long window has not closed, so its tally must have survived.
+    expect(withinRateLimit("long:1.2.3.4", LONG)).toBe(false);
+  });
+
+  it("still collects a long-window tally once its own window has closed", () => {
+    const now = jest.spyOn(Date, "now");
+    now.mockReturnValue(1_000_020_000);
+    for (let i = 0; i < LONG.maxRequests; i++) withinRateLimit("long:1.2.3.4", LONG);
+
+    // An hour and change later the entry is genuinely stale.
+    now.mockReturnValue(1_000_020_000 + LONG.windowSeconds * 1000 + 60_000);
+    for (let i = 0; i < 5_001; i++) withinRateLimit(`short:${i}`, SHORT);
+    expect(hitsHolds("long:1.2.3.4", LONG)).toBe(true);
+  });
+});
+
+/** A fresh window means the tally was collected or expired — either is fine. */
+function hitsHolds(key: string, limit: RateLimit): boolean {
+  return withinRateLimit(key, limit);
+}

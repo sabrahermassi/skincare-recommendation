@@ -64,9 +64,26 @@ export function retryAfterSeconds(limit: RateLimit, nowMs: number = Date.now()):
 
 // ── The in-memory layer ─────────────────────────────────────────────────────
 
-type Tally = { window: number; count: number };
+/**
+ * `windowSeconds` is carried per entry rather than read from the caller's
+ * `limit` at sweep time.
+ *
+ * Today every entry in this map shares one window, because each Edge Function
+ * is its own isolate and each declares a single `RATE_LIMIT` — so the two
+ * maps below never hold a 60-second `product-lookup` tally beside a
+ * 300-second `label-ocr` one. But nothing said so, and nothing enforced it:
+ * the moment one function wants two limits (a per-endpoint cap plus a global
+ * one, say) a sweep triggered by the shorter window would evict live entries
+ * belonging to the longer one, silently handing those callers a fresh
+ * allowance exactly when the durable counter is unavailable and the fallback
+ * is all there is. Raised by review on PR #117 as a live bug; it is not one
+ * yet, which is the only reason it is cheap to fix now.
+ */
+type Tally = { window: number; windowSeconds: number; count: number };
 
 const hits = new Map<string, Tally>();
+
+/** Key → the moment its refusal-log suppression lapses, in ms. */
 const lastLogged = new Map<string, number>();
 
 /**
@@ -100,14 +117,17 @@ export function withinRateLimit(key: string, limit: RateLimit): boolean {
   const tally = hits.get(key);
 
   if (!tally || tally.window !== current) {
-    hits.set(key, { window: current, count: 1 });
+    hits.set(key, { window: current, windowSeconds: limit.windowSeconds, count: 1 });
     // Opportunistic sweep — cheap, and keeps a long-lived isolate from
-    // accumulating a bucket per caller it has ever seen.
+    // accumulating a bucket per caller it has ever seen. Each entry is judged
+    // against its *own* window, not the one that happened to trigger the
+    // sweep; see `Tally`.
     if (hits.size > 5_000) {
-      for (const [k, t] of hits) if (t.window < current) hits.delete(k);
-      for (const [k, at] of lastLogged) {
-        if (at < now - limit.windowSeconds * 1000) lastLogged.delete(k);
+      const nowSeconds = Math.floor(now / 1000);
+      for (const [k, t] of hits) {
+        if (t.window + t.windowSeconds <= nowSeconds) hits.delete(k);
       }
+      for (const [k, until] of lastLogged) if (until <= now) lastLogged.delete(k);
     }
     return true;
   }
@@ -171,9 +191,11 @@ function refused(
 ): void {
   const key = `${bucket}:${caller}`;
   const now = Date.now();
-  const previous = lastLogged.get(key);
-  if (previous !== undefined && previous >= windowStart(now, limit.windowSeconds) * 1000) return;
-  lastLogged.set(key, now);
+  // Suppressed until this caller's current window closes — stored as the
+  // expiry rather than the last-logged time, so the value carries its own
+  // window and a sweep needs no outside context to judge it.
+  if ((lastLogged.get(key) ?? 0) > now) return;
+  lastLogged.set(key, (windowStart(now, limit.windowSeconds) + limit.windowSeconds) * 1000);
 
   console.warn(
     `[rate-limit] refused bucket=${logSafe(bucket)} caller=${logSafe(caller)} ` +
