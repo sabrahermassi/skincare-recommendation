@@ -8,6 +8,7 @@ import { AppHeader, HEADER_GUTTER } from "@/components/AppHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
 import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
+import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
 import { TERRACOTTA } from "@/components/shell/shared";
@@ -123,16 +124,25 @@ export default function Browse() {
    * How far down the ranked list the user has scrolled, tied to the exact rows
    * it counts into.
    *
-   * Paired with its own rows rather than reset by an effect: a filter change or
-   * a profile edit produces a new scored array, and comparing identity means
-   * the count falls back to the first page on its own. An effect would do the
-   * same thing a render later — and would be a `setState` inside an effect,
-   * which is the cascade this screen's other effects already get warned about.
+   * Paired with the products and profile it was counted against, rather than
+   * reset by an effect: those two are what a ranking is made of, so comparing
+   * identity means the count falls back to the first page on its own. An effect
+   * would do the same thing a render later — and would be a `setState` inside
+   * an effect, which is the cascade this screen's other effects already get
+   * warned about.
+   *
+   * It holds those two rather than the scored rows for a reason worth keeping:
+   * the catalogue and the store already own them, so nothing is kept alive that
+   * would otherwise be collected. Holding the rows array meant the *previous*
+   * filter's fully scored list — every product plus every verdict — stayed
+   * reachable from here until the next scroll, which is precisely the kind of
+   * retention step 6b-4 exists to remove.
    */
-  const [page, setPage] = useState<{ rows: ScoredProduct[] | null; count: number }>({
-    rows: null,
-    count: BROWSE_PAGE_SIZE,
-  });
+  const [page, setPage] = useState<{
+    source: ProductWithIngredients[] | null;
+    profile: SkinProfile | null;
+    count: number;
+  }>({ source: null, profile: null, count: BROWSE_PAGE_SIZE });
 
   // Search overrides the type-filtered browse list entirely while active,
   // the same way Search is its own mode on the Scan tab rather than a
@@ -336,7 +346,13 @@ export default function Browse() {
     scoredState && scoredState.source === products && scoredState.profile === profile
       ? scoredState.rows
       : null;
-  const visibleCount = page.rows === scored ? page.count : BROWSE_PAGE_SIZE;
+  const visibleCount =
+    page.source === products && page.profile === profile ? page.count : BROWSE_PAGE_SIZE;
+
+  // The list is being ranked right now: there are products to score and no
+  // finished ranking for them yet. Distinct from having no products at all,
+  // which is the cold-fetch skeleton, and from `error`.
+  const ranking = products !== null && scored === null && !error;
 
   // Server results win once they land; until then the local narrowing is
   // what the list shows, so each keystroke visibly shrinks the results
@@ -390,6 +406,33 @@ export default function Browse() {
   // Search results are capped at `SEARCH_RESULT_LIMIT`, well under one page,
   // so paging applies to the browse list only.
   const canLoadMore = !searchActive && scored !== null && visibleCount < scored.length;
+
+  /**
+   * What a screen reader hears when the list changes state.
+   *
+   * Sighted users get the skeletons, then rows. Before this, a screen reader
+   * got nothing at all: ranking is now asynchronous, so editing the profile or
+   * tapping a filter chip left a blind user with silence and no way to tell
+   * whether the list was rebuilding, empty, or broken. The component is already
+   * used by the scanner for exactly this reason, and carries the notes on why
+   * `accessibilityLiveRegion` alone does not cover all three platforms.
+   *
+   * Search is excluded: that list has its own flow and announcing both would
+   * talk over the results as the user types.
+   */
+  const announcement = searchActive
+    ? ""
+    : error
+      ? "Couldn't load products."
+      : ranking
+        ? personalized
+          ? "Ranking products for your skin."
+          : "Loading products."
+        : scored
+          ? `${scored.length} ${scored.length === 1 ? "product" : "products"}${
+              personalized ? ", ranked for your skin" : ""
+            }.`
+          : "";
 
   const renderItem: ListRenderItem<BrowseItem> = ({ item }) => {
     switch (item.kind) {
@@ -486,6 +529,7 @@ export default function Browse() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
+      <ScreenReaderAnnouncer message={announcement} />
       <FlatList
         data={items}
         keyExtractor={(item) => (item.kind === "skeleton" ? item.id : item.kind === "product" ? item.product.id : item.kind)}
@@ -507,7 +551,7 @@ export default function Browse() {
         onEndReachedThreshold={0.6}
         onEndReached={() => {
           if (!canLoadMore) return;
-          setPage({ rows: scored, count: visibleCount + BROWSE_PAGE_SIZE });
+          setPage({ source: products, profile, count: visibleCount + BROWSE_PAGE_SIZE });
         }}
         // The type-filter row (index 1, once ListHeaderComponent claims index
         // 0) sticks while browsing; a search replaces the whole list below
@@ -567,8 +611,15 @@ export default function Browse() {
               </View>
               {!searchActive && (
                 <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
+                  {/* Past tense only once it is true. Editing the profile
+                      re-ranks the whole catalogue, and this line used to claim
+                      the new ranking immediately while the list underneath was
+                      still skeletons — promising an order that did not exist
+                      yet, for as long as the scoring took. */}
                   {personalized
-                    ? `Ranked for ${profileSummary(profile).toLowerCase()}`
+                    ? ranking
+                      ? `Ranking for ${profileSummary(profile).toLowerCase()}…`
+                      : `Ranked for ${profileSummary(profile).toLowerCase()}`
                     : "No profile yet - showing unsorted results"}
                 </Text>
               )}
