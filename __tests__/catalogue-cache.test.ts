@@ -972,6 +972,40 @@ describe("a catalogue split across values", () => {
     });
   });
 
+  /**
+   * The one manifest shape where the guard is the difference, rather than a
+   * second net behind one that already caught it.
+   *
+   * The five cases above all reach a miss whether `parseManifest` validates or
+   * not — an absent key, or an empty join that fails to parse, gets there on
+   * its own. A `chunks` of `"2"` does not: `Array.from({ length: "2" })`
+   * coerces without complaint, so an unguarded reader follows the string,
+   * finds both real chunks and returns the catalogue. Only the type check
+   * turns that into a miss, which is what makes this the case that pins it.
+   *
+   * Worth rejecting rather than tolerating for the same reason `SCHEMA_VERSION`
+   * exists: a manifest whose shape we do not recognise is one a different
+   * build wrote, and guessing at it is how two versions start disagreeing
+   * about what is on disk.
+   */
+  it("rejects a manifest whose chunk count is a string, not a number", async () => {
+    await onPlatform("android", async () => {
+      putCatalogue(chunky(), WATERMARK);
+      await writesSettled();
+
+      // The live manifest, with only the *type* of `chunks` changed — the
+      // generation and the count still name chunks that are really there.
+      const live = JSON.parse((await AsyncStorage.getItem(MANIFEST_KEY))!);
+      await AsyncStorage.setItem(
+        MANIFEST_KEY,
+        JSON.stringify({ ...live, chunks: String(live.chunks) }),
+      );
+
+      forgetMemoryLayer();
+      await expect(readCatalogue()).resolves.toBeNull();
+    });
+  });
+
   it("reassembles in manifest order rather than the order storage answers in", async () => {
     await onPlatform("android", async () => {
       putCatalogue(chunky(), WATERMARK);
