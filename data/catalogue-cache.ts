@@ -995,11 +995,25 @@ async function liveGeneration(): Promise<{
  *
  * Refusing the write protects the copy already on disk. It should not also
  * preserve the litter beside it.
+ *
+ * Swallows its own storage failures, unlike the identical sweep inside
+ * `writeProductsBlob`. That one runs ahead of a write whose whole contract is
+ * that it either lands or is recorded as failed, so a sweep that cannot reach
+ * the database is a failed write and says so. This one runs *after* the
+ * outcome is already recorded, on the way out of a refusal — there is nothing
+ * left for a rejection to change except to escape `persist` entirely, and
+ * production callers invoke it as `void persist(...)`, so that is an unhandled
+ * rejection rather than the `too-large` this path documents. Found by review
+ * on PR #113.
  */
 async function sweepOrphanChunks(): Promise<void> {
   if (diskLimits().perValue === null) return;
-  const live = await liveGeneration();
-  if (live.readable) await clearChunks(live.generation);
+  try {
+    const live = await liveGeneration();
+    if (live.readable) await clearChunks(live.generation);
+  } catch {
+    // The next write that is not refused sweeps what this one could not.
+  }
 }
 
 async function writeProductsBlob(serialised: string, bytes: number): Promise<number> {

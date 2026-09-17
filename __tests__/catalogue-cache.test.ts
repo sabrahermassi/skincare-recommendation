@@ -1237,6 +1237,40 @@ describe("a catalogue split across values", () => {
   });
 
   /**
+   * ...and that sweep must not be able to take the refusal down with it.
+   *
+   * It sits after the outcome is recorded, outside the write path's try, so a
+   * `getAllKeys` or `multiRemove` that rejects escaped `persist` altogether.
+   * Production calls it as `void persist(...)`, which turns that into an
+   * unhandled rejection instead of the non-fatal `too-large` this path
+   * documents — the cache failing loudly at exactly the moment it decided to
+   * do nothing. Found by review on PR #113.
+   */
+  it("still refuses cleanly when the refusal-path sweep cannot reach storage", async () => {
+    await onPlatform("android", async () => {
+      const huge = Array.from({ length: 60 }, (_, i) => ({
+        ...product(`huge-${i}`, "serum"),
+        description: "x".repeat(100_000),
+      })) as unknown as typeof CATALOGUE;
+
+      const realGetAllKeys = AsyncStorage.getAllKeys;
+      (AsyncStorage as unknown as { getAllKeys: unknown }).getAllKeys = () =>
+        Promise.reject(new Error("database or disk is full"));
+      try {
+        // `writesSettled` is the assertion as much as the expectations below:
+        // it is the queued job's own promise, so it rejects if anything in
+        // `persist` does.
+        putCatalogue(huge, { ...WATERMARK, count: 60 });
+        await expect(writesSettled()).resolves.toBeUndefined();
+      } finally {
+        (AsyncStorage as unknown as { getAllKeys: unknown }).getAllKeys = realGetAllKeys;
+      }
+
+      expect(lastCacheWrite()?.kind).toBe("too-large");
+    });
+  });
+
+  /**
    * A manifest that is present but unparseable is *known*, not unknown.
    *
    * The parse used to share the storage read's catch, so a malformed manifest
