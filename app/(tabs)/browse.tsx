@@ -44,18 +44,26 @@ const TYPE_FILTERS: (ProductType | "all")[] = [
   "night-mask",
   "exfoliator",
   "lip-balm",
-  "perfume",
   "facial-mist",
   "sheet-mask",
-  "deodorant",
-  "shampoo",
-  "conditioner",
-  "hair-oil",
-  "hair-mask",
-  "body-butter",
-  "body-scrub",
-  "foot-cream",
 ];
+
+/*
+  Face families only, deliberately. `scripts/import-obf.mjs` fetches six
+  skincare categories (en:face, en:suncare, en:cleansers, en:skin-care,
+  en:creams, en:moisturizers), and that filter is itself a measured decision:
+  a broader sweep returned 352 unscoreable rows out of 549, toothpaste and
+  dish soap included. So shampoo, conditioner, hair-oil, hair-mask,
+  deodorant, perfume, body-butter, body-scrub and foot-cream are real
+  `ProductType`s a live scan can still produce, but the catalogue holds
+  almost none of them — a chip for each would open an empty list.
+
+  They keep their type, label and illustration; they just don't get a filter
+  chip until there is something behind one. The durable version is building
+  the chips from `fetchProductTypes()` (data/api.ts) instead of a hand-kept
+  list, which would also cover the body-wash/body-lotion/hand-cream chips
+  that predate this one.
+*/
 
 // "unknown" is never in TYPE_FILTERS above — it's not a category to browse
 // by — but the Record still needs the key, and PRODUCT_TYPE_LABEL is the one

@@ -367,7 +367,19 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
   // parsers simply disagreed.
   const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?ingredients?\s*[:：]\s*/i, "");
 
-  const parsed = withoutHeading
+  // ...and truncate at whatever shares the back of the label. Legal
+  // boilerplate and net-quantity marks reliably follow the formula, and
+  // without this the last ingredient is stored as "glycerin. made in
+  // nigeria" — a junk name that reaches the shared `ingredients` dictionary
+  // as a stub, and that no exact-name lookup (the UV-filter and acid lists
+  // in the ingredient fallback, for two) can match. `lib/inci.ts` and
+  // `import-obf.mjs` have always done this; this parser simply never did.
+  const stop =
+    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b)/i
+      .exec(withoutHeading);
+  const block = stop ? withoutHeading.slice(0, stop.index) : withoutHeading;
+
+  const parsed = block
     // A comma directly between two digits belongs to the name —
     // "1,2-Hexanediol" is one ingredient, and splitting there yields a bare
     // "1" and an orphaned "2-hexanediol". Kept in step with `lib/inci.ts`.

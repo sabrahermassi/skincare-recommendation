@@ -179,3 +179,25 @@ describe("the import scripts stay in step with lib/inci.ts", () => {
     expect(extractRegexLiteral(obf, marker)).toBe(extractRegexLiteral(client, marker));
   });
 });
+
+/**
+ * `product-lookup` holds a third copy of the parser, and this file's own
+ * header names it as a past drift victim — yet nothing here covered it, which
+ * is how it went on storing "glycerin. made in nigeria" as an ingredient long
+ * after the other two parsers learned to truncate. A junk name like that
+ * reaches the shared `ingredients` dictionary as a stub row, and matches no
+ * exact-name lookup — including the UV-filter and acid lists the type
+ * fallback reads.
+ */
+describe("product-lookup's parser stays in step with lib/inci.ts", () => {
+  const client = fs.readFileSync(CLIENT_PATH, "utf8");
+  const lookup = fs.readFileSync(
+    path.join(__dirname, "..", "supabase", "functions", "product-lookup", "index.ts"),
+    "utf8",
+  );
+
+  it("reuses the boilerplate stop clause verbatim", () => {
+    const marker = "/(?:\\bdirections?\\b";
+    expect(extractRegexLiteral(lookup, marker)).toBe(extractRegexLiteral(client, marker));
+  });
+});
