@@ -446,14 +446,22 @@ function guessType(tags, text) {
     [/(?<!skin[\s-])conditioner/, "conditioner"],
     // Above the generic cleanser rule: a micellar water is wiped off, not
     // rinsed, so it needs its own type rather than falling into `cleanser`'s
-    // rinse-off discount (step 13, PR #130). Requires "water" alongside
-    // "micellar" rather than the bare word — "micellar" alone also appears
-    // on rinse-off formats sold as "Micellar Foaming Cleanser" or "Micellar
-    // Wash", which genuinely are rinsed off and belong in the generic rule
-    // below. English-only, like every other pattern in this table until a
-    // real catalogue entry is seen failing in another language — no such
-    // entry has been seen yet for this one.
-    [/(?=.*micellar)(?=.*water)/, "micellar-water"],
+    // rinse-off discount (step 13, PR #130). Requiring "water" alongside
+    // "micellar" was not enough on its own — Codex found real rinse-off
+    // names that carry both words without being adjacent, e.g. "Micellar
+    // Water Foaming Cleanser" or "Water Boost Micellar Facial Gel Wash" — so
+    // this also excludes any name that carries an explicit rinse-off format
+    // word. A name excluded here that also fails to match the generic
+    // cleanser rule below falls through to "unknown" rather than being
+    // force-typed — the safe outcome, since "unknown" is the same
+    // conservative-benefit/full-harm fail-safe this table already uses
+    // everywhere else. English-only, like every other pattern in this table
+    // until a real catalogue entry is seen failing in another language — no
+    // such entry has been seen yet for this one.
+    [
+      /(?=.*micellar)(?=.*water)(?!.*(cleanser|foam|wash|gel|nettoyant|lavante|reinigings|schuimende|limpiador|detergente|waschgel|syndet))/,
+      "micellar-water",
+    ],
     [
       /cleanser|foam|cleansing|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
       "cleanser",

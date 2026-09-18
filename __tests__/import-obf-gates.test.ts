@@ -233,6 +233,16 @@ describe("guessType", () => {
     // product that's genuinely rinsed off.
     expect(guessType([], "Micellar Foaming Cleanser")).toBe("cleanser");
     expect(guessType([], "Bi-Phase Micellar Foam")).toBe("cleanser");
+    // Codex, P1: "water" alongside "micellar" wasn't enough either — both
+    // words can appear in a genuinely rinse-off name without being
+    // adjacent. An explicit rinse-off format word now excludes the match
+    // regardless of where "water" sits in the name.
+    expect(guessType([], "Micellar Water Foaming Cleanser")).toBe("cleanser");
+    // No other rule in the table matches "gel"/"wash" bare, so this falls
+    // through to "unknown" rather than "cleanser" — still the point of the
+    // fix (not "micellar-water" at full leave-on weight), and "unknown"'s
+    // own conservative-benefit/full-harm policy is the safe place to land.
+    expect(guessType([], "Water Boost Micellar Facial Gel Wash")).toBe("unknown");
   });
 
   it("does not call a skin conditioner a hair conditioner", () => {
