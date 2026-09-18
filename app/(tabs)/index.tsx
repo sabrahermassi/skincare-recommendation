@@ -14,6 +14,7 @@ import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { COLORS } from "@/lib/colors";
+import { profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SCANNER_FRAME, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 
@@ -123,6 +124,18 @@ export default function Scan() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const recordView = useAppStore((s) => s.recordView);
+  const justFinishedQuiz = useAppStore((s) => s.justFinishedQuiz);
+  const dismissQuizAcknowledgement = useAppStore((s) => s.dismissQuizAcknowledgement);
+  const profile = useAppStore((s) => s.profile);
+
+  // `profileSummary`'s capitalized-noun-phrase shape reads oddly mid-sentence
+  // — browse.tsx's "Ranked for …" line has the same issue and lowercases it
+  // for the same reason. A quiz finished with every question left unanswered
+  // still has something to acknowledge, just not a summary.
+  const profileSummaryText = profileSummary(profile);
+  const quizAcknowledgementText = profileSummaryText
+    ? `Set for ${profileSummaryText.toLowerCase()}. Scan anything to see how it fits.`
+    : "Profile set. Scan anything to see how it fits.";
 
   const busy = useRef(false);
 
@@ -176,6 +189,10 @@ export default function Scan() {
     async (data: string) => {
       if (busy.current) return;
       busy.current = true;
+      // A scan starting is a stronger signal that the quiz banner was seen
+      // than any timer would be, and this is the one place every barcode
+      // read passes through. See issue #95.
+      dismissQuizAcknowledgement();
       setStatus({ kind: "looking", code: data });
 
       // `product-lookup` rejects anything outside 8-14 digits with a 400
@@ -221,7 +238,7 @@ export default function Scan() {
       setStatus({ kind: "missed", code: data });
       busy.current = false;
     },
-    [recordView, preserveMode]
+    [recordView, preserveMode, dismissQuizAcknowledgement]
   );
 
   // Most devices only let one CameraView hold the camera at a time. This
@@ -253,6 +270,9 @@ export default function Scan() {
         }}
         preserveMode={preserveMode}
         modeSwitcher={<ModeSwitcher mode={mode} setMode={setMode} floating />}
+        justFinishedQuiz={justFinishedQuiz}
+        quizAcknowledgementText={quizAcknowledgementText}
+        onDismissQuizAcknowledgement={dismissQuizAcknowledgement}
       />
     );
   }
@@ -361,6 +381,9 @@ function BarcodeStage({
   onDismissStatus,
   preserveMode,
   modeSwitcher,
+  justFinishedQuiz,
+  quizAcknowledgementText,
+  onDismissQuizAcknowledgement,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
   requestPermission: () => void;
@@ -372,6 +395,10 @@ function BarcodeStage({
    *  switch — see `Scan`'s own `preserveMode` doc comment for why. */
   preserveMode: () => void;
   modeSwitcher: ReactElement;
+  /** See `justFinishedQuiz` on the store — issue #95. */
+  justFinishedQuiz: boolean;
+  quizAcknowledgementText: string;
+  onDismissQuizAcknowledgement: () => void;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -462,6 +489,41 @@ function BarcodeStage({
             >
               Or find the product in Browse instead.
             </Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Named acknowledgement of finishing the quiz — see issue #95. Only
+          for the real 4-step finish (`justFinishedQuiz`), not a skip, and
+          only while nothing else is on screen: a scan starting clears it
+          (see `handleBarcode`), so it can never sit behind or fight a status
+          panel for the same space. */}
+      {justFinishedQuiz && status.kind === "idle" && (
+        <View
+          style={{
+            position: "absolute",
+            left: 20,
+            right: 20,
+            top: insets.top + 12,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            borderRadius: 14,
+            backgroundColor: withAlpha(CANVAS, 0.95),
+            paddingHorizontal: 16,
+            paddingVertical: 13,
+          }}
+        >
+          <Text style={{ flex: 1, fontSize: 13, fontWeight: "600", color: INK }}>
+            {quizAcknowledgementText}
+          </Text>
+          <Pressable
+            onPress={onDismissQuizAcknowledgement}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss"
+          >
+            <Text style={{ fontSize: 14, fontWeight: "600", color: MUTED }}>✕</Text>
           </Pressable>
         </View>
       )}

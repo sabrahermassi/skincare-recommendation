@@ -85,6 +85,16 @@ type AppState = {
    */
   hasSeenOnboarding: boolean;
 
+  /**
+   * Set only by actually finishing the quiz's 4th question — not by
+   * skipping, which has nothing to acknowledge. Deliberately session-only:
+   * it names the one scanner visit right after the quiz, not a persisted
+   * fact about the account, so it is intentionally absent from
+   * `PERSISTED_KEYS`/`partializeState` below and needs no migration. See
+   * issue #95.
+   */
+  justFinishedQuiz: boolean;
+
   // ── Saved shelf: explicit, user-curated ──
   savedProducts: SavedProduct[];
 
@@ -100,6 +110,14 @@ type AppState = {
   toggleConcern: (concern: Concern) => void;
 
   completeOnboarding: () => void;
+
+  /** Called only from the quiz's real finish, alongside `completeOnboarding` —
+   *  see `justFinishedQuiz`. */
+  markQuizJustFinished: () => void;
+  /** Clears `justFinishedQuiz` — the scanner's acknowledgement banner calls
+   *  this on dismiss, and also the moment a scan actually starts, so it
+   *  cannot linger unread indefinitely. */
+  dismissQuizAcknowledgement: () => void;
 
   /** Idempotent add. Use where re-triggering must not un-save. */
   saveProduct: (id: string, formulaFetchedAt?: string) => void;
@@ -195,6 +213,7 @@ export function partializeState(state: AppState): PersistedState {
 export const INITIAL_STATE = {
   profile: EMPTY_PROFILE,
   hasSeenOnboarding: false,
+  justFinishedQuiz: false,
   savedProducts: [] as SavedProduct[],
   savedIngredients: [] as string[],
   history: [] as HistoryEntry[],
@@ -353,6 +372,9 @@ export const useAppStore = create<AppState>()(
         }),
 
       completeOnboarding: () => set({ hasSeenOnboarding: true }),
+
+      markQuizJustFinished: () => set({ justFinishedQuiz: true }),
+      dismissQuizAcknowledgement: () => set({ justFinishedQuiz: false }),
 
       saveProduct: (id, formulaFetchedAt) =>
         set((state) =>
