@@ -105,6 +105,13 @@ export type ProductType =
   | "body-butter"
   | "body-scrub"
   | "foot-cream"
+  // The generic clay/cream jar `night-mask`/`sheet-mask`/`hair-mask` don't
+  // catch, and the two patch formats — see issue #105. `eye-patch` and
+  // `pimple-patch` stay separate types for browsing/labeling even though
+  // `contactWeight` (`lib/rules.ts`) scores them identically.
+  | "face-mask"
+  | "eye-patch"
+  | "pimple-patch"
   // A genuinely undetermined type — not a tenth category to browse by, a
   // "we don't know" state. Both server-side type-guessers (the product-lookup
   // Edge Function's `guessType`, the OCR Edge Function's identity fallback)
@@ -143,6 +150,9 @@ export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
   "body-butter": "Body butter",
   "body-scrub": "Body scrub",
   "foot-cream": "Foot cream",
+  "face-mask": "Face mask",
+  "eye-patch": "Eye patch",
+  "pimple-patch": "Pimple patch",
   unknown: "Unknown",
 };
 

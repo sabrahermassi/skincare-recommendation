@@ -3,7 +3,7 @@ import { productIllustrationSource } from "@/lib/productIllustration";
 import { defaultPackagingType } from "@/components/BottleIcon";
 
 /**
- * Every `ProductType` (all 27, including the 16 added alongside the
+ * Every `ProductType` (all 30, including the 16 added alongside the
  * ingredient-based fallback) needs a defined icon source and a defined
  * packaging shape — a mapping missed in one of the two Records here would
  * previously only surface as a runtime crash or a silently blank image, not

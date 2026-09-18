@@ -92,13 +92,13 @@ const SHORT_INGREDIENT_LIST_MAX = 20;
 /**
  * A dry run also caught this: a clay/mud mask carrying an acid active (a
  * real, common combination) otherwise reads exactly like an acid serum by
- * ingredients alone. There's no ProductType for a generic mask yet (see
- * issue #105 — only sheet/night/hair mask exist), so the honest answer for
- * one is "unknown", not a wrong specific guess of "serum". guessType only
- * checks English mask words; this repeats the same check in the languages
- * issue #105's own examples surfaced (German, Italian, French, Spanish,
- * Turkish), since a name this heuristic never sees the tags for is the one
- * place this module has no other way to know.
+ * ingredients alone. `guessType` now has its own generic `"face-mask"` rule
+ * using this same multilingual pattern (issue #105), so in the normal
+ * pipeline a mask-named product never reaches this fallback at all — but
+ * this function is also called and tested standalone
+ * (`__tests__/guess-type-from-ingredients.test.ts`), so the guard stays as a
+ * defense-in-depth backstop: "unknown" here is still safer than a wrong
+ * specific guess of "serum" if it's ever reached some other way.
  */
 // No trailing \b: German "Maske" and Turkish "Maskesi" both already start
 // with the literal four letters "mask", so a leading boundary alone covers

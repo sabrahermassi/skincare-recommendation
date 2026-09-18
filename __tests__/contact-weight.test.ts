@@ -52,12 +52,27 @@ describe("contactWeight", () => {
     ["conditioner", 0.5],
     ["hair-mask", 0.5],
     ["shampoo", 0.5],
+    ["face-mask", 0.5],
   ] as [ProductType, number][])(
     "keeps ambiguous %s harm at full weight and discounts only its benefit",
     (type: ProductType, benefit: number) => {
+      // A physical scrub and a leave-on acid liquid, a rinse-out and a
+      // leave-in conditioner, a hair mask rinsed after twenty minutes and one
+      // left in overnight, a rinse-out shampoo and a dry shampoo sprayed in
+      // and left, a clay mask rinsed after minutes and a cream mask that
+      // often isn't — nothing separates them, so each gets the same
+      // ambiguous-use policy (issue #105 for face-mask).
       expect(contactWeight(type)).toEqual({ harm: 1, benefit });
     }
   );
+
+  it("scores eye-patch and pimple-patch the same as each other and as sheet-mask", () => {
+    // Not ambiguous like face-mask above — a patch is worn, then peeled off,
+    // never rinsed. Kept as separate types for browsing/labeling, but scored
+    // identically on purpose (issue #105).
+    expect(contactWeight("eye-patch")).toEqual(contactWeight("pimple-patch"));
+    expect(contactWeight("eye-patch")).toEqual(contactWeight("sheet-mask"));
+  });
 
   it("treats an unknown type as full harm but conservative benefit", () => {
     expect(contactWeight("unknown")).toEqual({ harm: 1, benefit: 0.25 });

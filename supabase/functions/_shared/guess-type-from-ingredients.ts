@@ -1,11 +1,11 @@
 // The Deno half of the ingredient-based type fallback, tried only once
 // `guessType` (name/tags) has already returned "unknown".
 //
-// Keep in step with `scripts/lib/guess-type-from-ingredients.mjs` — the two
-// run on different runtimes (Deno here, Node there) so they cannot share a
-// module, exactly like `guessType` itself. A product typed one way at import
-// and another way on a live scan is a real inconsistency, not a cosmetic one:
-// `contactWeight` reads the result.
+// Keep in step with `scripts/lib/guess-type-from-ingredients.mjs`. Unlike this
+// formula fallback, the primary name/tag classifier is now one runtime-neutral
+// ESM module shared by Node and Deno. A product typed one way at import and
+// another way on a live scan is a real inconsistency: `contactWeight` reads
+// the result.
 //
 // Why these two rules and no others, in short (the Node copy carries the full
 // history): a product named after its active ingredient ("Lactic Acid 10%")
@@ -66,8 +66,10 @@ const SHORT_INGREDIENT_LIST_MAX = 20;
 
 /**
  * A clay/mud mask carrying an acid active reads exactly like an acid serum by
- * ingredients alone, and there is no ProductType for a generic mask (issue
- * #105), so the honest answer for one is "unknown". The lookahead keeps
+ * ingredients alone. `guessType` now has its own generic "face-mask" rule
+ * using this same pattern (issue #105), so the normal pipeline never reaches
+ * this fallback for a mask-named product — this guard is a defense-in-depth
+ * backstop for when the function is called standalone. The lookahead keeps
  * "maskara" (Turkish for mascara) out.
  */
 const MASK_NAME_PATTERN = /\bmask(?=[eis]|\b)|\bmaschera|\bmasque|\bmascarilla/i;

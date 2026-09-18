@@ -715,8 +715,17 @@ const EXPOSURE_BY_TYPE: Record<ProductType, ContactWeights> = {
   conditioner: { harm: 1, benefit: 0.5 },
   "hair-mask": { harm: 1, benefit: 0.5 },
   shampoo: { harm: 1, benefit: 0.5 },
+  // Same ambiguity as the four above: a clay mask is rinsed after ~15
+  // minutes, a cream mask often isn't, and nothing in a name or tag tells
+  // them apart (issue #105) — same policy, same reasoning.
+  "face-mask": { harm: 1, benefit: 0.5 },
   // Not ambiguous, just not rinsed: a sheet mask's essence is patted in.
   "sheet-mask": FULL_CONTACT,
+  // Same as sheet-mask — worn, then peeled off, never rinsed. Scored
+  // identically to each other on purpose (issue #105): browsing wants them
+  // separate, scoring doesn't.
+  "eye-patch": FULL_CONTACT,
+  "pimple-patch": FULL_CONTACT,
   toner: FULL_CONTACT,
   essence: FULL_CONTACT,
   serum: FULL_CONTACT,

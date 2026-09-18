@@ -189,10 +189,9 @@ describe("the parser matches lib/inci.ts", () => {
 });
 
 /**
- * `guessType` is a first-match table, so both what it matches and the order it
- * matches in are load-bearing. Every case below is one a review caught going
- * the wrong way. Keep in step with the identical table in
- * `supabase/functions/product-lookup/index.ts`.
+ * `guessType` is shared by the importer and Edge Function. Specific formats
+ * and exclusions still have deliberate precedence, and every case below is a
+ * regression a review caught before the classifier was consolidated.
  */
 describe("guessType", () => {
   it("reads hyphenated OBF category tags, not just spaced names", () => {
@@ -272,5 +271,174 @@ describe("guessType", () => {
     expect(guessType([], "Glycolic Peeling Pads")).toBe("unknown");
     // Physical scrubs, which really are rinsed off, still land there.
     expect(guessType([], "Apricot Face Scrub")).toBe("exfoliator");
+  });
+
+  // Issue #105's own real examples, seen typing as "unknown" before these
+  // patterns existed.
+  it("types a generic clay/cream mask as face-mask, in any of the languages seen so far", () => {
+    expect(guessType([], "Glass Skin Collagen Maske")).toBe("face-mask");
+    expect(guessType([], "Maschera Viso Purificante")).toBe("face-mask");
+  });
+
+  it("prefers eye-patch over the generic face-mask rule even when the name says mask", () => {
+    expect(guessType([], "Eye Pad Mask Paradise Punch")).toBe("eye-patch");
+    expect(guessType([], "Dear Klairs Blue Caffeine Full Cover Eye patch")).toBe("eye-patch");
+  });
+
+  it("types a plain 'eye mask' as eye-patch, since that's the same real product", () => {
+    // In real skincare naming an "eye mask" and an "eye patch" are the same
+    // hydrogel under-eye product, not a generic face mask (found on PR #129).
+    expect(guessType([], "Hydrogel Eye Mask")).toBe("eye-patch");
+  });
+
+  it("types a pimple/hydrocolloid patch as pimple-patch", () => {
+    expect(guessType([], "Hydrocolloid Blemish Care Pimple Patches")).toBe("pimple-patch");
+    expect(guessType([], "Acne Spot Patch")).toBe("pimple-patch");
+  });
+
+  it("does not call a bare hydrocolloid wound dressing a pimple patch without acne context", () => {
+    // A bare "hydrocolloid" match (no acne/blemish/pimple/spot word required)
+    // used to also claim wound and blister dressings reached via the UPC
+    // barcode-database fallback — a real first-aid product, not skincare
+    // (found on PR #129).
+    expect(guessType([], "Compeed Advanced Blister Cushions Hydrocolloid")).not.toBe(
+      "pimple-patch"
+    );
+  });
+
+  it("does not call a BB cream or a spot-treatment serum a pimple patch just for saying blemish/pimple", () => {
+    // A bare `blemish`/`pimple` match (no `patch` qualifier) used to also
+    // claim these — "Blemish Balm" is the literal expansion of "BB cream", a
+    // real and common Korean-beauty category, not a patch at all.
+    expect(guessType([], "Blemish Balm Cream")).toBe("moisturizer");
+    expect(guessType([], "Anti-Blemish Gel")).not.toBe("pimple-patch");
+    expect(guessType([], "Pimple Spot Gel")).not.toBe("pimple-patch");
+  });
+
+  it("does not call a dark-spot corrector a pimple patch just for saying spot", () => {
+    // "spot" alone used to be a trigger word, so a hyperpigmentation product
+    // — a real, distinct skincare category, nothing to do with acne — was
+    // wrongly typed and scored as a pimple patch (found on PR #129). "spot"
+    // still works as a filler word between an acne word and "patch", so the
+    // existing "Acne Spot Patch"/"Acne Spot Healing Patch" cases are
+    // unaffected.
+    expect(guessType([], "Dark Spot Corrector Patch")).not.toBe("pimple-patch");
+  });
+
+  // Codex found all three of these on PR #129.
+  it("prefers every mask and patch rule over the cleanser catch-all", () => {
+    expect(guessType([], "Deep Cleansing Mask")).toBe("face-mask");
+    expect(guessType([], "Masque nettoyant à l'argile")).toBe("face-mask");
+    expect(guessType([], "Maschera detergente purificante")).toBe("face-mask");
+  });
+
+  it("allows descriptor words between the acne/pimple/blemish word and patch", () => {
+    // COSRX's real product name — neither "acne" nor "pimple" alone reached
+    // "patch" without this.
+    expect(guessType([], "Acne Pimple Master Patch")).toBe("pimple-patch");
+    expect(guessType([], "Acne Cover Patch")).toBe("pimple-patch");
+    expect(guessType([], "Acne Spot Healing Patch")).toBe("pimple-patch");
+  });
+
+  it("stays unknown for an untagged foreign-language hair mask, rather than asserting face-mask", () => {
+    expect(guessType([], "Masque capillaire réparateur")).not.toBe("face-mask");
+    expect(guessType([], "Mascarilla capilar nutritiva")).not.toBe("face-mask");
+    // The confirmed real face-mask examples still resolve correctly —
+    // this exclusion must not catch them too.
+    expect(guessType([], "Reinigende Tonerde-Maske")).toBe("face-mask");
+  });
+
+  // Codex found both of these on the second review round of PR #129.
+  it("stays unknown for an English-spelled hair masque and the Italian 'capillare' variant", () => {
+    expect(guessType([], "Intense Hydrating Hair Masque")).not.toBe("face-mask");
+    expect(guessType([], "Maschera capillare nutriente")).not.toBe("face-mask");
+  });
+
+  it("stays unknown for a foot, hand or lip mask, rather than asserting face-mask", () => {
+    // None of these say "sleeping"/"night"/"overnight", so this actually
+    // exercises the face-mask fallback's exclusion rather than the separate
+    // night-mask rule above it.
+    expect(guessType([], "Purifying Foot Mask")).not.toBe("face-mask");
+    expect(guessType([], "Hydrating Hand Mask")).not.toBe("face-mask");
+    expect(guessType([], "Moisture Lip Mask")).not.toBe("face-mask");
+  });
+
+  // Codex found all four of these on the third review round of PR #129 —
+  // the same body-part-exclusion gap as the English one above, just in
+  // French, Spanish and Italian.
+  it("stays unknown for a French, Spanish or Italian hand/foot/lip/hair mask", () => {
+    expect(guessType([], "Masque pour les mains")).not.toBe("face-mask");
+    expect(guessType([], "Mascarilla para pies")).not.toBe("face-mask");
+    expect(guessType([], "Maschera labbra")).not.toBe("face-mask");
+    expect(guessType([], "Masque pour cheveux")).not.toBe("face-mask");
+  });
+
+  // Codex found this on the fourth review round of PR #129: with a
+  // descriptor word between the format word and "mask"/"patch", the
+  // specific rules missed and these fell through to the generic face-mask
+  // rule instead, discounting benefit weight from 1 to 0.5.
+  it("allows descriptor words before the format word for eye-patch/night-mask/sheet-mask/hair-mask, same as pimple-patch", () => {
+    expect(guessType([], "Eye Gel Mask")).toBe("eye-patch");
+    expect(guessType([], "Overnight Face Mask")).toBe("night-mask");
+    expect(guessType([], "Hydrating Sheet Face Mask")).toBe("sheet-mask");
+    expect(guessType([], "Argan Repair Hair Mask")).toBe("hair-mask");
+  });
+
+  it("still matches the tight zero/one-separator compound form for eye-patch", () => {
+    expect(guessType([], "Cettua Hydrogel Eyepatch Set")).toBe("eye-patch");
+    expect(guessType([], "Overnight Anti-Aging Eye-Patch")).toBe("eye-patch");
+  });
+
+  // Codex found this on the fifth review round of PR #129: the
+  // descriptor-bearing eye-patch branch above also swallowed "pad" with a
+  // filler word in between, wrongly claiming a rinse/wipe-off product.
+  it("does not call an eye-cleansing pad an eye patch just because a descriptor word sits before 'pad'", () => {
+    expect(guessType([], "Gentle Eye Cleansing Pads")).toBe("cleanser");
+    // The tight (no-descriptor) "pad" match is unaffected.
+    expect(guessType([], "Eye Pad Mask Paradise Punch")).toBe("eye-patch");
+  });
+
+  // Codex found this on the sixth review round of PR #129: night-mask's
+  // filler-word slot doesn't know "hair"/"sheet" are reserved trigger words
+  // for the more specific rules further down the table, so it was winning
+  // first instead of falling through to them.
+  it("does not let night-mask's descriptor slot swallow hair-mask or sheet-mask", () => {
+    expect(guessType([], "Overnight Hair Mask")).toBe("hair-mask");
+    expect(guessType([], "Overnight Sheet Mask")).toBe("sheet-mask");
+    // A genuinely generic descriptor still resolves to night-mask.
+    expect(guessType([], "Overnight Face Mask")).toBe("night-mask");
+  });
+
+  it.each([
+    "Overnight Foot Mask",
+    "Sleeping Hand Mask",
+    "Overnight Lip Mask",
+    "Sleeping Body Mask",
+    "Overnight Neck Mask",
+  ])("keeps a body-part mask out of the face-oriented night-mask type: %s", (name: string) => {
+    expect(guessType([], name)).toBe("unknown");
+  });
+
+  it("classifies mask tags independently from unrelated broad category tags", () => {
+    expect(guessType(["en:hair-care", "en:face-masks"], "Brand X")).toBe("face-mask");
+    expect(guessType(["en:skin-care", "en:hair-masks"], "Brand X")).toBe("hair-mask");
+    expect(guessType(["en:face-masks"], "Overnight Hair Mask")).toBe("hair-mask");
+    expect(guessType(["en:face-masks"], "Overnight Foot Mask")).toBe("unknown");
+  });
+
+  // Codex found this on the seventh review round of PR #129: the bare tight
+  // "eye"+"pad" match had no way to tell a real eye patch apart from a
+  // rinse/wipe-off cleansing or makeup-remover pad.
+  it("does not call a cleansing or makeup-remover eye pad an eye patch", () => {
+    expect(guessType([], "Cleansing Eye Pads")).toBe("cleanser");
+    expect(guessType([], "Eye Pads Makeup Remover")).not.toBe("eye-patch");
+    // A real eye-pad product with no cleansing/remover context still
+    // resolves correctly.
+    expect(guessType([], "Anti-Aging Hydrogel Eye Pads")).toBe("eye-patch");
+  });
+
+  it("recognizes a reversed 'mask ... sheet' name as sheet-mask, not the generic fallback", () => {
+    expect(guessType([], "Face Mask Sheet")).toBe("sheet-mask");
+    expect(guessType([], "Compressed Facial Mask Sheet")).toBe("sheet-mask");
   });
 });
