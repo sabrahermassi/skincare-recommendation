@@ -157,11 +157,11 @@ fit   = 70% concern fit + 30% skin-type fit
 score = 30 + 0.7 × fit − irritation penalty − pore penalty
 ```
 
-Ingredient contributions are weighted by label position and whether the product rinses off. Hazards cap the score; irritants receive a sensitivity-scaled penalty. A score is refused if fewer than three ingredients are recognized or coverage is below 25%. Confidence is separate from the score: [`lib/matching.ts`](lib/matching.ts).
+Ingredient contributions are weighted by label position and product contact. Potential harm and positive evidence use separate contact weights so ambiguous use stays conservative in both directions. Hazards cap the score; irritants receive a sensitivity-scaled penalty. A score is refused if fewer than three ingredients are recognized or coverage is below 25%. Confidence is separate from the score: [`lib/matching.ts`](lib/matching.ts).
 
 This separation of score, confidence, warnings, explanations, and unknown-data handling is strong. However, the numeric weights and saturation constants remain heuristic. Tests establish consistency, not clinical validity or calibration. There is no committed expert-reviewed benchmark corpus showing that a score of 85 has a real-world interpretation.
 
-A label-only product receives type `"unknown"`, which `contactWeight` treats like a leave-on product at full weight. An unidentified cleanser may therefore receive stronger positive and negative effects than it should: [`supabase/functions/product-lookup/index.ts`](supabase/functions/product-lookup/index.ts), [`lib/rules.ts`](lib/rules.ts).
+A label-only product receives type `"unknown"`. `contactWeight` treats its potential harm like a leave-on product but gives positive evidence only the quick-rinse weight. This avoids under-counting risk or over-crediting benefit, but can still be more cautious than the product's real use warrants: [`supabase/functions/product-lookup/index.ts`](supabase/functions/product-lookup/index.ts), [`lib/rules.ts`](lib/rules.ts).
 
 ## Implemented versus incomplete
 

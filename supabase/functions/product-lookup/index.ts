@@ -457,7 +457,7 @@ function looksCosmetic(text: string): boolean {
  * The patterns were English-only, and this catalogue is not: "CeraVe
  * Schuimende Reinigingsgel", "nettoyant moussant visage" and "Huile lavante
  * Lipikar" are all cleansers that fell through to "serum", which then scored
- * them as leave-on (contact weight 1.0 instead of 0.4) and overstated both
+ * them as leave-on (contact weight 1.0 instead of 0.25) and overstated both
  * their actives and their irritants. The added terms are the ones that
  * actually appear on labels in this catalogue's languages. The 16 patterns
  * below "hand-cream" follow the same rule: English-only until a real
@@ -516,10 +516,9 @@ function guessType(tags: string[], text: string): string {
     [/perfume|eau de (parfum|toilette)/, "perfume"],
     [/(facial|face)[\s-]?mist/, "facial-mist"],
     [/deodorant|antiperspirant/, "deodorant"],
-    // No "peel pad" here: this type is rinse-off in `contactWeight`, and a
-    // leave-on acid pad scored at 0.4 would understate both its actives and
-    // its irritants. Those fall through to the ingredient rule instead, which
-    // types them "serum" — leave-on, full weight.
+    // No "peel pad" here: a known leave-on acid pad should not receive the
+    // ambiguous exfoliator benefit discount. It falls through to the
+    // ingredient rule instead, which types it "serum" — full weight.
     [/exfoliat|scrub/, "exfoliator"],
     [/cream|moisturi[sz]er|lotion|emulsion|crème|creme|crema|gezichtscrème/, "moisturizer"],
   ];

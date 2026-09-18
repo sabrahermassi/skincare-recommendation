@@ -297,6 +297,42 @@ describe("verdict engine", () => {
       expect(rinseOff).toBeGreaterThan(leaveOn);
     });
 
+    it("discounts benefit but not harm when a product type has ambiguous contact", () => {
+      const active = ["water", "salicylic acid", ...FILLER];
+      const benefitProfile = profile({
+        baseSkinType: "oily",
+        concerns: ["acne-prone"],
+        sensitivity: "none",
+      });
+      const leaveOn = matchProduct(synthetic(active), benefitProfile);
+      const ambiguous = matchProduct(
+        synthetic(active, { type: "exfoliator" }),
+        benefitProfile
+      );
+      const leaveOnEffect = leaveOn.reasons.find((r) => r.ingredient === "salicylic acid")?.effect;
+      const ambiguousEffect = ambiguous.reasons.find(
+        (r) => r.ingredient === "salicylic acid"
+      )?.effect;
+
+      expect(leaveOn.score as number).toBeGreaterThan(ambiguous.score as number);
+      expect(ambiguousEffect).toBeCloseTo((leaveOnEffect as number) * 0.5);
+
+      const irritating = ["water", "parfum", "limonene", ...FILLER];
+      const harmProfile = profile({
+        baseSkinType: "normal",
+        concerns: ["redness"],
+        sensitivity: "high",
+      });
+      const leaveOnHarm = matchProduct(synthetic(irritating), harmProfile);
+      const ambiguousHarm = matchProduct(
+        synthetic(irritating, { type: "exfoliator" }),
+        harmProfile
+      );
+      expect(ambiguousHarm.breakdown.irritationPenalty).toBeCloseTo(
+        leaveOnHarm.breakdown.irritationPenalty
+      );
+    });
+
     it("scores from a declared function when no curated rule applies", () => {
       // Layer 2: ~83% of catalogue ingredients carry CosIng roles, and nothing
       // scored on them before. `sodium pca` has no rule, but is declared a
@@ -308,6 +344,26 @@ describe("verdict engine", () => {
       expect(matchProduct(withHumectant, prof).score as number).toBeGreaterThan(
         matchProduct(bare, prof).score as number
       );
+    });
+
+    it("uses the benefit contact weight for declared-function fallback", () => {
+      const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+      const leaveOn = synthetic(["water", "sodium pca", "xanthan gum", "carbomer"]);
+      const ambiguous = synthetic(
+        ["water", "sodium pca", "xanthan gum", "carbomer"],
+        { type: "exfoliator" }
+      );
+      leaveOn.ingredients[1].functions = ["humectant"];
+      ambiguous.ingredients[1].functions = ["humectant"];
+
+      const leaveOnResult = matchProduct(leaveOn, prof);
+      const ambiguousResult = matchProduct(ambiguous, prof);
+      const leaveOnEffect = leaveOnResult.reasons.find((r) => r.ingredient === "sodium pca")?.effect;
+      const ambiguousEffect = ambiguousResult.reasons.find(
+        (r) => r.ingredient === "sodium pca"
+      )?.effect;
+
+      expect(ambiguousEffect).toBeCloseTo((leaveOnEffect as number) * 0.5);
     });
 
     it("explains the score in order of what actually moved it", () => {
@@ -407,9 +463,21 @@ describe("verdict engine", () => {
       profile({ baseSkinType: "oily", concerns: ["acne-prone"], sensitivity: "some" })
     );
     const entry = result.reasons.find((r) => r.ingredient === "salicylic acid");
-    // Net zero: the tension is real, so it moves the score nowhere and is not
-    // dressed up as a recommendation either way.
+    // Equal leave-on weights net to zero in the explanation, while the
+    // sensitive-skin harm still reaches the irritation part of the score.
     expect(entry).toBeUndefined();
+    expect(result.breakdown.irritationPenalty).toBeGreaterThan(0);
+  });
+
+  it("shows net harm when ambiguous contact discounts only the helpful side", () => {
+    const result = matchProduct(
+      synthetic(["water", "salicylic acid", ...FILLER], { type: "exfoliator" }),
+      profile({ baseSkinType: "oily", concerns: ["acne-prone"], sensitivity: "some" })
+    );
+    const entry = result.reasons.find((r) => r.ingredient === "salicylic acid");
+
+    expect(entry?.effect).toBeLessThan(0);
+    expect(result.breakdown.irritationPenalty).toBeGreaterThan(0);
   });
 
   it("explains itself — every scored product returns its reasons", () => {

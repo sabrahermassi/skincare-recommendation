@@ -66,45 +66,28 @@ catalogue holds "6% Mandelic Acid + 2% Lactic Acid Liquid Exfoliant", which
 was having its acids *and its irritation* counted at 40% for exactly the
 reactive skin that needed the warning.
 
-Three bands now: 0.25 for what rinses within a minute, 0.5 for what sits a
-few minutes and is then rinsed, 1 for leave-on. Only three types are
-discounted at all — cleanser, body-wash, body-scrub — because those
-are the ones where "it washes off" is unambiguous. Four that look like they
-belong there do not: `exfoliator` covers a physical scrub *and* a leave-on
-acid liquid (`en:face-scrubs` is what OBF tags both), `conditioner` covers
-rinse-out and leave-in, `hair-mask` covers rinsed-after-twenty-minutes
-and left-in-overnight, and `shampoo` covers a rinse-out wash and a dry
-shampoo sprayed in and left — the bare `/shampoo/` match in both classifiers
-catches both. Each follows the ambiguity rule below instead. That follows how
-cosmetic exposure
-assessment is actually done — the SCCS applies a retention factor per product
-type, not a rinse-off boolean, and quantitative risk assessments built that
-way (MCI/MI, fragrance allergens) repeatedly put rinse-off scenarios below
-the sensitisation-induction threshold while leave-on scenarios of the same
-substance exceed it. It is also why those preservatives carry a lower cap in
-leave-on products than in rinse-off ones.
+Contact now has separate harm and benefit weights. Known quick rinse-off types
+(`cleanser`, `body-wash`) use 0.25 in both directions, `body-scrub` uses 0.5,
+and known leave-on types use 1. The safety side follows the conservative rule:
+an ambiguous or unknown type keeps harm at 1 so a wrong type cannot quietly
+under-count an irritant that was actually left on. The benefit side does not
+make that same assumption: ambiguous `exfoliator`, `conditioner`, and
+`hair-mask` receive 0.5 benefit credit, while ambiguous `shampoo` and
+`unknown` receive 0.25.
 
-The load-bearing part is the default: anything whose exposure is not obvious,
-`unknown` included, is scored at full leave-on weight, on the theory that a
-wrong type guess can then only make the app over-cautious about a formula —
-never quietly under-count an irritant sitting on someone's face all night.
+This split matters because one shared weight was not conservative in both
+directions. Full weight protected the harm path, but it also gave a rinse-off
+scrub with salicylic acid full acne-fighting credit as though it were left on.
+`lib/matching.ts` now sends helpful rule effects and declared-function signals
+through `benefit`, while hurt effects, sensitive-skin irritation, caution
+ingredients, and pore-clogging load use `harm`.
 
-**Known limitation, found by Codex on #119 and deliberately not fixed here:**
-that theory only holds for the harm side of the score. `contactWeight`
-scales every ingredient signal identically — `lib/matching.ts`'s
-`weightAt = positionWeight(position) * contact` feeds both a rule's `helps`
-contribution (raises concern fit) and its `hurts`/irritation contribution
-(lowers the score) — so full weight for an ambiguous type also gives full
-*benefit* credit, not just full risk. A rinse-off scrub with salicylic acid,
-used by someone oily/acne-prone but not sensitive, gets full acne-fighting
-credit as though it were left on, with no offsetting inflated irritation to
-balance it (salicylic acid's `hurts` rule needs sensitive skin to fire at
-all) — so the product can be over-credited, not "judged a little harshly" as
-an earlier version of this reasoning claimed. Fixing it properly means
-separating benefit weighting from harm weighting in `lib/matching.ts`'s
-scoring loop, which is a real change to the scoring model, not another entry
-in `EXPOSURE_BY_TYPE` — tracked as follow-up work rather than folded into
-this PR.
+The bands are intentionally broad scoring policy, not measured efficacy
+retention percentages. SCCS exposure assessment supports distinguishing
+product types and retention, but it does not establish one universal cosmetic
+benefit multiplier across ingredients, concentrations, vehicles, and use
+conditions. The benefit numbers therefore remain heuristic and should be
+calibrated against expert-reviewed product/profile benchmarks.
 
 Considered and rejected: dropping `contactWeight` entirely for pure
 ingredient scoring. It would remove the type dependency altogether, but a

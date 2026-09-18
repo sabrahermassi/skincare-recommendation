@@ -338,11 +338,12 @@ function computeMatch(
   product.ingredients.forEach((ingredient, position) => {
     // An unrecognised name supports no claim in either direction.
     if (!isVerified(ingredient)) return;
-    const weightAt = positionWeight(position) * contact;
+    const positionFactor = positionWeight(position);
 
     const rule = findRule(ingredient);
     if (rule) {
-      const weight = rule.weight * weightAt;
+      const benefitWeight = rule.weight * positionFactor * contact.benefit;
+      const harmWeight = rule.weight * positionFactor * contact.harm;
       const helps = targetApplies(rule.helps, target);
       const hurts = targetApplies(rule.hurts, target);
 
@@ -350,28 +351,41 @@ function computeMatch(
       // oily, sensitive skin. That is a genuine tension, not a bug, so both
       // are recorded and the net effect is what moves the score.
       let effect = 0;
-      if (helps) effect += weight;
-      if (hurts) effect -= weight;
+      if (helps) effect += benefitWeight;
+      if (hurts) effect -= harmWeight;
 
       for (const concern of profile.concerns) {
-        if (rule.helps?.concerns?.includes(concern)) bump(concernEvidence, concern, weight);
+        if (rule.helps?.concerns?.includes(concern)) {
+          bump(concernEvidence, concern, benefitWeight);
+        }
         if (!rule.hurts?.concerns?.includes(concern)) continue;
         // `lib/pore-clogging.ts` owns clogging for the pore-led concerns, and
-        // it already supplies 45% of their fit. The rules table names several
+        // it already supplies 65% of their fit. The rules table names several
         // of the same ingredients (coconut oil, isopropyl myristate, cocoa
         // butter), so charging both counts one ingredient twice against the
         // same concern. The rule still contributes its skin-type effect and
         // still supplies the sentence shown under "Why this score" — it just
         // does not get to bill the concern a second time.
         if (rule.category === "pore-clogging" && PORE_LED_CONCERNS.includes(concern)) continue;
-        bump(concernEvidence, concern, -weight);
+        bump(concernEvidence, concern, -harmWeight);
       }
       if (profile.baseSkinType) {
-        if (rule.helps?.skinTypes?.includes(profile.baseSkinType)) typeEvidence += weight;
-        if (rule.hurts?.skinTypes?.includes(profile.baseSkinType)) typeEvidence -= weight;
+        if (rule.helps?.skinTypes?.includes(profile.baseSkinType)) typeEvidence += benefitWeight;
+        if (rule.hurts?.skinTypes?.includes(profile.baseSkinType)) typeEvidence -= harmWeight;
       }
-      if (rule.helps?.sensitive && isSensitive(profile)) typeEvidence += weight * 0.6;
-      if (IRRITANT_CATEGORIES.has(rule.category) && hurts) irritation += weight;
+      if (rule.helps?.sensitive && isSensitive(profile)) {
+        typeEvidence += benefitWeight * 0.6;
+      }
+      // Sensitivity is not a skin type or concern, so it has no fit-evidence
+      // bucket of its own. Helpful sensitivity evidence feeds type fit above;
+      // harmful sensitivity evidence belongs in the irritation accumulator.
+      // Limiting irritation to the three explicitly irritant categories used
+      // to leave acids and retinoids' `hurts: { sensitive: true }` declaration
+      // visible in the explanation but absent from the score.
+      const sensitiveHarm = rule.hurts?.sensitive === true && isSensitive(profile);
+      if (hurts && (IRRITANT_CATEGORIES.has(rule.category) || sensitiveHarm)) {
+        irritation += harmWeight;
+      }
 
       if (effect !== 0) {
         scored++;
@@ -390,7 +404,7 @@ function computeMatch(
     for (const declared of ingredient.functions ?? []) {
       const signal = functionSignal(declared);
       if (!signal || !targetApplies(signal.helps, target)) continue;
-      const weight = signal.weight * weightAt;
+      const weight = signal.weight * positionFactor * contact.benefit;
       for (const concern of profile.concerns) {
         if (signal.helps.concerns?.includes(concern)) bump(concernEvidence, concern, weight);
       }
@@ -413,7 +427,7 @@ function computeMatch(
   for (const [position, ingredient] of product.ingredients.entries()) {
     if (!isVerified(ingredient) || ingredient.safety !== "caution") continue;
     if (!isSensitive(profile)) continue;
-    irritation += 2.5 * positionWeight(position) * contact;
+    irritation += 2.5 * positionWeight(position) * contact.harm;
   }
 
   // Acne fit is "what is in here that clogs pores", not "does it contain acne
@@ -423,7 +437,8 @@ function computeMatch(
   // truncation; this only decides how loudly it lands.
   const cloggers = poreCloggingHits(product.ingredients);
   const poreLoad = cloggers.reduce(
-    (sum, hit) => sum + CLOGGER_WEIGHT[hit.confidence] * positionWeight(hit.position - 1) * contact,
+    (sum, hit) =>
+      sum + CLOGGER_WEIGHT[hit.confidence] * positionWeight(hit.position - 1) * contact.harm,
     0
   );
 
