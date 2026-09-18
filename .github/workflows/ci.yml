@@ -122,6 +122,31 @@ jobs:
             psql -v ON_ERROR_STOP=1 -f /tmp/m.sql
           done
 
+      # Deno, because the Edge Functions are Deno and the point of the step
+      # below is to run their real code rather than a Node-shaped imitation
+      # of it.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # The joins between the layers, which nothing else covers. `npm test`
+      # exercises the limiter's arithmetic against a stub database and
+      # `rate_limits.test.sql` exercises the SQL against no HTTP at all — both
+      # passed throughout the weeks the deployed limiter was letting everyone
+      # through, because the fault was in neither. `callerKey` read an
+      # `x-forwarded-for` hop that varies per request, so every request
+      # arrived as a new caller and no count ever accumulated.
+      #
+      # This takes a real `Request`, reads a real header off it, and gets a
+      # real 429 back out of the Postgres above, through `enforceRateLimit` —
+      # the same function all three Edge Functions call. Restoring the old
+      # `callerKey` fails three of its four tests.
+      - name: Typecheck the Deno tests
+        run: deno check supabase/tests/rate_limit_e2e.test.ts
+
+      - name: The limiter, end to end
+        run: deno test --allow-net --allow-env supabase/tests/rate_limit_e2e.test.ts
+
       - name: Run the SQL tests
         run: |
           for f in supabase/tests/*.test.sql; do
