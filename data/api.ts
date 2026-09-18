@@ -1199,7 +1199,25 @@ export type LabelAnalysis =
        *  there is nothing to resolve. See supabase/functions/resolve-scan. */
       scanToken?: string;
     }
-  | { ok: false; reason: "not_configured" | "unreadable" | "too_little_text" | "rate_limited"; rawText?: string };
+  | {
+      ok: false;
+      /**
+       * `not_configured` and `server_unavailable` used to be the same value.
+       * They are not the same failure: `not_configured` means this install
+       * has no Supabase credentials at all — no request left the device, and
+       * the condition is permanent for this build, not something a retry or
+       * a few minutes fixes. `server_unavailable` is the 503 the server
+       * itself returns when *its* Vision API key is unset, which is a
+       * temporary, ops-fixable condition. Conflating them told a developer
+       * running the supported no-credentials checkout that the server's key
+       * was missing, and told a user in that same checkout to "try again
+       * later" for something no retry will ever change. Split in review on
+       * #121 — see the two return sites below and `failureCopy` in
+       * `app/scan-label.tsx`.
+       */
+      reason: "not_configured" | "server_unavailable" | "unreadable" | "too_little_text" | "rate_limited";
+      rawText?: string;
+    };
 
 /**
  * Whether `analyseLabel` can attach a photo to this identifier.
@@ -1239,7 +1257,7 @@ export async function analyseLabel(
     const status = (error as { context?: { status?: number } }).context?.status;
     if (status === 429) return { ok: false, reason: "rate_limited" };
     if (status === 422) return { ok: false, reason: "too_little_text" };
-    if (status === 503) return { ok: false, reason: "not_configured" };
+    if (status === 503) return { ok: false, reason: "server_unavailable" };
     return { ok: false, reason: "unreadable" };
   }
 
