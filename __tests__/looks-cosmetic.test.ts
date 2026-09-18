@@ -2,43 +2,59 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * `looksCosmetic` gates the UPC barcode-database fallback in
- * `supabase/functions/product-lookup/index.ts` — the last-resort source for
- * an unrecognised barcode, with no ingredient list and no dedicated skincare
- * category, so it is the only thing standing between a genuine miss and
- * writing an arbitrary piece of merchandise into the catalogue as if it were
- * skincare (the ORGANIC BLUE CORN TORTILLA CHIPS row that function's own
+ * `looksCosmetic` and `hasSkincareContext` gate the UPC barcode-database
+ * fallback in `supabase/functions/product-lookup/index.ts` — the
+ * last-resort source for an unrecognised barcode, with no ingredient list
+ * and no dedicated skincare category, so they are the only thing standing
+ * between a genuine miss and writing an arbitrary piece of merchandise (or
+ * a medical device, or a sleep accessory) into the catalogue as if it were
+ * skincare (the ORGANIC BLUE CORN TORTILLA CHIPS row `lookupBarcodeDb`'s own
  * comment already documents).
  *
- * The Deno file imports `jsr:` specifiers Jest can't resolve, so the two
- * regexes inside `looksCosmetic` are read as source text and reconstructed
+ * The Deno file imports `jsr:` specifiers Jest can't resolve, so the
+ * regexes inside both functions are read as source text and reconstructed
  * here — same technique `classifier-parity.test.ts` already uses for
  * `guessType`.
  */
 
 const SOURCE_PATH = join(__dirname, "..", "supabase/functions/product-lookup/index.ts");
 
-function extractLooksCosmeticRegexes(): [medicalExclusion: RegExp, cosmeticSignal: RegExp] {
+/**
+ * Reads a function's body from source text and reconstructs its regex
+ * literals, in order, as real `RegExp` objects — same technique
+ * `classifier-parity.test.ts` already uses for `guessType`.
+ */
+function extractRegexes(functionSignature: string, expectedCount: number): RegExp[] {
   const source = readFileSync(SOURCE_PATH, "utf8");
-  const start = source.indexOf("function looksCosmetic(text: string): boolean {");
-  if (start === -1) throw new Error("looksCosmetic not found in product-lookup/index.ts");
+  const start = source.indexOf(functionSignature);
+  if (start === -1) throw new Error(`${functionSignature} not found in product-lookup/index.ts`);
   const end = source.indexOf("\n}", start);
   const body = source.slice(start, end);
 
   const literals = [...body.matchAll(/\/(?:\\.|[^/\n])*\/[a-z]*/g)].map((m) => m[0]);
-  if (literals.length !== 2) {
-    throw new Error(`expected 2 regex literals in looksCosmetic, found ${literals.length}`);
+  if (literals.length !== expectedCount) {
+    throw new Error(
+      `expected ${expectedCount} regex literal(s) after "${functionSignature}", found ${literals.length}`
+    );
   }
   return literals.map((literal) => {
     const lastSlash = literal.lastIndexOf("/");
     return new RegExp(literal.slice(1, lastSlash), literal.slice(lastSlash + 1));
-  }) as [RegExp, RegExp];
+  });
 }
 
 function looksCosmetic(text: string): boolean {
-  const [medicalExclusion, cosmeticSignal] = extractLooksCosmeticRegexes();
+  const [medicalExclusion, cosmeticSignal] = extractRegexes(
+    "function looksCosmetic(text: string): boolean {",
+    2
+  );
   if (medicalExclusion.test(text)) return false;
   return cosmeticSignal.test(text);
+}
+
+function hasSkincareContext(text: string): boolean {
+  const [signal] = extractRegexes("function hasSkincareContext(text: string): boolean {", 1);
+  return signal.test(text);
 }
 
 describe("looksCosmetic", () => {
@@ -62,5 +78,24 @@ describe("looksCosmetic", () => {
 
   it("rejects a medical orthoptic eye patch despite matching the eye-patch rule's own words", () => {
     expect(looksCosmetic("Health & Beauty Nexcare Opticlude Orthoptic Eye Patch")).toBe(false);
+  });
+});
+
+describe("hasSkincareContext", () => {
+  // The extra gate `lookupBarcodeDb` applies specifically to face-mask/
+  // eye-patch/pimple-patch hits, on top of `looksCosmetic` — found on
+  // PR #129 (second round): none of these carry a word `looksCosmetic`'s own
+  // medical exclusion list names, so they pass that check on "beauty"/
+  // "face"/"eye"+"patch" alone.
+  it("rejects a reusable cloth face mask, a silk sleep eye mask and an amblyopia eye patch", () => {
+    expect(hasSkincareContext("Health & Beauty Reusable Cloth Face Mask")).toBe(false);
+    expect(hasSkincareContext("Health & Beauty Silk Sleep Eye Mask")).toBe(false);
+    expect(hasSkincareContext("Health & Beauty Amblyopia Eye Patch")).toBe(false);
+  });
+
+  it("accepts a real skincare mask or patch carrying actual skincare vocabulary", () => {
+    expect(hasSkincareContext("Health & Beauty Hydrogel Under Eye Patch")).toBe(true);
+    expect(hasSkincareContext("Health & Beauty Hydrocolloid Acne Pimple Patch")).toBe(true);
+    expect(hasSkincareContext("Health & Beauty Purifying Clay Face Mask")).toBe(true);
   });
 });

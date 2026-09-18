@@ -271,6 +271,8 @@ async function lookupBarcodeDb(barcode: string): Promise<Fetched | null> {
   const item = body?.items?.[0];
   if (!item?.title) return null;
 
+  const text = `${item.category ?? ""} ${item.title}`;
+
   // This source indexes every barcode there is, not just cosmetics, and it
   // returns no ingredients — so an unfiltered hit writes a row the app can
   // only ever render as "we know this product but not what's in it". The
@@ -279,7 +281,12 @@ async function lookupBarcodeDb(barcode: string): Promise<Fetched | null> {
   //
   // A miss is the better outcome: the user is told we don't have it and
   // offered the label-photo path, which works on anything.
-  if (!looksCosmetic(`${item.category ?? ""} ${item.title}`)) return null;
+  if (!looksCosmetic(text)) return null;
+
+  const type = guessType([], text);
+  // A mask/patch hit needs more than the generic cosmetic check above —
+  // see hasSkincareContext's own comment for why.
+  if (MASK_OR_PATCH_TYPES.has(type) && !hasSkincareContext(text)) return null;
 
   return {
     product: {
@@ -287,7 +294,7 @@ async function lookupBarcodeDb(barcode: string): Promise<Fetched | null> {
       barcode,
       brand: (item.brand ?? "Unknown").trim(),
       name: String(item.title).trim().slice(0, 200),
-      type: guessType([], `${item.category ?? ""} ${item.title}`),
+      type,
       // See the note on the other `area: "face"` above.
       area: "face",
       description: null,
@@ -448,6 +455,31 @@ function looksCosmetic(text: string): boolean {
     return false;
   }
   return /beauty|cosmetic|personal care|skin|face|facial|body care|hair care|lotion|cream|crème|creme|serum|cleanser|shampoo|toner|sunscreen|spf|balm|moisturi|nettoyant|reinigings|limpiador|crema/i
+    .test(text);
+}
+
+/** `guessType` results that need `hasSkincareContext` on top of `looksCosmetic`. */
+const MASK_OR_PATCH_TYPES = new Set(["face-mask", "eye-patch", "pimple-patch"]);
+
+/**
+ * Extra evidence a mask/patch hit from the barcode database needs, on top of
+ * `looksCosmetic` passing.
+ *
+ * "mask" and "patch" are the only two of this app's product families that
+ * collide with ordinary medical devices and sleep accessories in plain
+ * English — nothing else `guessType` produces has this problem. A "Reusable
+ * Cloth Face Mask", a "Silk Sleep Eye Mask" and an "Amblyopia Eye Patch" are
+ * none of them disposable, surgical or orthoptic, so `looksCosmetic`'s own
+ * exclusion list doesn't catch them either (found on PR #129, second time).
+ * Growing that denylist to name every non-skincare mask/patch is the same
+ * open-ended list `looksCosmetic`'s own doc comment already argues against —
+ * so this requires the opposite: affirmative skincare vocabulary, not just
+ * the absence of a few known-medical words. English-only and not
+ * exhaustive, like every other pattern in this file — extended only when a
+ * real catalogue example is seen failing it.
+ */
+function hasSkincareContext(text: string): boolean {
+  return /hydrogel|collagen|skin.?care|cosmetic|k-?beauty|korean|\bsheet\b|\bclay\b|blemish|acne|pimple|hyaluronic|serum|under.?eye|moistur|hydrat|brighten|exfoliat|vitamin|retinol|niacinamide|\bpeel\b|essence/i
     .test(text);
 }
 
