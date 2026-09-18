@@ -663,6 +663,18 @@ export type ContactWeights = Readonly<{
 }>;
 
 const FULL_CONTACT: ContactWeights = { harm: 1, benefit: 1 };
+// `unknown` (type-guess failure) is not one of the four named-ambiguous
+// types above — it is roughly 28% of the imported catalogue, so this is its
+// own deliberate policy decision, not a mechanical extension of that list.
+// Harm stays at 1 for the reason `unknown` always has: guessing wrong can
+// only make this app over-cautious about a formula, never quietly
+// under-count a real irritant. Benefit is discounted harder than the four
+// named types (0.25 rather than 0.5) because those four are at least known
+// to sit somewhere between rinse-off and leave-on; an `unknown` product
+// could be either extreme, or something this app has never classified
+// before, so there is even less basis for crediting it at leave-on
+// strength. Named explicitly here rather than left implicit, per review on
+// PR #127.
 const UNKNOWN_CONTACT: ContactWeights = { harm: 1, benefit: 0.25 };
 
 const EXPOSURE_BY_TYPE: Record<ProductType, ContactWeights> = {
@@ -685,12 +697,16 @@ const EXPOSURE_BY_TYPE: Record<ProductType, ContactWeights> = {
   //                `/shampoo/` match in both classifiers catches both
   //
   // Discounting harm could under-count an irritant that was actually left on,
-  // so harm remains 1. Benefit follows the closest known-use band: scrub and
-  // mask-like short contact use 0.5; shampoo uses the quick-rinse 0.25.
+  // so harm remains 1. Benefit uses the same 0.5 mid-point for all four:
+  // each name genuinely spans a short-contact and a long-contact variant
+  // with nothing here to tell them apart, so there is no more basis for
+  // discounting shampoo's benefit further than the other three than there
+  // is for discounting it less. (An earlier draft set shampoo to 0.25,
+  // singling it out with no stated reason — caught in review on PR #127.)
   exfoliator: { harm: 1, benefit: 0.5 },
   conditioner: { harm: 1, benefit: 0.5 },
   "hair-mask": { harm: 1, benefit: 0.5 },
-  shampoo: { harm: 1, benefit: 0.25 },
+  shampoo: { harm: 1, benefit: 0.5 },
   // Not ambiguous, just not rinsed: a sheet mask's essence is patted in.
   "sheet-mask": FULL_CONTACT,
   toner: FULL_CONTACT,

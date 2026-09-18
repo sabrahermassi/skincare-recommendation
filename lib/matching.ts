@@ -376,16 +376,13 @@ function computeMatch(
       if (rule.helps?.sensitive && isSensitive(profile)) {
         typeEvidence += benefitWeight * 0.6;
       }
-      // Sensitivity is not a skin type or concern, so it has no fit-evidence
-      // bucket of its own. Helpful sensitivity evidence feeds type fit above;
-      // harmful sensitivity evidence belongs in the irritation accumulator.
-      // Limiting irritation to the three explicitly irritant categories used
-      // to leave acids and retinoids' `hurts: { sensitive: true }` declaration
-      // visible in the explanation but absent from the score.
-      const sensitiveHarm = rule.hurts?.sensitive === true && isSensitive(profile);
-      if (hurts && (IRRITANT_CATEGORIES.has(rule.category) || sensitiveHarm)) {
-        irritation += harmWeight;
-      }
+      // Out of scope for this PR: widening which categories feed the
+      // irritation accumulator is a separate, catalogue-wide behaviour
+      // change (it moves scores for every leave-on product with an active
+      // like salicylic acid or a retinoid, not just the ambiguous-contact
+      // types this PR is about) and belongs in its own PR with its own
+      // before/after evidence. See the review on PR #127.
+      if (IRRITANT_CATEGORIES.has(rule.category) && hurts) irritation += harmWeight;
 
       if (effect !== 0) {
         scored++;

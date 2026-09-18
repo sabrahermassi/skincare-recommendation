@@ -71,9 +71,15 @@ Contact now has separate harm and benefit weights. Known quick rinse-off types
 and known leave-on types use 1. The safety side follows the conservative rule:
 an ambiguous or unknown type keeps harm at 1 so a wrong type cannot quietly
 under-count an irritant that was actually left on. The benefit side does not
-make that same assumption: ambiguous `exfoliator`, `conditioner`, and
-`hair-mask` receive 0.5 benefit credit, while ambiguous `shampoo` and
-`unknown` receive 0.25.
+make that same assumption: the four ambiguous types (`exfoliator`,
+`conditioner`, `hair-mask`, `shampoo`) all receive the same 0.5 benefit
+credit — each genuinely spans a short-contact and a long-contact variant with
+nothing here to separate them, so there is no basis for discounting one
+further than the others. `unknown` is discounted harder still, to 0.25: it
+is not one of the four named types, it is roughly 28% of the imported
+catalogue, and unlike the four it could be either extreme or something this
+app has never classified at all, so there is even less basis for crediting
+it at leave-on strength.
 
 This split matters because one shared weight was not conservative in both
 directions. Full weight protected the harm path, but it also gave a rinse-off
@@ -88,6 +94,17 @@ product types and retention, but it does not establish one universal cosmetic
 benefit multiplier across ingredients, concentrations, vehicles, and use
 conditions. The benefit numbers therefore remain heuristic and should be
 calibrated against expert-reviewed product/profile benchmarks.
+
+**Deliberately not touched here:** which rule categories feed the irritation
+accumulator. It was `fragrance`/`alcohol`/`irritants` before this PR and
+still is — a draft of this PR also widened it to any `hurts: { sensitive:
+true }` rule (catching salicylic acid, AHAs, retinoids, vitamin C, tea tree
+oil, benzoyl peroxide), which is a real, evidenced gap — a plain leave-on
+serum with salicylic acid moved from a **fair** to a **poor** verdict for a
+highly sensitive profile when tested — but it is a catalogue-wide change
+independent of contact weighting, unrelated to what this PR is about, and
+was pulled out to be reviewed and merged on its own. See PR #127's review
+and its follow-up.
 
 Considered and rejected: dropping `contactWeight` entirely for pure
 ingredient scoring. It would remove the type dependency altogether, but a

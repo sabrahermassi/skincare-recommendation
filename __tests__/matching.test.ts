@@ -463,13 +463,18 @@ describe("verdict engine", () => {
       profile({ baseSkinType: "oily", concerns: ["acne-prone"], sensitivity: "some" })
     );
     const entry = result.reasons.find((r) => r.ingredient === "salicylic acid");
-    // Equal leave-on weights net to zero in the explanation, while the
-    // sensitive-skin harm still reaches the irritation part of the score.
+    // Net zero: the tension is real, so it moves the score nowhere and is not
+    // dressed up as a recommendation either way. Salicylic acid's category
+    // (pore-clogging) is not one of IRRITANT_CATEGORIES, so this does not
+    // reach the irritation penalty either — see PR #127's review for the
+    // separate, not-yet-built change that would widen that.
     expect(entry).toBeUndefined();
-    expect(result.breakdown.irritationPenalty).toBeGreaterThan(0);
   });
 
   it("shows net harm when ambiguous contact discounts only the helpful side", () => {
+    // Full harm weight (1) against a halved benefit weight (0.5, exfoliator's
+    // ambiguous-contact discount): the same tension as the leave-on case
+    // above, but no longer a wash, because only one side was discounted.
     const result = matchProduct(
       synthetic(["water", "salicylic acid", ...FILLER], { type: "exfoliator" }),
       profile({ baseSkinType: "oily", concerns: ["acne-prone"], sensitivity: "some" })
@@ -477,7 +482,6 @@ describe("verdict engine", () => {
     const entry = result.reasons.find((r) => r.ingredient === "salicylic acid");
 
     expect(entry?.effect).toBeLessThan(0);
-    expect(result.breakdown.irritationPenalty).toBeGreaterThan(0);
   });
 
   it("explains itself — every scored product returns its reasons", () => {

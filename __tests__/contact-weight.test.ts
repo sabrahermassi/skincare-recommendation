@@ -42,7 +42,7 @@ describe("contactWeight", () => {
     ["exfoliator", 0.5],
     ["conditioner", 0.5],
     ["hair-mask", 0.5],
-    ["shampoo", 0.25],
+    ["shampoo", 0.5],
   ] as [ProductType, number][])(
     "keeps ambiguous %s harm at full weight and discounts only its benefit",
     (type: ProductType, benefit: number) => {
