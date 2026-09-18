@@ -213,7 +213,12 @@ const FIXTURES: Fixture[] = [
       ing("isopropyl-palmitate", "Isopropyl Palmitate", "caution"),
     ],
     profile: profile({ baseSkinType: "oily", concerns: ["acne-prone"] }),
-    expectedVerdicts: ["fair", "poor"],
+    // "poor" only, not ["fair","poor"] — a neutral, rule-less formula also
+    // lands "fair" at this model's anchor score (30 + 0.7*50 = 65), so
+    // accepting "fair" here wouldn't actually prove the pore-clogging penalty
+    // fired at all (raised in review on PR #133). Verified this formula
+    // genuinely scores "poor" (52) before tightening.
+    expectedVerdicts: ["poor"],
   },
   {
     name: "Classic Astringent Toner",
@@ -227,7 +232,9 @@ const FIXTURES: Fixture[] = [
       ing("linalool", "Linalool", "caution"),
     ],
     profile: profile({ baseSkinType: "dry", concerns: ["redness"], sensitivity: "high" }),
-    expectedVerdicts: ["fair", "poor"],
+    // See the same neutral-baseline note on "Coconut Oil Body Butter" above —
+    // verified this genuinely scores "poor" (18) before tightening.
+    expectedVerdicts: ["poor"],
   },
   {
     name: "Harsh Sulfate Shampoo",
@@ -239,7 +246,9 @@ const FIXTURES: Fixture[] = [
       ing("sodium-chloride", "Sodium Chloride"),
     ],
     profile: profile({ baseSkinType: "dry", concerns: ["atopic"], sensitivity: "high" }),
-    expectedVerdicts: ["fair", "poor"],
+    // See the neutral-baseline note above — verified this genuinely scores
+    // "poor" (24) before tightening. Named directly in review on PR #133.
+    expectedVerdicts: ["poor"],
   },
   {
     name: "Silicone Pore-Clogging Primer Serum",
@@ -252,7 +261,9 @@ const FIXTURES: Fixture[] = [
       ing("cyclopentasiloxane", "Cyclopentasiloxane"),
     ],
     profile: profile({ baseSkinType: "oily", concerns: ["acne-prone", "large-pores"] }),
-    expectedVerdicts: ["fair", "poor"],
+    // See the neutral-baseline note above — verified this genuinely scores
+    // "poor" (52) before tightening.
+    expectedVerdicts: ["poor"],
   },
   {
     name: "Menthol Cooling Gel",
@@ -265,7 +276,11 @@ const FIXTURES: Fixture[] = [
       ing("peppermint-oil", "Peppermint Oil", "caution"),
     ],
     profile: profile({ baseSkinType: "dry", concerns: ["atopic", "redness"], sensitivity: "high" }),
-    expectedVerdicts: ["fair", "poor"],
+    // Named directly in review on PR #133 — a neutral, rule-less formula also
+    // lands "fair" at this model's anchor score, so "fair" alone wouldn't
+    // prove the irritation penalty fired. Verified this genuinely scores
+    // "poor" (17) before tightening.
+    expectedVerdicts: ["poor"],
   },
   {
     name: "Fragranced Body Lotion",
@@ -279,7 +294,9 @@ const FIXTURES: Fixture[] = [
       ing("alcohol-denat", "Alcohol Denat.", "caution"),
     ],
     profile: profile({ baseSkinType: "dry", concerns: ["atopic"], sensitivity: "high" }),
-    expectedVerdicts: ["fair", "poor"],
+    // Named directly in review on PR #133 — verified this genuinely scores
+    // "poor" (16) before tightening.
+    expectedVerdicts: ["poor"],
   },
 ];
 
@@ -317,8 +334,14 @@ const TENSION_FIXTURES: Array<Fixture & { note: string }> = [
     expectedVerdicts: ["fair", "poor"],
   },
   {
-    name: "PanOxyl 4% Benzoyl Peroxide Spot Treatment (oily skin)",
-    reputation: "The strongest over-the-counter acne active, and well tolerated by oily skin.",
+    // Not PanOxyl's own 4% product — that's the Acne Creamy Wash, a rinse-off
+    // cleanser, which `contactWeight` would discount to 0.25 benefit/harm and
+    // so wouldn't actually exercise the leave-on tension this pair is for
+    // (raised in review on PR #133). Clean & Clear Persa-Gel 10 is a real,
+    // widely sold leave-on benzoyl-peroxide spot gel — genuinely `serum`-type
+    // full contact, matching what's modeled below.
+    name: "Clean & Clear Persa-Gel 10 (oily skin)",
+    reputation: "A leave-on benzoyl-peroxide spot gel — the strongest OTC acne active, well tolerated by oily skin.",
     note: "same formula, oily/tolerant profile",
     type: "serum",
     ingredients: [
@@ -332,7 +355,9 @@ const TENSION_FIXTURES: Array<Fixture & { note: string }> = [
 ];
 
 /**
- * PanOxyl 4% Benzoyl Peroxide, on a dry/highly-sensitive/acne-prone profile —
+ * Clean & Clear Persa-Gel 10, a real leave-on benzoyl-peroxide spot gel
+ * (not PanOxyl's own 4% product, which is a rinse-off wash — see the note on
+ * its sibling fixture above), on a dry/highly-sensitive/acne-prone profile —
  * the exact profile its real-world reputation warns against. Pulled out of
  * TENSION_FIXTURES on purpose: this one does NOT confirm the model agrees
  * with reality, so it does not belong next to three cases that do. It is a
@@ -358,7 +383,7 @@ const TENSION_FIXTURES: Array<Fixture & { note: string }> = [
  * applies.
  */
 const KNOWN_GAP_BENZOYL_PEROXIDE_ON_REACTIVE_SKIN: Fixture = {
-  name: "PanOxyl 4% Benzoyl Peroxide Spot Treatment (dry, reactive skin)",
+  name: "Clean & Clear Persa-Gel 10 (dry, reactive skin)",
   reputation: "Also well known for being drying and irritating on dry, reactive skin.",
   type: "serum",
   ingredients: [
