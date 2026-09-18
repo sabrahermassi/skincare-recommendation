@@ -487,6 +487,34 @@ describe("verdict engine", () => {
     expect(entry?.effect).toBeLessThan(0);
   });
 
+  it("keeps a pore-clogging reason even when its concern bump is skipped", () => {
+    // Lauric acid's `hurts` is concern-only (acne-prone), no skinType, so
+    // `baseSkinType: "combination"` here deliberately matches neither
+    // `helps.skinTypes` nor `hurts.skinTypes` on any rule that names it —
+    // the exact shape review found: `harmApplied` must not fall back to
+    // "false" just because the concernEvidence loop skips its own bump for
+    // pore-led concerns. That skip prevents double-billing concernEvidence
+    // against `poreCloggingHits`' own `poreLoad`/`poreSafety` path — it
+    // does not mean the harm goes uncounted, since `poreCloggingHits` scans
+    // "lauric acid" unconditionally and bills the same acne-prone concern
+    // through a different accumulator. Raised by review on PR #127.
+    const withClogger = matchProduct(
+      synthetic(["water", "lauric acid", ...FILLER]),
+      profile({ baseSkinType: "combination", concerns: ["acne-prone"] })
+    );
+    const entry = withClogger.reasons.find((r) => r.ingredient === "lauric acid");
+
+    expect(entry?.effect).toBeLessThan(0);
+
+    // And the harm is real, not just displayed: the same formula scores
+    // worse for this profile than one with no clogger at all.
+    const clean = matchProduct(
+      synthetic(["water", ...FILLER]),
+      profile({ baseSkinType: "combination", concerns: ["acne-prone"] })
+    );
+    expect((withClogger.score as number)).toBeLessThan(clean.score as number);
+  });
+
   it("does not show harm the score never applied, even when contact weights differ", () => {
     // The bug this PR's review caught: `targetApplies` treats `hurts` as true
     // whenever ANY of its conditions match, including `sensitive` alone — so

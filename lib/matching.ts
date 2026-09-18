@@ -363,13 +363,20 @@ function computeMatch(
       // paths below check, so `effect` never claims more than the score
       // itself does. Raised by review on PR #127.
       const hurtsIrritantCategory = hurts && IRRITANT_CATEGORIES.has(rule.category);
+      // Deliberately NOT excluding pore-clogging/pore-led concerns here, even
+      // though the concernEvidence loop below does. That exclusion exists so
+      // `poreCloggingHits` (a separate detector, `lib/pore-clogging.ts`) and
+      // this rule don't bill the same pore-led concern twice for overlapping
+      // names like coconut oil or cocoa butter — it is not a claim that the
+      // harm goes uncounted. It doesn't: `poreCloggingHits` scans every
+      // ingredient unconditionally and its `poreLoad` feeds `poreSafety`,
+      // which is 65% of every pore-led concern's fit, regardless of this
+      // rule's own concernEvidence bump. The comment on that loop already
+      // said as much — "the rule ... still supplies the sentence shown under
+      // 'Why this score'" — `harmApplied` had drifted from it. Caught by
+      // review on PR #127.
       const hurtsMatchedConcern =
-        hurts &&
-        profile.concerns.some(
-          (concern) =>
-            rule.hurts?.concerns?.includes(concern) &&
-            !(rule.category === "pore-clogging" && PORE_LED_CONCERNS.includes(concern))
-        );
+        hurts && profile.concerns.some((concern) => rule.hurts?.concerns?.includes(concern));
       const hurtsMatchedSkinType =
         hurts && !!profile.baseSkinType && !!rule.hurts?.skinTypes?.includes(profile.baseSkinType);
       const harmApplied = hurtsIrritantCategory || hurtsMatchedConcern || hurtsMatchedSkinType;
