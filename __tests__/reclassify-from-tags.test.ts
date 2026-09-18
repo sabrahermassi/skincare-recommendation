@@ -1,9 +1,9 @@
-import { parseLimit, proposeChange } from "../scripts/reclassify-from-tags.mjs";
+import { capDelay, parseLimit, proposeChange } from "../scripts/reclassify-from-tags.mjs";
 
 /**
- * The two decisions `reclassify-from-tags.mjs` makes that aren't I/O. It is
- * the only script allowed to overwrite a type that already looks right, so
- * the rule about what it will and won't write is worth pinning.
+ * The decisions `reclassify-from-tags.mjs` makes that aren't I/O. It is the
+ * only script allowed to overwrite a type that already looks right, so the
+ * rule about what it will and won't write is worth pinning.
  */
 
 describe("parseLimit", () => {
@@ -49,5 +49,23 @@ describe("proposeChange", () => {
 
   it("does fill in a row that is currently unknown", () => {
     expect(proposeChange({ ...row, type: "unknown" }, "serum")).toMatchObject({ now: "serum" });
+  });
+});
+
+describe("capDelay", () => {
+  it("passes a sane Retry-After through untouched", () => {
+    expect(capDelay(5_000)).toBe(5_000);
+  });
+
+  it("caps a delay that would park the run for hours", () => {
+    // Nothing bounds a server-supplied Retry-After; a large number or an HTTP
+    // date days out would otherwise stall the repair.
+    expect(capDelay(6 * 60 * 60 * 1000)).toBe(60_000);
+  });
+
+  it("clamps a negative delay to zero", () => {
+    // retryAfterMs already returns 0 for a past date; this holds the floor
+    // regardless of what it is handed.
+    expect(capDelay(-1)).toBe(0);
   });
 });

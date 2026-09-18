@@ -42,14 +42,17 @@ const READ_INTERVAL_MS = 4_200;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 
 /**
- * Which product ids this pass has already read, so a run that dies at minute
- * 20 — or one deliberately cut short with `--limit` — resumes instead of
- * re-reading the same rows from the top. Only ids that actually resolved are
- * recorded: a row that failed on a network blip stays unprocessed and is
- * retried next time, which is the behaviour that makes a transient failure
- * cost nothing.
+ * Which product ids are *settled*, so a run that dies at minute 20 — or one
+ * cut short with `--limit` — resumes instead of starting from the top.
  *
- * Gitignored: it is per-machine progress, not project state.
+ * Settled means the row's outcome cannot change on a retry: its update was
+ * applied (or skipped because someone else changed it first), it was read and
+ * needed nothing, or OBF permanently no longer holds the barcode. Everything
+ * else stays out — a transport failure or a 5xx costs a retry next run, and a
+ * row with a change still pending is never recorded, so a dry run cannot
+ * swallow the work it just listed.
+ *
+ * Gitignored: per-machine progress, not project state.
  */
 const PROGRESS_FILE = ".reclassify-from-tags-progress.json";
 
@@ -63,7 +66,19 @@ const PROGRESS_FILE = ".reclassify-from-tags-progress.json";
  * alone: the classifier only ever reached those by matching a specific
  * pattern, so there is nothing here to improve.
  */
-const CANDIDATE_TYPES = ["moisturizer", "cleanser", "sunscreen", "serum", "unknown"];
+const CANDIDATE_TYPES = [
+  "moisturizer",
+  "cleanser",
+  "sunscreen",
+  "serum",
+  // Both were themselves catch-alls before the classifier fixes: the old
+  // body-lotion pattern matched "body butter" outright, and the generic scrub
+  // rule swallowed body scrubs into `exfoliator`. Without these, a full run
+  // reports completion while leaving those rows misclassified.
+  "body-lotion",
+  "exfoliator",
+  "unknown",
+];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -80,6 +95,16 @@ export function parseLimit(argv) {
     throw new Error(`--limit needs a positive whole number, got ${JSON.stringify(argv[at + 1] ?? null)}`);
   }
   return value;
+}
+
+/**
+ * `Retry-After` is a server-supplied number and nothing bounds it — a large
+ * value, or an HTTP date days out, would park the repair for hours. One
+ * window is the longest wait that can still be justified: the limit is per
+ * minute, so having sent nothing for that long, it has certainly rolled.
+ */
+export function capDelay(ms) {
+  return Math.min(Math.max(ms, 0), RATE_LIMIT_WINDOW_MS);
 }
 
 /**
@@ -109,8 +134,8 @@ function loadProgress(restart) {
   }
 }
 
-function saveProgress(done) {
-  writeFileSync(PROGRESS_FILE, JSON.stringify([...done]));
+function saveProgress(settled) {
+  writeFileSync(PROGRESS_FILE, JSON.stringify([...settled]));
 }
 
 /**
@@ -138,18 +163,22 @@ async function fetchTags(barcode, retried = false) {
   }
 
   if (res.status === 429 && !retried) {
-    const wait = retryAfterMs(res) ?? RATE_LIMIT_WINDOW_MS;
+    const wait = capDelay(retryAfterMs(res) ?? RATE_LIMIT_WINDOW_MS);
     console.warn(`\n  ! Rate-limited by OBF. Waiting ${Math.ceil(wait / 1000)}s and retrying once.`);
     await sleep(wait);
     return fetchTags(barcode, true);
   }
 
-  if (res.status === 404) return { ok: false, reason: "not in OBF any more" };
-  if (!res.ok) return { ok: false, reason: `HTTP ${res.status}` };
+  // `permanent` marks an answer that will not change on a retry, so the
+  // caller can checkpoint it and stop re-reading it every run.
+  if (res.status === 404) return { ok: false, permanent: true, reason: "not in OBF any more" };
+  if (!res.ok) return { ok: false, permanent: false, reason: `HTTP ${res.status}` };
 
   const body = await res.json().catch(() => null);
   // status 0 is OBF's own "no such product", distinct from a transport error.
-  if (body?.status !== 1 || !body.product) return { ok: false, reason: "not in OBF any more" };
+  if (body?.status !== 1 || !body.product) {
+    return { ok: false, permanent: true, reason: "not in OBF any more" };
+  }
   return { ok: true, tags: body.product.categories_tags ?? [] };
 }
 
@@ -162,7 +191,7 @@ async function main() {
   }
   const dryRun = process.argv.includes("--dry-run");
   const limit = parseLimit(process.argv);
-  const done = loadProgress(process.argv.includes("--restart"));
+  const settled = loadProgress(process.argv.includes("--restart"));
   const db = createClient(url, key, { auth: { persistSession: false } });
 
   const rows = await paginateOrdered(db, "products", {
@@ -170,10 +199,12 @@ async function main() {
     cursorColumn: "id",
     filter: (q) => q.eq("source", "obf").in("type", CANDIDATE_TYPES),
   });
-  const remaining = rows.filter((r) => r.barcode && !done.has(r.id));
+  const remaining = rows.filter((r) => r.barcode && !settled.has(r.id));
   const candidates = remaining.slice(0, limit);
 
-  if (done.size > 0) console.log(`Resuming: ${done.size} row(s) already read in a previous run.`);
+  if (settled.size > 0) {
+    console.log(`Resuming: ${settled.size} row(s) already settled in an earlier run.`);
+  }
   console.log(
     `${candidates.length} candidate(s) this run, ${remaining.length} still outstanding of ${rows.length} matching rows. ` +
       `~${Math.ceil((candidates.length * READ_INTERVAL_MS) / 60000)} min at OBF's rate limit.\n`
@@ -193,19 +224,21 @@ async function main() {
     process.stdout.write(`\r  read ${read}/${candidates.length}`);
 
     if (!result.ok) {
-      // Deliberately NOT recorded as done — a blip should cost a retry next
-      // run, not a row that never gets repaired.
+      // A permanent miss is settled — OBF will keep saying no, so re-reading
+      // it every run would eventually fill `--limit` with nothing but these
+      // and starve every row behind them. A transport or 5xx failure is not
+      // settled and stays unrecorded, so a blip costs a retry rather than a
+      // row that never gets repaired.
+      if (result.permanent) settled.add(row.id);
       failures.push({ ...row, reason: result.reason });
       continue;
     }
 
-    done.add(row.id);
     const change = proposeChange(row, guessType(result.tags, row.name));
-    if (change) changes.push({ ...change, tags: result.tags.slice(0, 4).join(" ") });
+    // Read and found to need nothing: settled, whatever mode this is.
+    if (!change) settled.add(row.id);
+    else changes.push({ ...change, tags: result.tags.slice(0, 4).join(" ") });
   }
-  // Written even on the dry run: reading is the expensive half, and a dry run
-  // that had to be repeated from scratch is the thing this avoids.
-  saveProgress(done);
 
   console.log(`\n\n${changes.length} row(s) would change:\n`);
   for (const c of changes) {
@@ -218,10 +251,19 @@ async function main() {
     if (failures.length > 10) console.log(`  …and ${failures.length - 10} more`);
   }
 
+  // Saved here, before any write, because everything in `settled` is a row
+  // whose outcome cannot change: a permanent OBF miss, or a read that found
+  // nothing to update. Rows with a pending change are deliberately absent —
+  // see the dry-run branch below.
+  saveProgress(settled);
+
   if (changes.length === 0) return;
 
   if (dryRun) {
-    console.log("\n--dry-run: nothing written. Progress saved, so a real run re-reads nothing.");
+    console.log(
+      `\n--dry-run: nothing written. The ${changes.length} row(s) above are NOT checkpointed, ` +
+        "so the real run will re-read and apply them."
+    );
     return;
   }
 
@@ -242,6 +284,12 @@ async function main() {
         `products update failed for ${c.id} (${written} of ${changes.length} already written): ${error.message}`
       );
     }
+    // Settled only now that the write has actually landed (or was skipped
+    // because someone else got there first). Checkpointing before this is
+    // what made a dry run swallow the whole workload: every reviewed row came
+    // back marked done, and the real run then had nothing left to apply.
+    settled.add(c.id);
+    saveProgress(settled);
     if ((data ?? []).length === 0) skipped += 1;
     else written += 1;
     process.stdout.write(`\r  write ${written}/${changes.length}`);
