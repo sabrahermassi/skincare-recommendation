@@ -14,6 +14,15 @@
 // call, over a real loopback server, with headers shaped like the ones a
 // deployed `product-lookup` was measured returning.
 //
+// Which test carries which claim, checked by mutation rather than assumed:
+// with the database never reached, "over the limit comes back 429" and "a cold
+// start" fail while the other two pass; with the RPC running but its answer
+// mishandled, only "a cold start" fails. So the cold-start case is the one
+// holding the durable layer up. The middle two pass against the in-memory
+// layer alone — not a weakness, because `Retry-After` and per-caller
+// separation are true at both layers, but worth knowing before trusting a
+// green run to mean the database did anything.
+//
 // Run by the `migrations` CI job, against the Postgres the migrations were
 // just applied to. Locally:
 //
@@ -25,6 +34,7 @@ import { assertEquals } from "jsr:@std/assert@1";
 import { Client } from "jsr:@db/postgres@0.19";
 
 import { enforceRateLimit, type RateLimit, type RateLimitDb } from "../functions/_shared/http.ts";
+import { resetRateLimits } from "../functions/_shared/rate-limit.ts";
 
 /**
  * The real client is `jsr:@supabase/supabase-js`, which speaks PostgREST over
@@ -197,33 +207,45 @@ Deno.test("two machines do not share one allowance", async () => {
   }
 });
 
-Deno.test("the count survives the process that made it", async () => {
-  // The reason the counter moved into Postgres at all. An isolate holding its
-  // own `Map` gives every cold start a fresh allowance, so a limit that is
-  // only in memory is a suggestion. Two separate connections stand in for two
-  // isolates: nothing is shared between them but the database.
+Deno.test("a cold start does not hand out a fresh allowance", async () => {
+  // The reason the counter moved into Postgres at all, and the one property no
+  // other test here covers. An isolate holding its own `Map` starts empty, so
+  // a limit that lives only in memory is a suggestion: spend it, wait for a
+  // recycle, and spend it again.
+  //
+  // `resetRateLimits()` is what makes this observable. It empties the same map
+  // a new isolate would start with, so the request after it has nothing local
+  // saying the caller is over — the database is the only thing left that can
+  // refuse, which is exactly the claim. A new connection alongside it, since a
+  // real isolate would not inherit one.
   const b = bucket();
   const caller = "203.0.113.11";
 
   const first = await connect();
   try {
     for (let i = 0; i < 20; i++) {
-      await enforceRateLimit(request(caller, i), dbOver(first), b, LIMIT);
+      const res = await enforceRateLimit(request(caller, i), dbOver(first), b, LIMIT);
+      assertEquals(res, null, `request ${i + 1} of the allowance was refused`);
     }
   } finally {
     await first.end();
   }
 
+  resetRateLimits();
+
   const second = await connect();
   try {
-    // A different connection, and — because the in-memory tally is keyed by
-    // caller — a caller this process has not seen locally at its limit yet.
-    // The database is the only thing that can refuse this, which is the point.
+    const refusal = await enforceRateLimit(request(caller, 99), dbOver(second), b, LIMIT);
+    assertEquals(refusal?.status, 429, "a fresh isolate was handed a new allowance");
+    await refusal?.body?.cancel();
+
+    // And the fresh isolate's own request was counted, rather than the window
+    // being read without being written to.
     const rows = await second.queryArray<[number]>(
       "select count from rate_limits where bucket = $1",
       [b],
     );
-    assertEquals(rows.rows[0][0], 20, "the window's count outlived the connection that wrote it");
+    assertEquals(rows.rows[0][0], 21, "the refused request still incremented the shared count");
   } finally {
     await second.end();
   }

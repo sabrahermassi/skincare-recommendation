@@ -159,17 +159,16 @@ export async function enforceRateLimit(
 }
 
 
-// Re-exported rather than defined here: see the note at the top of this file.
-// Only what an Edge Function actually calls — `withinRateLimit` and
-// `resetRateLimits` are internals of that module and its tests, and re-exporting
-// them here kept alive a surface no function used. Found in review.
-export {
-  callerKey,
-  consumeRateLimit,
-  retryAfterSeconds,
-  type RateLimit,
-  type RateLimitDb,
-};
+// Types only. The three values that used to be re-exported here —
+// `callerKey`, `consumeRateLimit` and `retryAfterSeconds` — are now called by
+// `enforceRateLimit` above and by nothing else, so passing them back out again
+// kept alive a surface no function used. That is the same finding an earlier
+// review made about `withinRateLimit` and `resetRateLimits`, and extracting
+// `enforceRateLimit` quietly recreated it; the comment here went on claiming
+// the block held "only what an Edge Function actually calls" while that had
+// stopped being true. Anything needing them directly imports `./rate-limit.ts`,
+// which is where they live.
+export { type RateLimit, type RateLimitDb };
 
 /**
  * The HMAC key that turns a caller's address into the fingerprint stored in
