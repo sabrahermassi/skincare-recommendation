@@ -129,7 +129,6 @@ describe("what survives an app restart", () => {
     expect([...PERSISTED_KEYS].sort()).toEqual([
       "hasSeenOnboarding",
       "history",
-      "productSuggestions",
       "profile",
       "savedIngredients",
       "savedProducts",
@@ -391,7 +390,6 @@ describe("v3 -> v4 migration", () => {
     savedProducts: [{ id: "hanbang-rice-serum", savedAt: 1 }],
     savedIngredients: ["niacinamide"],
     history: [],
-    productSuggestions: [],
   });
 
   it("keeps every answer the user still has a question for", () => {
@@ -457,6 +455,40 @@ describe("v3 -> v4 migration", () => {
     // A stored blob with no profile is corrupt, not a first run — but it must
     // still come back with the key the rest of the app destructures.
     expect(migratePersisted({ hasSeenOnboarding: true }, 3)?.profile).toEqual(EMPTY_PROFILE);
+  });
+});
+
+// v6 -> v7 drops productSuggestions (issue #97). The version bump matters as
+// much as the strip itself: Zustand only calls migratePersisted when the
+// stored version differs from the current one, so an install already
+// sitting at v6 would never run any migration at all without it — see the
+// doc comment on migratePersisted. Found in review on #124.
+describe("v6 -> v7 migration", () => {
+  const legacySuggestions = [{ barcode: "12345678", name: "Some Serum", submittedAt: 1 }];
+
+  it("drops productSuggestions from an install already at the pre-bump version", () => {
+    const migrated = migratePersisted(
+      { profile: EMPTY_PROFILE, hasSeenOnboarding: true, savedProducts: [], savedIngredients: [], history: [], productSuggestions: legacySuggestions },
+      6
+    ) as Record<string, unknown> | undefined;
+    expect(migrated).not.toHaveProperty("productSuggestions");
+  });
+
+  it("is safe to run again on state that's already past v7", () => {
+    const migrated = migratePersisted(
+      { profile: EMPTY_PROFILE, hasSeenOnboarding: true, savedProducts: [], savedIngredients: [], history: [], productSuggestions: legacySuggestions },
+      7
+    ) as Record<string, unknown> | undefined;
+    expect(migrated).not.toHaveProperty("productSuggestions");
+  });
+
+  it("drops it on the no-profile fallback path too", () => {
+    const migrated = migratePersisted(
+      { hasSeenOnboarding: true, productSuggestions: legacySuggestions },
+      6
+    ) as Record<string, unknown> | undefined;
+    expect(migrated).not.toHaveProperty("productSuggestions");
+    expect(migrated?.profile).toEqual(EMPTY_PROFILE);
   });
 });
 

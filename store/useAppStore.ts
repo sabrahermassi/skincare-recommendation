@@ -46,22 +46,6 @@ export type HistoryEntry = {
   warningsAtView: number;
 };
 
-/**
- * A product name typed in after a barcode came back unrecognised.
- *
- * Nothing reads this anywhere but the device it was typed on — there is no
- * write path from the client into the catalogue (every ingredient/product
- * table is service-role-write-only, by design, per the migration comments in
- * `supabase/migrations`). This is a local capture so the suggestion is not
- * silently lost, not a submission to anyone. Wiring a real intake path is
- * tracked separately rather than promised here.
- */
-export type ProductSuggestion = {
-  barcode: string;
-  name: string;
-  submittedAt: number;
-};
-
 const MAX_CONCERNS = 3;
 
 // "Eczema-prone" was dropped from the quiz's own concerns screen — it isn't
@@ -109,9 +93,6 @@ type AppState = {
 
   // ── History: automatic, written on every product view and scan ──
   history: HistoryEntry[];
-
-  /** Names typed in for barcodes we didn't recognise. See `ProductSuggestion`. */
-  productSuggestions: ProductSuggestion[];
 
   /** Shallow-merges into the profile. Used by every quiz step and by /profile. */
   setProfile: (patch: Partial<SkinProfile>) => void;
@@ -176,9 +157,6 @@ type AppState = {
    */
   restoreHistoryEntry: (entry: HistoryEntry) => void;
 
-  /** Idempotent per barcode — retyping the same one just updates the name. */
-  submitProductSuggestion: (barcode: string, name: string) => void;
-
   /**
    * Back to a first-run state: empty profile, closed onboarding gate, empty
    * shelf and log, and the barcodes looked up this session forgotten. Needed
@@ -198,7 +176,6 @@ export const PERSISTED_KEYS = [
   "savedProducts",
   "savedIngredients",
   "history",
-  "productSuggestions",
 ] as const;
 
 export type PersistedState = Pick<AppState, (typeof PERSISTED_KEYS)[number]>;
@@ -211,7 +188,6 @@ export function partializeState(state: AppState): PersistedState {
     savedProducts: state.savedProducts,
     savedIngredients: state.savedIngredients,
     history: state.history,
-    productSuggestions: state.productSuggestions,
   };
 }
 
@@ -222,7 +198,6 @@ export const INITIAL_STATE = {
   savedProducts: [] as SavedProduct[],
   savedIngredients: [] as string[],
   history: [] as HistoryEntry[],
-  productSuggestions: [] as ProductSuggestion[],
 };
 
 /**
@@ -265,6 +240,18 @@ export const INITIAL_STATE = {
  * hardcoded `"face"`, since nothing upstream of either function still
  * determines a real area either). Dropping that column is a separate,
  * not-yet-made decision — it wasn't touched here.
+ *
+ * v6 -> v7 drops `productSuggestions`, a top-level key rather than a
+ * `profile` field — see issue #97. Zustand only calls this function when the
+ * stored version differs from the current one; without the bump, an install
+ * already sitting at v6 would never run a migration at all; and even with
+ * one, the array has to be stripped explicitly here. `partialize` no longer
+ * writing it stops the *next* save from including it, but `persist`'s
+ * default rehydration is a shallow merge of whatever's on disk over
+ * `INITIAL_STATE` — an old blob's `productSuggestions` would otherwise ride
+ * along in the runtime store, unreachable through the `AppState` type but
+ * still sitting there, until some unrelated write happened to overwrite the
+ * whole persisted blob. Found in review on #124.
  */
 export function migratePersisted(persisted: unknown, version: number): PersistedState | undefined {
   const state = persisted as (PersistedState & {
@@ -275,16 +262,26 @@ export function migratePersisted(persisted: unknown, version: number): Persisted
       sensitive?: boolean;
       area?: unknown;
     };
+    /** Removed in v7 — see the migration note above. Typed loosely and
+     *  stripped unconditionally below; a install already past v7 simply
+     *  doesn't have the key, and destructuring an absent key is a no-op. */
+    productSuggestions?: unknown;
   }) | undefined;
 
   if (!state) return state;
 
-  // A missing profile shouldn't happen, but returning `state` as-is here
+  // Stripped before either branch below, so neither can hand a legacy
+  // install's array back out through a `...state`/`...withoutSuggestions`
+  // spread — see the migration note above.
+  const { productSuggestions: _droppedSuggestions, ...withoutSuggestions } = state;
+
+  // A missing profile shouldn't happen, but returning the state as-is here
   // would hand back an object without the `profile` key the PersistedState
   // contract requires — fall back to the same empty profile a first run
   // gets, rather than trust a merge elsewhere to paper over it.
-  if (!state.profile) return { ...state, profile: EMPTY_PROFILE };
-  if (version >= 6) return state as PersistedState;
+  if (!state.profile) return { ...withoutSuggestions, profile: EMPTY_PROFILE };
+
+  if (version >= 6) return withoutSuggestions as PersistedState;
 
   const {
     skinTypeSource: _droppedSource,
@@ -296,7 +293,7 @@ export function migratePersisted(persisted: unknown, version: number): Persisted
   } = state.profile;
 
   return {
-    ...state,
+    ...withoutSuggestions,
     profile: {
       ...EMPTY_PROFILE,
       ...rest,
@@ -437,14 +434,6 @@ export const useAppStore = create<AppState>()(
               }
         ),
 
-      submitProductSuggestion: (barcode, name) =>
-        set((state) => ({
-          productSuggestions: [
-            { barcode, name, submittedAt: Date.now() },
-            ...state.productSuggestions.filter((s) => s.barcode !== barcode),
-          ],
-        })),
-
       resetApp: () => {
         set({ ...INITIAL_STATE });
         // Also wipe what is on disk. Without this the in-memory reset is
@@ -472,7 +461,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: NEW_STORAGE_KEY,
-      version: 6,
+      version: 7,
       storage: createJSONStorage(() => formeStorage),
       partialize: partializeState,
       migrate: migratePersisted,

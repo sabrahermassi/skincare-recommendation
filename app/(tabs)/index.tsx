@@ -1,13 +1,10 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import { useCallback, useRef, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
-  Keyboard,
-  Platform,
   Pressable,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,7 +15,7 @@ import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { COLORS } from "@/lib/colors";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, CTA, INK, LINE, MUTED, SCANNER_FRAME, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SCANNER_FRAME, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -355,39 +352,6 @@ function ModeSwitcher({
  * Barcode mode, full screen — the MVP's scanner: live camera edge to edge,
  * automatic detection, no shutter button, no confirmation step.
  */
-/**
- * Current keyboard height in px, 0 when hidden.
- *
- * `KeyboardAvoidingView`'s "padding"/"height" behaviors only push around
- * normal-flow layout — they do nothing for a `position: absolute` child,
- * which is what the bottom status panel below is. Without this, the keyboard
- * slides up over that panel and buries the "Tell us its name" field entirely;
- * the only way to see what you'd typed was to hit return and dismiss the
- * keyboard first. This tracks the keyboard's own height so that panel's
- * `bottom` offset can grow to match and the field stays in view while typing.
- */
-function useKeyboardHeight(): number {
-  const [height, setHeight] = useState(0);
-
-  useEffect(() => {
-    // iOS fires the "will" events ahead of the animation, which is what lets
-    // this track the keyboard smoothly; Android does not reliably fire them
-    // at all, so it uses "did" instead.
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-
-    const onShow = Keyboard.addListener(showEvent, (e) => setHeight(e.endCoordinates.height));
-    const onHide = Keyboard.addListener(hideEvent, () => setHeight(0));
-
-    return () => {
-      onShow.remove();
-      onHide.remove();
-    };
-  }, []);
-
-  return height;
-}
-
 function BarcodeStage({
   permission,
   requestPermission,
@@ -410,7 +374,6 @@ function BarcodeStage({
   modeSwitcher: ReactElement;
 }) {
   const insets = useSafeAreaInsets();
-  const keyboardHeight = useKeyboardHeight();
 
   // One sentence per state, shared by the spoken announcement and the visible
   // panel's own label so the two can never drift apart.
@@ -503,15 +466,13 @@ function BarcodeStage({
         </View>
       )}
 
-      {/* Status, then the switcher, stacked off the bottom edge. Rises by
-          `keyboardHeight` while the name field below is focused, so the
-          keyboard opening doesn't slide the whole group underneath it. */}
+      {/* Status, then the switcher, stacked off the bottom edge. */}
       <View
         style={{
           position: "absolute",
           left: 20,
           right: 20,
-          bottom: Math.max(20, insets.bottom + 12) + keyboardHeight,
+          bottom: Math.max(20, insets.bottom + 12),
           gap: 12,
         }}
       >
@@ -677,15 +638,6 @@ function BarcodeStage({
           </Pressable>
         )}
 
-        {/* Drawn on a panel rather than straight onto the viewfinder: this is
-            the one place on the stage that takes typed input, and its label
-            and field were built for the light canvas. */}
-        {status.kind === "missed" && (
-          <View style={{ borderRadius: 18, paddingVertical: 8, backgroundColor: CANVAS }}>
-            <UnknownProductNote barcode={status.code} />
-          </View>
-        )}
-
         {modeSwitcher}
       </View>
     </View>
@@ -800,105 +752,6 @@ function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
         className="active:opacity-90"
       >
         <Text style={{ fontSize: 14, fontWeight: "600", color: INK }}>Open the camera</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-/**
- * A tiny way to say "I know what this is" after a barcode comes back empty.
- *
- * Nothing writes to the catalogue from here — every ingredient and product
- * table only accepts writes from the service role
- * (`supabase/migrations/0001_catalogue.sql`), and there is no endpoint yet
- * that takes a name from a stranger and turns it into a trusted row. What
- * this genuinely does is keep the name on the device, the same way
- * `savedIngredients` does, rather than losing it the moment the camera moves
- * on. The copy says exactly that — "saved on your phone" — instead of
- * implying it reached anyone, which would be the fabricated-promise problem
- * this app avoids everywhere else.
- *
- * `scan-label` deliberately does NOT read this store. An unverified,
- * device-local name reaching a permanent, shared catalogue row — with no way
- * for anyone to ever correct it once `label-ocr` sets one — was flagged in
- * review as a real data-integrity risk, not just a UX nicety. Wiring it up
- * needs a server-side correction/moderation path first (the still-open
- * server half of step 5), not just a client-side pass-through.
- */
-function UnknownProductNote({ barcode }: { barcode: string }) {
-  const submitted = useAppStore((s) =>
-    s.productSuggestions.some((p) => p.barcode === barcode)
-  );
-  const submit = useAppStore((s) => s.submitProductSuggestion);
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-
-  if (submitted) {
-    return (
-      <View style={{ paddingHorizontal: 26, paddingTop: 10 }}>
-        <Text style={{ textAlign: "center", fontSize: 12, color: MUTED }}>
-          Saved on your phone — you won&apos;t be asked again for this one.
-        </Text>
-      </View>
-    );
-  }
-
-  if (!open) {
-    return (
-      <Pressable onPress={() => setOpen(true)} style={{ alignItems: "center", paddingHorizontal: 20, paddingTop: 8 }}>
-        <Text style={{ fontSize: 12, color: MUTED }}>
-          Know what this is?{" "}
-          <Text style={{ fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-            Tell us its name
-          </Text>
-        </Text>
-      </Pressable>
-    );
-  }
-
-  function save() {
-    if (name.trim().length === 0) return;
-    submit(barcode, name.trim());
-  }
-
-  return (
-    <View style={{ paddingHorizontal: 26, paddingTop: 10, gap: 8 }}>
-      <TextInput
-        value={name}
-        onChangeText={setName}
-        placeholder="Brand and product name"
-        placeholderTextColor={MUTED}
-        autoFocus
-        returnKeyType="done"
-        onSubmitEditing={save}
-        style={{
-          borderRadius: 14,
-          borderWidth: 1,
-          borderColor: LINE,
-          backgroundColor: CANVAS,
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          fontSize: 13,
-          color: INK,
-        }}
-      />
-      {/* Not peach — this is a minor, deeply nested confirm action within an
-          optional sub-flow, not the mode's primary action (that's the
-          camera/scan itself). Peach stays reserved for that. */}
-      <Pressable
-        onPress={save}
-        disabled={name.trim().length === 0}
-        style={{
-          height: TOUCH_TARGET,
-          opacity: name.trim().length === 0 ? 0.5 : 1,
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 14,
-          paddingHorizontal: 24,
-          backgroundColor: INK,
-        }}
-      >
-        <Text style={{ fontSize: 13.5, fontWeight: "600", color: CANVAS }}>Save the name</Text>
       </Pressable>
     </View>
   );
