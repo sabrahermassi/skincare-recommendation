@@ -55,6 +55,72 @@ already answers.
 
 ## Scoring
 
+**Why exposure is graded per product type rather than a rinse-off flag:**
+product type touches the score in exactly one place — `contactWeight`, which
+scales how much each ingredient counts. Everything else comes from the
+formula. That weight used to be a boolean: 0.4 for a rinse-off list, 1 for
+everything else. Two things were wrong with it. A scrub rinsed off in thirty
+seconds and a hair mask worn for twenty minutes took the same number. And
+`exfoliator` covers both a physical scrub and a leave-on acid liquid — the
+catalogue holds "6% Mandelic Acid + 2% Lactic Acid Liquid Exfoliant", which
+was having its acids *and its irritation* counted at 40% for exactly the
+reactive skin that needed the warning.
+
+Three bands now: 0.25 for what rinses within a minute, 0.5 for what sits a
+few minutes and is then rinsed, 1 for leave-on. Only three types are
+discounted at all — cleanser, body-wash, body-scrub — because those
+are the ones where "it washes off" is unambiguous. Four that look like they
+belong there do not: `exfoliator` covers a physical scrub *and* a leave-on
+acid liquid (`en:face-scrubs` is what OBF tags both), `conditioner` covers
+rinse-out and leave-in, `hair-mask` covers rinsed-after-twenty-minutes
+and left-in-overnight, and `shampoo` covers a rinse-out wash and a dry
+shampoo sprayed in and left — the bare `/shampoo/` match in both classifiers
+catches both. Each follows the ambiguity rule below instead. That follows how
+cosmetic exposure
+assessment is actually done — the SCCS applies a retention factor per product
+type, not a rinse-off boolean, and quantitative risk assessments built that
+way (MCI/MI, fragrance allergens) repeatedly put rinse-off scenarios below
+the sensitisation-induction threshold while leave-on scenarios of the same
+substance exceed it. It is also why those preservatives carry a lower cap in
+leave-on products than in rinse-off ones.
+
+The load-bearing part is the default: anything whose exposure is not obvious,
+`unknown` included, is scored at full leave-on weight, on the theory that a
+wrong type guess can then only make the app over-cautious about a formula —
+never quietly under-count an irritant sitting on someone's face all night.
+
+**Known limitation, found by Codex on #119 and deliberately not fixed here:**
+that theory only holds for the harm side of the score. `contactWeight`
+scales every ingredient signal identically — `lib/matching.ts`'s
+`weightAt = positionWeight(position) * contact` feeds both a rule's `helps`
+contribution (raises concern fit) and its `hurts`/irritation contribution
+(lowers the score) — so full weight for an ambiguous type also gives full
+*benefit* credit, not just full risk. A rinse-off scrub with salicylic acid,
+used by someone oily/acne-prone but not sensitive, gets full acne-fighting
+credit as though it were left on, with no offsetting inflated irritation to
+balance it (salicylic acid's `hurts` rule needs sensitive skin to fire at
+all) — so the product can be over-credited, not "judged a little harshly" as
+an earlier version of this reasoning claimed. Fixing it properly means
+separating benefit weighting from harm weighting in `lib/matching.ts`'s
+scoring loop, which is a real change to the scoring model, not another entry
+in `EXPOSURE_BY_TYPE` — tracked as follow-up work rather than folded into
+this PR.
+
+Considered and rejected: dropping `contactWeight` entirely for pure
+ingredient scoring. It would remove the type dependency altogether, but a
+face wash and a night serum carrying the same actives would then score
+identically, and the wash genuinely does less — in both directions.
+
+Considered and rejected: moving `cleanser` to full weight because micellar
+water — tagged and typed `cleanser` by both classifiers — is usually left on
+rather than rinsed. Unlike the four ambiguous types above, `cleanser` is not
+close to a 50/50 split: the large majority of what's typed `cleanser` (foam,
+gel, oil, balm) genuinely is rinsed off within about a minute, exactly the
+band this weight sits in. Discounting the whole type to fix the micellar
+minority would cost the accuracy the type exists to provide for the
+majority. The right fix is a dedicated no-rinse/micellar classifier rule,
+tracked separately — not a change to this weighting.
+
 **Why `SCORE_BANDS` is the single source for band cutoffs:** the verdict
 and the badge tone once read different cutoffs (75/55 vs 80/65) and
 disagreed about the same product. That's the failure mode the shared
