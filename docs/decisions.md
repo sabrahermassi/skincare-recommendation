@@ -75,8 +75,7 @@ acid liquid (`en:face-scrubs` is what OBF tags both), `conditioner` covers
 rinse-out and leave-in, `hair-mask` covers rinsed-after-twenty-minutes
 and left-in-overnight, and `shampoo` covers a rinse-out wash and a dry
 shampoo sprayed in and left — the bare `/shampoo/` match in both classifiers
-catches both. Each follows the ambiguity rule below instead, and the
-rinse-off variants are judged slightly harshly as the price. That follows how
+catches both. Each follows the ambiguity rule below instead. That follows how
 cosmetic exposure
 assessment is actually done — the SCCS applies a retention factor per product
 type, not a rinse-off boolean, and quantitative risk assessments built that
@@ -86,9 +85,26 @@ substance exceed it. It is also why those preservatives carry a lower cap in
 leave-on products than in rinse-off ones.
 
 The load-bearing part is the default: anything whose exposure is not obvious,
-`unknown` included, is scored at full leave-on weight. A wrong type guess can
-then only make the app over-cautious about a formula — never quietly
-under-count an irritant sitting on someone's face all night.
+`unknown` included, is scored at full leave-on weight, on the theory that a
+wrong type guess can then only make the app over-cautious about a formula —
+never quietly under-count an irritant sitting on someone's face all night.
+
+**Known limitation, found by Codex on #119 and deliberately not fixed here:**
+that theory only holds for the harm side of the score. `contactWeight`
+scales every ingredient signal identically — `lib/matching.ts`'s
+`weightAt = positionWeight(position) * contact` feeds both a rule's `helps`
+contribution (raises concern fit) and its `hurts`/irritation contribution
+(lowers the score) — so full weight for an ambiguous type also gives full
+*benefit* credit, not just full risk. A rinse-off scrub with salicylic acid,
+used by someone oily/acne-prone but not sensitive, gets full acne-fighting
+credit as though it were left on, with no offsetting inflated irritation to
+balance it (salicylic acid's `hurts` rule needs sensitive skin to fire at
+all) — so the product can be over-credited, not "judged a little harshly" as
+an earlier version of this reasoning claimed. Fixing it properly means
+separating benefit weighting from harm weighting in `lib/matching.ts`'s
+scoring loop, which is a real change to the scoring model, not another entry
+in `EXPOSURE_BY_TYPE` — tracked as follow-up work rather than folded into
+this PR.
 
 Considered and rejected: dropping `contactWeight` entirely for pure
 ingredient scoring. It would remove the type dependency altogether, but a

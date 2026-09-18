@@ -694,8 +694,18 @@ const EXPOSURE_BY_TYPE: Record<ProductType, number> = {
   //
   // Discounting an ambiguous type quietly under-counts an irritant that was
   // in fact left on, which is the failure this weighting exists to prevent.
-  // So they take full weight, the cost lands on the rinse-off variants being
-  // judged a little harshly, and the rule is the same one `unknown` follows.
+  // So they take full weight, and the rule is the same one `unknown` follows.
+  //
+  // KNOWN LIMITATION, not fixed by this weighting: this same weight also
+  // scales a *helpful* rule's contribution, not just an irritant's. A
+  // rinse-off scrub's salicylic acid gets full acne-fighting credit here too,
+  // as though contact time were long enough to matter — and for a user whose
+  // profile doesn't trigger that ingredient's `hurts` rule (not sensitive),
+  // there is no offsetting inflated irritation to balance it against, so the
+  // product can be over-credited rather than merely "judged a little
+  // harshly". Fixing this properly means separating benefit and harm
+  // weighting in `lib/matching.ts`, not another entry in this table — see
+  // `docs/decisions.md`.
   exfoliator: 1,
   conditioner: 1,
   "hair-mask": 1,
