@@ -803,4 +803,4 @@ if (invokedDirectly()) {
 // Exported for `__tests__/import-obf-gates.test.ts`. Deliberately just the
 // pure parts — the gates and the parser — so a test never needs a network or a
 // service-role key to pin the behaviour this step is measured on.
-export { parseInci, toRow, guessType, normalise, MIN_KNOWN_INGREDIENT_RATIO };
+export { parseInci, toRow, guessType, normalise, retryAfterMs, MIN_KNOWN_INGREDIENT_RATIO };

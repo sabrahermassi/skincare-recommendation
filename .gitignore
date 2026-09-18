@@ -89,3 +89,6 @@ design-watercolor/
 # Local dev scratch — an Expo start wrapper and its diagnostic log
 expo-diag.log
 start-expo.ps1
+
+# Per-machine progress for scripts/reclassify-from-tags.mjs
+.reclassify-from-tags-progress.json
