@@ -347,12 +347,39 @@ function computeMatch(
       const helps = targetApplies(rule.helps, target);
       const hurts = targetApplies(rule.hurts, target);
 
+      // `hurts` alone is not enough to say a harm is counted anywhere in the
+      // score — `targetApplies` is an OR across concerns/skinTypes/sensitive,
+      // so a rule whose `hurts` matches only via `sensitive` (salicylic acid
+      // on sensitive-but-not-dry skin, for instance) can be true here while
+      // none of the three real score paths below (irritation, concern
+      // evidence, type evidence) actually apply it. Before this PR that was
+      // invisible: `effect` used one weight in both directions, so an
+      // unapplied harm exactly cancelled an equal benefit and the ingredient
+      // simply produced no reason line. Splitting the weights broke that
+      // cancellation — the same unapplied harm now nets to a *visible,
+      // nonzero* negative `effect`, showing "why this score" listing an
+      // ingredient as working against the user for harm the score never
+      // actually charged. `harmApplied` mirrors exactly what the three real
+      // paths below check, so `effect` never claims more than the score
+      // itself does. Raised by review on PR #127.
+      const hurtsIrritantCategory = hurts && IRRITANT_CATEGORIES.has(rule.category);
+      const hurtsMatchedConcern =
+        hurts &&
+        profile.concerns.some(
+          (concern) =>
+            rule.hurts?.concerns?.includes(concern) &&
+            !(rule.category === "pore-clogging" && PORE_LED_CONCERNS.includes(concern))
+        );
+      const hurtsMatchedSkinType =
+        hurts && !!profile.baseSkinType && !!rule.hurts?.skinTypes?.includes(profile.baseSkinType);
+      const harmApplied = hurtsIrritantCategory || hurtsMatchedConcern || hurtsMatchedSkinType;
+
       // A rule can both help and hurt the same person — salicylic acid on
       // oily, sensitive skin. That is a genuine tension, not a bug, so both
       // are recorded and the net effect is what moves the score.
       let effect = 0;
       if (helps) effect += benefitWeight;
-      if (hurts) effect -= harmWeight;
+      if (harmApplied) effect -= harmWeight;
 
       for (const concern of profile.concerns) {
         if (rule.helps?.concerns?.includes(concern)) {
@@ -382,7 +409,7 @@ function computeMatch(
       // like salicylic acid or a retinoid, not just the ambiguous-contact
       // types this PR is about) and belongs in its own PR with its own
       // before/after evidence. See the review on PR #127.
-      if (IRRITANT_CATEGORIES.has(rule.category) && hurts) irritation += harmWeight;
+      if (hurtsIrritantCategory) irritation += harmWeight;
 
       if (effect !== 0) {
         scored++;

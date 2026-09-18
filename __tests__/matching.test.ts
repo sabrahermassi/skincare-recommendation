@@ -456,32 +456,56 @@ describe("verdict engine", () => {
     expect(high.reasons[0].ingredient).toBe("parfum");
   });
 
-  it("records both sides when one ingredient helps and hurts the same person", () => {
-    // Salicylic acid suits oily/acne-prone and works against sensitive skin.
+  it("records both sides only when both are actually counted in the score", () => {
+    // Salicylic acid helps acne-prone skin (a concern match, real fit
+    // evidence) and hurts dry skin (a skinType match, also real fit
+    // evidence) — both paths genuinely move the score, unlike a profile that
+    // is merely `sensitive` with no matching concern or skinType, which
+    // `targetApplies` still treats as "hurts" but which the score does not
+    // otherwise count (see the next test, and PR #127's review).
     const result = matchProduct(
       synthetic(["water", "salicylic acid", ...FILLER]),
-      profile({ baseSkinType: "oily", concerns: ["acne-prone"], sensitivity: "some" })
+      profile({ baseSkinType: "dry", concerns: ["acne-prone"], sensitivity: "none" })
     );
     const entry = result.reasons.find((r) => r.ingredient === "salicylic acid");
-    // Net zero: the tension is real, so it moves the score nowhere and is not
-    // dressed up as a recommendation either way. Salicylic acid's category
-    // (pore-clogging) is not one of IRRITANT_CATEGORIES, so this does not
-    // reach the irritation penalty either — see PR #127's review for the
-    // separate, not-yet-built change that would widen that.
+    // Net zero on a leave-on product: equal weight in both directions, and
+    // both sides are real, so the tension genuinely cancels rather than
+    // producing a claim the score doesn't back up.
     expect(entry).toBeUndefined();
   });
 
-  it("shows net harm when ambiguous contact discounts only the helpful side", () => {
-    // Full harm weight (1) against a halved benefit weight (0.5, exfoliator's
-    // ambiguous-contact discount): the same tension as the leave-on case
-    // above, but no longer a wash, because only one side was discounted.
+  it("shows net harm only from harm the score actually applies", () => {
+    // Same genuinely-counted tension as above (concern-matched benefit,
+    // skinType-matched harm), but on an ambiguous-contact type: harm stays
+    // at full weight while benefit is halved, so it no longer cancels.
+    const result = matchProduct(
+      synthetic(["water", "salicylic acid", ...FILLER], { type: "exfoliator" }),
+      profile({ baseSkinType: "dry", concerns: ["acne-prone"], sensitivity: "none" })
+    );
+    const entry = result.reasons.find((r) => r.ingredient === "salicylic acid");
+
+    expect(entry?.effect).toBeLessThan(0);
+  });
+
+  it("does not show harm the score never applied, even when contact weights differ", () => {
+    // The bug this PR's review caught: `targetApplies` treats `hurts` as true
+    // whenever ANY of its conditions match, including `sensitive` alone — so
+    // a sensitive, oily, acne-prone user (skinType does not match salicylic
+    // acid's `hurts.skinTypes: ["dry"]`, and it declares no `hurts.concerns`
+    // at all) triggers `hurts` through sensitivity only, a signal with no
+    // fit-evidence bucket of its own. On a leave-on product that harm used to
+    // cancel an equal benefit by coincidence of equal weights; splitting
+    // benefit and harm broke that coincidence and turned it into a visible,
+    // uncounted negative "reason" — the score went up from the benefit while
+    // the explanation claimed the same ingredient worked against the user.
     const result = matchProduct(
       synthetic(["water", "salicylic acid", ...FILLER], { type: "exfoliator" }),
       profile({ baseSkinType: "oily", concerns: ["acne-prone"], sensitivity: "some" })
     );
     const entry = result.reasons.find((r) => r.ingredient === "salicylic acid");
 
-    expect(entry?.effect).toBeLessThan(0);
+    // Positive, not negative: only the counted acne-prone benefit shows.
+    expect(entry?.effect).toBeGreaterThan(0);
   });
 
   it("explains itself — every scored product returns its reasons", () => {
