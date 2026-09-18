@@ -195,7 +195,7 @@ export default function ScanLabel() {
         return;
       }
 
-      setStatus({ kind: "failed", ...failureCopy(result.reason) });
+      setStatus({ kind: "failed", ...failureCopy(result.reason, !!barcode) });
     } catch {
       setStatus({
         kind: "failed",
@@ -385,8 +385,22 @@ function deleteTempFile(uri: string | undefined) {
   }
 }
 
-/** Each failure gets a different next action, because they have different fixes. */
-function failureCopy(reason: "not_configured" | "unreadable" | "too_little_text" | "rate_limited") {
+/**
+ * Each failure gets a different next action, because they have different
+ * fixes.
+ *
+ * `hasBarcode` is whoever navigated here having already handed one over —
+ * from a catalogue miss (`(tabs)/index.tsx`), a recorded miss in Saved, or a
+ * recognised product with no formula yet (`product/[id].tsx`). In all three,
+ * the barcode already ran and either missed or led here; telling that user
+ * to "try the barcode" sends them straight back through the same loop. Only
+ * the bare "photograph a label" entry point (no barcode in hand at all) can
+ * usefully be pointed at it. Found in review on #121.
+ */
+function failureCopy(
+  reason: "not_configured" | "unreadable" | "too_little_text" | "rate_limited",
+  hasBarcode: boolean,
+) {
   switch (reason) {
     case "too_little_text":
       return {
@@ -399,13 +413,21 @@ function failureCopy(reason: "not_configured" | "unreadable" | "too_little_text"
         hint: "Give it a few minutes and try again.",
       };
     case "not_configured":
-      // The real cause (no Vision API key on the server) is ours to fix, not
-      // the scanner's to explain — see issue #96. Kept here for whoever's
-      // debugging a report of this screen.
-      console.warn("[scan-label] label-ocr returned not_configured: Vision API key isn't set on the server");
+      // Two unrelated causes share this one reason: `analyseLabel` in
+      // `data/api.ts` returns it both when the app itself has no Supabase
+      // credentials configured (no request ever left the device) and when
+      // the server answers 503 because the Vision API key isn't set. Naming
+      // either one specifically here would misdiagnose the other — see
+      // issue #96 and the review that caught this on #121.
+      console.warn(
+        "[scan-label] label-ocr returned not_configured — either this app has no Supabase " +
+          "credentials configured, or the server's Vision API key is unset",
+      );
       return {
         message: "Label reading is temporarily unavailable.",
-        hint: "Try the barcode instead, or look the product up in Browse.",
+        hint: hasBarcode
+          ? "Look the product up in Browse, or try again later."
+          : "Try the barcode instead, or look the product up in Browse.",
       };
     case "unreadable":
       return {
