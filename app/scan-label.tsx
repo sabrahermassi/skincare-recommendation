@@ -2,7 +2,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { File } from "expo-file-system";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { router, useLocalSearchParams } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -12,6 +12,7 @@ import { analyseLabel } from "@/data/api";
 import { coverFitCropRect, type Rect, type Size } from "@/lib/crop-to-guide";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
 import { CANVAS, CTA, INK, MUTED, withAlpha } from "@/lib/tokens";
+import { useAppStore } from "@/store/useAppStore";
 
 // The design system (design/DESIGN_SYSTEM.md). The live camera view stays plain
 // black, same reasoning as the scanner's own dark stage — only the
@@ -43,6 +44,19 @@ export default function ScanLabel() {
   const [permission, requestPermission] = useCameraPermissions();
   const [status, setStatus] = useState<Status>({ kind: "framing" });
   const camera = useRef<CameraView>(null);
+
+  // Reaching this screen at all — from "Label photo" mode, a barcode miss, a
+  // formula-less product, or Saved's recorded miss — is a scan starting the
+  // same way a barcode read is, and (tabs)/index.tsx only clears the
+  // just-finished-the-quiz banner from its own barcode path. Without this,
+  // finishing the quiz and going straight to Label photo left the banner set
+  // for the rest of the session, resurfacing stale the next time Barcode mode
+  // was visible. One mount-time clear here covers every entry point instead
+  // of patching each launcher. Found by Codex in review on #126.
+  const dismissQuizAcknowledgement = useAppStore((s) => s.dismissQuizAcknowledgement);
+  useEffect(() => {
+    dismissQuizAcknowledgement();
+  }, [dismissQuizAcknowledgement]);
 
   // Measured via onLayout rather than `Dimensions.get('window')`: this route
   // is presented as a modal (`app/_layout.tsx`) and whether that costs any
