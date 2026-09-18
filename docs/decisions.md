@@ -119,14 +119,29 @@ gel, oil, balm) genuinely is rinsed off within about a minute, exactly the
 band this weight sits in. Discounting the whole type to fix the micellar
 minority would cost the accuracy the type exists to provide for the
 majority. The right fix was a dedicated no-rinse/micellar classifier rule,
-tracked separately — **built in PR #128 (step 13, second half)**: a new
+tracked separately — **built in PR #130 (step 13, second half)**: a new
 `micellar-water` `ProductType` sits above the generic cleanser pattern in
 both `guessType` copies (`scripts/import-obf.mjs`,
 `supabase/functions/product-lookup/index.ts`), and `contactWeight` gives it
 full harm and benefit like any other leave-on type. No icon was drawn for
 it — `lib/productIllustration.ts` falls back to the same untexted pump
 bottle `unknown` uses, deliberately, rather than showing a `cleanser`-labeled
-icon on a product that isn't one.
+icon on a product that isn't one. The classifier rule requires "water"
+alongside "micellar" rather than the bare word, so a genuinely rinse-off
+"Micellar Foaming Cleanser" still lands as `cleanser` rather than getting
+full leave-on contact weight for a product that isn't left on.
+
+**This is a classifier fix, not a data migration.** It only changes how a
+product is typed on its next import or scan — any row already in the live
+catalogue that was typed `cleanser` by the old, broader pattern (plausible:
+`en:cleansers` is one of this importer's six pulled categories, exactly
+where a micellar water would have landed) stays typed `cleanser`, and stays
+scored at the rinse-off 0.25/0.25 weight, until it's re-read.
+`scripts/reclassify-from-tags.mjs` already has `cleanser` in its
+`CANDIDATE_TYPES` and already imports `guessType` from `import-obf.mjs`, so
+running it picks up this fix retroactively — it just hasn't been run for
+this reason yet. Same precedent as steps 3, 4, 8 and 10 in the data-strategy
+plan: code merged is not done, a confirmed live run is.
 
 **Why `SCORE_BANDS` is the single source for band cutoffs:** the verdict
 and the badge tone once read different cutoffs (75/55 vs 80/65) and

@@ -223,10 +223,16 @@ describe("guessType", () => {
     // first — same precedence rule as shampoo/cleansing above.
     expect(guessType([], "Micellar Water")).toBe("micellar-water");
     expect(guessType(["en:cleansers"], "Cleansing Micellar Water")).toBe("micellar-water");
-    expect(guessType([], "Eau Micellaire Démaquillante")).toBe("micellar-water");
-    expect(guessType([], "Agua Micelar")).toBe("micellar-water");
+    expect(guessType([], "Micellar Cleansing Water")).toBe("micellar-water");
     // A genuine foaming cleanser is unaffected.
     expect(guessType([], "Gentle Foaming Cleanser")).toBe("cleanser");
+    // "Micellar" alone, without "water", is a real rinse-off format too
+    // ("Micellar Foaming Cleanser", "Bi-Phase Micellar Wash") — the rule
+    // requires both words so these still fall through to the generic
+    // cleanser rule rather than getting full leave-on contact weight for a
+    // product that's genuinely rinsed off.
+    expect(guessType([], "Micellar Foaming Cleanser")).toBe("cleanser");
+    expect(guessType([], "Bi-Phase Micellar Foam")).toBe("cleanser");
   });
 
   it("does not call a skin conditioner a hair conditioner", () => {

@@ -72,7 +72,7 @@ export type SkinProfile = {
 
 export type ProductType =
   | "cleanser"
-  // Split out of "cleanser" (step 13, PR #128): every other name that
+  // Split out of "cleanser" (step 13, PR #130): every other name that
   // classifies as `cleanser` genuinely is rinsed off within a minute, which
   // is exactly why `contactWeight` discounts the whole type — but a micellar
   // water is designed to be wiped off, not rinsed, so it keeps full exposure

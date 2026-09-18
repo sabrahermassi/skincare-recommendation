@@ -37,7 +37,7 @@ describe("contactWeight", () => {
     "sunscreen",
     "night-mask",
     "lip-balm",
-    // Split out of "cleanser" (step 13, PR #128): wiped off, not rinsed, so
+    // Split out of "cleanser" (step 13, PR #130): wiped off, not rinsed, so
     // it keeps full exposure rather than inheriting the rinse-off discount.
     "micellar-water",
   ] as ProductType[])(

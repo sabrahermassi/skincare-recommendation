@@ -28,7 +28,7 @@ describe("productIllustrationSource", () => {
     // check above — the icon would silently be wrong rather than absent.
     //
     // "micellar-water" is deliberately exempt alongside "unknown" itself: it
-    // was split out of "cleanser" (step 13, PR #128) with no labeled icon of
+    // was split out of "cleanser" (step 13, PR #130) with no labeled icon of
     // its own drawn yet, so it falls back to the same untexted pump bottle on
     // purpose — a "Cleanser"-labeled icon would misdescribe it, which is a
     // worse failure than an unlabeled one.

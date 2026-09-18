@@ -48,7 +48,7 @@ const FALLBACK = "bottle-pump.png";
 
 const CONTAINER_BY_TYPE: Record<ProductType, string> = {
   cleanser: "bottle-cleanser.png",
-  // Split out of `cleanser` (step 13, PR #128) with no labeled icon of its
+  // Split out of `cleanser` (step 13, PR #130) with no labeled icon of its
   // own drawn yet — falls back to the untexted pump bottle for the same
   // reason `unknown` does: a "Cleanser"-labeled icon would misdescribe it.
   "micellar-water": FALLBACK,

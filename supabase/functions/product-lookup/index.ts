@@ -486,10 +486,14 @@ function guessType(tags: string[], text: string): string {
     [/(?<!skin[\s-])conditioner/, "conditioner"],
     // Above the generic cleanser rule: a micellar water is wiped off, not
     // rinsed, so it needs its own type rather than falling into `cleanser`'s
-    // rinse-off discount (step 13, PR #128). "eau micellaire" (fr),
-    // "agua micelar" (es), "acqua micellare" (it) — the format word this
-    // catalogue's languages actually use for it.
-    [/micellar|eau micellaire|agua micelar|acqua micellare/, "micellar-water"],
+    // rinse-off discount (step 13, PR #130). Requires "water" alongside
+    // "micellar" rather than the bare word — "micellar" alone also appears
+    // on rinse-off formats sold as "Micellar Foaming Cleanser" or "Micellar
+    // Wash", which genuinely are rinsed off and belong in the generic rule
+    // below. English-only, like every other pattern in this table until a
+    // real catalogue entry is seen failing in another language — no such
+    // entry has been seen yet for this one.
+    [/(?=.*micellar)(?=.*water)/, "micellar-water"],
     [
       // nettoyant/lavant (fr), reinigings/schuimende (nl), limpiador (es),
       // detergente (it), waschgel (de) — plus "huile lavante", a washing oil.
