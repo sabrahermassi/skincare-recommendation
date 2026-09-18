@@ -30,6 +30,7 @@ import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELE
 const TYPE_FILTERS: (ProductType | "all")[] = [
   "all",
   "cleanser",
+  "micellar-water",
   "toner",
   "essence",
   "serum",

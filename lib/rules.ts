@@ -681,6 +681,14 @@ const EXPOSURE_BY_TYPE: Record<ProductType, ContactWeights> = {
   // Rinsed within about a minute.
   cleanser: { harm: 0.25, benefit: 0.25 },
   "body-wash": { harm: 0.25, benefit: 0.25 },
+  // Not rinsed — wiped or patted off, so it gets none of `cleanser`'s
+  // discount even though the classifier used to fold it into that type.
+  // Split out as its own type (step 13, PR #130) rather than moving all of
+  // `cleanser` to full weight: the vast majority of what `cleanser` names
+  // genuinely is rinsed within a minute, and discounting that majority to
+  // fix this one minority case would trade one wrong answer for a bigger
+  // one.
+  "micellar-water": FULL_CONTACT,
   // Sits for minutes, then rinsed. A body scrub is the one type where that is
   // unambiguous: it is scrubbed on and washed straight off.
   "body-scrub": { harm: 0.5, benefit: 0.5 },

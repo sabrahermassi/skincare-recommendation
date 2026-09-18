@@ -26,8 +26,14 @@ describe("productIllustrationSource", () => {
     // Without this, a type missing from CONTAINER_BY_TYPE would resolve to the
     // plain unlabeled `unknown` bottle and still satisfy the "is defined"
     // check above — the icon would silently be wrong rather than absent.
+    //
+    // "micellar-water" is deliberately exempt alongside "unknown" itself: it
+    // was split out of "cleanser" (step 13, PR #130) with no labeled icon of
+    // its own drawn yet, so it falls back to the same untexted pump bottle on
+    // purpose — a "Cleanser"-labeled icon would misdescribe it, which is a
+    // worse failure than an unlabeled one.
     const fallback = productIllustrationSource({ id: "x", type: "unknown" });
-    for (const type of ALL_TYPES.filter((t) => t !== "unknown")) {
+    for (const type of ALL_TYPES.filter((t) => t !== "unknown" && t !== "micellar-water")) {
       expect(productIllustrationSource({ id: "x", type })).not.toBe(fallback);
     }
   });

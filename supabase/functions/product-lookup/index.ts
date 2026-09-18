@@ -458,6 +458,10 @@ function looksCosmetic(text: string): boolean {
  * `body-butter` is its own type and checked first; and `eye-cream` /
  * `night-mask` / `foot-cream` all contain "cream" and have to be checked
  * before the generic `moisturizer` catch-all or they'd never be reached.
+ * `micellar-water` sits directly above the generic cleanser rule for the
+ * same reason — it used to be one of that rule's own alternatives, and a
+ * bare word match can't tell "micellar" and "foam" apart once they're
+ * merged into one pattern.
  */
 function guessType(tags: string[], text: string): string {
   const haystack = `${tags.join(" ")} ${text}`.toLowerCase();
@@ -480,10 +484,54 @@ function guessType(tags: string[], text: string): string {
     // Not a bare `conditioner`: "Skin Conditioner" is a face product, and it
     // was being given the hair-conditioner label and illustration.
     [/(?<!skin[\s-])conditioner/, "conditioner"],
+    // Above the generic cleanser rule: a micellar water is wiped off, not
+    // rinsed, so it needs its own type rather than falling into `cleanser`'s
+    // rinse-off discount (step 13, PR #130). Requiring "water" alongside
+    // "micellar" was not enough on its own — Codex found real rinse-off
+    // names that carry both words without being adjacent, e.g. "Micellar
+    // Water Foaming Cleanser" or "Water Boost Micellar Facial Gel Wash" — so
+    // this also excludes any name that carries an explicit rinse-off format
+    // word. A name excluded here that also fails to match the generic
+    // cleanser rule below falls through to "unknown" rather than being
+    // force-typed — the safe outcome, since "unknown" is the same
+    // conservative-benefit/full-harm fail-safe this table already uses
+    // everywhere else. English-only, like every other pattern in this table
+    // until a real catalogue entry is seen failing in another language — no
+    // such entry has been seen yet for this one.
+    //
+    // The leading `^` is load-bearing, not decorative. Every clause here is
+    // a zero-width lookahead — nothing is actually consumed — so an
+    // unanchored `.test()` doesn't just check the string once: on failure at
+    // position 0 it retries at position 1, then 2, and so on, and the
+    // negative lookahead only ever looks *forward* from wherever it's
+    // currently standing. For "Foaming Micellar Water" that means a retry
+    // starting right after "Foaming" sees "Micellar Water" with no
+    // exclusion word ahead of it, and matches anyway — the exclusion word
+    // was real, it was just behind the scan position instead of ahead of
+    // it. Codex caught this with the reverse ordering of the names already
+    // fixed above. `^` pins the check to a single evaluation from the true
+    // start of the string, so "carries an excluded word anywhere" is what
+    // it actually tests, regardless of which side of "micellar"/"water"
+    // that word falls on.
+    //
+    // `\bcleanser\b` rather than a bare substring: `hay` is tags *and* name
+    // joined, and OBF's own `en:cleansers` category tag — the one this
+    // importer already pulls under, and the one a real micellar water is
+    // plausibly tagged with — contains "cleanser" as a substring of
+    // "cleansers". An unbounded match excluded every micellar water carrying
+    // that tag, which every "Cleansing Micellar Water" test case below does.
+    // The other words stay unbounded on purpose: "foam" has to keep matching
+    // inside "Foaming" the same way the generic cleanser rule below already
+    // does, and none of OBF's real category tags collide with them the way
+    // "cleansers" collides with "cleanser".
+    [
+      /^(?=.*micellar)(?=.*water)(?!.*(\bcleanser\b|foam|wash|gel|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet))/,
+      "micellar-water",
+    ],
     [
       // nettoyant/lavant (fr), reinigings/schuimende (nl), limpiador (es),
       // detergente (it), waschgel (de) — plus "huile lavante", a washing oil.
-      /cleanser|foam|cleansing|micellar|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
+      /cleanser|foam|cleansing|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
       "cleanser",
     ],
     [/sun|spf|uv|solaire|zonnebrand/, "sunscreen"],
