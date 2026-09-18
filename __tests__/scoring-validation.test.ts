@@ -410,6 +410,19 @@ describe("scoring validation — real products against their known reputation", 
     });
   });
 
+  it("KNOWN GAP (step 16) setup: benzoyl peroxide on dry/reactive skin still scores", () => {
+    // Kept OUTSIDE it.failing on purpose. it.failing only checks that SOME
+    // assertion in the test threw — it can't tell a wrong-but-present score
+    // apart from no score at all. Bundling both checks under one it.failing
+    // would let a future coverage/threshold change that makes this fixture
+    // return `score: null` hide behind the already-expected verdict failure,
+    // reporting green for an entirely different, worse regression than the
+    // one being tracked below.
+    const fixture = KNOWN_GAP_BENZOYL_PEROXIDE_ON_REACTIVE_SKIN;
+    const result = matchProduct({ type: fixture.type, ingredients: fixture.ingredients }, fixture.profile);
+    expect(result.score).not.toBeNull();
+  });
+
   // it.failing: asserts the CORRECT real-world verdict (fair/poor), which
   // today's scoring does not produce (see the fixture's own comment) — so
   // this assertion is expected to fail right now, and it.failing reports
@@ -420,7 +433,6 @@ describe("scoring validation — real products against their known reputation", 
   it.failing("KNOWN GAP (step 16): benzoyl peroxide should score worse on dry, reactive skin", () => {
     const fixture = KNOWN_GAP_BENZOYL_PEROXIDE_ON_REACTIVE_SKIN;
     const result = matchProduct({ type: fixture.type, ingredients: fixture.ingredients }, fixture.profile);
-    expect(result.score).not.toBeNull();
     expect(fixture.expectedVerdicts).toContain(result.verdict);
   });
 });
