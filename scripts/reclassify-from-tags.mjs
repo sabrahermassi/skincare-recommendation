@@ -151,7 +151,7 @@ function saveProgress(settled) {
  * import-obf.mjs does — at 4.2s per read this sits right on OBF's documented
  * 15-reads-per-minute limit, so a 429 is a matter of when, not if.
  */
-async function fetchTags(barcode, retried = false) {
+export async function fetchTags(barcode, retried = false) {
   let res;
   try {
     res = await fetch(
@@ -174,7 +174,17 @@ async function fetchTags(barcode, retried = false) {
   if (res.status === 404) return { ok: false, permanent: true, reason: "not in OBF any more" };
   if (!res.ok) return { ok: false, permanent: false, reason: `HTTP ${res.status}` };
 
-  const body = await res.json().catch(() => null);
+  // A 200 carrying a truncated body, or an HTML page from something sitting in
+  // front of OBF, is a failed read and not an answer about the product. Folding
+  // it in with `status: 0` below would checkpoint the row on the strength of a
+  // response we could not even parse, and it would never be read again.
+  let body;
+  try {
+    body = await res.json();
+  } catch (err) {
+    return { ok: false, permanent: false, reason: `unreadable response: ${String(err)}` };
+  }
+
   // status 0 is OBF's own "no such product", distinct from a transport error.
   if (body?.status !== 1 || !body.product) {
     return { ok: false, permanent: true, reason: "not in OBF any more" };
@@ -230,7 +240,7 @@ async function main() {
       // settled and stays unrecorded, so a blip costs a retry rather than a
       // row that never gets repaired.
       if (result.permanent) settled.add(row.id);
-      failures.push({ ...row, reason: result.reason });
+      failures.push({ ...row, reason: result.reason, permanent: result.permanent === true });
       continue;
     }
 
@@ -245,10 +255,23 @@ async function main() {
     console.log(`  ${c.brand} — ${c.name}`);
     console.log(`    ${c.type} -> ${c.now}   [${c.tags}]`);
   }
-  if (failures.length > 0) {
-    console.log(`\n${failures.length} row(s) could not be read, and will be retried on the next run:`);
-    for (const f of failures.slice(0, 10)) console.log(`  ${f.brand} — ${f.name}: ${f.reason}`);
-    if (failures.length > 10) console.log(`  …and ${failures.length - 10} more`);
+  // Split, because the two halves have opposite futures and saying "will be
+  // retried" over both is wrong for one of them: a permanent miss was just
+  // added to `settled` and is done with, a transient one is not recorded at all
+  // and comes back next run.
+  const gone = failures.filter((f) => f.permanent);
+  const retryable = failures.filter((f) => !f.permanent);
+  const list = (rows) => {
+    for (const f of rows.slice(0, 10)) console.log(`  ${f.brand} — ${f.name}: ${f.reason}`);
+    if (rows.length > 10) console.log(`  …and ${rows.length - 10} more`);
+  };
+  if (gone.length > 0) {
+    console.log(`\n${gone.length} row(s) are no longer in OBF, and will not be read again:`);
+    list(gone);
+  }
+  if (retryable.length > 0) {
+    console.log(`\n${retryable.length} row(s) could not be read, and will be retried on the next run:`);
+    list(retryable);
   }
 
   // Saved here, before any write, because everything in `settled` is a row
@@ -273,9 +296,24 @@ async function main() {
     // Pinned to the type read at the top of this run, same as
     // reclassify-types.mjs: a live scan landing on this barcode mid-run must
     // not have its fresher answer overwritten by this one.
+    //
+    // `fetched_at` moves too, or this repair never reaches anyone. The client's
+    // freshness key is the exact product count plus the newest `fetched_at`
+    // (`fetchWatermark` in data/api.ts), and a type-only write moves neither:
+    // the watermark still matches on the next launch, `touchCatalogue` renews
+    // the 24h window, and a device with a warm catalogue serves the old type —
+    // and the `contactWeight` derived from it — indefinitely. Only
+    // `replace_product_with_ingredients` bumps the column (migration 0009), and
+    // this script deliberately does not go through it.
+    //
+    // The cost is that `fetched_at` also captions "This formula was read {when}"
+    // past six months, so an old formula's age warning resets although the
+    // formula itself did not change. That is worth paying: the caption is an
+    // advisory line on one screen, while a wrong type skews the score on every
+    // view of the product.
     const { data, error } = await db
       .from("products")
-      .update({ type: c.now })
+      .update({ type: c.now, fetched_at: new Date().toISOString() })
       .eq("id", c.id)
       .eq("type", c.type)
       .select("id");

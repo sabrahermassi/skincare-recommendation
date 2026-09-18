@@ -154,9 +154,14 @@ async function main() {
     // the gap between that read and this write would otherwise get its
     // fresher type silently clobbered by this stale one. A 0-row result
     // means someone else already changed it; skip rather than overwrite.
+    //
+    // `fetched_at` moves with it, so the client's freshness key actually
+    // notices — see the long note on the same write in
+    // `reclassify-from-tags.mjs` for why a type-only update is invisible to a
+    // device that already holds the catalogue.
     const { data, error } = await db
       .from("products")
-      .update({ type: c.guessed })
+      .update({ type: c.guessed, fetched_at: new Date().toISOString() })
       .eq("id", c.id)
       .eq("type", c.type)
       .select("id");

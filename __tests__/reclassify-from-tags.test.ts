@@ -1,4 +1,4 @@
-import { capDelay, parseLimit, proposeChange } from "../scripts/reclassify-from-tags.mjs";
+import { capDelay, fetchTags, parseLimit, proposeChange } from "../scripts/reclassify-from-tags.mjs";
 
 /**
  * The decisions `reclassify-from-tags.mjs` makes that aren't I/O. It is the
@@ -49,6 +49,58 @@ describe("proposeChange", () => {
 
   it("does fill in a row that is currently unknown", () => {
     expect(proposeChange({ ...row, type: "unknown" }, "serum")).toMatchObject({ now: "serum" });
+  });
+});
+
+/**
+ * `fetchTags` decides which misses get checkpointed, and a row checkpointed by
+ * mistake is never read again — so the line between "OBF says no" and "the read
+ * failed" is the one thing here worth testing over the network boundary.
+ */
+describe("fetchTags", () => {
+  const realFetch = global.fetch;
+  const respond = (init: { status?: number; body?: unknown; text?: string }) => {
+    global.fetch = jest.fn().mockResolvedValue({
+      status: init.status ?? 200,
+      ok: (init.status ?? 200) < 400,
+      headers: new Headers(),
+      json: async () => {
+        if (init.text !== undefined) throw new SyntaxError("Unexpected token < in JSON");
+        return init.body;
+      },
+    }) as unknown as typeof global.fetch;
+  };
+
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
+
+  it("reads the tags off a good response", async () => {
+    respond({ body: { status: 1, product: { categories_tags: ["en:eye-cream"] } } });
+    expect(await fetchTags("123")).toEqual({ ok: true, tags: ["en:eye-cream"] });
+  });
+
+  it("treats OBF's own status 0 as permanent", async () => {
+    respond({ body: { status: 0 } });
+    expect(await fetchTags("123")).toMatchObject({ ok: false, permanent: true });
+  });
+
+  it("treats a 404 as permanent", async () => {
+    respond({ status: 404 });
+    expect(await fetchTags("123")).toMatchObject({ ok: false, permanent: true });
+  });
+
+  // The bug this replaced: a truncated body or an HTML error page from a proxy
+  // parsed to null, read as "no such product", and checkpointed the row — so a
+  // momentary blip permanently stopped that product from ever being repaired.
+  it("keeps an unparseable 200 retryable rather than calling the product gone", async () => {
+    respond({ text: "<html>502 Bad Gateway</html>" });
+    expect(await fetchTags("123")).toMatchObject({ ok: false, permanent: false });
+  });
+
+  it("keeps a 5xx retryable", async () => {
+    respond({ status: 503 });
+    expect(await fetchTags("123")).toMatchObject({ ok: false, permanent: false });
   });
 });
 
