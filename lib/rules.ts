@@ -677,19 +677,20 @@ const EXPOSURE_BY_TYPE: Record<ProductType, number> = {
   // Rinsed within about a minute.
   cleanser: 0.25,
   "body-wash": 0.25,
-  shampoo: 0.25,
   // Sits for minutes, then rinsed. A body scrub is the one type where that is
   // unambiguous: it is scrubbed on and washed straight off.
   "body-scrub": 0.5,
   // Left on.
   //
-  // The three below look like they belong above and deliberately do not,
+  // The four below look like they belong above and deliberately do not,
   // because each spans both exposures with nothing to separate them:
   //
   //   exfoliator   a physical scrub AND a leave-on acid liquid — OBF tags
   //                both `en:face-scrubs`
   //   conditioner  rinse-out AND leave-in
   //   hair-mask    rinsed after twenty minutes AND left in overnight
+  //   shampoo      rinsed out AND dry shampoo, sprayed in and left — the bare
+  //                `/shampoo/` match in both classifiers catches both
   //
   // Discounting an ambiguous type quietly under-counts an irritant that was
   // in fact left on, which is the failure this weighting exists to prevent.
@@ -698,6 +699,7 @@ const EXPOSURE_BY_TYPE: Record<ProductType, number> = {
   exfoliator: 1,
   conditioner: 1,
   "hair-mask": 1,
+  shampoo: 1,
   // Not ambiguous, just not rinsed: a sheet mask's essence is patted in.
   "sheet-mask": 1,
   toner: 1,
@@ -723,7 +725,13 @@ const EXPOSURE_BY_TYPE: Record<ProductType, number> = {
 };
 
 export function contactWeight(type: ProductType): number {
-  return EXPOSURE_BY_TYPE[type];
+  // `products.type` is unconstrained text in the database, and `buildProduct`
+  // only asserts it as `ProductType` rather than validating it — so a typo'd
+  // or newly-added server-side value can reach here without a matching entry
+  // above. Fail into the same full-weight default `unknown` gets, not into
+  // `undefined`, which would turn every ingredient weight — and the score —
+  // into `NaN`.
+  return EXPOSURE_BY_TYPE[type] ?? 1;
 }
 
 /**

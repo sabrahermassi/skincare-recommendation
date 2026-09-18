@@ -67,13 +67,15 @@ was having its acids *and its irritation* counted at 40% for exactly the
 reactive skin that needed the warning.
 
 Three bands now: 0.25 for what rinses within a minute, 0.5 for what sits a
-few minutes and is then rinsed, 1 for leave-on. Only four types are
-discounted at all — cleanser, body-wash, shampoo, body-scrub — because those
-are the ones where "it washes off" is unambiguous. Three that look like they
+few minutes and is then rinsed, 1 for leave-on. Only three types are
+discounted at all — cleanser, body-wash, body-scrub — because those
+are the ones where "it washes off" is unambiguous. Four that look like they
 belong there do not: `exfoliator` covers a physical scrub *and* a leave-on
 acid liquid (`en:face-scrubs` is what OBF tags both), `conditioner` covers
-rinse-out and leave-in, and `hair-mask` covers rinsed-after-twenty-minutes
-and left-in-overnight. Each follows the ambiguity rule below instead, and the
+rinse-out and leave-in, `hair-mask` covers rinsed-after-twenty-minutes
+and left-in-overnight, and `shampoo` covers a rinse-out wash and a dry
+shampoo sprayed in and left — the bare `/shampoo/` match in both classifiers
+catches both. Each follows the ambiguity rule below instead, and the
 rinse-off variants are judged slightly harshly as the price. That follows how
 cosmetic exposure
 assessment is actually done — the SCCS applies a retention factor per product
@@ -92,6 +94,16 @@ Considered and rejected: dropping `contactWeight` entirely for pure
 ingredient scoring. It would remove the type dependency altogether, but a
 face wash and a night serum carrying the same actives would then score
 identically, and the wash genuinely does less — in both directions.
+
+Considered and rejected: moving `cleanser` to full weight because micellar
+water — tagged and typed `cleanser` by both classifiers — is usually left on
+rather than rinsed. Unlike the four ambiguous types above, `cleanser` is not
+close to a 50/50 split: the large majority of what's typed `cleanser` (foam,
+gel, oil, balm) genuinely is rinsed off within about a minute, exactly the
+band this weight sits in. Discounting the whole type to fix the micellar
+minority would cost the accuracy the type exists to provide for the
+majority. The right fix is a dedicated no-rinse/micellar classifier rule,
+tracked separately — not a change to this weighting.
 
 **Why `SCORE_BANDS` is the single source for band cutoffs:** the verdict
 and the badge tone once read different cutoffs (75/55 vs 80/65) and

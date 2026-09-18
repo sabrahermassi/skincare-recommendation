@@ -131,11 +131,11 @@ with confidence tiers, owns acne fit).
 - **`contactWeight` (`lib/rules.ts`) is the only place a product's *type*
   touches the score** — it scales every ingredient by how long the formula
   stays on skin (0.25 rinsed within a minute, 0.5 sits then rinsed, 1
-  leave-on). **Only `cleanser`, `body-wash`, `shampoo` and `body-scrub` are
+  leave-on). **Only `cleanser`, `body-wash` and `body-scrub` are
   discounted** — every other type takes 1, including `unknown`, `exfoliator`,
-  `conditioner` and `hair-mask`, because each of those spans both a rinse-off
-  and a leave-on product and nothing distinguishes them. A wrong type guess
-  can then only over-state a risk, never hide one. Reasoning in
+  `conditioner`, `hair-mask` and `shampoo`, because each of those spans both a
+  rinse-off and a leave-on product and nothing distinguishes them. A wrong
+  type guess can then only over-state a risk, never hide one. Reasoning in
   `docs/decisions.md`.
 - `hazard` warnings cap the score at 45 and subtract 5 per additional
   hazard. `irritant` warnings go through the graduated irritation penalty

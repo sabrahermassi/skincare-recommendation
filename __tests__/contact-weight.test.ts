@@ -24,7 +24,7 @@ describe("contactWeight", () => {
   });
 
   it("scores what rinses off in a minute lowest", () => {
-    for (const type of ["cleanser", "body-wash", "shampoo"] as ProductType[]) {
+    for (const type of ["cleanser", "body-wash"] as ProductType[]) {
       expect(contactWeight(type)).toBe(0.25);
     }
   });
@@ -45,30 +45,40 @@ describe("contactWeight", () => {
   });
 
   /**
-   * The invariant behind the table, not a sample of it: only the four types
+   * The invariant behind the table, not a sample of it: only the three types
    * that unambiguously wash away may be discounted. Without this, a later
    * edit could quietly drop a leave-on type below full weight — the
    * direction that under-counts an irritant, and the one failure this whole
    * weighting is arranged to avoid.
    */
   it("discounts only the types that are genuinely washed off", () => {
-    const discounted = new Set<ProductType>(["cleanser", "body-wash", "shampoo", "body-scrub"]);
+    const discounted = new Set<ProductType>(["cleanser", "body-wash", "body-scrub"]);
     for (const type of ALL_TYPES) {
       if (discounted.has(type)) expect(contactWeight(type)).toBeLessThan(1);
       else expect(contactWeight(type)).toBe(1);
     }
   });
 
-  it.each(["exfoliator", "conditioner", "hair-mask"] as ProductType[])(
+  it.each(["exfoliator", "conditioner", "hair-mask", "shampoo"] as ProductType[])(
     "gives %s full weight, because the type spans both exposures",
     (type: ProductType) => {
       // A physical scrub and a leave-on acid liquid, a rinse-out and a
       // leave-in conditioner, a hair mask rinsed after twenty minutes and one
-      // left in overnight — nothing separates them, so each follows the same
-      // rule as `unknown`.
+      // left in overnight, a rinse-out shampoo and a dry shampoo sprayed in
+      // and left — nothing separates them, so each follows the same rule as
+      // `unknown`.
       expect(contactWeight(type)).toBe(1);
     },
   );
+
+  // The bug this replaced: `EXPOSURE_BY_TYPE[type]` with no fallback returned
+  // `undefined` for a value not in the table, which would have turned every
+  // ingredient weight — and the score — into `NaN`. `products.type` is
+  // unconstrained text, so this is reachable from a typo'd or newly-added
+  // server-side value, not just a test's imagination.
+  it("falls back to full weight for a type not in the table", () => {
+    expect(contactWeight("a-type-nobody-has-heard-of" as ProductType)).toBe(1);
+  });
 
   it("still discounts an unambiguous rinse-off", () => {
     expect(contactWeight("cleanser")).toBe(0.25);
