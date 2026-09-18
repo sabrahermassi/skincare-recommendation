@@ -107,4 +107,11 @@ describe("hasSkincareContext", () => {
     expect(hasSkincareContext("Health & Beauty Deep Cleansing Face Mask")).toBe(true);
     expect(hasSkincareContext("Health & Beauty Reusable Cloth Face Mask")).toBe(false);
   });
+
+  // Found on PR #129, fifth round: neither of these carried any word from
+  // the wordlist before "mud"/"charcoal"/"purif"/"detox" were added.
+  it("accepts a mud or charcoal detox mask via the new triggers", () => {
+    expect(hasSkincareContext("Health & Beauty Purifying Mud Face Mask")).toBe(true);
+    expect(hasSkincareContext("Health & Beauty Charcoal Face Mask")).toBe(true);
+  });
 });

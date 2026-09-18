@@ -483,9 +483,12 @@ const MASK_OR_PATCH_TYPES = new Set(["face-mask", "eye-patch", "pimple-patch"]);
 // other words and was wrongly rejected (found on PR #129, third round).
 // Narrow on purpose — no protective or PPE mask markets itself as
 // "cleansing", so this doesn't reopen the gap this function exists to
-// close.
+// close. "mud"/"charcoal"/"purif(y)"/"detox" added for the same reason:
+// "Purifying Mud Face Mask" and "Charcoal Face Mask" carried none of the
+// original words either (found on PR #129, fifth round) — none of these
+// collide with protective/PPE mask wording any more than "cleans" does.
 function hasSkincareContext(text: string): boolean {
-  return /hydrogel|collagen|skin.?care|cosmetic|k-?beauty|korean|\bsheet\b|\bclay\b|blemish|acne|pimple|hyaluronic|serum|under.?eye|moistur|hydrat|brighten|exfoliat|vitamin|retinol|niacinamide|\bpeel\b|essence|cleans/i
+  return /hydrogel|collagen|skin.?care|cosmetic|k-?beauty|korean|\bsheet\b|\bclay\b|blemish|acne|pimple|hyaluronic|serum|under.?eye|moistur|hydrat|brighten|exfoliat|vitamin|retinol|niacinamide|\bpeel\b|essence|cleans|\bmud\b|charcoal|purif|detox/i
     .test(text);
 }
 
@@ -551,8 +554,14 @@ function guessType(tags: string[], text: string): string {
     // Firming Sheet Patch" were falling through to the generic face-mask
     // rule and losing their full benefit weight (found on PR #129, second
     // round). The tight zero/one-separator form stays first so a
-    // one-word compound like "eyepatch" still matches.
-    [/eye(?:[\s-]?(?:patch|pad|mask)|(?:[\s-]+\w+){1,2}[\s-]+(?:patch|pad|mask))/, "eye-patch"],
+    // one-word compound like "eyepatch" still matches. "pad" is excluded
+    // from the descriptor-bearing branch: unlike "patch"/"mask" it's not
+    // unambiguous, and allowing filler words before it let "Gentle Eye
+    // Cleansing Pads" — a rinse/wipe-off makeup-remover pad, not a leave-on
+    // patch — match as eye-patch instead of falling through to cleanser
+    // (found on PR #129, fifth round). The tight form still covers "Eye Pad
+    // Mask Paradise Punch" without it.
+    [/eye(?:[\s-]?(?:patch|pad|mask)|(?:[\s-]+\w+){1,2}[\s-]+(?:patch|mask))/, "eye-patch"],
     // Up to two descriptor words are allowed between the acne/pimple/
     // blemish word and "patch" — real products are marketed this way, and
     // neither "acne" nor "pimple" alone reached "patch" without this

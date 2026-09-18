@@ -457,8 +457,14 @@ function guessType(tags, text) {
     // Firming Sheet Patch" were falling through to the generic face-mask
     // rule and losing their full benefit weight (found on PR #129, second
     // round). The tight zero/one-separator form stays first so a
-    // one-word compound like "eyepatch" still matches.
-    [/eye(?:[\s-]?(?:patch|pad|mask)|(?:[\s-]+\w+){1,2}[\s-]+(?:patch|pad|mask))/, "eye-patch"],
+    // one-word compound like "eyepatch" still matches. "pad" is excluded
+    // from the descriptor-bearing branch: unlike "patch"/"mask" it's not
+    // unambiguous, and allowing filler words before it let "Gentle Eye
+    // Cleansing Pads" — a rinse/wipe-off makeup-remover pad, not a leave-on
+    // patch — match as eye-patch instead of falling through to cleanser
+    // (found on PR #129, fifth round). The tight form still covers "Eye Pad
+    // Mask Paradise Punch" without it.
+    [/eye(?:[\s-]?(?:patch|pad|mask)|(?:[\s-]+\w+){1,2}[\s-]+(?:patch|mask))/, "eye-patch"],
     // Up to two descriptor words are allowed between the acne/pimple/
     // blemish word and "patch" — real products are marketed this way, and
     // neither "acne" nor "pimple" alone reached "patch" without this

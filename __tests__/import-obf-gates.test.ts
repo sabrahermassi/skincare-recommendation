@@ -389,4 +389,13 @@ describe("guessType", () => {
     expect(guessType([], "Cettua Hydrogel Eyepatch Set")).toBe("eye-patch");
     expect(guessType([], "Overnight Anti-Aging Eye-Patch")).toBe("eye-patch");
   });
+
+  // Codex found this on the fifth review round of PR #129: the
+  // descriptor-bearing eye-patch branch above also swallowed "pad" with a
+  // filler word in between, wrongly claiming a rinse/wipe-off product.
+  it("does not call an eye-cleansing pad an eye patch just because a descriptor word sits before 'pad'", () => {
+    expect(guessType([], "Gentle Eye Cleansing Pads")).toBe("cleanser");
+    // The tight (no-descriptor) "pad" match is unaffected.
+    expect(guessType([], "Eye Pad Mask Paradise Punch")).toBe("eye-patch");
+  });
 });
