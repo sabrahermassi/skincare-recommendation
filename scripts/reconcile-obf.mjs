@@ -106,8 +106,13 @@ function capDelay(ms) {
 export async function fetchIngredients(barcode, retried = false) {
   let res;
   try {
+    // Unbounded otherwise: a stalled connection would hang this row (and
+    // everything behind it in the run) until the workflow's own default
+    // timeout finally gives up. An abort lands in the catch below like any
+    // other network failure, so it's already retryable with no other change.
     res = await fetch(`${OBF}/api/v2/product/${encodeURIComponent(barcode)}.json?fields=code,ingredients_text`, {
       headers: { "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(30_000),
     });
   } catch (err) {
     return { ok: false, permanent: false, reason: `request failed: ${String(err)}` };

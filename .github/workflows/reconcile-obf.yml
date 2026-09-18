@@ -40,11 +40,23 @@ concurrency:
   group: reconcile-obf
   cancel-in-progress: false
 
+# This job only reads the repo and calls Supabase/OBF — it never needs to
+# write back to GitHub. Without this, the job token inherits whatever
+# default permissions this repo or org has, which can be broader than that.
+permissions:
+  contents: read
+
 jobs:
   reconcile:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # actions/checkout otherwise leaves the job token sitting in local
+          # git config, readable by anything that runs afterward — including
+          # npm ci's own lifecycle scripts, from packages this repo does not
+          # control the code of.
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
