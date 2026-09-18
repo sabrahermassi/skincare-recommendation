@@ -451,8 +451,14 @@ function guessType(tags, text) {
     // weight (0.25) when the intended weight is 1 (found on PR #129).
     // "mask"/"pad" both included: an under-eye "eye mask" is the same
     // hydrogel-patch product as an "eye patch" in real skincare naming, not a
-    // face mask — must sit before the generic face-mask fallback below.
-    [/eye[\s-]?(patch|pad|mask)/, "eye-patch"],
+    // face mask — must sit before the generic face-mask fallback below. Up
+    // to two descriptor words are also allowed between "eye" and the format
+    // word (mirroring the pimple-patch rule below): "Eye Gel Mask" and "Eye
+    // Firming Sheet Patch" were falling through to the generic face-mask
+    // rule and losing their full benefit weight (found on PR #129, second
+    // round). The tight zero/one-separator form stays first so a
+    // one-word compound like "eyepatch" still matches.
+    [/eye(?:[\s-]?(?:patch|pad|mask)|(?:[\s-]+\w+){1,2}[\s-]+(?:patch|pad|mask))/, "eye-patch"],
     // Up to two descriptor words are allowed between the acne/pimple/
     // blemish word and "patch" — real products are marketed this way, and
     // neither "acne" nor "pimple" alone reached "patch" without this
@@ -469,10 +475,18 @@ function guessType(tags, text) {
     // filler word, so "Acne Spot Patch" still resolves via the "acne" trigger.
     [/(?:pimple|blemish|acne)(?:[\s-]+\w+){0,2}[\s-]+patch/, "pimple-patch"],
     // "sleeping"/"overnight" mask, not a bare "night cream" — that's a real
-    // moisturizer, not the K-beauty sleep-mask category.
-    [/(sleeping|night|overnight)[\s-]?mask/, "night-mask"],
-    [/sheet[\s-]?mask/, "sheet-mask"],
-    [/hair[\s-]?mask/, "hair-mask"],
+    // moisturizer, not the K-beauty sleep-mask category. Up to two
+    // descriptor words allowed before "mask", same reasoning and same fix as
+    // eye-patch above: "Overnight Face Mask" was falling through to the
+    // generic face-mask rule (found on PR #129, second round).
+    [/(sleeping|night|overnight)(?:[\s-]?mask|(?:[\s-]+\w+){1,2}[\s-]+mask)/, "night-mask"],
+    // Same descriptor-word gap fix as night-mask above: "Hydrating Sheet
+    // Face Mask" was falling through (found on PR #129, second round).
+    [/sheet(?:[\s-]?mask|(?:[\s-]+\w+){1,2}[\s-]+mask)/, "sheet-mask"],
+    // Same descriptor-word gap fix: "Argan Repair Hair Mask" was falling
+    // through to the generic face-mask rule, same bug class as the three
+    // rules above even though Codex's report only named those three.
+    [/hair(?:[\s-]?mask|(?:[\s-]+\w+){1,2}[\s-]+mask)/, "hair-mask"],
     // The generic clay/cream jar — "Maske", "Maschera", "masque",
     // "mascarilla" — that none of the three specific mask rules above catch.
     // Started from the same multilingual base `guess-type-from-ingredients.mjs`'s

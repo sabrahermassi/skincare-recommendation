@@ -98,4 +98,13 @@ describe("hasSkincareContext", () => {
     expect(hasSkincareContext("Health & Beauty Hydrocolloid Acne Pimple Patch")).toBe(true);
     expect(hasSkincareContext("Health & Beauty Purifying Clay Face Mask")).toBe(true);
   });
+
+  // Found on PR #129, third round: this UPC hit carries neither "cleans..."
+  // nor any of the other wordlist entries, and used to be wrongly rejected
+  // even though it previously resolved fine as "cleanser" before this PR's
+  // mask precedence change.
+  it("accepts a cleansing mask via the 'cleans' trigger, without re-admitting a plain protective mask", () => {
+    expect(hasSkincareContext("Health & Beauty Deep Cleansing Face Mask")).toBe(true);
+    expect(hasSkincareContext("Health & Beauty Reusable Cloth Face Mask")).toBe(false);
+  });
 });

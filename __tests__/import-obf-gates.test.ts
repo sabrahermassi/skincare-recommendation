@@ -373,4 +373,20 @@ describe("guessType", () => {
     expect(guessType([], "Maschera labbra")).not.toBe("face-mask");
     expect(guessType([], "Masque pour cheveux")).not.toBe("face-mask");
   });
+
+  // Codex found this on the fourth review round of PR #129: with a
+  // descriptor word between the format word and "mask"/"patch", the
+  // specific rules missed and these fell through to the generic face-mask
+  // rule instead, discounting benefit weight from 1 to 0.5.
+  it("allows descriptor words before the format word for eye-patch/night-mask/sheet-mask/hair-mask, same as pimple-patch", () => {
+    expect(guessType([], "Eye Gel Mask")).toBe("eye-patch");
+    expect(guessType([], "Overnight Face Mask")).toBe("night-mask");
+    expect(guessType([], "Hydrating Sheet Face Mask")).toBe("sheet-mask");
+    expect(guessType([], "Argan Repair Hair Mask")).toBe("hair-mask");
+  });
+
+  it("still matches the tight zero/one-separator compound form for eye-patch", () => {
+    expect(guessType([], "Cettua Hydrogel Eyepatch Set")).toBe("eye-patch");
+    expect(guessType([], "Overnight Anti-Aging Eye-Patch")).toBe("eye-patch");
+  });
 });
