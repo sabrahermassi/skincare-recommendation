@@ -324,6 +324,32 @@ export default function ProductScreen() {
       ? `This formula was read ${relativeTime(fetchedAtMs, renderedAt)}. If the brand has reformulated since, the verdict above is judging the old list.`
       : null;
 
+  // Step 8's own notice: unlike `staleNotice`, which only ever guesses that a
+  // formula might be old, this one is certain — reconciliation (scripts/
+  // reconcile-obf.mjs) already confirmed this exact product's ingredient list
+  // changed. Shown only for a saved product, and only when the change
+  // happened after the *formula version the user actually saved*, not after
+  // the tap itself.
+  //
+  // That distinction matters: a device can open Browse against an old,
+  // disk-cached catalogue, save a product from it, and only afterward have
+  // the background freshness check install the reconciled row. `savedAt`
+  // would then land *after* `formulaChangedAt` even though the user saved
+  // the old formula and never saw the new one — comparing wall-clock time
+  // alone would silently miss exactly the case this notice exists for.
+  // Found by Codex on PR #122. `formulaFetchedAt`, recorded at save time,
+  // pins which version was actually on screen; a row saved before this field
+  // existed has none, and falls back to the original `savedAt` comparison —
+  // an imperfect signal, but the one this notice always had for those rows.
+  const savedEntry = savedProducts.find((p) => p.id === id);
+  const formulaChangedAtMs = product.formulaChangedAt ? Date.parse(product.formulaChangedAt) : NaN;
+  const savedVersionMs = savedEntry?.formulaFetchedAt ? Date.parse(savedEntry.formulaFetchedAt) : NaN;
+  const savedBaselineMs = Number.isFinite(savedVersionMs) ? savedVersionMs : savedEntry?.savedAt;
+  const formulaChangedNotice =
+    savedEntry && Number.isFinite(formulaChangedAtMs) && savedBaselineMs !== undefined && formulaChangedAtMs > savedBaselineMs
+      ? `This formula has changed since you saved it ${relativeTime(savedEntry.savedAt, renderedAt)}. The verdict above reflects the new ingredient list, not the one you saved.`
+      : null;
+
   async function share() {
     if (!product) return;
     const line =
@@ -516,6 +542,27 @@ export default function ProductScreen() {
             }}
           >
             {staleNotice}
+          </Text>
+        )}
+
+        {/*
+          Step 8: a saved product whose formula reconciliation has actually
+          confirmed changed since it was saved, not merely aged past a
+          threshold. Same WARN treatment as staleNotice above — this is the
+          stronger claim of the two, so it should never read as quieter.
+        */}
+        {formulaChangedNotice && (
+          <Text
+            style={{
+              paddingHorizontal: 24,
+              paddingTop: 12,
+              fontSize: TYPE.label,
+              lineHeight: 17,
+              fontWeight: "600",
+              color: WARN,
+            }}
+          >
+            {formulaChangedNotice}
           </Text>
         )}
 
@@ -725,7 +772,7 @@ export default function ProductScreen() {
           ) : null}
 
           <Pressable
-            onPress={() => toggleSaved(product.id)}
+            onPress={() => toggleSaved(product.id, product.fetchedAt)}
             accessibilityRole="button"
             accessibilityLabel={saved ? "Remove from saved" : "Save"}
             accessibilityState={{ selected: saved }}

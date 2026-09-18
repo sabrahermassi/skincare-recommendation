@@ -1,0 +1,72 @@
+name: Reconcile OBF catalogue
+
+# Step 8 of the data-strategy plan. Nothing in the catalogue was ever
+# re-checked after it was written — a formula imported in September was
+# served unchanged in November, even after a reformulation. This runs
+# scripts/reconcile-obf.mjs nightly against the oldest `fetched_at` rows
+# sourced from Open Beauty Facts (see that script's own header for full
+# scope and reasoning: obf only, ocr and inci_api excluded on purpose).
+#
+# A scheduled GitHub Action rather than a Supabase Edge Function, because
+# the job is 15-20 minutes of paced, rate-limited requests and Edge
+# Functions are runtime-capped — the same reasoning `docs/decisions.md`
+# already gives for why import-obf.mjs and import-dailymed.mjs are operator
+# scripts, not endpoints. Free on this repo: it's public, so Actions minutes
+# are unlimited, and Open Beauty Facts' product-read API needs no key.
+#
+# Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY as repository secrets —
+# set once via `gh secret set`, or the GitHub UI (Settings > Secrets and
+# variables > Actions). Not set by this file, and not something this
+# workflow can supply on its own.
+
+on:
+  schedule:
+    # 02:47 UTC — off the hour, same reason 0002_eviction_schedule.sql's own
+    # cron gives: every scheduler in the world fires at :00, and GitHub's own
+    # scheduled-workflow queue is documented as busiest right on the hour.
+    - cron: "47 2 * * *"
+  # Lets a run be triggered by hand from the Actions tab without waiting for
+  # the schedule — useful the first time this is verified end to end.
+  workflow_dispatch: {}
+
+# A manual dispatch overlapping the nightly schedule would have two runs
+# reading "the oldest fetched_at rows" at once and racing to reconcile the
+# same products — cheap to prevent outright rather than rely on it never
+# happening. Not `cancel-in-progress`: a run already partway through has
+# already spent real OBF requests and made real writes, and cancelling it
+# would throw that away for nothing; queuing the second run instead just
+# delays it until the first finishes.
+concurrency:
+  group: reconcile-obf
+  cancel-in-progress: false
+
+# This job only reads the repo and calls Supabase/OBF — it never needs to
+# write back to GitHub. Without this, the job token inherits whatever
+# default permissions this repo or org has, which can be broader than that.
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # actions/checkout otherwise leaves the job token sitting in local
+          # git config, readable by anything that runs afterward — including
+          # npm ci's own lifecycle scripts, from packages this repo does not
+          # control the code of.
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+
+      - run: npm ci
+
+      - name: Reconcile
+        run: npm run reconcile:obf
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

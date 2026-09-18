@@ -1,0 +1,16 @@
+-- Step 8: a place to record "we checked, and it's actually different now."
+--
+-- `fetched_at` (0009/0010) already means "this row's formula was last
+-- confirmed current as of this date," and reconciliation (scripts/
+-- reconcile-obf.mjs) keeps that true whether or not anything changed — an
+-- unchanged formula still gets its `fetched_at` touched, because checking
+-- and finding no change is itself a confirmation of freshness.
+--
+-- That's exactly why `fetched_at` can't also carry this: it would be
+-- identical whether the formula changed or was merely re-confirmed, and the
+-- roadmap this step comes from is explicit that a formula change under a
+-- saved product needs to be visible, not silently absorbed into a date that
+-- already means something else. Nullable, no default, no backfill — null
+-- reads as "never reconciled, or reconciled and found unchanged," which is
+-- the same "nothing to flag" case the UI treats identically either way.
+alter table products add column formula_changed_at timestamptz;

@@ -52,7 +52,7 @@ type PersistedCatalogue = {
  * definition into every product that contained it, so they are both a
  * different shape and several times larger.
  */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const PRODUCTS_KEY = `forme-catalogue-v${SCHEMA_VERSION}`;
 const META_KEY = `forme-catalogue-meta-v${SCHEMA_VERSION}`;
@@ -142,8 +142,25 @@ function nextGeneration(): string {
  * Listed explicitly rather than derived from a loop over older versions, so
  * that a key whose *name* changed is still removed and a reader can see
  * exactly what is deleted.
+ *
+ * v2 -> v3 (step 8): `formulaChangedAt` is new on `Product`, but a v2 blob's
+ * shape has no key for it at all — not a missing-and-safely-`undefined`
+ * field, a blob written before the field existed. Left alone, the freshness
+ * check would accept it (the watermark it carries can still match: row
+ * count and the newest `fetched_at` are unaffected by this field existing),
+ * and every product on that device would silently miss the "formula
+ * changed since you saved it" notice until some unrelated write happened to
+ * change the watermark and force a real refetch. Found by Codex on PR #122.
+ * Bumping the version forces exactly that refetch on the next launch,
+ * rather than leaving it to chance.
  */
-const LEGACY_KEYS = ["forme-catalogue-v1", "forme-catalogue-meta-v1"];
+const LEGACY_KEYS = [
+  "forme-catalogue-v1",
+  "forme-catalogue-meta-v1",
+  "forme-catalogue-v2",
+  "forme-catalogue-meta-v2",
+  "forme-catalogue-manifest-v2",
+];
 
 let legacyDropped = false;
 

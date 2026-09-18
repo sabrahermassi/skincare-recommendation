@@ -54,10 +54,10 @@ function product(id: string, type: ProductWithIngredients["type"]): ProductWithI
 
 const WATERMARK: CatalogueWatermark = { count: 3, newest: "2026-09-14T00:00:00Z", ingredientCount: 0, ingredientNewest: null };
 
-const PRODUCTS_KEY = "forme-catalogue-v2";
-const META_KEY = "forme-catalogue-meta-v2";
-const MANIFEST_KEY = "forme-catalogue-manifest-v2";
-const CHUNK_PREFIX = "forme-catalogue-chunk-v2-";
+const PRODUCTS_KEY = "forme-catalogue-v3";
+const META_KEY = "forme-catalogue-meta-v3";
+const MANIFEST_KEY = "forme-catalogue-manifest-v3";
+const CHUNK_PREFIX = "forme-catalogue-chunk-v3-";
 
 /**
  * Run a test body as a given platform.
@@ -193,6 +193,27 @@ describe("disk layer", () => {
 
     expect(await AsyncStorage.getItem("forme-catalogue-v1")).toBeNull();
     expect(await AsyncStorage.getItem("forme-catalogue-meta-v1")).toBeNull();
+  });
+
+  /**
+   * v2 -> v3 (step 8): a v2 blob has no key for `formulaChangedAt` at all —
+   * not a missing-and-safely-undefined field, a shape written before the
+   * field existed. Left behind, it would still pass the freshness check
+   * (the watermark it carries is unaffected by this field existing), so
+   * every product on that device would silently miss the "formula changed"
+   * notice until an unrelated write forced a real refetch. Found by Codex
+   * on PR #122.
+   */
+  it("deletes the v2 blobs step 8's schema bump left behind", async () => {
+    await AsyncStorage.setItem("forme-catalogue-v2", JSON.stringify([{ id: "old" }]));
+    await AsyncStorage.setItem("forme-catalogue-meta-v2", "{}");
+    await AsyncStorage.setItem("forme-catalogue-manifest-v2", "{}");
+
+    await dropLegacyBlobs();
+
+    expect(await AsyncStorage.getItem("forme-catalogue-v2")).toBeNull();
+    expect(await AsyncStorage.getItem("forme-catalogue-meta-v2")).toBeNull();
+    expect(await AsyncStorage.getItem("forme-catalogue-manifest-v2")).toBeNull();
   });
 
   /**

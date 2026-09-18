@@ -252,6 +252,15 @@ export type Product = {
    * because formulas change and a two-year-old INCI list is a claim, not data.
    */
   fetchedAt?: string;
+  /**
+   * When step 8's reconciliation last found this row's formula genuinely
+   * different from what it replaced, ISO-8601. Unset if it's never been
+   * reconciled, or reconciled and found unchanged — both read the same to
+   * the UI: nothing to flag. Deliberately separate from `fetchedAt`, which
+   * now also means "confirmed current as of this date" even when nothing
+   * changed, a distinction `fetchedAt` alone can't carry on its own.
+   */
+  formulaChangedAt?: string;
   /** Ordered INCI list — references `Ingredient.id`. */
   ingredientIds: string[];
   inStock: boolean;
