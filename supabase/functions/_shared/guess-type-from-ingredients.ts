@@ -84,8 +84,8 @@ export function guessTypeFromIngredients(
     const hasLeadingAcid = ingredients.some(
       (i) => i.position < ACID_LEADING_POSITION_MAX && LEAVE_ON_ACIDS.includes(i.inci_name),
     );
-    // "serum", not "exfoliator": that type is rinse-off in this app's scoring
-    // and an acid treatment is left on.
+    // "serum", not "exfoliator": this is a known leave-on acid treatment,
+    // while exfoliator has deliberately conservative ambiguous-use weights.
     if (hasLeadingAcid) return "serum";
   }
 

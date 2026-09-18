@@ -495,10 +495,9 @@ function guessType(tags, text) {
     [/perfume|eau de (parfum|toilette)/, "perfume"],
     [/(facial|face)[\s-]?mist/, "facial-mist"],
     [/deodorant|antiperspirant/, "deodorant"],
-    // No "peel pad" here: this type is rinse-off in `contactWeight`, and a
-    // leave-on acid pad scored at 0.4 would understate both its actives and
-    // its irritants. Those fall through to the ingredient rule instead, which
-    // types them "serum" — leave-on, full weight.
+    // No "peel pad" here: a known leave-on acid pad should not receive the
+    // ambiguous exfoliator benefit discount. It falls through to the
+    // ingredient rule instead, which types it "serum" — full weight.
     [/exfoliat|scrub/, "exfoliator"],
     [/cream|moisturi[sz]er|lotion|emulsion|crème|creme|crema|gezichtscrème/, "moisturizer"],
   ];
