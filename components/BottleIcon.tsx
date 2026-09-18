@@ -17,6 +17,7 @@ export function defaultPackagingType(type: ProductType): PackagingType {
   switch (type) {
     case "cleanser":
     case "body-wash":
+    case "micellar-water":
       return "cleanser-tube";
     case "toner":
       return "toner";

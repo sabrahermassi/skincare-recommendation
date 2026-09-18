@@ -216,6 +216,42 @@ describe("guessType", () => {
     expect(guessType([], "Purifying Cleansing Shampoo")).toBe("shampoo");
   });
 
+  it("gives a micellar water its own type instead of folding it into cleanser", () => {
+    // It used to be one of the generic cleanser rule's own alternatives, so
+    // a name carrying both words (a product genuinely named "cleansing
+    // micellar water") has to resolve to the more specific type, checked
+    // first — same precedence rule as shampoo/cleansing above.
+    expect(guessType([], "Micellar Water")).toBe("micellar-water");
+    expect(guessType(["en:cleansers"], "Cleansing Micellar Water")).toBe("micellar-water");
+    expect(guessType([], "Micellar Cleansing Water")).toBe("micellar-water");
+    // A genuine foaming cleanser is unaffected.
+    expect(guessType([], "Gentle Foaming Cleanser")).toBe("cleanser");
+    // "Micellar" alone, without "water", is a real rinse-off format too
+    // ("Micellar Foaming Cleanser", "Bi-Phase Micellar Wash") — the rule
+    // requires both words so these still fall through to the generic
+    // cleanser rule rather than getting full leave-on contact weight for a
+    // product that's genuinely rinsed off.
+    expect(guessType([], "Micellar Foaming Cleanser")).toBe("cleanser");
+    expect(guessType([], "Bi-Phase Micellar Foam")).toBe("cleanser");
+    // Codex, P1: "water" alongside "micellar" wasn't enough either — both
+    // words can appear in a genuinely rinse-off name without being
+    // adjacent. An explicit rinse-off format word now excludes the match
+    // regardless of where "water" sits in the name.
+    expect(guessType([], "Micellar Water Foaming Cleanser")).toBe("cleanser");
+    // No other rule in the table matches "gel"/"wash" bare, so this falls
+    // through to "unknown" rather than "cleanser" — still the point of the
+    // fix (not "micellar-water" at full leave-on weight), and "unknown"'s
+    // own conservative-benefit/full-harm policy is the safe place to land.
+    expect(guessType([], "Water Boost Micellar Facial Gel Wash")).toBe("unknown");
+    // Codex, P1 again: the exclusion above was still position-dependent — an
+    // unanchored zero-width lookahead chain can retry at a later starting
+    // point in the string, past the excluded word, and match there instead.
+    // These put the rinse-off marker *before* "micellar"/"water" rather
+    // than after, which is exactly the ordering that defeated it.
+    expect(guessType([], "Foaming Micellar Water")).toBe("cleanser");
+    expect(guessType([], "Facial Wash Micellar Water")).toBe("unknown");
+  });
+
   it("does not call a skin conditioner a hair conditioner", () => {
     // It was taking the hair-conditioner label and illustration.
     expect(guessType(["en:face"], "Skin Conditioner")).not.toBe("conditioner");
