@@ -70,7 +70,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Scan a product",
+          title: "Scan a product · for.me",
           tabBarLabel: "Scan",
           // The bar draws icons only, so this is the name a screen reader
           // announces — kept on every tab for the same reason.
@@ -94,12 +94,8 @@ export default function TabsLayout() {
           // What `title` actually sets is the web document title: the browser
           // tab, the bookmark, the history entry. The app name is the right
           // thing there, and the reasoning that it should not be repeated
-          // inside the app does not reach it.
-          //
-          // The siblings naming a place rather than the app ("Saved", "Scan a
-          // product") is the real inconsistency, but the fix for that is to
-          // give every tab both — "Saved · for.me" — not to strip the name off
-          // the one screen that has it. Out of scope here.
+          // inside the app does not reach it. This one already carries the
+          // app name, so unlike its siblings it needs no "· for.me" suffix.
           title: "for.me",
           tabBarLabel: "Browse",
           tabBarAccessibilityLabel: "Browse",
@@ -115,7 +111,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="saved"
         options={{
-          title: "Saved",
+          title: "Saved · for.me",
           tabBarLabel: "Saved",
           tabBarAccessibilityLabel: "Saved",
           tabBarIcon: ({ color }) => <Ionicons name="heart" size={22} color={color} />,
@@ -124,7 +120,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Your skin profile",
+          title: "Your skin profile · for.me",
           tabBarLabel: "Profile",
           tabBarAccessibilityLabel: "Profile",
           tabBarIcon: ({ color }) => <Ionicons name="person" size={22} color={color} />,
