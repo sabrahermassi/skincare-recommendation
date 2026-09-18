@@ -129,7 +129,6 @@ describe("what survives an app restart", () => {
     expect([...PERSISTED_KEYS].sort()).toEqual([
       "hasSeenOnboarding",
       "history",
-      "productSuggestions",
       "profile",
       "savedIngredients",
       "savedProducts",
@@ -391,7 +390,6 @@ describe("v3 -> v4 migration", () => {
     savedProducts: [{ id: "hanbang-rice-serum", savedAt: 1 }],
     savedIngredients: ["niacinamide"],
     history: [],
-    productSuggestions: [],
   });
 
   it("keeps every answer the user still has a question for", () => {
