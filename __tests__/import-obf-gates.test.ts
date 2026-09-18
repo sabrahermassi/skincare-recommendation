@@ -398,4 +398,15 @@ describe("guessType", () => {
     // The tight (no-descriptor) "pad" match is unaffected.
     expect(guessType([], "Eye Pad Mask Paradise Punch")).toBe("eye-patch");
   });
+
+  // Codex found this on the sixth review round of PR #129: night-mask's
+  // filler-word slot doesn't know "hair"/"sheet" are reserved trigger words
+  // for the more specific rules further down the table, so it was winning
+  // first instead of falling through to them.
+  it("does not let night-mask's descriptor slot swallow hair-mask or sheet-mask", () => {
+    expect(guessType([], "Overnight Hair Mask")).toBe("hair-mask");
+    expect(guessType([], "Overnight Sheet Mask")).toBe("sheet-mask");
+    // A genuinely generic descriptor still resolves to night-mask.
+    expect(guessType([], "Overnight Face Mask")).toBe("night-mask");
+  });
 });

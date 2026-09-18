@@ -581,8 +581,14 @@ function guessType(tags: string[], text: string): string {
     // moisturizer, not the K-beauty sleep-mask category. Up to two
     // descriptor words allowed before "mask", same reasoning and same fix as
     // eye-patch above: "Overnight Face Mask" was falling through to the
-    // generic face-mask rule (found on PR #129, second round).
-    [/(sleeping|night|overnight)(?:[\s-]?mask|(?:[\s-]+\w+){1,2}[\s-]+mask)/, "night-mask"],
+    // generic face-mask rule (found on PR #129, second round). "hair" and
+    // "sheet" are excluded from the filler-word slot: they're not generic
+    // descriptors, they're the other specific mask rules' own trigger
+    // words, and since this rule sits above both of them, "Overnight Hair
+    // Mask"/"Overnight Sheet Mask" were winning here first instead of
+    // falling through to hair-mask/sheet-mask (found on PR #129, sixth
+    // round).
+    [/(sleeping|night|overnight)(?:[\s-]?mask|(?:[\s-]+(?!hair\b|sheet\b)\w+){1,2}[\s-]+mask)/, "night-mask"],
     // Same descriptor-word gap fix as night-mask above: "Hydrating Sheet
     // Face Mask" was falling through (found on PR #129, second round).
     [/sheet(?:[\s-]?mask|(?:[\s-]+\w+){1,2}[\s-]+mask)/, "sheet-mask"],
