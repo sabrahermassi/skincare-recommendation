@@ -399,9 +399,13 @@ function failureCopy(reason: "not_configured" | "unreadable" | "too_little_text"
         hint: "Give it a few minutes and try again.",
       };
     case "not_configured":
+      // The real cause (no Vision API key on the server) is ours to fix, not
+      // the scanner's to explain — see issue #96. Kept here for whoever's
+      // debugging a report of this screen.
+      console.warn("[scan-label] label-ocr returned not_configured: Vision API key isn't set on the server");
       return {
-        message: "Label reading isn't switched on yet.",
-        hint: "The Vision API key hasn't been set on the server.",
+        message: "Label reading is temporarily unavailable.",
+        hint: "Try the barcode instead, or look the product up in Browse.",
       };
     case "unreadable":
       return {
