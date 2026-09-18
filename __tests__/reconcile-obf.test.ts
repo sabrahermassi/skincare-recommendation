@@ -108,12 +108,41 @@ describe("fetchIngredients", () => {
 
   it("reads the ingredients text off a good response", async () => {
     respond({ body: { status: 1, product: { ingredients_text: "Aqua, Glycerin" } } });
-    expect(await fetchIngredients("123")).toEqual({ ok: true, text: "Aqua, Glycerin" });
+    expect(await fetchIngredients("123")).toEqual({ ok: true, text: "Aqua, Glycerin", attempts: 1 });
   });
 
   it("trims the text, and tolerates a missing field as empty rather than throwing", async () => {
     respond({ body: { status: 1, product: {} } });
-    expect(await fetchIngredients("123")).toEqual({ ok: true, text: "" });
+    expect(await fetchIngredients("123")).toEqual({ ok: true, text: "", attempts: 1 });
+  });
+
+  // The bug this replaced: a 429 retry is a second real HTTP request, but the
+  // main loop only ever incremented its own request counter once per call —
+  // so a persistently rate-limited run could spend up to twice the intended
+  // MAX_REQUESTS_PER_RUN requests without the ceiling ever noticing. Found by
+  // Codex on PR #122.
+  it("counts a 429 retry as two attempts, not one", async () => {
+    let call = 0;
+    global.fetch = jest.fn().mockImplementation(async () => {
+      call += 1;
+      if (call === 1) {
+        return {
+          status: 429,
+          ok: false,
+          headers: new Headers({ "retry-after": "0" }),
+          json: async () => ({}),
+        };
+      }
+      return {
+        status: 200,
+        ok: true,
+        headers: new Headers(),
+        json: async () => ({ status: 1, product: { ingredients_text: "Aqua" } }),
+      };
+    }) as unknown as typeof global.fetch;
+
+    expect(await fetchIngredients("123")).toEqual({ ok: true, text: "Aqua", attempts: 2 });
+    expect(call).toBe(2);
   });
 
   it("treats OBF's own status 0 as permanent", async () => {

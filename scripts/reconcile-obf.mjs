@@ -124,8 +124,18 @@ function capDelay(ms) {
  * (status 0 — will not change on a retry) from every other failure (stays
  * retryable, never checkpointed as gone on the strength of a response that
  * might just be a blip).
+ *
+ * Every result also carries `attempts` — 1, or 2 when a 429 forced the one
+ * retry this function allows. `MAX_REQUESTS_PER_RUN` is meant to bound the
+ * real number of HTTP requests a run makes, not the number of times the
+ * main loop happened to call this function; a caller counting the latter
+ * as though it were the former would let a persistently rate-limited run
+ * spend up to twice the intended requests, each costing up to a full
+ * `RATE_LIMIT_WINDOW_MS` wait — silently defeating the ceiling `MAX_
+ * REQUESTS_PER_RUN` exists to enforce. Found by Codex on PR #122.
  */
 export async function fetchIngredients(barcode, retried = false) {
+  const attempts = retried ? 2 : 1;
   let res;
   try {
     // Unbounded otherwise: a stalled connection would hang this row (and
@@ -137,31 +147,34 @@ export async function fetchIngredients(barcode, retried = false) {
       signal: AbortSignal.timeout(30_000),
     });
   } catch (err) {
-    return { ok: false, permanent: false, reason: `request failed: ${String(err)}` };
+    return { ok: false, permanent: false, reason: `request failed: ${String(err)}`, attempts };
   }
 
   if (res.status === 429 && !retried) {
     const wait = capDelay(retryAfterMs(res) ?? RATE_LIMIT_WINDOW_MS);
     console.warn(`\n  ! Rate-limited by OBF. Waiting ${Math.ceil(wait / 1000)}s and retrying once.`);
     await sleep(wait);
+    // The recursive call's own `attempts` (2, since it passes `retried:
+    // true`) is the true total across both requests — passed through
+    // as-is, not added to this call's own count.
     return fetchIngredients(barcode, true);
   }
 
-  if (res.status === 404) return { ok: false, permanent: true, reason: "not in OBF any more" };
-  if (!res.ok) return { ok: false, permanent: false, reason: `HTTP ${res.status}` };
+  if (res.status === 404) return { ok: false, permanent: true, reason: "not in OBF any more", attempts };
+  if (!res.ok) return { ok: false, permanent: false, reason: `HTTP ${res.status}`, attempts };
 
   let body;
   try {
     body = await res.json();
   } catch (err) {
-    return { ok: false, permanent: false, reason: `unreadable response: ${String(err)}` };
+    return { ok: false, permanent: false, reason: `unreadable response: ${String(err)}`, attempts };
   }
 
-  if (body?.status === 0) return { ok: false, permanent: true, reason: "not in OBF any more" };
+  if (body?.status === 0) return { ok: false, permanent: true, reason: "not in OBF any more", attempts };
   if (body?.status !== 1 || !body.product) {
-    return { ok: false, permanent: false, reason: `unexpected response shape (status ${body?.status})` };
+    return { ok: false, permanent: false, reason: `unexpected response shape (status ${body?.status})`, attempts };
   }
-  return { ok: true, text: (body.product.ingredients_text ?? "").trim() };
+  return { ok: true, text: (body.product.ingredients_text ?? "").trim(), attempts };
 }
 
 /**
@@ -275,7 +288,12 @@ async function main() {
       sawAnyCandidate = true;
       if (read > 0) await sleep(READ_INTERVAL_MS);
       const result = await fetchIngredients(row.barcode);
-      read += 1;
+      // A 429 retry inside `fetchIngredients` is a second real HTTP request
+      // (and up to another full RATE_LIMIT_WINDOW_MS wait) — `attempts`
+      // carries the true count so a persistently rate-limited run still
+      // stops at MAX_REQUESTS_PER_RUN actual requests, not double that.
+      // Found by Codex on PR #122.
+      read += result.attempts;
       process.stdout.write(`\r  read ${read} (touched ${touched}/${limit})`);
 
       if (!result.ok) {
