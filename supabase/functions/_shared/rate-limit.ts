@@ -289,6 +289,19 @@ export function callerKey(req: Request): string {
   // One header, and no fallbacks. Cloudflare sets `cf-connecting-ip` to the
   // originating client and *overwrites* whatever arrived, so a client cannot
   // choose its own value. Nothing else here has that property.
+  //
+  // Measured, not assumed — a temporary probe on a deployed `product-lookup`
+  // reported five requests from one machine as:
+  //
+  //   cf-connecting-ip=49c69ef7 xff.hops=3 xff.first=49c69ef7 xff.last=802cbfc1
+  //   cf-connecting-ip=49c69ef7 xff.hops=3 xff.first=49c69ef7 xff.last=67f8d516
+  //   cf-connecting-ip=49c69ef7 xff.hops=3 xff.first=49c69ef7 xff.last=f628681b
+  //
+  // (header names and truncated HMACs, never addresses). `cf-connecting-ip`
+  // holds still; the last `x-forwarded-for` hop does not, which is the whole
+  // of the bug this branch fixes. `x-real-ip`, `forwarded` and
+  // `true-client-ip` never arrived at all, so the earlier fallback chain was
+  // reaching for headers this platform does not send.
   const observed = req.headers.get("cf-connecting-ip");
   if (observed) return observed.trim();
 
@@ -296,60 +309,6 @@ export function callerKey(req: Request): string {
   // direction to be wrong in. Read the note above for why this is not a
   // fallback but a refusal to guess.
   return "unknown";
-}
-
-/**
- * TEMPORARY — remove once the header question is settled. See PR #120.
- *
- * `callerKey` above picks `cf-connecting-ip` on the reasoning that these
- * functions run on Deno Deploy behind Cloudflare. That is an inference, not a
- * measurement, and the last inference about these headers shipped a limiter
- * that limited nobody. This says what actually arrives so the choice can be
- * made from fact.
- *
- * **Names and short hashes, never the addresses themselves.** An address is
- * personal data under this project's own threat model, and a probe that runs
- * on every request is a very different thing from the one line `refused()`
- * writes when someone is throttled. Eight hex characters is enough to answer
- * the only two questions that matter — is this header present, and does its
- * value stay the same across requests — while being useless for identifying
- * anyone.
- *
- * Unconditional rather than behind an environment flag: a flag is another
- * thing to set, another thing to forget to unset, and this is meant to live
- * for one deploy.
- *
- * Returns the line as well as logging it, so a caller can hand it straight
- * back in the response. Reading it out of the dashboard logs is several steps
- * of someone else's manual work to answer a question the code already knows,
- * and the value describes the caller's own connection — telling them about
- * their own request discloses nothing they did not just send us.
- */
-export async function probeCallerHeaders(req: Request, secret: string): Promise<string> {
-  const candidates = ["cf-connecting-ip", "x-real-ip", "x-forwarded-for", "forwarded", "true-client-ip"];
-  const parts: string[] = [];
-
-  for (const name of candidates) {
-    const raw = req.headers.get(name);
-    if (raw === null) continue;
-    const short = async (v: string) => (await fingerprintCaller(v, secret)).slice(0, 8);
-
-    if (name === "x-forwarded-for") {
-      // Both ends, because which end is the caller is the entire question.
-      const chain = raw.split(",").map((v) => v.trim()).filter(Boolean);
-      parts.push(`xff.hops=${chain.length}`);
-      if (chain.length > 0) parts.push(`xff.first=${await short(chain[0])}`);
-      if (chain.length > 1) parts.push(`xff.last=${await short(chain[chain.length - 1])}`);
-    } else {
-      parts.push(`${name}=${await short(raw)}`);
-    }
-  }
-
-  const line = parts.length > 0
-    ? parts.join(" ")
-    : "none of the candidate headers are present";
-  console.log(`[caller-probe] ${line}`);
-  return line;
 }
 
 // ── The caller fingerprint ──────────────────────────────────────────────────

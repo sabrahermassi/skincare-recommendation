@@ -20,7 +20,6 @@ import {
   preflight,
   callerSalt,
   consumeRateLimit,
-  probeCallerHeaders,
   requestId,
   retryAfterSeconds,
   type RateLimit,
@@ -77,22 +76,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return preflight(req);
   if (req.method !== "POST") return json(req, { error: "POST only" }, 405);
 
-  let body: { barcode?: unknown; probe?: unknown };
+  let body: { barcode?: unknown };
   try {
     body = await req.json();
   } catch {
     return json(req, { error: "Body must be JSON" }, 400);
-  }
-
-  // TEMPORARY — remove once the header question is settled. See PR #120.
-  //
-  // Answers in the response rather than only in the dashboard logs. The line
-  // describes the caller's own connection, so handing it back to that caller
-  // tells them nothing they did not just send. Short-circuits ahead of the
-  // barcode check and the lookup cascade so asking the question costs no
-  // third-party quota.
-  if (body.probe === true) {
-    return json(req, { probe: await probeCallerHeaders(req, callerSalt()) }, 200);
   }
 
   const barcode = body.barcode;
@@ -106,8 +94,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Minted before the check so the refusal log and the reply carry the same
   // id — the whole point is that a user quoting it lands on one line.
   const rid = requestId(req);
-  // TEMPORARY — remove once the header question is settled. See PR #120.
-  await probeCallerHeaders(req, callerSalt());
   if (!(await consumeRateLimit(db, "product-lookup", callerKey(req), RATE_LIMIT, {
     secret: callerSalt(),
     requestId: rid,

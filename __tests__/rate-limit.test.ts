@@ -580,6 +580,30 @@ describe("who the caller is", () => {
     expect(new Set([a, b, c]).size).toBe(1);
   });
 
+  /**
+   * The shape a live deployment actually sends, rather than the one this code
+   * assumed. A probe on a deployed `product-lookup` reported five requests
+   * from one machine as three hops, with `cf-connecting-ip` and the first
+   * `x-forwarded-for` entry constant and the last entry taking three
+   * different values across the five.
+   *
+   * Reproduced here with addresses standing in for the truncated HMACs the
+   * probe printed. Without this the measurement lives only in a commit
+   * message, and the next person to touch `callerKey` has the same inference
+   * available to them that produced the bug.
+   */
+  it("gives one identity across the three-hop shape this platform really sends", () => {
+    // The five last-hop values the probe distinguished, as five requests.
+    const keys = [11, 47, 203, 11, 11].map((lastHop) =>
+      callerKey(req({
+        "cf-connecting-ip": "81.229.14.22",
+        "x-forwarded-for": `81.229.14.22, 172.16.0.9, 10.0.0.${lastHop}`,
+      })),
+    );
+    expect(new Set(keys).size).toBe(1);
+    expect(keys[0]).toBe("81.229.14.22");
+  });
+
   it("still tells two real callers apart", () => {
     expect(callerKey(req({ "cf-connecting-ip": "81.229.14.22" })))
       .not.toBe(callerKey(req({ "cf-connecting-ip": "90.112.8.5" })));
