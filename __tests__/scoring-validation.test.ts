@@ -336,18 +336,26 @@ const TENSION_FIXTURES: Array<Fixture & { note: string }> = [
  * the exact profile its real-world reputation warns against. Pulled out of
  * TENSION_FIXTURES on purpose: this one does NOT confirm the model agrees
  * with reality, so it does not belong next to three cases that do. It is a
- * KNOWN GAP, tracked as step 16 of "Feeding the Catalogue", and this test
- * pins today's (arguably wrong) behavior so a future fix shows up as an
- * intentional, expected failure here rather than a silent change.
+ * KNOWN GAP, tracked as step 16 of "Feeding the Catalogue".
  *
- * Why it lands "good" instead of "fair"/"poor": acne-prone/large-pores
+ * `expectedVerdicts` names the CORRECT real-world bands (fair/poor), not
+ * today's actual output ("good") — asserting the current wrong answer as
+ * "passing" would lock this model into disagreeing with reality and never
+ * flag it again (raised in review on PR #133). The test itself is run with
+ * `it.failing` below: today's known-wrong "good" verdict fails this
+ * assertion as expected, which `it.failing` reports as a pass, so CI stays
+ * green without pretending the gap is closed. The day step 16 actually fixes
+ * this, the assertion starts passing for real, `it.failing` reports THAT as
+ * a failure, and the fixture forces someone to notice and flip it to a plain
+ * `it`.
+ *
+ * Why it lands "good" instead of "fair"/"poor" today: acne-prone/large-pores
  * concernFit is 65% poreSafety-weighted (lib/matching.ts), and poreSafety
  * defaults to 100 whenever nothing in the formula is a listed pore-clogger —
  * benzoyl peroxide isn't one. That swamps the irritation penalty, which is
  * capped low here anyway: benzoyl peroxide's rule category is "actives", not
  * one of IRRITANT_CATEGORIES, so only the flat sensitive+caution bump
- * applies. Net effect: this model doesn't currently reflect how much benzoyl
- * peroxide is known to irritate dry, reactive skin for an acne-prone user.
+ * applies.
  */
 const KNOWN_GAP_BENZOYL_PEROXIDE_ON_REACTIVE_SKIN: Fixture = {
   name: "PanOxyl 4% Benzoyl Peroxide Spot Treatment (dry, reactive skin)",
@@ -359,7 +367,7 @@ const KNOWN_GAP_BENZOYL_PEROXIDE_ON_REACTIVE_SKIN: Fixture = {
     ing("niacinamide", "Niacinamide"),
   ],
   profile: profile({ baseSkinType: "dry", concerns: ["acne-prone"], sensitivity: "high" }),
-  expectedVerdicts: ["good"],
+  expectedVerdicts: ["fair", "poor"],
 };
 
 describe("scoring validation — real products against their known reputation", () => {
@@ -377,13 +385,17 @@ describe("scoring validation — real products against their known reputation", 
     });
   });
 
-  it("KNOWN GAP (step 16): benzoyl peroxide does not yet score worse on dry, reactive skin", () => {
+  // it.failing: asserts the CORRECT real-world verdict (fair/poor), which
+  // today's scoring does not produce (see the fixture's own comment) — so
+  // this assertion is expected to fail right now, and it.failing reports
+  // that expected failure as a pass. Step 16 fixing the underlying gap makes
+  // the assertion start passing for real, which it.failing then reports as
+  // a failure — forcing whoever lands that fix to notice this fixture and
+  // promote it to a plain `it`, rather than the gap quietly going green.
+  it.failing("KNOWN GAP (step 16): benzoyl peroxide should score worse on dry, reactive skin", () => {
     const fixture = KNOWN_GAP_BENZOYL_PEROXIDE_ON_REACTIVE_SKIN;
     const result = matchProduct({ type: fixture.type, ingredients: fixture.ingredients }, fixture.profile);
     expect(result.score).not.toBeNull();
-    // Pins today's behavior, not the desired one — see the fixture's own
-    // comment. When step 16 lands, this assertion should start failing;
-    // update it to expect "fair"/"poor" at that point, not before.
     expect(fixture.expectedVerdicts).toContain(result.verdict);
   });
 });
