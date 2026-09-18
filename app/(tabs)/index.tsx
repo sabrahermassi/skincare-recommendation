@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -413,6 +413,28 @@ function BarcodeStage({
   const [bannerHeight, setBannerHeight] = useState(0);
   const showQuizBanner = justFinishedQuiz && status.kind === "idle";
 
+  // `ScreenReaderAnnouncer`'s own doc comment: react-native-web's `aria-live`
+  // only fires on a change to content a screen reader is already watching —
+  // text present the moment the live region mounts is never announced. On
+  // web that is exactly the first-run path: `(tabs)/_layout.tsx` gates this
+  // whole screen behind `hasSeenOnboarding` and returns a bare `<Redirect>`
+  // until it flips, so `BarcodeStage` — and this announcer — mounts for the
+  // first time already carrying `justFinishedQuiz=true`, with nothing to
+  // transition from. Deferred a tick so the announcer mounts empty and the
+  // real text lands as a genuine update; imperceptible on iOS/Android, where
+  // `ScreenReaderAnnouncer` fires off `message` changing either way, not off
+  // mount timing. Found by Codex in review on #126.
+  const [announceQuizBannerReady, setAnnounceQuizBannerReady] = useState(false);
+  useEffect(() => {
+    if (!showQuizBanner) return;
+    const id = setTimeout(() => setAnnounceQuizBannerReady(true), 0);
+    return () => {
+      clearTimeout(id);
+      setAnnounceQuizBannerReady(false);
+    };
+  }, [showQuizBanner]);
+  const announceQuizBanner = showQuizBanner && announceQuizBannerReady;
+
   // One sentence per state, shared by the spoken announcement and the visible
   // panel's own label so the two can never drift apart.
   //
@@ -427,7 +449,7 @@ function BarcodeStage({
         ? "Not in our catalogue yet. Photograph the label and we'll add it."
         : status.kind === "unreachable"
           ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
-          : justFinishedQuiz
+          : announceQuizBanner
             ? quizAcknowledgementText
             : "";
 
@@ -531,15 +553,19 @@ function BarcodeStage({
             borderRadius: 14,
             backgroundColor: withAlpha(CANVAS, 0.95),
             paddingHorizontal: 16,
-            paddingVertical: 13,
+            paddingVertical: 8,
           }}
         >
           <Text style={{ flex: 1, fontSize: 13, fontWeight: "600", color: INK }}>
             {quizAcknowledgementText}
           </Text>
+          {/* `TOUCH_TARGET`, not hitSlop around the bare glyph — that left an
+              effective ~30px target, under design/DESIGN_SYSTEM.md's
+              documented 44px minimum "on every interactive element,
+              everywhere in this system." Found by Codex in review on #126. */}
           <Pressable
             onPress={onDismissQuizAcknowledgement}
-            hitSlop={8}
+            style={{ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
             accessibilityRole="button"
             accessibilityLabel="Dismiss"
           >
