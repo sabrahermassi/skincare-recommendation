@@ -641,45 +641,49 @@ export function functionSignal(name: string): FunctionSignal | undefined {
 }
 
 /**
- * How much of an ingredient's effect survives the way the product is used.
+ * How strongly product use changes positive evidence and potential harm.
  *
- * A cleanser is on the skin for perhaps a minute and is then rinsed off, so
- * both its actives and its irritants land far softer than the same names in a
- * serum left on all night. Scoring them identically overstated salicylic acid
- * in a face wash and, worse, overstated fragrance in one. Position already
- * proxies concentration; this proxies exposure, which is the other half.
+ * A cleanser is on the skin briefly and is then rinsed off, while a serum can
+ * remain all night. Position already proxies concentration; these values proxy
+ * contact and exposure. They are broad scoring bands, not SCCS retention
+ * values. In particular, `benefit` is an evidence-policy weight rather than a
+ * measured fraction of efficacy: there is no universal efficacy-retention
+ * factor across ingredients, concentrations and formulations.
  *
- * Not zero for rinse-off: surfactants and fragrance still cause real contact
- * reactions, which is why patch testing uses a wash-off protocol at all.
- *
- * Graded rather than the flat rinse-off/leave-on pair this replaces, for two
- * reasons. One weight covered both a scrub rinsed off in thirty seconds and a
- * hair mask worn for twenty minutes, which are not the same exposure. And
- * `exfoliator` spans a physical scrub and a leave-on acid liquid — a real
- * catalogue row, "6% Mandelic Acid + 2% Lactic Acid Liquid Exfoliant", was
- * taking the rinse-off weight and having its acids *and its irritation*
- * counted at 40%, for exactly the reactive skin that needed the warning.
- *
- * The bands follow how cosmetic exposure assessment actually works: the SCCS
- * applies a retention factor per product type rather than a rinse-off
- * boolean. Quantitative risk assessments built that way — MCI/MI, fragrance
- * allergens — repeatedly put rinse-off scenarios below the
- * sensitisation-induction threshold while leave-on scenarios of the same
- * substance exceed it, which is also why those preservatives are capped lower
- * in leave-on products than in rinse-off ones.
- *
- * Any type whose exposure is not obvious gets 1 — full leave-on weight —
- * `unknown` included. That is the deliberate direction to fail in: guessing a
- * type wrong can then only make this app over-cautious about a formula, never
- * quietly under-count an irritant that sits on someone's face all night.
+ * Known rinse-off and leave-on products use the same number in both
+ * directions. Ambiguous or unknown use fails safe asymmetrically: potential
+ * harm keeps full leave-on weight, while positive evidence receives only
+ * conservative credit rather than an assumed leave-on benefit.
  */
-const EXPOSURE_BY_TYPE: Record<ProductType, number> = {
+export type ContactWeights = Readonly<{
+  /** Conservative exposure used by every negative/risk path. */
+  harm: number;
+  /** Strength of positive evidence, not a literal efficacy percentage. */
+  benefit: number;
+}>;
+
+const FULL_CONTACT: ContactWeights = { harm: 1, benefit: 1 };
+// `unknown` (type-guess failure) is not one of the four named-ambiguous
+// types above — it is roughly 28% of the imported catalogue, so this is its
+// own deliberate policy decision, not a mechanical extension of that list.
+// Harm stays at 1 for the reason `unknown` always has: guessing wrong can
+// only make this app over-cautious about a formula, never quietly
+// under-count a real irritant. Benefit is discounted harder than the four
+// named types (0.25 rather than 0.5) because those four are at least known
+// to sit somewhere between rinse-off and leave-on; an `unknown` product
+// could be either extreme, or something this app has never classified
+// before, so there is even less basis for crediting it at leave-on
+// strength. Named explicitly here rather than left implicit, per review on
+// PR #127.
+const UNKNOWN_CONTACT: ContactWeights = { harm: 1, benefit: 0.25 };
+
+const EXPOSURE_BY_TYPE: Record<ProductType, ContactWeights> = {
   // Rinsed within about a minute.
-  cleanser: 0.25,
-  "body-wash": 0.25,
+  cleanser: { harm: 0.25, benefit: 0.25 },
+  "body-wash": { harm: 0.25, benefit: 0.25 },
   // Sits for minutes, then rinsed. A body scrub is the one type where that is
   // unambiguous: it is scrubbed on and washed straight off.
-  "body-scrub": 0.5,
+  "body-scrub": { harm: 0.5, benefit: 0.5 },
   // Left on.
   //
   // The four below look like they belong above and deliberately do not,
@@ -692,49 +696,42 @@ const EXPOSURE_BY_TYPE: Record<ProductType, number> = {
   //   shampoo      rinsed out AND dry shampoo, sprayed in and left — the bare
   //                `/shampoo/` match in both classifiers catches both
   //
-  // Discounting an ambiguous type quietly under-counts an irritant that was
-  // in fact left on, which is the failure this weighting exists to prevent.
-  // So they take full weight, and the rule is the same one `unknown` follows.
-  //
-  // KNOWN LIMITATION, not fixed by this weighting: this same weight also
-  // scales a *helpful* rule's contribution, not just an irritant's. A
-  // rinse-off scrub's salicylic acid gets full acne-fighting credit here too,
-  // as though contact time were long enough to matter — and for a user whose
-  // profile doesn't trigger that ingredient's `hurts` rule (not sensitive),
-  // there is no offsetting inflated irritation to balance it against, so the
-  // product can be over-credited rather than merely "judged a little
-  // harshly". Fixing this properly means separating benefit and harm
-  // weighting in `lib/matching.ts`, not another entry in this table — see
-  // `docs/decisions.md`.
-  exfoliator: 1,
-  conditioner: 1,
-  "hair-mask": 1,
-  shampoo: 1,
+  // Discounting harm could under-count an irritant that was actually left on,
+  // so harm remains 1. Benefit uses the same 0.5 mid-point for all four:
+  // each name genuinely spans a short-contact and a long-contact variant
+  // with nothing here to tell them apart, so there is no more basis for
+  // discounting shampoo's benefit further than the other three than there
+  // is for discounting it less. (An earlier draft set shampoo to 0.25,
+  // singling it out with no stated reason — caught in review on PR #127.)
+  exfoliator: { harm: 1, benefit: 0.5 },
+  conditioner: { harm: 1, benefit: 0.5 },
+  "hair-mask": { harm: 1, benefit: 0.5 },
+  shampoo: { harm: 1, benefit: 0.5 },
   // Not ambiguous, just not rinsed: a sheet mask's essence is patted in.
-  "sheet-mask": 1,
-  toner: 1,
-  essence: 1,
-  serum: 1,
-  ampoule: 1,
-  moisturizer: 1,
-  sunscreen: 1,
-  "body-lotion": 1,
-  "hand-cream": 1,
-  "eye-cream": 1,
-  "facial-oil": 1,
-  "night-mask": 1,
-  "lip-balm": 1,
-  perfume: 1,
-  "facial-mist": 1,
-  deodorant: 1,
-  "hair-oil": 1,
-  "body-butter": 1,
-  "foot-cream": 1,
-  // See above: not knowing is scored as full exposure on purpose.
-  unknown: 1,
+  "sheet-mask": FULL_CONTACT,
+  toner: FULL_CONTACT,
+  essence: FULL_CONTACT,
+  serum: FULL_CONTACT,
+  ampoule: FULL_CONTACT,
+  moisturizer: FULL_CONTACT,
+  sunscreen: FULL_CONTACT,
+  "body-lotion": FULL_CONTACT,
+  "hand-cream": FULL_CONTACT,
+  "eye-cream": FULL_CONTACT,
+  "facial-oil": FULL_CONTACT,
+  "night-mask": FULL_CONTACT,
+  "lip-balm": FULL_CONTACT,
+  perfume: FULL_CONTACT,
+  "facial-mist": FULL_CONTACT,
+  deodorant: FULL_CONTACT,
+  "hair-oil": FULL_CONTACT,
+  "body-butter": FULL_CONTACT,
+  "foot-cream": FULL_CONTACT,
+  // Unknown use gets the same asymmetric fail-safe policy.
+  unknown: UNKNOWN_CONTACT,
 };
 
-export function contactWeight(type: ProductType): number {
+export function contactWeight(type: ProductType): ContactWeights {
   // `products.type` is unconstrained text in the database, and `buildProduct`
   // only asserts it as `ProductType` rather than validating it — so a typo'd
   // or newly-added server-side value can reach here without a matching entry
@@ -743,10 +740,11 @@ export function contactWeight(type: ProductType): number {
   // resolve to that prototype member rather than `undefined`, and `?? 1`
   // never applies to it. The explicit own-property check is what actually
   // catches every unrecognised value, not just the ones that happen to look
-  // unrecognised to `??`. Fail into the same full-weight default `unknown`
-  // gets, not into `undefined` or a stray function reference, either of
-  // which would turn every ingredient weight — and the score — into `NaN`.
-  return Object.prototype.hasOwnProperty.call(EXPOSURE_BY_TYPE, type) ? EXPOSURE_BY_TYPE[type] : 1;
+  // unrecognised to `??`. Fail into the same asymmetric default `unknown`
+  // gets, not into `undefined` or a stray prototype member.
+  return Object.prototype.hasOwnProperty.call(EXPOSURE_BY_TYPE, type)
+    ? EXPOSURE_BY_TYPE[type]
+    : UNKNOWN_CONTACT;
 }
 
 /**

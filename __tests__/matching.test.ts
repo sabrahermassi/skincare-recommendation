@@ -297,6 +297,42 @@ describe("verdict engine", () => {
       expect(rinseOff).toBeGreaterThan(leaveOn);
     });
 
+    it("discounts benefit but not harm when a product type has ambiguous contact", () => {
+      const active = ["water", "salicylic acid", ...FILLER];
+      const benefitProfile = profile({
+        baseSkinType: "oily",
+        concerns: ["acne-prone"],
+        sensitivity: "none",
+      });
+      const leaveOn = matchProduct(synthetic(active), benefitProfile);
+      const ambiguous = matchProduct(
+        synthetic(active, { type: "exfoliator" }),
+        benefitProfile
+      );
+      const leaveOnEffect = leaveOn.reasons.find((r) => r.ingredient === "salicylic acid")?.effect;
+      const ambiguousEffect = ambiguous.reasons.find(
+        (r) => r.ingredient === "salicylic acid"
+      )?.effect;
+
+      expect(leaveOn.score as number).toBeGreaterThan(ambiguous.score as number);
+      expect(ambiguousEffect).toBeCloseTo((leaveOnEffect as number) * 0.5);
+
+      const irritating = ["water", "parfum", "limonene", ...FILLER];
+      const harmProfile = profile({
+        baseSkinType: "normal",
+        concerns: ["redness"],
+        sensitivity: "high",
+      });
+      const leaveOnHarm = matchProduct(synthetic(irritating), harmProfile);
+      const ambiguousHarm = matchProduct(
+        synthetic(irritating, { type: "exfoliator" }),
+        harmProfile
+      );
+      expect(ambiguousHarm.breakdown.irritationPenalty).toBeCloseTo(
+        leaveOnHarm.breakdown.irritationPenalty
+      );
+    });
+
     it("scores from a declared function when no curated rule applies", () => {
       // Layer 2: ~83% of catalogue ingredients carry CosIng roles, and nothing
       // scored on them before. `sodium pca` has no rule, but is declared a
@@ -308,6 +344,26 @@ describe("verdict engine", () => {
       expect(matchProduct(withHumectant, prof).score as number).toBeGreaterThan(
         matchProduct(bare, prof).score as number
       );
+    });
+
+    it("uses the benefit contact weight for declared-function fallback", () => {
+      const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+      const leaveOn = synthetic(["water", "sodium pca", "xanthan gum", "carbomer"]);
+      const ambiguous = synthetic(
+        ["water", "sodium pca", "xanthan gum", "carbomer"],
+        { type: "exfoliator" }
+      );
+      leaveOn.ingredients[1].functions = ["humectant"];
+      ambiguous.ingredients[1].functions = ["humectant"];
+
+      const leaveOnResult = matchProduct(leaveOn, prof);
+      const ambiguousResult = matchProduct(ambiguous, prof);
+      const leaveOnEffect = leaveOnResult.reasons.find((r) => r.ingredient === "sodium pca")?.effect;
+      const ambiguousEffect = ambiguousResult.reasons.find(
+        (r) => r.ingredient === "sodium pca"
+      )?.effect;
+
+      expect(ambiguousEffect).toBeCloseTo((leaveOnEffect as number) * 0.5);
     });
 
     it("explains the score in order of what actually moved it", () => {
@@ -400,16 +456,84 @@ describe("verdict engine", () => {
     expect(high.reasons[0].ingredient).toBe("parfum");
   });
 
-  it("records both sides when one ingredient helps and hurts the same person", () => {
-    // Salicylic acid suits oily/acne-prone and works against sensitive skin.
+  it("records both sides only when both are actually counted in the score", () => {
+    // Salicylic acid helps acne-prone skin (a concern match, real fit
+    // evidence) and hurts dry skin (a skinType match, also real fit
+    // evidence) — both paths genuinely move the score, unlike a profile that
+    // is merely `sensitive` with no matching concern or skinType, which
+    // `targetApplies` still treats as "hurts" but which the score does not
+    // otherwise count (see the next test, and PR #127's review).
     const result = matchProduct(
       synthetic(["water", "salicylic acid", ...FILLER]),
+      profile({ baseSkinType: "dry", concerns: ["acne-prone"], sensitivity: "none" })
+    );
+    const entry = result.reasons.find((r) => r.ingredient === "salicylic acid");
+    // Net zero on a leave-on product: equal weight in both directions, and
+    // both sides are real, so the tension genuinely cancels rather than
+    // producing a claim the score doesn't back up.
+    expect(entry).toBeUndefined();
+  });
+
+  it("shows net harm only from harm the score actually applies", () => {
+    // Same genuinely-counted tension as above (concern-matched benefit,
+    // skinType-matched harm), but on an ambiguous-contact type: harm stays
+    // at full weight while benefit is halved, so it no longer cancels.
+    const result = matchProduct(
+      synthetic(["water", "salicylic acid", ...FILLER], { type: "exfoliator" }),
+      profile({ baseSkinType: "dry", concerns: ["acne-prone"], sensitivity: "none" })
+    );
+    const entry = result.reasons.find((r) => r.ingredient === "salicylic acid");
+
+    expect(entry?.effect).toBeLessThan(0);
+  });
+
+  it("keeps a pore-clogging reason even when its concern bump is skipped", () => {
+    // Lauric acid's `hurts` is concern-only (acne-prone), no skinType, so
+    // `baseSkinType: "combination"` here deliberately matches neither
+    // `helps.skinTypes` nor `hurts.skinTypes` on any rule that names it —
+    // the exact shape review found: `harmApplied` must not fall back to
+    // "false" just because the concernEvidence loop skips its own bump for
+    // pore-led concerns. That skip prevents double-billing concernEvidence
+    // against `poreCloggingHits`' own `poreLoad`/`poreSafety` path — it
+    // does not mean the harm goes uncounted, since `poreCloggingHits` scans
+    // "lauric acid" unconditionally and bills the same acne-prone concern
+    // through a different accumulator. Raised by review on PR #127.
+    const withClogger = matchProduct(
+      synthetic(["water", "lauric acid", ...FILLER]),
+      profile({ baseSkinType: "combination", concerns: ["acne-prone"] })
+    );
+    const entry = withClogger.reasons.find((r) => r.ingredient === "lauric acid");
+
+    expect(entry?.effect).toBeLessThan(0);
+
+    // And the harm is real, not just displayed: the same formula scores
+    // worse for this profile than one with no clogger at all.
+    const clean = matchProduct(
+      synthetic(["water", ...FILLER]),
+      profile({ baseSkinType: "combination", concerns: ["acne-prone"] })
+    );
+    expect((withClogger.score as number)).toBeLessThan(clean.score as number);
+  });
+
+  it("does not show harm the score never applied, even when contact weights differ", () => {
+    // The bug this PR's review caught: `targetApplies` treats `hurts` as true
+    // whenever ANY of its conditions match, including `sensitive` alone — so
+    // a sensitive, oily, acne-prone user (skinType does not match salicylic
+    // acid's `hurts.skinTypes: ["dry"]`, and it declares no `hurts.concerns`
+    // at all) triggers `hurts` through sensitivity only, a signal with no
+    // fit-evidence bucket of its own. On a leave-on product that harm used to
+    // cancel an equal benefit by coincidence of equal weights; splitting
+    // benefit and harm broke that coincidence and turned it into a visible,
+    // uncounted negative "reason" — the score went up from the benefit while
+    // the explanation claimed the same ingredient worked against the user.
+    const result = matchProduct(
+      synthetic(["water", "salicylic acid", ...FILLER], { type: "exfoliator" }),
       profile({ baseSkinType: "oily", concerns: ["acne-prone"], sensitivity: "some" })
     );
     const entry = result.reasons.find((r) => r.ingredient === "salicylic acid");
-    // Net zero: the tension is real, so it moves the score nowhere and is not
-    // dressed up as a recommendation either way.
-    expect(entry).toBeUndefined();
+
+    // Positive, not negative: only the counted acne-prone benefit shows.
+    expect(entry?.effect).toBeGreaterThan(0);
   });
 
   it("explains itself — every scored product returns its reasons", () => {
