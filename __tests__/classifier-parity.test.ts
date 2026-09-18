@@ -22,20 +22,43 @@ import { guessTypeFromIngredients as denoFallback } from "../supabase/functions/
 
 const ROOT = join(__dirname, "..");
 
+/**
+ * One "regex=>type" string per table entry, in order.
+ *
+ * A regex and its result type sit on the same line for a short pattern
+ * (`[/hand.?cream.../, "hand-cream"],`) but on separate lines once the regex
+ * is too long to fit (the cleanser entry). Comparing regex lines alone — what
+ * this used to do — silently drops the type half of any multi-line entry from
+ * the comparison, so a copy that mapped that regex to a *different* type
+ * would still pass. Pairing each regex with the next type line, however far
+ * apart, catches both halves regardless of layout.
+ */
 function patternTable(path: string): string[] {
   const source = readFileSync(join(ROOT, path), "utf8");
   const start = source.indexOf("[/hand.?cream");
   const end = source.indexOf("];", start);
   if (start === -1 || end === -1) throw new Error(`no classifier table found in ${path}`);
-  return source
+
+  const lines = source
     .slice(start, end)
     .split("\n")
     .map((line) => line.trim())
     // Comments explain the same rule differently in each copy and are not
-    // what drifts; only the regex lines themselves are compared.
-    .filter((line) => !line.startsWith("//"))
-    .filter((line) => line.startsWith("[/") || line.startsWith("/"))
-    .map((line) => line.replace(/\s+/g, ""));
+    // what drifts.
+    .filter((line) => line.length > 0 && !line.startsWith("//"));
+
+  const entries: string[] = [];
+  let pendingRegex: string | null = null;
+  for (const line of lines) {
+    const regexMatch = line.match(/\/(?:\\.|[^/])*\/[a-z]*/);
+    const typeMatch = line.match(/"[a-z-]+"/);
+    if (regexMatch && !pendingRegex) pendingRegex = regexMatch[0];
+    if (typeMatch && pendingRegex) {
+      entries.push(`${pendingRegex}=>${typeMatch[0]}`);
+      pendingRegex = null;
+    }
+  }
+  return entries;
 }
 
 describe("guessType stays in step across both runtimes", () => {
@@ -45,6 +68,13 @@ describe("guessType stays in step across both runtimes", () => {
     // finding the table at all.
     expect(importer.length).toBeGreaterThan(20);
     expect(patternTable("supabase/functions/product-lookup/index.ts")).toEqual(importer);
+
+    // The cleanser entry's regex is long enough to sit on its own line, with
+    // the result type below it rather than beside it. Pinning that the type
+    // still made it into the comparison is what catches a copy that changed
+    // the type without changing the regex — the exact gap the old line-only
+    // extraction had.
+    expect(importer.some((entry) => entry.endsWith('=>"cleanser"'))).toBe(true);
   });
 });
 
