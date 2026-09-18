@@ -232,6 +232,60 @@ function refused(
   );
 }
 
+// ── Who the caller is ───────────────────────────────────────────────────────
+
+/**
+ * Who to charge a request to.
+ *
+ * The caller's address, NOT `x-device-id`. A client-supplied header is a
+ * client-supplied bucket: `for i in $(seq 1000); do curl -H "x-device-id: $i"`
+ * defeats the limit entirely, and the limit is the only thing standing between
+ * an anonymous caller and a metered Vision key.
+ *
+ * **`cf-connecting-ip` first, not the end of `x-forwarded-for`.** The previous
+ * order was textbook-correct and wrong here, which is a combination worth
+ * recording rather than quietly deleting.
+ *
+ * The reasoning was: a gateway *appends* what it observed to `x-forwarded-for`,
+ * so the last entry is an address and the earlier ones are whatever the client
+ * claimed. True in general. But these functions run on Deno Deploy behind
+ * Cloudflare, and what gets appended on the way in is an internal hop that
+ * differs between requests — so the "caller" was the proxy that happened to
+ * carry the request, not the person making it. Every request looked like a new
+ * caller, the count never accumulated, and **nobody was rate limited at all**.
+ * Found by running 25 requests against the deployed endpoint and getting 25
+ * successes where 20 were expected: `rate_limits` held 16 rows for 37
+ * requests, which is one row per hop rather than one per caller.
+ *
+ * `cf-connecting-ip` is set by Cloudflare to the originating client and
+ * overwritten on every request, so a client cannot forge it and an internal
+ * hop cannot displace it. `x-real-ip` is the same idea one layer down.
+ * `x-forwarded-for`'s *first* entry is the standard's answer for "who
+ * originally called" and is kept only as a last resort, flagged as spoofable
+ * because it is: by then there is nothing better left.
+ *
+ * The cost is unchanged — one shop's wifi shares a bucket. At 10 requests per
+ * 5 minutes that is a real person scanning a shelf, so the ceiling is set for
+ * a NAT rather than for a single handset.
+ */
+export function callerKey(req: Request): string {
+  // Platform-set and client-overwritable in neither direction: these are the
+  // only two headers here that describe the caller rather than the path taken.
+  const trusted = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip");
+  if (trusted) return trusted.trim();
+
+  // Last resort. The first entry is the standard's "original client", which a
+  // client can also simply write — so this rotates under a determined caller
+  // and is a weaker limit than the branch above, not a substitute for it.
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const chain = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
+    if (chain.length > 0) return chain[0];
+  }
+
+  return "unknown";
+}
+
 // ── The caller fingerprint ──────────────────────────────────────────────────
 
 const encoder = new TextEncoder();
