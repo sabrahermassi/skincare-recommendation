@@ -250,9 +250,25 @@ describe("guessType", () => {
     expect(guessType([], "Dear Klairs Blue Caffeine Full Cover Eye patch")).toBe("eye-patch");
   });
 
+  it("types a plain 'eye mask' as eye-patch, since that's the same real product", () => {
+    // In real skincare naming an "eye mask" and an "eye patch" are the same
+    // hydrogel under-eye product, not a generic face mask (found on PR #129).
+    expect(guessType([], "Hydrogel Eye Mask")).toBe("eye-patch");
+  });
+
   it("types a pimple/hydrocolloid patch as pimple-patch", () => {
     expect(guessType([], "Hydrocolloid Blemish Care Pimple Patches")).toBe("pimple-patch");
     expect(guessType([], "Acne Spot Patch")).toBe("pimple-patch");
+  });
+
+  it("does not call a bare hydrocolloid wound dressing a pimple patch without acne context", () => {
+    // A bare "hydrocolloid" match (no acne/blemish/pimple/spot word required)
+    // used to also claim wound and blister dressings reached via the UPC
+    // barcode-database fallback — a real first-aid product, not skincare
+    // (found on PR #129).
+    expect(guessType([], "Compeed Advanced Blister Cushions Hydrocolloid")).not.toBe(
+      "pimple-patch"
+    );
   });
 
   it("does not call a BB cream or a spot-treatment serum a pimple patch just for saying blemish/pimple", () => {
@@ -285,5 +301,20 @@ describe("guessType", () => {
     // The confirmed real face-mask examples still resolve correctly —
     // this exclusion must not catch them too.
     expect(guessType([], "Reinigende Tonerde-Maske")).toBe("face-mask");
+  });
+
+  // Codex found both of these on the second review round of PR #129.
+  it("stays unknown for an English-spelled hair masque and the Italian 'capillare' variant", () => {
+    expect(guessType([], "Intense Hydrating Hair Masque")).not.toBe("face-mask");
+    expect(guessType([], "Maschera capillare nutriente")).not.toBe("face-mask");
+  });
+
+  it("stays unknown for a foot, hand or lip mask, rather than asserting face-mask", () => {
+    // None of these say "sleeping"/"night"/"overnight", so this actually
+    // exercises the face-mask fallback's exclusion rather than the separate
+    // night-mask rule above it.
+    expect(guessType([], "Purifying Foot Mask")).not.toBe("face-mask");
+    expect(guessType([], "Hydrating Hand Mask")).not.toBe("face-mask");
+    expect(guessType([], "Moisture Lip Mask")).not.toBe("face-mask");
   });
 });

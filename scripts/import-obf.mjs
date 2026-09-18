@@ -445,14 +445,21 @@ function guessType(tags, text) {
     // detergente" (it) all carry a cleanser word too, and cleanser used to
     // win first — discounting these products' ingredients to rinse-off
     // weight (0.25) when the intended weight is 1 (found on PR #129).
-    [/eye[\s-]?(patch|pad)/, "eye-patch"],
+    // "mask"/"pad" both included: an under-eye "eye mask" is the same
+    // hydrogel-patch product as an "eye patch" in real skincare naming, not a
+    // face mask — must sit before the generic face-mask fallback below.
+    [/eye[\s-]?(patch|pad|mask)/, "eye-patch"],
     // Up to two descriptor words are allowed between the acne/pimple/
     // blemish/spot word and "patch" — real products are marketed this way,
     // and neither "acne" nor "pimple" alone reached "patch" without this
     // (COSRX's "Acne Pimple Master Patch" is the best-known real example,
     // found on PR #129). "patch" stays mandatory, so a bare "Blemish Balm
-    // Cream" (a BB cream) or "Pimple Spot Gel" still doesn't match.
-    [/(?:pimple|blemish|acne|spot)(?:[\s-]+\w+){0,2}[\s-]+patch|hydrocolloid/, "pimple-patch"],
+    // Cream" (a BB cream) or "Pimple Spot Gel" still doesn't match. No bare
+    // "hydrocolloid" alternative: that matched a wound/blister dressing with
+    // no acne context at all (e.g. from the UPC barcode-database fallback,
+    // found on PR #129) — "hydrocolloid" is still recognised when it appears
+    // near an acne word, just as one of the allowed filler words.
+    [/(?:pimple|blemish|acne|spot)(?:[\s-]+\w+){0,2}[\s-]+patch/, "pimple-patch"],
     // "sleeping"/"overnight" mask, not a bare "night cream" — that's a real
     // moisturizer, not the K-beauty sleep-mask category.
     [/(sleeping|night|overnight)[\s-]?mask/, "night-mask"],
@@ -460,13 +467,20 @@ function guessType(tags, text) {
     [/hair[\s-]?mask/, "hair-mask"],
     // The generic clay/cream jar — "Maske", "Maschera", "masque",
     // "mascarilla" — that none of the three specific mask rules above catch.
-    // The same multilingual pattern `guess-type-from-ingredients.mjs`'s
-    // MASK_NAME_PATTERN already used (issue #105). Excludes the French/
-    // Italian/Spanish/German words for "hair" so an untagged foreign-language
-    // hair mask ("Masque capillaire réparateur") stays honestly unknown
-    // rather than being asserted as a face mask — the English "hair mask"
-    // case is already caught by the rule above (found on PR #129).
-    [/^(?!.*(?:capillaire|capelli|capilar|haar)).*(?:\bmask(?=[eis]|\b)|\bmaschera|\bmasque|\bmascarilla)/, "face-mask"],
+    // Started from the same multilingual base `guess-type-from-ingredients.mjs`'s
+    // MASK_NAME_PATTERN already used (issue #105), since diverged: this rule
+    // asserts a specific type and so carries extra exclusions
+    // MASK_NAME_PATTERN doesn't need, because that function only asks "is
+    // this any kind of mask" to skip an unrelated serum heuristic — a hair,
+    // foot, hand or lip mask should skip that heuristic too. Excludes hair ("hair"
+    // itself, plus the French/Italian/Spanish/German words — "capillaire"
+    // and the Italian variant "capillare" as well as "capelli" — since
+    // "Hair Masque" uses the French loanword spelling and so never reaches
+    // the hair-mask rule above) and the other body-part masks ("Foot Mask",
+    // "Hand Mask", "Lip Mask") this generic rule has no business claiming —
+    // all found on PR #129. Each stays honestly unknown rather than being
+    // asserted as a face mask, same principle as the hair-mask exclusion.
+    [/^(?!.*(?:\bhair\b|capillaire|capillare|capelli|capilar|haar|\bfoot\b|\bhand\b|\blip\b)).*(?:\bmask(?=[eis]|\b)|\bmaschera|\bmasque|\bmascarilla)/, "face-mask"],
     [
       /cleanser|foam|cleansing|micellar|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
       "cleanser",
