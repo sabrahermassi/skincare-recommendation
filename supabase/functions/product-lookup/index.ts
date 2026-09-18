@@ -498,8 +498,34 @@ function guessType(tags: string[], text: string): string {
     // everywhere else. English-only, like every other pattern in this table
     // until a real catalogue entry is seen failing in another language — no
     // such entry has been seen yet for this one.
+    //
+    // The leading `^` is load-bearing, not decorative. Every clause here is
+    // a zero-width lookahead — nothing is actually consumed — so an
+    // unanchored `.test()` doesn't just check the string once: on failure at
+    // position 0 it retries at position 1, then 2, and so on, and the
+    // negative lookahead only ever looks *forward* from wherever it's
+    // currently standing. For "Foaming Micellar Water" that means a retry
+    // starting right after "Foaming" sees "Micellar Water" with no
+    // exclusion word ahead of it, and matches anyway — the exclusion word
+    // was real, it was just behind the scan position instead of ahead of
+    // it. Codex caught this with the reverse ordering of the names already
+    // fixed above. `^` pins the check to a single evaluation from the true
+    // start of the string, so "carries an excluded word anywhere" is what
+    // it actually tests, regardless of which side of "micellar"/"water"
+    // that word falls on.
+    //
+    // `\bcleanser\b` rather than a bare substring: `hay` is tags *and* name
+    // joined, and OBF's own `en:cleansers` category tag — the one this
+    // importer already pulls under, and the one a real micellar water is
+    // plausibly tagged with — contains "cleanser" as a substring of
+    // "cleansers". An unbounded match excluded every micellar water carrying
+    // that tag, which every "Cleansing Micellar Water" test case below does.
+    // The other words stay unbounded on purpose: "foam" has to keep matching
+    // inside "Foaming" the same way the generic cleanser rule below already
+    // does, and none of OBF's real category tags collide with them the way
+    // "cleansers" collides with "cleanser".
     [
-      /(?=.*micellar)(?=.*water)(?!.*(cleanser|foam|wash|gel|nettoyant|lavante|reinigings|schuimende|limpiador|detergente|waschgel|syndet))/,
+      /^(?=.*micellar)(?=.*water)(?!.*(\bcleanser\b|foam|wash|gel|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet))/,
       "micellar-water",
     ],
     [
