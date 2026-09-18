@@ -53,8 +53,12 @@ function looksCosmetic(text: string): boolean {
 }
 
 function hasSkincareContext(text: string): boolean {
-  const [signal] = extractRegexes("function hasSkincareContext(text: string): boolean {", 1);
-  return signal.test(text);
+  const [unconditional, ambiguousMaskWord, airFilterContext] = extractRegexes(
+    "function hasSkincareContext(text: string): boolean {",
+    3
+  );
+  if (unconditional.test(text)) return true;
+  return ambiguousMaskWord.test(text) && !airFilterContext.test(text);
 }
 
 describe("looksCosmetic", () => {
@@ -111,6 +115,18 @@ describe("hasSkincareContext", () => {
   // Found on PR #129, fifth round: neither of these carried any word from
   // the wordlist before "mud"/"charcoal"/"purif"/"detox" were added.
   it("accepts a mud or charcoal detox mask via the new triggers", () => {
+    expect(hasSkincareContext("Health & Beauty Purifying Mud Face Mask")).toBe(true);
+    expect(hasSkincareContext("Health & Beauty Charcoal Face Mask")).toBe(true);
+  });
+
+  // Found on PR #129, seventh round: "purif"/"charcoal"/"mud" alone can't
+  // tell a real skincare mask apart from a literal air/pollution-filter
+  // mask, so they stop counting as affirmative context once air-filter
+  // wording is also present.
+  it("rejects an air-purifying (protective, not skincare) mask despite the 'purif' word", () => {
+    expect(hasSkincareContext("Health & Beauty Air-Purifying Face Mask")).toBe(false);
+    expect(hasSkincareContext("Health & Beauty Anti-Pollution PM2.5 Filter Mask")).toBe(false);
+    // The real skincare examples from the previous round are unaffected.
     expect(hasSkincareContext("Health & Beauty Purifying Mud Face Mask")).toBe(true);
     expect(hasSkincareContext("Health & Beauty Charcoal Face Mask")).toBe(true);
   });

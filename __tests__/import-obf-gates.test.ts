@@ -409,4 +409,20 @@ describe("guessType", () => {
     // A genuinely generic descriptor still resolves to night-mask.
     expect(guessType([], "Overnight Face Mask")).toBe("night-mask");
   });
+
+  // Codex found this on the seventh review round of PR #129: the bare tight
+  // "eye"+"pad" match had no way to tell a real eye patch apart from a
+  // rinse/wipe-off cleansing or makeup-remover pad.
+  it("does not call a cleansing or makeup-remover eye pad an eye patch", () => {
+    expect(guessType([], "Cleansing Eye Pads")).toBe("cleanser");
+    expect(guessType([], "Eye Pads Makeup Remover")).not.toBe("eye-patch");
+    // A real eye-pad product with no cleansing/remover context still
+    // resolves correctly.
+    expect(guessType([], "Anti-Aging Hydrogel Eye Pads")).toBe("eye-patch");
+  });
+
+  it("recognizes a reversed 'mask ... sheet' name as sheet-mask, not the generic fallback", () => {
+    expect(guessType([], "Face Mask Sheet")).toBe("sheet-mask");
+    expect(guessType([], "Compressed Facial Mask Sheet")).toBe("sheet-mask");
+  });
 });

@@ -487,9 +487,19 @@ const MASK_OR_PATCH_TYPES = new Set(["face-mask", "eye-patch", "pimple-patch"]);
 // "Purifying Mud Face Mask" and "Charcoal Face Mask" carried none of the
 // original words either (found on PR #129, fifth round) — none of these
 // collide with protective/PPE mask wording any more than "cleans" does.
+// Unlike those, though, "mud"/"charcoal"/"purif" alone genuinely are
+// ambiguous with a literal air/pollution-filter mask: "Air-Purifying Face
+// Mask" passed on bare "purif" with no way to tell it apart from a real
+// "Purifying Clay Mask" (found on PR #129, seventh round). So those three
+// only count when the title doesn't also carry air-filter/pollution
+// wording; "cleans"/"detox" and the rest of the wordlist are unconditional.
 function hasSkincareContext(text: string): boolean {
-  return /hydrogel|collagen|skin.?care|cosmetic|k-?beauty|korean|\bsheet\b|\bclay\b|blemish|acne|pimple|hyaluronic|serum|under.?eye|moistur|hydrat|brighten|exfoliat|vitamin|retinol|niacinamide|\bpeel\b|essence|cleans|\bmud\b|charcoal|purif|detox/i
-    .test(text);
+  const unconditional =
+    /hydrogel|collagen|skin.?care|cosmetic|k-?beauty|korean|\bsheet\b|\bclay\b|blemish|acne|pimple|hyaluronic|serum|under.?eye|moistur|hydrat|brighten|exfoliat|vitamin|retinol|niacinamide|\bpeel\b|essence|cleans|detox/i
+      .test(text);
+  const ambiguousMaskWord = /\bmud\b|charcoal|purif/i.test(text);
+  const airFilterContext = /\bair\b|filter|pollution|\bpm2\.5\b|\bdust\b|smog|respirat/i.test(text);
+  return unconditional || (ambiguousMaskWord && !airFilterContext);
 }
 
 /**
@@ -560,8 +570,14 @@ function guessType(tags: string[], text: string): string {
     // Cleansing Pads" — a rinse/wipe-off makeup-remover pad, not a leave-on
     // patch — match as eye-patch instead of falling through to cleanser
     // (found on PR #129, fifth round). The tight form still covers "Eye Pad
-    // Mask Paradise Punch" without it.
-    [/eye(?:[\s-]?(?:patch|pad|mask)|(?:[\s-]+\w+){1,2}[\s-]+(?:patch|mask))/, "eye-patch"],
+    // Mask Paradise Punch" without it. Even the tight bare-"pad" form on its
+    // own was still too permissive: "Cleansing Eye Pads" and "Eye Pads
+    // Makeup Remover" have "eye" and "pad" directly adjacent with no
+    // descriptor in between, so they matched too (found on PR #129, seventh
+    // round). "patch"/"mask" aren't ambiguous this way, only "pad" is, so
+    // it gets its own whole-string exclusion for cleansing/remover context,
+    // same technique the face-mask exclusion below already uses.
+    [/eye(?:[\s-]?(?:patch|mask)|(?:[\s-]+\w+){1,2}[\s-]+(?:patch|mask))|^(?!.*(?:cleans|remov|makeup|cotton)).*eye[\s-]?pad/, "eye-patch"],
     // Up to two descriptor words are allowed between the acne/pimple/
     // blemish word and "patch" — real products are marketed this way, and
     // neither "acne" nor "pimple" alone reached "patch" without this
@@ -590,8 +606,13 @@ function guessType(tags: string[], text: string): string {
     // round).
     [/(sleeping|night|overnight)(?:[\s-]?mask|(?:[\s-]+(?!hair\b|sheet\b)\w+){1,2}[\s-]+mask)/, "night-mask"],
     // Same descriptor-word gap fix as night-mask above: "Hydrating Sheet
-    // Face Mask" was falling through (found on PR #129, second round).
-    [/sheet(?:[\s-]?mask|(?:[\s-]+\w+){1,2}[\s-]+mask)/, "sheet-mask"],
+    // Face Mask" was falling through (found on PR #129, second round). Also
+    // matches the reversed "mask ... sheet" order — "Face Mask Sheet" and
+    // "Compressed Facial Mask Sheet" were falling all the way through to
+    // the generic face-mask rule (found on PR #129, seventh round). Tight
+    // adjacency only in the reversed direction, no descriptor tolerance —
+    // not evidenced by either example, unlike the forward direction above.
+    [/sheet(?:[\s-]?mask|(?:[\s-]+\w+){1,2}[\s-]+mask)|mask[\s-]?sheet/, "sheet-mask"],
     // Same descriptor-word gap fix: "Argan Repair Hair Mask" was falling
     // through to the generic face-mask rule, same bug class as the three
     // rules above even though Codex's report only named those three.
