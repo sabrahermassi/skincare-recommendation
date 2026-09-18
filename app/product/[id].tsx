@@ -324,6 +324,20 @@ export default function ProductScreen() {
       ? `This formula was read ${relativeTime(fetchedAtMs, renderedAt)}. If the brand has reformulated since, the verdict above is judging the old list.`
       : null;
 
+  // Step 8's own notice: unlike `staleNotice`, which only ever guesses that a
+  // formula might be old, this one is certain — reconciliation (scripts/
+  // reconcile-obf.mjs) already confirmed this exact product's ingredient list
+  // changed. Shown only for a saved product, and only when the change
+  // happened after the save: a product changed before it was ever saved is
+  // not news to the person who chose it with today's formula already in
+  // place.
+  const savedEntry = savedProducts.find((p) => p.id === id);
+  const formulaChangedAtMs = product.formulaChangedAt ? Date.parse(product.formulaChangedAt) : NaN;
+  const formulaChangedNotice =
+    savedEntry && Number.isFinite(formulaChangedAtMs) && formulaChangedAtMs > savedEntry.savedAt
+      ? `This formula has changed since you saved it ${relativeTime(savedEntry.savedAt, renderedAt)}. The verdict above reflects the new ingredient list, not the one you saved.`
+      : null;
+
   async function share() {
     if (!product) return;
     const line =
@@ -516,6 +530,27 @@ export default function ProductScreen() {
             }}
           >
             {staleNotice}
+          </Text>
+        )}
+
+        {/*
+          Step 8: a saved product whose formula reconciliation has actually
+          confirmed changed since it was saved, not merely aged past a
+          threshold. Same WARN treatment as staleNotice above — this is the
+          stronger claim of the two, so it should never read as quieter.
+        */}
+        {formulaChangedNotice && (
+          <Text
+            style={{
+              paddingHorizontal: 24,
+              paddingTop: 12,
+              fontSize: TYPE.label,
+              lineHeight: 17,
+              fontWeight: "600",
+              color: WARN,
+            }}
+          >
+            {formulaChangedNotice}
           </Text>
         )}
 

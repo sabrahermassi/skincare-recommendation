@@ -17,7 +17,8 @@
     "import:dailymed": "node scripts/import-dailymed.mjs",
     "import:wikidata-synonyms": "node scripts/import-wikidata-synonyms.mjs",
     "reclassify-types": "node scripts/reclassify-types.mjs",
-    "reclassify-from-tags": "node scripts/reclassify-from-tags.mjs"
+    "reclassify-from-tags": "node scripts/reclassify-from-tags.mjs",
+    "reconcile:obf": "node scripts/reconcile-obf.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/cormorant-garamond": "^0.4.1",
