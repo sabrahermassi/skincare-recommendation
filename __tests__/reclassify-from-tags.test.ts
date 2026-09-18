@@ -102,6 +102,20 @@ describe("fetchTags", () => {
     respond({ status: 503 });
     expect(await fetchTags("123")).toMatchObject({ ok: false, permanent: false });
   });
+
+  // The bug this replaced: anything that wasn't the exact `{status:1,
+  // product:{...}}` shape — including a shape OBF never documents, like an
+  // intermediary's own error JSON — fell into the same branch as `status: 0`
+  // and was checkpointed as though the product were confirmed gone.
+  it("keeps a valid-JSON-but-unexpected shape retryable, not just status 0", async () => {
+    respond({ body: { error: "upstream unavailable" } });
+    expect(await fetchTags("123")).toMatchObject({ ok: false, permanent: false });
+  });
+
+  it("keeps status 1 with no product retryable", async () => {
+    respond({ body: { status: 1 } });
+    expect(await fetchTags("123")).toMatchObject({ ok: false, permanent: false });
+  });
 });
 
 describe("capDelay", () => {

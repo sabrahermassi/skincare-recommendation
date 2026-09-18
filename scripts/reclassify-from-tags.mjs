@@ -77,6 +77,14 @@ const CANDIDATE_TYPES = [
   // reports completion while leaving those rows misclassified.
   "body-lotion",
   "exfoliator",
+  // Not catch-alls — a second, separate bug also lands here: the lip regex
+  // used to miss a hyphenated tag (`en:lip-balms`) for lack of `[\s-]?`, so a
+  // lip product fell through to whatever specific rule matched next, which
+  // could be one of these three just as easily as a catch-all. Only 6 rows
+  // total as of writing, so sweeping all of them costs nothing.
+  "toner",
+  "essence",
+  "ampoule",
   "unknown",
 ];
 
@@ -185,9 +193,16 @@ export async function fetchTags(barcode, retried = false) {
     return { ok: false, permanent: false, reason: `unreadable response: ${String(err)}` };
   }
 
-  // status 0 is OBF's own "no such product", distinct from a transport error.
-  if (body?.status !== 1 || !body.product) {
+  // status 0 is OBF's own explicit "no such product" — the only shape that
+  // means the answer will not change on a retry. Anything else unexpected
+  // (status 1 with no product, an intermediary's own error JSON, a future
+  // field OBF adds) is evidence the read went wrong, not evidence the product
+  // is gone, so it stays retryable rather than being checkpointed forever.
+  if (body?.status === 0) {
     return { ok: false, permanent: true, reason: "not in OBF any more" };
+  }
+  if (body?.status !== 1 || !body.product) {
+    return { ok: false, permanent: false, reason: `unexpected response shape (status ${body?.status})` };
   }
   return { ok: true, tags: body.product.categories_tags ?? [] };
 }
