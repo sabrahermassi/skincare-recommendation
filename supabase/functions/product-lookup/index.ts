@@ -480,6 +480,34 @@ function guessType(tags: string[], text: string): string {
     // Not a bare `conditioner`: "Skin Conditioner" is a face product, and it
     // was being given the hair-conditioner label and illustration.
     [/(?<!skin[\s-])conditioner/, "conditioner"],
+    // Every mask and patch rule sits above the cleanser rule below on
+    // purpose: "Deep Cleansing Mask", "Masque nettoyant" (fr) and "Maschera
+    // detergente" (it) all carry a cleanser word too, and cleanser used to
+    // win first — discounting these products' ingredients to rinse-off
+    // weight (0.25) when the intended weight is 1 (found on PR #129).
+    [/eye[\s-]?(patch|pad)/, "eye-patch"],
+    // Up to two descriptor words are allowed between the acne/pimple/
+    // blemish/spot word and "patch" — real products are marketed this way,
+    // and neither "acne" nor "pimple" alone reached "patch" without this
+    // (COSRX's "Acne Pimple Master Patch" is the best-known real example,
+    // found on PR #129). "patch" stays mandatory, so a bare "Blemish Balm
+    // Cream" (a BB cream) or "Pimple Spot Gel" still doesn't match.
+    [/(?:pimple|blemish|acne|spot)(?:[\s-]+\w+){0,2}[\s-]+patch|hydrocolloid/, "pimple-patch"],
+    // "sleeping"/"overnight" mask, not a bare "night cream" — that's a real
+    // moisturizer, not the K-beauty sleep-mask category.
+    [/(sleeping|night|overnight)[\s-]?mask/, "night-mask"],
+    [/sheet[\s-]?mask/, "sheet-mask"],
+    [/hair[\s-]?mask/, "hair-mask"],
+    // The generic clay/cream jar — "Maske", "Maschera", "masque",
+    // "mascarilla" — none of the three specific mask rules above catch.
+    // Issue #105: this repeats the multilingual pattern
+    // `_shared/guess-type-from-ingredients.ts`'s MASK_NAME_PATTERN already
+    // used, now that a real type exists for it. Excludes the French/
+    // Italian/Spanish/German words for "hair" so an untagged foreign-language
+    // hair mask ("Masque capillaire réparateur") stays honestly unknown
+    // rather than being asserted as a face mask — the English "hair mask"
+    // case is already caught by the rule above (found on PR #129).
+    [/^(?!.*(?:capillaire|capelli|capilar|haar)).*(?:\bmask(?=[eis]|\b)|\bmaschera|\bmasque|\bmascarilla)/, "face-mask"],
     [
       // nettoyant/lavant (fr), reinigings/schuimende (nl), limpiador (es),
       // detergente (it), waschgel (de) — plus "huile lavante", a washing oil.
@@ -490,29 +518,6 @@ function guessType(tags: string[], text: string): string {
     [/toner|tonic|lotion tonique/, "toner"],
     [/essence/, "essence"],
     [/ampoule/, "ampoule"],
-    // Both above the mask rules below: "Eye Pad Mask Paradise Punch" and
-    // "Purifying Clay Mask" both contain "mask", but a patch is a patch
-    // whatever else is printed on the pouch. English-only for now, same rule
-    // as every other pattern here.
-    [/eye[\s-]?(patch|pad)/, "eye-patch"],
-    // Bare `pimple`/`blemish`, with no `patch` qualifier, would also claim
-    // "Blemish Balm Cream" (a BB cream — a real, common category, not a
-    // patch) and any "Anti-Blemish"/"Pimple Gel" spot treatment. Both need
-    // the same qualifier `acne`/`spot` already carry.
-    [/pimple[\s-]?patch|blemish[\s-]?patch|acne[\s-]?patch|spot[\s-]?patch|hydrocolloid/, "pimple-patch"],
-    // All of these sit above the bare `serum` rule: a "serum sheet mask" or a
-    // "serum hair mask" is the specific thing, and `serum` would take it.
-    // "sleeping"/"overnight" mask, not a bare "night cream" — that's a real
-    // moisturizer, not the K-beauty sleep-mask category.
-    [/(sleeping|night|overnight)[\s-]?mask/, "night-mask"],
-    [/sheet[\s-]?mask/, "sheet-mask"],
-    [/hair[\s-]?mask/, "hair-mask"],
-    // The generic clay/cream jar — "Maske", "Maschera", "masque",
-    // "mascarilla" — none of the three specific mask rules above catch.
-    // Issue #105: this repeats the multilingual pattern
-    // `_shared/guess-type-from-ingredients.ts`'s MASK_NAME_PATTERN already
-    // used, now that a real type exists for it. Must sit after those three.
-    [/\bmask(?=[eis]|\b)|\bmaschera|\bmasque|\bmascarilla/, "face-mask"],
     [/(facial|face)[\s-]?oil/, "facial-oil"],
     [/hair[\s-]?oil/, "hair-oil"],
     [/serum|sérum/, "serum"],

@@ -263,4 +263,27 @@ describe("guessType", () => {
     expect(guessType([], "Anti-Blemish Gel")).not.toBe("pimple-patch");
     expect(guessType([], "Pimple Spot Gel")).not.toBe("pimple-patch");
   });
+
+  // Codex found all three of these on PR #129.
+  it("prefers every mask and patch rule over the cleanser catch-all", () => {
+    expect(guessType([], "Deep Cleansing Mask")).toBe("face-mask");
+    expect(guessType([], "Masque nettoyant à l'argile")).toBe("face-mask");
+    expect(guessType([], "Maschera detergente purificante")).toBe("face-mask");
+  });
+
+  it("allows descriptor words between the acne/pimple/spot word and patch", () => {
+    // COSRX's real product name — neither "acne" nor "pimple" alone reached
+    // "patch" without this.
+    expect(guessType([], "Acne Pimple Master Patch")).toBe("pimple-patch");
+    expect(guessType([], "Acne Cover Patch")).toBe("pimple-patch");
+    expect(guessType([], "Acne Spot Healing Patch")).toBe("pimple-patch");
+  });
+
+  it("stays unknown for an untagged foreign-language hair mask, rather than asserting face-mask", () => {
+    expect(guessType([], "Masque capillaire réparateur")).not.toBe("face-mask");
+    expect(guessType([], "Mascarilla capilar nutritiva")).not.toBe("face-mask");
+    // The confirmed real face-mask examples still resolve correctly —
+    // this exclusion must not catch them too.
+    expect(guessType([], "Reinigende Tonerde-Maske")).toBe("face-mask");
+  });
 });
