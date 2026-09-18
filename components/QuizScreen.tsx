@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState, type ReactNode } from "react";
-import { Animated, Platform, Pressable, ScrollView, View } from "react-native";
+import { AccessibilityInfo, Animated, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { quizTopPadding, useQuizFrame } from "@/components/QuizFrame";
@@ -70,14 +70,36 @@ export function QuizScreen({
 
   // Steps switch with no slide (a see-through page sliding over another
   // would show both questions at once), so the content fades in instead.
+  //
+  // Skipped entirely when the system asks for reduced motion. The fade is
+  // decorative — it conveys nothing the layout does not — so the honest
+  // response to that setting is no animation at all rather than a shorter
+  // one. Onboarding is also the first thing anyone sees, which makes it the
+  // worst place to ignore the preference. Checked on each focus rather than
+  // once at mount: the setting can change while the app is open.
   useFocusEffect(
     useCallback(() => {
+      let cancelled = false;
       opacity.setValue(0);
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: CONTENT_FADE_MS,
-        useNativeDriver: Platform.OS !== "web",
-      }).start();
+
+      AccessibilityInfo.isReduceMotionEnabled()
+        .catch(() => false)
+        .then((reduced) => {
+          if (cancelled) return;
+          if (reduced) {
+            opacity.setValue(1);
+            return;
+          }
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: CONTENT_FADE_MS,
+            useNativeDriver: Platform.OS !== "web",
+          }).start();
+        });
+
+      return () => {
+        cancelled = true;
+      };
     }, [opacity]),
   );
 

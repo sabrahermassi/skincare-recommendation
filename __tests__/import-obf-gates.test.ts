@@ -209,6 +209,21 @@ describe("guessType", () => {
     expect(guessType([], "Lip Balm SPF 15")).toBe("lip-balm");
   });
 
+  it("keeps a shampoo a shampoo when the name also says cleansing", () => {
+    // Tags and name share one haystack, so the broad `cleansing` rule used to
+    // claim this even with en:shampoos on the row.
+    expect(guessType(["en:shampoos"], "Deep Cleansing Shampoo")).toBe("shampoo");
+    expect(guessType([], "Purifying Cleansing Shampoo")).toBe("shampoo");
+  });
+
+  it("does not call a skin conditioner a hair conditioner", () => {
+    // It was taking the hair-conditioner label and illustration.
+    expect(guessType(["en:face"], "Skin Conditioner")).not.toBe("conditioner");
+    expect(guessType([], "Skin-Conditioner Essence")).not.toBe("conditioner");
+    // A real hair conditioner still resolves.
+    expect(guessType(["en:hair-conditioners"], "Repair Conditioner")).toBe("conditioner");
+  });
+
   it("prefers the specific type over a bare serum match", () => {
     expect(guessType([], "Serum Sheet Mask")).toBe("sheet-mask");
     expect(guessType([], "Serum Hair Mask")).toBe("hair-mask");

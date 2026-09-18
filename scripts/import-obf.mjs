@@ -433,6 +433,13 @@ function guessType(tags, text) {
     // and `spf` below would otherwise claim it first.
     // "lèvres" (fr), "dudak" (tr), "губ" (ru/uk) — all seen failing for real.
     [/lip[\s-]?(balm|butter|care)|l[èe]vres|dudak|губ/, "lip-balm"],
+    // Both above the cleanser rule: "Deep Cleansing Shampoo" carries both
+    // words, and tags and name share one haystack, so `cleansing` would take
+    // it even when the row is tagged `en:shampoos`.
+    [/shampoo/, "shampoo"],
+    // Not a bare `conditioner`: "Skin Conditioner" is a face product, and it
+    // was being given the hair-conditioner label and illustration.
+    [/(?<!skin[\s-])conditioner/, "conditioner"],
     [
       /cleanser|foam|cleansing|micellar|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
       "cleanser",
@@ -454,8 +461,6 @@ function guessType(tags, text) {
     [/perfume|eau de (parfum|toilette)/, "perfume"],
     [/(facial|face)[\s-]?mist/, "facial-mist"],
     [/deodorant|antiperspirant/, "deodorant"],
-    [/shampoo/, "shampoo"],
-    [/conditioner/, "conditioner"],
     // No "peel pad" here: this type is rinse-off in `contactWeight`, and a
     // leave-on acid pad scored at 0.4 would understate both its actives and
     // its irritants. Those fall through to the ingredient rule instead, which
@@ -798,4 +803,4 @@ if (invokedDirectly()) {
 // Exported for `__tests__/import-obf-gates.test.ts`. Deliberately just the
 // pure parts — the gates and the parser — so a test never needs a network or a
 // service-role key to pin the behaviour this step is measured on.
-export { parseInci, toRow, guessType, normalise, MIN_KNOWN_INGREDIENT_RATIO };
+export { parseInci, toRow, guessType, normalise, retryAfterMs, MIN_KNOWN_INGREDIENT_RATIO };

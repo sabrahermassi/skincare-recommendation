@@ -15,7 +15,7 @@ import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
-import { failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
+import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { COLORS } from "@/lib/colors";
 import { useAppStore } from "@/store/useAppStore";
 import { CAMERA_STAGE, CANVAS, CTA, INK, LINE, MUTED, SCANNER_FRAME, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
@@ -180,6 +180,20 @@ export default function Scan() {
       if (busy.current) return;
       busy.current = true;
       setStatus({ kind: "looking", code: data });
+
+      // `product-lookup` rejects anything outside 8-14 digits with a 400
+      // before it consults a source, but this scanner also decodes qr and
+      // code128 — a QR payload or a non-numeric Code 128 read would reach
+      // classifyFailure as an ordinary server error and offer a "Try again"
+      // that fails the same way every time. Treated as a miss without the
+      // doomed round trip, which is the answer the network call would give
+      // anyway.
+      if (!canPhotographLabelFor(data)) {
+        recordView({ id: data, known: false, score: null, warnings: 0 });
+        setStatus({ kind: "missed", code: data });
+        busy.current = false;
+        return;
+      }
 
       const result = await fetchProductByBarcode(data);
 
