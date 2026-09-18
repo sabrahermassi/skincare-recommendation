@@ -31,7 +31,11 @@ import { CANVAS, CTA, INK, MUTED, withAlpha } from "@/lib/tokens";
 type Status =
   | { kind: "framing" }
   | { kind: "reading" }
-  | { kind: "failed"; message: string; hint?: string };
+  // Required, not optional: a capture failure whose retryability nobody
+  // decided defaults to "retryable" by accident, which is exactly the bug
+  // Codex caught on #121 — every reason but one genuinely is retryable, and
+  // the one that isn't (`not_configured`) needs its caller to say so.
+  | { kind: "failed"; message: string; hint?: string; retryable: boolean };
 
 export default function ScanLabel() {
   const insets = useSafeAreaInsets();
@@ -86,7 +90,7 @@ export default function ScanLabel() {
       });
 
       if (!photo?.base64) {
-        setStatus({ kind: "failed", message: "The camera didn't return an image." });
+        setStatus({ kind: "failed", message: "The camera didn't return an image.", retryable: true });
         return;
       }
       capturedUri = photo.uri;
@@ -151,6 +155,7 @@ export default function ScanLabel() {
             clean.reason === "too_large"
               ? "Try again — the ingredient panel alone is enough, it doesn't need the whole box."
               : "Try again with steadier hands or better light.",
+          retryable: true,
         });
         return;
       }
@@ -171,6 +176,7 @@ export default function ScanLabel() {
           kind: "failed",
           message: "That doesn't look like an ingredient list.",
           hint: "Make sure the ingredient panel fills the frame, then try again.",
+          retryable: true,
         });
         return;
       }
@@ -201,6 +207,7 @@ export default function ScanLabel() {
         kind: "failed",
         message: "Something went wrong reading that.",
         hint: "Try again - and check you have a connection.",
+        retryable: true,
       });
     } finally {
       deleteTempFile(capturedUri);
@@ -265,6 +272,13 @@ export default function ScanLabel() {
       : status.kind === "reading"
         ? "Reading the label."
         : "";
+
+  // A `failed` status whose reason isn't retryable (`not_configured` — see
+  // `failureCopy`) disables the capture button rather than offering "Try
+  // again": retaking the photo re-runs the exact same check against the
+  // exact same missing configuration and fails the exact same way every
+  // time. Found in review on #121.
+  const cannotRetry = status.kind === "failed" && !status.retryable;
 
   return (
     <View className="flex-1 bg-black">
@@ -332,7 +346,7 @@ export default function ScanLabel() {
 
         <Pressable
           onPress={capture}
-          disabled={status.kind === "reading"}
+          disabled={status.kind === "reading" || cannotRetry}
           style={{
             height: 52,
             flexDirection: "row",
@@ -340,7 +354,7 @@ export default function ScanLabel() {
             justifyContent: "center",
             gap: 8,
             borderRadius: 14,
-            backgroundColor: status.kind === "reading" ? withAlpha(CANVAS, 0.75) : CTA,
+            backgroundColor: status.kind === "reading" || cannotRetry ? withAlpha(CANVAS, 0.75) : CTA,
           }}
           className="active:opacity-90"
         >
@@ -348,9 +362,11 @@ export default function ScanLabel() {
           <Text style={{ fontSize: 16, fontWeight: "600", color: INK }}>
             {status.kind === "reading"
               ? "Reading the label…"
-              : status.kind === "failed"
-                ? "Try again"
-                : "Read the ingredients"}
+              : cannotRetry
+                ? "Not available"
+                : status.kind === "failed"
+                  ? "Try again"
+                  : "Read the ingredients"}
           </Text>
         </Pressable>
 
@@ -406,23 +422,27 @@ function failureCopy(
       return {
         message: "We couldn't find an ingredient list in that photo.",
         hint: "Get closer so the small print fills the frame, and avoid glare.",
+        retryable: true,
       };
     case "rate_limited":
       return {
         message: "That's a lot of label reads in a short time.",
         hint: "Give it a few minutes and try again.",
+        retryable: true,
       };
     case "not_configured":
       // This install has no Supabase credentials at all — see
       // `LabelAnalysis`'s comment in `data/api.ts`. Permanent for this
-      // build, so no "temporarily" and no "try again" — a retry takes
-      // exactly the same path every time.
+      // build, so no "temporarily", no "try again", and — per Codex's next
+      // finding on #121 — no retry button either: retaking the photo would
+      // run the exact same check and fail the exact same way.
       console.warn("[scan-label] label-ocr not available: this app has no Supabase credentials configured");
       return {
         message: "Label reading isn't available in this build.",
         hint: hasBarcode
           ? "Look the product up in Browse instead."
           : "Try the barcode instead, or look the product up in Browse.",
+        retryable: false,
       };
     case "server_unavailable":
       // The server answered 503 because its Vision API key is unset — an
@@ -434,11 +454,13 @@ function failureCopy(
         hint: hasBarcode
           ? "Look the product up in Browse, or try again later."
           : "Try the barcode instead, or look the product up in Browse.",
+        retryable: true,
       };
     case "unreadable":
       return {
         message: "We couldn't read that image.",
         hint: "Try again with steadier hands or better light.",
+        retryable: true,
       };
   }
 }
