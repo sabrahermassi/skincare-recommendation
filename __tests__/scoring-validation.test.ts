@@ -66,32 +66,6 @@ const FIXTURES: Fixture[] = [
     expectedVerdicts: ["excellent", "good"],
   },
   {
-    name: "COSRX Advanced Snail 96 Mucin Power Essence",
-    reputation: "K-beauty staple sold on hydration and gentleness.",
-    type: "essence",
-    ingredients: [
-      ing("snail-secretion-filtrate", "Snail Secretion Filtrate"),
-      ing("betaine", "Betaine"),
-      ing("sodium-hyaluronate", "Sodium Hyaluronate"),
-      ing("panthenol", "Panthenol"),
-      ing("arginine", "Arginine"),
-    ],
-    // "Dullness" dropped from the original draft: this formula's real-world
-    // reputation is hydration and barrier repair, not brightening, and its
-    // ingredient list has nothing dullness-relevant — panthenol's own rule
-    // helps redness/atopic, not dehydrated or dullness. Scoring it against a
-    // concern nothing here addresses would average down an otherwise strong
-    // hydration match, which is a fixture error, not a scoring one.
-    profile: profile({ baseSkinType: "combination", concerns: ["dehydrated"] }),
-    // A genuine cross-check finding, not a fixture error: this formula's only
-    // dehydrated-relevant rule hit is sodium hyaluronate. One ingredient's
-    // weight (8) against CONCERN_SATURATION.dehydrated (16.6) saturates to
-    // well under "excellent"/"good" — the model treats single-active hydration
-    // evidence as weaker than this product's reputation would suggest. Lands
-    // "fair" consistently; noted for the cross-check rather than papered over.
-    expectedVerdicts: ["good", "fair"],
-  },
-  {
     name: "The Ordinary Hyaluronic Acid 2% + B5",
     reputation: "The canonical hydration serum recommendation.",
     type: "serum",
@@ -395,6 +369,36 @@ const KNOWN_GAP_BENZOYL_PEROXIDE_ON_REACTIVE_SKIN: Fixture = {
   expectedVerdicts: ["fair", "poor"],
 };
 
+/**
+ * COSRX Advanced Snail 96 Mucin Power Essence, on a dehydrated profile — a
+ * second KNOWN GAP, tracked as step 16's "Gap 1". Pulled out of FIXTURES for
+ * the same reason the benzoyl-peroxide case was pulled out of
+ * TENSION_FIXTURES: accepting "fair" here would also be satisfied by a
+ * neutral, rule-less formula (this model's own anchor score is 65 = "fair"),
+ * so it does not actually confirm the model agrees with this product's real
+ * hydration reputation (raised in review on PR #133).
+ *
+ * Of its five ingredients, only sodium hyaluronate carries a rule that speaks
+ * to "dehydrated" at all (weight 8). CONCERN_SATURATION.dehydrated is 16.6 —
+ * the 75th-percentile figure measured across the catalogue — so one
+ * ingredient's evidence saturates to roughly 30% of full strength, nowhere
+ * near enough to clear "good" on its own.
+ */
+const KNOWN_GAP_HYDRATION_SINGLE_ACTIVE: Fixture = {
+  name: "COSRX Advanced Snail 96 Mucin Power Essence",
+  reputation: "K-beauty staple sold on hydration and gentleness.",
+  type: "essence",
+  ingredients: [
+    ing("snail-secretion-filtrate", "Snail Secretion Filtrate"),
+    ing("betaine", "Betaine"),
+    ing("sodium-hyaluronate", "Sodium Hyaluronate"),
+    ing("panthenol", "Panthenol"),
+    ing("arginine", "Arginine"),
+  ],
+  profile: profile({ baseSkinType: "combination", concerns: ["dehydrated"] }),
+  expectedVerdicts: ["excellent", "good"],
+};
+
 describe("scoring validation — real products against their known reputation", () => {
   it.each(FIXTURES)("$name — $reputation", (fixture: Fixture) => {
     const result = matchProduct({ type: fixture.type, ingredients: fixture.ingredients }, fixture.profile);
@@ -410,17 +414,21 @@ describe("scoring validation — real products against their known reputation", 
     });
   });
 
-  it("KNOWN GAP (step 16) setup: benzoyl peroxide on dry/reactive skin still scores", () => {
+  it("KNOWN GAP (step 16) setup: benzoyl peroxide on dry/reactive skin still scores, and hasn't gotten worse", () => {
     // Kept OUTSIDE it.failing on purpose. it.failing only checks that SOME
     // assertion in the test threw — it can't tell a wrong-but-present score
-    // apart from no score at all. Bundling both checks under one it.failing
-    // would let a future coverage/threshold change that makes this fixture
-    // return `score: null` hide behind the already-expected verdict failure,
-    // reporting green for an entirely different, worse regression than the
-    // one being tracked below.
+    // apart from no score at all, and it can't tell "still wrong the same
+    // way" from "wrong in a NEW, worse way". Both would satisfy the
+    // it.failing block below and report green. This test pins today's exact
+    // known-wrong side (score present, verdict no better than "good") so a
+    // scoring change that pushes this fixture from "good" to "excellent" —
+    // making the known gap worse, not fixing it — fails loudly here instead
+    // of hiding behind the already-expected verdict failure (raised in
+    // review on PR #133).
     const fixture = KNOWN_GAP_BENZOYL_PEROXIDE_ON_REACTIVE_SKIN;
     const result = matchProduct({ type: fixture.type, ingredients: fixture.ingredients }, fixture.profile);
     expect(result.score).not.toBeNull();
+    expect(result.verdict).not.toBe("excellent");
   });
 
   // it.failing: asserts the CORRECT real-world verdict (fair/poor), which
@@ -432,6 +440,24 @@ describe("scoring validation — real products against their known reputation", 
   // promote it to a plain `it`, rather than the gap quietly going green.
   it.failing("KNOWN GAP (step 16): benzoyl peroxide should score worse on dry, reactive skin", () => {
     const fixture = KNOWN_GAP_BENZOYL_PEROXIDE_ON_REACTIVE_SKIN;
+    const result = matchProduct({ type: fixture.type, ingredients: fixture.ingredients }, fixture.profile);
+    expect(fixture.expectedVerdicts).toContain(result.verdict);
+  });
+
+  it("KNOWN GAP (step 16, Gap 1) setup: the hydration essence still scores, and hasn't gotten worse", () => {
+    // Same reasoning as the benzoyl-peroxide setup test above: pins today's
+    // known-wrong side (score present, verdict no worse than "fair") so a
+    // change that pushed this from "fair" to "poor" — a regression in a
+    // completely different direction from the one being tracked — fails
+    // loudly here instead of being absorbed by the it.failing block below.
+    const fixture = KNOWN_GAP_HYDRATION_SINGLE_ACTIVE;
+    const result = matchProduct({ type: fixture.type, ingredients: fixture.ingredients }, fixture.profile);
+    expect(result.score).not.toBeNull();
+    expect(result.verdict).not.toBe("poor");
+  });
+
+  it.failing("KNOWN GAP (step 16, Gap 1): hydration essence should score good/excellent, not fair", () => {
+    const fixture = KNOWN_GAP_HYDRATION_SINGLE_ACTIVE;
     const result = matchProduct({ type: fixture.type, ingredients: fixture.ingredients }, fixture.profile);
     expect(fixture.expectedVerdicts).toContain(result.verdict);
   });
