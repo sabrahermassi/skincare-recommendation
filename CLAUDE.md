@@ -14,9 +14,11 @@ Expo Router + NativeWind + Zustand.
 Supabase is the live backend (Edge Functions `product-lookup`, `label-ocr`
 deployed). `data/api.ts` falls back to 8 sample products only when
 `EXPO_PUBLIC_SUPABASE_URL`/`_ANON_KEY` are absent — keeps checkouts and
-tests hermetic. Live catalogue: 851 products (growing weekly via the
-scheduled OBF/DailyMed imports — check the live count rather than trusting
-this number for long), ~36k dictionary ingredients, ~25k synonyms.
+tests hermetic. Live catalogue: 851 products (grows only when someone runs
+the operator scripts `import:obf` / `import:dailymed` — the one scheduled
+catalogue job, `reconcile-obf.yml`, re-checks existing rows for
+reformulation, it doesn't add new ones; check the live count rather than
+trusting this number for long), ~36k dictionary ingredients, ~25k synonyms.
 
 `FOR_ME_MVP.md` is launch scope. Track gaps as GitHub issues on the "Skin
 Recommendation" board, not here.
