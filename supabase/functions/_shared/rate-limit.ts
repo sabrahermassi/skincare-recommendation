@@ -410,10 +410,27 @@ export async function consumeRateLimit(
     return false;
   }
 
+  // Outside the try, deliberately. `fingerprintCaller` throws on an empty
+  // secret — `crypto.subtle.importKey` rejects a zero-length HMAC key — and
+  // inside the try that throw was caught, logged as a database problem and
+  // answered with `return true`. So a missing salt did not degrade the
+  // limiter, it removed it: every request allowed, for as long as the
+  // misconfiguration lasted, behind a log line claiming the opposite.
+  //
+  // A configuration error is not a database outage and must not borrow its
+  // handling. Letting it propagate turns an endpoint with no working limit
+  // into an endpoint that fails loudly on its first request, which is the
+  // error anyone would rather have. It cannot fire in a working deployment:
+  // `callerSalt()` falls back to `SUPABASE_SERVICE_ROLE_KEY`, without which
+  // these functions cannot reach the database at all.
+  //
+  // Found by `supabase/tests/rate_limit_e2e.test.ts` on its first run.
+  const fingerprint = await fingerprintCaller(caller, opts.secret);
+
   try {
     const { data, error } = await db.rpc("consume_rate_limit", {
       p_bucket: bucket,
-      p_caller: await fingerprintCaller(caller, opts.secret),
+      p_caller: fingerprint,
       p_window_seconds: limit.windowSeconds,
       p_max_requests: limit.maxRequests,
     });

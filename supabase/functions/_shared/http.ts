@@ -10,6 +10,14 @@
 // had already drifted once — see the parity test in `__tests__/inci.test.ts`
 // for the same lesson learned on the parser.
 
+import {
+  callerKey,
+  consumeRateLimit,
+  retryAfterSeconds,
+  type RateLimit,
+  type RateLimitDb,
+} from "./rate-limit.ts";
+
 /**
  * Browsers preflight `functions.invoke` — it sends `Content-Type:
  * application/json` plus an `Authorization` header, which is never a simple
@@ -106,6 +114,51 @@ export function requestId(req: Request): string {
 
 // ── Rate limiting ───────────────────────────────────────────────────────────
 
+/**
+ * Count this request against `bucket`, and return the 429 if it is over.
+ *
+ * `null` means carry on. The whole point is that a caller cannot forget the
+ * check by forgetting to look at a boolean.
+ *
+ * This existed three times, character for character, in `label-ocr`,
+ * `product-lookup` and `resolve-scan`. That is the shape the INCI parser was
+ * in before it drifted — see the parity test in `__tests__/inci.test.ts` — and
+ * the drift that matters here is silent: a function that mints its request id
+ * after the check, or forgets `Retry-After`, still returns a plausible 429.
+ *
+ * It also gives the end-to-end test something real to call. `__tests__`
+ * covers the arithmetic and `supabase/tests` covers the SQL, but nothing
+ * joined them: no test took an actual `Request`, read an actual header off it,
+ * and got an actual 429 back out of an actual Postgres. That chain is where
+ * the production bug lived — every layer was correct in isolation and the
+ * limiter still limited nobody, because `callerKey` read a header that changed
+ * every request. `supabase/tests/rate_limit_e2e.test.ts` drives this function.
+ */
+export async function enforceRateLimit(
+  req: Request,
+  db: RateLimitDb,
+  bucket: string,
+  limit: RateLimit,
+): Promise<Response | null> {
+  // Minted before the check so the refusal log and the reply carry the same
+  // id — the whole point is that a user quoting it lands on one line.
+  const rid = requestId(req);
+
+  const allowed = await consumeRateLimit(db, bucket, callerKey(req), limit, {
+    secret: callerSalt(),
+    requestId: rid,
+  });
+  if (allowed) return null;
+
+  // `Retry-After` is computed from the window rather than guessed, so a client
+  // can back off exactly as long as it needs to and no longer.
+  return json(req, { error: "Too many requests" }, 429, {
+    "x-request-id": rid,
+    "Retry-After": String(retryAfterSeconds(limit)),
+  });
+}
+
+
 // Re-exported rather than defined here: see the note at the top of this file.
 // Only what an Edge Function actually calls — `withinRateLimit` and
 // `resetRateLimits` are internals of that module and its tests, and re-exporting
@@ -116,7 +169,7 @@ export {
   retryAfterSeconds,
   type RateLimit,
   type RateLimitDb,
-} from "./rate-limit.ts";
+};
 
 /**
  * The HMAC key that turns a caller's address into the fingerprint stored in

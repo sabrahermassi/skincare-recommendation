@@ -33,13 +33,9 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import {
-  callerKey,
   json,
   preflight,
-  callerSalt,
-  consumeRateLimit,
-  requestId,
-  retryAfterSeconds,
+  enforceRateLimit,
   type RateLimit,
 } from "../_shared/http.ts";
 
@@ -81,20 +77,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json(req, { error: "token is required" }, 400);
   }
 
-  // Minted before the check so the refusal log and the reply carry the same
-  // id — the whole point is that a user quoting it lands on one line.
-  const rid = requestId(req);
-  if (!(await consumeRateLimit(db, "resolve-scan", callerKey(req), RATE_LIMIT, {
-    secret: callerSalt(),
-    requestId: rid,
-  }))) {
-    // `Retry-After` is computed from the window rather than guessed, so a
-    // client can back off exactly as long as it needs to and no longer.
-    return json(req, { error: "Too many requests" }, 429, {
-      "x-request-id": rid,
-      "Retry-After": String(retryAfterSeconds(RATE_LIMIT)),
-    });
-  }
+  const refusal = await enforceRateLimit(req, db, "resolve-scan", RATE_LIMIT);
+  if (refusal) return refusal;
 
   // Proof of ownership — see the file header. `not_found` rather than a
   // more specific "forbidden" for a mismatch too: this is not a place to
