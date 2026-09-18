@@ -417,7 +417,11 @@ function dedupe(parsed) {
  * `body-lotion`'s `butter` alternative, so that's been removed now that
  * `body-butter` is its own type and checked first; `eye-cream` / `night-mask`
  * / `foot-cream` all contain "cream" and have to be checked before the
- * generic `moisturizer` catch-all or they'd never be reached.
+ * generic `moisturizer` catch-all or they'd never be reached. `micellar-water`
+ * sits directly above the generic cleanser rule for the same reason — it
+ * used to be one of that rule's own alternatives, and a bare word match
+ * can't tell "micellar" and "foam" apart once they're merged into one
+ * pattern.
  */
 function guessType(tags, text) {
   const hay = `${(tags ?? []).join(" ")} ${text}`.toLowerCase();
@@ -440,8 +444,14 @@ function guessType(tags, text) {
     // Not a bare `conditioner`: "Skin Conditioner" is a face product, and it
     // was being given the hair-conditioner label and illustration.
     [/(?<!skin[\s-])conditioner/, "conditioner"],
+    // Above the generic cleanser rule: a micellar water is wiped off, not
+    // rinsed, so it needs its own type rather than falling into `cleanser`'s
+    // rinse-off discount (step 13, PR #128). "eau micellaire" (fr),
+    // "agua micelar" (es), "acqua micellare" (it) — the format word this
+    // catalogue's languages actually use for it.
+    [/micellar|eau micellaire|agua micelar|acqua micellare/, "micellar-water"],
     [
-      /cleanser|foam|cleansing|micellar|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
+      /cleanser|foam|cleansing|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
       "cleanser",
     ],
     [/sun|spf|uv|solaire|zonnebrand/, "sunscreen"],

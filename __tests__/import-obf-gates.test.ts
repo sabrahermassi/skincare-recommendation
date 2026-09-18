@@ -216,6 +216,19 @@ describe("guessType", () => {
     expect(guessType([], "Purifying Cleansing Shampoo")).toBe("shampoo");
   });
 
+  it("gives a micellar water its own type instead of folding it into cleanser", () => {
+    // It used to be one of the generic cleanser rule's own alternatives, so
+    // a name carrying both words (a product genuinely named "cleansing
+    // micellar water") has to resolve to the more specific type, checked
+    // first — same precedence rule as shampoo/cleansing above.
+    expect(guessType([], "Micellar Water")).toBe("micellar-water");
+    expect(guessType(["en:cleansers"], "Cleansing Micellar Water")).toBe("micellar-water");
+    expect(guessType([], "Eau Micellaire Démaquillante")).toBe("micellar-water");
+    expect(guessType([], "Agua Micelar")).toBe("micellar-water");
+    // A genuine foaming cleanser is unaffected.
+    expect(guessType([], "Gentle Foaming Cleanser")).toBe("cleanser");
+  });
+
   it("does not call a skin conditioner a hair conditioner", () => {
     // It was taking the hair-conditioner label and illustration.
     expect(guessType(["en:face"], "Skin Conditioner")).not.toBe("conditioner");

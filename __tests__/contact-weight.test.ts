@@ -31,7 +31,16 @@ describe("contactWeight", () => {
     expect(contactWeight("body-scrub")).toEqual({ harm: 0.5, benefit: 0.5 });
   });
 
-  it.each(["serum", "moisturizer", "sunscreen", "night-mask", "lip-balm"] as ProductType[])(
+  it.each([
+    "serum",
+    "moisturizer",
+    "sunscreen",
+    "night-mask",
+    "lip-balm",
+    // Split out of "cleanser" (step 13, PR #128): wiped off, not rinsed, so
+    // it keeps full exposure rather than inheriting the rinse-off discount.
+    "micellar-water",
+  ] as ProductType[])(
     "gives the known leave-on %s full weight in both directions",
     (type: ProductType) => {
       expect(contactWeight(type)).toEqual({ harm: 1, benefit: 1 });

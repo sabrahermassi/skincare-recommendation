@@ -72,6 +72,14 @@ export type SkinProfile = {
 
 export type ProductType =
   | "cleanser"
+  // Split out of "cleanser" (step 13, PR #128): every other name that
+  // classifies as `cleanser` genuinely is rinsed off within a minute, which
+  // is exactly why `contactWeight` discounts the whole type — but a micellar
+  // water is designed to be wiped off, not rinsed, so it keeps full exposure
+  // to whatever it contains. Folding it into `cleanser` meant the majority's
+  // accurate discount was quietly wrong for this one minority case. See
+  // `contactWeight` in lib/rules.ts.
+  | "micellar-water"
   | "toner"
   | "essence"
   | "serum"
@@ -109,6 +117,7 @@ export type ProductType =
 /** Human label for every `ProductType`, including the "we don't know" state. */
 export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
   cleanser: "Cleanser",
+  "micellar-water": "Micellar water",
   toner: "Toner",
   essence: "Essence",
   serum: "Serum",

@@ -118,8 +118,15 @@ close to a 50/50 split: the large majority of what's typed `cleanser` (foam,
 gel, oil, balm) genuinely is rinsed off within about a minute, exactly the
 band this weight sits in. Discounting the whole type to fix the micellar
 minority would cost the accuracy the type exists to provide for the
-majority. The right fix is a dedicated no-rinse/micellar classifier rule,
-tracked separately — not a change to this weighting.
+majority. The right fix was a dedicated no-rinse/micellar classifier rule,
+tracked separately — **built in PR #128 (step 13, second half)**: a new
+`micellar-water` `ProductType` sits above the generic cleanser pattern in
+both `guessType` copies (`scripts/import-obf.mjs`,
+`supabase/functions/product-lookup/index.ts`), and `contactWeight` gives it
+full harm and benefit like any other leave-on type. No icon was drawn for
+it — `lib/productIllustration.ts` falls back to the same untexted pump
+bottle `unknown` uses, deliberately, rather than showing a `cleanser`-labeled
+icon on a product that isn't one.
 
 **Why `SCORE_BANDS` is the single source for band cutoffs:** the verdict
 and the badge tone once read different cutoffs (75/55 vs 80/65) and
