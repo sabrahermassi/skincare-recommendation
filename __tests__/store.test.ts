@@ -458,6 +458,40 @@ describe("v3 -> v4 migration", () => {
   });
 });
 
+// v6 -> v7 drops productSuggestions (issue #97). The version bump matters as
+// much as the strip itself: Zustand only calls migratePersisted when the
+// stored version differs from the current one, so an install already
+// sitting at v6 would never run any migration at all without it — see the
+// doc comment on migratePersisted. Found in review on #124.
+describe("v6 -> v7 migration", () => {
+  const legacySuggestions = [{ barcode: "12345678", name: "Some Serum", submittedAt: 1 }];
+
+  it("drops productSuggestions from an install already at the pre-bump version", () => {
+    const migrated = migratePersisted(
+      { profile: EMPTY_PROFILE, hasSeenOnboarding: true, savedProducts: [], savedIngredients: [], history: [], productSuggestions: legacySuggestions },
+      6
+    ) as Record<string, unknown> | undefined;
+    expect(migrated).not.toHaveProperty("productSuggestions");
+  });
+
+  it("is safe to run again on state that's already past v7", () => {
+    const migrated = migratePersisted(
+      { profile: EMPTY_PROFILE, hasSeenOnboarding: true, savedProducts: [], savedIngredients: [], history: [], productSuggestions: legacySuggestions },
+      7
+    ) as Record<string, unknown> | undefined;
+    expect(migrated).not.toHaveProperty("productSuggestions");
+  });
+
+  it("drops it on the no-profile fallback path too", () => {
+    const migrated = migratePersisted(
+      { hasSeenOnboarding: true, productSuggestions: legacySuggestions },
+      6
+    ) as Record<string, unknown> | undefined;
+    expect(migrated).not.toHaveProperty("productSuggestions");
+    expect(migrated?.profile).toEqual(EMPTY_PROFILE);
+  });
+});
+
 // The for.me rebrand renamed the persisted key from "skintel-store" to
 // "forme-store". Without a read-through, an existing install's profile,
 // shelf and history would silently reset to INITIAL_STATE the first time

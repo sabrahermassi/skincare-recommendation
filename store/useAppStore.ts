@@ -229,6 +229,18 @@ export const INITIAL_STATE = {
  * hardcoded `"face"`, since nothing upstream of either function still
  * determines a real area either). Dropping that column is a separate,
  * not-yet-made decision — it wasn't touched here.
+ *
+ * v6 -> v7 drops `productSuggestions`, a top-level key rather than a
+ * `profile` field — see issue #97. Zustand only calls this function when the
+ * stored version differs from the current one; without the bump, an install
+ * already sitting at v6 would never run a migration at all; and even with
+ * one, the array has to be stripped explicitly here. `partialize` no longer
+ * writing it stops the *next* save from including it, but `persist`'s
+ * default rehydration is a shallow merge of whatever's on disk over
+ * `INITIAL_STATE` — an old blob's `productSuggestions` would otherwise ride
+ * along in the runtime store, unreachable through the `AppState` type but
+ * still sitting there, until some unrelated write happened to overwrite the
+ * whole persisted blob. Found in review on #124.
  */
 export function migratePersisted(persisted: unknown, version: number): PersistedState | undefined {
   const state = persisted as (PersistedState & {
@@ -239,16 +251,26 @@ export function migratePersisted(persisted: unknown, version: number): Persisted
       sensitive?: boolean;
       area?: unknown;
     };
+    /** Removed in v7 — see the migration note above. Typed loosely and
+     *  stripped unconditionally below; a install already past v7 simply
+     *  doesn't have the key, and destructuring an absent key is a no-op. */
+    productSuggestions?: unknown;
   }) | undefined;
 
   if (!state) return state;
 
-  // A missing profile shouldn't happen, but returning `state` as-is here
+  // Stripped before either branch below, so neither can hand a legacy
+  // install's array back out through a `...state`/`...withoutSuggestions`
+  // spread — see the migration note above.
+  const { productSuggestions: _droppedSuggestions, ...withoutSuggestions } = state;
+
+  // A missing profile shouldn't happen, but returning the state as-is here
   // would hand back an object without the `profile` key the PersistedState
   // contract requires — fall back to the same empty profile a first run
   // gets, rather than trust a merge elsewhere to paper over it.
-  if (!state.profile) return { ...state, profile: EMPTY_PROFILE };
-  if (version >= 6) return state as PersistedState;
+  if (!state.profile) return { ...withoutSuggestions, profile: EMPTY_PROFILE };
+
+  if (version >= 6) return withoutSuggestions as PersistedState;
 
   const {
     skinTypeSource: _droppedSource,
@@ -260,7 +282,7 @@ export function migratePersisted(persisted: unknown, version: number): Persisted
   } = state.profile;
 
   return {
-    ...state,
+    ...withoutSuggestions,
     profile: {
       ...EMPTY_PROFILE,
       ...rest,
@@ -428,7 +450,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: NEW_STORAGE_KEY,
-      version: 6,
+      version: 7,
       storage: createJSONStorage(() => formeStorage),
       partialize: partializeState,
       migrate: migratePersisted,
