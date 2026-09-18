@@ -298,6 +298,52 @@ export function callerKey(req: Request): string {
   return "unknown";
 }
 
+/**
+ * TEMPORARY — remove once the header question is settled. See PR #120.
+ *
+ * `callerKey` above picks `cf-connecting-ip` on the reasoning that these
+ * functions run on Deno Deploy behind Cloudflare. That is an inference, not a
+ * measurement, and the last inference about these headers shipped a limiter
+ * that limited nobody. This says what actually arrives so the choice can be
+ * made from fact.
+ *
+ * **Names and short hashes, never the addresses themselves.** An address is
+ * personal data under this project's own threat model, and a probe that runs
+ * on every request is a very different thing from the one line `refused()`
+ * writes when someone is throttled. Eight hex characters is enough to answer
+ * the only two questions that matter — is this header present, and does its
+ * value stay the same across requests — while being useless for identifying
+ * anyone.
+ *
+ * Unconditional rather than behind an environment flag: a flag is another
+ * thing to set, another thing to forget to unset, and this is meant to live
+ * for one deploy.
+ */
+export async function probeCallerHeaders(req: Request, secret: string): Promise<void> {
+  const candidates = ["cf-connecting-ip", "x-real-ip", "x-forwarded-for", "forwarded", "true-client-ip"];
+  const parts: string[] = [];
+
+  for (const name of candidates) {
+    const raw = req.headers.get(name);
+    if (raw === null) continue;
+    const short = async (v: string) => (await fingerprintCaller(v, secret)).slice(0, 8);
+
+    if (name === "x-forwarded-for") {
+      // Both ends, because which end is the caller is the entire question.
+      const chain = raw.split(",").map((v) => v.trim()).filter(Boolean);
+      parts.push(`xff.hops=${chain.length}`);
+      if (chain.length > 0) parts.push(`xff.first=${await short(chain[0])}`);
+      if (chain.length > 1) parts.push(`xff.last=${await short(chain[chain.length - 1])}`);
+    } else {
+      parts.push(`${name}=${await short(raw)}`);
+    }
+  }
+
+  console.log(
+    `[caller-probe] ${parts.length > 0 ? parts.join(" ") : "none of the candidate headers are present"}`,
+  );
+}
+
 // ── The caller fingerprint ──────────────────────────────────────────────────
 
 const encoder = new TextEncoder();

@@ -20,6 +20,7 @@ import {
   preflight,
   callerSalt,
   consumeRateLimit,
+  probeCallerHeaders,
   requestId,
   retryAfterSeconds,
   type RateLimit,
@@ -92,6 +93,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Minted before the check so the refusal log and the reply carry the same
   // id — the whole point is that a user quoting it lands on one line.
   const rid = requestId(req);
+  // TEMPORARY — remove once the header question is settled. See PR #120.
+  await probeCallerHeaders(req, callerSalt());
   if (!(await consumeRateLimit(db, "product-lookup", callerKey(req), RATE_LIMIT, {
     secret: callerSalt(),
     requestId: rid,

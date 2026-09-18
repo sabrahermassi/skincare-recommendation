@@ -113,6 +113,8 @@ export function requestId(req: Request): string {
 export {
   callerKey,
   consumeRateLimit,
+  // TEMPORARY — remove with the probe itself. See PR #120.
+  probeCallerHeaders,
   retryAfterSeconds,
   type RateLimit,
   type RateLimitDb,
