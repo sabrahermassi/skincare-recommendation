@@ -402,6 +402,17 @@ function BarcodeStage({
 }) {
   const insets = useSafeAreaInsets();
 
+  // Measured rather than guessed: `quizAcknowledgementText` is a variable
+  // length sentence and can wrap to 2-3 lines depending on the profile, so a
+  // fixed height would either clip short text with dead space or, worse,
+  // undershoot long text and let the banner run into `Viewfinder`'s top
+  // brackets underneath it. Found in review on #126 — the banner painted
+  // directly over the frame's corners with no offset at all. Zero until the
+  // first layout pass lands, same one-frame gap this file's camera-crop
+  // measurement already accepts elsewhere.
+  const [bannerHeight, setBannerHeight] = useState(0);
+  const showQuizBanner = justFinishedQuiz && status.kind === "idle";
+
   // One sentence per state, shared by the spoken announcement and the visible
   // panel's own label so the two can never drift apart.
   //
@@ -416,7 +427,9 @@ function BarcodeStage({
         ? "Not in our catalogue yet. Photograph the label and we'll add it."
         : status.kind === "unreachable"
           ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
-          : "";
+          : justFinishedQuiz
+            ? quizAcknowledgementText
+            : "";
 
   return (
     <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>
@@ -432,7 +445,13 @@ function BarcodeStage({
 
       {permission?.granted && status.kind === "idle" && (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Viewfinder insets={insets} />
+          <Viewfinder
+            insets={insets}
+            // Pushed down by the acknowledgement banner's real measured
+            // height (plus the same margin the banner sits at) rather than
+            // overlapping it — see the note on `bannerHeight` above.
+            topOffset={showQuizBanner ? bannerHeight + 12 : 0}
+          />
         </View>
       )}
 
@@ -498,8 +517,9 @@ function BarcodeStage({
           only while nothing else is on screen: a scan starting clears it
           (see `handleBarcode`), so it can never sit behind or fight a status
           panel for the same space. */}
-      {justFinishedQuiz && status.kind === "idle" && (
+      {showQuizBanner && (
         <View
+          onLayout={(e) => setBannerHeight(e.nativeEvent.layout.height)}
           style={{
             position: "absolute",
             left: 20,
@@ -835,7 +855,17 @@ function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
 const SWITCHER_HEIGHT = 52;
 const FRAME_MARGIN_ABOVE_SWITCHER = 24;
 
-function Viewfinder({ insets }: { insets: { top: number; bottom: number } }) {
+function Viewfinder({
+  insets,
+  topOffset = 0,
+}: {
+  insets: { top: number; bottom: number };
+  /** Room to leave clear above the frame — see the quiz-acknowledgement
+   *  banner's own `bannerHeight` note in `BarcodeStage`. The frame used to
+   *  paint straight through whatever the banner was, corner brackets and
+   *  all. Found in review on #126. */
+  topOffset?: number;
+}) {
   // Border-color as inline `style` rather than a `border-[${SCANNER_FRAME}]`
   // className: NativeWind's arbitrary-value classes are picked up by
   // scanning the literal source text, so an interpolated hex here would
@@ -847,7 +877,15 @@ function Viewfinder({ insets }: { insets: { top: number; bottom: number } }) {
   const bottomInset =
     Math.max(20, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
   return (
-    <View style={{ position: "absolute", top: insets.top + 24, bottom: bottomInset, left: 33, right: 33 }}>
+    <View
+      style={{
+        position: "absolute",
+        top: insets.top + 24 + topOffset,
+        bottom: bottomInset,
+        left: 33,
+        right: 33,
+      }}
+    >
       <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} left-0 top-0 rounded-tl-lg border-l-[3px] border-t-[3px]`} />
       <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} right-0 top-0 rounded-tr-lg border-r-[3px] border-t-[3px]`} />
       <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} bottom-0 left-0 rounded-bl-lg border-b-[3px] border-l-[3px]`} />
