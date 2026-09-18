@@ -728,10 +728,15 @@ export function contactWeight(type: ProductType): number {
   // `products.type` is unconstrained text in the database, and `buildProduct`
   // only asserts it as `ProductType` rather than validating it — so a typo'd
   // or newly-added server-side value can reach here without a matching entry
-  // above. Fail into the same full-weight default `unknown` gets, not into
-  // `undefined`, which would turn every ingredient weight — and the score —
-  // into `NaN`.
-  return EXPOSURE_BY_TYPE[type] ?? 1;
+  // above. `EXPOSURE_BY_TYPE` is a plain object literal, so it inherits
+  // `Object.prototype` — a value like "constructor" or "toString" would
+  // resolve to that prototype member rather than `undefined`, and `?? 1`
+  // never applies to it. The explicit own-property check is what actually
+  // catches every unrecognised value, not just the ones that happen to look
+  // unrecognised to `??`. Fail into the same full-weight default `unknown`
+  // gets, not into `undefined` or a stray function reference, either of
+  // which would turn every ingredient weight — and the score — into `NaN`.
+  return Object.prototype.hasOwnProperty.call(EXPOSURE_BY_TYPE, type) ? EXPOSURE_BY_TYPE[type] : 1;
 }
 
 /**

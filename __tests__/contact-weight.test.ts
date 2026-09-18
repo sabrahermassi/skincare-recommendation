@@ -80,6 +80,18 @@ describe("contactWeight", () => {
     expect(contactWeight("a-type-nobody-has-heard-of" as ProductType)).toBe(1);
   });
 
+  // The bug this replaced: `EXPOSURE_BY_TYPE` is a plain object literal, so
+  // `EXPOSURE_BY_TYPE["constructor"]` resolved to `Object.prototype`'s own
+  // `constructor` function rather than `undefined` — a value the `?? 1`
+  // fallback above never catches, since a function is neither `null` nor
+  // `undefined`. Multiplying that function into the score produced `NaN`.
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty", "valueOf"] as unknown as ProductType[])(
+    "falls back to full weight for the inherited property name %s, not Object.prototype's own member",
+    (type: ProductType) => {
+      expect(contactWeight(type)).toBe(1);
+    },
+  );
+
   it("still discounts an unambiguous rinse-off", () => {
     expect(contactWeight("cleanser")).toBe(0.25);
   });
