@@ -318,8 +318,14 @@ export function callerKey(req: Request): string {
  * Unconditional rather than behind an environment flag: a flag is another
  * thing to set, another thing to forget to unset, and this is meant to live
  * for one deploy.
+ *
+ * Returns the line as well as logging it, so a caller can hand it straight
+ * back in the response. Reading it out of the dashboard logs is several steps
+ * of someone else's manual work to answer a question the code already knows,
+ * and the value describes the caller's own connection — telling them about
+ * their own request discloses nothing they did not just send us.
  */
-export async function probeCallerHeaders(req: Request, secret: string): Promise<void> {
+export async function probeCallerHeaders(req: Request, secret: string): Promise<string> {
   const candidates = ["cf-connecting-ip", "x-real-ip", "x-forwarded-for", "forwarded", "true-client-ip"];
   const parts: string[] = [];
 
@@ -339,9 +345,11 @@ export async function probeCallerHeaders(req: Request, secret: string): Promise<
     }
   }
 
-  console.log(
-    `[caller-probe] ${parts.length > 0 ? parts.join(" ") : "none of the candidate headers are present"}`,
-  );
+  const line = parts.length > 0
+    ? parts.join(" ")
+    : "none of the candidate headers are present";
+  console.log(`[caller-probe] ${line}`);
+  return line;
 }
 
 // ── The caller fingerprint ──────────────────────────────────────────────────

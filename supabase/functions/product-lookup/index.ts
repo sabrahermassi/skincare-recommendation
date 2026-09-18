@@ -77,12 +77,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return preflight(req);
   if (req.method !== "POST") return json(req, { error: "POST only" }, 405);
 
-  let barcode: string;
+  let body: { barcode?: unknown; probe?: unknown };
   try {
-    ({ barcode } = await req.json());
+    body = await req.json();
   } catch {
     return json(req, { error: "Body must be JSON" }, 400);
   }
+
+  // TEMPORARY — remove once the header question is settled. See PR #120.
+  //
+  // Answers in the response rather than only in the dashboard logs. The line
+  // describes the caller's own connection, so handing it back to that caller
+  // tells them nothing they did not just send. Short-circuits ahead of the
+  // barcode check and the lookup cascade so asking the question costs no
+  // third-party quota.
+  if (body.probe === true) {
+    return json(req, { probe: await probeCallerHeaders(req, callerSalt()) }, 200);
+  }
+
+  const barcode = body.barcode;
 
   // EAN-13/8 and UPC-A/E are all digits. Rejecting anything else here keeps
   // arbitrary strings out of both the upstream APIs and the database.
