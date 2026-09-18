@@ -113,140 +113,178 @@ async function connect(): Promise<Client> {
 let n = 0;
 const bucket = () => `e2e-${Date.now()}-${n++}`;
 
-Deno.test("a real request over the limit comes back 429", async () => {
-  const client = await connect();
-  const db = dbOver(client);
-  const b = bucket();
+/** The window index `consume_rate_limit` and `windowStart()` both floor to. */
+const currentWindow = () => Math.floor(Date.now() / 1000 / LIMIT.windowSeconds);
 
-  try {
-    const codes: number[] = [];
-    for (let i = 0; i < 25; i++) {
-      // The caller is one machine throughout. Only the internal hop moves.
-      const res = await enforceRateLimit(request("203.0.113.7", i), db, b, LIMIT);
-      codes.push(res?.status ?? 200);
+/**
+ * Run a scenario, and re-run it once if the fixed window rolled underneath it.
+ *
+ * The limiter's window is wall-clock rather than per-caller —
+ * `floor(epoch / 600)` — so a scenario that starts a second before a boundary
+ * has its count reset mid-run in both layers at once. Every assertion here is
+ * then measuring the wrong thing: extra allowed requests, a second row, a
+ * cold-start request that is allowed rather than refused. At ~1s per scenario
+ * against a 600s window that is roughly one CI run in 150, which is frequent
+ * enough to teach people that a red build means nothing.
+ *
+ * Retrying rather than sleeping to the next boundary: the common case costs
+ * nothing, and a retry begins just after the boundary it crossed, so it has a
+ * full window ahead of it. A failure is reported only when the window held, so
+ * this cannot turn a real failure green — verified against a mutant.
+ *
+ * `resetRateLimits()` clears the process-local tally before each attempt, so a
+ * retry does not inherit the abandoned one. Raised by review on PR #123.
+ */
+async function inOneWindow(run: (b: string) => Promise<void>): Promise<void> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const before = currentWindow();
+    resetRateLimits();
+    try {
+      await run(bucket());
+      if (currentWindow() === before) return;
+    } catch (err) {
+      if (currentWindow() === before) throw err;
+    }
+  }
+  // Two rolls in a row would mean a scenario is taking minutes rather than the
+  // ~1s these do — something is wrong with the run, not with the limiter.
+  throw new Error("the rate-limit window rolled on both attempts");
+}
+
+Deno.test("a real request over the limit comes back 429", () =>
+  inOneWindow(async (b) => {
+    const client = await connect();
+    const db = dbOver(client);
+
+    try {
+      const codes: number[] = [];
+      for (let i = 0; i < 25; i++) {
+        // The caller is one machine throughout. Only the internal hop moves.
+        const res = await enforceRateLimit(request("203.0.113.7", i), db, b, LIMIT);
+        codes.push(res?.status ?? 200);
+      }
+
+      assertEquals(
+        codes,
+        [...Array(20).fill(200), ...Array(5).fill(429)],
+        "twenty allowed then five refused",
+      );
+
+      // The codes alone are weaker evidence than they look: `consumeRateLimit`
+      // checks its in-memory tally first and would produce this exact sequence
+      // with the RPC broken, since both layers carry the same limit. The row is
+      // what proves the database was reached and did the counting — and the
+      // database is the only layer that survives a cold start.
+      const rows = await client.queryArray<[string, number]>(
+        "select caller, count from rate_limits where bucket = $1",
+        [b],
+      );
+      assertEquals(rows.rows.length, 1, "one machine should produce one row");
+
+      // 20, not 25. Once the in-memory tally is over the limit `consumeRateLimit`
+      // returns before the round trip, so the five refusals never reach the
+      // database — a refusal should not cost a query. The database still counts
+      // every request that got as far as it, which is what
+      // `rate_limits.test.sql` asserts directly.
+      assertEquals(rows.rows[0][1], 20, "the database counted every request that reached it");
+
+      // And never the address itself — `docs/threat-model.md` classifies a
+      // caller IP as personal data this system does not persist.
+      assertEquals(rows.rows[0][0].includes("203.0.113.7"), false, "the row holds a fingerprint");
+    } finally {
+      await client.end();
+    }
+  }));
+
+Deno.test("the refusal carries what a client needs to back off", () =>
+  inOneWindow(async (b) => {
+    const client = await connect();
+    const db = dbOver(client);
+
+    try {
+      let refusal: Response | null = null;
+      for (let i = 0; i < 21; i++) {
+        refusal = await enforceRateLimit(request("203.0.113.8", i), db, b, LIMIT);
+      }
+
+      assertEquals(refusal?.status, 429);
+
+      // Without a `Retry-After` a client's only option is to guess, and the
+      // guess that costs nothing to make is "immediately".
+      const retry = Number(refusal?.headers.get("retry-after"));
+      assertEquals(retry > 0 && retry <= LIMIT.windowSeconds, true, `retry-after was ${retry}`);
+
+      // The id a user can quote. `requestId` mints one when the caller sends
+      // none, so this is never absent.
+      assertEquals(typeof refusal?.headers.get("x-request-id"), "string");
+
+      await refusal?.body?.cancel();
+    } finally {
+      await client.end();
+    }
+  }));
+
+Deno.test("two machines do not share one allowance", () =>
+  inOneWindow(async (b) => {
+    const client = await connect();
+    const db = dbOver(client);
+
+    try {
+      // One caller spends the whole window.
+      for (let i = 0; i < 25; i++) {
+        await enforceRateLimit(request("203.0.113.9", i), db, b, LIMIT);
+      }
+
+      // A different machine must still be served. A limiter that refuses this
+      // is a limiter that takes the whole shop down when one person loops, and
+      // it would pass the test above perfectly happily.
+      const other = await enforceRateLimit(request("198.51.100.4", 0), db, b, LIMIT);
+      assertEquals(other, null);
+    } finally {
+      await client.end();
+    }
+  }));
+
+Deno.test("a cold start does not hand out a fresh allowance", () =>
+  inOneWindow(async (b) => {
+    // The reason the counter moved into Postgres at all, and the one property no
+    // other test here covers. An isolate holding its own `Map` starts empty, so
+    // a limit that lives only in memory is a suggestion: spend it, wait for a
+    // recycle, and spend it again.
+    //
+    // `resetRateLimits()` is what makes this observable. It empties the same map
+    // a new isolate would start with, so the request after it has nothing local
+    // saying the caller is over — the database is the only thing left that can
+    // refuse, which is exactly the claim. A new connection alongside it, since a
+    // real isolate would not inherit one.
+    const caller = "203.0.113.11";
+
+    const first = await connect();
+    try {
+      for (let i = 0; i < 20; i++) {
+        const res = await enforceRateLimit(request(caller, i), dbOver(first), b, LIMIT);
+        assertEquals(res, null, `request ${i + 1} of the allowance was refused`);
+      }
+    } finally {
+      await first.end();
     }
 
-    assertEquals(
-      codes,
-      [...Array(20).fill(200), ...Array(5).fill(429)],
-      "twenty allowed then five refused",
-    );
+    resetRateLimits();
 
-    // The codes alone are weaker evidence than they look: `consumeRateLimit`
-    // checks its in-memory tally first and would produce this exact sequence
-    // with the RPC broken, since both layers carry the same limit. The row is
-    // what proves the database was reached and did the counting — and the
-    // database is the only layer that survives a cold start.
-    const rows = await client.queryArray<[string, number]>(
-      "select caller, count from rate_limits where bucket = $1",
-      [b],
-    );
-    assertEquals(rows.rows.length, 1, "one machine should produce one row");
+    const second = await connect();
+    try {
+      const refusal = await enforceRateLimit(request(caller, 99), dbOver(second), b, LIMIT);
+      assertEquals(refusal?.status, 429, "a fresh isolate was handed a new allowance");
+      await refusal?.body?.cancel();
 
-    // 20, not 25. Once the in-memory tally is over the limit `consumeRateLimit`
-    // returns before the round trip, so the five refusals never reach the
-    // database — a refusal should not cost a query. The database still counts
-    // every request that got as far as it, which is what
-    // `rate_limits.test.sql` asserts directly.
-    assertEquals(rows.rows[0][1], 20, "the database counted every request that reached it");
-
-    // And never the address itself — `docs/threat-model.md` classifies a
-    // caller IP as personal data this system does not persist.
-    assertEquals(rows.rows[0][0].includes("203.0.113.7"), false, "the row holds a fingerprint");
-  } finally {
-    await client.end();
-  }
-});
-
-Deno.test("the refusal carries what a client needs to back off", async () => {
-  const client = await connect();
-  const db = dbOver(client);
-  const b = bucket();
-
-  try {
-    let refusal: Response | null = null;
-    for (let i = 0; i < 21; i++) {
-      refusal = await enforceRateLimit(request("203.0.113.8", i), db, b, LIMIT);
+      // And the fresh isolate's own request was counted, rather than the window
+      // being read without being written to.
+      const rows = await second.queryArray<[number]>(
+        "select count from rate_limits where bucket = $1",
+        [b],
+      );
+      assertEquals(rows.rows[0][0], 21, "the refused request still incremented the shared count");
+    } finally {
+      await second.end();
     }
-
-    assertEquals(refusal?.status, 429);
-
-    // Without a `Retry-After` a client's only option is to guess, and the
-    // guess that costs nothing to make is "immediately".
-    const retry = Number(refusal?.headers.get("retry-after"));
-    assertEquals(retry > 0 && retry <= LIMIT.windowSeconds, true, `retry-after was ${retry}`);
-
-    // The id a user can quote. `requestId` mints one when the caller sends
-    // none, so this is never absent.
-    assertEquals(typeof refusal?.headers.get("x-request-id"), "string");
-
-    await refusal?.body?.cancel();
-  } finally {
-    await client.end();
-  }
-});
-
-Deno.test("two machines do not share one allowance", async () => {
-  const client = await connect();
-  const db = dbOver(client);
-  const b = bucket();
-
-  try {
-    // One caller spends the whole window.
-    for (let i = 0; i < 25; i++) {
-      await enforceRateLimit(request("203.0.113.9", i), db, b, LIMIT);
-    }
-
-    // A different machine must still be served. A limiter that refuses this
-    // is a limiter that takes the whole shop down when one person loops, and
-    // it would pass the test above perfectly happily.
-    const other = await enforceRateLimit(request("198.51.100.4", 0), db, b, LIMIT);
-    assertEquals(other, null);
-  } finally {
-    await client.end();
-  }
-});
-
-Deno.test("a cold start does not hand out a fresh allowance", async () => {
-  // The reason the counter moved into Postgres at all, and the one property no
-  // other test here covers. An isolate holding its own `Map` starts empty, so
-  // a limit that lives only in memory is a suggestion: spend it, wait for a
-  // recycle, and spend it again.
-  //
-  // `resetRateLimits()` is what makes this observable. It empties the same map
-  // a new isolate would start with, so the request after it has nothing local
-  // saying the caller is over — the database is the only thing left that can
-  // refuse, which is exactly the claim. A new connection alongside it, since a
-  // real isolate would not inherit one.
-  const b = bucket();
-  const caller = "203.0.113.11";
-
-  const first = await connect();
-  try {
-    for (let i = 0; i < 20; i++) {
-      const res = await enforceRateLimit(request(caller, i), dbOver(first), b, LIMIT);
-      assertEquals(res, null, `request ${i + 1} of the allowance was refused`);
-    }
-  } finally {
-    await first.end();
-  }
-
-  resetRateLimits();
-
-  const second = await connect();
-  try {
-    const refusal = await enforceRateLimit(request(caller, 99), dbOver(second), b, LIMIT);
-    assertEquals(refusal?.status, 429, "a fresh isolate was handed a new allowance");
-    await refusal?.body?.cancel();
-
-    // And the fresh isolate's own request was counted, rather than the window
-    // being read without being written to.
-    const rows = await second.queryArray<[number]>(
-      "select count from rate_limits where bucket = $1",
-      [b],
-    );
-    assertEquals(rows.rows[0][0], 21, "the refused request still incremented the shared count");
-  } finally {
-    await second.end();
-  }
-});
+  }));
