@@ -195,6 +195,35 @@ begin
     'service_role cannot execute consume_rate_limit';
 end $$;
 
+-- ── And it actually works as that role, not just as a superuser ────────────
+--
+-- Everything above runs with superuser privileges, which bypasses the grants
+-- it is asserting. `has_function_privilege` covers EXECUTE on the function and
+-- SELECT on the table; it says nothing about the INSERT, the UPDATE, or the
+-- SELECT that `returning` needs. `consume_rate_limit` is SECURITY INVOKER, so
+-- those are checked against the *caller* — and the only real caller is
+-- `service_role`. A migration that revoked INSERT would pass every assertion
+-- above and fail on the first request in production. Raised by review on
+-- PR #120.
+
+set local role service_role;
+
+do $$
+declare
+  v_count integer;
+begin
+  v_count := consume_rate_limit('t-as-service-role', 'caller-h', 60, 3);
+  assert v_count = 1, format('first call as service_role returned %s', v_count);
+
+  -- The second call takes the `on conflict do update` path, which needs UPDATE
+  -- rather than INSERT — a different privilege, and the one a `grant insert`
+  -- typo would leave behind.
+  v_count := consume_rate_limit('t-as-service-role', 'caller-h', 60, 3);
+  assert v_count = 2, format('second call as service_role returned %s', v_count);
+end $$;
+
+reset role;
+
 rollback;
 
 \echo 'rate_limits: all assertions passed'

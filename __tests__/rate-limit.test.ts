@@ -525,10 +525,47 @@ describe("who the caller is", () => {
     ).toBe("81.229.14.22");
   });
 
-  it("falls back to x-real-ip, then to the forwarded chain's origin", () => {
-    expect(callerKey(req({ "x-real-ip": "81.229.14.22" }))).toBe("81.229.14.22");
-    expect(callerKey(req({ "x-forwarded-for": "81.229.14.22, 10.0.0.7, 10.0.0.9" })))
-      .toBe("81.229.14.22");
+  /**
+   * The first version of this fix fell back to `x-real-ip` and then the
+   * forwarded chain's first entry. Neither is rewritten by an ingress we
+   * control, so a caller reaching the function directly could hand over a
+   * fresh value per request and mint a new bucket every time — the very bug
+   * this function exists to prevent. Raised by review on PR #120.
+   */
+  it("refuses to guess from headers a client could simply write", () => {
+    expect(callerKey(req({ "x-real-ip": "81.229.14.22" }))).toBe("unknown");
+    expect(callerKey(req({ "x-forwarded-for": "81.229.14.22, 10.0.0.7" }))).toBe("unknown");
+    expect(callerKey(req({ "x-forwarded-for": "1.1.1.1", "x-real-ip": "2.2.2.2" }))).toBe("unknown");
+  });
+
+  /**
+   * The bypass itself: a thousand made-up values must not buy a thousand
+   * allowances. They all land in one bucket, which is strict rather than
+   * absent — the safe direction to be wrong in when a metered key is behind
+   * the limit.
+   */
+  it("cannot be rotated by inventing header values", () => {
+    const keys = new Set(
+      Array.from({ length: 50 }, (_, i) =>
+        callerKey(req({ "x-real-ip": `10.0.0.${i}`, "x-forwarded-for": `10.1.0.${i}` })),
+      ),
+    );
+    expect(keys).toEqual(new Set(["unknown"]));
+  });
+
+  /**
+   * And the trusted header still wins over anything alongside it — Cloudflare
+   * overwrites `cf-connecting-ip`, so a client cannot displace it by shouting
+   * louder in the others.
+   */
+  it("is not displaced by client-supplied headers", () => {
+    expect(
+      callerKey(req({
+        "cf-connecting-ip": "81.229.14.22",
+        "x-real-ip": "6.6.6.6",
+        "x-forwarded-for": "7.7.7.7, 8.8.8.8",
+      })),
+    ).toBe("81.229.14.22");
   });
 
   /**
@@ -554,6 +591,15 @@ describe("who the caller is", () => {
    */
   it("ignores a client-supplied device id", () => {
     expect(callerKey(req({ "x-device-id": "whatever-i-like" }))).toBe("unknown");
+  });
+
+  /**
+   * `caller=unknown` in a refusal log is the signal that this platform does
+   * not send `cf-connecting-ip` and the limit has silently become global.
+   * Without it that would be invisible.
+   */
+  it("says unknown, which is what makes an absent header visible in the logs", () => {
+    expect(callerKey(req({}))).toBe("unknown");
   });
 
   it("says unknown rather than throwing when nothing identifies the caller", () => {

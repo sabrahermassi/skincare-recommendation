@@ -258,31 +258,43 @@ function refused(
  * requests, which is one row per hop rather than one per caller.
  *
  * `cf-connecting-ip` is set by Cloudflare to the originating client and
- * overwritten on every request, so a client cannot forge it and an internal
- * hop cannot displace it. `x-real-ip` is the same idea one layer down.
- * `x-forwarded-for`'s *first* entry is the standard's answer for "who
- * originally called" and is kept only as a last resort, flagged as spoofable
- * because it is: by then there is nothing better left.
+ * *overwritten* on every request, so neither a client nor an internal hop can
+ * choose it.
+ *
+ * **And nothing else is accepted, deliberately.** The first version of this fix
+ * fell back to `x-real-ip` and then `x-forwarded-for`'s first entry, with a
+ * comment admitting the second "rotates under a determined caller" — which is
+ * the bug this function exists to prevent, written down and shipped anyway.
+ * Neither header is rewritten by an ingress we control, so a caller reaching
+ * the function directly could hand over a fresh value per request and mint a
+ * new bucket every time, defeating the limiter completely. Raised by review on
+ * PR #120.
+ *
+ * So an absent header returns `"unknown"` rather than a guess. Every such
+ * request then shares one bucket, which is strict rather than absent: the
+ * failure is "too many people throttled together", not "the metered key is
+ * unprotected". Given what sits behind these endpoints, that is the correct
+ * direction to be wrong in.
+ *
+ * **It is also self-reporting.** `refused()` logs the caller, so a production
+ * log line reading `caller=unknown` says plainly that this platform does not
+ * send the header and the limit has become global — which is exactly the thing
+ * that would otherwise be invisible.
  *
  * The cost is unchanged — one shop's wifi shares a bucket. At 10 requests per
  * 5 minutes that is a real person scanning a shelf, so the ceiling is set for
  * a NAT rather than for a single handset.
  */
 export function callerKey(req: Request): string {
-  // Platform-set and client-overwritable in neither direction: these are the
-  // only two headers here that describe the caller rather than the path taken.
-  const trusted = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip");
-  if (trusted) return trusted.trim();
+  // One header, and no fallbacks. Cloudflare sets `cf-connecting-ip` to the
+  // originating client and *overwrites* whatever arrived, so a client cannot
+  // choose its own value. Nothing else here has that property.
+  const observed = req.headers.get("cf-connecting-ip");
+  if (observed) return observed.trim();
 
-  // Last resort. The first entry is the standard's "original client", which a
-  // client can also simply write — so this rotates under a determined caller
-  // and is a weaker limit than the branch above, not a substitute for it.
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const chain = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
-    if (chain.length > 0) return chain[0];
-  }
-
+  // Everything without that header shares one bucket, which is the safe
+  // direction to be wrong in. Read the note above for why this is not a
+  // fallback but a refusal to guess.
   return "unknown";
 }
 

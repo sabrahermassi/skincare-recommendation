@@ -82,11 +82,27 @@ jobs:
       # Supabase creates these; a stock Postgres does not, and the grants in
       # several migrations name them. Without this the migrations fail for a
       # reason that has nothing to do with whether they are correct.
+      # A stock Postgres has none of these, and the grants in several migrations
+      # name them. Two attributes matter beyond mere existence, and both are
+      # things Supabase sets that a bare `create role` does not:
+      #
+      #   `bypassrls` on service_role — several tables in this schema enable
+      #   row level security and define no policies, which is how they are made
+      #   service-role-only. Without the attribute the role is blocked by its
+      #   own RLS and the tests fail for a reason production does not have.
+      #
+      #   `usage on schema public` — without it `set role service_role` cannot
+      #   even see a function in `public`.
+      #
+      # Getting either wrong makes the harness lie about production, which is
+      # worse than not testing: it produces confident green.
       - name: Create the Supabase roles
         run: |
-          for role in anon authenticated service_role; do
+          for role in anon authenticated; do
             psql -v ON_ERROR_STOP=1 -c "create role $role;"
           done
+          psql -v ON_ERROR_STOP=1 -c "create role service_role bypassrls;"
+          psql -v ON_ERROR_STOP=1 -c "grant usage on schema public to anon, authenticated, service_role;"
 
       # `pg_cron` is a Supabase extension and cannot be installed here. Stubbing
       # `cron.schedule` lets the scheduling lines run verbatim rather than being
@@ -119,15 +135,46 @@ jobs:
       # distinct counts rather than all reading the same under-the-limit value.
       # Asserted with real parallel clients because there is no other way to
       # see it.
+      # The row total alone is too weak an assertion, which review on PR #120
+      # caught: a regression handing several callers the SAME under-the-limit
+      # count would still leave one row summing to 30, and every one of those
+      # callers would be let through. The values each client received are the
+      # evidence, so they are captured and compared — sorted, they must be
+      # exactly 1..30, which is what "N concurrent callers get N distinct
+      # counts" actually means.
+      #
+      # Background failures are collected rather than discarded for the same
+      # reason: `wait` with output suppressed cannot distinguish 30 successes
+      # from 30 connection errors.
       - name: Concurrent callers get distinct counts
         run: |
+          set -euo pipefail
           psql -v ON_ERROR_STOP=1 -c "delete from rate_limits;"
+
+          out=$(mktemp -d)
           for i in $(seq 30); do
-            psql -tAq -c "select consume_rate_limit('ci-concurrent','caller',600,5);" &
+            ( psql -v ON_ERROR_STOP=1 -tAq \
+                -c "select consume_rate_limit('ci-concurrent','caller',600,5);" \
+                > "$out/$i" 2> "$out/$i.err" || echo "CLIENT_FAILED" > "$out/$i" ) &
           done
-          wait > /dev/null 2>&1
-          allowed=$(psql -tAq -c "select count(*) from rate_limits where bucket='ci-concurrent';")
-          total=$(psql -tAq -c "select coalesce(sum(count),0) from rate_limits where bucket='ci-concurrent';")
-          echo "rows=$allowed total=$total"
-          test "$allowed" = "1" || { echo "expected exactly one row, got $allowed"; exit 1; }
+          wait
+
+          if grep -l CLIENT_FAILED "$out"/* >/dev/null 2>&1; then
+            echo "a client failed:"; cat "$out"/*.err; exit 1
+          fi
+
+          got=$(cat "$out"/[0-9]* | sort -n | tr '\n' ' ')
+          want=$(seq 30 | tr '\n' ' ')
+          echo "counts: $got"
+          test "$got" = "$want" || {
+            echo "expected each concurrent caller to get a distinct count 1..30"
+            echo "  got:  $got"
+            echo "  want: $want"
+            exit 1
+          }
+
+          rows=$(psql -v ON_ERROR_STOP=1 -tAq -c "select count(*) from rate_limits where bucket='ci-concurrent';")
+          total=$(psql -v ON_ERROR_STOP=1 -tAq -c "select coalesce(sum(count),0) from rate_limits where bucket='ci-concurrent';")
+          echo "rows=$rows total=$total"
+          test "$rows" = "1" || { echo "expected exactly one row, got $rows"; exit 1; }
           test "$total" = "30" || { echo "expected 30 counted requests, got $total"; exit 1; }
