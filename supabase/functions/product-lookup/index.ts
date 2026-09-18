@@ -15,6 +15,10 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { guessTypeFromIngredients } from "../_shared/guess-type-from-ingredients.ts";
 import {
+  classifyBarcodeIdentity,
+  guessType,
+} from "../_shared/product-type-classifier.mjs";
+import {
   json,
   preflight,
   enforceRateLimit,
@@ -271,8 +275,6 @@ async function lookupBarcodeDb(barcode: string): Promise<Fetched | null> {
   const item = body?.items?.[0];
   if (!item?.title) return null;
 
-  const text = `${item.category ?? ""} ${item.title}`;
-
   // This source indexes every barcode there is, not just cosmetics, and it
   // returns no ingredients — so an unfiltered hit writes a row the app can
   // only ever render as "we know this product but not what's in it". The
@@ -281,12 +283,8 @@ async function lookupBarcodeDb(barcode: string): Promise<Fetched | null> {
   //
   // A miss is the better outcome: the user is told we don't have it and
   // offered the label-photo path, which works on anything.
-  if (!looksCosmetic(text)) return null;
-
-  const type = guessType([], text);
-  // A mask/patch hit needs more than the generic cosmetic check above —
-  // see hasSkincareContext's own comment for why.
-  if (MASK_OR_PATCH_TYPES.has(type) && !hasSkincareContext(text)) return null;
+  const type = classifyBarcodeIdentity(item.category ?? "", item.title);
+  if (!type) return null;
 
   return {
     product: {
@@ -428,284 +426,4 @@ function normalise(raw: string): string {
     .trim()
     .toLowerCase()
     .replace(/^[^a-z0-9]+|[^a-z0-9)]+$/g, "");
-}
-
-/**
- * Whether a barcode-database hit is plausibly a cosmetic at all.
- *
- * Positive evidence required, rather than a denylist of everything that is
- * not skincare — that list has no end, and the failure mode of guessing wrong
- * is a food product sitting in a skincare catalogue.
- *
- * One narrow, bounded exclusion sits ahead of that positive check: medical
- * and PPE items that also carry a cosmetic-sounding word of their own. A
- * surgical "Disposable 3-Ply Face Mask" matches on "face"; an "Nexcare
- * Opticlude Orthoptic Eye Patch" (lazy-eye therapy, not skincare) reaches
- * `guessType`'s own `eye-patch`/`face-mask` rules the same way. This generic
- * barcode database mixes cosmetics with every other kind of merchandise and
- * often categorises both under a broad "Health & Beauty", so the positive
- * check alone isn't enough for these two specific product families (found on
- * PR #129). Unlike the open-ended "not skincare" denylist this comment
- * already argues against, this one only needs to name the handful of medical
- * terms that collide with a real cosmetic word — nothing else needs
- * excluding, because nothing else passes the positive check by accident.
- */
-function looksCosmetic(text: string): boolean {
-  if (/disposable|surgical|\bn95\b|\bkn95\b|respirator|orthoptic|\bply\b|\bppe\b/i.test(text)) {
-    return false;
-  }
-  return /beauty|cosmetic|personal care|skin|face|facial|body care|hair care|lotion|cream|crème|creme|serum|cleanser|shampoo|toner|sunscreen|spf|balm|moisturi|nettoyant|reinigings|limpiador|crema/i
-    .test(text);
-}
-
-/** `guessType` results that need `hasSkincareContext` on top of `looksCosmetic`. */
-const MASK_OR_PATCH_TYPES = new Set(["face-mask", "eye-patch", "pimple-patch"]);
-
-/**
- * Extra evidence a mask/patch hit from the barcode database needs, on top of
- * `looksCosmetic` passing.
- *
- * "mask" and "patch" are the only two of this app's product families that
- * collide with ordinary medical devices and sleep accessories in plain
- * English — nothing else `guessType` produces has this problem. A "Reusable
- * Cloth Face Mask", a "Silk Sleep Eye Mask" and an "Amblyopia Eye Patch" are
- * none of them disposable, surgical or orthoptic, so `looksCosmetic`'s own
- * exclusion list doesn't catch them either (found on PR #129, second time).
- * Growing that denylist to name every non-skincare mask/patch is the same
- * open-ended list `looksCosmetic`'s own doc comment already argues against —
- * so this requires the opposite: affirmative skincare vocabulary, not just
- * the absence of a few known-medical words. English-only and not
- * exhaustive, like every other pattern in this file — extended only when a
- * real catalogue example is seen failing it.
- */
-// "cleans" (cleanser, cleansing, cleanse) added on top of the original
-// wordlist: a UPC hit like "Deep Cleansing Face Mask" carried none of the
-// other words and was wrongly rejected (found on PR #129, third round).
-// Narrow on purpose — no protective or PPE mask markets itself as
-// "cleansing", so this doesn't reopen the gap this function exists to
-// close. "mud"/"charcoal"/"purif(y)"/"detox" added for the same reason:
-// "Purifying Mud Face Mask" and "Charcoal Face Mask" carried none of the
-// original words either (found on PR #129, fifth round) — none of these
-// collide with protective/PPE mask wording any more than "cleans" does.
-// Unlike those, though, "mud"/"charcoal"/"purif" alone genuinely are
-// ambiguous with a literal air/pollution-filter mask: "Air-Purifying Face
-// Mask" passed on bare "purif" with no way to tell it apart from a real
-// "Purifying Clay Mask" (found on PR #129, seventh round). So those three
-// only count when the title doesn't also carry air-filter/pollution
-// wording; "cleans"/"detox" and the rest of the wordlist are unconditional.
-function hasSkincareContext(text: string): boolean {
-  const unconditional =
-    /hydrogel|collagen|skin.?care|cosmetic|k-?beauty|korean|\bsheet\b|\bclay\b|blemish|acne|pimple|hyaluronic|serum|under.?eye|moistur|hydrat|brighten|exfoliat|vitamin|retinol|niacinamide|\bpeel\b|essence|cleans|detox/i
-      .test(text);
-  const ambiguousMaskWord = /\bmud\b|charcoal|purif/i.test(text);
-  const airFilterContext = /\bair\b|filter|pollution|\bpm2\.5\b|\bdust\b|smog|respirat/i.test(text);
-  return unconditional || (ambiguousMaskWord && !airFilterContext);
-}
-
-/**
- * Best-effort mapping onto our product types. Falls back to "unknown" rather
- * than inventing a type — see the comment at the bottom of this function for
- * why a wrong specific guess is worse than an honest "we don't know". The
- * browse filter bar is driven by this same closed set (`ProductType`).
- *
- * The patterns were English-only, and this catalogue is not: "CeraVe
- * Schuimende Reinigingsgel", "nettoyant moussant visage" and "Huile lavante
- * Lipikar" are all cleansers that fell through to "serum", which then scored
- * them as leave-on (contact weight 1.0 instead of 0.25) and overstated both
- * their actives and their irritants. The added terms are the ones that
- * actually appear on labels in this catalogue's languages. The 16 patterns
- * below "hand-cream" follow the same rule: English-only until a real
- * catalogue entry is seen failing in another language — not translated
- * preemptively.
- *
- * Ordering matters — earlier entries win, so anything that could be mistaken
- * for a broader pattern further down has to come first. Two cases mattered
- * enough to call out: "body butter" used to fall into `body-lotion`'s
- * `butter` alternative, so that's been removed from `body-lotion` now that
- * `body-butter` is its own type and checked first; and `eye-cream` /
- * `night-mask` / `foot-cream` all contain "cream" and have to be checked
- * before the generic `moisturizer` catch-all or they'd never be reached.
- * `micellar-water` sits directly above the generic cleanser rule for the
- * same reason — it used to be one of that rule's own alternatives, and a
- * bare word match can't tell "micellar" and "foam" apart once they're
- * merged into one pattern.
- */
-function guessType(tags: string[], text: string): string {
-  const haystack = `${tags.join(" ")} ${text}`.toLowerCase();
-  const table: [RegExp, string][] = [
-    [/hand.?cream|crème mains|handcreme/, "hand-cream"],
-    [/eye[\s-]?cream/, "eye-cream"],
-    [/body.?butter/, "body-butter"],
-    [/body.?(wash|gel)|shower|douche|duschgel/, "body-wash"],
-    [/body.?scrub|body.?exfoliat/, "body-scrub"],
-    [/body.?(lotion|milk)|body ?lotion|lait corporel/, "body-lotion"],
-    [/foot[\s-]?(cream|balm)/, "foot-cream"],
-    // Above the sunscreen rule on purpose: "Lip Balm SPF 15" is a lip balm,
-    // and `spf` below would otherwise claim it first.
-    // "lèvres" (fr), "dudak" (tr), "губ" (ru/uk) — all seen failing for real.
-    [/lip[\s-]?(balm|butter|care)|l[èe]vres|dudak|губ/, "lip-balm"],
-    // Both above the cleanser rule: "Deep Cleansing Shampoo" carries both
-    // words, and tags and name share one haystack, so `cleansing` would take
-    // it even when the row is tagged `en:shampoos`.
-    [/shampoo/, "shampoo"],
-    // Not a bare `conditioner`: "Skin Conditioner" is a face product, and it
-    // was being given the hair-conditioner label and illustration.
-    [/(?<!skin[\s-])conditioner/, "conditioner"],
-    // Every mask and patch rule sits above the cleanser rule below on
-    // purpose: "Deep Cleansing Mask", "Masque nettoyant" (fr) and "Maschera
-    // detergente" (it) all carry a cleanser word too, and cleanser used to
-    // win first — discounting these products' ingredients to rinse-off
-    // weight (0.25) when the intended weight is 1 (found on PR #129).
-    // "mask"/"pad" both included: an under-eye "eye mask" is the same
-    // hydrogel-patch product as an "eye patch" in real skincare naming, not a
-    // face mask — must sit before the generic face-mask fallback below. Up
-    // to two descriptor words are also allowed between "eye" and the format
-    // word (mirroring the pimple-patch rule below): "Eye Gel Mask" and "Eye
-    // Firming Sheet Patch" were falling through to the generic face-mask
-    // rule and losing their full benefit weight (found on PR #129, second
-    // round). The tight zero/one-separator form stays first so a
-    // one-word compound like "eyepatch" still matches. "pad" is excluded
-    // from the descriptor-bearing branch: unlike "patch"/"mask" it's not
-    // unambiguous, and allowing filler words before it let "Gentle Eye
-    // Cleansing Pads" — a rinse/wipe-off makeup-remover pad, not a leave-on
-    // patch — match as eye-patch instead of falling through to cleanser
-    // (found on PR #129, fifth round). The tight form still covers "Eye Pad
-    // Mask Paradise Punch" without it. Even the tight bare-"pad" form on its
-    // own was still too permissive: "Cleansing Eye Pads" and "Eye Pads
-    // Makeup Remover" have "eye" and "pad" directly adjacent with no
-    // descriptor in between, so they matched too (found on PR #129, seventh
-    // round). "patch"/"mask" aren't ambiguous this way, only "pad" is, so
-    // it gets its own whole-string exclusion for cleansing/remover context,
-    // same technique the face-mask exclusion below already uses.
-    [/eye(?:[\s-]?(?:patch|mask)|(?:[\s-]+\w+){1,2}[\s-]+(?:patch|mask))|^(?!.*(?:cleans|remov|makeup|cotton)).*eye[\s-]?pad/, "eye-patch"],
-    // Up to two descriptor words are allowed between the acne/pimple/
-    // blemish word and "patch" — real products are marketed this way, and
-    // neither "acne" nor "pimple" alone reached "patch" without this
-    // (COSRX's "Acne Pimple Master Patch" is the best-known real example,
-    // found on PR #129). "patch" stays mandatory, so a bare "Blemish Balm
-    // Cream" (a BB cream) or "Pimple Spot Gel" still doesn't match. No bare
-    // "hydrocolloid" alternative: that matched a wound/blister dressing with
-    // no acne context at all (e.g. from the UPC barcode-database fallback,
-    // found on PR #129) — "hydrocolloid" is still recognised when it appears
-    // near an acne word, just as one of the allowed filler words. "spot" is
-    // not one of the trigger words: "Dark Spot Corrector Patch" is a real,
-    // distinct hyperpigmentation category, not an acne patch, and a bare
-    // "spot" wrongly claimed it (found on PR #129). "spot" still works as a
-    // filler word, so "Acne Spot Patch" still resolves via the "acne" trigger.
-    [/(?:pimple|blemish|acne)(?:[\s-]+\w+){0,2}[\s-]+patch/, "pimple-patch"],
-    // "sleeping"/"overnight" mask, not a bare "night cream" — that's a real
-    // moisturizer, not the K-beauty sleep-mask category. Up to two
-    // descriptor words allowed before "mask", same reasoning and same fix as
-    // eye-patch above: "Overnight Face Mask" was falling through to the
-    // generic face-mask rule (found on PR #129, second round). "hair" and
-    // "sheet" are excluded from the filler-word slot: they're not generic
-    // descriptors, they're the other specific mask rules' own trigger
-    // words, and since this rule sits above both of them, "Overnight Hair
-    // Mask"/"Overnight Sheet Mask" were winning here first instead of
-    // falling through to hair-mask/sheet-mask (found on PR #129, sixth
-    // round).
-    [/(sleeping|night|overnight)(?:[\s-]?mask|(?:[\s-]+(?!hair\b|sheet\b)\w+){1,2}[\s-]+mask)/, "night-mask"],
-    // Same descriptor-word gap fix as night-mask above: "Hydrating Sheet
-    // Face Mask" was falling through (found on PR #129, second round). Also
-    // matches the reversed "mask ... sheet" order — "Face Mask Sheet" and
-    // "Compressed Facial Mask Sheet" were falling all the way through to
-    // the generic face-mask rule (found on PR #129, seventh round). Tight
-    // adjacency only in the reversed direction, no descriptor tolerance —
-    // not evidenced by either example, unlike the forward direction above.
-    [/sheet(?:[\s-]?mask|(?:[\s-]+\w+){1,2}[\s-]+mask)|mask[\s-]?sheet/, "sheet-mask"],
-    // Same descriptor-word gap fix: "Argan Repair Hair Mask" was falling
-    // through to the generic face-mask rule, same bug class as the three
-    // rules above even though Codex's report only named those three.
-    [/hair(?:[\s-]?mask|(?:[\s-]+\w+){1,2}[\s-]+mask)/, "hair-mask"],
-    // The generic clay/cream jar — "Maske", "Maschera", "masque",
-    // "mascarilla" — that none of the three specific mask rules above catch.
-    // Started from the same multilingual base `guess-type-from-ingredients.mjs`'s
-    // MASK_NAME_PATTERN already used (issue #105), since diverged: this rule
-    // asserts a specific type and so carries extra exclusions
-    // MASK_NAME_PATTERN doesn't need, because that function only asks "is
-    // this any kind of mask" to skip an unrelated serum heuristic — a hair,
-    // foot, hand or lip mask should skip that heuristic too. Excludes hair ("hair"
-    // itself, plus the French/Italian/Spanish/German words — "capillaire"
-    // and the Italian variant "capillare" as well as "capelli" — since
-    // "Hair Masque" uses the French loanword spelling and so never reaches
-    // the hair-mask rule above) and the other body-part masks ("Foot Mask",
-    // "Hand Mask", "Lip Mask") this generic rule has no business claiming —
-    // all found on PR #129. Each stays honestly unknown rather than being
-    // asserted as a face mask, same principle as the hair-mask exclusion.
-    // The same gap existed for French/Spanish/Italian body-part words once
-    // Codex looked past the English ones a second time: "mains" (fr, hands),
-    // "pieds" (fr, feet), "pies" (es, feet), "labbra" (it, lips), "cheveux"
-    // (fr, hair) — added for the same reason as their English counterparts.
-    [/^(?!.*(?:\bhair\b|capillaire|capillare|capelli|capilar|haar|\bfoot\b|\bhand\b|\blip\b|\bmains\b|\bpieds\b|\bpies\b|\blabbra\b|\bcheveux\b)).*(?:\bmask(?=[eis]|\b)|\bmaschera|\bmasque|\bmascarilla)/, "face-mask"],
-    // Above the generic cleanser rule: a micellar water is wiped off, not
-    // rinsed, so it needs its own type rather than falling into `cleanser`'s
-    // rinse-off discount (step 13, PR #130). Requiring "water" alongside
-    // "micellar" was not enough on its own — Codex found real rinse-off
-    // names that carry both words without being adjacent, e.g. "Micellar
-    // Water Foaming Cleanser" or "Water Boost Micellar Facial Gel Wash" — so
-    // this also excludes any name that carries an explicit rinse-off format
-    // word. A name excluded here that also fails to match the generic
-    // cleanser rule below falls through to "unknown" rather than being
-    // force-typed — the safe outcome, since "unknown" is the same
-    // conservative-benefit/full-harm fail-safe this table already uses
-    // everywhere else. English-only, like every other pattern in this table
-    // until a real catalogue entry is seen failing in another language — no
-    // such entry has been seen yet for this one.
-    //
-    // The leading `^` is load-bearing, not decorative. Every clause here is
-    // a zero-width lookahead — nothing is actually consumed — so an
-    // unanchored `.test()` doesn't just check the string once: on failure at
-    // position 0 it retries at position 1, then 2, and so on, and the
-    // negative lookahead only ever looks *forward* from wherever it's
-    // currently standing. For "Foaming Micellar Water" that means a retry
-    // starting right after "Foaming" sees "Micellar Water" with no
-    // exclusion word ahead of it, and matches anyway — the exclusion word
-    // was real, it was just behind the scan position instead of ahead of
-    // it. Codex caught this with the reverse ordering of the names already
-    // fixed above. `^` pins the check to a single evaluation from the true
-    // start of the string, so "carries an excluded word anywhere" is what
-    // it actually tests, regardless of which side of "micellar"/"water"
-    // that word falls on.
-    //
-    // `\bcleanser\b` rather than a bare substring: `hay` is tags *and* name
-    // joined, and OBF's own `en:cleansers` category tag — the one this
-    // importer already pulls under, and the one a real micellar water is
-    // plausibly tagged with — contains "cleanser" as a substring of
-    // "cleansers". An unbounded match excluded every micellar water carrying
-    // that tag, which every "Cleansing Micellar Water" test case below does.
-    // The other words stay unbounded on purpose: "foam" has to keep matching
-    // inside "Foaming" the same way the generic cleanser rule below already
-    // does, and none of OBF's real category tags collide with them the way
-    // "cleansers" collides with "cleanser".
-    [
-      /^(?=.*micellar)(?=.*water)(?!.*(\bcleanser\b|foam|wash|gel|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet))/,
-      "micellar-water",
-    ],
-    [
-      // nettoyant/lavant (fr), reinigings/schuimende (nl), limpiador (es),
-      // detergente (it), waschgel (de) — plus "huile lavante", a washing oil.
-      /cleanser|foam|cleansing|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
-      "cleanser",
-    ],
-    [/sun|spf|uv|solaire|zonnebrand/, "sunscreen"],
-    [/toner|tonic|lotion tonique/, "toner"],
-    [/essence/, "essence"],
-    [/ampoule/, "ampoule"],
-    [/(facial|face)[\s-]?oil/, "facial-oil"],
-    [/hair[\s-]?oil/, "hair-oil"],
-    [/serum|sérum/, "serum"],
-    [/perfume|eau de (parfum|toilette)/, "perfume"],
-    [/(facial|face)[\s-]?mist/, "facial-mist"],
-    [/deodorant|antiperspirant/, "deodorant"],
-    // No "peel pad" here: a known leave-on acid pad should not receive the
-    // ambiguous exfoliator benefit discount. It falls through to the
-    // ingredient rule instead, which types it "serum" — full weight.
-    [/exfoliat|scrub/, "exfoliator"],
-    [/cream|moisturi[sz]er|lotion|emulsion|crème|creme|crema|gezichtscrème/, "moisturizer"],
-  ];
-  for (const [pattern, type] of table) if (pattern.test(haystack)) return type;
-  // Was "serum" — a wrong specific guess reads as more true than an honest
-  // "we don't know", which is how a barcode-identified foot cream (title text
-  // that matched none of the patterns above) got shown as a Serum on screen.
-  return "unknown";
 }

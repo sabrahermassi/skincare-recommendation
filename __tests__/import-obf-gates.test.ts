@@ -189,10 +189,9 @@ describe("the parser matches lib/inci.ts", () => {
 });
 
 /**
- * `guessType` is a first-match table, so both what it matches and the order it
- * matches in are load-bearing. Every case below is one a review caught going
- * the wrong way. Keep in step with the identical table in
- * `supabase/functions/product-lookup/index.ts`.
+ * `guessType` is shared by the importer and Edge Function. Specific formats
+ * and exclusions still have deliberate precedence, and every case below is a
+ * regression a review caught before the classifier was consolidated.
  */
 describe("guessType", () => {
   it("reads hyphenated OBF category tags, not just spaced names", () => {
@@ -408,6 +407,23 @@ describe("guessType", () => {
     expect(guessType([], "Overnight Sheet Mask")).toBe("sheet-mask");
     // A genuinely generic descriptor still resolves to night-mask.
     expect(guessType([], "Overnight Face Mask")).toBe("night-mask");
+  });
+
+  it.each([
+    "Overnight Foot Mask",
+    "Sleeping Hand Mask",
+    "Overnight Lip Mask",
+    "Sleeping Body Mask",
+    "Overnight Neck Mask",
+  ])("keeps a body-part mask out of the face-oriented night-mask type: %s", (name: string) => {
+    expect(guessType([], name)).toBe("unknown");
+  });
+
+  it("classifies mask tags independently from unrelated broad category tags", () => {
+    expect(guessType(["en:hair-care", "en:face-masks"], "Brand X")).toBe("face-mask");
+    expect(guessType(["en:skin-care", "en:hair-masks"], "Brand X")).toBe("hair-mask");
+    expect(guessType(["en:face-masks"], "Overnight Hair Mask")).toBe("hair-mask");
+    expect(guessType(["en:face-masks"], "Overnight Foot Mask")).toBe("unknown");
   });
 
   // Codex found this on the seventh review round of PR #129: the bare tight

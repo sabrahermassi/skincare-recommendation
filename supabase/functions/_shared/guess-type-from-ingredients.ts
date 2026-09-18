@@ -1,11 +1,11 @@
 // The Deno half of the ingredient-based type fallback, tried only once
 // `guessType` (name/tags) has already returned "unknown".
 //
-// Keep in step with `scripts/lib/guess-type-from-ingredients.mjs` — the two
-// run on different runtimes (Deno here, Node there) so they cannot share a
-// module, exactly like `guessType` itself. A product typed one way at import
-// and another way on a live scan is a real inconsistency, not a cosmetic one:
-// `contactWeight` reads the result.
+// Keep in step with `scripts/lib/guess-type-from-ingredients.mjs`. Unlike this
+// formula fallback, the primary name/tag classifier is now one runtime-neutral
+// ESM module shared by Node and Deno. A product typed one way at import and
+// another way on a live scan is a real inconsistency: `contactWeight` reads
+// the result.
 //
 // Why these two rules and no others, in short (the Node copy carries the full
 // history): a product named after its active ingredient ("Lactic Acid 10%")
