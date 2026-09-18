@@ -398,7 +398,7 @@ function deleteTempFile(uri: string | undefined) {
  * usefully be pointed at it. Found in review on #121.
  */
 function failureCopy(
-  reason: "not_configured" | "unreadable" | "too_little_text" | "rate_limited",
+  reason: "not_configured" | "server_unavailable" | "unreadable" | "too_little_text" | "rate_limited",
   hasBarcode: boolean,
 ) {
   switch (reason) {
@@ -413,16 +413,22 @@ function failureCopy(
         hint: "Give it a few minutes and try again.",
       };
     case "not_configured":
-      // Two unrelated causes share this one reason: `analyseLabel` in
-      // `data/api.ts` returns it both when the app itself has no Supabase
-      // credentials configured (no request ever left the device) and when
-      // the server answers 503 because the Vision API key isn't set. Naming
-      // either one specifically here would misdiagnose the other — see
-      // issue #96 and the review that caught this on #121.
-      console.warn(
-        "[scan-label] label-ocr returned not_configured — either this app has no Supabase " +
-          "credentials configured, or the server's Vision API key is unset",
-      );
+      // This install has no Supabase credentials at all — see
+      // `LabelAnalysis`'s comment in `data/api.ts`. Permanent for this
+      // build, so no "temporarily" and no "try again" — a retry takes
+      // exactly the same path every time.
+      console.warn("[scan-label] label-ocr not available: this app has no Supabase credentials configured");
+      return {
+        message: "Label reading isn't available in this build.",
+        hint: hasBarcode
+          ? "Look the product up in Browse instead."
+          : "Try the barcode instead, or look the product up in Browse.",
+      };
+    case "server_unavailable":
+      // The server answered 503 because its Vision API key is unset — an
+      // ops problem, genuinely temporary and worth retrying later, unlike
+      // `not_configured` above. Kept out of the user-facing copy per #96.
+      console.warn("[scan-label] label-ocr unavailable: server's Vision API key is unset");
       return {
         message: "Label reading is temporarily unavailable.",
         hint: hasBarcode
