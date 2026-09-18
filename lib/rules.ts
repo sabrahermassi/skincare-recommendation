@@ -710,8 +710,17 @@ const EXPOSURE_BY_TYPE: Record<ProductType, number> = {
   conditioner: 1,
   "hair-mask": 1,
   shampoo: 1,
+  // Same ambiguity as the four above: a clay mask is rinsed after ~15
+  // minutes, a cream mask often isn't, and nothing in a name or tag tells
+  // them apart. Issue #105.
+  "face-mask": 1,
   // Not ambiguous, just not rinsed: a sheet mask's essence is patted in.
   "sheet-mask": 1,
+  // Same as sheet-mask — worn, then peeled off, never rinsed. Scored
+  // identically to each other on purpose (issue #105): browsing wants them
+  // separate, scoring doesn't.
+  "eye-patch": 1,
+  "pimple-patch": 1,
   toner: 1,
   essence: 1,
   serum: 1,

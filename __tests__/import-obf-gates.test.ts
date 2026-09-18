@@ -237,4 +237,30 @@ describe("guessType", () => {
     // Physical scrubs, which really are rinsed off, still land there.
     expect(guessType([], "Apricot Face Scrub")).toBe("exfoliator");
   });
+
+  // Issue #105's own real examples, seen typing as "unknown" before these
+  // patterns existed.
+  it("types a generic clay/cream mask as face-mask, in any of the languages seen so far", () => {
+    expect(guessType([], "Glass Skin Collagen Maske")).toBe("face-mask");
+    expect(guessType([], "Maschera Viso Purificante")).toBe("face-mask");
+  });
+
+  it("prefers eye-patch over the generic face-mask rule even when the name says mask", () => {
+    expect(guessType([], "Eye Pad Mask Paradise Punch")).toBe("eye-patch");
+    expect(guessType([], "Dear Klairs Blue Caffeine Full Cover Eye patch")).toBe("eye-patch");
+  });
+
+  it("types a pimple/hydrocolloid patch as pimple-patch", () => {
+    expect(guessType([], "Hydrocolloid Blemish Care Pimple Patches")).toBe("pimple-patch");
+    expect(guessType([], "Acne Spot Patch")).toBe("pimple-patch");
+  });
+
+  it("does not call a BB cream or a spot-treatment serum a pimple patch just for saying blemish/pimple", () => {
+    // A bare `blemish`/`pimple` match (no `patch` qualifier) used to also
+    // claim these — "Blemish Balm" is the literal expansion of "BB cream", a
+    // real and common Korean-beauty category, not a patch at all.
+    expect(guessType([], "Blemish Balm Cream")).toBe("moisturizer");
+    expect(guessType([], "Anti-Blemish Gel")).not.toBe("pimple-patch");
+    expect(guessType([], "Pimple Spot Gel")).not.toBe("pimple-patch");
+  });
 });

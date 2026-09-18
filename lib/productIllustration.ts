@@ -30,10 +30,13 @@ import type { ProductType } from "@/data/types";
  * | body-lotion | bottle-body-lotion.png |
  * | hand-cream | bottle-hand-cream.png |
  *
- * The source set had 18 icons with no `ProductType` of their own; 16 are now
- * wired in below. `pressed-powder` and `nail-file` were deliberately left
+ * The source set had 18 icons with no `ProductType` of their own; 16 were
+ * wired in first. `pressed-powder` and `nail-file` were deliberately left
  * out — neither is a formula with an ingredient list to judge, so neither
- * fits this app's scoring model.
+ * fits this app's scoring model. Three more — `face-mask`, `eye-patch`,
+ * `pimple-patch` — were added to the source set and wired in for issue #105,
+ * resized to match the rest (the originals arrived at ~2300px on the long
+ * edge; everything else here is ~800px).
  *
  * `unknown` (a product whose type genuinely couldn't be determined — see
  * `data/types.ts`) deliberately does NOT get one of the new labeled icons:
@@ -73,6 +76,9 @@ const CONTAINER_BY_TYPE: Record<ProductType, string> = {
   "body-butter": "bottle-body-butter.png",
   "body-scrub": "bottle-body-scrub.png",
   "foot-cream": "bottle-foot-cream.png",
+  "face-mask": "bottle-face-mask.png",
+  "eye-patch": "bottle-eye-patch.png",
+  "pimple-patch": "bottle-pimple-patch.png",
   unknown: FALLBACK,
 };
 
@@ -133,6 +139,9 @@ export const ILLUSTRATION_SOURCE: Record<string, number> = {
   "bottle-body-butter.png": require("@/assets/illustrations/bottle-body-butter.png"),
   "bottle-body-scrub.png": require("@/assets/illustrations/bottle-body-scrub.png"),
   "bottle-foot-cream.png": require("@/assets/illustrations/bottle-foot-cream.png"),
+  "bottle-face-mask.png": require("@/assets/illustrations/bottle-face-mask.png"),
+  "bottle-eye-patch.png": require("@/assets/illustrations/bottle-eye-patch.png"),
+  "bottle-pimple-patch.png": require("@/assets/illustrations/bottle-pimple-patch.png"),
   "bottle-pump.png": require("@/assets/illustrations/bottle-pump.png"),
 };
 

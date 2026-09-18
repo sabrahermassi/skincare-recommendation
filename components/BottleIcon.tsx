@@ -36,6 +36,11 @@ export function defaultPackagingType(type: ProductType): PackagingType {
     case "body-scrub":
     case "foot-cream":
     case "lip-balm":
+    // No shape drawn on this axis any more (see the file header) — grouped
+    // with the other jars as the closest fit.
+    case "face-mask":
+    case "eye-patch":
+    case "pimple-patch":
       return "cream-jar";
     case "sunscreen":
       return "sunscreen";

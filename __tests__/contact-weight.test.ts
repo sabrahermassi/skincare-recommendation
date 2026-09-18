@@ -59,17 +59,26 @@ describe("contactWeight", () => {
     }
   });
 
-  it.each(["exfoliator", "conditioner", "hair-mask", "shampoo"] as ProductType[])(
+  it.each(["exfoliator", "conditioner", "hair-mask", "shampoo", "face-mask"] as ProductType[])(
     "gives %s full weight, because the type spans both exposures",
     (type: ProductType) => {
       // A physical scrub and a leave-on acid liquid, a rinse-out and a
       // leave-in conditioner, a hair mask rinsed after twenty minutes and one
       // left in overnight, a rinse-out shampoo and a dry shampoo sprayed in
-      // and left — nothing separates them, so each follows the same rule as
-      // `unknown`.
+      // and left, a clay mask rinsed after minutes and a cream mask that
+      // often isn't — nothing separates them, so each follows the same rule
+      // as `unknown`.
       expect(contactWeight(type)).toBe(1);
     },
   );
+
+  it("scores eye-patch and pimple-patch the same as each other and as sheet-mask", () => {
+    // Not ambiguous like face-mask above — a patch is worn, then peeled off,
+    // never rinsed. Kept as separate types for browsing/labeling, but scored
+    // identically on purpose (issue #105).
+    expect(contactWeight("eye-patch")).toBe(contactWeight("pimple-patch"));
+    expect(contactWeight("eye-patch")).toBe(contactWeight("sheet-mask"));
+  });
 
   // The bug this replaced: `EXPOSURE_BY_TYPE[type]` with no fallback returned
   // `undefined` for a value not in the table, which would have turned every

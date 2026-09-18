@@ -490,6 +490,16 @@ function guessType(tags: string[], text: string): string {
     [/toner|tonic|lotion tonique/, "toner"],
     [/essence/, "essence"],
     [/ampoule/, "ampoule"],
+    // Both above the mask rules below: "Eye Pad Mask Paradise Punch" and
+    // "Purifying Clay Mask" both contain "mask", but a patch is a patch
+    // whatever else is printed on the pouch. English-only for now, same rule
+    // as every other pattern here.
+    [/eye[\s-]?(patch|pad)/, "eye-patch"],
+    // Bare `pimple`/`blemish`, with no `patch` qualifier, would also claim
+    // "Blemish Balm Cream" (a BB cream — a real, common category, not a
+    // patch) and any "Anti-Blemish"/"Pimple Gel" spot treatment. Both need
+    // the same qualifier `acne`/`spot` already carry.
+    [/pimple[\s-]?patch|blemish[\s-]?patch|acne[\s-]?patch|spot[\s-]?patch|hydrocolloid/, "pimple-patch"],
     // All of these sit above the bare `serum` rule: a "serum sheet mask" or a
     // "serum hair mask" is the specific thing, and `serum` would take it.
     // "sleeping"/"overnight" mask, not a bare "night cream" — that's a real
@@ -497,6 +507,12 @@ function guessType(tags: string[], text: string): string {
     [/(sleeping|night|overnight)[\s-]?mask/, "night-mask"],
     [/sheet[\s-]?mask/, "sheet-mask"],
     [/hair[\s-]?mask/, "hair-mask"],
+    // The generic clay/cream jar — "Maske", "Maschera", "masque",
+    // "mascarilla" — none of the three specific mask rules above catch.
+    // Issue #105: this repeats the multilingual pattern
+    // `_shared/guess-type-from-ingredients.ts`'s MASK_NAME_PATTERN already
+    // used, now that a real type exists for it. Must sit after those three.
+    [/\bmask(?=[eis]|\b)|\bmaschera|\bmasque|\bmascarilla/, "face-mask"],
     [/(facial|face)[\s-]?oil/, "facial-oil"],
     [/hair[\s-]?oil/, "hair-oil"],
     [/serum|sérum/, "serum"],

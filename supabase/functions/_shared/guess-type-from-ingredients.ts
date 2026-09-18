@@ -66,8 +66,10 @@ const SHORT_INGREDIENT_LIST_MAX = 20;
 
 /**
  * A clay/mud mask carrying an acid active reads exactly like an acid serum by
- * ingredients alone, and there is no ProductType for a generic mask (issue
- * #105), so the honest answer for one is "unknown". The lookahead keeps
+ * ingredients alone. `guessType` now has its own generic "face-mask" rule
+ * using this same pattern (issue #105), so the normal pipeline never reaches
+ * this fallback for a mask-named product — this guard is a defense-in-depth
+ * backstop for when the function is called standalone. The lookahead keeps
  * "maskara" (Turkish for mascara) out.
  */
 const MASK_NAME_PATTERN = /\bmask(?=[eis]|\b)|\bmaschera|\bmasque|\bmascarilla/i;
