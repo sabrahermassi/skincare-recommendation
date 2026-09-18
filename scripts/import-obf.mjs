@@ -454,16 +454,20 @@ function guessType(tags, text) {
     // face mask — must sit before the generic face-mask fallback below.
     [/eye[\s-]?(patch|pad|mask)/, "eye-patch"],
     // Up to two descriptor words are allowed between the acne/pimple/
-    // blemish/spot word and "patch" — real products are marketed this way,
-    // and neither "acne" nor "pimple" alone reached "patch" without this
+    // blemish word and "patch" — real products are marketed this way, and
+    // neither "acne" nor "pimple" alone reached "patch" without this
     // (COSRX's "Acne Pimple Master Patch" is the best-known real example,
     // found on PR #129). "patch" stays mandatory, so a bare "Blemish Balm
     // Cream" (a BB cream) or "Pimple Spot Gel" still doesn't match. No bare
     // "hydrocolloid" alternative: that matched a wound/blister dressing with
     // no acne context at all (e.g. from the UPC barcode-database fallback,
     // found on PR #129) — "hydrocolloid" is still recognised when it appears
-    // near an acne word, just as one of the allowed filler words.
-    [/(?:pimple|blemish|acne|spot)(?:[\s-]+\w+){0,2}[\s-]+patch/, "pimple-patch"],
+    // near an acne word, just as one of the allowed filler words. "spot" is
+    // not one of the trigger words: "Dark Spot Corrector Patch" is a real,
+    // distinct hyperpigmentation category, not an acne patch, and a bare
+    // "spot" wrongly claimed it (found on PR #129). "spot" still works as a
+    // filler word, so "Acne Spot Patch" still resolves via the "acne" trigger.
+    [/(?:pimple|blemish|acne)(?:[\s-]+\w+){0,2}[\s-]+patch/, "pimple-patch"],
     // "sleeping"/"overnight" mask, not a bare "night cream" — that's a real
     // moisturizer, not the K-beauty sleep-mask category.
     [/(sleeping|night|overnight)[\s-]?mask/, "night-mask"],
@@ -484,7 +488,11 @@ function guessType(tags, text) {
     // "Hand Mask", "Lip Mask") this generic rule has no business claiming —
     // all found on PR #129. Each stays honestly unknown rather than being
     // asserted as a face mask, same principle as the hair-mask exclusion.
-    [/^(?!.*(?:\bhair\b|capillaire|capillare|capelli|capilar|haar|\bfoot\b|\bhand\b|\blip\b)).*(?:\bmask(?=[eis]|\b)|\bmaschera|\bmasque|\bmascarilla)/, "face-mask"],
+    // The same gap existed for French/Spanish/Italian body-part words once
+    // Codex looked past the English ones a second time: "mains" (fr, hands),
+    // "pieds" (fr, feet), "pies" (es, feet), "labbra" (it, lips), "cheveux"
+    // (fr, hair) — added for the same reason as their English counterparts.
+    [/^(?!.*(?:\bhair\b|capillaire|capillare|capelli|capilar|haar|\bfoot\b|\bhand\b|\blip\b|\bmains\b|\bpieds\b|\bpies\b|\blabbra\b|\bcheveux\b)).*(?:\bmask(?=[eis]|\b)|\bmaschera|\bmasque|\bmascarilla)/, "face-mask"],
     // Above the generic cleanser rule: a micellar water is wiped off, not
     // rinsed, so it needs its own type rather than falling into `cleanser`'s
     // rinse-off discount (step 13, PR #130). Requiring "water" alongside

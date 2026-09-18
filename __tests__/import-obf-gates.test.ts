@@ -316,6 +316,16 @@ describe("guessType", () => {
     expect(guessType([], "Pimple Spot Gel")).not.toBe("pimple-patch");
   });
 
+  it("does not call a dark-spot corrector a pimple patch just for saying spot", () => {
+    // "spot" alone used to be a trigger word, so a hyperpigmentation product
+    // — a real, distinct skincare category, nothing to do with acne — was
+    // wrongly typed and scored as a pimple patch (found on PR #129). "spot"
+    // still works as a filler word between an acne word and "patch", so the
+    // existing "Acne Spot Patch"/"Acne Spot Healing Patch" cases are
+    // unaffected.
+    expect(guessType([], "Dark Spot Corrector Patch")).not.toBe("pimple-patch");
+  });
+
   // Codex found all three of these on PR #129.
   it("prefers every mask and patch rule over the cleanser catch-all", () => {
     expect(guessType([], "Deep Cleansing Mask")).toBe("face-mask");
@@ -323,7 +333,7 @@ describe("guessType", () => {
     expect(guessType([], "Maschera detergente purificante")).toBe("face-mask");
   });
 
-  it("allows descriptor words between the acne/pimple/spot word and patch", () => {
+  it("allows descriptor words between the acne/pimple/blemish word and patch", () => {
     // COSRX's real product name — neither "acne" nor "pimple" alone reached
     // "patch" without this.
     expect(guessType([], "Acne Pimple Master Patch")).toBe("pimple-patch");
@@ -352,5 +362,15 @@ describe("guessType", () => {
     expect(guessType([], "Purifying Foot Mask")).not.toBe("face-mask");
     expect(guessType([], "Hydrating Hand Mask")).not.toBe("face-mask");
     expect(guessType([], "Moisture Lip Mask")).not.toBe("face-mask");
+  });
+
+  // Codex found all four of these on the third review round of PR #129 —
+  // the same body-part-exclusion gap as the English one above, just in
+  // French, Spanish and Italian.
+  it("stays unknown for a French, Spanish or Italian hand/foot/lip/hair mask", () => {
+    expect(guessType([], "Masque pour les mains")).not.toBe("face-mask");
+    expect(guessType([], "Mascarilla para pies")).not.toBe("face-mask");
+    expect(guessType([], "Maschera labbra")).not.toBe("face-mask");
+    expect(guessType([], "Masque pour cheveux")).not.toBe("face-mask");
   });
 });
