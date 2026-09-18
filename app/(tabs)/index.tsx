@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -14,6 +14,7 @@ import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { COLORS } from "@/lib/colors";
+import { profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SCANNER_FRAME, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 
@@ -123,6 +124,18 @@ export default function Scan() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const recordView = useAppStore((s) => s.recordView);
+  const justFinishedQuiz = useAppStore((s) => s.justFinishedQuiz);
+  const dismissQuizAcknowledgement = useAppStore((s) => s.dismissQuizAcknowledgement);
+  const profile = useAppStore((s) => s.profile);
+
+  // `profileSummary`'s capitalized-noun-phrase shape reads oddly mid-sentence
+  // — browse.tsx's "Ranked for …" line has the same issue and lowercases it
+  // for the same reason. A quiz finished with every question left unanswered
+  // still has something to acknowledge, just not a summary.
+  const profileSummaryText = profileSummary(profile);
+  const quizAcknowledgementText = profileSummaryText
+    ? `Set for ${profileSummaryText.toLowerCase()}. Scan anything to see how it fits.`
+    : "Profile set. Scan anything to see how it fits.";
 
   const busy = useRef(false);
 
@@ -176,6 +189,10 @@ export default function Scan() {
     async (data: string) => {
       if (busy.current) return;
       busy.current = true;
+      // A scan starting is a stronger signal that the quiz banner was seen
+      // than any timer would be, and this is the one place every barcode
+      // read passes through. See issue #95.
+      dismissQuizAcknowledgement();
       setStatus({ kind: "looking", code: data });
 
       // `product-lookup` rejects anything outside 8-14 digits with a 400
@@ -221,7 +238,7 @@ export default function Scan() {
       setStatus({ kind: "missed", code: data });
       busy.current = false;
     },
-    [recordView, preserveMode]
+    [recordView, preserveMode, dismissQuizAcknowledgement]
   );
 
   // Most devices only let one CameraView hold the camera at a time. This
@@ -253,6 +270,9 @@ export default function Scan() {
         }}
         preserveMode={preserveMode}
         modeSwitcher={<ModeSwitcher mode={mode} setMode={setMode} floating />}
+        justFinishedQuiz={justFinishedQuiz}
+        quizAcknowledgementText={quizAcknowledgementText}
+        onDismissQuizAcknowledgement={dismissQuizAcknowledgement}
       />
     );
   }
@@ -361,6 +381,9 @@ function BarcodeStage({
   onDismissStatus,
   preserveMode,
   modeSwitcher,
+  justFinishedQuiz,
+  quizAcknowledgementText,
+  onDismissQuizAcknowledgement,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
   requestPermission: () => void;
@@ -372,8 +395,45 @@ function BarcodeStage({
    *  switch — see `Scan`'s own `preserveMode` doc comment for why. */
   preserveMode: () => void;
   modeSwitcher: ReactElement;
+  /** See `justFinishedQuiz` on the store — issue #95. */
+  justFinishedQuiz: boolean;
+  quizAcknowledgementText: string;
+  onDismissQuizAcknowledgement: () => void;
 }) {
   const insets = useSafeAreaInsets();
+
+  // Measured rather than guessed: `quizAcknowledgementText` is a variable
+  // length sentence and can wrap to 2-3 lines depending on the profile, so a
+  // fixed height would either clip short text with dead space or, worse,
+  // undershoot long text and let the banner run into `Viewfinder`'s top
+  // brackets underneath it. Found in review on #126 — the banner painted
+  // directly over the frame's corners with no offset at all. Zero until the
+  // first layout pass lands, same one-frame gap this file's camera-crop
+  // measurement already accepts elsewhere.
+  const [bannerHeight, setBannerHeight] = useState(0);
+  const showQuizBanner = justFinishedQuiz && status.kind === "idle";
+
+  // `ScreenReaderAnnouncer`'s own doc comment: react-native-web's `aria-live`
+  // only fires on a change to content a screen reader is already watching —
+  // text present the moment the live region mounts is never announced. On
+  // web that is exactly the first-run path: `(tabs)/_layout.tsx` gates this
+  // whole screen behind `hasSeenOnboarding` and returns a bare `<Redirect>`
+  // until it flips, so `BarcodeStage` — and this announcer — mounts for the
+  // first time already carrying `justFinishedQuiz=true`, with nothing to
+  // transition from. Deferred a tick so the announcer mounts empty and the
+  // real text lands as a genuine update; imperceptible on iOS/Android, where
+  // `ScreenReaderAnnouncer` fires off `message` changing either way, not off
+  // mount timing. Found by Codex in review on #126.
+  const [announceQuizBannerReady, setAnnounceQuizBannerReady] = useState(false);
+  useEffect(() => {
+    if (!showQuizBanner) return;
+    const id = setTimeout(() => setAnnounceQuizBannerReady(true), 0);
+    return () => {
+      clearTimeout(id);
+      setAnnounceQuizBannerReady(false);
+    };
+  }, [showQuizBanner]);
+  const announceQuizBanner = showQuizBanner && announceQuizBannerReady;
 
   // One sentence per state, shared by the spoken announcement and the visible
   // panel's own label so the two can never drift apart.
@@ -389,7 +449,9 @@ function BarcodeStage({
         ? "Not in our catalogue yet. Photograph the label and we'll add it."
         : status.kind === "unreachable"
           ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
-          : "";
+          : announceQuizBanner
+            ? quizAcknowledgementText
+            : "";
 
   return (
     <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>
@@ -405,7 +467,13 @@ function BarcodeStage({
 
       {permission?.granted && status.kind === "idle" && (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Viewfinder insets={insets} />
+          <Viewfinder
+            insets={insets}
+            // Pushed down by the acknowledgement banner's real measured
+            // height (plus the same margin the banner sits at) rather than
+            // overlapping it — see the note on `bannerHeight` above.
+            topOffset={showQuizBanner ? bannerHeight + 12 : 0}
+          />
         </View>
       )}
 
@@ -462,6 +530,46 @@ function BarcodeStage({
             >
               Or find the product in Browse instead.
             </Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Named acknowledgement of finishing the quiz — see issue #95. Only
+          for the real 4-step finish (`justFinishedQuiz`), not a skip, and
+          only while nothing else is on screen: a scan starting clears it
+          (see `handleBarcode`), so it can never sit behind or fight a status
+          panel for the same space. */}
+      {showQuizBanner && (
+        <View
+          onLayout={(e) => setBannerHeight(e.nativeEvent.layout.height)}
+          style={{
+            position: "absolute",
+            left: 20,
+            right: 20,
+            top: insets.top + 12,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            borderRadius: 14,
+            backgroundColor: withAlpha(CANVAS, 0.95),
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+          }}
+        >
+          <Text style={{ flex: 1, fontSize: 13, fontWeight: "600", color: INK }}>
+            {quizAcknowledgementText}
+          </Text>
+          {/* `TOUCH_TARGET`, not hitSlop around the bare glyph — that left an
+              effective ~30px target, under design/DESIGN_SYSTEM.md's
+              documented 44px minimum "on every interactive element,
+              everywhere in this system." Found by Codex in review on #126. */}
+          <Pressable
+            onPress={onDismissQuizAcknowledgement}
+            style={{ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss"
+          >
+            <Text style={{ fontSize: 14, fontWeight: "600", color: MUTED }}>✕</Text>
           </Pressable>
         </View>
       )}
@@ -773,7 +881,17 @@ function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
 const SWITCHER_HEIGHT = 52;
 const FRAME_MARGIN_ABOVE_SWITCHER = 24;
 
-function Viewfinder({ insets }: { insets: { top: number; bottom: number } }) {
+function Viewfinder({
+  insets,
+  topOffset = 0,
+}: {
+  insets: { top: number; bottom: number };
+  /** Room to leave clear above the frame — see the quiz-acknowledgement
+   *  banner's own `bannerHeight` note in `BarcodeStage`. The frame used to
+   *  paint straight through whatever the banner was, corner brackets and
+   *  all. Found in review on #126. */
+  topOffset?: number;
+}) {
   // Border-color as inline `style` rather than a `border-[${SCANNER_FRAME}]`
   // className: NativeWind's arbitrary-value classes are picked up by
   // scanning the literal source text, so an interpolated hex here would
@@ -785,7 +903,15 @@ function Viewfinder({ insets }: { insets: { top: number; bottom: number } }) {
   const bottomInset =
     Math.max(20, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
   return (
-    <View style={{ position: "absolute", top: insets.top + 24, bottom: bottomInset, left: 33, right: 33 }}>
+    <View
+      style={{
+        position: "absolute",
+        top: insets.top + 24 + topOffset,
+        bottom: bottomInset,
+        left: 33,
+        right: 33,
+      }}
+    >
       <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} left-0 top-0 rounded-tl-lg border-l-[3px] border-t-[3px]`} />
       <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} right-0 top-0 rounded-tr-lg border-r-[3px] border-t-[3px]`} />
       <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} bottom-0 left-0 rounded-bl-lg border-b-[3px] border-l-[3px]`} />

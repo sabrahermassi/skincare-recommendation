@@ -23,6 +23,7 @@ beforeEach(() => {
     {
       profile: EMPTY_PROFILE,
       hasSeenOnboarding: false,
+      justFinishedQuiz: false,
       savedProducts: [],
       history: [],
     },
@@ -50,6 +51,29 @@ describe("onboarding gate", () => {
     s().completeOnboarding();
     expect(s().hasSeenOnboarding).toBe(true);
     expect(s().profile).toEqual(EMPTY_PROFILE);
+  });
+});
+
+// Issue #95: acknowledge finishing the quiz on the scanner. Session-only —
+// see the `justFinishedQuiz` doc comment on why it's absent from
+// PERSISTED_KEYS below.
+describe("quiz acknowledgement", () => {
+  it("starts unset, so a normal app open shows nothing", () => {
+    expect(s().justFinishedQuiz).toBe(false);
+  });
+
+  it("is set only by finishing, not by the onboarding gate alone", () => {
+    s().completeOnboarding();
+    expect(s().justFinishedQuiz).toBe(false);
+
+    s().markQuizJustFinished();
+    expect(s().justFinishedQuiz).toBe(true);
+  });
+
+  it("clears on dismiss", () => {
+    s().markQuizJustFinished();
+    s().dismissQuizAcknowledgement();
+    expect(s().justFinishedQuiz).toBe(false);
   });
 });
 
@@ -289,6 +313,7 @@ describe("resetApp", () => {
    */
   it("returns every slice to its first-run value", () => {
     s().completeOnboarding();
+    s().markQuizJustFinished();
     s().setProfile({ baseSkinType: "oily", sensitivity: "some" });
     s().toggleConcern("redness");
     s().saveProduct("a");
@@ -297,6 +322,7 @@ describe("resetApp", () => {
     s().resetApp();
 
     expect(s().hasSeenOnboarding).toBe(false);
+    expect(s().justFinishedQuiz).toBe(false);
     expect(s().profile).toEqual(EMPTY_PROFILE);
     expect(s().savedProducts).toEqual([]);
     expect(s().history).toEqual([]);

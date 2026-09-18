@@ -38,10 +38,14 @@ export default function PregnancyStep() {
   const pregnancyStatus = useAppStore((s) => s.profile.pregnancyStatus);
   const setProfile = useAppStore((s) => s.setProfile);
   const completeOnboarding = useAppStore((s) => s.completeOnboarding);
+  const markQuizJustFinished = useAppStore((s) => s.markQuizJustFinished);
   const [picked, setPicked] = useState(pregnancyStatus !== null);
 
   function finish() {
     completeOnboarding();
+    // Not set by skipping (QuizFrame's own finish) — there is nothing to
+    // acknowledge for a quiz nobody answered. See issue #95.
+    markQuizJustFinished();
     router.replace(POST_ONBOARDING_ROUTE);
   }
 
