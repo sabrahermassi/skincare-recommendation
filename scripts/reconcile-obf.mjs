@@ -58,14 +58,36 @@ const READ_INTERVAL_MS = 4_500;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 
 /**
- * Rows per run, regardless of `--limit`. Comfortably inside a GitHub
- * Actions job's runtime at 4.5s/row (~22 min for a full batch), and rotates
- * through today's ~500-row `obf` catalogue roughly every two nights. Raise
- * this once step 7 lifts the import cap and the catalogue actually grows —
- * not before, since there is nothing to gain from checking rows faster than
- * OBF's own data changes.
+ * Rows *successfully touched* per run (changed, unchanged, or confirmed
+ * gone from OBF — not retryable), regardless of `--limit`. Comfortably
+ * inside a GitHub Actions job's runtime at 4.5s/row (~22 min for a full
+ * batch on an ordinary night), and rotates through today's ~500-row `obf`
+ * catalogue roughly every two nights. Raise this once step 7 lifts the
+ * import cap and the catalogue actually grows — not before, since there is
+ * nothing to gain from checking rows faster than OBF's own data changes.
  */
 const BATCH_SIZE = 300;
+
+/**
+ * Hard ceiling on OBF requests for the whole run, independent of
+ * `BATCH_SIZE`. A retryable row never moves `fetched_at`, so it stays
+ * "oldest" forever — a persistently broken prefix (OBF permanently 404s a
+ * handful of barcodes, or they permanently fail the plausibility gate)
+ * would otherwise have the candidate query hand back the *same* stuck rows
+ * every single night, starving every healthy row behind them indefinitely.
+ * Found by Codex on PR #122.
+ *
+ * Paging past a stuck prefix — rather than stopping at the first
+ * `BATCH_SIZE` rows regardless of outcome — fixes the realistic case (some
+ * rows broken) at the cost of more requests only on the nights that need
+ * them; an ordinary night still stops at `BATCH_SIZE` touched rows well
+ * under this ceiling. 3x `BATCH_SIZE` is ~67 minutes worst case, still
+ * comfortably inside a default GitHub Actions job timeout. It does not
+ * fully solve the pathological case (more rows stuck than this ceiling
+ * allows reading past in one night) — that would need a durable per-row
+ * retry count, a larger change deliberately not made here.
+ */
+const MAX_REQUESTS_PER_RUN = BATCH_SIZE * 3;
 
 // Exactly the columns `replace_product_with_ingredients` (migration 0008)
 // reads out of `p_product` — every one of them gets written back on every
@@ -171,6 +193,42 @@ async function fetchKnownIngredients(db) {
   return new Set(rows.map((r) => r.inci_name.toLowerCase()));
 }
 
+/**
+ * One page of candidates, oldest `fetched_at` first, starting strictly
+ * after `cursor` (or from the very start when `cursor` is null).
+ *
+ * A plain `.gt("fetched_at", cursor)` would skip rows that share the exact
+ * same `fetched_at` as the cursor — not rare here, since a whole import
+ * batch can land within the same second. Ordering and cursoring by the
+ * pair `(fetched_at, id)` instead means every row is visited exactly once
+ * across as many pages as it takes, regardless of ties.
+ *
+ * `fetched_at` is selected here specifically to build the next cursor —
+ * it is deliberately not part of `PRODUCT_COLUMNS` (migration 0008's own
+ * comment: the RPC leaves it untouched on write, so it plays no part in
+ * `p_product`).
+ */
+async function fetchCandidatePage(db, pageSize, cursor) {
+  let q = db
+    .from("products")
+    .select(`${PRODUCT_COLUMNS}, fetched_at, product_ingredients ( inci_name, position )`)
+    // `expires_at is null` is redundant for source='obf' today — the
+    // `cached_sources_must_expire` constraint (0001, widened by 0014)
+    // already forbids an obf row from carrying one — kept anyway as cheap
+    // insurance against that constraint ever loosening for this source too.
+    .eq("source", "obf")
+    .is("expires_at", null)
+    .order("fetched_at", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(pageSize);
+  if (cursor) {
+    q = q.or(`fetched_at.gt.${cursor.fetchedAt},and(fetched_at.eq.${cursor.fetchedAt},id.gt.${cursor.id})`);
+  }
+  const { data, error } = await q;
+  if (error) throw new Error(`products page after ${cursor?.id ?? "start"}: ${error.message}`);
+  return data ?? [];
+}
+
 async function main() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -185,117 +243,124 @@ async function main() {
 
   const known = await fetchKnownIngredients(db);
 
-  const { data: rows, error: readError } = await db
-    .from("products")
-    .select(`${PRODUCT_COLUMNS}, product_ingredients ( inci_name, position )`)
-    // `expires_at is null` is redundant for source='obf' today — the
-    // `cached_sources_must_expire` constraint (0001, widened by 0014)
-    // already forbids an obf row from carrying one — kept anyway as cheap
-    // insurance against that constraint ever loosening for this source too.
-    .eq("source", "obf")
-    .is("expires_at", null)
-    .order("fetched_at", { ascending: true })
-    .limit(limit);
-  if (readError) throw new Error(`products read failed: ${readError.message}`);
-
-  const candidates = (rows ?? []).filter((r) => r.barcode);
   console.log(
-    `${candidates.length} candidate(s) this run. ` +
-      `~${Math.ceil((candidates.length * READ_INTERVAL_MS) / 60000)} min at OBF's rate limit.\n`
+    `Aiming for ${limit} reconciled row(s) this run, paging past any that can't ` +
+      `be read, up to ${MAX_REQUESTS_PER_RUN} requests total.\n`
   );
-  if (candidates.length === 0) {
-    console.log("Nothing to reconcile.");
-    return;
-  }
 
   let read = 0;
+  let touched = 0; // changed + unchanged + gone — never retryable
   let unchanged = 0;
   let changed = 0;
   let gone = 0;
   let retryable = 0;
+  let sawAnyCandidate = false;
   const changedSamples = [];
   const retryableSamples = [];
+  let cursor = null;
 
-  for (const row of candidates) {
-    if (read > 0) await sleep(READ_INTERVAL_MS);
-    const result = await fetchIngredients(row.barcode);
-    read += 1;
-    process.stdout.write(`\r  read ${read}/${candidates.length}`);
+  pages: for (;;) {
+    if (touched >= limit || read >= MAX_REQUESTS_PER_RUN) break;
+    const page = await fetchCandidatePage(db, Math.min(BATCH_SIZE, MAX_REQUESTS_PER_RUN - read), cursor);
+    if (page.length === 0) break; // the whole obf catalogue has been paged through
 
-    if (!result.ok) {
-      if (result.permanent) {
-        // Gone from OBF is not proof the product itself vanished — the row
-        // stays, exactly as decided in the plan. But it's still a genuine
-        // answer as of today, not a failed read, so it's confirmed the same
-        // way an unchanged formula is: touch `fetched_at` and move on,
-        // rather than re-spending a request on it every single night.
-        gone += 1;
+    for (const row of page) {
+      // Advances regardless of outcome — including a barcode-less row we
+      // never spend a request on below — so a page never re-fetches rows
+      // it has already looked at, even ones that stayed retryable.
+      cursor = { fetchedAt: row.fetched_at, id: row.id };
+      if (!row.barcode) continue;
+      if (touched >= limit || read >= MAX_REQUESTS_PER_RUN) break pages;
+
+      sawAnyCandidate = true;
+      if (read > 0) await sleep(READ_INTERVAL_MS);
+      const result = await fetchIngredients(row.barcode);
+      read += 1;
+      process.stdout.write(`\r  read ${read} (touched ${touched}/${limit})`);
+
+      if (!result.ok) {
+        if (result.permanent) {
+          // Gone from OBF is not proof the product itself vanished — the row
+          // stays, exactly as decided in the plan. But it's still a genuine
+          // answer as of today, not a failed read, so it's confirmed the same
+          // way an unchanged formula is: touch `fetched_at` and move on,
+          // rather than re-spending a request on it every single night.
+          gone += 1;
+          touched += 1;
+          if (!dryRun) {
+            const { error } = await db.from("products").update({ fetched_at: new Date().toISOString() }).eq("id", row.id);
+            if (error) throw new Error(`fetched_at touch failed for ${row.id} (gone from OBF): ${error.message}`);
+          }
+        } else {
+          retryable += 1;
+          if (retryableSamples.length < 5) retryableSamples.push(`${row.brand} — ${row.name}: ${result.reason}`);
+        }
+        continue;
+      }
+
+      const fresh = parseInci(result.text);
+      if (fresh.length < 2) {
+        retryable += 1;
+        if (retryableSamples.length < 5) {
+          retryableSamples.push(`${row.brand} — ${row.name}: the new read has fewer than 2 parsed ingredients`);
+        }
+        continue;
+      }
+
+      // Same plausibility gate the importers use (see MIN_KNOWN_INGREDIENT_RATIO
+      // in import-obf.mjs). A row that already passed this gate once must not be
+      // overwritten by an edit that fails it now — better to leave the existing,
+      // already-vetted formula in place and retry the read next run.
+      const hits = fresh.filter((i) => known.has(i.inci_name)).length;
+      if (hits / fresh.length < MIN_KNOWN_INGREDIENT_RATIO) {
+        retryable += 1;
+        if (retryableSamples.length < 5) {
+          retryableSamples.push(`${row.brand} — ${row.name}: new read is only ${hits}/${fresh.length} recognised`);
+        }
+        continue;
+      }
+
+      if (!formulaChanged(row.product_ingredients, fresh)) {
+        // Confirmed current as of today, nothing to change — still worth the
+        // touch, or this row would look just as stale next run despite having
+        // just been checked.
+        unchanged += 1;
+        touched += 1;
         if (!dryRun) {
           const { error } = await db.from("products").update({ fetched_at: new Date().toISOString() }).eq("id", row.id);
-          if (error) throw new Error(`fetched_at touch failed for ${row.id} (gone from OBF): ${error.message}`);
+          if (error) throw new Error(`fetched_at touch failed for ${row.id} (unchanged): ${error.message}`);
         }
-      } else {
-        retryable += 1;
-        if (retryableSamples.length < 5) retryableSamples.push(`${row.brand} — ${row.name}: ${result.reason}`);
+        continue;
       }
-      continue;
-    }
 
-    const fresh = parseInci(result.text);
-    if (fresh.length < 2) {
-      retryable += 1;
-      if (retryableSamples.length < 5) {
-        retryableSamples.push(`${row.brand} — ${row.name}: the new read has fewer than 2 parsed ingredients`);
-      }
-      continue;
-    }
-
-    // Same plausibility gate the importers use (see MIN_KNOWN_INGREDIENT_RATIO
-    // in import-obf.mjs). A row that already passed this gate once must not be
-    // overwritten by an edit that fails it now — better to leave the existing,
-    // already-vetted formula in place and retry the read next run.
-    const hits = fresh.filter((i) => known.has(i.inci_name)).length;
-    if (hits / fresh.length < MIN_KNOWN_INGREDIENT_RATIO) {
-      retryable += 1;
-      if (retryableSamples.length < 5) {
-        retryableSamples.push(`${row.brand} — ${row.name}: new read is only ${hits}/${fresh.length} recognised`);
-      }
-      continue;
-    }
-
-    if (!formulaChanged(row.product_ingredients, fresh)) {
-      // Confirmed current as of today, nothing to change — still worth the
-      // touch, or this row would look just as stale next run despite having
-      // just been checked.
-      unchanged += 1;
+      changed += 1;
+      touched += 1;
+      if (changedSamples.length < 5) changedSamples.push(`${row.brand} — ${row.name}`);
       if (!dryRun) {
-        const { error } = await db.from("products").update({ fetched_at: new Date().toISOString() }).eq("id", row.id);
-        if (error) throw new Error(`fetched_at touch failed for ${row.id} (unchanged): ${error.message}`);
+        const { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at } =
+          row;
+        // `formula_changed_at` travels in the same call as the formula
+        // replacement (migration 0018), not as a follow-up UPDATE. Two
+        // separate statements meant a failure between them — the formula
+        // replaced, the change never recorded — would permanently lose the
+        // event: a later run compares against the already-replaced formula,
+        // finds no difference, and has no way to know anything happened.
+        // Found by Codex on PR #122.
+        const { error: rpcError } = await db.rpc("replace_product_with_ingredients", {
+          p_product: { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at },
+          p_ingredients: fresh,
+          // Same note import-obf.mjs itself passes for an OBF-sourced stub.
+          p_stub_note: "No published rating for this ingredient yet.",
+          p_formula_changed_at: new Date().toISOString(),
+        });
+        if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${id}: ${rpcError.message}`);
       }
-      continue;
     }
+  }
 
-    changed += 1;
-    if (changedSamples.length < 5) changedSamples.push(`${row.brand} — ${row.name}`);
-    if (!dryRun) {
-      const { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at } =
-        row;
-      // `formula_changed_at` travels in the same call as the formula
-      // replacement (migration 0018), not as a follow-up UPDATE. Two
-      // separate statements meant a failure between them — the formula
-      // replaced, the change never recorded — would permanently lose the
-      // event: a later run compares against the already-replaced formula,
-      // finds no difference, and has no way to know anything happened.
-      // Found by Codex on PR #122.
-      const { error: rpcError } = await db.rpc("replace_product_with_ingredients", {
-        p_product: { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at },
-        p_ingredients: fresh,
-        // Same note import-obf.mjs itself passes for an OBF-sourced stub.
-        p_stub_note: "No published rating for this ingredient yet.",
-        p_formula_changed_at: new Date().toISOString(),
-      });
-      if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${id}: ${rpcError.message}`);
-    }
+  if (!sawAnyCandidate) {
+    console.log("\nNothing to reconcile.");
+    return;
   }
 
   console.log(
@@ -314,6 +379,22 @@ async function main() {
   if (dryRun) {
     console.log("\n--dry-run: nothing written.");
     return;
+  }
+
+  // If OBF is systematically unavailable, or has changed its response shape,
+  // every candidate lands in `retryable` and none of the writes above ever
+  // run — but execution would still reach the bookmark below, and the
+  // workflow would exit 0 with a fresh `last_run_at`, looking exactly like a
+  // healthy night on which nothing needed reconciling. That is precisely the
+  // silent-failure mode the bookmark exists to catch (see the doc's own "who
+  // is watching the nightly job?" question) — so a run that touched nothing
+  // at all must fail loudly rather than record a success it didn't earn.
+  // Found by Codex on PR #122.
+  if (touched === 0) {
+    throw new Error(
+      `${retryable} candidate(s) were all retryable and none were reconciled — ` +
+        "not recording success. Check the samples above for what's failing."
+    );
   }
 
   // Purely for the doc's own open question — "who is watching the nightly
