@@ -6,6 +6,13 @@ name: CI
 # closes exactly that gap: typecheck, lint and the full test suite, required
 # to pass on every PR.
 #
+# Added 18 September 2026: a `migrations` job. Until then CI could not see a
+# `.sql` file at all — `npm test` covers TypeScript and nothing applied a
+# migration anywhere, so a syntax error or a broken grant surfaced for the
+# first time at `supabase db push` against production. That is the worst place
+# to find one, and this project has already been bitten by migrations silently
+# never reaching production (0008 through 0015, discovered weeks later).
+#
 # Deliberately not doing here: the three-platform `expo export` bundling
 # check. That's already covered by secret-scan.yml, which exports every
 # platform on the same triggers — a broken bundle already fails CI today via
@@ -38,3 +45,136 @@ jobs:
 
       - name: Test
         run: npm test
+
+  # A throwaway Postgres, every migration applied in order, then assertions
+  # against the behaviour they are supposed to produce. No Supabase CLI and no
+  # Docker image beyond the service container: `psql` is enough, and `psql`
+  # with ON_ERROR_STOP exits non-zero on a failed `assert`, which is all a CI
+  # step needs.
+  migrations:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # Supabase creates these; a stock Postgres does not, and the grants in
+      # several migrations name them. Without this the migrations fail for a
+      # reason that has nothing to do with whether they are correct.
+      # A stock Postgres has none of these, and the grants in several migrations
+      # name them. Two attributes matter beyond mere existence, and both are
+      # things Supabase sets that a bare `create role` does not:
+      #
+      #   `bypassrls` on service_role — several tables in this schema enable
+      #   row level security and define no policies, which is how they are made
+      #   service-role-only. Without the attribute the role is blocked by its
+      #   own RLS and the tests fail for a reason production does not have.
+      #
+      #   `usage on schema public` — without it `set role service_role` cannot
+      #   even see a function in `public`.
+      #
+      # Getting either wrong makes the harness lie about production, which is
+      # worse than not testing: it produces confident green.
+      - name: Create the Supabase roles
+        run: |
+          for role in anon authenticated; do
+            psql -v ON_ERROR_STOP=1 -c "create role $role;"
+          done
+          psql -v ON_ERROR_STOP=1 -c "create role service_role bypassrls;"
+          psql -v ON_ERROR_STOP=1 -c "grant usage on schema public to anon, authenticated, service_role;"
+
+      # `pg_cron` is a Supabase extension and cannot be installed here. Stubbing
+      # `cron.schedule` lets the scheduling lines run verbatim rather than being
+      # stripped, so a typo in one still fails the build. What it cannot check
+      # is that the job ever *fires* — migration 0002's own comment is the
+      # precedent for treating that as a thing to confirm in the dashboard.
+      - name: Stub pg_cron
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "create schema cron;"
+          psql -v ON_ERROR_STOP=1 -c "create function cron.schedule(text,text,text) returns bigint language sql as 'select 1::bigint';"
+
+      - name: Apply every migration, in order
+        run: |
+          for f in supabase/migrations/*.sql; do
+            echo "── $f"
+            grep -v '^create extension if not exists pg_cron;$' "$f" > /tmp/m.sql
+            psql -v ON_ERROR_STOP=1 -f /tmp/m.sql
+          done
+
+      - name: Run the SQL tests
+        run: |
+          for f in supabase/tests/*.test.sql; do
+            echo "── $f"
+            psql -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      # The property the whole design rests on, and the one a single session
+      # cannot observe: `on conflict do update ... returning` makes the
+      # increment and the answer one operation, so N concurrent callers get N
+      # distinct counts rather than all reading the same under-the-limit value.
+      # Asserted with real parallel clients because there is no other way to
+      # see it.
+      # The row total alone is too weak an assertion, which review on PR #120
+      # caught: a regression handing several callers the SAME under-the-limit
+      # count would still leave one row summing to 30, and every one of those
+      # callers would be let through. The values each client received are the
+      # evidence, so they are captured and compared — sorted, they must be
+      # exactly 1..30, which is what "N concurrent callers get N distinct
+      # counts" actually means.
+      #
+      # Background failures are collected rather than discarded for the same
+      # reason: `wait` with output suppressed cannot distinguish 30 successes
+      # from 30 connection errors.
+      - name: Concurrent callers get distinct counts
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -c "delete from rate_limits;"
+
+          out=$(mktemp -d)
+          for i in $(seq 30); do
+            ( psql -v ON_ERROR_STOP=1 -tAq \
+                -c "select consume_rate_limit('ci-concurrent','caller',600,5);" \
+                > "$out/$i" 2> "$out/$i.err" || echo "CLIENT_FAILED" > "$out/$i" ) &
+          done
+          wait
+
+          if grep -l CLIENT_FAILED "$out"/* >/dev/null 2>&1; then
+            echo "a client failed:"; cat "$out"/*.err; exit 1
+          fi
+
+          got=$(cat "$out"/[0-9]* | sort -n | tr '\n' ' ')
+          want=$(seq 30 | tr '\n' ' ')
+          echo "counts: $got"
+          test "$got" = "$want" || {
+            echo "expected each concurrent caller to get a distinct count 1..30"
+            echo "  got:  $got"
+            echo "  want: $want"
+            exit 1
+          }
+
+          rows=$(psql -v ON_ERROR_STOP=1 -tAq -c "select count(*) from rate_limits where bucket='ci-concurrent';")
+          total=$(psql -v ON_ERROR_STOP=1 -tAq -c "select coalesce(sum(count),0) from rate_limits where bucket='ci-concurrent';")
+          echo "rows=$rows total=$total"
+          test "$rows" = "1" || { echo "expected exactly one row, got $rows"; exit 1; }
+          test "$total" = "30" || { echo "expected 30 counted requests, got $total"; exit 1; }

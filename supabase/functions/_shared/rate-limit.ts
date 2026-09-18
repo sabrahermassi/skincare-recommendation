@@ -232,6 +232,85 @@ function refused(
   );
 }
 
+// ── Who the caller is ───────────────────────────────────────────────────────
+
+/**
+ * Who to charge a request to.
+ *
+ * The caller's address, NOT `x-device-id`. A client-supplied header is a
+ * client-supplied bucket: `for i in $(seq 1000); do curl -H "x-device-id: $i"`
+ * defeats the limit entirely, and the limit is the only thing standing between
+ * an anonymous caller and a metered Vision key.
+ *
+ * **`cf-connecting-ip` first, not the end of `x-forwarded-for`.** The previous
+ * order was textbook-correct and wrong here, which is a combination worth
+ * recording rather than quietly deleting.
+ *
+ * The reasoning was: a gateway *appends* what it observed to `x-forwarded-for`,
+ * so the last entry is an address and the earlier ones are whatever the client
+ * claimed. True in general. But these functions run on Deno Deploy behind
+ * Cloudflare, and what gets appended on the way in is an internal hop that
+ * differs between requests — so the "caller" was the proxy that happened to
+ * carry the request, not the person making it. Every request looked like a new
+ * caller, the count never accumulated, and **nobody was rate limited at all**.
+ * Found by running 25 requests against the deployed endpoint and getting 25
+ * successes where 20 were expected: `rate_limits` held 16 rows for 37
+ * requests, which is one row per hop rather than one per caller.
+ *
+ * `cf-connecting-ip` is set by Cloudflare to the originating client and
+ * *overwritten* on every request, so neither a client nor an internal hop can
+ * choose it.
+ *
+ * **And nothing else is accepted, deliberately.** The first version of this fix
+ * fell back to `x-real-ip` and then `x-forwarded-for`'s first entry, with a
+ * comment admitting the second "rotates under a determined caller" — which is
+ * the bug this function exists to prevent, written down and shipped anyway.
+ * Neither header is rewritten by an ingress we control, so a caller reaching
+ * the function directly could hand over a fresh value per request and mint a
+ * new bucket every time, defeating the limiter completely. Raised by review on
+ * PR #120.
+ *
+ * So an absent header returns `"unknown"` rather than a guess. Every such
+ * request then shares one bucket, which is strict rather than absent: the
+ * failure is "too many people throttled together", not "the metered key is
+ * unprotected". Given what sits behind these endpoints, that is the correct
+ * direction to be wrong in.
+ *
+ * **It is also self-reporting.** `refused()` logs the caller, so a production
+ * log line reading `caller=unknown` says plainly that this platform does not
+ * send the header and the limit has become global — which is exactly the thing
+ * that would otherwise be invisible.
+ *
+ * The cost is unchanged — one shop's wifi shares a bucket. At 10 requests per
+ * 5 minutes that is a real person scanning a shelf, so the ceiling is set for
+ * a NAT rather than for a single handset.
+ */
+export function callerKey(req: Request): string {
+  // One header, and no fallbacks. Cloudflare sets `cf-connecting-ip` to the
+  // originating client and *overwrites* whatever arrived, so a client cannot
+  // choose its own value. Nothing else here has that property.
+  //
+  // Measured, not assumed — a temporary probe on a deployed `product-lookup`
+  // reported five requests from one machine as:
+  //
+  //   cf-connecting-ip=49c69ef7 xff.hops=3 xff.first=49c69ef7 xff.last=802cbfc1
+  //   cf-connecting-ip=49c69ef7 xff.hops=3 xff.first=49c69ef7 xff.last=67f8d516
+  //   cf-connecting-ip=49c69ef7 xff.hops=3 xff.first=49c69ef7 xff.last=f628681b
+  //
+  // (header names and truncated HMACs, never addresses). `cf-connecting-ip`
+  // holds still; the last `x-forwarded-for` hop does not, which is the whole
+  // of the bug this branch fixes. `x-real-ip`, `forwarded` and
+  // `true-client-ip` never arrived at all, so the earlier fallback chain was
+  // reaching for headers this platform does not send.
+  const observed = req.headers.get("cf-connecting-ip");
+  if (observed) return observed.trim();
+
+  // Everything without that header shares one bucket, which is the safe
+  // direction to be wrong in. Read the note above for why this is not a
+  // fallback but a refusal to guess.
+  return "unknown";
+}
+
 // ── The caller fingerprint ──────────────────────────────────────────────────
 
 const encoder = new TextEncoder();

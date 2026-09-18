@@ -111,6 +111,7 @@ export function requestId(req: Request): string {
 // `resetRateLimits` are internals of that module and its tests, and re-exporting
 // them here kept alive a surface no function used. Found in review.
 export {
+  callerKey,
   consumeRateLimit,
   retryAfterSeconds,
   type RateLimit,
@@ -136,29 +137,4 @@ export {
  */
 export function callerSalt(): string {
   return Deno.env.get("RATE_LIMIT_SALT") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-}
-
-/**
- * Who to charge a request to.
- *
- * The caller's address, NOT `x-device-id`. A client-supplied header is a
- * client-supplied bucket: `for i in $(seq 1000); do curl -H "x-device-id: $i"`
- * defeats the limit entirely, and the limit is the only thing standing between
- * an anonymous caller and a metered Vision key.
- *
- * `x-forwarded-for` is appended to by the Supabase gateway, so the LAST entry
- * is the one it observed and the earlier ones are whatever the client claimed.
- * Reading from the right end is the difference between an address and a wish.
- *
- * The cost is that one shop's wifi shares a bucket. At 10 requests per 5
- * minutes that is a real person scanning a shelf, so the ceiling is set for a
- * NAT rather than for a single handset.
- */
-export function callerKey(req: Request): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const chain = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
-    if (chain.length > 0) return chain[chain.length - 1];
-  }
-  return req.headers.get("x-real-ip") ?? req.headers.get("cf-connecting-ip") ?? "unknown";
 }

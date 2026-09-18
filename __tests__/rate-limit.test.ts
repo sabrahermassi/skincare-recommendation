@@ -1,4 +1,5 @@
 import {
+  callerKey,
   consumeRateLimit,
   fingerprintCaller,
   resetRateLimits,
@@ -495,5 +496,137 @@ describe("what the local bound actually is", () => {
       await consumeRateLimit(d, "label-ocr", "1.2.3.4", LIMIT, OPTS);
     }
     expect(console.warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("who the caller is", () => {
+  const req = (headers: Record<string, string>) => new Request("https://x/", { headers });
+
+  /**
+   * This function had no test and shipped a bug that disabled the limiter
+   * entirely in production: it read the *last* entry of `x-forwarded-for`, on
+   * the textbook reasoning that a gateway appends what it observed. On Deno
+   * Deploy behind Cloudflare what gets appended is an internal hop that
+   * differs per request, so every request looked like a new caller and nobody
+   * was limited. Found by running 25 requests against the deployed endpoint
+   * and getting 25 successes.
+   *
+   * It lived in `http.ts`, which reads `Deno.env` and so cannot be imported by
+   * Jest — which is exactly why it was the untested one. Moved here.
+   */
+  it("prefers the address Cloudflare observed", () => {
+    expect(
+      callerKey(req({
+        "cf-connecting-ip": "81.229.14.22",
+        // An internal hop appended on the way in, and a client-supplied claim.
+        "x-forwarded-for": "9.9.9.9, 10.0.0.7",
+        "x-real-ip": "10.0.0.7",
+      })),
+    ).toBe("81.229.14.22");
+  });
+
+  /**
+   * The first version of this fix fell back to `x-real-ip` and then the
+   * forwarded chain's first entry. Neither is rewritten by an ingress we
+   * control, so a caller reaching the function directly could hand over a
+   * fresh value per request and mint a new bucket every time — the very bug
+   * this function exists to prevent. Raised by review on PR #120.
+   */
+  it("refuses to guess from headers a client could simply write", () => {
+    expect(callerKey(req({ "x-real-ip": "81.229.14.22" }))).toBe("unknown");
+    expect(callerKey(req({ "x-forwarded-for": "81.229.14.22, 10.0.0.7" }))).toBe("unknown");
+    expect(callerKey(req({ "x-forwarded-for": "1.1.1.1", "x-real-ip": "2.2.2.2" }))).toBe("unknown");
+  });
+
+  /**
+   * The bypass itself: a thousand made-up values must not buy a thousand
+   * allowances. They all land in one bucket, which is strict rather than
+   * absent — the safe direction to be wrong in when a metered key is behind
+   * the limit.
+   */
+  it("cannot be rotated by inventing header values", () => {
+    const keys = new Set(
+      Array.from({ length: 50 }, (_, i) =>
+        callerKey(req({ "x-real-ip": `10.0.0.${i}`, "x-forwarded-for": `10.1.0.${i}` })),
+      ),
+    );
+    expect(keys).toEqual(new Set(["unknown"]));
+  });
+
+  /**
+   * And the trusted header still wins over anything alongside it — Cloudflare
+   * overwrites `cf-connecting-ip`, so a client cannot displace it by shouting
+   * louder in the others.
+   */
+  it("is not displaced by client-supplied headers", () => {
+    expect(
+      callerKey(req({
+        "cf-connecting-ip": "81.229.14.22",
+        "x-real-ip": "6.6.6.6",
+        "x-forwarded-for": "7.7.7.7, 8.8.8.8",
+      })),
+    ).toBe("81.229.14.22");
+  });
+
+  /**
+   * The regression itself: the same caller behind two different internal hops
+   * must land in one bucket. If these differ, the count never accumulates and
+   * the limit never fires — which is precisely what happened.
+   */
+  it("gives one caller one identity across different internal hops", () => {
+    const a = callerKey(req({ "cf-connecting-ip": "81.229.14.22", "x-forwarded-for": "81.229.14.22, 10.0.0.1" }));
+    const b = callerKey(req({ "cf-connecting-ip": "81.229.14.22", "x-forwarded-for": "81.229.14.22, 10.0.0.2" }));
+    const c = callerKey(req({ "cf-connecting-ip": "81.229.14.22", "x-forwarded-for": "81.229.14.22, 10.0.0.3" }));
+    expect(new Set([a, b, c]).size).toBe(1);
+  });
+
+  /**
+   * The shape a live deployment actually sends, rather than the one this code
+   * assumed. A probe on a deployed `product-lookup` reported five requests
+   * from one machine as three hops, with `cf-connecting-ip` and the first
+   * `x-forwarded-for` entry constant and the last entry taking three
+   * different values across the five.
+   *
+   * Reproduced here with addresses standing in for the truncated HMACs the
+   * probe printed. Without this the measurement lives only in a commit
+   * message, and the next person to touch `callerKey` has the same inference
+   * available to them that produced the bug.
+   */
+  it("gives one identity across the three-hop shape this platform really sends", () => {
+    // The five last-hop values the probe distinguished, as five requests.
+    const keys = [11, 47, 203, 11, 11].map((lastHop) =>
+      callerKey(req({
+        "cf-connecting-ip": "81.229.14.22",
+        "x-forwarded-for": `81.229.14.22, 172.16.0.9, 10.0.0.${lastHop}`,
+      })),
+    );
+    expect(new Set(keys).size).toBe(1);
+    expect(keys[0]).toBe("81.229.14.22");
+  });
+
+  it("still tells two real callers apart", () => {
+    expect(callerKey(req({ "cf-connecting-ip": "81.229.14.22" })))
+      .not.toBe(callerKey(req({ "cf-connecting-ip": "90.112.8.5" })));
+  });
+
+  /**
+   * Never `x-device-id`: a client-supplied bucket is a bucket the client can
+   * rotate, which is the whole attack this key exists to resist.
+   */
+  it("ignores a client-supplied device id", () => {
+    expect(callerKey(req({ "x-device-id": "whatever-i-like" }))).toBe("unknown");
+  });
+
+  /**
+   * `caller=unknown` in a refusal log is the signal that this platform does
+   * not send `cf-connecting-ip` and the limit has silently become global.
+   * Without it that would be invisible.
+   */
+  it("says unknown, which is what makes an absent header visible in the logs", () => {
+    expect(callerKey(req({}))).toBe("unknown");
+  });
+
+  it("says unknown rather than throwing when nothing identifies the caller", () => {
+    expect(callerKey(req({}))).toBe("unknown");
   });
 });
