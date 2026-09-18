@@ -275,24 +275,21 @@ async function main() {
     if (!dryRun) {
       const { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at } =
         row;
+      // `formula_changed_at` travels in the same call as the formula
+      // replacement (migration 0018), not as a follow-up UPDATE. Two
+      // separate statements meant a failure between them — the formula
+      // replaced, the change never recorded — would permanently lose the
+      // event: a later run compares against the already-replaced formula,
+      // finds no difference, and has no way to know anything happened.
+      // Found by Codex on PR #122.
       const { error: rpcError } = await db.rpc("replace_product_with_ingredients", {
         p_product: { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at },
         p_ingredients: fresh,
         // Same note import-obf.mjs itself passes for an OBF-sourced stub.
         p_stub_note: "No published rating for this ingredient yet.",
+        p_formula_changed_at: new Date().toISOString(),
       });
       if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${id}: ${rpcError.message}`);
-
-      // The RPC bumps `fetched_at` (0009/0010's trigger fires on the
-      // product_ingredients write above) but has no reason to know about a
-      // column it predates. `formula_changed_at` is the one thing this run
-      // adds that the RPC can't: "this is not just confirmed current, it is
-      // actually different from what it replaced."
-      const { error: changedAtError } = await db
-        .from("products")
-        .update({ formula_changed_at: new Date().toISOString() })
-        .eq("id", id);
-      if (changedAtError) throw new Error(`formula_changed_at update failed for ${id}: ${changedAtError.message}`);
     }
   }
 

@@ -11,6 +11,17 @@ export type SavedProduct = {
   /** Product id, or a raw barcode for something scanned but not in the catalog. */
   id: string;
   savedAt: number;
+  /**
+   * The product's own `fetchedAt` at the moment it was saved — which formula
+   * version was actually on screen, not just when the tap happened. Step 8's
+   * "this formula changed since you saved it" notice needs this, not
+   * `savedAt`: a device can save an old, disk-cached formula and only
+   * install the reconciled one afterward, so `savedAt` can land *after* a
+   * change the user never actually saw. Found by Codex on PR #122. Optional
+   * because a row saved before this field existed has none — the notice
+   * falls back to comparing against `savedAt` for those.
+   */
+  formulaFetchedAt?: string;
 };
 
 /**
@@ -110,9 +121,9 @@ type AppState = {
   completeOnboarding: () => void;
 
   /** Idempotent add. Use where re-triggering must not un-save. */
-  saveProduct: (id: string) => void;
+  saveProduct: (id: string, formulaFetchedAt?: string) => void;
   /** Add/remove. Use for the wishlist control, where toggling is the intent. */
-  toggleSaved: (id: string) => void;
+  toggleSaved: (id: string, formulaFetchedAt?: string) => void;
   /**
    * Puts back a saved-shelf row exactly as it was — same `savedAt`, not a
    * fresh one — for the Saved screen's remove-then-undo affordance.
@@ -346,18 +357,18 @@ export const useAppStore = create<AppState>()(
 
       completeOnboarding: () => set({ hasSeenOnboarding: true }),
 
-      saveProduct: (id) =>
+      saveProduct: (id, formulaFetchedAt) =>
         set((state) =>
           state.savedProducts.some((p) => p.id === id)
             ? state
-            : { savedProducts: [...state.savedProducts, { id, savedAt: Date.now() }] }
+            : { savedProducts: [...state.savedProducts, { id, savedAt: Date.now(), formulaFetchedAt }] }
         ),
 
-      toggleSaved: (id) =>
+      toggleSaved: (id, formulaFetchedAt) =>
         set((state) => ({
           savedProducts: state.savedProducts.some((p) => p.id === id)
             ? state.savedProducts.filter((p) => p.id !== id)
-            : [...state.savedProducts, { id, savedAt: Date.now() }],
+            : [...state.savedProducts, { id, savedAt: Date.now(), formulaFetchedAt }],
         })),
 
       restoreSavedProduct: (product) =>

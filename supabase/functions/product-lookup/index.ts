@@ -68,7 +68,8 @@ const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 const SELECT = `
   id, barcode, brand, name, type, area, description, image_url, volume,
-  price_krw, in_stock, suitable_for, targets, attribution,
+  price_krw, in_stock, suitable_for, targets, attribution, fetched_at,
+  formula_changed_at,
   product_ingredients ( position, ingredients ( inci_name, comedogenic, safety, note, verified, functions ) )
 `;
 
