@@ -436,7 +436,7 @@ const NOT_SKINCARE = /\blip\s?(?:balm|gloss|stick|treatment)\b/i;
  * there and applies unchanged: a parsed formula that mostly misses a
  * 36k-name dictionary is not a rare formula, it is a bad parse.
  */
-function toRow(spl, xml, known, samples) {
+function toRow(spl, xml, known, samples, aliases) {
   const { name, labeler } = parseTitle(spl.title ?? "");
   if (!name || !spl.setid) return "no name or setid";
   // Checked against the whole title, not the trimmed name: the giveaway is
@@ -459,7 +459,7 @@ function toRow(spl, xml, known, samples) {
   //
   // Gating the inactive list alone is strictly the stricter test, since merging
   // recognised names can only raise the ratio.
-  const inactive = parseInci(inci);
+  const inactive = parseInci(inci, known, undefined, aliases);
   if (inactive.length < 2) return "fewer than 2 parsed ingredients";
 
   const inactiveHits = inactive.filter((i) => known.has(i.inci_name)).length;
@@ -490,7 +490,7 @@ function toRow(spl, xml, known, samples) {
   // slightly against water; dropping them, which is what this did before,
   // understates them completely. `parseInci` deduplicates, so a filter that
   // also appears in the inactive list is kept once at the higher position.
-  const ingredients = parseInci([...actives, inci].join(", "));
+  const ingredients = parseInci([...actives, inci].join(", "), known, undefined, aliases);
 
   return {
     product: {
@@ -529,6 +529,15 @@ async function fetchKnownIngredients(db) {
     filter: (q) => q.eq("verified", true),
   });
   return new Set(rows.map((r) => r.inci_name.toLowerCase()));
+}
+
+/** Other names for known ingredients — see the same read in `scripts/import-obf.mjs`. */
+async function fetchAliases(db) {
+  const rows = await paginateOrdered(db, "ingredient_synonyms", {
+    select: "synonym, inci_name",
+    cursorColumn: "synonym",
+  });
+  return new Map(rows.map((r) => [r.synonym.toLowerCase(), r.inci_name.toLowerCase()]));
 }
 
 /**
@@ -645,6 +654,7 @@ async function main() {
   const known = await fetchKnownIngredients(db);
   console.log(`Dictionary: ${known.size} verified ingredient names.\n`);
 
+  const aliases = await fetchAliases(db);
   const persistedFormulas = await fetchPersistedDailymedFormulas(db);
   console.log(`Already on file: ${persistedFormulas.size} dailymed formula(s).\n`);
 
@@ -699,7 +709,7 @@ async function main() {
       await sleep(REQUEST_INTERVAL_MS);
       const xml = await fetchLabel(spl.setid);
 
-      const row = toRow(spl, xml, known, rejectSamples);
+      const row = toRow(spl, xml, known, rejectSamples, aliases);
       if (typeof row === "string") {
         rejected.set(row, (rejected.get(row) ?? 0) + 1);
         // Recorded either way: a duplicate of something rejected is still not
