@@ -11,7 +11,7 @@ import {
   contactWeight,
   functionSignal,
   INGREDIENT_RULES,
-  positionWeight,
+  positionWeights,
   ruleMatches,
   targetApplies,
   type IngredientRule,
@@ -335,10 +335,14 @@ function computeMatch(
   let irritation = 0;
   let scored = 0;
 
+  // Computed once: an alphabetical tail (an OTC drug label) is read as
+  // unordered rather than as a concentration ranking. See `positionWeights`.
+  const positionFactors = positionWeights(product.ingredients.map((i) => i.name));
+
   product.ingredients.forEach((ingredient, position) => {
     // An unrecognised name supports no claim in either direction.
     if (!isVerified(ingredient)) return;
-    const positionFactor = positionWeight(position);
+    const positionFactor = positionFactors[position];
 
     const rule = findRule(ingredient);
     if (rule) {
@@ -347,22 +351,14 @@ function computeMatch(
       const helps = targetApplies(rule.helps, target);
       const hurts = targetApplies(rule.hurts, target);
 
-      // `hurts` alone is not enough to say a harm is counted anywhere in the
-      // score — `targetApplies` is an OR across concerns/skinTypes/sensitive,
-      // so a rule whose `hurts` matches only via `sensitive` (salicylic acid
-      // on sensitive-but-not-dry skin, for instance) can be true here while
-      // none of the three real score paths below (irritation, concern
-      // evidence, type evidence) actually apply it. Before this PR that was
-      // invisible: `effect` used one weight in both directions, so an
-      // unapplied harm exactly cancelled an equal benefit and the ingredient
-      // simply produced no reason line. Splitting the weights broke that
-      // cancellation — the same unapplied harm now nets to a *visible,
-      // nonzero* negative `effect`, showing "why this score" listing an
-      // ingredient as working against the user for harm the score never
-      // actually charged. `harmApplied` mirrors exactly what the three real
-      // paths below check, so `effect` never claims more than the score
-      // itself does. Raised by review on PR #127.
+      // `targetApplies` is an OR across concerns, skin type and sensitivity.
+      // Track the paths that actually charge harm so a reason cannot claim
+      // an uncounted downside. A rule's explicit sensitive-skin downside now
+      // reaches irritation even if its category is "actives" (or salicylic
+      // acid's "pore-clogging"), without treating every active as an irritant.
       const hurtsIrritantCategory = hurts && IRRITANT_CATEGORIES.has(rule.category);
+      const hurtsReactiveSkin = hurts && rule.hurts?.sensitive === true && isSensitive(profile);
+      const hurtsIrritation = hurtsIrritantCategory || hurtsReactiveSkin;
       // Deliberately NOT excluding pore-clogging/pore-led concerns here, even
       // though the concernEvidence loop below does. That exclusion exists so
       // `poreCloggingHits` (a separate detector, `lib/pore-clogging.ts`) and
@@ -379,7 +375,7 @@ function computeMatch(
         hurts && profile.concerns.some((concern) => rule.hurts?.concerns?.includes(concern));
       const hurtsMatchedSkinType =
         hurts && !!profile.baseSkinType && !!rule.hurts?.skinTypes?.includes(profile.baseSkinType);
-      const harmApplied = hurtsIrritantCategory || hurtsMatchedConcern || hurtsMatchedSkinType;
+      const harmApplied = hurtsIrritation || hurtsMatchedConcern || hurtsMatchedSkinType;
 
       // A rule can both help and hurt the same person — salicylic acid on
       // oily, sensitive skin. That is a genuine tension, not a bug, so both
@@ -410,13 +406,11 @@ function computeMatch(
       if (rule.helps?.sensitive && isSensitive(profile)) {
         typeEvidence += benefitWeight * 0.6;
       }
-      // Out of scope for this PR: widening which categories feed the
-      // irritation accumulator is a separate, catalogue-wide behaviour
-      // change (it moves scores for every leave-on product with an active
-      // like salicylic acid or a retinoid, not just the ambiguous-contact
-      // types this PR is about) and belongs in its own PR with its own
-      // before/after evidence. See the review on PR #127.
-      if (hurtsIrritantCategory) irritation += harmWeight;
+      // A declared reactive-skin harm is an irritation risk, regardless of
+      // the rule's benefit category. The OR charges it only once when an
+      // ingredient is also in an irritant category; contact and INCI position
+      // still determine the size of that single charge.
+      if (hurtsIrritation) irritation += harmWeight;
 
       if (effect !== 0) {
         scored++;
@@ -458,7 +452,7 @@ function computeMatch(
   for (const [position, ingredient] of product.ingredients.entries()) {
     if (!isVerified(ingredient) || ingredient.safety !== "caution") continue;
     if (!isSensitive(profile)) continue;
-    irritation += 2.5 * positionWeight(position) * contact.harm;
+    irritation += 2.5 * positionFactors[position] * contact.harm;
   }
 
   // Acne fit is "what is in here that clogs pores", not "does it contain acne
@@ -469,7 +463,7 @@ function computeMatch(
   const cloggers = poreCloggingHits(product.ingredients);
   const poreLoad = cloggers.reduce(
     (sum, hit) =>
-      sum + CLOGGER_WEIGHT[hit.confidence] * positionWeight(hit.position - 1) * contact.harm,
+      sum + CLOGGER_WEIGHT[hit.confidence] * positionFactors[hit.position - 1] * contact.harm,
     0
   );
 

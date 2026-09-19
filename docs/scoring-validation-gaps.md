@@ -9,17 +9,6 @@ These are model gaps, not universal product verdicts. A formula snapshot does
 not establish clinical efficacy, concentration, exposure, or suitability for
 every person.
 
-## Benzoyl peroxide on dry, reactive skin
-
-A leave-on benzoyl-peroxide treatment can still score `good` for a dry,
-high-sensitivity, acne-prone profile. Pore safety supplies 65% of acne fit and
-defaults to 100 when there is no known clogger, while benzoyl peroxide is in the
-`actives` category rather than an irritation category. Its caution flag adds a
-small sensitivity penalty but does not offset that pore-safety contribution.
-
-Resolve this with a catalogue-wide model change and before/after distribution
-evidence; do not encode a desired absolute verdict in the fixture suite.
-
 ## Sparse hydration formulas
 
 A formula whose only recognised dehydration signal is sodium hyaluronate can
@@ -31,20 +20,27 @@ may have real hydrating functions.
 Resolve this by improving ingredient/function coverage or recalibrating with a
 representative labelled dataset; do not special-case a brand or product.
 
-## Alpha-hydroxy acids on reactive skin
+## Trace actives still cost about half a main active
 
-The lactic-acid rule declares a downside for sensitive skin, but its `actives`
-category does not enter the irritation accumulator. A sensitivity-only harm
-match also does not reduce concern or skin-type fit. Consequently, the high-
-sensitivity score for The Ordinary Lactic Acid 10% + HA falls because of its
-separately flagged sodium hydroxide, not because of lactic acid. The executable
-test checks lactic acid's brightening contribution with an otherwise identical
-synthetic control; it does not claim the model currently charges its reactive-
-skin downside.
+A rule's declared sensitive-skin harm is charged as irritation whatever its
+benefit category. `positionWeight` scales it by INCI position down to a 0.3
+floor, but the irritation penalty saturates, so the final points fall far less
+than the weight does: at the floor a trace active still costs roughly half of
+what the same active costs near the top of the list (measured 2026-09-19 on a
+highly sensitive profile: salicylic acid 8.7 against 16.1, ascorbic acid 7.3
+against 14.2, retinol 9.3 against 16.9).
 
-Address the active-irritation path with catalogue-wide before/after evidence,
-accounting for the limits of an ingredient list without concentration or
-finished-formula pH data. Do not infer a universal risk from the product name.
+Alphabetical lists are handled: `positionWeights` in `lib/rules.ts` detects an
+A-to-Z tail (21 CFR 201.66(c)(8) requires it of OTC drugs that are not also
+cosmetics) and gives it one flat weight, the average of the curve over that
+stretch. That derived weight is not a published figure; nothing published gives
+one. It does not remove the charge — Kiss My Face Purely Mineral's ascorbic acid
+still costs 9.5 irritation points at a flat weight of 0.42.
+
+Whether that charge is too large is a calibration question about
+`IRRITATION_SATURATION` and the harm weights, not about list order. Resolve it
+with concentration evidence (DailyMed states each active's strength; the
+importer discards it) or a labelled dataset, measured against the catalogue.
 
 ## Hyaluronic Acid 2% + B5 misclassified as unknown
 
@@ -58,3 +54,16 @@ a hydration-suitability claim while that classification is wrong.
 Correct the catalogue classifier and the stored row, then refresh the fixture
 and add a serum-specific hydration comparison. Relabelling only the fixture
 would hide the user-facing data problem.
+
+## Benzoyl peroxide gel classified as unknown
+
+The Walmart 10% benzoyl-peroxide acne gel (DailyMed `950edb4e-fbba-41e3-9ec5-973806e555e7`,
+snapshot 2026-09-19) gets type `unknown` from the classifier, though it is a
+leave-on gel. `unknown` discounts benefit to 0.25 while keeping harm at full
+weight, so the fixture shows its irritation cost but understates its acne
+benefit. The fixture keeps the stored type so it represents what the app
+actually scores. Its inactives are printed alphabetically, so their positions
+carry no concentration information.
+
+Correct the classifier for OTC acne-treatment labels, then refresh the fixture.
+

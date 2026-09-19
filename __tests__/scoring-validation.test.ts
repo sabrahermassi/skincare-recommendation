@@ -76,6 +76,12 @@ type DirectionalInvariant = {
 
 const DIRECTIONAL_INVARIANTS: DirectionalInvariant[] = [
   {
+    productId: "dailymed-950edb4e-fbba-41e3-9ec5-973806e555e7",
+    expectation: "benzoyl peroxide's declared sensitive-skin harm makes it a worse match for dry, highly sensitive acne-prone skin than for tolerant oily acne-prone skin",
+    betterFor: profile({ concerns: ["acne-prone"], baseSkinType: "oily", sensitivity: "none" }),
+    thanFor: profile({ concerns: ["acne-prone"], baseSkinType: "dry", sensitivity: "high" }),
+  },
+  {
     productId: "dailymed-0e9cd3e5-cff8-7594-e063-6394a90aad90",
     expectation: "its mineral filters, cica, panthenol and ceramide favor reactive red skin",
     betterFor: profile({ concerns: ["redness"], sensitivity: "high" }),
@@ -166,13 +172,13 @@ const SIGNAL_INVARIANTS: SignalInvariant[] = [
 ];
 
 describe("scoring validation fixture provenance", () => {
-  it("uses the current fixture schema and exactly 20 unique public records", () => {
+  it("uses the current fixture schema and exactly 21 unique public records", () => {
     expect(SCORING_FIXTURE_SCHEMA_VERSION).toBe(1);
     expect(dictionarySnapshot.schemaVersion).toBe(1);
     expect(dictionarySnapshot.capturedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(SCORING_PRODUCTS).toHaveLength(20);
-    expect(new Set(SCORING_PRODUCTS.map(({ id }) => id)).size).toBe(20);
-    expect(new Set(SCORING_PRODUCTS.map(({ sourceUrl }) => sourceUrl)).size).toBe(20);
+    expect(SCORING_PRODUCTS).toHaveLength(21);
+    expect(new Set(SCORING_PRODUCTS.map(({ id }) => id)).size).toBe(21);
+    expect(new Set(SCORING_PRODUCTS.map(({ sourceUrl }) => sourceUrl)).size).toBe(21);
     expect(Object.keys(dictionary).sort()).toEqual(
       [...new Set(SCORING_PRODUCTS.flatMap(({ inci }) => inci))].sort()
     );
@@ -261,3 +267,86 @@ describe("scoring validation invariants", () => {
     );
   });
 });
+
+describe("declared reactive-skin harm reaches the irritation penalty", () => {
+  // No public fixture is a benzoyl-peroxide product, so this uses a synthetic
+  // leave-on formula: only the benzoyl-peroxide slot changes between the two
+  // arms, keeping its position, verification and safety identical.
+  const formula = (active: string): Ingredient[] =>
+    [
+      "water", active, "glycerin", "propanediol", "carbomer",
+      "xanthan gum", "allantoin", "panthenol", "disodium edta", "tocopherol",
+    ].map((name) => ({
+      id: name,
+      name,
+      comedogenic: 0,
+      safety: "safe",
+      verified: true,
+      functions: [],
+    }));
+  const treatment = (active: string) => ({ type: "serum" as const, ingredients: formula(active) });
+  const acne = (sensitivity: SkinProfile["sensitivity"], baseSkinType: SkinProfile["baseSkinType"] = "oily") =>
+    profile({ concerns: ["acne-prone"], baseSkinType, sensitivity });
+  const scoreOf = (active: string, skinProfile: SkinProfile) => {
+    const result = matchProduct(treatment(active), skinProfile);
+    if (result.score === null) throw new Error("unexpectedly unscored");
+    return result;
+  };
+
+  it("benzoyl peroxide still helps acne-prone skin that tolerates it", () => {
+    const tolerant = acne("none");
+    expect(scoreOf("benzoyl peroxide", tolerant).score).toBeGreaterThan(
+      scoreOf("unmatched test control", tolerant).score as number
+    );
+  });
+
+  it("benzoyl peroxide costs more than it earns on highly sensitive acne-prone skin", () => {
+    // Its acne benefit is real, but pore safety reads 100 for it, so the
+    // benefit alone used to win here. The declared sensitive-skin harm must
+    // now be charged as irritation and outweigh it.
+    for (const skinProfile of [acne("high"), acne("high", "dry")]) {
+      const withActive = scoreOf("benzoyl peroxide", skinProfile);
+      const control = scoreOf("unmatched test control", skinProfile);
+      expect(withActive.breakdown.irritationPenalty).toBeGreaterThan(
+        control.breakdown.irritationPenalty
+      );
+      expect(withActive.score as number).toBeLessThan(control.score as number);
+    }
+  });
+
+  it("the tolerant/reactive gap for benzoyl peroxide is larger than the profile difference alone", () => {
+    const gap = (active: string) =>
+      (scoreOf(active, acne("none")).score as number) -
+      (scoreOf(active, acne("high", "dry")).score as number);
+    expect(gap("benzoyl peroxide")).toBeGreaterThan(gap("unmatched test control") + 10);
+  });
+
+  it("charges the real DailyMed benzoyl-peroxide gel's active as irritation on sensitive skin", () => {
+    const fixture = byId.get("dailymed-950edb4e-fbba-41e3-9ec5-973806e555e7");
+    if (!fixture) throw new Error("Missing benzoyl peroxide fixture");
+    const ingredients = ingredientsFor(fixture);
+    const neutralized = ingredients.map((ingredient) =>
+      ingredient.name === "benzoyl peroxide" ? { ...ingredient, name: "unmatched test control" } : ingredient
+    );
+    const penalty = (skinProfile: SkinProfile, list: Ingredient[]) =>
+      matchProduct({ type: fixture.type, ingredients: list }, skinProfile).breakdown.irritationPenalty;
+    const reactive = acne("high");
+    expect(penalty(reactive, ingredients)).toBeGreaterThan(penalty(reactive, neutralized));
+    // A tolerant profile is not charged for it.
+    expect(penalty(acne("none"), ingredients)).toBe(penalty(acne("none"), neutralized));
+  });
+
+  it("charges lactic acid's reactive-skin downside as irritation, not only sodium hydroxide's", () => {
+    const fixture = byId.get("obf-0769915190373");
+    if (!fixture) throw new Error("Missing lactic acid fixture");
+    const ingredients = ingredientsFor(fixture);
+    const neutralized = ingredients.map((ingredient) =>
+      ingredient.name === "lactic acid" ? { ...ingredient, name: "unmatched test control" } : ingredient
+    );
+    const reactive = profile({ concerns: ["dullness"], sensitivity: "high" });
+    const penalty = (list: Ingredient[]) =>
+      matchProduct({ type: fixture.type, ingredients: list }, reactive).breakdown.irritationPenalty;
+    expect(penalty(ingredients)).toBeGreaterThan(penalty(neutralized));
+  });
+});
+
