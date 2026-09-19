@@ -197,6 +197,14 @@ export function formulaChanged(current, fresh) {
  * force: a reconciliation run must not let one bad OBF edit teach the next
  * run that its own garbage is recognised).
  */
+async function fetchAliases(db) {
+  const rows = await paginateOrdered(db, "ingredient_synonyms", {
+    select: "synonym, inci_name",
+    cursorColumn: "synonym",
+  });
+  return new Map(rows.map((r) => [r.synonym.toLowerCase(), r.inci_name.toLowerCase()]));
+}
+
 async function fetchKnownIngredients(db) {
   const rows = await paginateOrdered(db, "ingredients", {
     select: "inci_name",
@@ -255,6 +263,7 @@ async function main() {
   const db = createClient(url, key, { auth: { persistSession: false } });
 
   const known = await fetchKnownIngredients(db);
+  const aliases = await fetchAliases(db);
 
   console.log(
     `Aiming for ${limit} reconciled row(s) this run, paging past any that can't ` +
@@ -316,7 +325,7 @@ async function main() {
         continue;
       }
 
-      const fresh = parseInci(result.text, known);
+      const fresh = parseInci(result.text, known, undefined, aliases);
       if (fresh.length < 2) {
         retryable += 1;
         if (retryableSamples.length < 5) {

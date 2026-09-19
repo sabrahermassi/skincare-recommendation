@@ -186,6 +186,30 @@ describe("the parser matches lib/inci.ts", () => {
       "glycerin",
     ]);
   });
+
+  // The label scanner has always read the synonyms table; the importer did not,
+  // so a French formula was judged against English names only and rejected by
+  // the plausibility gate for reading as unrecognised.
+  it("reads another name for an ingredient through the synonyms table", () => {
+    const known = new Set(["aqua", "glycerin", "polyvinyl alcohol", "panthenol"]);
+    const aliases = new Map([
+      ["glycérine", "glycerin"],
+      ["alcool polyvinylique", "polyvinyl alcohol"],
+    ]);
+    const parsed = parseInci("Aqua, Alcool Polyvinylique, Glycérine, Panthenol", known, undefined, aliases);
+    expect(parsed.map((p: { inci_name: string }) => p.inci_name)).toEqual([
+      "aqua",
+      "polyvinyl alcohol",
+      "glycerin",
+      "panthenol",
+    ]);
+  });
+
+  it("leaves a name alone when no synonyms are supplied", () => {
+    const known = new Set(["aqua", "glycerin"]);
+    const parsed = parseInci("Aqua, Glycérine", known);
+    expect(parsed.map((p: { inci_name: string }) => p.inci_name)).toContain("glycérine");
+  });
 });
 
 /**

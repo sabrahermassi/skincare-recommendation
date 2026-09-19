@@ -471,10 +471,12 @@ export function salvageKnownNames(name, dictionary, aliases) {
 /**
  * `dictionary`, when given, finds the list by what it contains rather than by
  * the language of the heading above it, and resolves each name the way
- * `parseIngredientBlock` does. `rejected`, when given, collects the fragments
- * the name check threw out, so an importer can print them.
+ * `parseIngredientBlock` does. `aliases`, when given, maps other names for an
+ * ingredient ("glycérine", "mineral oil") to the dictionary's own, exactly as the
+ * label scanner does. `rejected`, when given, collects the fragments the name
+ * check threw out, so an importer can print them.
  */
-export function parseInci(text, dictionary, rejected) {
+export function parseInci(text, dictionary, rejected, aliases) {
   const flat = text.replace(/\r/g, "").replace(/\n+/g, " ").replace(/\s+/g, " ").replace(/\b(?:inactive ingredients?|may contain|peut contenir)\s*[:：]?\s*/gi, ", ");
 
   // 1 ── Drop everything up to and including an "Ingredients:" heading. Same
@@ -483,7 +485,7 @@ export function parseInci(text, dictionary, rejected) {
   let block = heading ? flat.slice(heading.index + heading[0].length) : flat;
 
   // With a dictionary the heading's language stops mattering; see lib/inci.ts.
-  const listed = dictionary ? findListByDictionary(flat, dictionary) : null;
+  const listed = dictionary ? findListByDictionary(flat, dictionary, aliases) : null;
   if (listed) block = listed;
 
   // 2 ── ...and truncate at whatever shares the back of the label. Legal
@@ -507,9 +509,9 @@ export function parseInci(text, dictionary, rejected) {
         rejected?.push(name);
         return [];
       }
-      const known = resolveKnownName(name, dictionary);
+      const known = resolveKnownName(aliases?.get(name) ?? name, dictionary, aliases);
       if (dictionary.has(known)) return [known];
-      const salvaged = salvageKnownNames(known, dictionary);
+      const salvaged = salvageKnownNames(known, dictionary, aliases);
       if (salvaged.length > 0) return salvaged;
       if (!isPlausibleIngredientName(known)) {
         rejected?.push(known);

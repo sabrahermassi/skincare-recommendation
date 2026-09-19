@@ -312,6 +312,21 @@ async function fetchKnownIngredients(db) {
 }
 
 /**
+ * Other names for ingredients we already hold — the French half of a bilingual
+ * label ("glycérine"), a trivial name ("mineral oil") — mapped to the
+ * dictionary's own name. The label scanner has always read these; the importer
+ * did not, so a French or Italian formula was judged against English names only
+ * and rejected by the plausibility gate below for reading as unrecognised.
+ */
+async function fetchAliases(db) {
+  const rows = await paginateOrdered(db, "ingredient_synonyms", {
+    select: "synonym, inci_name",
+    cursorColumn: "synonym",
+  });
+  return new Map(rows.map((r) => [r.synonym.toLowerCase(), r.inci_name.toLowerCase()]));
+}
+
+/**
  * A record without a name or a formula is worse than no record: it occupies
  * the barcode permanently and stops a better source ever being consulted for
  * it. About a tenth of rows fail this now, down from about a third: the
@@ -322,12 +337,12 @@ async function fetchKnownIngredients(db) {
  * those, because "how many were thrown away and for what" is the number that
  * says whether the gates are working or quietly eating the catalogue.
  */
-function toRow(p, known, samples, rejectedNames) {
+function toRow(p, known, samples, rejectedNames, aliases) {
   const name = (p.product_name ?? "").trim();
   const inci = (p.ingredients_text ?? "").trim();
   if (!name || !inci || !p.code) return "no name, formula or barcode";
 
-  const ingredients = parseInci(inci, known, rejectedNames);
+  const ingredients = parseInci(inci, known, rejectedNames, aliases);
   if (ingredients.length < 2) return "fewer than 2 parsed ingredients";
 
   // The plausibility gate. See MIN_KNOWN_INGREDIENT_RATIO.
@@ -396,6 +411,7 @@ async function main() {
   const db = createClient(url, key, { auth: { persistSession: false } });
 
   const known = await fetchKnownIngredients(db);
+  const aliases = await fetchAliases(db);
   console.log(`Dictionary: ${known.size} known ingredient names.\n`);
 
   const rows = new Map();
@@ -450,7 +466,7 @@ async function main() {
         if (typeof p.last_modified_t === "number") {
           newestModifiedAt = Math.max(newestModifiedAt ?? 0, p.last_modified_t);
         }
-        const row = toRow(p, known, rejectSamples, rejectedNames);
+        const row = toRow(p, known, rejectSamples, rejectedNames, aliases);
         if (typeof row === "string") {
           rejected.set(row, (rejected.get(row) ?? 0) + 1);
           continue;
