@@ -314,6 +314,8 @@ export function commonNameFor(name) {
     ["euphorbia cerifera wax", "euphorbia cerifera cera"],
     ["carnauba wax", "copernicia cerifera cera"],
     ["kojic acid dipalmitate", "kojic dipalmitate"],
+    ["octyl salicylate", "ethylhexyl salicylate"],
+    ["octyl methoxycinnamate", "ethylhexyl methoxycinnamate"],
     ["vitamin e", "tocopherol"],
     ["vitamin e acetate", "tocopheryl acetate"],
     ["vitamin c", "ascorbic acid"],
@@ -337,7 +339,8 @@ export function commonNameFor(name) {
  *    taurate" for `acryloyldimethyltaurate`) — through `squashIndex`, so it is
  *    one lookup, and when the dictionary holds the name more than once the one
  *    fewest edits from what was printed wins;
- *  - an unclosed bracket: "aqua (water" is aqua;
+ *  - a unit annotation ("homosalate w/w") or an unclosed bracket ("aqua
+ *    (water"): both are dropped from the end of the name;
  *  - "/" separating names for ONE ingredient: "aqua/water/eau" is aqua, and
  *    "iron oxides/ci 77491" is ci 77491. One part must be a known name or an
  *    alias, and each other part a known name, an alias, or a single word. A
@@ -353,11 +356,15 @@ export function commonNameFor(name) {
  */
 export function resolveKnownName(name, dictionary, aliases) {
   if (dictionary.has(name)) return name;
-  // A bracket the label never closed ("aqua (water"): normalise only removes a
-  // matched pair, so the open half is still on the end of the name.
-  const unbracketed = name.replace(/\s*\(.*$/, "").replace(/\)+$/, "");
-  if (unbracketed !== name && dictionary.has(unbracketed)) return unbracketed;
-  const spelled = name.replace(/sulph/g, "sulf");
+  // A unit the label printed after the name ("homosalate w/w"), then a bracket
+  // it never closed ("aqua (water"): normalise only removes a matched pair, so
+  // the open half is still on the end of the name.
+  const base = name
+    .replace(/\s+w\/[wv]$/, "")
+    .replace(/\s*\(.*$/, "")
+    .replace(/\)+$/, "");
+  if (base !== name && dictionary.has(base)) return base;
+  const spelled = base.replace(/sulph/g, "sulf");
   if (dictionary.has(spelled)) return spelled;
   const common = commonNameFor(spelled);
   if (common && dictionary.has(common)) return common;
@@ -369,8 +376,8 @@ export function resolveKnownName(name, dictionary, aliases) {
     }
     return best;
   }
-  if (name.includes("/")) {
-    const parts = name.split("/").map(normalise);
+  if (base.includes("/")) {
+    const parts = base.split("/").map(normalise);
     const isKnown = (part) => dictionary.has(part) || (aliases?.has(part) ?? false);
     const anchor = parts.find(isKnown);
     const strict = /(?:polymer|resin|esters?)$/.test(parts[parts.length - 1]);
@@ -425,6 +432,42 @@ export function fuzzyKnownName(name, dictionary, attempts) {
 }
 
 /**
+ * Recover the real ingredient from a fragment that is not a name on its own.
+ *
+ * The name check rejects "sodium sulfate: ci 12490" and "preservatives: benzyl
+ * alcohol" because of the colon, but each holds a genuine ingredient that used
+ * to be thrown away with the junk around it. Two shapes, and only these two:
+ *
+ *  - a colon-separated piece that is a known name in its own right, so both
+ *    halves of "sodium sulfate: ci 12490" are kept;
+ *  - a known name behind leading junk — a batch number ("2050519 10 -
+ *    aqua/water") or heading text in other scripts ("ingrédients/ingredientes/
+ *    sastojci helianthus annuus seed oil"). A word is skipped only if it has no
+ *    letters or is non-ASCII; ordinary words never are, so "free from alcohol"
+ *    does not become "alcohol", and a real slash name that the dictionary lacks
+ *    ("peg/ppg-18/18 dimethicone") is not reduced to its last word.
+ *
+ * Nothing found returns an empty list. It is tried on every name the
+ * dictionary does not hold, not only the ones the name check refuses, because
+ * a fragment can pass that check and still carry junk in front of a real name.
+ */
+export function salvageKnownNames(name, dictionary, aliases) {
+  const found = [];
+  for (const piece of name.split(/[:：]/)) {
+    const words = normalise(piece).split(" ");
+    for (let start = 0; start < words.length; start++) {
+      const resolved = resolveKnownName(words.slice(start).join(" "), dictionary, aliases);
+      if (dictionary.has(resolved)) {
+        found.push(resolved);
+        break;
+      }
+      if (!/^[^a-z]*$|[^\x00-\x7f]/.test(words[start])) break;
+    }
+  }
+  return found;
+}
+
+/**
  * `dictionary`, when given, finds the list by what it contains rather than by
  * the language of the heading above it, and resolves each name the way
  * `parseIngredientBlock` does. `rejected`, when given, collects the fragments
@@ -457,15 +500,20 @@ export function parseInci(text, dictionary, rejected) {
   const delimited = splitOnSeparators(block)
     .map(normalise)
     .filter((p) => p.length > 1 && p.length < 120 && /[a-z]/.test(p))
-    .filter((p) => {
-      const ok = isPlausibleIngredientName(p);
-      if (!ok) rejected?.push(p);
-      return ok;
-    })
     .flatMap((name) => {
-      if (!dictionary) return [name];
+      if (!dictionary) {
+        if (isPlausibleIngredientName(name)) return [name];
+        rejected?.push(name);
+        return [];
+      }
       const known = resolveKnownName(name, dictionary);
       if (dictionary.has(known)) return [known];
+      const salvaged = salvageKnownNames(known, dictionary);
+      if (salvaged.length > 0) return salvaged;
+      if (!isPlausibleIngredientName(known)) {
+        rejected?.push(known);
+        return [];
+      }
       const pieces = splitRunTogether(known, dictionary);
       return pieces.length > 1 ? pieces : [fuzzyKnownName(known, dictionary, fuzzyAttempts)];
     })

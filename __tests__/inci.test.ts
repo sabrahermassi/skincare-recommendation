@@ -7,6 +7,7 @@ import {
   parseIngredientBlock,
   reconstructFromDictionary,
   resolveKnownName,
+  salvageKnownNames,
   splitRunTogether,
   squashKey,
 } from "@/lib/inci";
@@ -176,6 +177,69 @@ describe("resolveKnownName: spacing, spelling and common names", () => {
     expect(resolveKnownName("prunus armeniaca kernel oil/apricot kernel oil", known, aliases)).toBe(
       "prunus armeniaca kernel oil"
     );
+  });
+});
+
+describe("resolveKnownName: unit annotations", () => {
+  const dictionary = new Set(["homosalate", "octocrylene", "ethylhexyl salicylate", "ethylhexyl methoxycinnamate"]);
+
+  it("drops a w/w or w/v unit printed after the name", () => {
+    expect(resolveKnownName("homosalate w/w", dictionary)).toBe("homosalate");
+    expect(resolveKnownName("octocrylene w/v", dictionary)).toBe("octocrylene");
+  });
+
+  it("resolves the common UV-filter names after the unit is dropped", () => {
+    expect(resolveKnownName("octyl salicylate w/w", dictionary)).toBe("ethylhexyl salicylate");
+    expect(resolveKnownName("octyl methoxycinnamate", dictionary)).toBe("ethylhexyl methoxycinnamate");
+  });
+
+  it("reads a sunscreen label whose every filter carries a unit", () => {
+    const parsed = parseIngredientBlock(
+      "Homosalate w/w, Octocrylene w/w, Octyl Salicylate w/w, Glycerin",
+      dictionary
+    );
+    expect(parsed.slice(0, 3).map((p) => p.inci_name)).toEqual(["homosalate", "octocrylene", "ethylhexyl salicylate"]);
+  });
+});
+
+describe("salvageKnownNames", () => {
+  const dictionary = new Set(["sodium sulfate", "ci 12490", "benzyl alcohol", "aqua", "water", "helianthus annuus seed oil", "alcohol"]);
+
+  it("keeps each colon-separated piece that is a known name", () => {
+    expect(salvageKnownNames("sodium sulfate: ci 12490", dictionary)).toEqual(["sodium sulfate", "ci 12490"]);
+    expect(salvageKnownNames("preservatives: benzyl alcohol", dictionary)).toEqual(["benzyl alcohol"]);
+  });
+
+  it("finds a known name behind a batch number", () => {
+    expect(salvageKnownNames("2050519 10 - aqua", dictionary)).toEqual(["aqua"]);
+  });
+
+  it("finds a known name behind heading text in other scripts", () => {
+    expect(
+      salvageKnownNames("ingrédients/ingredientes/ zyztatika/ingrediente/cbctabкm/sastojci helianthus annuus seed oil", dictionary)
+    ).toEqual(["helianthus annuus seed oil"]);
+  });
+
+  it("does not reduce a real slash name the dictionary lacks to its last word", () => {
+    const known = new Set(["dimethicone"]);
+    expect(salvageKnownNames("peg/ppg-18/18 dimethicone", known)).toEqual([]);
+    expect(
+      parseIngredientBlock("Aqua, Peg/Ppg-18/18 Dimethicone, Glycerin, Panthenol", known).map((p) => p.inci_name)
+    ).toContain("peg/ppg-18/18 dimethicone");
+  });
+
+  it("does not turn a sentence that ends in an ingredient into that ingredient", () => {
+    expect(salvageKnownNames("free from alcohol", dictionary)).toEqual([]);
+    expect(salvageKnownNames("made with natural water", dictionary)).toEqual([]);
+  });
+
+  it("returns nothing when no piece is a known name", () => {
+    expect(salvageKnownNames("package labeling: label.jpg", dictionary)).toEqual([]);
+  });
+
+  it("works through the whole parser, keeping a known name the guard would have refused", () => {
+    const parsed = parseIngredientBlock("Aqua, Sodium Sulfate: CI 12490, Preservatives: Benzyl Alcohol", dictionary);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "sodium sulfate", "ci 12490", "benzyl alcohol"]);
   });
 });
 

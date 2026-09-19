@@ -45,6 +45,7 @@ const SHARED_FUNCTIONS = [
   "resolveKnownName",
   "splitRunTogether",
   "fuzzyKnownName",
+  "salvageKnownNames",
   "parseIngredientBlock",
   "dedupe",
 ];
@@ -200,6 +201,7 @@ describe("the import scripts stay in step with lib/inci.ts", () => {
     "resolveKnownName",
     "splitRunTogether",
     "fuzzyKnownName",
+    "salvageKnownNames",
     "dedupe",
   ])("inci-parse.mjs has the canonical %s()", (fn: string) => {
     expect(extractFunctionBody(parseMjs, fn)).toBe(stripTypes(extractFunctionBody(client, fn)));

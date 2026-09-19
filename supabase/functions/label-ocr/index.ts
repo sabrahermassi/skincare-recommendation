@@ -635,115 +635,8 @@ export function commonNameFor(name: string): string | undefined {
     ["euphorbia cerifera wax", "euphorbia cerifera cera"],
     ["carnauba wax", "copernicia cerifera cera"],
     ["kojic acid dipalmitate", "kojic dipalmitate"],
-    ["vitamin e", "tocopherol"],
-    ["vitamin e acetate", "tocopheryl acetate"],
-    ["vitamin c", "ascorbic acid"],
-    ["vitamin b5", "panthenol"],
-  ]);
-  return table.get(name);
-}
-
-/**
- * Dictionary names indexed two ways for the delimited path, built once per
- * dictionary. A `WeakMap` keyed on the set itself: an importer reads the
- * dictionary once and parses hundreds of products against it, and an Edge
- * Function request builds its own set, so neither pays twice.
- */
-const squashIndexCache = new WeakMap<ReadonlySet<string>, Map<string, string[]>>();
-const lengthIndexCache = new WeakMap<ReadonlySet<string>, Map<number, string[]>>();
-
-/**
- * A name reduced to its letters and digits: "methyl styrene", "methylstyrene"
- * and "methyl-styrene" are one key. Labels and the dictionary disagree about
- * spaces and punctuation far more often than about spelling, and digits stay
- * in the key so "peg-4" and "peg-40" can never meet.
- */
-export function squashKey(name: string): string {
-  return name.replace(/[^a-z0-9]/g, "");
-}
-
-export function squashIndex(dictionary: ReadonlySet<string>): Map<string, string[]> {
-  const cached = squashIndexCache.get(dictionary);
-  if (cached) return cached;
-  const index = new Map();
-  for (const entry of dictionary) {
-    const key = squashKey(entry);
-    const bucket = index.get(key);
-    if (bucket) bucket.push(entry);
-    else index.set(key, [entry]);
-  }
-  squashIndexCache.set(dictionary, index);
-  return index;
-}
-
-export function lengthIndex(dictionary: ReadonlySet<string>): Map<number, string[]> {
-  const cached = lengthIndexCache.get(dictionary);
-  if (cached) return cached;
-  const index = new Map();
-  for (const entry of dictionary) {
-    const bucket = index.get(entry.length);
-    if (bucket) bucket.push(entry);
-    else index.set(entry.length, [entry]);
-  }
-  lengthIndexCache.set(dictionary, index);
-  return index;
-}
-
-/**
- * What labels print in place of the INCI name, for the ordinary ingredients
- * people name by their common name: "jojoba seed oil" is
- * `simmondsia chinensis seed oil`, "flavor" is `aroma`. The dictionary is keyed
- * on INCI, so none of these matches as written, and they are the largest group
- * of misses that are not spelling.
- *
- * Only unambiguous ones. "Iron oxides" is three different colour indexes and
- * "citrus aurantium peel oil" is two different oranges, so neither is here — a
- * wrong mapping attaches another ingredient's safety note, which is worse than
- * a miss. The caller checks the target is in the dictionary, so an entry whose
- * target is absent does nothing.
- */
-export function commonNameFor(name: string): string | undefined {
-  const table = new Map([
-    ["flavor", "aroma"],
-    ["flavour", "aroma"],
-    ["perfume", "parfum"],
-    ["fragrance", "parfum"],
-    ["purified water", "aqua"],
-    ["deionized water", "aqua"],
-    ["demineralized water", "aqua"],
-    ["distilled water", "aqua"],
-    ["glycerine", "glycerin"],
-    ["glycerol", "glycerin"],
-    ["petroleum jelly", "petrolatum"],
-    ["mineral oil", "paraffinum liquidum"],
-    ["jojoba oil", "simmondsia chinensis seed oil"],
-    ["jojoba seed oil", "simmondsia chinensis seed oil"],
-    ["apricot kernel oil", "prunus armeniaca kernel oil"],
-    ["evening primrose oil", "oenothera biennis oil"],
-    ["argan oil", "argania spinosa kernel oil"],
-    ["argan kernel oil", "argania spinosa kernel oil"],
-    ["olive oil", "olea europaea fruit oil"],
-    ["olive fruit oil", "olea europaea fruit oil"],
-    ["rosehip oil", "rosa canina fruit oil"],
-    ["rosehip fruit extract", "rosa canina fruit extract"],
-    ["mango fruit extract", "mangifera indica fruit extract"],
-    ["mango butter", "mangifera indica seed butter"],
-    ["shea butter", "butyrospermum parkii butter"],
-    ["coconut oil", "cocos nucifera oil"],
-    ["sweet almond oil", "prunus amygdalus dulcis oil"],
-    ["almond oil", "prunus amygdalus dulcis oil"],
-    ["avocado oil", "persea gratissima oil"],
-    ["castor oil", "ricinus communis seed oil"],
-    ["grapeseed oil", "vitis vinifera seed oil"],
-    ["grape seed oil", "vitis vinifera seed oil"],
-    ["sunflower oil", "helianthus annuus seed oil"],
-    ["sunflower seed oil", "helianthus annuus seed oil"],
-    ["tea tree oil", "melaleuca alternifolia leaf oil"],
-    ["lavender oil", "lavandula angustifolia oil"],
-    ["candelilla wax", "euphorbia cerifera cera"],
-    ["euphorbia cerifera wax", "euphorbia cerifera cera"],
-    ["carnauba wax", "copernicia cerifera cera"],
-    ["kojic acid dipalmitate", "kojic dipalmitate"],
+    ["octyl salicylate", "ethylhexyl salicylate"],
+    ["octyl methoxycinnamate", "ethylhexyl methoxycinnamate"],
     ["vitamin e", "tocopherol"],
     ["vitamin e acetate", "tocopheryl acetate"],
     ["vitamin c", "ascorbic acid"],
@@ -767,7 +660,8 @@ export function commonNameFor(name: string): string | undefined {
  *    taurate" for `acryloyldimethyltaurate`) — through `squashIndex`, so it is
  *    one lookup, and when the dictionary holds the name more than once the one
  *    fewest edits from what was printed wins;
- *  - an unclosed bracket: "aqua (water" is aqua;
+ *  - a unit annotation ("homosalate w/w") or an unclosed bracket ("aqua
+ *    (water"): both are dropped from the end of the name;
  *  - "/" separating names for ONE ingredient: "aqua/water/eau" is aqua, and
  *    "iron oxides/ci 77491" is ci 77491. One part must be a known name or an
  *    alias, and each other part a known name, an alias, or a single word. A
@@ -783,11 +677,15 @@ export function commonNameFor(name: string): string | undefined {
  */
 export function resolveKnownName(name: string, dictionary: ReadonlySet<string>, aliases?: ReadonlyMap<string, string>): string {
   if (dictionary.has(name)) return name;
-  // A bracket the label never closed ("aqua (water"): normalise only removes a
-  // matched pair, so the open half is still on the end of the name.
-  const unbracketed = name.replace(/\s*\(.*$/, "").replace(/\)+$/, "");
-  if (unbracketed !== name && dictionary.has(unbracketed)) return unbracketed;
-  const spelled = name.replace(/sulph/g, "sulf");
+  // A unit the label printed after the name ("homosalate w/w"), then a bracket
+  // it never closed ("aqua (water"): normalise only removes a matched pair, so
+  // the open half is still on the end of the name.
+  const base = name
+    .replace(/\s+w\/[wv]$/, "")
+    .replace(/\s*\(.*$/, "")
+    .replace(/\)+$/, "");
+  if (base !== name && dictionary.has(base)) return base;
+  const spelled = base.replace(/sulph/g, "sulf");
   if (dictionary.has(spelled)) return spelled;
   const common = commonNameFor(spelled);
   if (common && dictionary.has(common)) return common;
@@ -799,8 +697,8 @@ export function resolveKnownName(name: string, dictionary: ReadonlySet<string>, 
     }
     return best;
   }
-  if (name.includes("/")) {
-    const parts = name.split("/").map(normalise);
+  if (base.includes("/")) {
+    const parts = base.split("/").map(normalise);
     const isKnown = (part: string) => dictionary.has(part) || (aliases?.has(part) ?? false);
     const anchor = parts.find(isKnown);
     const strict = /(?:polymer|resin|esters?)$/.test(parts[parts.length - 1]);
@@ -852,6 +750,42 @@ export function fuzzyKnownName(name: string, dictionary: ReadonlySet<string>, at
   const found = fuzzyLookup(name, lengthIndex(dictionary), attempts);
   if (!found || levenshtein(name, found, 1) > 1) return name;
   return name.replace(/\D/g, "") === found.replace(/\D/g, "") ? found : name;
+}
+
+/**
+ * Recover the real ingredient from a fragment that is not a name on its own.
+ *
+ * The name check rejects "sodium sulfate: ci 12490" and "preservatives: benzyl
+ * alcohol" because of the colon, but each holds a genuine ingredient that used
+ * to be thrown away with the junk around it. Two shapes, and only these two:
+ *
+ *  - a colon-separated piece that is a known name in its own right, so both
+ *    halves of "sodium sulfate: ci 12490" are kept;
+ *  - a known name behind leading junk — a batch number ("2050519 10 -
+ *    aqua/water") or heading text in other scripts ("ingrédients/ingredientes/
+ *    sastojci helianthus annuus seed oil"). A word is skipped only if it has no
+ *    letters or is non-ASCII; ordinary words never are, so "free from alcohol"
+ *    does not become "alcohol", and a real slash name that the dictionary lacks
+ *    ("peg/ppg-18/18 dimethicone") is not reduced to its last word.
+ *
+ * Nothing found returns an empty list. It is tried on every name the
+ * dictionary does not hold, not only the ones the name check refuses, because
+ * a fragment can pass that check and still carry junk in front of a real name.
+ */
+export function salvageKnownNames(name: string, dictionary: ReadonlySet<string>, aliases?: ReadonlyMap<string, string>): string[] {
+  const found = [];
+  for (const piece of name.split(/[:：]/)) {
+    const words = normalise(piece).split(" ");
+    for (let start = 0; start < words.length; start++) {
+      const resolved = resolveKnownName(words.slice(start).join(" "), dictionary, aliases);
+      if (dictionary.has(resolved)) {
+        found.push(resolved);
+        break;
+      }
+      if (!/^[^a-z]*$|[^\x00-\x7f]/.test(words[start])) break;
+    }
+  }
+  return found;
 }
 
 /**
@@ -907,12 +841,15 @@ export function parseIngredientBlock(
   const fuzzyAttempts = { remaining: MAX_FUZZY_ATTEMPTS_PER_BLOCK };
   const delimited = splitOnSeparators(block)
     .map(normalise)
-    .filter((n) => n.length > 1 && n.length < 120 && /[a-z]/.test(n) && isPlausibleIngredientName(n))
+    .filter((n) => n.length > 1 && n.length < 120 && /[a-z]/.test(n))
     .flatMap((name) => {
       const resolved = canonical(name);
-      if (!dictionary) return [resolved];
+      if (!dictionary) return isPlausibleIngredientName(resolved) ? [resolved] : [];
       const known = resolveKnownName(resolved, dictionary, aliases);
       if (dictionary.has(known)) return [known];
+      const salvaged = salvageKnownNames(known, dictionary, aliases);
+      if (salvaged.length > 0) return salvaged;
+      if (!isPlausibleIngredientName(known)) return [];
       const pieces = splitRunTogether(known, dictionary);
       return pieces.length > 1 ? pieces : [fuzzyKnownName(known, dictionary, fuzzyAttempts)];
     })
