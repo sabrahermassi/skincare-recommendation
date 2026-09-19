@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import {
@@ -12,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 import { ScanIntro } from "@/components/ScanIntro";
+import { ScanViewfinder } from "@/components/ScanViewfinder";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
@@ -19,7 +21,7 @@ import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type Fetc
 import { COLORS } from "@/lib/colors";
 import { profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SCANNER_FRAME, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { BORDER_INACTIVE, CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 
 // Watercolor art from the onboarding set, reused on the two light screens that
 // sit in front of the camera (see components/ScanIntro.tsx).
@@ -201,6 +203,9 @@ export default function Scan() {
       // read passes through. See issue #95.
       dismissQuizAcknowledgement();
       setStatus({ kind: "looking", code: data });
+      // A short tap to say the read landed. Not every device or browser has a
+      // motor, and a missing one must never affect the scan.
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
       // `product-lookup` rejects anything outside 8-14 digits with a 400
       // before it consults a source, but this scanner also decodes qr and
@@ -254,7 +259,8 @@ export default function Scan() {
   // check `live` stayed true underneath, and the new screen's camera lost the
   // contest and rendered black, looking like a broken camera rather than a
   // second one that never got the hardware.
-  const live = isFocused && mode === "Barcode" && status.kind === "idle" && permission?.granted;
+  const live =
+    isFocused && mode === "Barcode" && (status.kind === "idle" || status.kind === "looking") && permission?.granted;
 
   /*
     Barcode mode is the full screen, per the MVP's scanner spec: live camera
@@ -512,16 +518,12 @@ function BarcodeStage({
         />
       ) : null}
 
-      {permission?.granted && status.kind === "idle" && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Viewfinder
-            insets={insets}
-            // Pushed down by the acknowledgement banner's real measured
-            // height (plus the same margin the banner sits at) rather than
-            // overlapping it — see the note on `bannerHeight` above.
-            topOffset={showQuizBanner ? bannerHeight + 12 : 0}
-          />
-        </View>
+      {permission?.granted && (status.kind === "idle" || status.kind === "looking") && (
+        <ScanViewfinder
+          topInset={insets.top + (showQuizBanner ? bannerHeight + 12 : 0)}
+          bottomInset={switcherClearance}
+          locked={status.kind === "looking"}
+        />
       )}
 
       {/*
@@ -836,13 +838,6 @@ function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
   );
 }
 
-/**
- * Corner brackets and a scan line — the design's framing affordance, at its
- * own measurements: 32pt brackets in 3pt of SCANNER_FRAME, inset 33 from each
- * side, 29 from the top and 71 from the bottom of the 293pt card. It used to
- * be a fixed 236×150 box floated in the middle, which put the frame in a
- * different place on every screen width.
- */
 // The floating mode switcher's own pill height (see ModeSwitcher's
 // `floating` style) plus the same bottom offset its wrapping View uses
 // (`Math.max(20, insets.bottom + 12)`) and a margin above it — this frame
@@ -851,57 +846,4 @@ function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
 // its instruction text, underneath the switcher rather than clear of it.
 const SWITCHER_HEIGHT = 52;
 const FRAME_MARGIN_ABOVE_SWITCHER = 24;
-
-function Viewfinder({
-  insets,
-  topOffset = 0,
-}: {
-  insets: { top: number; bottom: number };
-  /** Room to leave clear above the frame — see the quiz-acknowledgement
-   *  banner's own `bannerHeight` note in `BarcodeStage`. The frame used to
-   *  paint straight through whatever the banner was, corner brackets and
-   *  all. Found in review on #126. */
-  topOffset?: number;
-}) {
-  // Border-color as inline `style` rather than a `border-[${SCANNER_FRAME}]`
-  // className: NativeWind's arbitrary-value classes are picked up by
-  // scanning the literal source text, so an interpolated hex here would
-  // never be statically found and the border would silently not render —
-  // the same class of bug this file's own `fontFamily` note warns about.
-  // Border-width stays a className since those arbitrary values are plain
-  // numbers, not tied to the dynamic token.
-  const corner = "absolute h-8 w-8";
-  const bottomInset =
-    Math.max(20, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
-  return (
-    <View
-      style={{
-        position: "absolute",
-        top: insets.top + 24 + topOffset,
-        bottom: bottomInset,
-        left: 33,
-        right: 33,
-      }}
-    >
-      <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} left-0 top-0 rounded-tl-lg border-l-[3px] border-t-[3px]`} />
-      <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} right-0 top-0 rounded-tr-lg border-r-[3px] border-t-[3px]`} />
-      <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} bottom-0 left-0 rounded-bl-lg border-b-[3px] border-l-[3px]`} />
-      <View style={{ borderColor: SCANNER_FRAME }} className={`${corner} bottom-0 right-0 rounded-br-lg border-b-[3px] border-r-[3px]`} />
-      <View className="absolute inset-x-3 top-1/2 h-0.5 rounded-full bg-tone-good" />
-
-      {/* The instruction the design sets inside the frame. Without it the
-          viewfinder is four brackets over a black rectangle and says nothing
-          about what to point it at. */}
-      <View style={{ position: "absolute", left: 0, right: 0, top: 67 }} className="items-center">
-        <Text
-          style={{ maxWidth: 200, fontSize: 14, lineHeight: 21, color: withAlpha(SCANNER_FRAME, 0.9) }}
-          className="text-center"
-        >
-          Position barcode or ingredient list in the frame
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 
