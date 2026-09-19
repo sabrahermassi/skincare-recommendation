@@ -1,5 +1,5 @@
-import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { router, useFocusEffect, useScrollToTop } from "expo-router";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, ScrollView, TextInput, View, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -103,6 +103,10 @@ function skeletonRows(): BrowseItem[] {
 
 export default function Browse() {
   const insets = useSafeAreaInsets();
+  // Tapping the Browse tab while it is already showing scrolls the list back to
+  // the top — the standard tab-bar behaviour on iOS and Android.
+  const listRef = useRef<FlatList<BrowseItem>>(null);
+  useScrollToTop(listRef);
   // Seeded from the catalogue cache so a warm start paints rows on the first
   // frame instead of a skeleton. Null on a cold start, exactly as before.
   const [products, setProducts] = useState<ProductWithIngredients[] | null>(() =>
@@ -562,6 +566,7 @@ export default function Browse() {
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
       <ScreenReaderAnnouncer message={announcement} />
       <FlatList
+        ref={listRef}
         data={items}
         keyExtractor={(item) => (item.kind === "skeleton" ? item.id : item.kind === "product" ? item.product.id : item.kind)}
         renderItem={renderItem}

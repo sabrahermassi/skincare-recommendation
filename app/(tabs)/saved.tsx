@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
-import { Link, router } from "expo-router";
-import type { ReactNode } from "react";
+import { Link, router, useScrollToTop } from "expo-router";
+import type { ReactNode, RefObject } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -37,6 +37,12 @@ type Tab = "saved" | "history" | "ingredients";
  */
 export default function Saved() {
   const insets = useSafeAreaInsets();
+  // Tapping the Saved tab while it is already showing scrolls the list on screen
+  // back to the top. One ref for all three lists is enough: only one is ever
+  // mounted at a time (the empty state replaces them), so it always points at
+  // the one the user is looking at.
+  const listRef = useRef<ScrollView>(null);
+  useScrollToTop(listRef);
   const [tab, setTab] = useState<Tab>("saved");
 
   const profile = useAppStore((s) => s.profile);
@@ -212,6 +218,7 @@ export default function Saved() {
         <EmptyState {...EMPTY_COPY[tab]} />
       ) : tab === "ingredients" ? (
         <IngredientsTab
+          scrollRef={listRef}
           names={savedIngredients}
           footer={
             <ClearAll
@@ -243,7 +250,7 @@ export default function Saved() {
           <ActivityIndicator color={INK} />
         </View>
       ) : tab === "saved" ? (
-        <ScrollView contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
+        <ScrollView ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
           {savedIds.map((id) => {
             const product = byId[id];
             if (!product) return null;
@@ -305,7 +312,7 @@ export default function Saved() {
           />
         </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
+        <ScrollView ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
           {history.map((entry) => {
             const product = entry.known ? byId[entry.id] : undefined;
             // The bar reflects the score this entry carried when it was
@@ -767,7 +774,15 @@ function EmptyState({
  * `app/ingredient/[inci].tsx` already uses for its own no-product-context
  * path — there is no product here either, just a starred name.
  */
-function IngredientsTab({ names, footer }: { names: string[]; footer: ReactNode }) {
+function IngredientsTab({
+  names,
+  footer,
+  scrollRef,
+}: {
+  names: string[];
+  footer: ReactNode;
+  scrollRef: RefObject<ScrollView | null>;
+}) {
   const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
   const [byName, setByName] = useState<Record<string, Ingredient> | null>(null);
   const [error, setError] = useState(false);
@@ -834,7 +849,7 @@ function IngredientsTab({ names, footer }: { names: string[]; footer: ReactNode 
   }
 
   return (
-    <ScrollView contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
+    <ScrollView ref={scrollRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
       {names.map((name) => {
         const ingredient: Ingredient =
           byName[name] ?? { id: name, name, comedogenic: 0, safety: "safe", verified: false };

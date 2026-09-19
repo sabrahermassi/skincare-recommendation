@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useScrollToTop } from "expo-router";
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -82,6 +82,9 @@ type SectionKey = "concerns" | "skinType" | "sensitivity" | "pregnancy";
  * to the store until that button is pressed.
  */
 export default function ProfileScreen() {
+  // Tapping the Profile tab while it is already showing scrolls back to the top.
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const insets = useSafeAreaInsets();
   const storedProfile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
@@ -269,6 +272,7 @@ export default function ProfileScreen() {
       )}
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 10,
