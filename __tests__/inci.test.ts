@@ -220,6 +220,18 @@ describe("salvageKnownNames", () => {
     ).toEqual(["helianthus annuus seed oil"]);
   });
 
+  it.each([
+    ["ingrédients/ingredientes/ zyztatika/ingrediente/cbctabкm/sastojci Helianthus Annuus Seed Oil, Aqua, Glycerin, Panthenol"],
+    ["INGREDIENTS/INGREDIENTES/ SASTOJCI/INGREDIENTE Helianthus Annuus Seed Oil, Aqua, Glycerin, Panthenol"],
+  ])("keeps the first ingredient behind a stack of headings in several languages: %s", (text: string) => {
+    expect(parseIngredientBlock(text, dictionary).map((p) => p.inci_name)).toEqual([
+      "helianthus annuus seed oil",
+      "aqua",
+      "glycerin",
+      "panthenol",
+    ]);
+  });
+
   it("does not reduce a real slash name the dictionary lacks to its last word", () => {
     const known = new Set(["dimethicone"]);
     expect(salvageKnownNames("peg/ppg-18/18 dimethicone", known)).toEqual([]);

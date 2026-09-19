@@ -443,7 +443,8 @@ export function fuzzyKnownName(name, dictionary, attempts) {
  *  - a known name behind leading junk — a batch number ("2050519 10 -
  *    aqua/water") or heading text in other scripts ("ingrédients/ingredientes/
  *    sastojci helianthus annuus seed oil"). A word is skipped only if it has no
- *    letters or is non-ASCII; ordinary words never are, so "free from alcohol"
+ *    letters, is non-ASCII, or is a slash-joined stack of heading words
+ *    ("ingredientes/sastojci"); ordinary words never are, so "free from alcohol"
  *    does not become "alcohol", and a real slash name that the dictionary lacks
  *    ("peg/ppg-18/18 dimethicone") is not reduced to its last word.
  *
@@ -461,7 +462,7 @@ export function salvageKnownNames(name, dictionary, aliases) {
         found.push(resolved);
         break;
       }
-      if (!/^[^a-z]*$|[^\x00-\x7f]/.test(words[start])) break;
+      if (!/^[^a-z]*$|[^\x00-\x7f]|(?=.*\/)(?:ingr[eé]dient|sastojci|sestavine|composition|zutaten|inhaltsstoffe)/.test(words[start])) break;
     }
   }
   return found;
@@ -478,7 +479,7 @@ export function parseInci(text, dictionary, rejected) {
 
   // 1 ── Drop everything up to and including an "Ingredients:" heading. Same
   // pattern as lib/inci.ts.
-  const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:ingredients?|전성분|성분)\s*[:：]?\s*/i.exec(flat);
+  const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:\bingredients?\b|전성분|성분)\s*[:：]?\s*/i.exec(flat);
   let block = heading ? flat.slice(heading.index + heading[0].length) : flat;
 
   // With a dictionary the heading's language stops mattering; see lib/inci.ts.
