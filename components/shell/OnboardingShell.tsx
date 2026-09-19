@@ -90,10 +90,6 @@ type OnboardingShellProps = {
   activeIndex: number;
   onNext: () => void;
   onSkip: () => void;
-  /** Dot count to draw, when the intro's dots are part of a longer combined
-   *  sequence (see lib/profile.ts's TOTAL_ONBOARDING_STEPS) rather than just
-   *  this carousel's own 3. Defaults to `screens.length`, i.e. unchanged. */
-  totalDots?: number;
 };
 
 /**
@@ -108,7 +104,7 @@ type OnboardingShellProps = {
  * inside a horizontally-paged ScrollView, so navigating animated the whole
  * page (button included) across the screen as part of the transition.
  */
-export function OnboardingShell({ screens, activeIndex, onNext, onSkip, totalDots }: OnboardingShellProps) {
+export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: OnboardingShellProps) {
   const [skipPressed, setSkipPressed] = useState(false);
   const screen = screens[activeIndex];
 
@@ -242,7 +238,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, totalDot
           justifyContent: "center",
         }}
       >
-        <ProgressDots count={totalDots ?? screens.length} activeIndex={activeIndex} />
+        <ProgressDots count={screens.length} activeIndex={activeIndex} />
       </View>
 
       <View

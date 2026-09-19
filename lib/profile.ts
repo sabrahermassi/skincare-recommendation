@@ -114,23 +114,6 @@ export function quizStepCount(): number {
 }
 
 /**
- * The 3-screen intro carousel (app/onboarding/index.tsx) that runs before
- * the quiz. Named here, not just inlined as a literal 3 at each call site,
- * for the same reason `STEPS.length` isn't hardcoded either.
- */
-export const ONBOARDING_INTRO_SCREEN_COUNT = 3;
-
-/**
- * Intro screens plus quiz steps, as one continuous count.
- *
- * The intro and the quiz used to show two separate progress-dot sequences,
- * each resetting to dot one — so finishing the intro's dots looked like
- * finishing onboarding, immediately followed by a second, unrelated
- * countdown. This is what lets both halves draw from one shared rail instead.
- */
-export const TOTAL_ONBOARDING_STEPS = ONBOARDING_INTRO_SCREEN_COUNT + quizStepCount();
-
-/**
  * The route after `current`, or `null` when `current` is the last step — which
  * means "finish onboarding" rather than "navigate".
  */

@@ -295,6 +295,28 @@ describe("history log", () => {
     expect(s().savedProducts.map((p) => p.id)).toEqual(["keep-me"]);
   });
 
+  it("clearSavedProducts empties the shelf without touching history or starred ingredients", () => {
+    s().saveProduct("a");
+    s().saveProduct("b");
+    view("c");
+    s().toggleSavedIngredient("glycerin");
+    s().clearSavedProducts();
+    expect(s().savedProducts).toEqual([]);
+    expect(s().history.map((h) => h.id)).toEqual(["c"]);
+    expect(s().savedIngredients).toEqual(["glycerin"]);
+  });
+
+  it("clearSavedIngredients empties the starred list without touching the shelf or history", () => {
+    s().saveProduct("a");
+    view("c");
+    s().toggleSavedIngredient("glycerin");
+    s().toggleSavedIngredient("niacinamide");
+    s().clearSavedIngredients();
+    expect(s().savedIngredients).toEqual([]);
+    expect(s().savedProducts.map((p) => p.id)).toEqual(["a"]);
+    expect(s().history.map((h) => h.id)).toEqual(["c"]);
+  });
+
   /** Scanning is checking, not saving — the two lists must stay independent. */
   it("keeps the shelf and the log from leaking into each other", () => {
     view("a");

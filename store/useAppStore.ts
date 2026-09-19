@@ -135,6 +135,11 @@ type AppState = {
 
   /** Add/remove an ingredient name from the starred list. */
   toggleSavedIngredient: (name: string) => void;
+  /** Empties the Saved tab's shelf — the wipe-everything action, as opposed to
+   *  `toggleSaved`'s per-row "x". Leaves history and starred ingredients alone. */
+  clearSavedProducts: () => void;
+  /** Same, for the Ingredients tab. */
+  clearSavedIngredients: () => void;
 
   /** Upserts a history entry, moving it to the front. Never touches the shelf. */
   recordView: (view: {
@@ -443,6 +448,8 @@ export const useAppStore = create<AppState>()(
         }),
 
       clearHistory: () => set({ history: [] }),
+      clearSavedProducts: () => set({ savedProducts: [] }),
+      clearSavedIngredients: () => set({ savedIngredients: [] }),
       removeHistoryEntry: (id) =>
         set((state) => ({ history: state.history.filter((h) => h.id !== id) })),
       restoreHistoryEntry: (entry) =>

@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { quizTopPadding, useQuizFrame } from "@/components/QuizFrame";
 import { Text } from "@/components/Text";
 import { ProgressDots } from "@/components/shell/shared";
-import { ONBOARDING_INTRO_SCREEN_COUNT, TOTAL_ONBOARDING_STEPS } from "@/lib/profile";
+import { quizStepCount } from "@/lib/profile";
 import { INK, MUTED } from "@/lib/tokens";
 
 // How long a step's content takes to fade in when it becomes the one showing.
@@ -105,15 +105,10 @@ export function QuizScreen({
 
   return (
     <Animated.View style={{ flex: 1, opacity }}>
-      {/* Part of the same rail the intro's 3 dots draw (see
-          lib/profile.ts's TOTAL_ONBOARDING_STEPS) rather than a fresh 4-dot
-          sequence of its own — finishing the intro used to look like
-          finishing onboarding, right before a second countdown started. */}
+      {/* The quiz's own dots, one per step. The 3-screen intro before it
+          draws its own 3 (OnboardingShell). */}
       <View style={{ marginTop: quizTopPadding(insets.top) + DOTS_TOP }}>
-        <ProgressDots
-          count={TOTAL_ONBOARDING_STEPS}
-          activeIndex={ONBOARDING_INTRO_SCREEN_COUNT + step - 1}
-        />
+        <ProgressDots count={quizStepCount()} activeIndex={step - 1} />
       </View>
 
       {showBack ? (
