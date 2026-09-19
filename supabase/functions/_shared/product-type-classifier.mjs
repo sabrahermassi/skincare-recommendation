@@ -232,9 +232,16 @@ export function guessType(tags = [], text = "") {
   return firstMatch(AFTER_MASK_RULES, haystack) ?? "unknown";
 }
 
-/** Generic UPC catalogue gate retained for unambiguous non-mask products. */
+/**
+ * Generic UPC catalogue gate retained for unambiguous non-mask products.
+ *
+ * "deodorant"/"antiperspirant" were missing until issue #86's audit script
+ * flagged a real CRYSTAL Mineral Deodorant hit as non-cosmetic junk — the
+ * same category `guessType`'s `AFTER_MASK_RULES` already types as
+ * "deodorant" above, this gate just never recognised it as cosmetic at all.
+ */
 export function looksCosmetic(text) {
-  return /beauty|cosmetic|personal care|skin|face|facial|body care|hair care|lotion|cream|crème|creme|serum|cleanser|shampoo|toner|sunscreen|spf|balm|moisturi|nettoyant|reinigings|limpiador|crema/i
+  return /beauty|cosmetic|personal care|skin|face|facial|body care|hair care|lotion|cream|crème|creme|serum|cleanser|shampoo|toner|sunscreen|spf|balm|moisturi|nettoyant|reinigings|limpiador|crema|deodorant|antiperspirant/i
     .test(text);
 }
 

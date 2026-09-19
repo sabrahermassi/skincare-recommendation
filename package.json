@@ -18,7 +18,8 @@
     "import:wikidata-synonyms": "node scripts/import-wikidata-synonyms.mjs",
     "reclassify-types": "node scripts/reclassify-types.mjs",
     "reclassify-from-tags": "node scripts/reclassify-from-tags.mjs",
-    "reconcile:obf": "node scripts/reconcile-obf.mjs"
+    "reconcile:obf": "node scripts/reconcile-obf.mjs",
+    "audit:catalogue-quality": "node scripts/audit-catalogue-quality.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/cormorant-garamond": "^0.4.1",
