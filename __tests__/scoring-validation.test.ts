@@ -10,8 +10,9 @@ import {
  * This suite checks properties the scoring model is meant to preserve. It
  * deliberately does not assign a universal verdict to a product: suitability
  * depends on the user's profile, and a public formula is not clinical proof of
- * efficacy. Source-linked snapshots make the inputs auditable; same-formula
- * comparisons make the expected direction explicit without freezing a score.
+ * efficacy. Source-linked snapshots make the inputs auditable; profile
+ * comparisons and one-ingredient synthetic controls make the expected
+ * direction explicit without freezing a score.
  */
 
 const byId = new Map(SCORING_PRODUCTS.map((product) => [product.id, product]));
@@ -39,18 +40,25 @@ function ingredientsFor(product: ScoringProductFixture): Ingredient[] {
   }));
 }
 
-function score(productId: string, skinProfile: SkinProfile): number {
-  const fixture = byId.get(productId);
-  if (!fixture) throw new Error(`Unknown scoring fixture: ${productId}`);
-
+function scoreFormula(
+  fixture: ScoringProductFixture,
+  skinProfile: SkinProfile,
+  ingredients: Ingredient[]
+): number {
   const result = matchProduct(
-    { type: fixture.type, ingredients: ingredientsFor(fixture) },
+    { type: fixture.type, ingredients },
     skinProfile
   );
   if (result.score === null) {
     throw new Error(`${fixture.name} unexpectedly returned ${result.unknownReason}`);
   }
   return result.score;
+}
+
+function score(productId: string, skinProfile: SkinProfile): number {
+  const fixture = byId.get(productId);
+  if (!fixture) throw new Error(`Unknown scoring fixture: ${productId}`);
+  return scoreFormula(fixture, skinProfile, ingredientsFor(fixture));
 }
 
 type DirectionalInvariant = {
@@ -84,12 +92,6 @@ const DIRECTIONAL_INVARIANTS: DirectionalInvariant[] = [
     expectation: "its rich oils favor dry skin over congestion-prone skin",
     betterFor: profile({ baseSkinType: "dry" }),
     thanFor: profile({ baseSkinType: "oily", concerns: ["acne-prone"] }),
-  },
-  {
-    productId: "obf-0769915190373",
-    expectation: "lactic acid favors dull skin that is not reactive",
-    betterFor: profile({ concerns: ["dullness"] }),
-    thanFor: profile({ concerns: ["dullness"], sensitivity: "high" }),
   },
   {
     productId: "obf-0769915233506",
@@ -128,12 +130,6 @@ const DIRECTIONAL_INVARIANTS: DirectionalInvariant[] = [
     thanFor: profile({ baseSkinType: "dry", concerns: ["redness"], sensitivity: "high" }),
   },
   {
-    productId: "obf-8809416471655",
-    expectation: "betaine salicylate favors oily, congestion-prone skin",
-    betterFor: profile({ baseSkinType: "oily", concerns: ["large-pores"] }),
-    thanFor: profile(),
-  },
-  {
     productId: "obf-8809657116544",
     expectation: "its humectants favor dehydrated skin",
     betterFor: profile({ concerns: ["dehydrated"] }),
@@ -144,6 +140,28 @@ const DIRECTIONAL_INVARIANTS: DirectionalInvariant[] = [
     expectation: "its humectants favor dehydrated skin",
     betterFor: profile({ concerns: ["dehydrated"] }),
     thanFor: profile(),
+  },
+];
+
+type SignalInvariant = {
+  productId: string;
+  signal: string;
+  expectation: string;
+  skinProfile: SkinProfile;
+};
+
+const SIGNAL_INVARIANTS: SignalInvariant[] = [
+  {
+    productId: "obf-0769915190373",
+    signal: "lactic acid",
+    expectation: "lactic acid contributes to dullness fit",
+    skinProfile: profile({ concerns: ["dullness"] }),
+  },
+  {
+    productId: "obf-8809416471655",
+    signal: "betaine salicylate",
+    expectation: "betaine salicylate contributes to oily, large-pore fit",
+    skinProfile: profile({ baseSkinType: "oily", concerns: ["large-pores"] }),
   },
 ];
 
@@ -177,6 +195,30 @@ describe("scoring validation invariants", () => {
   it.each(DIRECTIONAL_INVARIANTS)("$productId — $expectation", (testCase: DirectionalInvariant) => {
     expect(score(testCase.productId, testCase.betterFor)).toBeGreaterThan(
       score(testCase.productId, testCase.thanFor)
+    );
+  });
+
+  it.each(SIGNAL_INVARIANTS)("$productId — $expectation", (testCase: SignalInvariant) => {
+    const fixture = byId.get(testCase.productId);
+    if (!fixture) throw new Error(`Unknown scoring fixture: ${testCase.productId}`);
+
+    const ingredients = ingredientsFor(fixture);
+    const signalMatches = ingredients.filter(({ name }) => name === testCase.signal);
+    expect(signalMatches).toHaveLength(1);
+    expect(signalMatches[0].safety).toBe("safe");
+
+    // A synthetic control, not another product: change only this rule-bearing
+    // name. Keep its position, verification, safety and every other ingredient
+    // unchanged so no other signal or formula-coverage difference can explain
+    // the score delta.
+    const neutralized = ingredients.map((ingredient) =>
+      ingredient.name === testCase.signal
+        ? { ...ingredient, name: "unmatched test control" }
+        : ingredient
+    );
+
+    expect(scoreFormula(fixture, testCase.skinProfile, ingredients)).toBeGreaterThan(
+      scoreFormula(fixture, testCase.skinProfile, neutralized)
     );
   });
 });

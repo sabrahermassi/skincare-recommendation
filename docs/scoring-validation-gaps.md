@@ -30,3 +30,18 @@ may have real hydrating functions.
 
 Resolve this by improving ingredient/function coverage or recalibrating with a
 representative labelled dataset; do not special-case a brand or product.
+
+## Alpha-hydroxy acids on reactive skin
+
+The lactic-acid rule declares a downside for sensitive skin, but its `actives`
+category does not enter the irritation accumulator. A sensitivity-only harm
+match also does not reduce concern or skin-type fit. Consequently, the high-
+sensitivity score for The Ordinary Lactic Acid 10% + HA falls because of its
+separately flagged sodium hydroxide, not because of lactic acid. The executable
+test checks lactic acid's brightening contribution with an otherwise identical
+synthetic control; it does not claim the model currently charges its reactive-
+skin downside.
+
+Address the active-irritation path with catalogue-wide before/after evidence,
+accounting for the limits of an ingredient list without concentration or
+finished-formula pH data. Do not infer a universal risk from the product name.
