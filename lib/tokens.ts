@@ -71,6 +71,14 @@ export const MUTED_FAINT = "rgba(107,90,84,0.88)";
 /** Chevrons and other non-text marks that must not compete with a label. */
 export const MUTED_SOFT = "rgba(107,90,84,0.45)";
 
+/**
+ * Unselected tab-bar icons. #9A8880 computes to 3.14:1 on CANVAS (WCAG 2.2
+ * SC 1.4.11 asks 3:1 of a control's icon) and 4.8:1 against INK. The selected
+ * tab is INK, and MUTED sat only 2.5:1 from it — two dark browns — which is why
+ * the selected tab was hard to pick out. Computed, not read off a mockup.
+ */
+export const TAB_INACTIVE = "#9A8880";
+
 // ── Lines ───────────────────────────────────────────────────────────────────
 
 /** Hairlines, dividers, unselected control borders, inactive progress dots. */

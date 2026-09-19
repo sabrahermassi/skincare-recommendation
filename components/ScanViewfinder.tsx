@@ -17,7 +17,9 @@ import { CAMERA_STAGE, CANVAS, INK, SCANNER_FRAME, TYPE, withAlpha } from "@/lib
  * instant.
  */
 
-const SIDE = 33;
+/** How far the window sits in from each side; the mode pills line up with it. */
+export const SCAN_SIDE_INSET = 33;
+const SIDE = SCAN_SIDE_INSET;
 const TOP_GAP = 24;
 const CORNER_LENGTH = 40;
 const CORNER_RADIUS = 18;

@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 import { ScanIntro } from "@/components/ScanIntro";
-import { ScanViewfinder } from "@/components/ScanViewfinder";
+import { SCAN_SIDE_INSET, ScanViewfinder } from "@/components/ScanViewfinder";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
@@ -346,7 +346,13 @@ function ModeSwitcher({
     <View
       style={
         floating
-          ? { gap: 10, flexDirection: "row", justifyContent: "center" }
+          ? // Barcode sits flush with the scanner window's left edge and Ingredients
+            // with its right edge; the pills stay narrow, so the space goes between.
+            {
+              flexDirection: "row",
+              justifyContent: "space-between",
+              marginHorizontal: SCAN_SIDE_INSET - STAGE_INSET,
+            }
           : { marginHorizontal: 26, marginTop: 18, gap: 12, flexDirection: "row" }
       }
     >
@@ -618,8 +624,8 @@ function BarcodeStage({
       <View
         style={{
           position: "absolute",
-          left: 20,
-          right: 20,
+          left: STAGE_INSET,
+          right: STAGE_INSET,
           bottom: Math.max(20, insets.bottom + 12),
           gap: 12,
         }}
@@ -762,8 +768,8 @@ function FullScreenPane({
       <View
         style={{
           position: "absolute",
-          left: 20,
-          right: 20,
+          left: STAGE_INSET,
+          right: STAGE_INSET,
           bottom: Math.max(20, insets.bottom + 12),
         }}
       >
@@ -804,6 +810,8 @@ function LabelPhotoPane({ preserveMode, barcode }: { preserveMode: () => void; b
 // full-bleed now), so a fixed bottom inset put the frame's bottom edge, and
 // its instruction text, underneath the switcher rather than clear of it.
 const SWITCHER_HEIGHT = 52;
+// How far in the bottom wrapper (mode pills, status panel) sits from each edge.
+const STAGE_INSET = 20;
 // 30% narrower than the half-width pills they replaced; height stays put so the
 // tap target does not drop under the design system's 44pt minimum.
 const MODE_PILL_WIDTH = 120;
