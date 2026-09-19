@@ -30,6 +30,20 @@ const CHIP_ORDER: ProductType[] = [
 ];
 
 /**
+ * The type filter Browse should actually apply: the selected chip, unless it
+ * has no chip any more (its last product went away), in which case the full
+ * list. `chips` is null while the catalogue has not loaded — nothing is known
+ * yet, so the selection stands.
+ */
+export function activeTypeFilter(
+  selected: ProductType | "all",
+  chips: readonly ProductType[] | null,
+): ProductType | "all" {
+  if (chips === null || selected === "all") return selected;
+  return chips.includes(selected) ? selected : "all";
+}
+
+/**
  * The type chips to show: every type with at least one product, in
  * `CHIP_ORDER`. A type with no products has no chip until one arrives.
  */

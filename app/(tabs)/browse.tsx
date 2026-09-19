@@ -15,7 +15,7 @@ import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { fetchProducts, peekProducts, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients, type SkinProfile } from "@/data/types";
-import { visibleTypeChips } from "@/lib/browse-chips";
+import { activeTypeFilter, visibleTypeChips } from "@/lib/browse-chips";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized, profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
@@ -119,7 +119,12 @@ export default function Browse() {
   );
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
-  const [typeFilter, setTypeFilter] = useState<ProductType | "all">(INITIAL_TYPE_FILTER);
+  const [selectedType, setSelectedType] = useState<ProductType | "all">(INITIAL_TYPE_FILTER);
+  const typeChips = useMemo(() => visibleTypeChips(allProducts ?? []), [allProducts]);
+  // The chip the list really filters by: the selected one, or All when that
+  // type has run out of products — derived, not synced with an effect, so there
+  // is never a render showing an empty list under a chip that no longer exists.
+  const typeFilter = activeTypeFilter(selectedType, allProducts ? typeChips : null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   /**
    * How far down the ranked list the user has scrolled, tied to the exact rows
@@ -168,7 +173,12 @@ export default function Browse() {
     setError(false);
     fetchProducts({ type: typeFilter })
       .then((result) => {
-        if (!cancelled) setProducts(result);
+        if (cancelled) return;
+        setProducts(result);
+        // Whatever type was asked for, the whole catalogue is in the cache now,
+        // so the chips can be built from it without a second request.
+        const all = peekProducts("all");
+        if (all) setAllProducts(all);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -179,30 +189,6 @@ export default function Browse() {
       cancelled = true;
     };
   }, [typeFilter, retryKey]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchProducts({ type: "all" })
-      .then((result) => {
-        if (!cancelled) setAllProducts(result);
-      })
-      .catch(() => {
-        // The list effect above already surfaces a failed load.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [retryKey]);
-
-  const typeChips = useMemo(() => visibleTypeChips(allProducts ?? []), [allProducts]);
-
-  // The selected type ran out of products: fall back to the full list rather
-  // than an empty screen under a chip that no longer exists.
-  useEffect(() => {
-    if (allProducts && typeFilter !== "all" && !typeChips.includes(typeFilter)) {
-      setTypeFilter("all");
-    }
-  }, [allProducts, typeChips, typeFilter]);
 
   // Re-read the cache whenever this tab comes back.
   //
@@ -484,9 +470,12 @@ export default function Browse() {
                   key={type}
                   label={TYPE_LABEL[type]}
                   selected={typeFilter === type}
-                  onPress={() => setTypeFilter(type)}
+                  onPress={() => setSelectedType(type)}
                 />
               ))}
+              {/* Until the catalogue loads only "All" is known; these hold the
+                  row's shape so the real chips do not pop in from nothing. */}
+              {allProducts === null && [0, 1, 2].map((i) => <ChipPlaceholder key={i} />)}
             </ScrollView>
           </View>
         );
@@ -664,6 +653,24 @@ export default function Browse() {
         }
       />
     </View>
+  );
+}
+
+/** An empty pill standing in for a type chip while the catalogue loads. */
+function ChipPlaceholder() {
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        width: 84,
+        height: TOUCH_TARGET,
+        borderRadius: RADIUS_SELECTOR,
+        borderWidth: 1,
+        borderColor: BORDER_INACTIVE,
+        backgroundColor: CANVAS,
+      }}
+    />
   );
 }
 

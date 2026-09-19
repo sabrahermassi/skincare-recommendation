@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Platform, Pressable, StyleSheet, View } from "react-native";
 
 import { Text } from "@/components/Text";
+import { slideDirection } from "@/lib/onboarding-slide";
 import { CANVAS, CHARCOAL, FONT, H_PADDING, PrimaryButton, ProgressDots, TERRACOTTA } from "@/components/shell/shared";
 
 const HEADLINE_SIZE = 44;
@@ -141,7 +142,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
 
   useEffect(() => {
     if (activeIndex === previousIndex.current) return;
-    const direction = activeIndex > previousIndex.current ? 1 : -1;
+    const direction = slideDirection(previousIndex.current, activeIndex);
     previousIndex.current = activeIndex;
 
     const useNativeDriver = Platform.OS !== "web";
@@ -157,8 +158,11 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
       setShownIndex(activeIndex);
       translateX.setValue(direction * SLIDE_OFFSET);
       // One frame for the new content to commit before it starts fading in,
-      // so the old screen never flashes back at partial opacity.
+      // so the old screen never flashes back at partial opacity. If another tap
+      // moved on in that frame, this run is stale: skip it, or its fade-in
+      // would cancel the newer slide-out and strand the wrong screen.
       requestAnimationFrame(() => {
+        if (previousIndex.current !== activeIndex) return;
         Animated.parallel([
           Animated.timing(opacity, { toValue: 1, duration: inMs, useNativeDriver }),
           Animated.timing(translateX, { toValue: 0, duration: inMs, useNativeDriver }),
@@ -170,33 +174,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <Pressable
-        onPress={onSkip}
-        onPressIn={() => setSkipPressed(true)}
-        onPressOut={() => setSkipPressed(false)}
-        accessibilityRole="button"
-        style={{
-          position: "absolute",
-          top: pct(BANDS.skip.top),
-          right: H_PADDING,
-          minHeight: 44,
-          minWidth: 44,
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: skipPressed ? 0.6 : 1,
-        }}
-      >
-        {/* Same font+size as the supporting-copy text (BODY_SIZE, bodyRegular).
-            TERRACOTTA, not the old MUTED grey — that grey cleared AA (5.35:1)
-            but still read as washed-out low-contrast on cream; terracotta is
-            the app's own accent and is unambiguously legible here (6.1:1 on
-            CANVAS). */}
-        <Text style={{ fontFamily: FONT.bodyRegular, fontSize: BODY_SIZE, color: TERRACOTTA }}>Skip</Text>
-      </Pressable>
-
-      {/* Not touchable, so it cannot sit over Skip. */}
       <Animated.View
-        pointerEvents="none"
         style={[StyleSheet.absoluteFill, { opacity, transform: [{ translateX }] }]}
       >
         <View
@@ -290,6 +268,34 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
           ))}
         </View>
       </Animated.View>
+
+      {/* After the content, not before it: the content wrapper fills the screen,
+          and a later sibling is what sits on top of it and stays tappable.
+          `pointerEvents="none"` on the wrapper would do the same but takes its
+          text out of the VoiceOver tree on iOS. */}
+      <Pressable
+        onPress={onSkip}
+        onPressIn={() => setSkipPressed(true)}
+        onPressOut={() => setSkipPressed(false)}
+        accessibilityRole="button"
+        style={{
+          position: "absolute",
+          top: pct(BANDS.skip.top),
+          right: H_PADDING,
+          minHeight: 44,
+          minWidth: 44,
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: skipPressed ? 0.6 : 1,
+        }}
+      >
+        {/* Same font+size as the supporting-copy text (BODY_SIZE, bodyRegular).
+            TERRACOTTA, not the old MUTED grey — that grey cleared AA (5.35:1)
+            but still read as washed-out low-contrast on cream; terracotta is
+            the app's own accent and is unambiguously legible here (6.1:1 on
+            CANVAS). */}
+        <Text style={{ fontFamily: FONT.bodyRegular, fontSize: BODY_SIZE, color: TERRACOTTA }}>Skip</Text>
+      </Pressable>
 
       {/* Shown on every screen, including the first — per the redesign
           spec, dots are no longer withheld until the user has advanced. */}

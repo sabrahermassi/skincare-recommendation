@@ -1,5 +1,5 @@
 import type { ProductType } from "@/data/types";
-import { visibleTypeChips } from "@/lib/browse-chips";
+import { activeTypeFilter, visibleTypeChips } from "@/lib/browse-chips";
 
 const of = (...types: ProductType[]) => types.map((type) => ({ type }));
 
@@ -35,5 +35,24 @@ describe("visibleTypeChips", () => {
 
   it("never shows a chip for unknown", () => {
     expect(visibleTypeChips(of("unknown", "serum"))).toEqual(["serum"]);
+  });
+});
+
+describe("activeTypeFilter", () => {
+  it("keeps the selected type while the catalogue has not loaded", () => {
+    expect(activeTypeFilter("serum", null)).toBe("serum");
+  });
+
+  it("keeps a selected type that still has a chip", () => {
+    expect(activeTypeFilter("serum", ["sunscreen", "serum"])).toBe("serum");
+  });
+
+  it("falls back to all when the selected type has no chip any more", () => {
+    expect(activeTypeFilter("serum", ["sunscreen"])).toBe("all");
+    expect(activeTypeFilter("serum", [])).toBe("all");
+  });
+
+  it("leaves all alone", () => {
+    expect(activeTypeFilter("all", [])).toBe("all");
   });
 });

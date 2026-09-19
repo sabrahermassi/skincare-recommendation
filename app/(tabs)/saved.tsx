@@ -16,11 +16,12 @@ import { canPhotographLabelFor, fetchProductsByIds, resolveIngredientNames } fro
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
 import { matchProduct, matchTone } from "@/lib/matching";
+import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
 import { isVerified } from "@/lib/safety";
-import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
 
-type Tab = "saved" | "history" | "ingredients";
+type Tab = SavedTab;
 
 /**
  * The shelf and the log, on one screen.
@@ -167,12 +168,11 @@ export default function Saved() {
   // chance to show. A pending undo of that kind keeps the list view (now
   // rendering nothing but the bar) on screen instead of jumping straight to
   // the empty state.
-  const isEmpty =
-    tab === "ingredients"
-      ? savedIngredients.length === 0
-      : tab === "saved"
-        ? savedIds.length === 0 && undo?.kind !== "saved"
-        : history.length === 0 && undo?.kind !== "history";
+  const isEmpty = isTabEmpty(
+    tab,
+    { saved: savedIds.length, history: history.length, ingredients: savedIngredients.length },
+    undo?.kind,
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
@@ -358,6 +358,15 @@ export default function Saved() {
   );
 }
 
+// Standard tap height for the three "Clear …" links, not the bare text line.
+const CLEAR_TARGET = {
+  minHeight: TOUCH_TARGET,
+  minWidth: TOUCH_TARGET,
+  paddingHorizontal: 12,
+  alignItems: "center",
+  justifyContent: "center",
+} as const;
+
 /** The "Clear …" link at the foot of a list, and its second-tap confirm. One
  *  component so Saved, History and Ingredients wipe the same way. */
 function ClearAll({
@@ -379,16 +388,16 @@ function ClearAll({
     <View style={{ alignItems: "center", gap: 10, paddingVertical: 12 }}>
       <Text style={{ fontSize: 12.5, color: MUTED }}>{question}</Text>
       <View style={{ flexDirection: "row", gap: 20 }}>
-        <Pressable onPress={onCancel} hitSlop={8}>
+        <Pressable onPress={onCancel} accessibilityRole="button" style={CLEAR_TARGET}>
           <Text style={{ fontSize: 12, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>Keep it</Text>
         </Pressable>
-        <Pressable onPress={onConfirm} hitSlop={8}>
+        <Pressable onPress={onConfirm} accessibilityRole="button" style={CLEAR_TARGET}>
           <Text style={{ fontSize: 12, fontWeight: "600", color: DANGER, textDecorationLine: "underline" }}>Clear it</Text>
         </Pressable>
       </View>
     </View>
   ) : (
-    <Pressable onPress={onAsk} style={{ alignItems: "center", paddingVertical: 12 }}>
+    <Pressable onPress={onAsk} accessibilityRole="button" style={[CLEAR_TARGET, { alignSelf: "center" }]}>
       <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>{label}</Text>
     </Pressable>
   );
