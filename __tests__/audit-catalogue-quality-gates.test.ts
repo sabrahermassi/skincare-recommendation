@@ -46,6 +46,16 @@ describe("classifyGarbageIngredient", () => {
     expect(classifyGarbageIngredient(name)).toBeNull();
   });
 
+  it.each(["PCA", "EGF"])(
+    "does not flag a known-real short INCI name stored in a different case: %s",
+    (name: string) => {
+      // KNOWN_SHORT_NAMES is lowercase; comparing the raw name would flag a
+      // genuine "PCA"/"EGF" as garbage the moment it wasn't stored lowercase.
+      // CodeRabbit, PR #134.
+      expect(classifyGarbageIngredient(name)).toBeNull();
+    }
+  );
+
   it("does not flag a plausible, unremarkable real name", () => {
     expect(classifyGarbageIngredient("sodium hyaluronate")).toBeNull();
   });

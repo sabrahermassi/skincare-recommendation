@@ -34,11 +34,12 @@
  *
  * `--delete-junk-products` is the one automatic action this script takes,
  * and only because it reuses the exact gate already trusted in production —
- * a `barcode_db` row that fails `looksCosmetic` today would never have been
- * written today. Ingredient garbage is report-only, on purpose: issue #86's
- * own plan rules out automatic deletion there, since some short survivors
- * (PCA, EGF) are genuine. Each flagged ingredient prints a ready `DELETE`
- * statement to run by hand once reviewed — deliberately not executed here.
+ * a `barcode_db` row that fails the shared `looksCosmetic` gate today would
+ * never have been written today. Ingredient garbage is report-only, on
+ * purpose: issue #86's own plan rules out automatic deletion there, since
+ * some short survivors (PCA, EGF) are genuine. Each flagged ingredient
+ * prints a ready `DELETE` statement to run by hand once reviewed —
+ * deliberately not executed here.
  */
 
 import { realpathSync } from "node:fs";
@@ -89,7 +90,9 @@ const SHORT_NAME_MAX_LENGTH = 3;
 function classifyGarbageIngredient(name) {
   if (GLUED_CODE.test(name)) return "glued";
   if (PROSE_MARKERS.test(name)) return "prose";
-  if (name.length <= SHORT_NAME_MAX_LENGTH && !KNOWN_SHORT_NAMES.has(name)) return "short";
+  // KNOWN_SHORT_NAMES is lowercase; comparing the raw name would flag a
+  // genuine "PCA" or "EGF" as garbage the moment it wasn't stored lowercase.
+  if (name.length <= SHORT_NAME_MAX_LENGTH && !KNOWN_SHORT_NAMES.has(name.toLowerCase())) return "short";
   return null;
 }
 
