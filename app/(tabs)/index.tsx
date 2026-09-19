@@ -379,9 +379,13 @@ function ModeSwitcher({
                       alignItems: "center",
                       justifyContent: "center",
                       borderRadius: 26,
-                      backgroundColor: on ? withAlpha(CANVAS, 0.95) : withAlpha(CAMERA_STAGE, 0.55),
-                      borderWidth: 1,
-                      borderColor: on ? "transparent" : withAlpha(CANVAS, 0.3),
+                      // The selected pill looks the same here as on the cream screens
+                      // (peach fill, terracotta outline) so switching modes does not
+                      // change what "selected" means; only the unselected pills differ,
+                      // dark and translucent over the camera.
+                      backgroundColor: on ? SELECTED : withAlpha(CAMERA_STAGE, 0.55),
+                      borderWidth: on ? 1.5 : 1,
+                      borderColor: on ? TERRACOTTA : withAlpha(CANVAS, 0.3),
                     }
                   : { height: 48 }
             }
