@@ -1,5 +1,7 @@
 import type { Ingredient, SkinProfile } from "@/data/types";
 import { matchProduct } from "@/lib/matching";
+import { INGREDIENT_RULES, ruleMatches } from "@/lib/rules";
+import dictionarySnapshot from "../test-fixtures/scoring-dictionary.json";
 import {
   SCORING_FIXTURE_SCHEMA_VERSION,
   SCORING_PRODUCTS,
@@ -16,6 +18,8 @@ import {
  */
 
 const byId = new Map(SCORING_PRODUCTS.map((product) => [product.id, product]));
+type DictionaryMetadata = Required<Pick<Ingredient, "safety" | "verified" | "functions">>;
+const dictionary = dictionarySnapshot.ingredients as Record<string, DictionaryMetadata>;
 
 function profile(overrides: Partial<SkinProfile> = {}): SkinProfile {
   return {
@@ -28,16 +32,18 @@ function profile(overrides: Partial<SkinProfile> = {}): SkinProfile {
 }
 
 function ingredientsFor(product: ScoringProductFixture): Ingredient[] {
-  const caution = new Set(product.caution);
-  const avoid = new Set(product.avoid);
-
-  return product.inci.map((name, position) => ({
-    id: `${product.id}:${position}`,
-    name,
-    comedogenic: 0,
-    safety: avoid.has(name) ? "avoid" : caution.has(name) ? "caution" : "safe",
-    verified: true,
-  }));
+  return product.inci.map((name) => {
+    const metadata = dictionary[name];
+    if (!metadata) throw new Error(`Missing dictionary snapshot for ${name}`);
+    return {
+      id: name,
+      name,
+      comedogenic: 0,
+      safety: metadata.safety,
+      verified: metadata.verified,
+      functions: metadata.functions,
+    };
+  });
 }
 
 function scoreFormula(
@@ -92,12 +98,6 @@ const DIRECTIONAL_INVARIANTS: DirectionalInvariant[] = [
     expectation: "its rich oils favor dry skin over congestion-prone skin",
     betterFor: profile({ baseSkinType: "dry" }),
     thanFor: profile({ baseSkinType: "oily", concerns: ["acne-prone"] }),
-  },
-  {
-    productId: "obf-0769915233506",
-    expectation: "its hyaluronic-acid system favors dehydrated skin",
-    betterFor: profile({ baseSkinType: "dry", concerns: ["dehydrated"] }),
-    thanFor: profile(),
   },
   {
     productId: "obf-0769915233179",
@@ -168,9 +168,14 @@ const SIGNAL_INVARIANTS: SignalInvariant[] = [
 describe("scoring validation fixture provenance", () => {
   it("uses the current fixture schema and exactly 20 unique public records", () => {
     expect(SCORING_FIXTURE_SCHEMA_VERSION).toBe(1);
+    expect(dictionarySnapshot.schemaVersion).toBe(1);
+    expect(dictionarySnapshot.capturedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(SCORING_PRODUCTS).toHaveLength(20);
     expect(new Set(SCORING_PRODUCTS.map(({ id }) => id)).size).toBe(20);
     expect(new Set(SCORING_PRODUCTS.map(({ sourceUrl }) => sourceUrl)).size).toBe(20);
+    expect(Object.keys(dictionary).sort()).toEqual(
+      [...new Set(SCORING_PRODUCTS.flatMap(({ inci }) => inci))].sort()
+    );
   });
 
   it.each(SCORING_PRODUCTS)("$name has a complete, internally consistent snapshot", (product: ScoringProductFixture) => {
@@ -182,14 +187,26 @@ describe("scoring validation fixture provenance", () => {
     );
     const sourceId = product.id.replace(/^(dailymed|obf)-/, "");
     expect(product.sourceUrl.endsWith(sourceId)).toBe(true);
-    expect(product.caution.every((name) => product.inci.includes(name))).toBe(true);
-    expect(product.avoid.every((name) => product.inci.includes(name))).toBe(true);
+    const ingredients = ingredientsFor(product);
+    expect(ingredients.filter(({ safety }) => safety === "caution").map(({ name }) => name))
+      .toEqual(product.caution);
+    expect(ingredients.filter(({ safety }) => safety === "avoid").map(({ name }) => name))
+      .toEqual(product.avoid);
+    expect(ingredients.every(({ verified, functions }) =>
+      typeof verified === "boolean" && Array.isArray(functions)
+    )).toBe(true);
   });
 });
 
 describe("scoring validation invariants", () => {
   it.each(SCORING_PRODUCTS)("can score the exact $name snapshot", (product: ScoringProductFixture) => {
-    expect(score(product.id, profile())).toEqual(expect.any(Number));
+    const ingredients = ingredientsFor(product);
+    const result = matchProduct({ type: product.type, ingredients }, profile());
+    expect(result.score).toEqual(expect.any(Number));
+    expect(result.coverage).toBeCloseTo(
+      ingredients.filter(({ verified }) => verified).length / ingredients.length,
+      10
+    );
   });
 
   it.each(DIRECTIONAL_INVARIANTS)("$productId — $expectation", (testCase: DirectionalInvariant) => {
@@ -219,6 +236,28 @@ describe("scoring validation invariants", () => {
 
     expect(scoreFormula(fixture, testCase.skinProfile, ingredients)).toBeGreaterThan(
       scoreFormula(fixture, testCase.skinProfile, neutralized)
+    );
+  });
+
+  it("uses dictionary function evidence when no named rule covers an ingredient", () => {
+    const fixture = byId.get("obf-0717334243408");
+    if (!fixture) throw new Error("Missing Origins moisturizer fixture");
+    const ingredients = ingredientsFor(fixture);
+    const signal = ingredients.find(({ name }) => name === "hydroxyethyl urea");
+    expect(signal?.verified).toBe(true);
+    expect(signal?.functions).toContain("humectant");
+    expect(INGREDIENT_RULES.some((rule) => ruleMatches(rule, "hydroxyethyl urea"))).toBe(false);
+
+    // Remove only this declared function. Named rules, INCI order, safety and
+    // coverage remain identical, so a missing fallback-scoring layer fails.
+    const withoutFunction = ingredients.map((ingredient) =>
+      ingredient.name === "hydroxyethyl urea"
+        ? { ...ingredient, functions: ingredient.functions?.filter((role) => role !== "humectant") }
+        : ingredient
+    );
+    const dryProfile = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+    expect(scoreFormula(fixture, dryProfile, ingredients)).toBeGreaterThan(
+      scoreFormula(fixture, dryProfile, withoutFunction)
     );
   });
 });

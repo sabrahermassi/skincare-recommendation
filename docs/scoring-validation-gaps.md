@@ -45,3 +45,16 @@ skin downside.
 Address the active-irritation path with catalogue-wide before/after evidence,
 accounting for the limits of an ingredient list without concentration or
 finished-formula pH data. Do not infer a universal risk from the product name.
+
+## Hyaluronic Acid 2% + B5 misclassified as unknown
+
+The 2026-09-18 catalogue row `obf-0769915233506` has type `unknown`, though
+[the manufacturer calls this a serum](https://theordinary.com/en-sc/hyaluronic-acid-2-b5-serum-with-ceramides-769915233506.html).
+The app therefore gives positive ingredient evidence only the `unknown` type's
+0.25 contact weight, rather than the full serum weight. The fixture keeps the
+stored type so it represents what the app actually scores, but it does not make
+a hydration-suitability claim while that classification is wrong.
+
+Correct the catalogue classifier and the stored row, then refresh the fixture
+and add a serum-specific hydration comparison. Relabelling only the fixture
+would hide the user-facing data problem.

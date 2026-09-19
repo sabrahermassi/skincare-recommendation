@@ -4,8 +4,10 @@ import type { ProductType } from "@/data/types";
  * Versioned catalogue snapshots used by the scoring validation suite.
  *
  * The source URL identifies the public record, while `snapshotDate` and the
- * ordered INCI list pin the exact version tested. These are formula snapshots,
- * not claims that a product is clinically effective or universally suitable.
+ * ordered INCI list pin the exact version tested. The companion dictionary
+ * snapshot pins safety, verification and function metadata by INCI name,
+ * matching how data/api.ts resolves real catalogue products. These are not
+ * claims that a product is clinically effective or universally suitable.
  */
 export const SCORING_FIXTURE_SCHEMA_VERSION = 1;
 
