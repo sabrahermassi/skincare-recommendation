@@ -47,6 +47,9 @@ const TYPE_FILTERS: (ProductType | "all")[] = [
   "lip-balm",
   "facial-mist",
   "sheet-mask",
+  "face-mask",
+  "eye-patch",
+  "pimple-patch",
 ];
 
 /*

@@ -4,12 +4,16 @@
  * 1. Non-cosmetic products. The `barcode_db` fallback (UPCitemdb) indexes
  *    every barcode there is, not just cosmetics, and returns no ingredients —
  *    an unfiltered hit wrote rows like ORGANIC BLUE CORN TORTILLA CHIPS,
- *    brand "N/A". `supabase/functions/product-lookup`'s `looksCosmetic` gate
+ *    brand "N/A". `looksCosmetic` in
+ *    `supabase/functions/_shared/product-type-classifier.mjs`
  *    (migration-adjacent commit b6b32e8, 6 September) already stops *new*
  *    rows like this — "All of them stop new bad rows; none of them touch
  *    existing ones," in its own words. This script finds the existing ones,
  *    by re-running that same gate against every `barcode_db` row already on
- *    file.
+ *    file. It imports the real function rather than a hand-copy: that shared
+ *    module (added the same day as this script, in a separate change) is
+ *    plain runtime-neutral ESM specifically so Node and Deno callers run the
+ *    exact same decision instead of comparing regex copies after the fact.
  *
  * 2. Garbage ingredient names. Real products showing malformed entries —
  *    a batch/lot code glued onto a real name ("phenoxyethanol. pr-015376"),
@@ -42,30 +46,10 @@ import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
+import { looksCosmetic } from "../supabase/functions/_shared/product-type-classifier.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 const APPLY = process.argv.includes("--delete-junk-products");
-
-/**
- * Kept byte-for-byte in step with `looksCosmetic` in
- * `supabase/functions/product-lookup/index.ts` — the two run on different
- * runtimes (Node here, Deno there) so they cannot share a module. This is
- * the same "positive evidence, not a denylist" gate already live: a
- * `barcode_db` row failing it today is exactly the shape of row that gate
- * exists to refuse, just written before the gate did.
- *
- * `__tests__/audit-catalogue-quality-parity.test.ts` pins this string
- * against the Edge Function's copy — the two drifting apart silently is
- * exactly what happened to `guessType`'s two copies before
- * `classifier-parity.test.ts` existed.
- */
-const LOOKS_COSMETIC_SOURCE =
-  "beauty|cosmetic|personal care|skin|face|facial|body care|hair care|lotion|cream|crème|creme|serum|cleanser|shampoo|toner|sunscreen|spf|balm|moisturi|nettoyant|reinigings|limpiador|crema|deodorant|antiperspirant";
-const LOOKS_COSMETIC = new RegExp(LOOKS_COSMETIC_SOURCE, "i");
-
-function looksCosmetic(text) {
-  return LOOKS_COSMETIC.test(text);
-}
 
 /**
  * Text that would never appear in a real INCI name but does appear in
@@ -254,13 +238,4 @@ if (invokedDirectly()) {
   });
 }
 
-export {
-  looksCosmetic,
-  LOOKS_COSMETIC_SOURCE,
-  classifyGarbageIngredient,
-  sqlStringLiteral,
-  GLUED_CODE,
-  PROSE_MARKERS,
-  KNOWN_SHORT_NAMES,
-  SHORT_NAME_MAX_LENGTH,
-};
+export { classifyGarbageIngredient, sqlStringLiteral, GLUED_CODE, PROSE_MARKERS, KNOWN_SHORT_NAMES, SHORT_NAME_MAX_LENGTH };

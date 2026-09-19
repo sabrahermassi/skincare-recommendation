@@ -14,8 +14,11 @@ Expo Router + NativeWind + Zustand.
 Supabase is the live backend (Edge Functions `product-lookup`, `label-ocr`
 deployed). `data/api.ts` falls back to 8 sample products only when
 `EXPO_PUBLIC_SUPABASE_URL`/`_ANON_KEY` are absent — keeps checkouts and
-tests hermetic. Live catalogue: ~140 products, ~36k dictionary ingredients,
-~25k synonyms.
+tests hermetic. Live catalogue: 851 products (grows only when someone runs
+the operator scripts `import:obf` / `import:dailymed` — the one scheduled
+catalogue job, `reconcile-obf.yml`, re-checks existing rows for
+reformulation, it doesn't add new ones; check the live count rather than
+trusting this number for long), ~36k dictionary ingredients, ~25k synonyms.
 
 `FOR_ME_MVP.md` is launch scope. Track gaps as GitHub issues on the "Skin
 Recommendation" board, not here.
@@ -129,14 +132,16 @@ with confidence tiers, owns acne fit).
   unreadable formulas (< 3 identified ingredients, or < 25% coverage);
   unknown ingredients lower confidence, never block an answer.
 - **`contactWeight` (`lib/rules.ts`) is the only place a product's *type*
-  touches the score** — it scales every ingredient by how long the formula
-  stays on skin (0.25 rinsed within a minute, 0.5 sits then rinsed, 1
-  leave-on). **Only `cleanser`, `body-wash` and `body-scrub` are
-  discounted** — every other type takes 1, including `unknown`, `exfoliator`,
-  `conditioner`, `hair-mask` and `shampoo`, because each of those spans both a
-  rinse-off and a leave-on product and nothing distinguishes them. A wrong
-  type guess can then only over-state a risk, never hide one. Reasoning in
-  `docs/decisions.md`.
+  touches the score** — it returns `{ harm, benefit }`, scored independently:
+  harm stays at 1 unless a type is unambiguously short-contact, so a wrong
+  type guess can only over-state risk, never hide it; benefit is discounted
+  more freely, since crediting a rinse-off product at leave-on strength is
+  the opposite mistake. **`cleanser`, `body-wash` and `body-scrub` discount
+  both** (0.25/0.25, 0.5/0.5); `micellar-water` — split out of `cleanser`
+  because it's wiped rather than rinsed — takes full weight on both.
+  `unknown`, `exfoliator`, `conditioner`, `hair-mask` and `shampoo` keep harm
+  at 1 but discount benefit to 0.5 (0.25 for `unknown`), since each spans
+  both a rinse-off and leave-on product. Reasoning in `docs/decisions.md`.
 - `hazard` warnings cap the score at 45 and subtract 5 per additional
   hazard. `irritant` warnings go through the graduated irritation penalty
   instead — **do not merge these two tiers.**

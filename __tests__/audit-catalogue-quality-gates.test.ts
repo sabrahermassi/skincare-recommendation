@@ -1,35 +1,21 @@
-import {
-  classifyGarbageIngredient,
-  looksCosmetic,
-  sqlStringLiteral,
-} from "../scripts/audit-catalogue-quality.mjs";
+import { classifyGarbageIngredient, sqlStringLiteral } from "../scripts/audit-catalogue-quality.mjs";
 
 /**
- * Issue #86's two audit gates, as ordinary functions — the same reasoning as
- * `import-obf-gates.test.ts`: pinning behaviour here needs no live database
- * or service-role key, and proves something about the *next* change.
+ * Issue #86's ingredient-garbage gate, as ordinary functions — the same
+ * reasoning as `import-obf-gates.test.ts`: pinning behaviour here needs no
+ * live database or service-role key, and proves something about the *next*
+ * change.
+ *
+ * `looksCosmetic` itself is not re-tested here: it now lives in
+ * `supabase/functions/_shared/product-type-classifier.mjs`, imported
+ * directly rather than copied, and already has its own coverage in
+ * `__tests__/looks-cosmetic.test.ts` (which also carries the
+ * CRYSTAL Mineral Deodorant regression case this script's own live run
+ * against the production catalogue found).
  *
  * The real-name cases below are not invented: they are the actual examples
- * from issue #86's own report, plus what a live run against the production
- * catalogue actually returned in this session (including the false positive
- * — CRYSTAL Mineral Deodorant — that `looksCosmetic` originally missed).
+ * from issue #86's own report, plus what that live run actually returned.
  */
-
-describe("looksCosmetic", () => {
-  it.each([
-    "ORGANIC BLUE CORN TORTILLA CHIPS N/A",
-    "Pepsi Cola Soda Pop  12 fl oz  12 Pack Cans Pepsi",
-  ])("rejects non-cosmetic products: %s", (text: string) => {
-    expect(looksCosmetic(text)).toBe(false);
-  });
-
-  it.each([
-    "CRYSTAL Mineral Deodorant Roll-On Unscented Body Deodorant Crystal Essence",
-    "COSRX Low pH Good Morning Gel Cleanser",
-  ])("accepts real cosmetic/personal-care products: %s", (text: string) => {
-    expect(looksCosmetic(text)).toBe(true);
-  });
-});
 
 describe("classifyGarbageIngredient", () => {
   it.each([
