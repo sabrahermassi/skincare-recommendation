@@ -32,6 +32,88 @@ const APPLY = process.argv.includes("--apply");
 const BATCH = 200;
 
 /**
+ * Names that mean the same thing, so "aqua / water / eau" is one ingredient
+ * written three ways. Any other slash-joined stub is several ingredients and is
+ * never collapsed to one of them.
+ */
+const EQUIVALENT_NAMES = [
+  ["aqua", "water", "eau", "ater", "agua"],
+  ["parfum", "fragrance"],
+];
+
+/** The separate names in a stub that lists more than one ("a / b", "a & b", "a (b"). */
+function partsOf(name) {
+  return name
+    .split(/\s*(?:[/&(,]|\band\b)\s*/)
+    .map((p) => p.trim())
+    .filter((p) => p && !/^\d+$/.test(p));
+}
+
+/** A verified name for one piece of text, or null. */
+function resolvePart(part, known, aliases) {
+  const resolved = resolveKnownName(part, known, aliases);
+  if (known.has(resolved)) return resolved;
+  const aliased = aliases?.get(part);
+  return aliased && known.has(aliased) ? aliased : null;
+}
+
+/** A verified name for a whole single-ingredient string: spelling, typo or other name. */
+function wholeName(name, known, aliases) {
+  const resolved = resolveKnownName(name, known, aliases);
+  if (resolved !== name && known.has(resolved)) return resolved;
+  const typo = fuzzyKnownName(name, known, { remaining: Infinity });
+  if (typo !== name && known.has(typo)) return typo;
+  const aliased = aliases?.get(name);
+  return aliased && aliased !== name && known.has(aliased) ? aliased : null;
+}
+
+const squashed = (s) => s.replace(/[^\p{L}\p{N}]/gu, "");
+
+/**
+ * The verified name this stub is a mangled form of, or null. Deliberately
+ * strict: a wrong repoint puts the wrong ingredient on a product, which is
+ * worse than leaving the stub where it is.
+ */
+function variantTarget(name, known, aliases) {
+  if (known.has(name)) return name;
+  // A heading in front of the ingredient: "ingrédients: aqua", "may contain: ci 77891".
+  const colon = name.lastIndexOf(":");
+  if (colon > 0) {
+    const before = name.slice(0, colon);
+    const after = name.slice(colon + 1).trim();
+    const namesBefore = parseInci(before, known).some((i) => known.has(i.inci_name));
+    return after && !namesBefore ? variantTarget(after, known, aliases) : null;
+  }
+  const heading = /^(?:ingr[eé]dients?|sastojci|composition)\W+(.+)$/i.exec(name);
+  if (heading) return variantTarget(heading[1], known, aliases);
+
+  // A real name with packaging text after its full stop: "phenoxyethanol. idealove ...".
+  // Only when what follows names no ingredient: "tocopherol. sodium hyaluronate"
+  // is two ingredients, and cutting it would lose the second.
+  const trailing = /^([^.]+?)\s*\.\s+(\S.*)$/.exec(name);
+  if (trailing) {
+    const t = resolvePart(trailing[1], known, aliases);
+    const restNamesOne = parseInci(trailing[2], known, undefined, aliases).some((i) => known.has(i.inci_name));
+    return t && !restNamesOne ? t : null;
+  }
+
+  const parts = partsOf(name);
+  if (parts.length > 1) {
+    const group = EQUIVALENT_NAMES.find((g) => parts.every((p) => g.includes(p)));
+    if (group) return known.has(group[0]) ? group[0] : null;
+    const targets = parts.map((p) => resolvePart(p, known, aliases));
+    return targets[0] && targets.every((t) => t === targets[0]) ? targets[0] : null;
+  }
+
+  const target = wholeName(name, known, aliases);
+  // "2 hexanediol" is "1,2-hexanediol" with its "1," cut off, and plain
+  // hexanediol is a different ingredient: a bare leading number only counts when
+  // the rest is spacing.
+  if (target && /^\d\s*-?\s+[a-z]/i.test(name) && squashed(target) !== squashed(name)) return null;
+  return target;
+}
+
+/**
  * What to do with one unverified name: `{ kind: "variant", target }`,
  * `{ kind: "junk" }`, or `null` to leave it alone.
  *
@@ -40,20 +122,8 @@ const BATCH = 200;
  * dozens of species) — so only the first eight words are checked.
  */
 function classifyStub(name, known, aliases) {
-  const resolved = resolveKnownName(name, known, aliases);
-  if (resolved !== name && known.has(resolved)) return { kind: "variant", target: resolved };
-  const typo = fuzzyKnownName(name, known, { remaining: Infinity });
-  if (typo !== name && known.has(typo)) return { kind: "variant", target: typo };
-  const aliased = aliases?.get(name);
-  if (aliased && aliased !== name && known.has(aliased)) return { kind: "variant", target: aliased };
-
-  // A heading glued to one real ingredient ("ingrédients: aqua") is the name
-  // the parser used to write before it learned headings; it reads back as that
-  // single ingredient. Anything that reads back as several is left as junk.
-  const parsed = parseInci(name, known, undefined, aliases);
-  if (parsed.length === 1 && parsed[0].inci_name !== name && known.has(parsed[0].inci_name)) {
-    return { kind: "variant", target: parsed[0].inci_name };
-  }
+  const target = variantTarget(name, known, aliases);
+  if (target && target !== name && known.has(target)) return { kind: "variant", target };
 
   const head = name.split(/\s+/).slice(0, 8).join(" ");
   if (name.length < 4 || !/[a-z]/i.test(name) || !isPlausibleIngredientName(head)) {

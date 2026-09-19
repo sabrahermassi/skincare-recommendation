@@ -17,6 +17,20 @@ describe("classifyStub", () => {
     expect(classifyStub("sastojci: aqua", known, aliases)).toEqual({ kind: "variant", target: "aqua" });
   });
 
+  it("never collapses several ingredients into one of them", () => {
+    const dict = new Set(["aqua", "acrylates crosspolymer", "dimethicone crosspolymer", "tocopherol", "sodium hyaluronate", "hexanediol", "extract"]);
+    expect(classifyStub("acrylates/dimethicone crosspolymer", dict, aliases)?.kind).not.toBe("variant");
+    expect(classifyStub("tocopherol. sodium hyaluronate", dict, aliases)?.kind).not.toBe("variant");
+    expect(classifyStub("lavandula oil/extract", dict, aliases)?.kind).not.toBe("variant");
+    expect(classifyStub("2 hexanediol", dict, aliases)?.kind).not.toBe("variant");
+  });
+
+  it("collapses one ingredient written several ways, and packaging text after a name", () => {
+    const dict = new Set(["aqua", "water", "phenoxyethanol"]);
+    expect(classifyStub("aqua/water/eau", dict, aliases)).toEqual({ kind: "variant", target: "aqua" });
+    expect(classifyStub("phenoxyethanol. tube carton", dict, aliases)).toEqual({ kind: "variant", target: "phenoxyethanol" });
+  });
+
   it("calls a web address, a file name and a bare number junk", () => {
     expect(classifyStub("www.example.com", known, aliases)).toEqual({ kind: "junk" });
     expect(classifyStub("photo123.jpg", known, aliases)).toEqual({ kind: "junk" });
