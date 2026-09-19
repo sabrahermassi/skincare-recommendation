@@ -473,7 +473,7 @@ function Row({
                 {product.brand}
               </Text>
               <Text
-                style={{ marginTop: 2, fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, lineHeight: 19, color: INK }}
+                style={{ marginTop: 2, fontSize: 13.5, fontWeight: "500", lineHeight: 18, color: INK }}
                 numberOfLines={2}
               >
                 {product.name}
