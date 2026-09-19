@@ -15,6 +15,7 @@ import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { fetchProducts, peekProducts, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients, type SkinProfile } from "@/data/types";
+import { visibleTypeChips } from "@/lib/browse-chips";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized, profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
@@ -27,50 +28,13 @@ import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELE
 // removed along with `area` itself: the app's whole premise is judging a
 // formula against a skin profile, not filtering products out by which part
 // of the body they're for before that judgement even happens.
-const TYPE_FILTERS: (ProductType | "all")[] = [
-  "all",
-  "cleanser",
-  "micellar-water",
-  "toner",
-  "essence",
-  "serum",
-  "ampoule",
-  "moisturizer",
-  "sunscreen",
-  "body-wash",
-  "body-lotion",
-  "hand-cream",
-  "eye-cream",
-  "facial-oil",
-  "night-mask",
-  "exfoliator",
-  "lip-balm",
-  "facial-mist",
-  "sheet-mask",
-  "face-mask",
-  "eye-patch",
-  "pimple-patch",
-];
+// The chips are built from what the catalogue actually holds — see
+// `lib/browse-chips.ts` for the order and the hide-when-empty rule — so a type
+// gets a chip the moment it has a product (an import, or a scan or label read
+// added to the cache) and has none while it is empty.
 
-/*
-  Face families only, deliberately. `scripts/import-obf.mjs` fetches six
-  skincare categories (en:face, en:suncare, en:cleansers, en:skin-care,
-  en:creams, en:moisturizers), and that filter is itself a measured decision:
-  a broader sweep returned 352 unscoreable rows out of 549, toothpaste and
-  dish soap included. So shampoo, conditioner, hair-oil, hair-mask,
-  deodorant, perfume, body-butter, body-scrub and foot-cream are real
-  `ProductType`s a live scan can still produce, but the catalogue holds
-  almost none of them — a chip for each would open an empty list.
-
-  They keep their type, label and illustration; they just don't get a filter
-  chip until there is something behind one. The durable version is building
-  the chips from `fetchProductTypes()` (data/api.ts) instead of a hand-kept
-  list, which would also cover the body-wash/body-lotion/hand-cream chips
-  that predate this one.
-*/
-
-// "unknown" is never in TYPE_FILTERS above — it's not a category to browse
-// by — but the Record still needs the key, and PRODUCT_TYPE_LABEL is the one
+// "unknown" never gets a chip — it's not a category to browse by — but the
+// Record still needs the key, and PRODUCT_TYPE_LABEL is the one
 // place that label is defined.
 const TYPE_LABEL: Record<ProductType | "all", string> = {
   all: "All",
@@ -144,6 +108,11 @@ export default function Browse() {
   const [products, setProducts] = useState<ProductWithIngredients[] | null>(() =>
     peekProducts(INITIAL_TYPE_FILTER),
   );
+  // The whole catalogue, whatever the selected chip — only its types are read,
+  // to decide which chips exist.
+  const [allProducts, setAllProducts] = useState<ProductWithIngredients[] | null>(() =>
+    peekProducts("all"),
+  );
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [typeFilter, setTypeFilter] = useState<ProductType | "all">(INITIAL_TYPE_FILTER);
@@ -207,6 +176,30 @@ export default function Browse() {
     };
   }, [typeFilter, retryKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchProducts({ type: "all" })
+      .then((result) => {
+        if (!cancelled) setAllProducts(result);
+      })
+      .catch(() => {
+        // The list effect above already surfaces a failed load.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [retryKey]);
+
+  const typeChips = useMemo(() => visibleTypeChips(allProducts ?? []), [allProducts]);
+
+  // The selected type ran out of products: fall back to the full list rather
+  // than an empty screen under a chip that no longer exists.
+  useEffect(() => {
+    if (allProducts && typeFilter !== "all" && !typeChips.includes(typeFilter)) {
+      setTypeFilter("all");
+    }
+  }, [allProducts, typeChips, typeFilter]);
+
   // Re-read the cache whenever this tab comes back.
   //
   // The catalogue lives in a module, and this screen keeps its own copy in
@@ -225,6 +218,8 @@ export default function Browse() {
     useCallback(() => {
       const cached = peekProducts(typeFilter);
       if (cached) setProducts(cached);
+      const all = peekProducts("all");
+      if (all) setAllProducts(all);
     }, [typeFilter]),
   );
 
@@ -480,7 +475,7 @@ export default function Browse() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 8, paddingHorizontal: HEADER_GUTTER, paddingTop: 10 }}
             >
-              {TYPE_FILTERS.map((type) => (
+              {(["all", ...typeChips] as const).map((type) => (
                 <TypeChip
                   key={type}
                   label={TYPE_LABEL[type]}
