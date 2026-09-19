@@ -431,7 +431,7 @@ function normalise(raw: string): string {
  * is a food product sitting in a skincare catalogue.
  */
 function looksCosmetic(text: string): boolean {
-  return /beauty|cosmetic|personal care|skin|face|facial|body care|hair care|lotion|cream|crème|creme|serum|cleanser|shampoo|toner|sunscreen|spf|balm|moisturi|nettoyant|reinigings|limpiador|crema/i
+  return /beauty|cosmetic|personal care|skin|face|facial|body care|hair care|lotion|cream|crème|creme|serum|cleanser|shampoo|toner|sunscreen|spf|balm|moisturi|nettoyant|reinigings|limpiador|crema|deodorant|antiperspirant/i
     .test(text);
 }
 

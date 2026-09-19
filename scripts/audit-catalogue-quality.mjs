@@ -49,7 +49,7 @@ const APPLY = process.argv.includes("--delete-junk-products");
  * exists to refuse, just written before the gate did.
  */
 function looksCosmetic(text) {
-  return /beauty|cosmetic|personal care|skin|face|facial|body care|hair care|lotion|cream|crème|creme|serum|cleanser|shampoo|toner|sunscreen|spf|balm|moisturi|nettoyant|reinigings|limpiador|crema/i.test(
+  return /beauty|cosmetic|personal care|skin|face|facial|body care|hair care|lotion|cream|crème|creme|serum|cleanser|shampoo|toner|sunscreen|spf|balm|moisturi|nettoyant|reinigings|limpiador|crema|deodorant|antiperspirant/i.test(
     text
   );
 }
