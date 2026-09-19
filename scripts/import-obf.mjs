@@ -375,6 +375,39 @@ function findListByDictionary(flat, dictionary, aliases) {
 }
 
 /**
+ * Map a delimited name the dictionary does not hold to the one it does.
+ *
+ * `matchWindow` already knows two printed-label habits, but only runs when the
+ * list had no delimiters at all. A list split cleanly on commas skipped both,
+ * so "aqua/water/eau" and "gly cerin" reached the dictionary as-is and missed —
+ * about a fifth of every unmatched name in a live sample, for ingredients the
+ * dictionary holds under a plain name.
+ *
+ *  - OCR splits one printed word: "gly cerin", "be henyl alcohol".
+ *  - "/" separates names for ONE ingredient: "aqua/water/eau" is aqua. Strict,
+ *    as in `matchWindow`: every later part must be a known name or a single
+ *    word, so "hydroxyethyl acrylate/sodium acryloyldimethyl taurate
+ *    copolymer" — one real name that merely contains a slash — is left alone.
+ *
+ * A name already in the dictionary, or matching neither shape, comes back
+ * unchanged.
+ */
+function resolveKnownName(name, dictionary) {
+  if (dictionary.has(name)) return name;
+  const words = name.split(" ");
+  for (let i = 0; i + 1 < words.length; i++) {
+    const joined = [...words.slice(0, i), words[i] + words[i + 1], ...words.slice(i + 2)].join(" ");
+    if (dictionary.has(joined)) return joined;
+  }
+  if (name.includes("/")) {
+    const parts = name.split("/").map(normalise);
+    const restIsPlausible = parts.slice(1).every((p) => p.length > 1 && (dictionary.has(p) || !p.includes(" ")));
+    if (parts.length > 1 && dictionary.has(parts[0]) && restIsPlausible) return parts[0];
+  }
+  return name;
+}
+
+/**
  * Kept in step with `parseIngredientBlock`'s delimited path in `lib/inci.ts`,
  * which is the version under test. This copy had drifted: it was a bare
  * `split(/[,;]/)`, missing all four of the steps below.
@@ -428,7 +461,10 @@ function parseInci(text, dictionary, rejected) {
       if (!ok) rejected?.push(p);
       return ok;
     })
-    .map((inci_name, position) => ({ inci_name, position }));
+    .map((inci_name, position) => ({
+      inci_name: dictionary ? resolveKnownName(inci_name, dictionary) : inci_name,
+      position,
+    }));
 
   // 5 ── ...and drop repeats, renumbering as it goes. Both of
   // `parseIngredientBlock`'s return paths end in this; this copy did not,

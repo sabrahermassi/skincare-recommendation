@@ -38,6 +38,7 @@ const SHARED_FUNCTIONS = [
   "reconstructFromDictionary",
   "isPlausibleIngredientName",
   "findListByDictionary",
+  "resolveKnownName",
   "parseIngredientBlock",
   "dedupe",
 ];
@@ -185,6 +186,8 @@ describe("the import scripts stay in step with lib/inci.ts", () => {
     ["import-obf.mjs", "findListByDictionary"],
     ["lib/inci-parse.mjs", "isPlausibleIngredientName"],
     ["lib/inci-parse.mjs", "findListByDictionary"],
+    ["import-obf.mjs", "resolveKnownName"],
+    ["lib/inci-parse.mjs", "resolveKnownName"],
   ])("%s has the canonical %s()", (file: string, fn: string) => {
     const script = fs.readFileSync(path.join(__dirname, "..", "scripts", file), "utf8");
     expect(extractFunctionBody(script, fn)).toBe(stripTypes(extractFunctionBody(client, fn)));

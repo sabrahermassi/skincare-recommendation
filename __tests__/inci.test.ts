@@ -4,6 +4,7 @@ import {
   normalise,
   parseIngredientBlock,
   reconstructFromDictionary,
+  resolveKnownName,
 } from "@/lib/inci";
 
 /**
@@ -37,6 +38,50 @@ describe("isPlausibleIngredientName", () => {
   it("rejects a name longer than eight words", () => {
     expect(isPlausibleIngredientName("one two three four five six seven eight")).toBe(true);
     expect(isPlausibleIngredientName("one two three four five six seven eight nine")).toBe(false);
+  });
+});
+
+describe("resolveKnownName", () => {
+  const dictionary = new Set([
+    "aqua",
+    "water",
+    "parfum",
+    "glycerin",
+    "behenyl alcohol",
+    "ci 77891",
+    "titanium dioxide",
+    "hydroxyethyl acrylate",
+  ]);
+
+  it.each([
+    ["aqua/water/eau", "aqua"],
+    ["aqua/water", "aqua"],
+    ["aqua / water", "aqua"],
+    ["parfum/fragrance", "parfum"],
+    ["ci 77891/titanium dioxide", "ci 77891"],
+    ["gly cerin", "glycerin"],
+    ["be henyl alcohol", "behenyl alcohol"],
+  ])("resolves %s to %s", (name: string, expected: string) => {
+    expect(resolveKnownName(name, dictionary)).toBe(expected);
+  });
+
+  it("leaves a name the dictionary already holds alone", () => {
+    expect(resolveKnownName("glycerin", dictionary)).toBe("glycerin");
+  });
+
+  it("does not split a real name that merely contains a slash", () => {
+    expect(
+      resolveKnownName("hydroxyethyl acrylate/sodium acryloyldimethyl taurate copolymer", dictionary)
+    ).toBe("hydroxyethyl acrylate/sodium acryloyldimethyl taurate copolymer");
+  });
+
+  it("leaves a name it cannot place unchanged", () => {
+    expect(resolveKnownName("helianthus annus seed oil", dictionary)).toBe("helianthus annus seed oil");
+  });
+
+  it("resolves through parseIngredientBlock when a dictionary is supplied", () => {
+    const parsed = parseIngredientBlock("Aqua/Water/Eau, Gly cerin, Parfum/Fragrance, Glycerin", dictionary);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "parfum"]);
   });
 });
 
