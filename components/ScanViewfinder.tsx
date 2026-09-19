@@ -1,80 +1,117 @@
 import { useEffect, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View, type LayoutChangeEvent } from "react-native";
-import Svg, { Defs, LinearGradient, Mask, Path, Rect, Stop } from "react-native-svg";
+import Svg, { Defs, LinearGradient, Mask, Rect, Stop } from "react-native-svg";
 
-import { Text } from "@/components/Text";
 import { TERRACOTTA } from "@/components/shell/shared";
-import { CAMERA_STAGE, CANVAS, INK, SCANNER_FRAME, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, SCANNER_FRAME, withAlpha } from "@/lib/tokens";
 
 /**
- * The live scanner's framing: the camera dimmed outside a rounded window, cream
- * corners, a slow terracotta line that sweeps the window, and a chip with the
- * instruction underneath (not laid over the camera image).
+ * The live scanner's framing: the camera dimmed outside a rounded window with a
+ * thin cream outline, and a slow terracotta line that sweeps the window.
  *
- * `locked` is the moment a barcode has been read: the corners close in a touch
- * and turn terracotta while the line fades, before the status panel takes over.
- * With Reduce Motion on, the line stays still in the middle and the lock is
- * instant.
+ * `locked` is the moment a barcode has been read. With a `target` (where the
+ * camera saw the barcode) the window closes in on it — the dimming and the
+ * outline follow — and the outline turns terracotta; without one the window
+ * just tightens a touch. With Reduce Motion on, the line stays still in the
+ * middle and the lock is instant.
  */
+
+export type Box = { x: number; y: number; width: number; height: number };
 
 /** How far the window sits in from each side; the mode pills line up with it. */
 export const SCAN_SIDE_INSET = 33;
 const SIDE = SCAN_SIDE_INSET;
 const TOP_GAP = 24;
-const CORNER_LENGTH = 40;
-const CORNER_RADIUS = 18;
-const CORNER_STROKE = 4;
+const WINDOW_RADIUS = 28;
+const OUTLINE_WIDTH = 2.5;
 const LINE_BAND = 56;
 const LINE_INSET = 16;
 const SWEEP_MS = 2200;
-const LOCK_MS = 220;
-const CHIP_HEIGHT = 36;
-const CHIP_GAP = 14;
+const LOCK_MS = 280;
 const SCRIM_ALPHA = 0.6;
+// Room left around the barcode when the window closes in on it, and the least
+// it will close to (a tiny window reads as a glitch, not a lock).
+const TARGET_PAD = 16;
+const TARGET_MIN_WIDTH = 120;
+const TARGET_MIN_HEIGHT = 84;
+// With no target to close in on, the window tightens by this fraction.
+const FALLBACK_TIGHTEN = 0.035;
 
-/** Vertical room the chip takes below the window, for the caller's own layout. */
-const CHIP_SPACE = CHIP_HEIGHT + CHIP_GAP;
+type Rectangle = { x: number; y: number; w: number; h: number };
 
-function cornerPaths(w: number, h: number) {
-  const s = CORNER_STROKE / 2;
-  const L = CORNER_LENGTH;
-  const r = CORNER_RADIUS;
-  const x0 = s;
-  const y0 = s;
-  const x1 = w - s;
-  const y1 = h - s;
-  return [
-    `M${x0} ${y0 + L}V${y0 + r}A${r} ${r} 0 0 1 ${x0 + r} ${y0}H${x0 + L}`,
-    `M${x1 - L} ${y0}H${x1 - r}A${r} ${r} 0 0 1 ${x1} ${y0 + r}V${y0 + L}`,
-    `M${x1} ${y1 - L}V${y1 - r}A${r} ${r} 0 0 1 ${x1 - r} ${y1}H${x1 - L}`,
-    `M${x0 + L} ${y1}H${x0 + r}A${r} ${r} 0 0 1 ${x0} ${y1 - r}V${y1 - L}`,
-  ];
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+function usable(box: Box) {
+  return [box.x, box.y, box.width, box.height].every(Number.isFinite) && box.width > 8 && box.height > 8;
 }
 
-function Corners({ width, height, color }: { width: number; height: number; color: string }) {
-  return (
-    <Svg width={width} height={height}>
-      {cornerPaths(width, height).map((d) => (
-        <Path key={d} d={d} stroke={color} strokeWidth={CORNER_STROKE} strokeLinecap="round" fill="none" />
-      ))}
-    </Svg>
-  );
+/**
+ * Turns what the camera reported into a box in the camera view's own
+ * coordinates, or undefined when it reported nothing usable. Corner points are
+ * preferred; `bounds` is documented as sometimes empty and not always the whole
+ * barcode.
+ */
+export function barcodeBox(result: {
+  bounds?: { origin: { x: number; y: number }; size: { width: number; height: number } };
+  cornerPoints?: { x: number; y: number }[];
+}): Box | undefined {
+  const points = result.cornerPoints;
+  if (points && points.length >= 3) {
+    const xs = points.map((p) => p.x);
+    const ys = points.map((p) => p.y);
+    const box = {
+      x: Math.min(...xs),
+      y: Math.min(...ys),
+      width: Math.max(...xs) - Math.min(...xs),
+      height: Math.max(...ys) - Math.min(...ys),
+    };
+    if (usable(box)) return box;
+  }
+  const b = result.bounds;
+  if (b) {
+    const box = { x: b.origin.x, y: b.origin.y, width: b.size.width, height: b.size.height };
+    if (usable(box)) return box;
+  }
+  return undefined;
+}
+
+/** Where the window should end up: around the barcode, padded, kept inside the window. */
+function goalFor(window: Rectangle, target: Box | undefined): Rectangle {
+  if (!target) {
+    const dx = window.w * FALLBACK_TIGHTEN;
+    const dy = window.h * FALLBACK_TIGHTEN;
+    return { x: window.x + dx, y: window.y + dy, w: window.w - dx * 2, h: window.h - dy * 2 };
+  }
+  const w = Math.min(window.w, Math.max(TARGET_MIN_WIDTH, target.width + TARGET_PAD * 2));
+  const h = Math.min(window.h, Math.max(TARGET_MIN_HEIGHT, target.height + TARGET_PAD * 2));
+  const cx = target.x + target.width / 2;
+  const cy = target.y + target.height / 2;
+  const x = Math.min(Math.max(cx - w / 2, window.x), window.x + window.w - w);
+  const y = Math.min(Math.max(cy - h / 2, window.y), window.y + window.h - h);
+  return { x, y, w, h };
 }
 
 export function ScanViewfinder({
   topInset,
   bottomInset,
   locked,
+  target,
 }: {
   /** Distance from the top of the stage to leave clear (safe area, banner). */
   topInset: number;
   /** Distance from the bottom of the stage to leave clear (switcher). */
   bottomInset: number;
   locked: boolean;
+  /** Where the barcode was seen, for the window to close in on. */
+  target?: Box;
 }) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const [sweep] = useState(() => new Animated.Value(0));
   const [lock] = useState(() => new Animated.Value(0));
+  // 0 = the window, 1 = closed in on the barcode. Driven from JS: it moves
+  // layout, which the native driver cannot.
+  const [closing] = useState(() => new Animated.Value(0));
+  const [closed, setClosed] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
   const useNativeDriver = Platform.OS !== "web";
 
@@ -85,6 +122,11 @@ export function ScanViewfinder({
     const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
     return () => sub.remove();
   }, []);
+
+  useEffect(() => {
+    const id = closing.addListener(({ value }) => setClosed(value));
+    return () => closing.removeListener(id);
+  }, [closing]);
 
   useEffect(() => {
     if (reduceMotion) {
@@ -102,31 +144,45 @@ export function ScanViewfinder({
   }, [reduceMotion, sweep, useNativeDriver]);
 
   useEffect(() => {
-    Animated.timing(lock, {
-      toValue: locked ? 1 : 0,
-      duration: reduceMotion ? 0 : LOCK_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver,
-    }).start();
-  }, [locked, reduceMotion, lock, useNativeDriver]);
+    const duration = reduceMotion ? 0 : LOCK_MS;
+    const easing = Easing.out(Easing.cubic);
+    Animated.timing(lock, { toValue: locked ? 1 : 0, duration, easing, useNativeDriver }).start();
+    Animated.timing(closing, { toValue: locked ? 1 : 0, duration, easing, useNativeDriver: false }).start();
+  }, [locked, reduceMotion, lock, closing, useNativeDriver]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     setSize((prev) => (prev && prev.w === width && prev.h === height ? prev : { w: width, h: height }));
   };
 
-  const frameTop = topInset + TOP_GAP;
-  const frameLeft = SIDE;
-  const frameWidth = size ? size.w - SIDE * 2 : 0;
-  const frameHeight = size ? size.h - frameTop - bottomInset - CHIP_SPACE : 0;
-  const ready = size !== null && frameWidth > 0 && frameHeight > CORNER_LENGTH * 2;
-  const lineWidth = frameWidth - LINE_INSET * 2;
+  const window: Rectangle = {
+    x: SIDE,
+    y: topInset + TOP_GAP,
+    w: size ? size.w - SIDE * 2 : 0,
+    h: size ? size.h - (topInset + TOP_GAP) - bottomInset : 0,
+  };
+  const ready = size !== null && window.w > 0 && window.h > 120;
+  const goal = goalFor(window, target);
+  const rect: Rectangle = {
+    x: lerp(window.x, goal.x, closed),
+    y: lerp(window.y, goal.y, closed),
+    w: lerp(window.w, goal.w, closed),
+    h: lerp(window.h, goal.h, closed),
+  };
+  const radius = Math.min(WINDOW_RADIUS, rect.h / 2, rect.w / 2);
+  const lineWidth = window.w - LINE_INSET * 2;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onLayout}>
       {ready && size ? (
         <>
-          {/* Decorative: nothing here is announced or touchable. */}
+          {/* What is being looked for, for a screen reader; the layers below are decoration. */}
+          <View
+            accessible
+            accessibilityLabel="Point the camera at a barcode"
+            style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1 }}
+          />
+
           <View
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
@@ -137,14 +193,7 @@ export function ScanViewfinder({
               <Defs>
                 <Mask id="scan-window" x={0} y={0} width={size.w} height={size.h}>
                   <Rect x={0} y={0} width={size.w} height={size.h} fill="white" />
-                  <Rect
-                    x={frameLeft}
-                    y={frameTop}
-                    width={frameWidth}
-                    height={frameHeight}
-                    rx={CORNER_RADIUS + 2}
-                    fill="black"
-                  />
+                  <Rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} rx={radius} fill="black" />
                 </Mask>
               </Defs>
               <Rect
@@ -157,86 +206,64 @@ export function ScanViewfinder({
               />
             </Svg>
 
-            <View style={{ position: "absolute", left: frameLeft, top: frameTop, width: frameWidth, height: frameHeight }}>
-              {/* The sweeping line, kept inside the window. */}
-              <Animated.View
-                style={{
-                  position: "absolute",
-                  left: LINE_INSET,
-                  top: -LINE_BAND / 2,
-                  opacity: lock.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
-                  transform: [
-                    {
-                      translateY: sweep.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [LINE_INSET, frameHeight - LINE_INSET],
-                      }),
-                    },
-                  ],
-                }}
-              >
-                <Svg width={lineWidth} height={LINE_BAND}>
-                  <Defs>
-                    <LinearGradient id="scan-glow" x1="0" y1="0" x2="0" y2="1">
-                      <Stop offset="0" stopColor={TERRACOTTA} stopOpacity={0} />
-                      <Stop offset="0.5" stopColor={TERRACOTTA} stopOpacity={0.32} />
-                      <Stop offset="1" stopColor={TERRACOTTA} stopOpacity={0} />
-                    </LinearGradient>
-                  </Defs>
-                  <Rect x={0} y={0} width={lineWidth} height={LINE_BAND} fill="url(#scan-glow)" />
-                  <Rect x={0} y={LINE_BAND / 2 - 1} width={lineWidth} height={2} rx={1} fill={TERRACOTTA} />
-                </Svg>
-              </Animated.View>
-
-              {/* Cream corners that hand over to terracotta ones when locked. */}
-              <Animated.View
-                style={{
-                  ...StyleSheet.absoluteFill,
-                  transform: [{ scale: lock.interpolate({ inputRange: [0, 1], outputRange: [1, 0.965] }) }],
-                }}
-              >
-                <Animated.View
-                  style={{
-                    ...StyleSheet.absoluteFill,
-                    opacity: lock.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
-                  }}
-                >
-                  <Corners width={frameWidth} height={frameHeight} color={SCANNER_FRAME} />
-                </Animated.View>
-                <Animated.View style={{ ...StyleSheet.absoluteFill, opacity: lock }}>
-                  <Corners width={frameWidth} height={frameHeight} color={TERRACOTTA} />
-                </Animated.View>
-              </Animated.View>
-            </View>
-          </View>
-
-          {/* The instruction sits under the window, not on the camera image. Not
-              inside the decorative layer above, so it stays readable to a
-              screen reader. */}
-          <Animated.View
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              top: frameTop + frameHeight + CHIP_GAP,
-              alignItems: "center",
-              opacity: lock.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
-            }}
-          >
-            <View
+            {/* The sweeping line, kept inside the window; it fades as the window closes. */}
+            <Animated.View
               style={{
-                height: CHIP_HEIGHT,
-                paddingHorizontal: 16,
-                borderRadius: CHIP_HEIGHT / 2,
-                justifyContent: "center",
-                backgroundColor: withAlpha(CANVAS, 0.95),
+                position: "absolute",
+                left: window.x + LINE_INSET,
+                top: window.y - LINE_BAND / 2,
+                opacity: lock.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+                transform: [
+                  {
+                    translateY: sweep.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [LINE_INSET, window.h - LINE_INSET],
+                    }),
+                  },
+                ],
               }}
             >
-              <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>
-                Position barcode in the frame
-              </Text>
-            </View>
-          </Animated.View>
+              <Svg width={lineWidth} height={LINE_BAND}>
+                <Defs>
+                  <LinearGradient id="scan-glow" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor={TERRACOTTA} stopOpacity={0} />
+                    <Stop offset="0.5" stopColor={TERRACOTTA} stopOpacity={0.32} />
+                    <Stop offset="1" stopColor={TERRACOTTA} stopOpacity={0} />
+                  </LinearGradient>
+                </Defs>
+                <Rect x={0} y={0} width={lineWidth} height={LINE_BAND} fill="url(#scan-glow)" />
+                <Rect x={0} y={LINE_BAND / 2 - 1} width={lineWidth} height={2} rx={1} fill={TERRACOTTA} />
+              </Svg>
+            </Animated.View>
+
+            {/* A cream outline that hands over to a terracotta one when locked. */}
+            <Animated.View
+              style={{
+                position: "absolute",
+                left: rect.x,
+                top: rect.y,
+                width: rect.w,
+                height: rect.h,
+                borderRadius: radius,
+                borderWidth: OUTLINE_WIDTH,
+                borderColor: SCANNER_FRAME,
+                opacity: lock.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+              }}
+            />
+            <Animated.View
+              style={{
+                position: "absolute",
+                left: rect.x,
+                top: rect.y,
+                width: rect.w,
+                height: rect.h,
+                borderRadius: radius,
+                borderWidth: OUTLINE_WIDTH,
+                borderColor: TERRACOTTA,
+                opacity: lock,
+              }}
+            />
+          </View>
         </>
       ) : null}
     </View>

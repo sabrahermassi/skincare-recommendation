@@ -57,7 +57,7 @@ type Props = {
 
 // Room the shutter, the instruction and the frame's own margin need above the
 // bottom inset.
-const SHUTTER_AREA = 170;
+const SHUTTER_AREA = 140;
 
 export function LabelCamera({ barcode, active = true, onClose, onResult, bottomInset }: Props) {
   const insets = useSafeAreaInsets();
@@ -342,8 +342,37 @@ export function LabelCamera({ barcode, active = true, onClose, onResult, bottomI
       >
         <View
           onLayout={onGuideLayout}
-          style={{ height: "100%", width: "100%", borderColor: SCANNER_FRAME, borderWidth: 3, borderRadius: 24 }}
-        />
+          style={{
+            height: "100%",
+            width: "100%",
+            borderColor: SCANNER_FRAME,
+            borderWidth: 2.5,
+            borderRadius: 28,
+            alignItems: "center",
+            paddingTop: 14,
+            paddingHorizontal: 12,
+          }}
+        >
+          {status.kind === "framing" ? (
+            <View
+              style={{
+                alignItems: "center",
+                gap: 2,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 18,
+                backgroundColor: withAlpha(CANVAS, 0.95),
+              }}
+            >
+              <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>
+                Fill the frame with the ingredient list
+              </Text>
+              <Text style={{ textAlign: "center", fontSize: 11, color: MUTED }}>
+                Hold steady. The photo is sent to Google to read the text, then discarded.
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </View>
 
       {onClose ? (
@@ -385,25 +414,7 @@ export function LabelCamera({ barcode, active = true, onClose, onResult, bottomI
           </View>
         ) : status.kind === "reading" ? (
           <Text style={{ fontSize: 15, fontWeight: "600", color: CANVAS }}>Reading the ingredient list…</Text>
-        ) : (
-          <View
-            style={{
-              alignItems: "center",
-              gap: 2,
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 18,
-              backgroundColor: withAlpha(CANVAS, 0.95),
-            }}
-          >
-            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>
-              Fill the frame with the ingredient list
-            </Text>
-            <Text style={{ fontSize: 11, color: MUTED }}>
-              Hold steady. The photo is sent to Google to read the text, then discarded.
-            </Text>
-          </View>
-        )}
+        ) : null}
 
         <Pressable
           onPress={capture}
