@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
@@ -10,11 +11,11 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Circle, Path, Rect } from "react-native-svg";
+import Svg, { Rect } from "react-native-svg";
 
 import { LabelCamera } from "@/components/LabelCamera";
 import { ScanIntro } from "@/components/ScanIntro";
-import { SCAN_SIDE_INSET, ScanViewfinder } from "@/components/ScanViewfinder";
+import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
@@ -54,7 +55,7 @@ const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.png");
  */
 const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as const;
 
-type Mode = "Barcode" | "Ingredients";
+type Mode = "Barcode" | "Photo";
 /**
  * `missed` and `unreachable` are deliberately separate.
  *
@@ -67,7 +68,7 @@ type Mode = "Barcode" | "Ingredients";
  */
 type Status =
   | { kind: "idle" }
-  | { kind: "looking"; code: string }
+  | { kind: "looking"; code: string; target?: Box }
   | { kind: "missed"; code: string }
   | { kind: "unreachable"; code: string; failure: FetchFailure };
 
@@ -84,7 +85,7 @@ type Status =
 // uses opacity would be its own inconsistency.
 
 /**
- * Icons for the mode switcher, paths copied from the Scanner mockup. The row
+ * Icons for the mode switcher; the barcode bars are copied from the Scanner mockup. The row
  * is icon-only now — no label under Barcode/Ingredients — so these are drawn
  * bigger (22pt) than the icon-plus-text version was.
  */
@@ -100,20 +101,8 @@ function BarcodeIcon({ color, size = 22 }: { color: string; size?: number }) {
   );
 }
 
-function PhotoIcon({ color, size = 22 }: { color: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x={3.8} y={3.8} width={16.4} height={16.4} rx={3} stroke={color} strokeWidth={1.6} />
-      <Circle cx={9} cy={9.4} r={1.5} fill={color} />
-      <Path
-        d="m5 18.4 4.4-4.6 3.2 3.2 2.7-2.1 4 3.5"
-        stroke={color}
-        strokeWidth={1.6}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
+function CameraIcon({ color, size = 22 }: { color: string; size?: number }) {
+  return <Ionicons name="camera-outline" size={size} color={color} />;
 }
 
 const MODES: {
@@ -121,7 +110,7 @@ const MODES: {
   Icon: (props: { color: string; size?: number }) => ReactElement;
 }[] = [
   { label: "Barcode", Icon: BarcodeIcon },
-  { label: "Ingredients", Icon: PhotoIcon },
+  { label: "Photo", Icon: CameraIcon },
 ];
 
 export default function Scan() {
@@ -210,14 +199,14 @@ export default function Scan() {
   );
 
   const handleBarcode = useCallback(
-    async (data: string) => {
+    async (data: string, target?: Box) => {
       if (busy.current) return;
       busy.current = true;
       // A scan starting is a stronger signal that the quiz banner was seen
       // than any timer would be, and this is the one place every barcode
       // read passes through. See issue #95.
       dismissQuizAcknowledgement();
-      setStatus({ kind: "looking", code: data });
+      setStatus({ kind: "looking", code: data, target });
       // A short tap to say the read landed. Not every device or browser has a
       // motor, and a missing one must never affect the scan.
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -321,12 +310,11 @@ export default function Scan() {
 }
 
 /**
- * The mode switcher: one rounded control holding both modes, the selected one
- * filled — the shape scanner apps use for Photo | Barcode. It spans the scanner
- * window's width, so its edges line up with the window's.
+ * The mode switcher: two separate pills. Barcode sits flush with the scanner
+ * window's left edge and Photo with its right edge; the space goes between them.
  *
- * `light` draws it for the cream screens (asking for camera access) instead of
- * over the dark camera. Selected is the same peach and terracotta everywhere.
+ * `light` draws them for the cream screens (asking for camera access) instead
+ * of over the dark camera. Selected is the same peach and terracotta everywhere.
  */
 function ModeSwitcher({
   mode,
@@ -342,13 +330,8 @@ function ModeSwitcher({
       accessibilityRole="tablist"
       style={{
         marginHorizontal: SCAN_SIDE_INSET - STAGE_INSET,
-        height: SWITCHER_HEIGHT,
-        borderRadius: SWITCHER_HEIGHT / 2,
-        padding: 4,
         flexDirection: "row",
-        backgroundColor: light ? CANVAS : withAlpha(CAMERA_STAGE, 0.75),
-        borderWidth: 1,
-        borderColor: light ? BORDER_INACTIVE : withAlpha(CANVAS, 0.25),
+        justifyContent: "space-between",
       }}
     >
       {MODES.map(({ label, Icon }) => {
@@ -362,15 +345,16 @@ function ModeSwitcher({
             accessibilityLabel={label}
             accessibilityState={{ selected: on }}
             style={{
-              flex: 1,
+              width: MODE_PILL_WIDTH,
+              height: SWITCHER_HEIGHT,
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "center",
               gap: 8,
-              borderRadius: SWITCHER_HEIGHT / 2 - 4,
-              backgroundColor: on ? SELECTED : "transparent",
-              borderWidth: on ? 1.5 : 0,
-              borderColor: TERRACOTTA,
+              borderRadius: SWITCHER_HEIGHT / 2,
+              backgroundColor: on ? SELECTED : light ? CANVAS : withAlpha(CAMERA_STAGE, 0.55),
+              borderWidth: on ? 1.5 : 1,
+              borderColor: on ? TERRACOTTA : light ? BORDER_INACTIVE : withAlpha(CANVAS, 0.3),
             }}
           >
             <Icon color={color} size={20} />
@@ -404,7 +388,7 @@ function BarcodeStage({
   requestPermission: () => void;
   live: boolean;
   status: Status;
-  onBarcode: (data: string) => void;
+  onBarcode: (data: string, target?: Box) => void;
   /** Call before any navigation away from this stage that isn't a tab
    *  switch — see `Scan`'s own `preserveMode` doc comment for why. */
   preserveMode: () => void;
@@ -460,7 +444,7 @@ function BarcodeStage({
     status.kind === "looking"
       ? "Barcode found. Reading the ingredients."
       : status.kind === "missed"
-        ? "Not in our catalogue yet. Tap Ingredients below to photograph its ingredient list and add it."
+        ? "Not in our catalogue yet. Tap Photo below to photograph its ingredient list and add it."
         : status.kind === "unreachable"
           ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
           : announceQuizBanner
@@ -482,7 +466,7 @@ function BarcodeStage({
           style={StyleSheet.absoluteFill}
           facing="back"
           barcodeScannerSettings={{ barcodeTypes: [...BARCODE_TYPES] }}
-          onBarcodeScanned={({ data }) => onBarcode(data)}
+          onBarcodeScanned={({ data, bounds, cornerPoints }) => onBarcode(data, barcodeBox({ bounds, cornerPoints }))}
         />
       ) : null}
 
@@ -491,6 +475,7 @@ function BarcodeStage({
           topInset={insets.top + (showQuizBanner ? bannerHeight + 12 : 0)}
           bottomInset={switcherClearance}
           locked={status.kind === "looking"}
+          target={status.kind === "looking" ? status.target : undefined}
         />
       )}
 
@@ -607,7 +592,7 @@ function BarcodeStage({
                   ? "Reading the ingredients…"
                   : status.kind === "unreachable"
                     ? failureMessage(status.failure)
-                    : "Tap Ingredients below and photograph its list to add it"}
+                    : "Tap Photo below and photograph its ingredient list to add it"}
               </Text>
             </View>
           </View>
@@ -792,7 +777,9 @@ function IngredientsStage({
 // used to be measured off a 293pt card that no longer exists (the stage is
 // full-bleed now), so a fixed bottom inset put the frame's bottom edge, and
 // its instruction text, underneath the switcher rather than clear of it.
-const SWITCHER_HEIGHT = 56;
+const SWITCHER_HEIGHT = 53;
+// The mode pills: 20% narrower and 10% taller than the segments they replace.
+const MODE_PILL_WIDTH = 126;
 // How far in the bottom wrapper (mode pills, status panel) sits from each edge.
 const STAGE_INSET = 20;
 // Clear of the tab bar's raised scan button, which rises into the stage.
