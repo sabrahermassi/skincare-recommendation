@@ -53,9 +53,11 @@ type Props = {
   onResult: (params: { id: string; offerBarcode?: string; scanToken?: string }) => void;
   /** Room to leave clear at the bottom, e.g. for the scanner's mode switcher. */
   bottomInset?: number;
+  /** How far below the safe area the frame starts, to clear whatever sits across the top. */
+  frameTopOffset?: number;
 };
 
-export function LabelCamera({ barcode, active = true, onClose, onResult, bottomInset }: Props) {
+export function LabelCamera({ barcode, active = true, onClose, onResult, bottomInset, frameTopOffset }: Props) {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [status, setStatus] = useState<Status>({ kind: "framing" });
@@ -309,7 +311,7 @@ export function LabelCamera({ barcode, active = true, onClose, onResult, bottomI
 
   const clearance = bottomInset ?? Math.max(24, insets.bottom + 12);
   // With an X across the top the frame sits a little lower to clear it.
-  const frameTopInset = insets.top + (onClose ? 32 : 0);
+  const frameTopInset = insets.top + (frameTopOffset ?? (onClose ? 32 : 0));
 
   return (
     <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>

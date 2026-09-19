@@ -13,17 +13,16 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Rect } from "react-native-svg";
 
+import { GenieShell, type GenieShellHandle } from "@/components/GenieShell";
 import { LabelCamera } from "@/components/LabelCamera";
 import { ScanIntro } from "@/components/ScanIntro";
-import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
+import { barcodeBox, SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
-import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { profileSummary } from "@/lib/profile";
-import { SCAN_BUTTON_LIFT } from "@/lib/tab-bar";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 
 // Watercolor art from the onboarding set, reused on the two light screens that
 // sit in front of the camera (see components/ScanIntro.tsx).
@@ -137,6 +136,8 @@ export default function Scan() {
     : "Profile set. Scan anything to see how it fits.";
 
   const busy = useRef(false);
+  const shell = useRef<GenieShellHandle>(null);
+  const insets = useSafeAreaInsets();
 
   // Tapping Barcode again after a miss or a failed lookup is how you scan
   // another: it clears the message and the camera comes back. That replaces the
@@ -273,8 +274,8 @@ export default function Scan() {
     field are not camera surfaces and full-bleed black behind them would say
     nothing. Every mode is still reachable from the same switcher.
   */
-  if (mode === "Barcode") {
-    return (
+  const stage =
+    mode === "Barcode" ? (
       <BarcodeStage
         permission={permission}
         requestPermission={requestPermission}
@@ -289,13 +290,10 @@ export default function Scan() {
         quizAcknowledgementText={quizAcknowledgementText}
         onDismissQuizAcknowledgement={dismissQuizAcknowledgement}
       />
-    );
-  }
-
-  // Ingredients is the same full-screen stage as Barcode: the camera is live the
-  // moment you switch to it, with a shutter — no step in between.
-  return (
-    <IngredientsStage
+    ) : (
+      // Photo is the same full-screen stage as Barcode: the camera is live the
+      // moment you switch to it, with a shutter — no step in between.
+      <IngredientsStage
       permission={permission}
       requestPermission={requestPermission}
       active={isFocused}
@@ -305,6 +303,36 @@ export default function Scan() {
         <ModeSwitcher mode={mode} setMode={selectMode} light={permission !== null && !permission.granted} />
       }
     />
+    );
+
+  // The scanner is full screen: it opens out of the tab bar's scan button and
+  // folds back into it when the X is pressed.
+  const onLightStage = permission !== null && !permission.granted;
+  return (
+    <GenieShell ref={shell}>
+      {stage}
+      <Pressable
+        onPress={() =>
+          shell.current?.close(() => {
+            if (router.canGoBack()) router.back();
+            else router.navigate("/browse");
+          })
+        }
+        accessibilityRole="button"
+        accessibilityLabel="Close scanner"
+        style={{
+          position: "absolute",
+          left: 16,
+          top: insets.top + 8,
+          width: TOUCH_TARGET,
+          height: TOUCH_TARGET,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name="close" size={26} color={onLightStage ? INK : CANVAS} />
+      </Pressable>
+    </GenieShell>
   );
 }
 
@@ -313,9 +341,7 @@ export default function Scan() {
  * Photo with its right edge; the space goes between them.
  *
  * Unselected, each is just its icon and name — no fill, no edge, as if it were
- * not in a button at all. Selected takes the quiz's selected look: a terracotta
- * outline round a peach fill, left see-through over the camera so the picture
- * still shows.
+ * not in a button at all. Selected is filled with the app's own button colour.
  *
  * `light` draws them for the cream screens (asking for camera access) instead
  * of over the dark camera.
@@ -340,7 +366,7 @@ function ModeSwitcher({
     >
       {MODES.map(({ label, Icon }) => {
         const on = mode === label;
-        const color = on ? (light ? INK : CANVAS) : light ? MUTED : withAlpha(CANVAS, 0.75);
+        const color = on ? INK : light ? MUTED : withAlpha(CANVAS, 0.75);
         return (
           <Pressable
             key={label}
@@ -356,10 +382,7 @@ function ModeSwitcher({
               justifyContent: "center",
               gap: 8,
               borderRadius: SWITCHER_HEIGHT / 2,
-              backgroundColor: on ? (light ? SELECTED : withAlpha(SELECTED, 0.22)) : "transparent",
-              // Always drawn, transparent when unselected, so selecting does not move anything.
-              borderWidth: 1.5,
-              borderColor: on ? TERRACOTTA : "transparent",
+              backgroundColor: on ? CTA : "transparent",
             }}
           >
             <Icon color={color} size={20} />
@@ -477,7 +500,7 @@ function BarcodeStage({
 
       {permission?.granted && (status.kind === "idle" || status.kind === "looking") && (
         <ScanViewfinder
-          topInset={insets.top + (showQuizBanner ? bannerHeight + 12 : 0)}
+          topInset={insets.top + (showQuizBanner ? QUIZ_BANNER_TOP + bannerHeight + 12 - SCAN_TOP_GAP : CLOSE_CLEARANCE)}
           bottomInset={switcherClearance}
           locked={status.kind === "looking"}
           target={status.kind === "looking" ? status.target : undefined}
@@ -506,7 +529,7 @@ function BarcodeStage({
             position: "absolute",
             left: 20,
             right: 20,
-            top: insets.top + 12,
+            top: insets.top + QUIZ_BANNER_TOP,
             flexDirection: "row",
             alignItems: "center",
             gap: 8,
@@ -742,6 +765,7 @@ function IngredientsStage({
         <LabelCamera
           barcode={barcode}
           active={active}
+          frameTopOffset={CLOSE_CLEARANCE}
           bottomInset={clearance}
           onResult={(params) => {
             preserveMode();
@@ -784,7 +808,11 @@ const SWITCHER_HEIGHT = 53;
 const MODE_PILL_WIDTH = 126;
 // How far in the bottom wrapper (mode pills, status panel) sits from each edge.
 const STAGE_INSET = 20;
-// Clear of the tab bar's raised scan button, which rises into the stage.
-const STAGE_BOTTOM = SCAN_BUTTON_LIFT + 12;
+// The scanner's close button sits across the top-left; the frame starts below
+// it, and the quiz banner (when there is one) sits below it too.
+const CLOSE_CLEARANCE = 32;
+const QUIZ_BANNER_TOP = 52;
+// Clear of the bottom edge and the home indicator.
+const STAGE_BOTTOM = 20;
 const FRAME_MARGIN_ABOVE_SWITCHER = 24;
 

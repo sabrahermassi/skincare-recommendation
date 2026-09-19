@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, Tabs, usePathname } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
+import { useRef } from "react";
 import { Pressable, View, type ColorValue, type GestureResponderEvent } from "react-native";
 
 import { TERRACOTTA } from "@/components/shell/shared";
+import { genie } from "@/lib/genie";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT } from "@/lib/tab-bar";
 import { CANVAS, CTA, INK, LINE, SELECTED, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -51,20 +53,35 @@ function TabItem({
 
 /**
  * The scanner, raised out of the middle of the bar. The ring in the canvas
- * colour cuts it out of the bar's top edge; it fills terracotta while the
- * scanner is the open tab.
+ * colour cuts it out of the bar's top edge. Pressing it opens the scanner full
+ * screen (and the bar goes away): it notes where the button is so the scanner
+ * can grow out of that spot, and fold back into it when closed.
  */
 function ScanTabButton({ onPress }: { onPress?: (event: GestureResponderEvent) => void }) {
-  // The scanner is the index route, `/`. Read from the path rather than from the
-  // button's own props, which do not say whether this tab is the selected one.
-  const focused = usePathname() === "/";
+  const button = useRef<View>(null);
+
+  function open(event: GestureResponderEvent) {
+    const go = () => {
+      genie.opening = true;
+      onPress?.(event);
+    };
+    if (!button.current) {
+      go();
+      return;
+    }
+    button.current.measureInWindow((x, y, width, height) => {
+      if (width > 0) genie.origin = { x: x + width / 2, y: y + height / 2 };
+      go();
+    });
+  }
+
   return (
     <View pointerEvents="box-none" style={{ flex: 1, alignItems: "center" }}>
       <Pressable
-        onPress={onPress}
+        ref={button}
+        onPress={open}
         accessibilityRole="tab"
         accessibilityLabel="Scan"
-        accessibilityState={{ selected: focused }}
         style={{
           position: "absolute",
           top: -SCAN_BUTTON_LIFT,
@@ -73,13 +90,13 @@ function ScanTabButton({ onPress }: { onPress?: (event: GestureResponderEvent) =
           borderRadius: SCAN_BUTTON / 2,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: focused ? TERRACOTTA : CTA,
+          backgroundColor: CTA,
           borderWidth: 5,
           borderColor: CANVAS,
         }}
         className="active:opacity-90"
       >
-        <Ionicons name={focused ? "camera" : "camera-outline"} size={28} color={focused ? CANVAS : INK} />
+        <Ionicons name="camera-outline" size={28} color={INK} />
       </Pressable>
     </View>
   );
@@ -104,6 +121,8 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      // Back from the scanner's X goes to the tab you came from.
+      backBehavior="history"
       screenOptions={{
         /*
           Every screen in this group draws its own top bar — the design gives
@@ -189,6 +208,8 @@ export default function TabsLayout() {
           // The bar draws icons only, so this is the name a screen reader
           // announces — kept on every tab for the same reason.
           tabBarAccessibilityLabel: "Scan",
+          // The scanner is full screen: no tab bar over it.
+          tabBarStyle: { display: "none" },
           tabBarButton: (props) => <ScanTabButton onPress={props.onPress ?? undefined} />,
         }}
       />
