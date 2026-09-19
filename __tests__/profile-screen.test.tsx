@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 
 import ProfileScreen from "@/app/(tabs)/profile";
+import type { HistoryEntry, SavedProduct } from "@/store/useAppStore";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
@@ -93,5 +94,67 @@ describe("ProfileScreen", () => {
       pathname: "/onboarding",
       params: { erased: "1" },
     });
+  });
+
+  it("erase also clears the saved shelf, starred ingredients and history, not just the profile", async () => {
+    const savedProduct: SavedProduct = { id: "p1", savedAt: Date.now() };
+    const historyEntry: HistoryEntry = {
+      id: "p1",
+      known: true,
+      firstSeenAt: 1,
+      lastSeenAt: 1,
+      seenCount: 1,
+      scoreAtView: 80,
+      warningsAtView: 0,
+    };
+    useAppStore.setState(
+      {
+        profile: { ...EMPTY_PROFILE, concerns: ["dullness"] },
+        savedProducts: [savedProduct],
+        savedIngredients: ["glycerin"],
+        history: [historyEntry],
+        hasSeenOnboarding: true,
+      },
+      false
+    );
+    await render(<ProfileScreen />);
+
+    await fireEvent.press(screen.getByText("Erase my profile"));
+    await fireEvent.press(screen.getByText("Yes, delete my profile"));
+
+    expect(useAppStore.getState()).toMatchObject({
+      profile: EMPTY_PROFILE,
+      savedProducts: [],
+      savedIngredients: [],
+      history: [],
+      hasSeenOnboarding: false,
+    });
+  });
+
+  it("tapping back with unsaved changes asks before discarding, and only navigates once confirmed", async () => {
+    await render(<ProfileScreen />);
+
+    await fireEvent.press(screen.getAllByText("Edit")[0]);
+    await fireEvent.press(screen.getByText("Dullness"));
+
+    await fireEvent.press(screen.getByLabelText("Back"));
+    expect(screen.getByText("You have unsaved changes. Leave without saving?")).toBeTruthy();
+    // The confirmation itself must not navigate or discard anything yet.
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockBack).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByText("Keep editing"));
+    expect(screen.queryByText("You have unsaved changes. Leave without saving?")).toBeNull();
+    // Still just a draft — "Keep editing" must not have saved or discarded it.
+    expect(screen.getByText("Find my matches")).toBeTruthy();
+    expect(useAppStore.getState().profile.concerns).toEqual([]);
+
+    await fireEvent.press(screen.getByLabelText("Back"));
+    await fireEvent.press(screen.getByText("Discard changes"));
+
+    // canGoBack() is mocked false, so leave() falls back to /browse rather
+    // than router.back() — same branch the profile pill's push relies on.
+    expect(mockReplace).toHaveBeenCalledWith("/browse");
+    expect(useAppStore.getState().profile.concerns).toEqual([]);
   });
 });
