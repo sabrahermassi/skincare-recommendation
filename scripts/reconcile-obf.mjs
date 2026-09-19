@@ -316,7 +316,7 @@ async function main() {
         continue;
       }
 
-      const fresh = parseInci(result.text);
+      const fresh = parseInci(result.text, known);
       if (fresh.length < 2) {
         retryable += 1;
         if (retryableSamples.length < 5) {

@@ -360,6 +360,33 @@ async function persist(fetched: Fetched) {
 // ── Parsing helpers ─────────────────────────────────────────────────────────
 
 /**
+ * Whether a parsed fragment can be an ingredient name at all.
+ *
+ * The last line of defence for text that reached the name filter without a
+ * heading to strip: a label section ("package labeling: label.jpg"), a file
+ * name from a mis-scanned photo, or a paragraph of marketing copy. None of
+ * those is a name, and a stub written for one sits in the shared dictionary
+ * until somebody deletes it by hand.
+ *
+ * A colon between two digits is kept — "ci 77268:1" and "pigment red 57:1" are
+ * real colour-index names. Any other colon is a heading that leaked into the
+ * name. Eight words is above every real INCI name in the dictionary and below
+ * every sentence found in it. An HTML entity ("&lt;") or a run of seven digits
+ * (a barcode, a batch number) is packaging text that OCR or a paste carried in,
+ * as is a web address or e-mail, and a fragment that opens with the word
+ * "ingredients" is a footnote about the list, not a member of it.
+ */
+export function isPlausibleIngredientName(name: string): boolean {
+  if (/[:：]/.test(name.replace(/\d[:：]\d/g, ""))) return false;
+  if (/\.(?:jpe?g|png|gif|webp|pdf)\b/i.test(name)) return false;
+  if (/&(?:lt|gt|amp|quot|nbsp|#\d+)\b|[<>]/i.test(name)) return false;
+  if (/\d{7,}/.test(name)) return false;
+  if (/\bwww\.|https?:|@|\.(?:com|net|org)\b/i.test(name)) return false;
+  if (/^ingr[eé]dients?\b/i.test(name)) return false;
+  return name.split(/\s+/).length <= 8;
+}
+
+/**
  * INCI lists are comma-separated, but real labels are messy: bracketed
  * qualifiers, asterisks for organic, trailing percentages. This keeps the
  * order (which is regulated information) and drops the decoration.
@@ -371,7 +398,8 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
   // was stored with "ingredients water" as its first entry, so the app could
   // not say what water was. `lib/inci.ts` has always stripped this; the two
   // parsers simply disagreed.
-  const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?ingredients?\s*[:：]\s*/i, "");
+  const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*/i, "")
+    .replace(/\b(?:inactive ingredients?|may contain|peut contenir)\s*[:：]?\s*/gi, ", ");
 
   // ...and truncate at whatever shares the back of the label. Legal
   // boilerplate and net-quantity marks reliably follow the formula, and
@@ -381,7 +409,7 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
   // in the ingredient fallback, for two) can match. `lib/inci.ts` and
   // `import-obf.mjs` have always done this; this parser simply never did.
   const stop =
-    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b)/i
+    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b|\bstorage\b)/i
       .exec(withoutHeading);
   const block = stop ? withoutHeading.slice(0, stop.index) : withoutHeading;
 
@@ -389,9 +417,9 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
     // A comma directly between two digits belongs to the name —
     // "1,2-Hexanediol" is one ingredient, and splitting there yields a bare
     // "1" and an orphaned "2-hexanediol". Kept in step with `lib/inci.ts`.
-    .split(/[;]|,(?!\d)/)
+    .split(/[;]|,(?!\d)|\.(?=\s)/)
     .map((part) => normalise(part))
-    .filter((part) => part.length > 1 && part.length < 120);
+    .filter((part) => part.length > 1 && part.length < 120 && isPlausibleIngredientName(part));
 
   return dedupe(parsed);
 }
