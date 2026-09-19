@@ -172,7 +172,7 @@ describe("the import scripts stay in step with lib/inci.ts", () => {
   });
 
   it.each([
-    ["the Ingredients: heading strip", "/(?:ingredients?|"],
+    ["the Ingredients: heading strip", "/(?:ingr[eé]dient"],
     ["the boilerplate stop clause", "/(?:\\bdirections?\\b"],
   ])("import-obf.mjs reuses %s verbatim", (_label: string, marker: string) => {
     const obf = fs.readFileSync(path.join(__dirname, "..", "scripts", "import-obf.mjs"), "utf8");

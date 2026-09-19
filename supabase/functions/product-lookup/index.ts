@@ -371,7 +371,8 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
   // was stored with "ingredients water" as its first entry, so the app could
   // not say what water was. `lib/inci.ts` has always stripped this; the two
   // parsers simply disagreed.
-  const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?ingredients?\s*[:：]\s*/i, "");
+  const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*/i, "")
+    .replace(/\b(?:inactive ingredients?|may contain|peut contenir)\s*[:：]?\s*/gi, ", ");
 
   // ...and truncate at whatever shares the back of the label. Legal
   // boilerplate and net-quantity marks reliably follow the formula, and
@@ -381,7 +382,7 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
   // in the ingredient fallback, for two) can match. `lib/inci.ts` and
   // `import-obf.mjs` have always done this; this parser simply never did.
   const stop =
-    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b)/i
+    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b|\bstorage\b)/i
       .exec(withoutHeading);
   const block = stop ? withoutHeading.slice(0, stop.index) : withoutHeading;
 

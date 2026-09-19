@@ -56,6 +56,47 @@ describe("parseIngredientBlock", () => {
     expect(parsed.map((p) => p.inci_name)).toEqual(["water", "glycerin", "niacinamide"]);
   });
 
+  it.each([
+    ["ingrédients: aqua, glycerin", ["aqua", "glycerin"]],
+    ["INGRÉDIENTS : Aqua, Glycerin", ["aqua", "glycerin"]],
+    ["ingrediente: aqua, glycerin", ["aqua", "glycerin"]],
+    ["Ingredientes: Aqua, Glycerin", ["aqua", "glycerin"]],
+    ["ingredienti: aqua, glycerin", ["aqua", "glycerin"]],
+    ["sastojci: aqua, glycerin", ["aqua", "glycerin"]],
+    ["composition : olea europea fruit oil, glycerin", ["olea europea fruit oil", "glycerin"]],
+    ["Zutaten: Aqua, Glycerin", ["aqua", "glycerin"]],
+  ])("recognises a non-English ingredients heading: %s", (text: string, expected: string[]) => {
+    expect(parseIngredientBlock(text).map((p) => p.inci_name)).toEqual(expected);
+  });
+
+  it.each([
+    ["Aqua, tocopherol. may contain : ci 77891", ["aqua", "tocopherol", "ci 77891"]],
+    ["Aqua, tocopherol. peut contenir : ci 77891", ["aqua", "tocopherol", "ci 77891"]],
+    ["octocrylene inactive ingredients: water, glycerin", ["octocrylene", "water", "glycerin"]],
+    [
+      "Active ingredients: Octocrylene. Inactive ingredients: Water, Glycerin",
+      ["octocrylene", "water", "glycerin"],
+    ],
+  ])("keeps a secondary list as part of the formula: %s", (text: string, expected: string[]) => {
+    expect(parseIngredientBlock(text).map((p) => p.inci_name)).toEqual(expected);
+  });
+
+  it("stops at storage instructions rather than folding them into the last name", () => {
+    expect(
+      parseIngredientBlock("Aqua, glyceryl caprylate. storage: store in a cool & dry place").map(
+        (p) => p.inci_name
+      )
+    ).toEqual(["aqua", "glyceryl caprylate"]);
+  });
+
+  it("leaves a colour-index name with a trailing :N alone", () => {
+    expect(parseIngredientBlock("Aqua, glycerin, ci 77268:1").map((p) => p.inci_name)).toEqual([
+      "aqua",
+      "glycerin",
+      "ci 77268:1",
+    ]);
+  });
+
   it("stops at the next section rather than swallowing directions", () => {
     const parsed = parseIngredientBlock(
       "Ingredients: Water, Glycerin, Panthenol. Directions: Apply morning and evening, avoid the eye area"
