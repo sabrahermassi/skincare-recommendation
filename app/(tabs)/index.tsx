@@ -3,6 +3,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   StyleSheet,
   View,
@@ -10,13 +11,19 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
+import { ScanIntro } from "@/components/ScanIntro";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
+import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { COLORS } from "@/lib/colors";
 import { profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SCANNER_FRAME, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { BORDER_INACTIVE, CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SCANNER_FRAME, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+
+// Watercolor art from the onboarding set, reused on the two light screens that
+// sit in front of the camera (see components/ScanIntro.tsx).
+const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.png");
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -269,7 +276,14 @@ export default function Scan() {
           busy.current = false;
         }}
         preserveMode={preserveMode}
-        modeSwitcher={<ModeSwitcher mode={mode} setMode={setMode} floating />}
+        modeSwitcher={
+          <ModeSwitcher
+            mode={mode}
+            setMode={setMode}
+            floating
+            light={permission !== null && !permission.granted}
+          />
+        }
         justFinishedQuiz={justFinishedQuiz}
         quizAcknowledgementText={quizAcknowledgementText}
         onDismissQuizAcknowledgement={dismissQuizAcknowledgement}
@@ -282,7 +296,7 @@ export default function Scan() {
   // you switched away from Barcode, which read as the app losing its own
   // layout rather than a deliberate choice.
   return (
-    <FullScreenPane modeSwitcher={<ModeSwitcher mode={mode} setMode={setMode} floating />}>
+    <FullScreenPane modeSwitcher={<ModeSwitcher mode={mode} setMode={setMode} floating light />}>
       <LabelPhotoPane preserveMode={preserveMode} />
     </FullScreenPane>
   );
@@ -303,10 +317,14 @@ function ModeSwitcher({
   mode,
   setMode,
   floating = false,
+  light = false,
 }: {
   mode: Mode;
   setMode: (m: Mode) => void;
   floating?: boolean;
+  /** Same floating pills, drawn for the cream screens (the permission screen
+   *  and Label photo) instead of over the dark camera. */
+  light?: boolean;
 }) {
   return (
     <View
@@ -318,7 +336,17 @@ function ModeSwitcher({
     >
       {MODES.map(({ label, Icon }) => {
         const on = mode === label;
-        const color = floating ? (on ? INK : CANVAS) : on ? COLORS.accentText : COLORS.ink;
+        const color = light
+          ? on
+            ? INK
+            : MUTED
+          : floating
+            ? on
+              ? INK
+              : CANVAS
+            : on
+              ? COLORS.accentText
+              : COLORS.ink;
         return (
           <Pressable
             key={label}
@@ -327,28 +355,39 @@ function ModeSwitcher({
             accessibilityLabel={label}
             accessibilityState={{ selected: on }}
             style={
-              floating
+              light
                 ? {
                     height: 52,
                     flex: 1,
                     alignItems: "center",
                     justifyContent: "center",
                     borderRadius: 26,
-                    backgroundColor: on ? withAlpha(CANVAS, 0.95) : withAlpha(CAMERA_STAGE, 0.55),
-                    borderWidth: 1,
-                    borderColor: on ? "transparent" : withAlpha(CANVAS, 0.3),
+                    backgroundColor: on ? SELECTED : CANVAS,
+                    borderWidth: on ? 1.5 : 1,
+                    borderColor: on ? TERRACOTTA : BORDER_INACTIVE,
                   }
-                : { height: 48 }
+                : floating
+                  ? {
+                      height: 52,
+                      flex: 1,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: 26,
+                      backgroundColor: on ? withAlpha(CANVAS, 0.95) : withAlpha(CAMERA_STAGE, 0.55),
+                      borderWidth: 1,
+                      borderColor: on ? "transparent" : withAlpha(CANVAS, 0.3),
+                    }
+                  : { height: 48 }
             }
             className={
-              floating
+              floating || light
                 ? ""
                 : `flex-1 items-center justify-center rounded-full border ${
                     on ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
                   }`
             }
           >
-            {floating ? (
+            {floating || light ? (
               // A visible label under the glyph, not just accessibilityLabel
               // below — this is the screen the app opens on, and the photo
               // frame icon has no fixed meaning the way barcode bars do.
@@ -453,8 +492,16 @@ function BarcodeStage({
             ? quizAcknowledgementText
             : "";
 
+  // `null` is still asking the OS, which is not the same as refused — showing
+  // the permission screen for that first moment flashed it at people who had
+  // already said yes.
+  const needsPermission = permission !== null && !permission.granted;
+  const blocked = permission?.canAskAgain === false;
+  const switcherClearance =
+    Math.max(20, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
+
   return (
-    <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>
+    <View style={{ flex: 1, backgroundColor: needsPermission ? CANVAS : CAMERA_STAGE, paddingTop: needsPermission ? insets.top : 0 }}>
       <ScreenReaderAnnouncer message={announcement} />
       {live ? (
         <CameraView
@@ -478,60 +525,39 @@ function BarcodeStage({
       )}
 
       {/*
-        Two reasons the frame can be dark, and it has to say which: permission
-        not asked for yet, or permission refused. A silent black rectangle
-        reads as "the scanner is gone".
+        Two reasons there is no camera, and the screen has to say which: access
+        not asked for yet, or refused. A silent black rectangle reads as "the
+        scanner is gone". Refused has no prompt left to show, so its button goes
+        to the system settings instead.
       */}
-      {!permission?.granted && (
-        <View className="flex-1 items-center justify-center gap-4 px-10">
-          <Text
-            style={{ color: withAlpha(CANVAS, 0.8) }}
-            className="text-center text-sm leading-5"
-          >
-            {permission?.canAskAgain === false
-              ? "Camera access is blocked. Turn it back on for this app in your device settings, then come back."
-              : "We need the camera to read barcodes. Nothing leaves your phone except the barcode number."}
-          </Text>
-          {permission?.canAskAgain === false ? null : (
-            <Pressable
-              onPress={requestPermission}
-              style={{
-                height: TOUCH_TARGET,
-                paddingHorizontal: 24,
-                borderRadius: 22,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: CTA,
-              }}
-              className="active:opacity-90"
-            >
-              <Text style={{ fontSize: 14, fontWeight: "600", color: INK }}>Enable camera</Text>
-            </Pressable>
-          )}
+      {needsPermission && (
+        <ScanIntro
+          illustration={ONB2_SCAN}
+          title={blocked ? "Camera access is off" : "Scan a product"}
+          body={
+            blocked
+              ? "Turn the camera back on for this app in your device settings, then come back."
+              : "Point your camera at a barcode and we'll read the ingredients for you. Nothing leaves your phone except the barcode number."
+          }
+          actionLabel={blocked ? "Open settings" : "Open camera"}
+          onAction={blocked ? () => void Linking.openSettings() : requestPermission}
+          bottomInset={switcherClearance}
+        >
           {/* This fires at the worst moment — camera access just failed — so
               the one sentence offering a way forward has to actually be the
-              way forward. It was a plain Text: it named Browse and could not
-              take you there, leaving the user to work out that "Browse" meant
-              the second tab icon. Underlined and given the standard target
-              height so it reads as the action it always claimed to be. */}
+              way forward: underlined, standard target height, and it goes to
+              Browse rather than only naming it. */}
           <Pressable
             onPress={() => router.push("/browse")}
             accessibilityRole="link"
-            style={{
-              minHeight: TOUCH_TARGET,
-              justifyContent: "center",
-              paddingHorizontal: 12,
-            }}
+            style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 12 }}
             className="active:opacity-70"
           >
-            <Text
-              style={{ color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}
-              className="text-center text-xs leading-4"
-            >
+            <Text style={{ fontSize: 12.5, color: MUTED, textDecorationLine: "underline" }}>
               Or find the product in Browse instead.
             </Text>
           </Pressable>
-        </View>
+        </ScanIntro>
       )}
 
       {/* Named acknowledgement of finishing the quiz — see issue #95. Only
@@ -769,16 +795,8 @@ function FullScreenPane({
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>
-      <View
-        style={{
-          flex: 1,
-          paddingTop: insets.top + 24,
-          paddingBottom: Math.max(20, insets.bottom + 12) + 64,
-        }}
-      >
-        {children}
-      </View>
+    <View style={{ flex: 1, backgroundColor: CANVAS }}>
+      <View style={{ flex: 1, paddingTop: insets.top }}>{children}</View>
 
       <View
         style={{
@@ -802,66 +820,19 @@ function FullScreenPane({
  * action twice.
  */
 function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View
-      style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 18, paddingHorizontal: 30 }}
-    >
-      {/* A drawn label with an ingredient list on it — the mode was a
-          paragraph and a button on an otherwise empty dark screen, which
-          reads as a screen that failed to load rather than a choice. */}
-      <Svg width={78} height={92} viewBox="0 0 78 92" fill="none">
-        <Rect
-          x={9}
-          y={5}
-          width={60}
-          height={82}
-          rx={9}
-          stroke={SCANNER_FRAME}
-          strokeOpacity={0.55}
-          strokeWidth={2}
-        />
-        <Path
-          d="M21 24h36M21 36h36M21 48h26M21 60h32M21 72h20"
-          stroke={SCANNER_FRAME}
-          strokeOpacity={0.35}
-          strokeWidth={3}
-          strokeLinecap="round"
-        />
-        <Circle cx={58} cy={70} r={15} fill={CAMERA_STAGE} />
-        <Circle cx={56} cy={68} r={9.5} stroke={COLORS.toneGood} strokeWidth={2.6} />
-        <Path
-          d="m63 75 6.5 6.5"
-          stroke={COLORS.toneGood}
-          strokeWidth={2.6}
-          strokeLinecap="round"
-        />
-      </Svg>
-
-      <Text
-        style={{ color: withAlpha(CANVAS, 0.8) }}
-        className="text-center text-sm leading-5"
-      >
-        Photograph the ingredient list on the back and we&apos;ll read it.
-        Works on anything, even products we&apos;ve never seen.
-      </Text>
-      <Pressable
-        onPress={() => {
-          preserveMode();
-          router.push("/scan-label");
-        }}
-        style={{
-          height: TOUCH_TARGET,
-          paddingHorizontal: 24,
-          borderRadius: 22,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: CTA,
-        }}
-        className="active:opacity-90"
-      >
-        <Text style={{ fontSize: 14, fontWeight: "600", color: INK }}>Open the camera</Text>
-      </Pressable>
-    </View>
+    <ScanIntro
+      illustration={ONB2_SCAN}
+      title="Photograph the ingredient list"
+      body="Take a photo of the list on the back and we'll read it. Works on anything, even products we've never seen."
+      actionLabel="Open camera"
+      onAction={() => {
+        preserveMode();
+        router.push("/scan-label");
+      }}
+      bottomInset={Math.max(20, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER}
+    />
   );
 }
 
