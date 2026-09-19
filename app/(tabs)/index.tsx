@@ -12,13 +12,13 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
+import { LabelCamera } from "@/components/LabelCamera";
 import { ScanIntro } from "@/components/ScanIntro";
 import { SCAN_SIDE_INSET, ScanViewfinder } from "@/components/ScanViewfinder";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
-import { COLORS } from "@/lib/colors";
 import { profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
@@ -293,12 +293,7 @@ export default function Scan() {
         onBarcode={handleBarcode}
         preserveMode={preserveMode}
         modeSwitcher={
-          <ModeSwitcher
-            mode={mode}
-            setMode={selectMode}
-            floating
-            light={permission !== null && !permission.granted}
-          />
+          <ModeSwitcher mode={mode} setMode={selectMode} light={permission !== null && !permission.granted} />
         }
         justFinishedQuiz={justFinishedQuiz}
         quizAcknowledgementText={quizAcknowledgementText}
@@ -307,68 +302,57 @@ export default function Scan() {
     );
   }
 
-  // Ingredients shares the same full-screen dark stage Barcode uses — a
-  // fixed-height card here used to shrink the whole screen down every time
-  // you switched away from Barcode, which read as the app losing its own
-  // layout rather than a deliberate choice.
+  // Ingredients is the same full-screen stage as Barcode: the camera is live the
+  // moment you switch to it, with a shutter — no step in between.
   return (
-    <FullScreenPane modeSwitcher={<ModeSwitcher mode={mode} setMode={selectMode} floating light />}>
-      <LabelPhotoPane preserveMode={preserveMode} barcode={status.kind === "missed" ? status.code : undefined} />
-    </FullScreenPane>
+    <IngredientsStage
+      permission={permission}
+      requestPermission={requestPermission}
+      active={isFocused}
+      barcode={status.kind === "missed" ? status.code : undefined}
+      preserveMode={preserveMode}
+      onClose={() => selectMode("Barcode")}
+      modeSwitcher={
+        <ModeSwitcher mode={mode} setMode={selectMode} light={permission !== null && !permission.granted} />
+      }
+    />
   );
 }
 
 /**
- * The mode switcher, in both of its homes.
+ * The mode switcher: one rounded control holding both modes, the selected one
+ * filled — the shape scanner apps use for Photo | Barcode. It spans the scanner
+ * window's width, so its edges line up with the window's.
  *
- * `floating` draws it over the live camera — translucent dark pills, because
- * white cards over a viewfinder hide the thing you are aiming. Otherwise it is
- * the light row under the card, as the Scanner mockup draws it.
- *
- * Icon-only: each mode is named once by the surface it opens (a viewfinder or
- * a camera), and a text label beside an icon that already says the same thing
- * just crowded a small row.
+ * `light` draws it for the cream screens (asking for camera access) instead of
+ * over the dark camera. Selected is the same peach and terracotta everywhere.
  */
 function ModeSwitcher({
   mode,
   setMode,
-  floating = false,
   light = false,
 }: {
   mode: Mode;
   setMode: (m: Mode) => void;
-  floating?: boolean;
-  /** Same floating pills, drawn for the cream screens (the permission screen
-   *  and Ingredients) instead of over the dark camera. */
   light?: boolean;
 }) {
   return (
     <View
-      style={
-        floating
-          ? // Barcode sits flush with the scanner window's left edge and Ingredients
-            // with its right edge; the pills stay narrow, so the space goes between.
-            {
-              flexDirection: "row",
-              justifyContent: "space-between",
-              marginHorizontal: SCAN_SIDE_INSET - STAGE_INSET,
-            }
-          : { marginHorizontal: 26, marginTop: 18, gap: 12, flexDirection: "row" }
-      }
+      accessibilityRole="tablist"
+      style={{
+        marginHorizontal: SCAN_SIDE_INSET - STAGE_INSET,
+        height: SWITCHER_HEIGHT,
+        borderRadius: SWITCHER_HEIGHT / 2,
+        padding: 4,
+        flexDirection: "row",
+        backgroundColor: light ? CANVAS : withAlpha(CAMERA_STAGE, 0.75),
+        borderWidth: 1,
+        borderColor: light ? BORDER_INACTIVE : withAlpha(CANVAS, 0.25),
+      }}
     >
       {MODES.map(({ label, Icon }) => {
         const on = mode === label;
-        const color = light
-          ? on
-            ? INK
-            : MUTED
-          : floating
-            ? on
-              ? INK
-              : CANVAS
-            : on
-              ? COLORS.accentText
-              : COLORS.ink;
+        const color = on ? INK : light ? MUTED : CANVAS;
         return (
           <Pressable
             key={label}
@@ -376,56 +360,22 @@ function ModeSwitcher({
             accessibilityRole="tab"
             accessibilityLabel={label}
             accessibilityState={{ selected: on }}
-            style={
-              light
-                ? {
-                    height: 52,
-                    width: MODE_PILL_WIDTH,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 26,
-                    backgroundColor: on ? SELECTED : CANVAS,
-                    borderWidth: on ? 1.5 : 1,
-                    borderColor: on ? TERRACOTTA : BORDER_INACTIVE,
-                  }
-                : floating
-                  ? {
-                      height: 52,
-                      width: MODE_PILL_WIDTH,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderRadius: 26,
-                      // The selected pill looks the same here as on the cream screens
-                      // (peach fill, terracotta outline) so switching modes does not
-                      // change what "selected" means; only the unselected pills differ,
-                      // dark and translucent over the camera.
-                      backgroundColor: on ? SELECTED : withAlpha(CAMERA_STAGE, 0.55),
-                      borderWidth: on ? 1.5 : 1,
-                      borderColor: on ? TERRACOTTA : withAlpha(CANVAS, 0.3),
-                    }
-                  : { height: 48 }
-            }
-            className={
-              floating || light
-                ? ""
-                : `flex-1 items-center justify-center rounded-full border ${
-                    on ? "border-accent bg-tint-lilac" : "border-hairline bg-surface"
-                  }`
-            }
+            style={{
+              flex: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              borderRadius: SWITCHER_HEIGHT / 2 - 4,
+              backgroundColor: on ? SELECTED : "transparent",
+              borderWidth: on ? 1.5 : 0,
+              borderColor: TERRACOTTA,
+            }}
           >
-            {floating || light ? (
-              // A visible label under the glyph, not just accessibilityLabel
-              // below — this is the screen the app opens on, and the photo
-              // frame icon has no fixed meaning the way barcode bars do.
-              <View style={{ alignItems: "center", gap: 2 }}>
-                <Icon color={color} />
-                <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color }} numberOfLines={1}>
-                  {label}
-                </Text>
-              </View>
-            ) : (
-              <Icon color={color} />
-            )}
+            <Icon color={color} size={20} />
+            <Text style={{ fontSize: 13.5, fontWeight: "600", color }} numberOfLines={1}>
+              {label}
+            </Text>
           </Pressable>
         );
       })}
@@ -520,7 +470,6 @@ function BarcodeStage({
   // the permission screen for that first moment flashed it at people who had
   // already said yes.
   const needsPermission = permission !== null && !permission.granted;
-  const blocked = permission?.canAskAgain === false;
   const switcherClearance =
     Math.max(20, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
 
@@ -544,40 +493,14 @@ function BarcodeStage({
         />
       )}
 
-      {/*
-        Two reasons there is no camera, and the screen has to say which: access
-        not asked for yet, or refused. A silent black rectangle reads as "the
-        scanner is gone". Refused has no prompt left to show, so its button goes
-        to the system settings instead.
-      */}
       {needsPermission && (
-        <ScanIntro
-          illustration={ONB2_SCAN}
-          title={blocked ? "Camera access is off" : "Scan a product"}
-          body={
-            blocked
-              ? "Turn the camera back on for this app in your device settings, then come back."
-              : "Point your camera at a barcode and we'll read the ingredients for you. Nothing leaves your phone except the barcode number."
-          }
-          actionLabel={blocked ? "Open settings" : "Open camera"}
-          onAction={blocked ? () => void Linking.openSettings() : requestPermission}
+        <CameraPermissionIntro
+          permission={permission}
+          requestPermission={requestPermission}
+          title="Scan a product"
+          body="Point your camera at a barcode and we'll read the ingredients for you. Nothing leaves your phone except the barcode number."
           bottomInset={switcherClearance}
-        >
-          {/* This fires at the worst moment — camera access just failed — so
-              the one sentence offering a way forward has to actually be the
-              way forward: underlined, standard target height, and it goes to
-              Browse rather than only naming it. */}
-          <Pressable
-            onPress={() => router.push("/browse")}
-            accessibilityRole="link"
-            style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 12 }}
-            className="active:opacity-70"
-          >
-            <Text style={{ fontSize: 12.5, color: MUTED, textDecorationLine: "underline" }}>
-              Or find the product in Browse instead.
-            </Text>
-          </Pressable>
-        </ScanIntro>
+        />
       )}
 
       {/* Named acknowledgement of finishing the quiz — see issue #95. Only
@@ -746,24 +669,108 @@ function BarcodeStage({
 }
 
 /**
- * The Ingredients stage — full screen and dark, exactly like Barcode's, so
- * switching modes never changes the size of the scanner. It used to be a
- * 293pt card in a scrollable light page, which shrank the whole screen down
- * the moment you left Barcode mode and read as the app losing its own layout
- * rather than a deliberate choice.
+ * The screen asking for camera access, shared by both modes: cream, the
+ * watercolor, a serif title, one sentence, one button. Two reasons there is no
+ * camera, and it has to say which: access not asked for yet, or refused. A
+ * silent black rectangle reads as "the scanner is gone". Refused has no prompt
+ * left to show, so its button goes to the system settings instead.
  */
-function FullScreenPane({
-  modeSwitcher,
-  children,
+function CameraPermissionIntro({
+  permission,
+  requestPermission,
+  title,
+  body,
+  bottomInset,
 }: {
+  permission: ReturnType<typeof useCameraPermissions>[0];
+  requestPermission: () => void;
+  title: string;
+  body: string;
+  bottomInset: number;
+}) {
+  const blocked = permission?.canAskAgain === false;
+  return (
+    <ScanIntro
+      illustration={ONB2_SCAN}
+      title={blocked ? "Camera access is off" : title}
+      body={
+        blocked
+          ? "Turn the camera back on for this app in your device settings, then come back."
+          : body
+      }
+      actionLabel={blocked ? "Open settings" : "Open camera"}
+      onAction={blocked ? () => void Linking.openSettings() : requestPermission}
+      bottomInset={bottomInset}
+    >
+      {/* This fires at the worst moment — camera access just failed — so the one
+          sentence offering a way forward has to actually be the way forward:
+          underlined, standard target height, and it goes to Browse rather than
+          only naming it. */}
+      <Pressable
+        onPress={() => router.push("/browse")}
+        accessibilityRole="link"
+        style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 12 }}
+        className="active:opacity-70"
+      >
+        <Text style={{ fontSize: 12.5, color: MUTED, textDecorationLine: "underline" }}>
+          Or find the product in Browse instead.
+        </Text>
+      </Pressable>
+    </ScanIntro>
+  );
+}
+
+/**
+ * Ingredients mode, full screen like Barcode: the live camera and a shutter, so
+ * the photo can be taken the moment the mode opens. `barcode` is the one from
+ * a miss, so what gets photographed is saved under it.
+ */
+function IngredientsStage({
+  permission,
+  requestPermission,
+  active,
+  barcode,
+  preserveMode,
+  onClose,
+  modeSwitcher,
+}: {
+  permission: ReturnType<typeof useCameraPermissions>[0];
+  requestPermission: () => void;
+  active: boolean;
+  barcode?: string;
+  /** Call before any navigation away from this stage that isn't a tab switch. */
+  preserveMode: () => void;
+  onClose: () => void;
   modeSwitcher: ReactElement;
-  children: ReactElement;
 }) {
   const insets = useSafeAreaInsets();
+  const needsPermission = permission !== null && !permission.granted;
+  const clearance = Math.max(20, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
 
   return (
-    <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <View style={{ flex: 1, paddingTop: insets.top }}>{children}</View>
+    <View style={{ flex: 1, backgroundColor: needsPermission ? CANVAS : CAMERA_STAGE, paddingTop: needsPermission ? insets.top : 0 }}>
+      {permission?.granted ? (
+        <LabelCamera
+          barcode={barcode}
+          active={active}
+          onClose={onClose}
+          bottomInset={clearance}
+          onResult={(params) => {
+            preserveMode();
+            router.push({ pathname: "/result/[id]", params });
+          }}
+        />
+      ) : null}
+
+      {needsPermission ? (
+        <CameraPermissionIntro
+          permission={permission}
+          requestPermission={requestPermission}
+          title="Photograph the ingredient list"
+          body="Take a photo of the list on the back and we'll read it. We crop to the frame, send it to Google to read the text, and never store the image."
+          bottomInset={clearance}
+        />
+      ) : null}
 
       <View
         style={{
@@ -779,41 +786,13 @@ function FullScreenPane({
   );
 }
 
-/**
- * Ingredients mode's content — just the explainer and the one action it
- * needs. There used to be a second, redundant way into the same camera
- * ("No barcode? Photograph the label instead") sitting below the mode
- * switcher; with Open the camera already right here, it named the same
- * action twice.
- */
-function LabelPhotoPane({ preserveMode, barcode }: { preserveMode: () => void; barcode?: string }) {
-  const insets = useSafeAreaInsets();
-  return (
-    <ScanIntro
-      illustration={ONB2_SCAN}
-      title="Photograph the ingredient list"
-      body="Take a photo of the list on the back and we'll read it. Works on anything, even products we've never seen."
-      actionLabel="Open camera"
-      onAction={() => {
-        preserveMode();
-        router.push(barcode ? { pathname: "/scan-label", params: { barcode } } : "/scan-label");
-      }}
-      bottomInset={Math.max(20, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER}
-    />
-  );
-}
-
-// The floating mode switcher's own pill height (see ModeSwitcher's
-// `floating` style) plus the same bottom offset its wrapping View uses
+// The mode switcher's own height plus the same bottom offset its wrapping View uses
 // (`Math.max(20, insets.bottom + 12)`) and a margin above it — this frame
 // used to be measured off a 293pt card that no longer exists (the stage is
 // full-bleed now), so a fixed bottom inset put the frame's bottom edge, and
 // its instruction text, underneath the switcher rather than clear of it.
-const SWITCHER_HEIGHT = 52;
+const SWITCHER_HEIGHT = 56;
 // How far in the bottom wrapper (mode pills, status panel) sits from each edge.
 const STAGE_INSET = 20;
-// 30% narrower than the half-width pills they replaced; height stays put so the
-// tap target does not drop under the design system's 44pt minimum.
-const MODE_PILL_WIDTH = 120;
 const FRAME_MARGIN_ABOVE_SWITCHER = 24;
 
