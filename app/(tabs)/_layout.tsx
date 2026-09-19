@@ -1,8 +1,42 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
+import { View, type ColorValue } from "react-native";
 
-import { CANVAS, INK, LINE, MUTED } from "@/lib/tokens";
+import { TERRACOTTA } from "@/components/shell/shared";
+import { CANVAS, INK, LINE, SELECTED, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+
+// Outline when unselected, filled when selected — the shape changes as well as
+// the colour, so the current tab does not rest on a contrast difference alone.
+const TAB_ICONS = {
+  scan: { on: "camera", off: "camera-outline" },
+  browse: { on: "search", off: "search-outline" },
+  saved: { on: "heart", off: "heart-outline" },
+  profile: { on: "person", off: "person-outline" },
+} as const;
+
+/**
+ * A tab-bar icon. The selected one sits in the same peach pill with a
+ * terracotta outline the selected chips and pills use elsewhere in the app.
+ */
+function TabIcon({ tab, focused, color }: { tab: keyof typeof TAB_ICONS; focused: boolean; color: ColorValue }) {
+  return (
+    <View
+      style={{
+        width: 60,
+        height: 34,
+        borderRadius: 17,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: focused ? SELECTED : "transparent",
+        borderWidth: 1.5,
+        borderColor: focused ? TERRACOTTA : "transparent",
+      }}
+    >
+      <Ionicons name={focused ? TAB_ICONS[tab].on : TAB_ICONS[tab].off} size={25} color={color} />
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   const hasSeenOnboarding = useAppStore((s) => s.hasSeenOnboarding);
@@ -33,7 +67,7 @@ export default function TabsLayout() {
         */
         headerShown: false,
         tabBarActiveTintColor: INK,
-        tabBarInactiveTintColor: MUTED,
+        tabBarInactiveTintColor: TAB_INACTIVE,
         /*
           Icons only. The label row could not be made to render: measured at
           393x852, each label's element was 8px tall against a 15px line box
@@ -79,7 +113,7 @@ export default function TabsLayout() {
           // that scanning *is* the app and this is the first tab, a floating
           // circle in position one reads as a stray button rather than the
           // primary action.
-          tabBarIcon: ({ color }) => <Ionicons name="camera" size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon tab="scan" focused={focused} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -99,13 +133,13 @@ export default function TabsLayout() {
           title: "for.me",
           tabBarLabel: "Browse",
           tabBarAccessibilityLabel: "Browse",
-          // A list glyph, not a house. With labels hidden (see above) the
-          // icon carries the whole meaning, and a house promises "back to the
-          // start" — but the start route `/` is the scanner in the first
-          // position, so the house sat in slot two pointing at a product
-          // list. The two icons were telling the user the tab order was the
-          // reverse of what it is.
-          tabBarIcon: ({ color }) => <Ionicons name="list" size={22} color={color} />,
+          // A magnifier, not a house or a bare list. With labels hidden (see
+          // above) the icon carries the whole meaning: a house promises "back
+          // to the start" (the start route `/` is the scanner, in the first
+          // position), and a list glyph reads as a menu or a to-do list. The
+          // magnifier is the recognised symbol for browsing and it is what this
+          // tab opens with — the search box.
+          tabBarIcon: ({ color, focused }) => <TabIcon tab="browse" focused={focused} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -114,7 +148,7 @@ export default function TabsLayout() {
           title: "Saved · for.me",
           tabBarLabel: "Saved",
           tabBarAccessibilityLabel: "Saved",
-          tabBarIcon: ({ color }) => <Ionicons name="heart" size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon tab="saved" focused={focused} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -123,7 +157,7 @@ export default function TabsLayout() {
           title: "Your skin profile · for.me",
           tabBarLabel: "Profile",
           tabBarAccessibilityLabel: "Profile",
-          tabBarIcon: ({ color }) => <Ionicons name="person" size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon tab="profile" focused={focused} color={color} />,
         }}
       />
     </Tabs>
