@@ -2,17 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { File } from "expo-file-system";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { SCAN_SIDE_INSET } from "@/components/ScanViewfinder";
+import { SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { analyseLabel } from "@/data/api";
 import { coverFitCropRect, type Rect, type Size } from "@/lib/crop-to-guide";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
-import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SCANNER_FRAME, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The design system (design/DESIGN_SYSTEM.md). The live camera view stays plain
@@ -55,10 +55,6 @@ type Props = {
   bottomInset?: number;
 };
 
-// Room the shutter, the instruction and the frame's own margin need above the
-// bottom inset.
-const SHUTTER_AREA = 140;
-
 export function LabelCamera({ barcode, active = true, onClose, onResult, bottomInset }: Props) {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
@@ -87,15 +83,14 @@ export function LabelCamera({ barcode, active = true, onClose, onResult, bottomI
   // handled by falling back to the uncropped photo, never by guessing.
   const [cameraSize, setCameraSize] = useState<Size | null>(null);
   const [guideRect, setGuideRect] = useState<Rect | null>(null);
+  // What gets cropped and sent is exactly the frame that is drawn (issue #16).
+  // Declared up here, before the permission screens return early, so the hooks
+  // run in the same order on every render.
+  const onWindow = useCallback((box: Box) => setGuideRect(box), []);
 
   function onCameraLayout(event: LayoutChangeEvent) {
     const { width, height } = event.nativeEvent.layout;
     setCameraSize({ width, height });
-  }
-
-  function onGuideLayout(event: LayoutChangeEvent) {
-    const { x, y, width, height } = event.nativeEvent.layout;
-    setGuideRect({ x, y, width, height });
   }
 
   async function capture() {
@@ -313,6 +308,8 @@ export function LabelCamera({ barcode, active = true, onClose, onResult, bottomI
   const cannotRetry = status.kind === "failed" && !status.retryable;
 
   const clearance = bottomInset ?? Math.max(24, insets.bottom + 12);
+  // With an X across the top the frame sits a little lower to clear it.
+  const frameTopInset = insets.top + (onClose ? 32 : 0);
 
   return (
     <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>
@@ -326,54 +323,20 @@ export function LabelCamera({ barcode, active = true, onClose, onResult, bottomI
         />
       ) : null}
 
-      {/* A frame, because "fill this box with the ingredients" is the single
-          instruction that most improves what the OCR gets back — and, as of
-          issue #16, what actually gets cropped and sent: see onGuideLayout
-          and coverFitCropRect above. */}
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          paddingHorizontal: SCAN_SIDE_INSET,
-          paddingTop: insets.top + 56,
-          paddingBottom: clearance + SHUTTER_AREA,
-        }}
-        pointerEvents="none"
-      >
-        <View
-          onLayout={onGuideLayout}
-          style={{
-            height: "100%",
-            width: "100%",
-            borderColor: SCANNER_FRAME,
-            borderWidth: 2.5,
-            borderRadius: 28,
-            alignItems: "center",
-            paddingTop: 14,
-            paddingHorizontal: 12,
-          }}
-        >
-          {status.kind === "framing" ? (
-            <View
-              style={{
-                alignItems: "center",
-                gap: 2,
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderRadius: 18,
-                backgroundColor: withAlpha(CANVAS, 0.95),
-              }}
-            >
-              <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>
-                Fill the frame with the ingredient list
-              </Text>
-              <Text style={{ textAlign: "center", fontSize: 11, color: MUTED }}>
-                Hold steady. The photo is sent to Google to read the text, then discarded.
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      </View>
+      {/* The same window the barcode scanner draws, so switching modes does not
+          move it. "Fill this box with the ingredients" is the single
+          instruction that most improves what the OCR gets back, and the box is
+          what actually gets cropped and sent: see onWindow and coverFitCropRect
+          above. */}
+      <ScanViewfinder
+        topInset={frameTopInset}
+        bottomInset={clearance}
+        locked={false}
+        frame="full"
+        sweep={false}
+        description={null}
+        onWindow={onWindow}
+      />
 
       {onClose ? (
         <Pressable
@@ -394,8 +357,48 @@ export function LabelCamera({ barcode, active = true, onClose, onResult, bottomI
         </Pressable>
       ) : null}
 
+      {/* The instruction, inside the frame at its top. */}
+      {status.kind === "framing" ? (
+        <View
+          style={{
+            position: "absolute",
+            left: SCAN_SIDE_INSET + 12,
+            right: SCAN_SIDE_INSET + 12,
+            top: frameTopInset + SCAN_TOP_GAP + 14,
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              alignItems: "center",
+              gap: 2,
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 18,
+              backgroundColor: withAlpha(CANVAS, 0.95),
+            }}
+          >
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>
+              Fill the frame with the ingredient list
+            </Text>
+            <Text style={{ textAlign: "center", fontSize: 11, color: MUTED }}>
+              Hold steady. The photo is sent to Google to read the text, then discarded.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* The shutter, inside the frame at its bottom, with what it is doing above it. */}
       <View
-        style={{ position: "absolute", left: 0, right: 0, bottom: clearance, alignItems: "center", gap: 14, paddingHorizontal: 24 }}
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: clearance + 20,
+          alignItems: "center",
+          gap: 12,
+          paddingHorizontal: SCAN_SIDE_INSET + 12,
+        }}
       >
         {status.kind === "failed" ? (
           // Grouped so the message and its hint read as one sentence rather

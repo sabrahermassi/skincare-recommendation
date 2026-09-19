@@ -23,7 +23,7 @@ import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type Fetc
 import { profileSummary } from "@/lib/profile";
 import { SCAN_BUTTON_LIFT } from "@/lib/tab-bar";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 
 // Watercolor art from the onboarding set, reused on the two light screens that
 // sit in front of the camera (see components/ScanIntro.tsx).
@@ -301,7 +301,6 @@ export default function Scan() {
       active={isFocused}
       barcode={status.kind === "missed" ? status.code : undefined}
       preserveMode={preserveMode}
-      onClose={() => selectMode("Barcode")}
       modeSwitcher={
         <ModeSwitcher mode={mode} setMode={selectMode} light={permission !== null && !permission.granted} />
       }
@@ -310,11 +309,16 @@ export default function Scan() {
 }
 
 /**
- * The mode switcher: two separate pills. Barcode sits flush with the scanner
- * window's left edge and Photo with its right edge; the space goes between them.
+ * The mode switcher. Barcode sits flush with the scanner window's left edge and
+ * Photo with its right edge; the space goes between them.
+ *
+ * Unselected, each is just its icon and name — no fill, no edge, as if it were
+ * not in a button at all. Selected takes the quiz's selected look: a terracotta
+ * outline round a peach fill, left see-through over the camera so the picture
+ * still shows.
  *
  * `light` draws them for the cream screens (asking for camera access) instead
- * of over the dark camera. Selected is the same peach and terracotta everywhere.
+ * of over the dark camera.
  */
 function ModeSwitcher({
   mode,
@@ -336,7 +340,7 @@ function ModeSwitcher({
     >
       {MODES.map(({ label, Icon }) => {
         const on = mode === label;
-        const color = on ? INK : light ? MUTED : CANVAS;
+        const color = on ? (light ? INK : CANVAS) : light ? MUTED : withAlpha(CANVAS, 0.75);
         return (
           <Pressable
             key={label}
@@ -352,9 +356,10 @@ function ModeSwitcher({
               justifyContent: "center",
               gap: 8,
               borderRadius: SWITCHER_HEIGHT / 2,
-              backgroundColor: on ? SELECTED : light ? CANVAS : withAlpha(CAMERA_STAGE, 0.55),
-              borderWidth: on ? 1.5 : 1,
-              borderColor: on ? TERRACOTTA : light ? BORDER_INACTIVE : withAlpha(CANVAS, 0.3),
+              backgroundColor: on ? (light ? SELECTED : withAlpha(SELECTED, 0.22)) : "transparent",
+              // Always drawn, transparent when unselected, so selecting does not move anything.
+              borderWidth: 1.5,
+              borderColor: on ? TERRACOTTA : "transparent",
             }}
           >
             <Icon color={color} size={20} />
@@ -717,7 +722,6 @@ function IngredientsStage({
   active,
   barcode,
   preserveMode,
-  onClose,
   modeSwitcher,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
@@ -726,7 +730,6 @@ function IngredientsStage({
   barcode?: string;
   /** Call before any navigation away from this stage that isn't a tab switch. */
   preserveMode: () => void;
-  onClose: () => void;
   modeSwitcher: ReactElement;
 }) {
   const insets = useSafeAreaInsets();
@@ -739,7 +742,6 @@ function IngredientsStage({
         <LabelCamera
           barcode={barcode}
           active={active}
-          onClose={onClose}
           bottomInset={clearance}
           onResult={(params) => {
             preserveMode();

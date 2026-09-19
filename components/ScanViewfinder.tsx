@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View, type LayoutChangeEvent } from "react-native";
-import Svg, { Defs, LinearGradient, Mask, Rect, Stop } from "react-native-svg";
+import Svg, { Defs, LinearGradient, Mask, Path, Rect, Stop } from "react-native-svg";
 
 import { TERRACOTTA } from "@/components/shell/shared";
 import { CAMERA_STAGE, SCANNER_FRAME, withAlpha } from "@/lib/tokens";
 
 /**
- * The live scanner's framing: the camera dimmed outside a rounded window with a
- * thin cream outline, and a slow terracotta line that sweeps the window.
+ * The live scanner's framing: the camera dimmed outside a rounded window, its
+ * four corners drawn in cream, and a slow terracotta line that sweeps the
+ * window. The photo camera draws the same window as a full thin outline and
+ * without the line, so switching between the two does not move the frame.
  *
  * `locked` is the moment a barcode has been read. With a `target` (where the
  * camera saw the barcode) the window closes in on it — the dimming and the
@@ -22,7 +24,13 @@ export type Box = { x: number; y: number; width: number; height: number };
 export const SCAN_SIDE_INSET = 33;
 const SIDE = SCAN_SIDE_INSET;
 const TOP_GAP = 24;
+/** Gap between the top inset and the window, for anything placed inside it. */
+export const SCAN_TOP_GAP = TOP_GAP;
 const WINDOW_RADIUS = 28;
+// The four-corner frame (barcode): each corner's arm and its stroke.
+const CORNER_RADIUS = 20;
+const CORNER_LENGTH = 40;
+const CORNER_STROKE = 4;
 const OUTLINE_WIDTH = 2.5;
 const LINE_BAND = 56;
 const LINE_INSET = 16;
@@ -75,6 +83,31 @@ export function barcodeBox(result: {
   return undefined;
 }
 
+function cornerPaths(w: number, h: number, r: number) {
+  const s = CORNER_STROKE / 2;
+  const L = Math.min(CORNER_LENGTH, w / 2, h / 2);
+  const x0 = s;
+  const y0 = s;
+  const x1 = w - s;
+  const y1 = h - s;
+  return [
+    `M${x0} ${y0 + L}V${y0 + r}A${r} ${r} 0 0 1 ${x0 + r} ${y0}H${x0 + L}`,
+    `M${x1 - L} ${y0}H${x1 - r}A${r} ${r} 0 0 1 ${x1} ${y0 + r}V${y0 + L}`,
+    `M${x1} ${y1 - L}V${y1 - r}A${r} ${r} 0 0 1 ${x1 - r} ${y1}H${x1 - L}`,
+    `M${x0 + L} ${y1}H${x0 + r}A${r} ${r} 0 0 1 ${x0} ${y1 - r}V${y1 - L}`,
+  ];
+}
+
+function Corners({ width, height, radius, color }: { width: number; height: number; radius: number; color: string }) {
+  return (
+    <Svg width={width} height={height}>
+      {cornerPaths(width, height, radius).map((d) => (
+        <Path key={d} d={d} stroke={color} strokeWidth={CORNER_STROKE} strokeLinecap="round" fill="none" />
+      ))}
+    </Svg>
+  );
+}
+
 /** Where the window should end up: around the barcode, padded, kept inside the window. */
 function goalFor(window: Rectangle, target: Box | undefined): Rectangle {
   if (!target) {
@@ -96,6 +129,10 @@ export function ScanViewfinder({
   bottomInset,
   locked,
   target,
+  frame = "corners",
+  sweep: sweepLine = true,
+  description = "Point the camera at a barcode",
+  onWindow,
 }: {
   /** Distance from the top of the stage to leave clear (safe area, banner). */
   topInset: number;
@@ -104,6 +141,14 @@ export function ScanViewfinder({
   locked: boolean;
   /** Where the barcode was seen, for the window to close in on. */
   target?: Box;
+  /** "corners" (barcode) or "full" (photo): the same window either way. */
+  frame?: "corners" | "full";
+  /** False for the photo camera: the same window, no sweeping line. */
+  sweep?: boolean;
+  /** What a screen reader is told is being looked for; null for none. */
+  description?: string | null;
+  /** Called with the window's rectangle, in this view's coordinates, whenever it is set or changes. */
+  onWindow?: (window: Box) => void;
 }) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const [sweep] = useState(() => new Animated.Value(0));
@@ -129,6 +174,7 @@ export function ScanViewfinder({
   }, [closing]);
 
   useEffect(() => {
+    if (!sweepLine) return;
     if (reduceMotion) {
       sweep.setValue(0.5);
       return;
@@ -141,7 +187,7 @@ export function ScanViewfinder({
     );
     loop.start();
     return () => loop.stop();
-  }, [reduceMotion, sweep, useNativeDriver]);
+  }, [sweepLine, reduceMotion, sweep, useNativeDriver]);
 
   useEffect(() => {
     const duration = reduceMotion ? 0 : LOCK_MS;
@@ -169,7 +215,10 @@ export function ScanViewfinder({
     w: lerp(window.w, goal.w, closed),
     h: lerp(window.h, goal.h, closed),
   };
-  const radius = Math.min(WINDOW_RADIUS, rect.h / 2, rect.w / 2);
+  useEffect(() => {
+    if (ready) onWindow?.({ x: window.x, y: window.y, width: window.w, height: window.h });
+  }, [ready, window.x, window.y, window.w, window.h, onWindow]);
+  const radius = Math.min(frame === "corners" ? CORNER_RADIUS : WINDOW_RADIUS, rect.h / 2, rect.w / 2);
   const lineWidth = window.w - LINE_INSET * 2;
 
   return (
@@ -177,11 +226,13 @@ export function ScanViewfinder({
       {ready && size ? (
         <>
           {/* What is being looked for, for a screen reader; the layers below are decoration. */}
-          <View
-            accessible
-            accessibilityLabel="Point the camera at a barcode"
-            style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1 }}
-          />
+          {description ? (
+            <View
+              accessible
+              accessibilityLabel={description}
+              style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1 }}
+            />
+          ) : null}
 
           <View
             style={StyleSheet.absoluteFill}
@@ -207,6 +258,7 @@ export function ScanViewfinder({
             </Svg>
 
             {/* The sweeping line, kept inside the window; it fades as the window closes. */}
+            {sweepLine ? (
             <Animated.View
               style={{
                 position: "absolute",
@@ -235,34 +287,30 @@ export function ScanViewfinder({
                 <Rect x={0} y={LINE_BAND / 2 - 1} width={lineWidth} height={2} rx={1} fill={TERRACOTTA} />
               </Svg>
             </Animated.View>
+            ) : null}
 
-            {/* A cream outline that hands over to a terracotta one when locked. */}
-            <Animated.View
-              style={{
-                position: "absolute",
-                left: rect.x,
-                top: rect.y,
-                width: rect.w,
-                height: rect.h,
-                borderRadius: radius,
-                borderWidth: OUTLINE_WIDTH,
-                borderColor: SCANNER_FRAME,
-                opacity: lock.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
-              }}
-            />
-            <Animated.View
-              style={{
-                position: "absolute",
-                left: rect.x,
-                top: rect.y,
-                width: rect.w,
-                height: rect.h,
-                borderRadius: radius,
-                borderWidth: OUTLINE_WIDTH,
-                borderColor: TERRACOTTA,
-                opacity: lock,
-              }}
-            />
+            {/* A cream frame that hands over to a terracotta one when locked. */}
+            {[
+              { color: SCANNER_FRAME, opacity: lock.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) },
+              { color: TERRACOTTA, opacity: lock },
+            ].map(({ color, opacity }) => (
+              <Animated.View
+                key={color}
+                style={{
+                  position: "absolute",
+                  left: rect.x,
+                  top: rect.y,
+                  width: rect.w,
+                  height: rect.h,
+                  opacity,
+                  ...(frame === "full"
+                    ? { borderRadius: radius, borderWidth: OUTLINE_WIDTH, borderColor: color }
+                    : {}),
+                }}
+              >
+                {frame === "corners" ? <Corners width={rect.w} height={rect.h} radius={radius} color={color} /> : null}
+              </Animated.View>
+            ))}
           </View>
         </>
       ) : null}
