@@ -1,4 +1,8 @@
-import { classifyGarbageIngredient, sqlStringLiteral } from "../scripts/audit-catalogue-quality.mjs";
+import {
+  classifyGarbageIngredient,
+  deleteStatementsFor,
+  sqlStringLiteral,
+} from "../scripts/audit-catalogue-quality.mjs";
 
 /**
  * Issue #86's ingredient-garbage gate, as ordinary functions — the same
@@ -75,5 +79,27 @@ describe("sqlStringLiteral", () => {
     expect(sqlStringLiteral("pr #78). 1 say and i'll move to step 2 (boarding")).toBe(
       "'pr #78). 1 say and i''ll move to step 2 (boarding'"
     );
+  });
+});
+
+describe("deleteStatementsFor", () => {
+  it("deletes the product_ingredients join row before the ingredients row", () => {
+    // product_ingredients.inci_name -> ingredients.inci_name has no `on
+    // delete cascade` (migration 0001), and these flagged names are the stub
+    // rows created so a product's ingredient list has something to point to
+    // — so the join row has to go first, or the second statement fails with
+    // a foreign-key violation instead of deleting anything. Found live: a
+    // first version of this script printed only the second statement.
+    expect(deleteStatementsFor("phenoxyethanol. pr-015376")).toEqual([
+      "delete from product_ingredients where inci_name = 'phenoxyethanol. pr-015376';",
+      "delete from ingredients where inci_name = 'phenoxyethanol. pr-015376';",
+    ]);
+  });
+
+  it("escapes an embedded quote consistently across both statements", () => {
+    expect(deleteStatementsFor("pr #78). 1 say and i'll move to step 2 (boarding")).toEqual([
+      "delete from product_ingredients where inci_name = 'pr #78). 1 say and i''ll move to step 2 (boarding';",
+      "delete from ingredients where inci_name = 'pr #78). 1 say and i''ll move to step 2 (boarding';",
+    ]);
   });
 });

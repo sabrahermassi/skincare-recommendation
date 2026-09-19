@@ -38,8 +38,10 @@
  * never have been written today. Ingredient garbage is report-only, on
  * purpose: issue #86's own plan rules out automatic deletion there, since
  * some short survivors (PCA, EGF) are genuine. Each flagged ingredient
- * prints a ready `DELETE` statement to run by hand once reviewed —
- * deliberately not executed here.
+ * prints two ready `DELETE` statements — the `product_ingredients` join row,
+ * then the `ingredients` row itself, in that order, since the join's foreign
+ * key has no cascade — to run by hand once reviewed. Deliberately not
+ * executed here.
  */
 
 import { realpathSync } from "node:fs";
@@ -108,6 +110,23 @@ function sqlStringLiteral(value) {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
+/**
+ * The two statements needed to actually remove a garbage `ingredients` row,
+ * in the order they must run. `product_ingredients.inci_name` references
+ * `ingredients.inci_name` with no `on delete cascade` (migration 0001) —
+ * these flagged names are exactly the stub rows created so a product's
+ * ingredient list has something to point to, so most of them are still
+ * referenced. Deleting `ingredients` alone fails with a foreign-key
+ * violation (safe, but useless) rather than doing what it looks like it does.
+ */
+function deleteStatementsFor(inciName) {
+  const literal = sqlStringLiteral(inciName);
+  return [
+    `delete from product_ingredients where inci_name = ${literal};`,
+    `delete from ingredients where inci_name = ${literal};`,
+  ];
+}
+
 async function auditJunkProducts(db) {
   const rows = await paginateOrdered(db, "products", {
     select: "id, name, brand, type, attribution",
@@ -169,7 +188,7 @@ async function auditGarbageIngredients(db) {
         "since some short survivors above are genuine. Once reviewed, delete confirmed-bad rows by hand:\n"
     );
     for (const r of flagged) {
-      console.log(`  delete from ingredients where inci_name = ${sqlStringLiteral(r.inci_name)};`);
+      for (const statement of deleteStatementsFor(r.inci_name)) console.log(`  ${statement}`);
     }
   }
   return flagged;
@@ -241,4 +260,12 @@ if (invokedDirectly()) {
   });
 }
 
-export { classifyGarbageIngredient, sqlStringLiteral, GLUED_CODE, PROSE_MARKERS, KNOWN_SHORT_NAMES, SHORT_NAME_MAX_LENGTH };
+export {
+  classifyGarbageIngredient,
+  deleteStatementsFor,
+  sqlStringLiteral,
+  GLUED_CODE,
+  PROSE_MARKERS,
+  KNOWN_SHORT_NAMES,
+  SHORT_NAME_MAX_LENGTH,
+};
