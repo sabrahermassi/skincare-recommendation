@@ -371,11 +371,18 @@ async function persist(fetched: Fetched) {
  * A colon between two digits is kept — "ci 77268:1" and "pigment red 57:1" are
  * real colour-index names. Any other colon is a heading that leaked into the
  * name. Eight words is above every real INCI name in the dictionary and below
- * every sentence found in it.
+ * every sentence found in it. An HTML entity ("&lt;") or a run of seven digits
+ * (a barcode, a batch number) is packaging text that OCR or a paste carried in,
+ * as is a web address or e-mail, and a fragment that opens with the word
+ * "ingredients" is a footnote about the list, not a member of it.
  */
 export function isPlausibleIngredientName(name: string): boolean {
   if (/[:：]/.test(name.replace(/\d[:：]\d/g, ""))) return false;
   if (/\.(?:jpe?g|png|gif|webp|pdf)\b/i.test(name)) return false;
+  if (/&(?:lt|gt|amp|quot|nbsp|#\d+)\b|[<>]/i.test(name)) return false;
+  if (/\d{7,}/.test(name)) return false;
+  if (/\bwww\.|https?:|@|\.(?:com|net|org)\b/i.test(name)) return false;
+  if (/^ingr[eé]dients?\b/i.test(name)) return false;
   return name.split(/\s+/).length <= 8;
 }
 
@@ -410,7 +417,7 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
     // A comma directly between two digits belongs to the name —
     // "1,2-Hexanediol" is one ingredient, and splitting there yields a bare
     // "1" and an orphaned "2-hexanediol". Kept in step with `lib/inci.ts`.
-    .split(/[;]|,(?!\d)/)
+    .split(/[;]|,(?!\d)|\.(?=\s)/)
     .map((part) => normalise(part))
     .filter((part) => part.length > 1 && part.length < 120 && isPlausibleIngredientName(part));
 

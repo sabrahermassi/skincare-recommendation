@@ -2,19 +2,16 @@
  * INCI label parsing, shared by the import scripts.
  *
  * `lib/inci.ts` is the canonical version and the one under test; this is the
- * plain-JavaScript form the `.mjs` operator scripts can import, carrying the
- * delimited path only — no dictionary reconstruction, no aliases.
+ * plain-JavaScript form the `.mjs` operator scripts can import. Every function
+ * below except `parseInci` is `lib/inci.ts`'s own text with the type
+ * annotations removed, and `__tests__/inci-parser-parity.test.ts` fails if one
+ * drifts. `parseInci` is deliberately not a copy of `parseIngredientBlock`: it
+ * has no reconstruction of an undelimited list and no synonym table, only what
+ * an importer has — the verified dictionary.
  *
- * It exists because there were already four hand-copies of `normalise` across
- * `scripts/`, and `__tests__/inci-parser-parity.test.ts` had to be widened to
- * watch them after the Open Beauty Facts copy drifted and started writing
- * label headings into the ingredient dictionary. A fifth copy for DailyMed
- * would have been the same mistake again, so the second caller extracts it
- * instead.
- *
- * `scripts/import-obf.mjs` still holds its own copy: moving it belongs with
- * that file's own change rather than with a new importer, and the parity test
- * guards both against `lib/inci.ts` in the meantime.
+ * `scripts/import-obf.mjs` used to hold a hand-copy of all of this and had
+ * already drifted once, writing label headings into the dictionary. It imports
+ * from here now, so there is one plain-JavaScript copy to keep in step, not two.
  */
 
 export function normalise(raw) {
@@ -29,6 +26,134 @@ export function normalise(raw) {
 }
 
 /**
+ * Split a printed list on its separators.
+ *
+ * A full stop followed by a space also separates: some labels print
+ * "Benzoic Acid. Caprylyl Glycol. Glycerin." with no commas at all, and read as
+ * one token that was long enough to be thrown away as a sentence.
+ *
+ * A comma sitting directly between two digits belongs to the name, not to the
+ * list: "1,2-Hexanediol" is one ingredient, and splitting there produced a bare
+ * "1" and a "2-hexanediol" that matches nothing — the most common bad name in
+ * the catalogue. A comma with a letter or nothing on either side is a real
+ * separator, so both sides have to be checked, not just the one after — a
+ * lookahead alone let "Water,4-Terpineol" fuse into one token. The check is
+ * done via the match offset against the original text rather than a
+ * lookbehind, which not every runtime this parser has to run on supports.
+ */
+export function splitOnSeparators(text) {
+  // U+E000, the first Private Use Area codepoint — never appears in printed
+  // ingredient text, so it is safe as a one-character sentinel standing in
+  // for a protected comma while the real separators are split on.
+  const PLACEHOLDER = "";
+  // A full stop inside brackets ("(Vit. E)") is part of the qualifier, not the
+  // end of a name; the same length-preserving stand-in keeps the offsets below
+  // valid.
+  const guarded = text.replace(/\([^)]*\)/g, (group) => group.replace(/\./g, ""));
+  const protectedText = guarded.replace(/,(?=\d)/g, (match, offset) =>
+    offset > 0 && /\d/.test(text[offset - 1]) ? PLACEHOLDER : match
+  );
+  return protectedText
+    .split(/[;•·]|,|\.(?=\s)/)
+    .map((s) => s.replace(new RegExp(PLACEHOLDER, "g"), ",").replace(//g, "."));
+}
+
+/**
+ * How much OCR noise a candidate may carry and still count as a match.
+ *
+ * Zero below `MIN_FUZZY_LENGTH`: within one edit of a short fragment sits half
+ * the dictionary, so "oil", "code" and "fll" would all resolve to some real
+ * ingredient. A fabricated match is worse than an unrecognised one — it inflates
+ * coverage and can put a safety note on something that was never in the product
+ * — so short fragments are left unmatched instead.
+ */
+const MIN_FUZZY_LENGTH = 8;
+
+/**
+ * Ceiling on fuzzy-match attempts across one `reconstructFromDictionary`
+ * call. Every unmatched position can try up to `MAX_WINDOW_WORDS` window
+ * spans, each of which can call `fuzzyLookup` more than once (the spaced
+ * form, the joined form, the slash head) — and each `fuzzyLookup` scans every
+ * dictionary entry within the edit-distance budget's length buckets. Without
+ * a ceiling, a long run of unmatched words (the reconstruction path only
+ * runs when the label was already too garbled to delimiter-split) still
+ * spends real CPU per request even with the word cap above in place.
+ *
+ * Not benchmarked against real garbled labels — picked generously above what
+ * a legitimate reconstruction should ever need, so it should only ever bite
+ * on pathological input. Revisit with real data if it turns out too tight.
+ */
+const MAX_FUZZY_ATTEMPTS_PER_BLOCK = 800;
+
+/**
+ * Bounded Levenshtein distance — returns early once the result is certain to
+ * exceed `max`, since this runs against many candidate dictionary entries per
+ * word and the exact distance beyond `max` is never needed.
+ */
+export function levenshtein(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const curr = [i];
+    let rowMin = curr[0];
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+      rowMin = Math.min(rowMin, curr[j]);
+    }
+    if (rowMin > max) return max + 1; // whole row exceeds budget — no recovery possible
+    prev = curr;
+  }
+  return prev[b.length];
+}
+
+export function fuzzyBudget(length) {
+  if (length < MIN_FUZZY_LENGTH) return 0;
+  return length <= 15 ? 1 : 2;
+}
+
+/**
+ * Closest dictionary entry within the edit budget, or null. Length-bucketed to
+ * keep the scan small.
+ *
+ * A tie is refused rather than broken. When two different names sit the same
+ * distance from what was printed, nothing in the text says which one it was,
+ * and picking either invents an ingredient the product may not contain. This
+ * matters more as the dictionary grows: every name added is another
+ * near-neighbour, so the safeguard has to scale with it.
+ */
+export function fuzzyLookup(
+  candidate,
+  byLength,
+  attempts
+) {
+  if (attempts.remaining <= 0) return null;
+  attempts.remaining -= 1;
+
+  const budget = fuzzyBudget(candidate.length);
+  if (budget === 0) return null;
+
+  let best = null;
+  let bestDist = budget + 1;
+  let ambiguous = false;
+  for (let len = candidate.length - budget; len <= candidate.length + budget; len++) {
+    for (const entry of byLength.get(len) ?? []) {
+      const dist = levenshtein(candidate, entry, budget);
+      if (dist === 0) return entry;
+      if (dist < bestDist) {
+        best = entry;
+        bestDist = dist;
+        ambiguous = false;
+      } else if (dist === bestDist && entry !== best) {
+        ambiguous = true;
+      }
+    }
+  }
+  return ambiguous ? null : best;
+}
+
+/**
  * Whether a parsed fragment can be an ingredient name at all.
  *
  * The last line of defence for text that reached the name filter without a
@@ -40,11 +165,18 @@ export function normalise(raw) {
  * A colon between two digits is kept — "ci 77268:1" and "pigment red 57:1" are
  * real colour-index names. Any other colon is a heading that leaked into the
  * name. Eight words is above every real INCI name in the dictionary and below
- * every sentence found in it.
+ * every sentence found in it. An HTML entity ("&lt;") or a run of seven digits
+ * (a barcode, a batch number) is packaging text that OCR or a paste carried in,
+ * as is a web address or e-mail, and a fragment that opens with the word
+ * "ingredients" is a footnote about the list, not a member of it.
  */
 export function isPlausibleIngredientName(name) {
   if (/[:：]/.test(name.replace(/\d[:：]\d/g, ""))) return false;
   if (/\.(?:jpe?g|png|gif|webp|pdf)\b/i.test(name)) return false;
+  if (/&(?:lt|gt|amp|quot|nbsp|#\d+)\b|[<>]/i.test(name)) return false;
+  if (/\d{7,}/.test(name)) return false;
+  if (/\bwww\.|https?:|@|\.(?:com|net|org)\b/i.test(name)) return false;
+  if (/^ingr[eé]dients?\b/i.test(name)) return false;
   return name.split(/\s+/).length <= 8;
 }
 
@@ -82,48 +214,227 @@ export function findListByDictionary(flat, dictionary, aliases) {
 }
 
 /**
+ * Dictionary names indexed two ways for the delimited path, built once per
+ * dictionary. A `WeakMap` keyed on the set itself: an importer reads the
+ * dictionary once and parses hundreds of products against it, and an Edge
+ * Function request builds its own set, so neither pays twice.
+ */
+const squashIndexCache = new WeakMap();
+const lengthIndexCache = new WeakMap();
+
+/**
+ * A name reduced to its letters and digits: "methyl styrene", "methylstyrene"
+ * and "methyl-styrene" are one key. Labels and the dictionary disagree about
+ * spaces and punctuation far more often than about spelling, and digits stay
+ * in the key so "peg-4" and "peg-40" can never meet.
+ */
+export function squashKey(name) {
+  return name.replace(/[^a-z0-9]/g, "");
+}
+
+export function squashIndex(dictionary) {
+  const cached = squashIndexCache.get(dictionary);
+  if (cached) return cached;
+  const index = new Map();
+  for (const entry of dictionary) {
+    const key = squashKey(entry);
+    const bucket = index.get(key);
+    if (bucket) bucket.push(entry);
+    else index.set(key, [entry]);
+  }
+  squashIndexCache.set(dictionary, index);
+  return index;
+}
+
+export function lengthIndex(dictionary) {
+  const cached = lengthIndexCache.get(dictionary);
+  if (cached) return cached;
+  const index = new Map();
+  for (const entry of dictionary) {
+    const bucket = index.get(entry.length);
+    if (bucket) bucket.push(entry);
+    else index.set(entry.length, [entry]);
+  }
+  lengthIndexCache.set(dictionary, index);
+  return index;
+}
+
+/**
+ * What labels print in place of the INCI name, for the ordinary ingredients
+ * people name by their common name: "jojoba seed oil" is
+ * `simmondsia chinensis seed oil`, "flavor" is `aroma`. The dictionary is keyed
+ * on INCI, so none of these matches as written, and they are the largest group
+ * of misses that are not spelling.
+ *
+ * Only unambiguous ones. "Iron oxides" is three different colour indexes and
+ * "citrus aurantium peel oil" is two different oranges, so neither is here — a
+ * wrong mapping attaches another ingredient's safety note, which is worse than
+ * a miss. The caller checks the target is in the dictionary, so an entry whose
+ * target is absent does nothing.
+ */
+export function commonNameFor(name) {
+  const table = new Map([
+    ["flavor", "aroma"],
+    ["flavour", "aroma"],
+    ["perfume", "parfum"],
+    ["fragrance", "parfum"],
+    ["purified water", "aqua"],
+    ["deionized water", "aqua"],
+    ["demineralized water", "aqua"],
+    ["distilled water", "aqua"],
+    ["glycerine", "glycerin"],
+    ["glycerol", "glycerin"],
+    ["petroleum jelly", "petrolatum"],
+    ["mineral oil", "paraffinum liquidum"],
+    ["jojoba oil", "simmondsia chinensis seed oil"],
+    ["jojoba seed oil", "simmondsia chinensis seed oil"],
+    ["apricot kernel oil", "prunus armeniaca kernel oil"],
+    ["evening primrose oil", "oenothera biennis oil"],
+    ["argan oil", "argania spinosa kernel oil"],
+    ["argan kernel oil", "argania spinosa kernel oil"],
+    ["olive oil", "olea europaea fruit oil"],
+    ["olive fruit oil", "olea europaea fruit oil"],
+    ["rosehip oil", "rosa canina fruit oil"],
+    ["rosehip fruit extract", "rosa canina fruit extract"],
+    ["mango fruit extract", "mangifera indica fruit extract"],
+    ["mango butter", "mangifera indica seed butter"],
+    ["shea butter", "butyrospermum parkii butter"],
+    ["coconut oil", "cocos nucifera oil"],
+    ["sweet almond oil", "prunus amygdalus dulcis oil"],
+    ["almond oil", "prunus amygdalus dulcis oil"],
+    ["avocado oil", "persea gratissima oil"],
+    ["castor oil", "ricinus communis seed oil"],
+    ["grapeseed oil", "vitis vinifera seed oil"],
+    ["grape seed oil", "vitis vinifera seed oil"],
+    ["sunflower oil", "helianthus annuus seed oil"],
+    ["sunflower seed oil", "helianthus annuus seed oil"],
+    ["tea tree oil", "melaleuca alternifolia leaf oil"],
+    ["lavender oil", "lavandula angustifolia oil"],
+    ["candelilla wax", "euphorbia cerifera cera"],
+    ["euphorbia cerifera wax", "euphorbia cerifera cera"],
+    ["carnauba wax", "copernicia cerifera cera"],
+    ["kojic acid dipalmitate", "kojic dipalmitate"],
+    ["vitamin e", "tocopherol"],
+    ["vitamin e acetate", "tocopheryl acetate"],
+    ["vitamin c", "ascorbic acid"],
+    ["vitamin b5", "panthenol"],
+  ]);
+  return table.get(name);
+}
+
+/**
  * Map a delimited name the dictionary does not hold to the one it does.
  *
  * `matchWindow` already knows two printed-label habits, but only runs when the
  * list had no delimiters at all. A list split cleanly on commas skipped both,
- * so "aqua/water/eau" and "gly cerin" reached the dictionary as-is and missed —
- * about a fifth of every unmatched name in a live sample, for ingredients the
- * dictionary holds under a plain name.
+ * so "aqua/water/eau" and "gly cerin" reached the dictionary as-is and missed.
+ * In order, and each only when the one before found nothing:
  *
- *  - OCR splits one printed word: "gly cerin", "be henyl alcohol".
- *  - "/" separates names for ONE ingredient: "aqua/water/eau" is aqua. Strict,
- *    as in `matchWindow`: every later part must be a known name or a single
- *    word, so "hydroxyethyl acrylate/sodium acryloyldimethyl taurate
- *    copolymer" — one real name that merely contains a slash — is left alone.
+ *  - a British spelling: "sulphate" is `sulfate`;
+ *  - a common name from `commonNameFor`;
+ *  - the same letters and digits under different spacing or punctuation
+ *    ("gly cerin", "methylstyrene" for `methyl styrene`, "acryloyldimethyl
+ *    taurate" for `acryloyldimethyltaurate`) — through `squashIndex`, so it is
+ *    one lookup, and when the dictionary holds the name more than once the one
+ *    fewest edits from what was printed wins;
+ *  - an unclosed bracket: "aqua (water" is aqua;
+ *  - "/" separating names for ONE ingredient: "aqua/water/eau" is aqua, and
+ *    "iron oxides/ci 77491" is ci 77491. One part must be a known name or an
+ *    alias, and each other part a known name, an alias, or a single word. A
+ *    last part ending in polymer, resin or esters is held to that bar strictly,
+ *    because those are the single real names that merely contain a
+ *    slash ("hydroxyethyl acrylate/sodium acryloyldimethyl taurate
+ *    copolymer"); anywhere else an unfamiliar translated part ("huile
+ *    minerale") is fine, since the list was already split on commas and there is
+ *    nothing after the slash to swallow.
  *
- * A name already in the dictionary, or matching neither shape, comes back
+ * A name already in the dictionary, or matching none of these, comes back
  * unchanged.
  */
-export function resolveKnownName(name, dictionary) {
+export function resolveKnownName(name, dictionary, aliases) {
   if (dictionary.has(name)) return name;
-  const words = name.split(" ");
-  for (let i = 0; i + 1 < words.length; i++) {
-    const joined = [...words.slice(0, i), words[i] + words[i + 1], ...words.slice(i + 2)].join(" ");
-    if (dictionary.has(joined)) return joined;
+  // A bracket the label never closed ("aqua (water"): normalise only removes a
+  // matched pair, so the open half is still on the end of the name.
+  const unbracketed = name.replace(/\s*\(.*$/, "").replace(/\)+$/, "");
+  if (unbracketed !== name && dictionary.has(unbracketed)) return unbracketed;
+  const spelled = name.replace(/sulph/g, "sulf");
+  if (dictionary.has(spelled)) return spelled;
+  const common = commonNameFor(spelled);
+  if (common && dictionary.has(common)) return common;
+  const squashed = squashIndex(dictionary).get(squashKey(spelled));
+  if (squashed) {
+    let best = squashed[0];
+    for (const candidate of squashed) {
+      if (levenshtein(candidate, name, 99) < levenshtein(best, name, 99)) best = candidate;
+    }
+    return best;
   }
   if (name.includes("/")) {
     const parts = name.split("/").map(normalise);
-    const restIsPlausible = parts.slice(1).every((p) => p.length > 1 && (dictionary.has(p) || !p.includes(" ")));
-    if (parts.length > 1 && dictionary.has(parts[0]) && restIsPlausible) return parts[0];
+    const isKnown = (part) => dictionary.has(part) || (aliases?.has(part) ?? false);
+    const anchor = parts.find(isKnown);
+    const strict = /(?:polymer|resin|esters?)$/.test(parts[parts.length - 1]);
+    const restIsPlausible = parts.every((part) => part === anchor || (part.length > 1 && (isKnown(part) || !part.includes(" ") || !strict)));
+    if (parts.length > 1 && anchor && restIsPlausible) return anchor;
   }
   return name;
 }
 
 /**
+ * Split a token that is really two or more ingredients with the comma missing.
+ *
+ * "caprylyl glycol isohexadecane" and "camellia sinensis leaf extract arnica
+ * montana flower extract" are printed with a gap where a comma belongs, and
+ * each was being stored as one long junk name — 'caprylyl glycol
+ * isohexadecane' is in the live dictionary as an unverified stub. Greedy,
+ * longest known name first, and only when every word lands in a known name: one
+ * leftover word means the token is not a run-together list, so it is returned
+ * whole rather than guessed at.
+ */
+export function splitRunTogether(name, dictionary) {
+  const words = name.split(" ");
+  if (words.length < 2 || words.length > 12) return [name];
+  const pieces = [];
+  let i = 0;
+  while (i < words.length) {
+    let span = Math.min(6, words.length - i);
+    while (span > 0 && !dictionary.has(words.slice(i, i + span).join(" "))) span--;
+    if (span === 0) return [name];
+    pieces.push(words.slice(i, i + span).join(" "));
+    i += span;
+  }
+  return pieces.length > 1 ? pieces : [name];
+}
+
+/**
+ * Correct a one-letter typo in a long name: "helianthus annus seed oil" for
+ * `helianthus annuus seed oil`, "potassium cetyl phospate".
+ *
+ * Deliberately much tighter than the fuzzy match the no-delimiter path uses,
+ * because that one is repairing OCR noise and this one is reading typed text. A
+ * name must be at least 16 characters, sit exactly one edit from a single
+ * unambiguous dictionary name, and carry the same digits — methylparaben and
+ * ethylparaben are one edit apart, and so are polyquaternium-10 and -11, and
+ * each is a different ingredient with a different safety note.
+ */
+export function fuzzyKnownName(name, dictionary, attempts) {
+  if (name.length < 16) return name;
+  const found = fuzzyLookup(name, lengthIndex(dictionary), attempts);
+  if (!found || levenshtein(name, found, 1) > 1) return name;
+  return name.replace(/\D/g, "") === found.replace(/\D/g, "") ? found : name;
+}
+
+/**
  * `dictionary`, when given, finds the list by what it contains rather than by
- * the language of the heading above it. `rejected`, when given, collects the
- * fragments the name check threw out, so an importer can print them.
+ * the language of the heading above it, and resolves each name the way
+ * `parseIngredientBlock` does. `rejected`, when given, collects the fragments
+ * the name check threw out, so an importer can print them.
  */
 export function parseInci(text, dictionary, rejected) {
   const flat = text.replace(/\r/g, "").replace(/\n+/g, " ").replace(/\s+/g, " ").replace(/\b(?:inactive ingredients?|may contain|peut contenir)\s*[:：]?\s*/gi, ", ");
 
   // 1 ── Drop everything up to and including an "Ingredients:" heading. Same
-  // pattern as lib/inci.ts, Korean forms included.
+  // pattern as lib/inci.ts.
   const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:ingredients?|전성분|성분)\s*[:：]?\s*/i.exec(flat);
   let block = heading ? flat.slice(heading.index + heading[0].length) : flat;
 
@@ -139,36 +450,28 @@ export function parseInci(text, dictionary, rejected) {
     );
   if (stop) block = block.slice(0, stop.index);
 
-  // 3 ── Split, protecting a comma between two digits: "1,2-Hexanediol" is one
-  // ingredient, and splitting there produced a bare "1" and a "2-hexanediol"
-  // that matches nothing — lib/inci.ts calls this the most common bad name in
-  // the catalogue, and this copy was still producing it.
-  const PLACEHOLDER = "\uE000";
-  const protectedText = block.replace(/,(?=\d)/g, (match, offset) =>
-    offset > 0 && /\d/.test(block[offset - 1]) ? PLACEHOLDER : match
-  );
-
-  const delimited = protectedText
-    .split(/[;•·]|,/)
-    .map((s) => s.replace(new RegExp(PLACEHOLDER, "g"), ","))
+  // 3 ── Split, then keep only what could be a name: a token with no letter in it
+  // is a quantity or a code, and a fragment that cannot be a name (a label
+  // section, a file name) is reported rather than written into the dictionary.
+  const fuzzyAttempts = { remaining: MAX_FUZZY_ATTEMPTS_PER_BLOCK };
+  const delimited = splitOnSeparators(block)
     .map(normalise)
-    // 4 ── A token with no letter in it is a quantity or a code, not a name.
     .filter((p) => p.length > 1 && p.length < 120 && /[a-z]/.test(p))
-    // ...and a fragment that cannot be a name (a label section, a file name) is
-    // reported rather than written into the shared dictionary.
     .filter((p) => {
       const ok = isPlausibleIngredientName(p);
       if (!ok) rejected?.push(p);
       return ok;
     })
-    .map((inci_name, position) => ({
-      inci_name: dictionary ? resolveKnownName(inci_name, dictionary) : inci_name,
-      position,
-    }));
+    .flatMap((name) => {
+      if (!dictionary) return [name];
+      const known = resolveKnownName(name, dictionary);
+      if (dictionary.has(known)) return [known];
+      const pieces = splitRunTogether(known, dictionary);
+      return pieces.length > 1 ? pieces : [fuzzyKnownName(known, dictionary, fuzzyAttempts)];
+    })
+    .map((inci_name, position) => ({ inci_name, position }));
 
-  // 5 ── ...and drop repeats, renumbering as it goes. Both of
-  // `parseIngredientBlock`'s return paths end in this; this copy did not,
-  // which is the one place it still diverged.
+  // 4 ── ...and drop repeats, renumbering as it goes.
   return dedupe(delimited);
 }
 

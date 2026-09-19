@@ -1,10 +1,14 @@
 import {
+  commonNameFor,
   findListByDictionary,
+  fuzzyKnownName,
   isPlausibleIngredientName,
   normalise,
   parseIngredientBlock,
   reconstructFromDictionary,
   resolveKnownName,
+  splitRunTogether,
+  squashKey,
 } from "@/lib/inci";
 
 /**
@@ -82,6 +86,192 @@ describe("resolveKnownName", () => {
   it("resolves through parseIngredientBlock when a dictionary is supplied", () => {
     const parsed = parseIngredientBlock("Aqua/Water/Eau, Gly cerin, Parfum/Fragrance, Glycerin", dictionary);
     expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "parfum"]);
+  });
+});
+
+describe("resolveKnownName: spacing, spelling and common names", () => {
+  const dictionary = new Set([
+    "hydrogenated styrene/methyl styrene/indene copolymer",
+    "hydroxyethyl acrylate/sodium acryloyldimethyl taurate copolymer",
+    "sodium lauryl sulfate",
+    "simmondsia chinensis seed oil",
+    "aroma",
+    "parfum",
+    "paraffinum liquidum",
+    "kojic dipalmitate",
+    "peg-40 stearate",
+    "peg-4 stearate",
+    "styrene methylstyrene indene copolymer",
+    "styrene/methylstyrene/indene copolymer",
+  ]);
+
+  it("matches the same letters under different spacing and punctuation", () => {
+    expect(resolveKnownName("hydrogenated styrene/methylstyrene/indene copolymer", dictionary)).toBe(
+      "hydrogenated styrene/methyl styrene/indene copolymer"
+    );
+    expect(resolveKnownName("hydroxyethyl acrylate/sodium acryloyldimethyltaurate copolymer", dictionary)).toBe(
+      "hydroxyethyl acrylate/sodium acryloyldimethyl taurate copolymer"
+    );
+  });
+
+  it("prefers the candidate fewest edits away when the dictionary holds a name twice", () => {
+    expect(resolveKnownName("styrene methylstyrene indene co polymer", dictionary)).toBe(
+      "styrene methylstyrene indene copolymer"
+    );
+  });
+
+  it("keeps digits in the key, so peg-4 and peg-40 never meet", () => {
+    expect(squashKey("peg-40 stearate")).not.toBe(squashKey("peg-4 stearate"));
+    expect(resolveKnownName("peg 40 stearate", dictionary)).toBe("peg-40 stearate");
+    expect(resolveKnownName("peg-400 stearate", dictionary)).toBe("peg-400 stearate");
+  });
+
+  it("reads a British spelling", () => {
+    expect(resolveKnownName("sodium lauryl sulphate", dictionary)).toBe("sodium lauryl sulfate");
+  });
+
+  it.each([
+    ["flavor", "aroma"],
+    ["perfume", "parfum"],
+    ["jojoba seed oil", "simmondsia chinensis seed oil"],
+    ["mineral oil", "paraffinum liquidum"],
+    ["kojic acid dipalmitate", "kojic dipalmitate"],
+  ])("maps the common name %s to %s", (name: string, expected: string) => {
+    expect(resolveKnownName(name, dictionary)).toBe(expected);
+  });
+
+  it("ignores a common name whose target the dictionary does not hold", () => {
+    expect(resolveKnownName("argan oil", dictionary)).toBe("argan oil");
+  });
+
+  it("does not guess at the ambiguous common names", () => {
+    expect(commonNameFor("iron oxides")).toBeUndefined();
+    expect(commonNameFor("citrus aurantium peel oil")).toBeUndefined();
+  });
+
+  it("accepts an unfamiliar translated part after the slash, but not on a polymer name", () => {
+    const known = new Set(["paraffinum liquidum", "mineral oil", "hydroxyethyl acrylate"]);
+    expect(resolveKnownName("paraffinum liquidum/mineral oil/huile minerale", known)).toBe("paraffinum liquidum");
+    expect(
+      resolveKnownName("hydroxyethyl acrylate/sodium acryloyldimethyl taurate copolymer", known)
+    ).toBe("hydroxyethyl acrylate/sodium acryloyldimethyl taurate copolymer");
+  });
+
+  it("finds the known name wherever it sits around the slash", () => {
+    const known = new Set(["ci 77491", "titanium dioxide"]);
+    expect(resolveKnownName("iron oxides/ci 77491", known)).toBe("ci 77491");
+    expect(resolveKnownName("titanium dioxide nano / titanium dioxide", known)).toBe("titanium dioxide");
+  });
+
+  it("drops a bracket the label never closed", () => {
+    const known = new Set(["aqua", "hyaluronic acid"]);
+    expect(resolveKnownName("aqua (water", known)).toBe("aqua");
+    expect(resolveKnownName("hyaluronic acid (3-8 kda", known)).toBe("hyaluronic acid");
+    expect(resolveKnownName("aqua water)", known)).toBe("aqua water)");
+  });
+
+  it("counts an alias as a known part after the slash", () => {
+    const known = new Set(["prunus armeniaca kernel oil"]);
+    const aliases = new Map([["apricot kernel oil", "prunus armeniaca kernel oil"]]);
+    expect(resolveKnownName("prunus armeniaca kernel oil/apricot kernel oil", known, aliases)).toBe(
+      "prunus armeniaca kernel oil"
+    );
+  });
+});
+
+describe("splitRunTogether", () => {
+  const dictionary = new Set(["caprylyl glycol", "isohexadecane", "camellia sinensis leaf extract", "arnica montana flower extract", "citric acid", "glycol"]);
+
+  it("splits a token that is two ingredients with the comma missing", () => {
+    expect(splitRunTogether("caprylyl glycol isohexadecane", dictionary)).toEqual(["caprylyl glycol", "isohexadecane"]);
+    expect(splitRunTogether("camellia sinensis leaf extract arnica montana flower extract", dictionary)).toEqual([
+      "camellia sinensis leaf extract",
+      "arnica montana flower extract",
+    ]);
+  });
+
+  it("takes the longest known name first", () => {
+    expect(splitRunTogether("citric acid glycol", dictionary)).toEqual(["citric acid", "glycol"]);
+  });
+
+  it("returns the token whole when any word is left over", () => {
+    expect(splitRunTogether("caprylyl glycol mystery", dictionary)).toEqual(["caprylyl glycol mystery"]);
+  });
+
+  it("returns a single known name whole", () => {
+    expect(splitRunTogether("isohexadecane", dictionary)).toEqual(["isohexadecane"]);
+  });
+});
+
+describe("fuzzyKnownName", () => {
+  const dictionary = new Set([
+    "helianthus annuus seed oil",
+    "potassium cetyl phosphate",
+    "polyquaternium-10 hydroxyethylcellulose",
+    "methylparaben",
+  ]);
+  const attempts = () => ({ remaining: 100 });
+
+  it("corrects a one-letter typo in a long name", () => {
+    expect(fuzzyKnownName("helianthus annus seed oil", dictionary, attempts())).toBe("helianthus annuus seed oil");
+    expect(fuzzyKnownName("potassium cetyl phospate", dictionary, attempts())).toBe("potassium cetyl phosphate");
+  });
+
+  it("refuses a short name, however close", () => {
+    expect(fuzzyKnownName("ethylparaben", dictionary, attempts())).toBe("ethylparaben");
+  });
+
+  it("refuses a name whose digits differ", () => {
+    expect(fuzzyKnownName("polyquaternium-11 hydroxyethylcellulose", dictionary, attempts())).toBe(
+      "polyquaternium-11 hydroxyethylcellulose"
+    );
+  });
+
+  it("stops once the attempt budget is spent", () => {
+    expect(fuzzyKnownName("helianthus annus seed oil", dictionary, { remaining: 0 })).toBe("helianthus annus seed oil");
+  });
+});
+
+describe("parseIngredientBlock: separators and packaging text", () => {
+  it("splits a list separated by full stops", () => {
+    expect(
+      parseIngredientBlock("Benzoic Acid. Caprylyl Glycol. Glyceryl Behenate. Glycerin").map((p) => p.inci_name)
+    ).toEqual(["benzoic acid", "caprylyl glycol", "glyceryl behenate", "glycerin"]);
+  });
+
+  it("leaves a full stop inside brackets alone", () => {
+    expect(
+      parseIngredientBlock("Aqua, Tocopheryl Acetate (Vit. E), Glycerin").map((p) => p.inci_name)
+    ).toEqual(["aqua", "tocopheryl acetate", "glycerin"]);
+  });
+
+  it.each([
+    "pet 1+ ldpe 4+ alu 41&lt",
+    "code 4006381333931",
+    "made in <china>",
+    "www.maxbrands.n produced for maxbrands marketing ltd",
+    "contact@brand.com",
+    "ingrédients issus de l'agriculture biologique",
+  ])(
+    "rejects packaging text: %s",
+    (name: string) => {
+      expect(isPlausibleIngredientName(name)).toBe(false);
+    }
+  );
+
+  it("splits a run-together list and corrects a typo through the whole parser", () => {
+    const dictionary = new Set(["aqua", "caprylyl glycol", "isohexadecane", "helianthus annuus seed oil", "glycerin"]);
+    const parsed = parseIngredientBlock(
+      "Aqua, Caprylyl Glycol Isohexadecane, Helianthus Annus Seed Oil, Glycerin",
+      dictionary
+    );
+    expect(parsed.map((p) => p.inci_name)).toEqual([
+      "aqua",
+      "caprylyl glycol",
+      "isohexadecane",
+      "helianthus annuus seed oil",
+      "glycerin",
+    ]);
   });
 });
 

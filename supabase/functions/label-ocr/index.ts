@@ -425,18 +425,36 @@ const MIN_DELIMITED_TOKENS = 4;
 const MAX_WINDOW_WORDS = 6;
 
 /**
- * Split a printed list on its separators. A comma directly between two digits
- * belongs to the name — "1,2-Hexanediol" is one ingredient, and splitting there
- * yields a bare "1" and a "2-hexanediol" that matches nothing. Both sides of
- * the comma are checked, not just the one after — a lookahead alone let
- * "Water,4-Terpineol" fuse into one token. Kept in step with `lib/inci.ts`.
+ * Split a printed list on its separators.
+ *
+ * A full stop followed by a space also separates: some labels print
+ * "Benzoic Acid. Caprylyl Glycol. Glycerin." with no commas at all, and read as
+ * one token that was long enough to be thrown away as a sentence.
+ *
+ * A comma sitting directly between two digits belongs to the name, not to the
+ * list: "1,2-Hexanediol" is one ingredient, and splitting there produced a bare
+ * "1" and a "2-hexanediol" that matches nothing — the most common bad name in
+ * the catalogue. A comma with a letter or nothing on either side is a real
+ * separator, so both sides have to be checked, not just the one after — a
+ * lookahead alone let "Water,4-Terpineol" fuse into one token. The check is
+ * done via the match offset against the original text rather than a
+ * lookbehind, which not every runtime this parser has to run on supports.
  */
-function splitOnSeparators(text: string): string[] {
+export function splitOnSeparators(text: string): string[] {
+  // U+E000, the first Private Use Area codepoint — never appears in printed
+  // ingredient text, so it is safe as a one-character sentinel standing in
+  // for a protected comma while the real separators are split on.
   const PLACEHOLDER = "";
-  const protectedText = text.replace(/,(?=\d)/g, (match, offset: number) =>
+  // A full stop inside brackets ("(Vit. E)") is part of the qualifier, not the
+  // end of a name; the same length-preserving stand-in keeps the offsets below
+  // valid.
+  const guarded = text.replace(/\([^)]*\)/g, (group) => group.replace(/\./g, ""));
+  const protectedText = guarded.replace(/,(?=\d)/g, (match, offset: number) =>
     offset > 0 && /\d/.test(text[offset - 1]) ? PLACEHOLDER : match
   );
-  return protectedText.split(/[;•·]|,/).map((s) => s.replace(new RegExp(PLACEHOLDER, "g"), ","));
+  return protectedText
+    .split(/[;•·]|,|\.(?=\s)/)
+    .map((s) => s.replace(new RegExp(PLACEHOLDER, "g"), ",").replace(//g, "."));
 }
 
 /**
@@ -468,11 +486,18 @@ const MAX_FUZZY_ATTEMPTS_PER_BLOCK = 800;
  * A colon between two digits is kept — "ci 77268:1" and "pigment red 57:1" are
  * real colour-index names. Any other colon is a heading that leaked into the
  * name. Eight words is above every real INCI name in the dictionary and below
- * every sentence found in it.
+ * every sentence found in it. An HTML entity ("&lt;") or a run of seven digits
+ * (a barcode, a batch number) is packaging text that OCR or a paste carried in,
+ * as is a web address or e-mail, and a fragment that opens with the word
+ * "ingredients" is a footnote about the list, not a member of it.
  */
 export function isPlausibleIngredientName(name: string): boolean {
   if (/[:：]/.test(name.replace(/\d[:：]\d/g, ""))) return false;
   if (/\.(?:jpe?g|png|gif|webp|pdf)\b/i.test(name)) return false;
+  if (/&(?:lt|gt|amp|quot|nbsp|#\d+)\b|[<>]/i.test(name)) return false;
+  if (/\d{7,}/.test(name)) return false;
+  if (/\bwww\.|https?:|@|\.(?:com|net|org)\b/i.test(name)) return false;
+  if (/^ingr[eé]dients?\b/i.test(name)) return false;
   return name.split(/\s+/).length <= 8;
 }
 
@@ -510,36 +535,323 @@ export function findListByDictionary(flat: string, dictionary: ReadonlySet<strin
 }
 
 /**
+ * Dictionary names indexed two ways for the delimited path, built once per
+ * dictionary. A `WeakMap` keyed on the set itself: an importer reads the
+ * dictionary once and parses hundreds of products against it, and an Edge
+ * Function request builds its own set, so neither pays twice.
+ */
+const squashIndexCache = new WeakMap<ReadonlySet<string>, Map<string, string[]>>();
+const lengthIndexCache = new WeakMap<ReadonlySet<string>, Map<number, string[]>>();
+
+/**
+ * A name reduced to its letters and digits: "methyl styrene", "methylstyrene"
+ * and "methyl-styrene" are one key. Labels and the dictionary disagree about
+ * spaces and punctuation far more often than about spelling, and digits stay
+ * in the key so "peg-4" and "peg-40" can never meet.
+ */
+export function squashKey(name: string): string {
+  return name.replace(/[^a-z0-9]/g, "");
+}
+
+export function squashIndex(dictionary: ReadonlySet<string>): Map<string, string[]> {
+  const cached = squashIndexCache.get(dictionary);
+  if (cached) return cached;
+  const index = new Map();
+  for (const entry of dictionary) {
+    const key = squashKey(entry);
+    const bucket = index.get(key);
+    if (bucket) bucket.push(entry);
+    else index.set(key, [entry]);
+  }
+  squashIndexCache.set(dictionary, index);
+  return index;
+}
+
+export function lengthIndex(dictionary: ReadonlySet<string>): Map<number, string[]> {
+  const cached = lengthIndexCache.get(dictionary);
+  if (cached) return cached;
+  const index = new Map();
+  for (const entry of dictionary) {
+    const bucket = index.get(entry.length);
+    if (bucket) bucket.push(entry);
+    else index.set(entry.length, [entry]);
+  }
+  lengthIndexCache.set(dictionary, index);
+  return index;
+}
+
+/**
+ * What labels print in place of the INCI name, for the ordinary ingredients
+ * people name by their common name: "jojoba seed oil" is
+ * `simmondsia chinensis seed oil`, "flavor" is `aroma`. The dictionary is keyed
+ * on INCI, so none of these matches as written, and they are the largest group
+ * of misses that are not spelling.
+ *
+ * Only unambiguous ones. "Iron oxides" is three different colour indexes and
+ * "citrus aurantium peel oil" is two different oranges, so neither is here — a
+ * wrong mapping attaches another ingredient's safety note, which is worse than
+ * a miss. The caller checks the target is in the dictionary, so an entry whose
+ * target is absent does nothing.
+ */
+export function commonNameFor(name: string): string | undefined {
+  const table = new Map([
+    ["flavor", "aroma"],
+    ["flavour", "aroma"],
+    ["perfume", "parfum"],
+    ["fragrance", "parfum"],
+    ["purified water", "aqua"],
+    ["deionized water", "aqua"],
+    ["demineralized water", "aqua"],
+    ["distilled water", "aqua"],
+    ["glycerine", "glycerin"],
+    ["glycerol", "glycerin"],
+    ["petroleum jelly", "petrolatum"],
+    ["mineral oil", "paraffinum liquidum"],
+    ["jojoba oil", "simmondsia chinensis seed oil"],
+    ["jojoba seed oil", "simmondsia chinensis seed oil"],
+    ["apricot kernel oil", "prunus armeniaca kernel oil"],
+    ["evening primrose oil", "oenothera biennis oil"],
+    ["argan oil", "argania spinosa kernel oil"],
+    ["argan kernel oil", "argania spinosa kernel oil"],
+    ["olive oil", "olea europaea fruit oil"],
+    ["olive fruit oil", "olea europaea fruit oil"],
+    ["rosehip oil", "rosa canina fruit oil"],
+    ["rosehip fruit extract", "rosa canina fruit extract"],
+    ["mango fruit extract", "mangifera indica fruit extract"],
+    ["mango butter", "mangifera indica seed butter"],
+    ["shea butter", "butyrospermum parkii butter"],
+    ["coconut oil", "cocos nucifera oil"],
+    ["sweet almond oil", "prunus amygdalus dulcis oil"],
+    ["almond oil", "prunus amygdalus dulcis oil"],
+    ["avocado oil", "persea gratissima oil"],
+    ["castor oil", "ricinus communis seed oil"],
+    ["grapeseed oil", "vitis vinifera seed oil"],
+    ["grape seed oil", "vitis vinifera seed oil"],
+    ["sunflower oil", "helianthus annuus seed oil"],
+    ["sunflower seed oil", "helianthus annuus seed oil"],
+    ["tea tree oil", "melaleuca alternifolia leaf oil"],
+    ["lavender oil", "lavandula angustifolia oil"],
+    ["candelilla wax", "euphorbia cerifera cera"],
+    ["euphorbia cerifera wax", "euphorbia cerifera cera"],
+    ["carnauba wax", "copernicia cerifera cera"],
+    ["kojic acid dipalmitate", "kojic dipalmitate"],
+    ["vitamin e", "tocopherol"],
+    ["vitamin e acetate", "tocopheryl acetate"],
+    ["vitamin c", "ascorbic acid"],
+    ["vitamin b5", "panthenol"],
+  ]);
+  return table.get(name);
+}
+
+/**
+ * Dictionary names indexed two ways for the delimited path, built once per
+ * dictionary. A `WeakMap` keyed on the set itself: an importer reads the
+ * dictionary once and parses hundreds of products against it, and an Edge
+ * Function request builds its own set, so neither pays twice.
+ */
+const squashIndexCache = new WeakMap<ReadonlySet<string>, Map<string, string[]>>();
+const lengthIndexCache = new WeakMap<ReadonlySet<string>, Map<number, string[]>>();
+
+/**
+ * A name reduced to its letters and digits: "methyl styrene", "methylstyrene"
+ * and "methyl-styrene" are one key. Labels and the dictionary disagree about
+ * spaces and punctuation far more often than about spelling, and digits stay
+ * in the key so "peg-4" and "peg-40" can never meet.
+ */
+export function squashKey(name: string): string {
+  return name.replace(/[^a-z0-9]/g, "");
+}
+
+export function squashIndex(dictionary: ReadonlySet<string>): Map<string, string[]> {
+  const cached = squashIndexCache.get(dictionary);
+  if (cached) return cached;
+  const index = new Map();
+  for (const entry of dictionary) {
+    const key = squashKey(entry);
+    const bucket = index.get(key);
+    if (bucket) bucket.push(entry);
+    else index.set(key, [entry]);
+  }
+  squashIndexCache.set(dictionary, index);
+  return index;
+}
+
+export function lengthIndex(dictionary: ReadonlySet<string>): Map<number, string[]> {
+  const cached = lengthIndexCache.get(dictionary);
+  if (cached) return cached;
+  const index = new Map();
+  for (const entry of dictionary) {
+    const bucket = index.get(entry.length);
+    if (bucket) bucket.push(entry);
+    else index.set(entry.length, [entry]);
+  }
+  lengthIndexCache.set(dictionary, index);
+  return index;
+}
+
+/**
+ * What labels print in place of the INCI name, for the ordinary ingredients
+ * people name by their common name: "jojoba seed oil" is
+ * `simmondsia chinensis seed oil`, "flavor" is `aroma`. The dictionary is keyed
+ * on INCI, so none of these matches as written, and they are the largest group
+ * of misses that are not spelling.
+ *
+ * Only unambiguous ones. "Iron oxides" is three different colour indexes and
+ * "citrus aurantium peel oil" is two different oranges, so neither is here — a
+ * wrong mapping attaches another ingredient's safety note, which is worse than
+ * a miss. The caller checks the target is in the dictionary, so an entry whose
+ * target is absent does nothing.
+ */
+export function commonNameFor(name: string): string | undefined {
+  const table = new Map([
+    ["flavor", "aroma"],
+    ["flavour", "aroma"],
+    ["perfume", "parfum"],
+    ["fragrance", "parfum"],
+    ["purified water", "aqua"],
+    ["deionized water", "aqua"],
+    ["demineralized water", "aqua"],
+    ["distilled water", "aqua"],
+    ["glycerine", "glycerin"],
+    ["glycerol", "glycerin"],
+    ["petroleum jelly", "petrolatum"],
+    ["mineral oil", "paraffinum liquidum"],
+    ["jojoba oil", "simmondsia chinensis seed oil"],
+    ["jojoba seed oil", "simmondsia chinensis seed oil"],
+    ["apricot kernel oil", "prunus armeniaca kernel oil"],
+    ["evening primrose oil", "oenothera biennis oil"],
+    ["argan oil", "argania spinosa kernel oil"],
+    ["argan kernel oil", "argania spinosa kernel oil"],
+    ["olive oil", "olea europaea fruit oil"],
+    ["olive fruit oil", "olea europaea fruit oil"],
+    ["rosehip oil", "rosa canina fruit oil"],
+    ["rosehip fruit extract", "rosa canina fruit extract"],
+    ["mango fruit extract", "mangifera indica fruit extract"],
+    ["mango butter", "mangifera indica seed butter"],
+    ["shea butter", "butyrospermum parkii butter"],
+    ["coconut oil", "cocos nucifera oil"],
+    ["sweet almond oil", "prunus amygdalus dulcis oil"],
+    ["almond oil", "prunus amygdalus dulcis oil"],
+    ["avocado oil", "persea gratissima oil"],
+    ["castor oil", "ricinus communis seed oil"],
+    ["grapeseed oil", "vitis vinifera seed oil"],
+    ["grape seed oil", "vitis vinifera seed oil"],
+    ["sunflower oil", "helianthus annuus seed oil"],
+    ["sunflower seed oil", "helianthus annuus seed oil"],
+    ["tea tree oil", "melaleuca alternifolia leaf oil"],
+    ["lavender oil", "lavandula angustifolia oil"],
+    ["candelilla wax", "euphorbia cerifera cera"],
+    ["euphorbia cerifera wax", "euphorbia cerifera cera"],
+    ["carnauba wax", "copernicia cerifera cera"],
+    ["kojic acid dipalmitate", "kojic dipalmitate"],
+    ["vitamin e", "tocopherol"],
+    ["vitamin e acetate", "tocopheryl acetate"],
+    ["vitamin c", "ascorbic acid"],
+    ["vitamin b5", "panthenol"],
+  ]);
+  return table.get(name);
+}
+
+/**
  * Map a delimited name the dictionary does not hold to the one it does.
  *
  * `matchWindow` already knows two printed-label habits, but only runs when the
  * list had no delimiters at all. A list split cleanly on commas skipped both,
- * so "aqua/water/eau" and "gly cerin" reached the dictionary as-is and missed —
- * about a fifth of every unmatched name in a live sample, for ingredients the
- * dictionary holds under a plain name.
+ * so "aqua/water/eau" and "gly cerin" reached the dictionary as-is and missed.
+ * In order, and each only when the one before found nothing:
  *
- *  - OCR splits one printed word: "gly cerin", "be henyl alcohol".
- *  - "/" separates names for ONE ingredient: "aqua/water/eau" is aqua. Strict,
- *    as in `matchWindow`: every later part must be a known name or a single
- *    word, so "hydroxyethyl acrylate/sodium acryloyldimethyl taurate
- *    copolymer" — one real name that merely contains a slash — is left alone.
+ *  - a British spelling: "sulphate" is `sulfate`;
+ *  - a common name from `commonNameFor`;
+ *  - the same letters and digits under different spacing or punctuation
+ *    ("gly cerin", "methylstyrene" for `methyl styrene`, "acryloyldimethyl
+ *    taurate" for `acryloyldimethyltaurate`) — through `squashIndex`, so it is
+ *    one lookup, and when the dictionary holds the name more than once the one
+ *    fewest edits from what was printed wins;
+ *  - an unclosed bracket: "aqua (water" is aqua;
+ *  - "/" separating names for ONE ingredient: "aqua/water/eau" is aqua, and
+ *    "iron oxides/ci 77491" is ci 77491. One part must be a known name or an
+ *    alias, and each other part a known name, an alias, or a single word. A
+ *    last part ending in polymer, resin or esters is held to that bar strictly,
+ *    because those are the single real names that merely contain a
+ *    slash ("hydroxyethyl acrylate/sodium acryloyldimethyl taurate
+ *    copolymer"); anywhere else an unfamiliar translated part ("huile
+ *    minerale") is fine, since the list was already split on commas and there is
+ *    nothing after the slash to swallow.
  *
- * A name already in the dictionary, or matching neither shape, comes back
+ * A name already in the dictionary, or matching none of these, comes back
  * unchanged.
  */
-export function resolveKnownName(name: string, dictionary: ReadonlySet<string>): string {
+export function resolveKnownName(name: string, dictionary: ReadonlySet<string>, aliases?: ReadonlyMap<string, string>): string {
   if (dictionary.has(name)) return name;
-  const words = name.split(" ");
-  for (let i = 0; i + 1 < words.length; i++) {
-    const joined = [...words.slice(0, i), words[i] + words[i + 1], ...words.slice(i + 2)].join(" ");
-    if (dictionary.has(joined)) return joined;
+  // A bracket the label never closed ("aqua (water"): normalise only removes a
+  // matched pair, so the open half is still on the end of the name.
+  const unbracketed = name.replace(/\s*\(.*$/, "").replace(/\)+$/, "");
+  if (unbracketed !== name && dictionary.has(unbracketed)) return unbracketed;
+  const spelled = name.replace(/sulph/g, "sulf");
+  if (dictionary.has(spelled)) return spelled;
+  const common = commonNameFor(spelled);
+  if (common && dictionary.has(common)) return common;
+  const squashed = squashIndex(dictionary).get(squashKey(spelled));
+  if (squashed) {
+    let best = squashed[0];
+    for (const candidate of squashed) {
+      if (levenshtein(candidate, name, 99) < levenshtein(best, name, 99)) best = candidate;
+    }
+    return best;
   }
   if (name.includes("/")) {
     const parts = name.split("/").map(normalise);
-    const restIsPlausible = parts.slice(1).every((p) => p.length > 1 && (dictionary.has(p) || !p.includes(" ")));
-    if (parts.length > 1 && dictionary.has(parts[0]) && restIsPlausible) return parts[0];
+    const isKnown = (part: string) => dictionary.has(part) || (aliases?.has(part) ?? false);
+    const anchor = parts.find(isKnown);
+    const strict = /(?:polymer|resin|esters?)$/.test(parts[parts.length - 1]);
+    const restIsPlausible = parts.every((part) => part === anchor || (part.length > 1 && (isKnown(part) || !part.includes(" ") || !strict)));
+    if (parts.length > 1 && anchor && restIsPlausible) return anchor;
   }
   return name;
+}
+
+/**
+ * Split a token that is really two or more ingredients with the comma missing.
+ *
+ * "caprylyl glycol isohexadecane" and "camellia sinensis leaf extract arnica
+ * montana flower extract" are printed with a gap where a comma belongs, and
+ * each was being stored as one long junk name — 'caprylyl glycol
+ * isohexadecane' is in the live dictionary as an unverified stub. Greedy,
+ * longest known name first, and only when every word lands in a known name: one
+ * leftover word means the token is not a run-together list, so it is returned
+ * whole rather than guessed at.
+ */
+export function splitRunTogether(name: string, dictionary: ReadonlySet<string>): string[] {
+  const words = name.split(" ");
+  if (words.length < 2 || words.length > 12) return [name];
+  const pieces = [];
+  let i = 0;
+  while (i < words.length) {
+    let span = Math.min(6, words.length - i);
+    while (span > 0 && !dictionary.has(words.slice(i, i + span).join(" "))) span--;
+    if (span === 0) return [name];
+    pieces.push(words.slice(i, i + span).join(" "));
+    i += span;
+  }
+  return pieces.length > 1 ? pieces : [name];
+}
+
+/**
+ * Correct a one-letter typo in a long name: "helianthus annus seed oil" for
+ * `helianthus annuus seed oil`, "potassium cetyl phospate".
+ *
+ * Deliberately much tighter than the fuzzy match the no-delimiter path uses,
+ * because that one is repairing OCR noise and this one is reading typed text. A
+ * name must be at least 16 characters, sit exactly one edit from a single
+ * unambiguous dictionary name, and carry the same digits — methylparaben and
+ * ethylparaben are one edit apart, and so are polyquaternium-10 and -11, and
+ * each is a different ingredient with a different safety note.
+ */
+export function fuzzyKnownName(name: string, dictionary: ReadonlySet<string>, attempts: { remaining: number }): string {
+  if (name.length < 16) return name;
+  const found = fuzzyLookup(name, lengthIndex(dictionary), attempts);
+  if (!found || levenshtein(name, found, 1) > 1) return name;
+  return name.replace(/\D/g, "") === found.replace(/\D/g, "") ? found : name;
 }
 
 /**
@@ -573,29 +885,38 @@ export function parseIngredientBlock(
   const listed = dictionary ? findListByDictionary(flat, dictionary, aliases) : null;
   if (listed) block = listed;
 
-  // Stop at the next sentence-like section, which is usually directions or a
-  // marketing claim rather than more formula. Also stop at the net-quantity
-  // mark (EU packaging's "e" symbol beside a volume) and distributor/legal
-  // boilerplate, both of which reliably sit right after the formula and,
-  // left in, degrade to junk fragments that dilute the recognised ratio.
+  // Directions/cautions are the common case, but a photo also catches
+  // whatever else shares the back of the label — the net-quantity mark (the
+  // "e" symbol EU packaging prints beside a volume) and distributor/legal
+  // boilerplate reliably sit right after the formula, and left in, both
+  // degrade to junk fragments that dilute the recognised-ingredient ratio
+  // enough to sink the verdict below "unknown" even when the OCR read was
+  // otherwise clean.
   const stop =
     /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b|\bstorage\b)/i.exec(
       block
     );
   if (stop) block = block.slice(0, stop.index);
 
-  // Aliases resolve on the delimited path too: a bilingual label lists its
-  // French names comma-separated like any other, so `glycérine` arrives here
-  // well-formed and merely under the wrong name.
+  // Aliases resolve on the delimited path too, not only in reconstruction:
+  // a bilingual label lists its French names comma-separated like any other,
+  // so `glycérine` arrives here already well-formed and merely under the
+  // wrong name.
   const canonical = (name: string) => aliases?.get(name) ?? name;
 
+  const fuzzyAttempts = { remaining: MAX_FUZZY_ATTEMPTS_PER_BLOCK };
   const delimited = splitOnSeparators(block)
     .map(normalise)
     .filter((n) => n.length > 1 && n.length < 120 && /[a-z]/.test(n) && isPlausibleIngredientName(n))
-    .map((name, position) => ({
-      inci_name: dictionary ? resolveKnownName(canonical(name), dictionary) : canonical(name),
-      position,
-    }));
+    .flatMap((name) => {
+      const resolved = canonical(name);
+      if (!dictionary) return [resolved];
+      const known = resolveKnownName(resolved, dictionary, aliases);
+      if (dictionary.has(known)) return [known];
+      const pieces = splitRunTogether(known, dictionary);
+      return pieces.length > 1 ? pieces : [fuzzyKnownName(known, dictionary, fuzzyAttempts)];
+    })
+    .map((inci_name, position) => ({ inci_name, position }));
 
   if (delimited.length >= MIN_DELIMITED_TOKENS || !dictionary) return dedupe(delimited);
 

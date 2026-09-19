@@ -38,7 +38,13 @@ const SHARED_FUNCTIONS = [
   "reconstructFromDictionary",
   "isPlausibleIngredientName",
   "findListByDictionary",
+  "squashKey",
+  "squashIndex",
+  "lengthIndex",
+  "commonNameFor",
   "resolveKnownName",
+  "splitRunTogether",
+  "fuzzyKnownName",
   "parseIngredientBlock",
   "dedupe",
 ];
@@ -108,7 +114,6 @@ describe("label-ocr's parser stays in step with lib/inci.ts", () => {
  * instead is the two regexes it lifted, which is where the drift actually was.
  */
 const IMPORTER_PATHS = [
-  "import-obf.mjs",
   "import-cosing.mjs",
   "import-inci-dictionary.mjs",
   "import-wikidata-synonyms.mjs",
@@ -153,8 +158,14 @@ function stripTypes(body: string): string {
     .replace(/: ParsedIngredient\[\]/g, "")
     .replace(/\?: ReadonlyMap<string, string>/g, "")
     .replace(/: ReadonlySet<string>/g, "")
+    .replace(/: Map<number, string\[\]>/g, "")
+    .replace(/: Map<string, string\[\]>/g, "")
+    .replace(/: \{ remaining: number \}/g, "")
+    .replace(/: string \| undefined/g, "")
     .replace(/: string \| null/g, "")
     .replace(/: boolean/g, "")
+    .replace(/: number/g, "")
+    .replace(/: string\[\]/g, "")
     .replace(/<string>/g, "")
     .replace(/: string/g, "");
 }
@@ -162,43 +173,52 @@ function stripTypes(body: string): string {
 describe("the import scripts stay in step with lib/inci.ts", () => {
   const client = fs.readFileSync(CLIENT_PATH, "utf8");
   const clientNormalise = stripTypes(extractFunctionBody(client, "normalise"));
-  const clientDedupe = stripTypes(extractFunctionBody(client, "dedupe"));
+  const parseMjs = fs.readFileSync(path.join(__dirname, "..", "scripts", "lib", "inci-parse.mjs"), "utf8");
 
   it.each(IMPORTER_PATHS)("%s has the canonical normalise()", (scriptPath: string) => {
     const script = fs.readFileSync(scriptPath, "utf8");
     expect(extractFunctionBody(script, "normalise")).toBe(clientNormalise);
   });
 
-  // Only import-obf writes product formulas, so it is the only script that
-  // needs this one — and it is the script that shipped without it, storing a
-  // repeated name as a second `product_ingredients` row that the scorer then
-  // weighted twice.
-  it("import-obf.mjs has the canonical dedupe()", () => {
-    const obf = fs.readFileSync(path.join(__dirname, "..", "scripts", "import-obf.mjs"), "utf8");
-    expect(extractFunctionBody(obf, "dedupe")).toBe(clientDedupe);
-  });
-
-  // The two functions that find the list without a heading pattern and reject
-  // a fragment that cannot be a name. Both importers that write ingredient
-  // stubs carry them, and a copy that drifts writes junk that the others refuse.
+  // `scripts/lib/inci-parse.mjs` is the one plain-JavaScript copy of the parser.
+  // Every function in it but `parseInci` is `lib/inci.ts`'s own text with the
+  // types removed, so a change made to one and not the other fails here — and
+  // this list is the whole surface an importer parses through: separators, the
+  // name check, finding the list without a heading pattern, and every step that
+  // turns a printed name into a dictionary name.
   it.each([
-    ["import-obf.mjs", "isPlausibleIngredientName"],
-    ["import-obf.mjs", "findListByDictionary"],
-    ["lib/inci-parse.mjs", "isPlausibleIngredientName"],
-    ["lib/inci-parse.mjs", "findListByDictionary"],
-    ["import-obf.mjs", "resolveKnownName"],
-    ["lib/inci-parse.mjs", "resolveKnownName"],
-  ])("%s has the canonical %s()", (file: string, fn: string) => {
-    const script = fs.readFileSync(path.join(__dirname, "..", "scripts", file), "utf8");
-    expect(extractFunctionBody(script, fn)).toBe(stripTypes(extractFunctionBody(client, fn)));
+    "splitOnSeparators",
+    "levenshtein",
+    "fuzzyBudget",
+    "fuzzyLookup",
+    "isPlausibleIngredientName",
+    "findListByDictionary",
+    "squashKey",
+    "squashIndex",
+    "lengthIndex",
+    "commonNameFor",
+    "resolveKnownName",
+    "splitRunTogether",
+    "fuzzyKnownName",
+    "dedupe",
+  ])("inci-parse.mjs has the canonical %s()", (fn: string) => {
+    expect(extractFunctionBody(parseMjs, fn)).toBe(stripTypes(extractFunctionBody(client, fn)));
   });
 
   it.each([
     ["the Ingredients: heading strip", "/(?:ingr[eé]dient"],
     ["the boilerplate stop clause", "/(?:\\bdirections?\\b"],
-  ])("import-obf.mjs reuses %s verbatim", (_label: string, marker: string) => {
+  ])("inci-parse.mjs reuses %s verbatim", (_label: string, marker: string) => {
+    expect(extractRegexLiteral(parseMjs, marker)).toBe(extractRegexLiteral(client, marker));
+  });
+
+  // `import-obf.mjs` carried its own hand-copy and drifted, writing label
+  // headings into the dictionary. It imports the shared parser now; this fails
+  // if a local copy grows back.
+  it("import-obf.mjs imports the shared parser and holds no copy of it", () => {
     const obf = fs.readFileSync(path.join(__dirname, "..", "scripts", "import-obf.mjs"), "utf8");
-    expect(extractRegexLiteral(obf, marker)).toBe(extractRegexLiteral(client, marker));
+    expect(obf).toMatch(/import \{[^}]*\bparseInci\b[^}]*\} from "\.\/lib\/inci-parse\.mjs"/);
+    expect(obf).not.toMatch(/^function (?:parseInci|normalise|dedupe)\(/m);
   });
 });
 
