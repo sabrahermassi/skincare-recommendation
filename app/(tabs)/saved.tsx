@@ -218,6 +218,7 @@ export default function Saved() {
         <EmptyState {...EMPTY_COPY[tab]} />
       ) : tab === "ingredients" ? (
         <IngredientsTab
+          key="ingredients"
           scrollRef={listRef}
           names={savedIngredients}
           footer={
@@ -250,7 +251,10 @@ export default function Saved() {
           <ActivityIndicator color={INK} />
         </View>
       ) : tab === "saved" ? (
-        <ScrollView ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
+        // `key` on each list: Saved and History are the same kind of element in the
+        // same spot, so without it React reuses one scroll view for both and the
+        // scroll position carries over when switching tabs.
+        <ScrollView key="saved" ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
           {savedIds.map((id) => {
             const product = byId[id];
             if (!product) return null;
@@ -312,7 +316,7 @@ export default function Saved() {
           />
         </ScrollView>
       ) : (
-        <ScrollView ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
+        <ScrollView key="history" ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
           {history.map((entry) => {
             const product = entry.known ? byId[entry.id] : undefined;
             // The bar reflects the score this entry carried when it was
