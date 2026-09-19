@@ -847,15 +847,3 @@ export function rungFor(ingredient: Ingredient, match: MatchResult): Rung {
 export function ruleFor(ingredient: Ingredient): IngredientRule | undefined {
   return isVerified(ingredient) ? findRule(ingredient) : undefined;
 }
-
-/**
- * Plain-language weight of an INCI position, for the detail screen. Mirrors
- * the bands in `positionWeight` so the words and the maths cannot disagree.
- */
-export function positionWeightLabel(index: number): string {
-  if (index <= 2) return "high concentration";
-  if (index <= 5) return "significant";
-  if (index <= 10) return "moderate";
-  if (index <= 20) return "low";
-  return "trace";
-}

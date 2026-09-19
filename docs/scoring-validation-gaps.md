@@ -26,16 +26,22 @@ A rule's declared sensitive-skin harm is charged as irritation whatever its
 benefit category. `positionWeight` scales it by INCI position down to a 0.3
 floor, but the irritation penalty saturates, so the final points fall far less
 than the weight does: at the floor a trace active still costs roughly half of
-what the same active costs near the top of the list (measured 2026-09-19 on a
-highly sensitive profile: salicylic acid 8.7 against 16.1, ascorbic acid 7.3
-against 14.2, retinol 9.3 against 16.9).
+what the same active costs near the top of the list. Measured once on
+2026-09-19 with a throwaway script that is not in the repo: a `serum` of 43
+ingredients (`water`, `glycerin`, `propanediol` and 40 unmatched fillers) with
+one active inserted at position 3 or at 33 or later, for a highly sensitive
+`dullness` profile. Irritation penalty at position 3 against the floor:
+salicylic acid 16.1 against 8.7, ascorbic acid 14.2 against 7.3, retinol 16.9
+against 9.3. Re-measure with that setup before relying on the figures.
 
 Alphabetical lists are handled: `positionWeights` in `lib/rules.ts` detects an
 A-to-Z tail (21 CFR 201.66(c)(8) requires it of OTC drugs that are not also
 cosmetics) and gives it one flat weight, the average of the curve over that
 stretch. That derived weight is not a published figure; nothing published gives
-one. It does not remove the charge — Kiss My Face Purely Mineral's ascorbic acid
-still costs 9.5 irritation points at a flat weight of 0.42.
+one. It does not remove the charge — in the 2026-09-19 catalogue snapshot, Kiss
+My Face Purely Mineral's ascorbic acid still costs 9.5 irritation points for a
+highly sensitive, dry, acne-prone profile at a flat weight of 0.42 (a live row,
+so the figure can change).
 
 Whether that charge is too large is a calibration question about
 `IRRITATION_SATURATION` and the harm weights, not about list order. Resolve it

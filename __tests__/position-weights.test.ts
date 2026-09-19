@@ -33,7 +33,7 @@ describe("positionWeights", () => {
   });
 
   it("ignores a sorted run shorter than the minimum", () => {
-    const names = ["water", "glycerin", "niacinamide", "zinc oxide", "allantoin", "bisabolol", "carbomer", "dimethicone", "edta"].slice(0, 9);
+    const names = ["water", "glycerin", "niacinamide", "zinc oxide", "allantoin", "bisabolol", "carbomer", "dimethicone", "edta"];
     // Tail "allantoin".."edta" is 5 long: below MIN_ALPHABETICAL_RUN.
     expect(MIN_ALPHABETICAL_RUN).toBeGreaterThan(5);
     expect(positionWeights(names)).toEqual(curve(names.length));
