@@ -188,6 +188,13 @@ describe("resolveKnownName: unit annotations", () => {
     expect(resolveKnownName("octocrylene w/v", dictionary)).toBe("octocrylene");
   });
 
+  it("drops a dose glued to or spaced after the name", () => {
+    expect(resolveKnownName("homosalate100mg/g", dictionary)).toBe("homosalate");
+    expect(resolveKnownName("octocrylene 50 mg/g", dictionary)).toBe("octocrylene");
+    expect(resolveKnownName("octyl salicylate 50mg/g", dictionary)).toBe("ethylhexyl salicylate");
+    expect(resolveKnownName("homosalate 10%", dictionary)).toBe("homosalate");
+  });
+
   it("resolves the common UV-filter names after the unit is dropped", () => {
     expect(resolveKnownName("octyl salicylate w/w", dictionary)).toBe("ethylhexyl salicylate");
     expect(resolveKnownName("octyl methoxycinnamate", dictionary)).toBe("ethylhexyl methoxycinnamate");

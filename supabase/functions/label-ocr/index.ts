@@ -682,6 +682,7 @@ export function resolveKnownName(name: string, dictionary: ReadonlySet<string>, 
   // the open half is still on the end of the name.
   const base = name
     .replace(/\s+w\/[wv]$/, "")
+    .replace(/\s*\d+(?:[.,]\d+)?\s*(?:mg|g|ml|%)(?:\s*\/\s*(?:\d+\s*)?(?:mg|g|ml))?$/, "")
     .replace(/\s*\(.*$/, "")
     .replace(/\)+$/, "");
   if (base !== name && dictionary.has(base)) return base;
