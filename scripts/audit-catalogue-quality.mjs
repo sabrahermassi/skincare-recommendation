@@ -18,9 +18,12 @@
  *    short-name filter would also catch genuine short INCI names (PCA, EGF),
  *    so this reports candidates for manual review rather than guessing.
  *
- * Run (needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY — both tables are
- * publicly readable, but every other script here needs the service key, and
- * deleting confirmed-junk products needs it regardless):
+ * Run (needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY, for both the report
+ * and the delete — `products` and `ingredients` are publicly readable, but
+ * `import-obf.mjs` and `import-dailymed.mjs` set the precedent of requiring
+ * the service key even for a read-only dry run rather than quietly reading
+ * through the anon key, and deleting confirmed-junk products needs it
+ * regardless):
  *
  *   node scripts/audit-catalogue-quality.mjs                     # report only
  *   node scripts/audit-catalogue-quality.mjs --delete-junk-products
@@ -33,6 +36,9 @@
  * (PCA, EGF) are genuine. Each flagged ingredient prints a ready `DELETE`
  * statement to run by hand once reviewed — deliberately not executed here.
  */
+
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -47,11 +53,18 @@ const APPLY = process.argv.includes("--delete-junk-products");
  * the same "positive evidence, not a denylist" gate already live: a
  * `barcode_db` row failing it today is exactly the shape of row that gate
  * exists to refuse, just written before the gate did.
+ *
+ * `__tests__/audit-catalogue-quality-parity.test.ts` pins this string
+ * against the Edge Function's copy — the two drifting apart silently is
+ * exactly what happened to `guessType`'s two copies before
+ * `classifier-parity.test.ts` existed.
  */
+const LOOKS_COSMETIC_SOURCE =
+  "beauty|cosmetic|personal care|skin|face|facial|body care|hair care|lotion|cream|crème|creme|serum|cleanser|shampoo|toner|sunscreen|spf|balm|moisturi|nettoyant|reinigings|limpiador|crema|deodorant|antiperspirant";
+const LOOKS_COSMETIC = new RegExp(LOOKS_COSMETIC_SOURCE, "i");
+
 function looksCosmetic(text) {
-  return /beauty|cosmetic|personal care|skin|face|facial|body care|hair care|lotion|cream|crème|creme|serum|cleanser|shampoo|toner|sunscreen|spf|balm|moisturi|nettoyant|reinigings|limpiador|crema|deodorant|antiperspirant/i.test(
-    text
-  );
+  return LOOKS_COSMETIC.test(text);
 }
 
 /**
@@ -78,6 +91,36 @@ const GLUED_CODE = /\.\s*[a-z]{0,4}-?\d{3,}\b|\bpr[\s#-]?\d+\b/i;
 const KNOWN_SHORT_NAMES = new Set(["pca", "egf", "dmae", "msm", "uv", "aha", "bha", "dna", "rna"]);
 const SHORT_NAME_MAX_LENGTH = 3;
 
+/**
+ * Which bucket (if any) an unverified ingredient name falls into. Pure and
+ * exported so `__tests__/audit-catalogue-quality-gates.test.ts` can pin it
+ * against real examples from the issue without a live database — the same
+ * shape `import-obf.mjs`'s `toRow`/`parseInci` are tested in.
+ *
+ * Checked in this order deliberately: a glued code takes priority over the
+ * prose check (a name can incidentally contain a prose word after its code),
+ * and both take priority over the short-name check so a genuinely short
+ * fragment is never double-counted into more than one bucket.
+ */
+function classifyGarbageIngredient(name) {
+  if (GLUED_CODE.test(name)) return "glued";
+  if (PROSE_MARKERS.test(name)) return "prose";
+  if (name.length <= SHORT_NAME_MAX_LENGTH && !KNOWN_SHORT_NAMES.has(name)) return "short";
+  return null;
+}
+
+/**
+ * A SQL single-quoted string literal, safe to paste into the Supabase SQL
+ * editor. `JSON.stringify` was used here originally and produces a
+ * double-quoted string — which Postgres parses as a quoted *identifier*, not
+ * a string literal, so every printed `DELETE` failed with "column ... does
+ * not exist" instead of deleting anything. Doubling an embedded single quote
+ * is the standard SQL escape for a literal.
+ */
+function sqlStringLiteral(value) {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
 async function auditJunkProducts(db) {
   const rows = await paginateOrdered(db, "products", {
     select: "id, name, brand, type, attribution",
@@ -91,6 +134,7 @@ async function auditJunkProducts(db) {
   console.log(`${rows.length} barcode_db rows total, ${junk.length} fail looksCosmetic:\n`);
   for (const r of junk) {
     console.log(`  ${r.id}  "${r.name}"  brand=${r.brand}  type=${r.type}`);
+    console.log(`    ${r.attribution}`);
   }
   if (junk.length === 0) console.log("  none");
   return junk;
@@ -106,15 +150,15 @@ async function auditGarbageIngredients(db) {
     filter: (q) => q.eq("verified", false),
   });
 
-  const glued = rows.filter((r) => GLUED_CODE.test(r.inci_name));
-  const prose = rows.filter((r) => !GLUED_CODE.test(r.inci_name) && PROSE_MARKERS.test(r.inci_name));
-  const short = rows.filter(
-    (r) =>
-      !GLUED_CODE.test(r.inci_name) &&
-      !PROSE_MARKERS.test(r.inci_name) &&
-      r.inci_name.length <= SHORT_NAME_MAX_LENGTH &&
-      !KNOWN_SHORT_NAMES.has(r.inci_name)
-  );
+  const glued = [];
+  const prose = [];
+  const short = [];
+  for (const r of rows) {
+    const bucket = classifyGarbageIngredient(r.inci_name);
+    if (bucket === "glued") glued.push(r);
+    else if (bucket === "prose") prose.push(r);
+    else if (bucket === "short") short.push(r);
+  }
 
   console.log(`\n== Garbage ingredient names (unverified) ==`);
   console.log(`${rows.length} unverified rows total.\n`);
@@ -138,7 +182,7 @@ async function auditGarbageIngredients(db) {
         "since some short survivors above are genuine. Once reviewed, delete confirmed-bad rows by hand:\n"
     );
     for (const r of flagged) {
-      console.log(`  delete from ingredients where inci_name = ${JSON.stringify(r.inci_name)};`);
+      console.log(`  delete from ingredients where inci_name = ${sqlStringLiteral(r.inci_name)};`);
     }
   }
   return flagged;
@@ -187,7 +231,36 @@ async function main() {
   console.log(`Deleted ${deleted} product(s).`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+/**
+ * Only run the audit when this file is what was invoked — same guard and
+ * same reasoning as `import-obf.mjs`: the classification logic below is
+ * ordinary functions and deserves ordinary tests, which need this file
+ * importable without hitting a live database.
+ */
+function invokedDirectly() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (invokedDirectly()) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
+export {
+  looksCosmetic,
+  LOOKS_COSMETIC_SOURCE,
+  classifyGarbageIngredient,
+  sqlStringLiteral,
+  GLUED_CODE,
+  PROSE_MARKERS,
+  KNOWN_SHORT_NAMES,
+  SHORT_NAME_MAX_LENGTH,
+};
