@@ -20,6 +20,7 @@ import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { profileSummary } from "@/lib/profile";
+import { SCAN_BUTTON_LIFT } from "@/lib/tab-bar";
 import { useAppStore } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 
@@ -471,7 +472,7 @@ function BarcodeStage({
   // already said yes.
   const needsPermission = permission !== null && !permission.granted;
   const switcherClearance =
-    Math.max(20, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
+    Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
 
   return (
     <View style={{ flex: 1, backgroundColor: needsPermission ? CANVAS : CAMERA_STAGE, paddingTop: needsPermission ? insets.top : 0 }}>
@@ -549,7 +550,7 @@ function BarcodeStage({
           position: "absolute",
           left: STAGE_INSET,
           right: STAGE_INSET,
-          bottom: Math.max(20, insets.bottom + 12),
+          bottom: Math.max(STAGE_BOTTOM, insets.bottom + 12),
           gap: 12,
         }}
       >
@@ -745,7 +746,7 @@ function IngredientsStage({
 }) {
   const insets = useSafeAreaInsets();
   const needsPermission = permission !== null && !permission.granted;
-  const clearance = Math.max(20, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
+  const clearance = Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
 
   return (
     <View style={{ flex: 1, backgroundColor: needsPermission ? CANVAS : CAMERA_STAGE, paddingTop: needsPermission ? insets.top : 0 }}>
@@ -777,7 +778,7 @@ function IngredientsStage({
           position: "absolute",
           left: STAGE_INSET,
           right: STAGE_INSET,
-          bottom: Math.max(20, insets.bottom + 12),
+          bottom: Math.max(STAGE_BOTTOM, insets.bottom + 12),
         }}
       >
         {modeSwitcher}
@@ -787,12 +788,14 @@ function IngredientsStage({
 }
 
 // The mode switcher's own height plus the same bottom offset its wrapping View uses
-// (`Math.max(20, insets.bottom + 12)`) and a margin above it — this frame
+// (`Math.max(STAGE_BOTTOM, insets.bottom + 12)`) and a margin above it — this frame
 // used to be measured off a 293pt card that no longer exists (the stage is
 // full-bleed now), so a fixed bottom inset put the frame's bottom edge, and
 // its instruction text, underneath the switcher rather than clear of it.
 const SWITCHER_HEIGHT = 56;
 // How far in the bottom wrapper (mode pills, status panel) sits from each edge.
 const STAGE_INSET = 20;
+// Clear of the tab bar's raised scan button, which rises into the stage.
+const STAGE_BOTTOM = SCAN_BUTTON_LIFT + 12;
 const FRAME_MARGIN_ABOVE_SWITCHER = 24;
 
