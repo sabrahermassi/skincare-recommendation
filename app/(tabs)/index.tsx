@@ -148,6 +148,20 @@ export default function Scan() {
 
   const busy = useRef(false);
 
+  // Tapping Barcode again after a miss or a failed lookup is how you scan
+  // another: it clears the message and the camera comes back. That replaces the
+  // "Try another" button the panel used to carry.
+  const selectMode = useCallback(
+    (next: Mode) => {
+      if (next === "Barcode" && (status.kind === "missed" || status.kind === "unreachable")) {
+        setStatus({ kind: "idle" });
+        busy.current = false;
+      }
+      setMode(next);
+    },
+    [status.kind]
+  );
+
   // Only two things are allowed to reset this screen back to Barcode: the X
   // button, and switching to another tab and back. Nothing else — not the
   // keyboard closing, not opening a search result and returning, not
@@ -277,15 +291,11 @@ export default function Scan() {
         live={!!live}
         status={status}
         onBarcode={handleBarcode}
-        onDismissStatus={() => {
-          setStatus({ kind: "idle" });
-          busy.current = false;
-        }}
         preserveMode={preserveMode}
         modeSwitcher={
           <ModeSwitcher
             mode={mode}
-            setMode={setMode}
+            setMode={selectMode}
             floating
             light={permission !== null && !permission.granted}
           />
@@ -302,8 +312,8 @@ export default function Scan() {
   // you switched away from Barcode, which read as the app losing its own
   // layout rather than a deliberate choice.
   return (
-    <FullScreenPane modeSwitcher={<ModeSwitcher mode={mode} setMode={setMode} floating light />}>
-      <LabelPhotoPane preserveMode={preserveMode} />
+    <FullScreenPane modeSwitcher={<ModeSwitcher mode={mode} setMode={selectMode} floating light />}>
+      <LabelPhotoPane preserveMode={preserveMode} barcode={status.kind === "missed" ? status.code : undefined} />
     </FullScreenPane>
   );
 }
@@ -336,7 +346,7 @@ function ModeSwitcher({
     <View
       style={
         floating
-          ? { gap: 10, flexDirection: "row" }
+          ? { gap: 10, flexDirection: "row", justifyContent: "center" }
           : { marginHorizontal: 26, marginTop: 18, gap: 12, flexDirection: "row" }
       }
     >
@@ -364,7 +374,7 @@ function ModeSwitcher({
               light
                 ? {
                     height: 52,
-                    flex: 1,
+                    width: MODE_PILL_WIDTH,
                     alignItems: "center",
                     justifyContent: "center",
                     borderRadius: 26,
@@ -375,7 +385,7 @@ function ModeSwitcher({
                 : floating
                   ? {
                       height: 52,
-                      flex: 1,
+                      width: MODE_PILL_WIDTH,
                       alignItems: "center",
                       justifyContent: "center",
                       borderRadius: 26,
@@ -427,7 +437,6 @@ function BarcodeStage({
   live,
   status,
   onBarcode,
-  onDismissStatus,
   preserveMode,
   modeSwitcher,
   justFinishedQuiz,
@@ -439,7 +448,6 @@ function BarcodeStage({
   live: boolean;
   status: Status;
   onBarcode: (data: string) => void;
-  onDismissStatus: () => void;
   /** Call before any navigation away from this stage that isn't a tab
    *  switch — see `Scan`'s own `preserveMode` doc comment for why. */
   preserveMode: () => void;
@@ -495,7 +503,7 @@ function BarcodeStage({
     status.kind === "looking"
       ? "Barcode found. Reading the ingredients."
       : status.kind === "missed"
-        ? "Not in our catalogue yet. Photograph its ingredient list and we'll add it."
+        ? "Not in our catalogue yet. Tap Ingredients below to photograph its ingredient list and add it."
         : status.kind === "unreachable"
           ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
           : announceQuizBanner
@@ -669,53 +677,17 @@ function BarcodeStage({
                   ? "Reading the ingredients…"
                   : status.kind === "unreachable"
                     ? failureMessage(status.failure)
-                    : "Photograph its ingredient list and we'll add it"}
+                    : "Tap Ingredients below and photograph its list to add it"}
               </Text>
             </View>
           </View>
         )}
 
-        {status.kind === "missed" && (
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Pressable
-              onPress={() => {
-                preserveMode();
-                router.push({ pathname: "/scan-label", params: { barcode: status.code } });
-              }}
-              style={{
-                flex: 1,
-                height: TOUCH_TARGET,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 999,
-                backgroundColor: CTA,
-              }}
-              className="active:opacity-90"
-            >
-              <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>
-                Add this product
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={onDismissStatus}
-              style={{
-                flex: 1,
-                height: TOUCH_TARGET,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 999,
-                backgroundColor: withAlpha(CANVAS, 0.2),
-              }}
-            >
-              <Text style={{ fontSize: 13, fontWeight: "600", color: CANVAS }}>Try another</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {/* Deliberately not "Add this product": that needs the same
-            network that just failed, so offering it here would be the second
-            of two failures on one interaction. The only honest primary action
-            when we could not reach the catalogue is to ask it again. */}
+        {/* Deliberately not the ingredient photo: that needs the same network
+            that just failed, so offering it here would be the second of two
+            failures on one interaction. The only honest primary action when we
+            could not reach the catalogue is to ask it again. Starting over is
+            tapping Barcode. */}
         {status.kind === "unreachable" && (
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Pressable
@@ -731,19 +703,6 @@ function BarcodeStage({
               className="active:opacity-90"
             >
               <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>Try again</Text>
-            </Pressable>
-            <Pressable
-              onPress={onDismissStatus}
-              style={{
-                flex: 1,
-                height: TOUCH_TARGET,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 999,
-                backgroundColor: withAlpha(CANVAS, 0.2),
-              }}
-            >
-              <Text style={{ fontSize: 13, fontWeight: "600", color: CANVAS }}>Try another</Text>
             </Pressable>
           </View>
         )}
@@ -821,7 +780,7 @@ function FullScreenPane({
  * switcher; with Open the camera already right here, it named the same
  * action twice.
  */
-function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
+function LabelPhotoPane({ preserveMode, barcode }: { preserveMode: () => void; barcode?: string }) {
   const insets = useSafeAreaInsets();
   return (
     <ScanIntro
@@ -831,7 +790,7 @@ function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
       actionLabel="Open camera"
       onAction={() => {
         preserveMode();
-        router.push("/scan-label");
+        router.push(barcode ? { pathname: "/scan-label", params: { barcode } } : "/scan-label");
       }}
       bottomInset={Math.max(20, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER}
     />
@@ -845,5 +804,8 @@ function LabelPhotoPane({ preserveMode }: { preserveMode: () => void }) {
 // full-bleed now), so a fixed bottom inset put the frame's bottom edge, and
 // its instruction text, underneath the switcher rather than clear of it.
 const SWITCHER_HEIGHT = 52;
+// 30% narrower than the half-width pills they replaced; height stays put so the
+// tap target does not drop under the design system's 44pt minimum.
+const MODE_PILL_WIDTH = 120;
 const FRAME_MARGIN_ABOVE_SWITCHER = 24;
 

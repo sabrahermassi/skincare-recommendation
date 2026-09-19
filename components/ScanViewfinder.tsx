@@ -231,7 +231,7 @@ export function ScanViewfinder({
               }}
             >
               <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>
-                Position barcode or ingredient list in the frame
+                Position barcode in the frame
               </Text>
             </View>
           </Animated.View>
