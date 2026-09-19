@@ -36,6 +36,8 @@ const SHARED_FUNCTIONS = [
   "fuzzyLookup",
   "matchWindow",
   "reconstructFromDictionary",
+  "isPlausibleIngredientName",
+  "findListByDictionary",
   "parseIngredientBlock",
   "dedupe",
 ];
@@ -148,6 +150,10 @@ function extractRegexLiteral(source: string, marker: string): string {
 function stripTypes(body: string): string {
   return body
     .replace(/: ParsedIngredient\[\]/g, "")
+    .replace(/\?: ReadonlyMap<string, string>/g, "")
+    .replace(/: ReadonlySet<string>/g, "")
+    .replace(/: string \| null/g, "")
+    .replace(/: boolean/g, "")
     .replace(/<string>/g, "")
     .replace(/: string/g, "");
 }
@@ -169,6 +175,19 @@ describe("the import scripts stay in step with lib/inci.ts", () => {
   it("import-obf.mjs has the canonical dedupe()", () => {
     const obf = fs.readFileSync(path.join(__dirname, "..", "scripts", "import-obf.mjs"), "utf8");
     expect(extractFunctionBody(obf, "dedupe")).toBe(clientDedupe);
+  });
+
+  // The two functions that find the list without a heading pattern and reject
+  // a fragment that cannot be a name. Both importers that write ingredient
+  // stubs carry them, and a copy that drifts writes junk that the others refuse.
+  it.each([
+    ["import-obf.mjs", "isPlausibleIngredientName"],
+    ["import-obf.mjs", "findListByDictionary"],
+    ["lib/inci-parse.mjs", "isPlausibleIngredientName"],
+    ["lib/inci-parse.mjs", "findListByDictionary"],
+  ])("%s has the canonical %s()", (file: string, fn: string) => {
+    const script = fs.readFileSync(path.join(__dirname, "..", "scripts", file), "utf8");
+    expect(extractFunctionBody(script, fn)).toBe(stripTypes(extractFunctionBody(client, fn)));
   });
 
   it.each([
@@ -199,5 +218,11 @@ describe("product-lookup's parser stays in step with lib/inci.ts", () => {
   it("reuses the boilerplate stop clause verbatim", () => {
     const marker = "/(?:\\bdirections?\\b";
     expect(extractRegexLiteral(lookup, marker)).toBe(extractRegexLiteral(client, marker));
+  });
+
+  it("has the canonical isPlausibleIngredientName()", () => {
+    expect(extractFunctionBody(lookup, "isPlausibleIngredientName")).toBe(
+      extractFunctionBody(client, "isPlausibleIngredientName")
+    );
   });
 });

@@ -322,6 +322,59 @@ function normalise(raw) {
 }
 
 /**
+ * Whether a parsed fragment can be an ingredient name at all.
+ *
+ * The last line of defence for text that reached the name filter without a
+ * heading to strip: a label section ("package labeling: label.jpg"), a file
+ * name from a mis-scanned photo, or a paragraph of marketing copy. None of
+ * those is a name, and a stub written for one sits in the shared dictionary
+ * until somebody deletes it by hand.
+ *
+ * A colon between two digits is kept — "ci 77268:1" and "pigment red 57:1" are
+ * real colour-index names. Any other colon is a heading that leaked into the
+ * name. Eight words is above every real INCI name in the dictionary and below
+ * every sentence found in it.
+ */
+function isPlausibleIngredientName(name) {
+  if (/[:：]/.test(name.replace(/\d[:：]\d/g, ""))) return false;
+  if (/\.(?:jpe?g|png|gif|webp|pdf)\b/i.test(name)) return false;
+  return name.split(/\s+/).length <= 8;
+}
+
+/**
+ * Find where the ingredient list starts without knowing the heading's language.
+ *
+ * Ingredient names are international — Aqua, Glycerin, Sodium Chloride read the
+ * same on a French, Croatian or Romanian label — so the list can be recognised
+ * by what it contains rather than by the word printed above it. Walks the text
+ * one colon-delimited piece at a time and returns everything from the first
+ * piece that is mostly known ingredients. `null` means there was nothing to
+ * find: no colon, no piece that clears the bar, or the list already opens the
+ * text, and the caller's heading pattern stays in charge. A piece that holds
+ * some known ingredients but not enough is part of the list, cut by a stray
+ * colon in a garbled scan, not a heading — skipping it would drop the start of
+ * the formula, so the search stops there instead.
+ *
+ * Everything after the chosen piece is kept, so a colon inside the list itself
+ * ("Parfum (Fragrance: Linalool, Limonene)") cannot cut it short. A colon
+ * directly before a digit is part of a name ("ci 77268:1"), not a heading.
+ */
+function findListByDictionary(flat, dictionary, aliases) {
+  const colon = /[:：](?!\d)/g;
+  let start = 0;
+  for (;;) {
+    const match = colon.exec(flat);
+    const names = flat.slice(start, match ? match.index : flat.length).split(/[;•·,]/)
+      .map(normalise)
+      .filter((n) => n.length > 1);
+    const known = names.filter((n) => dictionary.has(n) || aliases?.has(n)).length;
+    if (known >= 3 && known / names.length >= 0.5) return start === 0 ? null : flat.slice(start);
+    if (known > 0 || !match) return null;
+    start = match.index + match[0].length;
+  }
+}
+
+/**
  * Kept in step with `parseIngredientBlock`'s delimited path in `lib/inci.ts`,
  * which is the version under test. This copy had drifted: it was a bare
  * `split(/[,;]/)`, missing all four of the steps below.
@@ -333,13 +386,17 @@ function normalise(raw) {
  * `ingredients` dictionary, and the real first ingredient — the one INCI order
  * says is most concentrated — is swallowed with it.
  */
-function parseInci(text) {
+function parseInci(text, dictionary, rejected) {
   const flat = text.replace(/\r/g, "").replace(/\n+/g, " ").replace(/\s+/g, " ").replace(/\b(?:inactive ingredients?|may contain|peut contenir)\s*[:：]?\s*/gi, ", ");
 
   // 1 ── Drop everything up to and including an "Ingredients:" heading. Same
   // pattern as lib/inci.ts, Korean forms included.
   const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:ingredients?|전성분|성분)\s*[:：]?\s*/i.exec(flat);
   let block = heading ? flat.slice(heading.index + heading[0].length) : flat;
+
+  // With a dictionary the heading's language stops mattering; see lib/inci.ts.
+  const listed = dictionary ? findListByDictionary(flat, dictionary) : null;
+  if (listed) block = listed;
 
   // 2 ── ...and truncate at whatever shares the back of the label. Legal
   // boilerplate and net-quantity marks reliably follow the formula.
@@ -364,6 +421,13 @@ function parseInci(text) {
     .map(normalise)
     // 4 ── A token with no letter in it is a quantity or a code, not a name.
     .filter((p) => p.length > 1 && p.length < 120 && /[a-z]/.test(p))
+    // ...and a fragment that cannot be a name (a label section, a file name) is
+    // reported rather than written into the shared dictionary.
+    .filter((p) => {
+      const ok = isPlausibleIngredientName(p);
+      if (!ok) rejected?.push(p);
+      return ok;
+    })
     .map((inci_name, position) => ({ inci_name, position }));
 
   // 5 ── ...and drop repeats, renumbering as it goes. Both of
@@ -413,12 +477,12 @@ function dedupe(parsed) {
  * those, because "how many were thrown away and for what" is the number that
  * says whether the gates are working or quietly eating the catalogue.
  */
-function toRow(p, known, samples) {
+function toRow(p, known, samples, rejectedNames) {
   const name = (p.product_name ?? "").trim();
   const inci = (p.ingredients_text ?? "").trim();
   if (!name || !inci || !p.code) return "no name, formula or barcode";
 
-  const ingredients = parseInci(inci);
+  const ingredients = parseInci(inci, known, rejectedNames);
   if (ingredients.length < 2) return "fewer than 2 parsed ingredients";
 
   // The plausibility gate. See MIN_KNOWN_INGREDIENT_RATIO.
@@ -492,6 +556,9 @@ async function main() {
   const rows = new Map();
   const rejected = new Map();
   const rejectSamples = [];
+  // Fragments the name check refused to write, so a new junk shape is visible
+  // in the run's output instead of only in the dictionary afterwards.
+  const rejectedNames = [];
   let seen = 0;
   let pagesRead = 0;
   // The watermark this run reaches: the newest `last_modified_t` across every
@@ -538,7 +605,7 @@ async function main() {
         if (typeof p.last_modified_t === "number") {
           newestModifiedAt = Math.max(newestModifiedAt ?? 0, p.last_modified_t);
         }
-        const row = toRow(p, known, rejectSamples);
+        const row = toRow(p, known, rejectSamples, rejectedNames);
         if (typeof row === "string") {
           rejected.set(row, (rejected.get(row) ?? 0) + 1);
           continue;
@@ -588,6 +655,11 @@ async function main() {
   if (rejectSamples.length > 0) {
     console.log(`\n  Rejected by the dictionary gate (first ${rejectSamples.length}) — these should read as junk:`);
     for (const sample of rejectSamples) console.log(`    ${sample}`);
+  }
+  if (rejectedNames.length > 0) {
+    const distinct = [...new Set(rejectedNames)];
+    console.log(`\n  ${distinct.length} fragment(s) skipped as not ingredient names (first 15):`);
+    for (const name of distinct.slice(0, 15)) console.log(`    ${name.slice(0, 100)}`);
   }
 
   // Nothing usable is a failure, not an empty success — and this is checked

@@ -276,6 +276,59 @@ export function reconstructFromDictionary(
 }
 
 /**
+ * Whether a parsed fragment can be an ingredient name at all.
+ *
+ * The last line of defence for text that reached the name filter without a
+ * heading to strip: a label section ("package labeling: label.jpg"), a file
+ * name from a mis-scanned photo, or a paragraph of marketing copy. None of
+ * those is a name, and a stub written for one sits in the shared dictionary
+ * until somebody deletes it by hand.
+ *
+ * A colon between two digits is kept — "ci 77268:1" and "pigment red 57:1" are
+ * real colour-index names. Any other colon is a heading that leaked into the
+ * name. Eight words is above every real INCI name in the dictionary and below
+ * every sentence found in it.
+ */
+export function isPlausibleIngredientName(name: string): boolean {
+  if (/[:：]/.test(name.replace(/\d[:：]\d/g, ""))) return false;
+  if (/\.(?:jpe?g|png|gif|webp|pdf)\b/i.test(name)) return false;
+  return name.split(/\s+/).length <= 8;
+}
+
+/**
+ * Find where the ingredient list starts without knowing the heading's language.
+ *
+ * Ingredient names are international — Aqua, Glycerin, Sodium Chloride read the
+ * same on a French, Croatian or Romanian label — so the list can be recognised
+ * by what it contains rather than by the word printed above it. Walks the text
+ * one colon-delimited piece at a time and returns everything from the first
+ * piece that is mostly known ingredients. `null` means there was nothing to
+ * find: no colon, no piece that clears the bar, or the list already opens the
+ * text, and the caller's heading pattern stays in charge. A piece that holds
+ * some known ingredients but not enough is part of the list, cut by a stray
+ * colon in a garbled scan, not a heading — skipping it would drop the start of
+ * the formula, so the search stops there instead.
+ *
+ * Everything after the chosen piece is kept, so a colon inside the list itself
+ * ("Parfum (Fragrance: Linalool, Limonene)") cannot cut it short. A colon
+ * directly before a digit is part of a name ("ci 77268:1"), not a heading.
+ */
+export function findListByDictionary(flat: string, dictionary: ReadonlySet<string>, aliases?: ReadonlyMap<string, string>): string | null {
+  const colon = /[:：](?!\d)/g;
+  let start = 0;
+  for (;;) {
+    const match = colon.exec(flat);
+    const names = flat.slice(start, match ? match.index : flat.length).split(/[;•·,]/)
+      .map(normalise)
+      .filter((n) => n.length > 1);
+    const known = names.filter((n) => dictionary.has(n) || aliases?.has(n)).length;
+    if (known >= 3 && known / names.length >= 0.5) return start === 0 ? null : flat.slice(start);
+    if (known > 0 || !match) return null;
+    start = match.index + match[0].length;
+  }
+}
+
+/**
  * Extract the ordered ingredient list from a block of label text.
  *
  * Position is preserved because INCI order is regulated information —
@@ -301,6 +354,12 @@ export function parseIngredientBlock(
   const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:ingredients?|전성분|성분)\s*[:：]?\s*/i.exec(flat);
   let block = heading ? flat.slice(heading.index + heading[0].length) : flat;
 
+  // With a dictionary the heading's language stops mattering: the list is
+  // wherever the known ingredients are. The heading pattern above stays as the
+  // fallback for when nothing clears the bar, or no dictionary was supplied.
+  const listed = dictionary ? findListByDictionary(flat, dictionary, aliases) : null;
+  if (listed) block = listed;
+
   // Directions/cautions are the common case, but a photo also catches
   // whatever else shares the back of the label — the net-quantity mark (the
   // "e" symbol EU packaging prints beside a volume) and distributor/legal
@@ -322,17 +381,16 @@ export function parseIngredientBlock(
 
   const delimited = splitOnSeparators(block)
     .map(normalise)
-    .filter((n) => n.length > 1 && n.length < 120 && /[a-z]/.test(n))
+    .filter((n) => n.length > 1 && n.length < 120 && /[a-z]/.test(n) && isPlausibleIngredientName(n))
     .map((name, position) => ({ inci_name: canonical(name), position }));
 
   if (delimited.length >= MIN_DELIMITED_TOKENS || !dictionary) return dedupe(delimited);
 
   const words = block.split(/\s+/).filter(Boolean).slice(0, MAX_RECONSTRUCTED_WORDS);
   return dedupe(
-    reconstructFromDictionary(words, dictionary).map((p) => ({
-      ...p,
-      inci_name: canonical(p.inci_name),
-    }))
+    reconstructFromDictionary(words, dictionary)
+      .filter((p) => isPlausibleIngredientName(p.inci_name))
+      .map((p) => ({ ...p, inci_name: canonical(p.inci_name) }))
   );
 }
 

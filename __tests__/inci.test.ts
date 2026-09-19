@@ -1,4 +1,100 @@
-import { normalise, parseIngredientBlock, reconstructFromDictionary } from "@/lib/inci";
+import {
+  findListByDictionary,
+  isPlausibleIngredientName,
+  normalise,
+  parseIngredientBlock,
+  reconstructFromDictionary,
+} from "@/lib/inci";
+
+/**
+ * Names taken from the live dictionary's colon-containing rows — the shapes the
+ * heading fixes cannot catch, because there is no heading to strip.
+ */
+describe("isPlausibleIngredientName", () => {
+  it.each([
+    "package labeling: label.jpg",
+    "water package labeling: outer label.jpg inner label.jpg",
+    "korea distribuitor: promo plus srl",
+    "netezeşte şi catifelează tenul. mod de utilizare: aplică masca pe tenul curat",
+    "onben: '#f4f7f1",
+    "silice: 10.6 mg/ kons cations 2715 ng ca 51",
+    "label.jpg",
+  ])("rejects a fragment that is not a name: %s", (name: string) => {
+    expect(isPlausibleIngredientName(name)).toBe(false);
+  });
+
+  it.each([
+    "ci 77268:1",
+    "pigment red 57:1",
+    "basic violet 11:1",
+    "aqua",
+    "1,2-hexanediol",
+    "pentaerythrityl tetra-di-t-butyl hydroxyhydrocinnamate",
+  ])("keeps a real name: %s", (name: string) => {
+    expect(isPlausibleIngredientName(name)).toBe(true);
+  });
+
+  it("rejects a name longer than eight words", () => {
+    expect(isPlausibleIngredientName("one two three four five six seven eight")).toBe(true);
+    expect(isPlausibleIngredientName("one two three four five six seven eight nine")).toBe(false);
+  });
+});
+
+describe("findListByDictionary", () => {
+  const dictionary = new Set(["aqua", "glycerin", "sodium chloride", "panthenol", "niacinamide"]);
+
+  it.each([
+    ["Sestavine: Aqua, Glycerin, Panthenol, Niacinamide"],
+    ["Sastojci: Aqua, Glycerin, Panthenol, Niacinamide"],
+    ["Ingrediente: Aqua, Glycerin, Panthenol, Niacinamide"],
+    ["Ingredienser: Aqua, Glycerin, Panthenol, Niacinamide"],
+  ])("finds the list under a heading nobody wrote a pattern for: %s", (text: string) => {
+    expect(findListByDictionary(text, dictionary)?.trim()).toBe(
+      "Aqua, Glycerin, Panthenol, Niacinamide"
+    );
+  });
+
+  it("skips a run of stacked headings to the list", () => {
+    const found = findListByDictionary(
+      "/Sestavine:/Sastojci:/Ingrediente: Aqua, Glycerin, Panthenol",
+      dictionary
+    );
+    expect(found?.trim()).toBe("Aqua, Glycerin, Panthenol");
+  });
+
+  it("keeps everything after the list, so a colon inside it cannot cut it short", () => {
+    const found = findListByDictionary(
+      "Ingredienser: Aqua, Glycerin, Panthenol, Parfum (Fragrance: Linalool, Limonene)",
+      dictionary
+    );
+    expect(found).toContain("Limonene");
+  });
+
+  it("does not treat the colon in a colour-index name as a heading", () => {
+    expect(findListByDictionary("Aqua, Glycerin, Panthenol, ci 77268:1", dictionary)).toBeNull();
+  });
+
+  it("does not skip the start of a list that a stray colon has cut short", () => {
+    const stray = "Ingredients: Aqua, Glycerin, Cocam:dopropyl Betaine, Panthenol, Niacinamide";
+    expect(findListByDictionary(stray, dictionary)).toBeNull();
+    const parsed = parseIngredientBlock(stray, dictionary);
+    expect(parsed.slice(0, 2).map((p) => p.inci_name)).toEqual(["aqua", "glycerin"]);
+  });
+
+  it("returns null when nothing recognisable follows a colon", () => {
+    expect(findListByDictionary("Produkt: something, else, entirely", dictionary)).toBeNull();
+  });
+
+  it("returns null when the list already opens the text", () => {
+    expect(findListByDictionary("Aqua, Glycerin, Panthenol. Note: see box", dictionary)).toBeNull();
+  });
+
+  it("matches through an alias", () => {
+    const aliases = new Map([["glycérine", "glycerin"]]);
+    const found = findListByDictionary("Composant: Aqua, Glycérine, Panthenol", new Set(["aqua", "panthenol"]), aliases);
+    expect(found?.trim()).toBe("Aqua, Glycérine, Panthenol");
+  });
+});
 
 describe("normalise", () => {
   it("lowercases and trims", () => {
@@ -428,6 +524,17 @@ describe("parseIngredientBlock with a dictionary", () => {
       aliases
     );
     expect(parsed.map((p) => p.inci_name)).toEqual(["glycerin", "panthenol", "niacinamide"]);
+  });
+
+  it("finds the list under a heading in a language nobody wrote a pattern for", () => {
+    const dictionary = new Set(["aqua", "glycerin", "panthenol", "niacinamide"]);
+    const parsed = parseIngredientBlock("Ingredienser: Aqua, Glycerin, Panthenol, Niacinamide", dictionary);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "panthenol", "niacinamide"]);
+  });
+
+  it("drops a fragment that is not a name even when it is delimited like one", () => {
+    const parsed = parseIngredientBlock("Aqua, Glycerin, package labeling: label.jpg, Panthenol");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "panthenol"]);
   });
 
   it("ignores the dictionary when the plain delimiter split already looks trustworthy", () => {

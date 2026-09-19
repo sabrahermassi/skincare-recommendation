@@ -360,6 +360,26 @@ async function persist(fetched: Fetched) {
 // ── Parsing helpers ─────────────────────────────────────────────────────────
 
 /**
+ * Whether a parsed fragment can be an ingredient name at all.
+ *
+ * The last line of defence for text that reached the name filter without a
+ * heading to strip: a label section ("package labeling: label.jpg"), a file
+ * name from a mis-scanned photo, or a paragraph of marketing copy. None of
+ * those is a name, and a stub written for one sits in the shared dictionary
+ * until somebody deletes it by hand.
+ *
+ * A colon between two digits is kept — "ci 77268:1" and "pigment red 57:1" are
+ * real colour-index names. Any other colon is a heading that leaked into the
+ * name. Eight words is above every real INCI name in the dictionary and below
+ * every sentence found in it.
+ */
+export function isPlausibleIngredientName(name: string): boolean {
+  if (/[:：]/.test(name.replace(/\d[:：]\d/g, ""))) return false;
+  if (/\.(?:jpe?g|png|gif|webp|pdf)\b/i.test(name)) return false;
+  return name.split(/\s+/).length <= 8;
+}
+
+/**
  * INCI lists are comma-separated, but real labels are messy: bracketed
  * qualifiers, asterisks for organic, trailing percentages. This keeps the
  * order (which is regulated information) and drops the decoration.
@@ -392,7 +412,7 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
     // "1" and an orphaned "2-hexanediol". Kept in step with `lib/inci.ts`.
     .split(/[;]|,(?!\d)/)
     .map((part) => normalise(part))
-    .filter((part) => part.length > 1 && part.length < 120);
+    .filter((part) => part.length > 1 && part.length < 120 && isPlausibleIngredientName(part));
 
   return dedupe(parsed);
 }
