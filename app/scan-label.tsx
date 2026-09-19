@@ -284,7 +284,7 @@ export default function ScanLabel() {
         ? `${status.message} ${status.hint}`
         : status.message
       : status.kind === "reading"
-        ? "Reading the label."
+        ? "Reading the ingredient list."
         : "";
 
   // A `failed` status whose reason isn't retryable (`not_configured` — see
@@ -375,7 +375,7 @@ export default function ScanLabel() {
           {status.kind === "reading" && <ActivityIndicator color={INK} />}
           <Text style={{ fontSize: 16, fontWeight: "600", color: INK }}>
             {status.kind === "reading"
-              ? "Reading the label…"
+              ? "Reading the ingredient list…"
               : cannotRetry
                 ? "Not available"
                 : status.kind === "failed"
@@ -440,7 +440,7 @@ function failureCopy(
       };
     case "rate_limited":
       return {
-        message: "That's a lot of label reads in a short time.",
+        message: "That's a lot of ingredient photos in a short time.",
         hint: "Give it a few minutes and try again.",
         retryable: true,
       };
@@ -452,7 +452,7 @@ function failureCopy(
       // run the exact same check and fail the exact same way.
       console.warn("[scan-label] label-ocr not available: this app has no Supabase credentials configured");
       return {
-        message: "Label reading isn't available in this build.",
+        message: "Reading ingredient lists isn't available in this build.",
         hint: hasBarcode
           ? "Look the product up in Browse instead."
           : "Try the barcode instead, or look the product up in Browse.",
@@ -464,7 +464,7 @@ function failureCopy(
       // `not_configured` above. Kept out of the user-facing copy per #96.
       console.warn("[scan-label] label-ocr unavailable: server's Vision API key is unset");
       return {
-        message: "Label reading is temporarily unavailable.",
+        message: "Reading ingredient lists is temporarily unavailable.",
         hint: hasBarcode
           ? "Look the product up in Browse, or try again later."
           : "Try the barcode instead, or look the product up in Browse.",

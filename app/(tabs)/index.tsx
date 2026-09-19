@@ -53,7 +53,7 @@ const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.png");
  */
 const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as const;
 
-type Mode = "Barcode" | "Label photo";
+type Mode = "Barcode" | "Ingredients";
 /**
  * `missed` and `unreachable` are deliberately separate.
  *
@@ -84,7 +84,7 @@ type Status =
 
 /**
  * Icons for the mode switcher, paths copied from the Scanner mockup. The row
- * is icon-only now — no label under Barcode/Label photo — so these are drawn
+ * is icon-only now — no label under Barcode/Ingredients — so these are drawn
  * bigger (22pt) than the icon-plus-text version was.
  */
 function BarcodeIcon({ color, size = 22 }: { color: string; size?: number }) {
@@ -120,7 +120,7 @@ const MODES: {
   Icon: (props: { color: string; size?: number }) => ReactElement;
 }[] = [
   { label: "Barcode", Icon: BarcodeIcon },
-  { label: "Label photo", Icon: PhotoIcon },
+  { label: "Ingredients", Icon: PhotoIcon },
 ];
 
 export default function Scan() {
@@ -255,7 +255,7 @@ export default function Scan() {
 
   // Most devices only let one CameraView hold the camera at a time. This
   // screen is a tab root, so pushing /scan-label on top of it (after a missed
-  // barcode, or from Label photo mode) does not unmount it — without this
+  // barcode, or from Ingredients mode) does not unmount it — without this
   // check `live` stayed true underneath, and the new screen's camera lost the
   // contest and rendered black, looking like a broken camera rather than a
   // second one that never got the hardware.
@@ -297,7 +297,7 @@ export default function Scan() {
     );
   }
 
-  // Label photo shares the same full-screen dark stage Barcode uses — a
+  // Ingredients shares the same full-screen dark stage Barcode uses — a
   // fixed-height card here used to shrink the whole screen down every time
   // you switched away from Barcode, which read as the app losing its own
   // layout rather than a deliberate choice.
@@ -329,7 +329,7 @@ function ModeSwitcher({
   setMode: (m: Mode) => void;
   floating?: boolean;
   /** Same floating pills, drawn for the cream screens (the permission screen
-   *  and Label photo) instead of over the dark camera. */
+   *  and Ingredients) instead of over the dark camera. */
   light?: boolean;
 }) {
   return (
@@ -495,7 +495,7 @@ function BarcodeStage({
     status.kind === "looking"
       ? "Barcode found. Reading the ingredients."
       : status.kind === "missed"
-        ? "Not in our catalogue yet. Photograph the label and we'll add it."
+        ? "Not in our catalogue yet. Photograph its ingredient list and we'll add it."
         : status.kind === "unreachable"
           ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
           : announceQuizBanner
@@ -669,7 +669,7 @@ function BarcodeStage({
                   ? "Reading the ingredients…"
                   : status.kind === "unreachable"
                     ? failureMessage(status.failure)
-                    : "Photograph the label and we'll add it"}
+                    : "Photograph its ingredient list and we'll add it"}
               </Text>
             </View>
           </View>
@@ -693,7 +693,7 @@ function BarcodeStage({
               className="active:opacity-90"
             >
               <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>
-                Photograph the label
+                Add this product
               </Text>
             </Pressable>
             <Pressable
@@ -712,7 +712,7 @@ function BarcodeStage({
           </View>
         )}
 
-        {/* Deliberately not "Photograph the label": that needs the same
+        {/* Deliberately not "Add this product": that needs the same
             network that just failed, so offering it here would be the second
             of two failures on one interaction. The only honest primary action
             when we could not reach the catalogue is to ask it again. */}
@@ -748,15 +748,11 @@ function BarcodeStage({
           </View>
         )}
 
-        {/* A miss is the common case here, not the exception — the catalogue
-            covers a fraction of what's on shelves — so the recovery options
-            above (photograph it, try again) need a third: check whether it's
-            already in the library under a different lookup path. Same
-            pattern as the permission-denied panel's own Browse link above.
-            Offered after an unreachable lookup too, and it is the one
-            suggestion on this panel that still works with no connection:
-            Browse renders from the cached catalogue. */}
-        {(status.kind === "missed" || status.kind === "unreachable") && (
+        {/* Only when the lookup could not be made. It is the one suggestion here
+            that still works with no connection: Browse renders from the cached
+            catalogue. After a plain miss it is left out — a barcode scan is the
+            direct lookup, so Browse would not have the product either. */}
+        {status.kind === "unreachable" && (
           <Pressable
             onPress={() => {
               preserveMode();
@@ -785,7 +781,7 @@ function BarcodeStage({
 }
 
 /**
- * Label photo's stage — full screen and dark, exactly like Barcode's, so
+ * The Ingredients stage — full screen and dark, exactly like Barcode's, so
  * switching modes never changes the size of the scanner. It used to be a
  * 293pt card in a scrollable light page, which shrank the whole screen down
  * the moment you left Barcode mode and read as the app losing its own layout
@@ -819,7 +815,7 @@ function FullScreenPane({
 }
 
 /**
- * Label photo mode's content — just the explainer and the one action it
+ * Ingredients mode's content — just the explainer and the one action it
  * needs. There used to be a second, redundant way into the same camera
  * ("No barcode? Photograph the label instead") sitting below the mode
  * switcher; with Open the camera already right here, it named the same
