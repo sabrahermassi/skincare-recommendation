@@ -758,6 +758,8 @@ function EmptyState({
         {actionLabel && (
           <PrimaryButton
             tone="cta"
+            // Being tried on the "Scan a product" button before it goes anywhere else.
+            watercolor={actionHref === "/scanner"}
             size={50}
             label={actionLabel}
             onPress={() => (actionHref === "/scanner" ? openScanner() : router.push(actionHref))}

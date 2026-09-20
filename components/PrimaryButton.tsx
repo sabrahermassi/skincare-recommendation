@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Pressable, type StyleProp, type ViewStyle } from "react-native";
 
 import { Text } from "@/components/Text";
+import { WatercolorFill } from "@/components/WatercolorFill";
 import { CTA, INK } from "@/lib/tokens";
 
 /**
@@ -42,6 +43,12 @@ type Props = {
    * before being unified onto this tone.
    */
   tone?: "accent" | "cta";
+  /**
+   * Paints the "cta" fill as a faint watercolor wash instead of one flat colour
+   * (see `WatercolorFill`). Off by default while it is tried on one button; it
+   * changes nothing but the fill.
+   */
+  watercolor?: boolean;
   size?: ButtonSize;
   disabled?: boolean;
   /** A glyph before the label, e.g. the heart on "Save to my shelf". */
@@ -58,6 +65,7 @@ export function PrimaryButton({
   onPress,
   variant = "filled",
   tone = "accent",
+  watercolor = false,
   size = 56,
   disabled = false,
   icon,
@@ -101,9 +109,12 @@ export function PrimaryButton({
       style={[
         { height: size, paddingVertical: 16 },
         isCta ? { backgroundColor: CTA, borderRadius: size / 2 } : null,
+        // The wash has to be clipped to the pill.
+        isCta && watercolor ? { overflow: "hidden" } : null,
         style,
       ]}
     >
+      {isCta && watercolor ? <WatercolorFill /> : null}
       {icon}
       <Text
         className={isCta ? "" : `text-[15.5px] font-semibold ${ink}`}
