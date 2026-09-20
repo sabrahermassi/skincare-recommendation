@@ -19,11 +19,12 @@ const SCAN_ART = require("@/assets/illustrations/scan-a-product.png");
 // The watercolor scene under the cards (cropped to its art and brought down to
 // 1400px wide from the 6144px original).
 const SHELF_ART = require("@/assets/illustrations/home-shelf.png");
-// Its own proportions (1400x769), so it is never stretched.
-const SHELF_ASPECT = 1400 / 769;
-// The wet counter under the bottles runs to the bottom of the picture; this much
-// of it is pulled down behind the tab bar, so the bottles rest just above it.
-const SHELF_BELOW_COUNTER = 0.12;
+// Its own proportions (1400x867), so it is never stretched.
+const SHELF_ASPECT = 1400 / 867;
+// Below the bottles the picture holds their reflection in the wet counter, about
+// a quarter of its height; that much is pulled down behind the tab bar, so the
+// bottles stand just above it.
+const SHELF_BELOW_COUNTER = 0.26;
 
 /**
  * Home — the first screen after the skin quiz.
