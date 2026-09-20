@@ -1,9 +1,9 @@
 /** The raised scan button in the middle of the tab bar: its diameter, and how far it rises above the bar. */
 export const SCAN_BUTTON = 68;
-export const SCAN_BUTTON_LIFT = 28;
+export const SCAN_BUTTON_LIFT = 22;
 
 /** The floating tab bar: its height, its gap from the screen's sides, and its gap above the bottom edge. */
-export const TAB_BAR_HEIGHT = 60;
+export const TAB_BAR_HEIGHT = 72;
 /** Less rounded than a pill: a soft rectangle. */
 export const TAB_BAR_RADIUS = 22;
 export const TAB_BAR_SIDE_MARGIN = 20;
