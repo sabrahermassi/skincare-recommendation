@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
@@ -57,6 +57,10 @@ const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.png");
  * covers ean_13, ean_8, upc_a, upc_e and code_128.
  */
 const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as const;
+
+// One object for the life of the app. Built inline it was a new value every
+// render, and the camera reads a changed setting as a reason to reconfigure.
+const BARCODE_SETTINGS = { barcodeTypes: [...BARCODE_TYPES] };
 
 type Mode = "Barcode" | "Photo";
 /**
@@ -136,6 +140,13 @@ export default function Scan() {
   const [cameraSize, setCameraSize] = useState<Size | null>(null);
   const [windowBox, setWindowBox] = useState<Box | null>(null);
   const onWindow = useCallback((box: Box) => setWindowBox(box), []);
+  // The camera's barcode reading is left on in both modes and this ignores what
+  // it reads in Photo mode: turning it on and off is a reconfiguration of the
+  // running camera, which showed as a flash when switching to Photo.
+  const modeRef = useRef<Mode>("Barcode");
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
   const onCameraLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     setCameraSize({ width, height });
@@ -268,6 +279,14 @@ export default function Scan() {
   // this lets go of it, so that screen's camera is not left waiting for it. A
   // barcode that was read or missed also lets go of it in Barcode mode, or the
   // same code would be read again at once.
+  const onScanned = useCallback(
+    ({ data, bounds, cornerPoints }: BarcodeScanningResult) => {
+      if (modeRef.current !== "Barcode") return;
+      void handleBarcode(data, barcodeBox({ bounds, cornerPoints }));
+    },
+    [handleBarcode]
+  );
+
   const granted = permission?.granted === true;
   const needsPermission = permission !== null && !permission.granted;
   const scanning = mode === "Photo" || status.kind === "idle" || status.kind === "looking";
@@ -313,12 +332,8 @@ export default function Scan() {
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             facing="back"
-            barcodeScannerSettings={{ barcodeTypes: [...BARCODE_TYPES] }}
-            onBarcodeScanned={
-              mode === "Barcode"
-                ? ({ data, bounds, cornerPoints }) => handleBarcode(data, barcodeBox({ bounds, cornerPoints }))
-                : undefined
-            }
+            barcodeScannerSettings={BARCODE_SETTINGS}
+            onBarcodeScanned={onScanned}
             onLayout={onCameraLayout}
           />
         ) : null}
@@ -737,6 +752,7 @@ function IngredientsStage({
           cameraSize={cameraSize}
           window={windowBox}
           barcode={barcode}
+          frameTopOffset={CLOSE_CLEARANCE}
           bottomInset={clearance}
           onResult={(params) => {
             preserveMode();
