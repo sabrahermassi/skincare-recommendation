@@ -3,6 +3,7 @@ import {
   isPersonalized,
   isSensitive,
   nextQuizRoute,
+  profileHeadline,
   profileSummary,
   quizRoutes,
   quizStepCount,
@@ -114,5 +115,26 @@ describe("quiz flow", () => {
       current = nextQuizRoute(current);
     }
     expect(visited).toEqual(quizRoutes());
+  });
+});
+
+describe("profileHeadline", () => {
+  it("names an unanswered profile as such, with no tags", () => {
+    expect(profileHeadline(EMPTY_PROFILE)).toEqual({ title: "Your skin profile", tags: [] });
+  });
+
+  it("titles by skin type and tags sensitivity, then concerns", () => {
+    const h = profileHeadline(profile({ baseSkinType: "oily", sensitivity: "high", concerns: ["acne-prone", "redness"] }));
+    expect(h.title).toBe("Oily skin");
+    expect(h.tags[0]).toBe("Very sensitive");
+    expect(h.tags).toHaveLength(3);
+  });
+
+  it("says Your skin when only concerns are answered", () => {
+    expect(profileHeadline(profile({ concerns: ["dullness"] })).title).toBe("Your skin");
+  });
+
+  it("does not tag a not-sensitive skin", () => {
+    expect(profileHeadline(profile({ baseSkinType: "dry", sensitivity: "none" })).tags).toEqual([]);
   });
 });

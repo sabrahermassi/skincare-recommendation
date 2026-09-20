@@ -1,8 +1,8 @@
 import { Image } from "expo-image";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -85,32 +85,13 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const storedProfile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
-  const resetApp = useAppStore((s) => s.resetApp);
 
   const [draft, setDraft] = useState<SkinProfile>(storedProfile);
   const [expanded, setExpanded] = useState<SectionKey | null>(null);
-  // Gates `resetApp()` behind a second, explicit tap in a real Modal — this
-  // is the one irreversible action on this screen (wipes the profile, the
-  // saved shelf and the whole history, then clears AsyncStorage so the wipe
-  // survives a relaunch), so a single mis-tap must not be able to trigger it.
-  const [confirmingErase, setConfirmingErase] = useState(false);
-  // Gates the back chevron instead: the new expand-in-place editors make it
+  // Gates the back chevron: the expand-in-place editors make it
   // easy to tap a couple of chips and then reflexively tap back, which used
   // to discard that draft with no warning at all.
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
-  // Tab screens stay mounted across a switch, so without this, confirming
-  // partway, tapping another tab and coming back would still show "Erase
-  // your profile?" (or "Discard changes?") with no reminder of what was being
-  // confirmed.
-  useFocusEffect(
-    useCallback(() => {
-      return () => {
-        setConfirmingErase(false);
-        setConfirmingDiscard(false);
-      };
-    }, [])
-  );
-
   function patch(p: Partial<SkinProfile>) {
     setDraft((d) => ({ ...d, ...p }));
   }
@@ -142,21 +123,14 @@ export default function ProfileScreen() {
 
   function save() {
     setProfile(draft);
-    // Profile is a tab now rather than a pushed modal, so router.back() has
-    // nothing reliable to return to - go straight to the tab that shows the
-    // effect of the save.
+    // Go straight to the screen that shows the effect of the save.
     router.replace(POST_ONBOARDING_ROUTE);
   }
 
   const atLimit = draft.concerns.length >= MAX_CONCERNS;
 
-  // Profile is a tab, so it normally has no back arrow - that's the right
-  // default for the tab bar. But the profile pill on Scan and Browse also
-  // pushes straight to it, and from there landing with no way back except
-  // "remember which tab you started on" is a dead end. `canGoBack` tells the
-  // two cases apart: true when we arrived via the pill's push, false when we
-  // arrived by tapping the Profile tab itself - in which case there's nothing
-  // to go back *to*, so the arrow falls back to Browse instead of erroring.
+  // Back to the Profile menu; with nothing behind this screen (a link straight
+  // here) fall back to Search rather than erroring.
   function leave() {
     if (router.canGoBack()) router.back();
     else router.replace("/browse");
@@ -278,7 +252,7 @@ export default function ProfileScreen() {
       >
         <View style={{ gap: 4 }}>
           <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 26, color: INK }}>
-            My profile
+            Skin profile
           </Text>
           <Text style={{ fontSize: 12.5, lineHeight: 17, color: MUTED }}>
             Your skin profile helps us give you more relevant recommendations.
@@ -374,94 +348,7 @@ export default function ProfileScreen() {
           </View>
         </Section>
 
-        {/*
-          "Retake the quiz" is gone — every section above is already
-          individually editable in place, so a separate full-quiz replay
-          button was doing nothing a section's own "Edit" doesn't already do.
-          This is now the one remaining irreversible action on the screen: it
-          wipes the profile, the saved shelf and the whole history, then
-          clears AsyncStorage so the wipe survives a relaunch — hence the
-          real confirmation modal below rather than a single tap.
-        */}
-        <Pressable
-          onPress={() => setConfirmingErase(true)}
-          style={{
-            minHeight: 52,
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: 26,
-            borderWidth: 1,
-            borderColor: DANGER,
-          }}
-          className="active:opacity-70"
-        >
-          <Text style={{ fontSize: 15, fontWeight: "500", color: DANGER }}>Erase my profile</Text>
-        </Pressable>
       </ScrollView>
-
-      <Modal
-        visible={confirmingErase}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setConfirmingErase(false)}
-      >
-        <Pressable
-          onPress={() => setConfirmingErase(false)}
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(36,31,30,0.45)",
-            alignItems: "center",
-            justifyContent: "center",
-            paddingHorizontal: 32,
-          }}
-        >
-          {/* Swallows its own tap so tapping the card doesn't also hit the
-              scrim's onPress behind it and dismiss the confirmation. */}
-          <Pressable
-            onPress={(e) => e.stopPropagation()}
-            style={{ width: "100%", maxWidth: 340, borderRadius: 20, backgroundColor: SURFACE, padding: 24, gap: 16 }}
-          >
-            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 19, color: INK }}>
-              Are you sure?
-            </Text>
-            <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>
-              This erases your profile, shelf and history. It can&apos;t be undone.
-            </Text>
-            <View style={{ gap: 10 }}>
-              <Pressable
-                onPress={() => {
-                  setConfirmingErase(false);
-                  resetApp();
-                  router.replace({ pathname: "/onboarding", params: { erased: "1" } });
-                }}
-                style={{
-                  minHeight: 48,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 24,
-                  backgroundColor: DANGER,
-                }}
-                className="active:opacity-90"
-              >
-                <Text style={{ fontSize: 14.5, fontWeight: "600", color: SURFACE }}>Yes, delete my profile</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setConfirmingErase(false)}
-                style={{
-                  minHeight: 48,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 24,
-                  borderWidth: 1,
-                  borderColor: BORDER_INACTIVE,
-                }}
-              >
-                <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Cancel</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
 
       {dirty && (
         <View

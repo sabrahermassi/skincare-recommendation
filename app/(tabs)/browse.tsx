@@ -511,7 +511,7 @@ export default function Browse() {
               paddingVertical: 13,
             }}
           >
-            <Pressable onPress={() => router.push("/profile")} style={{ flex: 1 }}>
+            <Pressable onPress={() => router.push("/skin-profile")} style={{ flex: 1 }}>
               <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>
                 Answer four quick questions to see how each product suits your skin -&gt;
               </Text>

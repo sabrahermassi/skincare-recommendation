@@ -1,0 +1,59 @@
+import { ScrollView, View } from "react-native";
+
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { Text } from "@/components/Text";
+import { CANVAS, INK, MUTED, MUTED_FAINT, TYPE } from "@/lib/tokens";
+
+// The facts behind each line are recorded in docs/privacy-disclosures.md.
+const SECTIONS: { title: string; lines: string[] }[] = [
+  {
+    title: "Stays on your phone",
+    lines: [
+      "Your skin profile, your saved products, your history and your starred ingredients are stored on this device only. There is no account.",
+      "They can be included in your phone's own backups. Delete my profile, in Profile, erases all of it.",
+    ],
+  },
+  {
+    title: "What is sent to look things up",
+    lines: [
+      "When you scan a barcode, the barcode number is sent to the product databases we look it up in. Nothing else about you is.",
+    ],
+  },
+  {
+    title: "Photographing an ingredient list",
+    lines: [
+      "Only when you use Photo. The picture is cropped to the frame, stripped of location and device details, and sent to Google Cloud Vision to read the text.",
+      "We never store the picture. What we keep is the text we read, saved against the product. Google says it does not use what is sent to train its models.",
+    ],
+  },
+  {
+    title: "What we do not do",
+    lines: [
+      "We do not take photos of your face or skin, and nothing is sent in the background.",
+    ],
+  },
+];
+
+/** Privacy policy — what is kept, what leaves the phone, and why. */
+export default function Privacy() {
+  return (
+    <View style={{ flex: 1, backgroundColor: CANVAS }}>
+      <ScreenHeader title="Privacy policy" />
+      <ScrollView contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 60 }}>
+        {SECTIONS.map((section) => (
+          <View key={section.title} style={{ gap: 8 }}>
+            <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.title, color: INK }}>{section.title}</Text>
+            {section.lines.map((line) => (
+              <Text key={line} style={{ fontSize: 13.5, lineHeight: 20, color: MUTED }}>
+                {line}
+              </Text>
+            ))}
+          </View>
+        ))}
+        <Text style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED_FAINT }}>
+          Ingredient assessments are based on your skin profile and public ingredient data. They are not medical advice.
+        </Text>
+      </ScrollView>
+    </View>
+  );
+}
