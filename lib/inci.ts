@@ -43,7 +43,7 @@ export type ParsedIngredient = { inci_name: string; position: number };
  * done via the match offset against the original text rather than a
  * lookbehind, which not every runtime this parser has to run on supports.
  */
-export function splitOnSeparators(text: string): string[] {
+function splitOnSeparators(text: string): string[] {
   // U+E000, the first Private Use Area codepoint — never appears in printed
   // ingredient text, so it is safe as a one-character sentinel standing in
   // for a protected comma while the real separators are split on.

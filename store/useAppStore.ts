@@ -210,7 +210,7 @@ export function partializeState(state: AppState): PersistedState {
 }
 
 /** First-run values. Exported so `resetApp` and the tests share one source. */
-export const INITIAL_STATE = {
+const INITIAL_STATE = {
   profile: EMPTY_PROFILE,
   hasSeenOnboarding: false,
   justFinishedQuiz: false,

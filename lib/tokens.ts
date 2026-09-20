@@ -93,7 +93,6 @@ export const DOT_INACTIVE = LINE;
  * a button you can see and read. Pill shape, 26px radius, weight 500.
  */
 export const CTA = "#E09070";
-export const CTA_PRESSED = "#C97C58";
 
 /**
  * Selected-control fill — a very light, watery peach.
@@ -112,9 +111,6 @@ export const SELECTED = "#F9E7DC";
 /** One step warmer, for a selected surface that needs to sit above SELECTED. */
 export const SELECTED_STRONG = "#F5DCCC";
 
-/** Neutral pressed/active wash for controls that are not selections. */
-export const INK_TINT = "rgba(36,31,30,0.06)";
-
 /**
  * One shape for every selectable control in the app — chips, option cards,
  * filter pills, segmented tabs. Size varies with the job (a 2-per-row quiz
@@ -122,20 +118,6 @@ export const INK_TINT = "rgba(36,31,30,0.06)";
  * pills with 14-px chips reads as two design systems arguing.
  */
 export const RADIUS_SELECTOR = 14;
-
-// ── Illustration accents ────────────────────────────────────────────────────
-
-/**
- * Illustration and status only — never a UI surface, and never a button.
- * `peach` here is the *accent* peach and is deliberately not {@link CTA}.
- */
-export const ACCENT = {
-  peach: "#FCD6C6",
-  blush: "#FCE1DB",
-  rose: "#F6CAC9",
-  sage: "#CDD8BE",
-  lilac: "#D1B7DA",
-} as const;
 
 // ── Match verdict ───────────────────────────────────────────────────────────
 
