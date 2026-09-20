@@ -1,6 +1,7 @@
 import { Pressable, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import type { MatchResult } from "@/lib/matching";
@@ -113,15 +114,7 @@ function RiskCard({
             row for detail" affordance — without it, a card reading
             "Elevated" gave no visual sign that tapping it explains why. */}
         {onPress && (
-          <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="m9 5 7 7-7 7"
-              stroke={MUTED_SOFT}
-              strokeWidth={2.2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
+          <ArrowIcon size={16} color={MUTED_SOFT} />
         )}
       </View>
       <View style={{ gap: 3 }}>

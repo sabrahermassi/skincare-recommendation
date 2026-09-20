@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useScrollToTop } from "expo-router";
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { useCallback, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -164,7 +165,7 @@ function MenuRow({
     >
       <Ionicons name={icon} size={22} color={danger ? DANGER : MUTED} />
       <Text style={{ flex: 1, fontSize: 16, fontWeight: "500", color }}>{label}</Text>
-      <Ionicons name="arrow-forward" size={18} color={danger ? DANGER : MUTED_SOFT} />
+      <ArrowIcon kind="arrow" size={20} color={danger ? DANGER : MUTED_SOFT} />
     </Pressable>
   );
 }

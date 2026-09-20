@@ -1,10 +1,10 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
 // TERRACOTTA is otherwise a FOR.ME shell-only token (see shared.tsx's own
@@ -193,15 +193,7 @@ export default function ProfileScreen() {
           accessibilityLabel="Back"
           style={{ width: 21 }}
         >
-          <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="m15 5-7 7 7 7"
-              stroke={INK}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
+          <ArrowIcon direction="left" size={24} color={INK} />
         </Pressable>
       </View>
 

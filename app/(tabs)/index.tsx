@@ -1,9 +1,10 @@
 import { Image } from "expo-image";
-import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
+import { useState } from "react";
+import { Animated, Platform, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
 
 import { HEADER_GUTTER } from "@/components/AppHeader";
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/genie";
 import { isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
@@ -29,7 +30,13 @@ const SHELF_BELOW_COUNTER = 175 / 892;
  * scan card, which opens the full-screen scanner, and a shelf of watercolor
  * bottles filling the rest of the screen.
  */
+/** How far the scan card sinks when pressed: it reads as a button though it is a card. */
+const SCAN_CARD_PRESSED = 0.96;
+
 export default function Home() {
+  const [scale] = useState(() => new Animated.Value(1));
+  const press = (to: number) =>
+    Animated.spring(scale, { toValue: to, friction: 6, tension: 220, useNativeDriver: Platform.OS !== "web" }).start();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const profile = useAppStore((s) => s.profile);
@@ -83,9 +90,11 @@ export default function Home() {
 
           {/* The scan card. The shade sits on an outer view: a view that clips
               its picture (overflow hidden) loses its own shade on iOS. */}
-          <View style={{ minHeight: 150, borderRadius: 22, backgroundColor: SELECTED, ...CARD_SHADOW }}>
+          <Animated.View style={{ minHeight: 150, borderRadius: 22, backgroundColor: SELECTED, ...CARD_SHADOW, transform: [{ scale }] }}>
           <Pressable
             onPress={openScanner}
+            onPressIn={() => press(SCAN_CARD_PRESSED)}
+            onPressOut={() => press(1)}
             accessibilityRole="button"
             accessibilityLabel="Scan a product. Analyze a product by photo or barcode."
             className="active:opacity-90"
@@ -100,9 +109,7 @@ export default function Home() {
             <View style={{ maxWidth: "60%", gap: 6 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: INK }}>Scan a product</Text>
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <Path d="M5 12h14M13 6l6 6-6 6" stroke={INK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
+                <ArrowIcon kind="arrow" size={18} color={INK} />
               </View>
               <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>Analyze a product by photo or barcode.</Text>
             </View>
@@ -110,10 +117,10 @@ export default function Home() {
               source={SCAN_ART}
               contentFit="contain"
               accessibilityLabel=""
-              style={{ position: "absolute", right: -18, bottom: -6, width: 170, height: 170 }}
+              style={{ position: "absolute", right: -14, bottom: -6, width: 150, height: 150 }}
             />
           </Pressable>
-          </View>
+          </Animated.View>
         </View>
 
         {/* The shelf, across the whole width and a little past it, its counter's edge

@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { ActivityIndicator, Pressable, ScrollView, Share, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -523,15 +524,7 @@ export default function ProductScreen() {
               className="active:opacity-70"
             >
               <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: panel.ink }}>Why this score</Text>
-              <Svg
-                width={12}
-                height={12}
-                viewBox="0 0 24 24"
-                fill="none"
-                style={{ transform: [{ rotate: showWhy ? "270deg" : "90deg" }] }}
-              >
-                <Path d="m9 5 7 7-7 7" stroke={panel.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
+              <ArrowIcon direction={showWhy ? "up" : "down"} size={16} color={panel.ink} />
             </Pressable>
 
             {showWhy ? (

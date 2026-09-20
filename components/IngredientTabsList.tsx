@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
@@ -222,15 +222,7 @@ export function IngredientListRow({
         <Text className={`text-[11px] font-medium ${meta.ink}`}>{meta.label}</Text>
       </View>
 
-      <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" style={{ marginTop: 5 }}>
-        <Path
-          d="m9 5 7 7-7 7"
-          stroke={MUTED_SOFT}
-          strokeWidth={2.2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </Svg>
+      <ArrowIcon size={16} color={MUTED_SOFT} style={{ marginTop: 3 }} />
     </Pressable>
   );
 }

@@ -1,5 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { useCallback, useState, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -125,7 +125,7 @@ export function QuizScreen({
             justifyContent: "center",
           }}
         >
-          <Ionicons name="chevron-back" size={24} color={INK} />
+          <ArrowIcon direction="left" size={26} color={INK} />
         </Pressable>
       ) : (
         // Same-height empty spacer, not just omitted: dropping the row

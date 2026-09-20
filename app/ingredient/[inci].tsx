@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -401,15 +402,7 @@ export default function IngredientDetail() {
             <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Want to learn more?</Text>
             <Text style={{ fontSize: 12.5, color: MUTED }}>See studies and evidence</Text>
           </View>
-          <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="m9 5 7 7-7 7"
-              stroke={INK}
-              strokeWidth={2.2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
+          <ArrowIcon size={17} color={INK} />
         </Pressable>
 
         <Text style={{ paddingHorizontal: 24, paddingTop: 36, fontSize: TYPE.caption, color: MUTED_FAINT }}>
