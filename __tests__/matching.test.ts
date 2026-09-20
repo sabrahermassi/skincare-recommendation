@@ -554,6 +554,16 @@ describe("verdict engine", () => {
     expect(rungFor(retinol as Ingredient, result)).toBe("avoid");
   });
 
+  it("counts a net-zero active as scoring evidence, so confidence is not understated", () => {
+    // Same formula twice; only the retinol slot changes. Retinol's benefit and its
+    // reactive-skin harm cancel to a zero reason effect, but both moved the score,
+    // so the read is more confident than the control with nothing scored.
+    const reactive = profile({ concerns: ["fine-lines"], sensitivity: "high" });
+    const withRetinol = matchProduct(synthetic(["water", "retinol", ...FILLER], { type: "serum" }), reactive);
+    const control = matchProduct(synthetic(["water", "unmatched test control", ...FILLER], { type: "serum" }), reactive);
+    expect(withRetinol.confidence).toBeGreaterThan(control.confidence);
+  });
+
   it("charges no irritant on a tolerant profile", () => {
     const product = synthetic(["water", "retinol", ...FILLER], { type: "serum" });
     const result = matchProduct(product, profile({ concerns: ["fine-lines"], sensitivity: "none" }));

@@ -430,8 +430,12 @@ function computeMatch(
       }
       if (hurtsReactiveSkin && !hurtsIrritantCategory) reactiveCharged.add(position);
 
+      // Evidence is counted when the rule applied any signal, not when the net
+      // effect is non-zero: a benefit that exactly equals its harm nets to zero
+      // and shows no reason line, but it still moved the fit and the irritation
+      // penalty, so confidence has to count it.
+      if (helps || harmApplied) scored++;
       if (effect !== 0) {
-        scored++;
         reasons.push({
           ingredient: ingredient.name,
           reason: rule.reason,
