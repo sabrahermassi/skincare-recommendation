@@ -1,10 +1,11 @@
 import { fetchProduct } from "@/data/api";
-import type { ProductWithIngredients, SkinProfile } from "@/data/types";
+import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
 import {
   confidenceLabel,
   matchProduct,
   matchTone,
   resetScoreCache,
+  rungFor,
   SCORE_BANDS,
   scoreExplanation,
 } from "@/lib/matching";
@@ -537,6 +538,26 @@ describe("verdict engine", () => {
     );
     // A tolerant profile is charged nothing extra and still sees the benefit.
     expect(tolerant.reasons.find((r) => r.ingredient === "salicylic acid")?.effect).toBeGreaterThan(0);
+  });
+
+  it("still flags an active that was charged as an irritant when its benefit cancels the harm", () => {
+    // Retinol helps fine lines and, for reactive skin, is charged as an irritant.
+    // On a full-contact product the two weights are equal, so the net reason
+    // effect is zero and the reason line drops out; the ingredient must still not
+    // read as a plain good one.
+    const product = synthetic(["water", "retinol", ...FILLER], { type: "serum" });
+    const result = matchProduct(product, profile({ concerns: ["fine-lines"], sensitivity: "high" }));
+    const retinol = product.ingredients.find((ingredient) => ingredient.name === "retinol");
+
+    expect(result.irritants).toContain("retinol");
+    expect(result.breakdown.irritationPenalty).toBeGreaterThan(0);
+    expect(rungFor(retinol as Ingredient, result)).toBe("avoid");
+  });
+
+  it("charges no irritant on a tolerant profile", () => {
+    const product = synthetic(["water", "retinol", ...FILLER], { type: "serum" });
+    const result = matchProduct(product, profile({ concerns: ["fine-lines"], sensitivity: "none" }));
+    expect(result.irritants).not.toContain("retinol");
   });
 
   it("explains itself — every scored product returns its reasons", () => {

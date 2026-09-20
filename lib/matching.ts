@@ -92,6 +92,14 @@ export type MatchResult = {
   warnings: Contraindication[];
   /** Why the score is what it is, strongest first. Drives the explanation. */
   reasons: MatchReason[];
+  /**
+   * Ingredients whose rule charged a harm to the irritation penalty. Kept beside
+   * `reasons` because a reason is a net effect: a benefit equal to its harm nets
+   * to zero and drops out, and the list is truncated, yet the charge still reached
+   * the score. The ingredient list reads this so a charged ingredient is never
+   * shown as fine.
+   */
+  irritants: string[];
   /** The same effects rolled up by category — the breakdown bars. */
   factors: ScoreFactor[];
   /** How much of the formula we could actually identify, 0–1. */
@@ -310,6 +318,7 @@ function computeMatch(
     verdict: "unknown",
     warnings,
     reasons: [],
+    irritants: [],
     factors: [],
     coverage,
     confidence: 0,
@@ -338,6 +347,7 @@ function computeMatch(
   // Positions whose rule already charged a declared reactive-skin harm as
   // irritation, so the generic caution charge below does not bill them again.
   const reactiveCharged = new Set<number>();
+  const irritants: string[] = [];
 
   // Computed once: an alphabetical tail (an OTC drug label) is read as
   // unordered rather than as a concentration ranking. See `positionWeights`.
@@ -414,7 +424,10 @@ function computeMatch(
       // the rule's benefit category. The OR charges it only once when an
       // ingredient is also in an irritant category; contact and INCI position
       // still determine the size of that single charge.
-      if (hurtsIrritation) irritation += harmWeight;
+      if (hurtsIrritation) {
+        irritation += harmWeight;
+        irritants.push(ingredient.name);
+      }
       if (hurtsReactiveSkin && !hurtsIrritantCategory) reactiveCharged.add(position);
 
       if (effect !== 0) {
@@ -543,6 +556,7 @@ function computeMatch(
     warnings,
     // Capped for the "Why" list, which is a readable summary…
     reasons: reasons.slice(0, 6),
+    irritants,
     // …but the bars aggregate every contribution, or they would under-report
     // a factor made of many small effects.
     factors: buildFactors(reasons),
@@ -803,6 +817,7 @@ function ingredientTone(
 ): IngredientTone {
   if (result.warnings.some((w) => w.ingredient.id === ingredient.id)) return "flag";
   if (result.reasons.some((r) => r.ingredient === ingredient.name && r.effect < 0)) return "flag";
+  if (result.irritants.includes(ingredient.name)) return "flag";
   if (!isVerified(ingredient)) return "watch";
   if (ingredient.safety !== "safe") return "watch";
   return "good";
