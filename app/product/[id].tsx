@@ -669,6 +669,14 @@ export default function ProductScreen() {
           </Text>
         </View>
 
+        {/* The data source's credit, as it is stored on the row (Open Beauty Facts
+            asks for one under the ODbL). Kept on the product it belongs to. */}
+        {product.attribution ? (
+          <Text style={{ paddingHorizontal: 24, paddingTop: 20, fontSize: TYPE.caption, lineHeight: 17, color: MUTED_FAINT }}>
+            {product.attribution}
+          </Text>
+        ) : null}
+
       </ScrollView>
 
       {/* Thumb zone, for a product with no formula: the action that supplies one.
