@@ -9,6 +9,7 @@ import {
   resolveKnownName,
   salvageKnownNames,
   splitRunTogether,
+  splitSlashList,
   squashKey,
 } from "@/lib/inci";
 
@@ -89,9 +90,40 @@ describe("resolveKnownName", () => {
     expect(resolveKnownName("glycérine/vegetable", new Set(["glycerin"]), aliases)).toBe("glycerin");
   });
 
+  it("does not fold two different known ingredients into the first", () => {
+    expect(resolveKnownName("aqua / glycerin", dictionary)).toBe("aqua / glycerin");
+    expect(resolveKnownName("glycerin/behenyl alcohol", dictionary)).toBe("glycerin/behenyl alcohol");
+  });
+
   it("resolves through parseIngredientBlock when a dictionary is supplied", () => {
     const parsed = parseIngredientBlock("Aqua/Water/Eau, Gly cerin, Parfum/Fragrance, Glycerin", dictionary);
     expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "parfum"]);
+  });
+});
+
+describe("splitSlashList", () => {
+  const dictionary = new Set(["aqua", "glycerin", "niacinamide", "prunus armeniaca kernel oil"]);
+
+  it("returns the separate names when every part is a known ingredient", () => {
+    expect(splitSlashList("aqua / glycerin", dictionary)).toEqual(["aqua", "glycerin"]);
+  });
+
+  it("reads an alias part as its dictionary name", () => {
+    const aliases = new Map([["apricot kernel oil", "prunus armeniaca kernel oil"]]);
+    expect(splitSlashList("glycerin/apricot kernel oil", dictionary, aliases)).toEqual([
+      "glycerin",
+      "prunus armeniaca kernel oil",
+    ]);
+  });
+
+  it("leaves the token alone when any part is unknown", () => {
+    expect(splitSlashList("aqua/huile minerale", dictionary)).toEqual(["aqua/huile minerale"]);
+    expect(splitSlashList("glycerin", dictionary)).toEqual(["glycerin"]);
+  });
+
+  it("keeps both ingredients when a slash list sits inside a formula", () => {
+    const parsed = parseIngredientBlock("Aqua / Glycerin, Niacinamide, Aqua, Glycerin", dictionary);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "niacinamide"]);
   });
 });
 

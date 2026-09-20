@@ -144,12 +144,13 @@ function classifyStub(name, known, aliases) {
  * that already lists the real name cannot also name it a second time, so one of
  * the two rows goes — the later one, because position is concentration order
  * and the ingredient belongs where the label first put it. `productNames` maps
- * each product to its current names and their positions, and is updated as rows
- * are planned, so two stubs of one ingredient in the same product collapse to
+ * each product to its current names and every position each holds, and is
+ * updated as rows are planned, so two stubs of one ingredient in the same product collapse to
  * one row.
  *
  * A dropped row is named by product and position, which is all that identifies
- * it: when the stub is the earlier row, the row dropped is the real name's.
+ * it: when the stub is the earlier row, every row the real name holds is dropped,
+ * since a formula can carry the same name at several positions.
  */
 function planRepoints(variants, variantUses, productNames) {
   const repoint = [];
@@ -157,14 +158,14 @@ function planRepoints(variants, variantUses, productNames) {
   for (const u of variantUses) {
     const target = variants.get(u.inci_name);
     const names = productNames.get(u.product_id);
-    const existingAt = names?.get(target);
-    if (existingAt === undefined) {
+    const existingAt = names?.get(target) ?? [];
+    if (existingAt.length === 0) {
       repoint.push({ ...u, target });
-      names?.set(target, u.position);
-    } else if (u.position < existingAt) {
+      names?.set(target, [u.position]);
+    } else if (u.position < Math.min(...existingAt)) {
       repoint.push({ ...u, target });
-      dropRow.push({ product_id: u.product_id, inci_name: target, position: existingAt });
-      names.set(target, u.position);
+      for (const position of existingAt) dropRow.push({ product_id: u.product_id, inci_name: target, position });
+      names.set(target, [u.position]);
     } else {
       dropRow.push(u);
     }
@@ -242,7 +243,9 @@ async function main() {
   const productIds = [...new Set(variantUses.map((u) => u.product_id))];
   const productNames = new Map();
   for (const [productId, rows] of await fetchStoredFormulas(db, productIds)) {
-    productNames.set(productId, new Map(rows.map((r) => [r.inci_name, r.position])));
+    const names = new Map();
+    for (const r of rows) names.set(r.inci_name, [...(names.get(r.inci_name) ?? []), r.position]);
+    productNames.set(productId, names);
   }
 
   const { repoint, dropRow } = planRepoints(variants, variantUses, productNames);

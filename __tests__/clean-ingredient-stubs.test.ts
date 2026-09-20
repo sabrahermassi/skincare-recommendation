@@ -22,9 +22,14 @@ describe("planRepoints", () => {
     ["ingrédients: aqua", "aqua"],
     ["glycérine", "glycerin"],
   ]);
-  /** product id → name → position, as `main` builds it from the stored formulas. */
-  const namesOf = (entries: Record<string, Record<string, number>>) =>
-    new Map(Object.entries(entries).map(([id, names]) => [id, new Map(Object.entries(names))]));
+  /** product id → name → every position it holds, as `main` builds it from the stored formulas. */
+  const namesOf = (entries: Record<string, Record<string, number | number[]>>) =>
+    new Map(
+      Object.entries(entries).map(([id, names]) => [
+        id,
+        new Map(Object.entries(names).map(([name, at]) => [name, Array.isArray(at) ? at : [at]])),
+      ])
+    );
 
   it("points a product's stub row at the real name", () => {
     const uses = [{ product_id: "p1", inci_name: "glycérine", position: 3 }];
@@ -45,6 +50,24 @@ describe("planRepoints", () => {
     const { repoint, dropRow } = planRepoints(variants, uses, namesOf({ p1: { glycérine: 1, glycerin: 10 } }));
     expect(repoint).toEqual([{ product_id: "p1", inci_name: "glycérine", position: 1, target: "glycerin" }]);
     expect(dropRow).toEqual([{ product_id: "p1", inci_name: "glycerin", position: 10 }]);
+  });
+
+  it("drops the stub when the real name already appears at several positions, one of them earlier", () => {
+    // Glycerin at 1 and 10, the stub at 5: nothing may end up listed twice.
+    const uses = [{ product_id: "p1", inci_name: "glycérine", position: 5 }];
+    const { repoint, dropRow } = planRepoints(variants, uses, namesOf({ p1: { glycerin: [1, 10], glycérine: 5 } }));
+    expect(repoint).toEqual([]);
+    expect(dropRow).toEqual(uses);
+  });
+
+  it("drops every later row of the real name when the stub comes before all of them", () => {
+    const uses = [{ product_id: "p1", inci_name: "glycérine", position: 1 }];
+    const { repoint, dropRow } = planRepoints(variants, uses, namesOf({ p1: { glycérine: 1, glycerin: [5, 10] } }));
+    expect(repoint).toEqual([{ product_id: "p1", inci_name: "glycérine", position: 1, target: "glycerin" }]);
+    expect(dropRow).toEqual([
+      { product_id: "p1", inci_name: "glycerin", position: 5 },
+      { product_id: "p1", inci_name: "glycerin", position: 10 },
+    ]);
   });
 
   it("keeps one row, at the earliest position, when two stubs of the same ingredient share a product", () => {

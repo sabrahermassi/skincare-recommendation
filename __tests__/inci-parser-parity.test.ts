@@ -43,6 +43,7 @@ const SHARED_FUNCTIONS = [
   "lengthIndex",
   "commonNameFor",
   "resolveKnownName",
+  "splitSlashList",
   "splitRunTogether",
   "fuzzyKnownName",
   "salvageKnownNames",
@@ -93,14 +94,17 @@ function extractFunctionBody(source: string, name: string): string {
  * of the function body compared above. It is compared here instead: from its
  * declaration to the closing `]);`.
  */
-function extractCommonNames(source: string): string {
+function extractTable(source: string, opener: string, closer: string): string {
   const text = source.replace(/\r\n/g, "\n");
-  const start = text.indexOf("const COMMON_NAMES = new Map([");
-  if (start === -1) throw new Error("COMMON_NAMES not found");
-  const end = text.indexOf("\n]);", start);
-  if (end === -1) throw new Error("COMMON_NAMES table is not closed");
-  return text.slice(start, end + 4);
+  const start = text.indexOf(opener);
+  if (start === -1) throw new Error(`${opener} not found`);
+  const end = text.indexOf(closer, start);
+  if (end === -1) throw new Error(`${opener} is not closed`);
+  return text.slice(start, end + closer.length);
 }
+
+const extractCommonNames = (source: string) => extractTable(source, "const COMMON_NAMES = new Map([", "\n]);");
+const extractSynonymGroups = (source: string) => extractTable(source, "const SYNONYM_GROUPS = [", "\n];");
 
 describe("label-ocr's parser stays in step with lib/inci.ts", () => {
   const client = fs.readFileSync(CLIENT_PATH, "utf8");
@@ -110,6 +114,12 @@ describe("label-ocr's parser stays in step with lib/inci.ts", () => {
     const table = extractCommonNames(client);
     expect(extractCommonNames(edge)).toBe(table);
     expect(extractCommonNames(fs.readFileSync(path.join(__dirname, "..", "scripts", "lib", "inci-parse.mjs"), "utf8"))).toBe(table);
+  });
+
+  it("SYNONYM_GROUPS is identical in the client, label-ocr and the import scripts", () => {
+    const groups = extractSynonymGroups(client);
+    expect(extractSynonymGroups(edge)).toBe(groups);
+    expect(extractSynonymGroups(fs.readFileSync(path.join(__dirname, "..", "scripts", "lib", "inci-parse.mjs"), "utf8"))).toBe(groups);
   });
 
   it.each(SHARED_FUNCTIONS)("%s is identical in both copies", (name: string) => {
@@ -220,6 +230,7 @@ describe("the import scripts stay in step with lib/inci.ts", () => {
     "lengthIndex",
     "commonNameFor",
     "resolveKnownName",
+    "splitSlashList",
     "splitRunTogether",
     "fuzzyKnownName",
     "salvageKnownNames",
@@ -277,5 +288,11 @@ describe("product-lookup's parser stays in step with lib/inci.ts", () => {
   it("guards full stops inside brackets before splitting, like the other copies", () => {
     expect(client).toContain("group.replace(/\\./g,");
     expect(lookup).toContain("const guarded = block.replace(/\\([^)]*\\)/g, (group) => group.replace(/\\./g,");
+  });
+
+  // No dictionary here, so a long real name cannot be recognised as known and
+  // the eight-word cap must not drop it.
+  it("checks only the first eight words of a name, not its whole length", () => {
+    expect(lookup).toContain("isPlausibleIngredientName(part.split(/\\s+/).slice(0, 8).join(\" \"))");
   });
 });

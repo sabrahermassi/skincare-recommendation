@@ -372,8 +372,9 @@ async function persist(fetched: Fetched) {
  * real colour-index names. Any other colon is a heading that leaked into the
  * name. Eight words clears every name a label is likely to print and stays
  * below the sentences found in the dictionary; a few dictionary entries run
- * longer (fermented extracts naming dozens of species), but a name the
- * dictionary already holds never reaches this check. An HTML entity ("&lt;") or a run of seven digits
+ * longer (fermented extracts naming dozens of species), but a caller that
+ * holds the dictionary checks it first, so a known long name never reaches this,
+ * and one that does not (product-lookup) checks only the first eight words. An HTML entity ("&lt;") or a run of seven digits
  * (a barcode, a batch number) is packaging text that OCR or a paste carried in,
  * as is a web address or e-mail, and a fragment that opens with the word
  * "ingredients" is a footnote about the list, not a member of it.
@@ -428,7 +429,10 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
     // "1" and an orphaned "2-hexanediol". Kept in step with `lib/inci.ts`.
     .split(/[;]|,(?!\d)|\.(?=\s)/)
     .map((part) => normalise(part.replace(/\uE001/g, ".")))
-    .filter((part) => part.length > 1 && part.length < 120 && isPlausibleIngredientName(part));
+    // No dictionary here, so a long real name (a fermented extract naming a dozen
+    // species) cannot be recognised as known: only the first eight words are
+    // checked, as the stub cleanup does, rather than dropping it for its length.
+    .filter((part) => part.length > 1 && part.length < 120 && isPlausibleIngredientName(part.split(/\s+/).slice(0, 8).join(" ")));
 
   return dedupe(parsed);
 }

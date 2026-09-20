@@ -298,8 +298,9 @@ export function reconstructFromDictionary(
  * real colour-index names. Any other colon is a heading that leaked into the
  * name. Eight words clears every name a label is likely to print and stays
  * below the sentences found in the dictionary; a few dictionary entries run
- * longer (fermented extracts naming dozens of species), but a name the
- * dictionary already holds never reaches this check. An HTML entity ("&lt;") or a run of seven digits
+ * longer (fermented extracts naming dozens of species), but a caller that
+ * holds the dictionary checks it first, so a known long name never reaches this,
+ * and one that does not (product-lookup) checks only the first eight words. An HTML entity ("&lt;") or a run of seven digits
  * (a barcode, a batch number) is packaging text that OCR or a paste carried in,
  * as is a web address or e-mail, and a fragment that opens with the word
  * "ingredients" is a footnote about the list, not a member of it.
@@ -442,6 +443,12 @@ const COMMON_NAMES = new Map([
   ["vitamin b5", "panthenol"],
 ]);
 
+const SYNONYM_GROUPS = [
+  ["aqua", "water", "eau", "ater", "agua"],
+  ["parfum", "fragrance"],
+  ["ci 77891", "titanium dioxide"],
+];
+
 /**
  * What labels print in place of the INCI name, for the ordinary ingredients
  * people name by their common name: "jojoba seed oil" is
@@ -517,10 +524,38 @@ export function resolveKnownName(name: string, dictionary: ReadonlySet<string>, 
     const isKnown = (part: string) => dictionary.has(part) || (aliases?.has(part) ?? false);
     const anchor = parts.find(isKnown);
     const strict = /(?:polymer|resin|esters?)$/.test(parts[parts.length - 1]);
-    const restIsPlausible = parts.every((part) => part === anchor || (part.length > 1 && (isKnown(part) || !part.includes(" ") || !strict)));
+    // A known part folds into the anchor only when it names the same ingredient
+    // ("aqua/water"); "aqua / glycerin" is two ingredients and stays as it is.
+    const canonical = (part: string) => aliases?.get(part) ?? commonNameFor(part) ?? part;
+    const anchorName = canonical(anchor ?? "");
+    const sameIngredient = (part: string) =>
+      canonical(part) === anchorName || SYNONYM_GROUPS.some((group) => group.includes(canonical(part)) && group.includes(anchorName));
+    const restIsPlausible = parts.every(
+      (part) => part === anchor || (part.length > 1 && (isKnown(part) ? sameIngredient(part) : !part.includes(" ") || !strict))
+    );
     if (parts.length > 1 && anchor && restIsPlausible) return dictionary.has(anchor) ? anchor : (aliases?.get(anchor) ?? anchor);
   }
   return name;
+}
+
+/**
+ * A token that lists several ingredients with a slash where a comma belongs:
+ * "aqua / glycerin". Returned as its separate names when every part is a known
+ * name or an alias of one, and the token as it was otherwise. It runs only after
+ * `resolveKnownName` has left the token alone, so parts that name one ingredient
+ * ("aqua/water") were already folded into it and never get here.
+ */
+export function splitSlashList(name: string, dictionary: ReadonlySet<string>, aliases?: ReadonlyMap<string, string>): string[] {
+  if (!name.includes("/")) return [name];
+  const parts = name.split("/").map(normalise).filter((part: string) => part.length > 1);
+  if (parts.length < 2) return [name];
+  const resolved: string[] = [];
+  for (const part of parts) {
+    const target = dictionary.has(part) ? part : aliases?.get(part);
+    if (target === undefined || !dictionary.has(target)) return [name];
+    resolved.push(target);
+  }
+  return resolved;
 }
 
 /**
@@ -664,6 +699,8 @@ export function parseIngredientBlock(
       if (!dictionary) return isPlausibleIngredientName(resolved) ? [resolved] : [];
       const known = resolveKnownName(resolved, dictionary, aliases);
       if (dictionary.has(known)) return [known];
+      const listed = splitSlashList(known, dictionary, aliases);
+      if (listed.length > 1) return listed;
       const salvaged = salvageKnownNames(known, dictionary, aliases);
       if (salvaged.length > 0) return salvaged;
       if (!isPlausibleIngredientName(known)) return [];
