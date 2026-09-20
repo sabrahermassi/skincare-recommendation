@@ -2,8 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { File } from "expo-file-system";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, View, type LayoutChangeEvent, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
@@ -55,13 +55,34 @@ type Props = {
   bottomInset?: number;
   /** How far below the safe area the frame starts, to clear whatever sits across the top. */
   frameTopOffset?: number;
+  /**
+   * When the scanner screen owns the camera and the frame (so Barcode and Photo
+   * share them and a switch is seamless), it hands them in: this then draws only
+   * the instruction, the shutter and the reading, and crops to `window` using
+   * `cameraSize`. Without them this is a screen of its own (the /scan-label
+   * route) and draws its own.
+   */
+  camera?: RefObject<CameraView | null>;
+  cameraSize?: Size | null;
+  window?: Box | null;
 };
 
-export function LabelCamera({ barcode, active = true, onClose, onResult, bottomInset, frameTopOffset }: Props) {
+export function LabelCamera({
+  barcode,
+  active = true,
+  onClose,
+  onResult,
+  bottomInset,
+  frameTopOffset,
+  camera: externalCamera,
+  cameraSize: externalCameraSize,
+  window: externalWindow,
+}: Props) {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [status, setStatus] = useState<Status>({ kind: "framing" });
-  const camera = useRef<CameraView>(null);
+  const ownCamera = useRef<CameraView>(null);
+  const camera = externalCamera ?? ownCamera;
 
   // Reaching this screen at all — from "Label photo" mode, a barcode miss, a
   // formula-less product, or Saved's recorded miss — is a scan starting the
@@ -83,8 +104,10 @@ export function LabelCamera({ barcode, active = true, onClose, onResult, bottomI
   // exist until this view has already rendered once), so a missing
   // measurement here only ever means "layout hasn't happened yet" and is
   // handled by falling back to the uncropped photo, never by guessing.
-  const [cameraSize, setCameraSize] = useState<Size | null>(null);
-  const [guideRect, setGuideRect] = useState<Rect | null>(null);
+  const [ownCameraSize, setCameraSize] = useState<Size | null>(null);
+  const [ownGuideRect, setGuideRect] = useState<Rect | null>(null);
+  const cameraSize = externalCameraSize ?? ownCameraSize;
+  const guideRect = externalWindow ?? ownGuideRect;
   // What gets cropped and sent is exactly the frame that is drawn (issue #16).
   // Declared up here, before the permission screens return early, so the hooks
   // run in the same order on every render.
@@ -314,9 +337,9 @@ export function LabelCamera({ barcode, active = true, onClose, onResult, bottomI
   const frameTopInset = insets.top + (frameTopOffset ?? (onClose ? 32 : 0));
 
   return (
-    <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>
+    <View style={{ flex: 1, backgroundColor: externalCamera ? "transparent" : CAMERA_STAGE }}>
       <ScreenReaderAnnouncer message={failureSpeech} />
-      {active ? (
+      {!externalCamera && active ? (
         <CameraView
           ref={camera}
           style={StyleSheet.absoluteFill}
@@ -330,15 +353,17 @@ export function LabelCamera({ barcode, active = true, onClose, onResult, bottomI
           instruction that most improves what the OCR gets back, and the box is
           what actually gets cropped and sent: see onWindow and coverFitCropRect
           above. */}
-      <ScanViewfinder
-        topInset={frameTopInset}
-        bottomInset={clearance}
-        locked={false}
-        frame="full"
-        sweep={false}
-        description={null}
-        onWindow={onWindow}
-      />
+      {externalCamera ? null : (
+        <ScanViewfinder
+          topInset={frameTopInset}
+          bottomInset={clearance}
+          locked={false}
+          frame="full"
+          sweep={false}
+          description={null}
+          onWindow={onWindow}
+        />
+      )}
 
       {onClose ? (
         <Pressable
@@ -361,7 +386,7 @@ export function LabelCamera({ barcode, active = true, onClose, onResult, bottomI
 
       {/* The instruction, inside the frame at its top. */}
       {status.kind === "framing" ? (
-        <View
+        <FadeIn
           style={{
             position: "absolute",
             left: SCAN_SIDE_INSET + 12,
@@ -387,11 +412,11 @@ export function LabelCamera({ barcode, active = true, onClose, onResult, bottomI
               Hold steady. The photo is sent to Google to read the text, then discarded.
             </Text>
           </View>
-        </View>
+        </FadeIn>
       ) : null}
 
       {/* The shutter, inside the frame at its bottom, with what it is doing above it. */}
-      <View
+      <FadeIn
         style={{
           position: "absolute",
           left: 0,
@@ -450,9 +475,23 @@ export function LabelCamera({ barcode, active = true, onClose, onResult, bottomI
             {status.kind === "reading" ? <ActivityIndicator color={INK} /> : null}
           </View>
         </Pressable>
-      </View>
+      </FadeIn>
     </View>
   );
+}
+
+/** Eases its children in when it mounts, so switching to Photo does not pop. */
+function FadeIn({ style, children }: { style?: ViewStyle; children: ReactNode }) {
+  const [opacity] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: Platform.OS !== "web",
+    }).start();
+  }, [opacity]);
+  return <Animated.View style={[style, { opacity }]}>{children}</Animated.View>;
 }
 
 /**

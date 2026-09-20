@@ -5,7 +5,11 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Linking,
+  type LayoutChangeEvent,
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -16,11 +20,11 @@ import Svg, { Rect } from "react-native-svg";
 import { GenieShell, type GenieShellHandle } from "@/components/GenieShell";
 import { LabelCamera } from "@/components/LabelCamera";
 import { ScanIntro } from "@/components/ScanIntro";
-import { barcodeBox, SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
+import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
-import { profileSummary } from "@/lib/profile";
+import type { Size } from "@/lib/crop-to-guide";
 import { useAppStore } from "@/store/useAppStore";
 import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 
@@ -122,22 +126,20 @@ export default function Scan() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const recordView = useAppStore((s) => s.recordView);
-  const justFinishedQuiz = useAppStore((s) => s.justFinishedQuiz);
   const dismissQuizAcknowledgement = useAppStore((s) => s.dismissQuizAcknowledgement);
-  const profile = useAppStore((s) => s.profile);
-
-  // `profileSummary`'s capitalized-noun-phrase shape reads oddly mid-sentence
-  // — browse.tsx's "Ranked for …" line has the same issue and lowercases it
-  // for the same reason. A quiz finished with every question left unanswered
-  // still has something to acknowledge, just not a summary.
-  const profileSummaryText = profileSummary(profile);
-  const quizAcknowledgementText = profileSummaryText
-    ? `Set for ${profileSummaryText.toLowerCase()}. Scan anything to see how it fits.`
-    : "Profile set. Scan anything to see how it fits.";
 
   const busy = useRef(false);
   const shell = useRef<GenieShellHandle>(null);
   const insets = useSafeAreaInsets();
+  // One camera and one frame for both modes (see below), so their state lives here.
+  const cameraRef = useRef<CameraView>(null);
+  const [cameraSize, setCameraSize] = useState<Size | null>(null);
+  const [windowBox, setWindowBox] = useState<Box | null>(null);
+  const onWindow = useCallback((box: Box) => setWindowBox(box), []);
+  const onCameraLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setCameraSize({ width, height });
+  }, []);
 
   // Tapping Barcode again after a miss or a failed lookup is how you scan
   // another: it clears the message and the camera comes back. That replaces the
@@ -258,59 +260,99 @@ export default function Scan() {
     [recordView, preserveMode, dismissQuizAcknowledgement]
   );
 
-  // Most devices only let one CameraView hold the camera at a time. This
-  // screen is a tab root, so pushing /scan-label on top of it (after a missed
-  // barcode, or from Ingredients mode) does not unmount it — without this
-  // check `live` stayed true underneath, and the new screen's camera lost the
-  // contest and rendered black, looking like a broken camera rather than a
-  // second one that never got the hardware.
-  const live =
-    isFocused && mode === "Barcode" && (status.kind === "idle" || status.kind === "looking") && permission?.granted;
+  // One camera for both modes. A CameraView per mode meant the camera was torn
+  // down and brought up again on every switch — the black flash between Barcode
+  // and Photo — so it lives here and the same view just changes what it listens
+  // for. Most devices only let one CameraView hold the camera at a time: while
+  // another screen is on top (a result, /scan-label) `isFocused` is false and
+  // this lets go of it, so that screen's camera is not left waiting for it. A
+  // barcode that was read or missed also lets go of it in Barcode mode, or the
+  // same code would be read again at once.
+  const granted = permission?.granted === true;
+  const needsPermission = permission !== null && !permission.granted;
+  const scanning = mode === "Photo" || status.kind === "idle" || status.kind === "looking";
+  const cameraLive = isFocused && granted && scanning;
+  const switcherClearance = Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
 
-  /*
-    Barcode mode is the full screen, per the MVP's scanner spec: live camera
-    edge to edge, minimal chrome, automatic detection, no shutter button. The
-    other three modes keep the card layout, because a search box and a paste
-    field are not camera surfaces and full-bleed black behind them would say
-    nothing. Every mode is still reachable from the same switcher.
-  */
   const stage =
     mode === "Barcode" ? (
       <BarcodeStage
         permission={permission}
         requestPermission={requestPermission}
-        live={!!live}
         status={status}
         onBarcode={handleBarcode}
         preserveMode={preserveMode}
-        modeSwitcher={
-          <ModeSwitcher mode={mode} setMode={selectMode} light={permission !== null && !permission.granted} />
-        }
-        justFinishedQuiz={justFinishedQuiz}
-        quizAcknowledgementText={quizAcknowledgementText}
-        onDismissQuizAcknowledgement={dismissQuizAcknowledgement}
       />
     ) : (
       // Photo is the same full-screen stage as Barcode: the camera is live the
       // moment you switch to it, with a shutter — no step in between.
       <IngredientsStage
-      permission={permission}
-      requestPermission={requestPermission}
-      active={isFocused}
-      barcode={status.kind === "missed" ? status.code : undefined}
-      preserveMode={preserveMode}
-      modeSwitcher={
-        <ModeSwitcher mode={mode} setMode={selectMode} light={permission !== null && !permission.granted} />
-      }
-    />
+        permission={permission}
+        requestPermission={requestPermission}
+        cameraRef={cameraRef}
+        cameraSize={cameraSize}
+        windowBox={windowBox}
+        barcode={status.kind === "missed" ? status.code : undefined}
+        preserveMode={preserveMode}
+      />
     );
 
   // The scanner is full screen: it opens out of the tab bar's scan button and
   // folds back into it when the X is pressed.
-  const onLightStage = permission !== null && !permission.granted;
   return (
     <GenieShell ref={shell}>
-      {stage}
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: needsPermission ? CANVAS : CAMERA_STAGE,
+          paddingTop: needsPermission ? insets.top : 0,
+        }}
+      >
+        {cameraLive ? (
+          <CameraView
+            ref={cameraRef}
+            style={StyleSheet.absoluteFill}
+            facing="back"
+            barcodeScannerSettings={{ barcodeTypes: [...BARCODE_TYPES] }}
+            onBarcodeScanned={
+              mode === "Barcode"
+                ? ({ data, bounds, cornerPoints }) => handleBarcode(data, barcodeBox({ bounds, cornerPoints }))
+                : undefined
+            }
+            onLayout={onCameraLayout}
+          />
+        ) : null}
+
+        {/* One frame too: it eases between four corners and a full outline, and the
+            sweeping line fades, as the mode changes. */}
+        {granted && scanning ? (
+          <ScanViewfinder
+            topInset={insets.top + CLOSE_CLEARANCE}
+            bottomInset={switcherClearance}
+            frame={mode === "Barcode" ? "corners" : "full"}
+            sweep={mode === "Barcode"}
+            description={mode === "Barcode" ? "Point the camera at a barcode" : null}
+            locked={mode === "Barcode" && status.kind === "looking"}
+            target={mode === "Barcode" && status.kind === "looking" ? status.target : undefined}
+            onWindow={onWindow}
+          />
+        ) : null}
+
+        {stage}
+
+        {/* And one switcher, so the pills do not remount and jump on a switch. */}
+        <View
+          style={{
+            position: "absolute",
+            left: STAGE_INSET,
+            right: STAGE_INSET,
+            bottom: Math.max(STAGE_BOTTOM, insets.bottom + 12),
+          }}
+        >
+          <ModeSwitcher mode={mode} setMode={selectMode} light={needsPermission} />
+        </View>
+      </View>
+
       <Pressable
         onPress={() =>
           shell.current?.close(() => {
@@ -330,7 +372,7 @@ export default function Scan() {
           justifyContent: "center",
         }}
       >
-        <Ionicons name="close" size={26} color={onLightStage ? INK : CANVAS} />
+        <Ionicons name="close" size={26} color={needsPermission ? INK : CANVAS} />
       </Pressable>
     </GenieShell>
   );
@@ -341,7 +383,8 @@ export default function Scan() {
  * Photo with its right edge; the space goes between them.
  *
  * Unselected, each is just its icon and name — no fill, no edge, as if it were
- * not in a button at all. Selected is filled with the app's own button colour.
+ * not in a button at all. Selected is filled with the app's own button colour,
+ * and the fill eases from one to the other rather than jumping.
  *
  * `light` draws them for the cream screens (asking for camera access) instead
  * of over the dark camera.
@@ -364,102 +407,86 @@ function ModeSwitcher({
         justifyContent: "space-between",
       }}
     >
-      {MODES.map(({ label, Icon }) => {
-        const on = mode === label;
-        const color = on ? INK : light ? MUTED : withAlpha(CANVAS, 0.75);
-        return (
-          <Pressable
-            key={label}
-            onPress={() => setMode(label)}
-            accessibilityRole="tab"
-            accessibilityLabel={label}
-            accessibilityState={{ selected: on }}
-            style={{
-              width: MODE_PILL_WIDTH,
-              height: SWITCHER_HEIGHT,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              borderRadius: SWITCHER_HEIGHT / 2,
-              backgroundColor: on ? CTA : "transparent",
-            }}
-          >
-            <Icon color={color} size={20} />
-            <Text style={{ fontSize: 13.5, fontWeight: "600", color }} numberOfLines={1}>
-              {label}
-            </Text>
-          </Pressable>
-        );
-      })}
+      {MODES.map(({ label, Icon }) => (
+        <ModePill key={label} label={label} Icon={Icon} selected={mode === label} light={light} onPress={() => setMode(label)} />
+      ))}
     </View>
   );
 }
 
+function ModePill({
+  label,
+  Icon,
+  selected,
+  light,
+  onPress,
+}: {
+  label: Mode;
+  Icon: (props: { color: string; size?: number }) => ReactElement;
+  selected: boolean;
+  light: boolean;
+  onPress: () => void;
+}) {
+  const [fill] = useState(() => new Animated.Value(selected ? 1 : 0));
+  useEffect(() => {
+    Animated.timing(fill, {
+      toValue: selected ? 1 : 0,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: Platform.OS !== "web",
+    }).start();
+  }, [selected, fill]);
+  const color = selected ? INK : light ? MUTED : withAlpha(CANVAS, 0.75);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      style={{
+        width: MODE_PILL_WIDTH,
+        height: SWITCHER_HEIGHT,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: SWITCHER_HEIGHT / 2,
+      }}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={{ ...StyleSheet.absoluteFill, borderRadius: SWITCHER_HEIGHT / 2, backgroundColor: CTA, opacity: fill }}
+      />
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Icon color={color} size={20} />
+        <Text style={{ fontSize: 13.5, fontWeight: "600", color }} numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
 /**
- * Barcode mode, full screen — the MVP's scanner: live camera edge to edge,
- * automatic detection, no shutter button, no confirmation step.
+ * Barcode mode's own overlays: what a read finds, and the way forward from it.
+ * The camera, the frame and the mode switcher are Scan's, shared with Photo.
  */
 function BarcodeStage({
   permission,
   requestPermission,
-  live,
   status,
   onBarcode,
   preserveMode,
-  modeSwitcher,
-  justFinishedQuiz,
-  quizAcknowledgementText,
-  onDismissQuizAcknowledgement,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
   requestPermission: () => void;
-  live: boolean;
   status: Status;
-  onBarcode: (data: string, target?: Box) => void;
+  /** Looks a barcode up again ("Try again" after a failed lookup). */
+  onBarcode: (data: string) => void;
   /** Call before any navigation away from this stage that isn't a tab
    *  switch — see `Scan`'s own `preserveMode` doc comment for why. */
   preserveMode: () => void;
-  modeSwitcher: ReactElement;
-  /** See `justFinishedQuiz` on the store — issue #95. */
-  justFinishedQuiz: boolean;
-  quizAcknowledgementText: string;
-  onDismissQuizAcknowledgement: () => void;
 }) {
   const insets = useSafeAreaInsets();
-
-  // Measured rather than guessed: `quizAcknowledgementText` is a variable
-  // length sentence and can wrap to 2-3 lines depending on the profile, so a
-  // fixed height would either clip short text with dead space or, worse,
-  // undershoot long text and let the banner run into `Viewfinder`'s top
-  // brackets underneath it. Found in review on #126 — the banner painted
-  // directly over the frame's corners with no offset at all. Zero until the
-  // first layout pass lands, same one-frame gap this file's camera-crop
-  // measurement already accepts elsewhere.
-  const [bannerHeight, setBannerHeight] = useState(0);
-  const showQuizBanner = justFinishedQuiz && status.kind === "idle";
-
-  // `ScreenReaderAnnouncer`'s own doc comment: react-native-web's `aria-live`
-  // only fires on a change to content a screen reader is already watching —
-  // text present the moment the live region mounts is never announced. On
-  // web that is exactly the first-run path: `(tabs)/_layout.tsx` gates this
-  // whole screen behind `hasSeenOnboarding` and returns a bare `<Redirect>`
-  // until it flips, so `BarcodeStage` — and this announcer — mounts for the
-  // first time already carrying `justFinishedQuiz=true`, with nothing to
-  // transition from. Deferred a tick so the announcer mounts empty and the
-  // real text lands as a genuine update; imperceptible on iOS/Android, where
-  // `ScreenReaderAnnouncer` fires off `message` changing either way, not off
-  // mount timing. Found by Codex in review on #126.
-  const [announceQuizBannerReady, setAnnounceQuizBannerReady] = useState(false);
-  useEffect(() => {
-    if (!showQuizBanner) return;
-    const id = setTimeout(() => setAnnounceQuizBannerReady(true), 0);
-    return () => {
-      clearTimeout(id);
-      setAnnounceQuizBannerReady(false);
-    };
-  }, [showQuizBanner]);
-  const announceQuizBanner = showQuizBanner && announceQuizBannerReady;
 
   // One sentence per state, shared by the spoken announcement and the visible
   // panel's own label so the two can never drift apart.
@@ -475,9 +502,7 @@ function BarcodeStage({
         ? "Not in our catalogue yet. Tap Photo below to photograph its ingredient list and add it."
         : status.kind === "unreachable"
           ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
-          : announceQuizBanner
-            ? quizAcknowledgementText
-            : "";
+          : "";
 
   // `null` is still asking the OS, which is not the same as refused — showing
   // the permission screen for that first moment flashed it at people who had
@@ -487,25 +512,8 @@ function BarcodeStage({
     Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
 
   return (
-    <View style={{ flex: 1, backgroundColor: needsPermission ? CANVAS : CAMERA_STAGE, paddingTop: needsPermission ? insets.top : 0 }}>
+    <View style={{ flex: 1 }}>
       <ScreenReaderAnnouncer message={announcement} />
-      {live ? (
-        <CameraView
-          style={StyleSheet.absoluteFill}
-          facing="back"
-          barcodeScannerSettings={{ barcodeTypes: [...BARCODE_TYPES] }}
-          onBarcodeScanned={({ data, bounds, cornerPoints }) => onBarcode(data, barcodeBox({ bounds, cornerPoints }))}
-        />
-      ) : null}
-
-      {permission?.granted && (status.kind === "idle" || status.kind === "looking") && (
-        <ScanViewfinder
-          topInset={insets.top + (showQuizBanner ? QUIZ_BANNER_TOP + bannerHeight + 12 - SCAN_TOP_GAP : CLOSE_CLEARANCE)}
-          bottomInset={switcherClearance}
-          locked={status.kind === "looking"}
-          target={status.kind === "looking" ? status.target : undefined}
-        />
-      )}
 
       {needsPermission && (
         <CameraPermissionIntro
@@ -517,53 +525,13 @@ function BarcodeStage({
         />
       )}
 
-      {/* Named acknowledgement of finishing the quiz — see issue #95. Only
-          for the real 4-step finish (`justFinishedQuiz`), not a skip, and
-          only while nothing else is on screen: a scan starting clears it
-          (see `handleBarcode`), so it can never sit behind or fight a status
-          panel for the same space. */}
-      {showQuizBanner && (
-        <View
-          onLayout={(e) => setBannerHeight(e.nativeEvent.layout.height)}
-          style={{
-            position: "absolute",
-            left: 20,
-            right: 20,
-            top: insets.top + QUIZ_BANNER_TOP,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 8,
-            borderRadius: 14,
-            backgroundColor: withAlpha(CANVAS, 0.95),
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-          }}
-        >
-          <Text style={{ flex: 1, fontSize: 13, fontWeight: "600", color: INK }}>
-            {quizAcknowledgementText}
-          </Text>
-          {/* `TOUCH_TARGET`, not hitSlop around the bare glyph — that left an
-              effective ~30px target, under design/DESIGN_SYSTEM.md's
-              documented 44px minimum "on every interactive element,
-              everywhere in this system." Found by Codex in review on #126. */}
-          <Pressable
-            onPress={onDismissQuizAcknowledgement}
-            style={{ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
-            accessibilityRole="button"
-            accessibilityLabel="Dismiss"
-          >
-            <Text style={{ fontSize: 14, fontWeight: "600", color: MUTED }}>✕</Text>
-          </Pressable>
-        </View>
-      )}
-
-      {/* Status, then the switcher, stacked off the bottom edge. */}
+      {/* Status, stacked just above the mode switcher. */}
       <View
         style={{
           position: "absolute",
           left: STAGE_INSET,
           right: STAGE_INSET,
-          bottom: Math.max(STAGE_BOTTOM, insets.bottom + 12),
+          bottom: Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + 12,
           gap: 12,
         }}
       >
@@ -676,7 +644,6 @@ function BarcodeStage({
           </Pressable>
         )}
 
-        {modeSwitcher}
       </View>
     </View>
   );
@@ -735,37 +702,41 @@ function CameraPermissionIntro({
 }
 
 /**
- * Ingredients mode, full screen like Barcode: the live camera and a shutter, so
- * the photo can be taken the moment the mode opens. `barcode` is the one from
- * a miss, so what gets photographed is saved under it.
+ * Photo mode's own overlays: the instruction, the shutter and the reading of
+ * what was photographed. The camera, the frame and the mode switcher are Scan's,
+ * shared with Barcode, so the picture is live the moment the mode opens.
+ * `barcode` is the one from a miss, so what gets photographed is saved under it.
  */
 function IngredientsStage({
   permission,
   requestPermission,
-  active,
+  cameraRef,
+  cameraSize,
+  windowBox,
   barcode,
   preserveMode,
-  modeSwitcher,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
   requestPermission: () => void;
-  active: boolean;
+  cameraRef: React.RefObject<CameraView | null>;
+  cameraSize: Size | null;
+  windowBox: Box | null;
   barcode?: string;
   /** Call before any navigation away from this stage that isn't a tab switch. */
   preserveMode: () => void;
-  modeSwitcher: ReactElement;
 }) {
   const insets = useSafeAreaInsets();
   const needsPermission = permission !== null && !permission.granted;
   const clearance = Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
 
   return (
-    <View style={{ flex: 1, backgroundColor: needsPermission ? CANVAS : CAMERA_STAGE, paddingTop: needsPermission ? insets.top : 0 }}>
+    <View style={{ flex: 1 }}>
       {permission?.granted ? (
         <LabelCamera
+          camera={cameraRef}
+          cameraSize={cameraSize}
+          window={windowBox}
           barcode={barcode}
-          active={active}
-          frameTopOffset={CLOSE_CLEARANCE}
           bottomInset={clearance}
           onResult={(params) => {
             preserveMode();
@@ -783,17 +754,6 @@ function IngredientsStage({
           bottomInset={clearance}
         />
       ) : null}
-
-      <View
-        style={{
-          position: "absolute",
-          left: STAGE_INSET,
-          right: STAGE_INSET,
-          bottom: Math.max(STAGE_BOTTOM, insets.bottom + 12),
-        }}
-      >
-        {modeSwitcher}
-      </View>
     </View>
   );
 }
@@ -808,10 +768,8 @@ const SWITCHER_HEIGHT = 53;
 const MODE_PILL_WIDTH = 126;
 // How far in the bottom wrapper (mode pills, status panel) sits from each edge.
 const STAGE_INSET = 20;
-// The scanner's close button sits across the top-left; the frame starts below
-// it, and the quiz banner (when there is one) sits below it too.
+// The scanner's close button sits across the top-left; the frame starts below it.
 const CLOSE_CLEARANCE = 32;
-const QUIZ_BANNER_TOP = 52;
 // Clear of the bottom edge and the home indicator.
 const STAGE_BOTTOM = 20;
 const FRAME_MARGIN_ABOVE_SWITCHER = 24;

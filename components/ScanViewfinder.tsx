@@ -36,6 +36,7 @@ const LINE_BAND = 56;
 const LINE_INSET = 16;
 const SWEEP_MS = 2200;
 const LOCK_MS = 280;
+const FRAME_MIX_MS = 360;
 const SCRIM_ALPHA = 0.6;
 // Room left around the barcode when the window closes in on it, and the least
 // it will close to (a tiny window reads as a glitch, not a lock).
@@ -159,6 +160,24 @@ export function ScanViewfinder({
   const [closed, setClosed] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
   const useNativeDriver = Platform.OS !== "web";
+  // 0 = the corner frame, 1 = the full outline. Eased when the mode changes, so
+  // the frame flows from one to the other. Two copies of the value: one for the
+  // fades (native), one for the radius, which is layout (JS).
+  const [frameMix] = useState(() => new Animated.Value(frame === "full" ? 1 : 0));
+  const [frameMixJS] = useState(() => new Animated.Value(frame === "full" ? 1 : 0));
+  const [mixed, setMixed] = useState(frame === "full" ? 1 : 0);
+  // How visible each layer is, from the two animated values above.
+  const [fades] = useState(() => {
+    const notLocked = Animated.subtract(1, lock);
+    const notFull = Animated.subtract(1, frameMix);
+    return {
+      cornersCream: Animated.multiply(notFull, notLocked),
+      cornersLocked: Animated.multiply(notFull, lock),
+      fullCream: Animated.multiply(frameMix, notLocked),
+      fullLocked: Animated.multiply(frameMix, lock),
+      sweep: Animated.multiply(notLocked, notFull),
+    };
+  });
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled()
@@ -172,6 +191,19 @@ export function ScanViewfinder({
     const id = closing.addListener(({ value }) => setClosed(value));
     return () => closing.removeListener(id);
   }, [closing]);
+
+  useEffect(() => {
+    const id = frameMixJS.addListener(({ value }) => setMixed(value));
+    return () => frameMixJS.removeListener(id);
+  }, [frameMixJS]);
+
+  useEffect(() => {
+    const duration = reduceMotion ? 0 : FRAME_MIX_MS;
+    const easing = Easing.inOut(Easing.cubic);
+    const toValue = frame === "full" ? 1 : 0;
+    Animated.timing(frameMix, { toValue, duration, easing, useNativeDriver }).start();
+    Animated.timing(frameMixJS, { toValue, duration, easing, useNativeDriver: false }).start();
+  }, [frame, reduceMotion, frameMix, frameMixJS, useNativeDriver]);
 
   useEffect(() => {
     if (!sweepLine) return;
@@ -218,7 +250,7 @@ export function ScanViewfinder({
   useEffect(() => {
     if (ready) onWindow?.({ x: window.x, y: window.y, width: window.w, height: window.h });
   }, [ready, window.x, window.y, window.w, window.h, onWindow]);
-  const radius = Math.min(frame === "corners" ? CORNER_RADIUS : WINDOW_RADIUS, rect.h / 2, rect.w / 2);
+  const radius = Math.min(lerp(CORNER_RADIUS, WINDOW_RADIUS, mixed), rect.h / 2, rect.w / 2);
   const lineWidth = window.w - LINE_INSET * 2;
 
   return (
@@ -264,7 +296,7 @@ export function ScanViewfinder({
                 position: "absolute",
                 left: window.x + LINE_INSET,
                 top: window.y - LINE_BAND / 2,
-                opacity: lock.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+                opacity: fades.sweep,
                 transform: [
                   {
                     translateY: sweep.interpolate({
@@ -289,13 +321,18 @@ export function ScanViewfinder({
             </Animated.View>
             ) : null}
 
-            {/* A cream frame that hands over to a terracotta one when locked. */}
-            {[
-              { color: SCANNER_FRAME, opacity: lock.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) },
-              { color: TERRACOTTA, opacity: lock },
-            ].map(({ color, opacity }) => (
+            {/* Four layers — cream and terracotta, as corners and as a full outline —
+                faded into each other as the mode changes and as a barcode locks. */}
+            {(
+              [
+                { key: "corners-cream", color: SCANNER_FRAME, opacity: fades.cornersCream, full: false },
+                { key: "corners-locked", color: TERRACOTTA, opacity: fades.cornersLocked, full: false },
+                { key: "full-cream", color: SCANNER_FRAME, opacity: fades.fullCream, full: true },
+                { key: "full-locked", color: TERRACOTTA, opacity: fades.fullLocked, full: true },
+              ] as const
+            ).map(({ key, color, opacity, full }) => (
               <Animated.View
-                key={color}
+                key={key}
                 style={{
                   position: "absolute",
                   left: rect.x,
@@ -303,12 +340,10 @@ export function ScanViewfinder({
                   width: rect.w,
                   height: rect.h,
                   opacity,
-                  ...(frame === "full"
-                    ? { borderRadius: radius, borderWidth: OUTLINE_WIDTH, borderColor: color }
-                    : {}),
+                  ...(full ? { borderRadius: radius, borderWidth: OUTLINE_WIDTH, borderColor: color } : {}),
                 }}
               >
-                {frame === "corners" ? <Corners width={rect.w} height={rect.h} radius={radius} color={color} /> : null}
+                {full ? null : <Corners width={rect.w} height={rect.h} radius={radius} color={color} />}
               </Animated.View>
             ))}
           </View>
