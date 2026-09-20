@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { genie } from "@/lib/genie";
 import { SCAN_BUTTON } from "@/lib/tab-bar";
-import { CANVAS, CTA, INK } from "@/lib/tokens";
+import { CANVAS, CTA, INK, SURFACE } from "@/lib/tokens";
 
 const OPEN_MS = 520;
 const CLOSE_MS = 400;
@@ -121,10 +121,16 @@ export function GenieShell({ children, ref }: { children: ReactNode; ref?: Ref<G
           backgroundColor: CTA,
           borderWidth: 5,
           borderColor: CANVAS,
+          // A shade under the bottom edge, so the button reads as standing off the bar.
+          shadowColor: INK,
+          shadowOffset: { width: 0, height: 5 },
+          shadowOpacity: 0.32,
+          shadowRadius: 4,
+          elevation: 8,
           opacity: fx.ghostOpacity,
         }}
       >
-        <Ionicons name="camera-outline" size={28} color={INK} />
+        <Ionicons name="camera" size={28} color={SURFACE} />
       </Animated.View>
     </View>
   );

@@ -64,7 +64,6 @@ export function InlineProfilePrompt() {
     <View
       style={{
         marginHorizontal: 24,
-        marginTop: 20,
         padding: 20,
         gap: 16,
         borderRadius: 14,

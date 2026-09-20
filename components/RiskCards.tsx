@@ -43,7 +43,7 @@ export function RiskCards({
   const pore = poreRisk(product);
 
   return (
-    <View style={{ flexDirection: "row", gap: 12, paddingHorizontal: 24, paddingTop: 14 }}>
+    <View style={{ flexDirection: "row", gap: 12, paddingHorizontal: 24 }}>
       <RiskCard
         title="Irritation risk"
         {...irritation}

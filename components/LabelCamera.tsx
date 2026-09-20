@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { File } from "expo-file-system";
+import { launchImageLibraryAsync } from "expo-image-picker";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, View, type LayoutChangeEvent, type ViewStyle } from "react-native";
@@ -118,7 +119,7 @@ export function LabelCamera({
     setCameraSize({ width, height });
   }
 
-  async function capture() {
+  async function capture(source: "camera" | "library" = "camera") {
     if (status.kind === "reading") return;
     setStatus({ kind: "reading" });
 
@@ -135,13 +136,25 @@ export function LabelCamera({
     let croppedUri: string | undefined;
 
     try {
-      const photo = await camera.current?.takePictureAsync({
-        base64: true,
-        // The panel is dense small print, so resolution matters more than
-        // file size — but not so much that the upload stalls on shop wifi.
-        quality: 0.8,
-        skipProcessing: true,
-      });
+      // A picture already on the phone skips the camera. The picker hands back
+      // its own copy in cache, cleaned up below like the camera's.
+      let photo;
+      if (source === "library") {
+        const picked = await launchImageLibraryAsync({ mediaTypes: ["images"], base64: true, quality: 0.8 });
+        if (picked.canceled || !picked.assets?.[0]) {
+          setStatus({ kind: "framing" });
+          return;
+        }
+        photo = picked.assets[0];
+      } else {
+        photo = await camera.current?.takePictureAsync({
+          base64: true,
+          // The panel is dense small print, so resolution matters more than
+          // file size — but not so much that the upload stalls on shop wifi.
+          quality: 0.8,
+          skipProcessing: true,
+        });
+      }
 
       if (!photo?.base64) {
         setStatus({ kind: "failed", message: "The camera didn't return an image.", retryable: true });
@@ -167,7 +180,8 @@ export function LabelCamera({
       // `label-ocr`, not a replacement for them, so losing it for one scan
       // is not a correctness problem.
       let imageBase64 = photo.base64;
-      if (cameraSize && guideRect && photo.width && photo.height) {
+      // A picked picture is already the user's own framing: no guide box to crop to.
+      if (source === "camera" && cameraSize && guideRect && photo.width && photo.height) {
         const crop = coverFitCropRect(cameraSize, { width: photo.width, height: photo.height }, guideRect);
         if (crop) {
           try {
@@ -446,8 +460,26 @@ export function LabelCamera({
           <Text style={{ fontSize: 15, fontWeight: "600", color: CANVAS }}>Reading the ingredient list…</Text>
         ) : null}
 
+        <View style={{ width: "100%", alignItems: "center", justifyContent: "center" }}>
         <Pressable
-          onPress={capture}
+          onPress={() => capture("library")}
+          disabled={status.kind === "reading"}
+          accessibilityRole="button"
+          accessibilityLabel="Choose a photo of the ingredient list from your library"
+          style={{
+            position: "absolute",
+            left: 8,
+            width: TOUCH_TARGET,
+            height: TOUCH_TARGET,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          className="active:opacity-80"
+        >
+          <Ionicons name="images-outline" size={26} color={status.kind === "reading" ? withAlpha(CANVAS, 0.4) : CANVAS} />
+        </Pressable>
+        <Pressable
+          onPress={() => capture()}
           disabled={status.kind === "reading" || cannotRetry}
           accessibilityRole="button"
           accessibilityLabel={status.kind === "failed" ? "Try again" : "Take a photo of the ingredient list"}
@@ -475,6 +507,7 @@ export function LabelCamera({
             {status.kind === "reading" ? <ActivityIndicator color={INK} /> : null}
           </View>
         </Pressable>
+        </View>
       </FadeIn>
     </View>
   );

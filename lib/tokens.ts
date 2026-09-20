@@ -328,3 +328,11 @@ export function withAlpha(hex: string, alpha: number): string {
   const b = parseInt(clean.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
+
+/**
+ * Vertical rhythm for a content screen: `text` between lines of text, `block`
+ * between a block and the next (text to card, card to card), `gutter` at the
+ * screen's sides. A screen lays its blocks in a column with `gap: SPACE.block`
+ * instead of each block carrying its own margin.
+ */
+export const SPACE = { text: 8, block: 16, gutter: 24 } as const;

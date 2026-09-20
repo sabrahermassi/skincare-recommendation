@@ -30,7 +30,7 @@ import { openScanner } from "@/lib/genie";
 import { isPersonalized } from "@/lib/profile";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN, toneForVerdict } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN, toneForVerdict } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
 // draw from the shared `PrimaryButton` component's `tone="cta"` — added
@@ -395,7 +395,13 @@ export default function ProductScreen() {
         }
       />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: total > 0 ? ingredientsSheetPeek(insets.bottom) + 96 : 200 }}>
+      <ScrollView
+        contentContainerStyle={{
+          gap: SPACE.block,
+          paddingTop: SPACE.text,
+          paddingBottom: total > 0 ? ingredientsSheetPeek(insets.bottom) + 96 : 200,
+        }}
+      >
         {/*
           The design's product screen opens on a 150pt hero with the brand,
           name and size centred under it (screen 11); the verdict panel below
@@ -403,17 +409,14 @@ export default function ProductScreen() {
           keeping both, not picking one — the hero is how you confirm you are
           looking at the right bottle.
         */}
-        <View style={{ alignItems: "center", paddingHorizontal: 20, paddingTop: 18 }}>
-          <ProductThumbnail product={product} size={150} radius={24} />
-        </View>
-
-        <View style={{ alignItems: "center", gap: 6, paddingHorizontal: 20, paddingTop: 18 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingHorizontal: SPACE.gutter }}>
+          <ProductThumbnail product={product} size={112} radius={20} />
+          <View style={{ flex: 1, gap: SPACE.text }}>
           <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.9, color: MUTED_FAINT }}>
             {product.brand}
           </Text>
           <Text
             style={{
-              textAlign: "center",
               fontFamily: "PlayfairDisplay_500Medium",
               fontSize: TYPE.heading,
               lineHeight: 28,
@@ -449,6 +452,7 @@ export default function ProductScreen() {
           {!product.inStock && (
             <Text className="text-[12.5px] font-semibold text-status-avoid">Out of stock</Text>
           )}
+          </View>
         </View>
 
         {/* The verdict, before anything else. Never colour alone — the panel
@@ -458,8 +462,7 @@ export default function ProductScreen() {
         <View
           className="rounded-card border"
           style={{
-            marginHorizontal: 24,
-            marginTop: 20,
+            marginHorizontal: SPACE.gutter,
             backgroundColor: panel.bg,
             borderColor: panel.border,
             overflow: "hidden",
@@ -576,8 +579,7 @@ export default function ProductScreen() {
           // `saved.tsx`'s history rows already use for "flagged" counts.
           <Text
             style={{
-              paddingHorizontal: 24,
-              paddingTop: 12,
+              paddingHorizontal: SPACE.gutter,
               fontSize: TYPE.label,
               lineHeight: 17,
               fontWeight: "600",
@@ -597,8 +599,7 @@ export default function ProductScreen() {
         {formulaChangedNotice && (
           <Text
             style={{
-              paddingHorizontal: 24,
-              paddingTop: 12,
+              paddingHorizontal: SPACE.gutter,
               fontSize: TYPE.label,
               lineHeight: 17,
               fontWeight: "600",
@@ -636,8 +637,7 @@ export default function ProductScreen() {
         {total === 0 && (
           <View
             style={{
-              marginHorizontal: 20,
-              marginTop: 28,
+              marginHorizontal: SPACE.gutter,
               gap: 12,
               padding: 18,
               borderRadius: 15,
@@ -655,32 +655,6 @@ export default function ProductScreen() {
             </Text>
           </View>
         )}
-
-        {/*
-          One caveat, at the bottom. There were two — a grey box mid-screen
-          and this one — which is both redundant and, in the middle of the
-          screen, in the way of the answer. It stays required: the INCI API
-          terms forbid presenting their data as medically validated without a
-          disclaimer, and the MVP is explicit that this is an ingredient-based
-          compatibility assessment rather than a safety guarantee. A footnote,
-          not a headline.
-        */}
-        <View style={{ marginHorizontal: 24, marginTop: 30, marginBottom: 8 }}>
-          <Text style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED_FAINT }}>
-            Based on your skin profile and public ingredient data - not medical
-            advice. Formulas change and label data can be out of date, so check
-            the packaging for anything that matters.
-          </Text>
-        </View>
-
-        {/* The data source's credit, as it is stored on the row (Open Beauty Facts
-            asks for one under the ODbL). Kept on the product it belongs to. */}
-        {product.attribution ? (
-          <Text style={{ paddingHorizontal: 24, paddingTop: 20, fontSize: TYPE.caption, lineHeight: 17, color: MUTED_FAINT }}>
-            {product.attribution}
-          </Text>
-        ) : null}
-
       </ScrollView>
 
       {/* Thumb zone, for a product with no formula: the action that supplies one.

@@ -26,7 +26,7 @@ import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import type { Size } from "@/lib/crop-to-guide";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 
 // Watercolor art from the onboarding set, reused on the two light screens that
 // sit in front of the camera (see components/ScanIntro.tsx).
@@ -109,7 +109,7 @@ function BarcodeIcon({ color, size = 22 }: { color: string; size?: number }) {
 }
 
 function CameraIcon({ color, size = 22 }: { color: string; size?: number }) {
-  return <Ionicons name="camera-outline" size={size} color={color} />;
+  return <Ionicons name="camera" size={size} color={color} />;
 }
 
 const MODES: {
@@ -509,6 +509,8 @@ function ModePill({
     }).start();
   }, [selected, fill]);
   const color = selected ? INK : light ? MUTED : withAlpha(CANVAS, 0.75);
+  // The camera is filled, so on the orange pill it is white inside.
+  const iconColor = selected && label === "Photo" ? SURFACE : color;
 
   return (
     <Pressable
@@ -529,7 +531,7 @@ function ModePill({
         style={{ ...StyleSheet.absoluteFill, borderRadius: SWITCHER_HEIGHT / 2, backgroundColor: CTA, opacity: fill }}
       />
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Icon color={color} size={20} />
+        <Icon color={iconColor} size={20} />
         <Text style={{ fontSize: 13.5, fontWeight: "600", color }} numberOfLines={1}>
           {label}
         </Text>
