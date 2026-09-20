@@ -12,6 +12,7 @@
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit",
     "import:cosing": "node scripts/import-cosing.mjs",
+    "clean:stubs": "node scripts/clean-ingredient-stubs.mjs",
     "import:inci-dictionary": "node scripts/import-inci-dictionary.mjs",
     "import:obf": "node scripts/import-obf.mjs",
     "import:dailymed": "node scripts/import-dailymed.mjs",
