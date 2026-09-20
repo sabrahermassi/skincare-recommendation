@@ -16,5 +16,3 @@ export function createStaleGuard() {
     },
   };
 }
-
-export type StaleGuard = ReturnType<typeof createStaleGuard>;
