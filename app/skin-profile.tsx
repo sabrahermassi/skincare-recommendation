@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
@@ -83,6 +83,9 @@ type SectionKey = "concerns" | "skinType" | "sensitivity" | "pregnancy";
  */
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  // Set by the product screen's score panel: answering the questions was to get
+  // that product's score, so saving returns to it instead of going Home.
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const storedProfile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
 
@@ -123,8 +126,10 @@ export default function ProfileScreen() {
 
   function save() {
     setProfile(draft);
-    // Go straight to the screen that shows the effect of the save.
-    router.replace(POST_ONBOARDING_ROUTE);
+    // Go straight to the screen that shows the effect of the save: the product
+    // the questions were opened from, else Home.
+    if (returnTo === "product" && router.canGoBack()) router.back();
+    else router.replace(POST_ONBOARDING_ROUTE);
   }
 
   const atLimit = draft.concerns.length >= MAX_CONCERNS;

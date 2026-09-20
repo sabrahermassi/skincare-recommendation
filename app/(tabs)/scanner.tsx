@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
@@ -215,10 +216,18 @@ export default function Scan() {
   // fails the bundler outright: "expo-router is no longer compatible with
   // react-navigation").
   const [isFocused, setIsFocused] = useState(true);
+  // The same fact as a ref, for callbacks that outlive a render: a label read can
+  // finish after the X was pressed, and must not pull the user back into the scan
+  // flow from whatever tab they have moved to.
+  const focusedRef = useRef(true);
   useFocusEffect(
     useCallback(() => {
+      focusedRef.current = true;
       setIsFocused(true);
-      return () => setIsFocused(false);
+      return () => {
+        focusedRef.current = false;
+        setIsFocused(false);
+      };
     }, [])
   );
 
@@ -327,6 +336,7 @@ export default function Scan() {
         windowBox={windowBox}
         barcode={status.kind === "missed" ? status.code : undefined}
         preserveMode={preserveMode}
+        focusedRef={focusedRef}
       />
     );
 
@@ -341,6 +351,10 @@ export default function Scan() {
           paddingTop: needsPermission ? insets.top : 0,
         }}
       >
+        {/* The root layout keeps dark icons for the cream screens; the camera stage is
+            black, so they are light here — but only while this tab is showing, and not on
+            the cream permission screen. */}
+        {isFocused && !needsPermission ? <StatusBar style="light" /> : null}
         {cameraLive ? (
           <ScannerCamera cameraRef={cameraRef} onScanned={onScanned} onLayout={onCameraLayout} />
         ) : null}
@@ -942,6 +956,7 @@ function IngredientsStage({
   windowBox,
   barcode,
   preserveMode,
+  focusedRef,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
   requestPermission: () => void;
@@ -951,6 +966,8 @@ function IngredientsStage({
   barcode?: string;
   /** Call before any navigation away from this stage that isn't a tab switch. */
   preserveMode: () => void;
+  /** True while the scanner is the focused screen; a read that finishes after it is left is dropped. */
+  focusedRef: React.RefObject<boolean>;
 }) {
   const insets = useSafeAreaInsets();
   const needsPermission = permission !== null && !permission.granted;
@@ -967,6 +984,8 @@ function IngredientsStage({
           frameTopOffset={CLOSE_CLEARANCE}
           bottomInset={clearance}
           onResult={(params) => {
+            // The X (or a tab switch) can land while a read is still pending.
+            if (!focusedRef.current) return;
             preserveMode();
             router.push({ pathname: "/result/[id]", params });
           }}
