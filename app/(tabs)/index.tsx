@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Animated, Platform, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
+import { Animated, Platform, Pressable, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HEADER_GUTTER } from "@/components/AppHeader";
@@ -9,7 +9,6 @@ import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PressableCard } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/genie";
-import { TAB_BAR_HEIGHT, tabBarBottom } from "@/lib/tab-bar";
 import { isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -21,10 +20,10 @@ const SCAN_ART = require("@/assets/illustrations/scan-a-product.png");
 const SHELF_ART = require("@/assets/illustrations/home-shelf.png");
 // Its own proportions (1400x867), so it is never stretched.
 const SHELF_ASPECT = 1400 / 867;
-// Below the bottles the picture holds their reflection in the wet counter, about
-// a quarter of its height; that much is pulled down behind the tab bar, so the
-// bottles stand just above it.
-const SHELF_BELOW_COUNTER = 0.26;
+// How wide it is drawn, as a multiple of the screen: a little past each side, so
+// it runs off the edges and, with its bottom on the screen's bottom, the bottles
+// stand just above the tab bar.
+const SHELF_WIDTH = 1.25;
 
 /**
  * Home — the first screen after the skin quiz.
@@ -58,7 +57,22 @@ export default function Home() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+      {/* The scene fills the bottom of the screen, to its very bottom edge and a
+          little past each side, behind everything else. The screen itself does not
+          scroll: it is a fixed layout. */}
+      <View
+        pointerEvents="none"
+        style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center", overflow: "hidden" }}
+      >
+        <Image
+          source={SHELF_ART}
+          contentFit="contain"
+          accessibilityLabel=""
+          style={{ width: width * SHELF_WIDTH, aspectRatio: SHELF_ASPECT }}
+        />
+      </View>
+
+      <View style={{ flex: 1 }}>
         <View style={{ paddingHorizontal: HEADER_GUTTER, paddingTop: 28, gap: 22 }}>
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 30, lineHeight: 36, color: INK }}>Hi, there!</Text>
 
@@ -141,32 +155,7 @@ export default function Home() {
           </Pressable>
           </Animated.View>
         </View>
-
-        {/* The scene, edge to edge, standing on the tab bar: it is lifted by the
-            bar's own height so the bottles are above it, and only the wet counter
-            beneath them runs behind it. */}
-        <View
-          style={{
-            flex: 1,
-            alignItems: "center",
-            justifyContent: "flex-end",
-            paddingTop: 16,
-            paddingBottom: tabBarBottom(insets.bottom) + TAB_BAR_HEIGHT,
-            overflow: "hidden",
-          }}
-        >
-          <Image
-            source={SHELF_ART}
-            contentFit="contain"
-            accessibilityLabel=""
-            style={{
-              width,
-              aspectRatio: SHELF_ASPECT,
-              marginBottom: -(width / SHELF_ASPECT) * SHELF_BELOW_COUNTER,
-            }}
-          />
-        </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }
