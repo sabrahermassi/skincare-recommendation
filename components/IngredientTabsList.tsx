@@ -132,7 +132,7 @@ export function IngredientTabsList({
   );
 }
 
-function IngredientListRow({
+export function IngredientListRow({
   ingredient,
   rung,
   warning,

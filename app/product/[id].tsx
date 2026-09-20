@@ -8,6 +8,7 @@ import { Text } from "@/components/Text";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
+import { IngredientsSheet, ingredientsSheetPeek } from "@/components/IngredientsSheet";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { HeartIcon } from "@/components/icons";
@@ -363,6 +364,27 @@ export default function ProductScreen() {
     }
   }
 
+  const saveButton = (
+  <Pressable
+    onPress={() => toggleSaved(product.id, product.fetchedAt)}
+    accessibilityRole="button"
+    accessibilityLabel={saved ? "Remove from saved" : "Save"}
+    accessibilityState={{ selected: saved }}
+    style={{
+      height: 56,
+      width: 56,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 28,
+      borderWidth: saved ? 0 : 1,
+      borderColor: BORDER_INACTIVE,
+      backgroundColor: saved ? SELECTED_STRONG : CANVAS,
+    }}
+  >
+    <HeartIcon size={20} filled={saved} />
+  </Pressable>
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader
@@ -381,7 +403,7 @@ export default function ProductScreen() {
         }
       />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 200 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: total > 0 ? ingredientsSheetPeek(insets.bottom) + 96 : 200 }}>
         {/*
           The design's product screen opens on a 150pt hero with the brand,
           name and size centred under it (screen 11); the verdict panel below
@@ -705,8 +727,10 @@ export default function ProductScreen() {
         ) : null}
       </ScrollView>
 
-      {/* Thumb zone. The design draws two controls here — the primary action
-          and the heart. */}
+      {/* Thumb zone, for a product with no formula: the action that supplies one,
+          and the heart. With a formula the ingredients sheet sits here instead,
+          and carries the heart. */}
+      {total === 0 ? (
       <View
         style={{
           position: "absolute",
@@ -724,7 +748,7 @@ export default function ProductScreen() {
           backgroundColor: CANVAS,
         }}
       >
-        <View style={{ flexDirection: "row", gap: 12, justifyContent: total > 0 ? "flex-start" : "center" }}>
+        <View style={{ flexDirection: "row", gap: 12, justifyContent: "center" }}>
           {/* Two different CTAs, because there are two different situations.
 
               With a formula, the action is to read it.
@@ -748,15 +772,7 @@ export default function ProductScreen() {
               which encodes what `label-ocr` accepts — offering a button that
               can only 400 after someone has framed and taken a photo is
               worse than offering none. */}
-          {total > 0 ? (
-            <PrimaryButton
-              tone="cta"
-              size={56}
-              style={{ flex: 1 }}
-              label="View ingredients"
-              onPress={() => router.push({ pathname: "/ingredients/[id]", params: { id: product.id } })}
-            />
-          ) : canPhotographLabelFor(product.barcode) ? (
+          {canPhotographLabelFor(product.barcode) ? (
             <PrimaryButton
               tone="cta"
               size={56}
@@ -771,26 +787,12 @@ export default function ProductScreen() {
             />
           ) : null}
 
-          <Pressable
-            onPress={() => toggleSaved(product.id, product.fetchedAt)}
-            accessibilityRole="button"
-            accessibilityLabel={saved ? "Remove from saved" : "Save"}
-            accessibilityState={{ selected: saved }}
-            style={{
-              height: 56,
-              width: 56,
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 28,
-              borderWidth: saved ? 0 : 1,
-              borderColor: BORDER_INACTIVE,
-              backgroundColor: saved ? SELECTED_STRONG : CANVAS,
-            }}
-          >
-            <HeartIcon size={20} filled={saved} />
-          </Pressable>
+          {saveButton}
         </View>
       </View>
+      ) : (
+        <IngredientsSheet product={product} match={match} floating={saveButton} />
+      )}
     </View>
   );
 }
