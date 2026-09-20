@@ -8,7 +8,7 @@ import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/genie";
 import { isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The watercolor from onboarding's second screen: a bottle and its ingredient list.
@@ -161,6 +161,7 @@ function Chip({ label }: { label: string }) {
         paddingHorizontal: 20,
         borderRadius: 23,
         backgroundColor: SELECTED,
+        ...CHIP_SHADOW,
       }}
     >
       <Text

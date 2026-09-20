@@ -6,8 +6,8 @@ export const SCAN_BUTTON_LIFT = 28;
 export const TAB_BAR_HEIGHT = 60;
 /** Less rounded than a pill: a soft rectangle. */
 export const TAB_BAR_RADIUS = 22;
-export const TAB_BAR_SIDE_MARGIN = 16;
-const TAB_BAR_BOTTOM_GAP = 12;
+export const TAB_BAR_SIDE_MARGIN = 24;
+const TAB_BAR_BOTTOM_GAP = 20;
 
 /** How far above the screen's bottom edge the bar floats. */
 export function tabBarBottom(insetBottom: number): number {

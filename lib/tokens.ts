@@ -363,3 +363,12 @@ export const CARD_SHADOW = {
   shadowRadius: 12,
   elevation: 5,
 } as const;
+
+/** A small chip lifted off its card: a shorter shade than {@link CARD_SHADOW}. */
+export const CHIP_SHADOW = {
+  shadowColor: INK,
+  shadowOffset: { width: 0, height: 3 },
+  shadowOpacity: 0.14,
+  shadowRadius: 5,
+  elevation: 3,
+} as const;

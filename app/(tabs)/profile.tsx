@@ -10,7 +10,7 @@ import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 const AVATAR = 104;
@@ -64,6 +64,7 @@ export default function Profile() {
               backgroundColor: SELECTED,
               borderWidth: 2,
               borderColor: TERRACOTTA,
+              ...CARD_SHADOW,
             }}
           >
             <Ionicons name="person" size={54} color={TERRACOTTA} />
@@ -74,7 +75,7 @@ export default function Profile() {
           {tags.length > 0 ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 14 }}>
               {tags.map((tag) => (
-                <View key={tag} style={{ paddingHorizontal: 20, paddingVertical: 9, borderRadius: 999, backgroundColor: SELECTED }}>
+                <View key={tag} style={{ paddingHorizontal: 20, paddingVertical: 9, borderRadius: 999, backgroundColor: SELECTED, ...CHIP_SHADOW }}>
                   <Text style={{ fontSize: 13, fontWeight: "500", letterSpacing: 0.2, color: INK }}>{tag}</Text>
                 </View>
               ))}

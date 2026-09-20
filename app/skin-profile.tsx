@@ -24,7 +24,7 @@ import {
   sensitivityLabel,
 } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CTA, DANGER, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, CTA, DANGER, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md), restyled per
 // design-watercolor/reference.png's "My profile" screen.
@@ -426,6 +426,7 @@ function ProfileChip({
         borderWidth: selected ? 1.5 : 1,
         borderColor: selected ? TERRACOTTA : BORDER_INACTIVE,
         backgroundColor: selected ? SELECTED : CANVAS,
+        ...CHIP_SHADOW,
         opacity: disabled ? 0.4 : 1,
       }}
     >
