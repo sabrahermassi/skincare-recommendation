@@ -5,53 +5,69 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
 import { AppHeader, HEADER_GUTTER } from "@/components/AppHeader";
+import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/genie";
-import { isPersonalized, profileSummary } from "@/lib/profile";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
+import { isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
+import { CANVAS, INK, MUTED, MUTED_FAINT, SELECTED, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The watercolor from onboarding's first screen: someone photographing a bottle.
 const SCAN_ART = require("@/assets/illustrations/onboarding/onb2-scan.png");
+// The shelf that fills the empty Saved and History screens.
+const SHELF_ART = require("@/assets/illustrations/saved-empty-shelf.png");
 
 /**
- * Home — the first screen after the skin quiz, and the one the app opens on.
+ * Home — the first screen after the skin quiz.
  *
- * Three things, in the order they matter: scan a product (the card opens the
- * full-screen scanner), search for one, and the skin profile the quiz produced,
- * which is what every score on the other tabs is judged against.
+ * The skin profile the quiz produced sits on top, each answer as its own chip,
+ * because every score on the other tabs is judged against it. Under it the scan
+ * card, which opens the full-screen scanner, and a shelf of watercolor bottles
+ * filling the rest of the screen.
  */
 export default function Home() {
   const insets = useSafeAreaInsets();
   const profile = useAppStore((s) => s.profile);
   const personalized = isPersonalized(profile);
 
+  const { title, tags } = profileHeadline(profile);
+  const chips = [
+    ...(profile.baseSkinType ? [title] : []),
+    ...tags,
+    // Only when it changes what is shown as safe; "neither" and "prefer not to say" add nothing.
+    ...(profile.pregnancyStatus === "pregnant" || profile.pregnancyStatus === "breastfeeding"
+      ? [pregnancyLabel(profile.pregnancyStatus)]
+      : []),
+  ];
+
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 96 }} showsVerticalScrollIndicator={false}>
         <AppHeader />
 
-        <View style={{ paddingHorizontal: HEADER_GUTTER, gap: 18 }}>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 30, lineHeight: 36, color: INK }}>
-            Hi there
-          </Text>
-
-          {/* Looks like the search box on the Search tab; tapping it goes there. */}
+        <View style={{ paddingHorizontal: HEADER_GUTTER, gap: 22 }}>
+          {/* The skin profile, each answer in its own chip; tapping any of it edits it. */}
           <Pressable
-            onPress={() => router.navigate("/browse")}
-            accessibilityRole="search"
-            accessibilityLabel="Search products or brands"
-            style={{
-              height: 48,
-              borderRadius: 24,
-              borderWidth: 1,
-              borderColor: BORDER_INACTIVE,
-              backgroundColor: CANVAS,
-              paddingHorizontal: 18,
-              justifyContent: "center",
-            }}
+            onPress={() => router.push("/skin-profile")}
+            accessibilityRole="button"
+            accessibilityLabel={personalized ? `Your skin profile: ${chips.join(", ")}. Tap to edit.` : "Set up your skin profile"}
+            className="active:opacity-80"
+            style={{ gap: 12 }}
           >
-            <Text style={{ fontSize: 13.5, color: MUTED_FAINT }}>Search products or brands</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.2, color: MUTED_FAINT }}>
+                Your skin profile
+              </Text>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>{personalized ? "Edit" : "Set up"}</Text>
+            </View>
+
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+              {personalized ? (
+                chips.map((chip) => <Chip key={chip} label={chip} />)
+              ) : (
+                <Chip label="Set up your skin profile" />
+              )}
+            </View>
           </Pressable>
 
           {/* The scan card. */}
@@ -85,39 +101,32 @@ export default function Home() {
               style={{ position: "absolute", right: -18, bottom: -6, width: 170, height: 170 }}
             />
           </Pressable>
+        </View>
 
-          {/* The skin profile the quiz produced. */}
-          <Pressable
-            onPress={() => router.navigate("/profile")}
-            accessibilityRole="button"
-            accessibilityLabel={personalized ? "Your skin profile. Tap to edit." : "Set up your skin profile"}
-            className="active:opacity-90"
-            style={{
-              borderRadius: 22,
-              borderWidth: 1,
-              borderColor: BORDER_INACTIVE,
-              backgroundColor: SURFACE,
-              padding: 20,
-              gap: 6,
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.2, color: MUTED_FAINT }}>
-                Your skin profile
-              </Text>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>{personalized ? "Edit" : "Set up"}</Text>
-            </View>
-            <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, lineHeight: 26, color: INK }}>
-              {personalized ? profileSummary(profile) : "Not set up yet"}
-            </Text>
-            <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>
-              {personalized
-                ? "Every score is worked out against this."
-                : "Answer a few questions and every score will be made for your skin."}
-            </Text>
-          </Pressable>
+        {/* The shelf, in whatever room is left. */}
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", paddingTop: 24 }}>
+          <Image source={SHELF_ART} contentFit="contain" accessibilityLabel="" style={{ width: 286, height: 182 }} />
         </View>
       </ScrollView>
+    </View>
+  );
+}
+
+/** One answer of the skin profile, in the same peach and terracotta as a selected chip. */
+function Chip({ label }: { label: string }) {
+  return (
+    <View
+      style={{
+        paddingHorizontal: 16,
+        height: 40,
+        justifyContent: "center",
+        borderRadius: 20,
+        borderWidth: 1.5,
+        borderColor: TERRACOTTA,
+        backgroundColor: SELECTED,
+      }}
+    >
+      <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK }}>{label}</Text>
     </View>
   );
 }

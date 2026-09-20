@@ -52,6 +52,23 @@ export function pregnancyLabel(status: Pregnancy): string {
   return PREGNANCY_LABEL[status];
 }
 
+/**
+ * What the Profile tab calls someone's skin: a title ("Oily skin") and the tags
+ * under it (sensitivity, then concerns). With nothing answered there are no tags
+ * and the title says so.
+ */
+export function profileHeadline(profile: SkinProfile): { title: string; tags: string[] } {
+  const title = profile.baseSkinType
+    ? `${capitalize(profile.baseSkinType)} skin`
+    : isPersonalized(profile)
+      ? "Your skin"
+      : "Your skin profile";
+  const tags: string[] = [];
+  if (isSensitive(profile)) tags.push(profile.sensitivity === "high" ? "Very sensitive" : "Sensitive");
+  tags.push(...profile.concerns.map((c) => CONCERN_LABEL[c]));
+  return { title, tags };
+}
+
 /** The short summary shown in the browse header, e.g. "Combination, sensitive · dehydrated, redness". */
 export function profileSummary(profile: SkinProfile): string {
   const parts: string[] = [];
