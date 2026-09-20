@@ -71,6 +71,8 @@ describe("classifyGarbageIngredient", () => {
     "distribuitor",
     "producator",
     "potassium phosphate. puede contener cl:42090",
+    "peut contenir: aqua",
+    "peuvent contenir: aqua",
     // Italian / Dutch / properly-accented Romanian spellings.
     "ingredienti: aqua",
     "ingrediënten: aqua",
