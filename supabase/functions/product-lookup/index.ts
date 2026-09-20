@@ -97,7 +97,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq("barcode", barcode)
     .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .maybeSingle();
-  if (existing.data) return json(req, existing.data, 200);
+  if (existing.data) {
+    // A row with no ingredients is a leftover half-product (a barcode and a name
+    // from the retired barcode database), not something that can be scored. Say
+    // "not found" so the app asks for the ingredient list; `label-ocr` then fills
+    // this same row in. The other sources are not asked: they would try to write a
+    // second row under this barcode, which is unique.
+    if (!existing.data.product_ingredients?.length) return json(req, { error: "Not found in any source" }, 404);
+    return json(req, existing.data, 200);
+  }
 
   // Each remaining source is a third-party call over the network, so a DNS
   // failure, timeout or outage in one must fall through to the next rather
