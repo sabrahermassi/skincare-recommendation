@@ -14,6 +14,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { guessTypeFromIngredients } from "../_shared/guess-type-from-ingredients.ts";
+import { isParserOnlyChange } from "../_shared/parser-refresh.ts";
 import {
   classifyBarcodeIdentity,
   guessType,
@@ -340,10 +341,22 @@ async function persist(fetched: Fetched) {
   // Ingredients we've never seen are stored unrated rather than guessed at. A
   // fabricated comedogenic rating would be indistinguishable from a measured
   // one, which is the one mistake this table must not make.
+  //
+  // A third-party row that expired is written again under the same id, and its
+  // formula can differ from the stored one only because the parser improved. That
+  // is not a reformulation, so it must not stamp `formula_changed_at` (migration
+  // 0021). Only sent when true, so a write that never needs it works before 0021
+  // is applied. If the stored formula cannot be read, fall back to no flag.
+  const { data: stored } = await db
+    .from("product_ingredients")
+    .select("inci_name, position")
+    .eq("product_id", id);
+  const parserRefresh = isParserOnlyChange(stored ?? [], ingredients, parseInci);
   const { error } = await db.rpc("replace_product_with_ingredients", {
     p_product: product,
     p_ingredients: ingredients,
     p_stub_note: "No published rating for this ingredient yet.",
+    ...(parserRefresh ? { p_parser_refresh: true } : {}),
   });
   if (error) throw new PersistError(`replace_product_with_ingredients: ${error.message}`);
 
