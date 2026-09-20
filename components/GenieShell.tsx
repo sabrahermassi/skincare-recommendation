@@ -5,7 +5,7 @@ import { AccessibilityInfo, Animated, Easing, Platform, useWindowDimensions, Vie
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { genie } from "@/lib/genie";
-import { SCAN_BUTTON } from "@/lib/tab-bar";
+import { SCAN_BUTTON, SCAN_ICON } from "@/lib/tab-bar";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { CANVAS, RAISED_SHADOW, SURFACE } from "@/lib/tokens";
 
@@ -124,7 +124,7 @@ export function GenieShell({ children, ref }: { children: ReactNode; ref?: Ref<G
           opacity: fx.ghostOpacity,
         }}
       >
-        <Ionicons name="camera" size={28} color={SURFACE} />
+        <Ionicons name="camera" size={SCAN_ICON} color={SURFACE} />
       </Animated.View>
     </View>
   );

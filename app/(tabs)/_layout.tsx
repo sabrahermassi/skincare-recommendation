@@ -8,7 +8,7 @@ import { Pressable, View, type GestureResponderEvent } from "react-native";
 import { TabBarBackground } from "@/components/TabBarBackground";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { genie } from "@/lib/genie";
-import { SCAN_BUTTON, SCAN_BUTTON_LIFT, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
+import { SCAN_BUTTON, SCAN_BUTTON_LIFT, SCAN_ICON, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
 import { RAISED_SHADOW, SELECTED, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -131,7 +131,7 @@ function ScanTabButton({ onPress }: { onPress?: (event: GestureResponderEvent) =
         }}
         className="active:opacity-90"
       >
-        <Ionicons name="camera" size={28} color={SURFACE} />
+        <Ionicons name="camera" size={SCAN_ICON} color={SURFACE} />
       </Pressable>
     </View>
   );
