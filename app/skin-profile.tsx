@@ -6,7 +6,12 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
+// TERRACOTTA is otherwise a FOR.ME shell-only token (see shared.tsx's own
+// header comment) — reused here specifically because "match the quiz's
+// selected-chip color" was an explicit request, not a guess at a value.
+import { TERRACOTTA } from "@/components/shell/shared";
 import type {
   BaseSkinType,
   Concern,
@@ -20,7 +25,7 @@ import {
   sensitivityLabel,
 } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, CTA, DANGER, INK, MUTED, RADIUS_SELECTOR, SAGE_BORDER, SELECTED_SAGE, SURFACE, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, CTA, DANGER, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md), restyled per
 // design-watercolor/reference.png's "My profile" screen.
@@ -353,19 +358,7 @@ export default function ProfileScreen() {
             paddingTop: 14,
           }}
         >
-          <Pressable
-            onPress={save}
-            style={{
-              minHeight: 52,
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 26,
-              backgroundColor: CTA,
-            }}
-            className="active:opacity-90"
-          >
-            <Text style={{ fontSize: 15, fontWeight: "500", color: INK }}>Find my matches</Text>
-          </Pressable>
+          <PrimaryButton tone="cta" size={52} label="Find my matches" onPress={save} />
         </View>
       )}
     </View>
@@ -381,8 +374,8 @@ const CHIP_ROW = {
 type SummaryRow = { icon: number | null; label: string };
 
 /**
- * The profile screen's own chip: the quiz chip's shape and ink, in sage green
- * where the quiz is peach, and auto-width and wrap-flowed rather than a fixed 48%-of-row
+ * The profile screen's own chip: same border/fill/ink language as the quiz's
+ * `QuizChip`, but auto-width and wrap-flowed rather than a fixed 48%-of-row
  * grid - this screen edits a variable number of options per section (2 areas,
  * 4 skin types, up to 8 concerns), where a two-per-row grid would leave
  * ragged, oddly-wide chips. Documented as an extension in
@@ -420,8 +413,8 @@ function ProfileChip({
         justifyContent: "center",
         borderRadius: RADIUS_SELECTOR,
         borderWidth: selected ? 1.5 : 1,
-        borderColor: selected ? SAGE_BORDER : BORDER_INACTIVE,
-        backgroundColor: selected ? SELECTED_SAGE : CANVAS,
+        borderColor: selected ? TERRACOTTA : BORDER_INACTIVE,
+        backgroundColor: selected ? SELECTED : CANVAS,
         ...CHIP_SHADOW,
         opacity: disabled ? 0.4 : 1,
       }}

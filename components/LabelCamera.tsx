@@ -9,13 +9,14 @@ import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, V
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, WINDOW_RADIUS, type Box } from "@/components/ScanViewfinder";
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { readLabel } from "@/data/api";
 import { coverFitCropRect, shrinkWidth, type Rect, type Size } from "@/lib/crop-to-guide";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
 import { holdLabelRead } from "@/lib/pending-label";
-import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The design system (design/DESIGN_SYSTEM.md). The live camera view stays plain
@@ -322,20 +323,7 @@ export function LabelCamera({
           send the photo to Google Cloud Vision — we crop to the frame first,
           strip location data, and never store the image.
         </Text>
-        <Pressable
-          onPress={requestPermission}
-          style={{
-            height: 52,
-            paddingHorizontal: 24,
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: 14,
-            backgroundColor: CTA,
-          }}
-          className="active:opacity-90"
-        >
-          <Text style={{ fontSize: 16, fontWeight: "600", color: INK }}>Grant permission</Text>
-        </Pressable>
+        <PrimaryButton tone="cta" size={52} label="Grant permission" onPress={requestPermission} />
       </View>
     );
   }
