@@ -106,7 +106,19 @@ const NON_FACE_BODY_WORDS = new Set([
   "labios",
 ]);
 
-const REMOVAL_WORDS = new Set(["makeup", "cotton", "wipe", "wipes"]);
+// A pad or mask that wipes makeup off is a cleanser-family product, not an eye
+// patch — micellar water (and its German/French spellings) is the same idea.
+const REMOVAL_WORDS = new Set([
+  "makeup",
+  "cotton",
+  "wipe",
+  "wipes",
+  "micellar",
+  "micellaire",
+  "mizellar",
+  "mizellen",
+  "entferner",
+]);
 
 function words(value) {
   return String(value ?? "").toLowerCase().match(/[\p{L}\p{N}.]+/gu) ?? [];
