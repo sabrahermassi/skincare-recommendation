@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObjec
 import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, View, type LayoutChangeEvent, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { SCAN_SIDE_INSET, ScanViewfinder, WINDOW_RADIUS, type Box } from "@/components/ScanViewfinder";
+import { SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, WINDOW_RADIUS, type Box } from "@/components/ScanViewfinder";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { analyseLabel } from "@/data/api";
@@ -444,6 +444,37 @@ export function LabelCamera({
         >
           <Ionicons name="close" size={26} color={CANVAS} />
         </Pressable>
+      ) : null}
+
+      {/* The instruction, inside the frame at its top. */}
+      {status.kind === "framing" ? (
+        <FadeIn
+          style={{
+            position: "absolute",
+            left: SCAN_SIDE_INSET + 12,
+            right: SCAN_SIDE_INSET + 12,
+            top: frameTopInset + SCAN_TOP_GAP + 14,
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              alignItems: "center",
+              gap: 2,
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 18,
+              backgroundColor: withAlpha(CANVAS, 0.95),
+            }}
+          >
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>
+              Fill the frame with the ingredient list
+            </Text>
+            <Text style={{ textAlign: "center", fontSize: 11, color: MUTED }}>
+              Hold steady. The photo is sent to Google to read the text, then discarded.
+            </Text>
+          </View>
+        </FadeIn>
       ) : null}
 
       {/* The shutter, inside the frame at its bottom, with what it is doing above it. */}
