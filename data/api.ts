@@ -459,7 +459,7 @@ type CatalogueListRow = Omit<CatalogueRow, "product_ingredients"> & {
 };
 
 /** One ingredient definition, keyed by INCI name. */
-export type IngredientDictionary = Map<string, Ingredient>;
+type IngredientDictionary = Map<string, Ingredient>;
 
 const PRODUCT_COLUMNS = `
   id, barcode, brand, name, type, source, description, image_url, volume,

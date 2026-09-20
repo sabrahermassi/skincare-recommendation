@@ -116,7 +116,7 @@ export function productIllustration(product: {
  * image asset resolves to a Metro module id (a `number`) at runtime, which
  * is exactly what `expo-image`'s `source` prop accepts alongside `{ uri }`.
  */
-export const ILLUSTRATION_SOURCE: Record<string, number> = {
+const ILLUSTRATION_SOURCE: Record<string, number> = {
   "bottle-cleanser.png": require("@/assets/illustrations/bottle-cleanser.png"),
   "bottle-toner.png": require("@/assets/illustrations/bottle-toner.png"),
   "bottle-essence.png": require("@/assets/illustrations/bottle-essence.png"),

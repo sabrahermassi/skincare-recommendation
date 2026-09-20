@@ -22,7 +22,7 @@ import type { Ingredient } from "@/data/types";
  * person and their doctor, not a formula defect.
  */
 
-export type PregnancyCautionEntry = {
+type PregnancyCautionEntry = {
   names: (string | RegExp)[];
   category: "retinoid" | "salicylic-acid" | "hydroquinone" | "essential-oil";
   reason: string;
