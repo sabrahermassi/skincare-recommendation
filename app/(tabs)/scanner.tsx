@@ -3,7 +3,7 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "ex
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Rect } from "react-native-svg";
 
+import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
 import { GenieShell, type GenieShellHandle } from "@/components/GenieShell";
 import { LabelCamera } from "@/components/LabelCamera";
 import { ScanIntro } from "@/components/ScanIntro";
@@ -29,6 +30,7 @@ import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
+import type { LabelResultParams } from "@/lib/read-label-photo";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
 import { CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
@@ -903,12 +905,15 @@ function CameraPermissionIntro({
   title,
   body,
   bottomInset,
+  extra,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
   requestPermission: () => void;
   title: string;
   body: string;
   bottomInset: number;
+  /** An alternative offered under the button when there is one (Photo mode's "choose a photo"). */
+  extra?: ReactNode;
 }) {
   const blocked = permission?.canAskAgain === false;
   return (
@@ -920,10 +925,11 @@ function CameraPermissionIntro({
           ? "Turn the camera back on for this app in your device settings, then come back."
           : body
       }
-      actionLabel={blocked ? "Open settings" : "Open camera"}
+      actionLabel={blocked ? "Grant permission" : "Open camera"}
       onAction={blocked ? () => void Linking.openSettings() : requestPermission}
       bottomInset={bottomInset}
     >
+      {extra}
       {/* This fires at the worst moment — camera access just failed — so the one
           sentence offering a way forward has to actually be the way forward:
           underlined, standard target height, and it goes to Browse rather than
@@ -972,6 +978,13 @@ function IngredientsStage({
   const insets = useSafeAreaInsets();
   const needsPermission = permission !== null && !permission.granted;
   const clearance = Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
+  // Where a finished read goes, whether it came from the camera or a chosen photo.
+  const openResult = (params: LabelResultParams) => {
+    // The X (or a tab switch) can land while a read is still pending.
+    if (!focusedRef.current) return;
+    preserveMode();
+    router.push({ pathname: "/result/[id]", params });
+  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -983,12 +996,7 @@ function IngredientsStage({
           barcode={barcode}
           frameTopOffset={CLOSE_CLEARANCE}
           bottomInset={clearance}
-          onResult={(params) => {
-            // The X (or a tab switch) can land while a read is still pending.
-            if (!focusedRef.current) return;
-            preserveMode();
-            router.push({ pathname: "/result/[id]", params });
-          }}
+          onResult={openResult}
         />
       ) : null}
 
@@ -999,6 +1007,7 @@ function IngredientsStage({
           title="Photograph the ingredient list"
           body="Take a photo of the list on the back and we'll read it. We crop to the frame, send it to Google to read the text, and never store the image."
           bottomInset={clearance}
+          extra={<ChoosePhotoInstead barcode={barcode} onResult={openResult} />}
         />
       ) : null}
     </View>

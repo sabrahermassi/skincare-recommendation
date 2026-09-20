@@ -1,19 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { File } from "expo-file-system";
 import { Image } from "expo-image";
-import { launchImageLibraryAsync } from "expo-image-picker";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, View, type LayoutChangeEvent, type ViewStyle } from "react-native";
+import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, StyleSheet, View, type LayoutChangeEvent, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
 import { SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, WINDOW_RADIUS, type Box } from "@/components/ScanViewfinder";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
-import { analyseLabel } from "@/data/api";
-import { coverFitCropRect, shrinkWidth, type Rect, type Size } from "@/lib/crop-to-guide";
-import { stripBase64ImageMetadata } from "@/lib/image-metadata";
+import { coverFitCropRect, type Rect, type Size } from "@/lib/crop-to-guide";
+import { deleteTempFile, pickLabelPhoto } from "@/lib/pick-label-photo";
+import { readLabelPhoto } from "@/lib/read-label-photo";
 import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -40,9 +39,6 @@ type Status =
   // Codex caught on #121 — every reason but one genuinely is retryable, and
   // the one that isn't (`not_configured`) needs its caller to say so.
   | { kind: "failed"; message: string; hint?: string; retryable: boolean };
-
-/** The widest a picked photo is sent: the ingredient text stays readable, the upload stays small. */
-const LIBRARY_MAX_WIDTH = 2000;
 
 type Props = {
   /** Handed over by whoever sent the user here after a miss; the product read is saved under it. */
@@ -140,33 +136,22 @@ export function LabelCamera({
     // issue #27.
     let capturedUri: string | undefined;
     let croppedUri: string | undefined;
-    // The picker's own copy of a chosen picture, which stays behind when it is shrunk.
-    let pickedUri: string | undefined;
+    // The picker's copies of a chosen picture, which stay behind when it is shrunk.
+    let releasePick: (() => void) | undefined;
 
     try {
       // A picture already on the phone skips the camera. The picker hands back
       // its own copy in cache, cleaned up below like the camera's.
-      let photo;
+      let photo: { uri: string; base64?: string; width?: number; height?: number } | undefined;
       if (source === "library") {
-        const picked = await launchImageLibraryAsync({ mediaTypes: ["images"], base64: true, quality: 0.8 });
-        if (picked.canceled || !picked.assets?.[0]) {
+        const picked = await pickLabelPhoto();
+        if (!picked) {
           setStatus({ kind: "framing" });
           return;
         }
-        photo = picked.assets[0];
-        pickedUri = photo.uri;
-        setPreview(photo.uri);
-        // Scaled down first: a full-size phone photo can be too large to send.
-        const width = shrinkWidth(photo.width, LIBRARY_MAX_WIDTH);
-        if (width) {
-          const resized = await manipulateAsync(photo.uri, [{ resize: { width } }], {
-            base64: true,
-            compress: 0.8,
-            format: SaveFormat.JPEG,
-          });
-          croppedUri = resized.uri;
-          photo = { ...photo, uri: resized.uri, base64: resized.base64, width: resized.width, height: resized.height };
-        }
+        releasePick = picked.cleanup;
+        setPreview(picked.previewUri);
+        photo = { uri: picked.previewUri, base64: picked.base64 };
       } else {
         photo = await camera.current?.takePictureAsync({
           base64: true,
@@ -219,79 +204,15 @@ export function LabelCamera({
         }
       }
 
-      // A phone photo carries GPS coordinates, a device identifier and a
-      // capture timestamp in its EXIF block, and this image is on its way to
-      // Google Vision — so a home address would cross a third-party boundary
-      // attached to a picture of a bottle. `skipProcessing: true` above makes
-      // that worse on Android, where it hands back the raw sensor JPEG.
-      // `expo-image-manipulator` re-encodes as part of cropping and could
-      // reintroduce its own metadata, so this still runs unconditionally on
-      // whichever image — cropped or not — is about to be sent.
-      //
-      // `label-ocr` strips again on ingest and that is the actual control;
-      // this pass is what keeps the coordinates from leaving the handset in
-      // the first place. Failing closed rather than falling back to the
-      // original: an image we cannot parse is an image we should not forward.
-      const clean = stripBase64ImageMetadata(imageBase64);
-      if (!clean.ok) {
-        setStatus({
-          kind: "failed",
-          message:
-            clean.reason === "too_large"
-              ? "That photo is too large to read."
-              : "We couldn't read that image.",
-          hint:
-            clean.reason === "too_large"
-              ? "Try again — the ingredient panel alone is enough, it doesn't need the whole box."
-              : "Try again with steadier hands or better light.",
-          retryable: true,
-        });
-        return;
-      }
-
-      const result = await analyseLabel(clean.base64, { barcode });
-
-      // The server's "did we find enough text to try" check happens before it
-      // knows whether any of that text is actually an ingredient. A photo of
-      // something else entirely — a wall, a receipt, a face — can still clear
-      // that bar if the OCR returns a handful of comma-separated words, and
-      // this is what let a random photo through to a product screen showing
-      // "Can't tell yet" instead of an honest failure: recognising literally
-      // nothing is not a product, it's a label we couldn't read, and it
-      // deserves the same message as one, not a page that looks like a scan
-      // succeeded.
-      if (result.ok && (result.total === 0 || result.recognised === 0)) {
-        setStatus({
-          kind: "failed",
-          message: "That doesn't look like an ingredient list.",
-          hint: "Make sure the ingredient panel fills the frame, then try again.",
-          retryable: true,
-        });
-        return;
-      }
-
-      if (result.ok) {
-        // No barcode was in hand for this scan — the row `label-ocr` just
-        // wrote is on a grace timer and nobody else can ever find it (see
-        // migration 0014 and resolve-scan). Flagging it here is what lets
-        // the product screen offer the "scan the barcode too?" follow-up
-        // only on the visit that just created the row, not on every later
-        // visit to it. `scanToken` is threaded along too — without it
-        // there is nothing safe to resolve the offer with (see
-        // resolve-scan's ownership check), so the product screen treats a
-        // missing token the same as no offer at all.
+      const outcome = await readLabelPhoto(imageBase64, barcode);
+      if (outcome.kind === "result") {
         // Back to the ready camera before leaving: this screen stays mounted under
         // the result, so swiping back must find a camera to use, not "Reading…".
         setStatus({ kind: "framing" });
-        onResult(
-          barcode || !result.scanToken
-            ? { id: result.product.id }
-            : { id: result.product.id, offerBarcode: "1", scanToken: result.scanToken }
-        );
+        onResult(outcome.params);
         return;
       }
-
-      setStatus({ kind: "failed", ...failureCopy(result.reason, !!barcode) });
+      setStatus({ kind: "failed", message: outcome.message, hint: outcome.hint, retryable: outcome.retryable });
     } catch {
       setStatus({
         kind: "failed",
@@ -301,7 +222,7 @@ export function LabelCamera({
       });
     } finally {
       setPreview(null);
-      deleteTempFile(pickedUri);
+      releasePick?.();
       deleteTempFile(capturedUri);
       deleteTempFile(croppedUri);
     }
@@ -333,7 +254,9 @@ export function LabelCamera({
           strip location data, and never store the image.
         </Text>
         <Pressable
-          onPress={requestPermission}
+          // Once the system will not ask again, asking does nothing: send them to
+          // settings, where the camera can be turned back on.
+          onPress={permission.canAskAgain === false ? () => void Linking.openSettings() : requestPermission}
           style={{
             height: 52,
             paddingHorizontal: 24,
@@ -346,6 +269,8 @@ export function LabelCamera({
         >
           <Text style={{ fontSize: 16, fontWeight: "600", color: INK }}>Grant permission</Text>
         </Pressable>
+        {/* Reading a chosen picture needs no camera, so this is not a dead end. */}
+        <ChoosePhotoInstead barcode={barcode} onResult={onResult} />
       </View>
     );
   }
@@ -573,89 +498,4 @@ function FadeIn({ style, children }: { style?: ViewStyle; children: ReactNode })
     }).start();
   }, [opacity]);
   return <Animated.View style={[style, { opacity }]}>{children}</Animated.View>;
-}
-
-/**
- * Remove a temp photo file from cache once `capture()` no longer needs it —
- * see issue #27. Best-effort: a file the OS will eventually reclaim from
- * cache on its own is a smaller problem than a cleanup step throwing and
- * masking the scan result the user is already looking at.
- *
- * The `file://` guard isn't just defensive — `CameraCapturedPicture.uri`'s
- * own doc comment says web has no filesystem and returns the base64 string
- * as `uri` instead, so this is a correct, self-documented no-op there rather
- * than something that happens to survive by falling into the `catch`.
- */
-function deleteTempFile(uri: string | undefined) {
-  if (!uri || !uri.startsWith("file://")) return;
-  try {
-    const file = new File(uri);
-    if (file.exists) file.delete();
-  } catch {
-    // Nothing to do — see above.
-  }
-}
-
-/**
- * Each failure gets a different next action, because they have different
- * fixes.
- *
- * `hasBarcode` is whoever navigated here having already handed one over —
- * from a catalogue miss (`(tabs)/index.tsx`), a recorded miss in Saved, or a
- * recognised product with no formula yet (`product/[id].tsx`). In all three,
- * the barcode already ran and either missed or led here; telling that user
- * to "try the barcode" sends them straight back through the same loop. Only
- * the bare "photograph a label" entry point (no barcode in hand at all) can
- * usefully be pointed at it. Found in review on #121.
- */
-function failureCopy(
-  reason: "not_configured" | "server_unavailable" | "unreadable" | "too_little_text" | "rate_limited",
-  hasBarcode: boolean,
-) {
-  switch (reason) {
-    case "too_little_text":
-      return {
-        message: "We couldn't find an ingredient list in that photo.",
-        hint: "Get closer so the small print fills the frame, and avoid glare.",
-        retryable: true,
-      };
-    case "rate_limited":
-      return {
-        message: "That's a lot of ingredient photos in a short time.",
-        hint: "Give it a few minutes and try again.",
-        retryable: true,
-      };
-    case "not_configured":
-      // This install has no Supabase credentials at all — see
-      // `LabelAnalysis`'s comment in `data/api.ts`. Permanent for this
-      // build, so no "temporarily", no "try again", and — per Codex's next
-      // finding on #121 — no retry button either: retaking the photo would
-      // run the exact same check and fail the exact same way.
-      console.warn("[scan-label] label-ocr not available: this app has no Supabase credentials configured");
-      return {
-        message: "Reading ingredient lists isn't available in this build.",
-        hint: hasBarcode
-          ? "Look the product up in Browse instead."
-          : "Try the barcode instead, or look the product up in Browse.",
-        retryable: false,
-      };
-    case "server_unavailable":
-      // The server answered 503 because its Vision API key is unset — an
-      // ops problem, genuinely temporary and worth retrying later, unlike
-      // `not_configured` above. Kept out of the user-facing copy per #96.
-      console.warn("[scan-label] label-ocr unavailable: server's Vision API key is unset");
-      return {
-        message: "Reading ingredient lists is temporarily unavailable.",
-        hint: hasBarcode
-          ? "Look the product up in Browse, or try again later."
-          : "Try the barcode instead, or look the product up in Browse.",
-        retryable: true,
-      };
-    case "unreadable":
-      return {
-        message: "We couldn't read that image.",
-        hint: "Try again with steadier hands or better light.",
-        retryable: true,
-      };
-  }
 }
