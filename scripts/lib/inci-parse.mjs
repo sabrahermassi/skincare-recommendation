@@ -164,8 +164,10 @@ export function fuzzyLookup(
  *
  * A colon between two digits is kept — "ci 77268:1" and "pigment red 57:1" are
  * real colour-index names. Any other colon is a heading that leaked into the
- * name. Eight words is above every real INCI name in the dictionary and below
- * every sentence found in it. An HTML entity ("&lt;") or a run of seven digits
+ * name. Eight words clears every name a label is likely to print and stays
+ * below the sentences found in the dictionary; a few dictionary entries run
+ * longer (fermented extracts naming dozens of species), but a name the
+ * dictionary already holds never reaches this check. An HTML entity ("&lt;") or a run of seven digits
  * (a barcode, a batch number) is packaging text that OCR or a paste carried in,
  * as is a web address or e-mail, and a fragment that opens with the word
  * "ingredients" is a footnote about the list, not a member of it.
@@ -259,6 +261,55 @@ export function lengthIndex(dictionary) {
   return index;
 }
 
+const COMMON_NAMES = new Map([
+  ["flavor", "aroma"],
+  ["flavour", "aroma"],
+  ["perfume", "parfum"],
+  ["fragrance", "parfum"],
+  ["purified water", "aqua"],
+  ["deionized water", "aqua"],
+  ["demineralized water", "aqua"],
+  ["distilled water", "aqua"],
+  ["glycerine", "glycerin"],
+  ["glycerol", "glycerin"],
+  ["petroleum jelly", "petrolatum"],
+  ["mineral oil", "paraffinum liquidum"],
+  ["jojoba oil", "simmondsia chinensis seed oil"],
+  ["jojoba seed oil", "simmondsia chinensis seed oil"],
+  ["apricot kernel oil", "prunus armeniaca kernel oil"],
+  ["evening primrose oil", "oenothera biennis oil"],
+  ["argan oil", "argania spinosa kernel oil"],
+  ["argan kernel oil", "argania spinosa kernel oil"],
+  ["olive oil", "olea europaea fruit oil"],
+  ["olive fruit oil", "olea europaea fruit oil"],
+  ["rosehip oil", "rosa canina fruit oil"],
+  ["rosehip fruit extract", "rosa canina fruit extract"],
+  ["mango fruit extract", "mangifera indica fruit extract"],
+  ["mango butter", "mangifera indica seed butter"],
+  ["shea butter", "butyrospermum parkii butter"],
+  ["coconut oil", "cocos nucifera oil"],
+  ["sweet almond oil", "prunus amygdalus dulcis oil"],
+  ["almond oil", "prunus amygdalus dulcis oil"],
+  ["avocado oil", "persea gratissima oil"],
+  ["castor oil", "ricinus communis seed oil"],
+  ["grapeseed oil", "vitis vinifera seed oil"],
+  ["grape seed oil", "vitis vinifera seed oil"],
+  ["sunflower oil", "helianthus annuus seed oil"],
+  ["sunflower seed oil", "helianthus annuus seed oil"],
+  ["tea tree oil", "melaleuca alternifolia leaf oil"],
+  ["lavender oil", "lavandula angustifolia oil"],
+  ["candelilla wax", "euphorbia cerifera cera"],
+  ["euphorbia cerifera wax", "euphorbia cerifera cera"],
+  ["carnauba wax", "copernicia cerifera cera"],
+  ["kojic acid dipalmitate", "kojic dipalmitate"],
+  ["octyl salicylate", "ethylhexyl salicylate"],
+  ["octyl methoxycinnamate", "ethylhexyl methoxycinnamate"],
+  ["vitamin e", "tocopherol"],
+  ["vitamin e acetate", "tocopheryl acetate"],
+  ["vitamin c", "ascorbic acid"],
+  ["vitamin b5", "panthenol"],
+]);
+
 /**
  * What labels print in place of the INCI name, for the ordinary ingredients
  * people name by their common name: "jojoba seed oil" is
@@ -273,55 +324,7 @@ export function lengthIndex(dictionary) {
  * target is absent does nothing.
  */
 export function commonNameFor(name) {
-  const table = new Map([
-    ["flavor", "aroma"],
-    ["flavour", "aroma"],
-    ["perfume", "parfum"],
-    ["fragrance", "parfum"],
-    ["purified water", "aqua"],
-    ["deionized water", "aqua"],
-    ["demineralized water", "aqua"],
-    ["distilled water", "aqua"],
-    ["glycerine", "glycerin"],
-    ["glycerol", "glycerin"],
-    ["petroleum jelly", "petrolatum"],
-    ["mineral oil", "paraffinum liquidum"],
-    ["jojoba oil", "simmondsia chinensis seed oil"],
-    ["jojoba seed oil", "simmondsia chinensis seed oil"],
-    ["apricot kernel oil", "prunus armeniaca kernel oil"],
-    ["evening primrose oil", "oenothera biennis oil"],
-    ["argan oil", "argania spinosa kernel oil"],
-    ["argan kernel oil", "argania spinosa kernel oil"],
-    ["olive oil", "olea europaea fruit oil"],
-    ["olive fruit oil", "olea europaea fruit oil"],
-    ["rosehip oil", "rosa canina fruit oil"],
-    ["rosehip fruit extract", "rosa canina fruit extract"],
-    ["mango fruit extract", "mangifera indica fruit extract"],
-    ["mango butter", "mangifera indica seed butter"],
-    ["shea butter", "butyrospermum parkii butter"],
-    ["coconut oil", "cocos nucifera oil"],
-    ["sweet almond oil", "prunus amygdalus dulcis oil"],
-    ["almond oil", "prunus amygdalus dulcis oil"],
-    ["avocado oil", "persea gratissima oil"],
-    ["castor oil", "ricinus communis seed oil"],
-    ["grapeseed oil", "vitis vinifera seed oil"],
-    ["grape seed oil", "vitis vinifera seed oil"],
-    ["sunflower oil", "helianthus annuus seed oil"],
-    ["sunflower seed oil", "helianthus annuus seed oil"],
-    ["tea tree oil", "melaleuca alternifolia leaf oil"],
-    ["lavender oil", "lavandula angustifolia oil"],
-    ["candelilla wax", "euphorbia cerifera cera"],
-    ["euphorbia cerifera wax", "euphorbia cerifera cera"],
-    ["carnauba wax", "copernicia cerifera cera"],
-    ["kojic acid dipalmitate", "kojic dipalmitate"],
-    ["octyl salicylate", "ethylhexyl salicylate"],
-    ["octyl methoxycinnamate", "ethylhexyl methoxycinnamate"],
-    ["vitamin e", "tocopherol"],
-    ["vitamin e acetate", "tocopheryl acetate"],
-    ["vitamin c", "ascorbic acid"],
-    ["vitamin b5", "panthenol"],
-  ]);
-  return table.get(name);
+  return COMMON_NAMES.get(name);
 }
 
 /**
@@ -478,7 +481,7 @@ export function salvageKnownNames(name, dictionary, aliases) {
  * check threw out, so an importer can print them.
  */
 export function parseInci(text, dictionary, rejected, aliases) {
-  const flat = text.replace(/\r/g, "").replace(/\n+/g, " ").replace(/\s+/g, " ").replace(/\b(?:inactive ingredients?|may contain|peut contenir)\s*[:：]?\s*/gi, ", ");
+  const flat = text.replace(/\r/g, "").replace(/\n+/g, " ").replace(/\s+/g, " ").replace(/\b(?:inactive ingredients?|may contain|peu(?:t|vent) contenir|puede contener|kann enthalten)\s*[:：]?\s*/gi, ", ");
 
   // 1 ── Drop everything up to and including an "Ingredients:" heading. Same
   // pattern as lib/inci.ts.

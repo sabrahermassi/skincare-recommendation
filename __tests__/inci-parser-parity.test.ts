@@ -87,9 +87,30 @@ function extractFunctionBody(source: string, name: string): string {
     .join("\n");
 }
 
+/**
+ * The common-name table sits at module level rather than inside
+ * `commonNameFor` (so it is built once, not on every call), which takes it out
+ * of the function body compared above. It is compared here instead: from its
+ * declaration to the closing `]);`.
+ */
+function extractCommonNames(source: string): string {
+  const text = source.replace(/\r\n/g, "\n");
+  const start = text.indexOf("const COMMON_NAMES = new Map([");
+  if (start === -1) throw new Error("COMMON_NAMES not found");
+  const end = text.indexOf("\n]);", start);
+  if (end === -1) throw new Error("COMMON_NAMES table is not closed");
+  return text.slice(start, end + 4);
+}
+
 describe("label-ocr's parser stays in step with lib/inci.ts", () => {
   const client = fs.readFileSync(CLIENT_PATH, "utf8");
   const edge = fs.readFileSync(EDGE_PATH, "utf8");
+
+  it("COMMON_NAMES is identical in the client, label-ocr and the import scripts", () => {
+    const table = extractCommonNames(client);
+    expect(extractCommonNames(edge)).toBe(table);
+    expect(extractCommonNames(fs.readFileSync(path.join(__dirname, "..", "scripts", "lib", "inci-parse.mjs"), "utf8"))).toBe(table);
+  });
 
   it.each(SHARED_FUNCTIONS)("%s is identical in both copies", (name: string) => {
     const clientBody = extractFunctionBody(client, name);

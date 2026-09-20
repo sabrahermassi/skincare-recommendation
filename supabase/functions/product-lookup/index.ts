@@ -370,8 +370,10 @@ async function persist(fetched: Fetched) {
  *
  * A colon between two digits is kept — "ci 77268:1" and "pigment red 57:1" are
  * real colour-index names. Any other colon is a heading that leaked into the
- * name. Eight words is above every real INCI name in the dictionary and below
- * every sentence found in it. An HTML entity ("&lt;") or a run of seven digits
+ * name. Eight words clears every name a label is likely to print and stays
+ * below the sentences found in the dictionary; a few dictionary entries run
+ * longer (fermented extracts naming dozens of species), but a name the
+ * dictionary already holds never reaches this check. An HTML entity ("&lt;") or a run of seven digits
  * (a barcode, a batch number) is packaging text that OCR or a paste carried in,
  * as is a web address or e-mail, and a fragment that opens with the word
  * "ingredients" is a footnote about the list, not a member of it.
@@ -399,7 +401,7 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
   // not say what water was. `lib/inci.ts` has always stripped this; the two
   // parsers simply disagreed.
   const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*/i, "")
-    .replace(/\b(?:inactive ingredients?|may contain|peut contenir)\s*[:：]?\s*/gi, ", ");
+    .replace(/\b(?:inactive ingredients?|may contain|peu(?:t|vent) contenir|puede contener|kann enthalten)\s*[:：]?\s*/gi, ", ");
 
   // ...and truncate at whatever shares the back of the label. Legal
   // boilerplate and net-quantity marks reliably follow the formula, and

@@ -26,6 +26,8 @@ import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
 import { fuzzyKnownName, isPlausibleIngredientName, parseInci, resolveKnownName } from "./lib/inci-parse.mjs";
+import { KNOWN_SHORT_NAMES } from "./audit-catalogue-quality.mjs";
+import { fetchAliases } from "./lib/aliases.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 const APPLY = process.argv.includes("--apply");
@@ -126,10 +128,35 @@ function classifyStub(name, known, aliases) {
   if (target && target !== name && known.has(target)) return { kind: "variant", target };
 
   const head = name.split(/\s+/).slice(0, 8).join(" ");
-  if (name.length < 4 || !/[a-z]/i.test(name) || !isPlausibleIngredientName(head)) {
+  // Short only counts as junk for Latin text: "pca" and "egf" are real (the #86
+  // audit keeps the same list), and a two- or three-syllable Korean name is
+  // legitimately that short.
+  const tooShort = name.length < 4 && /^[\x00-\x7f]*$/.test(name) && !KNOWN_SHORT_NAMES.has(name.toLowerCase());
+  if (tooShort || !/\p{L}/u.test(name) || !isPlausibleIngredientName(head)) {
     return { kind: "junk" };
   }
   return null;
+}
+
+/**
+ * Which product rows to point at the real name and which to drop. A product
+ * that already lists the real name cannot also point this row at it, or the
+ * formula would name it twice: that row is dropped instead. `productNames` is
+ * each product's current names and is updated as rows are planned, so two stubs
+ * of one ingredient in the same product collapse to one row.
+ */
+function planRepoints(variants, variantUses, productNames) {
+  const repoint = [];
+  const dropRow = [];
+  for (const u of variantUses) {
+    const target = variants.get(u.inci_name);
+    if (productNames.get(u.product_id)?.has(target)) dropRow.push(u);
+    else {
+      repoint.push({ ...u, target });
+      productNames.get(u.product_id)?.add(target);
+    }
+  }
+  return { repoint, dropRow };
 }
 
 async function readIngredients(db, verified) {
@@ -139,14 +166,6 @@ async function readIngredients(db, verified) {
     filter: (q) => q.eq("verified", verified),
   });
   return rows.map((r) => r.inci_name);
-}
-
-async function readAliases(db) {
-  const rows = await paginateOrdered(db, "ingredient_synonyms", {
-    select: "synonym, inci_name",
-    cursorColumn: "synonym",
-  });
-  return new Map(rows.map((r) => [r.synonym.toLowerCase(), r.inci_name.toLowerCase()]));
 }
 
 /** Every product_ingredients row that uses one of `names`. */
@@ -174,7 +193,7 @@ async function main() {
 
   const known = new Set((await readIngredients(db, true)).map((n) => n.toLowerCase()));
   const stubs = await readIngredients(db, false);
-  const aliases = await readAliases(db);
+  const aliases = await fetchAliases(db);
   console.log(`Dictionary: ${known.size} verified names, ${stubs.length} unverified stubs.\n`);
 
   const variants = new Map(); // stub → verified name
@@ -207,16 +226,7 @@ async function main() {
     }
   }
 
-  const repoint = [];
-  const dropRow = [];
-  for (const u of variantUses) {
-    const target = variants.get(u.inci_name);
-    if (productNames.get(u.product_id)?.has(target)) dropRow.push(u);
-    else {
-      repoint.push({ ...u, target });
-      productNames.get(u.product_id)?.add(target);
-    }
-  }
+  const { repoint, dropRow } = planRepoints(variants, variantUses, productNames);
   const junkInUse = junk.filter((n) => (usesByName.get(n) ?? []).length > 0);
   const junkFree = junk.filter((n) => (usesByName.get(n) ?? []).length === 0);
 
@@ -274,7 +284,7 @@ function invokedDirectly() {
   }
 }
 
-export { classifyStub };
+export { classifyStub, planRepoints };
 
 if (invokedDirectly()) {
   main().catch((err) => {

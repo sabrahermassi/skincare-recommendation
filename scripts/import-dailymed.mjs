@@ -32,6 +32,7 @@ import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
 import { normalise, parseInci } from "./lib/inci-parse.mjs";
+import { fetchAliases } from "./lib/aliases.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -529,15 +530,6 @@ async function fetchKnownIngredients(db) {
     filter: (q) => q.eq("verified", true),
   });
   return new Set(rows.map((r) => r.inci_name.toLowerCase()));
-}
-
-/** Other names for known ingredients — see the same read in `scripts/import-obf.mjs`. */
-async function fetchAliases(db) {
-  const rows = await paginateOrdered(db, "ingredient_synonyms", {
-    select: "synonym, inci_name",
-    cursorColumn: "synonym",
-  });
-  return new Map(rows.map((r) => [r.synonym.toLowerCase(), r.inci_name.toLowerCase()]));
 }
 
 /**

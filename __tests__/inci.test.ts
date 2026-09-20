@@ -487,6 +487,10 @@ describe("parseIngredientBlock", () => {
     ["Aqua, tocopherol. may contain : ci 77891", ["aqua", "tocopherol", "ci 77891"]],
     ["Aqua, tocopherol. peut contenir : ci 77891", ["aqua", "tocopherol", "ci 77891"]],
     ["octocrylene inactive ingredients: water, glycerin", ["octocrylene", "water", "glycerin"]],
+    ["octocrylene peut contenir: water, glycerin", ["octocrylene", "water", "glycerin"]],
+    ["octocrylene peuvent contenir: water, glycerin", ["octocrylene", "water", "glycerin"]],
+    ["octocrylene puede contener: water, glycerin", ["octocrylene", "water", "glycerin"]],
+    ["octocrylene kann enthalten: water, glycerin", ["octocrylene", "water", "glycerin"]],
     [
       "Active ingredients: Octocrylene. Inactive ingredients: Water, Glycerin",
       ["octocrylene", "water", "glycerin"],

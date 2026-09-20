@@ -1,4 +1,36 @@
-import { fetchIngredients, formulaChanged, parseLimit } from "../scripts/reconcile-obf.mjs";
+import { parseInci } from "../scripts/lib/inci-parse.mjs";
+import { fetchIngredients, formulaChanged, parseLimit, parserOnlyChange } from "../scripts/reconcile-obf.mjs";
+
+/**
+ * The parser got better than the one that stored these rows. A rewrite would
+ * stamp `formula_changed_at` and tell every user who saved the product that it
+ * was reformulated, so a parser-only difference has to be told apart from a real
+ * one.
+ */
+describe("parserOnlyChange", () => {
+  const known = new Set(["aqua", "glycerin", "niacinamide"]);
+  const stored = [
+    { inci_name: "ingredients: aqua", position: 0 },
+    { inci_name: "glycerin", position: 1 },
+    { inci_name: "niacinamide", position: 2 },
+  ];
+
+  it("is true when the label is unchanged and only the stored junk name is cleaned up", () => {
+    const fresh = parseInci("Ingredients: Aqua, Glycerin, Niacinamide", known);
+    expect(formulaChanged(stored, fresh)).toBe(true);
+    expect(parserOnlyChange(stored, fresh, known)).toBe(true);
+  });
+
+  it("is false when the label really dropped an ingredient", () => {
+    const fresh = parseInci("Ingredients: Aqua, Glycerin", known);
+    expect(parserOnlyChange(stored, fresh, known)).toBe(false);
+  });
+
+  it("is false when the label really swapped an ingredient", () => {
+    const fresh = parseInci("Ingredients: Aqua, Glycerin, Alcohol Denat", known);
+    expect(parserOnlyChange(stored, fresh, known)).toBe(false);
+  });
+});
 
 describe("parseLimit", () => {
   it("defaults to no limit", () => {

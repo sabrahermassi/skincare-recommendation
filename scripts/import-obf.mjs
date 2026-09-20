@@ -26,6 +26,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { guessType } from "../supabase/functions/_shared/product-type-classifier.mjs";
 import { guessTypeFromIngredients } from "./lib/guess-type-from-ingredients.mjs";
+import { fetchAliases } from "./lib/aliases.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 import { normalise, parseInci } from "./lib/inci-parse.mjs";
 
@@ -309,21 +310,6 @@ async function fetchKnownIngredients(db) {
     filter: (q) => q.eq("verified", true),
   });
   return new Set(rows.map((r) => r.inci_name.toLowerCase()));
-}
-
-/**
- * Other names for ingredients we already hold — the French half of a bilingual
- * label ("glycérine"), a trivial name ("mineral oil") — mapped to the
- * dictionary's own name. The label scanner has always read these; the importer
- * did not, so a French or Italian formula was judged against English names only
- * and rejected by the plausibility gate below for reading as unrecognised.
- */
-async function fetchAliases(db) {
-  const rows = await paginateOrdered(db, "ingredient_synonyms", {
-    select: "synonym, inci_name",
-    cursorColumn: "synonym",
-  });
-  return new Map(rows.map((r) => [r.synonym.toLowerCase(), r.inci_name.toLowerCase()]));
 }
 
 /**

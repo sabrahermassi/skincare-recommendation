@@ -50,6 +50,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { MIN_KNOWN_INGREDIENT_RATIO, retryAfterMs } from "./import-obf.mjs";
 import { parseInci } from "./lib/inci-parse.mjs";
+import { fetchAliases } from "./lib/aliases.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 const OBF = "https://world.openbeautyfacts.org";
@@ -191,20 +192,30 @@ export function formulaChanged(current, fresh) {
 }
 
 /**
+ * Whether a difference `formulaChanged` sees is only the parser having improved
+ * since the row was stored, not OBF's text having changed. The stored names came
+ * out of an older parser ("ingredients: aqua"); running the same names through
+ * today's parser gives the fresh list exactly when nothing on the label moved.
+ *
+ * It matters because `replace_product_with_ingredients` stamps
+ * `formula_changed_at` whenever the list it is handed differs from the stored
+ * one (migration 0019), and the product screen turns that stamp into a
+ * "reformulated" notice for everyone who saved the product. A parser upgrade must
+ * not tell people their moisturiser was reformulated.
+ */
+export function parserOnlyChange(current, fresh, known, aliases) {
+  const stored = [...current].sort((a, b) => a.position - b.position).map((i) => i.inci_name);
+  const reparsed = parseInci(stored.join(", "), known, undefined, aliases);
+  return reparsed.length === fresh.length && reparsed.every((r, i) => r.inci_name === fresh[i].inci_name);
+}
+
+/**
  * Verified ingredient names only — mirrors `fetchKnownIngredients` in
  * import-obf.mjs (not exported there; see that file's fuller comment for why
  * unverified stubs must stay excluded, which applies here with the same
  * force: a reconciliation run must not let one bad OBF edit teach the next
  * run that its own garbage is recognised).
  */
-async function fetchAliases(db) {
-  const rows = await paginateOrdered(db, "ingredient_synonyms", {
-    select: "synonym, inci_name",
-    cursorColumn: "synonym",
-  });
-  return new Map(rows.map((r) => [r.synonym.toLowerCase(), r.inci_name.toLowerCase()]));
-}
-
 async function fetchKnownIngredients(db) {
   const rows = await paginateOrdered(db, "ingredients", {
     select: "inci_name",
@@ -347,7 +358,10 @@ async function main() {
         continue;
       }
 
-      if (!formulaChanged(row.product_ingredients, fresh)) {
+      // A parser-only difference is left as stored, not rewritten: any rewrite
+      // through the RPC would stamp `formula_changed_at` (see `parserOnlyChange`).
+      // `clean-ingredient-stubs.mjs` is what upgrades old rows in place.
+      if (!formulaChanged(row.product_ingredients, fresh) || parserOnlyChange(row.product_ingredients, fresh, known, aliases)) {
         // Confirmed current as of today, nothing to change — still worth the
         // touch, or this row would look just as stale next run despite having
         // just been checked.
