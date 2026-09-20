@@ -30,6 +30,7 @@ import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
+import { createStaleGuard } from "@/lib/stale-guard";
 import type { LabelResultParams } from "@/lib/read-label-photo";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
@@ -194,6 +195,9 @@ export default function Scan() {
   // genuine tab switch) resets to Barcode, which is the default this effect
   // falls back to when nothing has told it otherwise.
   const skipResetOnNextFocus = useRef(false);
+  // A lookup that is still pending when the scanner is left, or when a newer barcode is
+  // read, must not put its answer back on screen: see `handleBarcode`.
+  const lookups = useRef(createStaleGuard());
   const preserveMode = useCallback(() => {
     skipResetOnNextFocus.current = true;
   }, []);
@@ -206,6 +210,7 @@ export default function Scan() {
         setMode("Barcode");
       }
       return () => {
+        lookups.current.invalidate();
         setStatus({ kind: "idle" });
         busy.current = false;
       };
@@ -260,7 +265,11 @@ export default function Scan() {
         return;
       }
 
+      const lookup = lookups.current.begin();
       const result = await fetchProductByBarcode(data);
+      // Left the scanner (or read a newer barcode) while this was pending: the answer is
+      // stale, and putting it up would show an old product, or overwrite a newer scan.
+      if (!lookups.current.isCurrent(lookup)) return;
 
       // Could not ask. Not a miss — and crucially not written to history,
       // because an outage-caused "miss" is a false record the user has no way
