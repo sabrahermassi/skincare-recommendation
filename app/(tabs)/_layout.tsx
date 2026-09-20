@@ -12,8 +12,8 @@ import { useAppStore } from "@/store/useAppStore";
 // Outline when unselected, filled when selected — the shape changes as well as
 // the colour, so the current tab does not rest on a contrast difference alone.
 const TAB_ICONS = {
+  home: { on: "home", off: "home-outline" },
   browse: { on: "search-circle", off: "search-circle-outline" },
-  skinHelper: { on: "sparkles", off: "sparkles-outline" },
   saved: { on: "heart", off: "heart-outline" },
   profile: { on: "person-circle", off: "person-circle-outline" },
 } as const;
@@ -144,6 +144,22 @@ export default function TabsLayout() {
         },
       }}
     >
+      {/*
+        Home is the index route, so `/` lands on it — and so does finishing the
+        quiz: the first screen after it is Home, with the scan card, the search
+        box and the skin profile. Setting `initialRouteName` alone would not do
+        it: that anchors the back stack, it does not change which screen `/`
+        resolves to.
+      */}
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Home · for.me",
+          tabBarLabel: "Home",
+          tabBarAccessibilityLabel: "Home",
+          tabBarIcon: ({ color, focused }) => <TabItem tab="home" focused={focused} color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="browse"
         options={{
@@ -159,8 +175,8 @@ export default function TabsLayout() {
           // inside the app does not reach it. This one already carries the
           // app name, so unlike its siblings it needs no "· for.me" suffix.
           title: "for.me",
-          tabBarLabel: "Browse",
-          tabBarAccessibilityLabel: "Browse",
+          tabBarLabel: "Search",
+          tabBarAccessibilityLabel: "Search",
           // A magnifier, not a house or a bare list: a house promises "back to
           // the start" (the start route `/` is the scanner), and a list glyph
           // reads as a menu or a to-do list. The magnifier is the recognised
@@ -169,28 +185,13 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, focused }) => <TabItem tab="browse" focused={focused} color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="skin-helper"
-        options={{
-          title: "Skin helper · for.me",
-          tabBarLabel: "Skin helper",
-          tabBarAccessibilityLabel: "Skin helper",
-          tabBarIcon: ({ color, focused }) => (
-            <TabItem tab="skinHelper" focused={focused} color={color} />
-          ),
-        }}
-      />
       {/*
-        The scanner is the index route, so `/` lands on it. That is what makes
-        a returning user open into the camera rather than a product list — the
-        MVP's returning-user flow is Open -> Scanner, and the initial URL on a
-        cold start is always `/`. Setting `initialRouteName` alone would not do
-        it: that anchors the back stack, it does not change which screen `/`
-        resolves to. Its place in the bar is the raised middle button; the order
-        of the screens here is the order of the bar.
+        The scanner: full screen, opened by the raised middle button (or a scan
+        card on Home). Its place in the bar is that button; the order of the
+        screens here is the order of the bar.
       */}
       <Tabs.Screen
-        name="index"
+        name="scanner"
         options={{
           title: "Scan a product · for.me",
           tabBarLabel: "Scan",

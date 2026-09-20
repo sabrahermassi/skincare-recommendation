@@ -160,7 +160,7 @@ export function quizStepNumber(route: QuizRoute): number {
  * stopped being. Reordering the tab bar did not help, because these
  * navigations name the destination explicitly.
  *
- * `/` is now the scanner itself (`app/(tabs)/index.tsx`), so this and a cold
- * start agree by construction rather than by two routes being kept in step.
+ * `/` is the Home screen (`app/(tabs)/index.tsx`), so this and a cold start
+ * agree by construction rather than by two routes being kept in step.
  */
 export const POST_ONBOARDING_ROUTE = "/" as const;

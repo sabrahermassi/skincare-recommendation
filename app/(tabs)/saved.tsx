@@ -15,6 +15,7 @@ import { Text } from "@/components/Text";
 import { canPhotographLabelFor, fetchProductsByIds, resolveIngredientNames } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
+import { openScanner } from "@/lib/genie";
 import { matchProduct, matchTone } from "@/lib/matching";
 import { isVerified } from "@/lib/safety";
 import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
@@ -667,7 +668,7 @@ function EmptyState({ title, body, actionLabel }: { title: string; body: string;
             tone="cta"
             size={50}
             label={actionLabel}
-            onPress={() => router.push("/")}
+            onPress={openScanner}
             style={{ marginTop: 8 }}
           />
         )}
