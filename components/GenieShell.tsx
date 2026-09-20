@@ -33,6 +33,14 @@ export function GenieShell({ children, ref }: { children: ReactNode; ref?: Ref<G
   // hidden on a cold start; a button press sets it to 0 before opening.
   const [progress] = useState(() => new Animated.Value(1));
   const reduceMotion = useRef(false);
+  // Built once. Written inline they were new animated nodes on every render of
+  // the scanner, and the native animation graph was rebuilt each time.
+  const [fx] = useState(() => ({
+    shellOpacity: progress.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] }),
+    scaleX: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.06, 0.55, 1] }),
+    scaleY: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.02, 0.3, 1] }),
+    ghostOpacity: progress.interpolate({ inputRange: [0, 0.3], outputRange: [1, 0], extrapolate: "clamp" }),
+  }));
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled()
@@ -87,10 +95,10 @@ export function GenieShell({ children, ref }: { children: ReactNode; ref?: Ref<G
       <Animated.View
         style={{
           flex: 1,
-          opacity: progress.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] }),
+          opacity: fx.shellOpacity,
           transform: [
-            { scaleX: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.06, 0.55, 1] }) },
-            { scaleY: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.02, 0.3, 1] }) },
+            { scaleX: fx.scaleX },
+            { scaleY: fx.scaleY },
           ],
           transformOrigin: [origin.x, origin.y, 0],
         }}
@@ -113,7 +121,7 @@ export function GenieShell({ children, ref }: { children: ReactNode; ref?: Ref<G
           backgroundColor: CTA,
           borderWidth: 5,
           borderColor: CANVAS,
-          opacity: progress.interpolate({ inputRange: [0, 0.3], outputRange: [1, 0], extrapolate: "clamp" }),
+          opacity: fx.ghostOpacity,
         }}
       >
         <Ionicons name="camera-outline" size={28} color={INK} />
