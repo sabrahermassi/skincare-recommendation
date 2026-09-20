@@ -3,7 +3,9 @@ export const SCAN_BUTTON = 68;
 export const SCAN_BUTTON_LIFT = 28;
 
 /** The floating tab bar: its height, its gap from the screen's sides, and its gap above the bottom edge. */
-export const TAB_BAR_HEIGHT = 64;
+export const TAB_BAR_HEIGHT = 60;
+/** Less rounded than a pill: a soft rectangle. */
+export const TAB_BAR_RADIUS = 22;
 export const TAB_BAR_SIDE_MARGIN = 16;
 const TAB_BAR_BOTTOM_GAP = 12;
 

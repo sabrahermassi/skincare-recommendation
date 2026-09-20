@@ -120,8 +120,6 @@ export function GenieShell({ children, ref }: { children: ReactNode; ref?: Ref<G
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: TERRACOTTA,
-          borderWidth: 5,
-          borderColor: SURFACE,
           ...RAISED_SHADOW,
           opacity: fx.ghostOpacity,
         }}

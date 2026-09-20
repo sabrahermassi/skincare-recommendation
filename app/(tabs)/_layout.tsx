@@ -7,9 +7,13 @@ import { Pressable, View, type ColorValue, type GestureResponderEvent } from "re
 import { SearchIcon } from "@/components/icons/SearchIcon";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { genie } from "@/lib/genie";
-import { SCAN_BUTTON, SCAN_BUTTON_LIFT, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
+import { SCAN_BUTTON, SCAN_BUTTON_LIFT, TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
 import { FLOATING_SHADOW, INK, RAISED_SHADOW, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+
+// The navigator sets each item this far down from the bar's top edge; the icon
+// box is shortened by it at both ends so the icon lands on the bar's centre.
+const TAB_ITEM_TOP_PAD = 5;
 
 // Outline when unselected, filled when selected — the shape changes as well as
 // the colour, so the current tab does not rest on a contrast difference alone.
@@ -37,7 +41,7 @@ function TabItem({
   color: ColorValue;
 }) {
   return (
-    <View style={{ width: 60, height: 36, alignItems: "center", justifyContent: "center" }}>
+    <View style={{ width: 60, height: "100%", alignItems: "center", justifyContent: "center" }}>
       {tab === "browse" ? (
         <SearchIcon size={27} color={String(focused ? TERRACOTTA : color)} filled={focused} />
       ) : (
@@ -87,9 +91,6 @@ function ScanTabButton({ onPress }: { onPress?: (event: GestureResponderEvent) =
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: TERRACOTTA,
-          borderWidth: 5,
-          // The bar's own colour, so the ring cuts the button out of it.
-          borderColor: SURFACE,
           ...RAISED_SHADOW,
         }}
         className="active:opacity-90"
@@ -146,13 +147,16 @@ export default function TabsLayout() {
         // A pill lying on top of the screen, clear of its edges, with a soft
         // shade under it. Screens scroll behind it, so each one leaves room at
         // its end (tabBarClearance).
+        // Icons centred on the bar's own height, whatever the navigator pads them with.
+        tabBarItemStyle: { height: TAB_BAR_HEIGHT, paddingTop: 0, paddingBottom: 0, alignItems: "center", justifyContent: "center" },
+        tabBarIconStyle: { height: TAB_BAR_HEIGHT - TAB_ITEM_TOP_PAD * 2, marginTop: 0 },
         tabBarStyle: {
           position: "absolute",
           left: TAB_BAR_SIDE_MARGIN,
           right: TAB_BAR_SIDE_MARGIN,
           bottom: tabBarBottom(insets.bottom),
           height: TAB_BAR_HEIGHT,
-          borderRadius: TAB_BAR_HEIGHT / 2,
+          borderRadius: TAB_BAR_RADIUS,
           backgroundColor: SURFACE,
           borderTopWidth: 0,
           paddingTop: 0,
