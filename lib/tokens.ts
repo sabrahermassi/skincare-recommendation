@@ -345,3 +345,12 @@ export const RAISED_SHADOW = {
   shadowRadius: 4,
   elevation: 8,
 } as const;
+
+/** The soft shade under the floating tab bar, so it reads as lying on top of the screen. */
+export const FLOATING_SHADOW = {
+  shadowColor: INK,
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.16,
+  shadowRadius: 18,
+  elevation: 12,
+} as const;

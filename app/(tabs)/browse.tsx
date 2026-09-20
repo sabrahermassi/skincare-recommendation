@@ -20,6 +20,7 @@ import { activeTypeFilter, visibleTypeChips } from "@/lib/browse-chips";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized, profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
+import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md).
@@ -560,7 +561,7 @@ export default function Browse() {
         data={items}
         keyExtractor={(item) => (item.kind === "skeleton" ? item.id : item.kind === "product" ? item.product.id : item.kind)}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 112 }}
+        contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) }}
         // The search box lives in this same list's header, so with the
         // keyboard up, the default "never" meant a row's first tap only
         // dismissed the keyboard — the tap was consumed as "outside the

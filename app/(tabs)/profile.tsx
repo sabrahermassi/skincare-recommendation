@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { profileHeadline } from "@/lib/profile";
+import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_SOFT, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -40,7 +41,7 @@ export default function Profile() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
-      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) }} showsVerticalScrollIndicator={false}>
         <Text
           style={{ paddingHorizontal: 24, paddingTop: 14, fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 26, color: INK }}
         >

@@ -19,6 +19,7 @@ import { openScanner } from "@/lib/genie";
 import { matchProduct, matchTone } from "@/lib/matching";
 import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
 import { isVerified } from "@/lib/safety";
+import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
 
@@ -255,7 +256,7 @@ export default function Saved() {
         // `key` on each list: Saved and History are the same kind of element in the
         // same spot, so without it React reuses one scroll view for both and the
         // scroll position carries over when switching tabs.
-        <ScrollView key="saved" ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
+        <ScrollView key="saved" ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
           {savedIds.map((id) => {
             const product = byId[id];
             if (!product) return null;
@@ -317,7 +318,7 @@ export default function Saved() {
           />
         </ScrollView>
       ) : (
-        <ScrollView key="history" ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
+        <ScrollView key="history" ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
           {history.map((entry) => {
             const product = entry.known ? byId[entry.id] : undefined;
             // The bar reflects the score this entry carried when it was
@@ -797,6 +798,7 @@ function IngredientsTab({
   footer: ReactNode;
   scrollRef: RefObject<ScrollView | null>;
 }) {
+  const insets = useSafeAreaInsets();
   const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
   const [byName, setByName] = useState<Record<string, Ingredient> | null>(null);
   const [error, setError] = useState(false);
@@ -863,7 +865,7 @@ function IngredientsTab({
   }
 
   return (
-    <ScrollView ref={scrollRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
+    <ScrollView ref={scrollRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
       {names.map((name) => {
         const ingredient: Ingredient =
           byName[name] ?? { id: name, name, comedogenic: 0, safety: "safe", verified: false };

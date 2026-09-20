@@ -1,13 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 import { useRef } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, View, type ColorValue, type GestureResponderEvent } from "react-native";
 
 import { SearchIcon } from "@/components/icons/SearchIcon";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { genie } from "@/lib/genie";
-import { SCAN_BUTTON, SCAN_BUTTON_LIFT } from "@/lib/tab-bar";
-import { CANVAS, CTA, INK, LINE, RAISED_SHADOW, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
+import { SCAN_BUTTON, SCAN_BUTTON_LIFT, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
+import { FLOATING_SHADOW, INK, RAISED_SHADOW, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // Outline when unselected, filled when selected — the shape changes as well as
@@ -85,9 +86,10 @@ function ScanTabButton({ onPress }: { onPress?: (event: GestureResponderEvent) =
           borderRadius: SCAN_BUTTON / 2,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: CTA,
+          backgroundColor: TERRACOTTA,
           borderWidth: 5,
-          borderColor: CANVAS,
+          // The bar's own colour, so the ring cuts the button out of it.
+          borderColor: SURFACE,
           ...RAISED_SHADOW,
         }}
         className="active:opacity-90"
@@ -100,6 +102,7 @@ function ScanTabButton({ onPress }: { onPress?: (event: GestureResponderEvent) =
 
 export default function TabsLayout() {
   const hasSeenOnboarding = useAppStore((s) => s.hasSeenOnboarding);
+  const insets = useSafeAreaInsets();
 
   /*
     First run goes to onboarding. This gate used to live in the browse screen,
@@ -140,14 +143,23 @@ export default function TabsLayout() {
           announces.
         */
         tabBarShowLabel: false,
+        // A pill lying on top of the screen, clear of its edges, with a soft
+        // shade under it. Screens scroll behind it, so each one leaves room at
+        // its end (tabBarClearance).
         tabBarStyle: {
-          backgroundColor: CANVAS,
-          borderTopColor: LINE,
-          height: 74,
-          paddingBottom: 12,
-          paddingTop: 10,
+          position: "absolute",
+          left: TAB_BAR_SIDE_MARGIN,
+          right: TAB_BAR_SIDE_MARGIN,
+          bottom: tabBarBottom(insets.bottom),
+          height: TAB_BAR_HEIGHT,
+          borderRadius: TAB_BAR_HEIGHT / 2,
+          backgroundColor: SURFACE,
+          borderTopWidth: 0,
+          paddingTop: 0,
+          paddingBottom: 0,
           // The raised scan button rises out of the bar's top edge.
           overflow: "visible",
+          ...FLOATING_SHADOW,
         },
       }}
     >

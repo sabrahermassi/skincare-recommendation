@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { genie } from "@/lib/genie";
 import { SCAN_BUTTON } from "@/lib/tab-bar";
-import { CANVAS, CTA, RAISED_SHADOW, SURFACE } from "@/lib/tokens";
+import { TERRACOTTA } from "@/components/shell/shared";
+import { CANVAS, RAISED_SHADOW, SURFACE } from "@/lib/tokens";
 
 const OPEN_MS = 520;
 const CLOSE_MS = 400;
@@ -118,9 +119,9 @@ export function GenieShell({ children, ref }: { children: ReactNode; ref?: Ref<G
           borderRadius: SCAN_BUTTON / 2,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: CTA,
+          backgroundColor: TERRACOTTA,
           borderWidth: 5,
-          borderColor: CANVAS,
+          borderColor: SURFACE,
           ...RAISED_SHADOW,
           opacity: fx.ghostOpacity,
         }}

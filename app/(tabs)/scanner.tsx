@@ -21,12 +21,16 @@ import { GenieShell, type GenieShellHandle } from "@/components/GenieShell";
 import { LabelCamera } from "@/components/LabelCamera";
 import { ScanIntro } from "@/components/ScanIntro";
 import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
+import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
+import { CTA_TEXT, TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
+import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
+import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
 
 // Watercolor art from the onboarding set, reused on the two light screens that
 // sit in front of the camera (see components/ScanIntro.tsx).
@@ -76,6 +80,7 @@ type Mode = "Barcode" | "Photo";
 type Status =
   | { kind: "idle" }
   | { kind: "looking"; code: string; target?: Box }
+  | { kind: "found"; product: ProductWithIngredients }
   | { kind: "missed"; code: string }
   | { kind: "unreachable"; code: string; failure: FetchFailure };
 
@@ -261,16 +266,17 @@ export default function Scan() {
         // scored from different evidence: the lookup response omits
         // `ingredients.functions`, the direct fetch behind that screen does
         // not. One owner, and it is the screen that shows the verdict.
-        preserveMode();
-        router.push({ pathname: "/result/[id]", params: { id: product.id } });
-        return; // `busy` clears on blur
+        // The product slides up over the camera; its button opens the full
+        // result. `busy` stays set until the sheet is closed or left.
+        setStatus({ kind: "found", product });
+        return;
       }
 
       recordView({ id: data, known: false, score: null, warnings: 0 });
       setStatus({ kind: "missed", code: data });
       busy.current = false;
     },
-    [recordView, preserveMode, dismissQuizAcknowledgement]
+    [recordView, dismissQuizAcknowledgement]
   );
 
   // One camera for both modes. A CameraView per mode meant the camera was torn
@@ -364,6 +370,22 @@ export default function Scan() {
         >
           <ModeSwitcher mode={mode} setMode={selectMode} light={needsPermission} />
         </View>
+
+        {status.kind === "found" ? (
+          <FoundSheet
+            key={status.product.id}
+            product={status.product}
+            bottom={Math.max(STAGE_BOTTOM, insets.bottom + 12)}
+            onClose={() => {
+              setStatus({ kind: "idle" });
+              busy.current = false;
+            }}
+            onOpen={() => {
+              preserveMode();
+              router.push({ pathname: "/result/[id]", params: { id: status.product.id } });
+            }}
+          />
+        ) : null}
       </View>
 
       <Pressable
@@ -390,6 +412,132 @@ export default function Scan() {
     </GenieShell>
   );
 }
+
+/**
+ * The product a barcode found, sliding up over the camera: its picture rides on
+ * the card's top edge, then brand, name, the score, and the button that opens
+ * the full result. The X puts the camera back to scanning.
+ */
+function FoundSheet({
+  product,
+  bottom,
+  onClose,
+  onOpen,
+}: {
+  product: ProductWithIngredients;
+  bottom: number;
+  onClose: () => void;
+  onOpen: () => void;
+}) {
+  const profile = useAppStore((s) => s.profile);
+  const match = matchProduct(product, profile);
+  const [rise] = useState(() => new Animated.Value(0));
+  const [lift] = useState(() => rise.interpolate({ inputRange: [0, 1], outputRange: [FOUND_SHEET_TRAVEL, 0] }));
+  useEffect(() => {
+    Animated.spring(rise, {
+      toValue: 1,
+      friction: 9,
+      tension: 60,
+      useNativeDriver: Platform.OS !== "web",
+    }).start();
+  }, [rise]);
+
+  const line = match.score === null ? VERDICT_LABEL[match.verdict] : `${match.score}/100 · ${VERDICT_LABEL[match.verdict]}`;
+  const meta = [product.type === "unknown" ? null : PRODUCT_TYPE_LABEL[product.type], product.volume].filter(Boolean).join("  ·  ");
+
+  return (
+    <Animated.View
+      style={{
+        position: "absolute",
+        left: STAGE_INSET,
+        right: STAGE_INSET,
+        bottom,
+        opacity: rise,
+        transform: [{ translateY: lift }],
+      }}
+    >
+      <View
+        style={{
+          backgroundColor: SURFACE,
+          borderRadius: 28,
+          paddingTop: FOUND_PICTURE / 2 + 14,
+          paddingHorizontal: 22,
+          paddingBottom: 20,
+          alignItems: "center",
+          gap: 8,
+          ...FLOATING_SHADOW,
+        }}
+      >
+        <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          hitSlop={8}
+          style={{
+            position: "absolute",
+            top: 14,
+            right: 14,
+            width: 28,
+            height: 28,
+            borderRadius: 14,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: withAlpha(INK, 0.08),
+          }}
+        >
+          <Ionicons name="close" size={18} color={MUTED} />
+        </Pressable>
+
+        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.9, color: MUTED }}>
+          {product.brand}
+        </Text>
+        <Text
+          numberOfLines={2}
+          style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, lineHeight: 28, color: INK }}
+        >
+          {product.name}
+        </Text>
+        {meta ? <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{meta}</Text> : null}
+        <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{line}</Text>
+
+        <Pressable
+          onPress={onOpen}
+          accessibilityRole="button"
+          accessibilityLabel="See the full result"
+          style={{
+            alignSelf: "stretch",
+            minHeight: 48,
+            marginTop: 8,
+            borderRadius: 24,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: TERRACOTTA,
+          }}
+          className="active:opacity-90"
+        >
+          <Text style={{ fontSize: 16, fontWeight: "500", color: CTA_TEXT }}>See full result</Text>
+        </Pressable>
+      </View>
+
+      {/* The picture rides the card's top edge. */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: -FOUND_PICTURE / 2,
+          alignSelf: "center",
+          ...FLOATING_SHADOW,
+        }}
+      >
+        <ProductThumbnail product={product} size={FOUND_PICTURE} radius={20} />
+      </View>
+    </Animated.View>
+  );
+}
+
+/** The picture on the found-product card, and how far the card travels up from below. */
+const FOUND_PICTURE = 96;
+const FOUND_SHEET_TRAVEL = 420;
 
 /**
  * The camera, with its start-up kept out of sight. A camera that has just
@@ -508,9 +656,9 @@ function ModePill({
       useNativeDriver: Platform.OS !== "web",
     }).start();
   }, [selected, fill]);
-  const color = selected ? INK : light ? MUTED : withAlpha(CANVAS, 0.75);
-  // The camera is filled, so on the orange pill it is white inside.
-  const iconColor = selected && label === "Photo" ? SURFACE : color;
+  // The selected pill is the onboarding Continue button's terracotta, with white
+  // text and icon on it.
+  const color = selected ? CTA_TEXT : light ? MUTED : withAlpha(CANVAS, 0.75);
 
   return (
     <Pressable
@@ -528,10 +676,10 @@ function ModePill({
     >
       <Animated.View
         pointerEvents="none"
-        style={{ ...StyleSheet.absoluteFill, borderRadius: SWITCHER_HEIGHT / 2, backgroundColor: CTA, opacity: fill }}
+        style={{ ...StyleSheet.absoluteFill, borderRadius: SWITCHER_HEIGHT / 2, backgroundColor: TERRACOTTA, opacity: fill }}
       />
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Icon color={iconColor} size={20} />
+        <Icon color={color} size={20} />
         <Text style={{ fontSize: 13.5, fontWeight: "600", color }} numberOfLines={1}>
           {label}
         </Text>
@@ -572,6 +720,8 @@ function BarcodeStage({
   const announcement =
     status.kind === "looking"
       ? "Barcode found. Reading the ingredients."
+      : status.kind === "found"
+        ? `Found ${status.product.name}. See full result is below.`
       : status.kind === "missed"
         ? "Not in our catalogue yet. Tap Photo below to photograph its ingredient list and add it."
         : status.kind === "unreachable"
@@ -683,11 +833,11 @@ function BarcodeStage({
                 alignItems: "center",
                 justifyContent: "center",
                 borderRadius: 999,
-                backgroundColor: CTA,
+                backgroundColor: TERRACOTTA,
               }}
               className="active:opacity-90"
             >
-              <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>Try again</Text>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: CTA_TEXT }}>Try again</Text>
             </Pressable>
           </View>
         )}
