@@ -1,10 +1,12 @@
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import { useState } from "react";
 import { Animated, Platform, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HEADER_GUTTER } from "@/components/AppHeader";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
+import { PressableCard } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/genie";
 import { isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
@@ -60,33 +62,46 @@ export default function Home() {
 
           {/* The skin profile, each answer in its own chip. Only shown here: it is
               edited under Profile. */}
-          <View
-            accessible
-            accessibilityLabel={personalized ? `Your skin profile: ${chips.join(", ")}` : "Your skin profile is not set up yet"}
-            style={{
-              gap: 18,
-              padding: 24,
-              borderRadius: 22,
-              borderWidth: 1,
-              borderColor: BORDER_INACTIVE,
-              backgroundColor: SURFACE,
-              ...CARD_SHADOW,
-            }}
-          >
-            <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>Your skin profile</Text>
-
-            {personalized ? (
+          {personalized ? (
+            <View
+              accessible
+              accessibilityLabel={`Your skin profile: ${chips.join(", ")}`}
+              style={{
+                gap: 18,
+                padding: 24,
+                borderRadius: 22,
+                borderWidth: 1,
+                borderColor: BORDER_INACTIVE,
+                backgroundColor: SURFACE,
+                ...CARD_SHADOW,
+              }}
+            >
+              <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>Your skin profile</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14 }}>
                 {chips.map((chip) => (
                   <Chip key={chip} label={chip} />
                 ))}
               </View>
-            ) : (
-              <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>
-                Not set up yet. Answer the skin questions under Profile and every score will be made for your skin.
-              </Text>
-            )}
-          </View>
+            </View>
+          ) : (
+            // Nothing answered yet: the whole card leads to the skin profile, its
+            // arrow at the far right, centred on the card.
+            <PressableCard
+              onPress={() => router.push("/skin-profile")}
+              accessibilityLabel="Your skin profile is not set up yet. Open it to answer the skin questions."
+              radius={22}
+              backgroundColor={SURFACE}
+              style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 24, borderWidth: 1, borderColor: BORDER_INACTIVE }}
+            >
+              <View style={{ flex: 1, gap: 18 }}>
+                <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>Your skin profile</Text>
+                <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>
+                  Not set up yet. Answer the skin questions and every score will be made for your skin.
+                </Text>
+              </View>
+              <ArrowIcon size={22} color={INK} />
+            </PressableCard>
+          )}
 
           {/* The scan card. The shade sits on an outer view: a view that clips
               its picture (overflow hidden) loses its own shade on iOS. */}

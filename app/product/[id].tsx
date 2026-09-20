@@ -11,7 +11,6 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { IngredientsSheet, ingredientsSheetPeek } from "@/components/IngredientsSheet";
 import { PopOnToggle } from "@/components/PopOnToggle";
-import { ProfileNudge } from "@/components/ProfileNudge";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { HeartIcon } from "@/components/icons";
@@ -28,6 +27,7 @@ import {
 } from "@/lib/matching";
 import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/genie";
+import { isPersonalized } from "@/lib/profile";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN, toneForVerdict } from "@/lib/tokens";
@@ -79,6 +79,11 @@ import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, 
  * `toneForVerdict`, the one place that collapse happens, rather than a
  * second hand-copy of it here disagreeing with `ScoreRing`'s someday.
  */
+/** The product picture: how small and how large it may get, and its size until the screen is measured. */
+const PICTURE_MIN = 64;
+const PICTURE_MAX = 150;
+const PICTURE_DEFAULT = 120;
+
 function panelFor(verdict: Verdict): { bg: string; border: string; label: string; ink: string } {
   const tone = toneForVerdict(verdict);
   const colors = tone
@@ -140,6 +145,11 @@ export default function ProductScreen() {
   }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [showWhy, setShowWhy] = useState(false);
+  // Measured, so the bottle, name and cards fill the screen exactly down to where
+  // the ingredients sheet begins: the screen's height and the height of everything
+  // under the picture decide how big the picture can be.
+  const [viewportH, setViewportH] = useState(0);
+  const [restH, setRestH] = useState(0);
   const [loading, setLoading] = useState(true);
   /**
    * Set only when the catalogue could not be *asked*. Distinct from
@@ -356,6 +366,16 @@ export default function ProductScreen() {
     }
   }
 
+  const needsProfile = !isPersonalized(profile);
+  const sheetPeek = total > 0 ? ingredientsSheetPeek(insets.bottom) : 0;
+  const pictureSize =
+    total > 0 && viewportH > 0 && restH > 0
+      ? Math.min(
+          PICTURE_MAX,
+          Math.max(PICTURE_MIN, viewportH - SPACE.text - (sheetPeek + SPACE.block) - restH - SPACE.block)
+        )
+      : PICTURE_DEFAULT;
+
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader
@@ -388,26 +408,35 @@ export default function ProductScreen() {
       />
 
       <ScrollView
+        onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}
         contentContainerStyle={{
           gap: SPACE.block,
           paddingTop: SPACE.text,
-          paddingBottom: total > 0 ? ingredientsSheetPeek(insets.bottom) + 96 : 200,
+          paddingBottom: total > 0 ? sheetPeek + SPACE.block : 200,
         }}
       >
         {/*
-          The bottle, brand, name and size in one row straight under the header:
-          the design's centred 150pt hero left the top third of the screen empty
-          around a single icon. It is still how you confirm you are looking at
-          the right bottle, and the verdict panel below is the scan result's.
+          The bottle on top, its name underneath, then the cards. Its size is
+          worked out so all of it ends where the ingredients sheet begins (see
+          pictureSize): a shorter screen gets a smaller bottle, not a scroll.
         */}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingHorizontal: SPACE.gutter }}>
-          <ProductThumbnail product={product} size={112} radius={20} />
-          <View style={{ flex: 1, gap: SPACE.text }}>
+        <View style={{ alignItems: "center", paddingHorizontal: SPACE.gutter }}>
+          <ProductThumbnail product={product} size={pictureSize} radius={20} />
+        </View>
+
+        <View
+          onLayout={(e) => {
+            if (!showWhy) setRestH(e.nativeEvent.layout.height);
+          }}
+          style={{ gap: SPACE.block }}
+        >
+        <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: SPACE.gutter }}>
           <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.9, color: MUTED_FAINT }}>
             {product.brand}
           </Text>
           <Text
             style={{
+              textAlign: "center",
               fontFamily: "PlayfairDisplay_500Medium",
               fontSize: TYPE.heading,
               lineHeight: 28,
@@ -443,7 +472,6 @@ export default function ProductScreen() {
           {!product.inStock && (
             <Text className="text-[12.5px] font-semibold text-status-avoid">Out of stock</Text>
           )}
-          </View>
         </View>
 
         {/* The verdict, before anything else. Never colour alone — the panel
@@ -459,7 +487,14 @@ export default function ProductScreen() {
             overflow: "hidden",
           }}
         >
-        <View className="flex-row items-center" style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}>
+        <Pressable
+          disabled={!needsProfile}
+          onPress={() => router.push("/skin-profile")}
+          accessibilityRole={needsProfile ? "button" : undefined}
+          accessibilityLabel={needsProfile ? "Open your skin profile to get your score" : undefined}
+          className="flex-row items-center"
+          style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
+        >
           <ScoreRing
             score={match.score}
             size={82}
@@ -482,7 +517,8 @@ export default function ProductScreen() {
               {verdictHeadline(match)}
             </Text>
           </View>
-        </View>
+          {needsProfile ? <ArrowIcon size={22} color={INK} /> : null}
+        </Pressable>
 
         {/*
           "Why this score", inside the box, closed until it is tapped: one line
@@ -542,7 +578,6 @@ export default function ProductScreen() {
         {offerBarcode === "1" && scanToken && (
           <BarcodeOfferPrompt productId={id} scanToken={scanToken} />
         )}
-        <ProfileNudge />
 
         {/*
           How old the formula is, but only once it is old enough to matter.
@@ -638,6 +673,7 @@ export default function ProductScreen() {
             </Text>
           </View>
         )}
+        </View>
       </ScrollView>
 
       {/* Thumb zone, for a product with no formula: the action that supplies one.

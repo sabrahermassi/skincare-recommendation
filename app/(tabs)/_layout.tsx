@@ -4,11 +4,12 @@ import { useRef } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, View, type ColorValue, type GestureResponderEvent } from "react-native";
 
+import { NotchedTabBarBackground } from "@/components/NotchedTabBarBackground";
 import { SearchIcon } from "@/components/icons/SearchIcon";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { genie } from "@/lib/genie";
-import { SCAN_BUTTON, SCAN_BUTTON_LIFT, TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
-import { FLOATING_SHADOW, INK, RAISED_SHADOW, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
+import { SCAN_BUTTON, SCAN_BUTTON_LIFT, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
+import { INK, RAISED_SHADOW, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The navigator sets each item this far down from the bar's top edge; the icon
@@ -156,15 +157,17 @@ export default function TabsLayout() {
           right: TAB_BAR_SIDE_MARGIN,
           bottom: tabBarBottom(insets.bottom),
           height: TAB_BAR_HEIGHT,
-          borderRadius: TAB_BAR_RADIUS,
-          backgroundColor: SURFACE,
+          // Transparent: the bar is drawn by NotchedTabBarBackground, with its bite
+          // and its own shade.
+          backgroundColor: "transparent",
           borderTopWidth: 0,
           paddingTop: 0,
           paddingBottom: 0,
           // The raised scan button rises out of the bar's top edge.
           overflow: "visible",
-          ...FLOATING_SHADOW,
+          elevation: 0,
         },
+        tabBarBackground: () => <NotchedTabBarBackground />,
       }}
     >
       {/*
