@@ -3,7 +3,7 @@
  * so swapping `data/api.ts` from mocks to HTTP should not touch anything else.
  */
 
-export type SkinType = "oily" | "dry" | "combination" | "normal" | "sensitive";
+type SkinType = "oily" | "dry" | "combination" | "normal" | "sensitive";
 
 /** Skin type minus the "sensitive" modifier — see `SkinProfile.sensitivity`. */
 export type BaseSkinType = Exclude<SkinType, "sensitive">;

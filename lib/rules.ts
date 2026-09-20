@@ -607,7 +607,7 @@ export type FunctionSignal = {
   helps: RuleTarget;
 };
 
-export const FUNCTION_SIGNALS: Record<string, FunctionSignal> = {
+const FUNCTION_SIGNALS: Record<string, FunctionSignal> = {
   humectant: { category: "hydration", weight: 3, helps: { concerns: ["dehydrated"], skinTypes: ["dry"] } },
   moisturising: { category: "hydration", weight: 3, helps: { concerns: ["dehydrated"], skinTypes: ["dry"] } },
   emollient: { category: "barrier", weight: 2.5, helps: { skinTypes: ["dry"] } },

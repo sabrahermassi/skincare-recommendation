@@ -570,7 +570,7 @@ const FUNCTION_REASON: Partial<Record<RuleCategory, string>> = {
  * an absent one. Unknown ingredients still vouch for nothing either way; they
  * lower confidence rather than blocking an answer.
  */
-export function confidenceFor(coverage: number, scoredIngredients: number): number {
+function confidenceFor(coverage: number, scoredIngredients: number): number {
   return Math.max(0, Math.min(1, 0.55 * coverage + 0.45 * Math.min(1, scoredIngredients / 8)));
 }
 
@@ -789,9 +789,9 @@ export function biggestConcern(result: MatchResult): ScoreFactor | null {
  *   watch    carries an EU restriction, or we could not identify it
  *   good     recognised and either helpful or inert
  */
-export type IngredientTone = "good" | "watch" | "flag";
+type IngredientTone = "good" | "watch" | "flag";
 
-export function ingredientTone(
+function ingredientTone(
   ingredient: Ingredient,
   result: MatchResult
 ): IngredientTone {

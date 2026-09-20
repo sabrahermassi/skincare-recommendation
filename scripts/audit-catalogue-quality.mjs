@@ -17,8 +17,12 @@
  *
  * 2. Garbage ingredient names. Real products showing malformed entries —
  *    a batch/lot code glued onto a real name ("phenoxyethanol. pr-015376"),
- *    or unrelated sentence text that leaked in during OCR/parsing
- *    ("pr #78). 1 say and i'll move to step 2 (boarding"). A blind
+ *    unrelated sentence text that leaked in during OCR/parsing
+ *    ("pr #78). 1 say and i'll move to step 2 (boarding"), or a label/section
+ *    heading glued on in whatever language the source label used
+ *    ("ingredients: aqua", "proprietati", "puede contener cl:42090") — this
+ *    last shape was added after a #101 review found it was most of what this
+ *    script was missing; see `LABEL_MARKERS`'s own comment. A blind
  *    short-name filter would also catch genuine short INCI names (PCA, EGF),
  *    so this reports candidates for manual review rather than guessing.
  *
@@ -70,6 +74,25 @@ const PROSE_MARKERS =
 const GLUED_CODE = /\.\s*[a-z]{0,4}-?\d{3,}\b|\bpr[\s#-]?\d+\b/i;
 
 /**
+ * A label/section heading — "Ingredients:", "May contain:", "Storage:" —
+ * glued onto (before *or* after) a real ingredient name, in whatever
+ * language the source label happened to be printed in. Found live: a #101
+ * review of `verified: false` rows turned up 38 of 43 sampled garbage names
+ * that neither `PROSE_MARKERS` (an English-only word list) nor `GLUED_CODE`
+ * (a digit-coded lot/batch pattern) catches — the failure mode isn't
+ * language, it's that this script only ever looked for *English* boilerplate
+ * and boilerplate *followed by* digits. "proprietati" (Romanian for
+ * "properties") and "puede contener cl:42090" (Spanish for "may contain")
+ * are the same glued-label bug as "may contain: iron oxides", just not in
+ * English — so this list is deliberately multilingual rather than widening
+ * `PROSE_MARKERS` with more English synonyms. Unanchored (`\b...\b`, not
+ * `^...`) because the label can come before the ingredient ("ingredients:
+ * aqua") or after it ("tocopherol. may contain: ci 77891").
+ */
+const LABEL_MARKERS =
+  /\b(ingr[eé]di[eë]nt(?:e?s|e|i|en)?|sastojci|composition|inhaltsstoffe|zutaten|may\s+contain|puede\s+contener|kann\s+enthalten|peu(?:t|vent)\s+contenir|inactive\s+ingredients|active\s+ingredients|storage|conservation|almacenamiento|package\s+labeling|etichetare|distribu(?:idor|itor)|fabricante|produc[aă]tor|producer|mod\s+de\s+utilizare|instructions\s+for\s+use|modo\s+de\s+empleo|propriet[aă][tțţ]i|properties)\b/i;
+
+/**
  * Real short INCI names seen in this catalogue's own dictionary — not
  * exhaustive, just enough that the "needs review" bucket doesn't relist the
  * same known-genuine entries every run. Anything else at or under this
@@ -85,12 +108,16 @@ const SHORT_NAME_MAX_LENGTH = 3;
  * shape `import-obf.mjs`'s `toRow`/`parseInci` are tested in.
  *
  * Checked in this order deliberately: a glued code takes priority over the
- * prose check (a name can incidentally contain a prose word after its code),
- * and both take priority over the short-name check so a genuinely short
- * fragment is never double-counted into more than one bucket.
+ * label and prose checks (a name can incidentally contain a label or prose
+ * word after its code), label takes priority over prose (no overlap between
+ * the two word lists today, but label is the more specific diagnosis when
+ * both would otherwise apply), and all three take priority over the
+ * short-name check so a genuinely short fragment is never double-counted
+ * into more than one bucket.
  */
 function classifyGarbageIngredient(name) {
   if (GLUED_CODE.test(name)) return "glued";
+  if (LABEL_MARKERS.test(name)) return "label";
   if (PROSE_MARKERS.test(name)) return "prose";
   // KNOWN_SHORT_NAMES is lowercase; comparing the raw name would flag a
   // genuine "PCA" or "EGF" as garbage the moment it wasn't stored lowercase.
@@ -157,11 +184,13 @@ async function auditGarbageIngredients(db) {
   });
 
   const glued = [];
+  const label = [];
   const prose = [];
   const short = [];
   for (const r of rows) {
     const bucket = classifyGarbageIngredient(r.inci_name);
     if (bucket === "glued") glued.push(r);
+    else if (bucket === "label") label.push(r);
     else if (bucket === "prose") prose.push(r);
     else if (bucket === "short") short.push(r);
   }
@@ -172,6 +201,9 @@ async function auditGarbageIngredients(db) {
   console.log(`-- ${glued.length} with a glued-on lot/batch/PR code --`);
   for (const r of glued) console.log(`  "${r.inci_name}"`);
 
+  console.log(`\n-- ${label.length} with a label/section heading glued on, in any language --`);
+  for (const r of label) console.log(`  "${r.inci_name}"`);
+
   console.log(`\n-- ${prose.length} containing leaked sentence text --`);
   for (const r of prose) console.log(`  "${r.inci_name}"`);
 
@@ -181,7 +213,7 @@ async function auditGarbageIngredients(db) {
   console.log("   review individually: a blind filter here would also catch names like PCA or EGF.");
   for (const r of short) console.log(`  "${r.inci_name}"`);
 
-  const flagged = [...glued, ...prose, ...short];
+  const flagged = [...glued, ...label, ...prose, ...short];
   if (flagged.length > 0) {
     console.log(
       `\n${flagged.length} flagged for manual review. Not deleted automatically — issue #86 rules that out, ` +
@@ -265,6 +297,7 @@ export {
   deleteStatementsFor,
   sqlStringLiteral,
   GLUED_CODE,
+  LABEL_MARKERS,
   PROSE_MARKERS,
   KNOWN_SHORT_NAMES,
   SHORT_NAME_MAX_LENGTH,

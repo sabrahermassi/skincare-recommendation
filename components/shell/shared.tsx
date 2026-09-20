@@ -29,7 +29,7 @@ export { CANVAS };
 // because the reasoning above is about these names, and because ten files
 // import them from this path.
 export const TERRACOTTA = COLORS.shellTerracotta;
-export const SAND = COLORS.shellSand;
+const SAND = COLORS.shellSand;
 export const CHARCOAL = COLORS.shellCharcoal;
 export const CTA_TEXT = COLORS.shellCtaText;
 
@@ -43,7 +43,7 @@ export const FONT = {
  *  per screen size except the hero/question regions each shell owns itself. */
 export const H_PADDING = 24;
 
-export type PrimaryButtonSize = "large" | "default";
+type PrimaryButtonSize = "large" | "default";
 
 /** large = onboarding's 56pt CTA. default = the quiz's 48pt Continue. */
 const BUTTON_HEIGHT: Record<PrimaryButtonSize, number> = {

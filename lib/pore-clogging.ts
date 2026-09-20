@@ -47,7 +47,7 @@ import { formulaCoverage, isVerified } from "@/lib/safety";
  * issue #43.
  */
 
-export type CloggerConfidence =
+type CloggerConfidence =
   /** Named on essentially every published list, and the mechanism is plausible. */
   | "high"
   /** Widely listed, but the evidence is the old assays or the effect is dose-dependent. */
