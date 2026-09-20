@@ -85,7 +85,7 @@ export default function Profile() {
 
         <View style={{ borderTopWidth: 1, borderTopColor: BORDER_INACTIVE }}>
           <MenuRow icon="water-outline" label="Skin profile" onPress={() => router.push("/skin-profile")} />
-          <MenuRow icon="help-buoy-outline" label="Support" onPress={() => router.push("/support")} />
+          <MenuRow icon="chatbubble-ellipses-outline" label="Support" onPress={() => router.push("/support")} />
           <MenuRow icon="shield-checkmark-outline" label="Privacy policy" onPress={() => router.push("/privacy")} />
           <MenuRow icon="trash-outline" label="Delete my profile" danger onPress={() => setConfirmingErase(true)} />
         </View>
