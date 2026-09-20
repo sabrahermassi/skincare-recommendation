@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router, useFocusEffect, useScrollToTop } from "expo-router";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PressableCard } from "@/components/PressableCard";
@@ -6,14 +7,14 @@ import { useCallback, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
-const AVATAR = 104;
+const AVATAR = 120;
+const AVATAR_ART = require("@/assets/illustrations/avatar-empty.png");
 
 /**
  * Profile — who you are to the app, and the way to everything about you: your
@@ -51,23 +52,14 @@ export default function Profile() {
         </Text>
 
         <View style={{ alignItems: "center", gap: 20, paddingTop: 30, paddingBottom: 38, paddingHorizontal: 24 }}>
-          {/* A placeholder for their own picture: a peach disc with the person glyph. */}
+          {/* A placeholder for their own picture: the watercolor empty avatar. Its
+              shade sits on a plain disc behind it, since the picture is see-through. */}
           <View
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
-            style={{
-              width: AVATAR,
-              height: AVATAR,
-              borderRadius: AVATAR / 2,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: SELECTED,
-              borderWidth: 2,
-              borderColor: TERRACOTTA,
-              ...CARD_SHADOW,
-            }}
+            style={{ width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, backgroundColor: SURFACE, ...CARD_SHADOW }}
           >
-            <Ionicons name="person" size={54} color={TERRACOTTA} />
+            <Image source={AVATAR_ART} contentFit="contain" accessibilityLabel="" style={{ width: AVATAR, height: AVATAR }} />
           </View>
 
           <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 26, color: INK, textAlign: "center" }}>{title}</Text>

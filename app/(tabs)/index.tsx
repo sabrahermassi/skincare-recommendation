@@ -9,20 +9,21 @@ import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PressableCard } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/genie";
+import { TAB_BAR_HEIGHT, tabBarBottom } from "@/lib/tab-bar";
 import { isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The watercolor from onboarding's second screen: a bottle and its ingredient list.
-const SCAN_ART = require("@/assets/illustrations/onboarding/onb2-ingredients.png");
-// The shelf that fills the empty Saved and History screens.
-const SHELF_ART = require("@/assets/illustrations/saved-empty-shelf.png");
-// Its own proportions (1400x892, cropped to the art), so it is never stretched.
-const SHELF_ASPECT = 1400 / 892;
-// Below the counter's bottom edge the picture holds 175 of its 892 rows (the pink
-// wash and the trailing leaves), measured off the file. Pulled down by that much,
-// the counter's edge is what rests on the tab bar and the rest goes behind it.
-const SHELF_BELOW_COUNTER = 175 / 892;
+const SCAN_ART = require("@/assets/illustrations/scan-a-product.png");
+// The watercolor scene under the cards (cropped to its art and brought down to
+// 1400px wide from the 6144px original).
+const SHELF_ART = require("@/assets/illustrations/home-shelf.png");
+// Its own proportions (1400x769), so it is never stretched.
+const SHELF_ASPECT = 1400 / 769;
+// The wet counter under the bottles runs to the bottom of the picture; this much
+// of it is pulled down behind the tab bar, so the bottles rest just above it.
+const SHELF_BELOW_COUNTER = 0.12;
 
 /**
  * Home — the first screen after the skin quiz.
@@ -126,30 +127,41 @@ export default function Home() {
                 <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: INK }}>Scan a product</Text>
                 <ArrowIcon size={18} color={INK} />
               </View>
-              <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>Analyze a product by photo or barcode.</Text>
+              {/* Narrower than the title above it, so it stops short of the picture. */}
+              <Text style={{ maxWidth: 150, fontSize: 13, lineHeight: 19, color: MUTED }}>Analyze a product by photo or barcode.</Text>
             </View>
             <Image
               source={SCAN_ART}
               contentFit="contain"
               accessibilityLabel=""
-              style={{ position: "absolute", right: -14, bottom: -6, width: 150, height: 150 }}
+              // Whole and centred on the card's right side, top to bottom: nothing cropped.
+              style={{ position: "absolute", right: 6, top: 6, bottom: 6, width: 150 }}
             />
           </Pressable>
           </Animated.View>
         </View>
 
-        {/* The shelf, across the whole width and a little past it, its counter's edge
-            on the tab bar's edge — it fills what is left of the screen rather than
-            sitting in it. */}
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", paddingTop: 16, overflow: "hidden" }}>
+        {/* The scene, edge to edge, standing on the tab bar: it is lifted by the
+            bar's own height so the bottles are above it, and only the wet counter
+            beneath them runs behind it. */}
+        <View
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "flex-end",
+            paddingTop: 16,
+            paddingBottom: tabBarBottom(insets.bottom) + TAB_BAR_HEIGHT,
+            overflow: "hidden",
+          }}
+        >
           <Image
             source={SHELF_ART}
             contentFit="contain"
             accessibilityLabel=""
             style={{
-              width: width * 1.3,
+              width,
               aspectRatio: SHELF_ASPECT,
-              marginBottom: -((width * 1.3) / SHELF_ASPECT) * SHELF_BELOW_COUNTER,
+              marginBottom: -(width / SHELF_ASPECT) * SHELF_BELOW_COUNTER,
             }}
           />
         </View>
