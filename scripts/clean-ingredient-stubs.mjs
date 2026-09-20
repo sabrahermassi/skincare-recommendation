@@ -28,6 +28,7 @@ import { createClient } from "@supabase/supabase-js";
 import { fuzzyKnownName, isPlausibleIngredientName, parseInci, resolveKnownName } from "./lib/inci-parse.mjs";
 import { KNOWN_SHORT_NAMES } from "./audit-catalogue-quality.mjs";
 import { fetchAliases } from "./lib/aliases.mjs";
+import { fetchStoredFormulas } from "./lib/formula-diff.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 const APPLY = process.argv.includes("--apply");
@@ -140,20 +141,32 @@ function classifyStub(name, known, aliases) {
 
 /**
  * Which product rows to point at the real name and which to drop. A product
- * that already lists the real name cannot also point this row at it, or the
- * formula would name it twice: that row is dropped instead. `productNames` is
- * each product's current names and is updated as rows are planned, so two stubs
- * of one ingredient in the same product collapse to one row.
+ * that already lists the real name cannot also name it a second time, so one of
+ * the two rows goes — the later one, because position is concentration order
+ * and the ingredient belongs where the label first put it. `productNames` maps
+ * each product to its current names and their positions, and is updated as rows
+ * are planned, so two stubs of one ingredient in the same product collapse to
+ * one row.
+ *
+ * A dropped row is named by product and position, which is all that identifies
+ * it: when the stub is the earlier row, the row dropped is the real name's.
  */
 function planRepoints(variants, variantUses, productNames) {
   const repoint = [];
   const dropRow = [];
   for (const u of variantUses) {
     const target = variants.get(u.inci_name);
-    if (productNames.get(u.product_id)?.has(target)) dropRow.push(u);
-    else {
+    const names = productNames.get(u.product_id);
+    const existingAt = names?.get(target);
+    if (existingAt === undefined) {
       repoint.push({ ...u, target });
-      productNames.get(u.product_id)?.add(target);
+      names?.set(target, u.position);
+    } else if (u.position < existingAt) {
+      repoint.push({ ...u, target });
+      dropRow.push({ product_id: u.product_id, inci_name: target, position: existingAt });
+      names.set(target, u.position);
+    } else {
+      dropRow.push(u);
     }
   }
   return { repoint, dropRow };
@@ -168,16 +181,30 @@ async function readIngredients(db, verified) {
   return rows.map((r) => r.inci_name);
 }
 
-/** Every product_ingredients row that uses one of `names`. */
+const PAGE = 1000; // PostgREST's default row cap: a longer read is cut short without an error.
+
+/**
+ * Every product_ingredients row that uses one of `names`. Paged, because a
+ * stub used by many products can return more rows than one response holds, and
+ * a silently short read makes a used stub look unused — the cleanup would then
+ * start deleting and fail partway on the foreign key.
+ */
 async function usesOf(db, names) {
   const out = [];
   for (let i = 0; i < names.length; i += BATCH) {
-    const { data, error } = await db
-      .from("product_ingredients")
-      .select("product_id, inci_name, position")
-      .in("inci_name", names.slice(i, i + BATCH));
-    if (error) throw new Error(error.message);
-    out.push(...data);
+    const batch = names.slice(i, i + BATCH);
+    for (let offset = 0; ; offset += PAGE) {
+      const { data, error } = await db
+        .from("product_ingredients")
+        .select("product_id, inci_name, position")
+        .in("inci_name", batch)
+        .order("product_id", { ascending: true })
+        .order("position", { ascending: true })
+        .range(offset, offset + PAGE - 1);
+      if (error) throw new Error(error.message);
+      out.push(...data);
+      if (data.length < PAGE) break;
+    }
   }
   return out;
 }
@@ -210,20 +237,12 @@ async function main() {
   for (const u of uses) usesByName.set(u.inci_name, [...(usesByName.get(u.inci_name) ?? []), u]);
 
   // A product that already lists the real name cannot also point this row at
-  // it, or the formula would name it twice: that row is dropped instead.
-  const productNames = new Map();
+  // it, or the formula would name it twice: one of the two rows is dropped.
   const variantUses = [...variants.keys()].flatMap((s) => usesByName.get(s) ?? []);
   const productIds = [...new Set(variantUses.map((u) => u.product_id))];
-  for (let i = 0; i < productIds.length; i += BATCH) {
-    const { data, error } = await db
-      .from("product_ingredients")
-      .select("product_id, inci_name")
-      .in("product_id", productIds.slice(i, i + BATCH));
-    if (error) throw new Error(error.message);
-    for (const r of data) {
-      if (!productNames.has(r.product_id)) productNames.set(r.product_id, new Set());
-      productNames.get(r.product_id).add(r.inci_name);
-    }
+  const productNames = new Map();
+  for (const [productId, rows] of await fetchStoredFormulas(db, productIds)) {
+    productNames.set(productId, new Map(rows.map((r) => [r.inci_name, r.position])));
   }
 
   const { repoint, dropRow } = planRepoints(variants, variantUses, productNames);
@@ -244,14 +263,8 @@ async function main() {
     return;
   }
 
-  for (const r of repoint) {
-    const { error } = await db
-      .from("product_ingredients")
-      .update({ inci_name: r.target })
-      .eq("product_id", r.product_id)
-      .eq("position", r.position);
-    if (error) throw new Error(`repoint ${r.product_id}#${r.position}: ${error.message}`);
-  }
+  // Drops first: a row is identified by product and position, and a dropped row
+  // can be the real name's own, which a repoint would otherwise duplicate.
   for (const r of dropRow) {
     const { error } = await db
       .from("product_ingredients")
@@ -259,6 +272,14 @@ async function main() {
       .eq("product_id", r.product_id)
       .eq("position", r.position);
     if (error) throw new Error(`drop ${r.product_id}#${r.position}: ${error.message}`);
+  }
+  for (const r of repoint) {
+    const { error } = await db
+      .from("product_ingredients")
+      .update({ inci_name: r.target })
+      .eq("product_id", r.product_id)
+      .eq("position", r.position);
+    if (error) throw new Error(`repoint ${r.product_id}#${r.position}: ${error.message}`);
   }
 
   const doomed = [...variants.keys(), ...junkFree];
@@ -284,7 +305,7 @@ function invokedDirectly() {
   }
 }
 
-export { classifyStub, planRepoints };
+export { classifyStub, planRepoints, usesOf };
 
 if (invokedDirectly()) {
   main().catch((err) => {

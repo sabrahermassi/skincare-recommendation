@@ -84,6 +84,11 @@ describe("resolveKnownName", () => {
     expect(resolveKnownName("helianthus annus seed oil", dictionary)).toBe("helianthus annus seed oil");
   });
 
+  it("returns the dictionary name, not the alias, when a slash name is anchored on an alias", () => {
+    const aliases = new Map([["glycérine", "glycerin"]]);
+    expect(resolveKnownName("glycérine/vegetable", new Set(["glycerin"]), aliases)).toBe("glycerin");
+  });
+
   it("resolves through parseIngredientBlock when a dictionary is supplied", () => {
     const parsed = parseIngredientBlock("Aqua/Water/Eau, Gly cerin, Parfum/Fragrance, Glycerin", dictionary);
     expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "parfum"]);

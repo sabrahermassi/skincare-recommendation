@@ -415,12 +415,19 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
       .exec(withoutHeading);
   const block = stop ? withoutHeading.slice(0, stop.index) : withoutHeading;
 
-  const parsed = block
+  // A full stop inside brackets ("(Vit. E)") is part of the qualifier, not the
+  // end of a name: without this, "Tocopheryl Acetate (Vit. E)" split into
+  // "tocopheryl acetate (vit" and "e)". Same guard as `lib/inci.ts`; the
+  // stand-in is written as an escape so it survives editors that hide
+  // private-use characters.
+  const guarded = block.replace(/\([^)]*\)/g, (group) => group.replace(/\./g, "\uE001"));
+
+  const parsed = guarded
     // A comma directly between two digits belongs to the name —
     // "1,2-Hexanediol" is one ingredient, and splitting there yields a bare
     // "1" and an orphaned "2-hexanediol". Kept in step with `lib/inci.ts`.
     .split(/[;]|,(?!\d)|\.(?=\s)/)
-    .map((part) => normalise(part))
+    .map((part) => normalise(part.replace(/\uE001/g, ".")))
     .filter((part) => part.length > 1 && part.length < 120 && isPlausibleIngredientName(part));
 
   return dedupe(parsed);

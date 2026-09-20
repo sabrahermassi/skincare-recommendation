@@ -1,4 +1,4 @@
-import { classifyStub, planRepoints } from "../scripts/clean-ingredient-stubs.mjs";
+import { classifyStub, planRepoints, usesOf } from "../scripts/clean-ingredient-stubs.mjs";
 
 const known = new Set(["glycerin", "sodium hydroxide", "aqua", "tocopherol"]);
 const aliases = new Map([["glycérine", "glycerin"]]);
@@ -22,22 +22,32 @@ describe("planRepoints", () => {
     ["ingrédients: aqua", "aqua"],
     ["glycérine", "glycerin"],
   ]);
+  /** product id → name → position, as `main` builds it from the stored formulas. */
+  const namesOf = (entries: Record<string, Record<string, number>>) =>
+    new Map(Object.entries(entries).map(([id, names]) => [id, new Map(Object.entries(names))]));
 
   it("points a product's stub row at the real name", () => {
     const uses = [{ product_id: "p1", inci_name: "glycérine", position: 3 }];
-    const { repoint, dropRow } = planRepoints(variants, uses, new Map([["p1", new Set(["glycérine"])]]));
+    const { repoint, dropRow } = planRepoints(variants, uses, namesOf({ p1: { glycérine: 3 } }));
     expect(repoint).toEqual([{ product_id: "p1", inci_name: "glycérine", position: 3, target: "glycerin" }]);
     expect(dropRow).toEqual([]);
   });
 
-  it("drops the stub row instead when the product already lists the real name", () => {
-    const uses = [{ product_id: "p1", inci_name: "glycérine", position: 3 }];
-    const { repoint, dropRow } = planRepoints(variants, uses, new Map([["p1", new Set(["glycérine", "glycerin"])]]));
+  it("drops the stub row when the real name is already listed earlier", () => {
+    const uses = [{ product_id: "p1", inci_name: "glycérine", position: 10 }];
+    const { repoint, dropRow } = planRepoints(variants, uses, namesOf({ p1: { glycerin: 1, glycérine: 10 } }));
     expect(repoint).toEqual([]);
     expect(dropRow).toEqual(uses);
   });
 
-  it("keeps one row when two stubs of the same ingredient sit in one product", () => {
+  it("keeps the earlier row when the stub comes first: repoints it and drops the real name's later row", () => {
+    const uses = [{ product_id: "p1", inci_name: "glycérine", position: 1 }];
+    const { repoint, dropRow } = planRepoints(variants, uses, namesOf({ p1: { glycérine: 1, glycerin: 10 } }));
+    expect(repoint).toEqual([{ product_id: "p1", inci_name: "glycérine", position: 1, target: "glycerin" }]);
+    expect(dropRow).toEqual([{ product_id: "p1", inci_name: "glycerin", position: 10 }]);
+  });
+
+  it("keeps one row, at the earliest position, when two stubs of the same ingredient share a product", () => {
     const both = new Map([
       ["glycérine", "glycerin"],
       ["glycerine", "glycerin"],
@@ -46,23 +56,62 @@ describe("planRepoints", () => {
       { product_id: "p1", inci_name: "glycérine", position: 1 },
       { product_id: "p1", inci_name: "glycerine", position: 2 },
     ];
-    const { repoint, dropRow } = planRepoints(both, uses, new Map([["p1", new Set(["glycérine", "glycerine"])]]));
-    expect(repoint).toHaveLength(1);
-    expect(dropRow).toHaveLength(1);
+    const { repoint, dropRow } = planRepoints(both, uses, namesOf({ p1: { glycérine: 1, glycerine: 2 } }));
+    expect(repoint).toEqual([{ product_id: "p1", inci_name: "glycérine", position: 1, target: "glycerin" }]);
+    expect(dropRow).toEqual([{ product_id: "p1", inci_name: "glycerine", position: 2 }]);
   });
 
   it("plans each product on its own", () => {
     const uses = [
-      { product_id: "p1", inci_name: "glycérine", position: 1 },
-      { product_id: "p2", inci_name: "glycérine", position: 1 },
+      { product_id: "p1", inci_name: "glycérine", position: 5 },
+      { product_id: "p2", inci_name: "glycérine", position: 5 },
     ];
-    const names = new Map([
-      ["p1", new Set(["glycérine", "glycerin"])],
-      ["p2", new Set(["glycérine"])],
-    ]);
-    const { repoint, dropRow } = planRepoints(variants, uses, names);
+    const { repoint, dropRow } = planRepoints(
+      variants,
+      uses,
+      namesOf({ p1: { glycerin: 1, glycérine: 5 }, p2: { glycérine: 5 } })
+    );
     expect(dropRow.map((r) => r.product_id)).toEqual(["p1"]);
     expect(repoint.map((r) => r.product_id)).toEqual(["p2"]);
+  });
+});
+
+describe("usesOf", () => {
+  /** A stand-in for supabase-js's builder over a fixed list of rows, honouring `.in` and `.range`. */
+  function fakeDb(rows: { product_id: string; inci_name: string; position: number }[]) {
+    return {
+      from: () => {
+        let names: string[] = [];
+        const builder = {
+          select: () => builder,
+          in: (_col: string, values: string[]) => {
+            names = values;
+            return builder;
+          },
+          order: () => builder,
+          range: async (from: number, to: number) => ({
+            data: rows.filter((r) => names.includes(r.inci_name)).slice(from, to + 1),
+            error: null,
+          }),
+        };
+        return builder;
+      },
+    };
+  }
+
+  it("reads past the 1000-row page limit instead of silently truncating", async () => {
+    const rows = Array.from({ length: 2300 }, (_, i) => ({ product_id: `p${i}`, inci_name: "glycérine", position: 1 }));
+    expect(await usesOf(fakeDb(rows), ["glycérine"])).toHaveLength(2300);
+  });
+
+  it("throws rather than returning a partial read when the query fails", async () => {
+    const failing = {
+      from: () => {
+        const b = { select: () => b, in: () => b, order: () => b, range: async () => ({ data: null, error: { message: "boom" } }) };
+        return b;
+      },
+    };
+    await expect(usesOf(failing, ["glycérine"])).rejects.toThrow(/boom/);
   });
 });
 

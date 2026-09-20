@@ -341,10 +341,7 @@ async function main() {
         continue;
       }
 
-      // A parser-only difference is left as stored, not rewritten: any rewrite
-      // through the RPC would stamp `formula_changed_at` (see `parserOnlyChange`).
-      // `clean-ingredient-stubs.mjs` is what upgrades old rows in place.
-      if (!formulaChanged(row.product_ingredients, fresh) || parserOnlyChange(row.product_ingredients, fresh, known, aliases)) {
+      if (!formulaChanged(row.product_ingredients, fresh)) {
         // Confirmed current as of today, nothing to change — still worth the
         // touch, or this row would look just as stale next run despite having
         // just been checked.
@@ -353,6 +350,29 @@ async function main() {
         if (!dryRun) {
           const { error } = await db.from("products").update({ fetched_at: new Date().toISOString() }).eq("id", row.id);
           if (error) throw new Error(`fetched_at touch failed for ${row.id} (unchanged): ${error.message}`);
+        }
+        continue;
+      }
+
+      // Different only because the parser improved since this row was stored:
+      // the label did not move, so it is not a reformulation. The cleaned list
+      // is still written, or the old junk names would stay on the row for good,
+      // but through the RPC's refresh flag and with no explicit timestamp, so
+      // `formula_changed_at` is not stamped (migration 0021; see
+      // `parserOnlyChange`). Counted as unchanged, since that is what it is.
+      if (parserOnlyChange(row.product_ingredients, fresh, known, aliases)) {
+        unchanged += 1;
+        touched += 1;
+        if (!dryRun) {
+          const { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at } =
+            row;
+          const { error: rpcError } = await db.rpc("replace_product_with_ingredients", {
+            p_product: { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at },
+            p_ingredients: fresh,
+            p_stub_note: "No published rating for this ingredient yet.",
+            p_parser_refresh: true,
+          });
+          if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${id} (parser refresh): ${rpcError.message}`);
         }
         continue;
       }

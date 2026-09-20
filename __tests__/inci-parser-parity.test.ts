@@ -271,4 +271,11 @@ describe("product-lookup's parser stays in step with lib/inci.ts", () => {
       extractFunctionBody(client, "isPlausibleIngredientName")
     );
   });
+
+  // "Tocopheryl Acetate (Vit. E)" must not split at the full stop inside the
+  // brackets — lib/inci.ts and label-ocr guard it, and this copy did not.
+  it("guards full stops inside brackets before splitting, like the other copies", () => {
+    expect(client).toContain("group.replace(/\\./g,");
+    expect(lookup).toContain("const guarded = block.replace(/\\([^)]*\\)/g, (group) => group.replace(/\\./g,");
+  });
 });

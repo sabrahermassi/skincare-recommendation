@@ -386,7 +386,7 @@ export function resolveKnownName(name, dictionary, aliases) {
     const anchor = parts.find(isKnown);
     const strict = /(?:polymer|resin|esters?)$/.test(parts[parts.length - 1]);
     const restIsPlausible = parts.every((part) => part === anchor || (part.length > 1 && (isKnown(part) || !part.includes(" ") || !strict)));
-    if (parts.length > 1 && anchor && restIsPlausible) return anchor;
+    if (parts.length > 1 && anchor && restIsPlausible) return dictionary.has(anchor) ? anchor : (aliases?.get(anchor) ?? anchor);
   }
   return name;
 }

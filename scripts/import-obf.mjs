@@ -585,7 +585,8 @@ async function main() {
       // indistinguishable from a measured one. Same stub note the two Edge
       // Functions pass — see migration 0007.
       p_stub_note: "No published rating for this ingredient yet.",
-      p_parser_refresh: isParserRefresh(stored.get(r.product.id), r.ingredients, known, aliases),
+      // Only sent when true, so a run that never needs it works even before migration 0021 is applied.
+      ...(isParserRefresh(stored.get(r.product.id), r.ingredients, known, aliases) ? { p_parser_refresh: true } : {}),
     });
     if (error) {
       throw new Error(
