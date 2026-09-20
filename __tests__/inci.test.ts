@@ -90,6 +90,12 @@ describe("resolveKnownName", () => {
     expect(resolveKnownName("glycérine/vegetable", new Set(["glycerin"]), aliases)).toBe("glycerin");
   });
 
+  it("counts a mapped common name as a known part, so it is not swallowed by the first ingredient", () => {
+    const known = new Set(["aqua", "petrolatum"]);
+    expect(resolveKnownName("aqua / petroleum jelly", known)).toBe("aqua / petroleum jelly");
+    expect(resolveKnownName("petrolatum/petroleum jelly", known)).toBe("petrolatum");
+  });
+
   it("does not fold two different known ingredients into the first", () => {
     expect(resolveKnownName("aqua / glycerin", dictionary)).toBe("aqua / glycerin");
     expect(resolveKnownName("glycerin/behenyl alcohol", dictionary)).toBe("glycerin/behenyl alcohol");
@@ -160,6 +166,10 @@ describe("splitSlashList", () => {
       "glycerin",
       "prunus armeniaca kernel oil",
     ]);
+  });
+
+  it("reads a mapped common name as its dictionary name", () => {
+    expect(splitSlashList("aqua / petroleum jelly", new Set(["aqua", "petrolatum"]))).toEqual(["aqua", "petrolatum"]);
   });
 
   it("leaves the token alone when any part is unknown", () => {

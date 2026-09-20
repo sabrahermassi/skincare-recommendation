@@ -397,7 +397,9 @@ export function resolveKnownName(name, dictionary, aliases) {
   }
   if (base.includes("/")) {
     const parts = base.split("/").map(normalise);
-    const isKnown = (part) => dictionary.has(part) || (aliases?.has(part) ?? false);
+    // A common name whose target the dictionary holds counts as known too, or
+    // "aqua / petroleum jelly" would fold into aqua and lose the petrolatum.
+    const isKnown = (part) => dictionary.has(part) || (aliases?.has(part) ?? false) || dictionary.has(commonNameFor(part) ?? "");
     const anchor = parts.find(isKnown);
     const strict = /(?:polymer|resin|esters?)$/.test(parts[parts.length - 1]);
     // A known part folds into the anchor only when it names the same ingredient
@@ -409,7 +411,7 @@ export function resolveKnownName(name, dictionary, aliases) {
     const restIsPlausible = parts.every(
       (part) => part === anchor || (part.length > 1 && (isKnown(part) ? sameIngredient(part) : !part.includes(" ") || !strict))
     );
-    if (parts.length > 1 && anchor && restIsPlausible) return dictionary.has(anchor) ? anchor : (aliases?.get(anchor) ?? anchor);
+    if (parts.length > 1 && anchor && restIsPlausible) return dictionary.has(anchor) ? anchor : canonical(anchor);
   }
   return name;
 }
@@ -427,7 +429,7 @@ export function splitSlashList(name, dictionary, aliases) {
   if (parts.length < 2) return [name];
   const resolved = [];
   for (const part of parts) {
-    const target = dictionary.has(part) ? part : aliases?.get(part);
+    const target = dictionary.has(part) ? part : (aliases?.get(part) ?? commonNameFor(part));
     if (target === undefined || !dictionary.has(target)) return [name];
     resolved.push(target);
   }
