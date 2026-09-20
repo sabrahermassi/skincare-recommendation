@@ -11,11 +11,11 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { IngredientsSheet, ingredientsSheetPeek } from "@/components/IngredientsSheet";
 import { PopOnToggle } from "@/components/PopOnToggle";
+import { ProfileNudge } from "@/components/ProfileNudge";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { HeartIcon } from "@/components/icons";
 import { BarcodeOfferPrompt } from "@/components/BarcodeOfferPrompt";
-import { InlineProfilePrompt } from "@/components/InlineProfilePrompt";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { canPhotographLabelFor, failureMessage, fetchProduct, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
@@ -28,7 +28,6 @@ import {
 } from "@/lib/matching";
 import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/genie";
-import { isPersonalized } from "@/lib/profile";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN, toneForVerdict } from "@/lib/tokens";
@@ -160,14 +159,6 @@ export default function ProductScreen() {
    * exact trap `app/ingredients/[id].tsx` documents on its own fetch.
    */
   const loadedFor = useRef<string | null>(null);
-
-  // Captured once, on arrival, rather than read live. `isPersonalized` flips as
-  // soon as a skin type is chosen, so a live check would unmount the panel on
-  // the first tap and take the sensitivity question with it — the user would
-  // answer one thing and watch the other vanish. Held for the visit instead:
-  // the score above fills in, the answers stay visible and changeable, and it
-  // is gone next time the screen opens.
-  const [askForProfile] = useState(() => !isPersonalized(useAppStore.getState().profile));
 
   // Pinned at mount for the same reason the ingredient screen pins its own:
   // `react-hooks/purity` flags `Date.now()` during render.
@@ -551,7 +542,7 @@ export default function ProductScreen() {
         {offerBarcode === "1" && scanToken && (
           <BarcodeOfferPrompt productId={id} scanToken={scanToken} />
         )}
-        {askForProfile && <InlineProfilePrompt />}
+        <ProfileNudge />
 
         {/*
           How old the formula is, but only once it is old enough to matter.
