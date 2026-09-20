@@ -26,7 +26,7 @@ const SIDE = SCAN_SIDE_INSET;
 const TOP_GAP = 24;
 /** Gap between the top inset and the window, for anything placed inside it. */
 export const SCAN_TOP_GAP = TOP_GAP;
-const WINDOW_RADIUS = 28;
+export const WINDOW_RADIUS = 28;
 // The four-corner frame (barcode): each corner's arm and its stroke.
 const CORNER_RADIUS = 20;
 const CORNER_LENGTH = 40;

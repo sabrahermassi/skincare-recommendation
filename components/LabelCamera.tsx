@@ -1,13 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { File } from "expo-file-system";
+import { Image } from "expo-image";
 import { launchImageLibraryAsync } from "expo-image-picker";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, View, type LayoutChangeEvent, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
+import { SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, WINDOW_RADIUS, type Box } from "@/components/ScanViewfinder";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { analyseLabel } from "@/data/api";
@@ -85,6 +86,8 @@ export function LabelCamera({
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [status, setStatus] = useState<Status>({ kind: "framing" });
+  // The picture chosen from the library, shown in the frame while it is read.
+  const [preview, setPreview] = useState<string | null>(null);
   const ownCamera = useRef<CameraView>(null);
   const camera = externalCamera ?? ownCamera;
 
@@ -149,6 +152,7 @@ export function LabelCamera({
           return;
         }
         photo = picked.assets[0];
+        setPreview(photo.uri);
         // Scaled down first: a full-size phone photo can be too large to send.
         const width = shrinkWidth(photo.width, LIBRARY_MAX_WIDTH);
         if (width) {
@@ -290,6 +294,7 @@ export function LabelCamera({
         retryable: true,
       });
     } finally {
+      setPreview(null);
       deleteTempFile(capturedUri);
       deleteTempFile(croppedUri);
     }
@@ -392,6 +397,28 @@ export function LabelCamera({
           onWindow={onWindow}
         />
       )}
+
+      {/* A picture from the library, in the frame while it is read. */}
+      {preview && guideRect ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: guideRect.x,
+            top: guideRect.y,
+            width: guideRect.width,
+            height: guideRect.height,
+            borderRadius: WINDOW_RADIUS,
+            overflow: "hidden",
+            backgroundColor: CAMERA_STAGE,
+            borderWidth: 2,
+            borderColor: CANVAS,
+          }}
+        >
+          <Image source={{ uri: preview }} contentFit="contain" accessibilityLabel="" style={{ flex: 1 }} />
+          <View style={{ ...StyleSheet.absoluteFill, backgroundColor: withAlpha(CAMERA_STAGE, 0.4) }} />
+        </View>
+      ) : null}
 
       {onClose ? (
         <Pressable
