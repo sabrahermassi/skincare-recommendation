@@ -7,7 +7,7 @@ import { HEADER_GUTTER } from "@/components/AppHeader";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/genie";
 import { isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The watercolor from onboarding's second screen: a bottle and its ingredient list.
@@ -63,6 +63,7 @@ export default function Home() {
               borderWidth: 1,
               borderColor: BORDER_INACTIVE,
               backgroundColor: SURFACE,
+              ...CARD_SHADOW,
             }}
           >
             <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>Your skin profile</Text>
@@ -80,16 +81,17 @@ export default function Home() {
             )}
           </View>
 
-          {/* The scan card. */}
+          {/* The scan card. The shade sits on an outer view: a view that clips
+              its picture (overflow hidden) loses its own shade on iOS. */}
+          <View style={{ minHeight: 150, borderRadius: 22, backgroundColor: SELECTED, ...CARD_SHADOW }}>
           <Pressable
             onPress={openScanner}
             accessibilityRole="button"
             accessibilityLabel="Scan a product. Analyze a product by photo or barcode."
             className="active:opacity-90"
             style={{
-              minHeight: 150,
+              flexGrow: 1,
               borderRadius: 22,
-              backgroundColor: SELECTED,
               padding: 20,
               overflow: "hidden",
               justifyContent: "center",
@@ -111,6 +113,7 @@ export default function Home() {
               style={{ position: "absolute", right: -18, bottom: -6, width: 170, height: 170 }}
             />
           </Pressable>
+          </View>
         </View>
 
         {/* The shelf, across the whole width and a little past it, its counter's edge

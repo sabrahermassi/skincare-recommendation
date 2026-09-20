@@ -354,3 +354,12 @@ export const FLOATING_SHADOW = {
   shadowRadius: 18,
   elevation: 12,
 } as const;
+
+/** A card lifted off the screen: a shade under its bottom edge. */
+export const CARD_SHADOW = {
+  shadowColor: INK,
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.14,
+  shadowRadius: 12,
+  elevation: 5,
+} as const;
