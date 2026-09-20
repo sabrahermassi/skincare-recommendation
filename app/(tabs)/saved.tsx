@@ -711,6 +711,8 @@ const EMPTY_COPY: Record<Tab, { title: string; body: string; actionLabel: string
 };
 
 const SAVED_EMPTY_SHELF = require("@/assets/illustrations/saved-empty-shelf.png");
+// Wider than the text block under it (which has 40 either side): the shelf is a wide picture.
+const SAVED_ART_WIDTH = 340;
 
 function EmptyState({
   title,
@@ -732,11 +734,11 @@ function EmptyState({
     <View style={{ flex: 1, alignItems: "center", paddingHorizontal: 40 }}>
       <View style={{ flex: 0.4 }} />
       <View style={{ alignItems: "center", gap: 10 }}>
-        {/* Aspect ratio is the source art's own (1400x892, cropped to
+        {/* Aspect ratio is the source art's own (1400x628, cropped to
             content) — matching it keeps `contain` from letterboxing. */}
         <Image
           source={SAVED_EMPTY_SHELF}
-          style={{ width: 286, height: 182 }}
+          style={{ width: SAVED_ART_WIDTH, aspectRatio: 1400 / 628 }}
           contentFit="contain"
           accessibilityLabel=""
         />
