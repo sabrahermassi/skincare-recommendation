@@ -3,24 +3,26 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, BackHandler, Easing, PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { IngredientListRow, IngredientTabsList } from "@/components/IngredientTabsList";
 import { Text } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
 import { rungFor, type MatchResult } from "@/lib/matching";
 import { TERRACOTTA } from "@/components/shell/shared";
-import { CANVAS, INK, MUTED, MUTED_SOFT, TYPE } from "@/lib/tokens";
+import { CANVAS, INK, MUTED, TYPE } from "@/lib/tokens";
 
 // How many ingredients show while the sheet is resting, and roughly how tall a
 // row is, which sets how much of the sheet is above the bottom edge.
 const PEEK_ROWS = 2;
 const ROW_HEIGHT = 72;
-const HEADER_HEIGHT = 74;
+const HEADER_HEIGHT = 80;
 const SNAP_MS = 280;
-const SHEET_RADIUS = 28;
 // The sheet is a card with a coloured outline, a little in from each side of the screen.
-const SHEET_OUTLINE = 3;
-const SHEET_INSET = 10;
+// Shared with the found-product sheet over the scanner, so the two look alike.
+export const SHEET_RADIUS = 28;
+export const SHEET_OUTLINE = 3;
+export const SHEET_INSET = 10;
 
 /** How much of the sheet is showing while it rests, for whoever lays out above it. */
 export function ingredientsSheetPeek(bottomInset: number) {
@@ -164,7 +166,14 @@ export function IngredientsSheet({
               accessibilityState={{ expanded }}
               style={{ height: HEADER_HEIGHT, paddingHorizontal: 24, justifyContent: "center" }}
             >
-              <View style={{ alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: MUTED_SOFT, marginBottom: 14 }} />
+              {/* A bare chevron in place of the grab bar: up while the list is
+                  closed (pull it up), down once it is open. */}
+              <ArrowIcon
+                direction={expanded ? "down" : "up"}
+                size={32}
+                color={INK}
+                style={{ alignSelf: "center", marginTop: -8, marginBottom: 2 }}
+              />
               <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
                 <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.title, color: INK }}>Ingredients</Text>
                 <Text style={{ fontSize: 13, fontWeight: "600", color: MUTED }}>{expanded ? "Close" : "See all"}</Text>

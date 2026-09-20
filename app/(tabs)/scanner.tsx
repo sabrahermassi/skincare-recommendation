@@ -21,6 +21,7 @@ import { GenieShell, type GenieShellHandle } from "@/components/GenieShell";
 import { LabelCamera } from "@/components/LabelCamera";
 import { ScanIntro } from "@/components/ScanIntro";
 import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
+import { SHEET_INSET, SHEET_OUTLINE, SHEET_RADIUS } from "@/components/IngredientsSheet";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { CTA_TEXT, TERRACOTTA } from "@/components/shell/shared";
@@ -378,7 +379,7 @@ export default function Scan() {
           <FoundSheet
             key={status.product.id}
             product={status.product}
-            bottom={Math.max(STAGE_BOTTOM, insets.bottom + 12)}
+            bottomInset={insets.bottom}
             onClose={() => {
               setStatus({ kind: "idle" });
               busy.current = false;
@@ -423,12 +424,12 @@ export default function Scan() {
  */
 function FoundSheet({
   product,
-  bottom,
+  bottomInset,
   onClose,
   onOpen,
 }: {
   product: ProductWithIngredients;
-  bottom: number;
+  bottomInset: number;
   onClose: () => void;
   onOpen: () => void;
 }) {
@@ -451,10 +452,11 @@ function FoundSheet({
   return (
     <Animated.View
       style={{
+        // Rises from the bottom edge, outlined and inset like the ingredients sheet.
         position: "absolute",
-        left: STAGE_INSET,
-        right: STAGE_INSET,
-        bottom,
+        left: SHEET_INSET,
+        right: SHEET_INSET,
+        bottom: 0,
         opacity: rise,
         transform: [{ translateY: lift }],
       }}
@@ -462,10 +464,14 @@ function FoundSheet({
       <View
         style={{
           backgroundColor: SURFACE,
-          borderRadius: 28,
+          borderTopLeftRadius: SHEET_RADIUS,
+          borderTopRightRadius: SHEET_RADIUS,
+          borderWidth: SHEET_OUTLINE,
+          borderBottomWidth: 0,
+          borderColor: TERRACOTTA,
           paddingTop: FOUND_PICTURE / 2 + 14,
           paddingHorizontal: 22,
-          paddingBottom: 20,
+          paddingBottom: Math.max(20, bottomInset + 12),
           alignItems: "center",
           gap: 8,
           ...FLOATING_SHADOW,
