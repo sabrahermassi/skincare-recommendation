@@ -15,18 +15,19 @@ import { useAppStore } from "@/store/useAppStore";
 
 // The watercolor from onboarding's second screen: a bottle and its ingredient list.
 const SCAN_ART = require("@/assets/illustrations/scan-a-product.png");
-// The watercolor scene under the cards (cropped to its art and brought down to
-// 1400px wide from the 6144px original).
+// The watercolor scene under the cards (brought down to 1500px wide from the
+// 6144px original, its top edge faded into the screen and its water carried on
+// below the bottles so the tab bar sits on water rather than on the bottles).
 const SHELF_ART = require("@/assets/illustrations/home-shelf.png");
-// Its own proportions (1400x940), so it is never stretched.
-const SHELF_ASPECT = 1400 / 940;
+// Its own proportions (1500x1200), so it is never stretched.
+const SHELF_ASPECT = 1500 / 1200;
 // How wide it is drawn, as a multiple of the screen: a little past each side, so
 // it runs off the edges and, with its bottom on the screen's bottom, the bottles
 // stand just above the tab bar.
 const SHELF_WIDTH = 1.15;
-// The water's soft lower edge is drawn this far (a share of the picture's height)
+// A sliver of the water is drawn this far (a share of the picture's height)
 // below the screen, so the water reaches the bottom with no gap.
-const SHELF_BLEED_BELOW = 0.06;
+const SHELF_BLEED_BELOW = 0.02;
 
 /**
  * Home — the first screen after the skin quiz.
