@@ -3,12 +3,7 @@ import { View, type LayoutChangeEvent } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT, SCAN_NOTCH_GAP, TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_MARGIN } from "@/lib/tab-bar";
-import { INK, SURFACE } from "@/lib/tokens";
-
-/** How far the drawn shade reaches below the bar, and how many soft layers make it. */
-const SHADE_REACH = 10;
-const SHADE_LAYERS = 4;
-const SHADE_LAYER_OPACITY = 0.045;
+import { INK, SURFACE, TAB_BAR_SHADE } from "@/lib/tokens";
 
 /**
  * The tab bar's body: a rounded bar with a circular bite out of its top edge,
@@ -52,14 +47,14 @@ export function NotchedTabBarBackground() {
   return (
     <View pointerEvents="none" onLayout={onLayout} style={{ position: "absolute", left: 0, right: 0, top: 0, height: h }}>
       {width > 0 ? (
-        <Svg width={width} height={h + SHADE_REACH} style={{ position: "absolute", top: 0, left: 0 }}>
-          {Array.from({ length: SHADE_LAYERS }, (_, i) => (
+        <Svg width={width} height={h + TAB_BAR_SHADE.reach} style={{ position: "absolute", top: 0, left: 0 }}>
+          {Array.from({ length: TAB_BAR_SHADE.layers }, (_, i) => (
             <Path
               key={i}
               d={d}
               fill={INK}
-              fillOpacity={SHADE_LAYER_OPACITY}
-              transform={`translate(0 ${((i + 1) * SHADE_REACH) / SHADE_LAYERS})`}
+              fillOpacity={TAB_BAR_SHADE.opacity}
+              transform={`translate(0 ${((i + 1) * TAB_BAR_SHADE.reach) / TAB_BAR_SHADE.layers})`}
             />
           ))}
           <Path d={d} fill={SURFACE} />

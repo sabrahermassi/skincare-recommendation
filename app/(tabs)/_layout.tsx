@@ -2,19 +2,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 import { useRef } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Pressable, View, type ColorValue, type GestureResponderEvent } from "react-native";
+import { Pressable, View, type GestureResponderEvent } from "react-native";
 
 import { NotchedTabBarBackground } from "@/components/NotchedTabBarBackground";
 import { SearchIcon } from "@/components/icons/SearchIcon";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { genie } from "@/lib/genie";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
-import { INK, RAISED_SHADOW, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
+import { RAISED_SHADOW, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
-
-// The navigator sets each item this far down from the bar's top edge; the icon
-// box is shortened by it at both ends so the icon lands on the bar's centre.
-const TAB_ITEM_TOP_PAD = 5;
 
 // Outline when unselected, filled when selected — the shape changes as well as
 // the colour, so the current tab does not rest on a contrast difference alone.
@@ -27,28 +23,42 @@ const TAB_ICONS = {
 } as const;
 
 /**
- * A tab: the icon only. Unselected it is an outline; selected it is filled in
- * terracotta, with nothing drawn around it. Names are not drawn — they did not
- * render on a phone (see `tabBarShowLabel`) — and live on
- * tabBarAccessibilityLabel for a screen reader.
+ * A tab: the icon only, in a button of its own that is exactly as tall as the bar
+ * and centres the icon in it. The navigator's own item pads and aligns its
+ * contents differently on each platform, which is what left the icons off-centre;
+ * drawing the button here removes the difference. Unselected the icon is an
+ * outline; selected it is filled in terracotta, with nothing drawn around it.
+ * Names are not drawn — they did not render on a phone (see `tabBarShowLabel`) —
+ * and live on the button's accessibility label for a screen reader.
  */
-function TabItem({
+function TabButton({
   tab,
-  focused,
-  color,
+  onPress,
+  ...rest
 }: {
   tab: keyof typeof TAB_ICONS | "browse";
-  focused: boolean;
-  color: ColorValue;
+  onPress?: ((event: GestureResponderEvent) => void) | null;
+  "aria-selected"?: boolean;
+  "aria-label"?: string;
+  testID?: string;
 }) {
+  const focused = rest["aria-selected"] === true;
+  const color = focused ? TERRACOTTA : TAB_INACTIVE;
   return (
-    <View style={{ width: 60, height: "100%", alignItems: "center", justifyContent: "center" }}>
+    <Pressable
+      onPress={onPress ?? undefined}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: focused }}
+      accessibilityLabel={rest["aria-label"]}
+      testID={rest.testID}
+      style={{ flex: 1, height: TAB_BAR_HEIGHT, alignItems: "center", justifyContent: "center" }}
+    >
       {tab === "browse" ? (
-        <SearchIcon size={27} color={String(focused ? TERRACOTTA : color)} filled={focused} />
+        <SearchIcon size={27} color={color} filled={focused} />
       ) : (
-        <Ionicons name={focused ? TAB_ICONS[tab].on : TAB_ICONS[tab].off} size={29} color={focused ? TERRACOTTA : color} />
+        <Ionicons name={focused ? TAB_ICONS[tab].on : TAB_ICONS[tab].off} size={29} color={color} />
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -133,8 +143,6 @@ export default function TabsLayout() {
           pads for the status bar itself using the safe-area inset.
         */
         headerShown: false,
-        tabBarActiveTintColor: INK,
-        tabBarInactiveTintColor: TAB_INACTIVE,
         /*
           Icons only. The label row could not be made to render: measured at
           393x852, each label's element was 8px tall against a 15px line box
@@ -148,9 +156,6 @@ export default function TabsLayout() {
         // A pill lying on top of the screen, clear of its edges, with a soft
         // shade under it. Screens scroll behind it, so each one leaves room at
         // its end (tabBarClearance).
-        // Icons centred on the bar's own height, whatever the navigator pads them with.
-        tabBarItemStyle: { height: TAB_BAR_HEIGHT, paddingTop: 0, paddingBottom: 0, alignItems: "center", justifyContent: "center" },
-        tabBarIconStyle: { height: TAB_BAR_HEIGHT - TAB_ITEM_TOP_PAD * 2, marginTop: 0 },
         tabBarStyle: {
           position: "absolute",
           // Full width, with the side gap as padding: the bar's body is drawn
@@ -187,7 +192,7 @@ export default function TabsLayout() {
           title: "Home · for.me",
           tabBarLabel: "Home",
           tabBarAccessibilityLabel: "Home",
-          tabBarIcon: ({ color, focused }) => <TabItem tab="home" focused={focused} color={color} />,
+          tabBarButton: (props) => <TabButton tab="home" {...props} />,
         }}
       />
       <Tabs.Screen
@@ -212,7 +217,7 @@ export default function TabsLayout() {
           // reads as a menu or a to-do list. The magnifier is the recognised
           // symbol for browsing and it is what this tab opens with — the
           // search box.
-          tabBarIcon: ({ color, focused }) => <TabItem tab="browse" focused={focused} color={color} />,
+          tabBarButton: (props) => <TabButton tab="browse" {...props} />,
         }}
       />
       {/*
@@ -239,7 +244,7 @@ export default function TabsLayout() {
           title: "Saved · for.me",
           tabBarLabel: "Saved",
           tabBarAccessibilityLabel: "Saved",
-          tabBarIcon: ({ color, focused }) => <TabItem tab="saved" focused={focused} color={color} />,
+          tabBarButton: (props) => <TabButton tab="saved" {...props} />,
         }}
       />
       <Tabs.Screen
@@ -248,7 +253,7 @@ export default function TabsLayout() {
           title: "Your skin profile · for.me",
           tabBarLabel: "Profile",
           tabBarAccessibilityLabel: "Profile",
-          tabBarIcon: ({ color, focused }) => <TabItem tab="profile" focused={focused} color={color} />,
+          tabBarButton: (props) => <TabButton tab="profile" {...props} />,
         }}
       />
     </Tabs>

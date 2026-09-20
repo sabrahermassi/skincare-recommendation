@@ -22,7 +22,7 @@ const SECTIONS: { title: string; lines: string[] }[] = [
   {
     title: "Photographing an ingredient list",
     lines: [
-      "Only when you use Photo. The picture is cropped to the frame, stripped of location and device details, and sent to Google Cloud Vision to read the text.",
+      "Only when you use Photo. A picture taken with the camera is cropped to the frame; one you choose from your library is sent whole. Either way it is stripped of location and device details and sent to Google Cloud Vision to read the text.",
       "We never store the picture. What we keep is the text we read, saved against the product. Google says it does not use what is sent to train its models.",
     ],
   },

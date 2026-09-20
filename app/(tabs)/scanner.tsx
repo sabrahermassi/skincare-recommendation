@@ -164,7 +164,10 @@ export default function Scan() {
   // "Try another" button the panel used to carry.
   const selectMode = useCallback(
     (next: Mode) => {
-      if (next === "Barcode" && (status.kind === "missed" || status.kind === "unreachable")) {
+      // A found product's card belongs to the barcode it read: switching mode
+      // (or tapping Barcode again) puts it away rather than leaving it over the
+      // other mode's shutter.
+      if (status.kind === "found" || (next === "Barcode" && (status.kind === "missed" || status.kind === "unreachable"))) {
         setStatus({ kind: "idle" });
         busy.current = false;
       }

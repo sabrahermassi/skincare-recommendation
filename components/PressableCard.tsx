@@ -75,7 +75,14 @@ export function PressableCard({
       <Pressable
         accessibilityRole="button"
         {...pressable}
-        {...press}
+        onPressIn={(e) => {
+          press.onPressIn();
+          pressable.onPressIn?.(e);
+        }}
+        onPressOut={(e) => {
+          press.onPressOut();
+          pressable.onPressOut?.(e);
+        }}
         style={[{ borderRadius: radius, overflow: "hidden" }, style]}
       >
         {children}

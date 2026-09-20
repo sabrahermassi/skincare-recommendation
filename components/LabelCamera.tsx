@@ -140,6 +140,8 @@ export function LabelCamera({
     // issue #27.
     let capturedUri: string | undefined;
     let croppedUri: string | undefined;
+    // The picker's own copy of a chosen picture, which stays behind when it is shrunk.
+    let pickedUri: string | undefined;
 
     try {
       // A picture already on the phone skips the camera. The picker hands back
@@ -152,6 +154,7 @@ export function LabelCamera({
           return;
         }
         photo = picked.assets[0];
+        pickedUri = photo.uri;
         setPreview(photo.uri);
         // Scaled down first: a full-size phone photo can be too large to send.
         const width = shrinkWidth(photo.width, LIBRARY_MAX_WIDTH);
@@ -277,6 +280,9 @@ export function LabelCamera({
         // there is nothing safe to resolve the offer with (see
         // resolve-scan's ownership check), so the product screen treats a
         // missing token the same as no offer at all.
+        // Back to the ready camera before leaving: this screen stays mounted under
+        // the result, so swiping back must find a camera to use, not "Reading…".
+        setStatus({ kind: "framing" });
         onResult(
           barcode || !result.scanToken
             ? { id: result.product.id }
@@ -295,6 +301,7 @@ export function LabelCamera({
       });
     } finally {
       setPreview(null);
+      deleteTempFile(pickedUri);
       deleteTempFile(capturedUri);
       deleteTempFile(croppedUri);
     }

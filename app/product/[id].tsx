@@ -27,6 +27,7 @@ import {
 } from "@/lib/matching";
 import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/genie";
+import { productPictureSize } from "@/lib/product-layout";
 import { isPersonalized } from "@/lib/profile";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
@@ -369,11 +370,16 @@ export default function ProductScreen() {
   const needsProfile = !isPersonalized(profile);
   const sheetPeek = total > 0 ? ingredientsSheetPeek(insets.bottom) : 0;
   const pictureSize =
-    total > 0 && viewportH > 0 && restH > 0
-      ? Math.min(
-          PICTURE_MAX,
-          Math.max(PICTURE_MIN, viewportH - SPACE.text - (sheetPeek + SPACE.block) - restH - SPACE.block)
-        )
+    total > 0
+      ? productPictureSize({
+          viewport: viewportH,
+          rest: restH,
+          // Top padding, the sheet's peek and the gap under the content, and the gap under the picture.
+          reserved: SPACE.text + sheetPeek + SPACE.block + SPACE.block,
+          min: PICTURE_MIN,
+          max: PICTURE_MAX,
+          fallback: PICTURE_DEFAULT,
+        })
       : PICTURE_DEFAULT;
 
   return (
