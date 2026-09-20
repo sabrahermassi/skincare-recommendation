@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { Link, router, useScrollToTop } from "expo-router";
 import type { ReactNode, RefObject } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -218,7 +218,7 @@ export default function Saved() {
       </View>
 
       {isEmpty ? (
-        <EmptyState {...EMPTY_COPY[tab]} art={EMPTY_ART[tab]} />
+        <EmptyState tab={tab} />
       ) : tab === "ingredients" ? (
         <IngredientsTab
           key="ingredients"
@@ -724,19 +724,69 @@ const EMPTY_ART_WIDTH = 340;
 // the text under the picture starts at the same place on every tab.
 const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).map((art) => art.aspect));
 
-function EmptyState({
-  title,
-  body,
-  actionLabel,
-  actionHref = "/scanner",
-  art,
-}: {
-  title: string;
-  body: string;
-  actionLabel?: string;
-  actionHref?: "/scanner" | "/browse";
-  art: (typeof EMPTY_ART)[Tab];
-}) {
+// How long the pictures cross-fade, and the words go out and come back, when the tab changes.
+const EMPTY_FADE_MS = 300;
+const EMPTY_TABS = Object.keys(EMPTY_ART) as Tab[];
+
+/** Whether the person has asked their phone for less motion. */
+function useReduceMotion(): boolean {
+  const [reduce, setReduce] = useState(false);
+  useEffect(() => {
+    let live = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => live && setReduce(enabled))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+  return reduce;
+}
+
+/**
+ * What an empty tab shows. It stays mounted while the tab changes between the
+ * three empty tabs, so the change can be a fade rather than a swap: the three
+ * pictures sit on top of each other and cross-fade, and the words and button go
+ * out and come back with the new tab's, together taking EMPTY_FADE_MS.
+ */
+function EmptyState({ tab }: { tab: Tab }) {
+  const reduceMotion = useReduceMotion();
+  const [artOpacity] = useState(
+    () => Object.fromEntries(EMPTY_TABS.map((t) => [t, new Animated.Value(t === tab ? 1 : 0)])) as Record<Tab, Animated.Value>
+  );
+  // The words that are on screen: they change once the old ones have faded out.
+  const [shown, setShown] = useState<Tab>(tab);
+  const [textOpacity] = useState(() => new Animated.Value(1));
+  const previous = useRef<Tab>(tab);
+
+  useEffect(() => {
+    if (previous.current === tab) return;
+    previous.current = tab;
+
+    const useNativeDriver = Platform.OS !== "web";
+    const duration = reduceMotion ? 0 : EMPTY_FADE_MS;
+    const timing = (value: Animated.Value, toValue: number, ms: number) =>
+      Animated.timing(value, { toValue, duration: ms, easing: Easing.inOut(Easing.cubic), useNativeDriver });
+
+    const pictures = Animated.parallel(EMPTY_TABS.map((t) => timing(artOpacity[t], t === tab ? 1 : 0, duration)));
+    const wordsOut = timing(textOpacity, 0, duration * 0.4);
+    const wordsIn = timing(textOpacity, 1, duration * 0.6);
+
+    pictures.start();
+    wordsOut.start(({ finished }) => {
+      if (!finished) return;
+      setShown(tab);
+      wordsIn.start();
+    });
+    return () => {
+      pictures.stop();
+      wordsOut.stop();
+      wordsIn.stop();
+    };
+  }, [tab, artOpacity, textOpacity, reduceMotion]);
+
+  const { title, body, actionLabel, actionHref } = EMPTY_COPY[shown];
+
   return (
     // Asymmetric flex spacers (0.4/0.6), not `justifyContent: "center"" —
     // a true center split the leftover room evenly above and below, which
@@ -746,30 +796,37 @@ function EmptyState({
     <View style={{ flex: 1, alignItems: "center", paddingHorizontal: 40 }}>
       <View style={{ flex: 0.4 }} />
       <View style={{ alignItems: "center", gap: 10 }}>
-        <View style={{ width: EMPTY_ART_WIDTH, height: EMPTY_ART_HEIGHT, alignItems: "center", justifyContent: "center" }}>
-          {/* Aspect ratio is the source art's own (cropped to content), so
-              `contain` does not letterbox it. */}
-          <Image
-            source={art.source}
-            style={{ width: EMPTY_ART_WIDTH, aspectRatio: art.aspect }}
-            contentFit="contain"
-            accessibilityLabel=""
-          />
+        <View style={{ width: EMPTY_ART_WIDTH, height: EMPTY_ART_HEIGHT }}>
+          {EMPTY_TABS.map((t) => (
+            <Animated.View
+              key={t}
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center", opacity: artOpacity[t] }]}
+            >
+              {/* Aspect ratio is the source art's own (cropped to content), so
+                  `contain` does not letterbox it. */}
+              <Image
+                source={EMPTY_ART[t].source}
+                style={{ width: EMPTY_ART_WIDTH, aspectRatio: EMPTY_ART[t].aspect }}
+                contentFit="contain"
+                accessibilityLabel=""
+              />
+            </Animated.View>
+          ))}
         </View>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
-        {/* minHeight reserves room for the longer of the two bodies this
-            renders with (History's wraps to 3 lines at this width, Saved's
-            to 2) — without it, the shorter body made this whole block a
-            few px shorter, and centering a shorter block shifted the art
-            above it a few px lower. Same reserved height on both means the
-            art now lands at the exact same position on both tabs. */}
-        <View style={{ minHeight: 57, justifyContent: "flex-start" }}>
-          <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
-        </View>
-        {/* The one-tap way back to the scanner — without this, an empty
-            Saved/History tab (the near-certain first visit to either) was a
-            dead end you had to know to escape yourself, via the tab bar. */}
-        {actionLabel && (
+        <Animated.View style={{ alignItems: "center", gap: 10, opacity: textOpacity }}>
+          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
+          {/* minHeight reserves room for the longest body (History's wraps to 3
+              lines at this width, the others to 2) — without it, a shorter body
+              made this whole block a few px shorter, and centering a shorter
+              block shifted the art above it a few px lower. Same reserved height
+              on every tab means the art lands at the exact same position. */}
+          <View style={{ minHeight: 57, justifyContent: "flex-start" }}>
+            <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
+          </View>
+          {/* The one-tap way back to the scanner — without this, an empty
+              Saved/History tab (the near-certain first visit to either) was a
+              dead end you had to know to escape yourself, via the tab bar. */}
           <PrimaryButton
             tone="cta"
             size={50}
@@ -777,7 +834,7 @@ function EmptyState({
             onPress={() => (actionHref === "/scanner" ? openScanner() : router.push(actionHref))}
             style={{ marginTop: 8 }}
           />
-        )}
+        </Animated.View>
       </View>
       <View style={{ flex: 0.6 }} />
     </View>
