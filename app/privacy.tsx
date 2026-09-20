@@ -27,6 +27,17 @@ const SECTIONS: { title: string; lines: string[] }[] = [
     ],
   },
   {
+    // The credit each product used to carry at the foot of its own screen. Open
+    // Beauty Facts data is licensed under the ODbL, which asks for it to be
+    // credited; it is kept here rather than on every product.
+    title: "Where product data comes from",
+    lines: [
+      "Product data from Open Beauty Facts, used under ODbL.",
+      "Label data from DailyMed (U.S. National Library of Medicine), public domain.",
+      "Some products are identified through UPCitemdb, which does not provide ingredients.",
+    ],
+  },
+  {
     title: "What we do not do",
     lines: [
       "We do not take photos of your face or skin, and nothing is sent in the background.",
