@@ -11,6 +11,7 @@ import {
   contactWeight,
   functionSignal,
   INGREDIENT_RULES,
+  positionWeight,
   positionWeights,
   ruleMatches,
   targetApplies,
@@ -846,4 +847,29 @@ export function rungFor(ingredient: Ingredient, match: MatchResult): Rung {
  */
 export function ruleFor(ingredient: Ingredient): IngredientRule | undefined {
   return isVerified(ingredient) ? findRule(ingredient) : undefined;
+}
+
+/**
+ * Plain-language weight of an INCI position, for the detail screen. Mirrors
+ * the bands in `positionWeight` so the words and the maths cannot disagree.
+ */
+export function positionWeightLabel(index: number): string {
+  if (index <= 2) return "high concentration";
+  if (index <= 5) return "significant";
+  if (index <= 10) return "moderate";
+  if (index <= 20) return "low";
+  return "trace";
+}
+
+/**
+ * The detail screen's "#5 of 44 on the label - significant" line, or null when
+ * the list's order says nothing about concentration there. An alphabetical tail
+ * (`positionWeights`) is scored with one flat weight, so a concentration word
+ * for a position inside it would contradict the score; only positions still on
+ * the curve get a note.
+ */
+export function positionNote(names: readonly string[], index: number): string | null {
+  if (index < 0 || index >= names.length) return null;
+  if (positionWeights(names)[index] !== positionWeight(index)) return null;
+  return `#${index + 1} of ${names.length} on the label - ${positionWeightLabel(index)}`;
 }

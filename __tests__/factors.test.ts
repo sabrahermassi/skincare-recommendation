@@ -1,5 +1,5 @@
 import type { ProductWithIngredients, SkinProfile } from "@/data/types";
-import { biggestConcern, matchProduct, rungFor } from "@/lib/matching";
+import { biggestConcern, matchProduct, positionWeightLabel, rungFor } from "@/lib/matching";
 import { CATEGORY_LABEL, INGREDIENT_RULES, type RuleCategory } from "@/lib/rules";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
@@ -146,6 +146,17 @@ describe("biggestConcern", () => {
       profile({ baseSkinType: "dry", concerns: ["dehydrated"] })
     );
     expect(biggestConcern(result)).toBeNull();
+  });
+});
+
+describe("positionWeightLabel", () => {
+  /** The words must track the maths, or the detail screen contradicts the score. */
+  it("describes the concentration bands in the same order as the weighting", () => {
+    expect(positionWeightLabel(0)).toBe("high concentration");
+    expect(positionWeightLabel(4)).toBe("significant");
+    expect(positionWeightLabel(8)).toBe("moderate");
+    expect(positionWeightLabel(15)).toBe("low");
+    expect(positionWeightLabel(30)).toBe("trace");
   });
 });
 

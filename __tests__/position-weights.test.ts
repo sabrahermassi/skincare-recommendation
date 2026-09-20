@@ -1,5 +1,5 @@
 import type { Ingredient, SkinProfile } from "@/data/types";
-import { matchProduct } from "@/lib/matching";
+import { matchProduct, positionNote } from "@/lib/matching";
 import { MIN_ALPHABETICAL_RUN, positionWeight, positionWeights } from "@/lib/rules";
 
 const curve = (n: number) => Array.from({ length: n }, (_, i) => positionWeight(i));
@@ -47,6 +47,25 @@ describe("positionWeights", () => {
   it("handles empty and single-item lists", () => {
     expect(positionWeights([])).toEqual([]);
     expect(positionWeights(["water"])).toEqual([1]);
+  });
+});
+
+describe("positionNote", () => {
+  it("names the position on a list that runs most to least", () => {
+    expect(positionNote(DESCENDING, 4)).toBe("#5 of 8 on the label - significant");
+    expect(positionNote(DESCENDING, 0)).toBe("#1 of 8 on the label - high concentration");
+  });
+
+  it("says nothing for a position inside an alphabetical tail, where order is not concentration", () => {
+    const names = ["zinc oxide", "octinoxate", ...ALPHABETICAL_TAIL];
+    expect(positionNote(names, 1)).toBe("#2 of 8 on the label - high concentration");
+    expect(positionNote(names, 2)).toBeNull();
+    expect(positionNote(names, names.length - 1)).toBeNull();
+  });
+
+  it("says nothing for an ingredient that is not on the list", () => {
+    expect(positionNote(DESCENDING, -1)).toBeNull();
+    expect(positionNote(DESCENDING, DESCENDING.length)).toBeNull();
   });
 });
 
