@@ -75,3 +75,16 @@ carry no concentration information.
 
 Correct the classifier for OTC acne-treatment labels, then refresh the fixture.
 
+
+## An alphabetical run can absorb leading actives
+
+`positionWeights` protects position 0 only. A DailyMed label with several actives
+lists them first and its inactives alphabetically, and when a second active sorts
+ahead of the first inactive the detected run starts at index 1 and flattens that
+active together with the inactives. In the 2026-09-19 snapshot, 22 of the 59
+detected lists start their run at index 4 or earlier.
+
+The boundary cannot be recovered from the ingredient list: it has to come from the
+label. Resolve it by having the importer record how many actives the label declared
+(a new column, so a migration) and passing that boundary to `positionWeights`
+instead of inferring it from lexical order.

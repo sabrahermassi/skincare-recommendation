@@ -321,6 +321,19 @@ describe("declared reactive-skin harm reaches the irritation penalty", () => {
     expect(gap("benzoyl peroxide")).toBeGreaterThan(gap("unmatched test control"));
   });
 
+  it("does not charge a caution-flagged active twice for the same declared harm", () => {
+    // Benzoyl peroxide is both a rule-backed sensitive-skin harm and a
+    // `caution` ingredient. Its rule now charges the irritation, so the generic
+    // caution charge must not add a second one on top.
+    const build = (safety: Ingredient["safety"]) =>
+      formula("benzoyl peroxide").map((ingredient) =>
+        ingredient.name === "benzoyl peroxide" ? { ...ingredient, safety } : ingredient
+      );
+    const penalty = (ingredients: Ingredient[]) =>
+      matchProduct({ type: "serum", ingredients }, acne("high")).breakdown.irritationPenalty;
+    expect(penalty(build("caution"))).toBe(penalty(build("safe")));
+  });
+
   // The docs record that the irritation penalty saturates: a trace active still
   // costs about half of a top-of-list one. Pinned here as a ratio, so a retune
   // that changes it fails a test instead of leaving the docs quietly wrong.

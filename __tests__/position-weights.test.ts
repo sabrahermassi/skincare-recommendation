@@ -63,6 +63,18 @@ describe("positionNote", () => {
     expect(positionNote(names, names.length - 1)).toBeNull();
   });
 
+  it("still says nothing inside a tail that starts where the curve is already flat", () => {
+    // Descending "x99".."x70", then an A-to-Z tail from index 30: every weight
+    // from 26 on is already at the floor, so flattening changes no number.
+    const names = [
+      ...Array.from({ length: 30 }, (_, i) => `x${99 - i}`),
+      ...Array.from({ length: 10 }, (_, i) => `a${String(i + 1).padStart(2, "0")}`),
+    ];
+    positionWeights(names).forEach((weight, i) => expect(weight).toBeCloseTo(positionWeight(i), 10));
+    expect(positionNote(names, 20)).toBe("#21 of 40 on the label - low");
+    expect(positionNote(names, 35)).toBeNull();
+  });
+
   it("says nothing for an ingredient that is not on the list", () => {
     expect(positionNote(DESCENDING, -1)).toBeNull();
     expect(positionNote(DESCENDING, DESCENDING.length)).toBeNull();

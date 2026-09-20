@@ -815,18 +815,28 @@ export const MIN_ALPHABETICAL_RUN = 6;
  */
 export function positionWeights(names: readonly string[]): number[] {
   const weights = names.map((_, index) => positionWeight(index));
-  const key = names.map((name) => name.trim().toLowerCase());
+  const start = alphabeticalTailStart(names);
+  if (start === null) return weights;
 
+  let total = 0;
+  for (let index = start; index < names.length; index++) total += weights[index];
+  const flat = total / (names.length - start);
+  for (let index = start; index < names.length; index++) weights[index] = flat;
+  return weights;
+}
+
+/**
+ * Where the unordered A-to-Z tail of a list begins, or null when there is none.
+ * Asked directly rather than inferred from `positionWeights`: a tail that starts
+ * past the point where the curve has already reached its floor is flattened to
+ * the same numbers it had, so the weights alone cannot say it is unordered.
+ */
+export function alphabeticalTailStart(names: readonly string[]): number | null {
+  const key = names.map((name) => name.trim().toLowerCase());
   let start = key.length - 1;
   while (start > 1 && key[start - 1] <= key[start]) start--;
   const runLength = key.length - start;
-  if (start < 1 || runLength < MIN_ALPHABETICAL_RUN) return weights;
-
-  let total = 0;
-  for (let index = start; index < key.length; index++) total += weights[index];
-  const flat = total / runLength;
-  for (let index = start; index < key.length; index++) weights[index] = flat;
-  return weights;
+  return start < 1 || runLength < MIN_ALPHABETICAL_RUN ? null : start;
 }
 
 /** Matches an ingredient name against a rule's name patterns. */

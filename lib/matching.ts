@@ -11,7 +11,7 @@ import {
   contactWeight,
   functionSignal,
   INGREDIENT_RULES,
-  positionWeight,
+  alphabeticalTailStart,
   positionWeights,
   ruleMatches,
   targetApplies,
@@ -335,6 +335,9 @@ function computeMatch(
   let typeEvidence = 0;
   let irritation = 0;
   let scored = 0;
+  // Positions whose rule already charged a declared reactive-skin harm as
+  // irritation, so the generic caution charge below does not bill them again.
+  const reactiveCharged = new Set<number>();
 
   // Computed once: an alphabetical tail (an OTC drug label) is read as
   // unordered rather than as a concentration ranking. See `positionWeights`.
@@ -412,6 +415,7 @@ function computeMatch(
       // ingredient is also in an irritant category; contact and INCI position
       // still determine the size of that single charge.
       if (hurtsIrritation) irritation += harmWeight;
+      if (hurtsReactiveSkin && !hurtsIrritantCategory) reactiveCharged.add(position);
 
       if (effect !== 0) {
         scored++;
@@ -449,10 +453,12 @@ function computeMatch(
 
   // Regulatory caution flags add irritation risk for anyone who said their
   // skin reacts — the rules table names specific sensitisers, this catches
-  // the EU-restricted ones it does not.
+  // the EU-restricted ones it does not. An ingredient whose rule already
+  // charged it as a reactive-skin irritant is not charged again here.
   for (const [position, ingredient] of product.ingredients.entries()) {
     if (!isVerified(ingredient) || ingredient.safety !== "caution") continue;
     if (!isSensitive(profile)) continue;
+    if (reactiveCharged.has(position)) continue;
     irritation += 2.5 * positionFactors[position] * contact.harm;
   }
 
@@ -865,11 +871,12 @@ export function positionWeightLabel(index: number): string {
  * The detail screen's "#5 of 44 on the label - significant" line, or null when
  * the list's order says nothing about concentration there. An alphabetical tail
  * (`positionWeights`) is scored with one flat weight, so a concentration word
- * for a position inside it would contradict the score; only positions still on
- * the curve get a note.
+ * for a position inside it would contradict the score; only positions before
+ * the tail get a note.
  */
 export function positionNote(names: readonly string[], index: number): string | null {
   if (index < 0 || index >= names.length) return null;
-  if (positionWeights(names)[index] !== positionWeight(index)) return null;
+  const tailStart = alphabeticalTailStart(names);
+  if (tailStart !== null && index >= tailStart) return null;
   return `#${index + 1} of ${names.length} on the label - ${positionWeightLabel(index)}`;
 }
