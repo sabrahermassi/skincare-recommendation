@@ -611,7 +611,7 @@ function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: 
  *
  * `known: true` — a catalogue product that did not come back. The id here is an
  * internal one (`obf-8801234567890`, `hanbang-rice-serum`), and printing it
- * under "Scanned · not in our catalogue" made two false claims at once: that
+ * under "Scanned · we don't have this product" made two false claims at once: that
  * the user had scanned that string, and that the product was never in the
  * catalogue. It was — they opened it, which is why it is in their history.
  * This branch is only reached after a *successful* read (a failed one puts the
@@ -629,7 +629,7 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
       <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
       <View style={{ flex: 1, padding: 13, paddingRight: 36 }}>
         <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
-          {entry.known ? "Opened earlier · no longer in our catalogue" : "Scanned · not in our catalogue"}
+          {entry.known ? "Opened earlier · no longer in our catalogue" : "Scanned · we don't have this product"}
         </Text>
         {/* Only the barcode is shown, and only because it is the user's own
             evidence — it matches the digits printed on the bottle, so they can

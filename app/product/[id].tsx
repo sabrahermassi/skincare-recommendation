@@ -14,9 +14,8 @@ import { PopOnToggle } from "@/components/PopOnToggle";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { HeartIcon } from "@/components/icons";
-import { BarcodeOfferPrompt } from "@/components/BarcodeOfferPrompt";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { canPhotographLabelFor, failureMessage, fetchProduct, type FetchFailure } from "@/data/api";
+import { failureMessage, fetchProduct, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import {
   confidenceLabel,
@@ -139,11 +138,7 @@ const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 
 export default function ProductScreen() {
   const insets = useSafeAreaInsets();
-  const { id, offerBarcode, scanToken } = useLocalSearchParams<{
-    id: string;
-    offerBarcode?: string;
-    scanToken?: string;
-  }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [showWhy, setShowWhy] = useState(false);
   // Measured, so the bottle, name and cards fill the screen exactly down to where
@@ -581,10 +576,6 @@ export default function ProductScreen() {
         ) : null}
         </View>
 
-        {offerBarcode === "1" && scanToken && (
-          <BarcodeOfferPrompt productId={id} scanToken={scanToken} />
-        )}
-
         {/*
           How old the formula is, but only once it is old enough to matter.
           Nothing refreshes a catalogue row after it is written, so a verdict
@@ -658,95 +649,10 @@ export default function ProductScreen() {
           }
         />
 
-        {total === 0 && (
-          <View
-            style={{
-              marginHorizontal: SPACE.gutter,
-              gap: 12,
-              padding: 18,
-              borderRadius: 15,
-              borderWidth: 1,
-              borderColor: BORDER_INACTIVE,
-              backgroundColor: CANVAS,
-            }}
-          >
-            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
-              We know this product but not what&apos;s in it
-            </Text>
-            <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>
-              Nobody has read this label yet, so there is no ingredient list to
-              judge.
-            </Text>
-          </View>
-        )}
         </View>
       </ScrollView>
 
-      {/* Thumb zone, for a product with no formula: the action that supplies one.
-          With a formula the ingredients sheet sits here instead. The heart is in
-          the header. */}
-      {total === 0 && canPhotographLabelFor(product.barcode) ? (
-      <View
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingHorizontal: 20,
-          paddingTop: 12,
-          // Was a bare 32 — enough on most iPhones, not guaranteed on Android's
-          // gesture bar/nav bar. Grows to clear whatever the device actually
-          // reserves at the bottom, same pattern (tabs)/index.tsx already uses.
-          paddingBottom: Math.max(32, insets.bottom + 12),
-          borderTopWidth: 1,
-          borderTopColor: BORDER_INACTIVE,
-          backgroundColor: CANVAS,
-        }}
-      >
-        <View style={{ flexDirection: "row", gap: 12, justifyContent: "center" }}>
-          {/* Two different CTAs, because there are two different situations.
-
-              With a formula, the action is to read it.
-
-              Without one, this screen used to offer nothing at all. That was
-              a deliberate correction of something worse — the old
-              "Photograph the ingredients" button opened the *barcode
-              scanner* for a product already matched and on screen, which
-              made no sense — but it left a dead end: a product we recognise,
-              with nothing to judge, and no way to supply what is missing.
-              UPCitemdb creates exactly these rows, they count as successful
-              lookups, and this screen opens on them.
-
-              The route that does make sense is the label camera, carrying
-              this product's barcode so the formula is written back against
-              the row that already exists rather than minting a second one.
-              The backend has always supported that; only the way in was
-              missing.
-
-              Guarded on the barcode's shape via `canPhotographLabelFor`,
-              which encodes what `label-ocr` accepts — offering a button that
-              can only 400 after someone has framed and taken a photo is
-              worse than offering none. */}
-          {canPhotographLabelFor(product.barcode) ? (
-            <PrimaryButton
-              tone="cta"
-              size={56}
-              style={{ flex: 1 }}
-              label="Photograph the ingredients list"
-              onPress={() =>
-                router.push({
-                  pathname: "/scan-label",
-                  params: { barcode: product.barcode },
-                })
-              }
-            />
-          ) : null}
-
-        </View>
-      </View>
-      ) : total > 0 ? (
-        <IngredientsSheet product={product} match={match} />
-      ) : null}
+      {total > 0 ? <IngredientsSheet product={product} match={match} /> : null}
     </View>
   );
 }

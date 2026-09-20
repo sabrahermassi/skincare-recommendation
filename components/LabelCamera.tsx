@@ -11,9 +11,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, WINDOW_RADIUS, type Box } from "@/components/ScanViewfinder";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
-import { analyseLabel } from "@/data/api";
+import { readLabel } from "@/data/api";
 import { coverFitCropRect, shrinkWidth, type Rect, type Size } from "@/lib/crop-to-guide";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
+import { holdLabelRead } from "@/lib/pending-label";
 import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -28,8 +29,9 @@ import { useAppStore } from "@/store/useAppStore";
  * This is the tier that makes scanning viable at all. Open Beauty Facts holds
  * 37 products tagged South Korea against a market of 10,000+ SKUs, so a
  * barcode alone misses nearly everything — but the formula is printed on the
- * box the user is already holding. What we read is written back against the
- * barcode, so nobody has to do it for that product again.
+ * box the user is already holding. Reading stores nothing: the list is handed
+ * on to the add-product screen, which saves it with the barcode and a name so
+ * nobody has to do it for that product again.
  */
 
 type Status =
@@ -45,7 +47,7 @@ type Status =
 const LIBRARY_MAX_WIDTH = 2000;
 
 type Props = {
-  /** Handed over by whoever sent the user here after a miss; the product read is saved under it. */
+  /** Handed over by whoever sent the user here after a miss; the list read is added under it. */
   barcode?: string;
   /**
    * Whether to hold the camera. False while another screen covers this one —
@@ -54,8 +56,8 @@ type Props = {
   active?: boolean;
   /** Shows an X at the top-left when given. */
   onClose?: () => void;
-  /** Called with the result screen's params once a photo has been read. */
-  onResult: (params: { id: string; offerBarcode?: string; scanToken?: string }) => void;
+  /** Called once a photo has been read and its list is being held for the add-product screen. */
+  onRead: () => void;
   /** Room to leave clear at the bottom, e.g. for the scanner's mode switcher. */
   bottomInset?: number;
   /** How far below the safe area the frame starts, to clear whatever sits across the top. */
@@ -76,7 +78,7 @@ export function LabelCamera({
   barcode,
   active = true,
   onClose,
-  onResult,
+  onRead,
   bottomInset,
   frameTopOffset,
   camera: externalCamera,
@@ -249,7 +251,7 @@ export function LabelCamera({
         return;
       }
 
-      const result = await analyseLabel(clean.base64, { barcode });
+      const result = await readLabel(clean.base64);
 
       // The server's "did we find enough text to try" check happens before it
       // knows whether any of that text is actually an ingredient. A photo of
@@ -271,23 +273,11 @@ export function LabelCamera({
       }
 
       if (result.ok) {
-        // No barcode was in hand for this scan — the row `label-ocr` just
-        // wrote is on a grace timer and nobody else can ever find it (see
-        // migration 0014 and resolve-scan). Flagging it here is what lets
-        // the product screen offer the "scan the barcode too?" follow-up
-        // only on the visit that just created the row, not on every later
-        // visit to it. `scanToken` is threaded along too — without it
-        // there is nothing safe to resolve the offer with (see
-        // resolve-scan's ownership check), so the product screen treats a
-        // missing token the same as no offer at all.
         // Back to the ready camera before leaving: this screen stays mounted under
-        // the result, so swiping back must find a camera to use, not "Reading…".
+        // the next one, so swiping back must find a camera to use, not "Reading…".
         setStatus({ kind: "framing" });
-        onResult(
-          barcode || !result.scanToken
-            ? { id: result.product.id }
-            : { id: result.product.id, offerBarcode: "1", scanToken: result.scanToken }
-        );
+        holdLabelRead({ ingredients: result.ingredients, barcode });
+        onRead();
         return;
       }
 
@@ -627,7 +617,7 @@ function failureCopy(
       };
     case "not_configured":
       // This install has no Supabase credentials at all — see
-      // `LabelAnalysis`'s comment in `data/api.ts`. Permanent for this
+      // `LabelRead`'s comment in `data/api.ts`. Permanent for this
       // build, so no "temporarily", no "try again", and — per Codex's next
       // finding on #121 — no retry button either: retaking the photo would
       // run the exact same check and fail the exact same way.

@@ -72,10 +72,10 @@ type Mode = "Barcode" | "Photo";
  * `missed` and `unreachable` are deliberately separate.
  *
  * They used to be one state: every non-404 outcome — a timeout, a dead
- * connection, a rate limit — landed in `missed` and the panel said "Not in our
- * catalogue yet". So in a shop with one bar of signal the app stated that a
+ * connection, a rate limit — landed in `missed` and the panel said "We don't
+ * have this product". So in a shop with one bar of signal the app stated that a
  * product did not exist, logged that to history, and offered "Photograph the
- * label" as the way out — which needs the same network that had just failed.
+ * ingredients" as the way out — which needs the same network that had just failed.
  * Two failures in a row, on the one interaction this app exists for.
  */
 type Status =
@@ -315,6 +315,7 @@ export default function Scan() {
         requestPermission={requestPermission}
         status={status}
         onBarcode={handleBarcode}
+        onAdd={() => selectMode("Photo")}
         preserveMode={preserveMode}
       />
     ) : (
@@ -330,6 +331,7 @@ export default function Scan() {
         preserveMode={preserveMode}
       />
     );
+
 
   // The scanner is full screen: it opens out of the tab bar's scan button and
   // folds back into it when the X is pressed.
@@ -706,6 +708,7 @@ function BarcodeStage({
   requestPermission,
   status,
   onBarcode,
+  onAdd,
   preserveMode,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
@@ -713,6 +716,8 @@ function BarcodeStage({
   status: Status;
   /** Looks a barcode up again ("Try again" after a failed lookup). */
   onBarcode: (data: string) => void;
+  /** Starts adding the product we don't have: the ingredient photo. */
+  onAdd: () => void;
   /** Call before any navigation away from this stage that isn't a tab
    *  switch — see `Scan`'s own `preserveMode` doc comment for why. */
   preserveMode: () => void;
@@ -732,7 +737,7 @@ function BarcodeStage({
       : status.kind === "found"
         ? `Found ${status.product.name}. See full result is below.`
       : status.kind === "missed"
-        ? "Not in our catalogue yet. Tap Photo below to photograph its ingredient list and add it."
+        ? "We don't have this product. Photograph its ingredient list to add it."
         : status.kind === "unreachable"
           ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
           : "";
@@ -814,17 +819,35 @@ function BarcodeStage({
                   ? `Barcode found · ${status.code}`
                   : status.kind === "unreachable"
                     ? "Couldn't check this barcode"
-                    : "Not in our catalogue yet"}
+                    : "We don't have this product"}
               </Text>
               <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
                 {status.kind === "looking"
                   ? "Reading the ingredients…"
                   : status.kind === "unreachable"
                     ? failureMessage(status.failure)
-                    : "Tap Photo below and photograph its ingredient list to add it"}
+                    : "Photograph its ingredient list and we'll add it"}
               </Text>
             </View>
           </View>
+        )}
+
+        {/* After a plain miss: the one way forward. */}
+        {status.kind === "missed" && (
+          <Pressable
+            onPress={onAdd}
+            accessibilityRole="button"
+            style={{
+              height: TOUCH_TARGET,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 999,
+              backgroundColor: TERRACOTTA,
+            }}
+            className="active:opacity-90"
+          >
+            <Text style={{ fontSize: 13, fontWeight: "600", color: CTA_TEXT }}>Photograph the ingredients</Text>
+          </Pressable>
         )}
 
         {/* Deliberately not the ingredient photo: that needs the same network
@@ -972,9 +995,9 @@ function IngredientsStage({
           barcode={barcode}
           frameTopOffset={CLOSE_CLEARANCE}
           bottomInset={clearance}
-          onResult={(params) => {
+          onRead={() => {
             preserveMode();
-            router.push({ pathname: "/result/[id]", params });
+            router.push({ pathname: "/add-product", params: barcode ? { barcode } : {} });
           }}
         />
       ) : null}

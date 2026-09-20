@@ -14,10 +14,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { guessTypeFromIngredients } from "../_shared/guess-type-from-ingredients.ts";
-import {
-  classifyBarcodeIdentity,
-  guessType,
-} from "../_shared/product-type-classifier.mjs";
+import { guessType } from "../_shared/product-type-classifier.mjs";
 import {
   json,
   preflight,
@@ -31,8 +28,6 @@ const INCI_API_KEY = Deno.env.get("INCI_API_KEY") ?? "";
 
 const OBF_BASE = "https://world.openbeautyfacts.org/api/v2";
 const INCI_BASE = "https://inciapi.com/v1";
-/** Identity-only fallback. Free trial tier, no key. */
-const UPCITEMDB_BASE = "https://api.upcitemdb.com/prod/trial/lookup";
 
 /** Open Beauty Facts asks that clients identify themselves. */
 const USER_AGENT = "for.me/1.0 (https://github.com/sabrahermassi/skincare-recommendation)";
@@ -51,7 +46,6 @@ const RATE_LIMIT: RateLimit = { windowSeconds: 60, maxRequests: 20 };
 const ATTRIBUTION = {
   obf: "Product data from Open Beauty Facts, used under ODbL.",
   inci_api: "Product data from INCI API.",
-  barcode_db: "Product identified via UPCitemdb. Ingredients not available from this source.",
 } as const;
 
 /**
@@ -142,11 +136,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (fromInci) return persistOrFail(fromInci);
   }
 
-  // 4 ── identity-only. Cannot produce a verdict, but turns a blank failure
-  //      into a named product plus an invitation to photograph the label.
-  const identity = await safely(() => lookupBarcodeDb(barcode));
-  if (identity) return persistOrFail(identity);
-
+  // Nothing else is consulted. A product is stored only when it has a name, a
+  // barcode and an ingredient list, so a source that knows a barcode but not
+  // its formula is no source at all: the client is told "not found" and asks
+  // the user for the ingredient list instead.
   return json(req, { error: "Not found in any source" }, 404);
 });
 
@@ -180,6 +173,8 @@ async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
   // same barcode ending up with two different types depending on how it
   // arrived.
   const ingredients = parseInci(inci);
+  // Text that parses to no ingredient at all is no formula.
+  if (ingredients.length === 0) return null;
   const byName = guessType(p.categories_tags ?? [], name);
 
   return {
@@ -228,6 +223,8 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
   const category: string[] = Array.isArray(p.category) ? p.category : [];
   // Same ordering as the OBF branch above, and for the same reason.
   const ingredients = parseInci(typeof p.ingredients === "string" ? p.ingredients : "");
+  // A product with no ingredient list is not one we can judge or store.
+  if (ingredients.length === 0) return null;
   const byName = guessType(category, p.name);
 
   return {
@@ -252,60 +249,6 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
       expires_at: new Date(Date.now() + ttlFrom(res) * 1000).toISOString(),
     },
     ingredients,
-  };
-}
-
-/**
- * Generic barcode database. Deliberately last: it resolves *what* a product is
- * but carries no ingredient list, and the ingredient list is the entire point.
- * Verified against 8809416470511 — returned "COSRX Low pH Good Morning Gel
- * Cleanser", brand, nine retailer images, and no ingredients field at all.
- *
- * Images are not stored. Those nine URLs point at Target, Walmart and Macy's
- * CDNs: real pack shots, but hotlinking another company's CDN is both legally
- * grey and operationally fragile.
- */
-async function lookupBarcodeDb(barcode: string): Promise<Fetched | null> {
-  const res = await fetch(`${UPCITEMDB_BASE}?upc=${encodeURIComponent(barcode)}`, {
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) return null;
-
-  const body = await res.json().catch(() => null);
-  const item = body?.items?.[0];
-  if (!item?.title) return null;
-
-  // This source indexes every barcode there is, not just cosmetics, and it
-  // returns no ingredients — so an unfiltered hit writes a row the app can
-  // only ever render as "we know this product but not what's in it". The
-  // catalogue currently holds a bag of ORGANIC BLUE CORN TORTILLA CHIPS,
-  // brand "N/A", typed as a serum, which arrived exactly this way.
-  //
-  // A miss is the better outcome: the user is told we don't have it and
-  // offered the label-photo path, which works on anything.
-  const type = classifyBarcodeIdentity(item.category ?? "", item.title);
-  if (!type) return null;
-
-  return {
-    product: {
-      id: `upc-${barcode}`,
-      barcode,
-      brand: (item.brand ?? "Unknown").trim(),
-      name: String(item.title).trim().slice(0, 200),
-      type,
-      // See the note on the other `area: "face"` above.
-      area: "face",
-      description: null,
-      image_url: null,
-      volume: null,
-      in_stock: true,
-      suitable_for: [],
-      targets: [],
-      source: "barcode_db",
-      attribution: ATTRIBUTION.barcode_db,
-      expires_at: null,
-    },
-    ingredients: [], // the whole point: this source has none
   };
 }
 

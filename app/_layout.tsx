@@ -129,6 +129,7 @@ export default function RootLayout() {
           name="scan-label"
           options={{ title: "Read the label", presentation: "modal" }}
         />
+        <Stack.Screen name="add-product" options={{ headerShown: false }} />
       </Stack>
     </>
   );

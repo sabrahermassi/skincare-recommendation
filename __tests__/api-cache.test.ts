@@ -116,7 +116,6 @@ jest.mock("@/lib/supabase", () => ({
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
-  analyseLabel,
   CATALOGUE_PAGE_SIZE,
   fetchProduct,
   fetchProductByBarcode,
@@ -126,7 +125,9 @@ import {
   FOREGROUND_RECHECK_MS,
   NETWORK_TIMEOUT_MS,
   OCR_TIMEOUT_MS,
+  readLabel,
   revalidateOnForeground,
+  saveScannedProduct,
   searchProducts,
   warmCatalogue,
   type Fetched,
@@ -800,21 +801,60 @@ describe("a label read", () => {
    */
   it("bounds the read with the OCR timeout, not the network one", async () => {
     invokeMock().mockResolvedValue({
-      data: { product: inlinedRow("scanned"), recognised: 12, total: 14 },
+      data: { ingredients: [{ inci_name: "aqua", position: 0 }], recognised: 12, total: 14 },
       error: null,
     });
 
-    await analyseLabel("base64", { barcode: "barcode-scanned" });
+    await readLabel("base64");
 
     expect(lastInvokeOptions()).toMatchObject({ timeout: OCR_TIMEOUT_MS });
   });
 
+  /** Reading stores nothing, so it hands back the names and no product. */
+  it("returns the names read, in order", async () => {
+    invokeMock().mockResolvedValue({
+      data: {
+        ingredients: [
+          { inci_name: "aqua", position: 0 },
+          { inci_name: "glycerin", position: 1 },
+        ],
+        recognised: 2,
+        total: 2,
+      },
+      error: null,
+    });
+
+    expect(await readLabel("base64")).toEqual({
+      ok: true,
+      ingredients: ["aqua", "glycerin"],
+      recognised: 2,
+      total: 2,
+    });
+  });
+
+  /** A failed read must say why, and not be remembered as an answer of any kind. */
+  it("reports a photo with too little text", async () => {
+    invokeMock().mockResolvedValue({
+      data: null,
+      error: { context: { status: 422 } },
+    });
+
+    expect(await readLabel("base64")).toEqual({ ok: false, reason: "too_little_text" });
+  });
+});
+
+describe("saving a product", () => {
+  const input = {
+    barcode: "barcode-scanned",
+    name: "Scanned product",
+    ingredients: ["aqua", "glycerin", "niacinamide", "panthenol"],
+  };
+
   /**
-   * The barcode cascade caches its misses for an hour, and a label read is
+   * The barcode cascade caches its misses for an hour, and adding a product is
    * what the user does *because* of one — so the miss is always already there
-   * when the OCR result lands. Leaving it means re-scanning the bottle they
-   * just photographed returns the remembered `null` and offers the label flow
-   * again, for a product that now exists.
+   * when the save lands. Leaving it means scanning the bottle they just added
+   * returns the remembered `null` and offers to add it again.
    */
   it("overwrites the cached miss for the barcode that sent the user there", async () => {
     invokeMock().mockResolvedValue({
@@ -824,39 +864,33 @@ describe("a label read", () => {
     putScanned("barcode-scanned", null);
     expect(readScanned("barcode-scanned")).toBeNull();
 
-    const result = await analyseLabel("base64", { barcode: "barcode-scanned" });
+    const result = await saveScannedProduct(input);
 
     expect(result.ok).toBe(true);
     expect(readScanned("barcode-scanned")?.id).toBe("scanned");
   });
 
-  /**
-   * The OCR function resolves the barcode itself when the caller had none —
-   * the paste/photo-first entry points. The row it returns is then the only
-   * place that barcode appears, so it is what the next scan will be keyed on.
-   */
-  it("records the barcode the row came back with when the caller passed none", async () => {
+  it("sends the barcode, the name and the list together", async () => {
     invokeMock().mockResolvedValue({
-      data: { product: inlinedRow("scanned"), recognised: 12, total: 14 },
+      data: { product: inlinedRow("scanned"), recognised: 4, total: 4 },
       error: null,
     });
 
-    await analyseLabel("base64");
+    await saveScannedProduct(input);
 
-    expect(readScanned("barcode-scanned")?.id).toBe("scanned");
+    expect(lastInvokeOptions()).toMatchObject({ body: input });
   });
 
-  /** A failed read must not be remembered as an answer of any kind. */
-  it("leaves the cache alone when the read fails", async () => {
+  it("leaves the cache alone when the save fails", async () => {
     invokeMock().mockResolvedValue({
       data: null,
       error: { context: { status: 422 } },
     });
 
-    const result = await analyseLabel("base64", { barcode: "barcode-scanned" });
+    const result = await saveScannedProduct({ ...input, barcode: "barcode-refused" });
 
-    expect(result).toEqual({ ok: false, reason: "too_little_text" });
-    expect(readScanned("barcode-scanned")).toBeUndefined();
+    expect(result).toEqual({ ok: false, reason: "unreadable_list" });
+    expect(readScanned("barcode-refused")).toBeUndefined();
   });
 });
 

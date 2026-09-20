@@ -1,5 +1,10 @@
-// Read an ingredient list off a photographed label, and write it back so the
-// next person who scans that barcode gets it instantly.
+// Read an ingredient list off a photographed label, and — once the user has
+// named the product — write it back against its barcode so the next person who
+// scans that barcode gets it instantly.
+//
+// Two calls: a photo is read and the list handed back (nothing is stored); the
+// list, the barcode and a name are then saved together. A product exists only
+// with all three.
 //
 // This is the tier that makes a scan-first app viable. Open Beauty Facts holds
 // 37 products tagged South Korea; Olive Young alone lists over 10,000 SKUs. No
@@ -55,19 +60,11 @@ const MAX_IMAGE_CHARS = 5_500_000;
  */
 const MIN_KNOWN_INGREDIENT_RATIO = 0.6;
 
-/**
- * Grace period before a barcode-less scan self-evicts, via the same hourly
- * `evict-expired-products` job that already runs unconditionally against
- * anything carrying a deadline (0002_eviction_schedule.sql). Step 5b's
- * row-accrual answer: nobody but the scanner can ever find an `ocr-<uuid>`
- * row with no barcode, so it is offered a barcode afterward
- * (`resolve-scan`'s `attach-barcode`, which clears this back to permanent)
- * and discarded — immediately on an explicit decline, or automatically here
- * if nobody ever answers. 24h, the same window this app's disk cache
- * already uses elsewhere — long enough to get home from the shop and
- * decide, short enough that an unanswered scan does not linger.
- */
-const OCR_GRACE_PERIOD_MS = 24 * 60 * 60 * 1000;
+/** Four is the floor the verdict engine itself needs before it will produce a number. */
+const MIN_INGREDIENTS = 4;
+
+/** No ingredient list runs anywhere near this long; it only bounds what a client can send to be saved. */
+const MAX_SAVED_INGREDIENTS = 400;
 
 /**
  * Ceiling on the raw request body, checked against Content-Length before the
@@ -100,13 +97,48 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   let barcode: string | undefined;
-  let imageBase64: string;
+  let imageBase64: string | undefined;
   let name: string | undefined;
   let brand: string | undefined;
+  let ingredients: unknown;
   try {
-    ({ barcode, imageBase64, name, brand } = await req.json());
+    ({ barcode, imageBase64, name, brand, ingredients } = await req.json());
   } catch {
     return json(req, { error: "Body must be JSON" }, 400);
+  }
+
+  // Two steps, one endpoint. Reading a photo writes nothing: the user has not
+  // yet said what the product is called, and a product is stored only once it
+  // has a name, a barcode and an ingredient list. Saving takes the list that the
+  // read returned (no image) along with the barcode and the name.
+  const saving = ingredients !== undefined;
+
+  // `typeof` first, deliberately. `/regex/.test(x)` coerces its argument, so
+  // a JSON *number* barcode passes the digit check and is then written to
+  // `products.barcode` as a number rather than the string the column expects.
+  if (barcode !== undefined && (typeof barcode !== "string" || !/^\d{8,14}$/.test(barcode))) {
+    return json(req, { error: "barcode must be 8-14 digits" }, 400);
+  }
+  if (name !== undefined && typeof name !== "string") {
+    return json(req, { error: "name must be a string" }, 400);
+  }
+  if (brand !== undefined && typeof brand !== "string") {
+    return json(req, { error: "brand must be a string" }, 400);
+  }
+
+  if (saving) {
+    if (!barcode) return json(req, { error: "barcode is required" }, 400);
+    if (!name || name.trim().length === 0) return json(req, { error: "name is required" }, 400);
+    if (
+      !Array.isArray(ingredients) ||
+      ingredients.length > MAX_SAVED_INGREDIENTS ||
+      !ingredients.every((entry) => typeof entry === "string")
+    ) {
+      return json(req, { error: "ingredients must be a list of names" }, 400);
+    }
+    const refusal = await enforceRateLimit(req, db, "label-ocr", RATE_LIMIT);
+    if (refusal) return refusal;
+    return saveProduct(req, barcode, name, brand, ingredients as string[]);
   }
 
   if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
@@ -119,21 +151,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // would otherwise spend a network round trip only to be rejected there.
   if (!/^[A-Za-z0-9+/=\s]+$/.test(imageBase64)) {
     return json(req, { error: "imageBase64 is not valid base64" }, 400);
-  }
-  // `typeof` first, deliberately. `/regex/.test(x)` coerces its argument, so
-  // a JSON *number* barcode passes the digit check and is then written to
-  // `products.barcode` as a number rather than the string the column expects.
-  if (barcode !== undefined && (typeof barcode !== "string" || !/^\d{8,14}$/.test(barcode))) {
-    return json(req, { error: "barcode must be 8-14 digits" }, 400);
-  }
-  // These are optional and only used to name a brand-new row, but they reach
-  // `.trim()` unchecked further down — so `{"name": 123}` threw a TypeError
-  // out of the handler and surfaced as a bare 500 rather than a 400.
-  if (name !== undefined && typeof name !== "string") {
-    return json(req, { error: "name must be a string" }, 400);
-  }
-  if (brand !== undefined && typeof brand !== "string") {
-    return json(req, { error: "brand must be a string" }, 400);
   }
 
   const refusal = await enforceRateLimit(req, db, "label-ocr", RATE_LIMIT);
@@ -151,8 +168,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // and the server pass is the control.
   //
   // Placed after the rate limit so an attacker meets the limiter before we
-  // spend anything, and before the short-circuit below so the format check
-  // runs on every request rather than only the ones that reach Vision.
+  // spend anything.
   //
   // Reassigning `imageBase64` itself rather than binding a second name is
   // deliberate: nothing in scope then holds the original bytes, so a later
@@ -177,23 +193,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   imageBase64 = cleaned.base64;
 
-  // A formula we already hold for this barcode came from a source that had
-  // the list in machine-readable form — commas intact, every name canonical.
-  // A photograph cannot beat that, so don't spend a Vision call trying, and
-  // above all don't overwrite it with a worse read.
-  const existing = barcode ? await productForBarcode(barcode) : null;
-  if (existing && existing.product_ingredients.length > 0) {
-    return json(
-      req,
-      {
-        product: existing,
-        recognised: existing.product_ingredients.length,
-        total: existing.product_ingredients.length,
-      },
-      200
-    );
-  }
-
   const text = await runOcr(imageBase64);
   if (text === null) return json(req, { error: "Could not read the image" }, 502);
 
@@ -214,7 +213,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   let parsed = parseIngredientBlock(text, undefined, aliases);
 
-  if (parsed.length < 4) {
+  if (parsed.length < MIN_INGREDIENTS) {
     let dictionary: Set<string>;
     try {
       dictionary = await fetchDictionary();
@@ -228,7 +227,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     parsed = parseIngredientBlock(text, dictionary, aliases);
   }
 
-  if (parsed.length < 4) {
+  if (parsed.length < MIN_INGREDIENTS) {
     // Better to say so than to score a fragment. Four is the same floor the
     // verdict engine uses before it will produce a number at all.
     return json(
@@ -238,9 +237,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  // Only names our dictionary already knows are trusted. The rest are stored
-  // unverified, so the UI shows them as unrecognised rather than pretending we
-  // assessed them — OCR on a curved bottle produces plenty of nonsense.
   let known: Set<string>;
   try {
     known = await knownIngredients(parsed.map((p) => p.inci_name));
@@ -249,14 +245,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json(req, { error: "Could not read the ingredient dictionary" }, 502);
   }
 
-  // The gate, run before anything is written — not after, which is what let
-  // a photo of a wall or a receipt clear the four-fragment floor above and
-  // get persisted as a real row before the client had any say. Same ratio,
-  // same reasoning as MIN_KNOWN_INGREDIENT_RATIO's own comment: a parsed
-  // formula that mostly misses the dictionary is not a rare formula, it is
-  // a bad read, and nothing downstream — the plausibility gate, the barcode
-  // short-circuit, `formulaKey`-equivalent identity — can tell the
-  // difference once it is sitting in the table as a normal row.
+  // The gate, run before the list goes back to be saved: a photo of a wall or
+  // a receipt can clear the four-fragment floor above, and a parsed formula
+  // that mostly misses the dictionary is not a rare formula, it is a bad read.
+  // Same ratio, same reasoning as MIN_KNOWN_INGREDIENT_RATIO's own comment.
   if (known.size / parsed.length < MIN_KNOWN_INGREDIENT_RATIO) {
     return json(
       req,
@@ -265,57 +257,89 @@ Deno.serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  // `products.barcode` is UNIQUE. When a row already exists for this barcode —
-  // an identity-only hit from the barcode database, which knows the name but
-  // carries no formula — the ingredients belong on THAT row. Writing
-  // `ocr-<barcode>` alongside it would violate the constraint, and the user
-  // would end up with the same product twice.
-  //
-  // Identity fields prefer `existing` over the client-supplied `name`/`brand`
-  // when reusing that row: this endpoint is unauthenticated, so an existing
-  // catalogue entry — sourced from OBF, the INCI API, or a prior scan — must
-  // not be silently renamed or re-attributed by whoever next photographs its
-  // label. The client's values only fill a genuinely blank row.
+  return json(req, { ingredients: parsed, recognised: known.size, total: parsed.length }, 200);
+});
+
+/**
+ * Store a product the user has just read and named. Runs only once there is a
+ * barcode, a name and an ingredient list — the three a product needs to exist.
+ *
+ * The list comes from the client, so it is checked again here rather than
+ * trusted: normalised the same way, held to the same floor, and held to the same
+ * recognised-in-the-dictionary ratio as a read.
+ */
+async function saveProduct(
+  req: Request,
+  barcode: string,
+  name: string,
+  brand: string | undefined,
+  names: string[]
+): Promise<Response> {
+  const parsed = dedupe(
+    names
+      .map(normalise)
+      .filter((n) => n.length > 1 && n.length < 120 && /[a-z]/.test(n))
+      .map((inci_name, position) => ({ inci_name, position }))
+  );
+  if (parsed.length < MIN_INGREDIENTS) {
+    return json(req, { error: "not_enough_text", found: parsed.length }, 422);
+  }
+
+  // Someone may have saved this barcode between this user's failed lookup and
+  // now. Theirs stays: it is the same product, and this endpoint is
+  // unauthenticated, so an existing entry must not be replaced by whoever
+  // arrives next.
+  const existing = await productForBarcode(barcode);
+  if (existing && existing.product_ingredients.length > 0) {
+    return json(
+      req,
+      {
+        product: existing,
+        recognised: existing.product_ingredients.length,
+        total: existing.product_ingredients.length,
+      },
+      200
+    );
+  }
+
+  let known: Set<string>;
+  try {
+    known = await knownIngredients(parsed.map((p) => p.inci_name));
+  } catch (err) {
+    console.error("knownIngredients failed:", err);
+    return json(req, { error: "Could not read the ingredient dictionary" }, 502);
+  }
+  if (known.size / parsed.length < MIN_KNOWN_INGREDIENT_RATIO) {
+    return json(
+      req,
+      { error: "low_confidence", found: parsed.length, recognised: known.size },
+      422
+    );
+  }
+
   const product = {
-    id: existing?.id ?? (barcode ? `ocr-${barcode}` : `ocr-${crypto.randomUUID()}`),
-    barcode: barcode ?? null,
-    brand: (existing?.brand ?? brand ?? "Unknown").trim().slice(0, 120) || "Unknown",
-    name:
-      (existing?.name ?? name ?? "Scanned product").trim().slice(0, 200) || "Scanned product",
-    // Whatever the barcode source already established about the product is
-    // better than this function's fallbacks — it only read the formula. A
-    // fresh OCR-only scan has no basis to guess a category from a photographed
-    // ingredient list, so it says "unknown" rather than defaulting to
-    // "serum" — the bug that had a photographed foot cream displayed as one.
-    type: existing?.type ?? "unknown",
-    area: existing?.area ?? "face",
+    id: existing?.id ?? `ocr-${barcode}`,
+    barcode,
+    brand: (brand ?? "Unknown").trim().slice(0, 120) || "Unknown",
+    name: name.trim().slice(0, 200),
+    // A photographed ingredient list gives no basis for a category, so it says
+    // "unknown" rather than defaulting to "serum" — the bug that had a
+    // photographed foot cream displayed as one.
+    type: "unknown",
+    area: "face",
     description: null,
     image_url: null,
-    volume: existing?.volume ?? null,
+    volume: null,
     in_stock: true,
     suitable_for: [],
     targets: [],
-    // Reusing an identity-only row keeps its own source/attribution — it was
-    // never ours to relicense just because this scan added the formula. Only
-    // a brand-new row is attributed to the label photo itself.
-    source: existing ? existing.source : "ocr",
-    attribution: existing
-      ? existing.attribution
-      : "Ingredients read from the product label.",
-    // Permanent whenever a barcode is in hand — `existing`, when set, only
-    // ever came from a barcode lookup, so this covers both a brand-new
-    // barcode-tagged row and one reusing an identity-only hit. Only a
-    // genuinely orphaned, barcode-less `ocr-<uuid>` row gets the grace
-    // period: see OCR_GRACE_PERIOD_MS above.
-    expires_at: barcode ? null : new Date(Date.now() + OCR_GRACE_PERIOD_MS).toISOString(),
+    source: "ocr",
+    attribution: "Ingredients read from the product label.",
+    expires_at: null,
   };
 
   // One RPC, one transaction: the stub ingredient rows, the product, and the
   // replacement of its formula either all commit or none do (migration 0008).
-  // The three separate PostgREST calls this replaces each committed on their
-  // own, so a failed insert after a successful delete left the product holding
-  // zero ingredients while still reading as a complete row. See issue #40.
-  //
   // Every parsed name is sent, not just the ones missing from `known`: the RPC
   // inserts stubs ON CONFLICT DO NOTHING, so a name already in the dictionary
   // is left exactly as it was, and the full list is what has to drive
@@ -327,7 +351,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
   if (persistError) {
     console.error("replace_product_with_ingredients failed:", persistError);
-    return json(req, { error: "Could not save the scan" }, 502);
+    return json(req, { error: "Could not save the product" }, 502);
   }
 
   const { data, error: readbackError } = await db
@@ -337,41 +361,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .maybeSingle();
   if (readbackError || !data) {
     console.error("post-write readback failed:", readbackError);
-    return json(req, { error: "Could not save the scan" }, 502);
+    return json(req, { error: "Could not save the product" }, 502);
   }
 
-  // The capability that lets this scan be resolved later — see migration
-  // 0015. Minted for exactly the rows that got the grace period above: a
-  // barcode-having write (fresh or reusing `existing`) has nothing to
-  // resolve, since it is already permanent and findable. `products` is
-  // publicly readable, so without this any caller could enumerate every
-  // barcode-less scan on its grace timer and hijack or delete someone
-  // else's — see resolve-scan's own header comment for what that would
-  // have allowed.
-  //
-  // Best-effort, not part of the write's own success: the product itself
-  // is already saved and correct at this point, and a token that failed to
-  // insert just means this particular scan cannot be resolved through the
-  // UI before it self-evicts — a safe, fail-closed degradation, not a
-  // reason to fail a scan that otherwise worked.
-  let scanToken: string | undefined;
-  if (!barcode) {
-    scanToken = crypto.randomUUID();
-    const { error: tokenError } = await db
-      .from("scan_tokens")
-      .insert({ product_id: product.id, token: scanToken });
-    if (tokenError) {
-      console.error("scan_tokens insert failed:", tokenError);
-      scanToken = undefined;
-    }
-  }
-
-  return json(
-    req,
-    { product: data, recognised: known.size, total: parsed.length, scanToken },
-    200
-  );
-});
+  return json(req, { product: data, recognised: known.size, total: parsed.length }, 200);
+}
 
 // ── OCR ─────────────────────────────────────────────────────────────────────
 
