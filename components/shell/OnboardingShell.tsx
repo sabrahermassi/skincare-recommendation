@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Platform, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { slideDirection } from "@/lib/onboarding-slide";
@@ -75,12 +75,15 @@ const ILLUSTRATION_SCALE = 1.05;
  */
 const MAX_FONT_SCALE = 1.3;
 
-// Moving between screens: the picture and text slide a short way and fade out,
-// the next ones slide in from the opposite side. Skip, the dots and the button
-// stay put — animating the whole page is what this shell used to get wrong.
-const SLIDE_OFFSET = 36;
+// Moving between screens: the pictures stay where they are and cross-fade, while
+// the words slide out one way and the next ones slide in from the other. The
+// cross-fade lasts as long as the words take, so the new picture is arriving as
+// the new words do. Skip, the dots and the button stay put — animating the whole
+// page is what this shell used to get wrong.
+const SLIDE_OFFSET = 48;
 const SLIDE_OUT_MS = 150;
 const SLIDE_IN_MS = 250;
+const PICTURE_FADE_MS = SLIDE_OUT_MS + SLIDE_IN_MS;
 
 export type OnboardingScreenContent = {
   /** Explicit line breaks, not auto-wrap — up to 2 lines; the headline band
@@ -123,6 +126,8 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
   const previousIndex = useRef(activeIndex);
   const [opacity] = useState(() => new Animated.Value(1));
   const [translateX] = useState(() => new Animated.Value(0));
+  // One opacity per picture: they sit on top of each other and cross-fade.
+  const [pictureOpacity] = useState(() => screens.map((_, i) => new Animated.Value(i === activeIndex ? 1 : 0)));
   const reduceMotion = useRef(false);
 
   // With Reduce Motion on, the swap still happens through the same path but with
@@ -148,6 +153,18 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
     const outMs = reduceMotion.current ? 0 : SLIDE_OUT_MS;
     const inMs = reduceMotion.current ? 0 : SLIDE_IN_MS;
 
+    const pictures = Animated.parallel(
+      pictureOpacity.map((value, i) =>
+        Animated.timing(value, {
+          toValue: i === activeIndex ? 1 : 0,
+          duration: reduceMotion.current ? 0 : PICTURE_FADE_MS,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver,
+        })
+      )
+    );
+    pictures.start();
+
     const slideOut = Animated.parallel([
       Animated.timing(opacity, { toValue: 0, duration: outMs, useNativeDriver }),
       Animated.timing(translateX, { toValue: -direction * SLIDE_OFFSET, duration: outMs, useNativeDriver }),
@@ -168,14 +185,17 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
         ]).start();
       });
     });
-    return () => slideOut.stop();
-  }, [activeIndex, opacity, translateX]);
+    return () => {
+      slideOut.stop();
+      pictures.stop();
+    };
+  }, [activeIndex, opacity, translateX, pictureOpacity]);
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <Animated.View
-        style={[StyleSheet.absoluteFill, { opacity, transform: [{ translateX }] }]}
-      >
+      {/* The pictures: they do not move, they cross-fade. Decorative, so out of
+          the way of touches and the accessibility tree alike. */}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <View
           style={{
             position: "absolute",
@@ -183,21 +203,31 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
             height: bandHeight(BANDS.illustration),
             left: 0,
             right: 0,
-            alignItems: "center",
-            justifyContent: "center",
             // The scaled image extends ~9pt past this box; onb2-scan has no
             // transparent top margin, so clipping here would cut the hair.
             overflow: "visible",
           }}
         >
-          <Image
-            source={screen.illustrationSource}
-            style={{ width: "100%", height: "100%", transform: [{ scale: ILLUSTRATION_SCALE }] }}
-            contentFit="contain"
-            accessibilityLabel=""
-          />
+          {screens.map((screenContent, i) => (
+            <Animated.View
+              key={i}
+              style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center", opacity: pictureOpacity[i] }]}
+            >
+              <Image
+                source={screenContent.illustrationSource}
+                style={{ width: "100%", height: "100%", transform: [{ scale: ILLUSTRATION_SCALE }] }}
+                contentFit="contain"
+                accessibilityLabel=""
+              />
+            </Animated.View>
+          ))}
         </View>
+      </View>
 
+      {/* The words: they slide out one way and in from the other. */}
+      <Animated.View
+        style={[StyleSheet.absoluteFill, { opacity, transform: [{ translateX }] }]}
+      >
         <View
           style={{
             position: "absolute",
