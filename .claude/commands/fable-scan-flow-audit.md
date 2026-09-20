@@ -1,8 +1,8 @@
-Do a complete audit of the scan flow — barcode scanning and label-photo capture — covering every scenario, not just one or two. Also audit app performance and caching. Write findings to `REPORT.md`, updating incrementally. Do not implement anything yet — this is a report only, we'll hand it back to you separately for changes once I've reviewed it.
+Do a complete audit of the scan flow — barcode scanning and label-photo capture — covering every scenario, not just one or two. Also audit app performance and caching. Write findings to `REPORT-scan-flow.md` at the project root (not `REPORT.md`, which the full audit uses), updating incrementally. Do not implement anything yet — this is a report only, we'll hand it back to you separately for changes once I've reviewed it.
 
 ## Part 1: Scan flow — every scenario
 
-Go through the actual current implementation (barcode scanner and label-photo capture) and map out what happens in each of these cases. For each one, tell me: what currently happens (walk the actual code path), what message or state the user sees, and whether that's clear or confusing.
+Go through the actual current implementation (barcode scanner and label-photo capture, including `FetchFailure`, `failureMessage` and `LabelAnalysis` (with its `reason` states) in `data/api.ts`, and how `app/scan-label.tsx` handles them) and map out what happens in each of these cases. For each one, tell me: what currently happens (walk the actual code path), what message or state the user sees, and whether that's clear or confusing.
 
 **Barcode scanning:**
 
@@ -16,9 +16,27 @@ Go through the actual current implementation (barcode scanner and label-photo ca
 8. Same barcode scanned twice in a row
 9. User backs out or cancels mid-scan
 
-**Label-photo capture:** 10. Photo taken, ingredient text successfully read (OCR succeeds) and matched to known ingredients 11. Photo taken, OCR reads text but some/all ingredients aren't recognized in our database 12. Photo taken, OCR fails to read any text (blurry, bad lighting, angle) 13. Photo taken of something that isn't an ingredient label at all 14. User retakes the photo after a failed attempt 15. Very long ingredient list that goes beyond what's visible in one photo
+**Service failures (barcode lookup and label reading):**
 
-**Cross-cutting:** 16. What happens after any successful match — does it go straight to results, or is there an intermediate confirmation step? 17. Is the failure messaging consistent in tone and format across all the failure cases above, or does it currently vary? 18. How does the user recover from each failure case — is the path back to trying again obvious every time?
+10. The request times out
+11. The service rate-limits the request
+12. The backend or the Vision (OCR) service is unavailable
+13. The build has no Supabase configuration (the non-retryable `not_configured` state)
+
+**Label-photo capture:**
+
+14. Photo taken, ingredient text successfully read (OCR succeeds) and matched to known ingredients
+15. Photo taken, OCR reads text but some/all ingredients aren't recognized in our database
+16. Photo taken, OCR fails to read any text (blurry, bad lighting, angle)
+17. Photo taken of something that isn't an ingredient label at all
+18. User retakes the photo after a failed attempt
+19. Very long ingredient list that goes beyond what's visible in one photo
+
+**Cross-cutting:**
+
+20. What happens after any successful match — does it go straight to results, or is there an intermediate confirmation step?
+21. Is the failure messaging consistent in tone and format across all the failure cases above, or does it currently vary?
+22. How does the user recover from each failure case — is the path back to trying again obvious every time? Include which failures are retryable and which are not.
 
 For each scenario, flag current behavior as: **working well**, **exists but confusing**, or **missing entirely**.
 
@@ -44,4 +62,4 @@ Audit how data flows through the app currently:
 
 ## Output
 
-End the relevant section with a **prioritized list** of specific changes to make — grouped as: Fix immediately (confusing or broken UX), Simplify (reduce states/complexity), Performance (caching and rendering), each with enough detail that it can be handed to you directly as an implementation task afterward.
+End the report with a **prioritized list** of specific changes to make — grouped as: Fix immediately (confusing or broken UX), Simplify (reduce states/complexity), Performance (caching and rendering), each with enough detail that it can be handed to you directly as an implementation task afterward.
