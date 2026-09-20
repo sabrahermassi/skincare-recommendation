@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/Text";
 import { COLORS } from "@/lib/colors";
-import { CANVAS } from "@/lib/tokens";
+import { BUTTON_SHADOW, CANVAS } from "@/lib/tokens";
 
 /**
  * FOR.ME shell tokens — shared by `OnboardingShell` and `QuizShell` only.
@@ -102,6 +102,8 @@ export function PrimaryButton({
           alignItems: "center",
           justifyContent: "center",
           opacity: pressed ? 0.85 : 1,
+          // A button you can press is lifted off the page; a disabled one lies flat.
+          ...(disabled ? null : BUTTON_SHADOW),
         },
         style,
       ]}

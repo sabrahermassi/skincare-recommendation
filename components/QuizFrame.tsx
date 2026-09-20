@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/Text";
 import { CTA_TEXT, SkipButton, TERRACOTTA } from "@/components/shell/shared";
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
-import { CANVAS, DOT_INACTIVE, INK, MUTED } from "@/lib/tokens";
+import { BUTTON_SHADOW, CANVAS, DOT_INACTIVE, INK, MUTED } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // design-watercolor/skin quiz/screens/skin quiz background.png, resized to
@@ -115,6 +115,7 @@ export function QuizFrame({ children }: { children: ReactNode }) {
               justifyContent: "center",
               backgroundColor: disabled ? DOT_INACTIVE : TERRACOTTA,
               opacity: pressed ? 0.9 : 1,
+              ...(disabled ? null : BUTTON_SHADOW),
             }}
           >
             <Text style={{ fontSize: 16, fontWeight: "500", color: disabled ? MUTED : CTA_TEXT }}>{label}</Text>

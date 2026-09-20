@@ -368,6 +368,19 @@ export const CARD_SHADOW = {
   elevation: 5,
 } as const;
 
+/**
+ * A filled button lifted off the page: a touch stronger than {@link CHIP_SHADOW}
+ * (a button is the thing to press, so it sits a little higher than a chip) and
+ * much softer than {@link CARD_SHADOW}, which would swamp a 50dp pill.
+ */
+export const BUTTON_SHADOW = {
+  shadowColor: INK,
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.18,
+  shadowRadius: 6,
+  elevation: 4,
+} as const;
+
 /** A small chip lifted off its card: a shorter shade than {@link CARD_SHADOW}. */
 export const CHIP_SHADOW = {
   shadowColor: INK,

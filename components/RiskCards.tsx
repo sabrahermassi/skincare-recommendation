@@ -7,7 +7,7 @@ import type { ProductWithIngredients } from "@/data/types";
 import type { MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
 import { isVerified } from "@/lib/safety";
-import { INK, RISK_ICON, RISK_TITLE } from "@/lib/tokens";
+import { CARD_SHADOW, INK, RISK_ICON, RISK_TITLE } from "@/lib/tokens";
 
 /**
  * The two risks people actually ask about, side by side, both computed from
@@ -96,7 +96,8 @@ function RiskCard({
       // Everything left-aligned on one axis and vertically centred as a block.
       // The title used to be a two-line string with a hard break in it, which
       // put the icon beside line one and the verdict adrift below both.
-      style={{ flex: 1, gap: 8, paddingHorizontal: 15, paddingVertical: 15 }}
+      // Lifted only when it can be tapped: a card with nothing to show lies flat.
+      style={[{ flex: 1, gap: 8, paddingHorizontal: 15, paddingVertical: 15 }, onPress ? CARD_SHADOW : null]}
       className={`justify-center rounded-control border ${style.box} ${
         onPress ? "active:opacity-70" : ""
       }`}

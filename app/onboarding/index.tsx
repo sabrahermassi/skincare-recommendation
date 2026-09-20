@@ -7,7 +7,7 @@ import { OnboardingShell, type OnboardingScreenContent } from "@/components/shel
 import { Text } from "@/components/Text";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { quizRoutes } from "@/lib/profile";
-import { CANVAS, INK } from "@/lib/tokens";
+import { CANVAS, FLOATING_SHADOW, INK } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // Extracted from correctly-proportioned source art (real iPhone aspect, not
@@ -144,6 +144,7 @@ export default function Onboarding() {
             backgroundColor: CANVAS,
             borderWidth: 1,
             borderColor: TERRACOTTA,
+            ...FLOATING_SHADOW,
           }}
         >
           <View

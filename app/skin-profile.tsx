@@ -25,7 +25,7 @@ import {
   sensitivityLabel,
 } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, CTA, DANGER, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, CTA, DANGER, FLOATING_SHADOW, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md), restyled per
 // design-watercolor/reference.png's "My profile" screen.
@@ -209,6 +209,7 @@ export default function ProfileScreen() {
             borderWidth: 1,
             borderColor: BORDER_INACTIVE,
             backgroundColor: SURFACE,
+            ...FLOATING_SHADOW,
           }}
         >
           <Text style={{ fontSize: 12.5, lineHeight: 17, color: MUTED }}>

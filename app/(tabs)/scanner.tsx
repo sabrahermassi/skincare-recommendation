@@ -31,7 +31,7 @@ import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
+import { BUTTON_SHADOW, CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
 
 // Watercolor art from the onboarding set, reused on the two light screens that
 // sit in front of the camera (see components/ScanIntro.tsx).
@@ -523,6 +523,7 @@ function FoundSheet({
             alignItems: "center",
             justifyContent: "center",
             backgroundColor: TERRACOTTA,
+            ...BUTTON_SHADOW,
           }}
           className="active:opacity-90"
         >

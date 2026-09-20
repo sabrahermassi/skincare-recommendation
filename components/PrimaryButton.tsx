@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { Pressable, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { Text } from "@/components/Text";
 import { WatercolorFill } from "@/components/WatercolorFill";
-import { CTA, INK } from "@/lib/tokens";
+import { BUTTON_SHADOW, CTA, INK } from "@/lib/tokens";
 
 /**
  * Every full-width call to action in the app.
@@ -104,23 +104,22 @@ export function PrimaryButton({
         : "text-white"
       : "text-ink";
 
-  return (
+  const button = (
     <Pressable
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled, selected: active }}
-      className={`flex-row items-center justify-center gap-2.5 ${isCta ? "" : "rounded-control"} px-5 ${fill} ${className}`}
+      className={`flex-row items-center justify-center gap-2.5 ${isCta ? "" : "rounded-control"} px-5 ${fill} ${isCta ? "" : className}`}
       style={[
         // A cta button has a fixed height and centres its label, so it takes no
         // vertical padding: 16 either side left a 50dp button only 18dp for a
         // label that needs 22, and a phone clips what does not fit.
         { height: size, paddingVertical: isCta ? 0 : 16 },
-        isCta ? { backgroundColor: CTA, borderRadius: size / 2 } : null,
         // The watercolor wash under the label has to be clipped to the pill.
-        isCta ? { overflow: "hidden" } : null,
-        style,
+        isCta ? { borderRadius: size / 2, overflow: "hidden" } : null,
+        isCta ? null : style,
       ]}
     >
       {isCta ? <WatercolorFill /> : null}
@@ -144,5 +143,15 @@ export function PrimaryButton({
         {label}
       </Text>
     </Pressable>
+  );
+
+  // The shade sits on an outer view: the button clips its wash to the pill, and a
+  // view that clips loses its own shade on iOS. Margins and `flex` from the caller
+  // go on this outer view too, since it is what sits in the caller's layout.
+  if (!isCta) return button;
+  return (
+    <View className={className} style={[{ borderRadius: size / 2, backgroundColor: CTA, ...BUTTON_SHADOW }, style]}>
+      {button}
+    </View>
   );
 }

@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/Text";
 import { profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 const AVATAR = 120;
@@ -97,7 +97,7 @@ export default function Profile() {
               scrim's onPress behind it and dismiss the confirmation. */}
           <Pressable
             onPress={(e) => e.stopPropagation()}
-            style={{ width: "100%", maxWidth: 340, borderRadius: 20, backgroundColor: SURFACE, padding: 24, gap: 16 }}
+            style={{ width: "100%", maxWidth: 340, borderRadius: 20, backgroundColor: SURFACE, padding: 24, gap: 16, ...FLOATING_SHADOW }}
           >
             <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 19, color: INK }}>Are you sure?</Text>
             <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>

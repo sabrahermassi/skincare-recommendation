@@ -21,7 +21,7 @@ import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized, profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md).
 
@@ -461,11 +461,13 @@ export default function Browse() {
     switch (item.kind) {
       case "filters":
         return (
-          <View style={{ paddingBottom: 16, backgroundColor: CANVAS }}>
+          <View style={{ paddingBottom: 6, backgroundColor: CANVAS }}>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8, paddingHorizontal: HEADER_GUTTER, paddingTop: 10 }}
+              // Room under the chips for their shade: a scroll view clips what
+              // falls outside it.
+              contentContainerStyle={{ gap: 8, paddingHorizontal: HEADER_GUTTER, paddingTop: 10, paddingBottom: 10 }}
             >
               {(["all", ...typeChips] as const).map((type) => (
                 <TypeChip
@@ -671,6 +673,7 @@ function ChipPlaceholder() {
         borderWidth: 1,
         borderColor: BORDER_INACTIVE,
         backgroundColor: CANVAS,
+        ...CHIP_SHADOW,
       }}
     />
   );
@@ -702,6 +705,7 @@ function TypeChip({
         borderWidth: selected ? 1.5 : 1,
         borderColor: selected ? TERRACOTTA : BORDER_INACTIVE,
         backgroundColor: selected ? SELECTED : CANVAS,
+        ...CHIP_SHADOW,
       }}
     >
       <Text style={{ fontSize: 13.5, fontWeight: "600", color: selected ? INK : MUTED }}>{label}</Text>

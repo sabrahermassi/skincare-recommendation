@@ -21,7 +21,7 @@ import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
 import { isVerified } from "@/lib/safety";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
 
 type Tab = SavedTab;
@@ -432,6 +432,7 @@ function SegmentButton({
         borderWidth: active ? 1.5 : 1,
         borderColor: active ? TERRACOTTA : BORDER_INACTIVE,
         backgroundColor: active ? SELECTED : CANVAS,
+        ...CHIP_SHADOW,
       }}
     >
       <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: "600", color: active ? INK : MUTED }}>
@@ -555,6 +556,7 @@ function UndoBar({ label, onUndo }: { label: string; onUndo: () => void }) {
         backgroundColor: SURFACE,
         paddingHorizontal: 16,
         paddingVertical: 12,
+        ...FLOATING_SHADOW,
       }}
     >
       <Text style={{ fontSize: 13, color: MUTED }}>{label}</Text>
