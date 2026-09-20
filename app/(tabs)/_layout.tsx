@@ -6,23 +6,23 @@ import { Pressable, View, type ColorValue, type GestureResponderEvent } from "re
 import { TERRACOTTA } from "@/components/shell/shared";
 import { genie } from "@/lib/genie";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT } from "@/lib/tab-bar";
-import { CANVAS, CTA, INK, LINE, SELECTED, TAB_INACTIVE } from "@/lib/tokens";
+import { CANVAS, CTA, INK, LINE, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // Outline when unselected, filled when selected — the shape changes as well as
 // the colour, so the current tab does not rest on a contrast difference alone.
 const TAB_ICONS = {
-  browse: { on: "search", off: "search-outline" },
+  browse: { on: "search-circle", off: "search-circle-outline" },
   skinHelper: { on: "sparkles", off: "sparkles-outline" },
   saved: { on: "heart", off: "heart-outline" },
-  profile: { on: "person", off: "person-outline" },
+  profile: { on: "person-circle", off: "person-circle-outline" },
 } as const;
 
 /**
- * A tab: the icon only, with the selected one in the same peach pill and
- * terracotta outline the selected chips and pills use elsewhere in the app.
- * Names are not drawn — they did not render on a phone (see `tabBarShowLabel`)
- * — and live on tabBarAccessibilityLabel for a screen reader.
+ * A tab: the icon only. Unselected it is an outline; selected it is filled in
+ * terracotta, with nothing drawn around it. Names are not drawn — they did not
+ * render on a phone (see `tabBarShowLabel`) — and live on
+ * tabBarAccessibilityLabel for a screen reader.
  */
 function TabItem({
   tab,
@@ -34,19 +34,8 @@ function TabItem({
   color: ColorValue;
 }) {
   return (
-    <View
-      style={{
-        width: 60,
-        height: 36,
-        borderRadius: 18,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: focused ? SELECTED : "transparent",
-        borderWidth: 1.5,
-        borderColor: focused ? TERRACOTTA : "transparent",
-      }}
-    >
-      <Ionicons name={focused ? TAB_ICONS[tab].on : TAB_ICONS[tab].off} size={25} color={color} />
+    <View style={{ width: 60, height: 36, alignItems: "center", justifyContent: "center" }}>
+      <Ionicons name={focused ? TAB_ICONS[tab].on : TAB_ICONS[tab].off} size={29} color={focused ? TERRACOTTA : color} />
     </View>
   );
 }
