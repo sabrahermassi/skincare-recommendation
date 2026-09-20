@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/Text";
 import { profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, INK, MUTED, SELECTED_SAGE, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 const AVATAR = 120;
@@ -67,7 +67,7 @@ export default function Profile() {
           {tags.length > 0 ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 14 }}>
               {tags.map((tag) => (
-                <View key={tag} style={{ paddingHorizontal: 20, paddingVertical: 9, borderRadius: 999, backgroundColor: SELECTED, ...CHIP_SHADOW }}>
+                <View key={tag} style={{ paddingHorizontal: 20, paddingVertical: 9, borderRadius: 999, backgroundColor: SELECTED_SAGE, ...CHIP_SHADOW }}>
                   <Text style={{ fontSize: 13, fontWeight: "500", letterSpacing: 0.2, color: INK }}>{tag}</Text>
                 </View>
               ))}

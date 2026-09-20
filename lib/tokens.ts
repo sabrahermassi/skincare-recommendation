@@ -120,6 +120,19 @@ export const SELECTED = "#F9E7DC";
 /** One step warmer, for a selected surface that needs to sit above SELECTED. */
 export const SELECTED_STRONG = "#F5DCCC";
 
+/**
+ * The green of a chip that shows or holds a skin answer (concerns, skin type,
+ * sensitivity) on the skin profile screen, the Profile tab and Home.
+ *
+ * Taken from the illustrations' own sage rather than a new hue. `SELECTED_SAGE`
+ * is computed: `ACCENT.sage` (#CDD8BE) at 55% over CANVAS. `SAGE_BORDER` is read
+ * off the leaves in the skin quiz mockup (#838B7A), 3.3:1 against CANVAS. INK on
+ * the fill is 12.8:1. `ACCENT.sage` itself stays illustration-only; these are the
+ * two surface tokens made from it.
+ */
+export const SELECTED_SAGE = "#E2E6D4";
+export const SAGE_BORDER = "#838B7A";
+
 /** Neutral pressed/active wash for controls that are not selections. */
 export const INK_TINT = "rgba(36,31,30,0.06)";
 
