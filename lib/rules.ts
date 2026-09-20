@@ -782,6 +782,63 @@ export function positionWeight(position: number): number {
   return Math.max(0.3, Math.min(1, 1 / (1 + 0.09 * position)));
 }
 
+/**
+ * The shortest A-to-Z tail treated as "order carries no information". A
+ * random list ends in a sorted run of length r with probability 1/r!, so six
+ * is about 1 in 720 — long enough that a real descending-concentration list
+ * is very unlikely to trip it.
+ */
+export const MIN_ALPHABETICAL_RUN = 6;
+
+/**
+ * Per-position weights for one ingredient list.
+ *
+ * `positionWeight` assumes the list runs from most to least. That is true of
+ * cosmetic labels (EU 1223/2009 Art. 19(1)(g), 21 CFR 701.3), but an OTC drug
+ * that is not also a cosmetic must list its inactive ingredients
+ * alphabetically (21 CFR 201.66(c)(8)) — sunscreens and acne treatments filed
+ * through DailyMed. Read by position, "ascorbic acid" lands near the front and
+ * is charged as a main ingredient purely because of its spelling.
+ *
+ * Detected from the list itself, not from where it came from: a drug that is
+ * also a cosmetic follows the cosmetic rule, so two DailyMed products can
+ * differ. The longest A-to-Z run at the END of the list is unordered; the
+ * actives are printed first and are left on the normal curve. The run never
+ * includes position 0, so a list that is sorted end to end (an active that
+ * happens to sort first) still keeps its first entry on the curve.
+ *
+ * Inside that run every ingredient gets the same weight: the average of
+ * `positionWeight` over the positions the run occupies, i.e. the expected
+ * weight of an ingredient whose place in that stretch is arbitrary. Derived
+ * from the existing curve, not a published figure — nothing published gives a
+ * weight for an unordered list.
+ */
+export function positionWeights(names: readonly string[]): number[] {
+  const weights = names.map((_, index) => positionWeight(index));
+  const start = alphabeticalTailStart(names);
+  if (start === null) return weights;
+
+  let total = 0;
+  for (let index = start; index < names.length; index++) total += weights[index];
+  const flat = total / (names.length - start);
+  for (let index = start; index < names.length; index++) weights[index] = flat;
+  return weights;
+}
+
+/**
+ * Where the unordered A-to-Z tail of a list begins, or null when there is none.
+ * Asked directly rather than inferred from `positionWeights`: a tail that starts
+ * past the point where the curve has already reached its floor is flattened to
+ * the same numbers it had, so the weights alone cannot say it is unordered.
+ */
+export function alphabeticalTailStart(names: readonly string[]): number | null {
+  const key = names.map((name) => name.trim().toLowerCase());
+  let start = key.length - 1;
+  while (start > 1 && key[start - 1] <= key[start]) start--;
+  const runLength = key.length - start;
+  return start < 1 || runLength < MIN_ALPHABETICAL_RUN ? null : start;
+}
+
 /** Matches an ingredient name against a rule's name patterns. */
 export function ruleMatches(rule: IngredientRule, inciName: string): boolean {
   const name = inciName.trim().toLowerCase();

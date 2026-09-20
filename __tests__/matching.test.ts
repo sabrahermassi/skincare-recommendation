@@ -1,10 +1,11 @@
 import { fetchProduct } from "@/data/api";
-import type { ProductWithIngredients, SkinProfile } from "@/data/types";
+import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
 import {
   confidenceLabel,
   matchProduct,
   matchTone,
   resetScoreCache,
+  rungFor,
   SCORE_BANDS,
   scoreExplanation,
 } from "@/lib/matching";
@@ -515,25 +516,58 @@ describe("verdict engine", () => {
     expect((withClogger.score as number)).toBeLessThan(clean.score as number);
   });
 
-  it("does not show harm the score never applied, even when contact weights differ", () => {
-    // The bug this PR's review caught: `targetApplies` treats `hurts` as true
-    // whenever ANY of its conditions match, including `sensitive` alone — so
-    // a sensitive, oily, acne-prone user (skinType does not match salicylic
-    // acid's `hurts.skinTypes: ["dry"]`, and it declares no `hurts.concerns`
-    // at all) triggers `hurts` through sensitivity only, a signal with no
-    // fit-evidence bucket of its own. On a leave-on product that harm used to
-    // cancel an equal benefit by coincidence of equal weights; splitting
-    // benefit and harm broke that coincidence and turned it into a visible,
-    // uncounted negative "reason" — the score went up from the benefit while
-    // the explanation claimed the same ingredient worked against the user.
-    const result = matchProduct(
-      synthetic(["water", "salicylic acid", ...FILLER], { type: "exfoliator" }),
-      profile({ baseSkinType: "oily", concerns: ["acne-prone"], sensitivity: "some" })
-    );
-    const entry = result.reasons.find((r) => r.ingredient === "salicylic acid");
+  it("shows a reactive-skin harm only because the score now charges it", () => {
+    // Originally a review catch on PR #127: `targetApplies` treats `hurts` as
+    // true when ANY condition matches, including `sensitive` alone, and for a
+    // sensitive, oily, acne-prone user salicylic acid's harm was in the reasons
+    // list but charged nowhere in the score, so "why this score" listed an
+    // ingredient as working against the user for harm the score never applied.
+    // Step 16 closed that the other way round: a declared sensitive-skin harm
+    // is now an irritation charge, so a negative reason is honest. The
+    // invariant this test guards is unchanged — a reason must never claim more
+    // harm than the score charged — and the two halves below check both sides.
+    const oilyAcne = { baseSkinType: "oily" as const, concerns: ["acne-prone" as const] };
+    const product = synthetic(["water", "salicylic acid", ...FILLER], { type: "exfoliator" });
+    const reactive = matchProduct(product, profile({ ...oilyAcne, sensitivity: "some" }));
+    const tolerant = matchProduct(product, profile({ ...oilyAcne, sensitivity: "none" }));
+    const entry = reactive.reasons.find((r) => r.ingredient === "salicylic acid");
 
-    // Positive, not negative: only the counted acne-prone benefit shows.
-    expect(entry?.effect).toBeGreaterThan(0);
+    expect(entry?.effect).toBeLessThan(0);
+    expect(reactive.breakdown.irritationPenalty).toBeGreaterThan(
+      tolerant.breakdown.irritationPenalty
+    );
+    // A tolerant profile is charged nothing extra and still sees the benefit.
+    expect(tolerant.reasons.find((r) => r.ingredient === "salicylic acid")?.effect).toBeGreaterThan(0);
+  });
+
+  it("still flags an active that was charged as an irritant when its benefit cancels the harm", () => {
+    // Retinol helps fine lines and, for reactive skin, is charged as an irritant.
+    // On a full-contact product the two weights are equal, so the net reason
+    // effect is zero and the reason line drops out; the ingredient must still not
+    // read as a plain good one.
+    const product = synthetic(["water", "retinol", ...FILLER], { type: "serum" });
+    const result = matchProduct(product, profile({ concerns: ["fine-lines"], sensitivity: "high" }));
+    const retinol = product.ingredients.find((ingredient) => ingredient.name === "retinol");
+
+    expect(result.irritants).toContain("retinol");
+    expect(result.breakdown.irritationPenalty).toBeGreaterThan(0);
+    expect(rungFor(retinol as Ingredient, result)).toBe("avoid");
+  });
+
+  it("counts a net-zero active as scoring evidence, so confidence is not understated", () => {
+    // Same formula twice; only the retinol slot changes. Retinol's benefit and its
+    // reactive-skin harm cancel to a zero reason effect, but both moved the score,
+    // so the read is more confident than the control with nothing scored.
+    const reactive = profile({ concerns: ["fine-lines"], sensitivity: "high" });
+    const withRetinol = matchProduct(synthetic(["water", "retinol", ...FILLER], { type: "serum" }), reactive);
+    const control = matchProduct(synthetic(["water", "unmatched test control", ...FILLER], { type: "serum" }), reactive);
+    expect(withRetinol.confidence).toBeGreaterThan(control.confidence);
+  });
+
+  it("charges no irritant on a tolerant profile", () => {
+    const product = synthetic(["water", "retinol", ...FILLER], { type: "serum" });
+    const result = matchProduct(product, profile({ concerns: ["fine-lines"], sensitivity: "none" }));
+    expect(result.irritants).not.toContain("retinol");
   });
 
   it("explains itself — every scored product returns its reasons", () => {
