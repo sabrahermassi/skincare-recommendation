@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -16,6 +16,8 @@ import { useAppStore } from "@/store/useAppStore";
 const SCAN_ART = require("@/assets/illustrations/onboarding/onb2-scan.png");
 // The shelf that fills the empty Saved and History screens.
 const SHELF_ART = require("@/assets/illustrations/saved-empty-shelf.png");
+// Its own proportions (1400x892, cropped to the art), so it is never stretched.
+const SHELF_ASPECT = 1400 / 892;
 
 /**
  * Home — the first screen after the skin quiz.
@@ -27,6 +29,7 @@ const SHELF_ART = require("@/assets/illustrations/saved-empty-shelf.png");
  */
 export default function Home() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const profile = useAppStore((s) => s.profile);
   const personalized = isPersonalized(profile);
 
@@ -42,7 +45,7 @@ export default function Home() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 96 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
         <AppHeader />
 
         <View style={{ paddingHorizontal: HEADER_GUTTER, gap: 22 }}>
@@ -103,9 +106,15 @@ export default function Home() {
           </Pressable>
         </View>
 
-        {/* The shelf, in whatever room is left. */}
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", paddingTop: 24 }}>
-          <Image source={SHELF_ART} contentFit="contain" accessibilityLabel="" style={{ width: 286, height: 182 }} />
+        {/* The shelf, across the whole width and a little past it, resting on the
+            tab bar — it fills what is left of the screen rather than sitting in it. */}
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", paddingTop: 16, overflow: "hidden" }}>
+          <Image
+            source={SHELF_ART}
+            contentFit="contain"
+            accessibilityLabel=""
+            style={{ width: width * 1.3, aspectRatio: SHELF_ASPECT }}
+          />
         </View>
       </ScrollView>
     </View>
