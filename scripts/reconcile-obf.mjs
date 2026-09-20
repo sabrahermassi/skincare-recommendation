@@ -50,6 +50,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { MIN_KNOWN_INGREDIENT_RATIO, retryAfterMs } from "./import-obf.mjs";
 import { parseInci } from "./lib/inci-parse.mjs";
+import { parserOnlyChange } from "./lib/formula-diff.mjs";
 import { fetchAliases } from "./lib/aliases.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
@@ -189,24 +190,6 @@ export function formulaChanged(current, fresh) {
   const after = fresh.map((i) => i.inci_name);
   if (before.length !== after.length) return true;
   return before.some((name, i) => name !== after[i]);
-}
-
-/**
- * Whether a difference `formulaChanged` sees is only the parser having improved
- * since the row was stored, not OBF's text having changed. The stored names came
- * out of an older parser ("ingredients: aqua"); running the same names through
- * today's parser gives the fresh list exactly when nothing on the label moved.
- *
- * It matters because `replace_product_with_ingredients` stamps
- * `formula_changed_at` whenever the list it is handed differs from the stored
- * one (migration 0019), and the product screen turns that stamp into a
- * "reformulated" notice for everyone who saved the product. A parser upgrade must
- * not tell people their moisturiser was reformulated.
- */
-export function parserOnlyChange(current, fresh, known, aliases) {
-  const stored = [...current].sort((a, b) => a.position - b.position).map((i) => i.inci_name);
-  const reparsed = parseInci(stored.join(", "), known, undefined, aliases);
-  return reparsed.length === fresh.length && reparsed.every((r, i) => r.inci_name === fresh[i].inci_name);
 }
 
 /**

@@ -33,6 +33,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { normalise, parseInci } from "./lib/inci-parse.mjs";
 import { fetchAliases } from "./lib/aliases.mjs";
+import { fetchStoredFormulas, isParserRefresh } from "./lib/formula-diff.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -771,12 +772,17 @@ async function main() {
   // One transactional call per product, same as the OBF importer and for the
   // same reason — see issue #40. The RPC creates the ingredient stubs in the
   // same transaction as the formula that needs them, and bumps `fetched_at`.
+  //
+  // A parser-only difference from the stored list is not a reformulation, so it
+  // must not stamp `formula_changed_at` (migration 0021).
+  const stored = await fetchStoredFormulas(db, all.map((r) => r.product.id));
   let written = 0;
   for (const r of all) {
     const { error } = await db.rpc("replace_product_with_ingredients", {
       p_product: r.product,
       p_ingredients: r.ingredients,
       p_stub_note: "No published rating for this ingredient yet.",
+      p_parser_refresh: isParserRefresh(stored.get(r.product.id), r.ingredients, known, aliases),
     });
     if (error) {
       throw new Error(

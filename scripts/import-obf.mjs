@@ -27,6 +27,7 @@ import { createClient } from "@supabase/supabase-js";
 import { guessType } from "../supabase/functions/_shared/product-type-classifier.mjs";
 import { guessTypeFromIngredients } from "./lib/guess-type-from-ingredients.mjs";
 import { fetchAliases } from "./lib/aliases.mjs";
+import { fetchStoredFormulas, isParserRefresh } from "./lib/formula-diff.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 import { normalise, parseInci } from "./lib/inci-parse.mjs";
 
@@ -570,6 +571,11 @@ async function main() {
   // Throwing hands it to the top-level `main().catch()`, and the bookmark is
   // then never written — so the next run simply redoes the whole thing, which
   // is the correct recovery and needs no resume logic.
+  //
+  // A product already in the catalogue whose stored list differs from this one
+  // only because the parser improved is not a reformulation, and must not
+  // stamp `formula_changed_at` (migration 0021).
+  const stored = await fetchStoredFormulas(db, all.map((r) => r.product.id));
   let written = 0;
   for (const r of all) {
     const { error } = await db.rpc("replace_product_with_ingredients", {
@@ -579,6 +585,7 @@ async function main() {
       // indistinguishable from a measured one. Same stub note the two Edge
       // Functions pass — see migration 0007.
       p_stub_note: "No published rating for this ingredient yet.",
+      p_parser_refresh: isParserRefresh(stored.get(r.product.id), r.ingredients, known, aliases),
     });
     if (error) {
       throw new Error(

@@ -1,5 +1,6 @@
+import { fetchStoredFormulas, isParserRefresh, parserOnlyChange } from "../scripts/lib/formula-diff.mjs";
 import { parseInci } from "../scripts/lib/inci-parse.mjs";
-import { fetchIngredients, formulaChanged, parseLimit, parserOnlyChange } from "../scripts/reconcile-obf.mjs";
+import { fetchIngredients, formulaChanged, parseLimit } from "../scripts/reconcile-obf.mjs";
 
 /**
  * The parser got better than the one that stored these rows. A rewrite would
@@ -29,6 +30,89 @@ describe("parserOnlyChange", () => {
   it("is false when the label really swapped an ingredient", () => {
     const fresh = parseInci("Ingredients: Aqua, Glycerin, Alcohol Denat", known);
     expect(parserOnlyChange(stored, fresh, known)).toBe(false);
+  });
+});
+
+/**
+ * What the two importers pass as `p_parser_refresh` (migration 0021). A product
+ * with no stored formula is new or identity-only, which the database already
+ * treats as not a change, so it must never be marked a refresh.
+ */
+describe("isParserRefresh", () => {
+  const known = new Set(["aqua", "glycerin"]);
+  const fresh = [
+    { inci_name: "aqua", position: 0 },
+    { inci_name: "glycerin", position: 1 },
+  ];
+
+  it("is false for a product with no stored formula", () => {
+    expect(isParserRefresh(undefined, fresh, known)).toBe(false);
+    expect(isParserRefresh([], fresh, known)).toBe(false);
+  });
+
+  it("is true when only a stored junk name was cleaned up", () => {
+    const stored = [
+      { inci_name: "ingredients: aqua", position: 0 },
+      { inci_name: "glycerin", position: 1 },
+    ];
+    expect(isParserRefresh(stored, fresh, known)).toBe(true);
+  });
+
+  it("is false when the stored formula really differs", () => {
+    const stored = [{ inci_name: "aqua", position: 0 }];
+    expect(isParserRefresh(stored, fresh, known)).toBe(false);
+  });
+});
+
+describe("fetchStoredFormulas", () => {
+  /** A stand-in for supabase-js's builder over a fixed list of rows, honouring `.in` and `.range`. */
+  function fakeDb(rows: { product_id: string; inci_name: string; position: number }[]) {
+    return {
+      from: () => {
+        let ids: string[] = [];
+        const builder = {
+          select: () => builder,
+          in: (_col: string, values: string[]) => {
+            ids = values;
+            return builder;
+          },
+          order: () => builder,
+          range: async (from: number, to: number) => ({
+            data: rows.filter((r) => ids.includes(r.product_id)).slice(from, to + 1),
+            error: null,
+          }),
+        };
+        return builder;
+      },
+    };
+  }
+
+  it("groups rows by product", async () => {
+    const db = fakeDb([
+      { product_id: "a", inci_name: "aqua", position: 0 },
+      { product_id: "a", inci_name: "glycerin", position: 1 },
+      { product_id: "b", inci_name: "aqua", position: 0 },
+    ]);
+    const byId = await fetchStoredFormulas(db, ["a", "b", "c"]);
+    expect(byId.get("a")).toHaveLength(2);
+    expect(byId.get("b")).toHaveLength(1);
+    expect(byId.has("c")).toBe(false);
+  });
+
+  it("reads past the 1000-row page limit instead of silently truncating", async () => {
+    const rows = Array.from({ length: 2300 }, (_, i) => ({ product_id: "big", inci_name: `n${i}`, position: i }));
+    const byId = await fetchStoredFormulas(fakeDb(rows), ["big"]);
+    expect(byId.get("big")).toHaveLength(2300);
+  });
+
+  it("throws rather than returning a partial read when the query fails", async () => {
+    const failing = {
+      from: () => {
+        const b = { select: () => b, in: () => b, order: () => b, range: async () => ({ data: null, error: { message: "boom" } }) };
+        return b;
+      },
+    };
+    await expect(fetchStoredFormulas(failing, ["a"])).rejects.toThrow(/boom/);
   });
 });
 
