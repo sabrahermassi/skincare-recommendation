@@ -10,10 +10,12 @@ import {
   EMPTY_PROFILE,
   formeStorage,
   HISTORY_LIMIT,
+  MAX_CONCERNS,
   migratePersisted,
   PERSISTED_KEYS,
   partializeState,
   useAppStore,
+  visibleConcernCount,
 } from "@/store/useAppStore";
 
 const initial = useAppStore.getState();
@@ -32,6 +34,23 @@ beforeEach(() => {
 });
 
 const s = () => useAppStore.getState();
+
+/**
+ * The profile editor counts concerns the way the store does. A profile from before
+ * `atopic` was dropped from the pickers still carries it, and it must not use up a slot
+ * the person cannot see: with `atopic` and two visible concerns they can still add a third.
+ */
+describe("visibleConcernCount", () => {
+  it("does not count a concern the pickers no longer offer", () => {
+    expect(visibleConcernCount(["atopic", "acne-prone", "redness"])).toBe(2);
+    expect(visibleConcernCount(["atopic", "acne-prone", "redness"])).toBeLessThan(MAX_CONCERNS);
+  });
+
+  it("counts every offered concern", () => {
+    expect(visibleConcernCount([])).toBe(0);
+    expect(visibleConcernCount(["acne-prone", "redness", "dullness"])).toBe(MAX_CONCERNS);
+  });
+});
 
 describe("onboarding gate", () => {
   it("starts closed so first run sees onboarding", () => {
@@ -293,6 +312,28 @@ describe("history log", () => {
     s().clearHistory();
     expect(s().history).toEqual([]);
     expect(s().savedProducts.map((p) => p.id)).toEqual(["keep-me"]);
+  });
+
+  it("clearSavedProducts empties the shelf without touching history or starred ingredients", () => {
+    s().saveProduct("a");
+    s().saveProduct("b");
+    view("c");
+    s().toggleSavedIngredient("glycerin");
+    s().clearSavedProducts();
+    expect(s().savedProducts).toEqual([]);
+    expect(s().history.map((h) => h.id)).toEqual(["c"]);
+    expect(s().savedIngredients).toEqual(["glycerin"]);
+  });
+
+  it("clearSavedIngredients empties the starred list without touching the shelf or history", () => {
+    s().saveProduct("a");
+    view("c");
+    s().toggleSavedIngredient("glycerin");
+    s().toggleSavedIngredient("niacinamide");
+    s().clearSavedIngredients();
+    expect(s().savedIngredients).toEqual([]);
+    expect(s().savedProducts.map((p) => p.id)).toEqual(["a"]);
+    expect(s().history.map((h) => h.id)).toEqual(["c"]);
   });
 
   /** Scanning is checking, not saving — the two lists must stay independent. */

@@ -1,5 +1,6 @@
 import { View } from "react-native";
 
+import { LiftedCard } from "@/components/PressableCard";
 import { LINE, SURFACE } from "@/lib/tokens";
 
 /**
@@ -11,18 +12,12 @@ import { LINE, SURFACE } from "@/lib/tokens";
  */
 export function ProductRowSkeleton({ last = false }: { last?: boolean }) {
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        marginHorizontal: 16,
-        marginBottom: last ? 0 : 10,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: LINE,
-        backgroundColor: SURFACE,
-        overflow: "hidden",
-      }}
+    <LiftedCard
+      radius={14}
+      backgroundColor={SURFACE}
+      style={{ marginHorizontal: 16, marginBottom: last ? 0 : 12 }}
     >
+    <View style={{ flexDirection: "row", borderRadius: 14, borderWidth: 1, borderColor: LINE, overflow: "hidden" }}>
       <View style={{ width: 4, alignSelf: "stretch", backgroundColor: LINE }} />
 
       <View
@@ -47,5 +42,6 @@ export function ProductRowSkeleton({ last = false }: { last?: boolean }) {
         <View style={{ width: 40, height: 34, borderRadius: 10, backgroundColor: LINE }} />
       </View>
     </View>
+    </LiftedCard>
   );
 }

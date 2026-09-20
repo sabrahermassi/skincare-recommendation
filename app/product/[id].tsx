@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { ActivityIndicator, Pressable, ScrollView, Share, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -8,27 +9,29 @@ import { Text } from "@/components/Text";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
+import { IngredientsSheet, ingredientsSheetPeek } from "@/components/IngredientsSheet";
+import { PopOnToggle } from "@/components/PopOnToggle";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { HeartIcon } from "@/components/icons";
 import { BarcodeOfferPrompt } from "@/components/BarcodeOfferPrompt";
-import { InlineProfilePrompt } from "@/components/InlineProfilePrompt";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { canPhotographLabelFor, failureMessage, fetchProduct, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import {
   confidenceLabel,
   matchProduct,
-  scoreExplanation,
   verdictHeadline,
   type MatchReason,
   type Verdict,
 } from "@/lib/matching";
 import { relativeTime } from "@/lib/format";
+import { openScanner } from "@/lib/genie";
+import { productPictureSize } from "@/lib/product-layout";
 import { isPersonalized } from "@/lib/profile";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, MUTED_SOFT, SELECTED_STRONG, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN, toneForVerdict } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN, toneForVerdict } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
 // draw from the shared `PrimaryButton` component's `tone="cta"` — added
@@ -77,6 +80,11 @@ import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, MUTED_SOFT, SELECTED_
  * `toneForVerdict`, the one place that collapse happens, rather than a
  * second hand-copy of it here disagreeing with `ScoreRing`'s someday.
  */
+/** The product picture: how small and how large it may get, and its size until the screen is measured. */
+const PICTURE_MIN = 64;
+const PICTURE_MAX = 150;
+const PICTURE_DEFAULT = 120;
+
 function panelFor(verdict: Verdict): { bg: string; border: string; label: string; ink: string } {
   const tone = toneForVerdict(verdict);
   const colors = tone
@@ -137,6 +145,12 @@ export default function ProductScreen() {
     scanToken?: string;
   }>();
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
+  const [showWhy, setShowWhy] = useState(false);
+  // Measured, so the bottle, name and cards fill the screen exactly down to where
+  // the ingredients sheet begins: the screen's height and the height of everything
+  // under the picture decide how big the picture can be.
+  const [viewportH, setViewportH] = useState(0);
+  const [restH, setRestH] = useState(0);
   const [loading, setLoading] = useState(true);
   /**
    * Set only when the catalogue could not be *asked*. Distinct from
@@ -156,15 +170,6 @@ export default function ProductScreen() {
    * exact trap `app/ingredients/[id].tsx` documents on its own fetch.
    */
   const loadedFor = useRef<string | null>(null);
-  const [showBreakdown, setShowBreakdown] = useState(false);
-
-  // Captured once, on arrival, rather than read live. `isPersonalized` flips as
-  // soon as a skin type is chosen, so a live check would unmount the panel on
-  // the first tap and take the sensitivity question with it — the user would
-  // answer one thing and watch the other vanish. Held for the visit instead:
-  // the score above fills in, the answers stay visible and changeable, and it
-  // is gone next time the screen opens.
-  const [askForProfile] = useState(() => !isPersonalized(useAppStore.getState().profile));
 
   // Pinned at mount for the same reason the ingredient screen pins its own:
   // `react-hooks/purity` flags `Date.now()` during render.
@@ -281,7 +286,7 @@ export default function ProductScreen() {
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, color: INK }}>
             Product not found
           </Text>
-          <PrimaryButton tone="cta" size={52} label="Scan another" onPress={() => router.replace("/")} />
+          <PrimaryButton tone="cta" size={52} label="Scan another" onPress={openScanner} />
           {/* "Scan another" assumes a physical bottle in hand, which isn't
               true for everyone who lands here — a stale link, a bookmark to
               a removed product. Same escape hatch the missed-barcode panel
@@ -311,7 +316,6 @@ export default function ProductScreen() {
   // ("hydration, fragrance"), which named a direction but never a reason.
   const helps = match.reasons.filter((r) => r.effect > 0).slice(0, 3);
   const against = match.reasons.filter((r) => r.effect < 0).slice(0, 3);
-  const explanation = scoreExplanation(match);
   const confidence = confidenceLabel(match.confidence);
 
   // Six months. Long enough that a fresh catalogue never mentions it, short
@@ -363,37 +367,76 @@ export default function ProductScreen() {
     }
   }
 
+  const needsProfile = !isPersonalized(profile);
+  const sheetPeek = total > 0 ? ingredientsSheetPeek(insets.bottom) : 0;
+  const pictureSize =
+    total > 0
+      ? productPictureSize({
+          viewport: viewportH,
+          rest: restH,
+          // Top padding, the sheet's peek and the gap under the content, and the gap under the picture.
+          reserved: SPACE.text + sheetPeek + SPACE.block + SPACE.block,
+          min: PICTURE_MIN,
+          max: PICTURE_MAX,
+          fallback: PICTURE_DEFAULT,
+        })
+      : PICTURE_DEFAULT;
+
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader
         right={
-          <Pressable onPress={share} hitSlop={12} accessibilityLabel="Share this result">
-            <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M12 15.5V3.4M7.8 7.6 12 3.4l4.2 4.2M5 13.6V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.4"
-                stroke={INK}
-                strokeWidth={1.8}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 22 }}>
+            <Pressable
+              onPress={() => toggleSaved(product.id, product.fetchedAt)}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={saved ? "Remove from saved" : "Save"}
+              accessibilityState={{ selected: saved }}
+            >
+              <PopOnToggle active={saved}>
+                <HeartIcon size={21} filled={saved} color={saved ? VERDICT.low.solid : undefined} />
+              </PopOnToggle>
+            </Pressable>
+            <Pressable onPress={share} hitSlop={12} accessibilityLabel="Share this result">
+              <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M12 15.5V3.4M7.8 7.6 12 3.4l4.2 4.2M5 13.6V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.4"
+                  stroke={INK}
+                  strokeWidth={1.8}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </Pressable>
+          </View>
         }
       />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 200 }}>
+      <ScrollView
+        onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}
+        contentContainerStyle={{
+          gap: SPACE.block,
+          paddingTop: SPACE.text,
+          paddingBottom: total > 0 ? sheetPeek + SPACE.block : 200,
+        }}
+      >
         {/*
-          The design's product screen opens on a 150pt hero with the brand,
-          name and size centred under it (screen 11); the verdict panel below
-          is the scan result's (screen 02). Merging the two screens meant
-          keeping both, not picking one — the hero is how you confirm you are
-          looking at the right bottle.
+          The bottle on top, its name underneath, then the cards. Its size is
+          worked out so all of it ends where the ingredients sheet begins (see
+          pictureSize): a shorter screen gets a smaller bottle, not a scroll.
         */}
-        <View style={{ alignItems: "center", paddingHorizontal: 20, paddingTop: 18 }}>
-          <ProductThumbnail product={product} size={150} radius={24} />
+        <View style={{ alignItems: "center", paddingHorizontal: SPACE.gutter }}>
+          <ProductThumbnail product={product} size={pictureSize} radius={20} />
         </View>
 
-        <View style={{ alignItems: "center", gap: 6, paddingHorizontal: 20, paddingTop: 18 }}>
+        <View
+          onLayout={(e) => {
+            if (!showWhy) setRestH(e.nativeEvent.layout.height);
+          }}
+          style={{ gap: SPACE.block }}
+        >
+        <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: SPACE.gutter }}>
           <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.9, color: MUTED_FAINT }}>
             {product.brand}
           </Text>
@@ -438,27 +481,25 @@ export default function ProductScreen() {
         </View>
 
         {/* The verdict, before anything else. Never colour alone — the panel
-            carries a word too. Tapping it opens the breakdown in place rather
-            than pushing a screen: the answer and its reasoning belong on the
-            same surface when someone is holding the bottle in a shop. */}
-        <Pressable
-          onPress={() => setShowBreakdown((open) => !open)}
-          disabled={explanation.length === 0}
-          accessibilityRole="button"
-          accessibilityLabel={
-            showBreakdown ? "Hide how this score was worked out" : "How was this score worked out?"
-          }
-          accessibilityState={{ expanded: showBreakdown }}
-          className="flex-row items-center rounded-card border"
+            carries a word too. Its reasoning ("Why this score") opens inside
+            the same box: the answer and the reasons belong on the same surface
+            when someone is holding the bottle in a shop. */}
+        <View
+          className="rounded-card border"
           style={{
-            marginHorizontal: 24,
-            marginTop: 20,
-            gap: 20,
-            paddingHorizontal: 20,
-            paddingVertical: 22,
+            marginHorizontal: SPACE.gutter,
             backgroundColor: panel.bg,
             borderColor: panel.border,
+            overflow: "hidden",
           }}
+        >
+        <Pressable
+          disabled={!needsProfile}
+          onPress={() => router.push({ pathname: "/skin-profile", params: { returnTo: "product" } })}
+          accessibilityRole={needsProfile ? "button" : undefined}
+          accessibilityLabel={needsProfile ? "Open your skin profile to get your score" : undefined}
+          className="flex-row items-center"
+          style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
         >
           <ScoreRing
             score={match.score}
@@ -481,39 +522,68 @@ export default function ProductScreen() {
             <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
               {verdictHeadline(match)}
             </Text>
-            {explanation.length > 0 && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingTop: 2 }}>
-                <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: panel.ink }}>
-                  {showBreakdown ? "Hide the breakdown" : "How was this worked out?"}
-                </Text>
-                {/* Same chevron RiskCards uses for its own "tap for detail"
-                    affordance — this panel had none, relying on the text
-                    alone to signal it's tappable underneath a much louder
-                    score and headline. Rotates to point down while open. */}
-                <Svg
-                  width={11}
-                  height={11}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  style={{ transform: [{ rotate: showBreakdown ? "90deg" : "0deg" }] }}
-                >
-                  <Path
-                    d="m9 5 7 7-7 7"
-                    stroke={MUTED_SOFT}
-                    strokeWidth={2.4}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
-              </View>
-            )}
           </View>
+          {needsProfile ? <ArrowIcon size={22} color={INK} /> : null}
         </Pressable>
+
+        {/*
+          "Why this score", inside the box, closed until it is tapped: one line
+          of "why" per ingredient, in words.
+
+          This replaced a stack of weighted bars reading "Barrier support −7 /
+          Pore-clogging −6". Those numbers are internal scoring arithmetic —
+          a hand-set rule weight, scaled by position in the list and by whether
+          the product rinses off — and they were being shown as though they
+          measured something. Nobody could read them, which for a screen whose
+          job is to answer one question in a shop aisle makes them worse than
+          nothing.
+        */}
+        {helps.length > 0 || against.length > 0 ? (
+          <>
+            <Pressable
+              onPress={() => setShowWhy((open) => !open)}
+              accessibilityRole="button"
+              accessibilityLabel="Why this score"
+              accessibilityState={{ expanded: showWhy }}
+              style={{
+                minHeight: TOUCH_TARGET,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 20,
+                borderTopWidth: 1,
+                borderTopColor: panel.border,
+              }}
+              className="active:opacity-70"
+            >
+              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: panel.ink }}>Why this score</Text>
+              <ArrowIcon direction={showWhy ? "up" : "down"} size={16} color={INK} />
+            </Pressable>
+
+            {showWhy ? (
+              <View style={{ paddingHorizontal: 20, paddingBottom: 18, paddingTop: 2, gap: 14 }}>
+                <View style={{ gap: 10 }}>
+                  {helps.map((reason) => (
+                    <ReasonLine key={`+${reason.ingredient}`} reason={reason} />
+                  ))}
+                  {against.map((reason) => (
+                    <ReasonLine key={`-${reason.ingredient}`} reason={reason} />
+                  ))}
+                </View>
+
+                <Text style={{ fontSize: TYPE.caption, lineHeight: 16, color: MUTED }}>
+                  From {recognised} of {total} ingredients we could identify
+                  {confidence === "high" ? "" : ` — ${confidence} confidence`}.
+                </Text>
+              </View>
+            ) : null}
+          </>
+        ) : null}
+        </View>
 
         {offerBarcode === "1" && scanToken && (
           <BarcodeOfferPrompt productId={id} scanToken={scanToken} />
         )}
-        {askForProfile && <InlineProfilePrompt />}
 
         {/*
           How old the formula is, but only once it is old enough to matter.
@@ -533,8 +603,7 @@ export default function ProductScreen() {
           // `saved.tsx`'s history rows already use for "flagged" counts.
           <Text
             style={{
-              paddingHorizontal: 24,
-              paddingTop: 12,
+              paddingHorizontal: SPACE.gutter,
               fontSize: TYPE.label,
               lineHeight: 17,
               fontWeight: "600",
@@ -554,8 +623,7 @@ export default function ProductScreen() {
         {formulaChangedNotice && (
           <Text
             style={{
-              paddingHorizontal: 24,
-              paddingTop: 12,
+              paddingHorizontal: SPACE.gutter,
               fontSize: TYPE.label,
               lineHeight: 17,
               fontWeight: "600",
@@ -564,41 +632,6 @@ export default function ProductScreen() {
           >
             {formulaChangedNotice}
           </Text>
-        )}
-
-        {/* What the number is actually made of, strongest first. The sentences
-            come from lib/matching so the words and the arithmetic cannot
-            drift apart. */}
-        {showBreakdown && explanation.length > 0 && (
-          <View
-            style={{
-              marginHorizontal: 24,
-              marginTop: 10,
-              gap: 12,
-              padding: 16,
-              borderRadius: 15,
-              borderWidth: 1,
-              borderColor: BORDER_INACTIVE,
-              backgroundColor: CANVAS,
-            }}
-          >
-            {explanation.map((line) => (
-              <View key={line.label} style={{ flexDirection: "row", gap: 10 }}>
-                <View
-                  style={{ width: 3, borderRadius: 2 }}
-                  className={line.direction === "up" ? "bg-tone-good" : "bg-tone-flag"}
-                />
-                <View style={{ flex: 1, gap: 1 }}>
-                  <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{line.label}</Text>
-                  <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{line.detail}</Text>
-                </View>
-              </View>
-            ))}
-            <Text style={{ fontSize: TYPE.caption, lineHeight: 16, color: MUTED_FAINT }}>
-              Ordered by how much each moved the score. Based on {recognised} of {total}{" "}
-              ingredients we could identify — {confidence} confidence.
-            </Text>
-          </View>
         )}
 
         {/* Two boxes, directly under the score: the only two risks the screen
@@ -625,44 +658,10 @@ export default function ProductScreen() {
           }
         />
 
-        {/*
-          One line of "why", in words.
-
-          This replaced a stack of weighted bars reading "Barrier support −7 /
-          Pore-clogging −6". Those numbers are internal scoring arithmetic —
-          a hand-set rule weight, scaled by position in the list and by whether
-          the product rinses off — and they were being shown as though they
-          measured something. Nobody could read them, which for a screen whose
-          job is to answer one question in a shop aisle makes them worse than
-          nothing.
-        */}
-        {(helps.length > 0 || against.length > 0) && (
-          <View style={{ marginHorizontal: 24, marginTop: 26, gap: 14 }}>
-            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.53, color: MUTED_FAINT }}>
-              Why this score
-            </Text>
-
-            <View style={{ gap: 10 }}>
-              {helps.map((reason) => (
-                <ReasonLine key={`+${reason.ingredient}`} reason={reason} />
-              ))}
-              {against.map((reason) => (
-                <ReasonLine key={`-${reason.ingredient}`} reason={reason} />
-              ))}
-            </View>
-
-            <Text style={{ fontSize: TYPE.caption, lineHeight: 16, color: MUTED_FAINT }}>
-              From {recognised} of {total} ingredients we could identify
-              {confidence === "high" ? "" : ` — ${confidence} confidence`}.
-            </Text>
-          </View>
-        )}
-
         {total === 0 && (
           <View
             style={{
-              marginHorizontal: 20,
-              marginTop: 28,
+              marginHorizontal: SPACE.gutter,
               gap: 12,
               padding: 18,
               borderRadius: 15,
@@ -680,33 +679,13 @@ export default function ProductScreen() {
             </Text>
           </View>
         )}
-
-        {/*
-          One caveat, at the bottom. There were two — a grey box mid-screen
-          and this one — which is both redundant and, in the middle of the
-          screen, in the way of the answer. It stays required: the INCI API
-          terms forbid presenting their data as medically validated without a
-          disclaimer, and the MVP is explicit that this is an ingredient-based
-          compatibility assessment rather than a safety guarantee. A footnote,
-          not a headline.
-        */}
-        <View style={{ marginHorizontal: 24, marginTop: 30, marginBottom: 8 }}>
-          <Text style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED_FAINT }}>
-            Based on your skin profile and public ingredient data - not medical
-            advice. Formulas change and label data can be out of date, so check
-            the packaging for anything that matters.
-          </Text>
         </View>
-
-        {product.attribution ? (
-          <Text style={{ paddingHorizontal: 24, paddingTop: 20, fontSize: TYPE.caption, lineHeight: 17, color: MUTED_FAINT }}>
-            {product.attribution}
-          </Text>
-        ) : null}
       </ScrollView>
 
-      {/* Thumb zone. The design draws two controls here — the primary action
-          and the heart. */}
+      {/* Thumb zone, for a product with no formula: the action that supplies one.
+          With a formula the ingredients sheet sits here instead. The heart is in
+          the header. */}
+      {total === 0 && canPhotographLabelFor(product.barcode) ? (
       <View
         style={{
           position: "absolute",
@@ -724,7 +703,7 @@ export default function ProductScreen() {
           backgroundColor: CANVAS,
         }}
       >
-        <View style={{ flexDirection: "row", gap: 12, justifyContent: total > 0 ? "flex-start" : "center" }}>
+        <View style={{ flexDirection: "row", gap: 12, justifyContent: "center" }}>
           {/* Two different CTAs, because there are two different situations.
 
               With a formula, the action is to read it.
@@ -748,15 +727,7 @@ export default function ProductScreen() {
               which encodes what `label-ocr` accepts — offering a button that
               can only 400 after someone has framed and taken a photo is
               worse than offering none. */}
-          {total > 0 ? (
-            <PrimaryButton
-              tone="cta"
-              size={56}
-              style={{ flex: 1 }}
-              label="View ingredients"
-              onPress={() => router.push({ pathname: "/ingredients/[id]", params: { id: product.id } })}
-            />
-          ) : canPhotographLabelFor(product.barcode) ? (
+          {canPhotographLabelFor(product.barcode) ? (
             <PrimaryButton
               tone="cta"
               size={56}
@@ -771,26 +742,11 @@ export default function ProductScreen() {
             />
           ) : null}
 
-          <Pressable
-            onPress={() => toggleSaved(product.id, product.fetchedAt)}
-            accessibilityRole="button"
-            accessibilityLabel={saved ? "Remove from saved" : "Save"}
-            accessibilityState={{ selected: saved }}
-            style={{
-              height: 56,
-              width: 56,
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 28,
-              borderWidth: saved ? 0 : 1,
-              borderColor: BORDER_INACTIVE,
-              backgroundColor: saved ? SELECTED_STRONG : CANVAS,
-            }}
-          >
-            <HeartIcon size={20} filled={saved} />
-          </Pressable>
         </View>
       </View>
+      ) : total > 0 ? (
+        <IngredientsSheet product={product} match={match} />
+      ) : null}
     </View>
   );
 }

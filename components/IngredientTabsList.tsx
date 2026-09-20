@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
@@ -10,7 +10,7 @@ import type { Ingredient } from "@/data/types";
 import { isVerified } from "@/lib/safety";
 import { ruleFor, RUNG_META, rungFor, type Contraindication, type MatchResult, type Rung } from "@/lib/matching";
 import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
-import { BORDER_INACTIVE, CANVAS, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, MUTED_SOFT, RADIUS_SELECTOR, SELECTED, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG_META's good/watch/avoid
 // colors are semantic (the per-ingredient verdict, the whole point of this
@@ -132,7 +132,7 @@ export function IngredientTabsList({
   );
 }
 
-function IngredientListRow({
+export function IngredientListRow({
   ingredient,
   rung,
   warning,
@@ -222,15 +222,7 @@ function IngredientListRow({
         <Text className={`text-[11px] font-medium ${meta.ink}`}>{meta.label}</Text>
       </View>
 
-      <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" style={{ marginTop: 5 }}>
-        <Path
-          d="m9 5 7 7-7 7"
-          stroke={MUTED_SOFT}
-          strokeWidth={2.2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </Svg>
+      <ArrowIcon size={16} color={INK} style={{ marginTop: 3 }} />
     </Pressable>
   );
 }
