@@ -26,6 +26,13 @@ import { CTA, INK } from "@/lib/tokens";
  */
 type ButtonSize = 50 | 52 | 56;
 
+/**
+ * Playfair Display sits low in its line box, so a label centred by its box looks
+ * about 2dp too low in the pill. The label carries twice this as bottom padding,
+ * which lifts it by this much.
+ */
+const LABEL_LIFT = 2;
+
 type Props = {
   label: string;
   onPress: () => void;
@@ -111,7 +118,7 @@ export function PrimaryButton({
       {icon}
       <Text
         className={isCta ? "" : `text-[15.5px] font-semibold ${ink}`}
-        style={isCta ? { fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, color: disabled ? undefined : INK } : undefined}
+        style={isCta ? { fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, paddingBottom: LABEL_LIFT * 2, color: disabled ? undefined : INK } : undefined}
         numberOfLines={1}
       >
         {label}
