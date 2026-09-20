@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useScrollToTop } from "expo-router";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
+import { PressableCard } from "@/components/PressableCard";
 import { useCallback, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -79,13 +80,14 @@ export default function Profile() {
               ))}
             </View>
           ) : (
-            <Text style={{ fontSize: 13, color: MUTED, textAlign: "center" }}>
+            // Tucked up under the title, centred as a block of its own.
+            <Text style={{ alignSelf: "center", maxWidth: 280, marginTop: -10, fontSize: 13, lineHeight: 19, color: MUTED, textAlign: "center" }}>
               Answer a few questions and every score will be made for your skin.
             </Text>
           )}
         </View>
 
-        <View style={{ borderTopWidth: 1, borderTopColor: BORDER_INACTIVE }}>
+        <View style={{ paddingHorizontal: 20, gap: 14 }}>
           <MenuRow icon="water-outline" label="Skin profile" onPress={() => router.push("/skin-profile")} />
           <MenuRow icon="chatbubble-ellipses-outline" label="Support" onPress={() => router.push("/support")} />
           <MenuRow icon="shield-checkmark-outline" label="Privacy policy" onPress={() => router.push("/privacy")} />
@@ -148,24 +150,15 @@ function MenuRow({
 }) {
   const color = danger ? DANGER : INK;
   return (
-    <Pressable
+    <PressableCard
       onPress={onPress}
-      accessibilityRole="button"
       accessibilityLabel={label}
-      className="active:opacity-70"
-      style={{
-        minHeight: 68,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 16,
-        paddingHorizontal: 24,
-        borderBottomWidth: 1,
-        borderBottomColor: BORDER_INACTIVE,
-      }}
+      backgroundColor={SURFACE}
+      style={{ minHeight: 64, flexDirection: "row", alignItems: "center", gap: 16, paddingHorizontal: 20 }}
     >
       <Ionicons name={icon} size={22} color={danger ? DANGER : MUTED} />
       <Text style={{ flex: 1, fontSize: 16, fontWeight: "500", color }}>{label}</Text>
       <ArrowIcon kind="arrow" size={20} color={danger ? DANGER : MUTED_SOFT} />
-    </Pressable>
+    </PressableCard>
   );
 }
