@@ -176,6 +176,10 @@ export function IngredientsSheet({
             {/* Resting: the first few. */}
             <Animated.View
               pointerEvents={expanded ? "none" : "auto"}
+              // Opacity does not take a view out of the accessibility tree: the layer that is
+              // not showing is hidden from screen readers, as the profile avatar's is.
+              accessibilityElementsHidden={expanded}
+              importantForAccessibility={expanded ? "no-hide-descendants" : "auto"}
               style={[StyleSheet.absoluteFill, { opacity: progress.interpolate({ inputRange: [0, 0.5], outputRange: [1, 0], extrapolate: "clamp" }) }]}
             >
               {product.ingredients.slice(0, PEEK_ROWS).map((ingredient) => (
@@ -192,6 +196,8 @@ export function IngredientsSheet({
             {/* Open: all of them, with the tabs. */}
             <Animated.View
               pointerEvents={expanded ? "auto" : "none"}
+              accessibilityElementsHidden={!expanded}
+              importantForAccessibility={expanded ? "auto" : "no-hide-descendants"}
               style={[
                 StyleSheet.absoluteFill,
                 { paddingBottom: insets.bottom, opacity: progress.interpolate({ inputRange: [0.5, 1], outputRange: [0, 1], extrapolate: "clamp" }) },

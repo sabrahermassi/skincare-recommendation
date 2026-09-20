@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
-import { Link, router, useScrollToTop } from "expo-router";
+import { Link, router, useFocusEffect, useScrollToTop } from "expo-router";
 import type { ReactNode, RefObject } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -93,6 +93,11 @@ export default function Saved() {
   // confirming — same reasoning as profile.tsx's own reset, done at the tap
   // that causes it rather than in an effect reacting to it after the fact.
   const [confirmingClear, setConfirmingClear] = useState(false);
+  // The tab stays mounted while another one is showing, so an armed "Clear it" would
+  // still be waiting when the person came back. Leaving the screen disarms all three.
+  useFocusEffect(
+    useCallback(() => () => setConfirmingClear(false), [])
+  );
 
   // Newest first in both lists. `history` is already ordered by the store.
   const savedIds = useMemo(

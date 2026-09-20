@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Linking, ScrollView, View } from "react-native";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -30,6 +31,8 @@ const HELP: { title: string; body: string }[] = [
 
 /** Support — answers to the questions people actually have, and a way to write to us. */
 export default function Support() {
+  // `Linking.openURL` rejects when the phone has no mail app set up to take a mailto link.
+  const [mailFailed, setMailFailed] = useState(false);
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader title="Support" />
@@ -44,7 +47,21 @@ export default function Support() {
         {SUPPORT_EMAIL ? (
           <View style={{ gap: 10, paddingTop: 6 }}>
             <Text style={{ fontSize: 13.5, lineHeight: 20, color: MUTED }}>Still stuck? Write to us.</Text>
-            <PrimaryButton tone="cta" size={52} label="Email support" onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)} />
+            <PrimaryButton
+              tone="cta"
+              size={52}
+              label="Email support"
+              onPress={() => {
+                Linking.openURL(`mailto:${SUPPORT_EMAIL}`)
+                  .then(() => setMailFailed(false))
+                  .catch(() => setMailFailed(true));
+              }}
+            />
+            {mailFailed ? (
+              <Text style={{ fontSize: 13.5, lineHeight: 20, color: MUTED }}>
+                {`We couldn't open a mail app on this phone. You can write to ${SUPPORT_EMAIL} instead.`}
+              </Text>
+            ) : null}
           </View>
         ) : null}
 

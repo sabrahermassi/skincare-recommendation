@@ -33,7 +33,9 @@ export function GenieShell({ children, ref }: { children: ReactNode; ref?: Ref<G
   // 0 = folded into the button, 1 = full screen. Starts full so nothing is
   // hidden on a cold start; a button press sets it to 0 before opening.
   const [progress] = useState(() => new Animated.Value(1));
-  const reduceMotion = useRef(false);
+  // null until the setting has been read, so the first open can wait for the answer
+  // instead of playing the full animation for someone who has Reduce Motion on.
+  const reduceMotion = useRef<boolean | null>(null);
   // Built once. Written inline they were new animated nodes on every render of
   // the scanner, and the native animation graph was rebuilt each time.
   const [fx] = useState(() => ({
@@ -63,12 +65,32 @@ export function GenieShell({ children, ref }: { children: ReactNode; ref?: Ref<G
       }
       genie.opening = false;
       progress.setValue(0);
-      Animated.timing(progress, {
-        toValue: 1,
-        duration: reduceMotion.current ? 0 : OPEN_MS,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver,
-      }).start();
+      let cancelled = false;
+      const open = () => {
+        if (cancelled) return;
+        Animated.timing(progress, {
+          toValue: 1,
+          duration: reduceMotion.current ? 0 : OPEN_MS,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver,
+        }).start();
+      };
+      if (reduceMotion.current === null) {
+        // First open: the read above has not landed yet. Ask again and open when it has.
+        AccessibilityInfo.isReduceMotionEnabled()
+          .then((enabled) => {
+            reduceMotion.current = enabled;
+          })
+          .catch(() => {
+            reduceMotion.current = false;
+          })
+          .then(open);
+      } else {
+        open();
+      }
+      return () => {
+        cancelled = true;
+      };
     }, [progress, useNativeDriver]),
   );
 

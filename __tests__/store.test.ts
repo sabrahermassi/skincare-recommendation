@@ -10,10 +10,12 @@ import {
   EMPTY_PROFILE,
   formeStorage,
   HISTORY_LIMIT,
+  MAX_CONCERNS,
   migratePersisted,
   PERSISTED_KEYS,
   partializeState,
   useAppStore,
+  visibleConcernCount,
 } from "@/store/useAppStore";
 
 const initial = useAppStore.getState();
@@ -32,6 +34,23 @@ beforeEach(() => {
 });
 
 const s = () => useAppStore.getState();
+
+/**
+ * The profile editor counts concerns the way the store does. A profile from before
+ * `atopic` was dropped from the pickers still carries it, and it must not use up a slot
+ * the person cannot see: with `atopic` and two visible concerns they can still add a third.
+ */
+describe("visibleConcernCount", () => {
+  it("does not count a concern the pickers no longer offer", () => {
+    expect(visibleConcernCount(["atopic", "acne-prone", "redness"])).toBe(2);
+    expect(visibleConcernCount(["atopic", "acne-prone", "redness"])).toBeLessThan(MAX_CONCERNS);
+  });
+
+  it("counts every offered concern", () => {
+    expect(visibleConcernCount([])).toBe(0);
+    expect(visibleConcernCount(["acne-prone", "redness", "dullness"])).toBe(MAX_CONCERNS);
+  });
+});
 
 describe("onboarding gate", () => {
   it("starts closed so first run sees onboarding", () => {
