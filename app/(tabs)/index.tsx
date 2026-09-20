@@ -33,6 +33,22 @@ const SHELF_BLEED_BELOW = 0.02;
 // No spacing token is that large, so it is named here rather than typed inline.
 const SHELF_DROP = 41;
 
+// The handwriting on top of the screen, cut from design-watercolor/text.png. The
+// signature is recoloured to the app's terracotta (the same colour as the camera
+// button); the heart is design-watercolor/heart.png.
+const GREETING_ART = require("@/assets/illustrations/home-greeting.png");
+const GREETING_ASPECT = 640 / 206;
+const GREETING_WIDTH = 172;
+const SIGNATURE_ART = require("@/assets/illustrations/home-signature.png");
+const SIGNATURE_ASPECT = 520 / 449;
+const SIGNATURE_WIDTH = 128;
+const HEART_ART = require("@/assets/illustrations/home-heart.png");
+const HEART_ASPECT = 240 / 214;
+const HEART_WIDTH = 24;
+// Where the heart sits inside the signature: under "happier", right of "you".
+const HEART_LEFT = 96;
+const HEART_TOP = 64;
+
 /**
  * Home — the first screen after the skin quiz.
  *
@@ -98,7 +114,14 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ paddingHorizontal: HEADER_GUTTER, paddingTop: 28, gap: 22 }}>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 30, lineHeight: 36, color: INK }}>Hi, there!</Text>
+          {/* The greeting, in handwriting. The signature is not here: it floats above
+              the screen (below), so it takes no room from the cards. */}
+          <Image
+            source={GREETING_ART}
+            contentFit="contain"
+            accessibilityLabel="Hi there!"
+            style={{ width: GREETING_WIDTH, aspectRatio: GREETING_ASPECT }}
+          />
 
           {/* The skin profile, each answer in its own chip. Only shown here: it is
               edited under Profile. */}
@@ -178,6 +201,37 @@ export default function Home() {
             />
           </Pressable>
           </Animated.View>
+
+          {/* The signature: a floating layer, not part of the column, so it takes no
+              space and can cross the top edge of the skin profile card. Last in the
+              column so it is drawn on top, and inside the scroll so it moves with
+              the cards; it ignores touches so the card under it stays tappable. */}
+          <View
+            pointerEvents="none"
+            accessible
+            accessibilityLabel="Skincare for a happier you"
+            style={{
+              position: "absolute",
+              top: 14,
+              right: HEADER_GUTTER - 4,
+              width: SIGNATURE_WIDTH,
+              zIndex: 10,
+              elevation: 10,
+            }}
+          >
+            <Image
+              source={SIGNATURE_ART}
+              contentFit="contain"
+              accessibilityLabel=""
+              style={{ width: SIGNATURE_WIDTH, aspectRatio: SIGNATURE_ASPECT }}
+            />
+            <Image
+              source={HEART_ART}
+              contentFit="contain"
+              accessibilityLabel=""
+              style={{ position: "absolute", left: HEART_LEFT, top: HEART_TOP, width: HEART_WIDTH, aspectRatio: HEART_ASPECT }}
+            />
+          </View>
         </View>
       </ScrollView>
     </View>

@@ -26,6 +26,9 @@ import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAp
 
 type Tab = SavedTab;
 
+// design-watercolor/saved screen background.png, brought down to 1170px wide.
+const BACKGROUND_ART = require("@/assets/illustrations/saved-background.jpg");
+
 /**
  * The shelf and the log, on one screen.
  *
@@ -184,7 +187,16 @@ export default function Saved() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <View style={{ backgroundColor: CANVAS, paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 10 }}>
+      {/* The watercolor behind all three tabs (Saved, History, Ingredients). Fills
+          the screen and cover-crops to it; decorative, so it takes no touches. */}
+      <Image
+        source={BACKGROUND_ART}
+        contentFit="cover"
+        pointerEvents="none"
+        accessibilityLabel=""
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 10 }}>
         <Text style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>
           Saved
         </Text>
