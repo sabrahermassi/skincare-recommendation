@@ -1,26 +1,40 @@
--- A product must have a name, a barcode and an ingredient list, or it is not
--- written at all.
+-- Let a caller say "this formula differs only because the parser got better."
 --
--- The catalogue had grown three kinds of half-product: a barcode and a name
--- with no ingredients (the generic barcode database's `barcode_db` rows), a
--- formula with no barcode (label photos on a 24-hour grace timer, and the
--- DailyMed import), and both of those together. None of them can answer a scan
--- with a verdict, so none of them is worth storing. The refusal lives in the
--- function every writer goes through, so no source can bring one back.
+-- Migration 0019 made `replace_product_with_ingredients` stamp
+-- `formula_changed_at` whenever the list it is handed differs from the stored
+-- one, and the product screen turns that stamp into a "reformulated" notice for
+-- everyone who saved the product. That is right when the label changed and wrong
+-- when only the parser did: the ingredient-list parser (issue #101) now reads
+-- names the old one stored as junk ("ingredients: aqua"), so re-importing an
+-- unchanged product would write a different list and tell its savers their
+-- moisturiser was reformulated.
 --
--- With nothing barcode-less left to resolve, the capability table behind the
--- "scan the barcode too?" follow-up (0015) has no purpose and goes.
+-- The database cannot tell the two apart — it never sees the label text — so the
+-- caller says so. `p_parser_refresh` = true suppresses the automatic stamp for
+-- this write and nothing else: a caller that also passes an explicit
+-- `p_formula_changed_at` still gets it, and the stored stamp is never cleared.
+-- The default is false, so every existing caller — including the two Edge
+-- Functions, which only ever write a new or formula-less product — behaves
+-- exactly as under 0020.
 --
--- Deleting the existing incomplete rows is scripts/prune-incomplete-products.mjs,
--- run by hand after reading its dry run; this migration only stops new ones.
+-- A new parameter changes the signature, so this is a drop and recreate (as in
+-- 0018), inside one migration's transaction. The grants are restated for the new
+-- signature: a function recreated without them would be executable by anon over
+-- PostgREST (docs/threat-model.md §1).
+drop function replace_product_with_ingredients(jsonb, jsonb, text, timestamptz);
 
-drop table if exists scan_tokens;
-
-create or replace function replace_product_with_ingredients(
+create function replace_product_with_ingredients(
   p_product     jsonb,
+  -- [{ "inci_name": text, "position": int }, ...] — already deduped by the
+  -- caller, so positions are unique.
   p_ingredients jsonb,
+  -- The note stored on a stub row. Differs per caller.
   p_stub_note   text,
-  p_formula_changed_at timestamptz default null
+  -- Explicit override; wins over auto-detection. See migration 0018.
+  p_formula_changed_at timestamptz default null,
+  -- True when the new list differs from the stored one only because the parser
+  -- improved. Suppresses auto-detection for this write.
+  p_parser_refresh boolean default false
 )
 returns void
 language plpgsql
@@ -38,20 +52,6 @@ begin
     raise exception 'p_product must carry an id';
   end if;
 
-  -- A product exists only when it is complete: a name, a barcode and at least
-  -- one ingredient. Half a product (a barcode with no formula, a formula with
-  -- no barcode) cannot be found or judged by anyone, so it is refused here,
-  -- whichever source is writing.
-  if coalesce(btrim(p_product ->> 'name'), '') = '' then
-    raise exception 'a product needs a name';
-  end if;
-  if coalesce(btrim(p_product ->> 'barcode'), '') = '' then
-    raise exception 'a product needs a barcode';
-  end if;
-  if p_ingredients is null or jsonb_typeof(p_ingredients) <> 'array' or jsonb_array_length(p_ingredients) = 0 then
-    raise exception 'a product needs an ingredient list';
-  end if;
-
   select exists(select 1 from products where id = v_id) into v_product_existed;
 
   select array_agg(inci_name order by position) into v_old_formula
@@ -61,7 +61,9 @@ begin
     from jsonb_to_recordset(p_ingredients) as i(inci_name text, position smallint);
 
   v_detected_changed_at := case
-    when v_product_existed and v_old_formula is distinct from v_new_formula
+    when not coalesce(p_parser_refresh, false)
+         and v_product_existed
+         and v_old_formula is distinct from v_new_formula
       then now()
     else null
   end;
@@ -105,3 +107,8 @@ begin
     from jsonb_to_recordset(p_ingredients) as i(inci_name text, position smallint);
 end;
 $$;
+
+revoke all on function replace_product_with_ingredients(jsonb, jsonb, text, timestamptz, boolean)
+  from public, anon, authenticated;
+grant execute on function replace_product_with_ingredients(jsonb, jsonb, text, timestamptz, boolean)
+  to service_role;

@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -17,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Rect } from "react-native-svg";
 
+import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
 import { GenieShell, type GenieShellHandle } from "@/components/GenieShell";
 import { LabelCamera } from "@/components/LabelCamera";
 import { ScanIntro } from "@/components/ScanIntro";
@@ -29,6 +31,7 @@ import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
+import { createStaleGuard } from "@/lib/stale-guard";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
 import { BUTTON_SHADOW, CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
@@ -192,6 +195,9 @@ export default function Scan() {
   // genuine tab switch) resets to Barcode, which is the default this effect
   // falls back to when nothing has told it otherwise.
   const skipResetOnNextFocus = useRef(false);
+  // A lookup that is still pending when the scanner is left, or when a newer barcode is
+  // read, must not put its answer back on screen: see `handleBarcode`.
+  const lookups = useRef(createStaleGuard());
   const preserveMode = useCallback(() => {
     skipResetOnNextFocus.current = true;
   }, []);
@@ -204,6 +210,7 @@ export default function Scan() {
         setMode("Barcode");
       }
       return () => {
+        lookups.current.invalidate();
         setStatus({ kind: "idle" });
         busy.current = false;
       };
@@ -216,10 +223,18 @@ export default function Scan() {
   // fails the bundler outright: "expo-router is no longer compatible with
   // react-navigation").
   const [isFocused, setIsFocused] = useState(true);
+  // The same fact as a ref, for callbacks that outlive a render: a label read can
+  // finish after the X was pressed, and must not pull the user back into the scan
+  // flow from whatever tab they have moved to.
+  const focusedRef = useRef(true);
   useFocusEffect(
     useCallback(() => {
+      focusedRef.current = true;
       setIsFocused(true);
-      return () => setIsFocused(false);
+      return () => {
+        focusedRef.current = false;
+        setIsFocused(false);
+      };
     }, [])
   );
 
@@ -250,7 +265,11 @@ export default function Scan() {
         return;
       }
 
+      const lookup = lookups.current.begin();
       const result = await fetchProductByBarcode(data);
+      // Left the scanner (or read a newer barcode) while this was pending: the answer is
+      // stale, and putting it up would show an old product, or overwrite a newer scan.
+      if (!lookups.current.isCurrent(lookup)) return;
 
       // Could not ask. Not a miss — and crucially not written to history,
       // because an outage-caused "miss" is a false record the user has no way
@@ -329,6 +348,7 @@ export default function Scan() {
         windowBox={windowBox}
         barcode={status.kind === "missed" && canPhotographLabelFor(status.code) ? status.code : undefined}
         preserveMode={preserveMode}
+        focusedRef={focusedRef}
       />
     );
 
@@ -344,6 +364,10 @@ export default function Scan() {
           paddingTop: needsPermission ? insets.top : 0,
         }}
       >
+        {/* The root layout keeps dark icons for the cream screens; the camera stage is
+            black, so they are light here — but only while this tab is showing, and not on
+            the cream permission screen. */}
+        {isFocused && !needsPermission ? <StatusBar style="light" /> : null}
         {cameraLive ? (
           <ScannerCamera cameraRef={cameraRef} onScanned={onScanned} onLayout={onCameraLayout} />
         ) : null}
@@ -929,12 +953,15 @@ function CameraPermissionIntro({
   title,
   body,
   bottomInset,
+  extra,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
   requestPermission: () => void;
   title: string;
   body: string;
   bottomInset: number;
+  /** An alternative offered under the button when there is one (Photo mode's "choose a photo"). */
+  extra?: ReactNode;
 }) {
   const blocked = permission?.canAskAgain === false;
   return (
@@ -946,10 +973,11 @@ function CameraPermissionIntro({
           ? "Turn the camera back on for this app in your device settings, then come back."
           : body
       }
-      actionLabel={blocked ? "Open settings" : "Open camera"}
+      actionLabel={blocked ? "Grant permission" : "Open camera"}
       onAction={blocked ? () => void Linking.openSettings() : requestPermission}
       bottomInset={bottomInset}
     >
+      {extra}
       {/* This fires at the worst moment — camera access just failed — so the one
           sentence offering a way forward has to actually be the way forward:
           underlined, standard target height, and it goes to Browse rather than
@@ -982,6 +1010,7 @@ function IngredientsStage({
   windowBox,
   barcode,
   preserveMode,
+  focusedRef,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
   requestPermission: () => void;
@@ -991,10 +1020,20 @@ function IngredientsStage({
   barcode?: string;
   /** Call before any navigation away from this stage that isn't a tab switch. */
   preserveMode: () => void;
+  /** True while the scanner is the focused screen; a read that finishes after it is left is dropped. */
+  focusedRef: React.RefObject<boolean>;
 }) {
   const insets = useSafeAreaInsets();
   const needsPermission = permission !== null && !permission.granted;
   const clearance = Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
+  // Where a finished read goes, whether it came from the camera or a chosen photo:
+  // name the product, then save it with the barcode.
+  const openAddProduct = () => {
+    // The X (or a tab switch) can land while a read is still pending.
+    if (!focusedRef.current) return;
+    preserveMode();
+    router.push({ pathname: "/add-product", params: barcode ? { barcode } : {} });
+  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -1006,10 +1045,7 @@ function IngredientsStage({
           barcode={barcode}
           frameTopOffset={CLOSE_CLEARANCE}
           bottomInset={clearance}
-          onRead={() => {
-            preserveMode();
-            router.push({ pathname: "/add-product", params: barcode ? { barcode } : {} });
-          }}
+          onRead={openAddProduct}
         />
       ) : null}
 
@@ -1020,6 +1056,7 @@ function IngredientsStage({
           title="Photograph the ingredient list"
           body="Take a photo of the list on the back and we'll read it. We crop to the frame, send it to Google to read the text, and never store the image."
           bottomInset={clearance}
+          extra={<ChoosePhotoInstead barcode={barcode} onRead={openAddProduct} />}
         />
       ) : null}
     </View>

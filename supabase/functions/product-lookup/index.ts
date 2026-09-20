@@ -14,6 +14,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { guessTypeFromIngredients } from "../_shared/guess-type-from-ingredients.ts";
+import { isParserOnlyChange } from "../_shared/parser-refresh.ts";
 import { guessType } from "../_shared/product-type-classifier.mjs";
 import {
   json,
@@ -283,10 +284,22 @@ async function persist(fetched: Fetched) {
   // Ingredients we've never seen are stored unrated rather than guessed at. A
   // fabricated comedogenic rating would be indistinguishable from a measured
   // one, which is the one mistake this table must not make.
+  //
+  // A third-party row that expired is written again under the same id, and its
+  // formula can differ from the stored one only because the parser improved. That
+  // is not a reformulation, so it must not stamp `formula_changed_at` (migration
+  // 0021). Only sent when true, so a write that never needs it works before 0021
+  // is applied. If the stored formula cannot be read, fall back to no flag.
+  const { data: stored } = await db
+    .from("product_ingredients")
+    .select("inci_name, position")
+    .eq("product_id", id);
+  const parserRefresh = isParserOnlyChange(stored ?? [], ingredients, parseInci);
   const { error } = await db.rpc("replace_product_with_ingredients", {
     p_product: product,
     p_ingredients: ingredients,
     p_stub_note: "No published rating for this ingredient yet.",
+    ...(parserRefresh ? { p_parser_refresh: true } : {}),
   });
   if (error) throw new PersistError(`replace_product_with_ingredients: ${error.message}`);
 
@@ -303,6 +316,36 @@ async function persist(fetched: Fetched) {
 // ── Parsing helpers ─────────────────────────────────────────────────────────
 
 /**
+ * Whether a parsed fragment can be an ingredient name at all.
+ *
+ * The last line of defence for text that reached the name filter without a
+ * heading to strip: a label section ("package labeling: label.jpg"), a file
+ * name from a mis-scanned photo, or a paragraph of marketing copy. None of
+ * those is a name, and a stub written for one sits in the shared dictionary
+ * until somebody deletes it by hand.
+ *
+ * A colon between two digits is kept — "ci 77268:1" and "pigment red 57:1" are
+ * real colour-index names. Any other colon is a heading that leaked into the
+ * name. Eight words clears every name a label is likely to print and stays
+ * below the sentences found in the dictionary; a few dictionary entries run
+ * longer (fermented extracts naming dozens of species), but a caller that
+ * holds the dictionary checks it first, so a known long name never reaches this,
+ * and one that does not passes `allowLong`, which skips the word limit and nothing else. An HTML entity ("&lt;") or a run of seven digits
+ * (a barcode, a batch number) is packaging text that OCR or a paste carried in,
+ * as is a web address or e-mail, and a fragment that opens with the word
+ * "ingredients" is a footnote about the list, not a member of it.
+ */
+export function isPlausibleIngredientName(name: string, allowLong = false): boolean {
+  if (/[:：]/.test(name.replace(/\d[:：]\d/g, ""))) return false;
+  if (/\.(?:jpe?g|png|gif|webp|pdf)\b/i.test(name)) return false;
+  if (/&(?:lt|gt|amp|quot|nbsp|#\d+)\b|[<>]/i.test(name)) return false;
+  if (/\d{7,}/.test(name)) return false;
+  if (/\bwww\.|https?:|@|\.(?:com|net|org)\b/i.test(name)) return false;
+  if (/^ingr[eé]dients?\b/i.test(name)) return false;
+  return allowLong || name.split(/\s+/).length <= 8;
+}
+
+/**
  * INCI lists are comma-separated, but real labels are messy: bracketed
  * qualifiers, asterisks for organic, trailing percentages. This keeps the
  * order (which is regulated information) and drops the decoration.
@@ -314,7 +357,8 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
   // was stored with "ingredients water" as its first entry, so the app could
   // not say what water was. `lib/inci.ts` has always stripped this; the two
   // parsers simply disagreed.
-  const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?ingredients?\s*[:：]\s*/i, "");
+  const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*/i, "")
+    .replace(/\b(?:inactive ingredients?|may contain|peu(?:t|vent) contenir|puede contener|kann enthalten)\s*[:：]?\s*/gi, ", ");
 
   // ...and truncate at whatever shares the back of the label. Legal
   // boilerplate and net-quantity marks reliably follow the formula, and
@@ -324,17 +368,34 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
   // in the ingredient fallback, for two) can match. `lib/inci.ts` and
   // `import-obf.mjs` have always done this; this parser simply never did.
   const stop =
-    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b)/i
+    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b|\bstorage\b)/i
       .exec(withoutHeading);
   const block = stop ? withoutHeading.slice(0, stop.index) : withoutHeading;
 
-  const parsed = block
+  // A full stop inside brackets ("(Vit. E)") is part of the qualifier, not the
+  // end of a name: without this, "Tocopheryl Acetate (Vit. E)" split into
+  // "tocopheryl acetate (vit" and "e)". Same guard as `lib/inci.ts`; the
+  // stand-in is written as an escape so it survives editors that hide
+  // private-use characters.
+  const bracketGuarded = block.replace(/\([^)]*\)/g, (group) => group.replace(/\./g, "\uE001"));
+  // An abbreviation's own full stop is not a separator either: "Vit. E", or a genus
+  // abbreviated at the start of an item ("C. Sinensis Leaf Extract"). Same rule as
+  // `lib/inci.ts`.
+  const guarded = bracketGuarded.replace(
+    /(^|[;,.]\s*)[A-Za-z]\.(?=\s)|\b(?:vit|spp|sp|var|ssp|subsp)\.(?=\s)/gi,
+    (stop) => stop.replace(/\.$/, "\uE001")
+  );
+
+  const parsed = guarded
     // A comma directly between two digits belongs to the name —
     // "1,2-Hexanediol" is one ingredient, and splitting there yields a bare
     // "1" and an orphaned "2-hexanediol". Kept in step with `lib/inci.ts`.
-    .split(/[;]|,(?!\d)/)
-    .map((part) => normalise(part))
-    .filter((part) => part.length > 1 && part.length < 120);
+    .split(/[;]|,(?!\d)|\.(?=\s)/)
+    .map((part) => normalise(part.replace(/\uE001/g, ".")))
+    // No dictionary here, so a long real name (a fermented extract naming a dozen
+    // species) cannot be recognised as known: it is exempt from the word limit only,
+    // and every other check still reads the whole name.
+    .filter((part) => part.length > 1 && part.length < 120 && isPlausibleIngredientName(part, true));
 
   return dedupe(parsed);
 }

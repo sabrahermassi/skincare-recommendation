@@ -46,7 +46,7 @@ export type HistoryEntry = {
   warningsAtView: number;
 };
 
-const MAX_CONCERNS = 3;
+export const MAX_CONCERNS = 3;
 
 // "Eczema-prone" was dropped from the quiz's own concerns screen — it isn't
 // offered as an option there any more, though `atopic`'s scoring rules stay
@@ -60,7 +60,7 @@ const MAX_CONCERNS = 3;
 // from each other across the store/screen boundary.
 const CAP_EXCLUDED_CONCERNS = new Set<Concern>(["atopic"]);
 
-function visibleConcernCount(concerns: Concern[]): number {
+export function visibleConcernCount(concerns: Concern[]): number {
   return concerns.filter((c) => !CAP_EXCLUDED_CONCERNS.has(c)).length;
 }
 
@@ -215,7 +215,7 @@ export function partializeState(state: AppState): PersistedState {
 }
 
 /** First-run values. Exported so `resetApp` and the tests share one source. */
-export const INITIAL_STATE = {
+const INITIAL_STATE = {
   profile: EMPTY_PROFILE,
   hasSeenOnboarding: false,
   justFinishedQuiz: false,

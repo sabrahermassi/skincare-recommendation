@@ -96,7 +96,7 @@ const CONTAINER_BY_TYPE: Record<ProductType, string> = {
  * checks it directly rather than assuming that, so it does the right thing
  * the day that flag flips.)
  */
-export function productIllustration(product: {
+function productIllustration(product: {
   id: string;
   type: ProductType;
   imageUrl?: string | null;

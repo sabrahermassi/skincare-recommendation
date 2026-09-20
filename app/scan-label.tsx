@@ -1,4 +1,5 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useRef } from "react";
 
 import { LabelCamera } from "@/components/LabelCamera";
 
@@ -11,6 +12,17 @@ import { LabelCamera } from "@/components/LabelCamera";
  */
 export default function ScanLabel() {
   const { barcode } = useLocalSearchParams<{ barcode?: string }>();
+  // False once this screen is closed (the X, hardware Back) or covered: a read that was
+  // pending then must not `replace` whatever screen is showing with its result.
+  const active = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      active.current = true;
+      return () => {
+        active.current = false;
+      };
+    }, [])
+  );
 
   return (
     <LabelCamera
@@ -18,7 +30,10 @@ export default function ScanLabel() {
       onClose={() => router.back()}
       // replace, not push: reading is finished either way, so this screen has no
       // business staying on the back stack under the next one.
-      onRead={() => router.replace({ pathname: "/add-product", params: barcode ? { barcode } : {} })}
+      onRead={() => {
+        if (!active.current) return;
+        router.replace({ pathname: "/add-product", params: barcode ? { barcode } : {} });
+      }}
     />
   );
 }

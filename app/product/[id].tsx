@@ -490,7 +490,7 @@ export default function ProductScreen() {
         >
         <Pressable
           disabled={!needsProfile}
-          onPress={() => router.push("/skin-profile")}
+          onPress={() => router.push({ pathname: "/skin-profile", params: { returnTo: "product" } })}
           accessibilityRole={needsProfile ? "button" : undefined}
           accessibilityLabel={needsProfile ? "Open your skin profile to get your score" : undefined}
           className="flex-row items-center"

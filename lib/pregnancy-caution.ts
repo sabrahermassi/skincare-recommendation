@@ -28,7 +28,7 @@ type PregnancyCautionEntry = {
   reason: string;
 };
 
-export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
+const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
   {
     names: [
       "retinol",

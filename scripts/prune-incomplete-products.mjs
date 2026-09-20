@@ -5,7 +5,7 @@
  * judged (ingredients). The catalogue had accumulated the other kinds: a
  * barcode and name with no ingredients (`barcode_db`), and a formula with no
  * barcode (label photos on their grace timer, and the DailyMed import). This
- * removes them, and migration 0021 stops new ones being written.
+ * removes them, and migration 0022 stops new ones being written.
  *
  * Reads and prints first; nothing is deleted unless `--apply` is passed. The
  * dry run lists what would go, by source and reason, so it can be read before

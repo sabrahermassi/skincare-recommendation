@@ -36,6 +36,17 @@ const SHARED_FUNCTIONS = [
   "fuzzyLookup",
   "matchWindow",
   "reconstructFromDictionary",
+  "isPlausibleIngredientName",
+  "findListByDictionary",
+  "squashKey",
+  "squashIndex",
+  "lengthIndex",
+  "commonNameFor",
+  "resolveKnownName",
+  "splitSlashList",
+  "splitRunTogether",
+  "fuzzyKnownName",
+  "salvageKnownNames",
   "parseIngredientBlock",
   "dedupe",
 ];
@@ -77,9 +88,39 @@ function extractFunctionBody(source: string, name: string): string {
     .join("\n");
 }
 
+/**
+ * The common-name table sits at module level rather than inside
+ * `commonNameFor` (so it is built once, not on every call), which takes it out
+ * of the function body compared above. It is compared here instead: from its
+ * declaration to the closing `]);`.
+ */
+function extractTable(source: string, opener: string, closer: string): string {
+  const text = source.replace(/\r\n/g, "\n");
+  const start = text.indexOf(opener);
+  if (start === -1) throw new Error(`${opener} not found`);
+  const end = text.indexOf(closer, start);
+  if (end === -1) throw new Error(`${opener} is not closed`);
+  return text.slice(start, end + closer.length);
+}
+
+const extractCommonNames = (source: string) => extractTable(source, "const COMMON_NAMES = new Map([", "\n]);");
+const extractSynonymGroups = (source: string) => extractTable(source, "const SYNONYM_GROUPS = [", "\n];");
+
 describe("label-ocr's parser stays in step with lib/inci.ts", () => {
   const client = fs.readFileSync(CLIENT_PATH, "utf8");
   const edge = fs.readFileSync(EDGE_PATH, "utf8");
+
+  it("COMMON_NAMES is identical in the client, label-ocr and the import scripts", () => {
+    const table = extractCommonNames(client);
+    expect(extractCommonNames(edge)).toBe(table);
+    expect(extractCommonNames(fs.readFileSync(path.join(__dirname, "..", "scripts", "lib", "inci-parse.mjs"), "utf8"))).toBe(table);
+  });
+
+  it("SYNONYM_GROUPS is identical in the client, label-ocr and the import scripts", () => {
+    const groups = extractSynonymGroups(client);
+    expect(extractSynonymGroups(edge)).toBe(groups);
+    expect(extractSynonymGroups(fs.readFileSync(path.join(__dirname, "..", "scripts", "lib", "inci-parse.mjs"), "utf8"))).toBe(groups);
+  });
 
   it.each(SHARED_FUNCTIONS)("%s is identical in both copies", (name: string) => {
     const clientBody = extractFunctionBody(client, name);
@@ -105,7 +146,6 @@ describe("label-ocr's parser stays in step with lib/inci.ts", () => {
  * instead is the two regexes it lifted, which is where the drift actually was.
  */
 const IMPORTER_PATHS = [
-  "import-obf.mjs",
   "import-cosing.mjs",
   "import-inci-dictionary.mjs",
   "import-wikidata-synonyms.mjs",
@@ -148,6 +188,16 @@ function extractRegexLiteral(source: string, marker: string): string {
 function stripTypes(body: string): string {
   return body
     .replace(/: ParsedIngredient\[\]/g, "")
+    .replace(/\?: ReadonlyMap<string, string>/g, "")
+    .replace(/: ReadonlySet<string>/g, "")
+    .replace(/: Map<number, string\[\]>/g, "")
+    .replace(/: Map<string, string\[\]>/g, "")
+    .replace(/: \{ remaining: number \}/g, "")
+    .replace(/: string \| undefined/g, "")
+    .replace(/: string \| null/g, "")
+    .replace(/: boolean/g, "")
+    .replace(/: number/g, "")
+    .replace(/: string\[\]/g, "")
     .replace(/<string>/g, "")
     .replace(/: string/g, "");
 }
@@ -155,28 +205,54 @@ function stripTypes(body: string): string {
 describe("the import scripts stay in step with lib/inci.ts", () => {
   const client = fs.readFileSync(CLIENT_PATH, "utf8");
   const clientNormalise = stripTypes(extractFunctionBody(client, "normalise"));
-  const clientDedupe = stripTypes(extractFunctionBody(client, "dedupe"));
+  const parseMjs = fs.readFileSync(path.join(__dirname, "..", "scripts", "lib", "inci-parse.mjs"), "utf8");
 
   it.each(IMPORTER_PATHS)("%s has the canonical normalise()", (scriptPath: string) => {
     const script = fs.readFileSync(scriptPath, "utf8");
     expect(extractFunctionBody(script, "normalise")).toBe(clientNormalise);
   });
 
-  // Only import-obf writes product formulas, so it is the only script that
-  // needs this one — and it is the script that shipped without it, storing a
-  // repeated name as a second `product_ingredients` row that the scorer then
-  // weighted twice.
-  it("import-obf.mjs has the canonical dedupe()", () => {
-    const obf = fs.readFileSync(path.join(__dirname, "..", "scripts", "import-obf.mjs"), "utf8");
-    expect(extractFunctionBody(obf, "dedupe")).toBe(clientDedupe);
+  // `scripts/lib/inci-parse.mjs` is the one plain-JavaScript copy of the parser.
+  // Every function in it but `parseInci` is `lib/inci.ts`'s own text with the
+  // types removed, so a change made to one and not the other fails here — and
+  // this list is the whole surface an importer parses through: separators, the
+  // name check, finding the list without a heading pattern, and every step that
+  // turns a printed name into a dictionary name.
+  it.each([
+    "splitOnSeparators",
+    "levenshtein",
+    "fuzzyBudget",
+    "fuzzyLookup",
+    "isPlausibleIngredientName",
+    "findListByDictionary",
+    "squashKey",
+    "squashIndex",
+    "lengthIndex",
+    "commonNameFor",
+    "resolveKnownName",
+    "splitSlashList",
+    "splitRunTogether",
+    "fuzzyKnownName",
+    "salvageKnownNames",
+    "dedupe",
+  ])("inci-parse.mjs has the canonical %s()", (fn: string) => {
+    expect(extractFunctionBody(parseMjs, fn)).toBe(stripTypes(extractFunctionBody(client, fn)));
   });
 
   it.each([
-    ["the Ingredients: heading strip", "/(?:ingredients?|"],
+    ["the Ingredients: heading strip", "/(?:ingr[eé]dient"],
     ["the boilerplate stop clause", "/(?:\\bdirections?\\b"],
-  ])("import-obf.mjs reuses %s verbatim", (_label: string, marker: string) => {
+  ])("inci-parse.mjs reuses %s verbatim", (_label: string, marker: string) => {
+    expect(extractRegexLiteral(parseMjs, marker)).toBe(extractRegexLiteral(client, marker));
+  });
+
+  // `import-obf.mjs` carried its own hand-copy and drifted, writing label
+  // headings into the dictionary. It imports the shared parser now; this fails
+  // if a local copy grows back.
+  it("import-obf.mjs imports the shared parser and holds no copy of it", () => {
     const obf = fs.readFileSync(path.join(__dirname, "..", "scripts", "import-obf.mjs"), "utf8");
-    expect(extractRegexLiteral(obf, marker)).toBe(extractRegexLiteral(client, marker));
+    expect(obf).toMatch(/import \{[^}]*\bparseInci\b[^}]*\} from "\.\/lib\/inci-parse\.mjs"/);
+    expect(obf).not.toMatch(/^function (?:parseInci|normalise|dedupe)\(/m);
   });
 });
 
@@ -199,5 +275,31 @@ describe("product-lookup's parser stays in step with lib/inci.ts", () => {
   it("reuses the boilerplate stop clause verbatim", () => {
     const marker = "/(?:\\bdirections?\\b";
     expect(extractRegexLiteral(lookup, marker)).toBe(extractRegexLiteral(client, marker));
+  });
+
+  it("has the canonical isPlausibleIngredientName()", () => {
+    expect(extractFunctionBody(lookup, "isPlausibleIngredientName")).toBe(
+      extractFunctionBody(client, "isPlausibleIngredientName")
+    );
+  });
+
+  // "Tocopheryl Acetate (Vit. E)" must not split at the full stop inside the
+  // brackets — lib/inci.ts and label-ocr guard it, and this copy did not.
+  it("guards full stops inside brackets before splitting, like the other copies", () => {
+    expect(client).toContain("group.replace(/\\./g,");
+    expect(lookup).toContain("const bracketGuarded = block.replace(/\\([^)]*\\)/g, (group) => group.replace(/\\./g,");
+  });
+
+  // No dictionary here, so a long real name cannot be recognised as known and
+  // the eight-word cap must not drop it.
+  it("protects abbreviation full stops the same way as the other copies", () => {
+    const rule = "(?:vit|spp|sp|var|ssp|subsp)";
+    expect(client).toContain(rule);
+    expect(lookup).toContain(rule);
+  });
+
+  it("skips only the word limit, so every other check reads the whole name", () => {
+    expect(lookup).toContain("isPlausibleIngredientName(part, true)");
+    expect(lookup).not.toContain(".slice(0, 8)");
   });
 });

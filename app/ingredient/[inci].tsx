@@ -14,7 +14,7 @@ import { fetchProduct, resolveIngredientNames } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { comedogenicLabel } from "@/lib/format";
-import { matchProduct, positionWeightLabel, ruleFor, rungFor, type Contraindication, type Rung } from "@/lib/matching";
+import { matchProduct, positionNote, ruleFor, rungFor, type Contraindication, type Rung } from "@/lib/matching";
 import { isSensitive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
@@ -220,9 +220,6 @@ export default function IngredientDetail() {
   const helps = rule ? targetApplies(rule.helps, target) : false;
   const hurts = rule ? targetApplies(rule.hurts, target) : false;
 
-  const total = product?.ingredients.length ?? 0;
-  const position = index >= 0 ? index + 1 : null;
-
   // The design sets a common name under the INCI name. We don't hold one, but
   // many INCI names carry it in parentheses ("Panthenol (Vitamin B5)"), and
   // where they don't the declared role is the honest second line.
@@ -236,9 +233,7 @@ export default function IngredientDetail() {
       ? `Declared function: ${ingredient.functions.slice(0, 3).join(", ")}`
       : null,
     verified && ingredient.comedogenic > 0 ? comedogenicLabel(ingredient.comedogenic) : null,
-    position !== null
-      ? `#${position} of ${total} on the label - ${positionWeightLabel(index)}`
-      : null,
+    product ? positionNote(product.ingredients.map((i) => i.name), index) : null,
     rule?.hurts?.sensitive ? "Our rules flag this as a common irritant for sensitive skin" : null,
   ].filter((n): n is string => n !== null);
 

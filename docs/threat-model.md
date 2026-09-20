@@ -95,6 +95,14 @@ second table is planned; if that ever changes, it gets its own row.
   client strips before the upload — see the non-goals below for why the
   server pass is the control and the client pass is not.
 
+  **Saving a read list.** `label-ocr` answers a photo with the parsed list and
+  a signed `readToken`; saving takes that list back with a barcode and a name.
+  The token proves the list came out of a (rate-limited) read, was not edited,
+  and is under 30 minutes old. It is deliberately not bound to a barcode — the
+  barcode is asked for after the photo — so one read can be saved under any
+  barcode nobody has claimed yet, within the rate limit. Accepted: the list is
+  still a real read, and an existing entry is never replaced by a later save.
+
   **What happens to the image once it's there (issue #16).** This was an
   open question — `.claude/claude-security-guidance.md`'s AI/LLM section says
   outright "no AI/LLM features exist... revisit this section then, and

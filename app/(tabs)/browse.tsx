@@ -181,6 +181,9 @@ export default function Browse() {
         // so the chips can be built from it without a second request.
         const all = peekProducts("all");
         if (all) setAllProducts(all);
+        // Without Supabase (the bundled sample catalogue) nothing is cached, so the
+        // unfiltered read is the whole catalogue and builds the chips itself.
+        else if (typeFilter === "all") setAllProducts(result);
       })
       .catch((err) => {
         if (cancelled) return;

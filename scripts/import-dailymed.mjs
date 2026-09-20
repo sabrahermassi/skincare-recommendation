@@ -32,6 +32,8 @@ import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
 import { normalise, parseInci } from "./lib/inci-parse.mjs";
+import { fetchAliases } from "./lib/aliases.mjs";
+import { fetchStoredFormulas, isParserRefresh } from "./lib/formula-diff.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -436,7 +438,7 @@ const NOT_SKINCARE = /\blip\s?(?:balm|gloss|stick|treatment)\b/i;
  * there and applies unchanged: a parsed formula that mostly misses a
  * 36k-name dictionary is not a rare formula, it is a bad parse.
  */
-function toRow(spl, xml, known, samples) {
+function toRow(spl, xml, known, samples, aliases) {
   const { name, labeler } = parseTitle(spl.title ?? "");
   if (!name || !spl.setid) return "no name or setid";
   // Checked against the whole title, not the trimmed name: the giveaway is
@@ -459,7 +461,7 @@ function toRow(spl, xml, known, samples) {
   //
   // Gating the inactive list alone is strictly the stricter test, since merging
   // recognised names can only raise the ratio.
-  const inactive = parseInci(inci);
+  const inactive = parseInci(inci, known, undefined, aliases);
   if (inactive.length < 2) return "fewer than 2 parsed ingredients";
 
   const inactiveHits = inactive.filter((i) => known.has(i.inci_name)).length;
@@ -490,7 +492,7 @@ function toRow(spl, xml, known, samples) {
   // slightly against water; dropping them, which is what this did before,
   // understates them completely. `parseInci` deduplicates, so a filter that
   // also appears in the inactive list is kept once at the higher position.
-  const ingredients = parseInci([...actives, inci].join(", "));
+  const ingredients = parseInci([...actives, inci].join(", "), known, undefined, aliases);
 
   return {
     product: {
@@ -645,6 +647,7 @@ async function main() {
   const known = await fetchKnownIngredients(db);
   console.log(`Dictionary: ${known.size} verified ingredient names.\n`);
 
+  const aliases = await fetchAliases(db);
   const persistedFormulas = await fetchPersistedDailymedFormulas(db);
   console.log(`Already on file: ${persistedFormulas.size} dailymed formula(s).\n`);
 
@@ -699,7 +702,7 @@ async function main() {
       await sleep(REQUEST_INTERVAL_MS);
       const xml = await fetchLabel(spl.setid);
 
-      const row = toRow(spl, xml, known, rejectSamples);
+      const row = toRow(spl, xml, known, rejectSamples, aliases);
       if (typeof row === "string") {
         rejected.set(row, (rejected.get(row) ?? 0) + 1);
         // Recorded either way: a duplicate of something rejected is still not
@@ -769,12 +772,18 @@ async function main() {
   // One transactional call per product, same as the OBF importer and for the
   // same reason — see issue #40. The RPC creates the ingredient stubs in the
   // same transaction as the formula that needs them, and bumps `fetched_at`.
+  //
+  // A parser-only difference from the stored list is not a reformulation, so it
+  // must not stamp `formula_changed_at` (migration 0021).
+  const stored = await fetchStoredFormulas(db, all.map((r) => r.product.id));
   let written = 0;
   for (const r of all) {
     const { error } = await db.rpc("replace_product_with_ingredients", {
       p_product: r.product,
       p_ingredients: r.ingredients,
       p_stub_note: "No published rating for this ingredient yet.",
+      // Only sent when true, so a run that never needs it works even before migration 0021 is applied.
+      ...(isParserRefresh(stored.get(r.product.id), r.ingredients, known, aliases) ? { p_parser_refresh: true } : {}),
     });
     if (error) {
       throw new Error(
@@ -815,12 +824,12 @@ function invokedDirectly() {
 }
 
 // Retired. A DailyMed label carries an NDC, not a barcode, and a product is stored
-// only with a name, a barcode and an ingredient list: migration 0021 makes the
+// only with a name, a barcode and an ingredient list: migration 0022 makes the
 // database refuse every row this script builds. Running it says so instead of
 // failing on the first write. `main` stays exported, unrun, for the day that changes.
 if (invokedDirectly()) {
   console.error(
-    "import:dailymed is retired: DailyMed products have no barcode, and a product needs a name, a barcode and an ingredient list (migration 0021). Nothing was written."
+    "import:dailymed is retired: DailyMed products have no barcode, and a product needs a name, a barcode and an ingredient list (migration 0022). Nothing was written."
   );
   process.exitCode = 1;
 }

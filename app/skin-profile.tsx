@@ -1,9 +1,9 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { BackHandler, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -24,7 +24,7 @@ import {
   pregnancyLabel,
   sensitivityLabel,
 } from "@/lib/profile";
-import { useAppStore } from "@/store/useAppStore";
+import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, CTA, DANGER, FLOATING_SHADOW, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md), restyled per
@@ -71,8 +71,6 @@ const PREGNANCY_ICONS: Record<Pregnancy, number> = {
 
 const UNSURE_ICON = require("@/assets/illustrations/quiz/unsure.png");
 
-const MAX_CONCERNS = 3;
-
 type SectionKey = "concerns" | "skinType" | "sensitivity" | "pregnancy";
 
 /**
@@ -84,6 +82,9 @@ type SectionKey = "concerns" | "skinType" | "sensitivity" | "pregnancy";
  */
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  // Set by the product screen's score panel: answering the questions was to get
+  // that product's score, so saving returns to it instead of going Home.
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const storedProfile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
 
@@ -102,7 +103,10 @@ export default function ProfileScreen() {
       if (d.concerns.includes(concern)) {
         return { ...d, concerns: d.concerns.filter((c) => c !== concern) };
       }
-      if (d.concerns.length >= MAX_CONCERNS) return d;
+      // The store's count, not the raw array: a profile from before `atopic` was
+      // dropped from the pickers still carries it, and it must not use up a slot the
+      // person cannot see.
+      if (visibleConcernCount(d.concerns) >= MAX_CONCERNS) return d;
       return { ...d, concerns: [...d.concerns, concern] };
     });
   }
@@ -122,13 +126,30 @@ export default function ProfileScreen() {
     return normalize(draft) !== normalize(storedProfile);
   }, [draft, storedProfile]);
 
+  // The chevron asks before throwing an edit away, but the system back paths skip it:
+  // Android's hardware and gesture back arrive as a "hardwareBackPress" event, and the
+  // iOS swipe-back pops the route directly. While there is an unsaved draft the first is
+  // caught and sent to the same confirmation, and the swipe is switched off (see the
+  // Stack.Screen below), so the chevron's confirmation is the only way out.
+  useEffect(() => {
+    if (!dirty) return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      setConfirmingDiscard(true);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [dirty]);
+
   function save() {
     setProfile(draft);
-    // Go straight to the screen that shows the effect of the save.
-    router.replace(POST_ONBOARDING_ROUTE);
+    // Go straight to the screen that shows the effect of the save: the product
+    // the questions were opened from, else Home.
+    if (returnTo === "product" && router.canGoBack()) router.back();
+    else router.replace(POST_ONBOARDING_ROUTE);
   }
 
-  const atLimit = draft.concerns.length >= MAX_CONCERNS;
+  const visibleConcerns = visibleConcernCount(draft.concerns);
+  const atLimit = visibleConcerns >= MAX_CONCERNS;
 
   // Back to the Profile menu; with nothing behind this screen (a link straight
   // here) fall back to Search rather than erroring.
@@ -186,6 +207,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
+      <Stack.Screen options={{ gestureEnabled: !dirty }} />
       <View style={{ paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: 2 }}>
         <Pressable
           onPress={goBack}
@@ -279,7 +301,7 @@ export default function ProfileScreen() {
             onPress={() => patch({ concerns: [] })}
           />
           <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
-            {atLimit ? `${MAX_CONCERNS} chosen – deselect one to swap.` : `${draft.concerns.length} of ${MAX_CONCERNS} chosen.`}
+            {atLimit ? `${MAX_CONCERNS} chosen – deselect one to swap.` : `${visibleConcerns} of ${MAX_CONCERNS} chosen.`}
           </Text>
         </Section>
 
