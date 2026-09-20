@@ -3,6 +3,7 @@ import { Redirect, Tabs } from "expo-router";
 import { useRef } from "react";
 import { Pressable, View, type ColorValue, type GestureResponderEvent } from "react-native";
 
+import { SearchIcon } from "@/components/icons/SearchIcon";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { genie } from "@/lib/genie";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT } from "@/lib/tab-bar";
@@ -11,9 +12,10 @@ import { useAppStore } from "@/store/useAppStore";
 
 // Outline when unselected, filled when selected — the shape changes as well as
 // the colour, so the current tab does not rest on a contrast difference alone.
+// Search is the exception: its own drawn magnifier (components/icons/SearchIcon),
+// with the lens filled when selected.
 const TAB_ICONS = {
-  home: { on: "home", off: "home-outline" },
-  browse: { on: "search-circle", off: "search-circle-outline" },
+  home: { on: "compass", off: "compass-outline" },
   saved: { on: "heart", off: "heart-outline" },
   profile: { on: "person-circle", off: "person-circle-outline" },
 } as const;
@@ -29,13 +31,17 @@ function TabItem({
   focused,
   color,
 }: {
-  tab: keyof typeof TAB_ICONS;
+  tab: keyof typeof TAB_ICONS | "browse";
   focused: boolean;
   color: ColorValue;
 }) {
   return (
     <View style={{ width: 60, height: 36, alignItems: "center", justifyContent: "center" }}>
-      <Ionicons name={focused ? TAB_ICONS[tab].on : TAB_ICONS[tab].off} size={29} color={focused ? TERRACOTTA : color} />
+      {tab === "browse" ? (
+        <SearchIcon size={27} color={String(focused ? TERRACOTTA : color)} filled={focused} />
+      ) : (
+        <Ionicons name={focused ? TAB_ICONS[tab].on : TAB_ICONS[tab].off} size={29} color={focused ? TERRACOTTA : color} />
+      )}
     </View>
   );
 }
