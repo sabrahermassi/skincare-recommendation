@@ -333,14 +333,7 @@ export default function Scan() {
         }}
       >
         {cameraLive ? (
-          <CameraView
-            ref={cameraRef}
-            style={StyleSheet.absoluteFill}
-            facing="back"
-            barcodeScannerSettings={BARCODE_SETTINGS}
-            onBarcodeScanned={onScanned}
-            onLayout={onCameraLayout}
-          />
+          <ScannerCamera cameraRef={cameraRef} onScanned={onScanned} onLayout={onCameraLayout} />
         ) : null}
 
         {/* One frame too: it eases between four corners and a full outline, and the
@@ -395,6 +388,65 @@ export default function Scan() {
         <Ionicons name="close" size={26} color={needsPermission ? INK : CANVAS} />
       </Pressable>
     </GenieShell>
+  );
+}
+
+/**
+ * The camera, with its start-up kept out of sight. A camera that has just
+ * started spends a moment finding its exposure, and in front of a plain wall
+ * that shows as a burst of white before the picture settles. A dark veil holds
+ * the stage until the camera reports ready (or a moment has passed, in case it
+ * never says so), then fades. It is mounted fresh each time the camera is, so
+ * every start-up gets one.
+ */
+function ScannerCamera({
+  cameraRef,
+  onScanned,
+  onLayout,
+}: {
+  cameraRef: React.RefObject<CameraView | null>;
+  onScanned: (result: BarcodeScanningResult) => void;
+  onLayout: (event: LayoutChangeEvent) => void;
+}) {
+  const [ready, setReady] = useState(false);
+  const [veil] = useState(() => new Animated.Value(1));
+
+  useEffect(() => {
+    // Not waiting on a "ready" that may never come.
+    const fallback = setTimeout(() => setReady(true), 1600);
+    return () => clearTimeout(fallback);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    // A beat after ready, so the exposure has settled, then fade the veil away.
+    const t = setTimeout(() => {
+      Animated.timing(veil, {
+        toValue: 0,
+        duration: 320,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== "web",
+      }).start();
+    }, 350);
+    return () => clearTimeout(t);
+  }, [ready, veil]);
+
+  return (
+    <>
+      <CameraView
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        facing="back"
+        barcodeScannerSettings={BARCODE_SETTINGS}
+        onBarcodeScanned={onScanned}
+        onLayout={onLayout}
+        onCameraReady={() => setReady(true)}
+      />
+      <Animated.View
+        pointerEvents="none"
+        style={{ ...StyleSheet.absoluteFill, backgroundColor: CAMERA_STAGE, opacity: veil }}
+      />
+    </>
   );
 }
 

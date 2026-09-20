@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import Svg, { Defs, LinearGradient, Mask, Path, Rect, Stop } from "react-native-svg";
 
@@ -233,11 +233,12 @@ export function ScanViewfinder({
     setSize((prev) => (prev && prev.w === width && prev.h === height ? prev : { w: width, h: height }));
   };
 
+  const windowHeight = size ? size.h - (topInset + TOP_GAP) - bottomInset : 0;
   const window: Rectangle = {
     x: SIDE,
     y: topInset + TOP_GAP,
     w: size ? size.w - SIDE * 2 : 0,
-    h: size ? size.h - (topInset + TOP_GAP) - bottomInset : 0,
+    h: windowHeight,
   };
   const ready = size !== null && window.w > 0 && window.h > 120;
   const goal = goalFor(window, target);
@@ -250,6 +251,10 @@ export function ScanViewfinder({
   useEffect(() => {
     if (ready) onWindow?.({ x: window.x, y: window.y, width: window.w, height: window.h });
   }, [ready, window.x, window.y, window.w, window.h, onWindow]);
+  const sweepY = useMemo(
+    () => sweep.interpolate({ inputRange: [0, 1], outputRange: [LINE_INSET, windowHeight - LINE_INSET] }),
+    [sweep, windowHeight]
+  );
   const radius = Math.min(lerp(CORNER_RADIUS, WINDOW_RADIUS, mixed), rect.h / 2, rect.w / 2);
   const lineWidth = window.w - LINE_INSET * 2;
 
@@ -299,10 +304,7 @@ export function ScanViewfinder({
                 opacity: fades.sweep,
                 transform: [
                   {
-                    translateY: sweep.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [LINE_INSET, window.h - LINE_INSET],
-                    }),
+                    translateY: sweepY,
                   },
                 ],
               }}
