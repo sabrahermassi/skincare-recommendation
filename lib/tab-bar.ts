@@ -21,5 +21,3 @@ export function tabBarClearance(insetBottom: number): number {
   return tabBarBottom(insetBottom) + TAB_BAR_HEIGHT + 16;
 }
 
-/** The clear space between the scan button and the bar's edge where the bar curves around it. */
-export const SCAN_NOTCH_GAP = 4;

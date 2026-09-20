@@ -5,7 +5,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, View, type GestureResponderEvent } from "react-native";
 
-import { NotchedTabBarBackground } from "@/components/NotchedTabBarBackground";
+import { TabBarBackground } from "@/components/TabBarBackground";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { genie } from "@/lib/genie";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
@@ -191,8 +191,7 @@ export default function TabsLayout() {
           paddingHorizontal: TAB_BAR_SIDE_MARGIN,
           bottom: tabBarBottom(insets.bottom),
           height: TAB_BAR_HEIGHT,
-          // Transparent: the bar is drawn by NotchedTabBarBackground, with its bite
-          // and its own shade.
+          // Transparent: the bar is drawn by TabBarBackground, with its own shade.
           backgroundColor: "transparent",
           borderTopWidth: 0,
           paddingTop: 0,
@@ -201,7 +200,7 @@ export default function TabsLayout() {
           overflow: "visible",
           elevation: 0,
         },
-        tabBarBackground: () => <NotchedTabBarBackground />,
+        tabBarBackground: () => <TabBarBackground />,
       }}
     >
       {/*

@@ -337,13 +337,17 @@ export function withAlpha(hex: string, alpha: number): string {
  */
 export const SPACE = { text: 8, block: 16, gutter: 24 } as const;
 
-/** The shade under the raised camera button's bottom edge, so it stands off the bar. */
+/**
+ * The heavy shadow under the camera button, so it reads as sitting on top of the
+ * tab bar rather than being part of it: pushed well below the button, dark, and
+ * spread wide enough to fall across the bar's surface.
+ */
 export const RAISED_SHADOW = {
   shadowColor: INK,
-  shadowOffset: { width: 0, height: 5 },
-  shadowOpacity: 0.32,
-  shadowRadius: 4,
-  elevation: 8,
+  shadowOffset: { width: 0, height: 10 },
+  shadowOpacity: 0.5,
+  shadowRadius: 14,
+  elevation: 16,
 } as const;
 
 /** The soft shade under the floating tab bar, so it reads as lying on top of the screen. */
