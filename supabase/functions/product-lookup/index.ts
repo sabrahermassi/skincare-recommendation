@@ -421,7 +421,14 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
   // "tocopheryl acetate (vit" and "e)". Same guard as `lib/inci.ts`; the
   // stand-in is written as an escape so it survives editors that hide
   // private-use characters.
-  const guarded = block.replace(/\([^)]*\)/g, (group) => group.replace(/\./g, "\uE001"));
+  const bracketGuarded = block.replace(/\([^)]*\)/g, (group) => group.replace(/\./g, "\uE001"));
+  // An abbreviation's own full stop is not a separator either: "Vit. E", or a genus
+  // abbreviated at the start of an item ("C. Sinensis Leaf Extract"). Same rule as
+  // `lib/inci.ts`.
+  const guarded = bracketGuarded.replace(
+    /(^|[;,.]\s*)[A-Za-z]\.(?=\s)|\b(?:vit|spp|sp|var|ssp|subsp)\.(?=\s)/gi,
+    (stop) => stop.replace(/\.$/, "\uE001")
+  );
 
   const parsed = guarded
     // A comma directly between two digits belongs to the name —

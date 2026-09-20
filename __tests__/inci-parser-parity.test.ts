@@ -287,11 +287,17 @@ describe("product-lookup's parser stays in step with lib/inci.ts", () => {
   // brackets — lib/inci.ts and label-ocr guard it, and this copy did not.
   it("guards full stops inside brackets before splitting, like the other copies", () => {
     expect(client).toContain("group.replace(/\\./g,");
-    expect(lookup).toContain("const guarded = block.replace(/\\([^)]*\\)/g, (group) => group.replace(/\\./g,");
+    expect(lookup).toContain("const bracketGuarded = block.replace(/\\([^)]*\\)/g, (group) => group.replace(/\\./g,");
   });
 
   // No dictionary here, so a long real name cannot be recognised as known and
   // the eight-word cap must not drop it.
+  it("protects abbreviation full stops the same way as the other copies", () => {
+    const rule = "(?:vit|spp|sp|var|ssp|subsp)";
+    expect(client).toContain(rule);
+    expect(lookup).toContain(rule);
+  });
+
   it("checks only the first eight words of a name, not its whole length", () => {
     expect(lookup).toContain("isPlausibleIngredientName(part.split(/\\s+/).slice(0, 8).join(\" \"))");
   });

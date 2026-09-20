@@ -101,6 +101,52 @@ describe("resolveKnownName", () => {
   });
 });
 
+describe("full stops that are not separators", () => {
+  const names = (text: string) => parseIngredientBlock(text).map((p) => p.inci_name);
+
+  it("keeps an abbreviation whole: Vit. E", () => {
+    expect(names("Aqua, Vit. E, Glycerin, Panthenol")).toEqual(["aqua", "vit. e", "glycerin", "panthenol"]);
+  });
+
+  it("keeps a genus abbreviated at the start of an item: C. Sinensis", () => {
+    expect(names("C. Sinensis Leaf Extract, Aqua, Glycerin, Panthenol")).toEqual([
+      "c. sinensis leaf extract",
+      "aqua",
+      "glycerin",
+      "panthenol",
+    ]);
+    expect(names("Aqua. C. Sinensis Leaf Extract. Glycerin. Panthenol")).toEqual([
+      "aqua",
+      "c. sinensis leaf extract",
+      "glycerin",
+      "panthenol",
+    ]);
+  });
+
+  it("still splits a label printed with full stops for commas", () => {
+    expect(names("Benzoic Acid. Caprylyl Glycol. Glycerin. Aqua")).toEqual([
+      "benzoic acid",
+      "caprylyl glycol",
+      "glycerin",
+      "aqua",
+    ]);
+  });
+
+  it("still ends a name at a lone letter that follows other words: Vitamin E.", () => {
+    expect(names("Vitamin E. Glycerin. Aqua. Panthenol")).toEqual(["vitamin e", "glycerin", "aqua", "panthenol"]);
+  });
+});
+
+describe("a long real name without a dictionary", () => {
+  it("is kept by the dictionary-free first pass instead of being dropped for its length", () => {
+    // Ten words, under the 120-character cap that applies on every path.
+    const long = "aspergillus lactobacillus leuconostoc pediococcus saccharomyces citrus unshiu fruit ferment extract";
+    const parsed = parseIngredientBlock(`Aqua, Glycerin, Panthenol, Allantoin, ${long}`).map((p) => p.inci_name);
+    expect(parsed).toContain(long);
+    expect(parsed).toHaveLength(5);
+  });
+});
+
 describe("splitSlashList", () => {
   const dictionary = new Set(["aqua", "glycerin", "niacinamide", "prunus armeniaca kernel oil"]);
 

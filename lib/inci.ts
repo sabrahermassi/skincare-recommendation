@@ -55,7 +55,15 @@ export function splitOnSeparators(text: string): string[] {
   // A full stop inside brackets ("(Vit. E)") is part of the qualifier, not the
   // end of a name; the same length-preserving stand-in keeps the offsets below
   // valid.
-  const guarded = text.replace(/\([^)]*\)/g, (group) => group.replace(/\./g, ""));
+  const bracketGuarded = text.replace(/\([^)]*\)/g, (group) => group.replace(/\./g, "\uE001"));
+  // An abbreviation's own full stop is not a separator either: "Vit. E", or a genus
+  // abbreviated at the start of an item ("C. Sinensis Leaf Extract"). A lone letter
+  // after other words ("Vitamin E. Glycerin") does end a name, so only an
+  // item-initial letter is protected.
+  const guarded = bracketGuarded.replace(
+    /(^|[;•·,.]\s*)[A-Za-z]\.(?=\s)|\b(?:vit|spp|sp|var|ssp|subsp)\.(?=\s)/gi,
+    (stop: string) => stop.replace(/\.$/, "\uE001")
+  );
   const protectedText = guarded.replace(/,(?=\d)/g, (match, offset: number) =>
     offset > 0 && /\d/.test(text[offset - 1]) ? PLACEHOLDER : match
   );
@@ -696,7 +704,9 @@ export function parseIngredientBlock(
     .filter((n) => n.length > 1 && n.length < 120 && /[a-z]/.test(n))
     .flatMap((name) => {
       const resolved = canonical(name);
-      if (!dictionary) return isPlausibleIngredientName(resolved) ? [resolved] : [];
+      // Without a dictionary a long real name cannot be recognised as known, so only
+      // its first eight words are checked rather than dropping it for its length.
+      if (!dictionary) return isPlausibleIngredientName(resolved.split(/\s+/).slice(0, 8).join(" ")) ? [resolved] : [];
       const known = resolveKnownName(resolved, dictionary, aliases);
       if (dictionary.has(known)) return [known];
       const listed = splitSlashList(known, dictionary, aliases);
