@@ -1,7 +1,8 @@
 import { Link } from "expo-router";
 import { memo } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
+import { PressableCard } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
 
 import type { ProductWithIngredients } from "@/data/types";
@@ -58,20 +59,13 @@ export const ProductRow = memo(function ProductRow({
 
   return (
     <Link href={`/product/${product.id}`} asChild>
-      <Pressable
-        style={{
-          flexDirection: "row",
-          marginHorizontal: 16,
-          marginBottom: last ? 0 : 10,
-          borderRadius: 14,
-          borderWidth: 1,
-          borderColor: LINE,
-          backgroundColor: SURFACE,
-          // Clips the leading bar to the card's corners, so the colour ends
-          // where the card does rather than squaring off against it.
-          overflow: "hidden",
-        }}
-        className="active:opacity-70"
+      {/* Lifted off the page with a shade, and sinks when pressed. The card
+          clips its contents, so the leading bar ends where the card does. */}
+      <PressableCard
+        radius={14}
+        backgroundColor={SURFACE}
+        outerStyle={{ marginHorizontal: 16, marginBottom: last ? 0 : 12 }}
+        style={{ flexDirection: "row", borderWidth: 1, borderColor: LINE }}
       >
         {/* The verdict at a glance. Full-bleed down the leading edge — the one
             element allowed to touch the card's edges. */}
@@ -144,7 +138,7 @@ export const ProductRow = memo(function ProductRow({
             </View>
           ) : null}
         </View>
-      </Pressable>
+      </PressableCard>
     </Link>
   );
 });

@@ -19,6 +19,7 @@ import { openScanner } from "@/lib/genie";
 import { matchProduct, matchTone } from "@/lib/matching";
 import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
 import { isVerified } from "@/lib/safety";
+import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
@@ -457,6 +458,7 @@ function Row({
   onRemove: () => void;
   children: ReactNode;
 }) {
+  const [scale, press] = usePressScale();
   return (
     // The card's chrome lives on a plain View, not the Link/Pressable
     // itself — `Link asChild` renders an actual `<a>` on web, and a click
@@ -465,17 +467,10 @@ function Row({
     // anchor's own default action). Keeping `RemoveButton` as a sibling
     // outside the anchor, not a descendant of it, is the only fix that
     // actually holds on web.
-    <View
-      style={{
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: BORDER_INACTIVE,
-        backgroundColor: SURFACE,
-        overflow: "hidden",
-      }}
-    >
+    <LiftedCard scale={scale} backgroundColor={SURFACE}>
+    <View style={{ borderRadius: 16, borderWidth: 1, borderColor: BORDER_INACTIVE, overflow: "hidden" }}>
       <Link href={`/product/${product.id}`} asChild>
-        <Pressable style={{ flexDirection: "row" }} className="active:opacity-70">
+        <Pressable style={{ flexDirection: "row" }} {...press}>
           <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
           <View style={{ flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 13, padding: 13 }}>
             <ProductThumbnail product={product} size={56} radius={14} />
@@ -497,6 +492,7 @@ function Row({
 
       <RemoveButton onPress={onRemove} />
     </View>
+    </LiftedCard>
   );
 }
 
@@ -628,16 +624,8 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
   const canPhotographLabel = !entry.known && canPhotographLabelFor(entry.id);
 
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: BORDER_INACTIVE,
-        backgroundColor: SURFACE,
-        overflow: "hidden",
-      }}
-    >
+    <LiftedCard backgroundColor={SURFACE}>
+    <View style={{ flexDirection: "row", borderRadius: 16, borderWidth: 1, borderColor: BORDER_INACTIVE, overflow: "hidden" }}>
       <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
       <View style={{ flex: 1, padding: 13, paddingRight: 36 }}>
         <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
@@ -697,6 +685,7 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
 
       <RemoveButton onPress={onRemove} />
     </View>
+    </LiftedCard>
   );
 }
 
@@ -890,18 +879,12 @@ function IngredientsTab({
  *  inside it — see `Row`'s own comment for why nesting breaks the link on
  *  web. */
 function IngredientRow({ name, bar, onRemove }: { name: string; bar: string; onRemove: () => void }) {
+  const [scale, press] = usePressScale();
   return (
-    <View
-      style={{
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: BORDER_INACTIVE,
-        backgroundColor: SURFACE,
-        overflow: "hidden",
-      }}
-    >
+    <LiftedCard scale={scale} backgroundColor={SURFACE}>
+    <View style={{ borderRadius: 16, borderWidth: 1, borderColor: BORDER_INACTIVE, overflow: "hidden" }}>
       <Link href={{ pathname: "/ingredient/[inci]", params: { inci: name } }} asChild>
-        <Pressable style={{ flexDirection: "row" }} className="active:opacity-70">
+        <Pressable style={{ flexDirection: "row" }} {...press}>
           <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
           <View style={{ flex: 1, justifyContent: "center", padding: 16, paddingRight: 40 }}>
             <Text style={{ fontSize: 14, textTransform: "capitalize", color: INK }} numberOfLines={2}>
@@ -913,5 +896,6 @@ function IngredientRow({ name, bar, onRemove }: { name: string; bar: string; onR
 
       <RemoveButton onPress={onRemove} />
     </View>
+    </LiftedCard>
   );
 }
