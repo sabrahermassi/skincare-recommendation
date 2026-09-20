@@ -90,7 +90,7 @@ const GLUED_CODE = /\.\s*[a-z]{0,4}-?\d{3,}\b|\bpr[\s#-]?\d+\b/i;
  * aqua") or after it ("tocopherol. may contain: ci 77891").
  */
 const LABEL_MARKERS =
-  /\b(ingr[ée]dients?|ingrediente[s]?|sastojci|composition|inhaltsstoffe|zutaten|may\s+contain|puede\s+contener|kann\s+enthalten|peut(?:vent)?\s+contenir|inactive\s+ingredients|active\s+ingredients|storage|conservation|almacenamiento|package\s+labeling|etichetare|distribu(?:idor|itor|ted\s+by)|manufactured\s+by|fabricante|producator|producer|mod\s+de\s+utilizare|instructions\s+for\s+use|modo\s+de\s+empleo|proprietati|properties)\b/i;
+  /\b(ingr[eé]di[eë]nt(?:e?s|e|i|en)?|sastojci|composition|inhaltsstoffe|zutaten|may\s+contain|puede\s+contener|kann\s+enthalten|peut(?:vent)?\s+contenir|inactive\s+ingredients|active\s+ingredients|storage|conservation|almacenamiento|package\s+labeling|etichetare|distribu(?:idor|itor)|fabricante|produc[aă]tor|producer|mod\s+de\s+utilizare|instructions\s+for\s+use|modo\s+de\s+empleo|propriet[aă][tțţ]i|properties)\b/i;
 
 /**
  * Real short INCI names seen in this catalogue's own dictionary — not

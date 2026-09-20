@@ -71,6 +71,11 @@ describe("classifyGarbageIngredient", () => {
     "distribuitor",
     "producator",
     "potassium phosphate. puede contener cl:42090",
+    // Italian / Dutch / properly-accented Romanian spellings.
+    "ingredienti: aqua",
+    "ingrediënten: aqua",
+    "proprietăți",
+    "producător",
   ])("flags a label/section heading glued onto a real ingredient, in any language: %s", (name: string) => {
     expect(classifyGarbageIngredient(name)).toBe("label");
   });
@@ -84,6 +89,17 @@ describe("classifyGarbageIngredient", () => {
       expect(classifyGarbageIngredient(name)).toBeNull();
     }
   );
+
+  it.each(["aqua", "glycerin", "tocopheryl acetate", "sodium hyaluronate", "cetearyl alcohol", "ci 77891"])(
+    "does not flag an ordinary ingredient name as a label heading: %s",
+    (name: string) => {
+      expect(classifyGarbageIngredient(name)).toBeNull();
+    }
+  );
+
+  it("classifies 'distributed by' as prose, not label — the two word lists stay disjoint", () => {
+    expect(classifyGarbageIngredient("aqua distributed by acme")).toBe("prose");
+  });
 
   it.each(["pca", "egf", "uv", "aha"])("does not flag a known-real short INCI name: %s", (name: string) => {
     expect(classifyGarbageIngredient(name)).toBeNull();
