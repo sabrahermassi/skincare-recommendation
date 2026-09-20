@@ -9,6 +9,7 @@ import { Text } from "@/components/Text";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { IngredientsSheet, ingredientsSheetPeek } from "@/components/IngredientsSheet";
+import { PopOnToggle } from "@/components/PopOnToggle";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { HeartIcon } from "@/components/icons";
@@ -375,7 +376,9 @@ export default function ProductScreen() {
               accessibilityLabel={saved ? "Remove from saved" : "Save"}
               accessibilityState={{ selected: saved }}
             >
-              <HeartIcon size={21} filled={saved} />
+              <PopOnToggle active={saved}>
+                <HeartIcon size={21} filled={saved} color={saved ? VERDICT.low.solid : undefined} />
+              </PopOnToggle>
             </Pressable>
             <Pressable onPress={share} hitSlop={12} accessibilityLabel="Share this result">
               <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">

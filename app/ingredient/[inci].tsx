@@ -5,6 +5,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, View } from "react-n
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
+import { PopOnToggle } from "@/components/PopOnToggle";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
@@ -114,15 +115,17 @@ function HeartIcon({ color }: { color: string }) {
   );
 }
 
+// The palette has no true yellow; the amber of its "watch" tone is the nearest.
 function StarIcon({ filled }: { filled: boolean }) {
   const d =
     "M12 3.4l2.53 5.4 5.87.72-4.34 4.06 1.16 5.83L12 16.4l-5.22 2.99 1.16-5.83-4.34-4.06 5.87-.72Z";
+  const color = filled ? COLORS.toneWatch : COLORS.ink;
   return (
     <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
       <Path
         d={d}
-        fill={filled ? COLORS.ink : "none"}
-        stroke={COLORS.ink}
+        fill={filled ? color : "none"}
+        stroke={color}
         strokeWidth={1.6}
         strokeLinejoin="round"
       />
@@ -248,7 +251,9 @@ export default function IngredientDetail() {
             accessibilityLabel={starred ? "Remove from starred ingredients" : "Star this ingredient"}
             accessibilityState={{ selected: starred }}
           >
-            <StarIcon filled={starred} />
+            <PopOnToggle active={starred}>
+              <StarIcon filled={starred} />
+            </PopOnToggle>
           </Pressable>
         }
       />
