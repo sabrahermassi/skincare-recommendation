@@ -7,7 +7,7 @@ import type { ProductWithIngredients } from "@/data/types";
 import type { MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
 import { isVerified } from "@/lib/safety";
-import { MUTED_SOFT, RISK_ICON, RISK_TITLE } from "@/lib/tokens";
+import { INK, RISK_ICON, RISK_TITLE } from "@/lib/tokens";
 
 /**
  * The two risks people actually ask about, side by side, both computed from
@@ -114,7 +114,7 @@ function RiskCard({
             row for detail" affordance — without it, a card reading
             "Elevated" gave no visual sign that tapping it explains why. */}
         {onPress && (
-          <ArrowIcon size={16} color={MUTED_SOFT} />
+          <ArrowIcon size={16} color={INK} />
         )}
       </View>
       <View style={{ gap: 3 }}>

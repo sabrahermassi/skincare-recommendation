@@ -10,7 +10,7 @@ import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_SOFT, SELECTED, SURFACE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 const AVATAR = 104;
@@ -158,7 +158,7 @@ function MenuRow({
     >
       <Ionicons name={icon} size={22} color={danger ? DANGER : MUTED} />
       <Text style={{ flex: 1, fontSize: 16, fontWeight: "500", color }}>{label}</Text>
-      <ArrowIcon kind="arrow" size={20} color={danger ? DANGER : MUTED_SOFT} />
+      <ArrowIcon size={20} color={INK} />
     </PressableCard>
   );
 }

@@ -515,7 +515,7 @@ export default function ProductScreen() {
               className="active:opacity-70"
             >
               <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: panel.ink }}>Why this score</Text>
-              <ArrowIcon direction={showWhy ? "up" : "down"} size={16} color={panel.ink} />
+              <ArrowIcon direction={showWhy ? "up" : "down"} size={16} color={INK} />
             </Pressable>
 
             {showWhy ? (

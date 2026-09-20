@@ -32,7 +32,7 @@ export function ProfileNudge() {
         >
           You&apos;re one tap away from your perfect score
         </Text>
-        <ArrowIcon kind="arrow" size={22} color={INK} />
+        <ArrowIcon size={22} color={INK} />
       </PressableCard>
     </View>
   );

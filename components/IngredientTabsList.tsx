@@ -10,7 +10,7 @@ import type { Ingredient } from "@/data/types";
 import { isVerified } from "@/lib/safety";
 import { ruleFor, RUNG_META, rungFor, type Contraindication, type MatchResult, type Rung } from "@/lib/matching";
 import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
-import { BORDER_INACTIVE, CANVAS, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, MUTED_SOFT, RADIUS_SELECTOR, SELECTED, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG_META's good/watch/avoid
 // colors are semantic (the per-ingredient verdict, the whole point of this
@@ -222,7 +222,7 @@ export function IngredientListRow({
         <Text className={`text-[11px] font-medium ${meta.ink}`}>{meta.label}</Text>
       </View>
 
-      <ArrowIcon size={16} color={MUTED_SOFT} style={{ marginTop: 3 }} />
+      <ArrowIcon size={16} color={INK} style={{ marginTop: 3 }} />
     </Pressable>
   );
 }
