@@ -28,6 +28,9 @@ const SHELF_WIDTH = 1.15;
 // A sliver of the water is drawn this far (a share of the picture's height)
 // below the screen, so the water reaches the bottom with no gap.
 const SHELF_BLEED_BELOW = 0.02;
+// How far the whole scene sits lower again, in dp: 5 mm on a phone (160 dp to the inch).
+// No spacing token is that large, so it is named here rather than typed inline.
+const SHELF_DROP = 32;
 
 /**
  * Home — the first screen after the skin quiz.
@@ -70,7 +73,7 @@ export default function Home() {
           position: "absolute",
           left: 0,
           right: 0,
-          bottom: -((width * SHELF_WIDTH) / SHELF_ASPECT) * SHELF_BLEED_BELOW,
+          bottom: -((width * SHELF_WIDTH) / SHELF_ASPECT) * SHELF_BLEED_BELOW - SHELF_DROP,
           alignItems: "center",
         }}
       >
