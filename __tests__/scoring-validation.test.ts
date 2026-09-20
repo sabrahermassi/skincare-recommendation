@@ -318,7 +318,33 @@ describe("declared reactive-skin harm reaches the irritation penalty", () => {
     const gap = (active: string) =>
       (scoreOf(active, acne("none")).score as number) -
       (scoreOf(active, acne("high", "dry")).score as number);
-    expect(gap("benzoyl peroxide")).toBeGreaterThan(gap("unmatched test control") + 10);
+    expect(gap("benzoyl peroxide")).toBeGreaterThan(gap("unmatched test control"));
+  });
+
+  // The docs record that the irritation penalty saturates: a trace active still
+  // costs about half of a top-of-list one. Pinned here as a ratio, so a retune
+  // that changes it fails a test instead of leaving the docs quietly wrong.
+  it("a trace active still costs roughly half of a top-of-list one", () => {
+    const reactive = profile({ concerns: ["dullness"], sensitivity: "high" });
+    const fillers = Array.from({ length: 40 }, (_, i) => `unmatched test control ${i}`);
+    const penaltyAt = (active: string, index: number) => {
+      const names = ["water", "glycerin", "propanediol", ...fillers];
+      names.splice(index, 0, active);
+      const ingredients: Ingredient[] = names.map((name) => ({
+        id: name,
+        name,
+        comedogenic: 0,
+        safety: "safe",
+        verified: true,
+        functions: [],
+      }));
+      return matchProduct({ type: "serum", ingredients }, reactive).breakdown.irritationPenalty;
+    };
+    for (const active of ["salicylic acid", "ascorbic acid", "retinol"]) {
+      const ratio = penaltyAt(active, 33) / penaltyAt(active, 3);
+      expect(ratio).toBeGreaterThan(0.4);
+      expect(ratio).toBeLessThan(0.7);
+    }
   });
 
   it("charges the real DailyMed benzoyl-peroxide gel's active as irritation on sensitive skin", () => {

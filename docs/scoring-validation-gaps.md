@@ -26,13 +26,15 @@ A rule's declared sensitive-skin harm is charged as irritation whatever its
 benefit category. `positionWeight` scales it by INCI position down to a 0.3
 floor, but the irritation penalty saturates, so the final points fall far less
 than the weight does: at the floor a trace active still costs roughly half of
-what the same active costs near the top of the list. Measured once on
-2026-09-19 with a throwaway script that is not in the repo: a `serum` of 43
+what the same active costs near the top of the list. The setup: a `serum` of 43
 ingredients (`water`, `glycerin`, `propanediol` and 40 unmatched fillers) with
 one active inserted at position 3 or at 33 or later, for a highly sensitive
-`dullness` profile. Irritation penalty at position 3 against the floor:
-salicylic acid 16.1 against 8.7, ascorbic acid 14.2 against 7.3, retinol 16.9
-against 9.3. Re-measure with that setup before relying on the figures.
+`dullness` profile. The ratio between the two is asserted by "a trace active
+still costs roughly half of a top-of-list one" in
+`__tests__/scoring-validation.test.ts`, so a retune that changes it fails a test.
+The absolute figures were measured once on 2026-09-19 and can drift with the
+weights: irritation penalty at position 3 against the floor was salicylic acid
+16.1 against 8.7, ascorbic acid 14.2 against 7.3, retinol 16.9 against 9.3.
 
 Alphabetical lists are handled: `positionWeights` in `lib/rules.ts` detects an
 A-to-Z tail (21 CFR 201.66(c)(8) requires it of OTC drugs that are not also
