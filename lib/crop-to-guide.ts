@@ -147,3 +147,12 @@ function clampToPhoto(rect: Rect, photo: Size): CropRect | null {
     height: Math.round(height),
   };
 }
+
+/**
+ * The width to shrink a picture to, or null when it is small enough already.
+ * A photo picked from the library is not the camera's 0.8-quality capture — a
+ * full-size phone shot can be too large to send, so it is scaled down first.
+ */
+export function shrinkWidth(width: number, max: number): number | null {
+  return width > max ? max : null;
+}

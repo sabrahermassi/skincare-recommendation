@@ -1,5 +1,5 @@
-import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { router, useFocusEffect, useScrollToTop } from "expo-router";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, ScrollView, TextInput, View, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -12,12 +12,15 @@ import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
 import { TERRACOTTA } from "@/components/shell/shared";
+import { openScanner } from "@/lib/genie";
 import { Text } from "@/components/Text";
 import { fetchProducts, peekProducts, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients, type SkinProfile } from "@/data/types";
+import { activeTypeFilter, visibleTypeChips } from "@/lib/browse-chips";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized, profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
+import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md).
@@ -27,50 +30,13 @@ import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELE
 // removed along with `area` itself: the app's whole premise is judging a
 // formula against a skin profile, not filtering products out by which part
 // of the body they're for before that judgement even happens.
-const TYPE_FILTERS: (ProductType | "all")[] = [
-  "all",
-  "cleanser",
-  "micellar-water",
-  "toner",
-  "essence",
-  "serum",
-  "ampoule",
-  "moisturizer",
-  "sunscreen",
-  "body-wash",
-  "body-lotion",
-  "hand-cream",
-  "eye-cream",
-  "facial-oil",
-  "night-mask",
-  "exfoliator",
-  "lip-balm",
-  "facial-mist",
-  "sheet-mask",
-  "face-mask",
-  "eye-patch",
-  "pimple-patch",
-];
+// The chips are built from what the catalogue actually holds — see
+// `lib/browse-chips.ts` for the order and the hide-when-empty rule — so a type
+// gets a chip the moment it has a product (an import, or a scan or label read
+// added to the cache) and has none while it is empty.
 
-/*
-  Face families only, deliberately. `scripts/import-obf.mjs` fetches six
-  skincare categories (en:face, en:suncare, en:cleansers, en:skin-care,
-  en:creams, en:moisturizers), and that filter is itself a measured decision:
-  a broader sweep returned 352 unscoreable rows out of 549, toothpaste and
-  dish soap included. So shampoo, conditioner, hair-oil, hair-mask,
-  deodorant, perfume, body-butter, body-scrub and foot-cream are real
-  `ProductType`s a live scan can still produce, but the catalogue holds
-  almost none of them — a chip for each would open an empty list.
-
-  They keep their type, label and illustration; they just don't get a filter
-  chip until there is something behind one. The durable version is building
-  the chips from `fetchProductTypes()` (data/api.ts) instead of a hand-kept
-  list, which would also cover the body-wash/body-lotion/hand-cream chips
-  that predate this one.
-*/
-
-// "unknown" is never in TYPE_FILTERS above — it's not a category to browse
-// by — but the Record still needs the key, and PRODUCT_TYPE_LABEL is the one
+// "unknown" never gets a chip — it's not a category to browse by — but the
+// Record still needs the key, and PRODUCT_TYPE_LABEL is the one
 // place that label is defined.
 const TYPE_LABEL: Record<ProductType | "all", string> = {
   all: "All",
@@ -139,14 +105,28 @@ function skeletonRows(): BrowseItem[] {
 
 export default function Browse() {
   const insets = useSafeAreaInsets();
+  // Tapping the Browse tab while it is already showing scrolls the list back to
+  // the top — the standard tab-bar behaviour on iOS and Android.
+  const listRef = useRef<FlatList<BrowseItem>>(null);
+  useScrollToTop(listRef);
   // Seeded from the catalogue cache so a warm start paints rows on the first
   // frame instead of a skeleton. Null on a cold start, exactly as before.
   const [products, setProducts] = useState<ProductWithIngredients[] | null>(() =>
     peekProducts(INITIAL_TYPE_FILTER),
   );
+  // The whole catalogue, whatever the selected chip — only its types are read,
+  // to decide which chips exist.
+  const [allProducts, setAllProducts] = useState<ProductWithIngredients[] | null>(() =>
+    peekProducts("all"),
+  );
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
-  const [typeFilter, setTypeFilter] = useState<ProductType | "all">(INITIAL_TYPE_FILTER);
+  const [selectedType, setSelectedType] = useState<ProductType | "all">(INITIAL_TYPE_FILTER);
+  const typeChips = useMemo(() => visibleTypeChips(allProducts ?? []), [allProducts]);
+  // The chip the list really filters by: the selected one, or All when that
+  // type has run out of products — derived, not synced with an effect, so there
+  // is never a render showing an empty list under a chip that no longer exists.
+  const typeFilter = activeTypeFilter(selectedType, allProducts ? typeChips : null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   /**
    * How far down the ranked list the user has scrolled, tied to the exact rows
@@ -195,7 +175,15 @@ export default function Browse() {
     setError(false);
     fetchProducts({ type: typeFilter })
       .then((result) => {
-        if (!cancelled) setProducts(result);
+        if (cancelled) return;
+        setProducts(result);
+        // Whatever type was asked for, the whole catalogue is in the cache now,
+        // so the chips can be built from it without a second request.
+        const all = peekProducts("all");
+        if (all) setAllProducts(all);
+        // Without Supabase (the bundled sample catalogue) nothing is cached, so the
+        // unfiltered read is the whole catalogue and builds the chips itself.
+        else if (typeFilter === "all") setAllProducts(result);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -225,6 +213,8 @@ export default function Browse() {
     useCallback(() => {
       const cached = peekProducts(typeFilter);
       if (cached) setProducts(cached);
+      const all = peekProducts("all");
+      if (all) setAllProducts(all);
     }, [typeFilter]),
   );
 
@@ -480,14 +470,17 @@ export default function Browse() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 8, paddingHorizontal: HEADER_GUTTER, paddingTop: 10 }}
             >
-              {TYPE_FILTERS.map((type) => (
+              {(["all", ...typeChips] as const).map((type) => (
                 <TypeChip
                   key={type}
                   label={TYPE_LABEL[type]}
                   selected={typeFilter === type}
-                  onPress={() => setTypeFilter(type)}
+                  onPress={() => setSelectedType(type)}
                 />
               ))}
+              {/* Until the catalogue loads only "All" is known; these hold the
+                  row's shape so the real chips do not pop in from nothing. */}
+              {allProducts === null && [0, 1, 2].map((i) => <ChipPlaceholder key={i} />)}
             </ScrollView>
           </View>
         );
@@ -510,7 +503,7 @@ export default function Browse() {
               paddingVertical: 13,
             }}
           >
-            <Pressable onPress={() => router.push("/profile")} style={{ flex: 1 }}>
+            <Pressable onPress={() => router.push("/skin-profile")} style={{ flex: 1 }}>
               <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>
                 Answer four quick questions to see how each product suits your skin -&gt;
               </Text>
@@ -554,7 +547,7 @@ export default function Browse() {
             <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
               Try the Scan tab to scan its barcode or ingredients instead.
             </Text>
-            <PrimaryButton tone="cta" size={52} label="Go to Scan" onPress={() => router.push("/")} />
+            <PrimaryButton tone="cta" size={52} label="Go to Scan" onPress={openScanner} />
           </View>
         );
 
@@ -567,10 +560,11 @@ export default function Browse() {
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
       <ScreenReaderAnnouncer message={announcement} />
       <FlatList
+        ref={listRef}
         data={items}
         keyExtractor={(item) => (item.kind === "skeleton" ? item.id : item.kind === "product" ? item.product.id : item.kind)}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 112 }}
+        contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) }}
         // The search box lives in this same list's header, so with the
         // keyboard up, the default "never" meant a row's first tap only
         // dismissed the keyboard — the tap was consumed as "outside the
@@ -664,6 +658,24 @@ export default function Browse() {
         }
       />
     </View>
+  );
+}
+
+/** An empty pill standing in for a type chip while the catalogue loads. */
+function ChipPlaceholder() {
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        width: 84,
+        height: TOUCH_TARGET,
+        borderRadius: RADIUS_SELECTOR,
+        borderWidth: 1,
+        borderColor: BORDER_INACTIVE,
+        backgroundColor: CANVAS,
+      }}
+    />
   );
 }
 

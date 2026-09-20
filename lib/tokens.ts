@@ -71,6 +71,14 @@ export const MUTED_FAINT = "rgba(107,90,84,0.88)";
 /** Chevrons and other non-text marks that must not compete with a label. */
 export const MUTED_SOFT = "rgba(107,90,84,0.45)";
 
+/**
+ * Unselected tab-bar icons. #9A8880 computes to 3.14:1 on CANVAS (WCAG 2.2
+ * SC 1.4.11 asks 3:1 of a control's icon) and 4.8:1 against INK. The selected
+ * tab is INK, and MUTED sat only 2.5:1 from it — two dark browns — which is why
+ * the selected tab was hard to pick out. Computed, not read off a mockup.
+ */
+export const TAB_INACTIVE = "#9A8880";
+
 // ── Lines ───────────────────────────────────────────────────────────────────
 
 /** Hairlines, dividers, unselected control borders, inactive progress dots. */
@@ -93,7 +101,6 @@ export const DOT_INACTIVE = LINE;
  * a button you can see and read. Pill shape, 26px radius, weight 500.
  */
 export const CTA = "#E09070";
-export const CTA_PRESSED = "#C97C58";
 
 /**
  * Selected-control fill — a very light, watery peach.
@@ -109,11 +116,6 @@ export const CTA_PRESSED = "#C97C58";
  * on the screen, which is what "chosen" should look like.
  */
 export const SELECTED = "#F9E7DC";
-/** One step warmer, for a selected surface that needs to sit above SELECTED. */
-export const SELECTED_STRONG = "#F5DCCC";
-
-/** Neutral pressed/active wash for controls that are not selections. */
-export const INK_TINT = "rgba(36,31,30,0.06)";
 
 /**
  * One shape for every selectable control in the app — chips, option cards,
@@ -122,20 +124,6 @@ export const INK_TINT = "rgba(36,31,30,0.06)";
  * pills with 14-px chips reads as two design systems arguing.
  */
 export const RADIUS_SELECTOR = 14;
-
-// ── Illustration accents ────────────────────────────────────────────────────
-
-/**
- * Illustration and status only — never a UI surface, and never a button.
- * `peach` here is the *accent* peach and is deliberately not {@link CTA}.
- */
-export const ACCENT = {
-  peach: "#FCD6C6",
-  blush: "#FCE1DB",
-  rose: "#F6CAC9",
-  sage: "#CDD8BE",
-  lilac: "#D1B7DA",
-} as const;
 
 // ── Match verdict ───────────────────────────────────────────────────────────
 
@@ -320,3 +308,50 @@ export function withAlpha(hex: string, alpha: number): string {
   const b = parseInt(clean.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
+
+/**
+ * Vertical rhythm for a content screen: `text` between lines of text, `block`
+ * between a block and the next (text to card, card to card), `gutter` at the
+ * screen's sides. A screen lays its blocks in a column with `gap: SPACE.block`
+ * instead of each block carrying its own margin.
+ */
+export const SPACE = { text: 8, block: 16, gutter: 24 } as const;
+
+/** The shade under the raised camera button's bottom edge, so it stands off the bar. */
+export const RAISED_SHADOW = {
+  shadowColor: INK,
+  shadowOffset: { width: 0, height: 5 },
+  shadowOpacity: 0.32,
+  shadowRadius: 4,
+  elevation: 8,
+} as const;
+
+/** The soft shade under the floating tab bar, so it reads as lying on top of the screen. */
+export const FLOATING_SHADOW = {
+  shadowColor: INK,
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.16,
+  shadowRadius: 18,
+  elevation: 12,
+} as const;
+
+/** A card lifted off the screen: a shade under its bottom edge. */
+export const CARD_SHADOW = {
+  shadowColor: INK,
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.14,
+  shadowRadius: 12,
+  elevation: 5,
+} as const;
+
+/** A small chip lifted off its card: a shorter shade than {@link CARD_SHADOW}. */
+export const CHIP_SHADOW = {
+  shadowColor: INK,
+  shadowOffset: { width: 0, height: 3 },
+  shadowOpacity: 0.14,
+  shadowRadius: 5,
+  elevation: 3,
+} as const;
+
+/** The soft shade drawn under the tab bar: how many layers, how far below it reaches, how dark each is. */
+export const TAB_BAR_SHADE = { layers: 4, reach: 10, opacity: 0.045 } as const;

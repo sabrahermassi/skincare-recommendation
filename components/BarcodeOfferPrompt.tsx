@@ -40,14 +40,13 @@ export function BarcodeOfferPrompt({
     // expiry still cleans the row up on its own — nothing here needs to
     // retry or block on the network succeeding.
     await discardUnreachableScan(productId, scanToken);
-    router.replace("/");
+    router.replace("/scanner");
   }
 
   return (
     <View
       style={{
         marginHorizontal: 24,
-        marginTop: 20,
         padding: 20,
         gap: 14,
         borderRadius: 14,

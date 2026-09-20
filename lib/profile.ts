@@ -52,6 +52,23 @@ export function pregnancyLabel(status: Pregnancy): string {
   return PREGNANCY_LABEL[status];
 }
 
+/**
+ * What the Profile tab calls someone's skin: a title ("Oily skin") and the tags
+ * under it (sensitivity, then concerns). With nothing answered there are no tags
+ * and the title says so.
+ */
+export function profileHeadline(profile: SkinProfile): { title: string; tags: string[] } {
+  const title = profile.baseSkinType
+    ? `${capitalize(profile.baseSkinType)} skin`
+    : isPersonalized(profile)
+      ? "Your skin"
+      : "Your skin profile";
+  const tags: string[] = [];
+  if (isSensitive(profile)) tags.push(profile.sensitivity === "high" ? "Very sensitive" : "Sensitive");
+  tags.push(...profile.concerns.map((c) => CONCERN_LABEL[c]));
+  return { title, tags };
+}
+
 /** The short summary shown in the browse header, e.g. "Combination, sensitive · dehydrated, redness". */
 export function profileSummary(profile: SkinProfile): string {
   const parts: string[] = [];
@@ -114,23 +131,6 @@ export function quizStepCount(): number {
 }
 
 /**
- * The 3-screen intro carousel (app/onboarding/index.tsx) that runs before
- * the quiz. Named here, not just inlined as a literal 3 at each call site,
- * for the same reason `STEPS.length` isn't hardcoded either.
- */
-export const ONBOARDING_INTRO_SCREEN_COUNT = 3;
-
-/**
- * Intro screens plus quiz steps, as one continuous count.
- *
- * The intro and the quiz used to show two separate progress-dot sequences,
- * each resetting to dot one — so finishing the intro's dots looked like
- * finishing onboarding, immediately followed by a second, unrelated
- * countdown. This is what lets both halves draw from one shared rail instead.
- */
-export const TOTAL_ONBOARDING_STEPS = ONBOARDING_INTRO_SCREEN_COUNT + quizStepCount();
-
-/**
  * The route after `current`, or `null` when `current` is the last step — which
  * means "finish onboarding" rather than "navigate".
  */
@@ -160,7 +160,7 @@ export function quizStepNumber(route: QuizRoute): number {
  * stopped being. Reordering the tab bar did not help, because these
  * navigations name the destination explicitly.
  *
- * `/` is now the scanner itself (`app/(tabs)/index.tsx`), so this and a cold
- * start agree by construction rather than by two routes being kept in step.
+ * `/` is the Home screen (`app/(tabs)/index.tsx`), so this and a cold start
+ * agree by construction rather than by two routes being kept in step.
  */
 export const POST_ONBOARDING_ROUTE = "/" as const;

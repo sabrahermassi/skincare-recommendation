@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
-import { Link, router } from "expo-router";
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, router, useFocusEffect, useScrollToTop } from "expo-router";
+import type { ReactNode, RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -15,12 +15,16 @@ import { Text } from "@/components/Text";
 import { canPhotographLabelFor, fetchProductsByIds, resolveIngredientNames } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
+import { openScanner } from "@/lib/genie";
 import { matchProduct, matchTone } from "@/lib/matching";
+import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
 import { isVerified } from "@/lib/safety";
-import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { LiftedCard, usePressScale } from "@/components/PressableCard";
+import { tabBarClearance } from "@/lib/tab-bar";
+import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
 
-type Tab = "saved" | "history" | "ingredients";
+type Tab = SavedTab;
 
 /**
  * The shelf and the log, on one screen.
@@ -37,6 +41,12 @@ type Tab = "saved" | "history" | "ingredients";
  */
 export default function Saved() {
   const insets = useSafeAreaInsets();
+  // Tapping the Saved tab while it is already showing scrolls the list on screen
+  // back to the top. One ref for all three lists is enough: only one is ever
+  // mounted at a time (the empty state replaces them), so it always points at
+  // the one the user is looking at.
+  const listRef = useRef<ScrollView>(null);
+  useScrollToTop(listRef);
   const [tab, setTab] = useState<Tab>("saved");
 
   const profile = useAppStore((s) => s.profile);
@@ -46,6 +56,8 @@ export default function Saved() {
   const toggleSaved = useAppStore((s) => s.toggleSaved);
   const restoreSavedProduct = useAppStore((s) => s.restoreSavedProduct);
   const clearHistory = useAppStore((s) => s.clearHistory);
+  const clearSavedProducts = useAppStore((s) => s.clearSavedProducts);
+  const clearSavedIngredients = useAppStore((s) => s.clearSavedIngredients);
   const removeHistoryEntry = useAppStore((s) => s.removeHistoryEntry);
   const restoreHistoryEntry = useAppStore((s) => s.restoreHistoryEntry);
 
@@ -81,6 +93,11 @@ export default function Saved() {
   // confirming — same reasoning as profile.tsx's own reset, done at the tap
   // that causes it rather than in an effect reacting to it after the fact.
   const [confirmingClear, setConfirmingClear] = useState(false);
+  // The tab stays mounted while another one is showing, so an armed "Clear it" would
+  // still be waiting when the person came back. Leaving the screen disarms all three.
+  useFocusEffect(
+    useCallback(() => () => setConfirmingClear(false), [])
+  );
 
   // Newest first in both lists. `history` is already ordered by the store.
   const savedIds = useMemo(
@@ -148,6 +165,23 @@ export default function Saved() {
     };
   }, [idsToResolve, retryKey]);
 
+  // One empty screen for all three tabs, rendered from a single spot in the
+  // tree so React keeps the same instance when the tab changes — only the
+  // text (and where the button leads) swaps. Each tab used to render its own,
+  // and Ingredients sat behind a loading spinner first, so switching tabs
+  // remounted the picture and flashed.
+  //
+  // Not just `length === 0` for Saved and History — removing the *last* row
+  // makes that true immediately, before the four-second Undo window has any
+  // chance to show. A pending undo of that kind keeps the list view (now
+  // rendering nothing but the bar) on screen instead of jumping straight to
+  // the empty state.
+  const isEmpty = isTabEmpty(
+    tab,
+    { saved: savedIds.length, history: history.length, ingredients: savedIngredients.length },
+    undo?.kind,
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <View style={{ backgroundColor: CANVAS, paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 10 }}>
@@ -168,7 +202,10 @@ export default function Saved() {
         <SegmentButton
           label={history.length ? `History (${history.length})` : "History"}
           active={tab === "history"}
-          onPress={() => setTab("history")}
+          onPress={() => {
+            setTab("history");
+            setConfirmingClear(false);
+          }}
         />
         {/* No count in parens here, unlike the two siblings — three segments
             leaves each about a third of the row, and "Ingredients (12)" is
@@ -185,8 +222,27 @@ export default function Saved() {
         />
       </View>
 
-      {tab === "ingredients" ? (
-        <IngredientsTab names={savedIngredients} />
+      {isEmpty ? (
+        <EmptyState {...EMPTY_COPY[tab]} />
+      ) : tab === "ingredients" ? (
+        <IngredientsTab
+          key="ingredients"
+          scrollRef={listRef}
+          names={savedIngredients}
+          footer={
+            <ClearAll
+              label="Clear ingredients"
+              question="Clear all your starred ingredients?"
+              confirming={confirmingClear}
+              onAsk={() => setConfirmingClear(true)}
+              onCancel={() => setConfirmingClear(false)}
+              onConfirm={() => {
+                setConfirmingClear(false);
+                clearSavedIngredients();
+              }}
+            />
+          }
+        />
       ) : error ? (
         <View style={{ alignItems: "center", gap: 12, paddingHorizontal: 40, paddingTop: 96 }}>
           <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
@@ -203,78 +259,72 @@ export default function Saved() {
           <ActivityIndicator color={INK} />
         </View>
       ) : tab === "saved" ? (
-        // Not just `savedIds.length === 0` — removing the *last* saved row
-        // makes that true immediately, before the four-second Undo window
-        // has any chance to show. A pending "saved" undo keeps the list
-        // view (now rendering nothing but the bar) on screen instead of
-        // jumping straight to the empty state.
-        savedIds.length === 0 && undo?.kind !== "saved" ? (
-          <EmptyState
-            title="Nothing saved yet"
-            body="Tap Save on any product and it will wait for you here - including next time you open the app."
-            actionLabel="Scan a product"
+        // `key` on each list: Saved and History are the same kind of element in the
+        // same spot, so without it React reuses one scroll view for both and the
+        // scroll position carries over when switching tabs.
+        <ScrollView key="saved" ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
+          {savedIds.map((id) => {
+            const product = byId[id];
+            if (!product) return null;
+            const match = matchProduct(product, profile);
+            const score = match.score;
+            const tone = score === null ? null : matchTone(score);
+            const verdict = tone ? VERDICT[tone] : VERDICT_NEUTRAL;
+            return (
+              <Row
+                key={id}
+                product={product}
+                bar={verdict.solid}
+                onRemove={() => {
+                  const saved = savedProducts.find((p) => p.id === id);
+                  toggleSaved(id);
+                  if (saved) showUndo({ kind: "saved", product: saved });
+                }}
+              >
+                {tone && score !== null && (
+                  <View
+                    style={{
+                      marginTop: 7,
+                      alignSelf: "flex-start",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 5,
+                      borderRadius: 999,
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      backgroundColor: verdict.tint,
+                    }}
+                  >
+                    <Text style={{ fontSize: TYPE.caption, fontWeight: "700", color: verdict.deep }}>
+                      {score}%
+                    </Text>
+                    <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: verdict.deep }}>
+                      · {VERDICT_LABEL[match.verdict]}
+                    </Text>
+                  </View>
+                )}
+              </Row>
+            );
+          })}
+          {undo?.kind === "saved" && (
+            <UndoBar label="Removed" onUndo={() => { restoreSavedProduct(undo.product); dismissUndo(); }} />
+          )}
+
+          <ClearAll
+            label="Clear saved products"
+            question="Clear all your saved products?"
+            confirming={confirmingClear}
+            onAsk={() => setConfirmingClear(true)}
+            onCancel={() => setConfirmingClear(false)}
+            onConfirm={() => {
+              setConfirmingClear(false);
+              dismissUndo();
+              clearSavedProducts();
+            }}
           />
-        ) : (
-          <ScrollView contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
-            {savedIds.map((id) => {
-              const product = byId[id];
-              if (!product) return null;
-              const match = matchProduct(product, profile);
-              const score = match.score;
-              const tone = score === null ? null : matchTone(score);
-              const verdict = tone ? VERDICT[tone] : VERDICT_NEUTRAL;
-              return (
-                <Row
-                  key={id}
-                  product={product}
-                  bar={verdict.solid}
-                  onRemove={() => {
-                    const saved = savedProducts.find((p) => p.id === id);
-                    toggleSaved(id);
-                    if (saved) showUndo({ kind: "saved", product: saved });
-                  }}
-                >
-                  {tone && score !== null && (
-                    <View
-                      style={{
-                        marginTop: 7,
-                        alignSelf: "flex-start",
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 5,
-                        borderRadius: 999,
-                        paddingHorizontal: 10,
-                        paddingVertical: 4,
-                        backgroundColor: verdict.tint,
-                      }}
-                    >
-                      <Text style={{ fontSize: TYPE.caption, fontWeight: "700", color: verdict.deep }}>
-                        {score}%
-                      </Text>
-                      <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: verdict.deep }}>
-                        · {VERDICT_LABEL[match.verdict]}
-                      </Text>
-                    </View>
-                  )}
-                </Row>
-              );
-            })}
-            {undo?.kind === "saved" && (
-              <UndoBar label="Removed" onUndo={() => { restoreSavedProduct(undo.product); dismissUndo(); }} />
-            )}
-          </ScrollView>
-        )
-      ) : history.length === 0 && undo?.kind !== "history" ? (
-        // Same reasoning as the Saved branch above: removing the last
-        // history row must not skip past the Undo window straight to the
-        // empty state.
-        <EmptyState
-          title="No history yet"
-          body="Every product you open or scan is logged here automatically, so you can tell at a glance whether you have already checked something."
-          actionLabel="Scan a product"
-        />
+        </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
+        <ScrollView key="history" ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
           {history.map((entry) => {
             const product = entry.known ? byId[entry.id] : undefined;
             // The bar reflects the score this entry carried when it was
@@ -298,39 +348,66 @@ export default function Saved() {
             <UndoBar label="Removed" onUndo={() => { restoreHistoryEntry(undo.entry); dismissUndo(); }} />
           )}
 
-          {confirmingClear ? (
-            <View style={{ alignItems: "center", gap: 10, paddingVertical: 12 }}>
-              <Text style={{ fontSize: 12.5, color: MUTED }}>Clear your whole history?</Text>
-              <View style={{ flexDirection: "row", gap: 20 }}>
-                <Pressable onPress={() => setConfirmingClear(false)} hitSlop={8}>
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-                    Keep it
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    setConfirmingClear(false);
-                    dismissUndo();
-                    clearHistory();
-                  }}
-                  hitSlop={8}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: DANGER, textDecorationLine: "underline" }}>
-                    Clear it
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : (
-            <Pressable onPress={() => setConfirmingClear(true)} style={{ alignItems: "center", paddingVertical: 12 }}>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-                Clear history
-              </Text>
-            </Pressable>
-          )}
+          <ClearAll
+            label="Clear history"
+            question="Clear your whole history?"
+            confirming={confirmingClear}
+            onAsk={() => setConfirmingClear(true)}
+            onCancel={() => setConfirmingClear(false)}
+            onConfirm={() => {
+              setConfirmingClear(false);
+              dismissUndo();
+              clearHistory();
+            }}
+          />
         </ScrollView>
       )}
     </View>
+  );
+}
+
+// Standard tap height for the three "Clear …" links, not the bare text line.
+const CLEAR_TARGET = {
+  minHeight: TOUCH_TARGET,
+  minWidth: TOUCH_TARGET,
+  paddingHorizontal: 12,
+  alignItems: "center",
+  justifyContent: "center",
+} as const;
+
+/** The "Clear …" link at the foot of a list, and its second-tap confirm. One
+ *  component so Saved, History and Ingredients wipe the same way. */
+function ClearAll({
+  label,
+  question,
+  confirming,
+  onAsk,
+  onCancel,
+  onConfirm,
+}: {
+  label: string;
+  question: string;
+  confirming: boolean;
+  onAsk: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return confirming ? (
+    <View style={{ alignItems: "center", gap: 10, paddingVertical: 12 }}>
+      <Text style={{ fontSize: 12.5, color: MUTED }}>{question}</Text>
+      <View style={{ flexDirection: "row", gap: 20 }}>
+        <Pressable onPress={onCancel} accessibilityRole="button" style={CLEAR_TARGET}>
+          <Text style={{ fontSize: 12, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>Keep it</Text>
+        </Pressable>
+        <Pressable onPress={onConfirm} accessibilityRole="button" style={CLEAR_TARGET}>
+          <Text style={{ fontSize: 12, fontWeight: "600", color: DANGER, textDecorationLine: "underline" }}>Clear it</Text>
+        </Pressable>
+      </View>
+    </View>
+  ) : (
+    <Pressable onPress={onAsk} accessibilityRole="button" style={[CLEAR_TARGET, { alignSelf: "center" }]}>
+      <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -386,6 +463,7 @@ function Row({
   onRemove: () => void;
   children: ReactNode;
 }) {
+  const [scale, press] = usePressScale();
   return (
     // The card's chrome lives on a plain View, not the Link/Pressable
     // itself — `Link asChild` renders an actual `<a>` on web, and a click
@@ -394,17 +472,10 @@ function Row({
     // anchor's own default action). Keeping `RemoveButton` as a sibling
     // outside the anchor, not a descendant of it, is the only fix that
     // actually holds on web.
-    <View
-      style={{
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: BORDER_INACTIVE,
-        backgroundColor: SURFACE,
-        overflow: "hidden",
-      }}
-    >
+    <LiftedCard scale={scale} backgroundColor={SURFACE}>
+    <View style={{ borderRadius: 16, borderWidth: 1, borderColor: BORDER_INACTIVE, overflow: "hidden" }}>
       <Link href={`/product/${product.id}`} asChild>
-        <Pressable style={{ flexDirection: "row" }} className="active:opacity-70">
+        <Pressable style={{ flexDirection: "row" }} {...press}>
           <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
           <View style={{ flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 13, padding: 13 }}>
             <ProductThumbnail product={product} size={56} radius={14} />
@@ -413,7 +484,7 @@ function Row({
                 {product.brand}
               </Text>
               <Text
-                style={{ marginTop: 2, fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, lineHeight: 19, color: INK }}
+                style={{ marginTop: 2, fontSize: 13.5, fontWeight: "500", lineHeight: 18, color: INK }}
                 numberOfLines={2}
               >
                 {product.name}
@@ -426,6 +497,7 @@ function Row({
 
       <RemoveButton onPress={onRemove} />
     </View>
+    </LiftedCard>
   );
 }
 
@@ -557,16 +629,8 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
   const canPhotographLabel = !entry.known && canPhotographLabelFor(entry.id);
 
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: BORDER_INACTIVE,
-        backgroundColor: SURFACE,
-        overflow: "hidden",
-      }}
-    >
+    <LiftedCard backgroundColor={SURFACE}>
+    <View style={{ flexDirection: "row", borderRadius: 16, borderWidth: 1, borderColor: BORDER_INACTIVE, overflow: "hidden" }}>
       <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
       <View style={{ flex: 1, padding: 13, paddingRight: 36 }}>
         <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
@@ -626,12 +690,44 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
 
       <RemoveButton onPress={onRemove} />
     </View>
+    </LiftedCard>
   );
 }
 
+const EMPTY_COPY: Record<Tab, { title: string; body: string; actionLabel: string; actionHref: "/scanner" | "/browse" }> = {
+  saved: {
+    title: "No products saved yet",
+    body: "Tap Save on any product and it will wait for you here - including next time you open the app.",
+    actionLabel: "Scan a product",
+    actionHref: "/scanner",
+  },
+  history: {
+    title: "No history yet",
+    body: "Every product you open or scan is logged here automatically, so you can tell at a glance whether you have already checked something.",
+    actionLabel: "Scan a product",
+    actionHref: "/scanner",
+  },
+  ingredients: {
+    title: "No starred ingredients yet",
+    body: "Open a product, tap an ingredient, then tap its star to keep it here.",
+    actionLabel: "Browse products",
+    actionHref: "/browse",
+  },
+};
+
 const SAVED_EMPTY_SHELF = require("@/assets/illustrations/saved-empty-shelf.png");
 
-function EmptyState({ title, body, actionLabel }: { title: string; body: string; actionLabel?: string }) {
+function EmptyState({
+  title,
+  body,
+  actionLabel,
+  actionHref = "/scanner",
+}: {
+  title: string;
+  body: string;
+  actionLabel?: string;
+  actionHref?: "/scanner" | "/browse";
+}) {
   return (
     // Asymmetric flex spacers (0.4/0.6), not `justifyContent: "center"" —
     // a true center split the leftover room evenly above and below, which
@@ -667,7 +763,7 @@ function EmptyState({ title, body, actionLabel }: { title: string; body: string;
             tone="cta"
             size={50}
             label={actionLabel}
-            onPress={() => router.push("/")}
+            onPress={() => (actionHref === "/scanner" ? openScanner() : router.push(actionHref))}
             style={{ marginTop: 8 }}
           />
         )}
@@ -687,7 +783,16 @@ function EmptyState({ title, body, actionLabel }: { title: string; body: string;
  * `app/ingredient/[inci].tsx` already uses for its own no-product-context
  * path — there is no product here either, just a starred name.
  */
-function IngredientsTab({ names }: { names: string[] }) {
+function IngredientsTab({
+  names,
+  footer,
+  scrollRef,
+}: {
+  names: string[];
+  footer: ReactNode;
+  scrollRef: RefObject<ScrollView | null>;
+}) {
+  const insets = useSafeAreaInsets();
   const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
   const [byName, setByName] = useState<Record<string, Ingredient> | null>(null);
   const [error, setError] = useState(false);
@@ -753,21 +858,8 @@ function IngredientsTab({ names }: { names: string[] }) {
     );
   }
 
-  if (names.length === 0) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40, gap: 8 }}>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK, textAlign: "center" }}>
-          No starred ingredients yet
-        </Text>
-        <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
-          Tap the star on any ingredient&apos;s page to keep track of it here.
-        </Text>
-      </View>
-    );
-  }
-
   return (
-    <ScrollView contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 }}>
+    <ScrollView ref={scrollRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
       {names.map((name) => {
         const ingredient: Ingredient =
           byName[name] ?? { id: name, name, comedogenic: 0, safety: "safe", verified: false };
@@ -782,6 +874,7 @@ function IngredientsTab({ names }: { names: string[] }) {
           <IngredientRow key={name} name={name} bar={verdict.solid} onRemove={() => toggleSavedIngredient(name)} />
         );
       })}
+      {footer}
     </ScrollView>
   );
 }
@@ -791,18 +884,12 @@ function IngredientsTab({ names }: { names: string[] }) {
  *  inside it — see `Row`'s own comment for why nesting breaks the link on
  *  web. */
 function IngredientRow({ name, bar, onRemove }: { name: string; bar: string; onRemove: () => void }) {
+  const [scale, press] = usePressScale();
   return (
-    <View
-      style={{
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: BORDER_INACTIVE,
-        backgroundColor: SURFACE,
-        overflow: "hidden",
-      }}
-    >
+    <LiftedCard scale={scale} backgroundColor={SURFACE}>
+    <View style={{ borderRadius: 16, borderWidth: 1, borderColor: BORDER_INACTIVE, overflow: "hidden" }}>
       <Link href={{ pathname: "/ingredient/[inci]", params: { inci: name } }} asChild>
-        <Pressable style={{ flexDirection: "row" }} className="active:opacity-70">
+        <Pressable style={{ flexDirection: "row" }} {...press}>
           <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
           <View style={{ flex: 1, justifyContent: "center", padding: 16, paddingRight: 40 }}>
             <Text style={{ fontSize: 14, textTransform: "capitalize", color: INK }} numberOfLines={2}>
@@ -814,5 +901,6 @@ function IngredientRow({ name, bar, onRemove }: { name: string; bar: string; onR
 
       <RemoveButton onPress={onRemove} />
     </View>
+    </LiftedCard>
   );
 }

@@ -1,4 +1,519 @@
-import { normalise, parseIngredientBlock, reconstructFromDictionary } from "@/lib/inci";
+import {
+  commonNameFor,
+  findListByDictionary,
+  fuzzyKnownName,
+  isPlausibleIngredientName,
+  normalise,
+  parseIngredientBlock,
+  reconstructFromDictionary,
+  resolveKnownName,
+  salvageKnownNames,
+  splitRunTogether,
+  splitSlashList,
+  squashKey,
+} from "@/lib/inci";
+
+/**
+ * Names taken from the live dictionary's colon-containing rows — the shapes the
+ * heading fixes cannot catch, because there is no heading to strip.
+ */
+describe("isPlausibleIngredientName", () => {
+  it.each([
+    "package labeling: label.jpg",
+    "water package labeling: outer label.jpg inner label.jpg",
+    "korea distribuitor: promo plus srl",
+    "netezeşte şi catifelează tenul. mod de utilizare: aplică masca pe tenul curat",
+    "onben: '#f4f7f1",
+    "silice: 10.6 mg/ kons cations 2715 ng ca 51",
+    "label.jpg",
+  ])("rejects a fragment that is not a name: %s", (name: string) => {
+    expect(isPlausibleIngredientName(name)).toBe(false);
+  });
+
+  it.each([
+    "ci 77268:1",
+    "pigment red 57:1",
+    "basic violet 11:1",
+    "aqua",
+    "1,2-hexanediol",
+    "pentaerythrityl tetra-di-t-butyl hydroxyhydrocinnamate",
+  ])("keeps a real name: %s", (name: string) => {
+    expect(isPlausibleIngredientName(name)).toBe(true);
+  });
+
+  it("skips only the word limit when asked, so junk after word eight is still caught", () => {
+    const long = "aspergillus lactobacillus leuconostoc pediococcus saccharomyces citrus unshiu fruit ferment extract";
+    expect(isPlausibleIngredientName(long)).toBe(false);
+    expect(isPlausibleIngredientName(long, true)).toBe(true);
+    expect(isPlausibleIngredientName("one two three four five six seven eight package labeling: label.jpg", true)).toBe(false);
+    expect(isPlausibleIngredientName("one two three four five six seven eight nine www.example.com", true)).toBe(false);
+  });
+
+  it("rejects a name longer than eight words", () => {
+    expect(isPlausibleIngredientName("one two three four five six seven eight")).toBe(true);
+    expect(isPlausibleIngredientName("one two three four five six seven eight nine")).toBe(false);
+  });
+});
+
+describe("resolveKnownName", () => {
+  const dictionary = new Set([
+    "aqua",
+    "water",
+    "parfum",
+    "glycerin",
+    "behenyl alcohol",
+    "ci 77891",
+    "titanium dioxide",
+    "hydroxyethyl acrylate",
+  ]);
+
+  it.each([
+    ["aqua/water/eau", "aqua"],
+    ["aqua/water", "aqua"],
+    ["aqua / water", "aqua"],
+    ["parfum/fragrance", "parfum"],
+    ["ci 77891/titanium dioxide", "ci 77891"],
+    ["gly cerin", "glycerin"],
+    ["be henyl alcohol", "behenyl alcohol"],
+  ])("resolves %s to %s", (name: string, expected: string) => {
+    expect(resolveKnownName(name, dictionary)).toBe(expected);
+  });
+
+  it("leaves a name the dictionary already holds alone", () => {
+    expect(resolveKnownName("glycerin", dictionary)).toBe("glycerin");
+  });
+
+  it("does not split a real name that merely contains a slash", () => {
+    expect(
+      resolveKnownName("hydroxyethyl acrylate/sodium acryloyldimethyl taurate copolymer", dictionary)
+    ).toBe("hydroxyethyl acrylate/sodium acryloyldimethyl taurate copolymer");
+  });
+
+  it("leaves a name it cannot place unchanged", () => {
+    expect(resolveKnownName("helianthus annus seed oil", dictionary)).toBe("helianthus annus seed oil");
+  });
+
+  it("returns the dictionary name, not the alias, when a slash name is anchored on an alias", () => {
+    const aliases = new Map([["glycérine", "glycerin"]]);
+    expect(resolveKnownName("glycérine/vegetable", new Set(["glycerin"]), aliases)).toBe("glycerin");
+  });
+
+  it("counts a mapped common name as a known part, so it is not swallowed by the first ingredient", () => {
+    const known = new Set(["aqua", "petrolatum"]);
+    expect(resolveKnownName("aqua / petroleum jelly", known)).toBe("aqua / petroleum jelly");
+    expect(resolveKnownName("petrolatum/petroleum jelly", known)).toBe("petrolatum");
+  });
+
+  it("does not fold two different known ingredients into the first", () => {
+    expect(resolveKnownName("aqua / glycerin", dictionary)).toBe("aqua / glycerin");
+    expect(resolveKnownName("glycerin/behenyl alcohol", dictionary)).toBe("glycerin/behenyl alcohol");
+  });
+
+  it("resolves through parseIngredientBlock when a dictionary is supplied", () => {
+    const parsed = parseIngredientBlock("Aqua/Water/Eau, Gly cerin, Parfum/Fragrance, Glycerin", dictionary);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "parfum"]);
+  });
+});
+
+describe("full stops that are not separators", () => {
+  const names = (text: string) => parseIngredientBlock(text).map((p) => p.inci_name);
+
+  it("keeps an abbreviation whole: Vit. E", () => {
+    expect(names("Aqua, Vit. E, Glycerin, Panthenol")).toEqual(["aqua", "vit. e", "glycerin", "panthenol"]);
+  });
+
+  it("keeps a genus abbreviated at the start of an item: C. Sinensis", () => {
+    expect(names("C. Sinensis Leaf Extract, Aqua, Glycerin, Panthenol")).toEqual([
+      "c. sinensis leaf extract",
+      "aqua",
+      "glycerin",
+      "panthenol",
+    ]);
+    expect(names("Aqua. C. Sinensis Leaf Extract. Glycerin. Panthenol")).toEqual([
+      "aqua",
+      "c. sinensis leaf extract",
+      "glycerin",
+      "panthenol",
+    ]);
+  });
+
+  it("still splits a label printed with full stops for commas", () => {
+    expect(names("Benzoic Acid. Caprylyl Glycol. Glycerin. Aqua")).toEqual([
+      "benzoic acid",
+      "caprylyl glycol",
+      "glycerin",
+      "aqua",
+    ]);
+  });
+
+  it("still ends a name at a lone letter that follows other words: Vitamin E.", () => {
+    expect(names("Vitamin E. Glycerin. Aqua. Panthenol")).toEqual(["vitamin e", "glycerin", "aqua", "panthenol"]);
+  });
+});
+
+describe("a long real name without a dictionary", () => {
+  it("is kept by the dictionary-free first pass instead of being dropped for its length", () => {
+    // Ten words, under the 120-character cap that applies on every path.
+    const long = "aspergillus lactobacillus leuconostoc pediococcus saccharomyces citrus unshiu fruit ferment extract";
+    const parsed = parseIngredientBlock(`Aqua, Glycerin, Panthenol, Allantoin, ${long}`).map((p) => p.inci_name);
+    expect(parsed).toContain(long);
+    expect(parsed).toHaveLength(5);
+  });
+});
+
+describe("splitSlashList", () => {
+  const dictionary = new Set(["aqua", "glycerin", "niacinamide", "prunus armeniaca kernel oil"]);
+
+  it("returns the separate names when every part is a known ingredient", () => {
+    expect(splitSlashList("aqua / glycerin", dictionary)).toEqual(["aqua", "glycerin"]);
+  });
+
+  it("reads an alias part as its dictionary name", () => {
+    const aliases = new Map([["apricot kernel oil", "prunus armeniaca kernel oil"]]);
+    expect(splitSlashList("glycerin/apricot kernel oil", dictionary, aliases)).toEqual([
+      "glycerin",
+      "prunus armeniaca kernel oil",
+    ]);
+  });
+
+  it("reads a mapped common name as its dictionary name", () => {
+    expect(splitSlashList("aqua / petroleum jelly", new Set(["aqua", "petrolatum"]))).toEqual(["aqua", "petrolatum"]);
+  });
+
+  it("leaves the token alone when any part is unknown", () => {
+    expect(splitSlashList("aqua/huile minerale", dictionary)).toEqual(["aqua/huile minerale"]);
+    expect(splitSlashList("glycerin", dictionary)).toEqual(["glycerin"]);
+  });
+
+  it("keeps both ingredients when a slash list sits inside a formula", () => {
+    const parsed = parseIngredientBlock("Aqua / Glycerin, Niacinamide, Aqua, Glycerin", dictionary);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "niacinamide"]);
+  });
+});
+
+describe("resolveKnownName: spacing, spelling and common names", () => {
+  const dictionary = new Set([
+    "hydrogenated styrene/methyl styrene/indene copolymer",
+    "hydroxyethyl acrylate/sodium acryloyldimethyl taurate copolymer",
+    "sodium lauryl sulfate",
+    "simmondsia chinensis seed oil",
+    "aroma",
+    "parfum",
+    "paraffinum liquidum",
+    "kojic dipalmitate",
+    "peg-40 stearate",
+    "peg-4 stearate",
+    "styrene methylstyrene indene copolymer",
+    "styrene/methylstyrene/indene copolymer",
+  ]);
+
+  it("matches the same letters under different spacing and punctuation", () => {
+    expect(resolveKnownName("hydrogenated styrene/methylstyrene/indene copolymer", dictionary)).toBe(
+      "hydrogenated styrene/methyl styrene/indene copolymer"
+    );
+    expect(resolveKnownName("hydroxyethyl acrylate/sodium acryloyldimethyltaurate copolymer", dictionary)).toBe(
+      "hydroxyethyl acrylate/sodium acryloyldimethyl taurate copolymer"
+    );
+  });
+
+  it("prefers the candidate fewest edits away when the dictionary holds a name twice", () => {
+    expect(resolveKnownName("styrene methylstyrene indene co polymer", dictionary)).toBe(
+      "styrene methylstyrene indene copolymer"
+    );
+  });
+
+  it("keeps digits in the key, so peg-4 and peg-40 never meet", () => {
+    expect(squashKey("peg-40 stearate")).not.toBe(squashKey("peg-4 stearate"));
+    expect(resolveKnownName("peg 40 stearate", dictionary)).toBe("peg-40 stearate");
+    expect(resolveKnownName("peg-400 stearate", dictionary)).toBe("peg-400 stearate");
+  });
+
+  it("reads a British spelling", () => {
+    expect(resolveKnownName("sodium lauryl sulphate", dictionary)).toBe("sodium lauryl sulfate");
+  });
+
+  it.each([
+    ["flavor", "aroma"],
+    ["perfume", "parfum"],
+    ["jojoba seed oil", "simmondsia chinensis seed oil"],
+    ["mineral oil", "paraffinum liquidum"],
+    ["kojic acid dipalmitate", "kojic dipalmitate"],
+  ])("maps the common name %s to %s", (name: string, expected: string) => {
+    expect(resolveKnownName(name, dictionary)).toBe(expected);
+  });
+
+  it("ignores a common name whose target the dictionary does not hold", () => {
+    expect(resolveKnownName("argan oil", dictionary)).toBe("argan oil");
+  });
+
+  it("does not guess at the ambiguous common names", () => {
+    expect(commonNameFor("iron oxides")).toBeUndefined();
+    expect(commonNameFor("citrus aurantium peel oil")).toBeUndefined();
+  });
+
+  it("accepts an unfamiliar translated part after the slash, but not on a polymer name", () => {
+    const known = new Set(["paraffinum liquidum", "mineral oil", "hydroxyethyl acrylate"]);
+    expect(resolveKnownName("paraffinum liquidum/mineral oil/huile minerale", known)).toBe("paraffinum liquidum");
+    expect(
+      resolveKnownName("hydroxyethyl acrylate/sodium acryloyldimethyl taurate copolymer", known)
+    ).toBe("hydroxyethyl acrylate/sodium acryloyldimethyl taurate copolymer");
+  });
+
+  it("finds the known name wherever it sits around the slash", () => {
+    const known = new Set(["ci 77491", "titanium dioxide"]);
+    expect(resolveKnownName("iron oxides/ci 77491", known)).toBe("ci 77491");
+    expect(resolveKnownName("titanium dioxide nano / titanium dioxide", known)).toBe("titanium dioxide");
+  });
+
+  it("drops a bracket the label never closed", () => {
+    const known = new Set(["aqua", "hyaluronic acid"]);
+    expect(resolveKnownName("aqua (water", known)).toBe("aqua");
+    expect(resolveKnownName("hyaluronic acid (3-8 kda", known)).toBe("hyaluronic acid");
+    expect(resolveKnownName("aqua water)", known)).toBe("aqua water)");
+  });
+
+  it("counts an alias as a known part after the slash", () => {
+    const known = new Set(["prunus armeniaca kernel oil"]);
+    const aliases = new Map([["apricot kernel oil", "prunus armeniaca kernel oil"]]);
+    expect(resolveKnownName("prunus armeniaca kernel oil/apricot kernel oil", known, aliases)).toBe(
+      "prunus armeniaca kernel oil"
+    );
+  });
+});
+
+describe("resolveKnownName: unit annotations", () => {
+  const dictionary = new Set(["homosalate", "octocrylene", "ethylhexyl salicylate", "ethylhexyl methoxycinnamate"]);
+
+  it("drops a w/w or w/v unit printed after the name", () => {
+    expect(resolveKnownName("homosalate w/w", dictionary)).toBe("homosalate");
+    expect(resolveKnownName("octocrylene w/v", dictionary)).toBe("octocrylene");
+  });
+
+  it("drops a dose glued to or spaced after the name", () => {
+    expect(resolveKnownName("homosalate100mg/g", dictionary)).toBe("homosalate");
+    expect(resolveKnownName("octocrylene 50 mg/g", dictionary)).toBe("octocrylene");
+    expect(resolveKnownName("octyl salicylate 50mg/g", dictionary)).toBe("ethylhexyl salicylate");
+    expect(resolveKnownName("homosalate 10%", dictionary)).toBe("homosalate");
+  });
+
+  it("resolves the common UV-filter names after the unit is dropped", () => {
+    expect(resolveKnownName("octyl salicylate w/w", dictionary)).toBe("ethylhexyl salicylate");
+    expect(resolveKnownName("octyl methoxycinnamate", dictionary)).toBe("ethylhexyl methoxycinnamate");
+  });
+
+  it("reads a sunscreen label whose every filter carries a unit", () => {
+    const parsed = parseIngredientBlock(
+      "Homosalate w/w, Octocrylene w/w, Octyl Salicylate w/w, Glycerin",
+      dictionary
+    );
+    expect(parsed.slice(0, 3).map((p) => p.inci_name)).toEqual(["homosalate", "octocrylene", "ethylhexyl salicylate"]);
+  });
+});
+
+describe("salvageKnownNames", () => {
+  const dictionary = new Set(["sodium sulfate", "ci 12490", "benzyl alcohol", "aqua", "water", "helianthus annuus seed oil", "alcohol"]);
+
+  it("keeps each colon-separated piece that is a known name", () => {
+    expect(salvageKnownNames("sodium sulfate: ci 12490", dictionary)).toEqual(["sodium sulfate", "ci 12490"]);
+    expect(salvageKnownNames("preservatives: benzyl alcohol", dictionary)).toEqual(["benzyl alcohol"]);
+  });
+
+  it("finds a known name behind a batch number", () => {
+    expect(salvageKnownNames("2050519 10 - aqua", dictionary)).toEqual(["aqua"]);
+  });
+
+  it("finds a known name behind heading text in other scripts", () => {
+    expect(
+      salvageKnownNames("ingrédients/ingredientes/ zyztatika/ingrediente/cbctabкm/sastojci helianthus annuus seed oil", dictionary)
+    ).toEqual(["helianthus annuus seed oil"]);
+  });
+
+  it.each([
+    ["ingrédients/ingredientes/ zyztatika/ingrediente/cbctabкm/sastojci Helianthus Annuus Seed Oil, Aqua, Glycerin, Panthenol"],
+    ["INGREDIENTS/INGREDIENTES/ SASTOJCI/INGREDIENTE Helianthus Annuus Seed Oil, Aqua, Glycerin, Panthenol"],
+  ])("keeps the first ingredient behind a stack of headings in several languages: %s", (text: string) => {
+    expect(parseIngredientBlock(text, dictionary).map((p) => p.inci_name)).toEqual([
+      "helianthus annuus seed oil",
+      "aqua",
+      "glycerin",
+      "panthenol",
+    ]);
+  });
+
+  it("does not reduce a real slash name the dictionary lacks to its last word", () => {
+    const known = new Set(["dimethicone"]);
+    expect(salvageKnownNames("peg/ppg-18/18 dimethicone", known)).toEqual([]);
+    expect(
+      parseIngredientBlock("Aqua, Peg/Ppg-18/18 Dimethicone, Glycerin, Panthenol", known).map((p) => p.inci_name)
+    ).toContain("peg/ppg-18/18 dimethicone");
+  });
+
+  it("does not turn a sentence that ends in an ingredient into that ingredient", () => {
+    expect(salvageKnownNames("free from alcohol", dictionary)).toEqual([]);
+    expect(salvageKnownNames("made with natural water", dictionary)).toEqual([]);
+  });
+
+  it("returns nothing when no piece is a known name", () => {
+    expect(salvageKnownNames("package labeling: label.jpg", dictionary)).toEqual([]);
+  });
+
+  it("works through the whole parser, keeping a known name the guard would have refused", () => {
+    const parsed = parseIngredientBlock("Aqua, Sodium Sulfate: CI 12490, Preservatives: Benzyl Alcohol", dictionary);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "sodium sulfate", "ci 12490", "benzyl alcohol"]);
+  });
+});
+
+describe("splitRunTogether", () => {
+  const dictionary = new Set(["caprylyl glycol", "isohexadecane", "camellia sinensis leaf extract", "arnica montana flower extract", "citric acid", "glycol"]);
+
+  it("splits a token that is two ingredients with the comma missing", () => {
+    expect(splitRunTogether("caprylyl glycol isohexadecane", dictionary)).toEqual(["caprylyl glycol", "isohexadecane"]);
+    expect(splitRunTogether("camellia sinensis leaf extract arnica montana flower extract", dictionary)).toEqual([
+      "camellia sinensis leaf extract",
+      "arnica montana flower extract",
+    ]);
+  });
+
+  it("takes the longest known name first", () => {
+    expect(splitRunTogether("citric acid glycol", dictionary)).toEqual(["citric acid", "glycol"]);
+  });
+
+  it("returns the token whole when any word is left over", () => {
+    expect(splitRunTogether("caprylyl glycol mystery", dictionary)).toEqual(["caprylyl glycol mystery"]);
+  });
+
+  it("returns a single known name whole", () => {
+    expect(splitRunTogether("isohexadecane", dictionary)).toEqual(["isohexadecane"]);
+  });
+});
+
+describe("fuzzyKnownName", () => {
+  const dictionary = new Set([
+    "helianthus annuus seed oil",
+    "potassium cetyl phosphate",
+    "polyquaternium-10 hydroxyethylcellulose",
+    "methylparaben",
+  ]);
+  const attempts = () => ({ remaining: 100 });
+
+  it("corrects a one-letter typo in a long name", () => {
+    expect(fuzzyKnownName("helianthus annus seed oil", dictionary, attempts())).toBe("helianthus annuus seed oil");
+    expect(fuzzyKnownName("potassium cetyl phospate", dictionary, attempts())).toBe("potassium cetyl phosphate");
+  });
+
+  it("refuses a short name, however close", () => {
+    expect(fuzzyKnownName("ethylparaben", dictionary, attempts())).toBe("ethylparaben");
+  });
+
+  it("refuses a name whose digits differ", () => {
+    expect(fuzzyKnownName("polyquaternium-11 hydroxyethylcellulose", dictionary, attempts())).toBe(
+      "polyquaternium-11 hydroxyethylcellulose"
+    );
+  });
+
+  it("stops once the attempt budget is spent", () => {
+    expect(fuzzyKnownName("helianthus annus seed oil", dictionary, { remaining: 0 })).toBe("helianthus annus seed oil");
+  });
+});
+
+describe("parseIngredientBlock: separators and packaging text", () => {
+  it("splits a list separated by full stops", () => {
+    expect(
+      parseIngredientBlock("Benzoic Acid. Caprylyl Glycol. Glyceryl Behenate. Glycerin").map((p) => p.inci_name)
+    ).toEqual(["benzoic acid", "caprylyl glycol", "glyceryl behenate", "glycerin"]);
+  });
+
+  it("leaves a full stop inside brackets alone", () => {
+    expect(
+      parseIngredientBlock("Aqua, Tocopheryl Acetate (Vit. E), Glycerin").map((p) => p.inci_name)
+    ).toEqual(["aqua", "tocopheryl acetate", "glycerin"]);
+  });
+
+  it.each([
+    "pet 1+ ldpe 4+ alu 41&lt",
+    "code 4006381333931",
+    "made in <china>",
+    "www.maxbrands.n produced for maxbrands marketing ltd",
+    "contact@brand.com",
+    "ingrédients issus de l'agriculture biologique",
+  ])(
+    "rejects packaging text: %s",
+    (name: string) => {
+      expect(isPlausibleIngredientName(name)).toBe(false);
+    }
+  );
+
+  it("splits a run-together list and corrects a typo through the whole parser", () => {
+    const dictionary = new Set(["aqua", "caprylyl glycol", "isohexadecane", "helianthus annuus seed oil", "glycerin"]);
+    const parsed = parseIngredientBlock(
+      "Aqua, Caprylyl Glycol Isohexadecane, Helianthus Annus Seed Oil, Glycerin",
+      dictionary
+    );
+    expect(parsed.map((p) => p.inci_name)).toEqual([
+      "aqua",
+      "caprylyl glycol",
+      "isohexadecane",
+      "helianthus annuus seed oil",
+      "glycerin",
+    ]);
+  });
+});
+
+describe("findListByDictionary", () => {
+  const dictionary = new Set(["aqua", "glycerin", "sodium chloride", "panthenol", "niacinamide"]);
+
+  it.each([
+    ["Sestavine: Aqua, Glycerin, Panthenol, Niacinamide"],
+    ["Sastojci: Aqua, Glycerin, Panthenol, Niacinamide"],
+    ["Ingrediente: Aqua, Glycerin, Panthenol, Niacinamide"],
+    ["Ingredienser: Aqua, Glycerin, Panthenol, Niacinamide"],
+  ])("finds the list under a heading nobody wrote a pattern for: %s", (text: string) => {
+    expect(findListByDictionary(text, dictionary)?.trim()).toBe(
+      "Aqua, Glycerin, Panthenol, Niacinamide"
+    );
+  });
+
+  it("skips a run of stacked headings to the list", () => {
+    const found = findListByDictionary(
+      "/Sestavine:/Sastojci:/Ingrediente: Aqua, Glycerin, Panthenol",
+      dictionary
+    );
+    expect(found?.trim()).toBe("Aqua, Glycerin, Panthenol");
+  });
+
+  it("keeps everything after the list, so a colon inside it cannot cut it short", () => {
+    const found = findListByDictionary(
+      "Ingredienser: Aqua, Glycerin, Panthenol, Parfum (Fragrance: Linalool, Limonene)",
+      dictionary
+    );
+    expect(found).toContain("Limonene");
+  });
+
+  it("does not treat the colon in a colour-index name as a heading", () => {
+    expect(findListByDictionary("Aqua, Glycerin, Panthenol, ci 77268:1", dictionary)).toBeNull();
+  });
+
+  it("does not skip the start of a list that a stray colon has cut short", () => {
+    const stray = "Ingredients: Aqua, Glycerin, Cocam:dopropyl Betaine, Panthenol, Niacinamide";
+    expect(findListByDictionary(stray, dictionary)).toBeNull();
+    const parsed = parseIngredientBlock(stray, dictionary);
+    expect(parsed.slice(0, 2).map((p) => p.inci_name)).toEqual(["aqua", "glycerin"]);
+  });
+
+  it("returns null when nothing recognisable follows a colon", () => {
+    expect(findListByDictionary("Produkt: something, else, entirely", dictionary)).toBeNull();
+  });
+
+  it("returns null when the list already opens the text", () => {
+    expect(findListByDictionary("Aqua, Glycerin, Panthenol. Note: see box", dictionary)).toBeNull();
+  });
+
+  it("matches through an alias", () => {
+    const aliases = new Map([["glycérine", "glycerin"]]);
+    const found = findListByDictionary("Composant: Aqua, Glycérine, Panthenol", new Set(["aqua", "panthenol"]), aliases);
+    expect(found?.trim()).toBe("Aqua, Glycérine, Panthenol");
+  });
+});
 
 describe("normalise", () => {
   it("lowercases and trims", () => {
@@ -54,6 +569,51 @@ describe("parseIngredientBlock", () => {
   it("recognises a Korean ingredients heading", () => {
     const parsed = parseIngredientBlock("수분 크림 전성분: Water, Glycerin, Niacinamide");
     expect(parsed.map((p) => p.inci_name)).toEqual(["water", "glycerin", "niacinamide"]);
+  });
+
+  it.each([
+    ["ingrédients: aqua, glycerin", ["aqua", "glycerin"]],
+    ["INGRÉDIENTS : Aqua, Glycerin", ["aqua", "glycerin"]],
+    ["ingrediente: aqua, glycerin", ["aqua", "glycerin"]],
+    ["Ingredientes: Aqua, Glycerin", ["aqua", "glycerin"]],
+    ["ingredienti: aqua, glycerin", ["aqua", "glycerin"]],
+    ["sastojci: aqua, glycerin", ["aqua", "glycerin"]],
+    ["composition : olea europea fruit oil, glycerin", ["olea europea fruit oil", "glycerin"]],
+    ["Zutaten: Aqua, Glycerin", ["aqua", "glycerin"]],
+  ])("recognises a non-English ingredients heading: %s", (text: string, expected: string[]) => {
+    expect(parseIngredientBlock(text).map((p) => p.inci_name)).toEqual(expected);
+  });
+
+  it.each([
+    ["Aqua, tocopherol. may contain : ci 77891", ["aqua", "tocopherol", "ci 77891"]],
+    ["Aqua, tocopherol. peut contenir : ci 77891", ["aqua", "tocopherol", "ci 77891"]],
+    ["octocrylene inactive ingredients: water, glycerin", ["octocrylene", "water", "glycerin"]],
+    ["octocrylene peut contenir: water, glycerin", ["octocrylene", "water", "glycerin"]],
+    ["octocrylene peuvent contenir: water, glycerin", ["octocrylene", "water", "glycerin"]],
+    ["octocrylene puede contener: water, glycerin", ["octocrylene", "water", "glycerin"]],
+    ["octocrylene kann enthalten: water, glycerin", ["octocrylene", "water", "glycerin"]],
+    [
+      "Active ingredients: Octocrylene. Inactive ingredients: Water, Glycerin",
+      ["octocrylene", "water", "glycerin"],
+    ],
+  ])("keeps a secondary list as part of the formula: %s", (text: string, expected: string[]) => {
+    expect(parseIngredientBlock(text).map((p) => p.inci_name)).toEqual(expected);
+  });
+
+  it("stops at storage instructions rather than folding them into the last name", () => {
+    expect(
+      parseIngredientBlock("Aqua, glyceryl caprylate. storage: store in a cool & dry place").map(
+        (p) => p.inci_name
+      )
+    ).toEqual(["aqua", "glyceryl caprylate"]);
+  });
+
+  it("leaves a colour-index name with a trailing :N alone", () => {
+    expect(parseIngredientBlock("Aqua, glycerin, ci 77268:1").map((p) => p.inci_name)).toEqual([
+      "aqua",
+      "glycerin",
+      "ci 77268:1",
+    ]);
   });
 
   it("stops at the next section rather than swallowing directions", () => {
@@ -387,6 +947,17 @@ describe("parseIngredientBlock with a dictionary", () => {
       aliases
     );
     expect(parsed.map((p) => p.inci_name)).toEqual(["glycerin", "panthenol", "niacinamide"]);
+  });
+
+  it("finds the list under a heading in a language nobody wrote a pattern for", () => {
+    const dictionary = new Set(["aqua", "glycerin", "panthenol", "niacinamide"]);
+    const parsed = parseIngredientBlock("Ingredienser: Aqua, Glycerin, Panthenol, Niacinamide", dictionary);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "panthenol", "niacinamide"]);
+  });
+
+  it("drops a fragment that is not a name even when it is delimited like one", () => {
+    const parsed = parseIngredientBlock("Aqua, Glycerin, package labeling: label.jpg, Panthenol");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "panthenol"]);
   });
 
   it("ignores the dictionary when the plain delimiter split already looks trustworthy", () => {

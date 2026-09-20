@@ -1,12 +1,13 @@
 import { Pressable, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import type { MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
 import { isVerified } from "@/lib/safety";
-import { MUTED_SOFT, RISK_ICON, RISK_TITLE } from "@/lib/tokens";
+import { INK, RISK_ICON, RISK_TITLE } from "@/lib/tokens";
 
 /**
  * The two risks people actually ask about, side by side, both computed from
@@ -43,7 +44,7 @@ export function RiskCards({
   const pore = poreRisk(product);
 
   return (
-    <View style={{ flexDirection: "row", gap: 12, paddingHorizontal: 24, paddingTop: 14 }}>
+    <View style={{ flexDirection: "row", gap: 12, paddingHorizontal: 24 }}>
       <RiskCard
         title="Irritation risk"
         {...irritation}
@@ -113,15 +114,7 @@ function RiskCard({
             row for detail" affordance — without it, a card reading
             "Elevated" gave no visual sign that tapping it explains why. */}
         {onPress && (
-          <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="m9 5 7 7-7 7"
-              stroke={MUTED_SOFT}
-              strokeWidth={2.2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
+          <ArrowIcon size={16} color={INK} />
         )}
       </View>
       <View style={{ gap: 3 }}>
@@ -136,14 +129,19 @@ function RiskCard({
 
 /**
  * Irritation risk, from the EU regulatory status of what is actually in the
- * bottle plus anything contraindicated for this profile. Not a hazard score —
- * a count of restricted entries, said in words.
+ * bottle plus anything contraindicated for this profile, plus any active the
+ * score charged as an irritant for this profile (`match.irritants`), which is
+ * "safe" on the regulatory list but still shows as Avoid in the ingredient list.
+ * Not a hazard score — a count of entries, said in words.
  */
-function irritationRisk(product: ProductWithIngredients, match: MatchResult): Risk {
+export function irritationRisk(product: ProductWithIngredients, match: MatchResult): Risk {
   const restricted = product.ingredients.filter(
     (i) => isVerified(i) && i.safety !== "safe"
   ).length;
-  const personal = match.warnings.length;
+  // An ingredient can be both warned about and charged as an irritant: count it once.
+  const warned = new Set(match.warnings.map((w) => w.ingredient.name));
+  const charged = new Set(match.irritants.filter((name) => !warned.has(name)));
+  const personal = match.warnings.length + charged.size;
 
   if (product.ingredients.length === 0) {
     return { level: "Unknown", note: "Label not read yet", tone: "neutral", hasEntries: false };

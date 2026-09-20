@@ -1,10 +1,12 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
+import { PopOnToggle } from "@/components/PopOnToggle";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
@@ -12,7 +14,7 @@ import { fetchProduct, resolveIngredientNames } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { comedogenicLabel } from "@/lib/format";
-import { matchProduct, positionWeightLabel, ruleFor, rungFor, type Contraindication, type Rung } from "@/lib/matching";
+import { matchProduct, positionNote, ruleFor, rungFor, type Contraindication, type Rung } from "@/lib/matching";
 import { isSensitive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
@@ -114,15 +116,17 @@ function HeartIcon({ color }: { color: string }) {
   );
 }
 
+// The palette has no true yellow; the amber of its "watch" tone is the nearest.
 function StarIcon({ filled }: { filled: boolean }) {
   const d =
     "M12 3.4l2.53 5.4 5.87.72-4.34 4.06 1.16 5.83L12 16.4l-5.22 2.99 1.16-5.83-4.34-4.06 5.87-.72Z";
+  const color = filled ? COLORS.toneWatch : COLORS.ink;
   return (
     <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
       <Path
         d={d}
-        fill={filled ? COLORS.ink : "none"}
-        stroke={COLORS.ink}
+        fill={filled ? color : "none"}
+        stroke={color}
         strokeWidth={1.6}
         strokeLinejoin="round"
       />
@@ -216,9 +220,6 @@ export default function IngredientDetail() {
   const helps = rule ? targetApplies(rule.helps, target) : false;
   const hurts = rule ? targetApplies(rule.hurts, target) : false;
 
-  const total = product?.ingredients.length ?? 0;
-  const position = index >= 0 ? index + 1 : null;
-
   // The design sets a common name under the INCI name. We don't hold one, but
   // many INCI names carry it in parentheses ("Panthenol (Vitamin B5)"), and
   // where they don't the declared role is the honest second line.
@@ -232,9 +233,7 @@ export default function IngredientDetail() {
       ? `Declared function: ${ingredient.functions.slice(0, 3).join(", ")}`
       : null,
     verified && ingredient.comedogenic > 0 ? comedogenicLabel(ingredient.comedogenic) : null,
-    position !== null
-      ? `#${position} of ${total} on the label - ${positionWeightLabel(index)}`
-      : null,
+    product ? positionNote(product.ingredients.map((i) => i.name), index) : null,
     rule?.hurts?.sensitive ? "Our rules flag this as a common irritant for sensitive skin" : null,
   ].filter((n): n is string => n !== null);
 
@@ -248,7 +247,9 @@ export default function IngredientDetail() {
             accessibilityLabel={starred ? "Remove from starred ingredients" : "Star this ingredient"}
             accessibilityState={{ selected: starred }}
           >
-            <StarIcon filled={starred} />
+            <PopOnToggle active={starred}>
+              <StarIcon filled={starred} />
+            </PopOnToggle>
           </Pressable>
         }
       />
@@ -396,15 +397,7 @@ export default function IngredientDetail() {
             <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Want to learn more?</Text>
             <Text style={{ fontSize: 12.5, color: MUTED }}>See studies and evidence</Text>
           </View>
-          <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="m9 5 7 7-7 7"
-              stroke={INK}
-              strokeWidth={2.2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
+          <ArrowIcon size={17} color={INK} />
         </Pressable>
 
         <Text style={{ paddingHorizontal: 24, paddingTop: 36, fontSize: TYPE.caption, color: MUTED_FAINT }}>

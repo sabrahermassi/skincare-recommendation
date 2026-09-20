@@ -226,4 +226,16 @@ export const SCORING_PRODUCTS = [
     caution: [],
     avoid: [],
   },
+  {
+    id: "dailymed-950edb4e-fbba-41e3-9ec5-973806e555e7",
+    name: "Walmart Acne Treatment 10% Benzoyl Peroxide Gel",
+    type: "unknown",
+    sourceUrl: "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=950edb4e-fbba-41e3-9ec5-973806e555e7",
+    snapshotDate: "2026-09-19",
+    // The active is listed first as the importer does; the label prints its
+    // inactives alphabetically, so those positions carry no concentration.
+    inci: inci("benzoyl peroxide; carbomer; disodium edta; hydroxypropyl methylcellulose; laureth-4; sodium hydroxide; water"),
+    caution: ["benzoyl peroxide", "sodium hydroxide"],
+    avoid: [],
+  },
 ] satisfies readonly ScoringProductFixture[];
