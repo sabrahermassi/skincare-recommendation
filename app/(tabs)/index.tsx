@@ -28,9 +28,9 @@ const SHELF_WIDTH = 1.15;
 // A sliver of the water is drawn this far (a share of the picture's height)
 // below the screen, so the water reaches the bottom with no gap.
 const SHELF_BLEED_BELOW = 0.02;
-// How far the whole scene sits lower again, in dp: 7 mm on a phone (160 dp to the inch).
+// How far the whole scene sits lower again, in dp: 6.5 mm on a phone (160 dp to the inch).
 // No spacing token is that large, so it is named here rather than typed inline.
-const SHELF_DROP = 44;
+const SHELF_DROP = 41;
 
 /**
  * Home — the first screen after the skin quiz.
