@@ -664,7 +664,7 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
           <Pressable
             onPress={() => router.push({ pathname: "/scan-label", params: { barcode: entry.id } })}
             accessibilityRole="button"
-            accessibilityLabel={`Photograph the label for barcode ${entry.id}`}
+            accessibilityLabel={`Photograph the ingredients list for barcode ${entry.id}`}
             hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
             style={{ marginTop: 8, alignSelf: "flex-start" }}
             className="active:opacity-70"
@@ -677,7 +677,7 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
                 textDecorationLine: "underline",
               }}
             >
-              Photograph the label
+              Photograph the ingredients list
             </Text>
           </Pressable>
         )}

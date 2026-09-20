@@ -18,12 +18,15 @@ const SCAN_ART = require("@/assets/illustrations/scan-a-product.png");
 // The watercolor scene under the cards (cropped to its art and brought down to
 // 1400px wide from the 6144px original).
 const SHELF_ART = require("@/assets/illustrations/home-shelf.png");
-// Its own proportions (1400x867), so it is never stretched.
-const SHELF_ASPECT = 1400 / 867;
+// Its own proportions (1400x940), so it is never stretched.
+const SHELF_ASPECT = 1400 / 940;
 // How wide it is drawn, as a multiple of the screen: a little past each side, so
 // it runs off the edges and, with its bottom on the screen's bottom, the bottles
 // stand just above the tab bar.
-const SHELF_WIDTH = 1.25;
+const SHELF_WIDTH = 1.15;
+// The water's soft lower edge is drawn this far (a share of the picture's height)
+// below the screen, so the water reaches the bottom with no gap.
+const SHELF_BLEED_BELOW = 0.06;
 
 /**
  * Home — the first screen after the skin quiz.
@@ -62,7 +65,13 @@ export default function Home() {
           scroll: it is a fixed layout. */}
       <View
         pointerEvents="none"
-        style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center", overflow: "hidden" }}
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: -((width * SHELF_WIDTH) / SHELF_ASPECT) * SHELF_BLEED_BELOW,
+          alignItems: "center",
+        }}
       >
         <Image
           source={SHELF_ART}

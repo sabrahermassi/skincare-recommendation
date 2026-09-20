@@ -732,7 +732,7 @@ export default function ProductScreen() {
               tone="cta"
               size={56}
               style={{ flex: 1 }}
-              label="Photograph the label"
+              label="Photograph the ingredients list"
               onPress={() =>
                 router.push({
                   pathname: "/scan-label",
