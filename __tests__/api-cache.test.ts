@@ -801,7 +801,7 @@ describe("a label read", () => {
    */
   it("bounds the read with the OCR timeout, not the network one", async () => {
     invokeMock().mockResolvedValue({
-      data: { ingredients: [{ inci_name: "aqua", position: 0 }], recognised: 12, total: 14 },
+      data: { ingredients: [{ inci_name: "aqua", position: 0 }], recognised: 12, total: 14, readToken: "token-1" },
       error: null,
     });
 
@@ -820,6 +820,7 @@ describe("a label read", () => {
         ],
         recognised: 2,
         total: 2,
+        readToken: "token-1",
       },
       error: null,
     });
@@ -829,6 +830,7 @@ describe("a label read", () => {
       ingredients: ["aqua", "glycerin"],
       recognised: 2,
       total: 2,
+      readToken: "token-1",
     });
   });
 
@@ -848,6 +850,7 @@ describe("saving a product", () => {
     barcode: "barcode-scanned",
     name: "Scanned product",
     ingredients: ["aqua", "glycerin", "niacinamide", "panthenol"],
+    readToken: "token-1",
   };
 
   /**
@@ -879,6 +882,15 @@ describe("saving a product", () => {
     await saveScannedProduct(input);
 
     expect(lastInvokeOptions()).toMatchObject({ body: input });
+  });
+
+  it("says so when the read has gone stale", async () => {
+    invokeMock().mockResolvedValue({
+      data: null,
+      error: { context: { status: 403 } },
+    });
+
+    expect(await saveScannedProduct({ ...input, barcode: "barcode-stale" })).toEqual({ ok: false, reason: "expired" });
   });
 
   it("leaves the cache alone when the save fails", async () => {

@@ -8,20 +8,20 @@ describe("the label read being added", () => {
   });
 
   it("holds the list and the barcode that came with it", () => {
-    holdLabelRead({ ingredients: ["aqua", "glycerin"], barcode: "8801234567890" });
+    holdLabelRead({ ingredients: ["aqua", "glycerin"], barcode: "8801234567890", readToken: "t1" });
 
-    expect(heldLabelRead()).toEqual({ ingredients: ["aqua", "glycerin"], barcode: "8801234567890" });
+    expect(heldLabelRead()).toEqual({ ingredients: ["aqua", "glycerin"], barcode: "8801234567890", readToken: "t1" });
   });
 
   it("is replaced by the next read, not merged with it", () => {
-    holdLabelRead({ ingredients: ["aqua"], barcode: "8801234567890" });
-    holdLabelRead({ ingredients: ["glycerin"] });
+    holdLabelRead({ ingredients: ["aqua"], barcode: "8801234567890", readToken: "t1" });
+    holdLabelRead({ ingredients: ["glycerin"], readToken: "t2" });
 
-    expect(heldLabelRead()).toEqual({ ingredients: ["glycerin"] });
+    expect(heldLabelRead()).toEqual({ ingredients: ["glycerin"], readToken: "t2" });
   });
 
   it("is empty again once cleared", () => {
-    holdLabelRead({ ingredients: ["aqua"] });
+    holdLabelRead({ ingredients: ["aqua"], readToken: "t1" });
     clearLabelRead();
 
     expect(heldLabelRead()).toBeNull();

@@ -327,7 +327,7 @@ export default function Scan() {
         cameraRef={cameraRef}
         cameraSize={cameraSize}
         windowBox={windowBox}
-        barcode={status.kind === "missed" ? status.code : undefined}
+        barcode={status.kind === "missed" && canPhotographLabelFor(status.code) ? status.code : undefined}
         preserveMode={preserveMode}
       />
     );
@@ -731,13 +731,19 @@ function BarcodeStage({
   // Those are there so a sighted user can confirm the scan landed on the right
   // item; read aloud during a state that resolves in a second or two, they are
   // noise in front of the part that matters.
+  // A QR code or a non-retail barcode reads as a miss too, but there is no
+  // product to add under it.
+  const notProduct = status.kind === "missed" && !canPhotographLabelFor(status.code);
+
   const announcement =
     status.kind === "looking"
       ? "Barcode found. Reading the ingredients."
       : status.kind === "found"
         ? `Found ${status.product.name}. See full result is below.`
       : status.kind === "missed"
-        ? "We don't have this product. Photograph its ingredient list to add it."
+        ? notProduct
+          ? "That isn't a product barcode. Point the camera at the barcode on the packaging."
+          : "We don't have this product. Photograph its ingredient list to add it."
         : status.kind === "unreachable"
           ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
           : "";
@@ -819,21 +825,25 @@ function BarcodeStage({
                   ? `Barcode found · ${status.code}`
                   : status.kind === "unreachable"
                     ? "Couldn't check this barcode"
-                    : "We don't have this product"}
+                    : notProduct
+                      ? "That isn't a product barcode"
+                      : "We don't have this product"}
               </Text>
               <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
                 {status.kind === "looking"
                   ? "Reading the ingredients…"
                   : status.kind === "unreachable"
                     ? failureMessage(status.failure)
-                    : "Photograph its ingredient list and we'll add it"}
+                    : notProduct
+                      ? "Point the camera at the barcode on the packaging"
+                      : "Photograph its ingredient list and we'll add it"}
               </Text>
             </View>
           </View>
         )}
 
         {/* After a plain miss: the one way forward. */}
-        {status.kind === "missed" && (
+        {status.kind === "missed" && !notProduct && (
           <Pressable
             onPress={onAdd}
             accessibilityRole="button"

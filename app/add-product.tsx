@@ -10,7 +10,20 @@ import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { failureMessage, fetchProductByBarcode, saveScannedProduct } from "@/data/api";
 import { clearLabelRead, heldLabelRead } from "@/lib/pending-label";
-import { BORDER_INACTIVE, CAMERA_STAGE, CANVAS, CTA, INK, MUTED, MUTED_FAINT, TYPE, withAlpha } from "@/lib/tokens";
+import {
+  BORDER_INACTIVE,
+  CAMERA_STAGE,
+  CANVAS,
+  CTA,
+  INK,
+  MUTED,
+  MUTED_FAINT,
+  RADIUS_SELECTOR,
+  SPACE,
+  TOUCH_TARGET,
+  TYPE,
+  withAlpha,
+} from "@/lib/tokens";
 
 /**
  * Adding a product we don't have.
@@ -42,14 +55,14 @@ export default function AddProduct() {
     );
   }
 
-  return <NameStep barcode={barcode} ingredients={read.ingredients} />;
+  return <NameStep barcode={barcode} ingredients={read.ingredients} readToken={read.readToken} />;
 }
 
 function NothingToAdd() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader />
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 24 }}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.block, paddingHorizontal: SPACE.gutter }}>
         <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>
           There&apos;s no ingredient list to add. Scan a product and photograph its ingredients to start.
         </Text>
@@ -104,7 +117,7 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
     return (
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 24 }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.block, paddingHorizontal: SPACE.gutter }}>
           <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>
             We need camera access to scan the barcode.
           </Text>
@@ -129,11 +142,14 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
         />
       ) : null}
 
-      <View pointerEvents="none" style={{ position: "absolute", left: 24, right: 24, top: insets.top + 16 }}>
-        <Text style={{ textAlign: "center", fontSize: 16, fontWeight: "600", color: CANVAS }}>
+      <View
+        pointerEvents="none"
+        style={{ position: "absolute", left: SPACE.gutter, right: SPACE.gutter, top: insets.top + SPACE.block, gap: SPACE.text / 2 }}
+      >
+        <Text style={{ textAlign: "center", fontSize: TYPE.body, fontWeight: "600", color: CANVAS }}>
           Now scan its barcode
         </Text>
-        <Text style={{ textAlign: "center", marginTop: 4, fontSize: TYPE.label, color: withAlpha(CANVAS, 0.75) }}>
+        <Text style={{ textAlign: "center", fontSize: TYPE.label, color: withAlpha(CANVAS, 0.75) }}>
           So the next person who scans it finds it.
         </Text>
       </View>
@@ -150,23 +166,23 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
           left: 0,
           right: 0,
           bottom: 0,
-          gap: 12,
-          paddingHorizontal: 24,
-          paddingTop: 24,
-          paddingBottom: Math.max(24, insets.bottom + 12),
+          gap: SPACE.text,
+          paddingHorizontal: SPACE.gutter,
+          paddingTop: SPACE.gutter,
+          paddingBottom: Math.max(SPACE.gutter, insets.bottom + SPACE.block),
           backgroundColor: withAlpha(CAMERA_STAGE, 0.75),
         }}
       >
         {status.kind === "failed" ? (
-          <View accessible accessibilityLabel={announcement} style={{ gap: 4 }}>
-            <Text style={{ fontSize: 16, fontWeight: "600", color: CTA }}>{status.message}</Text>
+          <View accessible accessibilityLabel={announcement} style={{ gap: SPACE.text }}>
+            <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: CTA }}>{status.message}</Text>
             <Pressable
               onPress={() => {
                 busy.current = false;
                 setStatus({ kind: "idle" });
               }}
               accessibilityRole="button"
-              className="mt-2 self-start"
+              style={{ alignSelf: "flex-start" }}
             >
               <Text style={{ fontSize: TYPE.label, fontWeight: "500", color: withAlpha(CANVAS, 0.8), textDecorationLine: "underline" }}>
                 Try again
@@ -176,7 +192,7 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
         ) : null}
 
         {status.kind !== "checking" ? (
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" className="items-center py-1">
+          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" style={{ alignItems: "center" }}>
             <Text style={{ fontSize: TYPE.label, fontWeight: "500", color: withAlpha(CANVAS, 0.8), textDecorationLine: "underline" }}>
               Cancel
             </Text>
@@ -187,17 +203,18 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
   );
 }
 
-type SaveFailure = "unreadable_list" | "rate_limited" | "failed" | "not_configured";
+type SaveFailure = "unreadable_list" | "expired" | "rate_limited" | "failed" | "not_configured";
 
 const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
   unreadable_list: "That ingredient list didn't look right. Go back and photograph it again.",
+  expired: "That photo is too old to save. Go back and photograph the ingredient list again.",
   rate_limited: "That's a lot of products in a short time. Give it a few minutes and try again.",
   failed: "Couldn't save that just now. Check your connection and try again.",
   not_configured: "Adding products isn't available in this build.",
 };
 
 /** The last step: a name, then everything is saved together. */
-function NameStep({ barcode, ingredients }: { barcode: string; ingredients: string[] }) {
+function NameStep({ barcode, ingredients, readToken }: { barcode: string; ingredients: string[]; readToken: string }) {
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<SaveFailure | null>(null);
@@ -207,7 +224,7 @@ function NameStep({ barcode, ingredients }: { barcode: string; ingredients: stri
     if (saving || !trimmed) return;
     setSaving(true);
     setFailure(null);
-    const result = await saveScannedProduct({ barcode, name: trimmed, ingredients });
+    const result = await saveScannedProduct({ barcode, name: trimmed, ingredients, readToken });
     if (result.ok) {
       clearLabelRead();
       router.replace({ pathname: "/result/[id]", params: { id: result.product.id } });
@@ -221,9 +238,9 @@ function NameStep({ barcode, ingredients }: { barcode: string; ingredients: stri
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenReaderAnnouncer message={failure ? SAVE_FAILURE_COPY[failure] : ""} />
       <ScreenHeader title="Add this product" />
-      <View style={{ flex: 1, gap: 20, paddingHorizontal: 24, paddingTop: 24 }}>
-        <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
+      <View style={{ flex: 1, gap: SPACE.block, paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter }}>
+        <View style={{ gap: SPACE.text }}>
+          <Text style={{ fontSize: TYPE.body, color: INK }}>
             We don&apos;t have this product yet. Name it and we&apos;ll save it with the {ingredients.length} ingredients
             you photographed, so the next scan finds it.
           </Text>
@@ -242,21 +259,19 @@ function NameStep({ barcode, ingredients }: { barcode: string; ingredients: stri
           returnKeyType="done"
           onSubmitEditing={() => void save()}
           style={{
-            height: 52,
-            borderRadius: 26,
+            minHeight: TOUCH_TARGET + SPACE.text,
+            borderRadius: RADIUS_SELECTOR,
             borderWidth: 1,
             borderColor: BORDER_INACTIVE,
             backgroundColor: CANVAS,
-            paddingHorizontal: 20,
+            paddingHorizontal: SPACE.block,
             fontSize: TYPE.body,
             color: INK,
           }}
         />
 
         {failure ? (
-          <Text style={{ fontSize: TYPE.label, lineHeight: 19, fontWeight: "600", color: INK }}>
-            {SAVE_FAILURE_COPY[failure]}
-          </Text>
+          <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{SAVE_FAILURE_COPY[failure]}</Text>
         ) : null}
 
         <PrimaryButton

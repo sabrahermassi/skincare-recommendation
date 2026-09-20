@@ -10,21 +10,23 @@
  * (a list of sixty names does not belong in a URL).
  */
 
-export type LabelRead = {
+export type HeldLabel = {
   /** The names read off the label, in printed order. */
   ingredients: string[];
+  /** Proof the list came from a read, needed to save it. */
+  readToken: string;
   /** The barcode the user already scanned, when they had one. */
   barcode?: string;
 };
 
-let held: LabelRead | null = null;
+let held: HeldLabel | null = null;
 
-export function holdLabelRead(read: LabelRead): void {
+export function holdLabelRead(read: HeldLabel): void {
   held = read;
 }
 
 /** The list being added, or null when nothing has been read. */
-export function heldLabelRead(): LabelRead | null {
+export function heldLabelRead(): HeldLabel | null {
   return held;
 }
 

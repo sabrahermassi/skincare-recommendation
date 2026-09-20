@@ -1197,6 +1197,8 @@ export type LabelRead =
       ingredients: string[];
       recognised: number;
       total: number;
+      /** Proof the list came from a read; `saveScannedProduct` must present it. */
+      readToken: string;
     }
   | {
       ok: false;
@@ -1253,13 +1255,14 @@ export async function readLabel(imageBase64: string): Promise<LabelRead> {
   }
 
   const read = data?.ingredients;
-  if (!Array.isArray(read)) return { ok: false, reason: "unreadable" };
+  if (!Array.isArray(read) || typeof data?.readToken !== "string") return { ok: false, reason: "unreadable" };
 
   return {
     ok: true,
     ingredients: read.map((entry: { inci_name: string }) => entry.inci_name),
     recognised: Number(data.recognised ?? 0),
     total: Number(data.total ?? 0),
+    readToken: data.readToken,
   };
 }
 
@@ -1270,13 +1273,15 @@ export async function readLabel(imageBase64: string): Promise<LabelRead> {
  */
 export type SaveProductResult =
   | { ok: true; product: ProductWithIngredients }
-  | { ok: false; reason: "not_configured" | "unreadable_list" | "rate_limited" | "failed" };
+  | { ok: false; reason: "not_configured" | "unreadable_list" | "expired" | "rate_limited" | "failed" };
 
 export async function saveScannedProduct(input: {
   barcode: string;
   name: string;
   brand?: string;
   ingredients: string[];
+  /** From the read that produced `ingredients`. */
+  readToken: string;
 }): Promise<SaveProductResult> {
   if (!usingSupabase()) return { ok: false, reason: "not_configured" };
 
@@ -1289,6 +1294,7 @@ export async function saveScannedProduct(input: {
     const status = (error as { context?: { status?: number } }).context?.status;
     if (status === 429) return { ok: false, reason: "rate_limited" };
     if (status === 422) return { ok: false, reason: "unreadable_list" };
+    if (status === 403) return { ok: false, reason: "expired" };
     return { ok: false, reason: "failed" };
   }
   if (!data?.product) return { ok: false, reason: "failed" };

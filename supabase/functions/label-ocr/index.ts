@@ -30,6 +30,7 @@ import {
   type RateLimit,
 } from "../_shared/http.ts";
 import { paginateOrdered } from "../_shared/paginate.ts";
+import { signReadToken, verifyReadToken } from "../_shared/read-token.ts";
 import { stripBase64ImageMetadata } from "../_shared/strip-metadata.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -54,9 +55,8 @@ const MAX_IMAGE_CHARS = 5_500_000;
  * soon as OCR produced four comma-separated fragments — regardless of
  * whether any of them looked like a real ingredient. And because a barcode
  * with *any* stored formula short-circuits straight to it (see `existing`
- * below), a bad first photo didn't just create one bad row: it made every
- * later, better photo of the same bottle return the bad formula forever,
- * since Vision was never called again for that barcode.
+ * in `saveProduct`), a bad first read didn't just create one bad row: it made
+ * every later, better read of the same bottle return the bad formula forever.
  */
 const MIN_KNOWN_INGREDIENT_RATIO = 0.6;
 
@@ -101,8 +101,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let name: string | undefined;
   let brand: string | undefined;
   let ingredients: unknown;
+  let readToken: unknown;
   try {
-    ({ barcode, imageBase64, name, brand, ingredients } = await req.json());
+    ({ barcode, imageBase64, name, brand, ingredients, readToken } = await req.json());
   } catch {
     return json(req, { error: "Body must be JSON" }, 400);
   }
@@ -136,8 +137,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
     ) {
       return json(req, { error: "ingredients must be a list of names" }, 400);
     }
+    if (typeof readToken !== "string") return json(req, { error: "readToken is required" }, 400);
     const refusal = await enforceRateLimit(req, db, "label-ocr", RATE_LIMIT);
     if (refusal) return refusal;
+    // The list has to be one a read returned, unedited and recent: this
+    // endpoint is unauthenticated, and without the proof anyone could save a
+    // made-up list of real ingredient names under any unclaimed barcode.
+    if (!(await verifyReadToken(readToken, ingredients as string[], SERVICE_ROLE_KEY))) {
+      return json(req, { error: "read_expired" }, 403);
+    }
     return saveProduct(req, barcode, name, brand, ingredients as string[]);
   }
 
@@ -257,7 +265,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  return json(req, { ingredients: parsed, recognised: known.size, total: parsed.length }, 200);
+  const readNames = parsed.map((p) => p.inci_name);
+  return json(
+    req,
+    {
+      ingredients: parsed,
+      recognised: known.size,
+      total: parsed.length,
+      readToken: await signReadToken(readNames, SERVICE_ROLE_KEY),
+    },
+    200
+  );
 });
 
 /**

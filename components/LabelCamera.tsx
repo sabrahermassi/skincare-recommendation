@@ -276,7 +276,7 @@ export function LabelCamera({
         // Back to the ready camera before leaving: this screen stays mounted under
         // the next one, so swiping back must find a camera to use, not "Reading…".
         setStatus({ kind: "framing" });
-        holdLabelRead({ ingredients: result.ingredients, barcode });
+        holdLabelRead({ ingredients: result.ingredients, barcode, readToken: result.readToken });
         onRead();
         return;
       }

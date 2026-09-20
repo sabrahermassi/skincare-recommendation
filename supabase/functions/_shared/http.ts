@@ -121,7 +121,7 @@ export function requestId(req: Request): string {
  * check by forgetting to look at a boolean.
  *
  * This existed three times, character for character, in `label-ocr`,
- * `product-lookup` and `resolve-scan`. That is the shape the INCI parser was
+ * `product-lookup` and `resolve-scan` (since removed). That is the shape the INCI parser was
  * in before it drifted — see the parity test in `__tests__/inci.test.ts` — and
  * the drift that matters here is silent: a function that mints its request id
  * after the check, or forgets `Retry-After`, still returns a plausible 429.
