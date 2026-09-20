@@ -1,10 +1,10 @@
 import { Image } from "expo-image";
 import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Platform, Pressable, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, Animated, Platform, StyleSheet, View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { slideDirection } from "@/lib/onboarding-slide";
-import { CANVAS, CHARCOAL, FONT, H_PADDING, PrimaryButton, ProgressDots, TERRACOTTA } from "@/components/shell/shared";
+import { CANVAS, CHARCOAL, FONT, H_PADDING, PrimaryButton, ProgressDots, SkipButton, TERRACOTTA } from "@/components/shell/shared";
 
 const HEADLINE_SIZE = 44;
 const BODY_SIZE = 17;
@@ -113,7 +113,6 @@ type OnboardingShellProps = {
  * page (button included) across the screen as part of the transition.
  */
 export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: OnboardingShellProps) {
-  const [skipPressed, setSkipPressed] = useState(false);
   // `shownIndex` trails `activeIndex` by the slide-out: the content on screen is
   // the old screen's until it has faded away, and only then swaps to the new one.
   const [shownIndex, setShownIndex] = useState(activeIndex);
@@ -273,29 +272,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
           and a later sibling is what sits on top of it and stays tappable.
           `pointerEvents="none"` on the wrapper would do the same but takes its
           text out of the VoiceOver tree on iOS. */}
-      <Pressable
-        onPress={onSkip}
-        onPressIn={() => setSkipPressed(true)}
-        onPressOut={() => setSkipPressed(false)}
-        accessibilityRole="button"
-        style={{
-          position: "absolute",
-          top: pct(BANDS.skip.top),
-          right: H_PADDING,
-          minHeight: 44,
-          minWidth: 44,
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: skipPressed ? 0.6 : 1,
-        }}
-      >
-        {/* Same font+size as the supporting-copy text (BODY_SIZE, bodyRegular).
-            TERRACOTTA, not the old MUTED grey — that grey cleared AA (5.35:1)
-            but still read as washed-out low-contrast on cream; terracotta is
-            the app's own accent and is unambiguously legible here (6.1:1 on
-            CANVAS). */}
-        <Text style={{ fontFamily: FONT.bodyRegular, fontSize: BODY_SIZE, color: TERRACOTTA }}>Skip</Text>
-      </Pressable>
+      <SkipButton onPress={onSkip} color={TERRACOTTA} />
 
       {/* Shown on every screen, including the first — per the redesign
           spec, dots are no longer withheld until the user has advanced. */}

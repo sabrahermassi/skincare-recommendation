@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Pressable, View, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, useWindowDimensions, View, type StyleProp, type ViewStyle } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/Text";
 import { COLORS } from "@/lib/colors";
@@ -131,5 +132,41 @@ export function ProgressDots({ count, activeIndex }: { count: number; activeInde
         />
       ))}
     </View>
+  );
+}
+
+/** Skip's type size: the same on the intro screens and the quiz. */
+const SKIP_SIZE = 17;
+
+/**
+ * The Skip at the top right of the intro screens and of the skin quiz: one
+ * component so they cannot drift apart. Same spot (6% down the screen, never
+ * higher than the safe area plus 10), same font and size, the same press fade;
+ * only the colour is the screen's own.
+ */
+export function SkipButton({ onPress, color }: { onPress: () => void; color: string }) {
+  const [pressed, setPressed] = useState(false);
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      hitSlop={10}
+      accessibilityRole="button"
+      style={{
+        position: "absolute",
+        top: Math.max(insets.top + 10, height * 0.06),
+        right: H_PADDING,
+        minHeight: 44,
+        minWidth: 44,
+        alignItems: "flex-end",
+        justifyContent: "center",
+        opacity: pressed ? 0.6 : 1,
+      }}
+    >
+      <Text style={{ fontFamily: FONT.bodyRegular, fontSize: SKIP_SIZE, color }}>Skip</Text>
+    </Pressable>
   );
 }

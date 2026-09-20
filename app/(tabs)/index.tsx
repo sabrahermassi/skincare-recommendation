@@ -149,7 +149,7 @@ export default function Home() {
             <View style={{ maxWidth: "60%", gap: 6 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: INK }}>Scan a product</Text>
-                <ArrowIcon size={18} color={INK} />
+                <ArrowIcon size={22} color={INK} strokeWidth={2.4} />
               </View>
               {/* Narrower than the title above it, so it stops short of the picture. */}
               <Text style={{ maxWidth: 150, fontSize: 13, lineHeight: 19, color: MUTED }}>Analyze a product by photo or barcode.</Text>

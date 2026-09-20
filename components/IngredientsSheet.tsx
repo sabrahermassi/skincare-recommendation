@@ -167,12 +167,14 @@ export function IngredientsSheet({
               style={{ height: HEADER_HEIGHT, paddingHorizontal: 24, justifyContent: "center" }}
             >
               {/* A bare chevron in place of the grab bar: up while the list is
-                  closed (pull it up), down once it is open. */}
+                  closed (pull it up), down once it is open. Grey, heavier and wider than
+                  the arrows elsewhere, so it reads as the handle. */}
               <ArrowIcon
                 direction={expanded ? "down" : "up"}
-                size={32}
-                color={INK}
-                style={{ alignSelf: "center", marginTop: -8, marginBottom: 2 }}
+                size={46}
+                color={MUTED}
+                strokeWidth={2.8}
+                style={{ alignSelf: "center", marginTop: -14, marginBottom: -6 }}
               />
               <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
                 <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.title, color: INK }}>Ingredients</Text>
