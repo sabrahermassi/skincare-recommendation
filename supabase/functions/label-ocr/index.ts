@@ -30,7 +30,7 @@ import {
   type RateLimit,
 } from "../_shared/http.ts";
 import { paginateOrdered } from "../_shared/paginate.ts";
-import { signReadToken, verifyReadToken } from "../_shared/read-token.ts";
+import { readTokenDeadline, signReadToken, verifyReadToken } from "../_shared/read-token.ts";
 import { stripBase64ImageMetadata } from "../_shared/strip-metadata.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -146,7 +146,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!(await verifyReadToken(readToken, ingredients as string[], SERVICE_ROLE_KEY))) {
       return json(req, { error: "read_expired" }, 403);
     }
-    return saveProduct(req, barcode, name, brand, ingredients as string[]);
+    return saveProduct(req, barcode, name, brand, ingredients as string[], readToken);
   }
 
   if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
@@ -329,7 +329,8 @@ async function saveProduct(
   barcode: string,
   name: string,
   brand: string | undefined,
-  names: string[]
+  names: string[],
+  readToken: string
 ): Promise<Response> {
   const parsed = dedupe(
     names
@@ -394,6 +395,21 @@ async function saveProduct(
     expires_at: null,
   };
 
+  // A read can be saved once. The signature says the list came from a read, not
+  // that it is unused, so the token is recorded here, atomically: the first save
+  // with it wins and any later one (a replay under another barcode, or two saves
+  // racing) is refused. Just before the write, not earlier, so a save refused above
+  // for its list or its barcode does not spend the token.
+  const { data: consumed, error: consumeError } = await db.rpc("consume_read_token", {
+    p_token: readToken,
+    p_expires_at: new Date(readTokenDeadline(readToken)).toISOString(),
+  });
+  if (consumeError) {
+    console.error("consume_read_token failed:", consumeError);
+    return json(req, { error: "Could not save the product" }, 502);
+  }
+  if (consumed !== true) return json(req, { error: "read_expired" }, 403);
+
   // One RPC, one transaction: the stub ingredient rows, the product, and the
   // replacement of its formula either all commit or none do (migration 0008).
   // Every parsed name is sent, not just the ones missing from `known`: the RPC
@@ -407,6 +423,9 @@ async function saveProduct(
   });
   if (persistError) {
     console.error("replace_product_with_ingredients failed:", persistError);
+    // Nothing was saved, so the read is still good: give the token back so the
+    // person can try again without photographing the list a second time.
+    await db.rpc("release_read_token", { p_token: readToken });
     return json(req, { error: "Could not save the product" }, 502);
   }
 

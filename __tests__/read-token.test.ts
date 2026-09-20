@@ -1,6 +1,6 @@
 import { webcrypto } from "node:crypto";
 
-import { READ_TOKEN_TTL_MS, signReadToken, verifyReadToken } from "@/supabase/functions/_shared/read-token";
+import { READ_TOKEN_TTL_MS, readTokenDeadline, signReadToken, verifyReadToken } from "@/supabase/functions/_shared/read-token";
 
 // jest's React Native environment has no Web Crypto of its own; Node's is the
 // same implementation the Edge Function runs on.
@@ -43,6 +43,12 @@ describe("the proof that a list was read", () => {
     const signature = token.split(".")[1];
 
     expect(await verifyReadToken(`${NOW + 10 * READ_TOKEN_TTL_MS}.${signature}`, NAMES, SECRET, NOW)).toBe(false);
+  });
+
+  it("reports the deadline it was signed with", async () => {
+    const token = await signReadToken(NAMES, SECRET, NOW);
+
+    expect(readTokenDeadline(token)).toBe(NOW + READ_TOKEN_TTL_MS);
   });
 
   it.each(["", "garbage", "123.", ".abc", "123.zz", "123.abc", "1.2.3"])("refuses the malformed token %p", async (token: string) => {

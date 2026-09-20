@@ -9,9 +9,12 @@
  * (which costs a rate-limited OCR call), it cannot be edited afterwards, and the
  * proof goes stale after `READ_TOKEN_TTL_MS`.
  *
- * No table and no state: the signature is an HMAC keyed with a server-only
- * secret, so there is nothing to store or clean up. Imports nothing and touches
- * no Deno global, so Node (the tests) and Deno run the same code.
+ * The signature is an HMAC keyed with a server-only secret. It proves where a
+ * list came from but not that it is unused, so a token is also single-use:
+ * `label-ocr` records the token when it saves (`consume_read_token`, migration
+ * 0023) and refuses a second save with it. This file only signs and verifies; it
+ * imports nothing and touches no Deno global, so Node (the tests) and Deno run
+ * the same code.
  */
 
 /** Long enough to type a name after a read, short enough that a token is not a standing licence. */
@@ -43,6 +46,11 @@ export async function signReadToken(names: readonly string[], secret: string, no
   const expiresAt = now + READ_TOKEN_TTL_MS;
   const signature = await crypto.subtle.sign("HMAC", await hmacKey(secret, "sign"), signedBytes(expiresAt, names));
   return `${expiresAt}.${toHex(signature)}`;
+}
+
+/** When `token` expires, in ms. Read it only from a token that `verifyReadToken` accepted. */
+export function readTokenDeadline(token: string): number {
+  return Number(token.split(".")[0]);
 }
 
 /** Whether `token` was signed for exactly `names` and has not expired. */

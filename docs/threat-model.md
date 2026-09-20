@@ -98,10 +98,12 @@ second table is planned; if that ever changes, it gets its own row.
   **Saving a read list.** `label-ocr` answers a photo with the parsed list and
   a signed `readToken`; saving takes that list back with a barcode and a name.
   The token proves the list came out of a (rate-limited) read, was not edited,
-  and is under 30 minutes old. It is deliberately not bound to a barcode — the
-  barcode is asked for after the photo — so one read can be saved under any
-  barcode nobody has claimed yet, within the rate limit. Accepted: the list is
-  still a real read, and an existing entry is never replaced by a later save.
+  and is under 30 minutes old. It is single-use: the first save records it
+  (`used_read_tokens`, migration 0023) and any later save with it is refused, so
+  one read cannot be replayed into many catalogue entries. It is deliberately not
+  bound to a barcode — the barcode is asked for after the photo — so the one save
+  it allows can go under any barcode nobody has claimed yet. Accepted: the list
+  is still a real read, and an existing entry is never replaced by a later save.
 
   **What happens to the image once it's there (issue #16).** This was an
   open question — `.claude/claude-security-guidance.md`'s AI/LLM section says

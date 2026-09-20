@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Animated, Platform, Pressable, useWindowDimensions, View } from "react-native";
+import { Animated, Platform, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HEADER_GUTTER } from "@/components/AppHeader";
@@ -10,6 +10,7 @@ import { PressableCard } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/genie";
 import { isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
+import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -38,7 +39,8 @@ const SHELF_DROP = 41;
  * A greeting, the skin profile the quiz produced as a card of chips (every score
  * on the other tabs is judged against it; it is edited under Profile), then the
  * scan card, which opens the full-screen scanner, and a shelf of watercolor
- * bottles filling the rest of the screen.
+ * bottles filling the rest of the screen. The layout is fixed while it fits; on a
+ * short screen or with large text it scrolls, so the scan card is always reachable.
  */
 /** How far the scan card sinks when pressed: it reads as a button though it is a card. */
 const SCAN_CARD_PRESSED = 0.96;
@@ -65,8 +67,8 @@ export default function Home() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
       {/* The scene fills the bottom of the screen, to its very bottom edge and a
-          little past each side, behind everything else. The screen itself does not
-          scroll: it is a fixed layout. */}
+          little past each side, behind everything else. It stays where it is when
+          the content above scrolls. */}
       <View
         pointerEvents="none"
         style={{
@@ -85,7 +87,16 @@ export default function Home() {
         />
       </View>
 
-      <View style={{ flex: 1 }}>
+      {/* Scrolls only when the content is taller than the screen: flexGrow keeps a
+          short page filling it, and the bounce and stretch that would make a page
+          that fits look loose are switched off. */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarClearance(insets.bottom) }}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={{ paddingHorizontal: HEADER_GUTTER, paddingTop: 28, gap: 22 }}>
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 30, lineHeight: 36, color: INK }}>Hi, there!</Text>
 
@@ -168,7 +179,7 @@ export default function Home() {
           </Pressable>
           </Animated.View>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
