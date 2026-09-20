@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
-import { SCAN_BUTTON, SCAN_BUTTON_LIFT, SCAN_NOTCH_GAP, TAB_BAR_HEIGHT, TAB_BAR_RADIUS } from "@/lib/tab-bar";
+import { SCAN_BUTTON, SCAN_BUTTON_LIFT, SCAN_NOTCH_GAP, TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_MARGIN } from "@/lib/tab-bar";
 import { INK, SURFACE } from "@/lib/tokens";
 
 /** How far the drawn shade reaches below the bar, and how many soft layers make it. */
@@ -28,21 +28,23 @@ export function NotchedTabBarBackground() {
   const notchR = SCAN_BUTTON / 2 + SCAN_NOTCH_GAP;
   const half = Math.sqrt(notchR * notchR - centreY * centreY);
   const cx = width / 2;
+  const x0 = TAB_BAR_SIDE_MARGIN;
+  const x1 = width - TAB_BAR_SIDE_MARGIN;
 
   const d =
     width > 0
       ? [
-          `M ${r} 0`,
+          `M ${x0 + r} 0`,
           `L ${cx - half} 0`,
           `A ${notchR} ${notchR} 0 1 0 ${cx + half} 0`,
-          `L ${width - r} 0`,
-          `Q ${width} 0 ${width} ${r}`,
-          `L ${width} ${h - r}`,
-          `Q ${width} ${h} ${width - r} ${h}`,
-          `L ${r} ${h}`,
-          `Q 0 ${h} 0 ${h - r}`,
-          `L 0 ${r}`,
-          `Q 0 0 ${r} 0`,
+          `L ${x1 - r} 0`,
+          `Q ${x1} 0 ${x1} ${r}`,
+          `L ${x1} ${h - r}`,
+          `Q ${x1} ${h} ${x1 - r} ${h}`,
+          `L ${x0 + r} ${h}`,
+          `Q ${x0} ${h} ${x0} ${h - r}`,
+          `L ${x0} ${r}`,
+          `Q ${x0} 0 ${x0 + r} 0`,
           "Z",
         ].join(" ")
       : "";

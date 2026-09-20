@@ -153,8 +153,12 @@ export default function TabsLayout() {
         tabBarIconStyle: { height: TAB_BAR_HEIGHT - TAB_ITEM_TOP_PAD * 2, marginTop: 0 },
         tabBarStyle: {
           position: "absolute",
-          left: TAB_BAR_SIDE_MARGIN,
-          right: TAB_BAR_SIDE_MARGIN,
+          // Full width, with the side gap as padding: the bar's body is drawn
+          // inset by the same amount, so the gap holds whether or not the
+          // navigator honours left/right on a device.
+          left: 0,
+          right: 0,
+          paddingHorizontal: TAB_BAR_SIDE_MARGIN,
           bottom: tabBarBottom(insets.bottom),
           height: TAB_BAR_HEIGHT,
           // Transparent: the bar is drawn by NotchedTabBarBackground, with its bite
