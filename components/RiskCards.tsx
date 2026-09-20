@@ -129,14 +129,19 @@ function RiskCard({
 
 /**
  * Irritation risk, from the EU regulatory status of what is actually in the
- * bottle plus anything contraindicated for this profile. Not a hazard score —
- * a count of restricted entries, said in words.
+ * bottle plus anything contraindicated for this profile, plus any active the
+ * score charged as an irritant for this profile (`match.irritants`), which is
+ * "safe" on the regulatory list but still shows as Avoid in the ingredient list.
+ * Not a hazard score — a count of entries, said in words.
  */
-function irritationRisk(product: ProductWithIngredients, match: MatchResult): Risk {
+export function irritationRisk(product: ProductWithIngredients, match: MatchResult): Risk {
   const restricted = product.ingredients.filter(
     (i) => isVerified(i) && i.safety !== "safe"
   ).length;
-  const personal = match.warnings.length;
+  // An ingredient can be both warned about and charged as an irritant: count it once.
+  const warned = new Set(match.warnings.map((w) => w.ingredient.name));
+  const charged = new Set(match.irritants.filter((name) => !warned.has(name)));
+  const personal = match.warnings.length + charged.size;
 
   if (product.ingredients.length === 0) {
     return { level: "Unknown", note: "Label not read yet", tone: "neutral", hasEntries: false };

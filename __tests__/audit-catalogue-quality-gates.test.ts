@@ -46,6 +46,63 @@ describe("classifyGarbageIngredient", () => {
     expect(classifyGarbageIngredient(name)).toBe("short");
   });
 
+  // #101 sampled 43 unverified rows and found 38 the script's original two
+  // checks (an English-only prose list, a digit-coded glued pattern) missed
+  // entirely — the shape wasn't a batch code or leaked English sentence
+  // text, it was a label/section heading glued on, often in another
+  // language. These are the actual rows from that report.
+  it.each([
+    "ingrédients: aqua",
+    "ingrediente: aqua",
+    "ingrediente: paraffinum liquidum",
+    "sastojci: aqua",
+    "ingredients: aqua/water",
+    "ingredients/ ingrédients: aqua",
+    "ingrédients: water/ aqua/eau",
+    "composition : olea europea fruit oil",
+    "may contain: iron oxides",
+    "may contain: titanium dioxide",
+    "tocopherol. may contain : ci 77891",
+    "glyceryl caprylate. storage: store in a cool & dry place",
+    "octocrylene inactive ingredients: water",
+    "package labeling: label.jpg inner label.jpg",
+    "proprietati",
+    "mod de utilizare",
+    "distribuitor",
+    "producator",
+    "potassium phosphate. puede contener cl:42090",
+    "peut contenir: aqua",
+    "peuvent contenir: aqua",
+    // Italian / Dutch / properly-accented Romanian spellings.
+    "ingredienti: aqua",
+    "ingrediënten: aqua",
+    "proprietăți",
+    "producător",
+  ])("flags a label/section heading glued onto a real ingredient, in any language: %s", (name: string) => {
+    expect(classifyGarbageIngredient(name)).toBe("label");
+  });
+
+  it.each(["basic red 1:1", "basic violet 11:1", "ci 77268:1", "pigment blue 15:1", "pigment red 57:1"])(
+    "does not flag a real colour-index name as a label heading: %s",
+    (name: string) => {
+      // #101's report: these five have a colon too (a real part of the CI
+      // naming convention), but no label word — confirms LABEL_MARKERS keys
+      // off vocabulary, not punctuation shape.
+      expect(classifyGarbageIngredient(name)).toBeNull();
+    }
+  );
+
+  it.each(["aqua", "glycerin", "tocopheryl acetate", "sodium hyaluronate", "cetearyl alcohol", "ci 77891"])(
+    "does not flag an ordinary ingredient name as a label heading: %s",
+    (name: string) => {
+      expect(classifyGarbageIngredient(name)).toBeNull();
+    }
+  );
+
+  it("classifies 'distributed by' as prose, not label — the two word lists stay disjoint", () => {
+    expect(classifyGarbageIngredient("aqua distributed by acme")).toBe("prose");
+  });
+
   it.each(["pca", "egf", "uv", "aha"])("does not flag a known-real short INCI name: %s", (name: string) => {
     expect(classifyGarbageIngredient(name)).toBeNull();
   });
