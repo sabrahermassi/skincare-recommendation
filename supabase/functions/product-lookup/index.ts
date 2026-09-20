@@ -387,19 +387,19 @@ async function persist(fetched: Fetched) {
  * below the sentences found in the dictionary; a few dictionary entries run
  * longer (fermented extracts naming dozens of species), but a caller that
  * holds the dictionary checks it first, so a known long name never reaches this,
- * and one that does not (product-lookup) checks only the first eight words. An HTML entity ("&lt;") or a run of seven digits
+ * and one that does not passes `allowLong`, which skips the word limit and nothing else. An HTML entity ("&lt;") or a run of seven digits
  * (a barcode, a batch number) is packaging text that OCR or a paste carried in,
  * as is a web address or e-mail, and a fragment that opens with the word
  * "ingredients" is a footnote about the list, not a member of it.
  */
-export function isPlausibleIngredientName(name: string): boolean {
+export function isPlausibleIngredientName(name: string, allowLong = false): boolean {
   if (/[:：]/.test(name.replace(/\d[:：]\d/g, ""))) return false;
   if (/\.(?:jpe?g|png|gif|webp|pdf)\b/i.test(name)) return false;
   if (/&(?:lt|gt|amp|quot|nbsp|#\d+)\b|[<>]/i.test(name)) return false;
   if (/\d{7,}/.test(name)) return false;
   if (/\bwww\.|https?:|@|\.(?:com|net|org)\b/i.test(name)) return false;
   if (/^ingr[eé]dients?\b/i.test(name)) return false;
-  return name.split(/\s+/).length <= 8;
+  return allowLong || name.split(/\s+/).length <= 8;
 }
 
 /**
@@ -450,9 +450,9 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
     .split(/[;]|,(?!\d)|\.(?=\s)/)
     .map((part) => normalise(part.replace(/\uE001/g, ".")))
     // No dictionary here, so a long real name (a fermented extract naming a dozen
-    // species) cannot be recognised as known: only the first eight words are
-    // checked, as the stub cleanup does, rather than dropping it for its length.
-    .filter((part) => part.length > 1 && part.length < 120 && isPlausibleIngredientName(part.split(/\s+/).slice(0, 8).join(" ")));
+    // species) cannot be recognised as known: it is exempt from the word limit only,
+    // and every other check still reads the whole name.
+    .filter((part) => part.length > 1 && part.length < 120 && isPlausibleIngredientName(part, true));
 
   return dedupe(parsed);
 }

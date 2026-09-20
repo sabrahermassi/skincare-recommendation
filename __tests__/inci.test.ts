@@ -41,6 +41,14 @@ describe("isPlausibleIngredientName", () => {
     expect(isPlausibleIngredientName(name)).toBe(true);
   });
 
+  it("skips only the word limit when asked, so junk after word eight is still caught", () => {
+    const long = "aspergillus lactobacillus leuconostoc pediococcus saccharomyces citrus unshiu fruit ferment extract";
+    expect(isPlausibleIngredientName(long)).toBe(false);
+    expect(isPlausibleIngredientName(long, true)).toBe(true);
+    expect(isPlausibleIngredientName("one two three four five six seven eight package labeling: label.jpg", true)).toBe(false);
+    expect(isPlausibleIngredientName("one two three four five six seven eight nine www.example.com", true)).toBe(false);
+  });
+
   it("rejects a name longer than eight words", () => {
     expect(isPlausibleIngredientName("one two three four five six seven eight")).toBe(true);
     expect(isPlausibleIngredientName("one two three four five six seven eight nine")).toBe(false);

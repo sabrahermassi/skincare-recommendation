@@ -176,19 +176,19 @@ export function fuzzyLookup(
  * below the sentences found in the dictionary; a few dictionary entries run
  * longer (fermented extracts naming dozens of species), but a caller that
  * holds the dictionary checks it first, so a known long name never reaches this,
- * and one that does not (product-lookup) checks only the first eight words. An HTML entity ("&lt;") or a run of seven digits
+ * and one that does not passes `allowLong`, which skips the word limit and nothing else. An HTML entity ("&lt;") or a run of seven digits
  * (a barcode, a batch number) is packaging text that OCR or a paste carried in,
  * as is a web address or e-mail, and a fragment that opens with the word
  * "ingredients" is a footnote about the list, not a member of it.
  */
-export function isPlausibleIngredientName(name) {
+export function isPlausibleIngredientName(name, allowLong = false) {
   if (/[:：]/.test(name.replace(/\d[:：]\d/g, ""))) return false;
   if (/\.(?:jpe?g|png|gif|webp|pdf)\b/i.test(name)) return false;
   if (/&(?:lt|gt|amp|quot|nbsp|#\d+)\b|[<>]/i.test(name)) return false;
   if (/\d{7,}/.test(name)) return false;
   if (/\bwww\.|https?:|@|\.(?:com|net|org)\b/i.test(name)) return false;
   if (/^ingr[eé]dients?\b/i.test(name)) return false;
-  return name.split(/\s+/).length <= 8;
+  return allowLong || name.split(/\s+/).length <= 8;
 }
 
 /**
@@ -554,9 +554,9 @@ export function parseInci(text, dictionary, rejected, aliases) {
     .filter((p) => p.length > 1 && p.length < 120 && /[a-z]/.test(p))
     .flatMap((name) => {
       if (!dictionary) {
-        // Without a dictionary a long real name cannot be recognised as known, so only
-        // its first eight words are checked rather than dropping it for its length.
-        if (isPlausibleIngredientName(name.split(/\s+/).slice(0, 8).join(" "))) return [name];
+        // Without a dictionary a long real name cannot be recognised as known, so it is
+        // exempt from the word limit only; every other check still reads the whole name.
+        if (isPlausibleIngredientName(name, true)) return [name];
         rejected?.push(name);
         return [];
       }

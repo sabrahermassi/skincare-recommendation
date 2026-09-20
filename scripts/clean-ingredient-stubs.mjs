@@ -122,18 +122,17 @@ function variantTarget(name, known, aliases) {
  *
  * The word limit `isPlausibleIngredientName` applies to label text is not
  * applied here — real dictionary names run past it (fermented extracts list
- * dozens of species) — so only the first eight words are checked.
+ * dozens of species) — so it is skipped and every other check reads the whole name.
  */
 function classifyStub(name, known, aliases) {
   const target = variantTarget(name, known, aliases);
   if (target && target !== name && known.has(target)) return { kind: "variant", target };
 
-  const head = name.split(/\s+/).slice(0, 8).join(" ");
   // Short only counts as junk for Latin text: "pca" and "egf" are real (the #86
   // audit keeps the same list), and a two- or three-syllable Korean name is
   // legitimately that short.
   const tooShort = name.length < 4 && /^[\x00-\x7f]*$/.test(name) && !KNOWN_SHORT_NAMES.has(name.toLowerCase());
-  if (tooShort || !/\p{L}/u.test(name) || !isPlausibleIngredientName(head)) {
+  if (tooShort || !/\p{L}/u.test(name) || !isPlausibleIngredientName(name, true)) {
     return { kind: "junk" };
   }
   return null;

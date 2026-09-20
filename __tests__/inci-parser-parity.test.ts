@@ -298,7 +298,8 @@ describe("product-lookup's parser stays in step with lib/inci.ts", () => {
     expect(lookup).toContain(rule);
   });
 
-  it("checks only the first eight words of a name, not its whole length", () => {
-    expect(lookup).toContain("isPlausibleIngredientName(part.split(/\\s+/).slice(0, 8).join(\" \"))");
+  it("skips only the word limit, so every other check reads the whole name", () => {
+    expect(lookup).toContain("isPlausibleIngredientName(part, true)");
+    expect(lookup).not.toContain(".slice(0, 8)");
   });
 });
