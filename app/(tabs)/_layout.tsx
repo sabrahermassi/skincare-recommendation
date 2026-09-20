@@ -142,9 +142,9 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: CANVAS,
           borderTopColor: LINE,
-          height: 64,
-          paddingBottom: 10,
-          paddingTop: 8,
+          height: 74,
+          paddingBottom: 12,
+          paddingTop: 10,
           // The raised scan button rises out of the bar's top edge.
           overflow: "visible",
         },
