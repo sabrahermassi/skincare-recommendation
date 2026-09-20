@@ -214,7 +214,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   let parsed = parseIngredientBlock(text, undefined, aliases);
 
-  if (parsed.length < 4) {
+  // Reads the label again with the dictionary, at most once. Returns the error
+  // response when the dictionary cannot be read, and null otherwise.
+  let readWithDictionary = false;
+  const parseWithDictionary = async (): Promise<Response | null> => {
     let dictionary: Set<string>;
     try {
       dictionary = await fetchDictionary();
@@ -226,6 +229,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // name on the way out.
     for (const synonym of aliases.keys()) dictionary.add(synonym);
     parsed = parseIngredientBlock(text, dictionary, aliases);
+    readWithDictionary = true;
+    return null;
+  };
+
+  if (parsed.length < 4) {
+    const failed = await parseWithDictionary();
+    if (failed) return failed;
   }
 
   if (parsed.length < 4) {
@@ -247,6 +257,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
   } catch (err) {
     console.error("knownIngredients failed:", err);
     return json(req, { error: "Could not read the ingredient dictionary" }, 502);
+  }
+
+  // A well-punctuated label skips the dictionary above, so none of the repairs
+  // that need it (common names, spacing, slash lists, typos) have run: "Purified
+  // Water, Glycerol, Shea Butter, Vitamin E" comes back as four unknown names.
+  // When too few of the probe's names are recognised, that is the moment to load
+  // the dictionary and read the label again; a label that is already recognised
+  // never pays for the table scan. The second read is kept only if it recognises
+  // at least as much of the label as the first.
+  if (!readWithDictionary && known.size / parsed.length < MIN_KNOWN_INGREDIENT_RATIO) {
+    const probeParsed = parsed;
+    const probeKnown = known;
+    const failed = await parseWithDictionary();
+    if (failed) return failed;
+    let rereadKnown: Set<string> | null = null;
+    if (parsed.length >= 4) {
+      try {
+        rereadKnown = await knownIngredients(parsed.map((p) => p.inci_name));
+      } catch (err) {
+        console.error("knownIngredients failed:", err);
+        return json(req, { error: "Could not read the ingredient dictionary" }, 502);
+      }
+    }
+    if (rereadKnown !== null && rereadKnown.size / parsed.length >= probeKnown.size / probeParsed.length) {
+      known = rereadKnown;
+    } else {
+      parsed = probeParsed;
+    }
   }
 
   // The gate, run before anything is written — not after, which is what let
