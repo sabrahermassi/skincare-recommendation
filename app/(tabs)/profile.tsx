@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { profileHeadline } from "@/lib/profile";
-import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_SOFT, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_SOFT, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 const AVATAR = 104;
@@ -44,7 +44,7 @@ export default function Profile() {
           Profile
         </Text>
 
-        <View style={{ alignItems: "center", gap: 14, paddingTop: 22, paddingBottom: 26, paddingHorizontal: 24 }}>
+        <View style={{ alignItems: "center", gap: 20, paddingTop: 30, paddingBottom: 38, paddingHorizontal: 24 }}>
           {/* A placeholder for their own picture: a peach disc with the person glyph. */}
           <View
             accessibilityElementsHidden
@@ -66,10 +66,10 @@ export default function Profile() {
           <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 26, color: INK, textAlign: "center" }}>{title}</Text>
 
           {tags.length > 0 ? (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 14 }}>
               {tags.map((tag) => (
-                <View key={tag} style={{ paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, backgroundColor: SELECTED }}>
-                  <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>{tag}</Text>
+                <View key={tag} style={{ paddingHorizontal: 20, paddingVertical: 9, borderRadius: 999, backgroundColor: SELECTED }}>
+                  <Text style={{ fontSize: 13, fontWeight: "500", letterSpacing: 0.2, color: INK }}>{tag}</Text>
                 </View>
               ))}
             </View>
@@ -149,7 +149,7 @@ function MenuRow({
       accessibilityLabel={label}
       className="active:opacity-70"
       style={{
-        minHeight: 60,
+        minHeight: 68,
         flexDirection: "row",
         alignItems: "center",
         gap: 16,

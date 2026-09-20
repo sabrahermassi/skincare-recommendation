@@ -144,9 +144,11 @@ export default function Scan() {
   // it reads in Photo mode: turning it on and off is a reconfiguration of the
   // running camera, which showed as a flash when switching to Photo.
   const modeRef = useRef<Mode>("Barcode");
+  const statusRef = useRef<Status>({ kind: "idle" });
   useEffect(() => {
     modeRef.current = mode;
-  }, [mode]);
+    statusRef.current = status;
+  }, [mode, status]);
   const onCameraLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     setCameraSize({ width, height });
@@ -276,12 +278,15 @@ export default function Scan() {
   // and Photo — so it lives here and the same view just changes what it listens
   // for. Most devices only let one CameraView hold the camera at a time: while
   // another screen is on top (a result, /scan-label) `isFocused` is false and
-  // this lets go of it, so that screen's camera is not left waiting for it. A
-  // barcode that was read or missed also lets go of it in Barcode mode, or the
-  // same code would be read again at once.
+  // this lets go of it, so that screen's camera is not left waiting for it.
+  // Otherwise it stays mounted — a read, a miss or a mode switch never stops and
+  // restarts it, which is what showed as a black flash now and then.
   const onScanned = useCallback(
     ({ data, bounds, cornerPoints }: BarcodeScanningResult) => {
-      if (modeRef.current !== "Barcode") return;
+      // Only in Barcode mode, and only while nothing is already showing: the
+      // camera stays up behind a "not in our catalogue" panel, so it must not
+      // read the same code again the moment the panel appears.
+      if (modeRef.current !== "Barcode" || statusRef.current.kind !== "idle") return;
       void handleBarcode(data, barcodeBox({ bounds, cornerPoints }));
     },
     [handleBarcode]
@@ -290,7 +295,7 @@ export default function Scan() {
   const granted = permission?.granted === true;
   const needsPermission = permission !== null && !permission.granted;
   const scanning = mode === "Photo" || status.kind === "idle" || status.kind === "looking";
-  const cameraLive = isFocused && granted && scanning;
+  const cameraLive = isFocused && granted;
   const switcherClearance = Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
 
   const stage =
