@@ -23,7 +23,7 @@ import { CTA, INK } from "@/lib/tokens";
  * places the design draws them shorter (the detail-screen pairs at 52, the
  * profile footer at 50), not as a free dial.
  */
-export type ButtonSize = 50 | 52 | 56;
+type ButtonSize = 50 | 52 | 56;
 
 type Props = {
   label: string;

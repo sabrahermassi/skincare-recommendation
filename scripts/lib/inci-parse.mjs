@@ -67,7 +67,7 @@ export function parseInci(text) {
   return dedupe(delimited);
 }
 
-export function dedupe(parsed) {
+function dedupe(parsed) {
   const seen = new Set();
   const out = [];
   for (const p of parsed) {
