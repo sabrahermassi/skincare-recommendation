@@ -336,3 +336,12 @@ export function withAlpha(hex: string, alpha: number): string {
  * instead of each block carrying its own margin.
  */
 export const SPACE = { text: 8, block: 16, gutter: 24 } as const;
+
+/** The shade under the raised camera button's bottom edge, so it stands off the bar. */
+export const RAISED_SHADOW = {
+  shadowColor: INK,
+  shadowOffset: { width: 0, height: 5 },
+  shadowOpacity: 0.32,
+  shadowRadius: 4,
+  elevation: 8,
+} as const;

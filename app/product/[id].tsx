@@ -403,11 +403,10 @@ export default function ProductScreen() {
         }}
       >
         {/*
-          The design's product screen opens on a 150pt hero with the brand,
-          name and size centred under it (screen 11); the verdict panel below
-          is the scan result's (screen 02). Merging the two screens meant
-          keeping both, not picking one — the hero is how you confirm you are
-          looking at the right bottle.
+          The bottle, brand, name and size in one row straight under the header:
+          the design's centred 150pt hero left the top third of the screen empty
+          around a single icon. It is still how you confirm you are looking at
+          the right bottle, and the verdict panel below is the scan result's.
         */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingHorizontal: SPACE.gutter }}>
           <ProductThumbnail product={product} size={112} radius={20} />

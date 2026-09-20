@@ -8,6 +8,11 @@ import { AccessibilityInfo, Animated, Easing, Platform } from "react-native";
  * jump when the screen opens) or when it is switched off, and nothing moves at
  * all with Reduce Motion on.
  */
+/** Whether a change of `active` should play the pop: only off → on, and never with Reduce Motion. */
+export function shouldPop(wasActive: boolean, active: boolean, reduceMotion: boolean): boolean {
+  return active && !wasActive && !reduceMotion;
+}
+
 export function PopOnToggle({ active, children }: { active: boolean; children: ReactNode }) {
   const [scale] = useState(() => new Animated.Value(1));
   const previous = useRef(active);
@@ -29,7 +34,7 @@ export function PopOnToggle({ active, children }: { active: boolean; children: R
   useEffect(() => {
     const wasActive = previous.current;
     previous.current = active;
-    if (!active || wasActive || reduceMotion.current) return;
+    if (!shouldPop(wasActive, active, reduceMotion.current)) return;
     scale.stopAnimation();
     Animated.sequence([
       Animated.timing(scale, { toValue: 1.45, duration: 110, easing: Easing.out(Easing.cubic), useNativeDriver }),

@@ -7,7 +7,7 @@ import { SearchIcon } from "@/components/icons/SearchIcon";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { genie } from "@/lib/genie";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT } from "@/lib/tab-bar";
-import { CANVAS, CTA, INK, LINE, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
+import { CANVAS, CTA, INK, LINE, RAISED_SHADOW, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // Outline when unselected, filled when selected — the shape changes as well as
@@ -88,12 +88,7 @@ function ScanTabButton({ onPress }: { onPress?: (event: GestureResponderEvent) =
           backgroundColor: CTA,
           borderWidth: 5,
           borderColor: CANVAS,
-          // A shade under the bottom edge, so the button reads as standing off the bar.
-          shadowColor: INK,
-          shadowOffset: { width: 0, height: 5 },
-          shadowOpacity: 0.32,
-          shadowRadius: 4,
-          elevation: 8,
+          ...RAISED_SHADOW,
         }}
         className="active:opacity-90"
       >

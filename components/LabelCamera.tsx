@@ -11,7 +11,7 @@ import { SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, type Box } from "@/compo
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { analyseLabel } from "@/data/api";
-import { coverFitCropRect, type Rect, type Size } from "@/lib/crop-to-guide";
+import { coverFitCropRect, shrinkWidth, type Rect, type Size } from "@/lib/crop-to-guide";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
 import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -39,6 +39,9 @@ type Status =
   // Codex caught on #121 — every reason but one genuinely is retryable, and
   // the one that isn't (`not_configured`) needs its caller to say so.
   | { kind: "failed"; message: string; hint?: string; retryable: boolean };
+
+/** The widest a picked photo is sent: the ingredient text stays readable, the upload stays small. */
+const LIBRARY_MAX_WIDTH = 2000;
 
 type Props = {
   /** Handed over by whoever sent the user here after a miss; the product read is saved under it. */
@@ -146,6 +149,17 @@ export function LabelCamera({
           return;
         }
         photo = picked.assets[0];
+        // Scaled down first: a full-size phone photo can be too large to send.
+        const width = shrinkWidth(photo.width, LIBRARY_MAX_WIDTH);
+        if (width) {
+          const resized = await manipulateAsync(photo.uri, [{ resize: { width } }], {
+            base64: true,
+            compress: 0.8,
+            format: SaveFormat.JPEG,
+          });
+          croppedUri = resized.uri;
+          photo = { ...photo, uri: resized.uri, base64: resized.base64, width: resized.width, height: resized.height };
+        }
       } else {
         photo = await camera.current?.takePictureAsync({
           base64: true,
@@ -463,7 +477,7 @@ export function LabelCamera({
         <View style={{ width: "100%", alignItems: "center", justifyContent: "center" }}>
         <Pressable
           onPress={() => capture("library")}
-          disabled={status.kind === "reading"}
+          disabled={status.kind === "reading" || cannotRetry}
           accessibilityRole="button"
           accessibilityLabel="Choose a photo of the ingredient list from your library"
           style={{
@@ -476,7 +490,7 @@ export function LabelCamera({
           }}
           className="active:opacity-80"
         >
-          <Ionicons name="images-outline" size={26} color={status.kind === "reading" ? withAlpha(CANVAS, 0.4) : CANVAS} />
+          <Ionicons name="images-outline" size={26} color={status.kind === "reading" || cannotRetry ? withAlpha(CANVAS, 0.4) : CANVAS} />
         </Pressable>
         <Pressable
           onPress={() => capture()}
