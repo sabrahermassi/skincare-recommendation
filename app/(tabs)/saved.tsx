@@ -724,7 +724,7 @@ const EMPTY_ART_WIDTH = 340;
 // the text under the picture starts at the same place on every tab.
 const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).map((art) => art.aspect));
 
-// How long the pictures cross-fade, and the words go out and come back, when the tab changes.
+// How long the pictures cross-fade when the tab changes.
 const EMPTY_FADE_MS = 300;
 const EMPTY_TABS = Object.keys(EMPTY_ART) as Tab[];
 
@@ -745,18 +745,16 @@ function useReduceMotion(): boolean {
 
 /**
  * What an empty tab shows. It stays mounted while the tab changes between the
- * three empty tabs, so the change can be a fade rather than a swap: the three
- * pictures sit on top of each other and cross-fade, and the words and button go
- * out and come back with the new tab's, together taking EMPTY_FADE_MS.
+ * three empty tabs, so the picture can fade rather than swap: the three pictures
+ * sit on top of each other and cross-fade over EMPTY_FADE_MS. Only the picture
+ * moves: the title, the sentence and the button change in place at once, so they
+ * stay solid on the screen.
  */
 function EmptyState({ tab }: { tab: Tab }) {
   const reduceMotion = useReduceMotion();
   const [artOpacity] = useState(
     () => Object.fromEntries(EMPTY_TABS.map((t) => [t, new Animated.Value(t === tab ? 1 : 0)])) as Record<Tab, Animated.Value>
   );
-  // The words that are on screen: they change once the old ones have faded out.
-  const [shown, setShown] = useState<Tab>(tab);
-  const [textOpacity] = useState(() => new Animated.Value(1));
   const previous = useRef<Tab>(tab);
 
   useEffect(() => {
@@ -769,23 +767,11 @@ function EmptyState({ tab }: { tab: Tab }) {
       Animated.timing(value, { toValue, duration: ms, easing: Easing.inOut(Easing.cubic), useNativeDriver });
 
     const pictures = Animated.parallel(EMPTY_TABS.map((t) => timing(artOpacity[t], t === tab ? 1 : 0, duration)));
-    const wordsOut = timing(textOpacity, 0, duration * 0.4);
-    const wordsIn = timing(textOpacity, 1, duration * 0.6);
-
     pictures.start();
-    wordsOut.start(({ finished }) => {
-      if (!finished) return;
-      setShown(tab);
-      wordsIn.start();
-    });
-    return () => {
-      pictures.stop();
-      wordsOut.stop();
-      wordsIn.stop();
-    };
-  }, [tab, artOpacity, textOpacity, reduceMotion]);
+    return () => pictures.stop();
+  }, [tab, artOpacity, reduceMotion]);
 
-  const { title, body, actionLabel, actionHref } = EMPTY_COPY[shown];
+  const { title, body, actionLabel, actionHref } = EMPTY_COPY[tab];
 
   return (
     // Asymmetric flex spacers (0.4/0.6), not `justifyContent: "center"" —
@@ -814,7 +800,7 @@ function EmptyState({ tab }: { tab: Tab }) {
             </Animated.View>
           ))}
         </View>
-        <Animated.View style={{ alignItems: "center", gap: 10, opacity: textOpacity }}>
+        <View style={{ alignItems: "center", gap: 10 }}>
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
           {/* minHeight reserves room for the longest body (History's wraps to 3
               lines at this width, the others to 2) — without it, a shorter body
@@ -834,7 +820,7 @@ function EmptyState({ tab }: { tab: Tab }) {
             onPress={() => (actionHref === "/scanner" ? openScanner() : router.push(actionHref))}
             style={{ marginTop: 8 }}
           />
-        </Animated.View>
+        </View>
       </View>
       <View style={{ flex: 0.6 }} />
     </View>
