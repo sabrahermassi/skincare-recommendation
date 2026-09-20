@@ -1,33 +1,42 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, View, type GestureResponderEvent } from "react-native";
 
 import { NotchedTabBarBackground } from "@/components/NotchedTabBarBackground";
-import { SearchIcon } from "@/components/icons/SearchIcon";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { genie } from "@/lib/genie";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
-import { RAISED_SHADOW, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
+import { RAISED_SHADOW, SELECTED, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // Outline when unselected, filled when selected — the shape changes as well as
 // the colour, so the current tab does not rest on a contrast difference alone.
-// Search is the exception: its own drawn magnifier (components/icons/SearchIcon),
-// with the lens filled when selected.
+// All four come from the one icon set, so their stroke weight matches; unselected
+// they share a single muted colour and nothing else.
 const TAB_ICONS = {
-  home: { on: "compass", off: "compass-outline" },
+  home: { on: "home", off: "home-outline" },
+  browse: { on: "search", off: "search-outline" },
   saved: { on: "heart", off: "heart-outline" },
-  profile: { on: "person-circle", off: "person-circle-outline" },
+  profile: { on: "person", off: "person-outline" },
 } as const;
+
+// The pill behind the current tab's icon.
+const PILL_WIDTH = 46;
+const PILL_HEIGHT = 36;
+const PILL_RADIUS = 14;
+const PILL_MS = 200;
+const PILL_FROM_SCALE = 0.85;
 
 /**
  * A tab: the icon only, in a button of its own that is exactly as tall as the bar
  * and centres the icon in it. The navigator's own item pads and aligns its
  * contents differently on each platform, which is what left the icons off-centre;
  * drawing the button here removes the difference. Unselected the icon is an
- * outline; selected it is filled in terracotta, with nothing drawn around it.
+ * outline in the shared muted colour, with nothing drawn around it; selected it
+ * is filled in terracotta on a peach pill that fades in.
  * Names are not drawn — they did not render on a phone (see `tabBarShowLabel`) —
  * and live on the button's accessibility label for a screen reader.
  */
@@ -36,7 +45,7 @@ function TabButton({
   onPress,
   ...rest
 }: {
-  tab: keyof typeof TAB_ICONS | "browse";
+  tab: keyof typeof TAB_ICONS;
   onPress?: ((event: GestureResponderEvent) => void) | null;
   "aria-selected"?: boolean;
   "aria-label"?: string;
@@ -44,6 +53,14 @@ function TabButton({
 }) {
   const focused = rest["aria-selected"] === true;
   const color = focused ? TERRACOTTA : TAB_INACTIVE;
+  const shown = useSharedValue(focused ? 1 : 0);
+  useEffect(() => {
+    shown.value = withTiming(focused ? 1 : 0, { duration: PILL_MS, easing: Easing.out(Easing.cubic) });
+  }, [focused, shown]);
+  const pillStyle = useAnimatedStyle(() => ({
+    opacity: shown.value,
+    transform: [{ scale: PILL_FROM_SCALE + (1 - PILL_FROM_SCALE) * shown.value }],
+  }));
   return (
     <Pressable
       onPress={onPress ?? undefined}
@@ -53,11 +70,19 @@ function TabButton({
       testID={rest.testID}
       style={{ flex: 1, height: TAB_BAR_HEIGHT, alignItems: "center", justifyContent: "center" }}
     >
-      {tab === "browse" ? (
-        <SearchIcon size={27} color={color} filled={focused} />
-      ) : (
+      <View style={{ width: PILL_WIDTH, height: PILL_HEIGHT, alignItems: "center", justifyContent: "center" }}>
+        {/* The pill behind the current tab's icon: fades and grows in when the tab
+            becomes current, and back out when it stops. Driven by `focused`, so
+            switching tabs quickly just retargets it. */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            { position: "absolute", width: PILL_WIDTH, height: PILL_HEIGHT, borderRadius: PILL_RADIUS, backgroundColor: SELECTED },
+            pillStyle,
+          ]}
+        />
         <Ionicons name={focused ? TAB_ICONS[tab].on : TAB_ICONS[tab].off} size={29} color={color} />
-      )}
+      </View>
     </Pressable>
   );
 }
