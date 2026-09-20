@@ -15,6 +15,7 @@ import { Text } from "@/components/Text";
 import { canPhotographLabelFor, fetchProductsByIds, resolveIngredientNames } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
+import { openScanner } from "@/lib/genie";
 import { matchProduct, matchTone } from "@/lib/matching";
 import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
 import { isVerified } from "@/lib/safety";
@@ -698,18 +699,18 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
   );
 }
 
-const EMPTY_COPY: Record<Tab, { title: string; body: string; actionLabel: string; actionHref: "/" | "/browse" }> = {
+const EMPTY_COPY: Record<Tab, { title: string; body: string; actionLabel: string; actionHref: "/scanner" | "/browse" }> = {
   saved: {
     title: "No products saved yet",
     body: "Tap Save on any product and it will wait for you here - including next time you open the app.",
     actionLabel: "Scan a product",
-    actionHref: "/",
+    actionHref: "/scanner",
   },
   history: {
     title: "No history yet",
     body: "Every product you open or scan is logged here automatically, so you can tell at a glance whether you have already checked something.",
     actionLabel: "Scan a product",
-    actionHref: "/",
+    actionHref: "/scanner",
   },
   ingredients: {
     title: "No starred ingredients yet",
@@ -725,12 +726,12 @@ function EmptyState({
   title,
   body,
   actionLabel,
-  actionHref = "/",
+  actionHref = "/scanner",
 }: {
   title: string;
   body: string;
   actionLabel?: string;
-  actionHref?: "/" | "/browse";
+  actionHref?: "/scanner" | "/browse";
 }) {
   return (
     // Asymmetric flex spacers (0.4/0.6), not `justifyContent: "center"" —
@@ -767,7 +768,7 @@ function EmptyState({
             tone="cta"
             size={50}
             label={actionLabel}
-            onPress={() => router.push(actionHref)}
+            onPress={() => (actionHref === "/scanner" ? openScanner() : router.push(actionHref))}
             style={{ marginTop: 8 }}
           />
         )}

@@ -25,6 +25,7 @@ import {
   type Verdict,
 } from "@/lib/matching";
 import { relativeTime } from "@/lib/format";
+import { openScanner } from "@/lib/genie";
 import { isPersonalized } from "@/lib/profile";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
@@ -281,7 +282,7 @@ export default function ProductScreen() {
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, color: INK }}>
             Product not found
           </Text>
-          <PrimaryButton tone="cta" size={52} label="Scan another" onPress={() => router.replace("/")} />
+          <PrimaryButton tone="cta" size={52} label="Scan another" onPress={openScanner} />
           {/* "Scan another" assumes a physical bottle in hand, which isn't
               true for everyone who lands here — a stale link, a bookmark to
               a removed product. Same escape hatch the missed-barcode panel

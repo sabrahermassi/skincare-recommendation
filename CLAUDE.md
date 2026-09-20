@@ -85,7 +85,9 @@ the real backend; the invariant keeps the seam clean for the day it isn't.
 **Routing** — Expo Router (file-based) in `app/`; web must work, not just
 native.
 
-- **`/` is `app/(tabs)/index.tsx`** (the scanner), not a product list.
+- **`/` is `app/(tabs)/index.tsx`** (Home: scan card, search box, skin profile),
+  not a product list. The scanner is `app/(tabs)/scanner.tsx`, full screen, opened
+  from the raised middle tab button (or `openScanner()` in `lib/genie.ts`).
   `initialRouteName` doesn't change what `/` resolves to. A root
   `app/index.tsx` is impossible — it collides with `app/(tabs)/index.tsx`.
 - **Never navigate from a layout file.** Gate with a declarative

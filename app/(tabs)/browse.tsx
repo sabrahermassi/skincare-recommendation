@@ -12,6 +12,7 @@ import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
 import { TERRACOTTA } from "@/components/shell/shared";
+import { openScanner } from "@/lib/genie";
 import { Text } from "@/components/Text";
 import { fetchProducts, peekProducts, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients, type SkinProfile } from "@/data/types";
@@ -542,7 +543,7 @@ export default function Browse() {
             <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
               Try the Scan tab to scan its barcode or ingredients instead.
             </Text>
-            <PrimaryButton tone="cta" size={52} label="Go to Scan" onPress={() => router.push("/")} />
+            <PrimaryButton tone="cta" size={52} label="Go to Scan" onPress={openScanner} />
           </View>
         );
 
