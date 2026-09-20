@@ -218,7 +218,7 @@ export default function Saved() {
       </View>
 
       {isEmpty ? (
-        <EmptyState {...EMPTY_COPY[tab]} />
+        <EmptyState {...EMPTY_COPY[tab]} art={EMPTY_ART[tab]} />
       ) : tab === "ingredients" ? (
         <IngredientsTab
           key="ingredients"
@@ -689,6 +689,14 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
   );
 }
 
+// One picture for each tab's empty state, with its own proportions (width / height)
+// so `contain` never letterboxes it.
+const EMPTY_ART = {
+  saved: { source: require("@/assets/illustrations/saved-empty-shelf.png"), aspect: 1400 / 810 },
+  history: { source: require("@/assets/illustrations/history-empty.png"), aspect: 1400 / 927 },
+  ingredients: { source: require("@/assets/illustrations/ingredients-empty.png"), aspect: 1400 / 855 },
+} as const;
+
 const EMPTY_COPY: Record<Tab, { title: string; body: string; actionLabel: string; actionHref: "/scanner" | "/browse" }> = {
   saved: {
     title: "No products saved yet",
@@ -710,20 +718,24 @@ const EMPTY_COPY: Record<Tab, { title: string; body: string; actionLabel: string
   },
 };
 
-const SAVED_EMPTY_SHELF = require("@/assets/illustrations/saved-empty-shelf.png");
-// Wider than the text block under it (which has 40 either side): the shelf is a wide picture.
-const SAVED_ART_WIDTH = 340;
+// Wider than the text block under it (which has 40 either side): these are wide pictures.
+const EMPTY_ART_WIDTH = 340;
+// The picture's box is as tall as the tallest of them, and each is centred in it, so
+// the text under the picture starts at the same place on every tab.
+const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).map((art) => art.aspect));
 
 function EmptyState({
   title,
   body,
   actionLabel,
   actionHref = "/scanner",
+  art,
 }: {
   title: string;
   body: string;
   actionLabel?: string;
   actionHref?: "/scanner" | "/browse";
+  art: (typeof EMPTY_ART)[Tab];
 }) {
   return (
     // Asymmetric flex spacers (0.4/0.6), not `justifyContent: "center"" —
@@ -734,14 +746,16 @@ function EmptyState({
     <View style={{ flex: 1, alignItems: "center", paddingHorizontal: 40 }}>
       <View style={{ flex: 0.4 }} />
       <View style={{ alignItems: "center", gap: 10 }}>
-        {/* Aspect ratio is the source art's own (1400x628, cropped to
-            content) — matching it keeps `contain` from letterboxing. */}
-        <Image
-          source={SAVED_EMPTY_SHELF}
-          style={{ width: SAVED_ART_WIDTH, aspectRatio: 1400 / 628 }}
-          contentFit="contain"
-          accessibilityLabel=""
-        />
+        <View style={{ width: EMPTY_ART_WIDTH, height: EMPTY_ART_HEIGHT, alignItems: "center", justifyContent: "center" }}>
+          {/* Aspect ratio is the source art's own (cropped to content), so
+              `contain` does not letterbox it. */}
+          <Image
+            source={art.source}
+            style={{ width: EMPTY_ART_WIDTH, aspectRatio: art.aspect }}
+            contentFit="contain"
+            accessibilityLabel=""
+          />
+        </View>
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
         {/* minHeight reserves room for the longer of the two bodies this
             renders with (History's wraps to 3 lines at this width, Saved's
@@ -758,8 +772,6 @@ function EmptyState({
         {actionLabel && (
           <PrimaryButton
             tone="cta"
-            // Being tried on the "Scan a product" button before it goes anywhere else.
-            watercolor={actionHref === "/scanner"}
             size={50}
             label={actionLabel}
             onPress={() => (actionHref === "/scanner" ? openScanner() : router.push(actionHref))}
