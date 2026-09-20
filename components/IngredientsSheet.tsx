@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, BackHandler, Easing, PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -8,7 +8,8 @@ import { Text } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
 import { rungFor, type MatchResult } from "@/lib/matching";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_SOFT, TYPE } from "@/lib/tokens";
+import { TERRACOTTA } from "@/components/shell/shared";
+import { CANVAS, INK, MUTED, MUTED_SOFT, TYPE } from "@/lib/tokens";
 
 // How many ingredients show while the sheet is resting, and roughly how tall a
 // row is, which sets how much of the sheet is above the bottom edge.
@@ -17,6 +18,9 @@ const ROW_HEIGHT = 72;
 const HEADER_HEIGHT = 74;
 const SNAP_MS = 280;
 const SHEET_RADIUS = 28;
+// The sheet is a card with a coloured outline, a little in from each side of the screen.
+const SHEET_OUTLINE = 3;
+const SHEET_INSET = 10;
 
 /** How much of the sheet is showing while it rests, for whoever lays out above it. */
 export function ingredientsSheetPeek(bottomInset: number) {
@@ -27,20 +31,18 @@ export function ingredientsSheetPeek(bottomInset: number) {
  * The ingredient list as a sheet resting at the bottom of the product screen:
  * its header and the first couple of ingredients show, and dragging it up (or
  * tapping its header) opens the whole list — tabs and all — over the screen.
- * Dragging the header down, tapping the dimmed screen, or Back closes it.
+ * Dragging the header down, tapping the dimmed screen, or Back closes it. It is
+ * drawn as an outlined card, in the app's accent colour.
  *
  * Replaces the "View ingredients" button that opened the list as a separate
- * screen. `floating` is drawn just above the sheet's top edge and rides up with
- * it (the Save heart), fading out as the sheet opens.
+ * screen.
  */
 export function IngredientsSheet({
   product,
   match,
-  floating,
 }: {
   product: ProductWithIngredients;
   match: MatchResult;
-  floating?: ReactNode;
 }) {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -139,26 +141,17 @@ export function IngredientsSheet({
         // While resting, a drag anywhere on the sheet moves it; once open the
         // list scrolls, so only the header answers to a drag.
         {...(expanded ? {} : pan.panHandlers)}
-        style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: full, transform: [{ translateY: y }] }}
+        style={{ position: "absolute", left: SHEET_INSET, right: SHEET_INSET, bottom: 0, height: full, transform: [{ translateY: y }] }}
       >
-        {floating ? (
-          <Animated.View
-            pointerEvents={expanded ? "none" : "box-none"}
-            style={{ position: "absolute", top: -68, right: 20, opacity: progress.interpolate({ inputRange: [0, 0.4], outputRange: [1, 0], extrapolate: "clamp" }) }}
-          >
-            {floating}
-          </Animated.View>
-        ) : null}
-
         <View
           style={{
             flex: 1,
             backgroundColor: CANVAS,
             borderTopLeftRadius: SHEET_RADIUS,
             borderTopRightRadius: SHEET_RADIUS,
-            borderWidth: 1,
+            borderWidth: SHEET_OUTLINE,
             borderBottomWidth: 0,
-            borderColor: BORDER_INACTIVE,
+            borderColor: TERRACOTTA,
             overflow: "hidden",
           }}
         >
