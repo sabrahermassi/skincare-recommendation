@@ -116,8 +116,6 @@ export const CTA = "#E09070";
  * on the screen, which is what "chosen" should look like.
  */
 export const SELECTED = "#F9E7DC";
-/** One step warmer, for a selected surface that needs to sit above SELECTED. */
-export const SELECTED_STRONG = "#F5DCCC";
 
 /**
  * One shape for every selectable control in the app — chips, option cards,

@@ -16,7 +16,7 @@ const SECTIONS: { title: string; lines: string[] }[] = [
   {
     title: "What is sent to look things up",
     lines: [
-      "When you scan a barcode, the barcode number is sent to the product databases we look it up in. Nothing else about you is.",
+      "When you scan a barcode, the barcode number is sent to our server and on to the product databases we look it up in. Nothing from your profile or history is.",
     ],
   },
   {

@@ -37,6 +37,14 @@
           "cameraPermission": "Allow $(PRODUCT_NAME) to scan product barcodes and photograph ingredient labels.",
           "recordAudioAndroid": false
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to read a photo you choose so it can pick out its ingredient list.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
       ]
     ],
     "experiments": {
