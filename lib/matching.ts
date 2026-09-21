@@ -200,7 +200,7 @@ const IRRITATION_STRENGTH_REFERENCE: Readonly<Record<string, number>> = {
   "lactic acid": 10,
 };
 
-export function irritationStrengthFactor(
+function irritationStrengthFactor(
   ingredient: string,
   strengthPercent: number | null | undefined
 ): number | null {

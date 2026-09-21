@@ -25,10 +25,6 @@ const BEFORE_MASK_RULES = [
 ];
 
 const AFTER_MASK_RULES = [
-  // OTC acne-treatment gels are applied and left on. The app has no drug-gel
-  // merchandising type, so `serum` is the closest existing full-contact type;
-  // leaving these `unknown` discounts their benefit to 0.25.
-  [/(?:benzoyl peroxide|acne treatment).*(?:gel|treatment)|(?:gel|treatment).*(?:benzoyl peroxide|acne treatment)/, "serum"],
   // A micellar water is wiped off rather than rinsed. Explicit rinse-off
   // format words keep the product out of this full-contact type regardless
   // of whether they occur before or after "micellar water".
@@ -39,6 +35,15 @@ const AFTER_MASK_RULES = [
   [
     /cleanser|foam|cleansing|nettoyant|lavante?|reinigings|schuimende|limpiador|detergente|waschgel|syndet/,
     "cleanser",
+  ],
+  // OTC acne-treatment gels are applied and left on. The app has no drug-gel
+  // merchandising type, so `serum` is the closest existing full-contact type;
+  // leaving these `unknown` discounts their benefit to 0.25. It sits after the
+  // cleanser rule, and a "wash" is excluded, so a rinse-off benzoyl-peroxide
+  // wash gel is never scored as a leave-on.
+  [
+    /^(?!.*\bwash\b)(?:.*(?:benzoyl peroxide|acne treatment).*(?:gel|treatment)|.*(?:gel|treatment).*(?:benzoyl peroxide|acne treatment))/,
+    "serum",
   ],
   [/sun|spf|uv|solaire|zonnebrand/, "sunscreen"],
   [/toner|tonic|lotion tonique/, "toner"],

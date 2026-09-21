@@ -221,6 +221,10 @@ describe("guessType", () => {
   it("classifies an OTC benzoyl-peroxide gel as a full-contact leave-on", () => {
     expect(guessType([], "Acne Treatment Benzoyl Peroxide 10% Gel")).toBe("serum");
   });
+  it("keeps a rinse-off benzoyl-peroxide wash a cleanser, not a leave-on gel", () => {
+    expect(guessType([], "Benzoyl Peroxide 5% Cleansing Gel Wash")).toBe("cleanser");
+    expect(guessType([], "Acne Treatment Benzoyl Peroxide Wash Gel")).not.toBe("serum");
+  });
   it("reads hyphenated OBF category tags, not just spaced names", () => {
     // `categories_tags` arrive as `en:eye-cream`. Written with a literal
     // space, these patterns missed and the generic `cream` rule claimed them.
