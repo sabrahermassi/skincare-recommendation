@@ -17,7 +17,8 @@
  * carrying a broad catch-all type would come out differently, nearly all of
  * them lip products that `spf`/`cream` had claimed first.
  *
- * Run (needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY):
+ * Run (needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY even for --dry-run, and
+ * SUPABASE_ENV without it — plus --prod if that is production):
  *   node scripts/reclassify-from-tags.mjs --dry-run
  *   node scripts/reclassify-from-tags.mjs
  *   node scripts/reclassify-from-tags.mjs --dry-run --limit 60
@@ -31,8 +32,7 @@
 import { readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { createClient } from "@supabase/supabase-js";
-
+import { connect } from "./lib/db.mjs";
 import { guessType, retryAfterMs } from "./import-obf.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
@@ -208,16 +208,12 @@ export async function fetchTags(barcode, retried = false) {
 }
 
 async function main() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required, including for --dry-run.");
-    process.exit(1);
-  }
   const dryRun = process.argv.includes("--dry-run");
   const limit = parseLimit(process.argv);
   const settled = loadProgress(process.argv.includes("--restart"));
-  const db = createClient(url, key, { auth: { persistSession: false } });
+  // Credentials are required for --dry-run too — it reads the live rows it
+  // reports on.
+  const { db } = connect({ write: !dryRun });
 
   const rows = await paginateOrdered(db, "products", {
     select: "id, barcode, brand, name, type",

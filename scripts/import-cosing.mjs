@@ -27,12 +27,13 @@
  * script expects. Update the SHA (and the note above) if a fresher export is
  * ever adopted.
  *
- * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY unless --dry-run.
+ * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY unless --dry-run, and
+ * SUPABASE_ENV=staging or production for the write — production also requires
+ * --prod on the command line.
  */
 
 import { readFileSync } from "node:fs";
-import { createClient } from "@supabase/supabase-js";
-
+import { connect } from "./lib/db.mjs";
 import { parseFunctions } from "./lib/normalise-function.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
@@ -198,12 +199,13 @@ async function main() {
     `${rows.length - headerRow - 1} rows → ${parsed.length} distinct names (${skipped} skipped)`
   );
 
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!DRY_RUN && (!url || !key)) {
-    console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required (or pass --dry-run)");
-    process.exit(1);
-  }
+  // One client for both uses below: the probe that reads what is already
+  // there, and the upsert that writes. A dry run is still allowed to run with
+  // no credentials at all — it then compares against nothing (see below) — so
+  // the connection is only made when there is something to connect to, or when
+  // this run writes and `connect` must refuse it.
+  const haveCredentials = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const db = haveCredentials || !DRY_RUN ? connect({ write: !DRY_RUN }).db : null;
 
   // Rows already verified by another source are left exactly as they are.
   // A blind upsert would relabel every one of the taxonomy's names as
@@ -211,9 +213,8 @@ async function main() {
   // to add a few hundred. Only genuinely new names, names currently sitting
   // unverified, and rows this import wrote itself are written.
   const existing = new Map();
-  if (url && key) {
-    const probe = createClient(url, key, { auth: { persistSession: false } });
-    const rows = await paginateOrdered(probe, "ingredients", {
+  if (db) {
+    const rows = await paginateOrdered(db, "ingredients", {
       select: "inci_name, verified, source",
       cursorColumn: "inci_name",
     });
@@ -260,7 +261,6 @@ async function main() {
     return;
   }
 
-  const db = createClient(url, key, { auth: { persistSession: false } });
   for (const [from, to] of [[0, firstRefreshed], [firstRefreshed, ingredients.length]]) {
     for (let i = from; i < to; i += 500) {
       const batch = ingredients.slice(i, Math.min(i + 500, to));

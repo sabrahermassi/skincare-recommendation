@@ -22,11 +22,11 @@
  *   node scripts/import-wikidata-synonyms.mjs
  *   node scripts/import-wikidata-synonyms.mjs --limit 500   # smaller slice
  *
- * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
+ * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, and, for a run without
+ * --dry-run, SUPABASE_ENV=staging or production — production also requires --prod.
  */
 
-import { createClient } from "@supabase/supabase-js";
-
+import { connect } from "./lib/db.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 const args = process.argv.slice(2);
@@ -41,14 +41,6 @@ const LOCALES = ["en", "fr", "de", "es", "it", "pt", "nl", "ja", "ko", "zh"];
 
 /** CAS numbers per SPARQL request. Large enough to be quick, small enough not to time out. */
 const BATCH = 150;
-
-const url = process.env.SUPABASE_URL;
-const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!url || !key) {
-  console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
-  process.exit(1);
-}
-const db = createClient(url, key, { auth: { persistSession: false } });
 
 /** Same normalisation as lib/inci.ts, or the two sides cannot meet. */
 function normalise(raw) {
@@ -108,7 +100,7 @@ async function sparql(casBatch) {
   }));
 }
 
-async function loadIngredients() {
+async function loadIngredients(db) {
   return paginateOrdered(db, "ingredients", {
     select: "inci_name, cas_number, verified",
     cursorColumn: "inci_name",
@@ -116,7 +108,12 @@ async function loadIngredients() {
 }
 
 async function main() {
-  const all = await loadIngredients();
+  // The client is built here rather than at module scope so the credential and
+  // environment guard runs after the flags are parsed — at module scope it
+  // could not know whether this run writes.
+  const { db } = connect({ write: !DRY_RUN });
+
+  const all = await loadIngredients(db);
   const verifiedNames = new Set(all.filter((r) => r.verified).map((r) => r.inci_name));
 
   // One CAS can legitimately carry several INCI names. Such a CAS is dropped

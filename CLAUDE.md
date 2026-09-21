@@ -54,6 +54,11 @@ against). All take `--dry-run`; writing needs `SUPABASE_URL` +
 `SUPABASE_SERVICE_ROLE_KEY` in the shell (not in `.env` — get it from the
 dashboard or `supabase projects api-keys --project-ref <ref>`).
 
+**Every DB script goes through `connect({ write })` in `scripts/lib/db.mjs`.**
+Reads need only those two. **A write also needs `SUPABASE_ENV=staging|production`,
+and `SUPABASE_ENV=production` needs `--prod` on the command line too.** Each run
+prints the project ref it touches — read it.
+
 ```bash
 npm run import:inci-dictionary       # Open Beauty Facts taxonomy (~31k rows, the bulk)
 npm run import:cosing                # EU CosIng; no argument = the mirrored export
