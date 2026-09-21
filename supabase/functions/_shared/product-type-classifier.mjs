@@ -106,7 +106,19 @@ const NON_FACE_BODY_WORDS = new Set([
   "labios",
 ]);
 
-const REMOVAL_WORDS = new Set(["makeup", "cotton", "wipe", "wipes"]);
+// A pad or mask that wipes makeup off is a cleanser-family product, not an eye
+// patch — micellar water (and its German/French spellings) is the same idea.
+const REMOVAL_WORDS = new Set([
+  "makeup",
+  "cotton",
+  "wipe",
+  "wipes",
+  "micellar",
+  "micellaire",
+  "mizellar",
+  "mizellen",
+  "entferner",
+]);
 
 function words(value) {
   return String(value ?? "").toLowerCase().match(/[\p{L}\p{N}.]+/gu) ?? [];
@@ -144,9 +156,8 @@ function maskOrPatchFromTokens(tokens) {
   const hasEye = tokens.some((token) =>
     ["eye", "eyes", "undereye", "under-eye"].includes(token)
   );
-  const hasEyePatchCompound = tokens.some((token) =>
-    ["eyepatch", "eyepatches", "eyemask", "eyemasks"].includes(token)
-  );
+  const hasEyePatchCompound = tokens.some((token) => ["eyepatch", "eyepatches"].includes(token));
+  const hasEyeMaskCompound = tokens.some((token) => ["eyemask", "eyemasks"].includes(token));
   const hasEyePadCompound = tokens.some((token) =>
     ["eyepad", "eyepads"].includes(token)
   );
@@ -154,10 +165,12 @@ function maskOrPatchFromTokens(tokens) {
     hasAny(tokens, REMOVAL_WORDS) || hasStem(tokens, ["cleans", "remov"]);
 
   if (hasAcne && hasPatch) return { matched: true, type: "pimple-patch" };
+  // "Patch" always means an eye patch. A pad or a mask is one only when it is not for
+  // taking makeup off: "Micellar Eye Mask" and "Eye Makeup Remover Pads" are cleansers.
   if (
     hasEyePatchCompound ||
-    (hasEye && (hasPatch || hasMask || (hasPad && !hasRemovalContext))) ||
-    (hasEyePadCompound && !hasRemovalContext)
+    (hasEye && hasPatch) ||
+    (!hasRemovalContext && (hasEyeMaskCompound || hasEyePadCompound || (hasEye && (hasMask || hasPad))))
   ) {
     return { matched: true, type: "eye-patch" };
   }
