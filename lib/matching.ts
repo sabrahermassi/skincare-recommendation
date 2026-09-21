@@ -664,11 +664,14 @@ export function scoreExplanation(result: MatchResult): ScoreLine[] {
   // A hazard is not part of the additive breakdown: it caps the finished
   // score instead. It still has to lead the explanation, or a formula can be
   // capped at Poor while its "why" list contains nothing but benefits.
-  const hazard = result.warnings.find((warning) => warning.severity === "hazard");
-  if (hazard) {
+  const hazards = result.warnings.filter((warning) => warning.severity === "hazard");
+  if (hazards.length > 0) {
     lines.push({
       label: "Safety warning",
-      detail: `${hazard.ingredient.name} is flagged as best avoided`,
+      detail:
+        hazards.length === 1
+          ? `${hazards[0].ingredient.name} is flagged as best avoided`
+          : `${hazards.map((h) => h.ingredient.name).join(", ")} are flagged as best avoided`,
       direction: "down",
       weight: Number.POSITIVE_INFINITY,
     });

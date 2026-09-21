@@ -476,6 +476,19 @@ describe("verdict engine", () => {
       });
     });
 
+    it("names every hazard, not only the first", () => {
+      const product = synthetic(["water", "isopropyl myristate", "glycerin"]);
+      const result = resultAt(40, { concernFit: 90 });
+      result.warnings = [1, 2].map((i) => ({
+        ingredient: product.ingredients[i],
+        reason: "Flagged as best avoided",
+        severity: "hazard" as const,
+      }));
+      const detail = scoreExplanation(result)[0].detail;
+      expect(detail).toContain(product.ingredients[1].name);
+      expect(detail).toContain(product.ingredients[2].name);
+    });
+
     it("does not present neutral concern evidence as positive", () => {
       expect(scoreExplanation(resultAt(60, { concernFit: 50 }))).toEqual([]);
       expect(scoreExplanation(resultAt(75, { concernFit: 50 }))[0]).toMatchObject({
