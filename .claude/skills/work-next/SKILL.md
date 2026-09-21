@@ -10,28 +10,33 @@ told to loop. Never merge. Never touch production.
 
 ## 1. Pick the task
 
-Read `TASKS.md`. Take the first row under **Ready** not already marked
-`in-progress` or `done`, and not superseded by an already-open PR (check
-`mcp__github__list_pull_requests` for a branch/title matching it first).
+Read `TASKS.md` for the mechanism (labels, not a static list). Query:
 
-Skip anything under **Needs re-scoping**, **Blocked on a decision**, or **Not
-code** — those are not this command's to start. If every Ready row is done or
-in flight, say so and stop; do not invent a task.
+```
+mcp__github__list_issues, state: OPEN, labels: ["code-ready"]
+```
 
-Mark the chosen row `in-progress` in `TASKS.md`, commit that alone
-(`docs: mark task N in-progress`), push directly to the base branch — this
-is bookkeeping, not the task's own change.
+Take the oldest one not already assigned/in-progress (check for an open PR
+whose branch/title references its number via
+`mcp__github__list_pull_requests` first — skip it if one exists). If the
+list is empty, say so and stop; do not invent a task or fall back to an
+unlabeled issue.
+
+Assign yourself is not available — instead comment on the issue
+(`mcp__github__issue_write` isn't for comments; use the issue-comment tool)
+noting you're starting it now, so a concurrent run doesn't duplicate it.
 
 ## 2. Read the real scope
 
-Follow the row's "Scope source" link before writing anything:
-- An artifact URL → `Artifact` tool, `action: "read"`.
-- A GitHub issue → `mcp__github__issue_read`.
+Read the issue body in full (`mcp__github__issue_read`). If it links an
+artifact section (an anchor into MVP Scope / Feeding the Catalogue / Launch
+Checklist), read that too via `Artifact`, `action: "read"` — the issue body
+is the entry point, the artifact section is often the fuller spec.
 
-The linked doc is the spec. `TASKS.md` is only the index. If the scope is
-ambiguous or requires an architecture/schema/product decision the artifacts
-mark as open, stop and report it rather than guessing — that decision goes
-back to the user, per `TASKS.md`'s own "Blocked" section.
+If the scope turns out ambiguous, or needs an architecture/schema/product
+decision the artifacts mark as open: stop, relabel the issue
+`blocked-on-decision` (remove `code-ready`), and report why rather than
+guessing. Do not implement around an undecided question.
 
 ## 3. Implement
 
@@ -87,8 +92,9 @@ rather than looping indefinitely.
 
 ## 7. Report and move on
 
-Mark the `TASKS.md` row `done`, with the PR link, on its own commit pushed
-directly to base (same as step 1's bookkeeping commit).
+Comment on the issue with the PR link (closing issues automatically via the
+PR body's `Closes #N` is fine — the PR stays unmerged until the user acts,
+so the issue only actually closes once they merge).
 
 Give the user a short report: task, PR link, what got fixed across how many
 review rounds, and — plainly separated — what could not be decided here and
