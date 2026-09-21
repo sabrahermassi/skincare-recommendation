@@ -21,6 +21,7 @@
     "reclassify-from-tags": "node scripts/reclassify-from-tags.mjs",
     "reconcile:obf": "node scripts/reconcile-obf.mjs",
     "audit:catalogue-quality": "node scripts/audit-catalogue-quality.mjs",
+    "audit:ingredient-coverage": "node scripts/audit-ingredient-coverage.mjs",
     "promotion-plan": "node scripts/promotion-plan.mjs"
   },
   "dependencies": {

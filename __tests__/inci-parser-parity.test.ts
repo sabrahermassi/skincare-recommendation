@@ -141,6 +141,9 @@ describe("label-ocr's parser stays in step with lib/inci.ts", () => {
  *
  * Two checks, because the scripts are `.mjs` and only partly comparable.
  * `normalise` is copied verbatim into all four and can be compared as a whole.
+ * (`import-inci-dictionary.mjs` names its rows with a bracket-keeping rule of
+ * its own, and uses this copy only to work out what a label will ask for —
+ * which is exactly why it has to stay the label parser's text.)
  * `parseInci` deliberately is *not* a copy of `parseIngredientBlock` — it has
  * no dictionary reconstruction, no aliases, no dedupe — so what is pinned
  * instead is the two regexes it lifted, which is where the drift actually was.
