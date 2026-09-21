@@ -15,11 +15,24 @@ const STUB_NOTE = "No published rating for this ingredient yet.";
  * `used` is the set of names some product's formula points at: those cannot be
  * deleted (the formula row references them), and should not keep data that
  * belonged to a different ingredient either.
+ *
+ * `only` narrows stale names to a known set. An importer whose file is the
+ * whole list (the taxonomy) leaves it out: a name missing from the file is
+ * stale. One whose file is a partial snapshot (CosIng) must pass it, because
+ * there a missing name only means a different export wrote it.
+ *
+ * @param {Iterable<{ inci_name: string }>} rows
+ * @param {Map<string, { inci_name: string, verified: boolean, source: string }>} existing
+ * @param {Set<string>} used
+ * @param {string} source
+ * @param {Set<string> | null} [only]
  */
-function planPrune(rows, existing, used, source) {
+function planPrune(rows, existing, used, source, only = null) {
   const produced = new Set(rows.map((row) => row.inci_name));
   const owned = [...existing.values()].filter((row) => row.verified && row.source === source);
-  const stale = owned.filter((row) => !produced.has(row.inci_name)).map((row) => row.inci_name);
+  const stale = owned
+    .map((row) => row.inci_name)
+    .filter((name) => !produced.has(name) && (only === null || only.has(name)));
 
   return {
     stale,
@@ -29,11 +42,19 @@ function planPrune(rows, existing, used, source) {
   };
 }
 
-/** Reads which stale names a product still uses, then plans around them. */
-async function planPruneAgainst(db, rows, existing, source) {
-  const staleNames = planPrune(rows, existing, new Set(), source).stale;
+/**
+ * Reads which stale names a product still uses, then plans around them.
+ *
+ * @param {any} db
+ * @param {Iterable<{ inci_name: string }>} rows
+ * @param {Map<string, { inci_name: string, verified: boolean, source: string }>} existing
+ * @param {string} source
+ * @param {Set<string> | null} [only]
+ */
+async function planPruneAgainst(db, rows, existing, source, only = null) {
+  const staleNames = planPrune(rows, existing, new Set(), source, only).stale;
   const used = new Set((await usesOf(db, staleNames)).map((row) => row.inci_name));
-  return planPrune(rows, existing, used, source);
+  return planPrune(rows, existing, used, source, only);
 }
 
 function assertNotTooMany(prune, label) {

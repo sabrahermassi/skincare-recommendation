@@ -50,6 +50,27 @@ describe("toIngredients", () => {
     expect(produced).toEqual(["potassium olivoyl hydrolyzed oat protein"]);
   });
 
+  it("names for --prune only the shortened spellings it no longer writes", () => {
+    const { retired } = toIngredients(
+      [
+        record("POLY(C30-45 OLEFIN)"),
+        record("POLY(C4-12 OLEFIN)"),
+        record("POTASSIUM OLIVOYL (HYDROLYZED OAT PROTEIN)"),
+        record("TRIS(NONYLPHENYL)PHOSPHITE"),
+        record("GLYCERIN"),
+      ],
+      new Set(["potassium olivoyl"])
+    );
+
+    // "tris phosphite" is still written, and "glycerin" never had a short form.
+    expect([...retired].sort()).toEqual(["poly", "potassium olivoyl"]);
+  });
+
+  it("also names a name the old rule left with a stray bracket and no opening one", () => {
+    const { retired } = toIngredients([record("TETRAHYDRO-METHYLPROPYL)-PYRAN-4-OL")]);
+    expect([...retired]).toEqual(["tetrahydro-methylpropyl)-pyran-4-ol"]);
+  });
+
   it("counts the same ingredient listed twice as one owner of its label spelling", () => {
     const produced = names([record("TRIS(NONYLPHENYL)PHOSPHITE"), record("TRIS(NONYLPHENYL)PHOSPHITE")]);
     expect(produced).toContain("tris phosphite");

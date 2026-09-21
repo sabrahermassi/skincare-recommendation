@@ -14,8 +14,10 @@
  *   node scripts/import-cosing.mjs ./some-other-export.csv
  *   node scripts/import-cosing.mjs --prune
  *
- * --prune also clears names an earlier run wrote that this one no longer
- * produces: deleted if no product uses them, returned to unverified if one does.
+ * --prune also clears the shortened spellings the old naming rule wrote for
+ * this file and this one does not: deleted if no product uses them, returned to
+ * unverified if one does. A name that is merely missing from this file is never
+ * touched — exports differ, and another one may have written it.
  *
  * Every run, --dry-run and a local CSV included, also downloads the Open Beauty
  * Facts taxonomy (~12 MB), only to learn which shortened label spellings
@@ -156,10 +158,15 @@ function findColumn(header, ...patterns) {
 function toIngredients(records, sharedElsewhere = new Set()) {
   const byName = new Map();
   const labelForms = new Map(); // what a scanned label would ask for → the names that read that way
+  const oldRuleNames = new Set(); // what the label parser's rule made of every name here
   let skipped = 0;
 
   for (const record of records) {
-    const name = normaliseDictionaryName(record.name ?? "");
+    const raw = record.name ?? "";
+    const oldName = normalise(raw);
+    if (oldName.length >= 2) oldRuleNames.add(oldName);
+
+    const name = normaliseDictionaryName(raw);
     if (name.length < 2) {
       skipped += 1;
       continue;
@@ -175,9 +182,8 @@ function toIngredients(records, sharedElsewhere = new Set()) {
       // glossary and a regulatory annex list, not a hazard rating. Inventing
       // one here would be fabricating the exact data the app is judged on.
     });
-    if (record.name.includes("(")) {
-      const form = normalise(record.name);
-      if (form.length >= 2) labelForms.set(form, (labelForms.get(form) ?? new Set()).add(name));
+    if (raw.includes("(") && oldName.length >= 2) {
+      labelForms.set(oldName, (labelForms.get(oldName) ?? new Set()).add(name));
     }
   }
 
@@ -189,7 +195,13 @@ function toIngredients(records, sharedElsewhere = new Set()) {
     byName.set(form, { ...byName.get(owner), inci_name: form });
   }
 
-  return { parsed: [...byName.values()], skipped };
+  // Every name the old rule wrote for this file that this one does not: the
+  // shortened spellings, and names with a stray bracket. They are all --prune
+  // may clear: a name merely missing from this file was written from a
+  // different export, and is still a real ingredient.
+  const retired = new Set([...oldRuleNames].filter((name) => !byName.has(name)));
+
+  return { parsed: [...byName.values()], retired, skipped };
 }
 
 async function main() {
@@ -237,7 +249,7 @@ async function main() {
       (iFunction !== -1 ? `, function=${header[iFunction]}` : ", function=(absent)")
   );
 
-  const { parsed, skipped } = toIngredients(
+  const { parsed, retired, skipped } = toIngredients(
     rows.slice(headerRow + 1).map((row) => ({
       name: row[iName] ?? "",
       cas: iCas !== -1 ? row[iCas] : null,
@@ -307,9 +319,9 @@ async function main() {
 
   let prune = null;
   if (db) {
-    prune = await planPruneAgainst(db, parsed, existing, "cosing");
+    prune = await planPruneAgainst(db, parsed, existing, "cosing", retired);
     console.log(
-      `  ${prune.stale.length} name(s) from an earlier run are no longer produced: ` +
+      `  ${prune.stale.length} name(s) the old naming rule wrote are no longer produced: ` +
         `${prune.remove.length} unused, ${prune.demote.length} still used by a product` +
         (PRUNE ? "" : " (pass --prune to clear them)")
     );

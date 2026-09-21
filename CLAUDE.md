@@ -70,7 +70,9 @@ npm run import:wikidata-synonyms     # ingredient_synonyms only, CAS-matched (e.
 re-running it is safe. `import:inci-dictionary` likewise only rewrites its own
 rows. On either one, `-- --prune` also clears names an earlier run wrote that
 it no longer produces (deleted if unused, returned to unverified if a product
-uses them).
+uses them). For `import:cosing` that is only the shortened spellings its old
+naming rule made — a name missing from today's file is left alone, because
+CosIng exports differ and another one may have written it.
 
 ## You have no TTY — regenerating route types
 
