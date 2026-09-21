@@ -52,7 +52,7 @@ function scoreFormula(
   ingredients: Ingredient[]
 ): number {
   const result = matchProduct(
-    { type: fixture.type, ingredients, declaredActives: fixture.declaredActives?.map((active) => ({ ...active })) },
+    { type: fixture.type, ingredients },
     skinProfile
   );
   if (result.score === null) {
@@ -207,7 +207,7 @@ describe("scoring validation fixture provenance", () => {
 describe("scoring validation invariants", () => {
   it.each(SCORING_PRODUCTS)("can score the exact $name snapshot", (product: ScoringProductFixture) => {
     const ingredients = ingredientsFor(product);
-    const result = matchProduct({ type: product.type, ingredients, declaredActives: product.declaredActives?.map((active) => ({ ...active })) }, profile());
+    const result = matchProduct({ type: product.type, ingredients }, profile());
     expect(result.score).toEqual(expect.any(Number));
     expect(result.coverage).toBeCloseTo(
       ingredients.filter(({ verified }) => verified).length / ingredients.length,
@@ -364,26 +364,11 @@ describe("declared reactive-skin harm reaches the irritation penalty", () => {
       ingredient.name === "benzoyl peroxide" ? { ...ingredient, name: "unmatched test control" } : ingredient
     );
     const penalty = (skinProfile: SkinProfile, list: Ingredient[]) =>
-      matchProduct({ type: fixture.type, ingredients: list, declaredActives: fixture.declaredActives?.map((active) => ({ ...active })) }, skinProfile).breakdown.irritationPenalty;
+      matchProduct({ type: fixture.type, ingredients: list }, skinProfile).breakdown.irritationPenalty;
     const reactive = acne("high");
     expect(penalty(reactive, ingredients)).toBeGreaterThan(penalty(reactive, neutralized));
     // A tolerant profile is not charged for it.
     expect(penalty(acne("none"), ingredients)).toBe(penalty(acne("none"), neutralized));
-  });
-
-  it("uses a declared active strength instead of guessing it from list position", () => {
-    const ingredients = formula("benzoyl peroxide");
-    const reactive = acne("high");
-    const penalty = (strengthPercent: number) =>
-      matchProduct(
-        {
-          type: "serum",
-          ingredients,
-          declaredActives: [{ ingredient: "benzoyl peroxide", strengthPercent }],
-        },
-        reactive
-      ).breakdown.irritationPenalty;
-    expect(penalty(2.5)).toBeCloseTo(penalty(10) * 0.25, 10);
   });
 
   it.each(["ascorbyl glucoside", "3-o-ethyl ascorbic acid", "magnesium ascorbyl phosphate", "retinyl palmitate"])(

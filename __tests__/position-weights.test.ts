@@ -32,13 +32,6 @@ describe("positionWeights", () => {
     expect(new Set(weights.slice(1)).size).toBe(1);
   });
 
-  it("keeps every declared leading active out of an alphabetical inactive run", () => {
-    const names = ["benzoyl peroxide", "salicylic acid", ...ALPHABETICAL_TAIL];
-    const weights = positionWeights(names, 2);
-    expect(weights.slice(0, 2)).toEqual(curve(2));
-    expect(new Set(weights.slice(2)).size).toBe(1);
-  });
-
   it("ignores a sorted run shorter than the minimum", () => {
     const names = ["water", "glycerin", "niacinamide", "zinc oxide", "allantoin", "bisabolol", "carbomer", "dimethicone", "edta"];
     // Tail "allantoin".."edta" is 5 long: below MIN_ALPHABETICAL_RUN.

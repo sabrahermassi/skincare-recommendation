@@ -433,7 +433,6 @@ type CatalogueRow = {
   attribution: string | null;
   fetched_at: string | null;
   formula_changed_at: string | null;
-  declared_actives?: { ingredient: string; strengthPercent: number | null }[] | null;
   product_ingredients: {
     position: number;
     ingredients: {
@@ -464,7 +463,7 @@ type IngredientDictionary = Map<string, Ingredient>;
 const PRODUCT_COLUMNS = `
   id, barcode, brand, name, type, source, description, image_url, volume,
   price_krw, in_stock, suitable_for, targets, attribution, fetched_at,
-  formula_changed_at, declared_actives`;
+  formula_changed_at`;
 
 /** One product, with its formula inlined. For reads of a single row. */
 const SELECT = `${PRODUCT_COLUMNS},
@@ -584,7 +583,6 @@ function buildProduct(
     attribution: row.attribution,
     fetchedAt: row.fetched_at ?? undefined,
     formulaChangedAt: row.formula_changed_at ?? undefined,
-    declaredActives: row.declared_actives ?? [],
     ingredientIds: ingredients.map((i) => i.id),
     inStock: row.in_stock,
     ingredients,

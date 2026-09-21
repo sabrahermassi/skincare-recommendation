@@ -827,9 +827,9 @@ export const MIN_ALPHABETICAL_RUN = 6;
  * from the existing curve, not a published figure — nothing published gives a
  * weight for an unordered list.
  */
-export function positionWeights(names: readonly string[], leadingActiveCount = 0): number[] {
+export function positionWeights(names: readonly string[]): number[] {
   const weights = names.map((_, index) => positionWeight(index));
-  const start = alphabeticalTailStart(names, leadingActiveCount);
+  const start = alphabeticalTailStart(names);
   if (start === null) return weights;
 
   let total = 0;
@@ -845,16 +845,12 @@ export function positionWeights(names: readonly string[], leadingActiveCount = 0
  * past the point where the curve has already reached its floor is flattened to
  * the same numbers it had, so the weights alone cannot say it is unordered.
  */
-export function alphabeticalTailStart(
-  names: readonly string[],
-  leadingActiveCount = 0
-): number | null {
+export function alphabeticalTailStart(names: readonly string[]): number | null {
   const key = names.map((name) => name.trim().toLowerCase());
   let start = key.length - 1;
-  const minimumStart = Math.max(1, leadingActiveCount);
-  while (start > minimumStart && key[start - 1] <= key[start]) start--;
+  while (start > 1 && key[start - 1] <= key[start]) start--;
   const runLength = key.length - start;
-  return start < minimumStart || runLength < MIN_ALPHABETICAL_RUN ? null : start;
+  return start < 1 || runLength < MIN_ALPHABETICAL_RUN ? null : start;
 }
 
 /** Matches an ingredient name against a rule's name patterns. */

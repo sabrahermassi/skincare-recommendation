@@ -1191,7 +1191,7 @@ function reconstructFromDictionary(
 
 const PRODUCT_SELECT = `id, barcode, brand, name, type, area, description, image_url, volume,
    price_krw, in_stock, suitable_for, targets, source, attribution, fetched_at,
-   formula_changed_at, declared_actives,
+   formula_changed_at,
    product_ingredients ( position, ingredients ( inci_name, comedogenic, safety, note, verified, functions ) )`;
 
 type ExistingProduct = {
@@ -1205,7 +1205,6 @@ type ExistingProduct = {
   attribution: string | null;
   fetched_at: string | null;
   formula_changed_at: string | null;
-  declared_actives: { ingredient: string; strengthPercent: number | null }[];
   product_ingredients: unknown[];
 };
 
@@ -1272,3 +1271,4 @@ async function knownIngredients(names: string[]): Promise<Set<string>> {
   }
   return found;
 }
+

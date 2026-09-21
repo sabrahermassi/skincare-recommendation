@@ -1,6 +1,5 @@
 import type {
   Concern,
-  DeclaredActive,
   Ingredient,
   ProductWithIngredients,
   SkinProfile,
@@ -183,35 +182,6 @@ const PORE_SATURATION = 3;
 const MAX_IRRITATION_PENALTY = 34;
 const MAX_PORE_PENALTY = 22;
 
-/**
- * Concentrations at which the named active receives its full rule charge.
- * These are ingredient-specific evidence bounds, not a shared "safe" limit:
- * salicylic acid and AHAs use FDA/CIR consumer-use bounds, retinol uses the
- * EU facial-product maximum, and benzoyl peroxide uses the top strength in
- * the comparative 2.5/5/10% trial. Below the bound we retain dose ordering by
- * normalising the declared percentage; no strength is ever inferred from INCI
- * position. Actives without an applicable bound keep the position fallback.
- */
-const IRRITATION_STRENGTH_REFERENCE: Readonly<Record<string, number>> = {
-  "benzoyl peroxide": 10,
-  "salicylic acid": 2,
-  retinol: 0.3,
-  "glycolic acid": 10,
-  "lactic acid": 10,
-};
-
-function irritationStrengthFactor(
-  ingredient: string,
-  strengthPercent: number | null | undefined
-): number | null {
-  if (strengthPercent == null || !Number.isFinite(strengthPercent) || strengthPercent < 0) {
-    return null;
-  }
-  const reference = IRRITATION_STRENGTH_REFERENCE[ingredient.trim().toLowerCase()];
-  if (!reference) return null;
-  return Math.min(1, strengthPercent / reference);
-}
-
 /** Concerns whose fit is decided by pore-cleanliness rather than by actives. */
 const PORE_LED_CONCERNS: Concern[] = ["acne-prone", "large-pores"];
 
@@ -280,15 +250,11 @@ const MIN_IDENTIFIED = 3;
  * identity changes exactly when the answer would.
  */
 type ScoreCache = WeakMap<
-  ScoredProduct,
+  Pick<ProductWithIngredients, "type" | "ingredients">,
   { profile: SkinProfile; result: MatchResult }
 >;
 
 let scoreCache: ScoreCache = new WeakMap();
-
-type ScoredProduct = Pick<ProductWithIngredients, "type" | "ingredients"> & {
-  declaredActives?: DeclaredActive[];
-};
 
 /**
  * Drops every cached score. For tests, which would otherwise carry one case's
@@ -300,7 +266,7 @@ export function resetScoreCache(): void {
 }
 
 export function matchProduct(
-  product: ScoredProduct,
+  product: Pick<ProductWithIngredients, "type" | "ingredients">,
   profile: SkinProfile
 ): MatchResult {
   const hit = scoreCache.get(product);
@@ -339,7 +305,7 @@ export function matchProduct(
  * above depends on that staying true.
  */
 function computeMatch(
-  product: ScoredProduct,
+  product: Pick<ProductWithIngredients, "type" | "ingredients">,
   profile: SkinProfile
 ): MatchResult {
   const warnings = contraindications(product.ingredients, profile);
@@ -384,14 +350,7 @@ function computeMatch(
 
   // Computed once: an alphabetical tail (an OTC drug label) is read as
   // unordered rather than as a concentration ranking. See `positionWeights`.
-  const declaredActives = product.declaredActives ?? [];
-  const positionFactors = positionWeights(
-    product.ingredients.map((i) => i.name),
-    declaredActives.length
-  );
-  const declaredStrengths = new Map(
-    declaredActives.map((active) => [active.ingredient.trim().toLowerCase(), active.strengthPercent])
-  );
+  const positionFactors = positionWeights(product.ingredients.map((i) => i.name));
 
   product.ingredients.forEach((ingredient, position) => {
     // An unrecognised name supports no claim in either direction.
@@ -401,11 +360,7 @@ function computeMatch(
     const rule = findRule(ingredient);
     if (rule) {
       const benefitWeight = rule.weight * positionFactor * contact.benefit;
-      const strengthFactor = irritationStrengthFactor(
-        ingredient.name,
-        declaredStrengths.get(ingredient.name.trim().toLowerCase())
-      );
-      const harmWeight = rule.weight * (strengthFactor ?? positionFactor) * contact.harm;
+      const harmWeight = rule.weight * positionFactor * contact.harm;
       const helps = targetApplies(rule.helps, target);
       const hurts = targetApplies(rule.hurts, target);
 

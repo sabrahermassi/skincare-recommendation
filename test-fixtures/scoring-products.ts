@@ -20,7 +20,6 @@ export type ScoringProductFixture = {
   inci: readonly string[];
   caution: readonly string[];
   avoid: readonly string[];
-  declaredActives?: readonly { ingredient: string; strengthPercent: number | null }[];
 };
 
 const inci = (orderedNames: string): string[] =>
@@ -238,6 +237,5 @@ export const SCORING_PRODUCTS = [
     inci: inci("benzoyl peroxide; carbomer; disodium edta; hydroxypropyl methylcellulose; laureth-4; sodium hydroxide; water"),
     caution: ["benzoyl peroxide", "sodium hydroxide"],
     avoid: [],
-    declaredActives: [{ ingredient: "benzoyl peroxide", strengthPercent: 10 }],
   },
 ] satisfies readonly ScoringProductFixture[];

@@ -224,14 +224,6 @@ export type Ingredient = {
   functions?: string[];
 };
 
-/** A drug active and the strength printed in its Drug Facts panel. */
-export type DeclaredActive = {
-  /** Normalised INCI name, matching `Ingredient.name`. */
-  ingredient: string;
-  /** Percent w/w (or the label's equivalent percent declaration). */
-  strengthPercent: number | null;
-};
-
 export type Product = {
   id: string;
   /**
@@ -288,8 +280,6 @@ export type Product = {
    * changed, a distinction `fetchedAt` alone can't carry on its own.
    */
   formulaChangedAt?: string;
-  /** Product-specific Drug Facts data; absent for ordinary cosmetic labels. */
-  declaredActives?: DeclaredActive[];
   /** Ordered INCI list — references `Ingredient.id`. */
   ingredientIds: string[];
   inStock: boolean;

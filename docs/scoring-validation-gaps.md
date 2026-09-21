@@ -34,23 +34,13 @@ keeps the input ratio intact: an ingredient at the 0.3 position floor now costs
 exactly `0.3 / positionWeight(3)` of the same ingredient at position 3, rather
 than being inflated toward one half by a second saturation curve.
 
-Where a Drug Facts label states strength, scoring uses it instead of INCI
-position. The database and domain model store ordered `declared_actives`, and
-the DailyMed parser preserves the percentage required by
-[21 CFR 201.66(c)(2)](https://www.ecfr.gov/current/title-21/section-201.66).
-Strength is normalised only against an ingredient-specific sourced bound:
-benzoyl peroxide 10% (the top arm covered by the comparative evidence reviewed
-in [Benzoyl Peroxide: A History of Early Research and Researchers](https://pubmed.ncbi.nlm.nih.gov/36607767/)),
-salicylic acid 2%, retinol 0.3% retinol equivalent, and glycolic/lactic acid
-10%. A missing strength or missing per-active reference falls back to position;
-the model never invents a concentration from order. FDA also notes that AHA
-effect depends on concentration, pH and formulation, and cites the consumer
-conditions of no more than 10% at pH 3.5 or above
-([FDA AHA guidance](https://www.fda.gov/cosmetics/cosmetic-ingredients/alpha-hydroxy-acids)).
-
-The linear normalisation below each bound is explicitly a transparent model
-choice, not a clinical no-irritation formula. The research supports monotonic
-dose response; it does not supply a universal curve.
+Scoring still reads concentration from INCI position only. A Drug Facts label
+prints each active's strength, but no live source records it: the barcode
+lookup (Open Beauty Facts) has no strength field, the label photo captures the
+ingredient list rather than the Drug Facts box, and the DailyMed importer that
+could read it is retired because DailyMed has no barcodes. Using a stated
+strength needs a source that saves it first; see
+[#174](https://github.com/sabrahermassi/skincare-recommendation/issues/174).
 
 Across all 21 public product snapshots in the scoring-validation corpus and two
 fixed profiles (highly sensitive/dullness and non-sensitive/dehydrated), 15 of
@@ -90,19 +80,19 @@ would hide the user-facing data problem.
 ## Closed 2026-09-21: benzoyl peroxide fixture type
 
 The classifier now maps an OTC benzoyl-peroxide/acne-treatment gel to `serum`,
-the closest existing full-contact leave-on type, and the real Walmart 10%
-fixture carries its declared strength. For tolerant oily acne-prone skin its
-score moved 75 → 77; for dry, highly sensitive acne-prone skin it moved 47 →
-45. The resulting direct comparison is 77 versus 45, so full benefit is
-credited without hiding the strength-aware reactive-skin cost.
+the closest existing full-contact leave-on type. A benzoyl-peroxide *wash* is
+still a rinse-off cleanser. For the real Walmart 10% fixture, tolerant oily
+acne-prone skin moved 75 → 77 and dry, highly sensitive acne-prone skin moved
+47 → 45, so full benefit is credited without hiding the reactive-skin cost.
 
+## An alphabetical run can absorb leading actives
 
-## Closed 2026-09-21: leading actives and alphabetical runs
+`positionWeights` protects position 0 only. An OTC drug label with several
+actives lists them first and its inactives alphabetically, and when a second
+active sorts ahead of the first inactive the detected run starts at index 1 and
+flattens that active together with the inactives. In the 2026-09-19 snapshot,
+22 of the 59 detected lists started their run at index 4 or earlier.
 
-`positionWeights` now accepts the declared leading-active count and will not
-start an A-to-Z tail before that boundary. The count comes from the same ordered
-`declared_actives` metadata as strength, so multi-active sunscreen and acne Drug
-Facts labels no longer depend on whether an active happens to sort before the
-first inactive. The original snapshot count was 22 of 59 detected runs starting
-at position 4 or earlier; the regression test covers the previously failing
-two-active shape.
+The boundary cannot be recovered from the ingredient list: it has to come from
+the label's Drug Facts box, which no live source records (see the irritation
+section above). Resolve it together with stated strength.
