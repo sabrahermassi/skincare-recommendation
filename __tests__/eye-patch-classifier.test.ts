@@ -29,8 +29,16 @@ describe("eye-patch classification", () => {
     "Mizellen Augen Make-Up Entferner Pads",
     "Cotton Eye Pads",
     "Eye Remover Pads",
+    "Micellar Eye Mask",
+    "Micellar Eyemask",
+    "Micellar Eye Pad Mask",
+    "Cleansing Eye Mask",
   ])("keeps %p out of eye-patch", (name: string) => {
     expect(typeOf(name)).not.toBe("eye-patch");
+  });
+
+  it("still calls a patch a patch, whatever else the name says", () => {
+    expect(typeOf("Cleansing Eye Patch")).toBe("eye-patch");
   });
 
   it("does not turn an eye cream into a patch", () => {
