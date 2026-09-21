@@ -184,7 +184,7 @@ function toRows(taxonomy) {
 /**
  * Preserve data another verified source owns. OBF may promote an unverified
  * label stub and refresh rows it imported previously, but it must not replace
- * curated, CosIng, or MFDS values merely because the same name is present.
+ * curated or CosIng values merely because the same name is present.
  */
 function planWrites(rows, existing) {
   const fresh = [];
@@ -195,7 +195,7 @@ function planWrites(rows, existing) {
   for (const row of rows) {
     const current = existing.get(row.inci_name);
     if (!current) fresh.push(row);
-    else if (!current.verified) promoted.push({ ...row, note: row.note });
+    else if (!current.verified) promoted.push(row);
     else if (current.source === "obf") refreshed.push(row);
     else untouched += 1;
   }
@@ -274,7 +274,7 @@ function invokedDirectly() {
   }
 }
 
-export { normalise, normaliseDictionaryName, pickEn, planWrites, safetyFrom, toRows };
+export { normalise, normaliseDictionaryName, planWrites, safetyFrom, toRows };
 
 if (invokedDirectly()) {
   main().catch((err) => {
