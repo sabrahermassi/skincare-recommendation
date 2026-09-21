@@ -40,7 +40,10 @@ const AFTER_MASK_RULES = [
   // merchandising type, so `serum` is the closest existing full-contact type;
   // leaving these `unknown` discounts their benefit to 0.25. It sits after the
   // cleanser rule, and a "wash" is excluded, so a rinse-off benzoyl-peroxide
-  // wash gel is never scored as a leave-on.
+  // wash gel is never credited as a leave-on:
+  //   "Acne Treatment Benzoyl Peroxide 10% Gel"  -> serum
+  //   "Benzoyl Peroxide 5% Cleansing Gel Wash"   -> cleanser (cleanser rule wins)
+  //   "Acne Treatment Benzoyl Peroxide Wash Gel" -> unknown (no cleanser word)
   [
     /^(?!.*\bwash\b)(?:.*(?:benzoyl peroxide|acne treatment).*(?:gel|treatment)|.*(?:gel|treatment).*(?:benzoyl peroxide|acne treatment))/,
     "serum",

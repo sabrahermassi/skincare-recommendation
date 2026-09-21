@@ -81,7 +81,8 @@ would hide the user-facing data problem.
 
 The classifier now maps an OTC benzoyl-peroxide/acne-treatment gel to `serum`,
 the closest existing full-contact leave-on type. A benzoyl-peroxide *wash* is
-still a rinse-off cleanser. For the real Walmart 10% fixture, tolerant oily
+never credited as a leave-on: it is a `cleanser` when the name says
+"cleansing" or "cleanser", and stays `unknown` otherwise. For the real Walmart 10% fixture, tolerant oily
 acne-prone skin moved 75 → 77 and dry, highly sensitive acne-prone skin moved
 47 → 45, so full benefit is credited without hiding the reactive-skin cost.
 
