@@ -26,7 +26,7 @@
  * official CSV by hand, but nothing requires it.
  */
 
-import { realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { connect } from "./lib/db.mjs";
@@ -125,7 +125,9 @@ function sharedLabelForms(taxonomy) {
   return new Set([...counts].filter(([, count]) => count > 1).map(([form]) => form));
 }
 
-async function fetchTaxonomy() {
+/** `file` is a saved copy of the taxonomy, for a run with no network. */
+async function fetchTaxonomy(file) {
+  if (file) return JSON.parse(readFileSync(file, "utf8"));
   console.log("Downloading the Open Beauty Facts ingredient taxonomy (~12 MB)…");
   const res = await fetch(TAXONOMY);
   if (!res.ok) throw new Error(`Taxonomy download failed: HTTP ${res.status}`);

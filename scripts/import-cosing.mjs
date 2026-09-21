@@ -17,8 +17,12 @@
  * --prune also clears names an earlier run wrote that this one no longer
  * produces: deleted if no product uses them, returned to unverified if one does.
  *
- * Every run also downloads the Open Beauty Facts taxonomy, only to learn which
- * shortened label spellings several ingredients share (see `toIngredients`).
+ * Every run, --dry-run and a local CSV included, also downloads the Open Beauty
+ * Facts taxonomy (~12 MB), only to learn which shortened label spellings
+ * several ingredients share (see `toIngredients`). For a run with no network,
+ * point it at a saved copy:
+ *
+ *   node scripts/import-cosing.mjs ./export.csv --taxonomy=./ingredients.json
  *
  * With no argument it pulls DEFAULT_SOURCE below — a verbatim mirror of the
  * Commission's "Ingredients and Fragrance Inventory" export, which the CosIng
@@ -55,6 +59,7 @@ const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
 const PRUNE = args.includes("--prune");
 const FILE = args.find((a) => !a.startsWith("--")) ?? DEFAULT_SOURCE;
+const TAXONOMY_FILE = args.find((a) => a.startsWith("--taxonomy="))?.slice("--taxonomy=".length);
 
 async function read(source) {
   if (!/^https?:\/\//.test(source)) return readFileSync(source, "utf8");
@@ -244,7 +249,7 @@ async function main() {
     })),
     // A failed download stops the run: writing without it would verify the
     // shared spellings this list exists to keep out.
-    sharedLabelForms(await fetchTaxonomy())
+    sharedLabelForms(await fetchTaxonomy(TAXONOMY_FILE))
   );
   console.log(
     `${rows.length - headerRow - 1} rows → ${parsed.length} distinct names (${skipped} skipped)`
