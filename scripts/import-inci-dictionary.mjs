@@ -102,6 +102,36 @@ function pickEn(value) {
   return null;
 }
 
+/** What a scanned label would ask for, for an entry printed with brackets. */
+function labelFormOf(entry) {
+  const printed = pickEn(entry.inci) ?? pickEn(entry.name);
+  if (!printed?.includes("(")) return null;
+  const form = normalise(printed);
+  return form.length >= 2 ? form : null;
+}
+
+/**
+ * Shortened spellings more than one taxonomy entry reads as. `import-cosing`
+ * asks for this: its own list is a 2016 snapshot, so a spelling only one of
+ * its ingredients has can still belong to several here.
+ */
+function sharedLabelForms(taxonomy) {
+  const counts = new Map();
+  for (const [key, entry] of Object.entries(taxonomy)) {
+    if (!key.startsWith("en:")) continue;
+    const form = labelFormOf(entry);
+    if (form) counts.set(form, (counts.get(form) ?? 0) + 1);
+  }
+  return new Set([...counts].filter(([, count]) => count > 1).map(([form]) => form));
+}
+
+async function fetchTaxonomy() {
+  console.log("Downloading the Open Beauty Facts ingredient taxonomy (~12 MB)…");
+  const res = await fetch(TAXONOMY);
+  if (!res.ok) throw new Error(`Taxonomy download failed: HTTP ${res.status}`);
+  return res.json();
+}
+
 /**
  * Turns a CosIng annex reference into a safety level.
  *
@@ -224,11 +254,8 @@ function toRows(taxonomy, conflicts = []) {
       priorities.set(alias, priority);
     }
 
-    const printed = pickEn(entry.inci) ?? pickEn(entry.name);
-    if (printed?.includes("(")) {
-      const form = normalise(printed);
-      if (form.length >= 2) labelForms.set(form, [...(labelForms.get(form) ?? []), row]);
-    }
+    const form = labelFormOf(entry);
+    if (form) labelForms.set(form, [...(labelForms.get(form) ?? []), row]);
   }
 
   // The label parser drops bracketed text, so "Tris(nonylphenyl)phosphite" on
@@ -290,10 +317,7 @@ function planWrites(rows, existing) {
 }
 
 async function main() {
-  console.log("Downloading the Open Beauty Facts ingredient taxonomy (~12 MB)…");
-  const res = await fetch(TAXONOMY);
-  if (!res.ok) throw new Error(`Taxonomy download failed: HTTP ${res.status}`);
-  const taxonomy = await res.json();
+  const taxonomy = await fetchTaxonomy();
   console.log(`  ${Object.keys(taxonomy).length} taxonomy entries`);
 
   const conflicts = [];
@@ -400,7 +424,7 @@ function invokedDirectly() {
   }
 }
 
-export { normaliseDictionaryName, planWrites, safetyFrom, toRows };
+export { fetchTaxonomy, normaliseDictionaryName, planWrites, safetyFrom, sharedLabelForms, toRows };
 
 if (invokedDirectly()) {
   main().catch((err) => {

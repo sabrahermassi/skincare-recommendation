@@ -17,6 +17,9 @@
  * --prune also clears names an earlier run wrote that this one no longer
  * produces: deleted if no product uses them, returned to unverified if one does.
  *
+ * Every run also downloads the Open Beauty Facts taxonomy, only to learn which
+ * shortened label spellings several ingredients share (see `toIngredients`).
+ *
  * With no argument it pulls DEFAULT_SOURCE below — a verbatim mirror of the
  * Commission's "Ingredients and Fragrance Inventory" export, which the CosIng
  * web UI otherwise hands out only through a session-bound download. That mirror
@@ -39,7 +42,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { normaliseDictionaryName } from "./import-inci-dictionary.mjs";
+import { fetchTaxonomy, normaliseDictionaryName, sharedLabelForms } from "./import-inci-dictionary.mjs";
 import { connect } from "./lib/db.mjs";
 import { parseFunctions } from "./lib/normalise-function.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
@@ -144,8 +147,12 @@ function findColumn(header, ...patterns) {
  * `records` are `{ name, cas, functions }` as printed in the export. Official
  * names keep their bracketed chemistry: dropping it filed fourteen different
  * POLY(…) ingredients under the one false name "poly".
+ *
+ * `sharedElsewhere` are shortened spellings several Open Beauty Facts
+ * ingredients read as. This export is a 2016 snapshot, so a spelling only one
+ * of its ingredients has can still be shared in the newer, larger list.
  */
-function toIngredients(records) {
+function toIngredients(records, sharedElsewhere = new Set()) {
   const byName = new Map();
   const labelForms = new Map(); // what a scanned label would ask for → the names that read that way
   let skipped = 0;
@@ -176,7 +183,7 @@ function toIngredients(records) {
   // The label parser drops bracketed text, so a label asks for the shortened
   // spelling. It gets a row only when one ingredient alone reads that way.
   for (const [form, owners] of labelForms) {
-    if (owners.size !== 1 || byName.has(form)) continue;
+    if (owners.size !== 1 || byName.has(form) || sharedElsewhere.has(form)) continue;
     const [owner] = owners;
     byName.set(form, { ...byName.get(owner), inci_name: form });
   }
@@ -234,7 +241,10 @@ async function main() {
       name: row[iName] ?? "",
       cas: iCas !== -1 ? row[iCas] : null,
       functions: iFunction !== -1 ? row[iFunction] : null,
-    }))
+    })),
+    // A failed download stops the run: writing without it would verify the
+    // shared spellings this list exists to keep out.
+    sharedLabelForms(await fetchTaxonomy())
   );
   console.log(
     `${rows.length - headerRow - 1} rows → ${parsed.length} distinct names (${skipped} skipped)`

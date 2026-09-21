@@ -41,6 +41,15 @@ describe("toIngredients", () => {
     expect(named[0].functions).toEqual(["chelating"]);
   });
 
+  it("leaves out a label spelling several Open Beauty Facts ingredients share", () => {
+    const produced = toIngredients(
+      [record("POTASSIUM OLIVOYL (HYDROLYZED OAT PROTEIN)")],
+      new Set(["potassium olivoyl"])
+    ).parsed.map((row: { inci_name: string }) => row.inci_name);
+
+    expect(produced).toEqual(["potassium olivoyl hydrolyzed oat protein"]);
+  });
+
   it("counts the same ingredient listed twice as one owner of its label spelling", () => {
     const produced = names([record("TRIS(NONYLPHENYL)PHOSPHITE"), record("TRIS(NONYLPHENYL)PHOSPHITE")]);
     expect(produced).toContain("tris phosphite");

@@ -1,4 +1,4 @@
-import { normaliseDictionaryName, planWrites, safetyFrom, toRows } from "../scripts/import-inci-dictionary.mjs";
+import { normaliseDictionaryName, planWrites, safetyFrom, sharedLabelForms, toRows } from "../scripts/import-inci-dictionary.mjs";
 import { planPrune } from "../scripts/lib/prune-stale.mjs";
 
 describe("safetyFrom", () => {
@@ -79,6 +79,16 @@ describe("dictionary-name normalisation", () => {
     const named = rows.filter((row: { inci_name: string }) => row.inci_name === "tris phosphite");
     expect(named).toHaveLength(1);
     expect(named[0].functions).toEqual(["chelating"]);
+  });
+
+  it("lists the label spellings more than one entry reads as, for the CosIng import", () => {
+    const shared = sharedLabelForms({
+      "en:poly-dimer-grapeseed-oil": { name: { en: "POLY(DIMER GRAPESEED OIL)" } },
+      "en:poly-c30-45-olefin": { name: { en: "POLY(C30-45 OLEFIN)" } },
+      "en:tris-nonylphenyl-phosphite": { name: { en: "TRIS(NONYLPHENYL)PHOSPHITE" } },
+      "fr:poly-autre": { name: { en: "POLY(AUTRE)" } },
+    });
+    expect([...shared]).toEqual(["poly"]);
   });
 
   it("gives a name two entries print differently to neither, reports it, and carries on", () => {
