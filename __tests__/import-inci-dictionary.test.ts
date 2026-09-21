@@ -1,10 +1,5 @@
-import {
-  normaliseDictionaryName,
-  planPrune,
-  planWrites,
-  safetyFrom,
-  toRows,
-} from "../scripts/import-inci-dictionary.mjs";
+import { fetchTaxonomy, normaliseDictionaryName, planWrites, safetyFrom, sharedLabelForms, toRows } from "../scripts/import-inci-dictionary.mjs";
+import { applyPrune, planPrune } from "../scripts/lib/prune-stale.mjs";
 
 describe("safetyFrom", () => {
   it.each<[string, string]>([
@@ -86,6 +81,16 @@ describe("dictionary-name normalisation", () => {
     expect(named[0].functions).toEqual(["chelating"]);
   });
 
+  it("lists the label spellings more than one entry reads as, for the CosIng import", () => {
+    const shared = sharedLabelForms({
+      "en:poly-dimer-grapeseed-oil": { name: { en: "POLY(DIMER GRAPESEED OIL)" } },
+      "en:poly-c30-45-olefin": { name: { en: "POLY(C30-45 OLEFIN)" } },
+      "en:tris-nonylphenyl-phosphite": { name: { en: "TRIS(NONYLPHENYL)PHOSPHITE" } },
+      "fr:poly-autre": { name: { en: "POLY(AUTRE)" } },
+    });
+    expect([...shared]).toEqual(["poly"]);
+  });
+
   it("gives a name two entries print differently to neither, reports it, and carries on", () => {
     const conflicts: string[] = [];
     const rows = toRows(
@@ -121,6 +126,45 @@ describe("dictionary-name normalisation", () => {
     const rows = toRows(Object.fromEntries(order.map((key) => [key, entries[key]])));
     const fragrance = rows.find((row: { inci_name: string }) => row.inci_name === "fragrance");
     expect(fragrance.functions).toEqual(["masking"]);
+  });
+});
+
+describe("fetchTaxonomy", () => {
+  const realFetch = global.fetch;
+  const redirect = (location: string) => ({ status: 302, ok: false, headers: new Headers({ location }) });
+  const body = { status: 200, ok: true, headers: new Headers(), json: async () => ({ "en:water": {} }) };
+  // Answers each hop in turn, the way `redirect: "manual"` hands them over.
+  const hops = (...responses: object[]) => {
+    const fake = jest.fn();
+    for (const response of responses) fake.mockResolvedValueOnce(response);
+    global.fetch = fake as unknown as typeof fetch;
+    return fake;
+  };
+
+  beforeEach(() => jest.spyOn(console, "log").mockImplementation(() => {}));
+  afterEach(() => {
+    global.fetch = realFetch;
+    jest.restoreAllMocks();
+  });
+
+  it("refuses a chain that passes through plain http, even if it ends on https", async () => {
+    const fake = hops(redirect("http://mirror.example/ingredients.json"), redirect("https://evil.example/x.json"), body);
+    await expect(fetchTaxonomy()).rejects.toThrow("non-HTTPS");
+    // The http hop is never requested, so nothing on it can steer the download.
+    expect(fake).toHaveBeenCalledTimes(1);
+  });
+
+  it("follows a redirect that stays on https", async () => {
+    const fake = hops(redirect("/data/taxonomies/ingredients.v2.json"), body);
+    await expect(fetchTaxonomy()).resolves.toEqual({ "en:water": {} });
+    expect(fake.mock.calls[1][0]).toBe("https://static.openbeautyfacts.org/data/taxonomies/ingredients.v2.json");
+    expect(fake.mock.calls[1][1]).toEqual({ redirect: "manual" });
+  });
+
+  it("gives up on a redirect loop", async () => {
+    const fake = jest.fn().mockResolvedValue(redirect("https://static.openbeautyfacts.org/again"));
+    global.fetch = fake as unknown as typeof fetch;
+    await expect(fetchTaxonomy()).rejects.toThrow("redirects");
   });
 });
 
@@ -174,17 +218,69 @@ describe("planPrune", () => {
   const rows = [{ inci_name: "kept" }];
 
   it("deletes stale names nothing uses and returns used ones to unverified, touching only its own rows", () => {
-    const plan = planPrune(rows, existing, new Set(["poly"]));
+    const plan = planPrune(rows, existing, new Set(["poly"]), "obf");
     expect(plan.stale.sort()).toEqual(["poly", "tris phosphite"]);
     expect(plan.remove).toEqual(["tris phosphite"]);
     expect(plan.demote).toEqual(["poly"]);
   });
 
+  it("clears only the rows of the source it is asked about", () => {
+    const plan = planPrune(rows, existing, new Set(), "cosing");
+    expect(plan.stale).toEqual(["from cosing"]);
+  });
+
   it("flags a run where most of the dictionary looks stale, which is a bad download", () => {
-    expect(planPrune(rows, existing, new Set()).tooMany).toBe(true);
+    expect(planPrune(rows, existing, new Set(), "obf").tooMany).toBe(true);
     const healthy = new Map(existing);
     for (let i = 0; i < 200; i += 1) healthy.set(`n${i}`, { inci_name: `n${i}`, verified: true, source: "obf" });
     const produced = [...healthy.keys()].filter((n) => n !== "poly").map((inci_name) => ({ inci_name }));
-    expect(planPrune(produced, healthy, new Set()).tooMany).toBe(false);
+    expect(planPrune(produced, healthy, new Set(), "obf").tooMany).toBe(false);
+  });
+});
+
+describe("applyPrune", () => {
+  /** Records every write; `uses` is what `product_ingredients` answers with. */
+  const fakeDb = (uses: string[]) => {
+    const writes: { kind: string; names: string[]; source: string }[] = [];
+    const write = (kind: string) => ({
+      in: (_column: string, names: string[]) => ({
+        eq: async (_sourceColumn: string, source: string) => {
+          writes.push({ kind, names, source });
+          return { error: null };
+        },
+      }),
+    });
+    const db = {
+      from: (table: string) =>
+        table === "product_ingredients"
+          ? {
+              select: () => ({
+                in: (_column: string, names: string[]) => ({
+                  order: () => ({
+                    order: () => ({
+                      range: async () => ({
+                        data: names.filter((n) => uses.includes(n)).map((inci_name) => ({ inci_name })),
+                        error: null,
+                      }),
+                    }),
+                  }),
+                }),
+              }),
+            }
+          : { update: () => write("demote"), delete: () => write("delete") },
+    };
+    return { db, writes };
+  };
+
+  it("returns a name to unverified when a product started using it after the plan was made", async () => {
+    const { db, writes } = fakeDb(["taken meanwhile"]);
+    const plan = { demote: ["poly"], remove: ["taken meanwhile", "unused"] };
+
+    await expect(applyPrune(db, plan, "cosing")).resolves.toEqual({ removed: 1, demoted: 2 });
+    expect(writes).toEqual([
+      { kind: "demote", names: ["poly"], source: "cosing" },
+      { kind: "demote", names: ["taken meanwhile"], source: "cosing" },
+      { kind: "delete", names: ["unused"], source: "cosing" },
+    ]);
   });
 });

@@ -68,8 +68,9 @@ npm run import:wikidata-synonyms     # ingredient_synonyms only, CAS-matched (e.
 
 `import:cosing` never overwrites a row another source already verified —
 re-running it is safe. `import:inci-dictionary` likewise only rewrites its own
-rows; `-- --prune` also clears names an earlier run wrote that it no longer
-produces (deleted if unused, returned to unverified if a product uses them).
+rows. On either one, `-- --prune` also clears names an earlier run wrote that
+it no longer produces (deleted if unused, returned to unverified if a product
+uses them).
 
 ## You have no TTY — regenerating route types
 
