@@ -14,8 +14,10 @@
  *   node scripts/import-cosing.mjs ./some-other-export.csv
  *   node scripts/import-cosing.mjs --prune
  *
- * --prune also clears names an earlier run wrote that this one no longer
- * produces: deleted if no product uses them, returned to unverified if one does.
+ * --prune also clears the shortened spellings the old naming rule wrote for
+ * this file and this one does not: deleted if no product uses them, returned to
+ * unverified if one does. A name that is merely missing from this file is never
+ * touched — exports differ, and another one may have written it.
  *
  * Every run, --dry-run and a local CSV included, also downloads the Open Beauty
  * Facts taxonomy (~12 MB), only to learn which shortened label spellings
@@ -189,7 +191,12 @@ function toIngredients(records, sharedElsewhere = new Set()) {
     byName.set(form, { ...byName.get(owner), inci_name: form });
   }
 
-  return { parsed: [...byName.values()], skipped };
+  // Shortened spellings the old naming rule wrote for this file and this one
+  // does not. They are all --prune may clear: a name merely missing from this
+  // file was written from a different export, and is still a real ingredient.
+  const retired = new Set([...labelForms.keys()].filter((form) => !byName.has(form)));
+
+  return { parsed: [...byName.values()], retired, skipped };
 }
 
 async function main() {
@@ -237,7 +244,7 @@ async function main() {
       (iFunction !== -1 ? `, function=${header[iFunction]}` : ", function=(absent)")
   );
 
-  const { parsed, skipped } = toIngredients(
+  const { parsed, retired, skipped } = toIngredients(
     rows.slice(headerRow + 1).map((row) => ({
       name: row[iName] ?? "",
       cas: iCas !== -1 ? row[iCas] : null,
@@ -307,9 +314,9 @@ async function main() {
 
   let prune = null;
   if (db) {
-    prune = await planPruneAgainst(db, parsed, existing, "cosing");
+    prune = await planPruneAgainst(db, parsed, existing, "cosing", retired);
     console.log(
-      `  ${prune.stale.length} name(s) from an earlier run are no longer produced: ` +
+      `  ${prune.stale.length} name(s) the old naming rule wrote are no longer produced: ` +
         `${prune.remove.length} unused, ${prune.demote.length} still used by a product` +
         (PRUNE ? "" : " (pass --prune to clear them)")
     );

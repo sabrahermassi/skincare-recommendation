@@ -50,6 +50,22 @@ describe("toIngredients", () => {
     expect(produced).toEqual(["potassium olivoyl hydrolyzed oat protein"]);
   });
 
+  it("names for --prune only the shortened spellings it no longer writes", () => {
+    const { retired } = toIngredients(
+      [
+        record("POLY(C30-45 OLEFIN)"),
+        record("POLY(C4-12 OLEFIN)"),
+        record("POTASSIUM OLIVOYL (HYDROLYZED OAT PROTEIN)"),
+        record("TRIS(NONYLPHENYL)PHOSPHITE"),
+        record("GLYCERIN"),
+      ],
+      new Set(["potassium olivoyl"])
+    );
+
+    // "tris phosphite" is still written, and "glycerin" never had a short form.
+    expect([...retired].sort()).toEqual(["poly", "potassium olivoyl"]);
+  });
+
   it("counts the same ingredient listed twice as one owner of its label spelling", () => {
     const produced = names([record("TRIS(NONYLPHENYL)PHOSPHITE"), record("TRIS(NONYLPHENYL)PHOSPHITE")]);
     expect(produced).toContain("tris phosphite");

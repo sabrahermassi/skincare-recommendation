@@ -229,6 +229,17 @@ describe("planPrune", () => {
     expect(plan.stale).toEqual(["from cosing"]);
   });
 
+  it("leaves alone a name that is only missing from a partial file, when told which names may go", () => {
+    const cosing = new Map(
+      ["poly", "sodium retinoyl hyaluronate", "polyurethane-100"].map((inci_name) => [
+        inci_name,
+        { inci_name, verified: true, source: "cosing" },
+      ])
+    );
+    const plan = planPrune([], cosing, new Set(), "cosing", new Set(["poly", "never written"]));
+    expect(plan.stale).toEqual(["poly"]);
+  });
+
   it("flags a run where most of the dictionary looks stale, which is a bad download", () => {
     expect(planPrune(rows, existing, new Set(), "obf").tooMany).toBe(true);
     const healthy = new Map(existing);
