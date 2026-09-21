@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -121,7 +121,14 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
           <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>
             We need camera access to scan the barcode.
           </Text>
-          <PrimaryButton tone="cta" size={56} label="Grant permission" onPress={requestPermission} />
+          <PrimaryButton
+            tone="cta"
+            size={56}
+            label="Grant permission"
+            // Once the system will not ask again, asking does nothing: send them to
+            // settings, where the camera can be turned back on.
+            onPress={permission.canAskAgain === false ? () => void Linking.openSettings() : requestPermission}
+          />
         </View>
       </View>
     );
