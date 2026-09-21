@@ -177,7 +177,6 @@ const CONCERN_SATURATION: Record<Concern, number> = {
 };
 
 const TYPE_SATURATION = 12;
-const IRRITATION_SATURATION = 14;
 const PORE_SATURATION = 3;
 
 const MAX_IRRITATION_PENALTY = 34;
@@ -530,9 +529,14 @@ function computeMatch(
   // when they chose "I don't know" for type or named no concerns.
   const fit = concernFit === null ? typeFit : 0.7 * concernFit + 0.3 * typeFit;
 
-  const irritationPenalty =
-    MAX_IRRITATION_PENALTY *
-    saturate(irritation * SENSITIVITY_MULTIPLIER[profile.sensitivity ?? "none"], IRRITATION_SATURATION);
+  // One point of weighted harm evidence now costs one score point. The old
+  // Michaelis-Menten curve had no clinical basis and compressed a trace active
+  // toward half the charge of a leading one. The cap remains a product-policy
+  // guardrail; it is not presented as a medical threshold.
+  const irritationPenalty = Math.min(
+    MAX_IRRITATION_PENALTY,
+    irritation * SENSITIVITY_MULTIPLIER[profile.sensitivity ?? "none"]
+  );
   const porePenalty =
     MAX_PORE_PENALTY * poreRelevance(profile) * saturate(poreLoad, PORE_SATURATION);
 
