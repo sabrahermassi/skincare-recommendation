@@ -15,6 +15,11 @@
  *   node scripts/prune-incomplete-products.mjs            # dry run: counts and a sample
  *   node scripts/prune-incomplete-products.mjs --apply    # delete them
  *
+ * The list is read once for the dry run, but `--apply` looks at each batch again
+ * just before deleting it, and only deletes rows that are still incomplete: the
+ * deployed `label-ocr` can fill a barcode-only row in while this runs, and that
+ * person's product must not be deleted on the strength of a stale read.
+ *
  * `product_ingredients` rows go with their product (on delete cascade). The
  * `ingredients` dictionary is left alone: those names belong to the dictionary,
  * not to the product that mentioned them.
@@ -79,14 +84,31 @@ async function main() {
   }
 
   const ids = doomed.map(({ row }) => row.id);
+  let deleted = 0;
+  let completedMeanwhile = 0;
   for (let i = 0; i < ids.length; i += 200) {
-    const { error } = await db.from("products").delete().in("id", ids.slice(i, i + 200));
-    if (error) {
-      console.error(`Delete failed after ${i} rows: ${error.message}`);
+    const batch = ids.slice(i, i + 200);
+    const { data: fresh, error: readError } = await db
+      .from("products")
+      .select("id, barcode, name, product_ingredients(count)")
+      .in("id", batch);
+    if (readError) {
+      console.error(`Recheck failed after ${deleted} deleted: ${readError.message}`);
       process.exit(1);
     }
+    // Gone already, or completed since the first read: leave it alone.
+    const stillIncomplete = (fresh ?? []).filter((row) => incompleteReason(row) !== null).map((row) => row.id);
+    completedMeanwhile += (fresh ?? []).length - stillIncomplete.length;
+    if (stillIncomplete.length === 0) continue;
+    const { error } = await db.from("products").delete().in("id", stillIncomplete);
+    if (error) {
+      console.error(`Delete failed after ${deleted} rows: ${error.message}`);
+      process.exit(1);
+    }
+    deleted += stillIncomplete.length;
   }
-  console.log(`\nDeleted ${ids.length} products.`);
+  console.log(`\nDeleted ${deleted} products.`);
+  if (completedMeanwhile > 0) console.log(`Kept ${completedMeanwhile} that were completed while this ran.`);
 }
 
 function isMain() {
