@@ -16,6 +16,44 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+
+/*
+ * Loads .env.staging from the repo root into process.env, for whichever
+ * variable isn't already set — a real shell export always wins, so this only
+ * fills the gap a fresh terminal starts with. `.env.staging` is `.gitignore`d
+ * (the `.env*` rule); it is a file each machine creates once and keeps
+ * locally, not something this repo ships or a script writes.
+ *
+ * Scoped to the one file whose name says what it is for. `.env` alone stays
+ * meaningless here on purpose — CLAUDE.md already says server credentials go
+ * in the shell, and a script silently reading an unnamed `.env` would make
+ * that untrue without saying so.
+ *
+ * Resolved from `process.cwd()` rather than this module's own location:
+ * every script here is run via `npm run <name>` (and Jest, for the tests that
+ * import this file directly), both of which start in the repo root. Deriving
+ * it from `import.meta.url` instead reads as more correct and is not — Jest
+ * transforms this module before running it, and the transformed `import.meta`
+ * does not carry a real file URL, so that path throws under `npm test` only.
+ */
+function loadLocalStagingEnv() {
+  const envFile = path.join(process.cwd(), ".env.staging");
+  if (!existsSync(envFile)) return;
+
+  for (const line of readFileSync(envFile, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).trim();
+    if (key && !(key in process.env)) process.env[key] = value;
+  }
+}
+
+loadLocalStagingEnv();
 
 /**
  * The subdomain of a Supabase URL, e.g. `abcdefgh` in
