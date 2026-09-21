@@ -48,6 +48,7 @@ import { fileURLToPath } from "node:url";
 
 import { fetchTaxonomy, normaliseDictionaryName, sharedLabelForms } from "./import-inci-dictionary.mjs";
 import { connect } from "./lib/db.mjs";
+import { fetchHttps } from "./lib/fetch-https.mjs";
 import { parseFunctions } from "./lib/normalise-function.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 import { applyPrune, assertNotTooMany, planPruneAgainst } from "./lib/prune-stale.mjs";
@@ -63,17 +64,12 @@ const TAXONOMY_FILE = args.find((a) => a.startsWith("--taxonomy="))?.slice("--ta
 
 async function read(source) {
   if (!/^https?:\/\//.test(source)) return readFileSync(source, "utf8");
-  // A network attacker who can intercept a plain-http fetch (or a redirect
-  // that ends on one) could substitute the CSV that gets upserted into
-  // `ingredients`. Refuse anything that isn't HTTPS start to finish.
-  if (!/^https:\/\//.test(source)) {
-    throw new Error(`refusing non-HTTPS source: ${source}`);
-  }
-  const res = await fetch(source);
+  // A network attacker who can intercept a plain-http fetch (or any redirect
+  // hop that passes through one) could substitute the CSV that gets upserted
+  // into `ingredients`. `fetchHttps` refuses anything that isn't HTTPS start
+  // to finish.
+  const res = await fetchHttps(source);
   if (!res.ok) throw new Error(`${source} → HTTP ${res.status}`);
-  if (!res.url.startsWith("https://")) {
-    throw new Error(`refusing a redirect that landed on a non-HTTPS URL: ${res.url}`);
-  }
   return res.text();
 }
 
@@ -340,8 +336,8 @@ async function main() {
   console.log(`\nVerified ${ingredients.length} ingredient names.`);
 
   if (!PRUNE) return;
-  const removed = await applyPrune(db, prune, "cosing");
-  console.log(`Pruned: ${removed} deleted, ${prune.demote.length} returned to unverified.`);
+  const { removed, demoted } = await applyPrune(db, prune, "cosing");
+  console.log(`Pruned: ${removed} deleted, ${demoted} returned to unverified.`);
 }
 
 function invokedDirectly() {

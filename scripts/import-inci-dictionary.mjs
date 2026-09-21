@@ -30,6 +30,7 @@ import { readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { connect } from "./lib/db.mjs";
+import { fetchHttps } from "./lib/fetch-https.mjs";
 import { parseFunctions } from "./lib/normalise-function.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 import { applyPrune, assertNotTooMany, inBatches, planPruneAgainst } from "./lib/prune-stale.mjs";
@@ -129,13 +130,9 @@ function sharedLabelForms(taxonomy) {
 async function fetchTaxonomy(file) {
   if (file) return JSON.parse(readFileSync(file, "utf8"));
   console.log("Downloading the Open Beauty Facts ingredient taxonomy (~12 MB)…");
-  const res = await fetch(TAXONOMY);
+  // This file decides safety ratings, so no hop of the download may be http.
+  const res = await fetchHttps(TAXONOMY);
   if (!res.ok) throw new Error(`Taxonomy download failed: HTTP ${res.status}`);
-  // Same rule as `read()` in import-cosing: a redirect that lands on plain
-  // http could be swapped in transit, and this file decides safety ratings.
-  if (!res.url.startsWith("https://")) {
-    throw new Error(`refusing a redirect that landed on a non-HTTPS URL: ${res.url}`);
-  }
   return res.json();
 }
 
@@ -408,8 +405,8 @@ async function main() {
 
   if (!PRUNE) return;
 
-  const removed = await applyPrune(db, prune, "obf");
-  console.log(`Pruned: ${removed} deleted, ${prune.demote.length} returned to unverified.`);
+  const { removed, demoted } = await applyPrune(db, prune, "obf");
+  console.log(`Pruned: ${removed} deleted, ${demoted} returned to unverified.`);
 }
 
 function printSamples(rows, restricted) {

@@ -48,27 +48,36 @@ async function inBatches(items, size, run) {
   for (let i = 0; i < items.length; i += size) await run(items.slice(i, i + size));
 }
 
-/** Returns how many rows were deleted. Every write is guarded on `source`. */
+async function demote(db, names, source) {
+  if (names.length === 0) return;
+  const { error } = await db
+    .from("ingredients")
+    .update({ verified: false, source: "unmatched", safety: "safe", functions: [], cas_number: null, note: STUB_NOTE })
+    .in("inci_name", names)
+    .eq("source", source);
+  if (error) throw new Error(error.message);
+}
+
+/** Returns how many rows went each way. Every write is guarded on `source`. */
 async function applyPrune(db, prune, source) {
-  await inBatches(prune.demote, 200, async (batch) => {
-    const { error } = await db
-      .from("ingredients")
-      .update({ verified: false, source: "unmatched", safety: "safe", functions: [], cas_number: null, note: STUB_NOTE })
-      .in("inci_name", batch)
-      .eq("source", source);
-    if (error) throw new Error(error.message);
-  });
+  await inBatches(prune.demote, 200, (batch) => demote(db, batch, source));
   let removed = 0;
+  let demoted = prune.demote.length;
   await inBatches(prune.remove, 200, async (batch) => {
-    // Read uses again: a scan may have started using one since the plan.
+    // Read uses again: a scan may have started using one since the plan. It
+    // can no longer be deleted, and must not stay verified either.
     const nowUsed = new Set((await usesOf(db, batch)).map((row) => row.inci_name));
+    const taken = batch.filter((name) => nowUsed.has(name));
+    await demote(db, taken, source);
+    demoted += taken.length;
+
     const safe = batch.filter((name) => !nowUsed.has(name));
     if (safe.length === 0) return;
     const { error } = await db.from("ingredients").delete().in("inci_name", safe).eq("source", source);
     if (error) throw new Error(error.message);
     removed += safe.length;
   });
-  return removed;
+  return { removed, demoted };
 }
 
 export { applyPrune, assertNotTooMany, inBatches, planPrune, planPruneAgainst };
