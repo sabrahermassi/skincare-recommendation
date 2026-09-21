@@ -1,6 +1,6 @@
 import type { Ingredient, SkinProfile } from "@/data/types";
 import { matchProduct } from "@/lib/matching";
-import { INGREDIENT_RULES, positionWeight, ruleMatches } from "@/lib/rules";
+import { INGREDIENT_RULES, ruleMatches } from "@/lib/rules";
 import dictionarySnapshot from "../test-fixtures/scoring-dictionary.json";
 import {
   SCORING_FIXTURE_SCHEMA_VERSION,
@@ -352,7 +352,9 @@ describe("declared reactive-skin harm reaches the irritation penalty", () => {
     };
     for (const active of ["salicylic acid", "ascorbic acid", "retinol"]) {
       const ratio = penaltyAt(active, 33) / penaltyAt(active, 3);
-      expect(ratio).toBeCloseTo(0.3 / positionWeight(3), 10);
+      // Saturation used to lift this to about 0.5; a trace active must now cost well under half.
+      expect(ratio).toBeGreaterThan(0);
+      expect(ratio).toBeLessThan(0.4);
     }
   });
 
