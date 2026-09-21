@@ -51,6 +51,17 @@ export const VALID_ENVS = ["staging", "production"];
  * through a live client. `connect` below is the thin shell that reads the
  * environment and exits.
  *
+ * The parameters are spelled out rather than inferred: with only the default
+ * values to go on, `argv` infers as `never[]` and `productionRef` as `null`,
+ * and a test passing either one fails to typecheck.
+ *
+ * @param {object} options
+ * @param {string | undefined} options.url
+ * @param {string | undefined} options.key
+ * @param {string | undefined} [options.declared] Value of `SUPABASE_ENV`.
+ * @param {boolean} options.write
+ * @param {string[]} [options.argv]
+ * @param {string | null} [options.productionRef]
  * @returns {{ ok: true, env: string, ref: string, notice: string }
  *          | { ok: false, message: string }}
  */

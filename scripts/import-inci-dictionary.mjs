@@ -17,8 +17,7 @@
  * official CSV by hand, but nothing requires it.
  */
 
-import { createClient } from "@supabase/supabase-js";
-
+import { connect } from "./lib/db.mjs";
 import { parseFunctions } from "./lib/normalise-function.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -151,13 +150,7 @@ async function main() {
     return;
   }
 
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required (or pass --dry-run)");
-    process.exit(1);
-  }
-  const db = createClient(url, key, { auth: { persistSession: false } });
+  const { db } = connect({ write: !DRY_RUN });
 
   for (let i = 0; i < rows.length; i += 500) {
     // Upsert, so names already created unverified by a barcode lookup are

@@ -51,8 +51,7 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { createClient } from "@supabase/supabase-js";
-
+import { connect } from "./lib/db.mjs";
 import { looksCosmetic } from "../supabase/functions/_shared/product-type-classifier.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
@@ -227,13 +226,9 @@ async function auditGarbageIngredients(db) {
 }
 
 async function main() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
-    process.exit(1);
-  }
-  const db = createClient(url, key, { auth: { persistSession: false } });
+  // Reporting is a read; only --delete-junk-products, the script's one
+  // automatic action, makes this a write.
+  const { db } = connect({ write: APPLY });
 
   const junkProducts = await auditJunkProducts(db);
   await auditGarbageIngredients(db);

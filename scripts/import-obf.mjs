@@ -22,8 +22,7 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { createClient } from "@supabase/supabase-js";
-
+import { connect } from "./lib/db.mjs";
 import { guessType } from "../supabase/functions/_shared/product-type-classifier.mjs";
 import { guessTypeFromIngredients } from "./lib/guess-type-from-ingredients.mjs";
 import { fetchAliases } from "./lib/aliases.mjs";
@@ -385,17 +384,9 @@ function toRow(p, known, samples, rejectedNames, aliases) {
 async function main() {
   // Credentials up front, for both modes — the gate needs the dictionary, and
   // a dry run that skipped the gate would print a number a real run would not
-  // reproduce. See the file header.
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.error(
-      "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required, including for --dry-run:\n" +
-        "the plausibility gate reads the live ingredient dictionary."
-    );
-    process.exit(1);
-  }
-  const db = createClient(url, key, { auth: { persistSession: false } });
+  // reproduce, so a dry run without credentials is refused too. See the file
+  // header.
+  const { db } = connect({ write: !DRY_RUN });
 
   const known = await fetchKnownIngredients(db);
   const aliases = await fetchAliases(db);

@@ -46,8 +46,7 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { createClient } from "@supabase/supabase-js";
-
+import { connect } from "./lib/db.mjs";
 import { MIN_KNOWN_INGREDIENT_RATIO, retryAfterMs } from "./import-obf.mjs";
 import { parseInci } from "./lib/inci-parse.mjs";
 import { parserOnlyChange } from "./lib/formula-diff.mjs";
@@ -245,16 +244,12 @@ async function fetchCandidatePage(db, pageSize, cursor) {
 }
 
 async function main() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required, including for --dry-run.");
-    process.exit(1);
-  }
   const dryRun = process.argv.includes("--dry-run");
   // `--limit` can only lower the per-run cap, never raise it — see BATCH_SIZE.
   const limit = Math.min(parseLimit(process.argv), BATCH_SIZE);
-  const db = createClient(url, key, { auth: { persistSession: false } });
+  // Credentials are required for --dry-run too — it reads the live rows it
+  // reports on.
+  const { db } = connect({ write: !dryRun });
 
   const known = await fetchKnownIngredients(db);
   const aliases = await fetchAliases(db);

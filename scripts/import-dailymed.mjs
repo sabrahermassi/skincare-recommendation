@@ -29,8 +29,7 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { createClient } from "@supabase/supabase-js";
-
+import { connect } from "./lib/db.mjs";
 import { normalise, parseInci } from "./lib/inci-parse.mjs";
 import { fetchAliases } from "./lib/aliases.mjs";
 import { fetchStoredFormulas, isParserRefresh } from "./lib/formula-diff.mjs";
@@ -633,16 +632,10 @@ function formulaKey(ingredients) {
 }
 
 async function main() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.error(
-      "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required, including for --dry-run:\n" +
-        "the plausibility gate reads the live ingredient dictionary."
-    );
-    process.exit(1);
-  }
-  const db = createClient(url, key, { auth: { persistSession: false } });
+  // Credentials are required for --dry-run as well: the plausibility gate
+  // reads the live ingredient dictionary, so a dry run without them would
+  // report numbers a real run would not reproduce.
+  const { db } = connect({ write: !DRY_RUN });
 
   const known = await fetchKnownIngredients(db);
   console.log(`Dictionary: ${known.size} verified ingredient names.\n`);
