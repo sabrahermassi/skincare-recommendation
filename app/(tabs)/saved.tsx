@@ -734,6 +734,9 @@ const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).
 // How long the pictures cross-fade when the tab changes.
 const EMPTY_FADE_MS = 300;
 const EMPTY_TABS = Object.keys(EMPTY_ART) as Tab[];
+// How the room left over on an empty tab is split above and below its content.
+const EMPTY_SPACE_ABOVE = 0.4;
+const EMPTY_SPACE_BELOW = 0.6;
 
 /**
  * Whether the person has asked their phone for less motion. `null` until the phone has
@@ -761,6 +764,7 @@ function useReduceMotion(): boolean | null {
  * stay solid on the screen.
  */
 function EmptyState({ tab }: { tab: Tab }) {
+  const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
   const [artOpacity] = useState(
     () => Object.fromEntries(EMPTY_TABS.map((t) => [t, new Animated.Value(t === tab ? 1 : 0)])) as Record<Tab, Animated.Value>
@@ -789,8 +793,25 @@ function EmptyState({ tab }: { tab: Tab }) {
     // read as too much empty air above the art specifically. This keeps
     // the block off-center toward the top by a fixed ratio instead, so it
     // scales the same way on any screen height.
-    <View style={{ flex: 1, alignItems: "center", paddingHorizontal: 40 }}>
-      <View style={{ flex: 0.4 }} />
+    // Scrolls only when the art, copy and button do not fit (a short phone, large
+    // text): flexGrow keeps the spacers working on a screen that does fit, and the
+    // bottom room keeps the button clear of the floating tab bar.
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{
+        flexGrow: 1,
+        alignItems: "center",
+        paddingHorizontal: 40,
+        // Room for the tab bar below, and the matching share above, so that on a screen
+        // where everything fits the art sits exactly where it did before the clearance.
+        paddingTop: (tabBarClearance(insets.bottom) * EMPTY_SPACE_ABOVE) / EMPTY_SPACE_BELOW,
+        paddingBottom: tabBarClearance(insets.bottom),
+      }}
+      alwaysBounceVertical={false}
+      overScrollMode="never"
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={{ flex: EMPTY_SPACE_ABOVE }} />
       <View style={{ alignItems: "center", gap: 10 }}>
         <View style={{ width: EMPTY_ART_WIDTH, height: EMPTY_ART_HEIGHT }}>
           {EMPTY_TABS.map((t) => (
@@ -832,8 +853,8 @@ function EmptyState({ tab }: { tab: Tab }) {
           />
         </View>
       </View>
-      <View style={{ flex: 0.6 }} />
-    </View>
+      <View style={{ flex: EMPTY_SPACE_BELOW }} />
+    </ScrollView>
   );
 }
 

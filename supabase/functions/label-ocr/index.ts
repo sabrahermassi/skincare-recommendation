@@ -42,6 +42,13 @@ const VISION_URL = "https://vision.googleapis.com/v1/images:annotate";
 /** Generous for a person in a shop, useless for anyone burning the free tier. */
 const RATE_LIMIT: RateLimit = { windowSeconds: 300, maxRequests: 10 };
 
+/**
+ * Saving a read list is a cheap database write, unlike a photo read (a paid Vision
+ * call), so it has its own bucket: one add is a read plus a save, and sharing the
+ * read bucket would cap a person at five adds per window, fewer with retries.
+ */
+const SAVE_RATE_LIMIT: RateLimit = { windowSeconds: 300, maxRequests: 20 };
+
 /** Roughly 4 MB of base64 — well past what a legible label photo needs. */
 const MAX_IMAGE_CHARS = 5_500_000;
 
@@ -138,7 +145,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return json(req, { error: "ingredients must be a list of names" }, 400);
     }
     if (typeof readToken !== "string") return json(req, { error: "readToken is required" }, 400);
-    const refusal = await enforceRateLimit(req, db, "label-ocr", RATE_LIMIT);
+    const refusal = await enforceRateLimit(req, db, "label-ocr-save", SAVE_RATE_LIMIT);
     if (refusal) return refusal;
     // The list has to be one a read returned, unedited and recent: this
     // endpoint is unauthenticated, and without the proof anyone could save a
