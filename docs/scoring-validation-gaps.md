@@ -48,6 +48,36 @@ fixed profiles (highly sensitive/dullness and non-sensitive/dehydrated), 15 of
 +4, and 2 verdict bands changed. This is the reproducible catalogue snapshot
 available in the repository; no live Supabase credentials are committed.
 
+### Decision: the penalty is a model choice, and it is kept
+
+The straight-line penalty has no published source. The research reviewed for
+this step (retinol, benzoyl peroxide, salicylic acid, AHAs) shows irritation
+rises with dose but gives no formula, so the constants that remain (the
+34-point ceiling and the 0.5 / 1 / 1.6 sensitivity multipliers) are a product
+choice, not a clinical figure. It is kept because it fixes the defect the old
+curve had, and because its effect is the one wanted: a mild irritant costs
+few points, and a strong one costs more the more reactive the user says they
+are, so someone who is only lightly sensitive is not penalised as if they
+reacted to everything. Reopen it if a labelled dataset or published
+dose-response figure appears.
+
+Measured on the live catalogue on 2026-09-22 (616 products from Open Beauty
+Facts, label photos and the barcode database; 608 scoreable), old penalty
+against new, across six fixed profiles (3,648 scores):
+
+- 1,930 scores change; mean absolute movement over the changed scores is 3.9
+  points (2.05 over all scores), range -11 to +15.
+- 359 verdicts change band: 341 move up and 18 move down.
+- Almost all of it is for sensitive profiles. A tolerant oily acne-prone
+  profile changes 10 scores and no bands; a tolerant dry dehydrated profile
+  changes 58 scores and 5 bands.
+- Direction depends on how irritating the product is. A mild irritant costs
+  fewer points (Torriden DIVE In Multi Pad, highly sensitive: 61 to 64). A
+  strong one costs more on highly sensitive skin (Some By Mi Retinol Intense
+  Serum: 60 to 57; the Walmart 10% benzoyl-peroxide fixture: 42 to 37). At
+  "some" sensitivity the same two products move up (64 to 67, 45 to 47), which
+  is the lightly sensitive user tolerating more.
+
 ### Gentle forms
 
 L-ascorbic acid retains its sensitive-skin harm. Ascorbyl glucoside,
