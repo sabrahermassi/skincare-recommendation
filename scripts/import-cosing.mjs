@@ -208,16 +208,16 @@ async function main() {
   // Rows already verified by another source are left exactly as they are.
   // A blind upsert would relabel every one of the taxonomy's names as
   // `cosing` and overwrite its functions — losing provenance on ~24,000 rows
-  // to add a few hundred. Only genuinely new names, and names currently
-  // sitting unverified, are written.
+  // to add a few hundred. Only genuinely new names, names currently sitting
+  // unverified, and rows this import wrote itself are written.
   const existing = new Map();
   if (url && key) {
     const probe = createClient(url, key, { auth: { persistSession: false } });
     const rows = await paginateOrdered(probe, "ingredients", {
-      select: "inci_name, verified",
+      select: "inci_name, verified, source",
       cursorColumn: "inci_name",
     });
-    for (const row of rows) existing.set(row.inci_name, row.verified);
+    for (const row of rows) existing.set(row.inci_name, row);
   }
 
   if (existing.size === 0) {
@@ -231,13 +231,25 @@ async function main() {
   // not matched to the ingredient dictionary" — which becomes false the moment
   // CosIng verifies it. Clear it rather than leave the row contradicting itself.
   const promoted = parsed
-    .filter((i) => existing.get(i.inci_name) === false)
+    .filter((i) => existing.get(i.inci_name)?.verified === false)
     .map((i) => ({ ...i, note: null }));
-  const untouched = parsed.length - fresh.length - promoted.length;
-  const ingredients = [...fresh, ...promoted];
+  // Its own rows are rewritten so a fix to how functions are read reaches rows
+  // already stored — "not reported" was once kept as if it were a function.
+  // The row carries no `safety` or `note`, so neither is touched.
+  const refreshed = parsed.filter((i) => {
+    const current = existing.get(i.inci_name);
+    return current?.verified === true && current.source === "cosing";
+  });
+  const untouched = parsed.length - fresh.length - promoted.length - refreshed.length;
+  // Refreshed rows go last and the batches below never mix the two shapes: a
+  // bulk upsert sends every column any row in the batch has, so a refreshed
+  // row sharing a batch with a promoted one would have its note cleared too.
+  const ingredients = [...fresh, ...promoted, ...refreshed];
+  const firstRefreshed = fresh.length + promoted.length;
 
   console.log(
-    `  ${fresh.length} new, ${promoted.length} promoted from unverified, ${untouched} left alone`
+    `  ${fresh.length} new, ${promoted.length} promoted from unverified, ` +
+      `${refreshed.length} CosIng rows refreshed, ${untouched} left alone`
   );
 
   if (DRY_RUN) {
@@ -249,11 +261,13 @@ async function main() {
   }
 
   const db = createClient(url, key, { auth: { persistSession: false } });
-  for (let i = 0; i < ingredients.length; i += 500) {
-    const batch = ingredients.slice(i, i + 500);
-    const { error } = await db.from("ingredients").upsert(batch, { onConflict: "inci_name" });
-    if (error) throw new Error(error.message);
-    process.stdout.write(`\r  ${Math.min(i + 500, ingredients.length)}/${ingredients.length}`);
+  for (const [from, to] of [[0, firstRefreshed], [firstRefreshed, ingredients.length]]) {
+    for (let i = from; i < to; i += 500) {
+      const batch = ingredients.slice(i, Math.min(i + 500, to));
+      const { error } = await db.from("ingredients").upsert(batch, { onConflict: "inci_name" });
+      if (error) throw new Error(error.message);
+      process.stdout.write(`\r  ${Math.min(i + 500, to)}/${ingredients.length}`);
+    }
   }
   console.log(`\nVerified ${ingredients.length} ingredient names.`);
 }
