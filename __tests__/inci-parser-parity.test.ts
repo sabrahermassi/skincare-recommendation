@@ -140,14 +140,15 @@ describe("label-ocr's parser stays in step with lib/inci.ts", () => {
  * dictionary, and the real most-concentrated ingredient swallowed with it.
  *
  * Two checks, because the scripts are `.mjs` and only partly comparable.
- * `normalise` is copied verbatim into all four and can be compared as a whole.
+ * `normalise` is copied verbatim into all three and can be compared as a whole.
+ * (`import-inci-dictionary.mjs` is deliberately not one of them: it names
+ * official entries, not label text, and must keep what is inside brackets.)
  * `parseInci` deliberately is *not* a copy of `parseIngredientBlock` — it has
  * no dictionary reconstruction, no aliases, no dedupe — so what is pinned
  * instead is the two regexes it lifted, which is where the drift actually was.
  */
 const IMPORTER_PATHS = [
   "import-cosing.mjs",
-  "import-inci-dictionary.mjs",
   "import-wikidata-synonyms.mjs",
   // Not an importer: the shared parser the DailyMed import reads through,
   // extracted so a fifth hand-copy was not made. Guarded here for exactly the
