@@ -30,8 +30,8 @@ the exact formula or a representative labelled hydration dataset.
 The unsupported `IRRITATION_SATURATION = 14` curve was removed. One point of
 weighted harm evidence now removes one score point, multiplied by the user's
 declared sensitivity and capped at the existing 34-point policy ceiling. This
-keeps the input ratio intact: an ingredient at the 0.3 position floor now costs
-currently `0.3 / positionWeight(3)` of the same ingredient at position 3, rather
+keeps the input ratio intact: an ingredient at the 0.3 position floor costs
+currently `0.3 / positionWeight(3)` of the same ingredient at position 3 (about 0.38; a test only enforces that it stays under 0.4), rather
 than being inflated toward one half by a second saturation curve.
 
 Scoring still reads concentration from INCI position only. A Drug Facts label
