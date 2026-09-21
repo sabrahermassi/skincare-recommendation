@@ -299,6 +299,38 @@ function activeIngredients(title, xml) {
 }
 
 /**
+ * Active strengths printed by the Drug Facts panel (21 CFR 201.66(c)(2)).
+ * This is product metadata: unlike an ingredient definition, it changes from
+ * one label to another. Unknown actives are ignored rather than stored under
+ * an invented INCI name.
+ */
+function declaredActiveIngredients(xml) {
+  if (!xml) return [];
+  const flat = xml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  const mark = [...flat.matchAll(/\bactive\s+ingredients?\b[:\s]*/gi)][0];
+  if (!mark) return [];
+  const body = flat
+    .slice(mark.index + mark[0].length)
+    .split(/\b(?:Uses|Warnings|Inactive|Directions)\b/i)[0];
+  const known = { ...UV_FILTERS, "benzoyl peroxide": "benzoyl peroxide" };
+  const found = [];
+  for (const [drug, ingredient] of Object.entries(known)) {
+    const at = standaloneIndexOf(body.toLowerCase(), drug);
+    if (at === -1) continue;
+    const strength = body.slice(at + drug.length).match(/^\s*([0-9]+(?:\.[0-9]+)?)\s*%/);
+    if (!strength) continue;
+    found.push({
+      at,
+      ingredient,
+      strengthPercent: Number(strength[1]),
+    });
+  }
+  return found
+    .sort((a, b) => a.at - b.at)
+    .map(({ ingredient, strengthPercent }) => ({ ingredient, strengthPercent }));
+}
+
+/**
  * The filters named anywhere in a fragment, in the order they appear.
  *
  * The body does not punctuate the way a title does. A real Drug Facts panel
@@ -485,6 +517,9 @@ function toRow(spl, xml, known, samples, aliases) {
   // shape neither the title nor body path handles.
   const actives = activeIngredients(spl.title ?? "", xml);
   if (actives.length === 0) return "no recognised UV filter";
+  const strengths = new Map(
+    declaredActiveIngredients(xml).map((active) => [active.ingredient, active.strengthPercent])
+  );
 
   // Only now the actives, in front. A US OTC label prints them first on its
   // Drug Facts panel and they sit at 10-25% in a sunscreen, so they belong
@@ -518,6 +553,13 @@ function toRow(spl, xml, known, samples, aliases) {
       source: "dailymed",
       attribution: ATTRIBUTION,
       expires_at: null,
+      // Keep the whole leading-active boundary even if a malformed panel made
+      // one percentage unreadable. Strength can be unknown; active identity
+      // and the inactive-list boundary are still label facts.
+      declared_actives: actives.map((ingredient) => ({
+        ingredient,
+        strengthPercent: strengths.get(ingredient) ?? null,
+      })),
     },
     ingredients,
   };
@@ -794,6 +836,15 @@ async function main() {
             : "")
       );
     }
+    if (r.product.declared_actives.length > 0) {
+      const { error: activeError } = await db
+        .from("products")
+        .update({ declared_actives: r.product.declared_actives })
+        .eq("id", r.product.id);
+      if (activeError) {
+        throw new Error(`declared_actives update failed for ${r.product.id}: ${activeError.message}`);
+      }
+    }
     written += 1;
     process.stdout.write(`\r  ${written}/${all.length}`);
   }
@@ -834,4 +885,4 @@ if (invokedDirectly()) {
   process.exitCode = 1;
 }
 
-export { main, inactiveIngredients, activeIngredients, parseTitle, tidy, toRow, identityKey, formulaKey };
+export { main, inactiveIngredients, activeIngredients, declaredActiveIngredients, parseTitle, tidy, toRow, identityKey, formulaKey };

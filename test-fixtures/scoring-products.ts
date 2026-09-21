@@ -20,6 +20,7 @@ export type ScoringProductFixture = {
   inci: readonly string[];
   caution: readonly string[];
   avoid: readonly string[];
+  declaredActives?: readonly { ingredient: string; strengthPercent: number | null }[];
 };
 
 const inci = (orderedNames: string): string[] =>
@@ -229,7 +230,7 @@ export const SCORING_PRODUCTS = [
   {
     id: "dailymed-950edb4e-fbba-41e3-9ec5-973806e555e7",
     name: "Walmart Acne Treatment 10% Benzoyl Peroxide Gel",
-    type: "unknown",
+    type: "serum",
     sourceUrl: "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=950edb4e-fbba-41e3-9ec5-973806e555e7",
     snapshotDate: "2026-09-19",
     // The active is listed first as the importer does; the label prints its
@@ -237,5 +238,6 @@ export const SCORING_PRODUCTS = [
     inci: inci("benzoyl peroxide; carbomer; disodium edta; hydroxypropyl methylcellulose; laureth-4; sodium hydroxide; water"),
     caution: ["benzoyl peroxide", "sodium hydroxide"],
     avoid: [],
+    declaredActives: [{ ingredient: "benzoyl peroxide", strengthPercent: 10 }],
   },
 ] satisfies readonly ScoringProductFixture[];

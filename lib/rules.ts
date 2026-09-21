@@ -302,7 +302,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     weight: 8,
   },
   {
-    names: ["retinol", "retinal", "retinaldehyde", "retinyl palmitate", "hydroxypinacolone retinoate", "adapalene"],
+    names: ["retinol", "retinal", "retinaldehyde", "hydroxypinacolone retinoate", "adapalene"],
     category: "actives",
     helps: { concerns: ["fine-lines", "acne-prone", "hyperpigmentation"] },
     hurts: { sensitive: true, skinTypes: ["dry"] },
@@ -310,12 +310,26 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     weight: 11,
   },
   {
-    names: ["ascorbic acid", "l-ascorbic acid", "3-o-ethyl ascorbic acid", "ascorbyl glucoside", "magnesium ascorbyl phosphate"],
+    names: ["retinyl palmitate"],
+    category: "actives",
+    helps: { concerns: ["fine-lines", "hyperpigmentation"] },
+    reason: "Retinyl palmitate is a retinoid ester that must be converted in skin before it can act",
+    weight: 5,
+  },
+  {
+    names: ["ascorbic acid", "l-ascorbic acid"],
     category: "actives",
     helps: { concerns: ["dullness", "hyperpigmentation", "post-acne-marks"] },
     hurts: { sensitive: true },
     reason: "Vitamin C brightens and protects against oxidative damage; the acidic forms can sting",
     weight: 8,
+  },
+  {
+    names: ["3-o-ethyl ascorbic acid", "ascorbyl glucoside", "magnesium ascorbyl phosphate"],
+    category: "actives",
+    helps: { concerns: ["dullness", "hyperpigmentation", "post-acne-marks"] },
+    reason: "A stable vitamin C derivative, distinct from acidic L-ascorbic acid",
+    weight: 6,
   },
   {
     names: ["alpha-arbutin", "arbutin", "tranexamic acid", "kojic acid", "ferulic acid"],
@@ -813,9 +827,9 @@ export const MIN_ALPHABETICAL_RUN = 6;
  * from the existing curve, not a published figure — nothing published gives a
  * weight for an unordered list.
  */
-export function positionWeights(names: readonly string[]): number[] {
+export function positionWeights(names: readonly string[], leadingActiveCount = 0): number[] {
   const weights = names.map((_, index) => positionWeight(index));
-  const start = alphabeticalTailStart(names);
+  const start = alphabeticalTailStart(names, leadingActiveCount);
   if (start === null) return weights;
 
   let total = 0;
@@ -831,12 +845,16 @@ export function positionWeights(names: readonly string[]): number[] {
  * past the point where the curve has already reached its floor is flattened to
  * the same numbers it had, so the weights alone cannot say it is unordered.
  */
-export function alphabeticalTailStart(names: readonly string[]): number | null {
+export function alphabeticalTailStart(
+  names: readonly string[],
+  leadingActiveCount = 0
+): number | null {
   const key = names.map((name) => name.trim().toLowerCase());
   let start = key.length - 1;
-  while (start > 1 && key[start - 1] <= key[start]) start--;
+  const minimumStart = Math.max(1, leadingActiveCount);
+  while (start > minimumStart && key[start - 1] <= key[start]) start--;
   const runLength = key.length - start;
-  return start < 1 || runLength < MIN_ALPHABETICAL_RUN ? null : start;
+  return start < minimumStart || runLength < MIN_ALPHABETICAL_RUN ? null : start;
 }
 
 /** Matches an ingredient name against a rule's name patterns. */

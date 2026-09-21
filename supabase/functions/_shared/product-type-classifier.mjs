@@ -25,6 +25,10 @@ const BEFORE_MASK_RULES = [
 ];
 
 const AFTER_MASK_RULES = [
+  // OTC acne-treatment gels are applied and left on. The app has no drug-gel
+  // merchandising type, so `serum` is the closest existing full-contact type;
+  // leaving these `unknown` discounts their benefit to 0.25.
+  [/(?:benzoyl peroxide|acne treatment).*(?:gel|treatment)|(?:gel|treatment).*(?:benzoyl peroxide|acne treatment)/, "serum"],
   // A micellar water is wiped off rather than rinsed. Explicit rinse-off
   // format words keep the product out of this full-contact type regardless
   // of whether they occur before or after "micellar water".

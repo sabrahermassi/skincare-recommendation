@@ -1,5 +1,6 @@
 import type {
   Concern,
+  DeclaredActive,
   Ingredient,
   ProductWithIngredients,
   SkinProfile,
@@ -177,11 +178,39 @@ const CONCERN_SATURATION: Record<Concern, number> = {
 };
 
 const TYPE_SATURATION = 12;
-const IRRITATION_SATURATION = 14;
 const PORE_SATURATION = 3;
 
 const MAX_IRRITATION_PENALTY = 34;
 const MAX_PORE_PENALTY = 22;
+
+/**
+ * Concentrations at which the named active receives its full rule charge.
+ * These are ingredient-specific evidence bounds, not a shared "safe" limit:
+ * salicylic acid and AHAs use FDA/CIR consumer-use bounds, retinol uses the
+ * EU facial-product maximum, and benzoyl peroxide uses the top strength in
+ * the comparative 2.5/5/10% trial. Below the bound we retain dose ordering by
+ * normalising the declared percentage; no strength is ever inferred from INCI
+ * position. Actives without an applicable bound keep the position fallback.
+ */
+const IRRITATION_STRENGTH_REFERENCE: Readonly<Record<string, number>> = {
+  "benzoyl peroxide": 10,
+  "salicylic acid": 2,
+  retinol: 0.3,
+  "glycolic acid": 10,
+  "lactic acid": 10,
+};
+
+export function irritationStrengthFactor(
+  ingredient: string,
+  strengthPercent: number | null | undefined
+): number | null {
+  if (strengthPercent == null || !Number.isFinite(strengthPercent) || strengthPercent < 0) {
+    return null;
+  }
+  const reference = IRRITATION_STRENGTH_REFERENCE[ingredient.trim().toLowerCase()];
+  if (!reference) return null;
+  return Math.min(1, strengthPercent / reference);
+}
 
 /** Concerns whose fit is decided by pore-cleanliness rather than by actives. */
 const PORE_LED_CONCERNS: Concern[] = ["acne-prone", "large-pores"];
@@ -251,11 +280,15 @@ const MIN_IDENTIFIED = 3;
  * identity changes exactly when the answer would.
  */
 type ScoreCache = WeakMap<
-  Pick<ProductWithIngredients, "type" | "ingredients">,
+  ScoredProduct,
   { profile: SkinProfile; result: MatchResult }
 >;
 
 let scoreCache: ScoreCache = new WeakMap();
+
+type ScoredProduct = Pick<ProductWithIngredients, "type" | "ingredients"> & {
+  declaredActives?: DeclaredActive[];
+};
 
 /**
  * Drops every cached score. For tests, which would otherwise carry one case's
@@ -267,7 +300,7 @@ export function resetScoreCache(): void {
 }
 
 export function matchProduct(
-  product: Pick<ProductWithIngredients, "type" | "ingredients">,
+  product: ScoredProduct,
   profile: SkinProfile
 ): MatchResult {
   const hit = scoreCache.get(product);
@@ -306,7 +339,7 @@ export function matchProduct(
  * above depends on that staying true.
  */
 function computeMatch(
-  product: Pick<ProductWithIngredients, "type" | "ingredients">,
+  product: ScoredProduct,
   profile: SkinProfile
 ): MatchResult {
   const warnings = contraindications(product.ingredients, profile);
@@ -351,7 +384,14 @@ function computeMatch(
 
   // Computed once: an alphabetical tail (an OTC drug label) is read as
   // unordered rather than as a concentration ranking. See `positionWeights`.
-  const positionFactors = positionWeights(product.ingredients.map((i) => i.name));
+  const declaredActives = product.declaredActives ?? [];
+  const positionFactors = positionWeights(
+    product.ingredients.map((i) => i.name),
+    declaredActives.length
+  );
+  const declaredStrengths = new Map(
+    declaredActives.map((active) => [active.ingredient.trim().toLowerCase(), active.strengthPercent])
+  );
 
   product.ingredients.forEach((ingredient, position) => {
     // An unrecognised name supports no claim in either direction.
@@ -361,7 +401,11 @@ function computeMatch(
     const rule = findRule(ingredient);
     if (rule) {
       const benefitWeight = rule.weight * positionFactor * contact.benefit;
-      const harmWeight = rule.weight * positionFactor * contact.harm;
+      const strengthFactor = irritationStrengthFactor(
+        ingredient.name,
+        declaredStrengths.get(ingredient.name.trim().toLowerCase())
+      );
+      const harmWeight = rule.weight * (strengthFactor ?? positionFactor) * contact.harm;
       const helps = targetApplies(rule.helps, target);
       const hurts = targetApplies(rule.hurts, target);
 
@@ -530,9 +574,14 @@ function computeMatch(
   // when they chose "I don't know" for type or named no concerns.
   const fit = concernFit === null ? typeFit : 0.7 * concernFit + 0.3 * typeFit;
 
-  const irritationPenalty =
-    MAX_IRRITATION_PENALTY *
-    saturate(irritation * SENSITIVITY_MULTIPLIER[profile.sensitivity ?? "none"], IRRITATION_SATURATION);
+  // One point of weighted harm evidence now costs one score point. The old
+  // Michaelis-Menten curve had no clinical basis and compressed a trace active
+  // toward half the charge of a leading one. The cap remains a product-policy
+  // guardrail; it is not presented as a medical threshold.
+  const irritationPenalty = Math.min(
+    MAX_IRRITATION_PENALTY,
+    irritation * SENSITIVITY_MULTIPLIER[profile.sensitivity ?? "none"]
+  );
   const porePenalty =
     MAX_PORE_PENALTY * poreRelevance(profile) * saturate(poreLoad, PORE_SATURATION);
 

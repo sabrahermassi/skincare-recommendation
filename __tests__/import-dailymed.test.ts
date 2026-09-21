@@ -3,6 +3,7 @@ import path from "node:path";
 
 import {
   activeIngredients,
+  declaredActiveIngredients,
   formulaKey,
   identityKey,
   inactiveIngredients,
@@ -67,6 +68,12 @@ const SUMMARY = {
 };
 
 describe("reading a DailyMed label", () => {
+  it("keeps each Drug Facts active's stated strength", () => {
+    const xml = `<document><section><title>Active ingredient</title><text>Benzoyl Peroxide 10% Acne treatment</text></section><section><title>Uses</title></section></document>`;
+    expect(declaredActiveIngredients(xml)).toEqual([
+      { ingredient: "benzoyl peroxide", strengthPercent: 10 },
+    ]);
+  });
   it("splits a title into product name and labeler", () => {
     expect(parseTitle(SUMMARY.title)).toEqual({
       name: "SQWEEN MINERAL SUNSCREEN BROAD SPECTRUM SPF 30 PINK",
@@ -114,6 +121,9 @@ describe("building a row", () => {
     expect(row.product.expires_at).toBeNull();
     // No barcode: DailyMed identifies by NDC, which is not what a camera reads.
     expect(row.product.barcode).toBeNull();
+    expect(row.product.declared_actives).toEqual([
+      { ingredient: "zinc oxide", strengthPercent: null },
+    ]);
     // Zinc oxide leads: the title's active comes first. See the UV-filter
     // block below.
     expect(row.ingredients[0].inci_name).toBe("zinc oxide");

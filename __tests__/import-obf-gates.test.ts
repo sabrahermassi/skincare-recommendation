@@ -218,6 +218,9 @@ describe("the parser matches lib/inci.ts", () => {
  * regression a review caught before the classifier was consolidated.
  */
 describe("guessType", () => {
+  it("classifies an OTC benzoyl-peroxide gel as a full-contact leave-on", () => {
+    expect(guessType([], "Acne Treatment Benzoyl Peroxide 10% Gel")).toBe("serum");
+  });
   it("reads hyphenated OBF category tags, not just spaced names", () => {
     // `categories_tags` arrive as `en:eye-cream`. Written with a literal
     // space, these patterns missed and the generic `cream` rule claimed them.
