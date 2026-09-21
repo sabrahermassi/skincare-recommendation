@@ -99,7 +99,7 @@ function normaliseDictionaryName(raw) {
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
-    .replace(/^[^a-z0-9]+|[^a-z0-9)]+$/g, "");
+    .replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, "");
 }
 
 function pickEn(value) {
@@ -127,7 +127,9 @@ function safetyFrom(restriction) {
   // OBF does not use one spelling here. Alongside "II/416" and "III/61"
   // there are values such as "CMR1B II/656", "Annex III/I/257", and
   // "V/54 III/65". Search the full field.
-  const cites = (annex) => new RegExp(`(^|[\\s[])\\s*(?:annex\\s+)?${annex}(?:\\/|\\b)`, "i").test(text);
+  // A citation may follow a space, a bracket, or a comma/semicolon with no
+  // space ("IV/1,II/329"): missing one of those would read a ban as "safe".
+  const cites = (annex) => new RegExp(`(^|[\\s[(,;])\\s*(?:annex\\s+)?${annex}(?:\\/|\\b)`, "i").test(text);
   const prohibited = cites("II");
   // Annexes IV-VI list what IS allowed (colourants, preservatives, UV
   // filters). "IV/66 [III/256] II/1329 as hair dye" is an allowed colourant
@@ -214,9 +216,10 @@ function toRows(taxonomy, conflicts = []) {
           priorities.set(alias, priority);
           continue;
         }
-        if (priority === existingPriority && priority > 1) {
-          // Two entries print the same name with different data, and nothing
-          // says which is right. Neither gets the name.
+        if (priority === existingPriority) {
+          // Two entries claim the same name with different data — by key, by
+          // printed name, or through the hand-written alias table — and
+          // nothing says which is right. Neither gets the name.
           rows.delete(alias);
           priorities.delete(alias);
           clashed.set(alias, priority);

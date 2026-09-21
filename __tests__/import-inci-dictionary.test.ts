@@ -16,6 +16,10 @@ describe("safetyFrom", () => {
     // Hydroquinone: banned everywhere but nail products. Annex III beside
     // Annex II must not soften it.
     ["II/1339 III/14", "avoid"],
+    // No space before the citation must not hide it.
+    ["CMR1B,II/656", "avoid"],
+    ["V/1;III/5", "caution"],
+    ["(III/61)", "caution"],
     ["III/61", "caution"],
     ["Annex III/I/257 - Directive 2012/21/EU", "caution"],
     ["V/54 III/65", "caution"],
