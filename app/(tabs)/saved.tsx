@@ -735,9 +735,12 @@ const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).
 const EMPTY_FADE_MS = 300;
 const EMPTY_TABS = Object.keys(EMPTY_ART) as Tab[];
 
-/** Whether the person has asked their phone for less motion. */
-function useReduceMotion(): boolean {
-  const [reduce, setReduce] = useState(false);
+/**
+ * Whether the person has asked their phone for less motion. `null` until the phone has
+ * answered: callers treat that as "reduce", so no fade plays on a guess.
+ */
+function useReduceMotion(): boolean | null {
+  const [reduce, setReduce] = useState<boolean | null>(null);
   useEffect(() => {
     let live = true;
     AccessibilityInfo.isReduceMotionEnabled()
@@ -769,7 +772,7 @@ function EmptyState({ tab }: { tab: Tab }) {
     previous.current = tab;
 
     const useNativeDriver = Platform.OS !== "web";
-    const duration = reduceMotion ? 0 : EMPTY_FADE_MS;
+    const duration = reduceMotion !== false ? 0 : EMPTY_FADE_MS;
     const timing = (value: Animated.Value, toValue: number, ms: number) =>
       Animated.timing(value, { toValue, duration: ms, easing: Easing.inOut(Easing.cubic), useNativeDriver });
 

@@ -26,6 +26,13 @@ describe("the proof that a list was read", () => {
     expect(await verifyReadToken(token, [...NAMES].reverse(), SECRET, NOW)).toBe(false);
   });
 
+  it("does not confuse a list with a different list that joins to the same text", async () => {
+    const token = await signReadToken(["aqua", "glycerin", "niacinamide"], SECRET, NOW);
+
+    expect(await verifyReadToken(token, ["aqua", "glycerin\nniacinamide"], SECRET, NOW)).toBe(false);
+    expect(await verifyReadToken(token, ["aqua\nglycerin", "niacinamide"], SECRET, NOW)).toBe(false);
+  });
+
   it("refuses a token signed with another secret", async () => {
     const token = await signReadToken(NAMES, "someone-elses-secret", NOW);
 

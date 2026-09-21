@@ -26,9 +26,13 @@ function hmacKey(secret: string, usage: "sign" | "verify"): Promise<CryptoKey> {
   return crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, [usage]);
 }
 
-/** What is signed: the deadline and the list, in order. */
+/**
+ * What is signed: the deadline and the list, in order. JSON, not names joined by a
+ * separator: a name that contains the separator would otherwise make two different
+ * lists produce the same bytes.
+ */
 function signedBytes(expiresAt: number, names: readonly string[]): Uint8Array<ArrayBuffer> {
-  return encoder.encode(`${expiresAt}\n${names.join("\n")}`);
+  return encoder.encode(JSON.stringify([expiresAt, names]));
 }
 
 function toHex(bytes: ArrayBuffer): string {

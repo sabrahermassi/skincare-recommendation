@@ -128,7 +128,9 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
   const [translateX] = useState(() => new Animated.Value(0));
   // One opacity per picture: they sit on top of each other and cross-fade.
   const [pictureOpacity] = useState(() => screens.map((_, i) => new Animated.Value(i === activeIndex ? 1 : 0)));
-  const reduceMotion = useRef(false);
+  // `null` until the phone has answered, and treated as "reduce" until then, so no
+  // slide plays on a guess.
+  const reduceMotion = useRef<boolean | null>(null);
 
   // With Reduce Motion on, the swap still happens through the same path but with
   // zero-length animations, so there is no slide and no separate code path.
@@ -150,14 +152,15 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
     previousIndex.current = activeIndex;
 
     const useNativeDriver = Platform.OS !== "web";
-    const outMs = reduceMotion.current ? 0 : SLIDE_OUT_MS;
-    const inMs = reduceMotion.current ? 0 : SLIDE_IN_MS;
+    const reduced = reduceMotion.current !== false;
+    const outMs = reduced ? 0 : SLIDE_OUT_MS;
+    const inMs = reduced ? 0 : SLIDE_IN_MS;
 
     const pictures = Animated.parallel(
       pictureOpacity.map((value, i) =>
         Animated.timing(value, {
           toValue: i === activeIndex ? 1 : 0,
-          duration: reduceMotion.current ? 0 : PICTURE_FADE_MS,
+          duration: reduced ? 0 : PICTURE_FADE_MS,
           easing: Easing.inOut(Easing.cubic),
           useNativeDriver,
         })
