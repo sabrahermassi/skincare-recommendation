@@ -34,12 +34,17 @@ export function projectRef(url) {
 }
 
 /**
- * Set this to the production project's ref once it is known, and a run that
- * points at production while claiming `SUPABASE_ENV=staging` is refused rather
- * than believed. Left null, the environment declaration is taken at its word —
- * the two-surface rule below still applies either way.
+ * The production project, so a run pointing at it while claiming
+ * `SUPABASE_ENV=staging` is refused rather than believed. That is the accident
+ * `--prod` alone cannot catch: an exported variable left over from an earlier
+ * command says staging, the URL beside it says production, and both look
+ * deliberate.
+ *
+ * Committed rather than configured because a guard read from the same
+ * environment it is guarding is not a guard. Not a secret either — this ref
+ * ships in every build inside `EXPO_PUBLIC_SUPABASE_URL`.
  */
-export const PRODUCTION_REF = null;
+export const PRODUCTION_REF = "phwtskwqjrwetbpygpwy";
 
 export const VALID_ENVS = ["staging", "production"];
 

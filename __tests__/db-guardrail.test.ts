@@ -1,4 +1,4 @@
-import { decide, projectRef } from "../scripts/lib/db.mjs";
+import { decide, projectRef, PRODUCTION_REF } from "../scripts/lib/db.mjs";
 
 /**
  * The rule that decides whether a script may write, and to which project.
@@ -10,8 +10,13 @@ import { decide, projectRef } from "../scripts/lib/db.mjs";
  * to prove a refusal happened.
  */
 
+/*
+  PROD is built from the shipped constant rather than a made-up ref, so these
+  tests exercise the guard as it actually runs. Pinning a literal here instead
+  would pass while the real constant said something else entirely.
+*/
 const STAGING = "https://stagingref.supabase.co";
-const PROD = "https://prodref.supabase.co";
+const PROD = `https://${PRODUCTION_REF}.supabase.co`;
 const KEY = "service-role-key";
 
 /** A write against staging, which is the ordinary development case. */
@@ -19,7 +24,7 @@ const writeToStaging = { url: STAGING, key: KEY, declared: "staging", write: tru
 
 describe("projectRef", () => {
   it("takes the subdomain of a Supabase URL", () => {
-    expect(projectRef(PROD)).toBe("prodref");
+    expect(projectRef(PROD)).toBe(PRODUCTION_REF);
   });
 
   it("does not throw on a URL it cannot parse", () => {
@@ -36,7 +41,7 @@ describe("reads", () => {
 
   it("name the project that was read, so the log says which one it was", () => {
     const verdict = decide({ url: PROD, key: KEY, declared: undefined, write: false });
-    expect(verdict.ok && verdict.notice).toContain("prodref");
+    expect(verdict.ok && verdict.notice).toContain(PRODUCTION_REF);
   });
 
   it("are allowed against production without --prod", () => {
@@ -116,7 +121,7 @@ describe("writes", () => {
   catches, and it is one the --prod flag alone does not.
 */
 describe("when the production ref is known", () => {
-  const productionRef = "prodref";
+  const productionRef = PRODUCTION_REF;
 
   it("refuses a production URL that claims to be staging", () => {
     const verdict = decide({ url: PROD, key: KEY, declared: "staging", write: true, productionRef });
