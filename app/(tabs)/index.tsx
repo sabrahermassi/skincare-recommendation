@@ -219,40 +219,49 @@ export default function Home() {
               space and can cross the top edge of the skin profile card. Last in the
               column so it is drawn on top, and inside the scroll so it moves with
               the cards; it ignores touches so the card under it stays tappable. */}
-          {signatureWidth !== null ? (
-            <View
-              pointerEvents="none"
-              accessible
-              accessibilityLabel="Skincare for a happier you"
-              style={{
-                position: "absolute",
-                top: SIGNATURE_TOP,
-                right: SIGNATURE_RIGHT,
-                width: signatureWidth,
-                zIndex: 10,
-                elevation: 10,
-              }}
-            >
-              <Image
-                source={SIGNATURE_ART}
-                contentFit="contain"
-                accessibilityLabel=""
-                style={{ width: signatureWidth, aspectRatio: SIGNATURE_ASPECT }}
-              />
-              <Image
-                source={HEART_ART}
-                contentFit="contain"
-                accessibilityLabel=""
-                style={{
-                  position: "absolute",
-                  left: HEART_LEFT * signatureScale,
-                  top: HEART_TOP * signatureScale,
-                  width: HEART_WIDTH * signatureScale,
-                  aspectRatio: HEART_ASPECT,
-                }}
-              />
-            </View>
-          ) : null}
+          {/* The label is there whether or not the picture is: when there is no room
+              for the artwork (large text on a narrow phone) a screen reader still
+              gets the tagline, from an empty one-point view. */}
+          <View
+            pointerEvents="none"
+            accessible
+            accessibilityLabel="Skincare for a happier you"
+            style={
+              signatureWidth !== null
+                ? {
+                    position: "absolute",
+                    top: SIGNATURE_TOP,
+                    right: SIGNATURE_RIGHT,
+                    width: signatureWidth,
+                    zIndex: 10,
+                    elevation: 10,
+                  }
+                : { position: "absolute", top: SIGNATURE_TOP, right: SIGNATURE_RIGHT, width: 1, height: 1 }
+            }
+          >
+            {signatureWidth !== null ? (
+              <>
+                <Image
+                  source={SIGNATURE_ART}
+                  contentFit="contain"
+                  accessibilityLabel=""
+                  style={{ width: signatureWidth, aspectRatio: SIGNATURE_ASPECT }}
+                />
+                <Image
+                  source={HEART_ART}
+                  contentFit="contain"
+                  accessibilityLabel=""
+                  style={{
+                    position: "absolute",
+                    left: HEART_LEFT * signatureScale,
+                    top: HEART_TOP * signatureScale,
+                    width: HEART_WIDTH * signatureScale,
+                    aspectRatio: HEART_ASPECT,
+                  }}
+                />
+              </>
+            ) : null}
+          </View>
         </View>
       </ScrollView>
     </View>
