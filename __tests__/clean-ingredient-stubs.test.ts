@@ -1,4 +1,4 @@
-import { classifyStub, planRepoints, usesOf } from "../scripts/clean-ingredient-stubs.mjs";
+import { classifyStub, plannedDeletions, planRepoints, usesOf } from "../scripts/clean-ingredient-stubs.mjs";
 
 const known = new Set(["glycerin", "sodium hydroxide", "aqua", "tocopherol"]);
 const aliases = new Map([["glycérine", "glycerin"]]);
@@ -138,6 +138,19 @@ describe("usesOf", () => {
   });
 });
 
+describe("plannedDeletions", () => {
+  it("deletes every variant and every unused stub, but keeps unresolved names a product uses", () => {
+    const stubs = ["glycérine", "old unknown", "used unknown"];
+    const variants = new Map([["glycérine", "glycerin"]]);
+    const uses = [
+      { product_id: "p1", inci_name: "glycérine", position: 1 },
+      { product_id: "p1", inci_name: "used unknown", position: 2 },
+    ];
+
+    expect([...plannedDeletions(stubs, variants, uses)].sort()).toEqual(["glycérine", "old unknown"]);
+  });
+});
+
 describe("classifyStub", () => {
   it("points a spelling variant at the verified name", () => {
     expect(classifyStub("sodium hydroxyde", known, aliases)).toEqual({ kind: "variant", target: "sodium hydroxide" });
@@ -174,6 +187,16 @@ describe("classifyStub", () => {
 
   it("leaves a real-looking name nobody lists alone", () => {
     expect(classifyStub("arnebia nobilis root extract", known, aliases)).toBeNull();
+  });
+
+  it("does not repoint broad names even when an alias source offers one possible target", () => {
+    const dictionary = new Set(["tricaprylin", "cymbopogon schoenanthus oil"]);
+    const broadAliases = new Map([
+      ["caprylic triglyceride", "tricaprylin"],
+      ["lemongrass oil", "cymbopogon schoenanthus oil"],
+    ]);
+    expect(classifyStub("caprylic triglyceride", dictionary, broadAliases)).toBeNull();
+    expect(classifyStub("lemongrass oil", dictionary, broadAliases)).toBeNull();
   });
 
   it("does not call a long real name junk for its length", () => {

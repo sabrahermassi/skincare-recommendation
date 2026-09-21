@@ -7,8 +7,9 @@
  *   variant — a spelling, spacing or other-language form of a name the
  *             dictionary already verifies ("glycérine", "sodium hydroxyde").
  *             Products that use it are pointed at the real name first.
- *   junk    — not an ingredient at all (a web address, a file name, a sentence,
- *             a fragment with no letters). Deleted only when no product uses it.
+ *   unused  — any unverified name no product references. It can be deleted
+ *             regardless of what it once meant; a later import will recreate
+ *             it if the text is encountered again.
  *
  * Anything else is left exactly as it is: it may be a real ingredient no public
  * list carries yet, which is a decision for a person, not this script.
@@ -33,6 +34,25 @@ import { paginateOrdered } from "./lib/paginate.mjs";
 
 const APPLY = process.argv.includes("--apply");
 const BATCH = 200;
+
+/**
+ * Broad label terms that one alias source happens to map to a possible target,
+ * but which are not specific enough to inherit that target's safety data.
+ */
+const AMBIGUOUS_STUB_NAMES = new Set([
+  "acrylates",
+  "butyrospermum parkii",
+  "caprate",
+  "caprylic",
+  "caprylic triglyceride",
+  "caprylyl",
+  "ceramide",
+  "cetearyl",
+  "citrus aurantium peel oil",
+  "color pigments",
+  "iron oxides",
+  "lemongrass oil",
+]);
 
 /**
  * Names that mean the same thing, so "aqua / water / eau" is one ingredient
@@ -125,6 +145,7 @@ function variantTarget(name, known, aliases) {
  * dozens of species) — so it is skipped and every other check reads the whole name.
  */
 function classifyStub(name, known, aliases) {
+  if (AMBIGUOUS_STUB_NAMES.has(name)) return null;
   const target = variantTarget(name, known, aliases);
   if (target && target !== name && known.has(target)) return { kind: "variant", target };
 
@@ -170,6 +191,15 @@ function planRepoints(variants, variantUses, productNames) {
     }
   }
   return { repoint, dropRow };
+}
+
+/**
+ * Every variant is deletable after its product rows are repointed. Every other
+ * unreferenced stub is stale dictionary data and is deletable as-is.
+ */
+function plannedDeletions(stubs, variants, uses) {
+  const used = new Set(uses.map((row) => row.inci_name));
+  return new Set(stubs.filter((stub) => variants.has(stub) || !used.has(stub)));
 }
 
 async function readIngredients(db, verified) {
@@ -230,9 +260,10 @@ async function main() {
     if (verdict?.kind === "variant") variants.set(stub, verdict.target);
     else if (verdict?.kind === "junk") junk.push(stub);
   }
-  const untouched = stubs.length - variants.size - junk.length;
-
-  const uses = await usesOf(db, [...variants.keys(), ...junk]);
+  // Read uses for every stub, not only today's recognised variants/junk. An
+  // unverified row that no formula references has no catalogue meaning left
+  // and can be removed without deciding whether the original text was real.
+  const uses = await usesOf(db, stubs);
   const usesByName = new Map();
   for (const u of uses) usesByName.set(u.inci_name, [...(usesByName.get(u.inci_name) ?? []), u]);
 
@@ -249,16 +280,19 @@ async function main() {
 
   const { repoint, dropRow } = planRepoints(variants, variantUses, productNames);
   const junkInUse = junk.filter((n) => (usesByName.get(n) ?? []).length > 0);
-  const junkFree = junk.filter((n) => (usesByName.get(n) ?? []).length === 0);
+  const doomed = plannedDeletions(stubs, variants, uses);
+  const usedNames = new Set(uses.map((row) => row.inci_name));
+  const unused = stubs.filter((name) => !usedNames.has(name));
+  const unresolvedInUse = stubs.length - doomed.size - junkInUse.length;
 
   console.log(`Spelling variants of a verified name: ${variants.size}`);
   for (const [stub, target] of [...variants].slice(0, 12)) console.log(`  ${stub}  ->  ${target}`);
   console.log(`    ${repoint.length} product row(s) repointed, ${dropRow.length} duplicate row(s) dropped`);
-  console.log(`\nJunk, used by no product (deleted): ${junkFree.length}`);
-  for (const n of junkFree.slice(0, 12)) console.log(`  ${n.slice(0, 90)}`);
+  console.log(`\nUnused unverified stubs (deleted): ${unused.length}`);
+  for (const n of unused.slice(0, 12)) console.log(`  ${n.slice(0, 90)}`);
   console.log(`\nJunk still used by a product (left alone): ${junkInUse.length}`);
   for (const n of junkInUse.slice(0, 12)) console.log(`  ${n.slice(0, 90)}`);
-  console.log(`\nLeft alone, could be real ingredients: ${untouched}`);
+  console.log(`\nLeft alone, used and could be real ingredients: ${unresolvedInUse}`);
 
   if (!APPLY) {
     console.log("\nNothing written. Run again with --apply to do it.");
@@ -284,16 +318,16 @@ async function main() {
     if (error) throw new Error(`repoint ${r.product_id}#${r.position}: ${error.message}`);
   }
 
-  const doomed = [...variants.keys(), ...junkFree];
-  for (let i = 0; i < doomed.length; i += BATCH) {
+  const doomedNames = [...doomed];
+  for (let i = 0; i < doomedNames.length; i += BATCH) {
     const { error } = await db
       .from("ingredients")
       .delete()
       .eq("verified", false)
-      .in("inci_name", doomed.slice(i, i + BATCH));
+      .in("inci_name", doomedNames.slice(i, i + BATCH));
     if (error) throw new Error(error.message);
   }
-  console.log(`\nDeleted ${doomed.length} stub(s).`);
+  console.log(`\nDeleted ${doomedNames.length} stub(s).`);
 }
 
 /** See the same guard in `scripts/import-obf.mjs`. */
@@ -307,7 +341,7 @@ function invokedDirectly() {
   }
 }
 
-export { classifyStub, planRepoints, usesOf };
+export { AMBIGUOUS_STUB_NAMES, classifyStub, plannedDeletions, planRepoints, usesOf };
 
 if (invokedDirectly()) {
   main().catch((err) => {
