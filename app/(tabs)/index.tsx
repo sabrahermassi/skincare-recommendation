@@ -9,6 +9,7 @@ import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PressableCard } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/genie";
+import { homeGreetingLayout, SIGNATURE_WIDTH } from "@/lib/home-greeting";
 import { isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
@@ -38,16 +39,19 @@ const SHELF_DROP = 41;
 // button); the heart is design-watercolor/heart.png.
 const GREETING_ART = require("@/assets/illustrations/home-greeting.png");
 const GREETING_ASPECT = 640 / 206;
-const GREETING_WIDTH = 172;
 const SIGNATURE_ART = require("@/assets/illustrations/home-signature.png");
 const SIGNATURE_ASPECT = 520 / 449;
-const SIGNATURE_WIDTH = 128;
 const HEART_ART = require("@/assets/illustrations/home-heart.png");
 const HEART_ASPECT = 240 / 214;
 const HEART_WIDTH = 24;
-// Where the heart sits inside the signature: under "happier", right of "you".
+// Where the heart sits inside the signature at its full width (SIGNATURE_WIDTH): under
+// "happier", right of "you". Scaled with the signature when that is drawn smaller.
 const HEART_LEFT = 96;
 const HEART_TOP = 64;
+// The signature's distance from the top of the content column, and from the screen's
+// right edge (4 closer than the text gutter, so its right-hand flourish sits near the edge).
+const SIGNATURE_TOP = 14;
+const SIGNATURE_RIGHT = HEADER_GUTTER - 4;
 
 /**
  * Home — the first screen after the skin quiz.
@@ -66,7 +70,16 @@ export default function Home() {
   const press = (to: number) =>
     Animated.spring(scale, { toValue: to, friction: 6, tension: 220, useNativeDriver: Platform.OS !== "web" }).start();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, fontScale } = useWindowDimensions();
+  // Both are pictures: the greeting follows the text size, and the signature takes only
+  // the room the greeting leaves (or is left out), so the two never overpaint.
+  const { greetingWidth, signatureWidth } = homeGreetingLayout({
+    screenWidth: width,
+    fontScale,
+    gutter: HEADER_GUTTER,
+    signatureRight: SIGNATURE_RIGHT,
+  });
+  const signatureScale = signatureWidth === null ? 0 : signatureWidth / SIGNATURE_WIDTH;
   const profile = useAppStore((s) => s.profile);
   const personalized = isPersonalized(profile);
 
@@ -120,7 +133,7 @@ export default function Home() {
             source={GREETING_ART}
             contentFit="contain"
             accessibilityLabel="Hi there!"
-            style={{ width: GREETING_WIDTH, aspectRatio: GREETING_ASPECT }}
+            style={{ width: greetingWidth, aspectRatio: GREETING_ASPECT }}
           />
 
           {/* The skin profile, each answer in its own chip. Only shown here: it is
@@ -206,32 +219,40 @@ export default function Home() {
               space and can cross the top edge of the skin profile card. Last in the
               column so it is drawn on top, and inside the scroll so it moves with
               the cards; it ignores touches so the card under it stays tappable. */}
-          <View
-            pointerEvents="none"
-            accessible
-            accessibilityLabel="Skincare for a happier you"
-            style={{
-              position: "absolute",
-              top: 14,
-              right: HEADER_GUTTER - 4,
-              width: SIGNATURE_WIDTH,
-              zIndex: 10,
-              elevation: 10,
-            }}
-          >
-            <Image
-              source={SIGNATURE_ART}
-              contentFit="contain"
-              accessibilityLabel=""
-              style={{ width: SIGNATURE_WIDTH, aspectRatio: SIGNATURE_ASPECT }}
-            />
-            <Image
-              source={HEART_ART}
-              contentFit="contain"
-              accessibilityLabel=""
-              style={{ position: "absolute", left: HEART_LEFT, top: HEART_TOP, width: HEART_WIDTH, aspectRatio: HEART_ASPECT }}
-            />
-          </View>
+          {signatureWidth !== null ? (
+            <View
+              pointerEvents="none"
+              accessible
+              accessibilityLabel="Skincare for a happier you"
+              style={{
+                position: "absolute",
+                top: SIGNATURE_TOP,
+                right: SIGNATURE_RIGHT,
+                width: signatureWidth,
+                zIndex: 10,
+                elevation: 10,
+              }}
+            >
+              <Image
+                source={SIGNATURE_ART}
+                contentFit="contain"
+                accessibilityLabel=""
+                style={{ width: signatureWidth, aspectRatio: SIGNATURE_ASPECT }}
+              />
+              <Image
+                source={HEART_ART}
+                contentFit="contain"
+                accessibilityLabel=""
+                style={{
+                  position: "absolute",
+                  left: HEART_LEFT * signatureScale,
+                  top: HEART_TOP * signatureScale,
+                  width: HEART_WIDTH * signatureScale,
+                  aspectRatio: HEART_ASPECT,
+                }}
+              />
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </View>
