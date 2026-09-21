@@ -12,6 +12,10 @@
  *   node scripts/import-cosing.mjs --dry-run
  *   node scripts/import-cosing.mjs
  *   node scripts/import-cosing.mjs ./some-other-export.csv
+ *   node scripts/import-cosing.mjs --prune
+ *
+ * --prune also clears names an earlier run wrote that this one no longer
+ * produces: deleted if no product uses them, returned to unverified if one does.
  *
  * With no argument it pulls DEFAULT_SOURCE below — a verbatim mirror of the
  * Commission's "Ingredients and Fragrance Inventory" export, which the CosIng
@@ -30,17 +34,22 @@
  * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY unless --dry-run.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { createClient } from "@supabase/supabase-js";
 
+import { normaliseDictionaryName } from "./import-inci-dictionary.mjs";
 import { parseFunctions } from "./lib/normalise-function.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
+import { applyPrune, assertNotTooMany, planPruneAgainst } from "./lib/prune-stale.mjs";
 
 const DEFAULT_SOURCE =
   "https://raw.githubusercontent.com/openfoodfacts/openbeautyfacts/7497cea8a8a90687d2e5175e9ecb46b7ca75a60b/cosing/COSING_Ingredients-Fragrance.Inventory_v2.csv";
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
+const PRUNE = args.includes("--prune");
 const FILE = args.find((a) => !a.startsWith("--")) ?? DEFAULT_SOURCE;
 
 async function read(source) {
@@ -105,7 +114,11 @@ function parseCsv(text) {
   return rows;
 }
 
-/** Same normalisation the parser uses, so the two sides can actually match. */
+/**
+ * Same normalisation the label parser uses. Only for the label spellings in
+ * `toIngredients`: it is what a scanned label's text becomes, so it is how a
+ * label will ask for a row. The dictionary name itself keeps its brackets.
+ */
 function normalise(raw) {
   return raw
     .replace(/\([^)]*\)/g, " ")
@@ -124,6 +137,50 @@ function findColumn(header, ...patterns) {
     if (i !== -1) return i;
   }
   return -1;
+}
+
+/**
+ * `records` are `{ name, cas, functions }` as printed in the export. Official
+ * names keep their bracketed chemistry: dropping it filed fourteen different
+ * POLY(…) ingredients under the one false name "poly".
+ */
+function toIngredients(records) {
+  const byName = new Map();
+  const labelForms = new Map(); // what a scanned label would ask for → the names that read that way
+  let skipped = 0;
+
+  for (const record of records) {
+    const name = normaliseDictionaryName(record.name ?? "");
+    if (name.length < 2) {
+      skipped += 1;
+      continue;
+    }
+    byName.set(name, {
+      inci_name: name,
+      cas_number: (record.cas ?? "").trim() || null,
+      functions: parseFunctions(record.functions),
+      source: "cosing",
+      // The whole point of this import.
+      verified: true,
+      // Deliberately not setting `safety` or `comedogenic`: CosIng is a
+      // glossary and a regulatory annex list, not a hazard rating. Inventing
+      // one here would be fabricating the exact data the app is judged on.
+    });
+    if (record.name.includes("(")) {
+      const form = normalise(record.name);
+      if (form.length >= 2) labelForms.set(form, (labelForms.get(form) ?? new Set()).add(name));
+    }
+  }
+
+  // The label parser drops bracketed text, so a label asks for the shortened
+  // spelling. It gets a row only when one ingredient alone reads that way.
+  for (const [form, owners] of labelForms) {
+    if (owners.size !== 1 || byName.has(form)) continue;
+    const [owner] = owners;
+    byName.set(form, { ...byName.get(owner), inci_name: form });
+  }
+
+  return { parsed: [...byName.values()], skipped };
 }
 
 async function main() {
@@ -171,29 +228,13 @@ async function main() {
       (iFunction !== -1 ? `, function=${header[iFunction]}` : ", function=(absent)")
   );
 
-  const byName = new Map();
-  let skipped = 0;
-
-  for (const row of rows.slice(headerRow + 1)) {
-    const name = normalise(row[iName] ?? "");
-    if (name.length < 2) {
-      skipped += 1;
-      continue;
-    }
-    byName.set(name, {
-      inci_name: name,
-      cas_number: iCas !== -1 ? (row[iCas] ?? "").trim() || null : null,
-      functions: iFunction !== -1 ? parseFunctions(row[iFunction]) : [],
-      source: "cosing",
-      // The whole point of this import.
-      verified: true,
-      // Deliberately not setting `safety` or `comedogenic`: CosIng is a
-      // glossary and a regulatory annex list, not a hazard rating. Inventing
-      // one here would be fabricating the exact data the app is judged on.
-    });
-  }
-
-  const parsed = [...byName.values()];
+  const { parsed, skipped } = toIngredients(
+    rows.slice(headerRow + 1).map((row) => ({
+      name: row[iName] ?? "",
+      cas: iCas !== -1 ? row[iCas] : null,
+      functions: iFunction !== -1 ? row[iFunction] : null,
+    }))
+  );
   console.log(
     `${rows.length - headerRow - 1} rows → ${parsed.length} distinct names (${skipped} skipped)`
   );
@@ -211,9 +252,9 @@ async function main() {
   // to add a few hundred. Only genuinely new names, names currently sitting
   // unverified, and rows this import wrote itself are written.
   const existing = new Map();
-  if (url && key) {
-    const probe = createClient(url, key, { auth: { persistSession: false } });
-    const rows = await paginateOrdered(probe, "ingredients", {
+  const db = url && key ? createClient(url, key, { auth: { persistSession: false } }) : null;
+  if (db) {
+    const rows = await paginateOrdered(db, "ingredients", {
       select: "inci_name, verified, source",
       cursorColumn: "inci_name",
     });
@@ -252,6 +293,18 @@ async function main() {
       `${refreshed.length} CosIng rows refreshed, ${untouched} left alone`
   );
 
+  let prune = null;
+  if (db) {
+    prune = await planPruneAgainst(db, parsed, existing, "cosing");
+    console.log(
+      `  ${prune.stale.length} name(s) from an earlier run are no longer produced: ` +
+        `${prune.remove.length} unused, ${prune.demote.length} still used by a product` +
+        (PRUNE ? "" : " (pass --prune to clear them)")
+    );
+    for (const name of prune.demote.slice(0, 20)) console.log(`    still used: ${name}`);
+    if (PRUNE) assertNotTooMany(prune, "CosIng");
+  }
+
   if (DRY_RUN) {
     console.log("\n--dry-run: nothing written. Sample of what would be written:");
     for (const i of ingredients.slice(0, 8)) {
@@ -260,7 +313,6 @@ async function main() {
     return;
   }
 
-  const db = createClient(url, key, { auth: { persistSession: false } });
   for (const [from, to] of [[0, firstRefreshed], [firstRefreshed, ingredients.length]]) {
     for (let i = from; i < to; i += 500) {
       const batch = ingredients.slice(i, Math.min(i + 500, to));
@@ -270,9 +322,27 @@ async function main() {
     }
   }
   console.log(`\nVerified ${ingredients.length} ingredient names.`);
+
+  if (!PRUNE) return;
+  const removed = await applyPrune(db, prune, "cosing");
+  console.log(`Pruned: ${removed} deleted, ${prune.demote.length} returned to unverified.`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+function invokedDirectly() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+export { toIngredients };
+
+if (invokedDirectly()) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

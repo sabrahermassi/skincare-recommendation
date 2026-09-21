@@ -1,10 +1,5 @@
-import {
-  normaliseDictionaryName,
-  planPrune,
-  planWrites,
-  safetyFrom,
-  toRows,
-} from "../scripts/import-inci-dictionary.mjs";
+import { normaliseDictionaryName, planWrites, safetyFrom, toRows } from "../scripts/import-inci-dictionary.mjs";
+import { planPrune } from "../scripts/lib/prune-stale.mjs";
 
 describe("safetyFrom", () => {
   it.each<[string, string]>([
@@ -174,17 +169,22 @@ describe("planPrune", () => {
   const rows = [{ inci_name: "kept" }];
 
   it("deletes stale names nothing uses and returns used ones to unverified, touching only its own rows", () => {
-    const plan = planPrune(rows, existing, new Set(["poly"]));
+    const plan = planPrune(rows, existing, new Set(["poly"]), "obf");
     expect(plan.stale.sort()).toEqual(["poly", "tris phosphite"]);
     expect(plan.remove).toEqual(["tris phosphite"]);
     expect(plan.demote).toEqual(["poly"]);
   });
 
+  it("clears only the rows of the source it is asked about", () => {
+    const plan = planPrune(rows, existing, new Set(), "cosing");
+    expect(plan.stale).toEqual(["from cosing"]);
+  });
+
   it("flags a run where most of the dictionary looks stale, which is a bad download", () => {
-    expect(planPrune(rows, existing, new Set()).tooMany).toBe(true);
+    expect(planPrune(rows, existing, new Set(), "obf").tooMany).toBe(true);
     const healthy = new Map(existing);
     for (let i = 0; i < 200; i += 1) healthy.set(`n${i}`, { inci_name: `n${i}`, verified: true, source: "obf" });
     const produced = [...healthy.keys()].filter((n) => n !== "poly").map((inci_name) => ({ inci_name }));
-    expect(planPrune(produced, healthy, new Set()).tooMany).toBe(false);
+    expect(planPrune(produced, healthy, new Set(), "obf").tooMany).toBe(false);
   });
 });

@@ -30,19 +30,12 @@ import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { usesOf } from "./clean-ingredient-stubs.mjs";
 import { parseFunctions } from "./lib/normalise-function.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
+import { applyPrune, assertNotTooMany, inBatches, planPruneAgainst } from "./lib/prune-stale.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const PRUNE = process.argv.includes("--prune");
-/**
- * A cut-short download would make most of the dictionary look stale. 206 of
- * ~31,000 names went stale when the name rule changed; anything far beyond
- * that is a bad download, not a clean-up.
- */
-const MAX_STALE_SHARE = 0.02;
-const STUB_NOTE = "No published rating for this ingredient yet.";
 const TAXONOMY = "https://static.openbeautyfacts.org/data/taxonomies/ingredients.json";
 const ATTRIBUTION_NOTE = "Ingredient reference from Open Beauty Facts / EU CosIng.";
 
@@ -296,31 +289,6 @@ function planWrites(rows, existing) {
   };
 }
 
-/**
- * Names this importer wrote on an earlier run and no longer produces. `used`
- * is the set of names some product's formula points at: those cannot be
- * deleted (the formula row references them), and should not keep a rating that
- * belonged to a different ingredient either.
- */
-function planPrune(rows, existing, used) {
-  const produced = new Set(rows.map((row) => row.inci_name));
-  const stale = [...existing.values()]
-    .filter((row) => row.verified && row.source === "obf" && !produced.has(row.inci_name))
-    .map((row) => row.inci_name);
-  const owned = [...existing.values()].filter((row) => row.verified && row.source === "obf").length;
-
-  return {
-    stale,
-    remove: stale.filter((name) => !used.has(name)),
-    demote: stale.filter((name) => used.has(name)),
-    tooMany: owned > 0 && stale.length / owned > MAX_STALE_SHARE,
-  };
-}
-
-async function inBatches(items, size, run) {
-  for (let i = 0; i < items.length; i += size) await run(items.slice(i, i + size));
-}
-
 async function main() {
   console.log("Downloading the Open Beauty Facts ingredient taxonomy (~12 MB)…");
   const res = await fetch(TAXONOMY);
@@ -377,21 +345,14 @@ async function main() {
     for (const r of plan.reviewByHand) console.log(`    [${r.safety}] ${r.inci_name} (${r.owner}) — ${r.note}`);
   }
 
-  const staleNames = planPrune(rows, existing, new Set()).stale;
-  const used = new Set((await usesOf(db, staleNames)).map((row) => row.inci_name));
-  const prune = planPrune(rows, existing, used);
+  const prune = await planPruneAgainst(db, rows, existing, "obf");
   console.log(
     `  ${prune.stale.length} name(s) from an earlier run are no longer produced: ` +
       `${prune.remove.length} unused, ${prune.demote.length} still used by a product` +
       (PRUNE ? "" : " (pass --prune to clear them)")
   );
   for (const name of prune.demote.slice(0, 20)) console.log(`    still used: ${name}`);
-  if (PRUNE && prune.tooMany) {
-    throw new Error(
-      `${prune.stale.length} stale names is more than ${MAX_STALE_SHARE * 100}% of the OBF rows. ` +
-        "That looks like a cut-short download, not a clean-up. Nothing written."
-    );
-  }
+  if (PRUNE) assertNotTooMany(prune, "OBF");
 
   if (DRY_RUN) {
     console.log("\n--dry-run: nothing written.");
@@ -418,24 +379,7 @@ async function main() {
 
   if (!PRUNE) return;
 
-  await inBatches(prune.demote, 200, async (batch) => {
-    const { error } = await db
-      .from("ingredients")
-      .update({ verified: false, source: "unmatched", safety: "safe", functions: [], cas_number: null, note: STUB_NOTE })
-      .in("inci_name", batch)
-      .eq("source", "obf");
-    if (error) throw new Error(error.message);
-  });
-  let removed = 0;
-  await inBatches(prune.remove, 200, async (batch) => {
-    // Read uses again: a scan may have started using one since the plan.
-    const nowUsed = new Set((await usesOf(db, batch)).map((row) => row.inci_name));
-    const safe = batch.filter((name) => !nowUsed.has(name));
-    if (safe.length === 0) return;
-    const { error } = await db.from("ingredients").delete().in("inci_name", safe).eq("source", "obf");
-    if (error) throw new Error(error.message);
-    removed += safe.length;
-  });
+  const removed = await applyPrune(db, prune, "obf");
   console.log(`Pruned: ${removed} deleted, ${prune.demote.length} returned to unverified.`);
 }
 
@@ -458,7 +402,7 @@ function invokedDirectly() {
   }
 }
 
-export { normaliseDictionaryName, planPrune, planWrites, safetyFrom, toRows };
+export { normaliseDictionaryName, planWrites, safetyFrom, toRows };
 
 if (invokedDirectly()) {
   main().catch((err) => {
