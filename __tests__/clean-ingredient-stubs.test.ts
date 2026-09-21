@@ -149,6 +149,15 @@ describe("plannedDeletions", () => {
 
     expect([...plannedDeletions(stubs, variants, uses)].sort()).toEqual(["glycérine", "old unknown"]);
   });
+
+  it("also deletes a confirmed non-ingredient a product still carries", () => {
+    const stubs = ["ingredients", "used unknown"];
+    const uses = [
+      { product_id: "p1", inci_name: "ingredients", position: 0 },
+      { product_id: "p1", inci_name: "used unknown", position: 1 },
+    ];
+    expect([...plannedDeletions(stubs, new Map(), uses, new Set(["ingredients"]))]).toEqual(["ingredients"]);
+  });
 });
 
 describe("classifyStub", () => {
@@ -197,6 +206,20 @@ describe("classifyStub", () => {
     ]);
     expect(classifyStub("caprylic triglyceride", dictionary, broadAliases)).toBeNull();
     expect(classifyStub("lemongrass oil", dictionary, broadAliases)).toBeNull();
+  });
+
+  it("marks text a person confirmed is packaging as not an ingredient, apart from rule-found junk", () => {
+    expect(classifyStub("ingredients", known, aliases)).toEqual({ kind: "not-ingredient" });
+    expect(classifyStub("korea distribuitor: promo plus srl", known, aliases)).toEqual({ kind: "not-ingredient" });
+  });
+
+  it("stores water written on its own under the same name as every other product's water", () => {
+    // "eau" can be a verified dictionary name in its own right; the stub still
+    // belongs with "aqua", like "aqua / water / eau" does.
+    const dictionary = new Set([...known, "eau"]);
+    expect(classifyStub("eau)", dictionary, aliases)).toEqual({ kind: "variant", target: "aqua" });
+    expect(classifyStub("agua", dictionary, aliases)).toEqual({ kind: "variant", target: "aqua" });
+    expect(classifyStub("eau thermale", dictionary, aliases)).toBeNull();
   });
 
   it("does not call a long real name junk for its length", () => {

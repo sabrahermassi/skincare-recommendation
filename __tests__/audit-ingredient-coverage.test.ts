@@ -1,4 +1,7 @@
-import { buildLedger, reviewStub, serializeLedger } from "../scripts/audit-ingredient-coverage.mjs";
+import fs from "node:fs";
+import path from "node:path";
+
+import { buildLedger, checkLedger, reviewStub, serializeLedger } from "../scripts/audit-ingredient-coverage.mjs";
 
 const known = new Set([
   "aqua",
@@ -92,5 +95,63 @@ describe("buildLedger", () => {
     });
     expect(ledger.inventoryHash).toMatch(/^[a-f0-9]{64}$/);
     expect(JSON.parse(serializeLedger(ledger))).toEqual(ledger);
+  });
+
+  it("names only sources that an import script actually loads", () => {
+    const ledger = buildLedger({ verifiedCount: 0, known, aliases, stubs: [], uses: [] });
+    expect(ledger.policy.checkedSources.join(" ")).not.toMatch(/MFDS/);
+  });
+});
+
+describe("checkLedger", () => {
+  const snapshot = (uses: { product_id: string; position: number; inci_name: string }[]) =>
+    buildLedger({
+      verifiedCount: known.size,
+      known,
+      aliases,
+      generatedAt: "2026-09-21T00:00:00.000Z",
+      stubs: [
+        { inci_name: "glycérine", source: "unmatched" },
+        { inci_name: "iron oxides", source: "unmatched" },
+      ],
+      uses,
+    });
+  const use = (product: string, name: string) => ({ product_id: product, position: 1, inci_name: name });
+
+  it("accepts a ledger that matches the live catalogue", () => {
+    const uses = [use("p1", "glycérine"), use("p1", "iron oxides")];
+    expect(checkLedger(snapshot(uses), snapshot(uses))).toEqual([]);
+  });
+
+  it("is not made stale by a use count moving, only by a decision changing", () => {
+    const before = snapshot([use("p1", "glycérine"), use("p1", "iron oxides")]);
+    const moreUses = snapshot([use("p1", "glycérine"), use("p1", "iron oxides"), use("p2", "iron oxides")]);
+    expect(checkLedger(before, moreUses)).toEqual([]);
+
+    // "glycérine" is no longer used by anything, so its decision becomes remove-unused.
+    const unused = snapshot([use("p1", "iron oxides")]);
+    expect(checkLedger(before, unused)).toEqual([expect.stringMatching(/stale/)]);
+  });
+
+  it("catches an entry edited by hand while the stored hash was left alone", () => {
+    const live = snapshot([use("p1", "glycérine"), use("p1", "iron oxides")]);
+    const edited = {
+      ...live,
+      entries: live.entries.map((entry: { name: string }) =>
+        entry.name === "iron oxides" ? { ...entry, decision: "normalize", target: "ci 77491" } : entry
+      ),
+    };
+    expect(checkLedger(edited, live)).toEqual([
+      expect.stringMatching(/edited without --write/),
+      expect.stringMatching(/stale/),
+    ]);
+  });
+
+  it("holds for the committed ledger: its entries give its own hash", () => {
+    const committed = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "..", "docs", "ingredient-stub-review.json"), "utf8")
+    );
+    expect(checkLedger(committed, { inventoryHash: committed.inventoryHash })).toEqual([]);
+    expect(JSON.stringify(committed)).not.toMatch(/MFDS/);
   });
 });

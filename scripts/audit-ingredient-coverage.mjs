@@ -6,7 +6,10 @@
  * it does not prove which INCI entry it means. This audit therefore never
  * promotes a stub by frequency.
  *
- * The generated ledger is deliberately conservative. A name is either:
+ * The ledger is sorted by rule, not read name by name: only the two short lists
+ * in `clean-ingredient-stubs.mjs` (`AMBIGUOUS_STUB_NAMES`,
+ * `CONFIRMED_NOT_INGREDIENTS`) were decided by a person. It is deliberately
+ * conservative. A name is either:
  *
  *   - normalised to an already verified name by the existing cleanup rules;
  *   - removable because it is unused or is not an ingredient name;
@@ -32,31 +35,22 @@ import { fetchAliases } from "./lib/aliases.mjs";
 import { parseInci } from "./lib/inci-parse.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
+// Beside the document that explains it, not in `data/`: that folder is the
+// app's data seam, and no app code reads this file.
 function defaultLedgerPath() {
-  return fileURLToPath(new URL("../data/ingredient-stub-review.json", import.meta.url));
+  return fileURLToPath(new URL("../docs/ingredient-stub-review.json", import.meta.url));
 }
-
-/** Reviewed source fragments that contain no ingredient identity at all. */
-const CONFIRMED_NOT_INGREDIENTS = new Set([
-  "120-2563",
-  "19g proprietati: extractul de orez întăreşte bariera pielii",
-  "but better dincidecoder the skincare ingredients with the most google searches > eng 6:04 pm cd \\9/20/2126",
-  "ingredients",
-  "korea distribuitor: promo plus srl",
-  "missha airy fit sheet mask ean 8809581454804 missha - masca cu extract de orez pentru ten radiant airy fit",
-  "netezeşte şi catifelează tenul. mod de utilizare: aplică masca pe tenul curat si dupà toner",
-  "public interest&quot",
-  "spatele ambalajului. producator: able c&c",
-]);
 
 const REASONS = Object.freeze({
   normalize: "A conservative spelling/alias rule resolves this to one verified dictionary name.",
   removeUnused: "No product references this unverified stub; it can be removed without changing a formula.",
-  removeNonIngredient: "The text fails the ingredient-name checks and is packaging text, prose, or a code.",
+  removeNonIngredient:
+    "A person read this text and confirmed it names no ingredient; the cleanup drops it from the products that carry it.",
   invalidSourceText: "The source text is corrupted or mixes an ingredient with non-INCI text, so no safe identity can be assigned.",
   multiple: "The text contains more than one verified ingredient, so collapsing it to one name would lose data.",
   ambiguous: "The wording can mean more than one ingredient or omits the part needed for a safe identity match.",
-  noMatch: "No single safe match exists in the checked CosIng/OBF/MFDS dictionary or CAS-backed synonym table.",
+  noMatch:
+    "Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text.",
 });
 
 /**
@@ -75,11 +69,11 @@ function reviewStub({ name, source, uses }, known, aliases) {
     return { name, source, uses, decision: "leave-unmapped-ambiguous", reason: REASONS.ambiguous };
   }
 
-  if (CONFIRMED_NOT_INGREDIENTS.has(name)) {
+  const classified = classifyStub(name, known, aliases);
+  if (classified?.kind === "not-ingredient") {
     return { name, source, uses, decision: "remove-non-ingredient", reason: REASONS.removeNonIngredient };
   }
 
-  const classified = classifyStub(name, known, aliases);
   if (classified?.kind === "variant") {
     return {
       name,
@@ -114,6 +108,39 @@ function reviewStub({ name, source, uses }, known, aliases) {
   return { name, source, uses, decision: "leave-unmapped-no-authoritative-match", reason: REASONS.noMatch };
 }
 
+/**
+ * The fingerprint of what was decided: each name, where it came from, and its
+ * decision. Use counts are left out on purpose. They move with every scan, and a
+ * name's count changing from 2 to 3 changes no decision; a count reaching or
+ * leaving zero does, and that shows up as the decision changing.
+ */
+function inventoryHashOf(entries) {
+  const material = [...entries]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(({ name, source, decision, target }) => ({ name, source, decision, ...(target ? { target } : {}) }));
+  return createHash("sha256").update(JSON.stringify(material)).digest("hex");
+}
+
+/**
+ * What is wrong with the committed ledger, as sentences; empty when nothing is.
+ * Two separate questions: does the file still agree with its own hash (an entry
+ * edited by hand without `--write` does not), and does it still describe the
+ * live catalogue.
+ */
+function checkLedger(recorded, live) {
+  const problems = [];
+  const recomputed = inventoryHashOf(recorded.entries ?? []);
+  if (recomputed !== recorded.inventoryHash) {
+    problems.push(
+      `The committed ledger's entries do not match its own hash (recorded ${recorded.inventoryHash}, entries give ${recomputed}): it was edited without --write.`
+    );
+  }
+  if (recomputed !== live.inventoryHash) {
+    problems.push(`Review ledger is stale: committed entries give ${recomputed}, live ${live.inventoryHash}.`);
+  }
+  return problems;
+}
+
 function buildLedger({ verifiedCount, stubs, uses, known, aliases, generatedAt = new Date().toISOString() }) {
   const useCounts = new Map();
   for (const row of uses) useCounts.set(row.inci_name, (useCounts.get(row.inci_name) ?? 0) + 1);
@@ -134,14 +161,7 @@ function buildLedger({ verifiedCount, stubs, uses, known, aliases, generatedAt =
       .map((decision) => [decision, entries.filter((entry) => entry.decision === decision).length])
   );
   const usedEntries = entries.filter((entry) => entry.uses > 0);
-  const material = entries.map(({ name, source, uses, decision, target }) => ({
-    name,
-    source,
-    uses,
-    decision,
-    ...(target ? { target } : {}),
-  }));
-  const inventoryHash = createHash("sha256").update(JSON.stringify(material)).digest("hex");
+  const inventoryHash = inventoryHashOf(entries);
 
   return {
     schemaVersion: 1,
@@ -152,7 +172,6 @@ function buildLedger({ verifiedCount, stubs, uses, known, aliases, generatedAt =
       checkedSources: [
         "EU CosIng-derived ingredient inventory",
         "Open Beauty Facts ingredient taxonomy",
-        "MFDS ingredient data",
         "CAS-joined Wikidata synonym table",
       ],
     },
@@ -219,9 +238,9 @@ async function main() {
   const ledgerPath = defaultLedgerPath();
 
   if (process.argv.includes("--check")) {
-    const recorded = JSON.parse(readFileSync(ledgerPath, "utf8"));
-    if (recorded.inventoryHash !== ledger.inventoryHash) {
-      console.error(`Review ledger is stale: recorded ${recorded.inventoryHash}, live ${ledger.inventoryHash}.`);
+    const problems = checkLedger(JSON.parse(readFileSync(ledgerPath, "utf8")), ledger);
+    if (problems.length > 0) {
+      for (const problem of problems) console.error(problem);
       process.exit(1);
     }
     console.log("Review ledger matches the live unverified-name inventory.");
@@ -243,7 +262,7 @@ function invokedDirectly() {
   }
 }
 
-export { AMBIGUOUS_STUB_NAMES, CONFIRMED_NOT_INGREDIENTS, REASONS, buildLedger, reviewStub, serializeLedger };
+export { buildLedger, checkLedger, reviewStub, serializeLedger };
 
 if (invokedDirectly()) {
   main().catch((error) => {

@@ -12,7 +12,7 @@ error or broad name such as `iron oxides` can still map to several different
 INCI entries, and choosing one would attach the wrong safety record. `verified`
 continues to mean matched to a checked source. The complete 21 September 2026
 decision and per-name ledger are in `docs/ingredient-coverage.md` and
-`data/ingredient-stub-review.json`.
+`docs/ingredient-stub-review.json`.
 
 ## Routing
 
