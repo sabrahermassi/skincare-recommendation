@@ -5,7 +5,9 @@
  *   node scripts/import-inci-dictionary.mjs --dry-run
  *   node scripts/import-inci-dictionary.mjs
  *
- * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY unless --dry-run.
+ * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY unless --dry-run, and
+ * SUPABASE_ENV=staging or production for the write — production also requires
+ * --prod on the command line.
  *
  * WHY NOT COSING DIRECTLY: CosIng's site is a single-page app whose export
  * only exists as a button behind its own session — every REST path returns the

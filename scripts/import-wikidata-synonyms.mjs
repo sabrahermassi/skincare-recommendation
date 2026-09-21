@@ -22,7 +22,8 @@
  *   node scripts/import-wikidata-synonyms.mjs
  *   node scripts/import-wikidata-synonyms.mjs --limit 500   # smaller slice
  *
- * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
+ * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, and, for a run without
+ * --dry-run, SUPABASE_ENV=staging or production — production also requires --prod.
  */
 
 import { connect } from "./lib/db.mjs";

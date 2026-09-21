@@ -30,7 +30,8 @@
  * Nothing needs to be remembered between runs beyond what's already on the
  * table.
  *
- * Run (needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY):
+ * Run (needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY even for --dry-run, and
+ * SUPABASE_ENV without it — plus --prod if that is production):
  *   node scripts/reconcile-obf.mjs --dry-run
  *   node scripts/reconcile-obf.mjs
  *   node scripts/reconcile-obf.mjs --dry-run --limit 20

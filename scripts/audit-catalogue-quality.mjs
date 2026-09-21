@@ -31,7 +31,8 @@
  * `import-obf.mjs` and `import-dailymed.mjs` set the precedent of requiring
  * the service key even for a read-only dry run rather than quietly reading
  * through the anon key, and deleting confirmed-junk products needs it
- * regardless):
+ * regardless; `--delete-junk-products` writes, so it also needs SUPABASE_ENV
+ * set, and `--prod` on the command line as well if that is production):
  *
  *   node scripts/audit-catalogue-quality.mjs                     # report only
  *   node scripts/audit-catalogue-quality.mjs --delete-junk-products

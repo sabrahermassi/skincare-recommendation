@@ -17,7 +17,8 @@
  * carrying a broad catch-all type would come out differently, nearly all of
  * them lip products that `spf`/`cream` had claimed first.
  *
- * Run (needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY):
+ * Run (needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY even for --dry-run, and
+ * SUPABASE_ENV without it — plus --prod if that is production):
  *   node scripts/reclassify-from-tags.mjs --dry-run
  *   node scripts/reclassify-from-tags.mjs
  *   node scripts/reclassify-from-tags.mjs --dry-run --limit 60

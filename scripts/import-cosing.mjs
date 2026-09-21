@@ -27,7 +27,9 @@
  * script expects. Update the SHA (and the note above) if a fresher export is
  * ever adopted.
  *
- * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY unless --dry-run.
+ * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY unless --dry-run, and
+ * SUPABASE_ENV=staging or production for the write — production also requires
+ * --prod on the command line.
  */
 
 import { readFileSync } from "node:fs";

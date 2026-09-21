@@ -47,7 +47,8 @@
  * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, including for --dry-run —
  * same reasoning as import-obf.mjs: the numbers a dry run prints should be
  * the numbers a real run would write, and reading the actual table needs the
- * same credentials either way.
+ * same credentials either way. Writing needs SUPABASE_ENV=staging or
+ * production on top of them, and --prod as well for production.
  */
 
 import { realpathSync } from "node:fs";

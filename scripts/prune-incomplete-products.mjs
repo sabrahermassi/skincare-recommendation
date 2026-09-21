@@ -11,7 +11,8 @@
  * dry run lists what would go, by source and reason, so it can be read before
  * it is run for real.
  *
- * Run (needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY):
+ * Run (needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY, and SUPABASE_ENV too
+ * once --apply makes it a write — plus --prod if that is production):
  *   node scripts/prune-incomplete-products.mjs            # dry run: counts and a sample
  *   node scripts/prune-incomplete-products.mjs --apply    # delete them
  *

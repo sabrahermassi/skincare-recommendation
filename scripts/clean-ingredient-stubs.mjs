@@ -15,7 +15,8 @@
  *
  * Prints the whole plan first and writes nothing unless run with --apply.
  * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the shell, as the other
- * dictionary scripts do.
+ * dictionary scripts do, plus SUPABASE_ENV once --apply turns it into a write
+ * (and --prod alongside it if that environment is production).
  *
  *   node scripts/clean-ingredient-stubs.mjs            # print the plan
  *   node scripts/clean-ingredient-stubs.mjs --apply    # do it

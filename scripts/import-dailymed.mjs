@@ -20,7 +20,8 @@
  * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, including for --dry-run —
  * same reason as the OBF importer: the plausibility gate judges a parsed
  * formula against the live dictionary, so without it the count a dry run
- * prints is not the count a real run writes.
+ * prints is not the count a real run writes. A real run additionally needs
+ * SUPABASE_ENV=staging or production, and --prod as well to write production.
  *
  * Needs migration 0013 applied. `product_source` has no 'dailymed' value
  * before it, and every write fails on an enum violation.

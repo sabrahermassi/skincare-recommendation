@@ -13,7 +13,9 @@
  * unlike every other importer here. The plausibility gate below judges a parsed
  * formula against the live `ingredients` dictionary, so without credentials
  * there is no gate, and the count a dry run prints would not be the count a
- * real run writes. That count is the whole point of the dry run.
+ * real run writes. That count is the whole point of the dry run. The real run
+ * additionally needs SUPABASE_ENV=staging or production, and --prod as well to
+ * write production.
  *
  * Plain .mjs rather than .ts on purpose: these are throwaway operator tools,
  * not shipped code, and this way they need no build step and no new devDeps.
