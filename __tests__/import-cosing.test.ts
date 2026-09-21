@@ -66,6 +66,11 @@ describe("toIngredients", () => {
     expect([...retired].sort()).toEqual(["poly", "potassium olivoyl"]);
   });
 
+  it("also names a name the old rule left with a stray bracket and no opening one", () => {
+    const { retired } = toIngredients([record("TETRAHYDRO-METHYLPROPYL)-PYRAN-4-OL")]);
+    expect([...retired]).toEqual(["tetrahydro-methylpropyl)-pyran-4-ol"]);
+  });
+
   it("counts the same ingredient listed twice as one owner of its label spelling", () => {
     const produced = names([record("TRIS(NONYLPHENYL)PHOSPHITE"), record("TRIS(NONYLPHENYL)PHOSPHITE")]);
     expect(produced).toContain("tris phosphite");

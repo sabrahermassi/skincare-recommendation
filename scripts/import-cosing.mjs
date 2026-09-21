@@ -158,10 +158,15 @@ function findColumn(header, ...patterns) {
 function toIngredients(records, sharedElsewhere = new Set()) {
   const byName = new Map();
   const labelForms = new Map(); // what a scanned label would ask for → the names that read that way
+  const oldRuleNames = new Set(); // what the label parser's rule made of every name here
   let skipped = 0;
 
   for (const record of records) {
-    const name = normaliseDictionaryName(record.name ?? "");
+    const raw = record.name ?? "";
+    const oldName = normalise(raw);
+    if (oldName.length >= 2) oldRuleNames.add(oldName);
+
+    const name = normaliseDictionaryName(raw);
     if (name.length < 2) {
       skipped += 1;
       continue;
@@ -177,9 +182,8 @@ function toIngredients(records, sharedElsewhere = new Set()) {
       // glossary and a regulatory annex list, not a hazard rating. Inventing
       // one here would be fabricating the exact data the app is judged on.
     });
-    if (record.name.includes("(")) {
-      const form = normalise(record.name);
-      if (form.length >= 2) labelForms.set(form, (labelForms.get(form) ?? new Set()).add(name));
+    if (raw.includes("(") && oldName.length >= 2) {
+      labelForms.set(oldName, (labelForms.get(oldName) ?? new Set()).add(name));
     }
   }
 
@@ -191,10 +195,11 @@ function toIngredients(records, sharedElsewhere = new Set()) {
     byName.set(form, { ...byName.get(owner), inci_name: form });
   }
 
-  // Shortened spellings the old naming rule wrote for this file and this one
-  // does not. They are all --prune may clear: a name merely missing from this
-  // file was written from a different export, and is still a real ingredient.
-  const retired = new Set([...labelForms.keys()].filter((form) => !byName.has(form)));
+  // Every name the old rule wrote for this file that this one does not: the
+  // shortened spellings, and names with a stray bracket. They are all --prune
+  // may clear: a name merely missing from this file was written from a
+  // different export, and is still a real ingredient.
+  const retired = new Set([...oldRuleNames].filter((name) => !byName.has(name)));
 
   return { parsed: [...byName.values()], retired, skipped };
 }
