@@ -8,6 +8,7 @@ import {
   rungFor,
   SCORE_BANDS,
   scoreExplanation,
+  type MatchResult,
 } from "@/lib/matching";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
@@ -228,6 +229,38 @@ describe("verdict engine", () => {
     };
   }
 
+  function resultAt(
+    score: number,
+    breakdown: Partial<MatchResult["breakdown"]> = {}
+  ): MatchResult {
+    const seed = matchProduct(
+      synthetic(["water", "glycerin", "xanthan gum"]),
+      profile({ baseSkinType: "normal" })
+    );
+    const verdict =
+      score >= SCORE_BANDS.excellent
+        ? "excellent"
+        : score >= SCORE_BANDS.good
+          ? "good"
+          : score >= SCORE_BANDS.fair
+            ? "fair"
+            : "poor";
+
+    return {
+      ...seed,
+      score,
+      verdict,
+      warnings: [],
+      breakdown: {
+        concernFit: 50,
+        typeFit: 50,
+        irritationPenalty: 0,
+        porePenalty: 0,
+        ...breakdown,
+      },
+    };
+  }
+
   const FILLER = ["water", "butylene glycol", "glycerin", "1,2-hexanediol", "xanthan gum"];
 
   /**
@@ -383,6 +416,72 @@ describe("verdict engine", () => {
       const unscored = matchProduct(synthetic(["water", "glycerin"]), EMPTY_PROFILE);
       expect(unscored.score).toBeNull();
       expect(scoreExplanation(unscored)).toEqual([]);
+    });
+
+    it.each([
+      [0, "poor", "down"],
+      [59, "poor", "down"],
+      [60, "fair", null],
+      [74, "fair", null],
+      [75, "good", "up"],
+      [89, "good", "up"],
+      [90, "excellent", "up"],
+      [100, "excellent", "up"],
+    ] as const)(
+      "keeps a score of %i consistent with its %s explanation",
+      (
+        score: number,
+        _verdict: "poor" | "fair" | "good" | "excellent",
+        requiredDirection: "up" | "down" | null
+      ) => {
+        const lines = scoreExplanation(resultAt(score));
+        if (requiredDirection === null) {
+          // Fair is the mixed middle: with no material factor there is no
+          // invented positive or negative claim.
+          expect(lines).toEqual([]);
+        } else {
+          expect(lines[0]?.direction).toBe(requiredDirection);
+        }
+      }
+    );
+
+    it("does not let a positive factor make a Poor explanation entirely positive", () => {
+      const lines = scoreExplanation(resultAt(59, { concernFit: 90 }));
+      expect(lines[0]).toMatchObject({ label: "Overall match", direction: "down" });
+      expect(lines.some((line) => line.direction === "up")).toBe(true);
+    });
+
+    it("leads a Good explanation with support even when a penalty is the largest factor", () => {
+      const lines = scoreExplanation(
+        resultAt(75, { concernFit: 75, irritationPenalty: 30 })
+      );
+      expect(lines[0]).toMatchObject({ label: "Your concerns", direction: "up" });
+      expect(lines.some((line) => line.direction === "down")).toBe(true);
+    });
+
+    it("names a hazard cap before otherwise positive evidence", () => {
+      const product = synthetic(["water", "isopropyl myristate", "glycerin"]);
+      const result = resultAt(45, { concernFit: 90 });
+      result.warnings = [
+        {
+          ingredient: product.ingredients[1],
+          reason: "Flagged as best avoided",
+          severity: "hazard",
+        },
+      ];
+
+      expect(scoreExplanation(result)[0]).toMatchObject({
+        label: "Safety warning",
+        direction: "down",
+      });
+    });
+
+    it("does not present neutral concern evidence as positive", () => {
+      expect(scoreExplanation(resultAt(60, { concernFit: 50 }))).toEqual([]);
+      expect(scoreExplanation(resultAt(75, { concernFit: 50 }))[0]).toMatchObject({
+        label: "Overall match",
+        direction: "up",
+      });
     });
 
     it("reports lower confidence for a formula it mostly could not read", () => {
