@@ -12,15 +12,21 @@
 -- "scan the barcode too?" follow-up (0015) has no purpose and goes.
 --
 -- This is 0021's function (the `p_parser_refresh` argument included) with the
--- three refusals added; the signature is unchanged, so `create or replace` keeps
--- the grants 0021 restated (service_role only).
+-- three refusals added, and one new argument, `p_insert_only`: `label-ocr` saves
+-- with it, so a product that already has ingredients is kept as it is instead of
+-- being replaced by whoever saves the same barcode next. Two saves racing on one
+-- barcode are serialised by a per-barcode advisory lock, so the second one sees
+-- the first one's product and leaves it. A new argument changes the signature, so
+-- this is a drop and recreate (as in 0021), with the grants restated.
 --
 -- Deleting the existing incomplete rows is scripts/prune-incomplete-products.mjs,
 -- run by hand after reading its dry run; this migration only stops new ones.
 
 drop table if exists scan_tokens;
 
-create or replace function replace_product_with_ingredients(
+drop function replace_product_with_ingredients(jsonb, jsonb, text, timestamptz, boolean);
+
+create function replace_product_with_ingredients(
   p_product     jsonb,
   -- [{ "inci_name": text, "position": int }, ...] — already deduped by the
   -- caller, so positions are unique.
@@ -31,7 +37,10 @@ create or replace function replace_product_with_ingredients(
   p_formula_changed_at timestamptz default null,
   -- True when the new list differs from the stored one only because the parser
   -- improved. Suppresses auto-detection for this write.
-  p_parser_refresh boolean default false
+  p_parser_refresh boolean default false,
+  -- True to leave alone a product (same id or same barcode) that already has
+  -- ingredients, writing nothing. False replaces, as every importer expects.
+  p_insert_only boolean default false
 )
 returns void
 language plpgsql
@@ -61,6 +70,20 @@ begin
   end if;
   if p_ingredients is null or jsonb_typeof(p_ingredients) <> 'array' or jsonb_array_length(p_ingredients) = 0 then
     raise exception 'a product needs an ingredient list';
+  end if;
+
+  if p_insert_only then
+    -- One writer at a time per barcode: without this, two saves that both looked
+    -- and found nothing would both write, the later replacing the earlier.
+    perform pg_advisory_xact_lock(hashtext(p_product ->> 'barcode'));
+    if exists (
+      select 1
+        from products p
+        join product_ingredients pi on pi.product_id = p.id
+       where p.id = v_id or p.barcode = p_product ->> 'barcode'
+    ) then
+      return;
+    end if;
   end if;
 
   select exists(select 1 from products where id = v_id) into v_product_existed;
@@ -118,3 +141,10 @@ begin
     from jsonb_to_recordset(p_ingredients) as i(inci_name text, position smallint);
 end;
 $$;
+
+-- Restated for the new signature: a function recreated without them would be
+-- executable by anon over PostgREST (docs/threat-model.md §1).
+revoke all on function replace_product_with_ingredients(jsonb, jsonb, text, timestamptz, boolean, boolean)
+  from public, anon, authenticated;
+grant execute on function replace_product_with_ingredients(jsonb, jsonb, text, timestamptz, boolean, boolean)
+  to service_role;

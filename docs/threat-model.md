@@ -102,8 +102,11 @@ second table is planned; if that ever changes, it gets its own row.
   (`used_read_tokens`, migration 0023) and any later save with it is refused, so
   one read cannot be replayed into many catalogue entries. It is deliberately not
   bound to a barcode — the barcode is asked for after the photo — so the one save
-  it allows can go under any barcode nobody has claimed yet. Accepted: the list
-  is still a real read, and an existing entry is never replaced by a later save.
+  it allows can go under any barcode nobody has claimed yet. The list is
+  still a real read, and an existing entry is never replaced by a later save:
+  `label-ocr` saves insert-only, and the database function leaves a product that
+  already has ingredients alone, serialising two saves on one barcode with an
+  advisory lock.
 
   **What happens to the image once it's there (issue #16).** This was an
   open question — `.claude/claude-security-guidance.md`'s AI/LLM section says

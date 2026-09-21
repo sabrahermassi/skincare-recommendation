@@ -420,6 +420,9 @@ async function saveProduct(
     p_product: product,
     p_ingredients: parsed,
     p_stub_note: "Read from a label, not matched to the ingredient dictionary.",
+    // Leave a product that already has ingredients as it is: another person may have
+    // saved this barcode since the check above, and the database serialises that race.
+    p_insert_only: true,
   });
   if (persistError) {
     console.error("replace_product_with_ingredients failed:", persistError);
@@ -432,7 +435,9 @@ async function saveProduct(
   const { data, error: readbackError } = await db
     .from("products")
     .select(PRODUCT_SELECT)
-    .eq("id", product.id)
+    // By barcode, not id: when a save was refused because the barcode already had a
+    // product, that product may not carry this id.
+    .eq("barcode", barcode)
     .maybeSingle();
   if (readbackError || !data) {
     console.error("post-write readback failed:", readbackError);
