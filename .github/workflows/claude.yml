@@ -27,13 +27,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 1
+          # Full history rather than the latest commit: a review reads the diff
+          # against the base branch, which a shallow clone cannot produce.
+          fetch-depth: 0
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Applies to review requests only, so "@claude review this PR" on its
-          # own gets the terse shape without the instructions being retyped
-          # every time. Any other request — fix this, explain that — is
-          # untouched and still answers normally.
+          # Points a bare "@claude review this PR" at a written contract, so
+          # the shape does not have to be retyped into every mention. Reviews
+          # stay manual — nothing here runs on its own. Any other request —
+          # fix this, explain that — is untouched and answers normally.
           claude_args: |
-            --append-system-prompt "When asked to review a pull request: report only defects — bugs, broken edge cases, security problems, tests that do not exercise what they claim. Post each one as an inline comment on the line it concerns. Do not write a summary report, do not list what is correct, do not restate what the code does, do not suggest refactors or stylistic changes. Find nothing, reply 'No issues found.' and stop. This governs reviews only; answer every other request normally."
+            --append-system-prompt "When asked to review a pull request, follow .claude/skills/pr-review/SKILL.md exactly. It governs reviews only; answer every other request normally."
