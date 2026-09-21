@@ -1,4 +1,4 @@
-import { normaliseDictionaryName, planWrites, safetyFrom, sharedLabelForms, toRows } from "../scripts/import-inci-dictionary.mjs";
+import { fetchTaxonomy, normaliseDictionaryName, planWrites, safetyFrom, sharedLabelForms, toRows } from "../scripts/import-inci-dictionary.mjs";
 import { planPrune } from "../scripts/lib/prune-stale.mjs";
 
 describe("safetyFrom", () => {
@@ -126,6 +126,28 @@ describe("dictionary-name normalisation", () => {
     const rows = toRows(Object.fromEntries(order.map((key) => [key, entries[key]])));
     const fragrance = rows.find((row: { inci_name: string }) => row.inci_name === "fragrance");
     expect(fragrance.functions).toEqual(["masking"]);
+  });
+});
+
+describe("fetchTaxonomy", () => {
+  const realFetch = global.fetch;
+  const answer = (url: string) =>
+    jest.fn().mockResolvedValue({ ok: true, url, json: async () => ({ "en:water": {} }) }) as unknown as typeof fetch;
+
+  beforeEach(() => jest.spyOn(console, "log").mockImplementation(() => {}));
+  afterEach(() => {
+    global.fetch = realFetch;
+    jest.restoreAllMocks();
+  });
+
+  it("refuses a download that was redirected to plain http", async () => {
+    global.fetch = answer("http://static.openbeautyfacts.org/data/taxonomies/ingredients.json");
+    await expect(fetchTaxonomy()).rejects.toThrow("non-HTTPS");
+  });
+
+  it("returns the taxonomy when the download stayed on https", async () => {
+    global.fetch = answer("https://static.openbeautyfacts.org/data/taxonomies/ingredients.json");
+    await expect(fetchTaxonomy()).resolves.toEqual({ "en:water": {} });
   });
 });
 

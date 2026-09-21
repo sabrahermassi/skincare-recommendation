@@ -131,6 +131,11 @@ async function fetchTaxonomy(file) {
   console.log("Downloading the Open Beauty Facts ingredient taxonomy (~12 MB)…");
   const res = await fetch(TAXONOMY);
   if (!res.ok) throw new Error(`Taxonomy download failed: HTTP ${res.status}`);
+  // Same rule as `read()` in import-cosing: a redirect that lands on plain
+  // http could be swapped in transit, and this file decides safety ratings.
+  if (!res.url.startsWith("https://")) {
+    throw new Error(`refusing a redirect that landed on a non-HTTPS URL: ${res.url}`);
+  }
   return res.json();
 }
 
