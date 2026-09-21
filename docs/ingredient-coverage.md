@@ -22,8 +22,10 @@ Korean MFDS data is not one of them. The schema has had an `mfds` source value
 since the first migration, but no import script has ever loaded it.
 
 `docs/ingredient-stub-review.json` accounts for every unverified name in the
-live catalogue snapshot taken on 21 September 2026: the name, source, number of
-product references, decision, reason, and safe target where one exists.
+live catalogue: the name, source, number of product references, decision,
+reason, and safe target where one exists. It was first taken on 21 September
+2026 and regenerated the same day after the cleanup ran, so it now lists only
+the names that were left.
 
 **It is sorted by rule, not read name by name.** A person decided two short
 lists in `scripts/clean-ingredient-stubs.mjs` — the 12 ambiguous names and the 9
@@ -40,7 +42,7 @@ another look.
 
 ## Snapshot result
 
-The review covered all 929 unverified names present in the snapshot:
+The review covered all 929 unverified names present before the cleanup:
 
 | Decision | Names | Meaning |
 | --- | ---: | --- |
@@ -52,9 +54,13 @@ The review covered all 929 unverified names present in the snapshot:
 | Leave: invalid source text | 7 | Corrupted text may still contain a real ingredient, so it is not deleted or guessed. |
 | Leave: no authoritative match | 376 | No rule matched and no single safe target exists in the checked sources. Not individually read; see above. |
 
-The 487 names still referenced by products account for 547 formula rows. Names
-left unmapped continue to lower confidence in the app; they do not inherit a
-safety rating from a guessed neighbour.
+The cleanup ran against the live catalogue on 21 September 2026 and removed the
+first three groups (442 + 10 + 9 names). The committed ledger holds the 468
+names that remain, every one still used by a product, across 527 formula rows
+(547 before: 10 rows now point at a verified name, 9 packaging rows and 1
+duplicate water row were dropped). Names left unmapped continue to lower
+confidence in the app; they do not inherit a safety rating from a guessed
+neighbour.
 
 Examples of deliberate non-matches are `iron oxides` (several colour indexes),
 `citrus aurantium peel oil` (the plant variety is missing), and `butyrospermum
@@ -79,10 +85,9 @@ the live catalogue. `--write` regenerates the ledger after a person reviews any
 new names or policy changes. Neither changes Supabase.
 
 The ledger is a snapshot, so `--check` is expected to fail once the catalogue
-moves on: after the cleanup below has run (the 442 unused, 10 normalised and 9
-non-ingredient names all go), and whenever a scan
-adds a name the dictionary does not know. That is the signal to read the new
-names and run `--write`, not a fault.
+moves on: whenever a scan adds a name the dictionary does not know, or the
+cleanup below removes some. That is the signal to read the new names and run
+`--write`, not a fault.
 
 The existing cleanup remains dry-run by default. With `--apply`, it repoints
 safe variants, drops the confirmed non-ingredients from the products that carry
@@ -96,6 +101,5 @@ npm run clean:stubs
 npm run clean:stubs -- --apply
 ```
 
-Production cleanup should be run only after the PR is merged and its dry-run
-plan has been checked. The committed ledger records the decision as of the
-snapshot; regenerate it with `--write` once the cleanup has run.
+Run the cleanup only after reading its dry-run plan, then regenerate the ledger
+with `--write` so it describes what is left.
