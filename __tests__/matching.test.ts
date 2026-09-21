@@ -645,6 +645,78 @@ describe("verdict engine", () => {
       expect(result.verdict).toBe("unknown");
     });
 
+    it("scores exactly at the documented evidence floor", () => {
+      // Three identified ingredients out of twelve is exactly 25% coverage:
+      // both refusal boundaries are inclusive, so this is enough to answer.
+      const p = synthetic([
+        "water", "glycerin", "niacinamide", "unknown-1", "unknown-2", "unknown-3",
+        "unknown-4", "unknown-5", "unknown-6", "unknown-7", "unknown-8", "unknown-9",
+      ]);
+      p.ingredients = p.ingredients.map((ingredient, index) => ({
+        ...ingredient,
+        verified: index < 3,
+      }));
+
+      const result = matchProduct(p, profile({ baseSkinType: "dry" }));
+      expect(result.coverage).toBe(0.25);
+      expect(result.score).not.toBeNull();
+      expect(result.unknownReason).toBeUndefined();
+    });
+
+    it("refuses just below 25% coverage even when three ingredients are identified", () => {
+      const p = synthetic([
+        "water", "glycerin", "niacinamide", "unknown-1", "unknown-2", "unknown-3",
+        "unknown-4", "unknown-5", "unknown-6", "unknown-7", "unknown-8", "unknown-9",
+        "unknown-10",
+      ]);
+      p.ingredients = p.ingredients.map((ingredient, index) => ({
+        ...ingredient,
+        verified: index < 3,
+      }));
+
+      const result = matchProduct(p, profile({ baseSkinType: "dry" }));
+      expect(result.coverage).toBeLessThan(0.25);
+      expect(result.score).toBeNull();
+      expect(result.unknownReason).toBe("low_coverage");
+    });
+
+    it("refuses fewer than three identified ingredients even above 25% coverage", () => {
+      const p = synthetic(["water", "glycerin", "unknown"]);
+      p.ingredients[2] = { ...p.ingredients[2], verified: false };
+
+      const result = matchProduct(p, profile({ baseSkinType: "dry" }));
+      expect(result.coverage).toBeGreaterThan(0.25);
+      expect(result.score).toBeNull();
+      expect(result.unknownReason).toBe("low_coverage");
+    });
+
+    it("lets one unknown lower confidence without changing the score", () => {
+      const names = [
+        "water", "glycerin", "niacinamide", "sodium hyaluronate", "panthenol", "mystery blend",
+      ];
+      const allKnown = synthetic(names);
+      const oneUnknown = synthetic(names);
+      oneUnknown.ingredients[5] = { ...oneUnknown.ingredients[5], verified: false };
+      const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+      const knownResult = matchProduct(allKnown, prof);
+      const unknownResult = matchProduct(oneUnknown, prof);
+
+      expect(unknownResult.score).toBe(knownResult.score);
+      expect(unknownResult.confidence).toBeLessThan(knownResult.confidence);
+      expect(unknownResult.verdict).not.toBe("unknown");
+    });
+
+    it("does not crash on blank or proprietary-looking unverified names", () => {
+      const p = synthetic(["water", "glycerin", "niacinamide", "", "Bio-Restore Peptide Blend"]);
+      p.ingredients[3] = { ...p.ingredients[3], verified: false };
+      p.ingredients[4] = { ...p.ingredients[4], verified: false };
+
+      expect(() => matchProduct(p, profile({ baseSkinType: "dry" }))).not.toThrow();
+      const result = matchProduct(p, profile({ baseSkinType: "dry" }));
+      expect(result.score).not.toBeNull();
+      expect(result.coverage).toBe(0.6);
+    });
+
     it("reports coverage so the UI can say how much it read", () => {
       const base = synthetic(["water", "glycerin", "niacinamide", "panthenol"]);
       // Built as a new product rather than edited in place. The old version
