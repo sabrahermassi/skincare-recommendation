@@ -1,8 +1,9 @@
-import { analyseLabel } from "@/data/api";
+import { readLabel } from "@/data/api";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
+import { clearLabelRead, heldLabelRead } from "@/lib/pending-label";
 import { failureCopy, readLabelPhoto } from "@/lib/read-label-photo";
 
-jest.mock("@/data/api", () => ({ analyseLabel: jest.fn() }));
+jest.mock("@/data/api", () => ({ readLabel: jest.fn() }));
 jest.mock("@/lib/image-metadata", () => ({ stripBase64ImageMetadata: jest.fn() }));
 
 // Structural cast rather than `jest.Mock`: the jest namespace is not in scope here (see jest-globals.d.ts).
@@ -11,14 +12,21 @@ type MockFn = {
   mockRejectedValue(value: unknown): void;
   mockReturnValue(value: unknown): void;
 };
-const analyse = analyseLabel as unknown as MockFn;
+const analyse = readLabel as unknown as MockFn;
 const strip = stripBase64ImageMetadata as unknown as MockFn;
 
-const product = { id: "ocr-123" };
-const readOk = (over: Record<string, unknown> = {}) => ({ ok: true, product, recognised: 5, total: 6, ...over });
+const readOk = (over: Record<string, unknown> = {}) => ({
+  ok: true,
+  ingredients: ["water", "glycerin"],
+  recognised: 5,
+  total: 6,
+  readToken: "tok",
+  ...over,
+});
 
 beforeEach(() => {
   jest.clearAllMocks();
+  clearLabelRead();
   strip.mockReturnValue({ ok: true, base64: "CLEAN" });
   jest.spyOn(console, "warn").mockImplementation(() => {});
 });
@@ -29,10 +37,10 @@ beforeEach(() => {
  * and the two permission screens that offer a chosen photo.
  */
 describe("readLabelPhoto", () => {
-  it("sends the cleaned image, never the original, along with the barcode", async () => {
+  it("sends the cleaned image, never the original", async () => {
     analyse.mockResolvedValue(readOk());
     await readLabelPhoto("ORIGINAL", "8801234567890");
-    expect(analyse).toHaveBeenCalledWith("CLEAN", { barcode: "8801234567890" });
+    expect(analyse).toHaveBeenCalledWith("CLEAN");
   });
 
   it("fails closed when the image cannot be cleaned, without sending anything", async () => {
@@ -60,18 +68,16 @@ describe("readLabelPhoto", () => {
     expect(await readLabelPhoto("x")).toMatchObject({ kind: "failed", retryable: true });
   });
 
-  it("opens the product; a barcode-less scan also carries the follow-up offer", async () => {
-    analyse.mockResolvedValue(readOk({ scanToken: "tok" }));
-    expect(await readLabelPhoto("x", "8801234567890")).toEqual({ kind: "result", params: { id: "ocr-123" } });
-    expect(await readLabelPhoto("x")).toEqual({
-      kind: "result",
-      params: { id: "ocr-123", offerBarcode: "1", scanToken: "tok" },
-    });
+  it("holds a good read, with its barcode and proof, for the add-product screen", async () => {
+    analyse.mockResolvedValue(readOk());
+    expect(await readLabelPhoto("x", "8801234567890")).toEqual({ kind: "read" });
+    expect(heldLabelRead()).toEqual({ ingredients: ["water", "glycerin"], readToken: "tok", barcode: "8801234567890" });
   });
 
-  it("offers no follow-up without a token, since there is nothing safe to resolve it with", async () => {
-    analyse.mockResolvedValue(readOk());
-    expect(await readLabelPhoto("x")).toEqual({ kind: "result", params: { id: "ocr-123" } });
+  it("holds nothing when the read fails", async () => {
+    analyse.mockResolvedValue({ ok: false, reason: "unreadable" });
+    await readLabelPhoto("x");
+    expect(heldLabelRead()).toBeNull();
   });
 
   it("turns a failed read into its copy, keeping whether it can be retried", async () => {

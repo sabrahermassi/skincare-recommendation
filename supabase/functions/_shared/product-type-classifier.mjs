@@ -244,34 +244,3 @@ export function looksCosmetic(text) {
   return /beauty|cosmetic|personal care|skin|face|facial|body care|hair care|lotion|cream|crème|creme|serum|cleanser|shampoo|toner|sunscreen|spf|balm|moisturi|nettoyant|reinigings|limpiador|crema|deodorant|antiperspirant/i
     .test(text);
 }
-
-export const MASK_OR_PATCH_TYPES = new Set(MASK_TYPE_PRIORITY);
-
-function hasMaskOrPatchVocabulary(value) {
-  return words(value).some(
-    (token) =>
-      isMaskWord(token) ||
-      token === "patch" ||
-      token === "patches" ||
-      /^(?:eye|pimple|acne|blemish)(?:mask|patch)(?:es)?$/.test(token)
-  );
-}
-
-/**
- * Classify an identity-only hit from the generic UPC database.
- *
- * UPCitemdb contains medical devices, sleep accessories and PPE alongside
- * cosmetics and supplies no ingredients. Mask/patch names cannot be separated
- * reliably on that evidence, so every such candidate becomes a miss and the
- * existing label-photo flow gets the authoritative formula instead. This is a
- * source policy, not another vocabulary allow/deny list.
- *
- * @returns {string | null} an accepted ProductType, or null to reject the hit
- */
-export function classifyBarcodeIdentity(category, title) {
-  const text = `${category ?? ""} ${title ?? ""}`;
-  if (!looksCosmetic(text)) return null;
-  if (hasMaskOrPatchVocabulary(text)) return null;
-  const type = guessType([], text);
-  return MASK_OR_PATCH_TYPES.has(type) ? null : type;
-}

@@ -15,7 +15,7 @@
     "clean:stubs": "node scripts/clean-ingredient-stubs.mjs",
     "import:inci-dictionary": "node scripts/import-inci-dictionary.mjs",
     "import:obf": "node scripts/import-obf.mjs",
-    "import:dailymed": "node scripts/import-dailymed.mjs",
+    "prune:incomplete": "node scripts/prune-incomplete-products.mjs",
     "import:wikidata-synonyms": "node scripts/import-wikidata-synonyms.mjs",
     "reclassify-types": "node scripts/reclassify-types.mjs",
     "reclassify-from-tags": "node scripts/reclassify-from-tags.mjs",

@@ -11,17 +11,20 @@ export type ArrowDirection = "right" | "left" | "up" | "down";
 
 const TURN: Record<ArrowDirection, string> = { right: "0deg", down: "90deg", left: "180deg", up: "270deg" };
 
+/** The default stroke: light. A screen that needs a heavier one passes `strokeWidth`. */
 const STROKE = 1.6;
 
 export function ArrowIcon({
   direction = "right",
   size = 20,
   color,
+  strokeWidth = STROKE,
   style,
 }: {
   direction?: ArrowDirection;
   size?: number;
   color: string;
+  strokeWidth?: number;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
@@ -35,7 +38,7 @@ export function ArrowIcon({
       <Path
         d="M9.5 5.5 16 12l-6.5 6.5"
         stroke={color}
-        strokeWidth={STROKE}
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
       />

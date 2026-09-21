@@ -8,12 +8,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
 import { SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, WINDOW_RADIUS, type Box } from "@/components/ScanViewfinder";
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { coverFitCropRect, type Rect, type Size } from "@/lib/crop-to-guide";
 import { deleteTempFile, pickLabelPhoto } from "@/lib/pick-label-photo";
 import { readLabelPhoto } from "@/lib/read-label-photo";
-import { CAMERA_STAGE, CANVAS, CTA, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The design system (design/DESIGN_SYSTEM.md). The live camera view stays plain
@@ -27,8 +28,9 @@ import { useAppStore } from "@/store/useAppStore";
  * This is the tier that makes scanning viable at all. Open Beauty Facts holds
  * 37 products tagged South Korea against a market of 10,000+ SKUs, so a
  * barcode alone misses nearly everything — but the formula is printed on the
- * box the user is already holding. What we read is written back against the
- * barcode, so nobody has to do it for that product again.
+ * box the user is already holding. Reading stores nothing: the list is handed
+ * on to the add-product screen, which saves it with the barcode and a name so
+ * nobody has to do it for that product again.
  */
 
 type Status =
@@ -41,7 +43,7 @@ type Status =
   | { kind: "failed"; message: string; hint?: string; retryable: boolean };
 
 type Props = {
-  /** Handed over by whoever sent the user here after a miss; the product read is saved under it. */
+  /** Handed over by whoever sent the user here after a miss; the list read is added under it. */
   barcode?: string;
   /**
    * Whether to hold the camera. False while another screen covers this one —
@@ -50,8 +52,8 @@ type Props = {
   active?: boolean;
   /** Shows an X at the top-left when given. */
   onClose?: () => void;
-  /** Called with the result screen's params once a photo has been read. */
-  onResult: (params: { id: string; offerBarcode?: string; scanToken?: string }) => void;
+  /** Called once a photo has been read and its list is being held for the add-product screen. */
+  onRead: () => void;
   /** Room to leave clear at the bottom, e.g. for the scanner's mode switcher. */
   bottomInset?: number;
   /** How far below the safe area the frame starts, to clear whatever sits across the top. */
@@ -72,7 +74,7 @@ export function LabelCamera({
   barcode,
   active = true,
   onClose,
-  onResult,
+  onRead,
   bottomInset,
   frameTopOffset,
   camera: externalCamera,
@@ -205,11 +207,11 @@ export function LabelCamera({
       }
 
       const outcome = await readLabelPhoto(imageBase64, barcode);
-      if (outcome.kind === "result") {
+      if (outcome.kind === "read") {
         // Back to the ready camera before leaving: this screen stays mounted under
-        // the result, so swiping back must find a camera to use, not "Reading…".
+        // the next one, so swiping back must find a camera to use, not "Reading…".
         setStatus({ kind: "framing" });
-        onResult(outcome.params);
+        onRead();
         return;
       }
       setStatus({ kind: "failed", message: outcome.message, hint: outcome.hint, retryable: outcome.retryable });
@@ -253,24 +255,16 @@ export function LabelCamera({
           send the photo to Google Cloud Vision — we crop to the frame first,
           strip location data, and never store the image.
         </Text>
-        <Pressable
+        <PrimaryButton
+          tone="cta"
+          size={52}
+          label="Grant permission"
           // Once the system will not ask again, asking does nothing: send them to
           // settings, where the camera can be turned back on.
           onPress={permission.canAskAgain === false ? () => void Linking.openSettings() : requestPermission}
-          style={{
-            height: 52,
-            paddingHorizontal: 24,
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: 14,
-            backgroundColor: CTA,
-          }}
-          className="active:opacity-90"
-        >
-          <Text style={{ fontSize: 16, fontWeight: "600", color: INK }}>Grant permission</Text>
-        </Pressable>
+        />
         {/* Reading a chosen picture needs no camera, so this is not a dead end. */}
-        <ChoosePhotoInstead barcode={barcode} onResult={onResult} />
+        <ChoosePhotoInstead barcode={barcode} onRead={onRead} />
       </View>
     );
   }

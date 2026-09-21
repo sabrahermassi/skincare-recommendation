@@ -19,7 +19,7 @@ import { isSensitive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, INK, MUTED, MUTED_FAINT, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG's `hero`/pill/panel colors
 // (below) are semantic — the per-ingredient verdict, the point of this
@@ -388,6 +388,7 @@ export default function IngredientDetail() {
             borderWidth: 1,
             borderColor: BORDER_INACTIVE,
             backgroundColor: CANVAS,
+            ...CARD_SHADOW,
             paddingHorizontal: 20,
             paddingVertical: 16,
           }}

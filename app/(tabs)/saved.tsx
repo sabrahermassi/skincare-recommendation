@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { Link, router, useFocusEffect, useScrollToTop } from "expo-router";
 import type { ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -21,7 +21,7 @@ import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
 import { isVerified } from "@/lib/safety";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, DANGER, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
 
 type Tab = SavedTab;
@@ -223,7 +223,7 @@ export default function Saved() {
       </View>
 
       {isEmpty ? (
-        <EmptyState {...EMPTY_COPY[tab]} />
+        <EmptyState tab={tab} />
       ) : tab === "ingredients" ? (
         <IngredientsTab
           key="ingredients"
@@ -437,6 +437,7 @@ function SegmentButton({
         borderWidth: active ? 1.5 : 1,
         borderColor: active ? TERRACOTTA : BORDER_INACTIVE,
         backgroundColor: active ? SELECTED : CANVAS,
+        ...CHIP_SHADOW,
       }}
     >
       <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: "600", color: active ? INK : MUTED }}>
@@ -560,6 +561,7 @@ function UndoBar({ label, onUndo }: { label: string; onUndo: () => void }) {
         backgroundColor: SURFACE,
         paddingHorizontal: 16,
         paddingVertical: 12,
+        ...FLOATING_SHADOW,
       }}
     >
       <Text style={{ fontSize: 13, color: MUTED }}>{label}</Text>
@@ -616,7 +618,7 @@ function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: 
  *
  * `known: true` — a catalogue product that did not come back. The id here is an
  * internal one (`obf-8801234567890`, `hanbang-rice-serum`), and printing it
- * under "Scanned · not in our catalogue" made two false claims at once: that
+ * under "Scanned · we don't have this product" made two false claims at once: that
  * the user had scanned that string, and that the product was never in the
  * catalogue. It was — they opened it, which is why it is in their history.
  * This branch is only reached after a *successful* read (a failed one puts the
@@ -634,7 +636,7 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
       <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
       <View style={{ flex: 1, padding: 13, paddingRight: 36 }}>
         <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
-          {entry.known ? "Opened earlier · no longer in our catalogue" : "Scanned · not in our catalogue"}
+          {entry.known ? "Opened earlier · no longer in our catalogue" : "Scanned · we don't have this product"}
         </Text>
         {/* Only the barcode is shown, and only because it is the user's own
             evidence — it matches the digits printed on the bottle, so they can
@@ -669,7 +671,7 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
           <Pressable
             onPress={() => router.push({ pathname: "/scan-label", params: { barcode: entry.id } })}
             accessibilityRole="button"
-            accessibilityLabel={`Photograph the label for barcode ${entry.id}`}
+            accessibilityLabel={`Photograph the ingredients list for barcode ${entry.id}`}
             hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
             style={{ marginTop: 8, alignSelf: "flex-start" }}
             className="active:opacity-70"
@@ -682,7 +684,7 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
                 textDecorationLine: "underline",
               }}
             >
-              Photograph the label
+              Photograph the ingredients list
             </Text>
           </Pressable>
         )}
@@ -693,6 +695,14 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
     </LiftedCard>
   );
 }
+
+// One picture for each tab's empty state, with its own proportions (width / height)
+// so `contain` never letterboxes it.
+const EMPTY_ART = {
+  saved: { source: require("@/assets/illustrations/saved-empty-shelf.png"), aspect: 1400 / 810 },
+  history: { source: require("@/assets/illustrations/history-empty.png"), aspect: 1400 / 927 },
+  ingredients: { source: require("@/assets/illustrations/ingredients-empty.png"), aspect: 1400 / 855 },
+} as const;
 
 const EMPTY_COPY: Record<Tab, { title: string; body: string; actionLabel: string; actionHref: "/scanner" | "/browse" }> = {
   saved: {
@@ -715,50 +725,125 @@ const EMPTY_COPY: Record<Tab, { title: string; body: string; actionLabel: string
   },
 };
 
-const SAVED_EMPTY_SHELF = require("@/assets/illustrations/saved-empty-shelf.png");
+// Wider than the text block under it (which has 40 either side): these are wide pictures.
+const EMPTY_ART_WIDTH = 340;
+// The picture's box is as tall as the tallest of them, and each is centred in it, so
+// the text under the picture starts at the same place on every tab.
+const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).map((art) => art.aspect));
 
-function EmptyState({
-  title,
-  body,
-  actionLabel,
-  actionHref = "/scanner",
-}: {
-  title: string;
-  body: string;
-  actionLabel?: string;
-  actionHref?: "/scanner" | "/browse";
-}) {
+// How long the pictures cross-fade when the tab changes.
+const EMPTY_FADE_MS = 300;
+const EMPTY_TABS = Object.keys(EMPTY_ART) as Tab[];
+// How the room left over on an empty tab is split above and below its content.
+const EMPTY_SPACE_ABOVE = 0.4;
+const EMPTY_SPACE_BELOW = 0.6;
+
+/**
+ * Whether the person has asked their phone for less motion. `null` until the phone has
+ * answered: callers treat that as "reduce", so no fade plays on a guess.
+ */
+function useReduceMotion(): boolean | null {
+  const [reduce, setReduce] = useState<boolean | null>(null);
+  useEffect(() => {
+    let live = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => live && setReduce(enabled))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+  return reduce;
+}
+
+/**
+ * What an empty tab shows. It stays mounted while the tab changes between the
+ * three empty tabs, so the picture can fade rather than swap: the three pictures
+ * sit on top of each other and cross-fade over EMPTY_FADE_MS. Only the picture
+ * moves: the title, the sentence and the button change in place at once, so they
+ * stay solid on the screen.
+ */
+function EmptyState({ tab }: { tab: Tab }) {
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReduceMotion();
+  const [artOpacity] = useState(
+    () => Object.fromEntries(EMPTY_TABS.map((t) => [t, new Animated.Value(t === tab ? 1 : 0)])) as Record<Tab, Animated.Value>
+  );
+  const previous = useRef<Tab>(tab);
+
+  useEffect(() => {
+    if (previous.current === tab) return;
+    previous.current = tab;
+
+    const useNativeDriver = Platform.OS !== "web";
+    const duration = reduceMotion !== false ? 0 : EMPTY_FADE_MS;
+    const timing = (value: Animated.Value, toValue: number, ms: number) =>
+      Animated.timing(value, { toValue, duration: ms, easing: Easing.inOut(Easing.cubic), useNativeDriver });
+
+    const pictures = Animated.parallel(EMPTY_TABS.map((t) => timing(artOpacity[t], t === tab ? 1 : 0, duration)));
+    pictures.start();
+    return () => pictures.stop();
+  }, [tab, artOpacity, reduceMotion]);
+
+  const { title, body, actionLabel, actionHref } = EMPTY_COPY[tab];
+
   return (
     // Asymmetric flex spacers (0.4/0.6), not `justifyContent: "center"" —
     // a true center split the leftover room evenly above and below, which
     // read as too much empty air above the art specifically. This keeps
     // the block off-center toward the top by a fixed ratio instead, so it
     // scales the same way on any screen height.
-    <View style={{ flex: 1, alignItems: "center", paddingHorizontal: 40 }}>
-      <View style={{ flex: 0.4 }} />
+    // Scrolls only when the art, copy and button do not fit (a short phone, large
+    // text): flexGrow keeps the spacers working on a screen that does fit, and the
+    // bottom room keeps the button clear of the floating tab bar.
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{
+        flexGrow: 1,
+        alignItems: "center",
+        paddingHorizontal: 40,
+        // Room for the tab bar below, and the matching share above, so that on a screen
+        // where everything fits the art sits exactly where it did before the clearance.
+        paddingTop: (tabBarClearance(insets.bottom) * EMPTY_SPACE_ABOVE) / EMPTY_SPACE_BELOW,
+        paddingBottom: tabBarClearance(insets.bottom),
+      }}
+      alwaysBounceVertical={false}
+      overScrollMode="never"
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={{ flex: EMPTY_SPACE_ABOVE }} />
       <View style={{ alignItems: "center", gap: 10 }}>
-        {/* Aspect ratio is the source art's own (1400x892, cropped to
-            content) — matching it keeps `contain` from letterboxing. */}
-        <Image
-          source={SAVED_EMPTY_SHELF}
-          style={{ width: 286, height: 182 }}
-          contentFit="contain"
-          accessibilityLabel=""
-        />
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
-        {/* minHeight reserves room for the longer of the two bodies this
-            renders with (History's wraps to 3 lines at this width, Saved's
-            to 2) — without it, the shorter body made this whole block a
-            few px shorter, and centering a shorter block shifted the art
-            above it a few px lower. Same reserved height on both means the
-            art now lands at the exact same position on both tabs. */}
-        <View style={{ minHeight: 57, justifyContent: "flex-start" }}>
-          <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
+        <View style={{ width: EMPTY_ART_WIDTH, height: EMPTY_ART_HEIGHT }}>
+          {EMPTY_TABS.map((t) => (
+            <Animated.View
+              key={t}
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center", opacity: artOpacity[t] }]}
+            >
+              {/* Aspect ratio is the source art's own (cropped to content), so
+                  `contain` does not letterbox it. */}
+              <Image
+                source={EMPTY_ART[t].source}
+                style={{ width: EMPTY_ART_WIDTH, aspectRatio: EMPTY_ART[t].aspect }}
+                contentFit="contain"
+                accessibilityLabel=""
+              />
+            </Animated.View>
+          ))}
         </View>
-        {/* The one-tap way back to the scanner — without this, an empty
-            Saved/History tab (the near-certain first visit to either) was a
-            dead end you had to know to escape yourself, via the tab bar. */}
-        {actionLabel && (
+        <View style={{ alignItems: "center", gap: 10 }}>
+          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
+          {/* minHeight reserves room for the longest body (History's wraps to 3
+              lines at this width, the others to 2) — without it, a shorter body
+              made this whole block a few px shorter, and centering a shorter
+              block shifted the art above it a few px lower. Same reserved height
+              on every tab means the art lands at the exact same position. */}
+          <View style={{ minHeight: 57, justifyContent: "flex-start" }}>
+            <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
+          </View>
+          {/* The one-tap way back to the scanner — without this, an empty
+              Saved/History tab (the near-certain first visit to either) was a
+              dead end you had to know to escape yourself, via the tab bar. */}
           <PrimaryButton
             tone="cta"
             size={50}
@@ -766,10 +851,10 @@ function EmptyState({
             onPress={() => (actionHref === "/scanner" ? openScanner() : router.push(actionHref))}
             style={{ marginTop: 8 }}
           />
-        )}
+        </View>
       </View>
-      <View style={{ flex: 0.6 }} />
-    </View>
+      <View style={{ flex: EMPTY_SPACE_BELOW }} />
+    </ScrollView>
   );
 }
 

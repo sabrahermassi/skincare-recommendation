@@ -10,7 +10,7 @@ import type { Ingredient } from "@/data/types";
 import { isVerified } from "@/lib/safety";
 import { ruleFor, RUNG_META, rungFor, type Contraindication, type MatchResult, type Rung } from "@/lib/matching";
 import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
-import { BORDER_INACTIVE, CANVAS, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG_META's good/watch/avoid
 // colors are semantic (the per-ingredient verdict, the whole point of this
@@ -63,7 +63,8 @@ export function IngredientTabsList({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 10, paddingHorizontal: 24, paddingTop: 20 }}
+        // Room under the pills for their shade: a scroll view clips what falls outside it.
+        contentContainerStyle={{ gap: 10, paddingHorizontal: 24, paddingTop: 20, paddingBottom: 10 }}
       >
         {TABS.map((label) => {
           const active = tab === label;
@@ -85,6 +86,7 @@ export function IngredientTabsList({
                 borderWidth: active ? 1.5 : 1,
                 borderColor: active ? TERRACOTTA : BORDER_INACTIVE,
                 backgroundColor: active ? SELECTED : CANVAS,
+                ...CHIP_SHADOW,
               }}
             >
               <Text style={{ fontSize: 14.5, fontWeight: "600", color: active ? INK : MUTED }}>
@@ -99,7 +101,7 @@ export function IngredientTabsList({
       {/* Formulas change. Saying when we last read the label is the
           difference between data and a claim — it was on this screen before
           the redesign and is worth more than the design's info icon. */}
-      <Text style={{ paddingBottom: 4, paddingTop: 14, textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>
+      <Text style={{ paddingBottom: 4, paddingTop: 4, textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>
         {metaLine}
       </Text>
       {subMetaLine ? (

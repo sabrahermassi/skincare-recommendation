@@ -10,19 +10,28 @@ import { PressableCard } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/genie";
 import { isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
+import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The watercolor from onboarding's second screen: a bottle and its ingredient list.
-const SCAN_ART = require("@/assets/illustrations/onboarding/onb2-ingredients.png");
-// The shelf that fills the empty Saved and History screens.
-const SHELF_ART = require("@/assets/illustrations/saved-empty-shelf.png");
-// Its own proportions (1400x892, cropped to the art), so it is never stretched.
-const SHELF_ASPECT = 1400 / 892;
-// Below the counter's bottom edge the picture holds 175 of its 892 rows (the pink
-// wash and the trailing leaves), measured off the file. Pulled down by that much,
-// the counter's edge is what rests on the tab bar and the rest goes behind it.
-const SHELF_BELOW_COUNTER = 175 / 892;
+const SCAN_ART = require("@/assets/illustrations/scan-a-product.png");
+// The watercolor scene under the cards (brought down to 1500px wide from the
+// 6144px original, its top edge faded into the screen and its water carried on
+// below the bottles so the tab bar sits on water rather than on the bottles).
+const SHELF_ART = require("@/assets/illustrations/home-shelf.png");
+// Its own proportions (1500x1200), so it is never stretched.
+const SHELF_ASPECT = 1500 / 1200;
+// How wide it is drawn, as a multiple of the screen: a little past each side, so
+// it runs off the edges and, with its bottom on the screen's bottom, the bottles
+// stand just above the tab bar.
+const SHELF_WIDTH = 1.15;
+// A sliver of the water is drawn this far (a share of the picture's height)
+// below the screen, so the water reaches the bottom with no gap.
+const SHELF_BLEED_BELOW = 0.02;
+// How far the whole scene sits lower again, in dp: 6.5 mm on a phone (160 dp to the inch).
+// No spacing token is that large, so it is named here rather than typed inline.
+const SHELF_DROP = 41;
 
 /**
  * Home — the first screen after the skin quiz.
@@ -30,7 +39,8 @@ const SHELF_BELOW_COUNTER = 175 / 892;
  * A greeting, the skin profile the quiz produced as a card of chips (every score
  * on the other tabs is judged against it; it is edited under Profile), then the
  * scan card, which opens the full-screen scanner, and a shelf of watercolor
- * bottles filling the rest of the screen.
+ * bottles filling the rest of the screen. The layout is fixed while it fits; on a
+ * short screen or with large text it scrolls, so the scan card is always reachable.
  */
 /** How far the scan card sinks when pressed: it reads as a button though it is a card. */
 const SCAN_CARD_PRESSED = 0.96;
@@ -56,7 +66,37 @@ export default function Home() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+      {/* The scene fills the bottom of the screen, to its very bottom edge and a
+          little past each side, behind everything else. It stays where it is when
+          the content above scrolls. */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: -((width * SHELF_WIDTH) / SHELF_ASPECT) * SHELF_BLEED_BELOW - SHELF_DROP,
+          alignItems: "center",
+        }}
+      >
+        <Image
+          source={SHELF_ART}
+          contentFit="contain"
+          accessibilityLabel=""
+          style={{ width: width * SHELF_WIDTH, aspectRatio: SHELF_ASPECT }}
+        />
+      </View>
+
+      {/* Scrolls only when the content is taller than the screen: flexGrow keeps a
+          short page filling it, and the bounce and stretch that would make a page
+          that fits look loose are switched off. */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarClearance(insets.bottom) }}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={{ paddingHorizontal: HEADER_GUTTER, paddingTop: 28, gap: 22 }}>
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 30, lineHeight: 36, color: INK }}>Hi, there!</Text>
 
@@ -124,34 +164,20 @@ export default function Home() {
             <View style={{ maxWidth: "60%", gap: 6 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: INK }}>Scan a product</Text>
-                <ArrowIcon size={18} color={INK} />
+                <ArrowIcon size={22} color={INK} strokeWidth={2.4} />
               </View>
-              <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>Analyze a product by photo or barcode.</Text>
+              {/* Narrower than the title above it, so it stops short of the picture. */}
+              <Text style={{ maxWidth: 150, fontSize: 13, lineHeight: 19, color: MUTED }}>Analyze a product by photo or barcode.</Text>
             </View>
             <Image
               source={SCAN_ART}
               contentFit="contain"
               accessibilityLabel=""
-              style={{ position: "absolute", right: -14, bottom: -6, width: 150, height: 150 }}
+              // Whole and centred on the card's right side, top to bottom: nothing cropped.
+              style={{ position: "absolute", right: 6, top: 6, bottom: 6, width: 150 }}
             />
           </Pressable>
           </Animated.View>
-        </View>
-
-        {/* The shelf, across the whole width and a little past it, its counter's edge
-            on the tab bar's edge — it fills what is left of the screen rather than
-            sitting in it. */}
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", paddingTop: 16, overflow: "hidden" }}>
-          <Image
-            source={SHELF_ART}
-            contentFit="contain"
-            accessibilityLabel=""
-            style={{
-              width: width * 1.3,
-              aspectRatio: SHELF_ASPECT,
-              marginBottom: -((width * 1.3) / SHELF_ASPECT) * SHELF_BELOW_COUNTER,
-            }}
-          />
         </View>
       </ScrollView>
     </View>

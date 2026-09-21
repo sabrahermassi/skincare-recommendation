@@ -4,7 +4,7 @@ import { Pressable, View } from "react-native";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { pickLabelPhoto } from "@/lib/pick-label-photo";
-import { readLabelPhoto, type LabelResultParams } from "@/lib/read-label-photo";
+import { readLabelPhoto } from "@/lib/read-label-photo";
 import { INK, MUTED, TOUCH_TARGET } from "@/lib/tokens";
 
 type State =
@@ -22,12 +22,12 @@ type State =
  */
 export function ChoosePhotoInstead({
   barcode,
-  onResult,
+  onRead,
 }: {
   /** Handed over by whoever sent the user here after a miss; the product read is saved under it. */
   barcode?: string;
-  /** Called with the result screen's params once the photo has been read. */
-  onResult: (params: LabelResultParams) => void;
+  /** Called once the photo has been read and its list is held for the add-product screen. */
+  onRead: () => void;
 }) {
   const [state, setState] = useState<State>({ kind: "idle" });
   const reading = state.kind === "reading";
@@ -53,9 +53,9 @@ export function ChoosePhotoInstead({
         return;
       }
       const outcome = await readLabelPhoto(picked.base64, barcode);
-      if (outcome.kind === "result") {
+      if (outcome.kind === "read") {
         setState({ kind: "idle" });
-        onResult(outcome.params);
+        onRead();
         return;
       }
       setState({ kind: "failed", message: outcome.message, hint: outcome.hint, retryable: outcome.retryable });

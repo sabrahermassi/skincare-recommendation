@@ -1,10 +1,10 @@
 import { Image } from "expo-image";
 import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Platform, Pressable, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { slideDirection } from "@/lib/onboarding-slide";
-import { CANVAS, CHARCOAL, FONT, H_PADDING, PrimaryButton, ProgressDots, TERRACOTTA } from "@/components/shell/shared";
+import { CANVAS, CHARCOAL, FONT, H_PADDING, PrimaryButton, ProgressDots, SkipButton, TERRACOTTA } from "@/components/shell/shared";
 
 const HEADLINE_SIZE = 44;
 const BODY_SIZE = 17;
@@ -75,12 +75,15 @@ const ILLUSTRATION_SCALE = 1.05;
  */
 const MAX_FONT_SCALE = 1.3;
 
-// Moving between screens: the picture and text slide a short way and fade out,
-// the next ones slide in from the opposite side. Skip, the dots and the button
-// stay put — animating the whole page is what this shell used to get wrong.
-const SLIDE_OFFSET = 36;
+// Moving between screens: the pictures stay where they are and cross-fade, while
+// the words slide out one way and the next ones slide in from the other. The
+// cross-fade lasts as long as the words take, so the new picture is arriving as
+// the new words do. Skip, the dots and the button stay put — animating the whole
+// page is what this shell used to get wrong.
+const SLIDE_OFFSET = 48;
 const SLIDE_OUT_MS = 150;
 const SLIDE_IN_MS = 250;
+const PICTURE_FADE_MS = SLIDE_OUT_MS + SLIDE_IN_MS;
 
 export type OnboardingScreenContent = {
   /** Explicit line breaks, not auto-wrap — up to 2 lines; the headline band
@@ -113,7 +116,6 @@ type OnboardingShellProps = {
  * page (button included) across the screen as part of the transition.
  */
 export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: OnboardingShellProps) {
-  const [skipPressed, setSkipPressed] = useState(false);
   // `shownIndex` trails `activeIndex` by the slide-out: the content on screen is
   // the old screen's until it has faded away, and only then swaps to the new one.
   const [shownIndex, setShownIndex] = useState(activeIndex);
@@ -124,7 +126,11 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
   const previousIndex = useRef(activeIndex);
   const [opacity] = useState(() => new Animated.Value(1));
   const [translateX] = useState(() => new Animated.Value(0));
-  const reduceMotion = useRef(false);
+  // One opacity per picture: they sit on top of each other and cross-fade.
+  const [pictureOpacity] = useState(() => screens.map((_, i) => new Animated.Value(i === activeIndex ? 1 : 0)));
+  // `null` until the phone has answered, and treated as "reduce" until then, so no
+  // slide plays on a guess.
+  const reduceMotion = useRef<boolean | null>(null);
 
   // With Reduce Motion on, the swap still happens through the same path but with
   // zero-length animations, so there is no slide and no separate code path.
@@ -146,8 +152,21 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
     previousIndex.current = activeIndex;
 
     const useNativeDriver = Platform.OS !== "web";
-    const outMs = reduceMotion.current ? 0 : SLIDE_OUT_MS;
-    const inMs = reduceMotion.current ? 0 : SLIDE_IN_MS;
+    const reduced = reduceMotion.current !== false;
+    const outMs = reduced ? 0 : SLIDE_OUT_MS;
+    const inMs = reduced ? 0 : SLIDE_IN_MS;
+
+    const pictures = Animated.parallel(
+      pictureOpacity.map((value, i) =>
+        Animated.timing(value, {
+          toValue: i === activeIndex ? 1 : 0,
+          duration: reduced ? 0 : PICTURE_FADE_MS,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver,
+        })
+      )
+    );
+    pictures.start();
 
     const slideOut = Animated.parallel([
       Animated.timing(opacity, { toValue: 0, duration: outMs, useNativeDriver }),
@@ -169,14 +188,17 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
         ]).start();
       });
     });
-    return () => slideOut.stop();
-  }, [activeIndex, opacity, translateX]);
+    return () => {
+      slideOut.stop();
+      pictures.stop();
+    };
+  }, [activeIndex, opacity, translateX, pictureOpacity]);
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <Animated.View
-        style={[StyleSheet.absoluteFill, { opacity, transform: [{ translateX }] }]}
-      >
+      {/* The pictures: they do not move, they cross-fade. Decorative, so out of
+          the way of touches and the accessibility tree alike. */}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <View
           style={{
             position: "absolute",
@@ -184,21 +206,31 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
             height: bandHeight(BANDS.illustration),
             left: 0,
             right: 0,
-            alignItems: "center",
-            justifyContent: "center",
             // The scaled image extends ~9pt past this box; onb2-scan has no
             // transparent top margin, so clipping here would cut the hair.
             overflow: "visible",
           }}
         >
-          <Image
-            source={screen.illustrationSource}
-            style={{ width: "100%", height: "100%", transform: [{ scale: ILLUSTRATION_SCALE }] }}
-            contentFit="contain"
-            accessibilityLabel=""
-          />
+          {screens.map((screenContent, i) => (
+            <Animated.View
+              key={i}
+              style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center", opacity: pictureOpacity[i] }]}
+            >
+              <Image
+                source={screenContent.illustrationSource}
+                style={{ width: "100%", height: "100%", transform: [{ scale: ILLUSTRATION_SCALE }] }}
+                contentFit="contain"
+                accessibilityLabel=""
+              />
+            </Animated.View>
+          ))}
         </View>
+      </View>
 
+      {/* The words: they slide out one way and in from the other. */}
+      <Animated.View
+        style={[StyleSheet.absoluteFill, { opacity, transform: [{ translateX }] }]}
+      >
         <View
           style={{
             position: "absolute",
@@ -273,29 +305,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
           and a later sibling is what sits on top of it and stays tappable.
           `pointerEvents="none"` on the wrapper would do the same but takes its
           text out of the VoiceOver tree on iOS. */}
-      <Pressable
-        onPress={onSkip}
-        onPressIn={() => setSkipPressed(true)}
-        onPressOut={() => setSkipPressed(false)}
-        accessibilityRole="button"
-        style={{
-          position: "absolute",
-          top: pct(BANDS.skip.top),
-          right: H_PADDING,
-          minHeight: 44,
-          minWidth: 44,
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: skipPressed ? 0.6 : 1,
-        }}
-      >
-        {/* Same font+size as the supporting-copy text (BODY_SIZE, bodyRegular).
-            TERRACOTTA, not the old MUTED grey — that grey cleared AA (5.35:1)
-            but still read as washed-out low-contrast on cream; terracotta is
-            the app's own accent and is unambiguously legible here (6.1:1 on
-            CANVAS). */}
-        <Text style={{ fontFamily: FONT.bodyRegular, fontSize: BODY_SIZE, color: TERRACOTTA }}>Skip</Text>
-      </Pressable>
+      <SkipButton onPress={onSkip} color={TERRACOTTA} />
 
       {/* Shown on every screen, including the first — per the redesign
           spec, dots are no longer withheld until the user has advanced. */}

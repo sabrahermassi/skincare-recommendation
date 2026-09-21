@@ -823,11 +823,15 @@ function invokedDirectly() {
   }
 }
 
+// Retired. A DailyMed label carries an NDC, not a barcode, and a product is stored
+// only with a name, a barcode and an ingredient list: migration 0022 makes the
+// database refuse every row this script builds. Running it says so instead of
+// failing on the first write. `main` stays exported, unrun, for the day that changes.
 if (invokedDirectly()) {
-  main().catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
+  console.error(
+    "import:dailymed is retired: DailyMed products have no barcode, and a product needs a name, a barcode and an ingredient list (migration 0022). Nothing was written."
+  );
+  process.exitCode = 1;
 }
 
-export { inactiveIngredients, activeIngredients, parseTitle, tidy, toRow, identityKey, formulaKey };
+export { main, inactiveIngredients, activeIngredients, parseTitle, tidy, toRow, identityKey, formulaKey };

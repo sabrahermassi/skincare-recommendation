@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BackHandler, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 // TERRACOTTA is otherwise a FOR.ME shell-only token (see shared.tsx's own
 // header comment) — reused here specifically because "match the quiz's
@@ -24,7 +25,7 @@ import {
   sensitivityLabel,
 } from "@/lib/profile";
 import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, CTA, DANGER, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, CTA, DANGER, FLOATING_SHADOW, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md), restyled per
 // design-watercolor/reference.png's "My profile" screen.
@@ -230,6 +231,7 @@ export default function ProfileScreen() {
             borderWidth: 1,
             borderColor: BORDER_INACTIVE,
             backgroundColor: SURFACE,
+            ...FLOATING_SHADOW,
           }}
         >
           <Text style={{ fontSize: 12.5, lineHeight: 17, color: MUTED }}>
@@ -379,19 +381,7 @@ export default function ProfileScreen() {
             paddingTop: 14,
           }}
         >
-          <Pressable
-            onPress={save}
-            style={{
-              minHeight: 52,
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 26,
-              backgroundColor: CTA,
-            }}
-            className="active:opacity-90"
-          >
-            <Text style={{ fontSize: 15, fontWeight: "500", color: INK }}>Find my matches</Text>
-          </Pressable>
+          <PrimaryButton tone="cta" size={52} label="Find my matches" onPress={save} />
         </View>
       )}
     </View>

@@ -1,8 +1,6 @@
-import { analyseLabel } from "@/data/api";
+import { readLabel } from "@/data/api";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
-
-/** What to open once a photo has been read: the result screen's params. */
-export type LabelResultParams = { id: string; offerBarcode?: string; scanToken?: string };
+import { holdLabelRead } from "@/lib/pending-label";
 
 /** Why a photo did not become a result, and what the person can do about it. */
 export type LabelReadFailure = {
@@ -12,18 +10,20 @@ export type LabelReadFailure = {
   retryable: boolean;
 };
 
-export type LabelReadOutcome = { kind: "result"; params: LabelResultParams } | ({ kind: "failed" } & LabelReadFailure);
+/** `read`: the list is held for the add-product screen, which the caller now opens. */
+export type LabelReadOutcome = { kind: "read" } | ({ kind: "failed" } & LabelReadFailure);
 
 /**
  * Clean a photographed or chosen ingredient list, send it to be read, and say
  * what should happen next. The one place this is decided, so the label camera
  * and the permission screens that offer a chosen photo cannot give different
- * answers for the same picture.
+ * answers for the same picture. Reading stores nothing: a good read is held in
+ * memory (`lib/pending-label.ts`) for the add-product screen to save with a
+ * barcode and a name.
  *
  * `imageBase64` is whatever is about to be sent — already cropped to the frame
  * for a camera photo, scaled down for a chosen one. `barcode` is the one handed
- * over by whoever sent the user here after a miss; the product read is saved
- * under it. A rejected request throws: the caller owns the generic
+ * over by whoever sent the user here after a miss; the product is saved under it. A rejected request throws: the caller owns the generic
  * "something went wrong" message.
  */
 export async function readLabelPhoto(imageBase64: string, barcode?: string): Promise<LabelReadOutcome> {
@@ -53,7 +53,7 @@ export async function readLabelPhoto(imageBase64: string, barcode?: string): Pro
     };
   }
 
-  const result = await analyseLabel(clean.base64, { barcode });
+  const result = await readLabel(clean.base64);
 
   // The server's "did we find enough text to try" check happens before it
   // knows whether any of that text is actually an ingredient. A photo of
@@ -74,22 +74,8 @@ export async function readLabelPhoto(imageBase64: string, barcode?: string): Pro
   }
 
   if (result.ok) {
-    // No barcode was in hand for this scan — the row `label-ocr` just
-    // wrote is on a grace timer and nobody else can ever find it (see
-    // migration 0014 and resolve-scan). Flagging it here is what lets
-    // the product screen offer the "scan the barcode too?" follow-up
-    // only on the visit that just created the row, not on every later
-    // visit to it. `scanToken` is threaded along too — without it
-    // there is nothing safe to resolve the offer with (see
-    // resolve-scan's ownership check), so the product screen treats a
-    // missing token the same as no offer at all.
-    return {
-      kind: "result",
-      params:
-        barcode || !result.scanToken
-          ? { id: result.product.id }
-          : { id: result.product.id, offerBarcode: "1", scanToken: result.scanToken },
-    };
+    holdLabelRead({ ingredients: result.ingredients, barcode, readToken: result.readToken });
+    return { kind: "read" };
   }
 
   return { kind: "failed", ...failureCopy(result.reason, !!barcode) };
@@ -126,7 +112,7 @@ export function failureCopy(
       };
     case "not_configured":
       // This install has no Supabase credentials at all — see
-      // `LabelAnalysis`'s comment in `data/api.ts`. Permanent for this
+      // `LabelRead`'s comment in `data/api.ts`. Permanent for this
       // build, so no "temporarily", no "try again", and — per Codex's next
       // finding on #121 — no retry button either: retaking the photo would
       // run the exact same check and fail the exact same way.

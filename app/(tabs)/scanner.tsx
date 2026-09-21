@@ -23,6 +23,7 @@ import { GenieShell, type GenieShellHandle } from "@/components/GenieShell";
 import { LabelCamera } from "@/components/LabelCamera";
 import { ScanIntro } from "@/components/ScanIntro";
 import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
+import { SHEET_INSET, SHEET_OUTLINE, SHEET_RADIUS } from "@/components/IngredientsSheet";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { CTA_TEXT, TERRACOTTA } from "@/components/shell/shared";
@@ -31,10 +32,9 @@ import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type Fetc
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
 import { createStaleGuard } from "@/lib/stale-guard";
-import type { LabelResultParams } from "@/lib/read-label-photo";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
+import { BUTTON_SHADOW, CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
 
 // Watercolor art from the onboarding set, reused on the two light screens that
 // sit in front of the camera (see components/ScanIntro.tsx).
@@ -75,10 +75,10 @@ type Mode = "Barcode" | "Photo";
  * `missed` and `unreachable` are deliberately separate.
  *
  * They used to be one state: every non-404 outcome — a timeout, a dead
- * connection, a rate limit — landed in `missed` and the panel said "Not in our
- * catalogue yet". So in a shop with one bar of signal the app stated that a
+ * connection, a rate limit — landed in `missed` and the panel said "We don't
+ * have this product". So in a shop with one bar of signal the app stated that a
  * product did not exist, logged that to history, and offered "Photograph the
- * label" as the way out — which needs the same network that had just failed.
+ * ingredients" as the way out — which needs the same network that had just failed.
  * Two failures in a row, on the one interaction this app exists for.
  */
 type Status =
@@ -334,6 +334,7 @@ export default function Scan() {
         requestPermission={requestPermission}
         status={status}
         onBarcode={handleBarcode}
+        onAdd={() => selectMode("Photo")}
         preserveMode={preserveMode}
       />
     ) : (
@@ -345,11 +346,12 @@ export default function Scan() {
         cameraRef={cameraRef}
         cameraSize={cameraSize}
         windowBox={windowBox}
-        barcode={status.kind === "missed" ? status.code : undefined}
+        barcode={status.kind === "missed" && canPhotographLabelFor(status.code) ? status.code : undefined}
         preserveMode={preserveMode}
         focusedRef={focusedRef}
       />
     );
+
 
   // The scanner is full screen: it opens out of the tab bar's scan button and
   // folds back into it when the X is pressed.
@@ -403,7 +405,7 @@ export default function Scan() {
           <FoundSheet
             key={status.product.id}
             product={status.product}
-            bottom={Math.max(STAGE_BOTTOM, insets.bottom + 12)}
+            bottomInset={insets.bottom}
             onClose={() => {
               setStatus({ kind: "idle" });
               busy.current = false;
@@ -448,12 +450,12 @@ export default function Scan() {
  */
 function FoundSheet({
   product,
-  bottom,
+  bottomInset,
   onClose,
   onOpen,
 }: {
   product: ProductWithIngredients;
-  bottom: number;
+  bottomInset: number;
   onClose: () => void;
   onOpen: () => void;
 }) {
@@ -476,10 +478,11 @@ function FoundSheet({
   return (
     <Animated.View
       style={{
+        // Rises from the bottom edge, outlined and inset like the ingredients sheet.
         position: "absolute",
-        left: STAGE_INSET,
-        right: STAGE_INSET,
-        bottom,
+        left: SHEET_INSET,
+        right: SHEET_INSET,
+        bottom: 0,
         opacity: rise,
         transform: [{ translateY: lift }],
       }}
@@ -487,10 +490,14 @@ function FoundSheet({
       <View
         style={{
           backgroundColor: SURFACE,
-          borderRadius: 28,
+          borderTopLeftRadius: SHEET_RADIUS,
+          borderTopRightRadius: SHEET_RADIUS,
+          borderWidth: SHEET_OUTLINE,
+          borderBottomWidth: 0,
+          borderColor: TERRACOTTA,
           paddingTop: FOUND_PICTURE / 2 + 14,
           paddingHorizontal: 22,
-          paddingBottom: 20,
+          paddingBottom: Math.max(20, bottomInset + 12),
           alignItems: "center",
           gap: 8,
           ...FLOATING_SHADOW,
@@ -540,6 +547,7 @@ function FoundSheet({
             alignItems: "center",
             justifyContent: "center",
             backgroundColor: TERRACOTTA,
+            ...BUTTON_SHADOW,
           }}
           className="active:opacity-90"
         >
@@ -725,6 +733,7 @@ function BarcodeStage({
   requestPermission,
   status,
   onBarcode,
+  onAdd,
   preserveMode,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
@@ -732,6 +741,8 @@ function BarcodeStage({
   status: Status;
   /** Looks a barcode up again ("Try again" after a failed lookup). */
   onBarcode: (data: string) => void;
+  /** Starts adding the product we don't have: the ingredient photo. */
+  onAdd: () => void;
   /** Call before any navigation away from this stage that isn't a tab
    *  switch — see `Scan`'s own `preserveMode` doc comment for why. */
   preserveMode: () => void;
@@ -745,13 +756,19 @@ function BarcodeStage({
   // Those are there so a sighted user can confirm the scan landed on the right
   // item; read aloud during a state that resolves in a second or two, they are
   // noise in front of the part that matters.
+  // A QR code or a non-retail barcode reads as a miss too, but there is no
+  // product to add under it.
+  const notProduct = status.kind === "missed" && !canPhotographLabelFor(status.code);
+
   const announcement =
     status.kind === "looking"
       ? "Barcode found. Reading the ingredients."
       : status.kind === "found"
         ? `Found ${status.product.name}. See full result is below.`
       : status.kind === "missed"
-        ? "Not in our catalogue yet. Tap Photo below to photograph its ingredient list and add it."
+        ? notProduct
+          ? "That isn't a product barcode. Point the camera at the barcode on the packaging."
+          : "We don't have this product. Photograph its ingredient list to add it."
         : status.kind === "unreachable"
           ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
           : "";
@@ -833,17 +850,39 @@ function BarcodeStage({
                   ? `Barcode found · ${status.code}`
                   : status.kind === "unreachable"
                     ? "Couldn't check this barcode"
-                    : "Not in our catalogue yet"}
+                    : notProduct
+                      ? "That isn't a product barcode"
+                      : "We don't have this product"}
               </Text>
               <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
                 {status.kind === "looking"
                   ? "Reading the ingredients…"
                   : status.kind === "unreachable"
                     ? failureMessage(status.failure)
-                    : "Tap Photo below and photograph its ingredient list to add it"}
+                    : notProduct
+                      ? "Point the camera at the barcode on the packaging"
+                      : "Photograph its ingredient list and we'll add it"}
               </Text>
             </View>
           </View>
+        )}
+
+        {/* After a plain miss: the one way forward. */}
+        {status.kind === "missed" && !notProduct && (
+          <Pressable
+            onPress={onAdd}
+            accessibilityRole="button"
+            style={{
+              height: TOUCH_TARGET,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 999,
+              backgroundColor: TERRACOTTA,
+            }}
+            className="active:opacity-90"
+          >
+            <Text style={{ fontSize: 13, fontWeight: "600", color: CTA_TEXT }}>Photograph the ingredients</Text>
+          </Pressable>
         )}
 
         {/* Deliberately not the ingredient photo: that needs the same network
@@ -987,12 +1026,13 @@ function IngredientsStage({
   const insets = useSafeAreaInsets();
   const needsPermission = permission !== null && !permission.granted;
   const clearance = Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
-  // Where a finished read goes, whether it came from the camera or a chosen photo.
-  const openResult = (params: LabelResultParams) => {
+  // Where a finished read goes, whether it came from the camera or a chosen photo:
+  // name the product, then save it with the barcode.
+  const openAddProduct = () => {
     // The X (or a tab switch) can land while a read is still pending.
     if (!focusedRef.current) return;
     preserveMode();
-    router.push({ pathname: "/result/[id]", params });
+    router.push({ pathname: "/add-product", params: barcode ? { barcode } : {} });
   };
 
   return (
@@ -1005,7 +1045,7 @@ function IngredientsStage({
           barcode={barcode}
           frameTopOffset={CLOSE_CLEARANCE}
           bottomInset={clearance}
-          onResult={openResult}
+          onRead={openAddProduct}
         />
       ) : null}
 
@@ -1016,7 +1056,7 @@ function IngredientsStage({
           title="Photograph the ingredient list"
           body="Take a photo of the list on the back and we'll read it. We crop to the frame, send it to Google to read the text, and never store the image."
           bottomInset={clearance}
-          extra={<ChoosePhotoInstead barcode={barcode} onResult={openResult} />}
+          extra={<ChoosePhotoInstead barcode={barcode} onRead={openAddProduct} />}
         />
       ) : null}
     </View>

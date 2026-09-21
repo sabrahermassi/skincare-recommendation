@@ -5,9 +5,9 @@ import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/Text";
-import { CTA_TEXT, TERRACOTTA } from "@/components/shell/shared";
+import { CTA_TEXT, SkipButton, TERRACOTTA } from "@/components/shell/shared";
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
-import { CANVAS, DOT_INACTIVE, INK, MUTED } from "@/lib/tokens";
+import { BUTTON_SHADOW, CANVAS, DOT_INACTIVE, INK, MUTED } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // design-watercolor/skin quiz/screens/skin quiz background.png, resized to
@@ -49,7 +49,6 @@ export function QuizFrame({ children }: { children: ReactNode }) {
   const [label, setLabel] = useState("Continue");
   const [disabled, setDisabled] = useState(true);
   const [pressed, setPressed] = useState(false);
-  const [skipPressed, setSkipPressed] = useState(false);
   // A ref, not state: steps pass a new function on every render, and storing
   // it as state would re-render the frame (and so the step) every time.
   const onPressRef = useRef<() => void>(() => {});
@@ -116,6 +115,7 @@ export function QuizFrame({ children }: { children: ReactNode }) {
               justifyContent: "center",
               backgroundColor: disabled ? DOT_INACTIVE : TERRACOTTA,
               opacity: pressed ? 0.9 : 1,
+              ...(disabled ? null : BUTTON_SHADOW),
             }}
           >
             <Text style={{ fontSize: 16, fontWeight: "500", color: disabled ? MUTED : CTA_TEXT }}>{label}</Text>
@@ -123,25 +123,7 @@ export function QuizFrame({ children }: { children: ReactNode }) {
         </View>
 
         {/* After the step navigator, so it's drawn (and tappable) above it. */}
-        <Pressable
-          onPress={skipQuiz}
-          onPressIn={() => setSkipPressed(true)}
-          onPressOut={() => setSkipPressed(false)}
-          hitSlop={10}
-          accessibilityRole="button"
-          style={{
-            position: "absolute",
-            top: quizTopPadding(insets.top),
-            right: 24,
-            minHeight: 44,
-            minWidth: 44,
-            alignItems: "flex-end",
-            justifyContent: "center",
-            opacity: skipPressed ? 0.6 : 1,
-          }}
-        >
-          <Text style={{ fontSize: 15, color: INK }}>Skip</Text>
-        </Pressable>
+        <SkipButton onPress={skipQuiz} color={INK} />
       </View>
     </QuizFrameContext.Provider>
   );

@@ -2,6 +2,7 @@ import { Image } from "expo-image";
 import { Pressable, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
+import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
 import { CTA_TEXT, TERRACOTTA } from "@/components/shell/shared";
 import { CANVAS, INK, LINE, RADIUS_SELECTOR, SELECTED } from "@/lib/tokens";
@@ -47,16 +48,26 @@ export function QuizOptionCard({
   const grid = layout === "grid";
   const iconSize = grid ? 32 : 50;
   const tickSize = grid ? 22 : 30;
+  const [scale, press] = usePressScale();
 
   return (
+    // Lifted off the page by a shade under its bottom edge, and sinking a little
+    // while it is pressed. The shade and the press live on this outer view; the
+    // border and layout stay on the Pressable inside.
+    <LiftedCard
+      radius={RADIUS_SELECTOR}
+      backgroundColor={selected ? SELECTED : CANVAS}
+      scale={scale}
+      style={{ width: grid ? "48%" : undefined, marginBottom: 10, opacity: disabled ? 0.5 : 1 }}
+    >
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      {...press}
       accessibilityRole={multiple ? "checkbox" : "radio"}
       accessibilityState={{ checked: selected, disabled }}
       hitSlop={4}
       style={{
-        width: grid ? "48%" : undefined,
         // minHeight, not height: at the default font scale every card still
         // renders at exactly CARD_HEIGHT (alignItems:"center" does the
         // rest), so nothing here changes normally. It only grows past 76 for
@@ -65,7 +76,6 @@ export function QuizOptionCard({
         // these cards (see QuizScreen.tsx).
         minHeight: CARD_HEIGHT,
         paddingVertical: 10,
-        marginBottom: 10,
         flexDirection: "row",
         alignItems: "center",
         gap: grid ? 8 : 12,
@@ -76,8 +86,6 @@ export function QuizOptionCard({
         // Constant width so choosing an option never nudges the layout.
         borderWidth: 1.5,
         borderColor: selected ? TERRACOTTA : LINE,
-        backgroundColor: selected ? SELECTED : CANVAS,
-        opacity: disabled ? 0.5 : 1,
       }}
     >
       <Image
@@ -131,6 +139,7 @@ export function QuizOptionCard({
         </View>
       ) : null}
     </Pressable>
+    </LiftedCard>
   );
 }
 
