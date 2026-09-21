@@ -1,12 +1,13 @@
 import { Pressable, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import type { MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
 import { isVerified } from "@/lib/safety";
-import { MUTED_SOFT, RISK_ICON, RISK_TITLE } from "@/lib/tokens";
+import { CARD_SHADOW, INK, RISK_ICON, RISK_TITLE } from "@/lib/tokens";
 
 /**
  * The two risks people actually ask about, side by side, both computed from
@@ -43,7 +44,7 @@ export function RiskCards({
   const pore = poreRisk(product);
 
   return (
-    <View style={{ flexDirection: "row", gap: 12, paddingHorizontal: 24, paddingTop: 14 }}>
+    <View style={{ flexDirection: "row", gap: 12, paddingHorizontal: 24 }}>
       <RiskCard
         title="Irritation risk"
         {...irritation}
@@ -95,7 +96,8 @@ function RiskCard({
       // Everything left-aligned on one axis and vertically centred as a block.
       // The title used to be a two-line string with a hard break in it, which
       // put the icon beside line one and the verdict adrift below both.
-      style={{ flex: 1, gap: 8, paddingHorizontal: 15, paddingVertical: 15 }}
+      // Lifted only when it can be tapped: a card with nothing to show lies flat.
+      style={[{ flex: 1, gap: 8, paddingHorizontal: 15, paddingVertical: 15 }, onPress ? CARD_SHADOW : null]}
       className={`justify-center rounded-control border ${style.box} ${
         onPress ? "active:opacity-70" : ""
       }`}
@@ -113,15 +115,7 @@ function RiskCard({
             row for detail" affordance — without it, a card reading
             "Elevated" gave no visual sign that tapping it explains why. */}
         {onPress && (
-          <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="m9 5 7 7-7 7"
-              stroke={MUTED_SOFT}
-              strokeWidth={2.2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
+          <ArrowIcon size={16} color={INK} />
         )}
       </View>
       <View style={{ gap: 3 }}>

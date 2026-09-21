@@ -6,8 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OnboardingShell, type OnboardingScreenContent } from "@/components/shell/OnboardingShell";
 import { Text } from "@/components/Text";
 import { TERRACOTTA } from "@/components/shell/shared";
-import { quizRoutes, TOTAL_ONBOARDING_STEPS } from "@/lib/profile";
-import { CANVAS, INK } from "@/lib/tokens";
+import { quizRoutes } from "@/lib/profile";
+import { CANVAS, FLOATING_SHADOW, INK } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // Extracted from correctly-proportioned source art (real iPhone aspect, not
@@ -35,7 +35,7 @@ const SCREENS: OnboardingScreenContent[] = [
   {
     headline: ["Choose with", "confidence"],
     supportingCopy: ["Discover products that fit", "your skin, goals and lifestyle."],
-    buttonLabel: "Continue",
+    buttonLabel: "Start skin quiz",
     illustrationSource: ONB2_CONFIDENCE,
   },
 ];
@@ -114,7 +114,6 @@ export default function Onboarding() {
         activeIndex={index}
         onNext={onNext}
         onSkip={goToQuiz}
-        totalDots={TOTAL_ONBOARDING_STEPS}
       />
 
       {showErasedToast && (
@@ -145,6 +144,7 @@ export default function Onboarding() {
             backgroundColor: CANVAS,
             borderWidth: 1,
             borderColor: TERRACOTTA,
+            ...FLOATING_SHADOW,
           }}
         >
           <View

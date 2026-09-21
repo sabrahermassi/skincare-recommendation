@@ -14,11 +14,14 @@ Expo Router + NativeWind + Zustand.
 Supabase is the live backend (Edge Functions `product-lookup`, `label-ocr`
 deployed). `data/api.ts` falls back to 8 sample products only when
 `EXPO_PUBLIC_SUPABASE_URL`/`_ANON_KEY` are absent — keeps checkouts and
-tests hermetic. Live catalogue: 851 products (grows only when someone runs
-the operator scripts `import:obf` / `import:dailymed` — the one scheduled
-catalogue job, `reconcile-obf.yml`, re-checks existing rows for
-reformulation, it doesn't add new ones; check the live count rather than
-trusting this number for long), ~36k dictionary ingredients, ~25k synonyms.
+tests hermetic. Live catalogue: 851 products (grows when someone runs the
+operator script `import:obf`, or when a user photographs a list and names a
+product — a product exists only with a name, a barcode and an ingredient list,
+enforced in `replace_product_with_ingredients`; `import:dailymed` is retired
+because DailyMed has no barcodes. The one scheduled catalogue job,
+`reconcile-obf.yml`, re-checks existing rows for reformulation, it doesn't add
+new ones; check the live count rather than trusting this number for long),
+~36k dictionary ingredients, ~25k synonyms.
 
 `FOR_ME_MVP.md` is launch scope. Track gaps as GitHub issues on the "Skin
 Recommendation" board, not here.
@@ -85,7 +88,9 @@ the real backend; the invariant keeps the seam clean for the day it isn't.
 **Routing** — Expo Router (file-based) in `app/`; web must work, not just
 native.
 
-- **`/` is `app/(tabs)/index.tsx`** (the scanner), not a product list.
+- **`/` is `app/(tabs)/index.tsx`** (Home: scan card, search box, skin profile),
+  not a product list. The scanner is `app/(tabs)/scanner.tsx`, full screen, opened
+  from the raised middle tab button (or `openScanner()` in `lib/genie.ts`).
   `initialRouteName` doesn't change what `/` resolves to. A root
   `app/index.tsx` is impossible — it collides with `app/(tabs)/index.tsx`.
 - **Never navigate from a layout file.** Gate with a declarative

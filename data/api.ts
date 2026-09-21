@@ -1,6 +1,5 @@
 import { defaultPackagingType } from "@/components/BottleIcon";
-import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, RESOLVE_SCAN_FUNCTION, supabase } from "@/lib/supabase";
-import { useAppStore } from "@/store/useAppStore";
+import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@/lib/supabase";
 import {
   abandonDiskRead,
   addScannedToCatalogue,
@@ -155,7 +154,7 @@ const LATENCY_MS =
  * the screen's `products` stayed null, and the spinner ran forever with no
  * message and no way to retry. That is the state this bounds.
  *
- * Reads only. `analyseLabel` gets `OCR_TIMEOUT_MS` below instead — the
+ * Reads only. `readLabel` gets `OCR_TIMEOUT_MS` below instead — the
  * reasoning that kept it unbounded was right about this number and wrong about
  * the conclusion.
  */
@@ -1186,51 +1185,45 @@ export async function fetchProductByBarcode(
  * The tier that makes a scan-first app viable. Barcode lookup misses almost
  * everything in this market — Open Beauty Facts holds 37 products tagged South
  * Korea against a market of 10,000+ SKUs — but the formula is printed on the
- * box in the user's hand. The result is written back against the barcode, so
- * the next person to scan the same product gets an instant hit.
+ * box in the user's hand. Reading it stores nothing: the list comes back to the
+ * app, the user names the product, and `saveScannedProduct` then stores the
+ * barcode, the name and the list together so the next person to scan the same
+ * product gets an instant hit.
  */
-export type LabelAnalysis =
+export type LabelRead =
   | {
       ok: true;
-      product: ProductWithIngredients;
+      /** The names read off the label, in printed order. */
+      ingredients: string[];
       recognised: number;
       total: number;
-      /** Present only for a brand-new, barcode-less scan — the capability
-       *  `attachBarcodeToScan`/`discardUnreachableScan` need to resolve it
-       *  later. Absent whenever the row is already permanent (a barcode
-       *  was in hand, or an existing identity-only row was reused), since
-       *  there is nothing to resolve. See supabase/functions/resolve-scan. */
-      scanToken?: string;
+      /** Proof the list came from a read; `saveScannedProduct` must present it. */
+      readToken: string;
     }
   | {
       ok: false;
       /**
-       * `not_configured` and `server_unavailable` used to be the same value.
-       * They are not the same failure: `not_configured` means this install
-       * has no Supabase credentials at all — no request left the device, and
-       * the condition is permanent for this build, not something a retry or
-       * a few minutes fixes. `server_unavailable` is the 503 the server
-       * itself returns when *its* Vision API key is unset, which is a
-       * temporary, ops-fixable condition. Conflating them told a developer
-       * running the supported no-credentials checkout that the server's key
-       * was missing, and told a user in that same checkout to "try again
-       * later" for something no retry will ever change. Split in review on
-       * #121 — see the two return sites below and `failureCopy` in
-       * `app/scan-label.tsx`.
+       * `not_configured` and `server_unavailable` are not the same failure:
+       * `not_configured` means this install has no Supabase credentials at all —
+       * no request left the device, and the condition is permanent for this
+       * build, not something a retry fixes. `server_unavailable` is the 503 the
+       * server itself returns when *its* Vision API key is unset, which is a
+       * temporary, ops-fixable condition. See `failureCopy` in
+       * `components/LabelCamera.tsx`.
        */
       reason: "not_configured" | "server_unavailable" | "unreadable" | "too_little_text" | "rate_limited";
       rawText?: string;
     };
 
 /**
- * Whether `analyseLabel` can attach a photo to this identifier.
+ * Whether this identifier is a barcode the label functions will accept.
  *
  * `label-ocr` validates `barcode` against `\d{8,14}` before it does anything
  * else and answers a 400 otherwise, so anything failing this here would fail
  * there — after the user had framed and taken a photo. Every screen offering
  * "photograph the label" has to ask this first.
  *
- * It lives beside `analyseLabel` because that is what it describes: not "is
+ * It lives beside `readLabel` because that is what it describes: not "is
  * this a valid GTIN" in the abstract, but "will the function below accept it".
  * If the Edge Function's rule changes, this is the line that changes with it.
  *
@@ -1243,16 +1236,13 @@ export function canPhotographLabelFor(identifier: string | null | undefined): bo
   return typeof identifier === "string" && /^\d{8,14}$/.test(identifier);
 }
 
-export async function analyseLabel(
-  imageBase64: string,
-  opts: { barcode?: string; name?: string; brand?: string } = {}
-): Promise<LabelAnalysis> {
+export async function readLabel(imageBase64: string): Promise<LabelRead> {
   if (!usingSupabase()) return { ok: false, reason: "not_configured" };
 
   // Bounded, but on its own clock — see OCR_TIMEOUT_MS. Not the read timeout:
   // this uploads an image and waits on Google Vision behind it.
   const { data, error } = await supabase!.functions.invoke(OCR_FUNCTION, {
-    body: { imageBase64, ...opts },
+    body: { imageBase64 },
     timeout: OCR_TIMEOUT_MS,
   });
 
@@ -1264,111 +1254,64 @@ export async function analyseLabel(
     return { ok: false, reason: "unreadable" };
   }
 
-  if (!data?.product) return { ok: false, reason: "unreadable" };
-
-  // A label read is the other way a product enters the catalogue mid-session,
-  // and the one the user most expects to find afterwards — they just did the
-  // work of photographing it. See `addScannedToCatalogue` for why this is an
-  // insert rather than something a freshness check should have to discover.
-  const scannedProduct = rowToProduct(data.product as CatalogueRow);
-  addScannedToCatalogue(scannedProduct);
-
-  // The barcode cascade that sent the user here may have cached a miss for
-  // this exact barcode, and that entry outlives the label read by up to an
-  // hour. Without this, re-scanning the bottle the user just photographed
-  // returns the remembered `null` and offers the label flow a second time —
-  // for a product that now exists. Record the real answer against whichever
-  // barcode we know: the one the caller passed, or the one the row came back
-  // with when the OCR function resolved it itself.
-  const scannedBarcode = opts.barcode ?? scannedProduct.barcode;
-  if (scannedBarcode) putScanned(scannedBarcode, scannedProduct);
+  const read = data?.ingredients;
+  if (!Array.isArray(read) || typeof data?.readToken !== "string") return { ok: false, reason: "unreadable" };
 
   return {
     ok: true,
-    product: scannedProduct,
+    ingredients: read.map((entry: { inci_name: string }) => entry.inci_name),
     recognised: Number(data.recognised ?? 0),
     total: Number(data.total ?? 0),
-    scanToken: typeof data.scanToken === "string" ? data.scanToken : undefined,
+    readToken: data.readToken,
   };
 }
 
 /**
- * The "want to scan the barcode too?" follow-up to a barcode-less
- * `analyseLabel` scan — step 5b's row-accrual answer. Accepting makes the
- * scan permanent and findable by barcode; see `discardUnreachableScan` for
- * the decline path.
- *
- * The row this attaches to is not deleted from the local cache on a
- * `barcode_taken` conflict — that is a genuine collision, not a decline,
- * and the row is left exactly as `resolve-scan` left it server-side (still
- * on its grace timer, not discarded).
+ * Store a product the user has just read and named: barcode, name and ingredient
+ * list together, because a product exists only with all three. The server checks
+ * the list again rather than trusting it.
  */
-export type AttachBarcodeResult =
+export type SaveProductResult =
   | { ok: true; product: ProductWithIngredients }
-  | { ok: false; reason: "barcode_taken" | "not_found" | "failed" };
+  | { ok: false; reason: "not_configured" | "unreadable_list" | "expired" | "rate_limited" | "failed" };
 
-export async function attachBarcodeToScan(
-  productId: string,
-  barcode: string,
-  scanToken: string
-): Promise<AttachBarcodeResult> {
-  if (!usingSupabase()) return { ok: false, reason: "failed" };
+export async function saveScannedProduct(input: {
+  barcode: string;
+  name: string;
+  brand?: string;
+  ingredients: string[];
+  /** From the read that produced `ingredients`. */
+  readToken: string;
+}): Promise<SaveProductResult> {
+  if (!usingSupabase()) return { ok: false, reason: "not_configured" };
 
-  const { data, error } = await supabase!.functions.invoke(RESOLVE_SCAN_FUNCTION, {
-    body: { action: "attach-barcode", productId, barcode, token: scanToken },
+  const { data, error } = await supabase!.functions.invoke(OCR_FUNCTION, {
+    body: input,
+    timeout: NETWORK_TIMEOUT_MS,
   });
 
   if (error) {
     const status = (error as { context?: { status?: number } }).context?.status;
-    if (status === 409) return { ok: false, reason: "barcode_taken" };
-    if (status === 404) return { ok: false, reason: "not_found" };
+    if (status === 429) return { ok: false, reason: "rate_limited" };
+    if (status === 422) return { ok: false, reason: "unreadable_list" };
+    if (status === 403) return { ok: false, reason: "expired" };
     return { ok: false, reason: "failed" };
   }
   if (!data?.product) return { ok: false, reason: "failed" };
 
-  // Refreshes the cached copy and records the barcode association, the
-  // same two calls `analyseLabel` makes on a fresh scan — this product is
-  // now exactly as findable as one that arrived with a barcode from the
-  // start.
+  // A saved product is the other way one enters the catalogue mid-session, and
+  // the one the user most expects to find afterwards — they just did the work of
+  // adding it. See `addScannedToCatalogue` for why this is an insert rather than
+  // something a freshness check should have to discover.
   const product = rowToProduct(data.product as CatalogueRow);
   addScannedToCatalogue(product);
-  putScanned(barcode, product);
+
+  // The barcode lookup that sent the user here cached a miss for this barcode,
+  // and that entry outlives the save by up to an hour. Without this, scanning
+  // the product again would return the remembered `null`.
+  putScanned(input.barcode, product);
 
   return { ok: true, product };
-}
-
-/**
- * The decline path for a barcode-less scan — deletes the row outright.
- *
- * Also strips any local reference to it. Opening the product screen logs a
- * `history` entry (and possibly a `savedProducts` one) *before* this screen
- * ever gets a chance to run — review on PR #109 caught that without this,
- * declining left a dead entry behind that Saved/History could never
- * resolve, rendering as a bare OCR id forever.
- *
- * Cleanup only runs when the server confirms this call is what actually
- * deleted the row (`discarded: true`), never on a no-op. A stale
- * `offerBarcode` screen left underneath the stack after a successful
- * attach (a race this function has no way to detect on its own) must not
- * be able to strip a `history`/`savedProducts` reference to a product that
- * is valid and permanent now just because someone tapped "No thanks" on
- * the leftover screen — the `source='ocr' and barcode is null` scope on
- * the server rejects that attempt as a no-op, and this mirrors that
- * decision locally instead of assuming success.
- */
-export async function discardUnreachableScan(
-  productId: string,
-  scanToken: string
-): Promise<void> {
-  if (!usingSupabase()) return;
-  const { data } = await supabase!.functions.invoke(RESOLVE_SCAN_FUNCTION, {
-    body: { action: "discard", productId, token: scanToken },
-  });
-  if (!data?.discarded) return;
-
-  const { removeHistoryEntry, savedProducts, toggleSaved } = useAppStore.getState();
-  removeHistoryEntry(productId);
-  if (savedProducts.some((p) => p.id === productId)) toggleSaved(productId);
 }
 
 /**
