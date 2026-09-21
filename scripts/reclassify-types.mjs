@@ -47,14 +47,14 @@
  * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, including for --dry-run —
  * same reasoning as import-obf.mjs: the numbers a dry run prints should be
  * the numbers a real run would write, and reading the actual table needs the
- * same credentials either way.
+ * same credentials either way. Writing needs SUPABASE_ENV=staging or
+ * production on top of them, and --prod as well for production.
  */
 
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { createClient } from "@supabase/supabase-js";
-
+import { connect } from "./lib/db.mjs";
 import { guessType } from "./import-obf.mjs";
 import { guessTypeFromIngredients } from "./lib/guess-type-from-ingredients.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
@@ -96,13 +96,9 @@ async function fetchProductIngredients(db, productId) {
 }
 
 async function main() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required, including for --dry-run.");
-    process.exit(1);
-  }
-  const db = createClient(url, key, { auth: { persistSession: false } });
+  // Credentials are required for --dry-run too — it reads the same rows the
+  // real run would rewrite, and reports on them.
+  const { db } = connect({ write: !DRY_RUN });
 
   const rows = await paginateOrdered(db, "products", {
     select: "id, brand, name, type",

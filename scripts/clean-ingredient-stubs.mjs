@@ -24,7 +24,8 @@
  *
  * Prints the whole plan first and writes nothing unless run with --apply.
  * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the shell, as the other
- * dictionary scripts do.
+ * dictionary scripts do, plus SUPABASE_ENV once --apply turns it into a write
+ * (and --prod alongside it if that environment is production).
  *
  *   node scripts/clean-ingredient-stubs.mjs            # print the plan
  *   node scripts/clean-ingredient-stubs.mjs --apply    # do it
@@ -32,8 +33,8 @@
 
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { createClient } from "@supabase/supabase-js";
 
+import { connect } from "./lib/db.mjs";
 import { fuzzyKnownName, isPlausibleIngredientName, parseInci, resolveKnownName } from "./lib/inci-parse.mjs";
 import { KNOWN_SHORT_NAMES } from "./audit-catalogue-quality.mjs";
 import { fetchAliases } from "./lib/aliases.mjs";
@@ -275,13 +276,7 @@ async function usesOf(db, names) {
 }
 
 async function main() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
-    process.exit(1);
-  }
-  const db = createClient(url, key, { auth: { persistSession: false } });
+  const { db } = connect({ write: APPLY });
 
   const known = new Set((await readIngredients(db, true)).map((n) => n.toLowerCase()));
   const stubs = await readIngredients(db, false);

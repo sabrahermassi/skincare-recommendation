@@ -8,7 +8,8 @@
  *
  * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY unless --dry-run. With the
  * keys set, --dry-run reads the table and prints the real plan, including what
- * --prune would remove.
+ * --prune would remove. A write also needs SUPABASE_ENV=staging or production
+ * — production also requires --prod on the command line.
  *
  * --prune clears out names an earlier run wrote that this run no longer
  * produces (the old name rule turned POLY(DIMER GRAPESEED OIL) into "poly").
@@ -28,8 +29,7 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { createClient } from "@supabase/supabase-js";
-
+import { connect } from "./lib/db.mjs";
 import { parseFunctions } from "./lib/normalise-function.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 import { applyPrune, assertNotTooMany, inBatches, planPruneAgainst } from "./lib/prune-stale.mjs";
@@ -309,21 +309,19 @@ async function main() {
     for (const name of conflicts.slice(0, 20)) console.log(`    ${name}`);
   }
 
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!DRY_RUN && (!url || !key)) {
-    console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required (or pass --dry-run)");
-    process.exit(1);
-  }
-
-  if (!url || !key) {
+  // Same shape as import-cosing: a dry run is allowed to proceed with no
+  // credentials at all, so the connection is only made when there is
+  // something to connect to, or when this run writes and connect() must
+  // refuse it outright.
+  const haveCredentials = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!haveCredentials && DRY_RUN) {
     // Without the table there is no plan to print: every name would read as new.
     console.log("\n--dry-run without keys: the database was not read, so there is no write plan.");
     printSamples(rows, restricted);
     return;
   }
 
-  const db = createClient(url, key, { auth: { persistSession: false } });
+  const { db } = connect({ write: !DRY_RUN });
   const existing = new Map();
   const currentRows = await paginateOrdered(db, "ingredients", {
     select: "inci_name, verified, source, safety",
