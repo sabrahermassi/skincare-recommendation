@@ -56,6 +56,32 @@ describe("dictionary-name normalisation", () => {
     expect(names).not.toContain("poly");
   });
 
+  it("adds the spelling a scanned label asks for when one ingredient alone reads that way", () => {
+    // The label parser drops bracketed text: "Tris(nonylphenyl)phosphite" on a
+    // label is looked up as "tris phosphite".
+    const rows = toRows({
+      "en:tris-nonylphenyl-phosphite": {
+        name: { en: "TRIS(NONYLPHENYL)PHOSPHITE" },
+        inci_functions: { en: "en:antioxidant" },
+      },
+    });
+    const byLabel = rows.find((row: { inci_name: string }) => row.inci_name === "tris phosphite");
+    expect(byLabel.functions).toEqual(["antioxidant"]);
+  });
+
+  it("never gives a label spelling to a different ingredient that really has that name", () => {
+    const rows = toRows({
+      "en:tris-nonylphenyl-phosphite": {
+        name: { en: "TRIS(NONYLPHENYL)PHOSPHITE" },
+        inci_functions: { en: "en:antioxidant" },
+      },
+      "en:tris-phosphite": { name: { en: "Tris Phosphite" }, inci_functions: { en: "en:chelating" } },
+    });
+    const named = rows.filter((row: { inci_name: string }) => row.inci_name === "tris phosphite");
+    expect(named).toHaveLength(1);
+    expect(named[0].functions).toEqual(["chelating"]);
+  });
+
   it("gives a name two entries print differently to neither, reports it, and carries on", () => {
     const conflicts: string[] = [];
     const rows = toRows(

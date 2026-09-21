@@ -65,13 +65,27 @@ const COMMON_NAME_ALIASES = {
 };
 
 /**
+ * Same normalisation the label parser uses. Only for `labelForms` below: it is
+ * what a scanned label's text becomes, so it is how a label will ask for a row.
+ */
+function normalise(raw) {
+  return raw
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[*_[\]]/g, " ")
+    .replace(/\b\d+([.,]\d+)?\s*%/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/^[^a-z0-9]+|[^a-z0-9)]+$/g, "");
+}
+
+/**
  * Normalise an authoritative dictionary name without discarding chemistry.
  *
- * Deliberately not the label parser's `normalise()`, which every other
- * importer copies. Known cost: the label parser still drops bracketed text, so
- * a label printing "Tris(nonylphenyl)phosphite" reads as "tris phosphite" and
- * finds no row here. It shows as unrecognised, which is the honest answer; the
- * old rule gave it whichever "tris(…)phosphite" happened to be imported first.
+ * Deliberately not the label parser's `normalise()` above. The label parser
+ * drops bracketed text, so a label printing "Tris(nonylphenyl)phosphite" asks
+ * for "tris phosphite"; `toRows` adds that spelling as well, but only when one
+ * ingredient alone reads that way.
  */
 function normaliseDictionaryName(raw) {
   return raw
@@ -143,6 +157,7 @@ function toRows(taxonomy, conflicts = []) {
   const rows = new Map(); // normalised name → row
   const priorities = new Map(); // taxonomy key > its printed name > hand-maintained common alias
   const clashed = new Map(); // name → the priority it was fought over at
+  const labelForms = new Map(); // what a scanned label would ask for → every row that reads that way
 
   for (const [key, entry] of Object.entries(taxonomy)) {
     if (!key.startsWith("en:")) continue;
@@ -212,6 +227,21 @@ function toRows(taxonomy, conflicts = []) {
       rows.set(alias, { inci_name: alias, ...row });
       priorities.set(alias, priority);
     }
+
+    const printed = pickEn(entry.inci) ?? pickEn(entry.name);
+    if (printed?.includes("(")) {
+      const form = normalise(printed);
+      if (form.length >= 2) labelForms.set(form, [...(labelForms.get(form) ?? []), row]);
+    }
+  }
+
+  // The label parser drops bracketed text, so "Tris(nonylphenyl)phosphite" on
+  // a label asks for "tris phosphite". That spelling gets a row only when one
+  // ingredient alone reads that way: ten different ingredients read as "poly",
+  // and giving the name to any of them is the false match this file once made.
+  for (const [form, owners] of labelForms) {
+    if (owners.length !== 1 || rows.has(form) || clashed.has(form)) continue;
+    rows.set(form, { inci_name: form, ...owners[0] });
   }
 
   return [...rows.values()];
