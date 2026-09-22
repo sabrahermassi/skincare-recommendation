@@ -129,19 +129,24 @@ Skip a row entirely if this ticket doesn't touch that area.
   with `--` while iterating, full before the PR.
 - If a route changed, regenerate types per the `CLAUDE.md` "no TTY" section.
 
-## 4. Self-review and hygiene
+## 4. Hygiene, then self-review
 
-Run the `self-review` skill against the diff — the diff for *this ticket
-only*, not the accumulated stack (the previous ticket already went through
-its own pass). For each finding:
-- Fix it now if it doesn't require a schema/architecture/product decision.
-- If it does, leave it and note it for the end-of-task report — don't guess
-  at a decision that isn't yours.
+In this order — hygiene first, self-review second — both against the diff
+for *this ticket only*, not the accumulated stack (the previous ticket
+already went through its own pass):
 
-Run `hygiene` if the task touched anything that could leave dead code behind
-(removed a code path, replaced a component). Delete what it finds unused and
-introduced by this change; leave pre-existing dead code alone unless the task
-already touches it.
+1. **Hygiene.** Run it if the task touched anything that could leave dead
+   code behind (removed a code path, replaced a component). Delete what it
+   finds unused and introduced by this change; leave pre-existing dead code
+   alone unless the task already touches it.
+2. **Self-review.** Run the `self-review` skill against the diff. For each
+   finding: fix it now if it doesn't require a schema/architecture/product
+   decision; if it does, leave it and note it for the end-of-task report —
+   don't guess at a decision that isn't yours.
+
+This same two-step sequence (hygiene, then self-review) runs again inside
+the review loop below, on the diff each round produces — not just once
+here before the PR opens.
 
 ## 5. Push and open the PR
 
@@ -155,23 +160,43 @@ that first.**" Do not merge, do not enable auto-merge.
 
 ## 6. Review loop
 
-Trigger both review tools on the PR:
+Three reviewers, not two:
 - Comment `@claude review` (or invoke the `pr-review` skill directly against
   this PR — same contract, P0/P1 only).
 - Comment `@codex review` if Codex is configured on this repo; skip silently
   if it isn't.
+- **CodeRabbit** — no repo config file exists for it, meaning it's installed
+  as a GitHub App with defaults, which auto-reviews on PR open and on every
+  push with no trigger comment needed. Don't comment `@coderabbitai review`
+  unless it hasn't posted anything after a reasonable wait.
 
-Wait for comments, then:
-- Fix everything that doesn't need an architectural or schema decision; push.
-- For anything that does, reply in-thread explaining why it's deferred, and
-  add it to the PR's Open Questions.
-- Re-trigger both reviewers on the new commit. Repeat until a round produces
-  no new fixable findings.
+Wait for comments from all three, but **don't block a round on one that
+never responds** — rate-limited or silent is normal for at least one of
+these on any given round; act on whichever came back.
 
-Cap at 5 rounds. If still not clean after 5, stop this ticket and report
-what's left rather than looping indefinitely — then continue the chain to
-the next ticket regardless (don't let one stuck PR block the rest of the
-stack from being built; it can be fixed once the user reaches it).
+Each round:
+1. Fix every finding that doesn't need an architectural or schema decision.
+   Weigh severity the way the finding is actually marked, not by which tool
+   raised it: a critical/P0-equivalent finding always gets fixed. A
+   nitpick/cleanup-tier finding is optional — fix it if it's cheap and
+   clearly right, otherwise leave it. A finding that isn't actually relevant
+   (wrong, already handled, out of scope for this ticket) gets neither
+   fixed nor deferred to Open Questions — just don't act on it.
+2. For anything needing a decision, reply in-thread explaining why it's
+   deferred, and add it to the PR's Open Questions.
+3. Re-run hygiene, then self-review (step 4's sequence) on the resulting
+   diff — a reviewer-prompted fix can introduce exactly the kind of thing
+   those two catch.
+4. Push. Re-trigger `@claude review` and `@codex review`; CodeRabbit
+   re-reviews on the push automatically.
+
+Repeat until a round produces no new fixable (relevant, non-nitpick, or
+cheap-nitpick) findings — that's convergence, not necessarily silence from
+every tool. Cap at 5 rounds regardless. If still not clean after 5, stop
+this ticket and report what's left rather than looping indefinitely — then
+continue the chain to the next ticket regardless (don't let one stuck PR
+block the rest of the stack from being built; it can be fixed once the user
+reaches it).
 
 ## 7. Report and continue the chain
 
