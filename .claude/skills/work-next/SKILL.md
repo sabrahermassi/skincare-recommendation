@@ -91,13 +91,20 @@ Comment on the issue noting you're starting it now, so a concurrent run
 doesn't duplicate it: `gh issue comment <n> --repo <owner>/<repo> --body
 "Starting this now via /work-next."`
 
+**The branch name must contain the issue number** — `task/<n>-<short-slug>`,
+e.g. `task/50-fix-scanner-flash` for issue #50 — not just a slug. That
+number is the only thing line 84's "in flight" check has to match against;
+a branch or PR title without it makes that check silently find nothing,
+and a second run of this skill re-picks and re-implements a ticket that's
+already underway.
+
 **Branch point — this is what makes it a chain, not N separate runs:**
 - **First ticket in the chain:** branch from `main` (`git checkout -b
-  task/<short-slug> main`).
+  task/<n>-<short-slug> main`).
 - **Every ticket after the first:** branch from the *previous ticket's
-  branch tip*, not from `main` (`git checkout -b task/<short-slug>`, staying
-  on the previous branch first). State this explicitly in the new PR's body:
-  "Stacked on #<previous PR number> — do not merge before it."
+  branch tip*, not from `main` (`git checkout -b task/<n>-<short-slug>`,
+  staying on the previous branch first). State this explicitly in the new
+  PR's body: "Stacked on #<previous PR number> — do not merge before it."
 
 ## 2. Read the real scope
 
@@ -298,10 +305,13 @@ gh pr create --repo <owner>/<repo> --base <base> --head <this-ticket-branch> \
 ```
 
 Write the body to a scratchpad file first rather than passing it inline —
-Body: what changed, the scope-source link, test/lint/typecheck results, a
-`## Open questions` section for anything step 5 found that needed a
-decision, and — for every ticket after the first — "**Stacked on #<previous
-PR> — merge that first.**" Do not merge, do not enable auto-merge.
+Body: what changed, `Closes #<n>` (the ticket's own issue number — this is
+what makes step 8's "the issue only actually closes once they merge" true;
+without it, merging the PR closes nothing), the scope-source link,
+test/lint/typecheck results, a `## Open questions` section for anything
+step 5 found that needed a decision, and — for every ticket after the
+first — "**Stacked on #<previous PR> — merge that first.**" Do not merge,
+do not enable auto-merge.
 
 ## 7. Review loop
 
