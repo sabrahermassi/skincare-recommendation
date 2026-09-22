@@ -22,13 +22,13 @@ const CLAIM_POLICY_RULES: readonly ClaimPolicyRule[] = [
   {
     id: "body-structure",
     explanation: "Do not claim to repair, restore, rebuild or regenerate skin or its structures",
-    pattern: /\b(?:repair|restore|rebuild|regenerate)(?:s|ed|ing|ation)?\b|\b(?:regenerat|restorat)(?:ion|ive)\b/i,
+    pattern: /\b(?:repair|restore|rebuild|regenerate)(?:s|ed|ing|ation)?\b|\b(?:regenerat|restorat|reparat)(?:ion|ive)\b/i,
   },
   {
     id: "antimicrobial-or-symptom",
     explanation: "Do not make antimicrobial, pathogen-killing or anti-symptom claims",
     pattern:
-      /\b(?:anti[- ]?(?:bacterial|microbial|fungal|viral|itch)|(?:kills?|eliminates?)\b.{0,40}\b(?:bacteria|germs?|fung(?:us|i)|viruses?))\b/i,
+      /\b(?:anti[- ]?(?:bacterial|microbial|fungal|viral|itch)|(?:kills?|eliminates?)\b.{0,40}\b(?:bacteria|germs?|fung(?:us|i)|viruses?)|(?:bacteria|germs?|fung(?:us|i)|viruses?)[- ]?(?:killing|eliminating))\b/i,
   },
   {
     id: "regulatory-endorsement",

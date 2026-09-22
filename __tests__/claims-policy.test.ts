@@ -79,6 +79,9 @@ describe("medical and safety claims policy", () => {
     ["kills acne bacteria", "antimicrobial-or-symptom"],
     ["FDA approved", "regulatory-endorsement"],
     ["skin regeneration", "body-structure"],
+    ["reparative lipid for the barrier", "body-structure"],
+    ["a bacteria-killing option", "antimicrobial-or-symptom"],
+    ["germ-eliminating formula", "antimicrobial-or-symptom"],
     ["barrier restoration", "body-structure"],
     ["clinically proven to work", "guaranteed-outcome"],
   ])("rejects %s", (text: string, ruleId: string) => {
