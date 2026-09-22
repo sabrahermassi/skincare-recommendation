@@ -5,6 +5,28 @@
 
 > The existing GitHub repository may contain functionality beyond this MVP. Existing functionality does not automatically belong to the MVP. Working non-MVP functionality does not need to be deleted; it should simply not receive additional scope or priority before launch.
 
+## Scope changes since this document was locked
+
+Locked does not mean frozen forever — it means a change is recorded here
+before it is built, rather than discovered later in a diff. Three changes are
+on the record as of **22 September 2026**:
+
+1. **The scan flow inverts (#214).** The ingredient-list photo becomes the
+   main scan path and the barcode becomes the shortcut. This is an MVP change
+   and it rewrites §9, §11 and §32. **It is decided but not yet built** — the
+   code still opens in barcode mode. See §9.
+2. **Accounts are scoped, and still post-MVP.** A 14-step plan now exists
+   (#217–#230): auth, server-side saved shelf, account deletion/export, and a
+   saved-notes "journal" layer. None of it is MVP work. Before this, §35 said
+   only "advanced personalization"; now there is a real plan, and the point of
+   naming it here is that it does **not** move the launch line. See §31/§35.
+3. **Three issues are fenced out of MVP explicitly** — #194 (type the barcode
+   by hand), #207 (Beauty API / Korean ingredient API / accounts), #215
+   (hybrid on-device OCR). They carry the `out-of-MVP-scope` marker in their
+   titles so they do not get re-litigated each pass.
+
+Everything below this block is the locked scope, as amended by the above.
+
 ---
 
 # 1. Product Definition
@@ -93,6 +115,9 @@ For returning users:
 `Home` (`app/(tabs)/index.tsx`, route `/`) is the landing screen after onboarding
 and on every return — not the scanner directly. `Scan` opens from a raised
 floating button on Home, not from a scanner tab. See §8 and §9.
+
+`Scan Product` means photographing the ingredient list by default and scanning
+a barcode as the shortcut, per #214 — decided, not yet built. See §9.
 
 Everything in the MVP should support this core experience.
 
@@ -248,7 +273,32 @@ raised floating Scan button.
 
 ## Default mode
 
-**Barcode mode is the default.**
+**Decided 22 September 2026 (#214): the ingredient-list photo is the main scan
+path. Barcode is the shortcut.**
+
+The reasoning is coverage. The live catalogue holds roughly 851 products, so
+most barcodes a real user scans in a shop will miss, and a miss costs a second
+action. A printed ingredient list can be read off any product, anywhere, with
+no catalogue coverage at all. Barcode keeps its place one tap away because it
+wins where it wins: it is instant when it resolves, and it is the only way to
+attach a scan to a catalogue product.
+
+What this means concretely:
+
+- a cold start opens the scanner in photo mode, with barcode one tap away;
+- photographing a label produces a verdict **without** requiring a product
+  name or a barcode;
+- naming the product and adding it to the shared catalogue is an optional
+  follow-up, not a gate;
+- the barcode-miss copy points at the photo path as the normal route rather
+  than as a fallback (copy work tracked in #204).
+
+> **Not built yet — the code and this section disagree, and the code is what
+> runs.** `app/(tabs)/scanner.tsx` still starts in barcode mode and resets to
+> it on every focus. #214 is the ticket that flips it, and it depends on #185
+> (Korean/Japanese ingredient names), #193 (show the parsed list before
+> saving) and #205 (resize camera photos). Do not read this section as a
+> description of `main` until #214 has merged.
 
 ## Barcode scanning
 
@@ -289,9 +339,13 @@ The scanner has:
 - a flash (torch) toggle, for scanning in dim light. It turns off when the
   user leaves the scanner.
 
-There is **no dedicated flash button for MVP**, and no in-screen back/close
-control — the scanner opens from Home's raised floating button rather than
-being a tab of its own, so leaving it returns to Home.
+There is no in-screen back/close control — the scanner opens from Home's
+raised floating button rather than being a tab of its own, so leaving it
+returns to Home.
+
+(This section used to say "no dedicated flash button for MVP." The torch
+bullet above superseded that; the old sentence is removed rather than left
+to contradict it. The torch is part of the scan-failure help in #195.)
 
 ---
 
@@ -319,11 +373,22 @@ Do not create an additional permission-education screen.
 
 # 11. Ingredient-List Photo Scanning
 
-The user can switch from barcode mode to ingredient-list photo mode using the image/photo control.
+This is the main scan path (§9, #214). The scanner opens here; the mode
+control switches to barcode rather than away from it.
 
-Flow:
+Target flow:
 
-**Switch Mode → Camera → Take One Photo → Tap Scan → OCR + Ingredient Analysis → Results**
+**Camera (already in photo mode) → Take One Photo → Tap Scan → OCR + Ingredient Analysis → Results → optionally name the product**
+
+The result comes before any contribution step. A user who only photographs a
+label gets a full verdict and is never pushed through a naming or barcode
+step to see it; adding the product to the shared catalogue is offered
+afterwards as a choice.
+
+> **Current code, until #214 merges:** the scanner opens in barcode mode, so
+> reaching this path means switching mode first —
+> **Switch Mode → Camera → Take One Photo → Tap Scan → OCR + Ingredient Analysis → Results** —
+> and a successful read routes into "Add product," which asks for a barcode.
 
 For MVP:
 
@@ -901,9 +966,32 @@ The MVP does **not** include:
 - gamification;
 - unnecessary advanced personalization;
 - product recommendations;
-- alternative-product recommendations.
+- alternative-product recommendations;
+- **user accounts, sign-in, and a server-side saved shelf** (see below).
 
 These should not delay MVP launch.
+
+## Accounts and the journal layer — scoped, still out
+
+The MVP ships with no accounts: the profile, the saved shelf and history all
+stay on the device (Zustand + AsyncStorage, `store/useAppStore.ts`).
+
+A full plan for accounts now exists as issues #217–#230 — sign-in method,
+Supabase Auth, user tables and RLS, auth screens, sign-up prompt on Save,
+guest-shelf migration, server-backed shelf, account deletion and export,
+analytics, privacy docs, plus a saved-notes layer (routine-step filtering,
+notes on a saved product, handwritten note styling, a first-save moment).
+
+**Having a plan does not move it into the MVP.** Every one of those issues is
+post-MVP and says so. Two of them sit close to lines this section already
+draws — #227 (filter the shelf by routine step) is adjacent to the routine
+builder, and #228–#230 (notes on saved products) are adjacent to the skin
+diary. Those exclusions stand: the filed issues stop at sorting and
+annotating what is already saved, and none of them adds sequencing, timing,
+reminders or longitudinal tracking. If one starts to, it is out.
+
+The saved shelf remains what §25 says it is — a supporting feature that does
+not grow before launch.
 
 ---
 
@@ -919,7 +1007,8 @@ for.me is ready to move toward launch when a new user can reliably:
    - Sensitivity;
    - Pregnancy / breastfeeding status.
 4. Reach the scanner immediately.
-5. Scan a product by barcode **or** photograph its ingredient list.
+5. Photograph a product's ingredient list **or** scan its barcode — in that
+   order of prominence once #214 lands; either order satisfies this line.
 6. Successfully retrieve/read ingredient information.
 7. Receive a clear analysis.
 8. See a personalized 0–100 compatibility score when a profile is available.
@@ -1010,6 +1099,24 @@ The following ideas are intentionally deferred:
 - complex growth features.
 
 These should be evaluated after launch using real user behavior and feedback.
+
+## Deferred with a plan already written
+
+Unlike the list above, this one is scoped and sequenced — it is deferred by
+decision, not by vagueness. It does not become launch work because it is
+ready.
+
+- **Accounts, end to end** — #217–#226: choose the sign-in method, Supabase
+  Auth and session storage, user tables and access rules, sign-up/login/
+  sign-out screens, the sign-up prompt on Save, guest-shelf migration, the
+  server-backed shelf (history stays local), account deletion and data
+  export, analytics for guests and signed-in users, privacy-doc updates.
+- **The saved-notes layer** — #227–#230: filter the shelf by routine step, an
+  optional note when saving, handwritten styling for notes, a warm first-save
+  moment. Bounded by §31.
+- **Out-of-MVP by explicit decision** — #194 (type the barcode by hand), #207
+  (Beauty API, Korean ingredient API wrapper, user accounts), #215 (hybrid
+  on-device OCR with a Google Vision fallback).
 
 ---
 
