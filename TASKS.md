@@ -43,12 +43,13 @@ Issue bodies link to whichever of these actually defines the task's scope.
 `/work-next` reads that link before touching code.
 
 - **MVP Scope** — https://claude.ai/artifact/2HSNkc3QUZPxMBREhWFhT2 — its
-  repo-side twin is `FOR_ME_MVP.md`, whose header carries a **"Scope changes
-  since this document was locked"** block. Scope moves between passes (the
-  scan flow inverted on 22 September); that block is where a change is
-  recorded before it is built, so read it before trusting any section below
-  it. If a ticket turns out to move scope, add to it rather than editing a
-  section silently.
+  repo-side twin is `FOR_ME_MVP.md`. `FOR_ME_MVP.md` has no changelog
+  section — it's edited in place when scope moves, so its current text is
+  the current scope; there is nothing separate to check for staleness. If a
+  ticket's Definition of Done conflicts with what `FOR_ME_MVP.md` currently
+  says, that's the Tier 1 conflict case (step 0/2 of the skill): stop that
+  ticket, relabel `blocked-on-decision`, don't guess which version is
+  right.
 - **Feeding the Catalogue** — https://claude.ai/artifact/35abnwiaqnKhpBWnWJTJkV
   — steps without their own issue yet get one filed (with the step's anchor
   link in the body) before they're `code-ready` — see step 17 → #171, step

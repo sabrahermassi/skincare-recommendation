@@ -80,15 +80,24 @@ themselves (the old default, now just the fallback for unprioritized
 issues). Within the same priority number, also break ties by `created_at`.
 
 Take the top of that ordering that isn't already done earlier in this chain
-and isn't already in flight (check for an open PR whose branch/title
-references its number — `gh pr list --repo <owner>/<repo> --state open
---json number,title,headRefName` — skip it if one exists and it isn't this
-chain's own). If the list is empty — either at the start or between
-tickets — that's the finish line: say so, report the chain's summary, stop.
-Do not invent a task or fall back to an unlabeled issue.
+and isn't already in flight. There are two things to check, because a PR
+for the ticket doesn't exist until step 6 — well after this pick — so a PR
+check alone misses a chain that's already mid-ticket on it:
+- An open PR whose branch/title references its number — `gh pr list --repo
+  <owner>/<repo> --state open --json number,title,headRefName`.
+- A "Starting this now" comment on the issue itself (below) from within a
+  reasonable window (say, the last few hours) — `gh issue view <n> --repo
+  <owner>/<repo> --json comments`. That comment is the only signal that
+  exists between pick and step 6's PR; skipping this check makes it purely
+  decorative.
 
-Comment on the issue noting you're starting it now, so a concurrent run
-doesn't duplicate it: `gh issue comment <n> --repo <owner>/<repo> --body
+Skip the ticket if either matches and it isn't this chain's own. If the
+list is empty — either at the start or between tickets — that's the finish
+line: say so, report the chain's summary, stop. Do not invent a task or
+fall back to an unlabeled issue.
+
+Comment on the issue noting you're starting it now, so a concurrent run's
+check above finds it: `gh issue comment <n> --repo <owner>/<repo> --body
 "Starting this now via /work-next."`
 
 **The branch name must contain the issue number** — `task/<n>-<short-slug>`,
