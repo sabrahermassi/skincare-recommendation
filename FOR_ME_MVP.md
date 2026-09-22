@@ -271,10 +271,12 @@ The existing barcode implementation should be audited for:
 
 The scanner has:
 
-- a control to switch between barcode mode and ingredient-list photo mode.
+- a control to switch between barcode mode and ingredient-list photo mode;
+- a flash (torch) toggle, for scanning in dim light. It turns off when the
+  user leaves the scanner.
 
-There is **no dedicated flash button for MVP**, and no in-screen back/close
-control — the scanner is a tab root, so leaving it means switching tabs.
+There is no in-screen back/close control — the scanner is a tab root, so
+leaving it means switching tabs.
 
 ---
 
@@ -601,27 +603,33 @@ Keep error handling lean.
 
 Message:
 
-**We couldn't find this product.**
+**We don't have this product yet**
+
+Photograph its ingredient list and we'll add it.
 
 Action:
 
-**Scan ingredient list**
+**Photograph the ingredients**
 
 ## Ingredient photo unreadable
 
 Message:
 
-**We couldn't read the ingredients.**
+**We couldn't read the ingredients**
+
+Get closer so the small print fills the frame, and tilt away from any glare.
 
 Action:
 
-**Take another photo**
+**Try again**
 
 ## Analysis/network failure
 
 Message:
 
-**Something went wrong.**
+**We couldn't check that just now**
+
+It's us or the connection, not your scan.
 
 Action:
 
@@ -706,7 +714,6 @@ The following are part of the MVP because they support the core product/shopping
 - Favorites/saved products
 - Scan history
 - Product search
-- Manual ingredient entry
 - Existing detailed result breakdown
 
 These features should be preserved where already implemented.
