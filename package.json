@@ -22,6 +22,7 @@
     "reconcile:obf": "node scripts/reconcile-obf.mjs",
     "audit:catalogue-quality": "node scripts/audit-catalogue-quality.mjs",
     "audit:duplicate-ingredients": "node scripts/audit-duplicate-ingredients.mjs",
+    "audit:safety-labels": "node scripts/audit-safety-labels.mjs",
     "audit:ingredient-coverage": "node scripts/audit-ingredient-coverage.mjs",
     "promotion-plan": "node scripts/promotion-plan.mjs"
   },

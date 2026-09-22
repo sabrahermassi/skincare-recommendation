@@ -78,6 +78,11 @@ CosIng exports differ and another one may have written it.
 like one ingredient stored twice, by spelling or by shared CAS number, and flags
 the pairs whose safety or functions disagree.
 
+`npm run audit:safety-labels` (read only) counts the `safe` labels that are only
+the column default (no EU annex lists the ingredient, which is not a verdict),
+and lists labels that disagree with the annex citation in their own note, and
+`avoid`/`caution` labels with no note.
+
 ## You have no TTY — regenerating route types
 
 `href` strings are type-checked against `.expo/types/router.d.ts`, which
