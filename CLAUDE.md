@@ -74,6 +74,10 @@ uses them). For `import:cosing` that is only the shortened spellings its old
 naming rule made — a name missing from today's file is left alone, because
 CosIng exports differ and another one may have written it.
 
+`npm run audit:duplicate-ingredients` (read only) lists verified names that look
+like one ingredient stored twice, by spelling or by shared CAS number, and flags
+the pairs whose safety or functions disagree.
+
 ## You have no TTY — regenerating route types
 
 `href` strings are type-checked against `.expo/types/router.d.ts`, which
