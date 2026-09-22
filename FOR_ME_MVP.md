@@ -84,11 +84,15 @@ The product is focused on helping users quickly understand a product rather than
 
 The central MVP experience is:
 
-**Open → Quick Scan or Personalize → Scanner → Scan Product → Analyze → Results**
+**Open → Quick Scan or Personalize → Home → Scan → Scan Product → Analyze → Results**
 
 For returning users:
 
-**Open → Scanner → Scan → Results**
+**Open → Home → Scan → Results**
+
+`Home` (`app/(tabs)/index.tsx`, route `/`) is the landing screen after onboarding
+and on every return — not the scanner directly. `Scan` opens from a raised
+floating button on Home, not from a scanner tab. See §8 and §9.
 
 Everything in the MVP should support this core experience.
 
@@ -103,8 +107,10 @@ The carousel leads into personalization by default — both "Continue" on its
 last screen and "Skip" on any of its 3 screens go to the same place, the
 quiz's first step. The Quick Scan / Personalize choice is realized through
 the quiz's own Skip control rather than a dedicated welcome-time screen:
-Skip is available on every quiz step and jumps straight to the scanner,
-while completing all 4 steps finishes personalization first.
+Skip is available on every quiz step and jumps straight to Home (`/`),
+while completing all 4 steps finishes personalization first, also landing
+on Home. Home, not the scanner, is where onboarding hands off — the
+scanner opens from Home's raised floating button. See §8/§9.
 
 ## Quick Scan
 
@@ -113,7 +119,7 @@ hurry user doesn't have to answer any question to reach it.
 
 Flow:
 
-**Welcome carousel → Quiz → Skip (any step) → Scanner**
+**Welcome carousel → Quiz → Skip (any step) → Home → Scan**
 
 No personalization questionnaire is required before scanning.
 
@@ -121,9 +127,10 @@ No personalization questionnaire is required before scanning.
 
 Flow:
 
-**Welcome carousel → Quiz (Concerns → Skin Type → Sensitivity → Pregnancy) → Scanner**
+**Welcome carousel → Quiz (Concerns → Skin Type → Sensitivity → Pregnancy) → Home → Scan**
 
-The scanner opens **immediately after the last quiz step**.
+Home opens **immediately after the last quiz step**; the scanner is one tap
+away from there, not the immediate landing screen.
 
 There is:
 
@@ -168,18 +175,21 @@ Multiple selection is allowed.
 
 Maximum: **3 concerns**.
 
-Available options:
+Available options (`app/onboarding/(quiz)/concerns.tsx`):
 
-1. Acne & blemishes
-2. Dark spots / pigmentation
-3. Dry / dehydrated skin
-4. Dullness
-5. Redness
-6. Sensitivity
-7. Enlarged pores
-8. Fine lines & wrinkles
+1. Dry / Dehydrated
+2. Dullness
+3. Acne or pimples
+4. Dark spots
+5. Enlarged pores
+6. Fine lines and wrinkles
+7. Redness or rosacea
+8. Post-acne marks
 
-**Uneven texture is excluded.**
+**Uneven texture is excluded.** Sensitivity is not a concern option — it is
+its own quiz step (see below). "Eczema-prone" (`atopic`) is not offered as a
+selectable concern; its scoring rules stay intact for any profile that
+already carries it from before that option was removed.
 
 ## Sensitivity
 
@@ -218,13 +228,16 @@ Do not add:
 
 Onboarding is first-time only.
 
-Every subsequent app open goes directly to the **Scanner**, regardless of whether the user has a personalized profile.
+Every subsequent app open goes directly to **Home** (`app/(tabs)/index.tsx`,
+route `/`), regardless of whether the user has a personalized profile. The
+scanner is one tap away via Home's raised floating Scan button, not the
+landing screen itself.
 
 A returning user without a profile can still use Quick Scan and can personalize later.
 
 Returning-user flow:
 
-**Open → Scanner**
+**Open → Home → Scan**
 
 ---
 
@@ -274,7 +287,8 @@ The scanner has:
 - a control to switch between barcode mode and ingredient-list photo mode.
 
 There is **no dedicated flash button for MVP**, and no in-screen back/close
-control — the scanner is a tab root, so leaving it means switching tabs.
+control — the scanner opens from Home's raised floating button rather than
+being a tab of its own, so leaving it returns to Home.
 
 ---
 
