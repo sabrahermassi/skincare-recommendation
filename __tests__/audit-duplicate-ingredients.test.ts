@@ -109,8 +109,17 @@ describe("findDuplicates", () => {
     expect(group.conflicts[0]).toMatch(/CAS numbers contradict/);
   });
 
-  it("does not call a spelling group a conflict when only one row carries a CAS number", () => {
+  it("flags a spelling group as a conflict when only one row carries a CAS number", () => {
+    // Nothing confirms the row with no CAS is the same substance as the one
+    // that has it, rather than another case like (+)/(-)-limonene that
+    // simply hasn't been matched to a CAS number yet.
     const [group] = findDuplicates([row("peg-40 stearate", { cas_number: "9004-99-3" }), row("peg 40 stearate")]);
+    expect(group.conflicts).toHaveLength(1);
+    expect(group.conflicts[0]).toMatch(/CAS number on file for some rows but not all/);
+  });
+
+  it("does not call a spelling group a conflict when neither row has a CAS number on file", () => {
+    const [group] = findDuplicates([row("peg-40 stearate"), row("peg 40 stearate")]);
     expect(group.conflicts).toEqual([]);
   });
 
@@ -126,5 +135,25 @@ describe("findDuplicates", () => {
       row("aa-b", { cas_number: "222-22-2" }),
     ]);
     expect(blend.conflicts).toEqual([]);
+  });
+
+  it("flags incomplete CAS coverage in a group of three, even though most rows agree", () => {
+    const [group] = findDuplicates([
+      row("aa b", { cas_number: "111-11-1" }),
+      row("aa-b", { cas_number: "111-11-1" }),
+      row("aa.b"),
+    ]);
+    expect(group.conflicts).toHaveLength(1);
+    expect(group.conflicts[0]).toMatch(/CAS number on file for some rows but not all/);
+  });
+
+  it("reports only the contradiction, not incomplete coverage too, when both are true", () => {
+    const [group] = findDuplicates([
+      row("(+)-limonene", { cas_number: "5989-27-5" }),
+      row("(-)-limonene", { cas_number: "5989-54-8" }),
+      row("Limonene."), // same spelling key ("limonene"), no CAS on file
+    ]);
+    expect(group.conflicts).toHaveLength(1);
+    expect(group.conflicts[0]).toMatch(/CAS numbers contradict/);
   });
 });

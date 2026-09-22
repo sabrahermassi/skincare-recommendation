@@ -12,10 +12,14 @@
  *
  * A group is a *conflict* when its rows disagree on `safety` or `functions`,
  * because then the app gives a different answer depending on which spelling a
- * label happens to use, or when two rows carry CAS numbers that share nothing
- * — a spelling group can collide two real, distinct substances (optical
- * isomers such as "(+)-limonene" / "(-)-limonene" normalise to the same
- * spelling key; their CAS numbers do not). Conflicts are listed first.
+ * label happens to use; when two rows carry CAS numbers that share nothing —
+ * a spelling group can collide two real, distinct substances (optical isomers
+ * such as "(+)-limonene" / "(-)-limonene" normalise to the same spelling key;
+ * their CAS numbers do not); or when a CAS number is on file for some of the
+ * group's rows but not all of them — nothing then confirms the ones missing
+ * it are the same substance as the ones that have it, rather than another
+ * case exactly like the limonene one that simply has not been matched to a
+ * CAS number yet. Conflicts are listed first.
  *
  * Read only: it never writes. Reads need `SUPABASE_URL` and
  * `SUPABASE_SERVICE_ROLE_KEY` in the shell.
@@ -77,6 +81,21 @@ function casesContradict(rows) {
 }
 
 /**
+ * Whether the group's CAS coverage is too thin to confirm every row names the
+ * same substance: at least one row carries a CAS number and at least one row
+ * does not. A group where every row lacks a CAS number says nothing about
+ * identity either way, and is not flagged — the spelling match is the only
+ * evidence there ever was for those, same as before this check existed.
+ *
+ * @param {Row[]} rows
+ * @returns {boolean}
+ */
+function casCoverageIncomplete(rows) {
+  const withCas = rows.filter((row) => casNumbers(row.cas_number).length > 0).length;
+  return withCas > 0 && withCas < rows.length;
+}
+
+/**
  * How the rows of one group disagree, as plain sentences. Empty when they agree.
  *
  * @param {Row[]} rows
@@ -99,6 +118,12 @@ function disagreements(rows) {
 
   if (casesContradict(rows)) {
     found.push(`CAS numbers contradict (${rows.map((row) => `${row.inci_name}: ${row.cas_number || "none"}`).join("; ")})`);
+  } else if (casCoverageIncomplete(rows)) {
+    found.push(
+      `CAS number on file for some rows but not all, so identity is unconfirmed (${rows
+        .map((row) => `${row.inci_name}: ${row.cas_number || "none"}`)
+        .join("; ")})`
+    );
   }
 
   return found;
