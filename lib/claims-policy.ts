@@ -12,7 +12,7 @@ export type ClaimPolicyRule = {
   pattern: RegExp;
 };
 
-export const CLAIM_POLICY_RULES: readonly ClaimPolicyRule[] = [
+const CLAIM_POLICY_RULES: readonly ClaimPolicyRule[] = [
   {
     id: "disease-or-treatment",
     explanation: "Do not diagnose, cure, treat, heal or prevent a disease or condition",
