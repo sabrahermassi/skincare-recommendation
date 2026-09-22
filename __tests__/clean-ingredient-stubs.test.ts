@@ -213,6 +213,18 @@ describe("classifyStub", () => {
     expect(classifyStub("korea distribuitor: promo plus srl", known, aliases)).toEqual({ kind: "not-ingredient" });
   });
 
+  it("treats a trailing 'nano' as the same ingredient, and a dye's colour name as its colour index number", () => {
+    const dict = new Set(["methylene bis-benzotriazolyl tetramethylbutylphenol", "ci 19140", "ci 19140:1"]);
+    expect(classifyStub("methylene bis-benzotriazolyl tetramethylbutylphenol nano", dict, aliases)).toEqual({
+      kind: "variant",
+      target: "methylene bis-benzotriazolyl tetramethylbutylphenol",
+    });
+    expect(classifyStub("yellow 5", dict, aliases)).toEqual({ kind: "variant", target: "ci 19140" });
+    // A lake is a different ingredient from the dye.
+    expect(classifyStub("yellow 5 lake", dict, aliases)).toBeNull();
+    expect(classifyStub("aus kontrolliert biologischem anbau", dict, aliases)).toEqual({ kind: "not-ingredient" });
+  });
+
   it("stores water written on its own under the same name as every other product's water", () => {
     // "eau" can be a verified dictionary name in its own right; the stub still
     // belongs with "aqua", like "aqua / water / eau" does.

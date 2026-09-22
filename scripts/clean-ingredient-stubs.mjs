@@ -70,6 +70,8 @@ const AMBIGUOUS_STUB_NAMES = new Set([
  */
 const CONFIRMED_NOT_INGREDIENTS = new Set([
   "120-2563",
+  // German for "from controlled organic farming", printed beside the list.
+  "aus kontrolliert biologischem anbau",
   "19g proprietati: extractul de orez întăreşte bariera pielii",
   "but better dincidecoder the skincare ingredients with the most google searches > eng 6:04 pm cd \\9/20/2126",
   "ingredients",
@@ -88,6 +90,9 @@ const CONFIRMED_NOT_INGREDIENTS = new Set([
 const EQUIVALENT_NAMES = [
   ["aqua", "water", "eau", "ater", "agua"],
   ["parfum", "fragrance"],
+  // The US colour name and the EU colour index number of one dye (tartrazine).
+  // The lake ("yellow 5 lake") is a different ingredient and is not listed.
+  ["ci 19140", "yellow 5"],
 ];
 
 /** The separate names in a stub that lists more than one ("a / b", "a & b", "a (b"). */
@@ -145,6 +150,11 @@ function variantTarget(name, known, aliases) {
     const restNamesOne = parseInci(trailing[2], known, undefined, aliases).some((i) => known.has(i.inci_name));
     return t && !restNamesOne ? t : null;
   }
+
+  // "nano" after a name only says the particles are nano-sized; on a label it
+  // is normally in brackets, which the parser drops, so this is the same ingredient.
+  const nano = /^(.+?)\s+nano$/.exec(name);
+  if (nano) return variantTarget(nano[1], known, aliases);
 
   const parts = partsOf(name);
   if (parts.length > 1) {
