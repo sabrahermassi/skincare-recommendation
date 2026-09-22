@@ -20,16 +20,27 @@ because the alternative is deciding it inside the pull request that adds
 authentication — where the path of least resistance is `persistSession: true`
 and no second thought, and that path is wrong.
 
-That pull request now has a shape. Accounts are scoped as a post-MVP track
-(#217–#230) and stay out of the MVP, but two of its steps land directly on
-this file: **#218** turns on Supabase Auth and is where row 1 stops being
-hypothetical, and **#223** points the saved shelf at the server, which puts
-row 2 in tension with the rule below that `store/useAppStore.ts` is the only
-file allowed to touch AsyncStorage — #223 asks for that to be decided and
-written down here rather than settled in passing. Neither is launch work. The
-point of naming them is that row 1 was written for exactly this moment, and
-whoever picks up #218 should arrive here first rather than discover it in
-review.
+**That pull request is now launch work.** Accounts are in the MVP: it has a
+guest tier (scan, full verdict, device-only history, no signup) and a
+signed-in tier (saved shelf, journal notes, routine-step tagging), and the
+two are #217–#230. Three of those steps land directly on this file.
+
+- **#218** turns on Supabase Auth. Row 1 stops being hypothetical here, and
+  `lib/supabase.ts` currently carries the matching comment on the client
+  side, explaining why `storage` is deliberately absent while
+  `persistSession` is false. Both were written for this moment; read them
+  together before changing either.
+- **#223** points the saved shelf at the server, which puts row 2 in tension
+  with the rule below that `store/useAppStore.ts` is the only file allowed to
+  touch AsyncStorage. #223 asks for that to be settled here in writing rather
+  than in passing.
+- **#228** adds a journal note to a saved product — free text the user wrote
+  themselves, which is the most personal thing this app will hold and which
+  no row in the table below currently covers. It needs its own row, not a
+  corner of row 2.
+
+Whoever picks up #218 should arrive here first rather than discover this file
+in review.
 
 ## Why the profile and scan history stay on AsyncStorage
 
