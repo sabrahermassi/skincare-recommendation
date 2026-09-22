@@ -1,8 +1,11 @@
 # Task Queue
 
-`/work-next` (see `.claude/skills/work-next/SKILL.md`) works this queue: pick
-one task, implement it start to finish — including staging DB — open a PR,
-loop review tools until clean, stop without merging.
+`/work-next` (see `.claude/skills/work-next/SKILL.md`) works this queue: take
+each task, implement it start to finish — including staging DB — open a PR,
+loop review tools until clean, never merge. It does not stop after one, or
+after five: it keeps going, stacking each PR on the previous one's branch,
+until no `code-ready` ticket is left. An empty queue is the only finish
+line.
 
 **The live queue is GitHub issues, filtered by label — not a list in this
 file.** A static list here went stale immediately (two issues hand-copied

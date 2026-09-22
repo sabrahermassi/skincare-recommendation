@@ -5,11 +5,19 @@ description: Pick the next ready task from TASKS.md and drive it start to finish
 
 # Work Next
 
-Autonomous task execution against `TASKS.md`. Runs as a **chain**: the user
-gives a count (e.g. "scope me to five") or says "until the queue is empty";
-each ticket in the chain builds on the previous one's branch, not on a
-freshly-fetched `main`, so the chain never has to wait for a merge that only
-happens the next morning. Never merge. Never touch production.
+Autonomous task execution against `TASKS.md`. Runs as a **chain that does
+not stop until the whole `code-ready` queue is implemented** — not a batch
+of five, not a count the user has to set. Every remaining ticket gets built
+and stacked on the one before it, each branching off the previous ticket's
+branch rather than a freshly-fetched `main`, so the chain never waits for a
+merge that only happens the next morning. Never merge. Never touch
+production.
+
+There is exactly one finish line: **no `code-ready` ticket is left that
+isn't already in flight.** Nothing else ends the run — not a stuck PR, not
+a ticket that turns out to need a decision, not a review loop that hits its
+round cap. Each of those is handled in place and the chain moves to the
+next ticket (steps 2, 7 and 8 say how).
 
 ## 0. Session setup — once per chain, not per ticket
 
@@ -19,9 +27,9 @@ Before the first ticket:
   This happens once, at the start of the chain — not before every ticket.
 - Read Tier 1 (below) once. Keep it in context for the rest of the chain;
   do not re-read it per ticket.
-- Confirm the chain's stopping condition with what the user actually said:
-  a fixed count, or "until `code-ready` is empty." Track how many tickets
-  are done against it.
+- Note how many `code-ready` tickets there are to begin with, so the final
+  summary can account for every one of them. This is a count to report
+  against, not a limit to stop at.
 
 ### Tier 1 — once per chain
 
@@ -256,14 +264,23 @@ Comment on the issue with the PR link (closing issues automatically via the
 PR body's `Closes #N` is fine — the PR stays unmerged until the user acts,
 so the issue only actually closes once they merge).
 
-Then, without waiting for the user:
-- If the chain's stopping condition isn't met yet (count not reached, or
-  `code-ready` queue not empty), go back to step 1 for the next ticket,
-  branching from *this* ticket's branch.
-- If it is met, that's the finish line: stop, and give the user one summary
-  covering the whole chain — every PR opened, in stack order, what got fixed
-  in each across how many review rounds, and — plainly separated per PR —
-  what could not be decided and needs their call.
+Then, without waiting for the user and without asking whether to continue:
+- **Re-query `code-ready`. If a single ticket remains that isn't already in
+  flight, go straight back to step 1** for it, branching from *this*
+  ticket's branch. Do this however many times it takes — ten tickets, twenty,
+  whatever the queue holds. Finishing one ticket is not a stopping point,
+  and neither is finishing five; the only thing that ends the run is an
+  empty queue. Do not pause to report progress between tickets or to ask
+  whether to keep going.
+- Note that the queue can grow mid-run: re-querying each time (rather than
+  working from the list read at step 0) means a ticket labeled `code-ready`
+  while the chain is running gets picked up too.
+- **Only when nothing is left** is it the finish line: stop, and give the
+  user one summary covering the whole chain — every PR opened, in stack
+  order, what got fixed in each across how many review rounds, and —
+  plainly separated per PR — what could not be decided and needs their
+  call. Account for every ticket counted at step 0, including any that were
+  relabeled `blocked-on-decision` along the way rather than implemented.
 
 ## 9. After the user merges a PR from the stack (squash merges)
 
