@@ -83,6 +83,11 @@ the column default (no EU annex lists the ingredient, which is not a verdict),
 and lists labels that disagree with the annex citation in their own note, and
 `avoid`/`caution` labels with no note.
 
+`npm run audit:function-tags` (read only) checks the CosIng function tags the
+scoring reads: how many verified rows carry each scored function, stored tags
+that are a misspelling of one, rows with no functions, and well-known
+ingredients missing the tag CosIng gives them.
+
 ## You have no TTY — regenerating route types
 
 `href` strings are type-checked against `.expo/types/router.d.ts`, which
