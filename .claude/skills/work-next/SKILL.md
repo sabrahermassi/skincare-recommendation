@@ -80,24 +80,46 @@ themselves (the old default, now just the fallback for unprioritized
 issues). Within the same priority number, also break ties by `created_at`.
 
 Take the top of that ordering that isn't already done earlier in this chain
-and isn't already in flight (check for an open PR whose branch/title
-references its number — `gh pr list --repo <owner>/<repo> --state open
---json number,title,headRefName` — skip it if one exists and it isn't this
-chain's own). If the list is empty — either at the start or between
-tickets — that's the finish line: say so, report the chain's summary, stop.
-Do not invent a task or fall back to an unlabeled issue.
+and isn't already in flight. There are two things to check, because a PR
+for the ticket doesn't exist until step 6 — well after this pick — so a PR
+check alone misses a chain that's already mid-ticket on it:
+- An open PR whose branch/title references its number — `gh pr list --repo
+  <owner>/<repo> --state open --json number,title,headRefName`.
+- A "Starting this now" comment on the issue itself (below) from within a
+  reasonable window (say, the last few hours) — `gh issue view <n> --repo
+  <owner>/<repo> --json comments`. That comment is the only signal that
+  exists between pick and step 6's PR; skipping this check makes it purely
+  decorative.
 
-Comment on the issue noting you're starting it now, so a concurrent run
-doesn't duplicate it: `gh issue comment <n> --repo <owner>/<repo> --body
+Skip the ticket if either matches and it isn't this chain's own. If the
+list is empty — either at the start or between tickets — that's the finish
+line: say so, report the chain's summary, stop. Do not invent a task or
+fall back to an unlabeled issue.
+
+**Resuming a crashed chain on the same ticket:** neither check can tell
+"my own earlier comment/branch" from "a different run's" — tell the user
+plainly it looks like a prior run's work-in-progress and ask before
+picking it back up, rather than guessing whether to continue it or treat
+it as someone else's.
+
+Comment on the issue noting you're starting it now, so a concurrent run's
+check above finds it: `gh issue comment <n> --repo <owner>/<repo> --body
 "Starting this now via /work-next."`
+
+**The branch name must contain the issue number** — `task/<n>-<short-slug>`,
+e.g. `task/50-fix-scanner-flash` for issue #50 — not just a slug. That
+number is the only thing line 84's "in flight" check has to match against;
+a branch or PR title without it makes that check silently find nothing,
+and a second run of this skill re-picks and re-implements a ticket that's
+already underway.
 
 **Branch point — this is what makes it a chain, not N separate runs:**
 - **First ticket in the chain:** branch from `main` (`git checkout -b
-  task/<short-slug> main`).
+  task/<n>-<short-slug> main`).
 - **Every ticket after the first:** branch from the *previous ticket's
-  branch tip*, not from `main` (`git checkout -b task/<short-slug>`, staying
-  on the previous branch first). State this explicitly in the new PR's body:
-  "Stacked on #<previous PR number> — do not merge before it."
+  branch tip*, not from `main` (`git checkout -b task/<n>-<short-slug>`,
+  staying on the previous branch first). State this explicitly in the new
+  PR's body: "Stacked on #<previous PR number> — do not merge before it."
 
 ## 2. Read the real scope
 
@@ -183,8 +205,16 @@ Agent(
 )
 ```
 
-`Plan` is the right agent type: it's the architect agent, and its toolset
-is read-only, so it physically cannot edit code while it thinks.
+`Plan` is the right agent type: it's the architect agent, built for
+thinking through a change rather than making one. Its toolset is not fully
+read-only, though — it keeps `Bash`, so it *can* touch the working tree
+(a stray `sed -i`, `git checkout`, a shell redirect) even though nothing
+about this pass should need to. Two things follow from that: the prompt
+below has to say explicitly not to write or modify any file, as an
+instruction rather than relying on the toolset to enforce it; and step 4
+opens with a `git status --short` check before touching anything, so an
+unexpected mutation from this step is caught and attributed here rather
+than silently folded into the implementation commit.
 `run_in_background: false` because the next thing that happens depends on
 its answer — there is nothing useful to do in parallel.
 
@@ -198,6 +228,8 @@ to a smart engineer who just walked in, including:
 - The repo facts that constrain the answer: `CLAUDE.md`'s rules for the
   area (scoring constants, the `data/api.ts` seam, `migratePersisted`, the
   DB write guard), and any Tier 2 doc already read for this ticket.
+- **An explicit instruction not to write, edit, or modify any file** —
+  investigate and report only, even though `Bash` is available to it.
 - What to come back with (below).
 
 **Ask it for exactly this:**
@@ -230,6 +262,10 @@ do the same four things directly, just without the model change.
 
 ## 4. Implement — no commit yet
 
+- If step 3 ran, `git status --short` first — its `Bash` access means it
+  *could* have touched the working tree even though it was told not to.
+  Anything unexpected there belongs to step 3, not this step; investigate
+  before building on top of it rather than assuming it's yours.
 - Already on the right branch from step 1 (from `main` for ticket 1, from
   the previous ticket's branch for every ticket after).
 - Follow `CLAUDE.md` and `AGENTS.md`.
@@ -299,10 +335,13 @@ gh pr create --repo <owner>/<repo> --base <base> --head <this-ticket-branch> \
 ```
 
 Write the body to a scratchpad file first rather than passing it inline —
-Body: what changed, the scope-source link, test/lint/typecheck results, a
-`## Open questions` section for anything step 5 found that needed a
-decision, and — for every ticket after the first — "**Stacked on #<previous
-PR> — merge that first.**" Do not merge, do not enable auto-merge.
+Body: what changed, `Closes #<n>` (the ticket's own issue number — this is
+what makes step 8's "the issue only actually closes once they merge" true;
+without it, merging the PR closes nothing), the scope-source link,
+test/lint/typecheck results, a `## Open questions` section for anything
+step 5 found that needed a decision, and — for every ticket after the
+first — "**Stacked on #<previous PR> — merge that first.**" Do not merge,
+do not enable auto-merge.
 
 ## 7. Review loop
 
