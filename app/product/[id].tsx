@@ -20,8 +20,10 @@ import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import {
   confidenceLabel,
   matchProduct,
+  scoreExplanation,
   verdictHeadline,
   type MatchReason,
+  type ScoreLine,
   type Verdict,
 } from "@/lib/matching";
 import { relativeTime } from "@/lib/format";
@@ -100,7 +102,18 @@ function panelFor(verdict: Verdict): { bg: string; border: string; label: string
  * traced to a line of code and argued with.
  */
 function ReasonLine({ reason }: { reason: MatchReason }) {
-  const positive = reason.effect > 0;
+  return (
+    <ExplanationLine
+      label={(reason.ingredient ?? "").toLowerCase()}
+      detail={reason.reason}
+      direction={reason.effect > 0 ? "up" : "down"}
+    />
+  );
+}
+
+/** A verdict-level explanation, rendered before its ingredient-level evidence. */
+function ExplanationLine({ label, detail, direction }: ScoreLine) {
+  const positive = direction === "up";
   return (
     <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
       {/* Inline style, not a Tailwind className: `bg-tint-mint`/`bg-tint-pink`
@@ -125,9 +138,9 @@ function ReasonLine({ reason }: { reason: MatchReason }) {
       </View>
       <View style={{ flex: 1, gap: 1 }}>
         <Text style={{ fontSize: TYPE.label, fontWeight: "600", textTransform: "capitalize", color: INK }}>
-          {(reason.ingredient ?? "").toLowerCase()}
+          {label}
         </Text>
-        <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{reason.reason}</Text>
+        <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{detail}</Text>
       </View>
     </View>
   );
@@ -311,6 +324,7 @@ export default function ProductScreen() {
   // ("hydration, fragrance"), which named a direction but never a reason.
   const helps = match.reasons.filter((r) => r.effect > 0).slice(0, 3);
   const against = match.reasons.filter((r) => r.effect < 0).slice(0, 3);
+  const scoreLines = scoreExplanation(match);
   const confidence = confidenceLabel(match.confidence);
 
   // Six months. Long enough that a fresh catalogue never mentions it, short
@@ -522,8 +536,9 @@ export default function ProductScreen() {
         </Pressable>
 
         {/*
-          "Why this score", inside the box, closed until it is tapped: one line
-          of "why" per ingredient, in words.
+          "Why this score", inside the box, closed until it is tapped. The
+          verdict-level lines come from the score arithmetic; ingredient-level
+          lines provide the evidence underneath them.
 
           This replaced a stack of weighted bars reading "Barrier support −7 /
           Pore-clogging −6". Those numbers are internal scoring arithmetic —
@@ -533,7 +548,7 @@ export default function ProductScreen() {
           job is to answer one question in a shop aisle makes them worse than
           nothing.
         */}
-        {helps.length > 0 || against.length > 0 ? (
+        {scoreLines.length > 0 || helps.length > 0 || against.length > 0 ? (
           <>
             <Pressable
               onPress={() => setShowWhy((open) => !open)}
@@ -558,6 +573,9 @@ export default function ProductScreen() {
             {showWhy ? (
               <View style={{ paddingHorizontal: 20, paddingBottom: 18, paddingTop: 2, gap: 14 }}>
                 <View style={{ gap: 10 }}>
+                  {scoreLines.map((line) => (
+                    <ExplanationLine key={`${line.direction}:${line.label}`} {...line} />
+                  ))}
                   {helps.map((reason) => (
                     <ReasonLine key={`+${reason.ingredient}`} reason={reason} />
                   ))}
