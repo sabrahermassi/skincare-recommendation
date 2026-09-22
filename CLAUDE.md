@@ -89,7 +89,9 @@ that are a misspelling of one, rows with no functions, and well-known
 ingredients missing the tag CosIng gives them.
 
 `npm run audit:data` runs every read-only ingredient check in one go
-(duplicates, safety labels, function tags, coverage `--check`).
+(duplicates, safety labels, function tags, coverage `--check`). The coverage
+step fails loudly if the committed ledger (`docs/ingredient-stub-review.json`)
+is stale — run `npm run audit:ingredient-coverage -- --write` first if so.
 
 `npm run fix:duplicate-ingredients` (plan-only by default, `-- --apply` to
 write) merges duplicate ingredients where it's unambiguous: names that only

@@ -17,7 +17,8 @@
  *     a data judgment, not a formatting cleanup.
  *
  * Within a mergeable group, the name kept is whichever more products already
- * use (ties broken alphabetically) — the spelling that changes the fewest
+ * use (ties broken by locale order, not plain alphabetical — "water" sorts
+ * before "Water") — the spelling that changes the fewest
  * product rows. Every other name in the group is retired: product rows that
  * name it are repointed to the kept name first (or dropped, if that product
  * already lists the kept name at an earlier position — the same rule
@@ -197,7 +198,7 @@ async function main() {
     deleted += safe.length;
   }
   const kept = retiredNames.length - deleted;
-  console.log(`\nDeleted ${deleted} retired name(s)${kept > 0 ? `, kept ${kept} a product started using again` : ""}.`);
+  console.log(`\nDeleted ${deleted} retired name(s)${kept > 0 ? `, kept ${kept} that a product started using again` : ""}.`);
 }
 
 function invokedDirectly() {
