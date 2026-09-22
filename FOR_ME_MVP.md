@@ -773,31 +773,63 @@ Do not use:
 
 ---
 
-# 25. MVP Supporting Features
+# 25. MVP Features — two tiers
 
-The following are part of the MVP because they support the core product/shopping experience:
+**The MVP has a guest tier and a signed-in tier.** Scanning is free forever
+and needs no account; an account buys somewhere to keep things. The only
+place a guest is ever asked to sign up is the Save action (#221) — never
+before a scan, never anywhere else.
 
-- Barcode scanning
-- Ingredient-list photo/OCR scanning
-- Skin profile
-- Personalized match score
-- General Quick Scan without a profile
-- Ingredient-level details
-- Potential pore-clogging/comedogenic concerns
-- Potential acne-related concerns
-- Potential irritation
-- Relevant beneficial ingredient properties
-- Reliable ingredient/chemical library
-- Explainable scoring algorithm
-- Clear results
-- Favorites/saved products
-- Scan history
-- Product search
-- Existing detailed result breakdown
+## Guest — no signup
 
-These features should be preserved where already implemented.
+- Scan a product: **ingredient-list photo (the primary path)** or barcode
+  (the fast path when it resolves). See §9.
+- The full verdict and explanation, immediately.
+- Local scan history — on the device, never synced, for guests and
+  signed-in users alike.
 
-They should not automatically be expanded.
+## Signed-in — free account
+
+Everything above, plus:
+
+- **The saved shelf** — persistent and synced across devices (#223).
+- **Journal notes** — an optional short note when saving (#228).
+- **Routine-step tagging** — assign a saved product to a step, and filter
+  the shelf by it (#227).
+
+## Matching and content, in both tiers
+
+- Personalized match score, and a plain-language explanation of it.
+- Rule-based ingredient cleanup — no LLM anywhere in this MVP.
+- Ingredient-level details; pore-clogging, acne and irritation concerns;
+  beneficial properties.
+- **One voice** across verdicts, onboarding and entries (#232).
+- **AM/PM and active-pairing conflict flags**, per product and across the
+  shelf (#233).
+- **Hand-written UV and context nudges** — static content, no live API
+  (#234).
+- **Skincare School** — 15–20 curated beginner questions with pre-written
+  answers, grouped by category; static, no AI (#235).
+- Product search, and the existing detailed result breakdown.
+
+## Journal identity
+
+- **Private by default, no sharing.** Not a default anyone may quietly
+  change.
+- The first save is *the first page of your journal* (#230).
+- Notes render in a handwritten-style font (#229).
+
+## Data foundation and infrastructure
+
+- A clean products table — complete records only — with a **separate raw
+  scan log** beside it (#236).
+- An ingredient knowledge base seeded to **~500 ingredients** from
+  INCI/CosIng, CIR and PubMed (#237). See §26.
+- Open Beauty Facts as the product seed source.
+- Supabase Auth (#218); analytics for guests and signed-in users (#225).
+
+Features already implemented should be preserved. Nothing here should be
+expanded beyond what this section names.
 
 ---
 
@@ -826,6 +858,16 @@ The system must safely handle:
 The system must **not invent ingredient information**.
 
 The database should be broad and reliable enough for representative real-world skincare products.
+
+**The launch target is ~500 ingredients carrying real evidence**, sourced
+from INCI/CosIng, CIR and PubMed (#237).
+
+Two different things are easy to confuse here. *Name coverage* — the
+`ingredients` dictionary, ~36k names imported from CosIng and the Open
+Beauty Facts taxonomy — is already broad, and is what decides whether a
+scanned name is recognised at all. *Evidence* is `lib/rules.ts`, which
+carries the sentence shown to the user, and today holds 61 curated rules.
+The ~500 figure is the second one. Growing it is research, not an import.
 
 ---
 
@@ -965,32 +1007,30 @@ The MVP does **not** include:
 - gamification;
 - unnecessary advanced personalization;
 - product recommendations;
-- alternative-product recommendations;
-- **user accounts, sign-in, and a server-side saved shelf** (see below).
+- alternative-product recommendations.
 
 These should not delay MVP launch.
 
-## Accounts and the journal layer — scoped, still out
+## Where the journal stops, and the routine builder starts
 
-The MVP ships with no accounts: the profile, the saved shelf and history all
-stay on the device (Zustand + AsyncStorage, `store/useAppStore.ts`).
+Accounts are **in** the MVP (§25) — this list no longer excludes them.
 
-A full plan for accounts now exists as issues #217–#230 — sign-in method,
-Supabase Auth, user tables and RLS, auth screens, sign-up prompt on Save,
-guest-shelf migration, server-backed shelf, account deletion and export,
-analytics, privacy docs, plus a saved-notes layer (routine-step filtering,
-notes on a saved product, handwritten note styling, a first-save moment).
+Two MVP features sit deliberately close to two lines above, and the
+distinction is the whole reason both lines survive:
 
-**Having a plan does not move it into the MVP.** Every one of those issues is
-post-MVP and says so. Two of them sit close to lines this section already
-draws — #227 (filter the shelf by routine step) is adjacent to the routine
-builder, and #228–#230 (notes on saved products) are adjacent to the skin
-diary. Those exclusions stand: the filed issues stop at sorting and
-annotating what is already saved, and none of them adds sequencing, timing,
-reminders or longitudinal tracking. If one starts to, it is out.
+- **Routine-step tagging (#227) is not a routine builder.** Tagging says
+  *where a product belongs*. A routine builder says *when to use it* —
+  morning and evening sequences, an order to follow, reminders,
+  notifications, scheduling. None of that is in. If tagging starts growing a
+  schedule, it has crossed the line.
+- **Journal notes (#228–#230) are not a skin diary.** A note annotates a
+  product you saved. A diary tracks your skin over time — daily check-ins,
+  mood or weather logs, "on this day", monthly recaps, before/after photos.
+  None of that is in.
 
-The saved shelf remains what §25 says it is — a supporting feature that does
-not grow before launch.
+**AM/PM conflict flags (#233) are not a schedule either.** Flagging that two
+actives should not meet is a safety warning attached to a verdict. Telling
+someone what to apply at 9pm is a routine builder.
 
 ---
 
@@ -1015,6 +1055,16 @@ for.me is ready to move toward launch when a new user can reliably:
 10. Open detailed ingredient information.
 11. Save/view the product where those MVP features are available.
 12. Recover gracefully when scanning, OCR, lookup, network, or permissions fail.
+
+A signed-in user must additionally be able to:
+
+13. Create an account from the Save action, and not be asked anywhere else.
+14. Keep a saved shelf that survives a reinstall and appears on a second
+    device.
+15. Write, edit and delete a note on a saved product.
+16. Tag a saved product with a routine step, and filter the shelf by it.
+17. Delete the account and export the data, both reachable from the account
+    screen.
 
 The core experience must be reliable enough for real users.
 
@@ -1099,23 +1149,29 @@ The following ideas are intentionally deferred:
 
 These should be evaluated after launch using real user behavior and feedback.
 
-## Deferred with a plan already written
+## Deferred to v1.x / v2, named
 
-Unlike the list above, this one is scoped and sequenced — it is deferred by
-decision, not by vagueness. It does not become launch work because it is
-ready.
+Distinct from the list above: each of these was considered for this MVP and
+deliberately left out, so none of them is an open question.
 
-- **Accounts, end to end** — #217–#226: choose the sign-in method, Supabase
-  Auth and session storage, user tables and access rules, sign-up/login/
-  sign-out screens, the sign-up prompt on Save, guest-shelf migration, the
-  server-backed shelf (history stays local), account deletion and data
-  export, analytics for guests and signed-in users, privacy-doc updates.
-- **The saved-notes layer** — #227–#230: filter the shelf by routine step, an
-  optional note when saving, handwritten styling for notes, a warm first-save
-  moment. Bounded by §31.
-- **Out-of-MVP by explicit decision** — #194 (type the barcode by hand), #207
-  (Beauty API, Korean ingredient API wrapper, user accounts), #215 (hybrid
-  on-device OCR with a Google Vision fallback).
+- **An AI chatbot** — "ask me anything" skincare assistant.
+- **LLM or AI anywhere else.** The ingredient cleanup and the scoring are
+  rule-based, and Skincare School's answers are pre-written. This MVP has no
+  model in it.
+- **Skin mood / weather daily check-in.**
+- **Live or dynamic weather-API UV nudges.** The nudges that *are* in the
+  MVP (#234) are hand-written and static; calling an API for them is this
+  line.
+- **Shelf-opening animation and motion polish.**
+- **"On this day", seasons and chapters, monthly recap.**
+- **A full routine builder** — reminders, notifications, scheduling.
+
+## Out of MVP by explicit decision
+
+- #194 — type the barcode by hand when the camera is off.
+- #207 — the Beauty API and the Korean ingredient API wrapper. (Its third
+  topic, user accounts, is now decided and in scope.)
+- #215 — hybrid on-device OCR with a Google Vision fallback.
 
 ---
 
