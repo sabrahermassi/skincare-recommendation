@@ -103,6 +103,16 @@ decision the artifacts mark as open: stop this ticket, relabel it
 `blocked-on-decision` (remove `code-ready`), report why rather than
 guessing, and move on to the next ticket in the chain.
 
+**A Definition of Done that needs a real device or another manual check is
+not a reason to block the ticket.** Some tickets can be fully implemented
+here but not fully *verified* here — #180's "real-iPhone cold start" is the
+standing example, and a production-database step is another. Build it,
+open the PR, and put the unverifiable part in part 4 of the report ("what I
+need from you") in step 8. Don't relabel it `blocked-on-decision`, don't
+skip it, and don't claim in the PR that the check passed. Say plainly in
+the PR body which part of the Definition of Done is met by the code and
+which part is still waiting on the user's check.
+
 ### Tier 2 — only when this ticket touches that area
 
 Topic-triggered, the same way `CLAUDE.md` already treats `docs/decisions.md`
