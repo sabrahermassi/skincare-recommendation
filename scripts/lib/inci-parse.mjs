@@ -41,7 +41,7 @@ export function normalise(raw) {
  * done via the match offset against the original text rather than a
  * lookbehind, which not every runtime this parser has to run on supports.
  */
-export function splitOnSeparators(text) {
+function splitOnSeparators(text) {
   // U+E000, the first Private Use Area codepoint — never appears in printed
   // ingredient text, so it is safe as a one-character sentinel standing in
   // for a protected comma while the real separators are split on.
@@ -98,7 +98,7 @@ const MAX_FUZZY_ATTEMPTS_PER_BLOCK = 800;
  * exceed `max`, since this runs against many candidate dictionary entries per
  * word and the exact distance beyond `max` is never needed.
  */
-export function levenshtein(a, b, max) {
+function levenshtein(a, b, max) {
   if (Math.abs(a.length - b.length) > max) return max + 1;
 
   let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
@@ -116,7 +116,7 @@ export function levenshtein(a, b, max) {
   return prev[b.length];
 }
 
-export function fuzzyBudget(length) {
+function fuzzyBudget(length) {
   if (length < MIN_FUZZY_LENGTH) return 0;
   return length <= 15 ? 1 : 2;
 }
@@ -131,7 +131,7 @@ export function fuzzyBudget(length) {
  * matters more as the dictionary grows: every name added is another
  * near-neighbour, so the safeguard has to scale with it.
  */
-export function fuzzyLookup(
+function fuzzyLookup(
   candidate,
   byLength,
   attempts
@@ -209,7 +209,7 @@ export function isPlausibleIngredientName(name, allowLong = false) {
  * ("Parfum (Fragrance: Linalool, Limonene)") cannot cut it short. A colon
  * directly before a digit is part of a name ("ci 77268:1"), not a heading.
  */
-export function findListByDictionary(flat, dictionary, aliases) {
+function findListByDictionary(flat, dictionary, aliases) {
   const colon = /[:：](?!\d)/g;
   let start = 0;
   for (;;) {
@@ -239,11 +239,11 @@ const lengthIndexCache = new WeakMap();
  * spaces and punctuation far more often than about spelling, and digits stay
  * in the key so "peg-4" and "peg-40" can never meet.
  */
-export function squashKey(name) {
+function squashKey(name) {
   return name.replace(/[^a-z0-9]/g, "");
 }
 
-export function squashIndex(dictionary) {
+function squashIndex(dictionary) {
   const cached = squashIndexCache.get(dictionary);
   if (cached) return cached;
   const index = new Map();
@@ -257,7 +257,7 @@ export function squashIndex(dictionary) {
   return index;
 }
 
-export function lengthIndex(dictionary) {
+function lengthIndex(dictionary) {
   const cached = lengthIndexCache.get(dictionary);
   if (cached) return cached;
   const index = new Map();
@@ -338,7 +338,7 @@ const SYNONYM_GROUPS = [
  * a miss. The caller checks the target is in the dictionary, so an entry whose
  * target is absent does nothing.
  */
-export function commonNameFor(name) {
+function commonNameFor(name) {
   return COMMON_NAMES.get(name);
 }
 
@@ -423,7 +423,7 @@ export function resolveKnownName(name, dictionary, aliases) {
  * `resolveKnownName` has left the token alone, so parts that name one ingredient
  * ("aqua/water") were already folded into it and never get here.
  */
-export function splitSlashList(name, dictionary, aliases) {
+function splitSlashList(name, dictionary, aliases) {
   if (!name.includes("/")) return [name];
   const parts = name.split("/").map(normalise).filter((part) => part.length > 1);
   if (parts.length < 2) return [name];
@@ -447,7 +447,7 @@ export function splitSlashList(name, dictionary, aliases) {
  * leftover word means the token is not a run-together list, so it is returned
  * whole rather than guessed at.
  */
-export function splitRunTogether(name, dictionary) {
+function splitRunTogether(name, dictionary) {
   const words = name.split(" ");
   if (words.length < 2 || words.length > 12) return [name];
   const pieces = [];
@@ -501,7 +501,7 @@ export function fuzzyKnownName(name, dictionary, attempts) {
  * dictionary does not hold, not only the ones the name check refuses, because
  * a fragment can pass that check and still carry junk in front of a real name.
  */
-export function salvageKnownNames(name, dictionary, aliases) {
+function salvageKnownNames(name, dictionary, aliases) {
   const found = [];
   for (const piece of name.split(/[:：]/)) {
     const words = normalise(piece).split(" ");
