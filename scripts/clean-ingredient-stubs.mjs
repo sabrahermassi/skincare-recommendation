@@ -71,6 +71,7 @@ const AMBIGUOUS_STUB_NAMES = new Set([
 const CONFIRMED_NOT_INGREDIENTS = new Set([
   "120-2563",
   // German for "from controlled organic farming", printed beside the list.
+  // Read and confirmed by the owner in the #43 review.
   "aus kontrolliert biologischem anbau",
   "19g proprietati: extractul de orez întăreşte bariera pielii",
   "but better dincidecoder the skincare ingredients with the most google searches > eng 6:04 pm cd \\9/20/2126",
@@ -151,8 +152,8 @@ function variantTarget(name, known, aliases) {
     return t && !restNamesOne ? t : null;
   }
 
-  // "nano" after a name only says the particles are nano-sized; on a label it
-  // is normally in brackets, which the parser drops, so this is the same ingredient.
+  // "nano" after a name only says the particles are nano-sized, so the name
+  // with it is the same ingredient as the name without it.
   const nano = /^(.+?)\s+nano$/.exec(name);
   if (nano) return variantTarget(nano[1], known, aliases);
 
