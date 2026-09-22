@@ -49,30 +49,10 @@ npm run typecheck && npm run lint && npm test && \
   npx expo export --platform web --platform ios --platform android --output-dir /tmp/verify
 ```
 
-**Dictionary imports** — populate `ingredients` (what `verified` is judged
-against). All take `--dry-run`; writing needs `SUPABASE_URL` +
-`SUPABASE_SERVICE_ROLE_KEY` in the shell (not in `.env` — get it from the
-dashboard or `supabase projects api-keys --project-ref <ref>`).
-
-**Every DB script goes through `connect({ write })` in `scripts/lib/db.mjs`.**
-Reads need only those two. **A write also needs `SUPABASE_ENV=staging|production`,
-and `SUPABASE_ENV=production` needs `--prod` on the command line too.** Each run
-prints the project ref it touches — read it.
-
-```bash
-npm run import:inci-dictionary       # Open Beauty Facts taxonomy (~31k rows, the bulk)
-npm run import:cosing                # EU CosIng; no argument = the mirrored export
-npm run import:obf                   # products, not the dictionary
-npm run import:wikidata-synonyms     # ingredient_synonyms only, CAS-matched (e.g. "glycérine" → glycerin)
-```
-
-`import:cosing` never overwrites a row another source already verified —
-re-running it is safe. `import:inci-dictionary` likewise only rewrites its own
-rows. On either one, `-- --prune` also clears names an earlier run wrote that
-it no longer produces (deleted if unused, returned to unverified if a product
-uses them). For `import:cosing` that is only the shortened spellings its old
-naming rule made — a name missing from today's file is left alone, because
-CosIng exports differ and another one may have written it.
+**Dictionary imports and data-quality audits** for the `ingredients` table —
+CosIng/OBF/Wikidata imports, the read-only duplicate/safety-label/function-tag
+checks, and the duplicates fix script — are covered in the
+`ingredient-data-audits` skill, not here.
 
 ## You have no TTY — regenerating route types
 
