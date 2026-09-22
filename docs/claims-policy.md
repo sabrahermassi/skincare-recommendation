@@ -43,7 +43,9 @@ blocked word is unlawful in every jurisdiction.
 
 `lib/claims-policy.ts` is the shared high-signal guardrail. The regression test
 audits every curated ingredient-rule reason, pore-clogging explanation, sample
-product description/benefit and sample ingredient note. Add new app-owned claim
+product description/benefit, sample ingredient note, the warning reasons from
+`lib/safety.ts` (pregnancy caution included) and the score-explanation lines
+from `lib/matching.ts`. Add new app-owned claim
 collections to that audit before displaying them.
 
 External product names and label text are facts from their source, not claims
