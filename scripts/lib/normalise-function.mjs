@@ -28,7 +28,10 @@ export function parseFunctions(raw, separator = /[,/]/) {
   const seen = new Set();
   for (const part of String(raw).split(separator)) {
     const role = normaliseFunction(part);
-    if (role) seen.add(role);
+    // CosIng uses this as a missing-value marker. Persisting it as a role
+    // makes the app claim an ingredient has a function literally named
+    // "not reported", and makes coverage look better than it is.
+    if (role && role !== "not-reported") seen.add(role);
   }
   return [...seen];
 }

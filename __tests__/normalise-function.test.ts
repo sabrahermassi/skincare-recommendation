@@ -61,4 +61,9 @@ describe("parseFunctions", () => {
     expect(parseFunctions(null)).toEqual([]);
     expect(parseFunctions(undefined)).toEqual([]);
   });
+
+  it("does not turn CosIng's missing-value marker into a cosmetic function", () => {
+    expect(parseFunctions("en:not-reported")).toEqual([]);
+    expect(parseFunctions("Humectant, en:not-reported")).toEqual(["humectant"]);
+  });
 });

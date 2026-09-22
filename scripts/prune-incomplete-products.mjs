@@ -11,7 +11,8 @@
  * dry run lists what would go, by source and reason, so it can be read before
  * it is run for real.
  *
- * Run (needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY):
+ * Run (needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY, and SUPABASE_ENV too
+ * once --apply makes it a write — plus --prod if that is production):
  *   node scripts/prune-incomplete-products.mjs            # dry run: counts and a sample
  *   node scripts/prune-incomplete-products.mjs --apply    # delete them
  *
@@ -28,8 +29,7 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { createClient } from "@supabase/supabase-js";
-
+import { connect } from "./lib/db.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
 /**
@@ -47,14 +47,10 @@ export function incompleteReason(row) {
 }
 
 async function main() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required, including for the dry run.");
-    process.exit(1);
-  }
   const apply = process.argv.includes("--apply");
-  const db = createClient(url, key, { auth: { persistSession: false } });
+  // Credentials are required for the dry run as well — it is a read of the
+  // rows `--apply` would delete.
+  const { db } = connect({ write: apply });
 
   const rows = await paginateOrdered(db, "products", {
     select: "id, source, barcode, name, product_ingredients(count)",

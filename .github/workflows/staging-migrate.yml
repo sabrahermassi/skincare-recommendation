@@ -1,0 +1,102 @@
+name: Staging migrations
+
+# Applies new migrations to the staging database, so a branch that adds one can
+# be tested against a real Supabase rather than only against the throwaway
+# Postgres in ci.yml.
+#
+# It runs here rather than from a Claude Code session on purpose. A session
+# cannot reach Postgres at all — raw TCP on 5432 does not travel through an
+# HTTPS proxy — and the Supabase CLI's alternative is an account-wide access
+# token, which in a development environment is a credential that can reach
+# production. A runner needs neither: one staging connection string, which by
+# construction cannot address any other project.
+on:
+  push:
+    paths:
+      - "supabase/migrations/**.sql"
+  workflow_dispatch:
+
+# One staging database, so two runs applying different branches' migrations to
+# it would interleave. Queue them instead, and never cancel a half-applied one.
+concurrency:
+  group: staging-migrations
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    # Absent on a fork PR, and a run with no connection string would otherwise
+    # spend a minute to fail on the first psql.
+    if: github.repository == 'sabrahermassi/skincare-recommendation'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # Nothing in ci.yml's preparation applies here, and doing it anyway would
+      # be actively wrong: a real Supabase project already has anon,
+      # authenticated and service_role with the attributes that job has to
+      # recreate, and it has pg_cron for real rather than the stub. So the
+      # migrations run verbatim — which is the point of running them here at
+      # all, since verbatim is what production will get.
+      - name: Apply migrations that staging does not have
+        env:
+          # The session pooler connection string for the STAGING project only.
+          # Transaction mode (6543) cannot run DDL; this must be 5432.
+          DATABASE_URL: ${{ secrets.STAGING_DB_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "STAGING_DB_URL is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
+          create schema if not exists supabase_migrations;
+          create table if not exists supabase_migrations.schema_migrations (
+            version text primary key,
+            statements text[],
+            name text
+          );
+          SQL
+
+          applied="$(psql "$DATABASE_URL" -At -c 'select version from supabase_migrations.schema_migrations')"
+
+          pending=0
+          for f in supabase/migrations/*.sql; do
+            base="$(basename "$f" .sql)"
+            version="${base%%_*}"
+            name="${base#*_}"
+
+            if printf '%s\n' "$applied" | grep -qx "$version"; then
+              echo "── $base (already applied)"
+              continue
+            fi
+
+            echo "── $base — applying"
+            pending=$((pending + 1))
+
+            # The migration and its bookkeeping row commit together, so an
+            # interrupted run cannot leave staging carrying a change it has no
+            # record of — which would make the next run skip it or reapply it,
+            # both silently.
+            # -f rather than -c with the file's contents: a dollar-quoted
+            # function body survives the former and can be mangled by the
+            # latter, and several of these migrations define functions.
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction \
+              -f "$f" \
+              -c "insert into supabase_migrations.schema_migrations (version, name)
+                  values ('$version', '$name')"
+          done
+
+          echo ""
+          if [ "$pending" -eq 0 ]; then
+            echo "Staging was already up to date."
+          else
+            echo "Applied $pending migration(s) to staging."
+            echo "Production is NOT updated by this workflow. Run 'npm run promotion-plan'"
+            echo "on the branch for the commands it still owes."
+          fi

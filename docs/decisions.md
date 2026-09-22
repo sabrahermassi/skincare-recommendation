@@ -4,6 +4,16 @@ Why the rules in `CLAUDE.md` exist — incidents, history, and anything not yet
 fully established. `CLAUDE.md` states the rule; this explains the evidence
 behind it. Read this when you want the reasoning, not before every task.
 
+## Ingredient dictionary
+
+**Do not promote unmatched ingredient stubs by frequency.** Seeing the same
+text on several products establishes frequency, not identity. A repeated OCR
+error or broad name such as `iron oxides` can still map to several different
+INCI entries, and choosing one would attach the wrong safety record. `verified`
+continues to mean matched to a checked source. The complete 21 September 2026
+decision and per-name ledger are in `docs/ingredient-coverage.md` and
+`docs/ingredient-stub-review.json`.
+
 ## Routing
 
 **Never navigate from a layout file.** This is not theoretical caution —

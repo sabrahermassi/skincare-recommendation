@@ -302,7 +302,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     weight: 8,
   },
   {
-    names: ["retinol", "retinal", "retinaldehyde", "retinyl palmitate", "hydroxypinacolone retinoate", "adapalene"],
+    names: ["retinol", "retinal", "retinaldehyde", "hydroxypinacolone retinoate", "adapalene"],
     category: "actives",
     helps: { concerns: ["fine-lines", "acne-prone", "hyperpigmentation"] },
     hurts: { sensitive: true, skinTypes: ["dry"] },
@@ -310,12 +310,26 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     weight: 11,
   },
   {
-    names: ["ascorbic acid", "l-ascorbic acid", "3-o-ethyl ascorbic acid", "ascorbyl glucoside", "magnesium ascorbyl phosphate"],
+    names: ["retinyl palmitate"],
+    category: "actives",
+    helps: { concerns: ["fine-lines", "hyperpigmentation"] },
+    reason: "Retinyl palmitate is a retinoid ester that must be converted in skin before it can act",
+    weight: 5,
+  },
+  {
+    names: ["ascorbic acid", "l-ascorbic acid"],
     category: "actives",
     helps: { concerns: ["dullness", "hyperpigmentation", "post-acne-marks"] },
     hurts: { sensitive: true },
     reason: "Vitamin C brightens and protects against oxidative damage; the acidic forms can sting",
     weight: 8,
+  },
+  {
+    names: ["3-o-ethyl ascorbic acid", "ascorbyl glucoside", "magnesium ascorbyl phosphate"],
+    category: "actives",
+    helps: { concerns: ["dullness", "hyperpigmentation", "post-acne-marks"] },
+    reason: "A stable vitamin C derivative, distinct from acidic L-ascorbic acid",
+    weight: 6,
   },
   {
     names: ["alpha-arbutin", "arbutin", "tranexamic acid", "kojic acid", "ferulic acid"],
