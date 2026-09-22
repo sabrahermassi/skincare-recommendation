@@ -30,7 +30,7 @@ ships something outside the MVP.
 
 - `CLAUDE.md` / `AGENTS.md` — already loaded automatically, but the
   guardrails in them (DB writes, routing, scoring constants) still have to
-  actually be followed in step 3 for every ticket, not just skimmed once.
+  actually be followed in step 4 for every ticket, not just skimmed once.
 - `FOR_ME_MVP.md` and the **MVP Scope** artifact
   (https://claude.ai/artifact/2HSNkc3QUZPxMBREhWFhT2) — the NOT NOW list and
   the frozen product definition. A ticket that is well-defined in isolation
@@ -114,7 +114,47 @@ the same chain touch different areas:
 
 Skip a row entirely if this ticket doesn't touch that area.
 
-## 3. Implement — no commit yet
+## 3. Deep-dive pass — only for architecture/schema/data-model-critical tickets
+
+`ultrathink` and plan mode are both triggered by something the user types —
+neither can be switched on from inside a skill. The effect they're for
+(read wider than the immediate files, weigh more than one approach, write
+the plan down before coding) doesn't need the trigger word — it's reasoning
+depth, and that's mine to spend more of on a given step regardless of what
+invoked it. This step is where to spend it.
+
+**Do this pass if the ticket matches any of:**
+- Touches or adds a file under `supabase/migrations/`.
+- Changes a constant or the arithmetic in `lib/matching.ts` (`ANCHOR`,
+  `FIT_LEVER`, any `*_SATURATION`, the score formula itself) or restructures
+  `lib/rules.ts`.
+- Is labeled `needs-scope` specifically because it's an architecture
+  decision (e.g. catalogue-plan step 12's "server sort key" fork), not
+  because its Definition of Done merely needs re-checking.
+- Tier 1 flagged it as touching something the MVP Scope artifact or
+  `FOR_ME_MVP.md` treats as a frozen/architectural boundary.
+
+**Skip it for everything else** — most `code-ready` tickets are small and
+well-defined precisely so this pass isn't needed; running it on every
+ticket would slow the chain for no benefit on the tickets that don't need
+it.
+
+**When it applies:**
+1. Read wider than step 2's scope reading — direct callers and consumers of
+   whatever this ticket touches, not just the file itself. For a migration:
+   every query/RLS policy/Edge Function that reads the affected table. For a
+   scoring constant: everywhere it's read, and the tests that pin its
+   current value. For a data-model change: every screen/script that
+   constructs or reads that shape.
+2. Identify at least two real implementation approaches where more than one
+   exists, not just the first one that comes to mind — the same thing
+   plan mode is for.
+3. Write the plan as a short section before implementing — what changes,
+   why this approach over the alternative(s), what it touches. This becomes
+   the PR body's design-rationale content in step 6, not a throwaway note.
+4. Then proceed to step 4 with that plan, not before it.
+
+## 4. Implement — no commit yet
 
 - Already on the right branch from step 1 (from `main` for ticket 1, from
   the previous ticket's branch for every ticket after).
@@ -122,19 +162,19 @@ Skip a row entirely if this ticket doesn't touch that area.
 - Any DB write goes through `connect({ write })` in `scripts/lib/db.mjs`,
   with `SUPABASE_ENV=staging` — never `--prod`, never production. If the
   task needs a schema change, write the migration file under
-  `supabase/migrations/`, staged for the commit in step 5 like everything
+  `supabase/migrations/`, staged for the commit in step 6 like everything
   else; `staging-migrate.yml` applies it to staging once that commit is
   pushed. Do not try to run migrations from this session directly — it
   cannot reach Postgres.
 - `npm run typecheck && npm run lint && npm test` before moving on.
 - If a route changed, regenerate types per the `CLAUDE.md` "no TTY" section.
-- Do not commit or push yet — hygiene and self-review (step 4) run against
+- Do not commit or push yet — hygiene and self-review (step 5) run against
   this same uncommitted diff first, so the first thing pushed to GitHub is
   already past both passes.
 
-## 4. Hygiene, then self-review — still no push
+## 5. Hygiene, then self-review — still no push
 
-Two passes, in this order, against the working-tree diff from step 3
+Two passes, in this order, against the working-tree diff from step 4
 (re-diffed each time as fixes land, not the accumulated stack — the
 previous ticket already went through its own pass):
 
@@ -146,31 +186,31 @@ previous ticket already went through its own pass):
    including hygiene's fixes). For each finding: fix it now if it doesn't
    require a schema/architecture/product decision. If a finding does need
    a decision, leave it and note it — it becomes the PR's `## Open
-   questions` section in step 5, since the PR doesn't exist yet.
+   questions` section in step 6, since the PR doesn't exist yet.
 
 Still no commit. Once both passes are done, `npm run typecheck && npm run
 lint && npm test` one more time against the combined result, then move to
-step 5 — implementation, hygiene's fixes and self-review's fixes all go up
+step 6 — implementation, hygiene's fixes and self-review's fixes all go up
 together as the PR's first commit.
 
 This same two-step sequence (hygiene, then self-review) runs again inside
 the review loop below, on the diff each round produces — there it's after
 a commit already exists, so each pass gets its own push; here there's
-still nothing pushed at all until step 5.
+still nothing pushed at all until step 6.
 
-## 5. Commit, push, open the PR
+## 6. Commit, push, open the PR
 
 First commit for this ticket: implementation, hygiene's fixes and
 self-review's fixes go up together, in one push. Open the PR with
 `mcp__github__create_pull_request` now — base set to `main` for ticket 1 or
 to the *previous ticket's branch* for every ticket after (matching step 1's
 branch point). Body: what changed, the scope-source link, test/lint/
-typecheck results, a `## Open questions` section for anything step 4 found
+typecheck results, a `## Open questions` section for anything step 5 found
 that needed a decision, and — for every ticket after the first — "**Stacked
 on #<previous PR> — merge that first.**" Do not merge, do not enable
 auto-merge.
 
-## 6. Review loop
+## 7. Review loop
 
 Three reviewers, not two:
 - Comment `@claude review` (or invoke the `pr-review` skill directly against
@@ -196,7 +236,7 @@ Each round:
    fixed nor deferred to Open Questions — just don't act on it.
 2. For anything needing a decision, reply in-thread explaining why it's
    deferred, and add it to the PR's Open Questions.
-3. Re-run hygiene, then self-review (step 4's sequence) on the resulting
+3. Re-run hygiene, then self-review (step 5's sequence) on the resulting
    diff — a reviewer-prompted fix can introduce exactly the kind of thing
    those two catch.
 4. Push. Re-trigger `@claude review` and `@codex review`; CodeRabbit
@@ -210,7 +250,7 @@ continue the chain to the next ticket regardless (don't let one stuck PR
 block the rest of the stack from being built; it can be fixed once the user
 reaches it).
 
-## 7. Report and continue the chain
+## 8. Report and continue the chain
 
 Comment on the issue with the PR link (closing issues automatically via the
 PR body's `Closes #N` is fine — the PR stays unmerged until the user acts,
@@ -225,7 +265,7 @@ Then, without waiting for the user:
   in each across how many review rounds, and — plainly separated per PR —
   what could not be decided and needs their call.
 
-## 8. After the user merges a PR from the stack (squash merges)
+## 9. After the user merges a PR from the stack (squash merges)
 
 The user merges by squashing each PR into `main` one at a time, from the
 bottom of the stack up, retargeting each next PR's base to `main` as they
