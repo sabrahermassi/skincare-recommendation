@@ -778,6 +778,14 @@ and needs no account; an account buys somewhere to keep things. The only
 place a guest is ever asked to sign up is the Save action (#221) — never
 before a scan, never anywhere else.
 
+**This is a different axis from Quick Scan vs. Personalize (§6), and the two
+do not interact.** Quick Scan vs. Personalize is about whether a *profile*
+exists, and decides whether a score can be produced at all
+(`isPersonalized` in `lib/profile.ts`). Guest vs. signed-in is about whether
+an *account* exists, and decides whether anything can be kept. A signed-in
+user with no profile still gets no score; a guest with a full profile still
+gets the complete verdict. Neither gate stands in for the other.
+
 ## Guest — no signup
 
 - Scan a product: **ingredient-list photo (the primary path)** or barcode
