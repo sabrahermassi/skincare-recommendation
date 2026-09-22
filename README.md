@@ -75,8 +75,10 @@ tailwind.config.js          nativewind preset + content globs
   in the browser; EAN-13 / UPC-A scanned on iOS and Android only, with the scan
   screen showing a notice on web rather than failing silently) — **unverified
   since the SDK 57 upgrade**, which added a `barcode-detector` ponyfill with
-  full web format support. See `CLAUDE.md` and issue #11. Web is parked for the
-  MVP, so this stays a note rather than something to chase.
+  full web format support. Issue #11 was closed on that reading, not on a
+  webcam test — see `CLAUDE.md` and `docs/decisions.md`. Web is parked for the
+  MVP, so the untested end-to-end path stays a note rather than something to
+  chase.
 - Web camera needs a secure context — `localhost` is fine, a LAN IP is not.
 - `experiments.reactCompiler` is off; it conflicts with NativeWind's
   `jsxImportSource`. Re-enable and retest once the app is stable.
