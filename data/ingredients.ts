@@ -40,7 +40,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     name: "Snail Secretion Filtrate",
     comedogenic: 0,
     safety: "safe",
-    note: "Repairing; well tolerated by most skin types.",
+    note: "Moisturising; well tolerated by most skin types.",
   },
   "centella": {
     id: "centella",
@@ -61,7 +61,7 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     name: "Ceramide NP",
     comedogenic: 0,
     safety: "safe",
-    note: "Barrier-repairing lipid.",
+    note: "Barrier-supporting lipid.",
   },
   "panthenol": {
     id: "panthenol",
@@ -165,6 +165,6 @@ export const INGREDIENTS: Record<string, Ingredient> = {
     name: "Adenosine",
     comedogenic: 0,
     safety: "safe",
-    note: "Anti-wrinkle active approved by the Korean MFDS.",
+    note: "Smoothing active commonly used in Korean formulas.",
   },
 };

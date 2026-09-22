@@ -98,14 +98,14 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     category: "barrier",
     helps: { skinTypes: ["dry"], sensitive: true, concerns: ["atopic"] },
     reason:
-      "Ceramides rebuild the barrier lipids that dry, reactive and eczema-prone skin runs short of",
+      "Ceramides supply barrier lipids that dry, reactive and eczema-prone skin can run short of",
     weight: 10,
   },
   {
     names: ["panthenol", "dexpanthenol", "d-panthenol"],
     category: "barrier",
     helps: { concerns: ["redness", "atopic"], sensitive: true },
-    reason: "Panthenol soothes and supports barrier repair - well tolerated on reactive skin",
+    reason: "Panthenol soothes and supports the skin barrier - well tolerated on reactive skin",
     weight: 7,
   },
 
@@ -116,7 +116,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: [/^avena sativa/, "colloidal oatmeal", "oat kernel extract", "oat kernel oil"],
     category: "soothing",
     helps: { concerns: ["atopic", "redness"], sensitive: true },
-    reason: "Colloidal oatmeal is the classic anti-itch barrier ingredient for eczema-prone skin",
+    reason: "Colloidal oatmeal is a classic comforting barrier ingredient for eczema-prone skin",
     weight: 9,
   },
   {
@@ -227,7 +227,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: ["beta-glucan", "beta glucan", "sodium beta-sitosteryl sulfate"],
     category: "soothing",
     helps: { sensitive: true, concerns: ["redness"] },
-    reason: "Beta-glucan calms irritation and supports repair",
+    reason: "Beta-glucan calms irritation and supports the skin barrier",
     weight: 5,
   },
   {
@@ -246,7 +246,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     // ones — it suits inflamed, breakout-prone skin for the same reason it
     // suits reactive skin.
     helps: { concerns: ["redness", "acne-prone"], sensitive: true },
-    reason: "Centella (cica) has good evidence for calming redness and supporting repair",
+    reason: "Centella (cica) has good evidence for calming the look of redness and supporting skin comfort",
     weight: 8,
   },
   {
@@ -484,7 +484,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     helps: { concerns: ["acne-prone"], skinTypes: ["oily"] },
     hurts: { skinTypes: ["dry"] },
     reason:
-      "Sulfur is antibacterial and mildly keratolytic - one of the oldest acne treatments still in use",
+      "Sulfur absorbs surface oil and loosens flakes - a long-used option in blemish care",
     weight: 8,
   },
   {
@@ -493,7 +493,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     helps: { concerns: ["acne-prone"] },
     hurts: { sensitive: true, skinTypes: ["dry"] },
     reason:
-      "Benzoyl peroxide kills acne bacteria directly - the strongest over-the-counter option, and drying with it",
+      "Benzoyl peroxide is a strong blemish active with a high drying and irritation cost",
     weight: 12,
   },
   {
@@ -514,14 +514,14 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: [/^propolis/, "bee propolis"],
     category: "actives",
     helps: { concerns: ["acne-prone"] },
-    reason: "Propolis is mildly antibacterial and wound-healing, common in Korean blemish care",
+    reason: "Propolis is a soothing resin commonly used in Korean blemish care",
     weight: 5,
   },
   {
     names: ["capryloyl glycine"],
     category: "actives",
     helps: { concerns: ["acne-prone", "large-pores"], skinTypes: ["oily"] },
-    reason: "Capryloyl glycine helps regulate sebum and limit the bacteria behind blemishes",
+    reason: "Capryloyl glycine helps moderate sebum on blemish-prone skin",
     weight: 5,
   },
   {
@@ -570,7 +570,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     ],
     category: "actives",
     helps: { concerns: ["fine-lines"] },
-    reason: "A signal peptide - nudges skin to rebuild the support it loses with age",
+    reason: "A signal peptide used to support firmer-looking skin",
     weight: 5,
   },
   {

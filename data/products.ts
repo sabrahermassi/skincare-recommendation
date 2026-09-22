@@ -47,7 +47,7 @@ export const PRODUCTS: Product[] = [
     targets: ["dehydrated", "redness"],
     description:
       "A barrier cream built around ceramide NP for skin that stings after cleansing.",
-    benefits: ["Repairs the skin barrier", "Calms redness", "Rich, long-lasting hydration"],
+    benefits: ["Supports the skin barrier", "Calms the look of redness", "Rich, long-lasting hydration"],
     ingredientIds: [
       "water",
       "glycerin",
@@ -183,7 +183,7 @@ export const PRODUCTS: Product[] = [
     targets: ["dehydrated"],
     description:
       "A fast-absorbing lotion for keratosis-prone arms and legs, sharing its ceramide base with the face moisturizer.",
-    benefits: ["Fast-absorbing, non-greasy", "Restores the skin barrier", "All-day hydration"],
+    benefits: ["Fast-absorbing, non-greasy", "Supports the skin barrier", "All-day hydration"],
     ingredientIds: [
       "water",
       "glycerin",
