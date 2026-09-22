@@ -38,6 +38,45 @@ decision the artifacts mark as open: stop, relabel the issue
 `blocked-on-decision` (remove `code-ready`), and report why rather than
 guessing. Do not implement around an undecided question.
 
+### Tier 1 — every ticket, before implementing
+
+Cheap and scope-defining; skipping these is how a well-scoped ticket still
+ships something outside the MVP.
+
+- `CLAUDE.md` / `AGENTS.md` — already loaded automatically, but the
+  guardrails in them (DB writes, routing, scoring constants) still have to
+  actually be followed in step 3, not just skimmed here.
+- `FOR_ME_MVP.md` and the **MVP Scope** artifact
+  (https://claude.ai/artifact/2HSNkc3QUZPxMBREhWFhT2) — the NOT NOW list and
+  the frozen product definition. A ticket that is well-defined in isolation
+  can still expand something this page freezes (recommendations, social,
+  routine builder, etc.) — check against both, since either can be the one
+  that's current.
+- `TASKS.md` — the queue mechanism itself, in case it's changed.
+
+If the ticket conflicts with the frozen scope or the NOT NOW list, treat it
+the same as an ambiguous/undecided scope above: stop, relabel
+`blocked-on-decision`, report why, don't implement around it.
+
+### Tier 2 — only when the ticket touches that area
+
+Topic-triggered, the same way `CLAUDE.md` already treats `docs/decisions.md`
+("read it for why, not before every task"). Match the ticket's area to the
+doc before implementing:
+
+| Ticket touches | Read |
+|---|---|
+| An area with a recorded incident or reversal | `docs/decisions.md` |
+| Scoring (`lib/matching.ts`, `lib/rules.ts`, weights, bands) | `docs/scoring-validation-gaps.md` — so a known, already-accepted model disagreement isn't "rediscovered" as a bug and re-fixed |
+| Ingredient data / the dictionary / coverage | `docs/ingredient-coverage.md` |
+| `AsyncStorage`, the catalogue cache, anything under `data/catalogue-cache.ts` | `docs/device-storage-policy.md` |
+| User data handling, anything user-facing about privacy | `docs/privacy-disclosures.md` |
+| Auth, data isolation, anything security-adjacent | `docs/threat-model.md` |
+| A Launch Checklist §3/§4 issue (`#146`–`#153` etc.) | The **Launch Checklist** artifact's own row for it (https://claude.ai/artifact/4oqtQu1QQLJT4K3aXSCwcH) — the row often carries context (staleness notes, superseding issues) the issue body doesn't |
+
+Skip a row entirely if the ticket doesn't touch that area — reading all of
+these on every ticket is exactly the noise Tier 1 is trying to stay out of.
+
 ## 3. Implement
 
 - Branch from the current base branch: `git checkout -b task/<short-slug>`.
