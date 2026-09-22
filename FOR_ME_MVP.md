@@ -313,17 +313,19 @@ The existing barcode implementation should be audited for:
 
 The scanner has:
 
-- a control to switch between barcode mode and ingredient-list photo mode;
-- a flash (torch) toggle, for scanning in dim light. It turns off when the
-  user leaves the scanner.
+- a control to switch between barcode mode and ingredient-list photo mode.
 
 There is no in-screen back/close control — the scanner opens from Home's
 raised floating button rather than being a tab of its own, so leaving it
 returns to Home.
 
-(This section used to say "no dedicated flash button for MVP." The torch
-bullet above superseded that; the old sentence is removed rather than left
-to contradict it. The torch is part of the scan-failure help in #195.)
+> **Not built yet — tracked by #195.** A flash (torch) toggle for scanning in
+> dim light, turning off when the user leaves the scanner, is planned as part
+> of the scan-failure help in #195. This section used to say "no dedicated
+> flash button for MVP"; that sentence is removed rather than left to
+> contradict the toggle above, but the toggle itself doesn't exist in
+> `app/(tabs)/scanner.tsx` yet — do not read this as a description of `main`
+> until #195 merges.
 
 ---
 
