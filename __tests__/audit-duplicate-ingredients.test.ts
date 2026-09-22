@@ -96,4 +96,35 @@ describe("findDuplicates", () => {
   it("finds nothing when every name is distinct", () => {
     expect(findDuplicates([row("glycerin"), row("niacinamide")])).toEqual([]);
   });
+
+  it("flags a spelling group as a conflict when the rows' CAS numbers share nothing", () => {
+    // Optical isomers: "(+)-limonene" and "(-)-limonene" normalise to the
+    // same spelling key but are distinct substances with distinct CAS numbers.
+    const [group] = findDuplicates([
+      row("(+)-limonene", { cas_number: "5989-27-5" }),
+      row("(-)-limonene", { cas_number: "5989-54-8" }),
+    ]);
+
+    expect(group.conflicts).toHaveLength(1);
+    expect(group.conflicts[0]).toMatch(/CAS numbers contradict/);
+  });
+
+  it("does not call a spelling group a conflict when only one row carries a CAS number", () => {
+    const [group] = findDuplicates([row("peg-40 stearate", { cas_number: "9004-99-3" }), row("peg 40 stearate")]);
+    expect(group.conflicts).toEqual([]);
+  });
+
+  it("does not call a spelling group a conflict when the rows share a CAS number, or share one in a blend", () => {
+    const [same] = findDuplicates([
+      row("peg-40 stearate", { cas_number: "9004-99-3" }),
+      row("peg 40 stearate", { cas_number: "9004-99-3" }),
+    ]);
+    expect(same.conflicts).toEqual([]);
+
+    const [blend] = findDuplicates([
+      row("aa b", { cas_number: "111-11-1 / 222-22-2" }),
+      row("aa-b", { cas_number: "222-22-2" }),
+    ]);
+    expect(blend.conflicts).toEqual([]);
+  });
 });

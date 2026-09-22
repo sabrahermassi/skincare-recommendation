@@ -76,7 +76,9 @@ CosIng exports differ and another one may have written it.
 
 `npm run audit:duplicate-ingredients` (read only) lists verified names that look
 like one ingredient stored twice, by spelling or by shared CAS number, and flags
-the pairs whose safety or functions disagree.
+the pairs whose safety or functions disagree, or whose CAS numbers actively
+contradict each other (two distinct substances, like optical isomers, can
+normalise to the same spelling key).
 
 `npm run audit:safety-labels` (read only) counts the `safe` labels that are only
 the column default (no EU annex lists the ingredient, which is not a verdict),

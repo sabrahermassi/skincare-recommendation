@@ -12,7 +12,10 @@
  *
  * A group is a *conflict* when its rows disagree on `safety` or `functions`,
  * because then the app gives a different answer depending on which spelling a
- * label happens to use. Conflicts are listed first.
+ * label happens to use, or when two rows carry CAS numbers that share nothing
+ * — a spelling group can collide two real, distinct substances (optical
+ * isomers such as "(+)-limonene" / "(-)-limonene" normalise to the same
+ * spelling key; their CAS numbers do not). Conflicts are listed first.
  *
  * Read only: it never writes. Reads need `SUPABASE_URL` and
  * `SUPABASE_SERVICE_ROLE_KEY` in the shell.
@@ -54,6 +57,26 @@ export function casNumbers(field) {
  */
 
 /**
+ * Whether the rows' CAS numbers actively contradict each other: at least two
+ * rows each carry a CAS number, and the two share none. A row with no CAS
+ * number says nothing either way, and a shared number in a blend is not a
+ * contradiction — only a pair with nothing in common means the two rows name
+ * different substances, not the same one spelled two ways.
+ *
+ * @param {Row[]} rows
+ * @returns {boolean}
+ */
+function casesContradict(rows) {
+  const casSets = rows.map((row) => new Set(casNumbers(row.cas_number))).filter((set) => set.size > 0);
+  for (let i = 0; i < casSets.length; i++) {
+    for (let j = i + 1; j < casSets.length; j++) {
+      if ([...casSets[i]].every((cas) => !casSets[j].has(cas))) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * How the rows of one group disagree, as plain sentences. Empty when they agree.
  *
  * @param {Row[]} rows
@@ -72,6 +95,10 @@ function disagreements(rows) {
     found.push(
       `functions differ (${rows.map((row) => `${row.inci_name}: ${(row.functions ?? []).join(", ") || "none"}`).join("; ")})`
     );
+  }
+
+  if (casesContradict(rows)) {
+    found.push(`CAS numbers contradict (${rows.map((row) => `${row.inci_name}: ${row.cas_number || "none"}`).join("; ")})`);
   }
 
   return found;
@@ -146,7 +173,7 @@ async function main() {
 
   console.log(
     `${groups.length} possible duplicate group(s): ${bySpelling} by spelling, ${groups.length - bySpelling} by CAS number; ` +
-      `${conflicts.length} disagree on safety or functions.`
+      `${conflicts.length} disagree on safety, functions, or CAS number.`
   );
 
   for (const group of groups.slice(0, limit)) console.log(`\n${describe(group)}`);

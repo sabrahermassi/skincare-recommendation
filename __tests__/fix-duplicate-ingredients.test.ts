@@ -1,3 +1,4 @@
+import { findDuplicates } from "../scripts/audit-duplicate-ingredients.mjs";
 import { partitionGroups, pickCanonical, planMerge, planSynonymRepoints } from "../scripts/fix-duplicate-ingredients.mjs";
 
 const row = (
@@ -33,6 +34,17 @@ describe("partitionGroups", () => {
     const spelling = spellingGroup([row("a", { safety: "safe" }), row("A", { safety: "caution" })], ["safety differs"]);
     const cas = casGroup([row("c"), row("d")], ["functions differ"]);
     expect(partitionGroups([spelling, cas])).toEqual({ mergeable: [], skipped: [spelling, cas] });
+  });
+
+  it("never merges two distinct substances whose names collide to the same spelling key", () => {
+    // Optical isomers: "(+)-limonene" / "(-)-limonene" normalise to one
+    // spelling key but carry distinct, non-overlapping CAS numbers —
+    // findDuplicates flags that as a conflict, so this must stay skipped.
+    const groups = findDuplicates([
+      { inci_name: "(+)-limonene", cas_number: "5989-27-5", functions: ["fragrance"], safety: "safe", source: "cosing" },
+      { inci_name: "(-)-limonene", cas_number: "5989-54-8", functions: ["fragrance"], safety: "safe", source: "cosing" },
+    ]);
+    expect(partitionGroups(groups)).toEqual({ mergeable: [], skipped: groups });
   });
 });
 

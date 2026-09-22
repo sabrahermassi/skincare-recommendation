@@ -178,7 +178,7 @@ async function main() {
   const { mergeable, skipped } = partitionGroups(groups);
   console.log(
     `${groups.length} duplicate group(s): ${mergeable.length} spelling-only, no conflict (mergeable); ` +
-      `${skipped.length} left for review (CAS-based, or disagree on safety/functions).`
+      `${skipped.length} left for review (CAS-based, or disagree on safety, functions, or CAS number).`
   );
 
   if (mergeable.length === 0) {
