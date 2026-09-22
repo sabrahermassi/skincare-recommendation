@@ -114,7 +114,7 @@ the same chain touch different areas:
 
 Skip a row entirely if this ticket doesn't touch that area.
 
-## 3. Implement
+## 3. Implement, commit, push, open the PR
 
 - Already on the right branch from step 1 (from `main` for ticket 1, from
   the previous ticket's branch for every ticket after).
@@ -126,39 +126,42 @@ Skip a row entirely if this ticket doesn't touch that area.
   applies it to staging automatically on push. Do not try to run migrations
   from this session directly — it cannot reach Postgres.
 - `npm run typecheck && npm run lint && npm test` before every push, narrowed
-  with `--` while iterating, full before the PR.
+  with `--` while iterating, full before this one.
 - If a route changed, regenerate types per the `CLAUDE.md` "no TTY" section.
+- Commit, push, and open the PR now with `mcp__github__create_pull_request`
+  — before hygiene or self-review, not after. Base set to `main` for ticket
+  1 or to the *previous ticket's branch* for every ticket after (matching
+  step 1's branch point). Body: what changed, the scope-source link,
+  test/lint/typecheck results, and — for every ticket after the first —
+  "**Stacked on #<previous PR> — merge that first.**" A `## Open questions`
+  section gets added once step 4 has run, not before. Do not merge, do not
+  enable auto-merge.
 
-## 4. Hygiene, then self-review
+## 4. Hygiene, then self-review — each its own push
 
-In this order — hygiene first, self-review second — both against the diff
-for *this ticket only*, not the accumulated stack (the previous ticket
-already went through its own pass):
+Two passes, in this order, **each fixed and pushed separately** — not
+combined into one commit. Both are against the diff for *this ticket only*,
+not the accumulated stack (the previous ticket already went through its own
+pass):
 
 1. **Hygiene.** Run it if the task touched anything that could leave dead
-   code behind (removed a code path, replaced a component). Delete what it
-   finds unused and introduced by this change; leave pre-existing dead code
-   alone unless the task already touches it.
-2. **Self-review.** Run the `self-review` skill against the diff. For each
-   finding: fix it now if it doesn't require a schema/architecture/product
-   decision; if it does, leave it and note it for the end-of-task report —
-   don't guess at a decision that isn't yours.
+   code behind (removed a code path, replaced a component). Fix what it
+   finds that's unused and introduced by this change; leave pre-existing
+   dead code alone unless the task already touches it. Commit and push this
+   on its own, even if there was nothing to fix — the PR's history should
+   show the pass happened.
+2. **Self-review.** Run the `self-review` skill against the diff (now
+   including the hygiene commit). For each finding: fix it now if it
+   doesn't require a schema/architecture/product decision — commit and push
+   this separately too. If a finding does need a decision, leave it, add it
+   to the PR's `## Open questions` section (create the section now if step 3
+   didn't need one), and note it for the end-of-task report.
 
-This same two-step sequence (hygiene, then self-review) runs again inside
-the review loop below, on the diff each round produces — not just once
-here before the PR opens.
+This same two-step sequence (hygiene push, then self-review push) runs
+again inside the review loop below, on the diff each round produces — not
+just once here before the reviewers are triggered.
 
-## 5. Push and open the PR
-
-Push the branch, open the PR with `mcp__github__create_pull_request`, base
-set to `main` for ticket 1 or to the *previous ticket's branch* for every
-ticket after (matching step 1's branch point). Body: what changed, the
-scope-source link, test/lint/typecheck results, a `## Open questions`
-section listing anything from step 4 that needs the user's decision, and —
-for every ticket after the first — "**Stacked on #<previous PR> — merge
-that first.**" Do not merge, do not enable auto-merge.
-
-## 6. Review loop
+## 5. Review loop
 
 Three reviewers, not two:
 - Comment `@claude review` (or invoke the `pr-review` skill directly against
@@ -198,7 +201,7 @@ continue the chain to the next ticket regardless (don't let one stuck PR
 block the rest of the stack from being built; it can be fixed once the user
 reaches it).
 
-## 7. Report and continue the chain
+## 6. Report and continue the chain
 
 Comment on the issue with the PR link (closing issues automatically via the
 PR body's `Closes #N` is fine — the PR stays unmerged until the user acts,
@@ -213,7 +216,7 @@ Then, without waiting for the user:
   in each across how many review rounds, and — plainly separated per PR —
   what could not be decided and needs their call.
 
-## 8. After the user merges a PR from the stack (squash merges)
+## 7. After the user merges a PR from the stack (squash merges)
 
 The user merges by squashing each PR into `main` one at a time, from the
 bottom of the stack up, retargeting each next PR's base to `main` as they
