@@ -70,6 +70,9 @@ const AMBIGUOUS_STUB_NAMES = new Set([
  */
 const CONFIRMED_NOT_INGREDIENTS = new Set([
   "120-2563",
+  // German for "from controlled organic farming", printed beside the list.
+  // Read and confirmed by the owner in the #43 review.
+  "aus kontrolliert biologischem anbau",
   "19g proprietati: extractul de orez întăreşte bariera pielii",
   "but better dincidecoder the skincare ingredients with the most google searches > eng 6:04 pm cd \\9/20/2126",
   "ingredients",
@@ -88,7 +91,21 @@ const CONFIRMED_NOT_INGREDIENTS = new Set([
 const EQUIVALENT_NAMES = [
   ["aqua", "water", "eau", "ater", "agua"],
   ["parfum", "fragrance"],
+  // The US colour name and the EU colour index number of one dye (tartrazine).
+  // The lake ("yellow 5 lake") is a different ingredient and is not listed.
+  ["ci 19140", "yellow 5"],
 ];
+
+/**
+ * Full stub names, trailing " nano" included, a person has confirmed are the
+ * nano form of the bulk ingredient already verified without it. Not a blanket
+ * "strip any trailing nano" rule: EU regulation sometimes treats a nano form
+ * as legally distinct from bulk (nano titanium dioxide and nano zinc oxide
+ * carry their own Annex VI conditions), and the dictionary has no separate
+ * nano/bulk distinction to check a new name against yet — so each one is
+ * confirmed by name, the same way `CONFIRMED_NOT_INGREDIENTS` is.
+ */
+const CONFIRMED_NANO_VARIANTS = new Set(["methylene bis-benzotriazolyl tetramethylbutylphenol nano"]);
 
 /** The separate names in a stub that lists more than one ("a / b", "a & b", "a (b"). */
 function partsOf(name) {
@@ -144,6 +161,12 @@ function variantTarget(name, known, aliases) {
     const t = resolvePart(trailing[1], known, aliases);
     const restNamesOne = parseInci(trailing[2], known, undefined, aliases).some((i) => known.has(i.inci_name));
     return t && !restNamesOne ? t : null;
+  }
+
+  // Confirmed by name, not stripped from any name ending in "nano" — see
+  // CONFIRMED_NANO_VARIANTS.
+  if (CONFIRMED_NANO_VARIANTS.has(name)) {
+    return variantTarget(name.replace(/\s+nano$/, ""), known, aliases);
   }
 
   const parts = partsOf(name);

@@ -8,6 +8,7 @@ import {
   rungFor,
   SCORE_BANDS,
   scoreExplanation,
+  type MatchResult,
 } from "@/lib/matching";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
@@ -228,6 +229,38 @@ describe("verdict engine", () => {
     };
   }
 
+  function resultAt(
+    score: number,
+    breakdown: Partial<MatchResult["breakdown"]> = {}
+  ): MatchResult {
+    const seed = matchProduct(
+      synthetic(["water", "glycerin", "xanthan gum"]),
+      profile({ baseSkinType: "normal" })
+    );
+    const verdict =
+      score >= SCORE_BANDS.excellent
+        ? "excellent"
+        : score >= SCORE_BANDS.good
+          ? "good"
+          : score >= SCORE_BANDS.fair
+            ? "fair"
+            : "poor";
+
+    return {
+      ...seed,
+      score,
+      verdict,
+      warnings: [],
+      breakdown: {
+        concernFit: 50,
+        typeFit: 50,
+        irritationPenalty: 0,
+        porePenalty: 0,
+        ...breakdown,
+      },
+    };
+  }
+
   const FILLER = ["water", "butylene glycol", "glycerin", "1,2-hexanediol", "xanthan gum"];
 
   /**
@@ -383,6 +416,85 @@ describe("verdict engine", () => {
       const unscored = matchProduct(synthetic(["water", "glycerin"]), EMPTY_PROFILE);
       expect(unscored.score).toBeNull();
       expect(scoreExplanation(unscored)).toEqual([]);
+    });
+
+    it.each([
+      [0, "poor", "down"],
+      [59, "poor", "down"],
+      [60, "fair", null],
+      [74, "fair", null],
+      [75, "good", "up"],
+      [89, "good", "up"],
+      [90, "excellent", "up"],
+      [100, "excellent", "up"],
+    ] as const)(
+      "keeps a score of %i consistent with its %s explanation",
+      (
+        score: number,
+        _verdict: "poor" | "fair" | "good" | "excellent",
+        requiredDirection: "up" | "down" | null
+      ) => {
+        const lines = scoreExplanation(resultAt(score));
+        if (requiredDirection === null) {
+          // Fair is the mixed middle: with no material factor there is no
+          // invented positive or negative claim.
+          expect(lines).toEqual([]);
+        } else {
+          expect(lines[0]?.direction).toBe(requiredDirection);
+        }
+      }
+    );
+
+    it("does not let a positive factor make a Poor explanation entirely positive", () => {
+      const lines = scoreExplanation(resultAt(59, { concernFit: 90 }));
+      expect(lines[0]).toMatchObject({ label: "Overall match", direction: "down" });
+      expect(lines.some((line) => line.direction === "up")).toBe(true);
+    });
+
+    it("leads a Good explanation with support even when a penalty is the largest factor", () => {
+      const lines = scoreExplanation(
+        resultAt(75, { concernFit: 75, irritationPenalty: 30 })
+      );
+      expect(lines[0]).toMatchObject({ label: "Your concerns", direction: "up" });
+      expect(lines.some((line) => line.direction === "down")).toBe(true);
+    });
+
+    it("names a hazard cap before otherwise positive evidence", () => {
+      const product = synthetic(["water", "isopropyl myristate", "glycerin"]);
+      const result = resultAt(45, { concernFit: 90 });
+      result.warnings = [
+        {
+          ingredient: product.ingredients[1],
+          reason: "Flagged as best avoided",
+          severity: "hazard",
+        },
+      ];
+
+      expect(scoreExplanation(result)[0]).toMatchObject({
+        label: "Safety warning",
+        direction: "down",
+      });
+    });
+
+    it("names every hazard, not only the first", () => {
+      const product = synthetic(["water", "isopropyl myristate", "glycerin"]);
+      const result = resultAt(40, { concernFit: 90 });
+      result.warnings = [1, 2].map((i) => ({
+        ingredient: product.ingredients[i],
+        reason: "Flagged as best avoided",
+        severity: "hazard" as const,
+      }));
+      const detail = scoreExplanation(result)[0].detail;
+      expect(detail).toContain(product.ingredients[1].name);
+      expect(detail).toContain(product.ingredients[2].name);
+    });
+
+    it("does not present neutral concern evidence as positive", () => {
+      expect(scoreExplanation(resultAt(60, { concernFit: 50 }))).toEqual([]);
+      expect(scoreExplanation(resultAt(75, { concernFit: 50 }))[0]).toMatchObject({
+        label: "Overall match",
+        direction: "up",
+      });
     });
 
     it("reports lower confidence for a formula it mostly could not read", () => {
@@ -643,6 +755,78 @@ describe("verdict engine", () => {
       const result = matchProduct(synthetic(["water", "glycerin"]), profile({ baseSkinType: "dry" }));
       expect(result.score).toBeNull();
       expect(result.verdict).toBe("unknown");
+    });
+
+    it("scores exactly at the documented evidence floor", () => {
+      // Three identified ingredients out of twelve is exactly 25% coverage:
+      // both refusal boundaries are inclusive, so this is enough to answer.
+      const p = synthetic([
+        "water", "glycerin", "niacinamide", "unknown-1", "unknown-2", "unknown-3",
+        "unknown-4", "unknown-5", "unknown-6", "unknown-7", "unknown-8", "unknown-9",
+      ]);
+      p.ingredients = p.ingredients.map((ingredient, index) => ({
+        ...ingredient,
+        verified: index < 3,
+      }));
+
+      const result = matchProduct(p, profile({ baseSkinType: "dry" }));
+      expect(result.coverage).toBe(0.25);
+      expect(result.score).not.toBeNull();
+      expect(result.unknownReason).toBeUndefined();
+    });
+
+    it("refuses just below 25% coverage even when three ingredients are identified", () => {
+      const p = synthetic([
+        "water", "glycerin", "niacinamide", "unknown-1", "unknown-2", "unknown-3",
+        "unknown-4", "unknown-5", "unknown-6", "unknown-7", "unknown-8", "unknown-9",
+        "unknown-10",
+      ]);
+      p.ingredients = p.ingredients.map((ingredient, index) => ({
+        ...ingredient,
+        verified: index < 3,
+      }));
+
+      const result = matchProduct(p, profile({ baseSkinType: "dry" }));
+      expect(result.coverage).toBeLessThan(0.25);
+      expect(result.score).toBeNull();
+      expect(result.unknownReason).toBe("low_coverage");
+    });
+
+    it("refuses fewer than three identified ingredients even above 25% coverage", () => {
+      const p = synthetic(["water", "glycerin", "unknown"]);
+      p.ingredients[2] = { ...p.ingredients[2], verified: false };
+
+      const result = matchProduct(p, profile({ baseSkinType: "dry" }));
+      expect(result.coverage).toBeGreaterThan(0.25);
+      expect(result.score).toBeNull();
+      expect(result.unknownReason).toBe("low_coverage");
+    });
+
+    it("lets one unknown lower confidence without changing the score", () => {
+      const names = [
+        "water", "glycerin", "niacinamide", "sodium hyaluronate", "panthenol", "mystery blend",
+      ];
+      const allKnown = synthetic(names);
+      const oneUnknown = synthetic(names);
+      oneUnknown.ingredients[5] = { ...oneUnknown.ingredients[5], verified: false };
+      const prof = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+      const knownResult = matchProduct(allKnown, prof);
+      const unknownResult = matchProduct(oneUnknown, prof);
+
+      expect(unknownResult.score).toBe(knownResult.score);
+      expect(unknownResult.confidence).toBeLessThan(knownResult.confidence);
+      expect(unknownResult.verdict).not.toBe("unknown");
+    });
+
+    it("does not crash on blank or proprietary-looking unverified names", () => {
+      const p = synthetic(["water", "glycerin", "niacinamide", "", "Bio-Restore Peptide Blend"]);
+      p.ingredients[3] = { ...p.ingredients[3], verified: false };
+      p.ingredients[4] = { ...p.ingredients[4], verified: false };
+
+      expect(() => matchProduct(p, profile({ baseSkinType: "dry" }))).not.toThrow();
+      const result = matchProduct(p, profile({ baseSkinType: "dry" }));
+      expect(result.score).not.toBeNull();
+      expect(result.coverage).toBe(0.6);
     });
 
     it("reports coverage so the UI can say how much it read", () => {

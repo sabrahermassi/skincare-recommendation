@@ -31,7 +31,11 @@ gh-equivalent: issues, state=open, label=code-ready
   another gate. `P0` before `P1` before `P2`, any non-negative integer,
   sorted numerically. Gaps are fine (`P0`, `P10`, `P20` leaves room to
   insert `P5` later without relabeling anything). No priority label sorts
-  after every prioritized issue, oldest-first among themselves.
+  after every prioritized issue, oldest-first among themselves. No
+  `priority:P<N>` label exists in the repo yet — GitHub requires a label to
+  exist before it can be applied, so the first time one is needed, create it
+  first: `gh label create priority:P0 --repo <owner>/<repo>` (swap the
+  number), then apply it to the issue.
 
 ## Source docs (context, not enumeration)
 
