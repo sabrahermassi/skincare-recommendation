@@ -55,10 +55,14 @@ The review covered all 929 unverified names present before the cleanup:
 | Leave: no authoritative match | 376 | No rule matched and no single safe target exists in the checked sources. Not individually read; see above. |
 
 The cleanup ran against the live catalogue on 21 September 2026 and removed the
-first three groups (442 + 10 + 9 names). The committed ledger holds the 468
-names that remain, every one still used by a product, across 527 formula rows
-(547 before: 10 rows now point at a verified name, 9 packaging rows and 1
-duplicate water row were dropped). Names left unmapped continue to lower
+first three groups (442 + 10 + 9 names), leaving 468 names across 527 formula
+rows (547 before: 10 rows now point at a verified name, 9 packaging rows and 1
+duplicate water row were dropped). A second run on 23 September 2026 applied
+three rules added since: two more normalisations (`methylene
+bis-benzotriazolyl tetramethylbutylphenol nano`, `yellow 5`) and one more
+non-ingredient (`aus kontrolliert biologischem anbau`). With two new stubs
+from a later import (`hydrogenated poly`, `poly`), the committed ledger holds 467 names,
+every one still used by a product, across 519 formula rows. Names left unmapped continue to lower
 confidence in the app; they do not inherit a safety rating from a guessed
 neighbour.
 
