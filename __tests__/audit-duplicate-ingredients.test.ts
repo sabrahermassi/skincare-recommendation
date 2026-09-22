@@ -11,6 +11,11 @@ describe("nameKey", () => {
     expect(nameKey("ci 77891")).toBe(nameKey("ci77891"));
   });
 
+  it("keeps accented letters, so names that differ by one stay apart", () => {
+    expect(nameKey("glycérine")).not.toBe(nameKey("glycrine"));
+    expect(nameKey("Glycérine")).toBe(nameKey("glycérine"));
+  });
+
   it("keeps digits, so different numbers stay different", () => {
     expect(nameKey("peg-4")).not.toBe(nameKey("peg-40"));
   });

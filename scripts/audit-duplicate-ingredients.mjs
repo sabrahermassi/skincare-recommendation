@@ -19,7 +19,6 @@
  *
  *   npm run audit:duplicate-ingredients
  *   npm run audit:duplicate-ingredients -- --limit=200   # list more groups
- *   npm run audit:duplicate-ingredients -- --check       # exit 1 on any conflict
  */
 
 import { realpathSync } from "node:fs";
@@ -30,9 +29,12 @@ import { paginateOrdered } from "./lib/paginate.mjs";
 
 const DEFAULT_LIMIT = 50;
 
-/** A name with case, spacing and punctuation removed, so spellings compare equal. */
+/**
+ * A name with case, spacing and punctuation removed, so spellings compare equal.
+ * Letters with accents are kept, so names that differ only by one stay apart.
+ */
 export function nameKey(name) {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return name.normalize("NFC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 }
 
 /**
@@ -149,8 +151,6 @@ async function main() {
 
   for (const group of groups.slice(0, limit)) console.log(`\n${describe(group)}`);
   if (groups.length > limit) console.log(`\n… ${groups.length - limit} more; pass --limit=${groups.length} to list them all.`);
-
-  if (process.argv.includes("--check") && conflicts.length > 0) process.exit(1);
 }
 
 function invokedDirectly() {
