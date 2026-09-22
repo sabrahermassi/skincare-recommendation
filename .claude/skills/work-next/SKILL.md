@@ -247,6 +247,20 @@ do the same four things directly, just without the model change.
 
 ## 5. Hygiene, then self-review — still no push
 
+**Both are user-level skills (`~/.claude/skills/hygiene`,
+`~/.claude/skills/self-review`), not part of this repo** — `.claude/skills/`
+here only has `ingredient-data-audits` and `pr-review`. That's why this
+works from a local session and not from a cloud one, which has no access to
+the operator's `~/.claude/`. If a session gets here and either skill isn't
+available: don't skip the pass silently — do it directly instead, the same
+way step 3 falls back when the `Agent` tool isn't available. For hygiene,
+that means the manual checks its own definition covers (knip/tsc unused-code
+flags, dead components, orphaned imports); for self-review, a fresh
+skeptical read of the diff for correctness, dead code, and missing tests,
+in the diff's own words if the skill's isn't loaded. Note in the PR body
+that the pass ran manually rather than via the named skill, so a reader
+knows the coverage may differ slightly.
+
 Two passes, in this order, against the working-tree diff from step 4
 (re-diffed each time as fixes land, not the accumulated stack — the
 previous ticket already went through its own pass):
@@ -315,7 +329,8 @@ Each round:
    fixed nor deferred to Open Questions — just don't act on it.
 2. For anything needing a decision, reply in-thread explaining why it's
    deferred, and add it to the PR's Open Questions.
-3. Re-run hygiene, then self-review (step 5's sequence) on the resulting
+3. Re-run hygiene, then self-review (step 5's sequence, including its
+   fallback if either skill isn't available) on the resulting
    diff — a reviewer-prompted fix can introduce exactly the kind of thing
    those two catch.
 4. Push. Re-trigger `@claude review` and `@codex review`; CodeRabbit
