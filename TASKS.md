@@ -38,7 +38,13 @@ gh-equivalent: issues, state=open, label=code-ready
 Issue bodies link to whichever of these actually defines the task's scope.
 `/work-next` reads that link before touching code.
 
-- **MVP Scope** — https://claude.ai/artifact/2HSNkc3QUZPxMBREhWFhT2
+- **MVP Scope** — https://claude.ai/artifact/2HSNkc3QUZPxMBREhWFhT2 — its
+  repo-side twin is `FOR_ME_MVP.md`, whose header carries a **"Scope changes
+  since this document was locked"** block. Scope moves between passes (the
+  scan flow inverted on 22 September); that block is where a change is
+  recorded before it is built, so read it before trusting any section below
+  it. If a ticket turns out to move scope, add to it rather than editing a
+  section silently.
 - **Feeding the Catalogue** — https://claude.ai/artifact/35abnwiaqnKhpBWnWJTJkV
   — steps without their own issue yet get one filed (with the step's anchor
   link in the body) before they're `code-ready` — see step 17 → #171, step
