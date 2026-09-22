@@ -125,11 +125,13 @@ Skip a row entirely if this ticket doesn't touch that area.
 ## 3. Deep-dive pass — only for architecture/schema/data-model-critical tickets
 
 `ultrathink` and plan mode are both triggered by something the user types —
-neither can be switched on from inside a skill. The effect they're for
-(read wider than the immediate files, weigh more than one approach, write
-the plan down before coding) doesn't need the trigger word — it's reasoning
-depth, and that's mine to spend more of on a given step regardless of what
-invoked it. This step is where to spend it.
+neither can be switched on from inside a skill, and the session's own model
+can't be changed from here either (`/model` is a user-side CLI command).
+What *is* available: the `Agent` tool takes a `model` parameter, so a
+Sonnet-driven chain can hand this one step to Opus and carry on. That's the
+intended setup — **Sonnet for the session, Opus for this step** — because
+most tickets are mechanical and fast on Sonnet, while the ones this step
+fires on are exactly where model judgment changes the outcome.
 
 **Do this pass if the ticket matches any of:**
 - Touches or adds a file under `supabase/migrations/`.
@@ -147,20 +149,63 @@ well-defined precisely so this pass isn't needed; running it on every
 ticket would slow the chain for no benefit on the tickets that don't need
 it.
 
-**When it applies:**
-1. Read wider than step 2's scope reading — direct callers and consumers of
-   whatever this ticket touches, not just the file itself. For a migration:
-   every query/RLS policy/Edge Function that reads the affected table. For a
-   scoring constant: everywhere it's read, and the tests that pin its
-   current value. For a data-model change: every screen/script that
-   constructs or reads that shape.
-2. Identify at least two real implementation approaches where more than one
-   exists, not just the first one that comes to mind — the same thing
-   plan mode is for.
-3. Write the plan as a short section before implementing — what changes,
-   why this approach over the alternative(s), what it touches. This becomes
-   the PR body's design-rationale content in step 6, not a throwaway note.
-4. Then proceed to step 4 with that plan, not before it.
+**When it applies — delegate the thinking to Opus, then implement it
+yourself:**
+
+```
+Agent(
+  subagent_type: "Plan",
+  model: "opus",
+  run_in_background: false,
+  description: "Deep-dive <ticket>",
+  prompt: "<self-contained brief — see below>"
+)
+```
+
+`Plan` is the right agent type: it's the architect agent, and its toolset
+is read-only, so it physically cannot edit code while it thinks.
+`run_in_background: false` because the next thing that happens depends on
+its answer — there is nothing useful to do in parallel.
+
+**The prompt has to be self-contained.** The subagent has none of this
+conversation, none of Tier 1, none of the issue body. Write it as a brief
+to a smart engineer who just walked in, including:
+- The ticket: number, title, its Definition of Done, and the relevant part
+  of the issue body or artifact section read in step 2.
+- Which of the four trigger conditions above matched, since that says what
+  kind of risk to look for.
+- The repo facts that constrain the answer: `CLAUDE.md`'s rules for the
+  area (scoring constants, the `data/api.ts` seam, `migratePersisted`, the
+  DB write guard), and any Tier 2 doc already read for this ticket.
+- What to come back with (below).
+
+**Ask it for exactly this:**
+1. Every place the change reaches — direct callers and consumers, not just
+   the file named in the ticket. For a migration: every query, RLS policy
+   and Edge Function touching that table. For a scoring constant:
+   everywhere it's read plus the tests pinning its current value. For a
+   data-model change: every screen and script that builds or reads that
+   shape.
+2. At least two real implementation approaches where more than one exists,
+   with the trade-off between them stated plainly — not just the first one
+   that comes to mind.
+3. A recommendation, with the reason it beats the alternative.
+4. What would make this change go wrong — the failure mode a reviewer
+   would catch, or worse, wouldn't.
+
+**Then:**
+- Read its answer critically rather than adopting it wholesale. It saw a
+  snapshot of the repo and none of this chain's history; if its
+  recommendation contradicts something you know from Tier 1 or from an
+  earlier ticket in this stack, you are the one who is right and its plan
+  needs adjusting.
+- Keep the resulting plan — what changes, why this approach over the
+  alternative, what it touches. It becomes the PR body's design rationale
+  in step 6, not a throwaway note.
+- Only then go to step 4 and implement it.
+
+If the `Agent` tool isn't available in the session, don't skip the step —
+do the same four things directly, just without the model change.
 
 ## 4. Implement — no commit yet
 
