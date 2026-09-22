@@ -258,7 +258,56 @@ continue the chain to the next ticket regardless (don't let one stuck PR
 block the rest of the stack from being built; it can be fixed once the user
 reaches it).
 
-## 8. Report and continue the chain
+## 8. Report this PR, then continue the chain
+
+### The per-PR report — write it now, not at the end
+
+Write this **immediately after the PR's review loop finishes, before
+picking up the next ticket**, while this ticket's context is still fresh.
+Batching all the reports until the end of the chain mixes tickets up and
+loses detail — that's the reason for doing it here.
+
+Post it as a comment on the PR (that's where the user is standing when they
+need it, walking the stack in the morning) and print the same text in the
+session.
+
+Exactly four parts, in this order:
+
+```
+## The issue
+- <what was wrong / what was missing, 2-4 bullets>
+
+## The fix
+- <what changed, 2-5 bullets>
+
+## Gaps — need your decision
+- <anything not implemented because it needs a human call, or "None">
+
+## Before merging the next PR — what I need from you
+- <migration to run, script to run, phone check, anything manual, or "None">
+```
+
+Rules for writing it — these matter as much as the four headings:
+
+- **Plain, easy English. Very short bullets.** A bullet is a line, not a
+  paragraph.
+- **Only what's true.** Nothing invented, nothing assumed, nothing padded
+  to make a section look fuller. If a section has nothing in it, the bullet
+  is `None` — that is a complete and correct answer.
+- **Stay inside this PR.** Don't discuss other tickets, the chain's
+  progress, the queue, or what's coming next. The one allowed exception: if
+  a gap or a change here genuinely affects the PR before or after this one
+  in the stack, say so in one line.
+- **No suggestions that weren't part of the work.** No "you might also want
+  to…", no ideas for future improvements, no commentary on the codebase at
+  large.
+- **Part 4 is sequencing.** It answers only: between merging *this* PR and
+  merging the next one, what does the user have to do by hand? A migration
+  to run against production, a script to run, a check on a real phone, a
+  value to set somewhere. Rebasing the next branch is mine (step 9), so it
+  does not belong in this list.
+
+### Then continue
 
 Comment on the issue with the PR link (closing issues automatically via the
 PR body's `Closes #N` is fine — the PR stays unmerged until the user acts,
@@ -275,12 +324,13 @@ Then, without waiting for the user and without asking whether to continue:
 - Note that the queue can grow mid-run: re-querying each time (rather than
   working from the list read at step 0) means a ticket labeled `code-ready`
   while the chain is running gets picked up too.
-- **Only when nothing is left** is it the finish line: stop, and give the
-  user one summary covering the whole chain — every PR opened, in stack
-  order, what got fixed in each across how many review rounds, and —
-  plainly separated per PR — what could not be decided and needs their
-  call. Account for every ticket counted at step 0, including any that were
-  relabeled `blocked-on-decision` along the way rather than implemented.
+- **Only when nothing is left** is it the finish line: stop, and give one
+  short closing index — not a re-run of the per-PR reports, which are
+  already written and posted on each PR. The index is just: every PR in
+  stack order (number, title, one line each, merge them bottom-up), plus
+  any ticket that was relabeled `blocked-on-decision` instead of
+  implemented, so every ticket counted at step 0 is accounted for. Keep it
+  to a screen.
 
 ## 9. After the user merges a PR from the stack (squash merges)
 
