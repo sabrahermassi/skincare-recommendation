@@ -213,8 +213,8 @@ describe("classifyStub", () => {
     expect(classifyStub("korea distribuitor: promo plus srl", known, aliases)).toEqual({ kind: "not-ingredient" });
   });
 
-  it("treats a trailing 'nano' as the same ingredient, and a dye's colour name as its colour index number", () => {
-    const dict = new Set(["methylene bis-benzotriazolyl tetramethylbutylphenol", "ci 19140", "ci 19140:1"]);
+  it("treats a confirmed trailing 'nano' name as the same ingredient, and a dye's colour name as its colour index number", () => {
+    const dict = new Set(["methylene bis-benzotriazolyl tetramethylbutylphenol", "ci 19140", "ci 19140:1", "titanium dioxide"]);
     expect(classifyStub("methylene bis-benzotriazolyl tetramethylbutylphenol nano", dict, aliases)).toEqual({
       kind: "variant",
       target: "methylene bis-benzotriazolyl tetramethylbutylphenol",
@@ -223,6 +223,14 @@ describe("classifyStub", () => {
     // A lake is a different ingredient from the dye.
     expect(classifyStub("yellow 5 lake", dict, aliases)).toBeNull();
     expect(classifyStub("aus kontrolliert biologischem anbau", dict, aliases)).toEqual({ kind: "not-ingredient" });
+  });
+
+  it("does not collapse a trailing 'nano' on a name nobody has confirmed, even when the bulk form is verified", () => {
+    // Not a blanket rule: a nano form can be legally distinct from bulk
+    // (nano titanium dioxide has its own EU Annex VI conditions), so only
+    // names in CONFIRMED_NANO_VARIANTS are treated as the same ingredient.
+    const dict = new Set(["titanium dioxide"]);
+    expect(classifyStub("titanium dioxide nano", dict, aliases)).toBeNull();
   });
 
   it("stores water written on its own under the same name as every other product's water", () => {

@@ -96,6 +96,17 @@ const EQUIVALENT_NAMES = [
   ["ci 19140", "yellow 5"],
 ];
 
+/**
+ * Full stub names, trailing " nano" included, a person has confirmed are the
+ * nano form of the bulk ingredient already verified without it. Not a blanket
+ * "strip any trailing nano" rule: EU regulation sometimes treats a nano form
+ * as legally distinct from bulk (nano titanium dioxide and nano zinc oxide
+ * carry their own Annex VI conditions), and the dictionary has no separate
+ * nano/bulk distinction to check a new name against yet — so each one is
+ * confirmed by name, the same way `CONFIRMED_NOT_INGREDIENTS` is.
+ */
+const CONFIRMED_NANO_VARIANTS = new Set(["methylene bis-benzotriazolyl tetramethylbutylphenol nano"]);
+
 /** The separate names in a stub that lists more than one ("a / b", "a & b", "a (b"). */
 function partsOf(name) {
   return name
@@ -152,10 +163,11 @@ function variantTarget(name, known, aliases) {
     return t && !restNamesOne ? t : null;
   }
 
-  // "nano" after a name only says the particles are nano-sized, so the name
-  // with it is the same ingredient as the name without it.
-  const nano = /^(.+?)\s+nano$/.exec(name);
-  if (nano) return variantTarget(nano[1], known, aliases);
+  // Confirmed by name, not stripped from any name ending in "nano" — see
+  // CONFIRMED_NANO_VARIANTS.
+  if (CONFIRMED_NANO_VARIANTS.has(name)) {
+    return variantTarget(name.replace(/\s+nano$/, ""), known, aliases);
+  }
 
   const parts = partsOf(name);
   if (parts.length > 1) {
