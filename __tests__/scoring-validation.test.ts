@@ -334,10 +334,7 @@ describe("declared reactive-skin harm reaches the irritation penalty", () => {
     expect(penalty(build("caution"))).toBe(penalty(build("safe")));
   });
 
-  // The docs record that the irritation penalty saturates: a trace active still
-  // costs about half of a top-of-list one. Pinned here as a ratio, so a retune
-  // that changes it fails a test instead of leaving the docs quietly wrong.
-  it("a trace active still costs roughly half of a top-of-list one", () => {
+  it("preserves the position curve instead of inflating a trace active through saturation", () => {
     const reactive = profile({ concerns: ["dullness"], sensitivity: "high" });
     const fillers = Array.from({ length: 40 }, (_, i) => `unmatched test control ${i}`);
     const penaltyAt = (active: string, index: number) => {
@@ -355,8 +352,9 @@ describe("declared reactive-skin harm reaches the irritation penalty", () => {
     };
     for (const active of ["salicylic acid", "ascorbic acid", "retinol"]) {
       const ratio = penaltyAt(active, 33) / penaltyAt(active, 3);
-      expect(ratio).toBeGreaterThan(0.4);
-      expect(ratio).toBeLessThan(0.7);
+      // Saturation used to lift this to about 0.5; a trace active must now cost well under half.
+      expect(ratio).toBeGreaterThan(0);
+      expect(ratio).toBeLessThan(0.4);
     }
   });
 
@@ -375,6 +373,33 @@ describe("declared reactive-skin harm reaches the irritation penalty", () => {
     expect(penalty(acne("none"), ingredients)).toBe(penalty(acne("none"), neutralized));
   });
 
+  it.each(["ascorbyl glucoside", "3-o-ethyl ascorbic acid", "magnesium ascorbyl phosphate", "retinyl palmitate"])(
+    "%s keeps its benefit without inheriting the parent active's irritation charge",
+    (name: string) => {
+      const ingredients = formula(name);
+      const result = matchProduct(
+        { type: "serum", ingredients },
+        profile({ concerns: ["dullness", "hyperpigmentation"], sensitivity: "high" })
+      );
+      expect(result.breakdown.irritationPenalty).toBe(0);
+      expect(result.reasons.some((reason) => reason.ingredient === name && reason.effect > 0)).toBe(true);
+    }
+  );
+
+  it("keeps sparse hydration evidence partial rather than special-casing one formula", () => {
+    const dehydrated = profile({ concerns: ["dehydrated"] });
+    const sparse = ["water", "sodium hyaluronate", "unmatched test control"].map((name) => ({
+      id: name, name, comedogenic: 0 as const, safety: "safe" as const, verified: true, functions: [],
+    }));
+    const broad = sparse.map((ingredient, index) =>
+      index === 2 ? { ...ingredient, name: "glycerin", id: "glycerin" } : ingredient
+    );
+    const sparseResult = matchProduct({ type: "essence", ingredients: sparse }, dehydrated);
+    const broadResult = matchProduct({ type: "essence", ingredients: broad }, dehydrated);
+    expect(sparseResult.breakdown.concernFit).toBeGreaterThan(50);
+    expect(broadResult.breakdown.concernFit).toBeGreaterThan(sparseResult.breakdown.concernFit!);
+  });
+
   it("charges lactic acid's reactive-skin downside as irritation, not only sodium hydroxide's", () => {
     const fixture = byId.get("obf-0769915190373");
     if (!fixture) throw new Error("Missing lactic acid fixture");
@@ -388,4 +413,3 @@ describe("declared reactive-skin harm reaches the irritation penalty", () => {
     expect(penalty(ingredients)).toBeGreaterThan(penalty(neutralized));
   });
 });
-

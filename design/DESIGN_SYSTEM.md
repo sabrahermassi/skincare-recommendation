@@ -30,8 +30,7 @@ files. Import from the token module; if a value you need isn't there, add it the
 | `SURFACE` | `#FFFFFF` | — | raised card fill |
 | `INK` | `#241F1E` | 15:1 | headlines, body copy, button text, active progress dots |
 | `MUTED` | `#6B5A54` | 6.0:1 | secondary copy, plain-text secondary actions |
-| `MUTED_FAINT` | `rgba(107,90,84,.65)` | — | footnote-scale copy, meta lines, `/100` suffixes |
-| `MUTED_SOFT` | `rgba(107,90,84,.45)` | — | chevrons and marks that must not compete with a label |
+| `MUTED_FAINT` | `rgba(107,90,84,.88)` | 4.6:1+ | footnote-scale copy, meta lines, `/100` suffixes |
 | `LINE` | `#E4D3C8` | — | hairlines, dividers, unselected borders, inactive dots |
 | `CTA` | `#E09070` | 2.3:1 | **the primary button fill, and nothing else** |
 | `CTA_PRESSED` | `#C97C58` | — | primary button's pressed state |

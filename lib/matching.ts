@@ -177,7 +177,6 @@ const CONCERN_SATURATION: Record<Concern, number> = {
 };
 
 const TYPE_SATURATION = 12;
-const IRRITATION_SATURATION = 14;
 const PORE_SATURATION = 3;
 
 const MAX_IRRITATION_PENALTY = 34;
@@ -530,9 +529,14 @@ function computeMatch(
   // when they chose "I don't know" for type or named no concerns.
   const fit = concernFit === null ? typeFit : 0.7 * concernFit + 0.3 * typeFit;
 
-  const irritationPenalty =
-    MAX_IRRITATION_PENALTY *
-    saturate(irritation * SENSITIVITY_MULTIPLIER[profile.sensitivity ?? "none"], IRRITATION_SATURATION);
+  // One point of weighted harm evidence now costs one score point. The old
+  // Michaelis-Menten curve had no clinical basis and compressed a trace active
+  // toward half the charge of a leading one. The cap remains a product-policy
+  // guardrail; it is not presented as a medical threshold.
+  const irritationPenalty = Math.min(
+    MAX_IRRITATION_PENALTY,
+    irritation * SENSITIVITY_MULTIPLIER[profile.sensitivity ?? "none"]
+  );
   const porePenalty =
     MAX_PORE_PENALTY * poreRelevance(profile) * saturate(poreLoad, PORE_SATURATION);
 
@@ -661,19 +665,38 @@ export function scoreExplanation(result: MatchResult): ScoreLine[] {
   const { concernFit, typeFit, irritationPenalty, porePenalty } = result.breakdown;
   const lines: (ScoreLine & { weight: number })[] = [];
 
+  // A hazard is not part of the additive breakdown: it caps the finished
+  // score instead. It still has to lead the explanation, or a formula can be
+  // capped at Poor while its "why" list contains nothing but benefits.
+  const hazards = result.warnings.filter((warning) => warning.severity === "hazard");
+  if (hazards.length > 0) {
+    lines.push({
+      label: "Safety warning",
+      detail:
+        hazards.length === 1
+          ? `${hazards[0].ingredient.name} is flagged as best avoided`
+          : `${hazards.map((h) => h.ingredient.name).join(", ")} are flagged as best avoided`,
+      direction: "down",
+      weight: Number.POSITIVE_INFINITY,
+    });
+  }
+
   if (concernFit !== null) {
     const above = concernFit - 50;
-    lines.push({
-      label: "Your concerns",
-      detail:
-        above > 8
-          ? "This formula works on what you asked about"
-          : above < -8
-            ? "This formula works against what you asked about"
-            : "Little here speaks to what you asked about",
-      direction: above >= 0 ? "up" : "down",
-      weight: Math.abs(above) * 0.7,
-    });
+    // Inside this dead zone there is too little movement to call the line
+    // positive or negative. Omitting it is more honest than the old `>= 0`
+    // branch, which displayed neutral evidence with a positive icon.
+    if (Math.abs(above) > 8) {
+      lines.push({
+        label: "Your concerns",
+        detail:
+          above > 0
+            ? "This formula works on what you asked about"
+            : "This formula works against what you asked about",
+        direction: above > 0 ? "up" : "down",
+        weight: Math.abs(above) * 0.7,
+      });
+    }
   }
 
   const typeAbove = typeFit - 50;
@@ -704,9 +727,41 @@ export function scoreExplanation(result: MatchResult): ScoreLine[] {
     });
   }
 
-  return lines
-    .sort((a, b) => b.weight - a.weight)
-    .map(({ label, detail, direction }) => ({ label, detail, direction }));
+  lines.sort((a, b) => b.weight - a.weight);
+
+  // Explicit score-band contract:
+  //   - Good/Excellent explanations lead with support for the verdict.
+  //   - Poor explanations lead with what works against the verdict.
+  //   - Fair remains an honest mixed middle, ordered by impact.
+  // A score can cross a boundary through several small effects, so when no
+  // single line clears the display threshold we add a truthful aggregate
+  // line rather than inventing an ingredient claim.
+  const requiredDirection =
+    result.verdict === "good" || result.verdict === "excellent"
+      ? "up"
+      : result.verdict === "poor"
+        ? "down"
+        : null;
+
+  if (requiredDirection) {
+    const matchingIndex = lines.findIndex((line) => line.direction === requiredDirection);
+    if (matchingIndex > 0) {
+      const [matching] = lines.splice(matchingIndex, 1);
+      lines.unshift(matching);
+    } else if (matchingIndex === -1) {
+      lines.unshift({
+        label: "Overall match",
+        detail:
+          requiredDirection === "up"
+            ? `The combined evidence supports ${result.verdict === "excellent" ? "an excellent" : "a good"} match`
+            : "There is not enough positive evidence to make this a good match",
+        direction: requiredDirection,
+        weight: Number.POSITIVE_INFINITY,
+      });
+    }
+  }
+
+  return lines.map(({ label, detail, direction }) => ({ label, detail, direction }));
 }
 
 /**
