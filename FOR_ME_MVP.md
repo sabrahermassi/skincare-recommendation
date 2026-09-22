@@ -323,13 +323,30 @@ The user can switch from barcode mode to ingredient-list photo mode using the im
 
 Flow:
 
-**Switch Mode → Camera → Take One Photo → Tap Scan → OCR + Ingredient Analysis → Results**
+**Switch Mode → Camera → Take One Photo → Tap Scan → OCR → Confirm the list →
+Ingredient Analysis → Results**
 
 For MVP:
 
 - one clear photo only;
 - no multi-photo ingredient scanning;
 - no multi-step photo collection.
+
+## Confirming the list
+
+After the photo is read, the user sees the ingredients the app recognized,
+in the order printed on the package, before any analysis or saving.
+
+The user can:
+
+- confirm the list and continue to the results;
+- retake the photo if the list is wrong.
+
+This exists because a misread ingredient changes the verdict, and only the
+person holding the bottle can catch it. It is one screen, one confirm
+button — not an editor, and not a multi-step review.
+
+Editing individual names is **not** MVP.
 
 If the ingredient list is long, the user should attempt to fit the complete list into one photo.
 
