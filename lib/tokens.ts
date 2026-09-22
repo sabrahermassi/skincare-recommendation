@@ -64,12 +64,9 @@ export const MUTED = "#6B5A54";
  * the cream ground that sets the floor here.
  *
  * Still visibly lighter than MUTED (6.07:1), so the three-level hierarchy
- * survives. Marks that are *not* text keep MUTED_SOFT below.
+ * survives.
  */
 export const MUTED_FAINT = "rgba(107,90,84,0.88)";
-
-/** Chevrons and other non-text marks that must not compete with a label. */
-export const MUTED_SOFT = "rgba(107,90,84,0.45)";
 
 /**
  * Unselected tab-bar icons. #9A8880 computes to 3.14:1 on CANVAS (WCAG 2.2
