@@ -22,8 +22,12 @@
  * product rows. Every other name in the group is retired: product rows that
  * name it are repointed to the kept name first (or dropped, if that product
  * already lists the kept name at an earlier position — the same rule
- * `clean-ingredient-stubs.mjs` uses), then the retired ingredient row is
- * deleted once nothing points at it any more.
+ * `clean-ingredient-stubs.mjs` uses). Any `ingredient_synonyms` row naming the
+ * retired spelling as its target is repointed at the kept name too —
+ * `ingredient_synonyms.inci_name` cascades on delete, so skipping this would
+ * silently drop an alias someone stored for that exact spelling the moment
+ * the retired row goes. Only then is the retired ingredient row deleted, once
+ * nothing points at it any more.
  *
  * Prints the whole plan first and writes nothing unless run with --apply.
  * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the shell, plus
@@ -99,6 +103,65 @@ export function planMerge(mergeable, useCount) {
     for (const name of retire) variants.set(name, keep);
   }
   return variants;
+}
+
+/**
+ * How to deal with the `ingredient_synonyms` rows that target a retired name,
+ * before that name is deleted.
+ *
+ * A row whose `synonym` text already equals the kept name is a self-reference
+ * once repointed (`synonym_is_not_its_own_target` would refuse the update) and
+ * is dropped instead — it says nothing a lookup on the kept name doesn't
+ * already give for free. Every other row is repointed onto the kept name.
+ *
+ * @param {{ synonym: string, inci_name: string }[]} rows synonym rows whose
+ *   `inci_name` is one of `variants`' keys
+ * @param {Map<string, string>} variants retired name -> kept name
+ * @returns {{ drop: string[], repoint: Map<string, string[]> }} repoint maps
+ *   kept name -> synonym texts to point at it
+ */
+export function planSynonymRepoints(rows, variants) {
+  const drop = [];
+  const repoint = new Map();
+  for (const row of rows) {
+    const keep = variants.get(row.inci_name);
+    if (keep === undefined) continue;
+    if (row.synonym === keep) {
+      drop.push(row.synonym);
+      continue;
+    }
+    if (!repoint.has(keep)) repoint.set(keep, []);
+    repoint.get(keep).push(row.synonym);
+  }
+  return { drop, repoint };
+}
+
+/**
+ * Repoints every `ingredient_synonyms` row targeting a retired name onto its
+ * kept name, before the retired `ingredients` row is deleted — the delete
+ * cascades onto this table, so doing it after would be too late.
+ *
+ * @param {any} db
+ * @param {Map<string, string>} variants retired name -> kept name
+ */
+async function repointSynonyms(db, variants) {
+  const retiredNames = [...variants.keys()];
+  for (let i = 0; i < retiredNames.length; i += BATCH) {
+    const batch = retiredNames.slice(i, i + BATCH);
+    const { data, error } = await db.from("ingredient_synonyms").select("synonym, inci_name").in("inci_name", batch);
+    if (error) throw new Error(`reading synonyms for ${batch.join(", ")}: ${error.message}`);
+    if (!data || data.length === 0) continue;
+
+    const { drop, repoint } = planSynonymRepoints(data, variants);
+    if (drop.length > 0) {
+      const { error: dropError } = await db.from("ingredient_synonyms").delete().in("synonym", drop);
+      if (dropError) throw new Error(`dropping self-referencing synonym(s): ${dropError.message}`);
+    }
+    for (const [keep, synonyms] of repoint) {
+      const { error: updateError } = await db.from("ingredient_synonyms").update({ inci_name: keep }).in("synonym", synonyms);
+      if (updateError) throw new Error(`repointing synonym(s) onto ${keep}: ${updateError.message}`);
+    }
+  }
 }
 
 async function main() {
@@ -180,6 +243,11 @@ async function main() {
       .eq("position", r.position);
     if (error) throw new Error(`repoint ${r.product_id}#${r.position}: ${error.message}`);
   }
+
+  // Before any retired row is deleted: ingredient_synonyms.inci_name cascades
+  // on delete, so an alias someone stored pointing at a retired spelling must
+  // be moved onto the kept name first, or it is lost with no record of it.
+  await repointSynonyms(db, variants);
 
   // Uses are read again just before each batch is deleted. A scan can save a
   // product between the plan above and this point, and a retired name it now

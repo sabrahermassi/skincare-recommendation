@@ -1,4 +1,4 @@
-import { partitionGroups, pickCanonical, planMerge } from "../scripts/fix-duplicate-ingredients.mjs";
+import { partitionGroups, pickCanonical, planMerge, planSynonymRepoints } from "../scripts/fix-duplicate-ingredients.mjs";
 
 const row = (
   inci_name: string,
@@ -89,5 +89,47 @@ describe("planMerge", () => {
         ["Aqua", "AQUA"],
       ])
     );
+  });
+});
+
+describe("planSynonymRepoints", () => {
+  const variants = new Map([
+    ["PEG-40 Stearate", "peg 40 stearate"],
+    ["Aqua", "AQUA"],
+  ]);
+
+  it("repoints a synonym row onto the kept name", () => {
+    const rows = [{ synonym: "peg-40-stearate", inci_name: "PEG-40 Stearate" }];
+    expect(planSynonymRepoints(rows, variants)).toEqual({
+      drop: [],
+      repoint: new Map([["peg 40 stearate", ["peg-40-stearate"]]]),
+    });
+  });
+
+  it("groups several repointed synonyms by their kept name", () => {
+    const rows = [
+      { synonym: "peg-40-stearate", inci_name: "PEG-40 Stearate" },
+      { synonym: "polyethylene glycol 40 stearate", inci_name: "PEG-40 Stearate" },
+      { synonym: "water fr", inci_name: "Aqua" },
+    ];
+    expect(planSynonymRepoints(rows, variants)).toEqual({
+      drop: [],
+      repoint: new Map([
+        ["peg 40 stearate", ["peg-40-stearate", "polyethylene glycol 40 stearate"]],
+        ["AQUA", ["water fr"]],
+      ]),
+    });
+  });
+
+  it("drops a synonym whose text already equals the kept name, instead of repointing it onto itself", () => {
+    // synonym_is_not_its_own_target would refuse an update that left this
+    // row with synonym === inci_name.
+    const rows = [{ synonym: "AQUA", inci_name: "Aqua" }];
+    expect(planSynonymRepoints(rows, variants)).toEqual({ drop: ["AQUA"], repoint: new Map() });
+  });
+
+  it("ignores a row whose target is not one of the retired names", () => {
+    const rows = [{ synonym: "glycérine", inci_name: "glycerin" }];
+    expect(planSynonymRepoints(rows, variants)).toEqual({ drop: [], repoint: new Map() });
   });
 });
