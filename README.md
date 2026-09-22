@@ -3,7 +3,13 @@
 Skincare product & ingredient lookup — one codebase for iOS, Android and web.
 
 Built on **Expo SDK 57** with Expo Router, NativeWind, Zustand and
-`expo-camera` barcode scanning.
+`expo-camera` barcode and label-photo scanning.
+
+> **iOS is the only release target for this MVP** (decided 19 September 2026).
+> Android and web still build and still run — nothing has been removed — but
+> neither gets further development or device testing while iOS is the sole
+> target. Read the Android and web notes below as reference for a platform
+> that is parked, not as live work.
 
 ## Run it
 
@@ -37,10 +43,11 @@ app/                       file-based routes (expo-router)
   _layout.tsx               root Stack; font loading, store-hydration gate
   (tabs)/                    bottom-tab group — the returning-user experience
     _layout.tsx               tab bar; redirects to onboarding if unseen
-    index.tsx                 Scan — landing tab, barcode/label-photo camera
+    index.tsx                 Home — landing tab; scan card, search, profile summary
+    scanner.tsx               Scan — full-screen camera, opened from the raised middle tab button
     browse.tsx                Browse — searchable product catalogue
     saved.tsx                 Saved shelf + scan history
-    profile.tsx                skin-profile summary/editor
+    profile.tsx                menu — skin profile, support, privacy, delete
   onboarding/
     index.tsx                 3-screen first-launch carousel
     (quiz)/                    4-step skin-profile quiz
@@ -49,6 +56,10 @@ app/                       file-based routes (expo-router)
   ingredients/[id].tsx        full ingredient list for a product
   ingredient/[inci].tsx       single-ingredient detail
   scan-label.tsx              ingredient-label photo capture (modal)
+  add-product.tsx             name a scanned label so it joins the shared catalogue
+  skin-profile.tsx            skin-profile editor (reached from the Profile menu)
+  privacy.tsx                 what the app stores, per docs/privacy-disclosures.md
+  support.tsx                 help text + contact, if EXPO_PUBLIC_SUPPORT_EMAIL is set
 store/useAppStore.ts       skin profile, saved products, scan history, onboarding flag
 data/api.ts                 the only data seam — Supabase-backed, sample-data fallback
 lib/                        scoring engine, ingredient rules, design tokens
@@ -64,7 +75,8 @@ tailwind.config.js          nativewind preset + content globs
   in the browser; EAN-13 / UPC-A scanned on iOS and Android only, with the scan
   screen showing a notice on web rather than failing silently) — **unverified
   since the SDK 57 upgrade**, which added a `barcode-detector` ponyfill with
-  full web format support. See `CLAUDE.md` and issue #11.
+  full web format support. See `CLAUDE.md` and issue #11. Web is parked for the
+  MVP, so this stays a note rather than something to chase.
 - Web camera needs a secure context — `localhost` is fine, a LAN IP is not.
 - `experiments.reactCompiler` is off; it conflicts with NativeWind's
   `jsxImportSource`. Re-enable and retest once the app is stable.

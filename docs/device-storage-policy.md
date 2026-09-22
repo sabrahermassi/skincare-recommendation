@@ -20,6 +20,17 @@ because the alternative is deciding it inside the pull request that adds
 authentication — where the path of least resistance is `persistSession: true`
 and no second thought, and that path is wrong.
 
+That pull request now has a shape. Accounts are scoped as a post-MVP track
+(#217–#230) and stay out of the MVP, but two of its steps land directly on
+this file: **#218** turns on Supabase Auth and is where row 1 stops being
+hypothetical, and **#223** points the saved shelf at the server, which puts
+row 2 in tension with the rule below that `store/useAppStore.ts` is the only
+file allowed to touch AsyncStorage — #223 asks for that to be decided and
+written down here rather than settled in passing. Neither is launch work. The
+point of naming them is that row 1 was written for exactly this moment, and
+whoever picks up #218 should arrive here first rather than discover it in
+review.
+
 ## Why the profile and scan history stay on AsyncStorage
 
 The tempting alternative is moving all of it into `expo-secure-store`. Two

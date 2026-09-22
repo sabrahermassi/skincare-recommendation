@@ -1,5 +1,28 @@
 # Repository audit summary
 
+> **This is a point-in-time audit, written 14 September 2026 and last touched
+> 18 September. It is not maintained against `main`, and it should not be —
+> rewriting it destroys the thing it is for, which is a record of what the
+> tree looked like when someone read all of it.**
+>
+> Read every claim below as "true on 14 September." Three that are known to
+> have moved since:
+>
+> - **Navigation was rebuilt.** Step 4 below says returning users land on the
+>   scanner, pointing at `app/(tabs)/index.tsx`. That route is Home now, and
+>   the scanner is `app/(tabs)/scanner.tsx`, opened from a raised middle tab
+>   button. The same correction applies anywhere below that treats
+>   `app/(tabs)/index.tsx` as the scan screen.
+> - **Several listed defects are now tracked or fixed.** Findings 1, 3 and 4
+>   became #193, #188 and #198, and parts of each have shipped. Check the issue
+>   before treating a finding here as open.
+> - **iOS is the only release target for this MVP** (19 September 2026), so the
+>   "iOS, Android, and web" framing in the next paragraph describes what builds,
+>   not what ships.
+>
+> For current scope read `FOR_ME_MVP.md`; for current architecture read
+> `CLAUDE.md`.
+
 This is a universal Expo/React Native skincare compatibility app for iOS, Android, and web. The core product is substantially implemented: onboarding, a local skin profile, barcode scanning, label-photo OCR, a Supabase catalogue, ingredient analysis, deterministic scoring, saved products, history, and ingredient details.
 
 The codebase is unusually thoughtful about unknown data, privacy, source licensing, and explainability. Its main risks are now at integration boundaries: anonymous OCR writes, incomplete-product recovery, network/error handling, database/import consistency, and a scoring model that is well engineered but not yet externally validated.
