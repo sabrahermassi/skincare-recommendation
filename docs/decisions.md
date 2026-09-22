@@ -203,6 +203,16 @@ one place that number can be wrong.
 
 ## SDK and platform history
 
+**iOS is the only release target for this MVP, decided 19 September 2026.**
+The decision itself was made and recorded in the two hosted scope artifacts
+(MVP Scope, Launch Checklist) before it reached this repo — `CLAUDE.md`,
+`README.md` and `docs/repository-audit.md` were updated after the fact to
+carry it, and this is the entry that gives it an in-repo trail so a reader
+doesn't have to take CLAUDE.md's word for when or why. Nothing built for
+Android or web is deleted or blocked from running; neither gets further
+development or device testing while iOS is the sole target, and revisiting
+that needs a real reason, not just that the code still runs elsewhere.
+
 **The SDK 54 pin.** The project was pinned to SDK 54 for a stretch because
 that was the last version Expo Go shipped on the Apple App Store at the
 time — letting it install on a physical iPhone without weekly re-signing via
