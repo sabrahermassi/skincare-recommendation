@@ -5,28 +5,6 @@
 
 > The existing GitHub repository may contain functionality beyond this MVP. Existing functionality does not automatically belong to the MVP. Working non-MVP functionality does not need to be deleted; it should simply not receive additional scope or priority before launch.
 
-## Scope changes since this document was locked
-
-Locked does not mean frozen forever — it means a change is recorded here
-before it is built, rather than discovered later in a diff. Three changes are
-on the record as of **22 September 2026**:
-
-1. **The scan flow inverts (#214).** The ingredient-list photo becomes the
-   main scan path and the barcode becomes the shortcut. This is an MVP change
-   and it rewrites §9, §11 and §32. **It is decided but not yet built** — the
-   code still opens in barcode mode. See §9.
-2. **Accounts are scoped, and still post-MVP.** A 14-step plan now exists
-   (#217–#230): auth, server-side saved shelf, account deletion/export, and a
-   saved-notes "journal" layer. None of it is MVP work. Before this, §35 said
-   only "advanced personalization"; now there is a real plan, and the point of
-   naming it here is that it does **not** move the launch line. See §31/§35.
-3. **Three issues are fenced out of MVP explicitly** — #194 (type the barcode
-   by hand), #207 (Beauty API / Korean ingredient API / accounts), #215
-   (hybrid on-device OCR). They carry the `out-of-MVP-scope` marker in their
-   titles so they do not get re-litigated each pass.
-
-Everything below this block is the locked scope, as amended by the above.
-
 ---
 
 # 1. Product Definition
