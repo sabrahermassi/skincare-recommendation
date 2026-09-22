@@ -108,6 +108,17 @@ second table is planned; if that ever changes, it gets its own row.
   already has ingredients alone, serialising two saves on one barcode with an
   advisory lock.
 
+  *The 30-minute window is about to be exercised differently (#214).* Today the
+  save follows the photo almost immediately, so the deadline is slack nobody
+  notices. #214 makes the label photo the main scan path and shows the verdict
+  **before** asking anything, which turns saving into an optional follow-up the
+  user reaches after reading a result — minutes later, not seconds. The security
+  properties are unchanged (single-use, unedited, rate-limited, not bound to a
+  barcode), and the window is deliberately not being widened here; what changes
+  is that an expired token becomes a case real users will hit rather than an
+  edge, so the save path has to fail as a plain "scan it again" rather than as
+  an error. #214's own body flags the same thing against `readTokenDeadline`.
+
   **What happens to the image once it's there (issue #16).** This was an
   open question — `.claude/claude-security-guidance.md`'s AI/LLM section says
   outright "no AI/LLM features exist... revisit this section then, and

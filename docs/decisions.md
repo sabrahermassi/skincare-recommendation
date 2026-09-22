@@ -203,6 +203,16 @@ one place that number can be wrong.
 
 ## SDK and platform history
 
+**iOS is the only release target for this MVP, decided 19 September 2026.**
+The decision itself was made and recorded in the two hosted scope artifacts
+(MVP Scope, Launch Checklist) before it reached this repo — `CLAUDE.md`,
+`README.md` and `docs/repository-audit.md` were updated after the fact to
+carry it, and this is the entry that gives it an in-repo trail so a reader
+doesn't have to take CLAUDE.md's word for when or why. Nothing built for
+Android or web is deleted or blocked from running; neither gets further
+development or device testing while iOS is the sole target, and revisiting
+that needs a real reason, not just that the code still runs elsewhere.
+
 **The SDK 54 pin.** The project was pinned to SDK 54 for a stretch because
 that was the last version Expo Go shipped on the Apple App Store at the
 time — letting it install on a physical iPhone without weekly re-signing via
@@ -234,11 +244,12 @@ directly, not by testing in a browser. Nobody has yet held a physical
 product up to a laptop webcam and watched it decode; the format support is
 verified from source, the end-to-end experience is not.
 
-Issue #11 ("Web barcode scanning is QR-only on SDK 54") is still open on
-GitHub as of this writing, even though the underlying fix appears to be
-shipped in the dependency itself. Worth closing once someone actually
-confirms the webcam path works, or reopening/renaming if a different gap
-turns up.
+Issue #11 ("Web barcode scanning is QR-only on SDK 54") was closed on
+13 September 2026, on the strength of the dependency reading above rather
+than a webcam test — so the format support is confirmed and the end-to-end
+path still is not. That gap no longer needs chasing: web is parked for this
+MVP (iOS-only, 19 September 2026), so it stays a documented unknown rather
+than open work. Reopen it if web ever becomes a target again.
 
 **On-device OCR trust boundary staleness.** `docs/threat-model.md`'s
 on-device-OCR section was once tracked down and corrected after drifting

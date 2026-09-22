@@ -11,6 +11,17 @@ every task.
 Universal (iOS / Android / web) Korean skincare lookup app. Expo SDK 57 +
 Expo Router + NativeWind + Zustand.
 
+**iOS is the only release target for this MVP (decided 19 September 2026).**
+Android and web stay in the tree — nothing built for them is deleted, and the
+platform-aware cache keeps working for both — but neither gets further
+development or device testing while iOS is the sole target. So an
+Android-or-web-only bug is not launch work, and "verified on a device" means
+an iPhone unless it says otherwise. Two things follow that are easy to miss:
+Android's `AsyncStorage` disk ceiling stopped being a blocker for growing the
+catalogue, and a web-only limitation is a note rather than a defect. Revisit
+only if a real reason appears for either platform — not merely because the
+code still runs there.
+
 Supabase is the live backend (Edge Functions `product-lookup`, `label-ocr`
 deployed). `data/api.ts` falls back to 8 sample products only when
 `EXPO_PUBLIC_SUPABASE_URL`/`_ANON_KEY` are absent — keeps checkouts and

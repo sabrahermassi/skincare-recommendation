@@ -94,6 +94,9 @@ For returning users:
 and on every return — not the scanner directly. `Scan` opens from a raised
 floating button on Home, not from a scanner tab. See §8 and §9.
 
+`Scan Product` means photographing the ingredient list by default and scanning
+a barcode as the shortcut, per #214 — decided, not yet built. See §9.
+
 Everything in the MVP should support this core experience.
 
 ---
@@ -248,7 +251,32 @@ raised floating Scan button.
 
 ## Default mode
 
-**Barcode mode is the default.**
+**Decided 22 September 2026 (#214): the ingredient-list photo is the main scan
+path. Barcode is the shortcut.**
+
+The reasoning is coverage. The live catalogue holds roughly 851 products, so
+most barcodes a real user scans in a shop will miss, and a miss costs a second
+action. A printed ingredient list can be read off any product, anywhere, with
+no catalogue coverage at all. Barcode keeps its place one tap away because it
+wins where it wins: it is instant when it resolves, and it is the only way to
+attach a scan to a catalogue product.
+
+What this means concretely:
+
+- a cold start opens the scanner in photo mode, with barcode one tap away;
+- photographing a label produces a verdict **without** requiring a product
+  name or a barcode;
+- naming the product and adding it to the shared catalogue is an optional
+  follow-up, not a gate;
+- the barcode-miss copy points at the photo path as the normal route rather
+  than as a fallback (copy work tracked in #204).
+
+> **Not built yet — the code and this section disagree, and the code is what
+> runs.** `app/(tabs)/scanner.tsx` still starts in barcode mode and resets to
+> it on every focus. #214 is the ticket that flips it, and it depends on #185
+> (Korean/Japanese ingredient names), #193 (show the parsed list before
+> saving) and #205 (resize camera photos). Do not read this section as a
+> description of `main` until #214 has merged.
 
 ## Barcode scanning
 
@@ -285,13 +313,19 @@ The existing barcode implementation should be audited for:
 
 The scanner has:
 
-- a control to switch between barcode mode and ingredient-list photo mode;
-- a flash (torch) toggle, for scanning in dim light. It turns off when the
-  user leaves the scanner.
+- a control to switch between barcode mode and ingredient-list photo mode.
 
-There is **no dedicated flash button for MVP**, and no in-screen back/close
-control — the scanner opens from Home's raised floating button rather than
-being a tab of its own, so leaving it returns to Home.
+There is no in-screen back/close control — the scanner opens from Home's
+raised floating button rather than being a tab of its own, so leaving it
+returns to Home.
+
+> **Not built yet — tracked by #195.** A flash (torch) toggle for scanning in
+> dim light, turning off when the user leaves the scanner, is planned as part
+> of the scan-failure help in #195. This section used to say "no dedicated
+> flash button for MVP"; that sentence is removed rather than left to
+> contradict the toggle above, but the toggle itself doesn't exist in
+> `app/(tabs)/scanner.tsx` yet — do not read this as a description of `main`
+> until #195 merges.
 
 ---
 
@@ -319,12 +353,25 @@ Do not create an additional permission-education screen.
 
 # 11. Ingredient-List Photo Scanning
 
-The user can switch from barcode mode to ingredient-list photo mode using the image/photo control.
+This is the main scan path (§9, #214). The scanner opens here; the mode
+control switches to barcode rather than away from it.
 
-Flow:
+Target flow:
 
-**Switch Mode → Camera → Take One Photo → Tap Scan → OCR → Confirm the list →
-Ingredient Analysis → Results**
+**Camera (already in photo mode) → Take One Photo → Tap Scan → OCR → Confirm
+the list → Ingredient Analysis → Results → optionally name the product**
+
+The result comes before any contribution step. A user who only photographs a
+label gets a full verdict and is never pushed through a naming or barcode
+step to see it; adding the product to the shared catalogue is offered
+afterwards as a choice. See "Confirming the list" below for the step between
+OCR and analysis.
+
+> **Current code, until #214 merges:** the scanner opens in barcode mode, so
+> reaching this path means switching mode first —
+> **Switch Mode → Camera → Take One Photo → Tap Scan → OCR → Confirm the
+> list → Ingredient Analysis → Results** — and a successful read routes into
+> "Add product," which asks for a barcode.
 
 For MVP:
 
@@ -726,31 +773,71 @@ Do not use:
 
 ---
 
-# 25. MVP Supporting Features
+# 25. MVP Features — two tiers
 
-The following are part of the MVP because they support the core product/shopping experience:
+**The MVP has a guest tier and a signed-in tier.** Scanning is free forever
+and needs no account; an account buys somewhere to keep things. The only
+place a guest is ever asked to sign up is the Save action (#221) — never
+before a scan, never anywhere else.
 
-- Barcode scanning
-- Ingredient-list photo/OCR scanning
-- Skin profile
-- Personalized match score
-- General Quick Scan without a profile
-- Ingredient-level details
-- Potential pore-clogging/comedogenic concerns
-- Potential acne-related concerns
-- Potential irritation
-- Relevant beneficial ingredient properties
-- Reliable ingredient/chemical library
-- Explainable scoring algorithm
-- Clear results
-- Favorites/saved products
-- Scan history
-- Product search
-- Existing detailed result breakdown
+**This is a different axis from Quick Scan vs. Personalize (§6), and the two
+do not interact.** Quick Scan vs. Personalize is about whether a *profile*
+exists, and decides whether a score can be produced at all
+(`isPersonalized` in `lib/profile.ts`). Guest vs. signed-in is about whether
+an *account* exists, and decides whether anything can be kept. A signed-in
+user with no profile still gets no score; a guest with a full profile still
+gets the complete verdict. Neither gate stands in for the other.
 
-These features should be preserved where already implemented.
+## Guest — no signup
 
-They should not automatically be expanded.
+- Scan a product: **ingredient-list photo (the primary path)** or barcode
+  (the fast path when it resolves). See §9.
+- The full verdict and explanation, immediately.
+- Local scan history — on the device, never synced, for guests and
+  signed-in users alike.
+
+## Signed-in — free account
+
+Everything above, plus:
+
+- **The saved shelf** — persistent and synced across devices (#223).
+- **Journal notes** — an optional short note when saving (#228).
+- **Routine-step tagging** — assign a saved product to a step, and filter
+  the shelf by it (#227).
+
+## Matching and content, in both tiers
+
+- Personalized match score, and a plain-language explanation of it.
+- Rule-based ingredient cleanup — no LLM anywhere in this MVP.
+- Ingredient-level details; pore-clogging, acne and irritation concerns;
+  beneficial properties.
+- **One voice** across verdicts, onboarding and entries (#232).
+- **AM/PM and active-pairing conflict flags**, per product and across the
+  shelf (#233).
+- **Hand-written UV and context nudges** — static content, no live API
+  (#234).
+- **Skincare School** — 15–20 curated beginner questions with pre-written
+  answers, grouped by category; static, no AI (#235).
+- Product search, and the existing detailed result breakdown.
+
+## Journal identity
+
+- **Private by default, no sharing.** Not a default anyone may quietly
+  change.
+- The first save is *the first page of your journal* (#230).
+- Notes render in a handwritten-style font (#229).
+
+## Data foundation and infrastructure
+
+- A clean products table — complete records only — with a **separate raw
+  scan log** beside it (#236).
+- An ingredient knowledge base seeded to **~500 ingredients** from
+  INCI/CosIng, CIR and PubMed (#237). See §26.
+- Open Beauty Facts as the product seed source.
+- Supabase Auth (#218); analytics for guests and signed-in users (#225).
+
+Features already implemented should be preserved. Nothing here should be
+expanded beyond what this section names.
 
 ---
 
@@ -779,6 +866,16 @@ The system must safely handle:
 The system must **not invent ingredient information**.
 
 The database should be broad and reliable enough for representative real-world skincare products.
+
+**The launch target is ~500 ingredients carrying real evidence**, sourced
+from INCI/CosIng, CIR and PubMed (#237).
+
+Two different things are easy to confuse here. *Name coverage* — the
+`ingredients` dictionary, ~36k names imported from CosIng and the Open
+Beauty Facts taxonomy — is already broad, and is what decides whether a
+scanned name is recognised at all. *Evidence* is `lib/rules.ts`, which
+carries the sentence shown to the user, and today holds 61 curated rules.
+The ~500 figure is the second one. Growing it is research, not an import.
 
 ---
 
@@ -922,6 +1019,27 @@ The MVP does **not** include:
 
 These should not delay MVP launch.
 
+## Where the journal stops, and the routine builder starts
+
+Accounts are **in** the MVP (§25) — this list no longer excludes them.
+
+Two MVP features sit deliberately close to two lines above, and the
+distinction is the whole reason both lines survive:
+
+- **Routine-step tagging (#227) is not a routine builder.** Tagging says
+  *where a product belongs*. A routine builder says *when to use it* —
+  morning and evening sequences, an order to follow, reminders,
+  notifications, scheduling. None of that is in. If tagging starts growing a
+  schedule, it has crossed the line.
+- **Journal notes (#228–#230) are not a skin diary.** A note annotates a
+  product you saved. A diary tracks your skin over time — daily check-ins,
+  mood or weather logs, "on this day", monthly recaps, before/after photos.
+  None of that is in.
+
+**AM/PM conflict flags (#233) are not a schedule either.** Flagging that two
+actives should not meet is a safety warning attached to a verdict. Telling
+someone what to apply at 9pm is a routine builder.
+
 ---
 
 # 32. MVP Finish Line
@@ -936,7 +1054,8 @@ for.me is ready to move toward launch when a new user can reliably:
    - Sensitivity;
    - Pregnancy / breastfeeding status.
 4. Reach the scanner immediately.
-5. Scan a product by barcode **or** photograph its ingredient list.
+5. Photograph a product's ingredient list **or** scan its barcode — in that
+   order of prominence once #214 lands; either order satisfies this line.
 6. Successfully retrieve/read ingredient information.
 7. Receive a clear analysis.
 8. See a personalized 0–100 compatibility score when a profile is available.
@@ -944,6 +1063,16 @@ for.me is ready to move toward launch when a new user can reliably:
 10. Open detailed ingredient information.
 11. Save/view the product where those MVP features are available.
 12. Recover gracefully when scanning, OCR, lookup, network, or permissions fail.
+
+A signed-in user must additionally be able to:
+
+13. Create an account from the Save action, and not be asked anywhere else.
+14. Keep a saved shelf that survives a reinstall and appears on a second
+    device.
+15. Write, edit and delete a note on a saved product.
+16. Tag a saved product with a routine step, and filter the shelf by it.
+17. Delete the account and export the data, both reachable from the account
+    screen.
 
 The core experience must be reliable enough for real users.
 
@@ -1027,6 +1156,30 @@ The following ideas are intentionally deferred:
 - complex growth features.
 
 These should be evaluated after launch using real user behavior and feedback.
+
+## Deferred to v1.x / v2, named
+
+Distinct from the list above: each of these was considered for this MVP and
+deliberately left out, so none of them is an open question.
+
+- **An AI chatbot** — "ask me anything" skincare assistant.
+- **LLM or AI anywhere else.** The ingredient cleanup and the scoring are
+  rule-based, and Skincare School's answers are pre-written. This MVP has no
+  model in it.
+- **Skin mood / weather daily check-in.**
+- **Live or dynamic weather-API UV nudges.** The nudges that *are* in the
+  MVP (#234) are hand-written and static; calling an API for them is this
+  line.
+- **Shelf-opening animation and motion polish.**
+- **"On this day", seasons and chapters, monthly recap.**
+- **A full routine builder** — reminders, notifications, scheduling.
+
+## Out of MVP by explicit decision
+
+- #194 — type the barcode by hand when the camera is off.
+- #207 — the Beauty API and the Korean ingredient API wrapper. (Its third
+  topic, user accounts, is now decided and in scope.)
+- #215 — hybrid on-device OCR with a Google Vision fallback.
 
 ---
 
