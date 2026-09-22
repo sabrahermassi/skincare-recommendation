@@ -9,8 +9,17 @@ import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 type OwnedClaim = { source: string; text: string };
 
+const STRICTEST_PROFILE = {
+  ...EMPTY_PROFILE,
+  concerns: ["acne-prone" as const],
+  sensitivity: "high" as const,
+  pregnancyStatus: "pregnant" as const,
+};
+
+const WARNINGS = contraindications(Object.values(INGREDIENTS), STRICTEST_PROFILE);
+
 // Every branch of scoreExplanation: concerns up/down/neutral, type up/down,
-// and both penalty lines.
+// both penalty lines and the hazard line.
 const EXPLANATION_RESULTS = [
   { concernFit: 100, typeFit: 100 },
   { concernFit: 0, typeFit: 0 },
@@ -20,15 +29,9 @@ const EXPLANATION_RESULTS = [
     ({
       score: 50,
       breakdown: { ...fit, irritationPenalty: 10, porePenalty: 10 },
+      warnings: WARNINGS,
     }) as unknown as MatchResult
 );
-
-const STRICTEST_PROFILE = {
-  ...EMPTY_PROFILE,
-  concerns: ["acne-prone" as const],
-  sensitivity: "high" as const,
-  pregnancyStatus: "pregnant" as const,
-};
 
 const OWNED_CLAIMS: OwnedClaim[] = [
   ...INGREDIENT_RULES.map((rule, index) => ({
@@ -48,7 +51,7 @@ const OWNED_CLAIMS: OwnedClaim[] = [
       text: line.detail,
     }))
   ),
-  ...contraindications(Object.values(INGREDIENTS), STRICTEST_PROFILE).map((hit) => ({
+  ...WARNINGS.map((hit) => ({
     source: `contraindications.${hit.ingredient.id}`,
     text: hit.reason,
   })),
