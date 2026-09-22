@@ -137,6 +137,7 @@ the same chain touch different areas:
 | Ingredient data / the dictionary / coverage | `docs/ingredient-coverage.md` |
 | `AsyncStorage`, the catalogue cache, anything under `data/catalogue-cache.ts` | `docs/device-storage-policy.md` |
 | User data handling, anything user-facing about privacy | `docs/privacy-disclosures.md` |
+| **Any user-facing copy** — a verdict line, a warning, a score explanation, an error or empty state | `docs/claims-policy.md` — `__tests__/claims-policy.test.ts` fails the build on a regenerative/curative/bacteria-killing phrasing, so a ticket that only meant to reword a screen can go red for a reason the issue body never mentions |
 | Auth, data isolation, anything security-adjacent | `docs/threat-model.md` |
 | A Launch Checklist §3/§4 issue (`#146`–`#153` etc.) | The **Launch Checklist** artifact's own row for it (https://claude.ai/artifact/4oqtQu1QQLJT4K3aXSCwcH) — the row often carries context (staleness notes, superseding issues) the issue body doesn't |
 
