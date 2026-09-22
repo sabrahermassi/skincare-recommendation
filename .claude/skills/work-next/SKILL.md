@@ -96,6 +96,12 @@ list is empty — either at the start or between tickets — that's the finish
 line: say so, report the chain's summary, stop. Do not invent a task or
 fall back to an unlabeled issue.
 
+**Resuming a crashed chain on the same ticket:** neither check can tell
+"my own earlier comment/branch" from "a different run's" — tell the user
+plainly it looks like a prior run's work-in-progress and ask before
+picking it back up, rather than guessing whether to continue it or treat
+it as someone else's.
+
 Comment on the issue noting you're starting it now, so a concurrent run's
 check above finds it: `gh issue comment <n> --repo <owner>/<repo> --body
 "Starting this now via /work-next."`
@@ -198,8 +204,16 @@ Agent(
 )
 ```
 
-`Plan` is the right agent type: it's the architect agent, and its toolset
-is read-only, so it physically cannot edit code while it thinks.
+`Plan` is the right agent type: it's the architect agent, built for
+thinking through a change rather than making one. Its toolset is not fully
+read-only, though — it keeps `Bash`, so it *can* touch the working tree
+(a stray `sed -i`, `git checkout`, a shell redirect) even though nothing
+about this pass should need to. Two things follow from that: the prompt
+below has to say explicitly not to write or modify any file, as an
+instruction rather than relying on the toolset to enforce it; and step 4
+opens with a `git status --short` check before touching anything, so an
+unexpected mutation from this step is caught and attributed here rather
+than silently folded into the implementation commit.
 `run_in_background: false` because the next thing that happens depends on
 its answer — there is nothing useful to do in parallel.
 
@@ -213,6 +227,8 @@ to a smart engineer who just walked in, including:
 - The repo facts that constrain the answer: `CLAUDE.md`'s rules for the
   area (scoring constants, the `data/api.ts` seam, `migratePersisted`, the
   DB write guard), and any Tier 2 doc already read for this ticket.
+- **An explicit instruction not to write, edit, or modify any file** —
+  investigate and report only, even though `Bash` is available to it.
 - What to come back with (below).
 
 **Ask it for exactly this:**
@@ -245,6 +261,10 @@ do the same four things directly, just without the model change.
 
 ## 4. Implement — no commit yet
 
+- If step 3 ran, `git status --short` first — its `Bash` access means it
+  *could* have touched the working tree even though it was told not to.
+  Anything unexpected there belongs to step 3, not this step; investigate
+  before building on top of it rather than assuming it's yours.
 - Already on the right branch from step 1 (from `main` for ticket 1, from
   the previous ticket's branch for every ticket after).
 - Follow `CLAUDE.md` and `AGENTS.md`.
