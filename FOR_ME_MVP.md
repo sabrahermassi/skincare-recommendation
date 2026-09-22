@@ -243,7 +243,8 @@ Returning-user flow:
 
 # 9. Scanner
 
-The scanner opens immediately after onboarding.
+After onboarding, the app opens Home (`/`). The scanner opens from Home's
+raised floating Scan button.
 
 ## Default mode
 
