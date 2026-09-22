@@ -92,3 +92,9 @@ start-expo.ps1
 
 # Per-machine progress for scripts/reclassify-from-tags.mjs
 .reclassify-from-tags-progress.json
+
+# Per-machine Claude Code permissions. `.claude/settings.json` stays tracked —
+# it carries the SessionStart hook and the shared allow-list. This one is the
+# personal override beside it: a permissive allow-list for unattended runs is
+# a property of one machine, not of the repo.
+.claude/settings.local.json
