@@ -378,23 +378,42 @@ control switches to barcode rather than away from it.
 
 Target flow:
 
-**Camera (already in photo mode) → Take One Photo → Tap Scan → OCR + Ingredient Analysis → Results → optionally name the product**
+**Camera (already in photo mode) → Take One Photo → Tap Scan → OCR → Confirm
+the list → Ingredient Analysis → Results → optionally name the product**
 
 The result comes before any contribution step. A user who only photographs a
 label gets a full verdict and is never pushed through a naming or barcode
 step to see it; adding the product to the shared catalogue is offered
-afterwards as a choice.
+afterwards as a choice. See "Confirming the list" below for the step between
+OCR and analysis.
 
 > **Current code, until #214 merges:** the scanner opens in barcode mode, so
 > reaching this path means switching mode first —
-> **Switch Mode → Camera → Take One Photo → Tap Scan → OCR + Ingredient Analysis → Results** —
-> and a successful read routes into "Add product," which asks for a barcode.
+> **Switch Mode → Camera → Take One Photo → Tap Scan → OCR → Confirm the
+> list → Ingredient Analysis → Results** — and a successful read routes into
+> "Add product," which asks for a barcode.
 
 For MVP:
 
 - one clear photo only;
 - no multi-photo ingredient scanning;
 - no multi-step photo collection.
+
+## Confirming the list
+
+After the photo is read, the user sees the ingredients the app recognized,
+in the order printed on the package, before any analysis or saving.
+
+The user can:
+
+- confirm the list and continue to the results;
+- retake the photo if the list is wrong.
+
+This exists because a misread ingredient changes the verdict, and only the
+person holding the bottle can catch it. It is one screen, one confirm
+button — not an editor, and not a multi-step review.
+
+Editing individual names is **not** MVP.
 
 If the ingredient list is long, the user should attempt to fit the complete list into one photo.
 
