@@ -53,12 +53,24 @@ Query:
 mcp__github__list_issues, state: OPEN, labels: ["code-ready"]
 ```
 
-Take the oldest one not already done earlier in this chain and not already
-in flight (check for an open PR whose branch/title references its number
-via `mcp__github__list_pull_requests` — skip it if one exists and it isn't
-this chain's own). If the list is empty — either at the start or between
-tickets — that's the finish line: say so, report the chain's summary, stop.
-Do not invent a task or fall back to an unlabeled issue.
+**Order by priority label, not issue number or age.** An issue may also
+carry a `priority:P<N>` label (`priority:P0`, `priority:P1`, `priority:P50`,
+any non-negative integer — the user sets these, not you). Lower N goes
+first. `P0` beats `P1` beats `P2`, and gaps are fine and expected (the user
+may use `P0`, `P10`, `P20` on purpose so a `P5` can be inserted later
+without relabeling everything else) — sort numerically on N, never
+lexicographically (`P2` before `P10`). An issue with no `priority:P<N>`
+label sorts after every prioritized one, in `created_at` order among
+themselves (the old default, now just the fallback for unprioritized
+issues). Within the same priority number, also break ties by `created_at`.
+
+Take the top of that ordering that isn't already done earlier in this chain
+and isn't already in flight (check for an open PR whose branch/title
+references its number via `mcp__github__list_pull_requests` — skip it if
+one exists and it isn't this chain's own). If the list is empty — either at
+the start or between tickets — that's the finish line: say so, report the
+chain's summary, stop. Do not invent a task or fall back to an unlabeled
+issue.
 
 Comment on the issue noting you're starting it now, so a concurrent run
 doesn't duplicate it.

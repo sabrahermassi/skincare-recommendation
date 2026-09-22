@@ -24,6 +24,11 @@ gh-equivalent: issues, state=open, label=code-ready
   only the repo owner makes. Never pickable.
 - No label at all — not triaged yet, or not code (manual testing,
   marketing, store listings, analytics setup). Not pickable.
+- **`priority:P<N>`** (optional, on top of `code-ready`) — pick order, not
+  another gate. `P0` before `P1` before `P2`, any non-negative integer,
+  sorted numerically. Gaps are fine (`P0`, `P10`, `P20` leaves room to
+  insert `P5` later without relabeling anything). No priority label sorts
+  after every prioritized issue, oldest-first among themselves.
 
 ## Source docs (context, not enumeration)
 
