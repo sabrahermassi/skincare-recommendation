@@ -55,10 +55,17 @@ whole run.
 
 ## 1. Pick the next ticket
 
+**Use the `gh` CLI for every GitHub read/write in this skill, not an MCP
+tool.** No GitHub MCP server is configured in this repo (no `.mcp.json`, no
+`mcpServers` entry anywhere in the settings cascade) — `gh` is the only
+GitHub access this session actually has, and it's what every other workflow
+in this repo already uses.
+
 Query:
 
-```
-mcp__github__list_issues, state: OPEN, labels: ["code-ready"]
+```bash
+gh issue list --repo <owner>/<repo> --state open --label code-ready \
+  --json number,title,labels,createdAt
 ```
 
 **Order by priority label, not issue number or age.** An issue may also
@@ -74,14 +81,15 @@ issues). Within the same priority number, also break ties by `created_at`.
 
 Take the top of that ordering that isn't already done earlier in this chain
 and isn't already in flight (check for an open PR whose branch/title
-references its number via `mcp__github__list_pull_requests` — skip it if
-one exists and it isn't this chain's own). If the list is empty — either at
-the start or between tickets — that's the finish line: say so, report the
-chain's summary, stop. Do not invent a task or fall back to an unlabeled
-issue.
+references its number — `gh pr list --repo <owner>/<repo> --state open
+--json number,title,headRefName` — skip it if one exists and it isn't this
+chain's own). If the list is empty — either at the start or between
+tickets — that's the finish line: say so, report the chain's summary, stop.
+Do not invent a task or fall back to an unlabeled issue.
 
 Comment on the issue noting you're starting it now, so a concurrent run
-doesn't duplicate it.
+doesn't duplicate it: `gh issue comment <n> --repo <owner>/<repo> --body
+"Starting this now via /work-next."`
 
 **Branch point — this is what makes it a chain, not N separate runs:**
 - **First ticket in the chain:** branch from `main` (`git checkout -b
@@ -93,15 +101,17 @@ doesn't duplicate it.
 
 ## 2. Read the real scope
 
-Read the issue body in full (`mcp__github__issue_read`). If it links an
-artifact section (an anchor into MVP Scope / Feeding the Catalogue / Launch
-Checklist), read that too via `Artifact`, `action: "read"` — the issue body
-is the entry point, the artifact section is often the fuller spec.
+Read the issue body in full: `gh issue view <n> --repo <owner>/<repo> --json
+body,title,labels`. If it links an artifact section (an anchor into MVP
+Scope / Feeding the Catalogue / Launch Checklist), read that too via
+`Artifact`, `action: "read"` — the issue body is the entry point, the
+artifact section is often the fuller spec.
 
 If the scope turns out ambiguous, or needs an architecture/schema/product
 decision the artifacts mark as open: stop this ticket, relabel it
-`blocked-on-decision` (remove `code-ready`), report why rather than
-guessing, and move on to the next ticket in the chain.
+(`gh issue edit <n> --repo <owner>/<repo> --add-label blocked-on-decision
+--remove-label code-ready`), report why rather than guessing, and move on
+to the next ticket in the chain.
 
 **A Definition of Done that needs a real device or another manual check is
 not a reason to block the ticket.** Some tickets can be fully implemented
@@ -264,14 +274,20 @@ still nothing pushed at all until step 6.
 ## 6. Commit, push, open the PR
 
 First commit for this ticket: implementation, hygiene's fixes and
-self-review's fixes go up together, in one push. Open the PR with
-`mcp__github__create_pull_request` now — base set to `main` for ticket 1 or
-to the *previous ticket's branch* for every ticket after (matching step 1's
-branch point). Body: what changed, the scope-source link, test/lint/
-typecheck results, a `## Open questions` section for anything step 5 found
-that needed a decision, and — for every ticket after the first — "**Stacked
-on #<previous PR> — merge that first.**" Do not merge, do not enable
-auto-merge.
+self-review's fixes go up together, in one push. Open the PR now — base set
+to `main` for ticket 1 or to the *previous ticket's branch* for every ticket
+after (matching step 1's branch point):
+
+```bash
+gh pr create --repo <owner>/<repo> --base <base> --head <this-ticket-branch> \
+  --title "<title>" --body-file <path>
+```
+
+Write the body to a scratchpad file first rather than passing it inline —
+Body: what changed, the scope-source link, test/lint/typecheck results, a
+`## Open questions` section for anything step 5 found that needed a
+decision, and — for every ticket after the first — "**Stacked on #<previous
+PR> — merge that first.**" Do not merge, do not enable auto-merge.
 
 ## 7. Review loop
 
@@ -364,9 +380,10 @@ Rules for writing it — these matter as much as the four headings:
 
 ### Then continue
 
-Comment on the issue with the PR link (closing issues automatically via the
-PR body's `Closes #N` is fine — the PR stays unmerged until the user acts,
-so the issue only actually closes once they merge).
+Comment on the issue with the PR link (`gh issue comment <n> --repo
+<owner>/<repo> --body "PR: <url>"`; closing issues automatically via the PR
+body's `Closes #N` is fine — the PR stays unmerged until the user acts, so
+the issue only actually closes once they merge).
 
 Then, without waiting for the user and without asking whether to continue:
 - **Re-query `code-ready`. If a single ticket remains that isn't already in
