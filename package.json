@@ -24,7 +24,9 @@
     "audit:duplicate-ingredients": "node scripts/audit-duplicate-ingredients.mjs",
     "audit:safety-labels": "node scripts/audit-safety-labels.mjs",
     "audit:function-tags": "node scripts/audit-function-tags.mjs",
+    "fix:duplicate-ingredients": "node scripts/fix-duplicate-ingredients.mjs",
     "audit:ingredient-coverage": "node scripts/audit-ingredient-coverage.mjs",
+    "audit:data": "npm run audit:duplicate-ingredients && npm run audit:safety-labels && npm run audit:function-tags && npm run audit:ingredient-coverage -- --check",
     "promotion-plan": "node scripts/promotion-plan.mjs"
   },
   "dependencies": {

@@ -88,6 +88,15 @@ scoring reads: how many verified rows carry each scored function, stored tags
 that are a misspelling of one, rows with no functions, and well-known
 ingredients missing the tag CosIng gives them.
 
+`npm run audit:data` runs every read-only ingredient check in one go
+(duplicates, safety labels, function tags, coverage `--check`).
+
+`npm run fix:duplicate-ingredients` (plan-only by default, `-- --apply` to
+write) merges duplicate ingredients where it's unambiguous: names that only
+differ in spelling and whose rows already agree on safety and functions. A
+shared CAS number or any disagreement is left for a person — see the file's
+own comment for why.
+
 ## You have no TTY — regenerating route types
 
 `href` strings are type-checked against `.expo/types/router.d.ts`, which
