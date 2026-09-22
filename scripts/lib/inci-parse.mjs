@@ -97,8 +97,13 @@ const MAX_FUZZY_ATTEMPTS_PER_BLOCK = 800;
  * Bounded Levenshtein distance — returns early once the result is certain to
  * exceed `max`, since this runs against many candidate dictionary entries per
  * word and the exact distance beyond `max` is never needed.
+ *
+ * Exported for scripts/audit-function-tags.mjs, which uses it to find a
+ * stored function tag that is a near-miss of a scored one ("moisturizing" vs
+ * "moisturising"). A prior hygiene sweep un-exported this when nothing
+ * outside the file used it; that's no longer true.
  */
-function levenshtein(a, b, max) {
+export function levenshtein(a, b, max) {
   if (Math.abs(a.length - b.length) > max) return max + 1;
 
   let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
