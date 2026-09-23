@@ -75,6 +75,47 @@ a step to take — say so plainly and stop there. The two-surface guard in
 `scripts/lib/db.mjs` enforces this mechanically; this paragraph is the intent
 behind it, and it is the intent that governs when the two disagree.
 
+## Staging infrastructure
+
+Staging works and is wired up. These are the rules that keep it that way —
+the history of how it broke is in `docs/decisions.md`.
+
+**Migrations apply themselves.** `staging-migrate.yml` runs on any push
+touching `supabase/migrations/**.sql` and is working. Do not apply a
+migration to staging by hand, and do not reach for the Supabase CLI when
+something fails — that workflow's own header explains why the CLI path was
+rejected. If a run fails, read the log and fix the cause.
+
+**Edge Functions deploy themselves — for exactly two functions.**
+`staging-deploy-functions.yml` auto-deploys `label-ocr` and `product-lookup`
+on any push touching them or `_shared/`. **Neither that workflow nor
+`ci.yml` discovers a new function.** So if you add any third Edge Function,
+update both by hand, in the same PR that adds it:
+
+- `.github/workflows/ci.yml` — the "Typecheck the Deno Edge Functions"
+  step's file list
+- `.github/workflows/staging-deploy-functions.yml` — both the trigger paths
+  and the two `supabase functions deploy` lines
+
+Forgetting this ships a function that is never type-checked and never
+reaches staging. That gap has already existed once.
+
+**`deno check` needs `--node-modules-dir=none`** when run from the repo
+root: the root `package.json` makes Deno auto-detect npm resolution and
+break on `supabase-js`'s npm sub-dependencies. Already set in `ci.yml` —
+don't remove it.
+
+**In `label-ocr`, the `GOOGLE_VISION_API_KEY` check must stay after logging
+is in scope.** A missing key used to return 503 before any `scan_log` row
+was written, so a real production misconfiguration would show as *zero
+failures* in the weekly metric rather than the truth. Keep that ordering if
+you touch the file.
+
+**"Verified on staging" is a claim, not a formality.** Actually hit the
+deployed endpoint — `curl` is enough, no phone needed — and read `scan_log`
+or `products` directly before saying something works. A passing unit test is
+not a deployed function behaving.
+
 ## You have no TTY — regenerating route types
 
 `href` strings are type-checked against `.expo/types/router.d.ts`, which
