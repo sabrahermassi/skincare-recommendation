@@ -206,8 +206,11 @@ export default function ProductScreen() {
     // `loading` starts true for the initial mount, but this effect also
     // re-runs when `id` changes while the screen stays mounted — without
     // resetting it here too, the previous product stays on screen while
-    // the new one fetches.
-    setLoading(true);
+    // the new one fetches. Skipped when `product` was already seeded from
+    // the cache for this exact id: showing the spinner over content that's
+    // already correct is the exact flash seeding was added to avoid — the
+    // fetch below still runs, silently revalidating behind it.
+    if (!(product && loadedFor.current === id)) setLoading(true);
     setFailure(null);
     fetchProduct(id)
       .then((result) => {
@@ -230,6 +233,11 @@ export default function ProductScreen() {
     return () => {
       cancelled = true;
     };
+    // `product` is read deliberately, not as a dependency: it's checked only
+    // to decide whether *this run* of the effect should show the spinner,
+    // not to decide whether the effect re-runs — re-running on every
+    // `setProduct` inside it would refetch in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, retryKey]);
 
   // Opening a product logs it, so "have I already checked this?" is answerable
