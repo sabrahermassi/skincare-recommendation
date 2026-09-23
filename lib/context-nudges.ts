@@ -1,7 +1,8 @@
-import type { Concern, Ingredient } from "@/data/types";
+import type { Concern, Ingredient, ProductType } from "@/data/types";
 import { AHA_NAMES } from "./aha-names";
-import { RETINOID_NAMES, RETINOID_PRESCRIPTION_NAMES } from "./retinoid-salicylate-names";
+import { RETINOID_NAMES, RETINOID_PRESCRIPTION_NAMES, RETINYL_RETINOATE_NAME } from "./retinoid-salicylate-names";
 import { INGREDIENT_RULES, normaliseFunction, ruleMatches } from "./rules";
+import { MINERAL_UV_FILTER_NAMES, ORGANIC_UV_FILTER_NAMES } from "./uv-filter-names";
 
 /**
  * Hand-written context nudges — static content, no live API (`FOR_ME_MVP.md`
@@ -34,11 +35,17 @@ export type ContextNudge = {
   text: string;
 };
 
-// The main retinoid rule's names plus the prescription-only ones — tretinoin
-// and tazarotene carry the strongest sun guidance of the family. Retinyl
-// esters are left out: they're weak converters, and scoring rates them
-// separately for the same reason.
-const RETINOID_PATTERNS: (string | RegExp)[] = [...RETINOID_NAMES, ...RETINOID_PRESCRIPTION_NAMES];
+// The main retinoid rule's names, the prescription-only ones (tretinoin and
+// tazarotene carry the strongest sun guidance of the family), and retinyl
+// retinoate — scored on its own, gentler rule since #186, but still a
+// retinoid, so the sun advice still applies. The fatty-acid retinyl esters
+// (palmitate and friends) are left out: they're weak converters, and
+// scoring rates them separately for the same reason.
+const RETINOID_PATTERNS: (string | RegExp)[] = [
+  ...RETINOID_NAMES,
+  ...RETINOID_PRESCRIPTION_NAMES,
+  RETINYL_RETINOATE_NAME,
+];
 
 function matchesAny(patterns: (string | RegExp)[], inciName: string): boolean {
   const name = inciName.trim().toLowerCase();
@@ -46,27 +53,40 @@ function matchesAny(patterns: (string | RegExp)[], inciName: string): boolean {
 }
 
 /**
- * A sunscreen, or any formula with a UV filter in it, never gets a "pair
- * this with SPF" nudge — telling someone holding a sunscreen to wear
- * sunscreen is the one outcome that makes the whole feature look careless.
- * Read off the CosIng function tags, not `product.type`: the type is a guess
- * from the name, the tags are read off the formula.
+ * Whether this is sun protection — a "pair this with SPF" line on a sunscreen
+ * is the one outcome that makes the whole feature look careless. Evidence,
+ * any of:
+ *
+ * - the product is typed "sunscreen" (a guess from its name — and the only
+ *   way a mineral-only sunscreen is recognised, see below);
+ * - an organic filter, by name — which also works on an unresolved label
+ *   photo's stubs, since those carry no `functions` (#262 review);
+ * - a CosIng "uv-filter"/"uv-absorber" tag on anything but the two minerals.
+ *
+ * Titanium dioxide and zinc oxide are never evidence on their own, by name
+ * or by tag: both are pigments as often as filters, so a retinoid
+ * foundation or a clay mask would otherwise lose its nudge (#262 review;
+ * see `MINERAL_UV_FILTER_NAMES`).
  */
-function hasUvFilter(ingredients: Ingredient[]): boolean {
-  return ingredients.some((ingredient) =>
-    (ingredient.functions ?? []).some((fn) => {
+function isSunProtection(ingredients: Ingredient[], productType?: ProductType): boolean {
+  if (productType === "sunscreen") return true;
+  return ingredients.some((ingredient) => {
+    if (matchesAny(MINERAL_UV_FILTER_NAMES, ingredient.name)) return false;
+    if (matchesAny(ORGANIC_UV_FILTER_NAMES, ingredient.name)) return true;
+    return (ingredient.functions ?? []).some((fn) => {
       const role = normaliseFunction(fn);
       return role === "uv-filter" || role === "uv-absorber";
-    })
-  );
+    });
+  });
 }
 
 /**
  * Nudges that are true of the formula regardless of who's asking — no
- * profile, every ingredient checked, no truncation.
+ * profile, every ingredient checked, no truncation. `productType` is only
+ * ever used to *suppress* a nudge on a sunscreen, never to trigger one.
  */
-export function nudgesFor(ingredients: Ingredient[]): ContextNudge[] {
-  if (hasUvFilter(ingredients)) return [];
+export function nudgesFor(ingredients: Ingredient[], productType?: ProductType): ContextNudge[] {
+  if (isSunProtection(ingredients, productType)) return [];
 
   const aha = ingredients.some((i) => matchesAny(AHA_NAMES, i.name));
   const retinoid = ingredients.some((i) => matchesAny(RETINOID_PATTERNS, i.name));
@@ -95,9 +115,13 @@ export function nudgesFor(ingredients: Ingredient[]): ContextNudge[] {
  * Skipped when `nudgesFor` already fired: one SPF sentence per product is
  * enough.
  */
-export function goalNudgesFor(ingredients: Ingredient[], concerns: readonly Concern[]): ContextNudge[] {
+export function goalNudgesFor(
+  ingredients: Ingredient[],
+  concerns: readonly Concern[],
+  productType?: ProductType
+): ContextNudge[] {
   if (!concerns.includes("hyperpigmentation")) return [];
-  if (hasUvFilter(ingredients) || nudgesFor(ingredients).length > 0) return [];
+  if (isSunProtection(ingredients, productType) || nudgesFor(ingredients, productType).length > 0) return [];
 
   const targetsPigment = ingredients.some((ingredient) => {
     const rule = INGREDIENT_RULES.find((candidate) => ruleMatches(candidate, ingredient.name));

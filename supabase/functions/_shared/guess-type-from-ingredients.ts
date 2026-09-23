@@ -18,9 +18,10 @@
  * Organic UV filters with no other common cosmetic role — deliberately
  * excludes Titanium Dioxide and Zinc Oxide, which CosIng tags as UV filters
  * but which are used just as often as a plain pigment/opacifier in lip
- * products and masks.
+ * products and masks. Exported for `lib/uv-filter-names.ts` (the app's
+ * daytime-SPF nudge), so the app and this classifier share one list.
  */
-const ORGANIC_UV_FILTERS = [
+export const ORGANIC_UV_FILTERS = [
   "avobenzone",
   "octocrylene",
   "octinoxate",

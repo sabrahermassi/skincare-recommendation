@@ -210,6 +210,27 @@ describe("AddProduct — already saved (#188)", () => {
   });
 });
 
+describe("AddProduct — already saved, lookup fails (#258 review)", () => {
+  it("keeps the lookup button and never falls back to a Save that would resubmit the spent token", async () => {
+    (saveScannedProduct as unknown as MockFn).mockReturnValue(
+      Promise.resolve({ ok: false, reason: "already_saved" })
+    );
+    (fetchProductByBarcode as unknown as MockFn).mockReturnValue(Promise.resolve({ ok: true, value: null }));
+    holdLabelRead({ barcode: "1234567890123", ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    await render(<AddProduct />);
+
+    await fireEvent.changeText(screen.getByLabelText("Product name"), "Test Toner");
+    await fireEvent.press(screen.getByText("Save and see my match"));
+    await fireEvent.press(screen.getByText("Show me that product"));
+
+    expect(screen.getByText("Show me that product")).toBeTruthy();
+    expect(screen.queryByText("Save and see my match")).toBeNull();
+    expect(screen.getAllByText(/Still couldn't open it/).length).toBeGreaterThan(0);
+    expect(saveScannedProduct).toHaveBeenCalledTimes(1);
+    expect(mockDismissTo).not.toHaveBeenCalled();
+  });
+});
+
 describe("AddProduct — no held read", () => {
   it("explains itself rather than showing a bare empty state", async () => {
     await render(<AddProduct />);

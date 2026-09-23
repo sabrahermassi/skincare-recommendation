@@ -19,6 +19,12 @@ describe("nudgesFor", () => {
     expect(nudgesFor([ing("tretinoin")])[0].text).toMatch(/^Retinoids /);
   });
 
+  // #186 moved retinyl retinoate out of RETINOID_NAMES onto its own scoring
+  // rule; it's still a retinoid, so it must not quietly lose the nudge.
+  it("still adds it for retinyl retinoate, now on its own scoring rule", () => {
+    expect(nudgesFor([ing("retinyl retinoate")])[0].text).toMatch(/^Retinoids /);
+  });
+
   it("says it once, naming both, when a formula has an AHA and a retinoid", () => {
     const nudges = nudgesFor([ing("lactic acid"), ing("retinal")]);
     expect(nudges).toHaveLength(1);
@@ -35,10 +41,36 @@ describe("nudgesFor", () => {
 
   // Telling someone holding a sunscreen to wear sunscreen is the one outcome
   // that makes the whole feature look careless (#234).
-  it("never nudges a formula with a UV filter, read off the function tags", () => {
-    expect(nudgesFor([ing("glycolic acid"), ing("zinc oxide", { functions: ["uv-filter"] })])).toEqual([]);
-    expect(nudgesFor([ing("retinol"), ing("avobenzone", { functions: ["UV absorber"] })])).toEqual([]);
-    expect(nudgesFor([ing("retinol"), ing("octinoxate", { functions: ["en:uv-filter"] })])).toEqual([]);
+  it("never nudges a formula with a UV filter it reads off a CosIng tag, in any spelling", () => {
+    // A filter on no name list, so only the tag can be what recognises it.
+    const filter = (tag: string) => ing("tris-biphenyl triazine", { functions: [tag] });
+    expect(nudgesFor([ing("glycolic acid"), filter("uv-filter")])).toEqual([]);
+    expect(nudgesFor([ing("retinol"), filter("UV absorber")])).toEqual([]);
+    expect(nudgesFor([ing("retinol"), filter("en:uv-filter")])).toEqual([]);
+  });
+
+  // #262 review: an unresolved label photo arrives as stubs with no
+  // `functions` at all, so an organic filter's own name has to count — every
+  // spelling the app knows, including the classifier's own list.
+  it("never nudges a sunscreen whose names didn't resolve — recognised by filter name", () => {
+    const stub = (name: string) => ing(name, { verified: false, functions: undefined });
+    expect(nudgesFor([stub("retinol"), stub("butyl methoxydibenzoylmethane")])).toEqual([]); // EU INCI
+    expect(nudgesFor([stub("retinol"), stub("avobenzone")])).toEqual([]); // US drug name
+    expect(nudgesFor([stub("glycolic acid"), stub("padimate o")])).toEqual([]);
+    expect(nudgesFor([stub("glycolic acid"), stub("sulisobenzone")])).toEqual([]);
+  });
+
+  // #262 review: both are pigments as often as filters. A retinoid foundation
+  // or an AHA clay mask with titanium dioxide still gets its nudge — by name
+  // or by CosIng's unconditional uv-filter tag.
+  it("never takes titanium dioxide or zinc oxide alone as proof of a sunscreen", () => {
+    expect(nudgesFor([ing("retinol"), ing("titanium dioxide", { functions: ["uv-filter", "colorant"] })])).toHaveLength(1);
+    expect(nudgesFor([ing("glycolic acid"), ing("zinc oxide", { verified: false, functions: undefined })])).toHaveLength(1);
+  });
+
+  it("treats a product typed sunscreen as sun protection — the one signal a mineral-only sunscreen has", () => {
+    expect(nudgesFor([ing("glycolic acid"), ing("zinc oxide")], "sunscreen")).toEqual([]);
+    expect(nudgesFor([ing("glycolic acid"), ing("zinc oxide")], "serum")).toHaveLength(1);
   });
 
   it("is deterministic — nothing reads the clock", () => {
@@ -68,10 +100,14 @@ describe("goalNudgesFor", () => {
     expect(goalNudgesFor(ingredients, ["hyperpigmentation"])).toEqual([]);
   });
 
-  it("stays quiet on a formula with a UV filter", () => {
-    expect(
-      goalNudgesFor([ing("niacinamide"), ing("zinc oxide", { functions: ["uv-filter"] })], ["hyperpigmentation"])
-    ).toEqual([]);
+  it("stays quiet on sun protection — an organic filter, or a product typed sunscreen", () => {
+    expect(goalNudgesFor([ing("niacinamide"), ing("octocrylene")], ["hyperpigmentation"])).toEqual([]);
+    expect(goalNudgesFor([ing("niacinamide"), ing("zinc oxide")], ["hyperpigmentation"], "sunscreen")).toEqual([]);
+  });
+
+  it("stays quiet on a sunscreen whose names didn't resolve (#262 review)", () => {
+    const stub = (name: string) => ing(name, { verified: false, functions: undefined });
+    expect(goalNudgesFor([stub("niacinamide"), stub("octocrylene")], ["hyperpigmentation"])).toEqual([]);
   });
 });
 

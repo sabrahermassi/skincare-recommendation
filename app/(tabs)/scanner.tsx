@@ -328,18 +328,19 @@ export default function Scan() {
 
   // A quiet nudge toward Photo mode when a barcode just isn't reading — too
   // blurry, too small, or on a dark shelf (#195). Starts only while genuinely
-  // idle in Barcode mode on the visible screen, so it can never appear over
-  // a found sheet or a miss/unreachable panel, and clears itself the moment
-  // any of those conditions stops being true — a mode change, any status
-  // change (including the read that made the timer pointless), or losing
-  // focus.
+  // idle in Barcode mode on the visible screen with the camera actually
+  // granted, so it can never appear over a found sheet, a miss/unreachable
+  // panel, or the camera-permission intro — where it rendered invisibly
+  // (cream on cream) on top of the intro's Browse link and stole its taps
+  // (#260 review). Clears itself the moment any of those stops being true.
+  const granted = permission?.granted === true;
   const [showScanHint, setShowScanHint] = useState(false);
   useEffect(() => {
     setShowScanHint(false);
-    if (mode !== "Barcode" || status.kind !== "idle" || !isFocused) return;
+    if (mode !== "Barcode" || status.kind !== "idle" || !isFocused || !granted) return;
     const timer = setTimeout(() => setShowScanHint(true), IDLE_HINT_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [mode, status, isFocused]);
+  }, [mode, status, isFocused, granted]);
 
   const handleBarcode = useCallback(
     async (data: string, target?: Box) => {
@@ -429,7 +430,6 @@ export default function Scan() {
     [handleBarcode, dismissGuard]
   );
 
-  const granted = permission?.granted === true;
   const needsPermission = permission !== null && !permission.granted;
   const scanning = mode === "Photo" || status.kind === "idle" || status.kind === "looking";
   const cameraLive = isFocused && granted;
@@ -925,7 +925,7 @@ function BarcodeStage({
           ? "That isn't a product barcode. Tap Scan again to try a different one."
           : "We don't have this product yet. Photograph its ingredient list to add it."
         : status.kind === "unreachable"
-          ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
+          ? `${failureMessage(status.failure)} Try again, scan something else, or find it in Browse.`
           : "";
 
   // `null` is still asking the OS, which is not the same as refused — showing
@@ -1081,7 +1081,9 @@ function BarcodeStage({
             that just failed, so offering it here would be the second of two
             failures on one interaction. The only honest primary action when we
             could not reach the catalogue is to ask it again. Starting over is
-            tapping Barcode. */}
+            "Scan something else" below — the only way out now that re-tapping
+            the Barcode pill no longer clears this panel (#192, #259 review:
+            without it this state trapped the scanner until you left it). */}
         {status.kind === "unreachable" && (
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Pressable
@@ -1100,6 +1102,19 @@ function BarcodeStage({
               <Text style={{ fontSize: 13, fontWeight: "600", color: CTA_TEXT }}>Try again</Text>
             </Pressable>
           </View>
+        )}
+        {status.kind === "unreachable" && (
+          <Pressable
+            onPress={onDismiss}
+            accessibilityRole="button"
+            accessibilityLabel="Scan something else"
+            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+            className="active:opacity-70"
+          >
+            <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}>
+              Scan something else
+            </Text>
+          </Pressable>
         )}
 
         {/* Only when the lookup could not be made. It is the one suggestion here

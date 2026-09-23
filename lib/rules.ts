@@ -1,8 +1,10 @@
 import type { BaseSkinType, Concern, ProductType } from "@/data/types";
 import { AHA_NAMES } from "./aha-names";
+import { MINERAL_UV_FILTER_NAMES } from "./uv-filter-names";
 import {
   RETINOID_NAMES,
   RETINYL_PALMITATE_NAME,
+  RETINYL_RETINOATE_NAME,
   SALICYLATE_NAMES,
   SALICYLATE_ABBREVIATION_NAMES,
   BENZYL_SALICYLATE_NAME,
@@ -325,6 +327,15 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     weight: 5,
   },
   {
+    names: [RETINYL_RETINOATE_NAME],
+    category: "actives",
+    helps: { concerns: ["fine-lines", "hyperpigmentation"] },
+    hurts: { sensitive: true, skinTypes: ["dry"] },
+    reason:
+      "A retinoid ester with early trial evidence rivaling retinol for fine lines, at a gentler irritation cost than the free acid form",
+    weight: 8,
+  },
+  {
     names: ["ascorbic acid", "l-ascorbic acid"],
     category: "actives",
     helps: { concerns: ["dullness", "hyperpigmentation", "post-acne-marks"] },
@@ -370,7 +381,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
 
   // ── UV filters ────────────────────────────────────────────────────────────
   {
-    names: ["zinc oxide", "titanium dioxide"],
+    names: [...MINERAL_UV_FILTER_NAMES],
     category: "actives",
     helps: { sensitive: true },
     reason: "Mineral UV filters sit on the surface and rarely provoke reactive skin",

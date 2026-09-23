@@ -246,6 +246,10 @@ const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
   already_saved: "That saved, but we couldn't open it just now.",
 };
 
+// Shown under `already_saved` when the recovery lookup itself fails too.
+// The product is still saved, so the ask is only to try the lookup again.
+const LOOKUP_FAILED_COPY = "Still couldn't open it — check your connection and tap Show me that product again.";
+
 /**
  * `expired` (unlike the other failures) has no useful retry: the read token is
  * gone and the held list can no longer be saved under it. Save is not just
@@ -287,6 +291,10 @@ function NameStep({
     () => (Date.now() - receivedAt > READ_TOKEN_TTL_MS ? "expired" : null)
   );
   const [reviewOpen, setReviewOpen] = useState(false);
+  // Set when the `already_saved` recovery lookup itself fails or misses.
+  // Kept apart from `failure` so that state — and its lookup button —
+  // survives: see `findSavedProduct`.
+  const [lookupFailed, setLookupFailed] = useState(false);
   const trimmed = name.trim();
   const expired = failure === "expired";
   const alreadySaved = failure === "already_saved";
@@ -316,6 +324,7 @@ function NameStep({
   async function findSavedProduct() {
     if (saving) return;
     setSaving(true);
+    setLookupFailed(false);
     const result = await fetchProductByBarcode(barcode);
     setSaving(false);
     if (result.ok && result.value) {
@@ -323,14 +332,18 @@ function NameStep({
       router.dismissTo({ pathname: "/result/[id]", params: { id: result.value.id } });
       return;
     }
-    // Rare — the row was just written — but don't strand the user on a dead
-    // button if the lookup itself fails or somehow still misses.
-    setFailure("failed");
+    // The lookup failed or missed, but the row is still saved — so stay in
+    // `already_saved` and let the lookup be tried again. Dropping back to
+    // `failed` would swap this button for Save, which resubmits the spent
+    // read token and lands on `expired` (#258 review).
+    setLookupFailed(true);
   }
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenReaderAnnouncer message={failure ? SAVE_FAILURE_COPY[failure] : ""} />
+      <ScreenReaderAnnouncer
+        message={alreadySaved && lookupFailed ? LOOKUP_FAILED_COPY : failure ? SAVE_FAILURE_COPY[failure] : ""}
+      />
       <ScreenHeader title="Add this product" />
       {/*
         Scrolls the whole form, not just the ingredient panel above: on a
@@ -458,6 +471,9 @@ function NameStep({
 
         {failure ? (
           <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{SAVE_FAILURE_COPY[failure]}</Text>
+        ) : null}
+        {alreadySaved && lookupFailed ? (
+          <Text style={{ fontSize: TYPE.label, color: MUTED }}>{LOOKUP_FAILED_COPY}</Text>
         ) : null}
 
         {expired ? (
