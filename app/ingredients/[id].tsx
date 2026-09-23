@@ -7,7 +7,7 @@ import { IngredientTabsList, TABS, type Tab } from "@/components/IngredientTabsL
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
-import { failureMessage, fetchProduct, type FetchFailure } from "@/data/api";
+import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
 import { matchProduct } from "@/lib/matching";
@@ -29,8 +29,12 @@ export default function IngredientList() {
   // links straight into the filtered view rather than dropping you on "All"
   // to find them yourself.
   const { id, tab: initialTab } = useLocalSearchParams<{ id: string; tab?: string }>();
-  const [product, setProduct] = useState<ProductWithIngredients | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Seeded from the catalogue cache so a product already in memory paints on
+  // the first frame instead of a spinner — same seam as `app/product/[id].tsx`.
+  const [product, setProduct] = useState<ProductWithIngredients | null>(() =>
+    peekProducts("all")?.find((p) => p.id === id) ?? null,
+  );
+  const [loading, setLoading] = useState(() => !product);
   // Set only when the catalogue could not be asked — distinct from
   // `product === null`, which is the catalogue answering it does not have
   // this id. Same split as `app/product/[id].tsx`; this screen used to fold

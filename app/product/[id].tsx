@@ -15,7 +15,7 @@ import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { HeartIcon } from "@/components/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { failureMessage, fetchProduct, type FetchFailure } from "@/data/api";
+import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import {
   confidenceLabel,
@@ -152,14 +152,19 @@ const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 export default function ProductScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [product, setProduct] = useState<ProductWithIngredients | null>(null);
+  // Seeded from the catalogue cache so a product already in memory paints on
+  // the first frame instead of a spinner — the same `peekProducts` seam
+  // `app/(tabs)/browse.tsx` uses for a warm start.
+  const [product, setProduct] = useState<ProductWithIngredients | null>(() =>
+    peekProducts("all")?.find((p) => p.id === id) ?? null,
+  );
   const [showWhy, setShowWhy] = useState(false);
   // Measured, so the bottle, name and cards fill the screen exactly down to where
   // the ingredients sheet begins: the screen's height and the height of everything
   // under the picture decide how big the picture can be.
   const [viewportH, setViewportH] = useState(0);
   const [restH, setRestH] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !product);
   /**
    * Set only when the catalogue could not be *asked*. Distinct from
    * `product === null`, which is the catalogue answering that it does not have
@@ -176,8 +181,13 @@ export default function ProductScreen() {
    * changed: without this, routing to a different product whose load then
    * failed left the previous one rendering under the new id, which is the
    * exact trap `app/ingredients/[id].tsx` documents on its own fetch.
+   *
+   * Seeded to `id` when `product` itself was seeded from the cache above —
+   * otherwise a failed first fetch would read as "a different id's product
+   * is still on screen" and wipe out the very product that skipped the
+   * spinner.
    */
-  const loadedFor = useRef<string | null>(null);
+  const loadedFor = useRef<string | null>(product ? id : null);
 
   // Pinned at mount for the same reason the ingredient screen pins its own:
   // `react-hooks/purity` flags `Date.now()` during render.

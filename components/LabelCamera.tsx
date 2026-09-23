@@ -11,8 +11,8 @@ import { SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, WINDOW_RADIUS, type Box 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
-import { coverFitCropRect, type Rect, type Size } from "@/lib/crop-to-guide";
-import { deleteTempFile, pickLabelPhoto } from "@/lib/pick-label-photo";
+import { coverFitCropRect, shrinkWidth, type Rect, type Size } from "@/lib/crop-to-guide";
+import { deleteTempFile, LIBRARY_MAX_WIDTH, pickLabelPhoto } from "@/lib/pick-label-photo";
 import { readLabelPhoto } from "@/lib/read-label-photo";
 import { CAMERA_STAGE, CANVAS, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -138,6 +138,7 @@ export function LabelCamera({
     // issue #27.
     let capturedUri: string | undefined;
     let croppedUri: string | undefined;
+    let resizedUri: string | undefined;
     // The picker's copies of a chosen picture, which stay behind when it is shrunk.
     let releasePick: (() => void) | undefined;
 
@@ -169,6 +170,9 @@ export function LabelCamera({
         return;
       }
       capturedUri = photo.uri;
+      // Freeze the viewfinder on the captured frame while it's read — the
+      // library path already does this via `preview` above.
+      if (source === "camera") setPreview(photo.uri);
 
       // Crop to the on-screen guide box before anything leaves the device.
       // Until this existed, the box drawn below was decoration only —
@@ -188,6 +192,7 @@ export function LabelCamera({
       // `label-ocr`, not a replacement for them, so losing it for one scan
       // is not a correctness problem.
       let imageBase64 = photo.base64;
+      let imageWidth = photo.width;
       // A picked picture is already the user's own framing: no guide box to crop to.
       if (source === "camera" && cameraSize && guideRect && photo.width && photo.height) {
         const crop = coverFitCropRect(cameraSize, { width: photo.width, height: photo.height }, guideRect);
@@ -200,8 +205,35 @@ export function LabelCamera({
             });
             croppedUri = cropped.uri;
             if (cropped.base64) imageBase64 = cropped.base64;
+            imageWidth = cropped.width;
           } catch {
-            // Fall through with the uncropped photo — see comment above.
+            // Fall through with the uncropped photo — see comment above. It's
+            // the largest one there is, so it still needs the resize below.
+          }
+        }
+      }
+
+      // `takePictureAsync` never resizes, unlike the library pick — a 48–50 MP
+      // sensor lands well past `MAX_IMAGE_CHARS` (`label-ocr:53`), which reads
+      // to the user as an unreadable photo (#188). Shares `LIBRARY_MAX_WIDTH`
+      // and `shrinkWidth` with the library path so the two caps cannot drift.
+      // Runs on the cropped photo when cropping succeeded, and on the
+      // uncropped fall-through above when it didn't — whichever is largest.
+      if (source === "camera" && imageWidth) {
+        const width = shrinkWidth(imageWidth, LIBRARY_MAX_WIDTH);
+        if (width) {
+          try {
+            const resized = await manipulateAsync(croppedUri ?? photo.uri, [{ resize: { width } }], {
+              base64: true,
+              compress: 0.8,
+              format: SaveFormat.JPEG,
+            });
+            resizedUri = resized.uri;
+            if (resized.base64) imageBase64 = resized.base64;
+          } catch {
+            // Send what we already have rather than block the scan on a
+            // resize failure — the crop's own fallback above takes the same
+            // approach.
           }
         }
       }
@@ -227,6 +259,7 @@ export function LabelCamera({
       releasePick?.();
       deleteTempFile(capturedUri);
       deleteTempFile(croppedUri);
+      deleteTempFile(resizedUri);
     }
   }
 
@@ -324,7 +357,9 @@ export function LabelCamera({
         />
       )}
 
-      {/* A picture from the library, in the frame while it is read. */}
+      {/* The captured or picked photo, frozen in the frame while it is read —
+          otherwise the live camera view keeps moving under a photo that has
+          already been taken. */}
       {preview && guideRect ? (
         <View
           pointerEvents="none"
