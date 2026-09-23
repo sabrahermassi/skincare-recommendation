@@ -266,6 +266,17 @@ describe("scoring validation invariants", () => {
       scoreFormula(fixture, dryProfile, withoutFunction)
     );
   });
+
+  // #186 added "retinyl retinoate" to RETINOID_NAMES to close a gap with
+  // pregnancy caution. That list is also spread into the retinol scoring
+  // rule, so the name now affects scoring too, not only the pregnancy-only
+  // path -- self-review found no test exercised that side.
+  it("matches retinyl retinoate to the retinol actives rule", () => {
+    const rule = INGREDIENT_RULES.find((r) => ruleMatches(r, "retinyl retinoate"));
+    expect(rule).toBeDefined();
+    expect(rule?.category).toBe("actives");
+    expect(rule?.helps?.concerns).toContain("fine-lines");
+  });
 });
 
 describe("declared reactive-skin harm reaches the irritation penalty", () => {
