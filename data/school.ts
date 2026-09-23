@@ -133,7 +133,7 @@ export const SCHOOL: SchoolCategory[] = [
         id: "cant-tell",
         question: "Why does it sometimes say it can't tell?",
         answer:
-          "When we can't recognise enough of the ingredient list — a blurry photo, or names we don't have yet — we'd rather say so than guess. An ingredient we don't recognise doesn't count toward the score as good or bad; it just makes the answer less certain. One exception: if you've told us you're pregnant or breastfeeding, a name that looks like one to check is still flagged, even when we can't fully confirm it.",
+          "Two reasons. If you haven't answered the skin-profile questions yet, there's nothing to match the product against — answer them in your profile and every score is made for your skin. Otherwise, when we can't recognise enough of the ingredient list — a blurry photo, or names we don't have yet — we'd rather say so than guess. An ingredient we don't recognise doesn't count toward the score as good or bad; it just makes the answer less certain. One exception: if you've told us you're pregnant or breastfeeding, a name that looks like one to check is still flagged, even when we can't fully confirm it.",
       },
       {
         id: "is-it-safe",

@@ -37,6 +37,10 @@ describe("Skincare School content", () => {
     expect(answer).toMatch(/pregnant or breastfeeding/);
   });
 
+  it("names a missing skin profile as a reason it can't tell, not only the photo", () => {
+    expect(questions.find((q) => q.id === "cant-tell")!.answer).toMatch(/skin-profile questions/);
+  });
+
   it("has no empty question or answer", () => {
     for (const q of questions) {
       expect(q.question.trim().length).toBeGreaterThan(0);
