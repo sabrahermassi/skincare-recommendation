@@ -10,6 +10,10 @@ import { fetchProductByBarcode } from "@/data/api";
  * panel's own control is the only one.
  */
 
+// The first render of the scanner screen loads its whole module graph, which
+// ran past jest's default 5s under a full, parallel suite run.
+jest.setTimeout(20_000);
+
 // The camera is mocked down to a prop sink: the test plays the part of the
 // camera by calling the `onBarcodeScanned` the screen last handed it.
 const mockCamera: { onBarcodeScanned?: (result: unknown) => void } = {};
