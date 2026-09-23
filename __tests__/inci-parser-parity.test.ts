@@ -286,6 +286,23 @@ describe("product-lookup's parser stays in step with lib/inci.ts", () => {
     );
   });
 
+  // This copy's normalise() was never widened when #185 added CJK support,
+  // then never caught up to #247's width-folding/prolongation-mark fix
+  // either -- nothing here compared it to the client's, so it kept stripping
+  // every Korean and Japanese ingredient name silently.
+  it("has the canonical normalise()", () => {
+    expect(extractFunctionBody(lookup, "normalise")).toBe(extractFunctionBody(client, "normalise"));
+  });
+
+  it("recognises the Korean and Japanese ingredients headings, like the other copies", () => {
+    expect(lookup).toContain("전성분");
+    expect(lookup).toContain("全成分");
+  });
+
+  it("splits on the ideographic comma, like the other copies", () => {
+    expect(lookup).toContain("[;、]");
+  });
+
   // "Tocopheryl Acetate (Vit. E)" must not split at the full stop inside the
   // brackets — lib/inci.ts and label-ocr guard it, and this copy did not.
   it("guards full stops inside brackets before splitting, like the other copies", () => {
