@@ -111,8 +111,13 @@ native.
 **State** — `store/useAppStore.ts`, one Zustand store: skin profile,
 onboarding flag, wishlist. Persisted via `persist` + AsyncStorage, gated on
 `useAppStore.persist.hasHydrated()` in `app/_layout.tsx`.
-**`store/useAppStore.ts` is the only file allowed to import AsyncStorage**
-— see `docs/device-storage-policy.md` for which data class goes where.
+**Two files may import AsyncStorage, and no third without review:**
+`store/useAppStore.ts` (the user's own state) and `data/catalogue-cache.ts`
+(public catalogue rows, the dictionary and freshness watermarks — and
+nothing derived from the user). The point was never the number one, it is
+that every write site stays known and reviewable — see
+`docs/device-storage-policy.md` for which data class goes where and why the
+catalogue earned its own file.
 
 Profile shape: `concerns` (max `MAX_CONCERNS` = 3), `baseSkinType`
 (nullable — "I don't know" is a real answer), `sensitivity`
