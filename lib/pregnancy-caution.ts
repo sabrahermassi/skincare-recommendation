@@ -1,4 +1,11 @@
 import type { Ingredient } from "@/data/types";
+import {
+  RETINOID_NAMES,
+  RETINOID_PRESCRIPTION_NAMES,
+  RETINYL_ESTER_PATTERN,
+  SALICYLATE_NAMES,
+  SALICYLATE_FALLBACK_NAMES,
+} from "./retinoid-salicylate-names";
 
 /**
  * Pregnancy/breastfeeding-caution ingredients — a property of the formula,
@@ -28,23 +35,15 @@ type PregnancyCautionEntry = {
   reason: string;
 };
 
-const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
+export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
   {
-    names: [
-      "retinol",
-      "retinal",
-      "retinaldehyde",
-      "tretinoin",
-      "adapalene",
-      "tazarotene",
-      /^retinyl (palmitate|acetate|linoleate|propionate)$/,
-    ],
+    names: [...RETINOID_NAMES, ...RETINOID_PRESCRIPTION_NAMES, RETINYL_ESTER_PATTERN],
     category: "retinoid",
     reason:
       "A vitamin A derivative — commonly advised against in pregnancy and while breastfeeding",
   },
   {
-    names: ["salicylic acid", /^(sodium|potassium) salicylate$/, "willow bark extract"],
+    names: [...SALICYLATE_NAMES, ...SALICYLATE_FALLBACK_NAMES],
     category: "salicylic-acid",
     reason:
       "Salicylic acid — commonly flagged in pregnancy at leave-on concentrations; a label alone can't say how much is in this formula",

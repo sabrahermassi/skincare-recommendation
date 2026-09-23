@@ -1,4 +1,11 @@
 import type { BaseSkinType, Concern, ProductType } from "@/data/types";
+import {
+  RETINOID_NAMES,
+  RETINYL_PALMITATE_NAME,
+  SALICYLATE_NAMES,
+  SALICYLATE_ABBREVIATION_NAMES,
+  BENZYL_SALICYLATE_NAME,
+} from "./retinoid-salicylate-names";
 
 /**
  * Curated ingredient rules — the app's actual dermatological judgement.
@@ -286,7 +293,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     weight: 10,
   },
   {
-    names: ["salicylic acid", "bha", "betaine salicylate"],
+    names: [...SALICYLATE_NAMES, ...SALICYLATE_ABBREVIATION_NAMES],
     category: "pore-clogging",
     helps: { concerns: ["acne-prone", "large-pores"], skinTypes: ["oily"] },
     hurts: { sensitive: true, skinTypes: ["dry"] },
@@ -302,7 +309,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     weight: 8,
   },
   {
-    names: ["retinol", "retinal", "retinaldehyde", "hydroxypinacolone retinoate", "adapalene"],
+    names: [...RETINOID_NAMES],
     category: "actives",
     helps: { concerns: ["fine-lines", "acne-prone", "hyperpigmentation"] },
     hurts: { sensitive: true, skinTypes: ["dry"] },
@@ -310,7 +317,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     weight: 11,
   },
   {
-    names: ["retinyl palmitate"],
+    names: [RETINYL_PALMITATE_NAME],
     category: "actives",
     helps: { concerns: ["fine-lines", "hyperpigmentation"] },
     reason: "Retinyl palmitate is a retinoid ester that must be converted in skin before it can act",
@@ -387,11 +394,14 @@ export const INGREDIENT_RULES: IngredientRule[] = [
   {
     names: [
       "limonene", "linalool", "citronellol", "geraniol", "eugenol", "coumarin",
-      "citral", "benzyl salicylate", "benzyl benzoate", "hexyl cinnamal",
+      "citral", BENZYL_SALICYLATE_NAME, "benzyl benzoate", "hexyl cinnamal",
       "butylphenyl methylpropional", "isoeugenol", "farnesol",
     ],
     category: "fragrance",
     hurts: { sensitive: true, concerns: ["atopic"] },
+    // benzyl salicylate above is a fragrance allergen (an ester of benzyl
+    // alcohol), not a salicylic-acid source — kept out of SALICYLATE_NAMES
+    // on purpose, see lib/retinoid-salicylate-names.ts.
     reason: "An EU-labelled fragrance allergen - declared precisely because it sensitises some people",
     weight: 6,
   },
