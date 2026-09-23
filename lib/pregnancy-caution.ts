@@ -5,6 +5,7 @@ import {
   RETINYL_ESTER_PATTERN,
   SALICYLATE_NAMES,
   SALICYLATE_FALLBACK_NAMES,
+  SALICYLATE_SALT_PATTERN,
 } from "./retinoid-salicylate-names";
 
 /**
@@ -43,7 +44,7 @@ export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
       "A vitamin A derivative — commonly advised against in pregnancy and while breastfeeding",
   },
   {
-    names: [...SALICYLATE_NAMES, ...SALICYLATE_FALLBACK_NAMES],
+    names: [...SALICYLATE_NAMES, SALICYLATE_SALT_PATTERN, ...SALICYLATE_FALLBACK_NAMES],
     category: "salicylic-acid",
     reason:
       "Salicylic acid — commonly flagged in pregnancy at leave-on concentrations; a label alone can't say how much is in this formula",
