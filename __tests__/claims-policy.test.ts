@@ -1,5 +1,6 @@
 import { INGREDIENTS } from "@/data/ingredients";
 import { PRODUCTS } from "@/data/products";
+import { SCHOOL } from "@/data/school";
 import { claimPolicyViolations } from "@/lib/claims-policy";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { PORE_CLOGGERS } from "@/lib/pore-clogging";
@@ -77,9 +78,19 @@ const NUDGE_RESULTS: OwnedClaim[] = [
   ...goalNudgesFor([nudgeIngredient("niacinamide")], ["hyperpigmentation"]),
 ].map((nudge, index) => ({ source: `contextNudges[${index}].${nudge.id}`, text: nudge.text }));
 
+// #235: Skincare School — paragraphs about ingredients, the largest body of
+// app-authored copy, so every question and every answer is audited.
+const SCHOOL_CLAIMS: OwnedClaim[] = SCHOOL.flatMap((category) =>
+  category.questions.flatMap((item) => [
+    { source: `SCHOOL.${item.id}.question`, text: item.question },
+    { source: `SCHOOL.${item.id}.answer`, text: item.answer },
+  ])
+);
+
 const OWNED_CLAIMS: OwnedClaim[] = [
   ...HEADLINE_RESULTS,
   ...NUDGE_RESULTS,
+  ...SCHOOL_CLAIMS,
   ...INGREDIENT_RULES.map((rule, index) => ({
     source: `INGREDIENT_RULES[${index}].reason`,
     text: rule.reason,
