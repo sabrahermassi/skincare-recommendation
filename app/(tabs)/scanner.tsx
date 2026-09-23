@@ -205,11 +205,17 @@ export default function Scan() {
       // A read in flight (from whichever mode this switches away from) is no
       // longer wanted the moment mode changes — including switching straight
       // back to Photo, which remounts `IngredientsStage` with a fresh
-      // generation. See issue #191.
-      reads.invalidate();
+      // generation. Guarded on an actual change: `ModePill` has no
+      // already-selected guard, so tapping the current pill (e.g. an
+      // impatient extra tap on "Photo" while a read is in flight) reaches
+      // here with `next === mode`, and `setMode` would then be a no-op —
+      // no remount, so no fresh generation ever replaces the one this would
+      // have invalidated, permanently dropping every read for the rest of
+      // that visit. See issue #191.
+      if (next !== mode) reads.invalidate();
       setMode(next);
     },
-    [status, dismissGuard, reads]
+    [status, mode, dismissGuard, reads]
   );
 
   // Only two things are allowed to reset this screen back to Barcode: the X

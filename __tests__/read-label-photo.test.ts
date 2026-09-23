@@ -1,6 +1,6 @@
 import { readLabel } from "@/data/api";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
-import { clearLabelRead, heldLabelRead } from "@/lib/pending-label";
+import { clearLabelRead, heldLabelRead, holdLabelRead } from "@/lib/pending-label";
 import { failureCopy, readLabelPhoto } from "@/lib/read-label-photo";
 
 jest.mock("@/data/api", () => ({ readLabel: jest.fn() }));
@@ -83,6 +83,22 @@ describe("readLabelPhoto", () => {
     analyse.mockResolvedValue(readOk());
     expect(await readLabelPhoto("x", "8801234567890", () => false)).toEqual({ kind: "read" });
     expect(heldLabelRead()).toBeNull();
+  });
+
+  // A stale read must not clobber a different, newer read that a later
+  // caller already legitimately stored while this one was still in flight
+  // (found in review on #191's PR: switch away, then back, then a second,
+  // faster photo resolves and holds first).
+  it("does not clear a different, newer read that was held while this one was still in flight", async () => {
+    let resolveAnalyse!: (value: unknown) => void;
+    analyse.mockReturnValue(new Promise((resolve) => (resolveAnalyse = resolve)));
+    const pending = readLabelPhoto("x", "8801234567890", () => false);
+    // Simulated race: a different, faster read lands and is held while the
+    // one above is still awaiting its own (slower) result.
+    holdLabelRead({ ingredients: ["niacinamide"], readToken: "newer-tok", barcode: "8809999999999" });
+    resolveAnalyse(readOk());
+    expect(await pending).toEqual({ kind: "read" });
+    expect(heldLabelRead()).toEqual({ ingredients: ["niacinamide"], readToken: "newer-tok", barcode: "8809999999999" });
   });
 
   it("still holds a good read when the caller says it's still wanted", async () => {

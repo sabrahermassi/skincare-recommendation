@@ -1,6 +1,6 @@
 import { readLabel } from "@/data/api";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
-import { clearLabelRead, holdLabelRead } from "@/lib/pending-label";
+import { clearLabelRead, heldLabelRead, holdLabelRead } from "@/lib/pending-label";
 
 /** Why a photo did not become a result, and what the person can do about it. */
 export type LabelReadFailure = {
@@ -55,6 +55,11 @@ export async function readLabelPhoto(
   // this pass is what keeps the coordinates from leaving the handset in
   // the first place. Failing closed rather than falling back to the
   // original: an image we cannot parse is an image we should not forward.
+  // Snapshotted before the read is sent, so the cleanup below can tell "still
+  // whatever was there before I started" from "someone else has since held a
+  // newer, still-wanted read here" — see the comment at the clear below.
+  const heldBeforeSend = heldLabelRead();
+
   const clean = stripBase64ImageMetadata(imageBase64);
   if (!clean.ok) {
     return {
@@ -91,14 +96,17 @@ export async function readLabelPhoto(
   if (result.ok) {
     if (isStillWanted && !isStillWanted()) {
       // Nothing should navigate for this — the caller's own guard already
-      // refuses that — but without this, the list and the single-use read
-      // token this call just produced would sit in `lib/pending-label`
-      // until the next read overwrites them. Cleared defensively rather
-      // than simply skipping `holdLabelRead`: an earlier, still-wanted read
-      // could theoretically still be sitting there if this one raced ahead
-      // of it, and a dropped read must not leave *anything* behind for the
-      // add-product screen to find, wanted or not.
-      clearLabelRead();
+      // refuses that — but without this, an abandoned read that got here
+      // first would sit in `lib/pending-label` forever, since nothing else
+      // is watching it. Only cleared if nothing has changed there since
+      // this read was sent: a newer, still-wanted read can finish and hold
+      // its own result while this one is still in flight (switch away, then
+      // back, then a second, faster photo — see issue #191's PR review),
+      // and this being unwanted must not reach across and clear *that* one
+      // out from under the add-product screen. This call never held its
+      // own result in the first place, so there is nothing of its own to
+      // protect — only someone else's to avoid touching.
+      if (heldLabelRead() === heldBeforeSend) clearLabelRead();
       return { kind: "read" };
     }
     holdLabelRead({ ingredients: result.ingredients, barcode, readToken: result.readToken });
