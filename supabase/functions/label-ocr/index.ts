@@ -161,15 +161,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
     return json(req, { error: "imageBase64 is required" }, 400);
   }
-  if (imageBase64.length > MAX_IMAGE_CHARS) {
-    return json(req, { error: "Image too large — retake it closer in" }, 413);
-  }
-  // Cheap rejection of garbage before it reaches Vision: a non-base64 payload
-  // would otherwise spend a network round trip only to be rejected there.
-  if (!/^[A-Za-z0-9+/=\s]+$/.test(imageBase64)) {
-    return json(req, { error: "imageBase64 is not valid base64" }, 400);
-  }
 
+  // The rate limiter sits above the size check below, not below it as it did
+  // before this file logged anything: a request with no `Content-Length`
+  // header (chunked) skips the earlier pre-body-read check entirely and
+  // reaches this one instead, so the oversize rejection at line ~185 needs
+  // `logRead` — and therefore the limiter — already in scope. Logging a
+  // pre-limit rejection would itself be the write amplification the limiter
+  // exists to prevent, so the two move together. Found in review on #246.
   const refusal = await enforceRateLimit(req, db, "label-ocr", RATE_LIMIT);
   if (refusal) return refusal;
 
@@ -179,6 +178,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const rawImageBytes = Math.round((imageBase64.length * 3) / 4);
   const logRead = (outcome: ScanOutcome, extra: { namesParsed?: number; namesResolved?: number } = {}) =>
     logScanBounded(req, db, callerSalt(), { path: "label", outcome, imageBytes: rawImageBytes, ...extra });
+
+  if (imageBase64.length > MAX_IMAGE_CHARS) {
+    await logRead("image_too_large");
+    return json(req, { error: "Image too large — retake it closer in" }, 413);
+  }
+  // Cheap rejection of garbage before it reaches Vision: a non-base64 payload
+  // would otherwise spend a network round trip only to be rejected there.
+  if (!/^[A-Za-z0-9+/=\s]+$/.test(imageBase64)) {
+    return json(req, { error: "imageBase64 is not valid base64" }, 400);
+  }
 
   // Strip EXIF/XMP/IPTC before this image goes anywhere. A phone photo carries
   // GPS coordinates, and the next thing that happens to it is a POST to Google
