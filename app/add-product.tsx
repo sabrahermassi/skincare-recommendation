@@ -11,7 +11,7 @@ import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { failureMessage, fetchProductByBarcode, saveScannedProduct } from "@/data/api";
 import { clearLabelRead, heldLabelRead } from "@/lib/pending-label";
-import { readTokenDeadline } from "@/supabase/functions/_shared/read-token";
+import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
 import {
   BORDER_INACTIVE,
   CAMERA_STAGE,
@@ -57,7 +57,14 @@ export default function AddProduct() {
     );
   }
 
-  return <NameStep barcode={barcode} ingredients={read.ingredients} readToken={read.readToken} />;
+  return (
+    <NameStep
+      barcode={barcode}
+      ingredients={read.ingredients}
+      readToken={read.readToken}
+      receivedAt={read.receivedAt}
+    />
+  );
 }
 
 function NothingToAdd() {
@@ -235,7 +242,18 @@ function retakePhoto(barcode: string) {
 }
 
 /** The last step: review the read, then a name, then everything is saved together. */
-function NameStep({ barcode, ingredients, readToken }: { barcode: string; ingredients: string[]; readToken: string }) {
+function NameStep({
+  barcode,
+  ingredients,
+  readToken,
+  receivedAt,
+}: {
+  barcode: string;
+  ingredients: string[];
+  readToken: string;
+  /** From `heldLabelRead`. Elapsed-since-receipt, not the token's own server-epoch deadline — see `HeldLabel`. */
+  receivedAt: number;
+}) {
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<SaveFailure | null>(
@@ -243,7 +261,13 @@ function NameStep({ barcode, ingredients, readToken }: { barcode: string; ingred
     // unauthenticated write, not to be raced — checking with a name and a
     // list of ingredients to read through is a real way to meet it. Caught
     // here so the screen never offers a Save button that can only fail.
-    () => (Date.now() > readTokenDeadline(readToken) ? "expired" : null)
+    //
+    // Measured from `receivedAt`, not the token's own deadline: comparing
+    // that server-signed deadline straight to `Date.now()` means a device
+    // clock running ahead of the server marks a fresh token expired on the
+    // spot, and every retake lands in the same loop. Elapsed time since a
+    // receipt stamped on this same device isn't exposed to that skew.
+    () => (Date.now() - receivedAt > READ_TOKEN_TTL_MS ? "expired" : null)
   );
   const [reviewOpen, setReviewOpen] = useState(false);
   const trimmed = name.trim();
@@ -267,7 +291,19 @@ function NameStep({ barcode, ingredients, readToken }: { barcode: string; ingred
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenReaderAnnouncer message={failure ? SAVE_FAILURE_COPY[failure] : ""} />
       <ScreenHeader title="Add this product" />
-      <View style={{ flex: 1, gap: SPACE.block, paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter }}>
+      {/*
+        Scrolls the whole form, not just the ingredient panel above: on a
+        short display, a landscape orientation, or with the keyboard open,
+        an expanded review plus the name field and Save can be taller than
+        the viewport even with the 220px cap on the ingredient list, and a
+        fixed `View` would strand Retake/Save off-screen. `keyboardShouldPersistTaps`
+        so a tap on Retake or the review toggle isn't swallowed by the
+        keyboard dismissing first.
+      */}
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ flexGrow: 1, gap: SPACE.block, paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: SPACE.gutter }}
+      >
         <View style={{ gap: SPACE.text }}>
           <Text style={{ fontSize: TYPE.body, color: INK }}>
             We don&apos;t have this product yet. Name it and we&apos;ll save it with the {ingredients.length} ingredients
@@ -394,7 +430,7 @@ function NameStep({ barcode, ingredients, readToken }: { barcode: string; ingred
             onPress={() => void save()}
           />
         )}
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
