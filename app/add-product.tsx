@@ -223,7 +223,14 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
   );
 }
 
-type SaveFailure = "unreadable_list" | "expired" | "rate_limited" | "failed" | "not_configured";
+type SaveFailure =
+  | "unreadable_list"
+  | "expired"
+  | "rate_limited"
+  | "failed"
+  | "not_configured"
+  | "network_error"
+  | "already_saved";
 
 const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
   unreadable_list: "That ingredient list didn't look right. Go back and photograph it again.",
@@ -231,6 +238,12 @@ const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
   rate_limited: "That's a lot of products in a short time. Give it a few minutes and try again.",
   failed: "Couldn't save that just now. Check your connection and try again.",
   not_configured: "Adding products isn't available in this build.",
+  network_error: "Couldn't reach our servers. Check your connection and try again.",
+  // It did save — the write already committed server-side before the parse
+  // that hit this failed (#188). "Show me that product" below looks it up
+  // by the barcode just submitted, rather than re-saving with a read token
+  // that's already been spent.
+  already_saved: "That saved, but we couldn't open it just now.",
 };
 
 /**
@@ -276,6 +289,7 @@ function NameStep({
   const [reviewOpen, setReviewOpen] = useState(false);
   const trimmed = name.trim();
   const expired = failure === "expired";
+  const alreadySaved = failure === "already_saved";
 
   async function save() {
     if (saving || !trimmed) return;
@@ -290,6 +304,28 @@ function NameStep({
     }
     setSaving(false);
     setFailure(result.reason);
+  }
+
+  /**
+   * Recovery for `already_saved` (#188): the write already committed
+   * server-side, so a plain retry would resubmit a now-consumed read token
+   * and land on `expired` instead — a real save reported as a lost one. The
+   * barcode just submitted now resolves, since the row exists, so this looks
+   * it up directly rather than re-saving.
+   */
+  async function findSavedProduct() {
+    if (saving) return;
+    setSaving(true);
+    const result = await fetchProductByBarcode(barcode);
+    setSaving(false);
+    if (result.ok && result.value) {
+      clearLabelRead();
+      router.dismissTo({ pathname: "/result/[id]", params: { id: result.value.id } });
+      return;
+    }
+    // Rare — the row was just written — but don't strand the user on a dead
+    // button if the lookup itself fails or somehow still misses.
+    setFailure("failed");
   }
 
   return (
@@ -405,7 +441,7 @@ function NameStep({
           autoFocus
           autoCorrect={false}
           maxLength={200}
-          editable={!expired}
+          editable={!expired && !alreadySaved}
           returnKeyType="done"
           onSubmitEditing={() => void save()}
           style={{
@@ -426,6 +462,14 @@ function NameStep({
 
         {expired ? (
           <PrimaryButton tone="cta" size={56} label="Scan it again" onPress={() => retakePhoto(barcode)} />
+        ) : alreadySaved ? (
+          <PrimaryButton
+            tone="cta"
+            size={56}
+            label={saving ? "Opening…" : "Show me that product"}
+            disabled={saving}
+            onPress={() => void findSavedProduct()}
+          />
         ) : (
           <PrimaryButton
             tone="cta"
