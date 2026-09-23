@@ -576,7 +576,10 @@ export default function ProductScreen() {
         <View style={{ paddingHorizontal: SPACE.gutter, gap: SPACE.block }}>
           <PregnancySection warnings={match.warnings} />
           <ContextNudgesSection
-            nudges={[...nudgesFor(product.ingredients), ...goalNudgesFor(product.ingredients, profile.concerns)]}
+            nudges={[
+              ...nudgesFor(product.ingredients, product.type),
+              ...goalNudgesFor(product.ingredients, profile.concerns, product.type),
+            ]}
           />
         </View>
 
