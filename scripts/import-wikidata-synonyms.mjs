@@ -26,6 +26,9 @@
  * --dry-run, SUPABASE_ENV=staging or production — production also requires --prod.
  */
 
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { connect } from "./lib/db.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 
@@ -61,8 +64,14 @@ function normalise(raw) {
  * arrive as aliases but are not what a label prints as an ingredient name, and
  * each is short enough to sit near a real name by edit distance.
  */
-function isCodeNotName(value) {
-  if (value.length < 4) return true;
+export function isCodeNotName(value) {
+  // Not for a CJK word: Hangul syllables and CJK ideographs are single UTF-16
+  // code units, so `.length` counts real short words like 정제수 ("purified
+  // water", 3) or 향료 ("fragrance", 2) as shorter than this floor — which
+  // rejected them here, before the CJK-word check a few lines down ever ran.
+  // Found in review on #247.
+  const isCjkWord = /[\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]{2}/u.test(value);
+  if (value.length < 4 && !isCjkWord) return true;
   if (/^e\s?\d{3}/i.test(value)) return true; // E-number
   if (/^c\.?\s?i\.?\s?\d+/i.test(value)) return true; // colour index
   if (/^[a-z]{1,3}\d+([a-z]{1,3}\d*)*$/i.test(value)) return true; // formula-ish, e.g. fe2o3
@@ -73,8 +82,7 @@ function isCodeNotName(value) {
   // Wikidata labels into empty strings, but this check still dropped every
   // one of them right afterwards, so a Korean/Japanese synonym still could
   // not reach `ingredient_synonyms` — the exact case #185 exists to unblock.
-  if (!/[a-z]{3}/i.test(value) && !/[\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]{2}/u.test(value))
-    return true;
+  if (!/[a-z]{3}/i.test(value) && !isCjkWord) return true;
   // Cross-database identifiers. These read as names because they contain a
   // word ("pubchem 84369"), but no label prints them.
   if (
@@ -253,7 +261,22 @@ async function main() {
   console.log(`\nWrote ${rows.length} synonyms.`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Guarded, matching `import-cosing.mjs`'s own `invokedDirectly()`: importing
+// this file (e.g. for `isCodeNotName`'s own test) must not also connect to
+// the database and run the whole import as a side effect.
+function invokedDirectly() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (invokedDirectly()) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
