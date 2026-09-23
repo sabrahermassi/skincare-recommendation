@@ -94,7 +94,13 @@ export async function readLabelPhoto(imageBase64: string, barcode?: string): Pro
  * usefully be pointed at it. Found in review on #121.
  */
 export function failureCopy(
-  reason: "not_configured" | "server_unavailable" | "unreadable" | "too_little_text" | "rate_limited",
+  reason:
+    | "not_configured"
+    | "server_unavailable"
+    | "unreadable"
+    | "too_little_text"
+    | "unrecognised_names"
+    | "rate_limited",
   hasBarcode: boolean
 ): LabelReadFailure {
   switch (reason) {
@@ -102,6 +108,17 @@ export function failureCopy(
       return {
         message: "We couldn't find an ingredient list in that photo.",
         hint: "Get closer so the small print fills the frame, and avoid glare.",
+        retryable: true,
+      };
+    // The photo was good enough — the names were read (#185 keeps a
+    // Korean/Japanese name instead of discarding it) — but too few matched
+    // what we know to score. "Get closer" would be a lie here: a better
+    // photo of the same label reads the same names. Retaking only helps if
+    // the label genuinely has more Latin/English text further down.
+    case "unrecognised_names":
+      return {
+        message: "We read this list, but don't recognise enough of these ingredient names yet.",
+        hint: "This can happen with formulas we don't have full translations for yet.",
         retryable: true,
       };
     case "rate_limited":

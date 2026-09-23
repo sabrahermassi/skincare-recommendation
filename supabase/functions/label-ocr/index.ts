@@ -30,6 +30,7 @@ import {
   callerSalt,
   type RateLimit,
 } from "../_shared/http.ts";
+import { gateRatio } from "../_shared/gate-ratio.ts";
 import { paginateOrdered } from "../_shared/paginate.ts";
 import { readTokenDeadline, signReadToken, verifyReadToken } from "../_shared/read-token.ts";
 import { logScanBounded, type ScanOutcome } from "../_shared/scan-log.ts";
@@ -333,7 +334,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // the dictionary and read the label again; a label that is already recognised
   // never pays for the table scan. The second read is kept only if it recognises
   // at least as much of the label as the first.
-  if (!readWithDictionary && known.size / parsed.length < MIN_KNOWN_INGREDIENT_RATIO) {
+  if (!readWithDictionary && gateRatio(parsed, known) < MIN_KNOWN_INGREDIENT_RATIO) {
     const probeParsed = parsed;
     const probeKnown = known;
     const failed = await parseWithDictionary();
@@ -348,7 +349,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return json(req, { error: "Could not read the ingredient dictionary" }, 502);
       }
     }
-    if (rereadKnown !== null && rereadKnown.size / parsed.length >= probeKnown.size / probeParsed.length) {
+    if (rereadKnown !== null && gateRatio(parsed, rereadKnown) >= gateRatio(probeParsed, probeKnown)) {
       known = rereadKnown;
     } else {
       parsed = probeParsed;
@@ -359,7 +360,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // a receipt can clear the four-fragment floor above, and a parsed formula
   // that mostly misses the dictionary is not a rare formula, it is a bad read.
   // Same ratio, same reasoning as MIN_KNOWN_INGREDIENT_RATIO's own comment.
-  if (known.size / parsed.length < MIN_KNOWN_INGREDIENT_RATIO) {
+  if (gateRatio(parsed, known) < MIN_KNOWN_INGREDIENT_RATIO) {
     await logRead("quality_gate", { namesParsed: parsed.length, namesResolved: known.size });
     return json(
       req,
@@ -401,7 +402,7 @@ async function saveProduct(
   const parsed = dedupe(
     names
       .map(normalise)
-      .filter((n) => n.length > 1 && n.length < 120 && /[a-z]/.test(n))
+      .filter((n) => n.length > 1 && n.length < 120 && /\p{L}/u.test(n))
       .map((inci_name, position) => ({ inci_name, position }))
   );
   if (parsed.length < MIN_INGREDIENTS) {
@@ -432,7 +433,7 @@ async function saveProduct(
     console.error("knownIngredients failed:", err);
     return json(req, { error: "Could not read the ingredient dictionary" }, 502);
   }
-  if (known.size / parsed.length < MIN_KNOWN_INGREDIENT_RATIO) {
+  if (gateRatio(parsed, known) < MIN_KNOWN_INGREDIENT_RATIO) {
     return json(
       req,
       { error: "low_confidence", found: parsed.length, recognised: known.size },
@@ -543,7 +544,7 @@ async function runOcr(imageBase64: string): Promise<OcrResult> {
             // DOCUMENT_TEXT_DETECTION beats TEXT_DETECTION on dense small print
             // set in a block, which is exactly what an INCI panel is.
             features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
-            imageContext: { languageHints: ["en", "ko"] },
+            imageContext: { languageHints: ["en", "ko", "ja"] },
           },
         ],
       }),
@@ -1064,7 +1065,7 @@ export function parseIngredientBlock(
   const fuzzyAttempts = { remaining: MAX_FUZZY_ATTEMPTS_PER_BLOCK };
   const delimited = splitOnSeparators(block)
     .map(normalise)
-    .filter((n) => n.length > 1 && n.length < 120 && /[a-z]/.test(n))
+    .filter((n) => n.length > 1 && n.length < 120 && /\p{L}/u.test(n))
     .flatMap((name) => {
       const resolved = canonical(name);
       // Without a dictionary a long real name cannot be recognised as known, so it is
@@ -1120,7 +1121,7 @@ function normalise(raw: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
-    .replace(/^[^a-z0-9]+|[^a-z0-9)]+$/g, "");
+    .replace(/^[^a-z0-9\p{L}]+|[^a-z0-9)\p{L}]+$/gu, "");
 }
 
 /** Bounded edit distance — returns early once the result is certain to exceed `max`. */

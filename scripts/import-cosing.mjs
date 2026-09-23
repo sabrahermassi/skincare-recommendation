@@ -134,7 +134,7 @@ function normalise(raw) {
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
-    .replace(/^[^a-z0-9]+|[^a-z0-9)]+$/g, "");
+    .replace(/^[^a-z0-9\p{L}]+|[^a-z0-9)\p{L}]+$/gu, "");
 }
 
 /** Column names drift between CosIng exports, so match on intent, not index. */

@@ -22,7 +22,7 @@ export function normalise(raw) {
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
-    .replace(/^[^a-z0-9]+|[^a-z0-9)]+$/g, "");
+    .replace(/^[^a-z0-9\p{L}]+|[^a-z0-9)\p{L}]+$/gu, "");
 }
 
 /**
@@ -556,7 +556,7 @@ export function parseInci(text, dictionary, rejected, aliases) {
   const fuzzyAttempts = { remaining: MAX_FUZZY_ATTEMPTS_PER_BLOCK };
   const delimited = splitOnSeparators(block)
     .map(normalise)
-    .filter((p) => p.length > 1 && p.length < 120 && /[a-z]/.test(p))
+    .filter((p) => p.length > 1 && p.length < 120 && /\p{L}/u.test(p))
     .flatMap((name) => {
       if (!dictionary) {
         // Without a dictionary a long real name cannot be recognised as known, so it is
