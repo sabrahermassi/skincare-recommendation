@@ -330,7 +330,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     helps: { concerns: ["fine-lines", "hyperpigmentation"] },
     hurts: { sensitive: true, skinTypes: ["dry"] },
     reason:
-      "A retinoid ester with early trial evidence rivaling retinol for fine lines, at a gentler irritation cost than the free acid form",
+      "A retinoid ester with early trial evidence rivaling retinol for fine lines, at a gentler irritation cost than retinol itself",
     weight: 8,
   },
   {
