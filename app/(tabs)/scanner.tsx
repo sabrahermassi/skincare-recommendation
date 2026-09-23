@@ -141,6 +141,12 @@ export default function Scan() {
   // module rather than hardcoding either mode.
   const [mode, setMode] = useState<Mode>(() => rememberedScanMode());
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  // Off by default, and reset on leaving the scanner (below) rather than left
+  // to whatever it was: the camera itself unmounts on blur, so the light goes
+  // off, but this state survives and would otherwise switch it back on the
+  // moment the scanner regains focus with no one having asked for that — a
+  // battery cost and a real annoyance in a shop (#195).
+  const [torchOn, setTorchOn] = useState(false);
 
   const recordView = useAppStore((s) => s.recordView);
   const dismissQuizAcknowledgement = useAppStore((s) => s.dismissQuizAcknowledgement);
@@ -286,6 +292,11 @@ export default function Scan() {
         dismissGuard.reset();
         setStatus({ kind: "idle" });
         busy.current = false;
+        // Unconditional, unlike the guards above: an internal push
+        // (`preserveMode`) still physically leaves this screen, so the torch
+        // should still go dark rather than staying "on" in state for a
+        // camera that's no longer mounted (#195).
+        setTorchOn(false);
       };
       // dismissGuard and reads are both stable values (see their own
       // declarations above); including them in the deps array would just be
@@ -314,6 +325,21 @@ export default function Scan() {
       };
     }, [])
   );
+
+  // A quiet nudge toward Photo mode when a barcode just isn't reading — too
+  // blurry, too small, or on a dark shelf (#195). Starts only while genuinely
+  // idle in Barcode mode on the visible screen, so it can never appear over
+  // a found sheet or a miss/unreachable panel, and clears itself the moment
+  // any of those conditions stops being true — a mode change, any status
+  // change (including the read that made the timer pointless), or losing
+  // focus.
+  const [showScanHint, setShowScanHint] = useState(false);
+  useEffect(() => {
+    setShowScanHint(false);
+    if (mode !== "Barcode" || status.kind !== "idle" || !isFocused) return;
+    const timer = setTimeout(() => setShowScanHint(true), IDLE_HINT_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [mode, status, isFocused]);
 
   const handleBarcode = useCallback(
     async (data: string, target?: Box) => {
@@ -418,6 +444,8 @@ export default function Scan() {
         onBarcode={handleBarcode}
         onAdd={() => selectMode("Photo")}
         onDismiss={dismissStatus}
+        showHint={showScanHint}
+        onHint={() => selectMode("Photo")}
         preserveMode={preserveMode}
       />
     ) : (
@@ -453,7 +481,7 @@ export default function Scan() {
             the cream permission screen. */}
         {isFocused && !needsPermission ? <StatusBar style="light" /> : null}
         {cameraLive ? (
-          <ScannerCamera cameraRef={cameraRef} onScanned={onScanned} onLayout={onCameraLayout} />
+          <ScannerCamera cameraRef={cameraRef} onScanned={onScanned} onLayout={onCameraLayout} enableTorch={torchOn} />
         ) : null}
 
         {/* One frame too: it eases between four corners and a full outline, and the
@@ -526,6 +554,29 @@ export default function Scan() {
       >
         <Ionicons name="close" size={26} color={needsPermission ? INK : CANVAS} />
       </Pressable>
+
+      {/* Visible in both modes, not just Barcode (#195): the camera is one
+          shared instance (see ScannerCamera's own comment), so a torch
+          turned on here stays on across a mode switch — and someone
+          photographing a label on the same dark shelf needs the light too. */}
+      {cameraLive ? (
+        <Pressable
+          onPress={() => setTorchOn((on) => !on)}
+          accessibilityRole="button"
+          accessibilityLabel={torchOn ? "Turn off the torch" : "Turn on the torch"}
+          style={{
+            position: "absolute",
+            right: 16,
+            top: insets.top + 8,
+            width: TOUCH_TARGET,
+            height: TOUCH_TARGET,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Ionicons name={torchOn ? "flash" : "flash-outline"} size={24} color={CANVAS} />
+        </Pressable>
+      ) : null}
     </GenieShell>
   );
 }
@@ -674,10 +725,16 @@ function ScannerCamera({
   cameraRef,
   onScanned,
   onLayout,
+  enableTorch,
 }: {
   cameraRef: React.RefObject<CameraView | null>;
   onScanned: (result: BarcodeScanningResult) => void;
   onLayout: (event: LayoutChangeEvent) => void;
+  /** `expo-camera@~57.0.4`'s own prop — no `@platform` restriction, and
+   *  genuinely implemented on web too (see the torch toggle's own comment,
+   *  below, for the verification). A device that can't do it just gets an
+   *  inert button; that's a note, not a defect (#195). */
+  enableTorch: boolean;
 }) {
   const [ready, setReady] = useState(false);
   const [veil] = useState(() => new Animated.Value(1));
@@ -708,6 +765,7 @@ function ScannerCamera({
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
         facing="back"
+        enableTorch={enableTorch}
         barcodeScannerSettings={BARCODE_SETTINGS}
         onBarcodeScanned={onScanned}
         onLayout={onLayout}
@@ -822,6 +880,8 @@ function BarcodeStage({
   onBarcode,
   onAdd,
   onDismiss,
+  showHint,
+  onHint,
   preserveMode,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
@@ -834,6 +894,10 @@ function BarcodeStage({
   /** Clears a "missed" or "unreachable" panel and returns the scanner to
    *  Ready — "Scan again" / "Scan something else" below (#192). */
   onDismiss: () => void;
+  /** True once `IDLE_HINT_DELAY_MS` has passed with nothing read (#195). */
+  showHint: boolean;
+  /** Switches to Photo mode — the scan hint's own action. */
+  onHint: () => void;
   /** Call before any navigation away from this stage that isn't a tab
    *  switch — see `Scan`'s own `preserveMode` doc comment for why. */
   preserveMode: () => void;
@@ -1065,6 +1129,36 @@ function BarcodeStage({
         )}
 
       </View>
+
+      {/* A quiet way out when nothing has read for a while (#195) — its own
+          wrapper, clear of the switcher via `switcherClearance` rather than
+          the tighter spacing the panel above uses, per the fixed-inset
+          lesson at `SWITCHER_HEIGHT`'s own comment. Only ever shown while
+          genuinely idle, so it can never sit over the panel or a found
+          sheet. */}
+      {showHint && status.kind === "idle" && (
+        <View
+          style={{
+            position: "absolute",
+            left: STAGE_INSET,
+            right: STAGE_INSET,
+            bottom: switcherClearance,
+            alignItems: "center",
+          }}
+        >
+          <Pressable
+            onPress={onHint}
+            accessibilityRole="button"
+            accessibilityLabel="Not scanning? Photograph the ingredient list instead."
+            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }}
+            className="active:opacity-70"
+          >
+            <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.85), textDecorationLine: "underline" }}>
+              Not scanning? Photograph the ingredient list instead.
+            </Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -1230,4 +1324,9 @@ const CLOSE_CLEARANCE = 32;
 // Clear of the bottom edge and the home indicator.
 const STAGE_BOTTOM = 20;
 const FRAME_MARGIN_ABOVE_SWITCHER = 24;
+// How long a barcode can sit unread in frame before offering Photo mode as
+// the way out (#195) — long enough that a normal read (under a second)
+// never brushes it, short enough that someone stuck on a blurry or
+// dark-shelf barcode isn't left guessing.
+const IDLE_HINT_DELAY_MS = 8_000;
 
