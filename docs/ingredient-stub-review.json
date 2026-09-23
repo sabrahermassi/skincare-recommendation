@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-21T17:35:57.261Z",
+  "generatedAt": "2026-09-22T23:44:53.331Z",
   "policy": {
     "promoteByFrequency": false,
     "verifiedMeaning": "Matched to a checked source; repeated sightings alone are not verification.",
@@ -10,17 +10,17 @@
       "CAS-joined Wikidata synonym table"
     ]
   },
-  "inventoryHash": "bdbc98675e3c67bf35328feeb64a1b04b3bef96558acefe05955357f59dd0e0e",
+  "inventoryHash": "72d84ae30a5c4c249d09177bdb94fcaa1e86771c21d84631b8877266c7a0b7a7",
   "summary": {
-    "verifiedNames": 38769,
-    "unverifiedNames": 468,
-    "usedUnverifiedNames": 468,
-    "unverifiedProductLinks": 527,
+    "verifiedNames": 39128,
+    "unverifiedNames": 467,
+    "usedUnverifiedNames": 467,
+    "unverifiedProductLinks": 519,
     "decisions": {
       "leave-unmapped-ambiguous": 12,
       "leave-unmapped-invalid-source-text": 7,
       "leave-unmapped-multiple": 73,
-      "leave-unmapped-no-authoritative-match": 376
+      "leave-unmapped-no-authoritative-match": 375
     }
   },
   "entries": [
@@ -60,7 +60,6 @@
     {"name":"arabinan","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"arnebia nobilis root extract","source":"unmatched","uses":2,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"ascorbyl propyl hydrolyzed hyaluronate","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
-    {"name":"aus kontrolliert biologischem anbau","source":"unmatched","uses":4,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"avena sativa extract","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"avene thermal spring water","source":"curated","uses":11,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"avene thermal spring water javene aqua)","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
@@ -260,6 +259,7 @@
     {"name":"huile de noix de coco","source":"curated","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"hydroexythylcellulose","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"hydrogenated glycol polyglyceryl-2 sesquiisos tearate","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
+    {"name":"hydrogenated poly","source":"unmatched","uses":2,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"hydrogenated starch","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"hydroxyethyl acrylate/ sodium acryloyldimethyl taurate co - polymer","source":"curated","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"hydroxyethyl acrylate/sodium acryloyld methyl taurate copolymer","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
@@ -309,7 +309,6 @@
     {"name":"methoxy peg - 114/polyepsilon caprolactone","source":"curated","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"methylchlo-roisothiazolinone methylisothiazolinone","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"methylene bis-benzotriazolyl tetramethylbutylphenol aqua decyl glucoside propylene glycol xanthan gum","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
-    {"name":"methylene bis-benzotriazolyl tetramethylbutylphenol nano","source":"curated","uses":4,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"methylisothiazolinone & phenoxyethanol","source":"unmatched","uses":1,"decision":"leave-unmapped-multiple","reason":"The text contains more than one verified ingredient, so collapsing it to one name would lose data."},
     {"name":"metossulfato de beentrimônio","source":"curated","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"microcrystalinne wax","source":"curated","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
@@ -365,6 +364,7 @@
     {"name":"pogostemon cablin oil","source":"unmatched","uses":2,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"poloaxmer 124","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"poltcrylate−13","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
+    {"name":"poly","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"polyacrylamide & c13-14 isoparaffin & laureth-7 methylisothiazolino ne & phenoxyethanol","source":"unmatched","uses":1,"decision":"leave-unmapped-multiple","reason":"The text contains more than one verified ingredient, so collapsing it to one name would lose data."},
     {"name":"polyacrylate & polyisobutene & polysorbate 20","source":"unmatched","uses":1,"decision":"leave-unmapped-multiple","reason":"The text contains more than one verified ingredient, so collapsing it to one name would lose data."},
     {"name":"polyacrylate 13 & polyisobutene & polysorbate 20","source":"unmatched","uses":1,"decision":"leave-unmapped-multiple","reason":"The text contains more than one verified ingredient, so collapsing it to one name would lose data."},
@@ -486,7 +486,6 @@
     {"name":"xantham gum","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"xanthan gum and carrageenans and glucose","source":"unmatched","uses":1,"decision":"leave-unmapped-multiple","reason":"The text contains more than one verified ingredient, so collapsing it to one name would lose data."},
     {"name":"xanthan gum tocopheryl acetate","source":"unmatched","uses":1,"decision":"leave-unmapped-multiple","reason":"The text contains more than one verified ingredient, so collapsing it to one name would lose data."},
-    {"name":"yellow 5","source":"curated","uses":3,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"yellow 5 lake","source":"unmatched","uses":2,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"yellow 6","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
     {"name":"yellow 6 lake","source":"unmatched","uses":1,"decision":"leave-unmapped-no-authoritative-match","reason":"Matched no rule: no single safe target in the checked CosIng/OBF dictionary or CAS-backed synonym table. Sorted by rule, not read by a person; this group mixes misspellings, other-language names and leftover packaging text."},
