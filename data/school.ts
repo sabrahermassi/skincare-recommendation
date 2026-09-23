@@ -133,7 +133,7 @@ export const SCHOOL: SchoolCategory[] = [
         id: "cant-tell",
         question: "Why does it sometimes say it can't tell?",
         answer:
-          "When we can't recognise enough of the ingredient list — a blurry photo, or names we don't have yet — we'd rather say so than guess. An ingredient we don't recognise never counts as good or bad; it just makes the answer less certain.",
+          "When we can't recognise enough of the ingredient list — a blurry photo, or names we don't have yet — we'd rather say so than guess. An ingredient we don't recognise doesn't count toward the score as good or bad; it just makes the answer less certain. One exception: if you've told us you're pregnant or breastfeeding, a name that looks like one to check is still flagged, even when we can't fully confirm it.",
       },
       {
         id: "is-it-safe",
@@ -145,7 +145,7 @@ export const SCHOOL: SchoolCategory[] = [
         id: "ai",
         question: "Does the app use AI?",
         answer:
-          "No. The score comes from fixed rules about ingredients, each carrying the sentence you see on screen, and these answers are fixed text too — nothing is generated when you open them. The one step that uses a trained model is reading the text off a label photo.",
+          "For one step. When you photograph a label, Google's trained text-recognition model reads the words off the photo. Everything after that is fixed: the score comes from fixed rules about ingredients, each carrying the sentence you see on screen, and these answers are fixed text too — nothing is generated when you open them.",
       },
     ],
   },

@@ -23,6 +23,20 @@ describe("Skincare School content", () => {
     for (const q of questions) expect(q.question).not.toMatch(conditionWords);
   });
 
+  // Both answers describe what the app does, so they have to match it (#263 review).
+  it("doesn't deny AI: label photos are read by a trained model", () => {
+    const answer = questions.find((q) => q.id === "ai")!.answer;
+    expect(answer).not.toMatch(/^No\b/);
+    expect(answer).toMatch(/label/i);
+    expect(answer).toMatch(/model/i);
+  });
+
+  it("keeps the pregnancy exception when saying unrecognised names don't count", () => {
+    const answer = questions.find((q) => q.id === "cant-tell")!.answer;
+    expect(answer).not.toMatch(/\bnever counts\b/);
+    expect(answer).toMatch(/pregnant or breastfeeding/);
+  });
+
   it("has no empty question or answer", () => {
     for (const q of questions) {
       expect(q.question.trim().length).toBeGreaterThan(0);
