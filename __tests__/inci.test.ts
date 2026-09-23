@@ -571,6 +571,43 @@ describe("parseIngredientBlock", () => {
     expect(parsed.map((p) => p.inci_name)).toEqual(["water", "glycerin", "niacinamide"]);
   });
 
+  // #185: a Hangul or kana/kanji name used to become an empty string (the
+  // trailing/leading strip in `normalise` and the `/[a-z]/` filter both
+  // discarded anything with no Latin letters) and vanish before it ever
+  // reached the synonym lookup — this is a parser assertion, and needs no
+  // dictionary data to be meaningful (done-when 1).
+  it("keeps a Hangul-only name instead of discarding it", () => {
+    const parsed = parseIngredientBlock("정제수, Glycerin, Niacinamide");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["정제수", "glycerin", "niacinamide"]);
+  });
+
+  it("keeps a kana/kanji-only name instead of discarding it", () => {
+    // A single-character name ("水", water) is separately dropped by the
+    // `n.length > 1` filter a few lines below in `parseIngredientBlock` —
+    // real, but out of #185's blast radius (it isn't a Latin-only check and
+    // affects a one-character Latin name identically), so this uses
+    // realistic multi-character names instead of chasing that too.
+    const parsed = parseIngredientBlock("香料, グリセリン, Niacinamide");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["香料", "グリセリン", "niacinamide"]);
+  });
+
+  // Done-when 7's fallback branch: staging's `ingredient_synonyms` cannot be
+  // checked from this session (no `.env.staging` / staging credentials are
+  // available here), so per the ticket's own instruction this asserts
+  // resolution against an injected test dictionary instead of live data —
+  // the live Korean path is unproven until #201 imports real Korean
+  // synonyms. Say so plainly rather than treating this test as equivalent.
+  it("a Korean-only label resolves end to end against an injected dictionary (live path unproven — see #201)", () => {
+    const dictionaryWithKorean = new Set(["aqua", "glycerin", "niacinamide"]);
+    const koreanAliases = new Map([
+      ["정제수", "aqua"],
+      ["글리세린", "glycerin"],
+      ["나이아신아마이드", "niacinamide"],
+    ]);
+    const parsed = parseIngredientBlock("정제수, 글리세린, 나이아신아마이드", dictionaryWithKorean, koreanAliases);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "niacinamide"]);
+  });
+
   it.each([
     ["ingrédients: aqua, glycerin", ["aqua", "glycerin"]],
     ["INGRÉDIENTS : Aqua, Glycerin", ["aqua", "glycerin"]],

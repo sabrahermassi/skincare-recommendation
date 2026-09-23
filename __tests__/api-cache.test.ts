@@ -843,6 +843,40 @@ describe("a label read", () => {
 
     expect(await readLabel("base64")).toEqual({ ok: false, reason: "too_little_text" });
   });
+
+  // #185: a 422 with no readable body (a test double, or a shape with no
+  // `.json`) must still fall back to `too_little_text` rather than throwing
+  // — the case above already pins that. This pins the other half: a 422
+  // whose body says `low_confidence` (names were read but too few resolved)
+  // must NOT collapse into the same `too_little_text` copy ("get closer"),
+  // since the photo was already good enough to read.
+  it("distinguishes an unrecognised-names 422 from a too-little-text one", async () => {
+    invokeMock().mockResolvedValue({
+      data: null,
+      error: {
+        context: {
+          status: 422,
+          json: () => Promise.resolve({ error: "low_confidence", found: 6, recognised: 1 }),
+        },
+      },
+    });
+
+    expect(await readLabel("base64")).toEqual({ ok: false, reason: "unrecognised_names", rawText: undefined });
+  });
+
+  it("still reports too_little_text when the 422 body says not_enough_text", async () => {
+    invokeMock().mockResolvedValue({
+      data: null,
+      error: {
+        context: {
+          status: 422,
+          json: () => Promise.resolve({ error: "not_enough_text", found: 1 }),
+        },
+      },
+    });
+
+    expect(await readLabel("base64")).toEqual({ ok: false, reason: "too_little_text", rawText: undefined });
+  });
 });
 
 describe("saving a product", () => {
