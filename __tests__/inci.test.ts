@@ -591,6 +591,20 @@ describe("parseIngredientBlock", () => {
     expect(parsed.map((p) => p.inci_name)).toEqual(["香料", "グリセリン", "niacinamide"]);
   });
 
+  // Found in review on #247: #185 is scoped to Korean and Japanese, but an
+  // earlier version of this fix widened the filter to `\p{L}` — any Unicode
+  // letter script at all, not just Hangul/kana/Han. That kept a script
+  // `gateRatio` doesn't know to exempt (Cyrillic, Arabic, Greek, Hebrew,
+  // Thai, ...), so an unresolved name in one of those now dragged the 60%
+  // gate down where the old `[a-z]`-only filter would have discarded it
+  // before it ever reached `parsed` — a regression on exactly the labels
+  // this ticket isn't about. Narrowed back to Latin + the four CJK scripts,
+  // so anything else is still discarded exactly as it was before this PR.
+  it("still discards a non-CJK, non-Latin name (out of #185's scope)", () => {
+    const parsed = parseIngredientBlock("Кириллица, Water, Glycerin");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["water", "glycerin"]);
+  });
+
   // Done-when 7's fallback branch: staging's `ingredient_synonyms` cannot be
   // checked from this session (no `.env.staging` / staging credentials are
   // available here), so per the ticket's own instruction this asserts

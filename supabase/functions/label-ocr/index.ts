@@ -402,7 +402,7 @@ async function saveProduct(
   const parsed = dedupe(
     names
       .map(normalise)
-      .filter((n) => n.length > 1 && n.length < 120 && /\p{L}/u.test(n))
+      .filter((n) => n.length > 1 && n.length < 120 && /[a-z]|\p{Script=Hangul}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Han}/u.test(n))
       .map((inci_name, position) => ({ inci_name, position }))
   );
   if (parsed.length < MIN_INGREDIENTS) {
@@ -1065,7 +1065,7 @@ export function parseIngredientBlock(
   const fuzzyAttempts = { remaining: MAX_FUZZY_ATTEMPTS_PER_BLOCK };
   const delimited = splitOnSeparators(block)
     .map(normalise)
-    .filter((n) => n.length > 1 && n.length < 120 && /\p{L}/u.test(n))
+    .filter((n) => n.length > 1 && n.length < 120 && /[a-z]|\p{Script=Hangul}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Han}/u.test(n))
     .flatMap((name) => {
       const resolved = canonical(name);
       // Without a dictionary a long real name cannot be recognised as known, so it is
@@ -1121,7 +1121,7 @@ function normalise(raw: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
-    .replace(/^[^a-z0-9\p{L}]+|[^a-z0-9)\p{L}]+$/gu, "");
+    .replace(/^[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]+|[^a-z0-9)\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]+$/gu, "");
 }
 
 /** Bounded edit distance — returns early once the result is certain to exceed `max`. */
