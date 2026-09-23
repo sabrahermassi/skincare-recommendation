@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import AddProduct from "@/app/add-product";
 import { saveScannedProduct } from "@/data/api";
 import { clearLabelRead, heldLabelRead, holdLabelRead } from "@/lib/pending-label";
+import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
 
 /**
  * Covers issue #193: the ingredient review section, the read-only guarantee,
@@ -108,7 +109,12 @@ describe("AddProduct — review section", () => {
 
 describe("AddProduct — expired read token", () => {
   it("shows Scan it again instead of a Save button, and does not let the name field be edited", async () => {
-    holdLabelRead({ barcode: "1234567890123", ingredients: INGREDIENTS, readToken: freshToken(Date.now() - 1000) });
+    holdLabelRead({
+      barcode: "1234567890123",
+      ingredients: INGREDIENTS,
+      readToken: freshToken(Date.now() + 60_000),
+      receivedAt: Date.now() - (READ_TOKEN_TTL_MS + 1000),
+    });
     await render(<AddProduct />);
 
     expect(screen.queryByText("Save and see my match")).toBeNull();
@@ -117,7 +123,12 @@ describe("AddProduct — expired read token", () => {
   });
 
   it("Scan it again clears the held read and returns to the camera", async () => {
-    holdLabelRead({ barcode: "1234567890123", ingredients: INGREDIENTS, readToken: freshToken(Date.now() - 1000) });
+    holdLabelRead({
+      barcode: "1234567890123",
+      ingredients: INGREDIENTS,
+      readToken: freshToken(Date.now() + 60_000),
+      receivedAt: Date.now() - (READ_TOKEN_TTL_MS + 1000),
+    });
     await render(<AddProduct />);
 
     await fireEvent.press(screen.getByText("Scan it again"));
@@ -128,6 +139,25 @@ describe("AddProduct — expired read token", () => {
 
   it("a not-yet-expired token still offers Save", async () => {
     holdLabelRead({ barcode: "1234567890123", ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    await render(<AddProduct />);
+
+    expect(screen.getByText("Save and see my match")).toBeTruthy();
+    expect(screen.queryByText("Scan it again")).toBeNull();
+  });
+
+  it("a token just received still offers Save even if the device clock reads past the token's own deadline", async () => {
+    // Issue #193/#245 review: the eager check used to compare the token's
+    // server-signed deadline straight against `Date.now()`, so a device
+    // clock running ahead of the server made a token expired on arrival.
+    // `freshToken` here is deliberately already past its own deadline —
+    // what should decide "expired" is how long ago it was *received*, not
+    // that stamp.
+    holdLabelRead({
+      barcode: "1234567890123",
+      ingredients: INGREDIENTS,
+      readToken: freshToken(Date.now() - 1000),
+      receivedAt: Date.now(),
+    });
     await render(<AddProduct />);
 
     expect(screen.getByText("Save and see my match")).toBeTruthy();

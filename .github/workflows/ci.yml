@@ -144,6 +144,20 @@ jobs:
       - name: Typecheck the Deno tests
         run: deno check supabase/tests/rate_limit_e2e.test.ts
 
+      # Nothing else type-checks these two Edge Functions: they're excluded
+      # from the TS project (they're Deno, not Node), and the Deno test above
+      # only covers the rate-limit test file, not the functions themselves.
+      # `--node-modules-dir=none`: the repo root has a package.json for the
+      # Expo app, which makes Deno auto-detect npm-compatible resolution and
+      # expect a local node_modules it never created -- these functions'
+      # `jsr:@supabase/supabase-js` import pulls in an npm sub-dependency
+      # (realtime-js) that then fails to resolve. The Edge Function runtime
+      # itself never manages a node_modules directory either, so forcing
+      # Deno's default global-cache resolution here matches how this code
+      # actually runs.
+      - name: Typecheck the Deno Edge Functions
+        run: deno check --node-modules-dir=none supabase/functions/label-ocr/index.ts supabase/functions/product-lookup/index.ts
+
       - name: The limiter, end to end
         run: deno test --allow-net --allow-env supabase/tests/rate_limit_e2e.test.ts
 

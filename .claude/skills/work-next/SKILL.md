@@ -15,9 +15,13 @@ production.
 
 There is exactly one finish line: **no `code-ready` ticket is left that
 isn't already in flight.** Nothing else ends the run — not a stuck PR, not
-a ticket that turns out to need a decision, not a review loop that hits its
-round cap. Each of those is handled in place and the chain moves to the
-next ticket (steps 2, 7 and 8 say how).
+a ticket that turns out to need a decision, not a review loop that keeps
+finding things. Each of those is handled in place and the chain moves to
+the next ticket (steps 2, 7 and 8 say how).
+
+And within a ticket there is exactly one stopping condition too: **nothing
+left to fix that doesn't need a decision from the user.** No counter, no
+round limit — see step 7.
 
 ## 0. Session setup — once per chain, not per ticket
 
@@ -376,13 +380,39 @@ Each round:
 4. Push. Re-trigger `@claude review` and `@codex review`; CodeRabbit
    re-reviews on the push automatically.
 
-Repeat until a round produces no new fixable (relevant, non-nitpick, or
-cheap-nitpick) findings — that's convergence, not necessarily silence from
-every tool. Cap at 5 rounds regardless. If still not clean after 5, stop
-this ticket and report what's left rather than looping indefinitely — then
-continue the chain to the next ticket regardless (don't let one stuck PR
-block the rest of the stack from being built; it can be fixed once the user
-reaches it).
+**There is no round cap. The loop ends when there is nothing left to fix
+that does not need a decision from the user — and nothing else ends it.**
+
+A round that produces fixable findings is a round that earned its place.
+Stopping at a counter while a fix you already understand sits unapplied is
+the failure this section exists to prevent: it pushes work onto the user
+that the chain was capable of doing, and it fills "Open Questions" with
+items that need no answer, which makes that section useless for the ones
+that do.
+
+Each round, fix everything that does not require an architecture, schema or
+product decision. Push. Re-request reviews. Repeat.
+
+**Convergence — the real stopping condition.** The loop is done when a round
+produces no new *fixable* findings. That is not the same as silence from
+every tool, and these all count as converged:
+
+- only nitpicks that are not worth the diff
+- only findings already fixed in an earlier round, restated
+- only findings already recorded in Open Questions as needing a decision
+- tools contradicting each other on the same line — that disagreement is
+  itself a decision for the user, so record it and move on
+
+**If it genuinely will not converge** — new, real, fixable findings still
+arriving after many rounds — that is a signal about the change, not a
+reason to stop mid-fix. Finish the round you are in, then say plainly in
+the PR that the diff is still producing findings and why you think so
+(the change is too large, the area is under-tested, the ticket was
+under-scoped). A reviewer can act on that. A silent stop at round five
+tells them nothing.
+
+Then continue the chain to the next ticket regardless (don't let one stuck
+PR block the rest of the stack from being built).
 
 ## 8. Report this PR, then continue the chain
 

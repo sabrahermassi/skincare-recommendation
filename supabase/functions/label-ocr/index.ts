@@ -91,7 +91,6 @@ const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return preflight(req);
   if (req.method !== "POST") return json(req, { error: "POST only" }, 405);
-  if (!VISION_API_KEY) return json(req, { error: "OCR is not configured" }, 503);
 
   // Refuse an oversized body BEFORE reading it. `req.json()` buffers the whole
   // request into memory first, so the `MAX_IMAGE_CHARS` check further down —
@@ -199,6 +198,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const rawImageBytes = Math.round((imageBase64.length * 3) / 4);
   const logRead = (outcome: ScanOutcome, extra: { namesParsed?: number; namesResolved?: number } = {}) =>
     logScanBounded(req, db, callerSalt(), { path: "label", outcome, imageBytes: rawImageBytes, ...extra });
+
+  // Moved here from the top of the handler (was checked before `saving` was
+  // even known, blocking a save too — the save path never touches Vision).
+  // The real reason it lives here, though: `logRead` needs the body parsed
+  // and `rawImageBytes` measured to exist at all, and without this check
+  // running through it, a missing key returned 503 with no row — every read
+  // attempt during a misconfiguration vanished from the metric this PR
+  // exists to produce. Found live on staging (#246 review).
+  if (!VISION_API_KEY) {
+    await logRead("internal_error");
+    return json(req, { error: "OCR is not configured" }, 503);
+  }
 
   if (imageBase64.length > MAX_IMAGE_CHARS) {
     await logRead("image_too_large");
@@ -635,7 +646,11 @@ export function splitOnSeparators(text: string): string[] {
     offset > 0 && /\d/.test(text[offset - 1]) ? PLACEHOLDER : match
   );
   return protectedText
-    .split(/[;•·]|,|\.(?=\s)/)
+    // U+3001, the ideographic (full-width) comma, is the separator standard
+    // Japanese ingredient lists actually print ("水、グリセリン") -- the ASCII
+    // comma never appears in one at all, so without this every such label
+    // produced a single unsplittable block instead of real tokens.
+    .split(/[;•·、]|,|\.(?=\s)/)
     .map((s) => s.replace(new RegExp(PLACEHOLDER, "g"), ",").replace(//g, "."));
 }
 
@@ -1043,7 +1058,7 @@ export function parseIngredientBlock(
 ): ParsedIngredient[] {
   const flat = text.replace(/\r/g, "").replace(/\n+/g, " ").replace(/\s+/g, " ").replace(/\b(?:inactive ingredients?|may contain|peu(?:t|vent) contenir|puede contener|kann enthalten)\s*[:：]?\s*/gi, ", ");
 
-  const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:\bingredients?\b|전성분|성분)\s*[:：]?\s*/i.exec(flat);
+  const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:\bingredients?\b|전성분|성분|全成分)\s*[:：]?\s*/i.exec(flat);
   let block = heading ? flat.slice(heading.index + heading[0].length) : flat;
 
   // With a dictionary the heading's language stops mattering: the list is
@@ -1124,13 +1139,24 @@ function dedupe(parsed: ParsedIngredient[]): ParsedIngredient[] {
 /** Same normalisation as the import scripts, or the dictionary cannot match. */
 function normalise(raw: string): string {
   return raw
+    // Full-width Latin/digits/punctuation (a common OCR read on a Japanese
+    // label, e.g. "ＰＥＧ－４０") are Script=Common, not Latin or one of the
+    // CJK scripts below, so the trim at the end stripped them as decoration
+    // rather than keeping them as the name they are. NFKC folds them to
+    // their standard-width equivalents first, matching how the dictionary
+    // itself is spelled.
+    .normalize("NFKC")
     .replace(/\([^)]*\)/g, " ")
     .replace(/[*_[\]]/g, " ")
     .replace(/\b\d+([.,]\d+)?\s*%/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
-    .replace(/^[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]+|[^a-z0-9)\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]+$/gu, "");
+    // U+30FC, the katakana-hiragana prolongation mark ("ー" in "ポリマー"),
+    // is Script=Common rather than Katakana, so it needs to be named
+    // explicitly to survive the trim below the same way the four CJK
+    // scripts do.
+    .replace(/^[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+|[^a-z0-9)\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+$/gu, "");
 }
 
 /** Bounded edit distance — returns early once the result is certain to exceed `max`. */
