@@ -40,16 +40,18 @@ something didn't happen.
 
 > **What we ship:** "That doesn't look like an ingredient list."
 > (`lib/read-label-photo.ts`) and "We couldn't reach our servers."
-> (`data/api.ts`'s `network_error`, #188)
+> (`failureCopy`'s copy for the `network_error` reason, #188)
 >
 > **What we don't write:** "Something went wrong. Please try again."
 
 A generic retry message is honest about nothing. This app tells the
-photo-side problem and the connection-side problem apart on purpose — see
-`lib/read-label-photo.ts`'s `failureCopy` and `data/api.ts`'s
-`classifyFailure` — because the fix is different (retake vs. check your
-signal), and #188 exists specifically because that distinction had gone
-missing in two places.
+photo-side problem and the connection-side problem apart on purpose — the
+status mapping in `data/api.ts`'s `readLabel` and `saveScannedProduct`
+decides which it is, and `lib/read-label-photo.ts`'s `failureCopy` words
+it — because the fix is different (retake vs. check your signal), and
+#188 exists specifically because that distinction had gone missing in two
+places. (`classifyFailure` is the barcode lookup's equivalent; the photo
+path doesn't use it.)
 
 ### 3. The reader is not to blame, and the tone should never suggest it
 
@@ -120,12 +122,12 @@ side.
   "Supabase", "Edge Function", "rate limit", "classifyFailure." If a
   screen needs to reference *why* honestly, it describes the effect
   ("that's a lot of photos in a short time"), not the mechanism.
-- **A recurring phrase stays recurring.** "This helps us give more
-  relevant recommendations" appears both in the pregnancy quiz step
-  (`app/onboarding/(quiz)/pregnancy.tsx`) and on the profile screen
-  (`app/skin-profile.tsx`) — deliberately identical, not two independent
-  attempts at the same idea. Match an existing recurring phrase rather
-  than writing a fresh one that says the same thing slightly differently.
+- **The same action keeps the same words.** Both empty states in Saved
+  that send you to the scanner end in "Scan a product"
+  (`app/(tabs)/saved.tsx`, `EMPTY_COPY`) — not one "Scan a product" and
+  one "Start scanning". When a new screen offers an action another screen
+  already names, reuse that name rather than writing a fresh one that says
+  the same thing slightly differently.
 
 ## Copy inventory
 
@@ -141,7 +143,7 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 | Confidence label | `lib/matching.ts` (`confidenceLabel`) | No — three fixed words ("high"/"moderate"/"low"), not a sentence; nothing to audit |
 | Ingredient rule reasons | `lib/rules.ts` (`INGREDIENT_RULES[].reason`) | Yes — **out of scope for this ticket**, see below |
 | Pore-clogging reasons | `lib/pore-clogging.ts` (`PORE_CLOGGERS[].reason`) | Yes — **out of scope**, see below |
-| Pregnancy-caution reasons | `lib/pregnancy-caution.ts` | Yes — reaches the audit via `contraindications[].reason` |
+| Pregnancy-caution reasons | `lib/pregnancy-caution.ts` | Yes — `PREGNANCY_CAUTION.*.reason`, audited directly (the `contraindications[]` collection never reached them: it runs over the sample ingredients, which hold none of these names) |
 | Contraindication reasons | `lib/safety.ts` (`contraindications`) | Yes — `contraindications[]` |
 | Sample ingredient notes | `data/ingredients.ts` (`.note`) | Yes — `INGREDIENTS.*.note` |
 | Sample product copy | `data/products.ts` (`.description`, `.benefits`) | Yes — `PRODUCTS.*` |
