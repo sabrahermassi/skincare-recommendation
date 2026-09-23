@@ -897,12 +897,12 @@ describe("verdict engine", () => {
 
     it("qualifies an excellent verdict with a singular pregnancy caution count", () => {
       const result = withPregnancyHits(resultAt(95, { concernFit: 95 }));
-      expect(verdictHeadline(result)).toBe("Suits your skin — one thing to check while pregnant");
+      expect(verdictHeadline(result)).toBe("Suits your skin — one thing to check while pregnant or breastfeeding");
     });
 
     it("qualifies a good verdict, pluralising more than one pregnancy hit", () => {
       const result = withPregnancyHits(resultAt(80, { concernFit: 80 }), 2);
-      expect(verdictHeadline(result)).toBe("Suits your skin — 2 things to check while pregnant");
+      expect(verdictHeadline(result)).toBe("Suits your skin — 2 things to check while pregnant or breastfeeding");
     });
 
     it("leaves a good verdict unqualified with no pregnancy hit", () => {
@@ -911,7 +911,18 @@ describe("verdict engine", () => {
 
     it("qualifies a fair verdict with a pregnancy caution", () => {
       const result = withPregnancyHits(resultAt(65, { concernFit: 65 }));
-      expect(verdictHeadline(result)).toBe("Could work, and there's something to check while pregnant");
+      expect(verdictHeadline(result)).toBe("Could work, and there's something to check while pregnant or breastfeeding");
+    });
+
+    // #257 review: a breastfeeding profile gets the same pregnancy-origin
+    // hits, so a headline saying only "while pregnant" read as not applying.
+    it("names breastfeeding too, with the warnings a breastfeeding profile really gets", () => {
+      const product = synthetic(["water", "retinol", ...FILLER]);
+      const real = matchProduct(product, profile({ baseSkinType: "normal", pregnancyStatus: "breastfeeding" }));
+      expect(real.warnings.some((w) => w.origin === "pregnancy")).toBe(true);
+      // Pinned to "good" so the qualified branch is exercised whatever this
+      // formula happens to score; the warnings are the real ones.
+      expect(verdictHeadline({ ...real, verdict: "good" })).toMatch(/while pregnant or breastfeeding$/);
     });
 
     it("does not qualify a poor verdict — it's already cautionary", () => {

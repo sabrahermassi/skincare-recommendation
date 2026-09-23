@@ -3,6 +3,7 @@ import { PRODUCTS } from "@/data/products";
 import { claimPolicyViolations } from "@/lib/claims-policy";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { PORE_CLOGGERS } from "@/lib/pore-clogging";
+import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import { scoreExplanation, verdictHeadline, type MatchResult } from "@/lib/matching";
 import { INGREDIENT_RULES } from "@/lib/rules";
 import { contraindications } from "@/lib/safety";
@@ -80,6 +81,14 @@ const NUDGE_RESULTS: OwnedClaim[] = [
 const OWNED_CLAIMS: OwnedClaim[] = [
   ...HEADLINE_RESULTS,
   ...NUDGE_RESULTS,
+  // Audited directly (#261 review): `WARNINGS` below comes from the sample
+  // INGREDIENTS, which hold none of the pregnancy-caution names — so these
+  // reasons were never actually reaching the audit, despite
+  // docs/claims-policy.md saying they were.
+  ...PREGNANCY_CAUTION.map((entry) => ({
+    source: `PREGNANCY_CAUTION.${entry.category}.reason`,
+    text: entry.reason,
+  })),
   ...INGREDIENT_RULES.map((rule, index) => ({
     source: `INGREDIENT_RULES[${index}].reason`,
     text: rule.reason,
