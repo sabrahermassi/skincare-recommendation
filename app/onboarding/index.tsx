@@ -15,7 +15,7 @@ import { useAppStore } from "@/store/useAppStore";
 // every side, not tight cutouts. Downsized to ~1400px on the long edge from
 // ~3400px originals before bundling; full-resolution source lives in
 // design-watercolor/.
-const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.png");
+const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.webp");
 const ONB2_INGREDIENTS = require("@/assets/illustrations/onboarding/onb2-ingredients.png");
 const ONB2_CONFIDENCE = require("@/assets/illustrations/onboarding/onb2-confidence.png");
 
