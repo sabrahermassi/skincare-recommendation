@@ -20,8 +20,10 @@ import {
   json,
   preflight,
   enforceRateLimit,
+  callerSalt,
   type RateLimit,
 } from "../_shared/http.ts";
+import { logScanBounded } from "../_shared/scan-log.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -90,6 +92,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const refusal = await enforceRateLimit(req, db, "product-lookup", RATE_LIMIT);
   if (refusal) return refusal;
 
+  const logScan = (outcome: "resolved" | "not_found" | "upstream_failure" | "internal_error") =>
+    logScanBounded(req, db, callerSalt(), { path: "barcode", outcome });
+
   // 1 ── our own catalogue, which already excludes anything past its deadline
   const existing = await db
     .from("products")
@@ -103,7 +108,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // "not found" so the app asks for the ingredient list; `label-ocr` then fills
     // this same row in. The other sources are not asked: they would try to write a
     // second row under this barcode, which is unique.
-    if (!existing.data.product_ingredients?.length) return json(req, { error: "Not found in any source" }, 404);
+    if (!existing.data.product_ingredients?.length) {
+      await logScan("not_found");
+      return json(req, { error: "Not found in any source" }, 404);
+    }
+    await logScan("resolved");
     return json(req, existing.data, 200);
   }
 
@@ -111,11 +120,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // failure, timeout or outage in one must fall through to the next rather
   // than crash the whole lookup — a barcode that is genuinely nowhere is an
   // ordinary 404, not a 500.
+  //
+  // `upstreamFailed`, checked at the final `logScan` call below, separates
+  // that outage from a genuine miss: without it, every source throwing looked
+  // exactly like a barcode nobody has ever heard of, which is the opposite of
+  // what #236 exists to measure.
+  let upstreamFailed = false;
   const safely = async (fn: () => Promise<Fetched | null>): Promise<Fetched | null> => {
     try {
       return await fn();
     } catch (err) {
       console.error("lookup source failed:", err);
+      upstreamFailed = true;
       return null;
     }
   };
@@ -126,9 +142,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // generic message; the detail goes to the server log only.
   const persistOrFail = async (fetched: Fetched): Promise<Response> => {
     try {
-      return json(req, await persist(fetched), 200);
+      const data = await persist(fetched);
+      await logScan("resolved");
+      return json(req, data, 200);
     } catch (err) {
       console.error("persist failed:", err);
+      await logScan("internal_error");
       return json(req, { error: "Could not save the product" }, 502);
     }
   };
@@ -149,6 +168,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // barcode and an ingredient list, so a source that knows a barcode but not
   // its formula is no source at all: the client is told "not found" and asks
   // the user for the ingredient list instead.
+  await logScan(upstreamFailed ? "upstream_failure" : "not_found");
   return json(req, { error: "Not found in any source" }, 404);
 });
 

@@ -27,10 +27,12 @@ import {
   json,
   preflight,
   enforceRateLimit,
+  callerSalt,
   type RateLimit,
 } from "../_shared/http.ts";
 import { paginateOrdered } from "../_shared/paginate.ts";
 import { readTokenDeadline, signReadToken, verifyReadToken } from "../_shared/read-token.ts";
+import { logScanBounded, type ScanOutcome } from "../_shared/scan-log.ts";
 import { stripBase64ImageMetadata } from "../_shared/strip-metadata.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -171,6 +173,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const refusal = await enforceRateLimit(req, db, "label-ocr", RATE_LIMIT);
   if (refusal) return refusal;
 
+  // #205's 48MP evidence, and the raw-scan-log's own `image_bytes` column
+  // (migration 0024): base64 to bytes is 3/4, and this is measured before
+  // `imageBase64` is reassigned to the stripped copy below.
+  const rawImageBytes = Math.round((imageBase64.length * 3) / 4);
+  const logRead = (outcome: ScanOutcome, extra: { namesParsed?: number; namesResolved?: number } = {}) =>
+    logScanBounded(req, db, callerSalt(), { path: "label", outcome, imageBytes: rawImageBytes, ...extra });
+
   // Strip EXIF/XMP/IPTC before this image goes anywhere. A phone photo carries
   // GPS coordinates, and the next thing that happens to it is a POST to Google
   // Cloud Vision — so without this a user's home address crosses a third-party
@@ -202,14 +211,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // hand-rolled caller. `data/api.ts` maps 415 to "unreadable" and already
     // has copy for 413.
     if (cleaned.reason === "too_large") {
+      await logRead("image_too_large");
       return json(req, { error: "Image too large — retake it closer in" }, 413);
     }
+    await logRead("unsupported_image");
     return json(req, { error: "Unsupported image format" }, 415);
   }
   imageBase64 = cleaned.base64;
 
   const text = await runOcr(imageBase64);
-  if (text === null) return json(req, { error: "Could not read the image" }, 502);
+  if (text === null) {
+    await logRead("upstream_failure");
+    return json(req, { error: "Could not read the image" }, 502);
+  }
 
   // Aliases are cheap (one small table) and needed on every path, so they are
   // fetched unconditionally. The dictionary is tens of thousands of rows and
@@ -224,6 +238,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     aliases = await fetchAliases();
   } catch (err) {
     console.error("fetchAliases failed:", err);
+    await logRead("internal_error");
     return json(req, { error: "Could not read the ingredient dictionary" }, 502);
   }
   let parsed = parseIngredientBlock(text, undefined, aliases);
@@ -237,6 +252,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       dictionary = await fetchDictionary();
     } catch (err) {
       console.error("fetchDictionary failed:", err);
+      await logRead("internal_error");
       return json(req, { error: "Could not read the ingredient dictionary" }, 502);
     }
     // A synonym is matchable in its own right, then resolved to the canonical
@@ -255,6 +271,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (parsed.length < MIN_INGREDIENTS) {
     // Better to say so than to score a fragment. Four is the same floor the
     // verdict engine uses before it will produce a number at all.
+    await logRead("not_enough_text", { namesParsed: parsed.length });
     return json(
       req,
       { error: "not_enough_text", found: parsed.length, rawText: text.slice(0, 400) },
@@ -267,6 +284,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     known = await knownIngredients(parsed.map((p) => p.inci_name));
   } catch (err) {
     console.error("knownIngredients failed:", err);
+    await logRead("internal_error", { namesParsed: parsed.length });
     return json(req, { error: "Could not read the ingredient dictionary" }, 502);
   }
 
@@ -288,6 +306,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         rereadKnown = await knownIngredients(parsed.map((p) => p.inci_name));
       } catch (err) {
         console.error("knownIngredients failed:", err);
+        await logRead("internal_error", { namesParsed: parsed.length });
         return json(req, { error: "Could not read the ingredient dictionary" }, 502);
       }
     }
@@ -303,6 +322,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // that mostly misses the dictionary is not a rare formula, it is a bad read.
   // Same ratio, same reasoning as MIN_KNOWN_INGREDIENT_RATIO's own comment.
   if (known.size / parsed.length < MIN_KNOWN_INGREDIENT_RATIO) {
+    await logRead("quality_gate", { namesParsed: parsed.length, namesResolved: known.size });
     return json(
       req,
       { error: "low_confidence", found: parsed.length, recognised: known.size, rawText: text.slice(0, 400) },
@@ -311,6 +331,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   const readNames = parsed.map((p) => p.inci_name);
+  await logRead("read_ok", { namesParsed: parsed.length, namesResolved: known.size });
   return json(
     req,
     {
@@ -457,21 +478,34 @@ async function saveProduct(
 // ── OCR ─────────────────────────────────────────────────────────────────────
 
 async function runOcr(imageBase64: string): Promise<string | null> {
-  const res = await fetch(`${VISION_URL}?key=${VISION_API_KEY}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      requests: [
-        {
-          image: { content: imageBase64 },
-          // DOCUMENT_TEXT_DETECTION beats TEXT_DETECTION on dense small print
-          // set in a block, which is exactly what an INCI panel is.
-          features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
-          imageContext: { languageHints: ["en", "ko"] },
-        },
-      ],
-    }),
-  });
+  // Wrapped, where it wasn't before: an unreachable Vision (DNS, TLS, a
+  // dropped connection) threw out of a bare `await fetch`, past every 502
+  // this function returns for a *reachable-but-unhelpful* Vision, and became
+  // an uncaught 500 with no `scan_log` row at all — invisible to the very
+  // metric #236 exists to produce. Folded into the same `null` return every
+  // other Vision failure already uses, so the caller's `logRead
+  // ("upstream_failure")` covers this path too without knowing it exists.
+  let res: Response;
+  try {
+    res = await fetch(`${VISION_URL}?key=${VISION_API_KEY}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: { content: imageBase64 },
+            // DOCUMENT_TEXT_DETECTION beats TEXT_DETECTION on dense small print
+            // set in a block, which is exactly what an INCI panel is.
+            features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
+            imageContext: { languageHints: ["en", "ko"] },
+          },
+        ],
+      }),
+    });
+  } catch (err) {
+    console.error("Vision request failed:", err);
+    return null;
+  }
   if (!res.ok) return null;
   const body = await res.json().catch(() => null);
   const annotation = body?.responses?.[0]?.fullTextAnnotation;
