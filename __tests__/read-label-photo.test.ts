@@ -103,7 +103,12 @@ describe("readLabelPhoto", () => {
     holdLabelRead({ ingredients: ["niacinamide"], readToken: "newer-tok", barcode: "8809999999999" });
     resolveAnalyse(readOk());
     expect(await pending).toEqual({ kind: "read" });
-    expect(heldLabelRead()).toEqual({ ingredients: ["niacinamide"], readToken: "newer-tok", barcode: "8809999999999" });
+    expect(heldLabelRead()).toEqual({
+      ingredients: ["niacinamide"],
+      readToken: "newer-tok",
+      barcode: "8809999999999",
+      receivedAt: expect.any(Number),
+    });
   });
 
   it("still holds a good read when the caller says it's still wanted", async () => {
