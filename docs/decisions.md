@@ -263,3 +263,48 @@ older.** Unlike Apple's queue-based lag, Android's Play Store Expo Go build
 has refused this project for the opposite reason at times — it shipped
 ahead of the project's SDK. `npx expo-go download android <sdk>` sidesteps
 this in either direction.
+
+## Staging infrastructure
+
+**Staging had never once worked, and nothing said so.** Discovered
+23 September 2026, while the first `/work-next` chain was running.
+
+`staging-migrate.yml` had existed for some time and had never completed a
+single successful run. `STAGING_DB_URL` held the **direct** database
+connection string, whose host (`db.<ref>.supabase.co`) resolves IPv6-only
+unless the project pays for the IPv4 add-on — and GitHub Actions runners are
+IPv4-only. Every run died with `Network is unreachable` before touching
+anything.
+
+The consequence was larger than a broken workflow: **the staging database
+was completely empty — zero tables.** Every migration from `0001` onward had
+only ever run against the throwaway Postgres in `ci.yml`. Nothing had ever
+verified that a migration applies to a real Supabase project, which is the
+one thing the workflow exists to prove.
+
+Fixed by pointing `STAGING_DB_URL` at the Supavisor **pooler** string on
+port 5432 — session mode, because transaction mode (6543) cannot run DDL —
+which is IPv4-reachable. Two details cost time and are worth writing down:
+the pooler username is `postgres.<project-ref>`, not `postgres` (using the
+latter fails as *password authentication failed*, which reads like a wrong
+password), and a password containing `@`, `:`, `/` or `#` must be
+percent-encoded or it truncates the string and mangles the parsed user.
+
+All 24 migrations were then applied by hand and
+`supabase_migrations.schema_migrations` caught up, so the workflow's
+bookkeeping is consistent from here.
+
+**Edge Functions had no staging deploy path at all.** `scan_log` (0024)
+could be created and stay permanently empty, because nothing deployed the
+functions that write to it anywhere except production.
+`staging-deploy-functions.yml` now auto-deploys `label-ocr` and
+`product-lookup`. It does not discover new functions — see `CLAUDE.md` for
+the checklist that has to be followed by hand when one is added.
+
+**`SUPABASE_ACCESS_TOKEN` is account-wide, and that is accepted.** Supabase
+personal access tokens cannot be scoped to a project, so the token in GitHub
+secrets can also reach production. This was weighed and taken: the
+alternative is no automated function deploys at all. `staging-migrate.yml`'s
+header rejects the same token for *migrations* precisely because a
+connection string can be scoped to one project and a token cannot — that
+reasoning still stands for migrations. **Do not re-flag this as a finding.**
