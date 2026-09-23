@@ -12,7 +12,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
 import type { Ingredient } from "@/data/types";
-import { confidenceLabel, matchProduct, scoreExplanation, verdictHeadline } from "@/lib/matching";
+import { confidenceLabel, isLowCoverage, matchProduct, scoreExplanation, verdictHeadline } from "@/lib/matching";
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
@@ -111,13 +111,21 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
   const against = match.reasons.filter((r) => r.effect < 0).slice(0, 3);
   const scoreLines = scoreExplanation(match);
   const confidence = confidenceLabel(match.confidence);
-  const needsProfile = match.unknownReason === "not_personalized";
+  // Derived independently of `match.unknownReason`, not read from it:
+  // `computeMatch` checks `isPersonalized` before coverage and refuses
+  // "not_personalized" unconditionally, so with no profile set
+  // `unknownReason` is never "low_coverage" no matter how bad the read was —
+  // found in review on this PR. `isLowCoverage` (`lib/matching.ts`) answers
+  // the coverage question on its own, so an unreadable read is refused
+  // whether or not a profile exists.
+  //
   // #185/#201: a Korean- or Japanese-only label now reaches this lookup
   // instead of being discarded, but `ingredient_synonyms` has no Korean names
   // yet (#201 is not in the queue) — so it parses, resolves nothing, and
   // lands here exactly like any other unreadable formula. That is the honest
   // state today; the copy below says so without implying a bad photo.
-  const lowCoverage = match.unknownReason === "low_coverage";
+  const lowCoverage = isLowCoverage(product.ingredients);
+  const needsProfile = !lowCoverage && match.unknownReason === "not_personalized";
   const sheetPeek = total > 0 ? ingredientsSheetPeek(insets.bottom) : 0;
 
   return (

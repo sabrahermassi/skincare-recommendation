@@ -224,6 +224,25 @@ const MIN_COVERAGE = 0.25;
 const MIN_IDENTIFIED = 3;
 
 /**
+ * Whether a formula is genuinely unreadable, on its own — independent of
+ * whether a profile is set.
+ *
+ * `matchProduct`'s own `unknownReason` can't answer this: `computeMatch`
+ * checks `isPersonalized` first and refuses `"not_personalized"`
+ * unconditionally before it ever reaches the coverage check below, so with no
+ * profile set `unknownReason` is always `"not_personalized"`, never
+ * `"low_coverage"` — regardless of how bad the read was. `app/label-result.tsx`
+ * (#214) needs to tell "no profile yet" apart from "we can't score this at
+ * all" so a first-time user photographing something unreadable gets a retake
+ * prompt rather than a personalize prompt over junk OCR output. Exported
+ * rather than duplicating `MIN_COVERAGE`/`MIN_IDENTIFIED` at the call site.
+ */
+export function isLowCoverage(ingredients: ProductWithIngredients["ingredients"]): boolean {
+  const identified = ingredients.filter(isVerified).length;
+  return identified < MIN_IDENTIFIED || formulaCoverage(ingredients) < MIN_COVERAGE;
+}
+
+/**
  * Scores already computed, keyed by the product object they describe.
  *
  * `matchProduct` is called at eight sites and memoised per component, so the
