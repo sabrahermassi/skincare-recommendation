@@ -744,9 +744,18 @@ const lengthIndexCache = new WeakMap<ReadonlySet<string>, Map<number, string[]>>
  * and "methyl-styrene" are one key. Labels and the dictionary disagree about
  * spaces and punctuation far more often than about spelling, and digits stay
  * in the key so "peg-4" and "peg-40" can never meet.
+ *
+ * CJK characters are kept alongside `[a-z0-9]` rather than stripped with
+ * everything else (#185; found in review on #247): stripping them collapsed
+ * every pure-Hangul/kana/Han string to the same empty key, so once real
+ * Korean/Japanese synonyms exist in the dictionary (the point of #185),
+ * `squashIndex`'s `""` bucket would hold all of them together regardless of
+ * content, and `resolveKnownName`'s fuzzy tie-break would pick the nearest
+ * one across that whole undifferentiated bucket instead of narrowing to
+ * same-content candidates the way a Latin name already does.
  */
 export function squashKey(name: string): string {
-  return name.replace(/[^a-z0-9]/g, "");
+  return name.replace(/[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/gu, "");
 }
 
 export function squashIndex(dictionary: ReadonlySet<string>): Map<string, string[]> {
