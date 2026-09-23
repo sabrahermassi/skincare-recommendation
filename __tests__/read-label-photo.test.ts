@@ -71,7 +71,12 @@ describe("readLabelPhoto", () => {
   it("holds a good read, with its barcode and proof, for the add-product screen", async () => {
     analyse.mockResolvedValue(readOk());
     expect(await readLabelPhoto("x", "8801234567890")).toEqual({ kind: "read" });
-    expect(heldLabelRead()).toEqual({ ingredients: ["water", "glycerin"], readToken: "tok", barcode: "8801234567890" });
+    expect(heldLabelRead()).toEqual({
+      ingredients: ["water", "glycerin"],
+      readToken: "tok",
+      barcode: "8801234567890",
+      receivedAt: expect.any(Number),
+    });
   });
 
   it("holds nothing when the read fails", async () => {

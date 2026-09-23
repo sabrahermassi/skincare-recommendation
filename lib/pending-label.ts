@@ -17,16 +17,31 @@ export type HeldLabel = {
   readToken: string;
   /** The barcode the user already scanned, when they had one. */
   barcode?: string;
+  /**
+   * When the read was received, on this device's own clock. Only ever
+   * passed explicitly by tests simulating an old read — production always
+   * omits it and gets the actual moment of the call.
+   *
+   * `readToken`'s deadline is a server epoch; comparing it straight against
+   * `Date.now()` means a device clock running ahead of the server's marks a
+   * token expired that has barely been read (see add-product.tsx). Elapsed
+   * time since receipt, measured entirely on this device, isn't exposed to
+   * that skew the same way — a constant offset between the device and
+   * server clocks cancels out of a same-device subtraction.
+   */
+  receivedAt?: number;
 };
 
-let held: HeldLabel | null = null;
+type StoredLabel = HeldLabel & { receivedAt: number };
+
+let held: StoredLabel | null = null;
 
 export function holdLabelRead(read: HeldLabel): void {
-  held = read;
+  held = { ...read, receivedAt: read.receivedAt ?? Date.now() };
 }
 
 /** The list being added, or null when nothing has been read. */
-export function heldLabelRead(): HeldLabel | null {
+export function heldLabelRead(): StoredLabel | null {
   return held;
 }
 

@@ -1,15 +1,17 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { failureMessage, fetchProductByBarcode, saveScannedProduct } from "@/data/api";
 import { clearLabelRead, heldLabelRead } from "@/lib/pending-label";
+import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
 import {
   BORDER_INACTIVE,
   CAMERA_STAGE,
@@ -55,7 +57,14 @@ export default function AddProduct() {
     );
   }
 
-  return <NameStep barcode={barcode} ingredients={read.ingredients} readToken={read.readToken} />;
+  return (
+    <NameStep
+      barcode={barcode}
+      ingredients={read.ingredients}
+      readToken={read.readToken}
+      receivedAt={read.receivedAt}
+    />
+  );
 }
 
 function NothingToAdd() {
@@ -214,18 +223,55 @@ type SaveFailure = "unreadable_list" | "expired" | "rate_limited" | "failed" | "
 
 const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
   unreadable_list: "That ingredient list didn't look right. Go back and photograph it again.",
-  expired: "That photo is too old to save. Go back and photograph the ingredient list again.",
+  expired: "That photo is too old to save now. Scan it again.",
   rate_limited: "That's a lot of products in a short time. Give it a few minutes and try again.",
   failed: "Couldn't save that just now. Check your connection and try again.",
   not_configured: "Adding products isn't available in this build.",
 };
 
-/** The last step: a name, then everything is saved together. */
-function NameStep({ barcode, ingredients, readToken }: { barcode: string; ingredients: string[]; readToken: string }) {
+/**
+ * `expired` (unlike the other failures) has no useful retry: the read token is
+ * gone and the held list can no longer be saved under it. Save is not just
+ * disabled here — swapped for the one action that can actually fix it,
+ * retracing the same `clearLabelRead` + `/scan-label` path as the review
+ * section's own "Retake the photo" below. See issue #193.
+ */
+function retakePhoto(barcode: string) {
+  clearLabelRead();
+  router.replace({ pathname: "/scan-label", params: { barcode } });
+}
+
+/** The last step: review the read, then a name, then everything is saved together. */
+function NameStep({
+  barcode,
+  ingredients,
+  readToken,
+  receivedAt,
+}: {
+  barcode: string;
+  ingredients: string[];
+  readToken: string;
+  /** From `heldLabelRead`. Elapsed-since-receipt, not the token's own server-epoch deadline — see `HeldLabel`. */
+  receivedAt: number;
+}) {
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
-  const [failure, setFailure] = useState<SaveFailure | null>(null);
+  const [failure, setFailure] = useState<SaveFailure | null>(
+    // The 30-minute window (`READ_TOKEN_TTL_MS`) exists to bound an
+    // unauthenticated write, not to be raced — checking with a name and a
+    // list of ingredients to read through is a real way to meet it. Caught
+    // here so the screen never offers a Save button that can only fail.
+    //
+    // Measured from `receivedAt`, not the token's own deadline: comparing
+    // that server-signed deadline straight to `Date.now()` means a device
+    // clock running ahead of the server marks a fresh token expired on the
+    // spot, and every retake lands in the same loop. Elapsed time since a
+    // receipt stamped on this same device isn't exposed to that skew.
+    () => (Date.now() - receivedAt > READ_TOKEN_TTL_MS ? "expired" : null)
+  );
+  const [reviewOpen, setReviewOpen] = useState(false);
   const trimmed = name.trim();
+  const expired = failure === "expired";
 
   async function save() {
     if (saving || !trimmed) return;
@@ -245,13 +291,104 @@ function NameStep({ barcode, ingredients, readToken }: { barcode: string; ingred
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenReaderAnnouncer message={failure ? SAVE_FAILURE_COPY[failure] : ""} />
       <ScreenHeader title="Add this product" />
-      <View style={{ flex: 1, gap: SPACE.block, paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter }}>
+      {/*
+        Scrolls the whole form, not just the ingredient panel above: on a
+        short display, a landscape orientation, or with the keyboard open,
+        an expanded review plus the name field and Save can be taller than
+        the viewport even with the 220px cap on the ingredient list, and a
+        fixed `View` would strand Retake/Save off-screen. `keyboardShouldPersistTaps`
+        so a tap on Retake or the review toggle isn't swallowed by the
+        keyboard dismissing first.
+      */}
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ flexGrow: 1, gap: SPACE.block, paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: SPACE.gutter }}
+      >
         <View style={{ gap: SPACE.text }}>
           <Text style={{ fontSize: TYPE.body, color: INK }}>
             We don&apos;t have this product yet. Name it and we&apos;ll save it with the {ingredients.length} ingredients
             you photographed, so the next scan finds it.
           </Text>
           <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Barcode {barcode}</Text>
+        </View>
+
+        {/*
+          Collapsed by default so the name field stays the first thing tapped —
+          this is a check, not a new required step. Read-only: the server signs
+          the list against the exact names it read, so an edited list would
+          fail verification anyway. Printed order is preserved deliberately —
+          `positionWeight` in lib/matching.ts scores concentration from it, so
+          sorting alphabetically here would misrepresent what the label says.
+        */}
+        <View style={{ borderRadius: RADIUS_SELECTOR, borderWidth: 1, borderColor: BORDER_INACTIVE }}>
+          <Pressable
+            onPress={() => setReviewOpen((open) => !open)}
+            accessibilityRole="button"
+            accessibilityLabel={`${ingredients.length} ingredients read. ${reviewOpen ? "Collapse" : "Check them"}.`}
+            accessibilityState={{ expanded: reviewOpen }}
+            style={{
+              minHeight: TOUCH_TARGET,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: SPACE.block,
+            }}
+            className="active:opacity-70"
+          >
+            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
+              {ingredients.length} ingredients read — check them
+            </Text>
+            <ArrowIcon direction={reviewOpen ? "up" : "down"} size={16} color={INK} />
+          </Pressable>
+
+          {reviewOpen ? (
+            <View
+              style={{
+                paddingHorizontal: SPACE.block,
+                paddingBottom: SPACE.text,
+                borderTopWidth: 1,
+                borderTopColor: BORDER_INACTIVE,
+                paddingTop: SPACE.text,
+              }}
+            >
+              {/*
+                A read can hold up to 400 ingredients (label-ocr's own cap), far
+                more than this panel has room for — an unscrolled list that long
+                would push "Retake" and everything below it off-screen. Only the
+                names themselves scroll; Retake stays outside so it's reachable
+                whatever the list's length.
+              */}
+              <ScrollView style={{ maxHeight: 220 }} contentContainerStyle={{ gap: 4 }}>
+                {ingredients.map((ingredient, index) => (
+                  <Text key={`${ingredient}-${index}`} style={{ fontSize: TYPE.caption, color: INK }}>
+                    {index + 1}. {ingredient}
+                  </Text>
+                ))}
+              </ScrollView>
+              <Pressable
+                onPress={() => {
+                  if (saving) return;
+                  retakePhoto(barcode);
+                }}
+                disabled={saving}
+                accessibilityRole="button"
+                accessibilityLabel="Retake the photo"
+                hitSlop={8}
+                style={{ alignSelf: "flex-start", marginTop: SPACE.text / 2 }}
+              >
+                <Text
+                  style={{
+                    fontSize: TYPE.label,
+                    fontWeight: "500",
+                    color: saving ? MUTED_FAINT : MUTED,
+                    textDecorationLine: "underline",
+                  }}
+                >
+                  Not right? Retake the photo
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
 
         <TextInput
@@ -263,6 +400,7 @@ function NameStep({ barcode, ingredients, readToken }: { barcode: string; ingred
           autoFocus
           autoCorrect={false}
           maxLength={200}
+          editable={!expired}
           returnKeyType="done"
           onSubmitEditing={() => void save()}
           style={{
@@ -281,14 +419,18 @@ function NameStep({ barcode, ingredients, readToken }: { barcode: string; ingred
           <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{SAVE_FAILURE_COPY[failure]}</Text>
         ) : null}
 
-        <PrimaryButton
-          tone="cta"
-          size={56}
-          label={saving ? "Saving…" : "Save and see my match"}
-          disabled={!trimmed || saving}
-          onPress={() => void save()}
-        />
-      </View>
+        {expired ? (
+          <PrimaryButton tone="cta" size={56} label="Scan it again" onPress={() => retakePhoto(barcode)} />
+        ) : (
+          <PrimaryButton
+            tone="cta"
+            size={56}
+            label={saving ? "Saving…" : "Save and see my match"}
+            disabled={!trimmed || saving}
+            onPress={() => void save()}
+          />
+        )}
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
