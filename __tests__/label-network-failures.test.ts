@@ -13,7 +13,7 @@ jest.mock("@/lib/supabase", () => ({
   OCR_FUNCTION: "label-ocr",
 }));
 
-import { readLabel, saveScannedProduct } from "@/data/api";
+import { fetchProductByBarcode, readLabel, saveScannedProduct } from "@/data/api";
 
 function errorWithStatus(status: number, body?: unknown) {
   return {
@@ -106,5 +106,26 @@ describe("saveScannedProduct", () => {
   it("still reports no product at all as the generic failed, not already_saved", async () => {
     mockInvoke.mockResolvedValue({ data: {}, error: null });
     expect(await saveScannedProduct(input)).toEqual({ ok: false, reason: "failed" });
+  });
+
+  // Caught in review on #258: the barcode-first flow that lands on this
+  // screen already ran fetchProductByBarcode once and cached a miss for
+  // this exact barcode. Without evicting that on already_saved, the
+  // recovery lookup add-product.tsx's "Show me that product" makes would
+  // read the stale cached miss straight back and never reach the network —
+  // silently reproducing the bug this PR fixes.
+  it("evicts the barcode's cached miss on already_saved, so a follow-up lookup reaches the network again", async () => {
+    // The barcode-first flow's own lookup, before the photo was taken.
+    mockInvoke.mockResolvedValueOnce({ data: null, error: errorWithStatus(404) });
+    expect(await fetchProductByBarcode(input.barcode)).toEqual({ ok: true, value: null });
+
+    // The save succeeds server-side, but the response can't be parsed.
+    mockInvoke.mockResolvedValueOnce({ data: { product: {} }, error: null });
+    expect(await saveScannedProduct(input)).toEqual({ ok: false, reason: "already_saved" });
+
+    // The recovery lookup must hit the network again, not the stale miss.
+    mockInvoke.mockResolvedValueOnce({ data: null, error: errorWithStatus(404) });
+    await fetchProductByBarcode(input.barcode);
+    expect(mockInvoke).toHaveBeenCalledTimes(3);
   });
 });

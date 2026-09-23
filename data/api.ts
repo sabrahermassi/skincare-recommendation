@@ -6,6 +6,7 @@ import {
   dropLegacyBlobs,
   hasCheckedThisLaunch,
   markCheckedThisLaunch,
+  forgetScanned,
   msSinceLastCheck,
   peekCatalogue,
   productById,
@@ -1378,6 +1379,12 @@ export async function saveScannedProduct(input: {
   try {
     product = rowToProduct(data.product as CatalogueRow);
   } catch {
+    // The barcode-first flow that sent the user here already cached a miss
+    // for this exact barcode (`fetchProductByBarcode`, below) before the
+    // photo was even taken, and that miss is still fresh. Without evicting
+    // it, the recovery lookup this failure sends the caller to would read
+    // the stale miss straight back and never reach the network at all.
+    forgetScanned(input.barcode);
     return { ok: false, reason: "already_saved" };
   }
   addScannedToCatalogue(product);
