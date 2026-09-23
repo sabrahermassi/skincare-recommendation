@@ -76,6 +76,22 @@ describe("gateRatio", () => {
     expect(gateRatio(parsed, known)).toBeLessThan(MIN_KNOWN_INGREDIENT_RATIO);
   });
 
+  // Found in review on #247, round two: the volume cap alone still let a
+  // *small* amount of junk through — one resolved Latin ingredient plus a
+  // few unresolved CJK fragments is comfortably under the volume cap, so it
+  // was all exempted and the ratio came out as 1.0 on a single real
+  // ingredient.
+  it("one resolved ingredient plus a few junk fragments still fails the gate", () => {
+    const parsed = [
+      { inci_name: "water" },
+      { inci_name: "정체불명1" },
+      { inci_name: "정체불명2" },
+      { inci_name: "정체불명3" },
+    ];
+    const known = new Set(["water"]);
+    expect(gateRatio(parsed, known)).toBeLessThan(MIN_KNOWN_INGREDIENT_RATIO);
+  });
+
   it("a real Korean ingredient list under the exemption cap is unaffected by it", () => {
     const koreanNames = Array.from({ length: 12 }, (_, i) => ({ inci_name: `정제수${i}` }));
     const parsed = [{ inci_name: "water" }, { inci_name: "glycerin" }, ...koreanNames];
