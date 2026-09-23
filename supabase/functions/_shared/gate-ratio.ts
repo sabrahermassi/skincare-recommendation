@@ -17,6 +17,27 @@ export function isNonLatinName(name: string): boolean {
 }
 
 /**
+ * How many unresolved non-Latin names `gateRatio` will exclude from its
+ * denominator before it stops trusting them.
+ *
+ * Real cosmetic ingredient panels — Korean, Japanese or otherwise — do not
+ * run to more names than this; formulas with unusually long lists (a
+ * multi-step routine product, a compound extract naming a dozen species)
+ * still land well under it. A count past this cap does not read as "a
+ * detailed formula", it reads as boilerplate that leaked into the parsed
+ * block — directions, cautions or a distributor notice the `stop` regex
+ * didn't recognise as such — which is exactly the case
+ * `MIN_KNOWN_INGREDIENT_RATIO`'s own comment warns about: "left in, both
+ * degrade to junk fragments that dilute the recognised-ingredient ratio."
+ * Found in review on #247: a first version of this exemption had no cap at
+ * all, which let an unbounded run of misparsed CJK boilerplate exclude
+ * itself from the ratio entirely — never penalised for being unresolved,
+ * and never rejected, so it rode straight into `product_ingredients` as
+ * stub rows via `saveProduct`.
+ */
+const MAX_EXEMPT_NON_LATIN = 40;
+
+/**
  * `MIN_KNOWN_INGREDIENT_RATIO`'s denominator.
  *
  * The dictionary is Latin-only today. Widening the parser to keep Hangul/kana
@@ -28,11 +49,15 @@ export function isNonLatinName(name: string): boolean {
  * to it.
  *
  * So an unresolved non-Latin name is excluded from *both* sides of the
- * ratio: it was never going to resolve against a Latin-only dictionary, and
- * judging read quality by a language the dictionary cannot answer for isn't
- * measuring what this gate exists to measure. A *resolved* non-Latin name
- * (once #201 lands) still counts normally on both sides — `known` already
- * only holds resolved names, so nothing here has to special-case that.
+ * ratio, up to `MAX_EXEMPT_NON_LATIN` of them: it was never going to resolve
+ * against a Latin-only dictionary, and judging read quality by a language
+ * the dictionary cannot answer for isn't measuring what this gate exists to
+ * measure. A *resolved* non-Latin name (once #201 lands) still counts
+ * normally on both sides — `known` already only holds resolved names, so
+ * nothing here has to special-case that. Past the cap, an unresolved
+ * non-Latin name counts against the ratio exactly like an unresolved Latin
+ * one always has — see `MAX_EXEMPT_NON_LATIN`'s own comment for why that
+ * line has to exist at all.
  *
  * A label that is entirely non-Latin and entirely unresolved has nothing left
  * to judge (`judgeable.length === 0`) and correctly still fails the gate —
@@ -40,7 +65,19 @@ export function isNonLatinName(name: string): boolean {
  * not a bug this function needs to paper over.
  */
 export function gateRatio(parsed: readonly { inci_name: string }[], known: ReadonlySet<string>): number {
-  const judgeable = parsed.filter((p) => known.has(p.inci_name) || !isNonLatinName(p.inci_name));
-  if (judgeable.length === 0) return 0;
-  return known.size / judgeable.length;
+  let exempted = 0;
+  let judgeable = 0;
+  for (const p of parsed) {
+    if (known.has(p.inci_name)) {
+      judgeable++;
+      continue;
+    }
+    if (isNonLatinName(p.inci_name) && exempted < MAX_EXEMPT_NON_LATIN) {
+      exempted++;
+      continue;
+    }
+    judgeable++;
+  }
+  if (judgeable === 0) return 0;
+  return known.size / judgeable;
 }

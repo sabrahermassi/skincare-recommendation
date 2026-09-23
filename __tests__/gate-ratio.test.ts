@@ -59,4 +59,29 @@ describe("gateRatio", () => {
     const known = new Set(["정제수", "글리세린"]);
     expect(gateRatio(parsed, known)).toBe(1);
   });
+
+  // Found in review on #247: an uncapped exemption let a large volume of
+  // misparsed CJK boilerplate (trailing directions/cautions text the `stop`
+  // regex didn't recognise) exclude itself from the ratio entirely, so a
+  // handful of real Latin ingredients plus dozens of junk fragments still
+  // read as "full confidence" and rode into the saved product uncontested.
+  it("a mostly-junk label — a few real names plus dozens of unresolved CJK fragments — still fails the gate", () => {
+    const parsed = [
+      { inci_name: "water" },
+      { inci_name: "glycerin" },
+      { inci_name: "niacinamide" },
+      ...Array.from({ length: 50 }, (_, i) => ({ inci_name: `정체불명문구${i}` })),
+    ];
+    const known = new Set(["water", "glycerin", "niacinamide"]);
+    expect(gateRatio(parsed, known)).toBeLessThan(MIN_KNOWN_INGREDIENT_RATIO);
+  });
+
+  it("a real Korean ingredient list under the exemption cap is unaffected by it", () => {
+    const koreanNames = Array.from({ length: 12 }, (_, i) => ({ inci_name: `정제수${i}` }));
+    const parsed = [{ inci_name: "water" }, { inci_name: "glycerin" }, ...koreanNames];
+    const known = new Set(["water", "glycerin"]);
+    // All 12 Korean names are exempted (well under the 40 cap), so the ratio
+    // is exactly the same as if they were never in the list at all.
+    expect(gateRatio(parsed, known)).toBe(1);
+  });
 });
