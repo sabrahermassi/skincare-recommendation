@@ -51,7 +51,7 @@ function normalise(raw) {
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
-    .replace(/^[^a-z0-9\p{L}]+|[^a-z0-9)\p{L}]+$/gu, "");
+    .replace(/^[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]+|[^a-z0-9)\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]+$/gu, "");
 }
 
 /**
