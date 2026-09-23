@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
@@ -308,7 +308,6 @@ function NameStep({ barcode, ingredients, readToken }: { barcode: string; ingred
           {reviewOpen ? (
             <View
               style={{
-                gap: 4,
                 paddingHorizontal: SPACE.block,
                 paddingBottom: SPACE.text,
                 borderTopWidth: 1,
@@ -316,11 +315,20 @@ function NameStep({ barcode, ingredients, readToken }: { barcode: string; ingred
                 paddingTop: SPACE.text,
               }}
             >
-              {ingredients.map((ingredient, index) => (
-                <Text key={`${ingredient}-${index}`} style={{ fontSize: TYPE.caption, color: INK }}>
-                  {index + 1}. {ingredient}
-                </Text>
-              ))}
+              {/*
+                A read can hold up to 400 ingredients (label-ocr's own cap), far
+                more than this panel has room for — an unscrolled list that long
+                would push "Retake" and everything below it off-screen. Only the
+                names themselves scroll; Retake stays outside so it's reachable
+                whatever the list's length.
+              */}
+              <ScrollView style={{ maxHeight: 220 }} contentContainerStyle={{ gap: 4 }}>
+                {ingredients.map((ingredient, index) => (
+                  <Text key={`${ingredient}-${index}`} style={{ fontSize: TYPE.caption, color: INK }}>
+                    {index + 1}. {ingredient}
+                  </Text>
+                ))}
+              </ScrollView>
               <Pressable
                 onPress={() => {
                   if (saving) return;
