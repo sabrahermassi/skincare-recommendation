@@ -2,7 +2,9 @@ import { INGREDIENT_RULES } from "@/lib/rules";
 import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import {
   RETINYL_PALMITATE_NAME,
+  RETINYL_RETINOATE_NAME,
   BENZYL_SALICYLATE_NAME,
+  SALICYLATE_SALT_PATTERN,
 } from "@/lib/retinoid-salicylate-names";
 
 /**
@@ -53,6 +55,8 @@ const DELIBERATE_ASYMMETRIES: Record<string, string> = {
     "Scoring gives retinyl palmitate its own weaker rule since it must convert in skin; pregnancy folds it into the general ester regex instead.",
   "r:^retinyl (palmitate|acetate|linoleate|propionate)$":
     "Pregnancy covers all four retinyl esters generally regardless of conversion rate; scoring only rates retinyl palmitate specifically, at reduced weight.",
+  "r:^(sodium|potassium) salicylate$":
+    "Salicylate salts, not the free acid — pregnancy treats them as a salicylate exposure, but scoring's salicylic-acid rule is about the acid's own pore-clearing action, which these salts don't have.",
 };
 
 function assertNoUndocumentedDivergence(
@@ -78,7 +82,11 @@ function assertNoUndocumentedDivergence(
 
 describe("retinoid/salicylate name parity", () => {
   it("shares every retinoid name between scoring and pregnancy caution, or documents why not", () => {
-    const rulesNames = [...findRuleNames("retinol"), ...findRuleNames(RETINYL_PALMITATE_NAME)];
+    const rulesNames = [
+      ...findRuleNames("retinol"),
+      ...findRuleNames(RETINYL_PALMITATE_NAME),
+      ...findRuleNames(RETINYL_RETINOATE_NAME),
+    ];
     const pregnancyNames = findPregnancyNames("retinoid");
     assertNoUndocumentedDivergence(rulesNames, pregnancyNames, "retinoid");
   });
@@ -102,5 +110,17 @@ describe("retinoid/salicylate name parity", () => {
     const pregnancySalicylate = findPregnancyNames("salicylic-acid");
     expect(rulesSalicylate).not.toContain(BENZYL_SALICYLATE_NAME);
     expect(pregnancySalicylate).not.toContain(BENZYL_SALICYLATE_NAME);
+  });
+
+  // Found in review on #256 (Codex): sodium/potassium salicylate landed in
+  // the shared SALICYLATE_NAMES, so rules.ts's spread pulled it into
+  // scoring's salicylic-acid rule too -- these salts don't hydrolyse to the
+  // free acid, so scoring shouldn't award them acne benefit or dry-skin
+  // penalty the way salicylic acid itself earns.
+  it("keeps the sodium/potassium salicylate salts out of scoring, in pregnancy caution only", () => {
+    const rulesSalicylate = findRuleNames("salicylic acid");
+    const pregnancySalicylate = findPregnancyNames("salicylic-acid");
+    expect(rulesSalicylate).not.toContainEqual(SALICYLATE_SALT_PATTERN);
+    expect(pregnancySalicylate).toContainEqual(SALICYLATE_SALT_PATTERN);
   });
 });

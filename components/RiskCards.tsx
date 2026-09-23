@@ -166,7 +166,7 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
     // "Nothing restricted" is an absolute claim — it must not run alongside
     // a pregnancy section saying there's something to check (#187).
     return hasPregnancyOnlyHit
-      ? { level: "Low", note: "See the pregnancy note below", tone: "good", hasEntries: false }
+      ? { level: "Low", note: "See the pregnancy note above", tone: "good", hasEntries: false }
       : { level: "Low", note: "Nothing restricted", tone: "good", hasEntries: false };
   }
   if (restricted <= 2) {
