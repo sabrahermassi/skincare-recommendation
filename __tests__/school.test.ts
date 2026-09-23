@@ -37,6 +37,14 @@ describe("Skincare School content", () => {
     expect(answer).toMatch(/pregnant or breastfeeding/);
   });
 
+  it("scopes the list-order and amounts answers to cosmetic labels, naming the Drug Facts exception", () => {
+    for (const id of ["list-order", "no-amounts"]) {
+      const answer = questions.find((q) => q.id === id)!.answer;
+      expect(answer).toMatch(/^On an ordinary cosmetic label/);
+      expect(answer).toMatch(/Drug Facts/);
+    }
+  });
+
   it("names a missing skin profile as a reason it can't tell, not only the photo", () => {
     expect(questions.find((q) => q.id === "cant-tell")!.answer).toMatch(/skin-profile questions/);
   });

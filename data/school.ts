@@ -28,7 +28,7 @@ export const SCHOOL: SchoolCategory[] = [
         id: "list-order",
         question: "Why are ingredients listed in that order?",
         answer:
-          "They're listed from most to least, down to the ones that make up about 1% of the formula — below that, brands can list them in any order. So the first few names are most of what's in the bottle, and an active near the end is usually there in a small amount.",
+          "On an ordinary cosmetic label, they're listed from most to least, down to the ones that make up about 1% of the formula — below that, brands can list them in any order. So the first few names are most of what's in the bottle, and an active near the end is usually there in a small amount. Sunscreens and some blemish products sold in the US carry a \"Drug Facts\" box instead: the active ingredients come first with their strength printed beside them, and the rest are often listed alphabetically, so there the order says nothing about amounts.",
       },
       {
         id: "inci-names",
@@ -52,7 +52,7 @@ export const SCHOOL: SchoolCategory[] = [
         id: "no-amounts",
         question: "Why doesn't the label say how much of each ingredient is in it?",
         answer:
-          "Brands don't have to share amounts, and most don't. It's the biggest limit on what anyone can tell from a label: an ingredient at 0.5% and at 5% looks exactly the same. It's also why this app goes by which ingredients are present and roughly where they sit in the list, not by exact amounts.",
+          "On an ordinary cosmetic label, brands don't have to share amounts, and most don't. (A \"Drug Facts\" box, on some sunscreens and blemish products, is the exception: it prints each active ingredient's strength.) It's the biggest limit on what anyone can tell from a label: an ingredient at 0.5% and at 5% looks exactly the same. It's also why this app goes by which ingredients are present and roughly where they sit in the list, not by exact amounts.",
       },
     ],
   },
