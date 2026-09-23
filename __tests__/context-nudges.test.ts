@@ -41,6 +41,16 @@ describe("nudgesFor", () => {
     expect(nudgesFor([ing("retinol"), ing("octinoxate", { functions: ["en:uv-filter"] })])).toEqual([]);
   });
 
+  // Caught in review on #262: an unresolved label photo arrives as stubs with
+  // no `functions` at all, so function tags alone let a photographed
+  // sunscreen through. The filter's own name has to count too.
+  it("never nudges a sunscreen whose names didn't resolve — recognised by filter name", () => {
+    const stub = (name: string) => ing(name, { verified: false, functions: undefined });
+    expect(nudgesFor([stub("glycolic acid"), stub("zinc oxide")])).toEqual([]);
+    expect(nudgesFor([stub("retinol"), stub("butyl methoxydibenzoylmethane")])).toEqual([]);
+    expect(nudgesFor([stub("retinol"), stub("avobenzone")])).toEqual([]); // a US label's drug name
+  });
+
   it("is deterministic — nothing reads the clock", () => {
     const ingredients = [ing("glycolic acid")];
     expect(nudgesFor(ingredients)).toEqual(nudgesFor(ingredients));
@@ -72,6 +82,11 @@ describe("goalNudgesFor", () => {
     expect(
       goalNudgesFor([ing("niacinamide"), ing("zinc oxide", { functions: ["uv-filter"] })], ["hyperpigmentation"])
     ).toEqual([]);
+  });
+
+  it("stays quiet on a sunscreen whose names didn't resolve (#262 review)", () => {
+    const stub = (name: string) => ing(name, { verified: false, functions: undefined });
+    expect(goalNudgesFor([stub("niacinamide"), stub("octocrylene")], ["hyperpigmentation"])).toEqual([]);
   });
 });
 

@@ -2,6 +2,7 @@ import type { Concern, Ingredient } from "@/data/types";
 import { AHA_NAMES } from "./aha-names";
 import { RETINOID_NAMES, RETINOID_PRESCRIPTION_NAMES } from "./retinoid-salicylate-names";
 import { INGREDIENT_RULES, normaliseFunction, ruleMatches } from "./rules";
+import { CHEMICAL_UV_FILTER_NAMES, MINERAL_UV_FILTER_NAMES } from "./uv-filter-names";
 
 /**
  * Hand-written context nudges — static content, no live API (`FOR_ME_MVP.md`
@@ -45,19 +46,25 @@ function matchesAny(patterns: (string | RegExp)[], inciName: string): boolean {
   return patterns.some((pattern) => (typeof pattern === "string" ? name === pattern : pattern.test(name)));
 }
 
+const UV_FILTER_PATTERNS: string[] = [...MINERAL_UV_FILTER_NAMES, ...CHEMICAL_UV_FILTER_NAMES];
+
 /**
  * A sunscreen, or any formula with a UV filter in it, never gets a "pair
  * this with SPF" nudge — telling someone holding a sunscreen to wear
  * sunscreen is the one outcome that makes the whole feature look careless.
- * Read off the CosIng function tags, not `product.type`: the type is a guess
- * from the name, the tags are read off the formula.
+ * Read off the formula, not `product.type` (a guess from the name): the
+ * CosIng function tags where the dictionary resolved the name, and the
+ * filter's own name where it didn't — an unresolved label photo arrives as
+ * stubs with no `functions` at all (#234 review).
  */
 function hasUvFilter(ingredients: Ingredient[]): boolean {
-  return ingredients.some((ingredient) =>
-    (ingredient.functions ?? []).some((fn) => {
-      const role = normaliseFunction(fn);
-      return role === "uv-filter" || role === "uv-absorber";
-    })
+  return ingredients.some(
+    (ingredient) =>
+      matchesAny(UV_FILTER_PATTERNS, ingredient.name) ||
+      (ingredient.functions ?? []).some((fn) => {
+        const role = normaliseFunction(fn);
+        return role === "uv-filter" || role === "uv-absorber";
+      })
   );
 }
 
