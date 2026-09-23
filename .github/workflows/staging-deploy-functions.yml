@@ -1,0 +1,72 @@
+name: Staging function deploy
+
+# Deploys the Edge Functions to staging, so a branch that changes one can be
+# exercised against a real Supabase rather than only against ci.yml's
+# throwaway Postgres. Mirrors staging-migrate.yml's push-triggered,
+# missing-secret-is-a-clear-no-op shape, but cannot mirror its safety
+# property: there is no staging-only credential for `supabase functions
+# deploy`. The Supabase CLI authenticates with SUPABASE_ACCESS_TOKEN, an
+# account-wide personal access token that can also deploy to production —
+# unlike STAGING_DB_URL, which by construction cannot address any other
+# project. Scope that token's account permissions as tightly as the
+# dashboard allows, and know that storing it here is a real trust decision,
+# not a formality.
+#
+# Production is untouched by this workflow either way — deploying there
+# stays scripts/promotion-plan.mjs's printed command, for a human to run by
+# hand.
+on:
+  push:
+    paths:
+      - "supabase/functions/label-ocr/**"
+      - "supabase/functions/product-lookup/**"
+      - "supabase/functions/_shared/**"
+  workflow_dispatch:
+
+# One staging project, so two runs deploying different branches' function
+# code to it would race. Queue them instead, and never cancel a
+# half-deployed one.
+concurrency:
+  group: staging-deploy-functions
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Absent on a fork PR, and a run with no token would otherwise spend a
+    # minute to fail on the first CLI call.
+    if: github.repository == 'sabrahermassi/skincare-recommendation'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets are configured
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          REF: ${{ secrets.STAGING_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TOKEN:-}" ] || [ -z "${REF:-}" ]; then
+            echo "SUPABASE_ACCESS_TOKEN and/or STAGING_PROJECT_REF is not set."
+            echo "Add both under Settings -> Secrets and variables -> Actions."
+            echo "SUPABASE_ACCESS_TOKEN is account-wide and can also deploy to"
+            echo "production -- scope its permissions as tightly as the"
+            echo "Supabase dashboard allows before adding it here."
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # `_shared` has no deploy target of its own; a change to it only
+      # matters through the two functions that import it, so both redeploy
+      # whenever it (or either function) changes rather than trying to
+      # track which function actually uses what.
+      - name: Deploy label-ocr and product-lookup to staging
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          supabase functions deploy label-ocr --project-ref "${{ secrets.STAGING_PROJECT_REF }}"
+          supabase functions deploy product-lookup --project-ref "${{ secrets.STAGING_PROJECT_REF }}"

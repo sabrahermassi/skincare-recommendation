@@ -20,8 +20,10 @@ import {
   json,
   preflight,
   enforceRateLimit,
+  callerSalt,
   type RateLimit,
 } from "../_shared/http.ts";
+import { logScanBounded } from "../_shared/scan-log.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -90,6 +92,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const refusal = await enforceRateLimit(req, db, "product-lookup", RATE_LIMIT);
   if (refusal) return refusal;
 
+  const logScan = (outcome: "resolved" | "not_found" | "upstream_failure" | "internal_error") =>
+    logScanBounded(req, db, callerSalt(), { path: "barcode", outcome });
+
   // 1 ── our own catalogue, which already excludes anything past its deadline
   const existing = await db
     .from("products")
@@ -97,13 +102,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq("barcode", barcode)
     .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .maybeSingle();
-  if (existing.data) {
+  // A failed query behaves exactly like "not in our catalogue" below --
+  // `existing.data` is falsy either way, so this still falls through to OBF/
+  // INCI rather than failing loudly (unchanged from before). `catalogueFailed`
+  // only matters for the final classification: without it, a database outage
+  // that also comes up empty on every external source logged as an ordinary
+  // `not_found`, indistinguishable from a barcode nobody has ever heard of --
+  // the same miscount `upstreamFailed` exists to prevent for the sources
+  // below. Found in review on #246.
+  let catalogueFailed = false;
+  if (existing.error) {
+    console.error("catalogue lookup failed:", existing.error);
+    catalogueFailed = true;
+  } else if (existing.data) {
     // A row with no ingredients is a leftover half-product (a barcode and a name
     // from the retired barcode database), not something that can be scored. Say
     // "not found" so the app asks for the ingredient list; `label-ocr` then fills
     // this same row in. The other sources are not asked: they would try to write a
     // second row under this barcode, which is unique.
-    if (!existing.data.product_ingredients?.length) return json(req, { error: "Not found in any source" }, 404);
+    if (!existing.data.product_ingredients?.length) {
+      await logScan("not_found");
+      return json(req, { error: "Not found in any source" }, 404);
+    }
+    await logScan("resolved");
     return json(req, existing.data, 200);
   }
 
@@ -111,11 +132,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // failure, timeout or outage in one must fall through to the next rather
   // than crash the whole lookup — a barcode that is genuinely nowhere is an
   // ordinary 404, not a 500.
+  //
+  // `upstreamFailed`, checked at the final `logScan` call below, separates
+  // that outage from a genuine miss: without it, every source throwing looked
+  // exactly like a barcode nobody has ever heard of, which is the opposite of
+  // what #236 exists to measure.
+  let upstreamFailed = false;
   const safely = async (fn: () => Promise<Fetched | null>): Promise<Fetched | null> => {
     try {
       return await fn();
     } catch (err) {
       console.error("lookup source failed:", err);
+      upstreamFailed = true;
       return null;
     }
   };
@@ -126,9 +154,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // generic message; the detail goes to the server log only.
   const persistOrFail = async (fetched: Fetched): Promise<Response> => {
     try {
-      return json(req, await persist(fetched), 200);
+      const data = await persist(fetched);
+      await logScan("resolved");
+      return json(req, data, 200);
     } catch (err) {
       console.error("persist failed:", err);
+      await logScan("internal_error");
       return json(req, { error: "Could not save the product" }, 502);
     }
   };
@@ -149,6 +180,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // barcode and an ingredient list, so a source that knows a barcode but not
   // its formula is no source at all: the client is told "not found" and asks
   // the user for the ingredient list instead.
+  await logScan(catalogueFailed ? "internal_error" : upstreamFailed ? "upstream_failure" : "not_found");
   return json(req, { error: "Not found in any source" }, 404);
 });
 
@@ -164,7 +196,16 @@ async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
     `${OBF_BASE}/product/${barcode}.json?fields=code,product_name,brands,image_url,ingredients_text,quantity,categories_tags`,
     { headers: { "User-Agent": USER_AGENT } }
   );
-  if (!res.ok) return null;
+  // A 404 is OBF's genuine answer for a barcode it has never heard of — a
+  // real miss. Anything else non-OK (429, 5xx) is OBF itself being
+  // unavailable or rate-limiting us, not an answer about the barcode, and
+  // `safely()`'s caller needs to tell the two apart (`scan_log`'s
+  // `upstream_failure` vs `not_found` — found in review on #246, since both
+  // used to collapse into the same `return null`).
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    throw new Error(`Open Beauty Facts: ${res.status}`);
+  }
 
   const body = await res.json();
   if (body.status !== 1 || !body.product) return null;
@@ -224,7 +265,13 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
   const res = await fetch(`${INCI_BASE}/products/${barcode}`, {
     headers: { "X-API-Key": INCI_API_KEY, Accept: "application/json" },
   });
-  if (!res.ok) return null; // 404 product_not_found / invalid_barcode
+  // Same split as the OBF branch above: 404 (product_not_found /
+  // invalid_barcode) is a real answer, anything else non-OK is INCI API
+  // being unavailable or rate-limiting us.
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    throw new Error(`INCI API: ${res.status}`);
+  }
 
   const p = await res.json();
   if (!p?.name) return null;

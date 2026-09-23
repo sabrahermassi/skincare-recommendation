@@ -27,10 +27,12 @@ import {
   json,
   preflight,
   enforceRateLimit,
+  callerSalt,
   type RateLimit,
 } from "../_shared/http.ts";
 import { paginateOrdered } from "../_shared/paginate.ts";
 import { readTokenDeadline, signReadToken, verifyReadToken } from "../_shared/read-token.ts";
+import { logScanBounded, type ScanOutcome } from "../_shared/scan-log.ts";
 import { stripBase64ImageMetadata } from "../_shared/strip-metadata.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -88,7 +90,6 @@ const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return preflight(req);
   if (req.method !== "POST") return json(req, { error: "POST only" }, 405);
-  if (!VISION_API_KEY) return json(req, { error: "OCR is not configured" }, 503);
 
   // Refuse an oversized body BEFORE reading it. `req.json()` buffers the whole
   // request into memory first, so the `MAX_IMAGE_CHARS` check further down —
@@ -98,8 +99,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
   //
   // A body with no Content-Length (chunked) cannot be pre-checked; that case
   // falls through to the existing check, which still holds.
+  //
+  // Sized for an image (`MAX_BODY_BYTES` = `MAX_IMAGE_CHARS` plus a small
+  // envelope), so a body this large is, in practice, always an oversized
+  // label photo rather than a save request — a save's body is a name, a
+  // barcode and a list of short ingredient names, nowhere near this ceiling.
+  // Rate-limited and logged against the read bucket on that basis: the rare
+  // save request big enough to trip this is already the shape of abuse,
+  // whichever bucket it debits. Found in review on #246 — this is the
+  // ordinary path for an oversized photo (a normal `fetch` sends
+  // `Content-Length`), not the edge case the chunked-request fallback below
+  // covers, so it needs the limiter and a log row of its own rather than
+  // sharing the read path's later call, which does not run until well after
+  // the body — and therefore `saving` — is known.
   const declaredLength = Number(req.headers.get("content-length") ?? Number.NaN);
   if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    const refusal = await enforceRateLimit(req, db, "label-ocr", RATE_LIMIT);
+    if (refusal) return refusal;
+    // `image_bytes` is left unset here, matching migration 0024's own note on
+    // that column: only the declared length is known at this point, and that
+    // is not the same measurement `image_bytes` means everywhere else it's
+    // recorded (the actual base64 payload size).
+    await logScanBounded(req, db, callerSalt(), { path: "label", outcome: "image_too_large" });
     return json(req, { error: "Image too large — retake it closer in" }, 413);
   }
 
@@ -159,17 +180,49 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
     return json(req, { error: "imageBase64 is required" }, 400);
   }
+
+  // The rate limiter sits above the size check below, not below it as it did
+  // before this file logged anything: a request with no `Content-Length`
+  // header (chunked) skips the earlier pre-body-read check entirely and
+  // reaches this one instead, so the oversize rejection at line ~185 needs
+  // `logRead` — and therefore the limiter — already in scope. Logging a
+  // pre-limit rejection would itself be the write amplification the limiter
+  // exists to prevent, so the two move together. Found in review on #246.
+  const refusal = await enforceRateLimit(req, db, "label-ocr", RATE_LIMIT);
+  if (refusal) return refusal;
+
+  // #205's 48MP evidence, and the raw-scan-log's own `image_bytes` column
+  // (migration 0024): base64 to bytes is 3/4, and this is measured before
+  // `imageBase64` is reassigned to the stripped copy below.
+  const rawImageBytes = Math.round((imageBase64.length * 3) / 4);
+  const logRead = (outcome: ScanOutcome, extra: { namesParsed?: number; namesResolved?: number } = {}) =>
+    logScanBounded(req, db, callerSalt(), { path: "label", outcome, imageBytes: rawImageBytes, ...extra });
+
+  // Moved here from the top of the handler (was checked before `saving` was
+  // even known, blocking a save too — the save path never touches Vision).
+  // The real reason it lives here, though: `logRead` needs the body parsed
+  // and `rawImageBytes` measured to exist at all, and without this check
+  // running through it, a missing key returned 503 with no row — every read
+  // attempt during a misconfiguration vanished from the metric this PR
+  // exists to produce. Found live on staging (#246 review).
+  if (!VISION_API_KEY) {
+    await logRead("internal_error");
+    return json(req, { error: "OCR is not configured" }, 503);
+  }
+
   if (imageBase64.length > MAX_IMAGE_CHARS) {
+    await logRead("image_too_large");
     return json(req, { error: "Image too large — retake it closer in" }, 413);
   }
   // Cheap rejection of garbage before it reaches Vision: a non-base64 payload
   // would otherwise spend a network round trip only to be rejected there.
   if (!/^[A-Za-z0-9+/=\s]+$/.test(imageBase64)) {
+    // Same bucket as `unsupported_image` below — both mean "not decodable
+    // image data" — rather than a new outcome value for one more shape of
+    // the same failure. Found in review on #246.
+    await logRead("unsupported_image");
     return json(req, { error: "imageBase64 is not valid base64" }, 400);
   }
-
-  const refusal = await enforceRateLimit(req, db, "label-ocr", RATE_LIMIT);
-  if (refusal) return refusal;
 
   // Strip EXIF/XMP/IPTC before this image goes anywhere. A phone photo carries
   // GPS coordinates, and the next thing that happens to it is a POST to Google
@@ -202,14 +255,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // hand-rolled caller. `data/api.ts` maps 415 to "unreadable" and already
     // has copy for 413.
     if (cleaned.reason === "too_large") {
+      await logRead("image_too_large");
       return json(req, { error: "Image too large — retake it closer in" }, 413);
     }
+    await logRead("unsupported_image");
     return json(req, { error: "Unsupported image format" }, 415);
   }
   imageBase64 = cleaned.base64;
 
-  const text = await runOcr(imageBase64);
-  if (text === null) return json(req, { error: "Could not read the image" }, 502);
+  const ocr = await runOcr(imageBase64);
+  if (!ocr.ok) {
+    // A blank, blurred or text-free photo is an ordinary read failure, not
+    // Vision having a bad day — logged as `not_enough_text` with zero parsed
+    // names, the same outcome the too-few-fragments check below uses for the
+    // same underlying fact ("nothing usable came out of this photo").
+    await logRead(ocr.noText ? "not_enough_text" : "upstream_failure", { namesParsed: 0 });
+    return json(req, { error: "Could not read the image" }, 502);
+  }
+  const text = ocr.text;
 
   // Aliases are cheap (one small table) and needed on every path, so they are
   // fetched unconditionally. The dictionary is tens of thousands of rows and
@@ -224,6 +287,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     aliases = await fetchAliases();
   } catch (err) {
     console.error("fetchAliases failed:", err);
+    await logRead("internal_error");
     return json(req, { error: "Could not read the ingredient dictionary" }, 502);
   }
   let parsed = parseIngredientBlock(text, undefined, aliases);
@@ -237,6 +301,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       dictionary = await fetchDictionary();
     } catch (err) {
       console.error("fetchDictionary failed:", err);
+      await logRead("internal_error");
       return json(req, { error: "Could not read the ingredient dictionary" }, 502);
     }
     // A synonym is matchable in its own right, then resolved to the canonical
@@ -255,6 +320,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (parsed.length < MIN_INGREDIENTS) {
     // Better to say so than to score a fragment. Four is the same floor the
     // verdict engine uses before it will produce a number at all.
+    await logRead("not_enough_text", { namesParsed: parsed.length });
     return json(
       req,
       { error: "not_enough_text", found: parsed.length, rawText: text.slice(0, 400) },
@@ -267,6 +333,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     known = await knownIngredients(parsed.map((p) => p.inci_name));
   } catch (err) {
     console.error("knownIngredients failed:", err);
+    await logRead("internal_error", { namesParsed: parsed.length });
     return json(req, { error: "Could not read the ingredient dictionary" }, 502);
   }
 
@@ -288,6 +355,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         rereadKnown = await knownIngredients(parsed.map((p) => p.inci_name));
       } catch (err) {
         console.error("knownIngredients failed:", err);
+        await logRead("internal_error", { namesParsed: parsed.length });
         return json(req, { error: "Could not read the ingredient dictionary" }, 502);
       }
     }
@@ -303,6 +371,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // that mostly misses the dictionary is not a rare formula, it is a bad read.
   // Same ratio, same reasoning as MIN_KNOWN_INGREDIENT_RATIO's own comment.
   if (known.size / parsed.length < MIN_KNOWN_INGREDIENT_RATIO) {
+    await logRead("quality_gate", { namesParsed: parsed.length, namesResolved: known.size });
     return json(
       req,
       { error: "low_confidence", found: parsed.length, recognised: known.size, rawText: text.slice(0, 400) },
@@ -311,6 +380,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   const readNames = parsed.map((p) => p.inci_name);
+  await logRead("read_ok", { namesParsed: parsed.length, namesResolved: known.size });
   return json(
     req,
     {
@@ -456,26 +526,58 @@ async function saveProduct(
 
 // ── OCR ─────────────────────────────────────────────────────────────────────
 
-async function runOcr(imageBase64: string): Promise<string | null> {
-  const res = await fetch(`${VISION_URL}?key=${VISION_API_KEY}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      requests: [
-        {
-          image: { content: imageBase64 },
-          // DOCUMENT_TEXT_DETECTION beats TEXT_DETECTION on dense small print
-          // set in a block, which is exactly what an INCI panel is.
-          features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
-          imageContext: { languageHints: ["en", "ko"] },
-        },
-      ],
-    }),
-  });
-  if (!res.ok) return null;
+type OcrResult =
+  | { ok: true; text: string }
+  // `noText` distinguishes Vision genuinely answering "nothing here" (a
+  // blank, blurred or text-free photo — an ordinary read failure, not an
+  // outage) from Vision being unreachable or refusing the request. Both used
+  // to collapse into the same `null`, which logged every blank photo as
+  // `upstream_failure` and inflated the one bucket meant to mean "Vision
+  // itself is having a bad day". Found in review on #246.
+  | { ok: false; noText: boolean };
+
+async function runOcr(imageBase64: string): Promise<OcrResult> {
+  // Wrapped, where it wasn't before: an unreachable Vision (DNS, TLS, a
+  // dropped connection) threw out of a bare `await fetch`, past every
+  // failure this function otherwise returns for a *reachable-but-unhelpful*
+  // Vision, and became an uncaught 500 with no `scan_log` row at all —
+  // invisible to the very metric #236 exists to produce.
+  let res: Response;
+  try {
+    res = await fetch(`${VISION_URL}?key=${VISION_API_KEY}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: { content: imageBase64 },
+            // DOCUMENT_TEXT_DETECTION beats TEXT_DETECTION on dense small print
+            // set in a block, which is exactly what an INCI panel is.
+            features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
+            imageContext: { languageHints: ["en", "ko"] },
+          },
+        ],
+      }),
+    });
+  } catch (err) {
+    console.error("Vision request failed:", err);
+    return { ok: false, noText: false };
+  }
+  if (!res.ok) return { ok: false, noText: false };
   const body = await res.json().catch(() => null);
-  const annotation = body?.responses?.[0]?.fullTextAnnotation;
-  if (!annotation) return null;
+  // A malformed/truncated HTTP body (`body === null`) and a per-image
+  // `responses[0].error` — Vision's own HTTP-200 shape for "couldn't process
+  // this image" (bad or corrupted image data) — both mean Vision failed to
+  // do its job, not that it looked and found nothing. Reachable from an
+  // ordinary flaky upload, not just a hostile caller:
+  // `stripBase64ImageMetadata` (`_shared/strip-metadata.ts`) doesn't decode
+  // the entropy-coded image data, and explicitly accepts a JPEG truncated
+  // with no EOI marker ("real cameras do produce truncated files"). Found in
+  // review on #246 — without this, both collapsed into the same `noText`
+  // outcome as a genuinely blank photo.
+  if (body === null || body?.responses?.[0]?.error) return { ok: false, noText: false };
+  const annotation = body.responses?.[0]?.fullTextAnnotation;
+  if (!annotation) return { ok: false, noText: true };
 
   // Vision's own reading order, which interleaves words across line wraps on a
   // label photographed sideways: "ophiopogon" lands ten fragments from
@@ -495,7 +597,8 @@ async function runOcr(imageBase64: string): Promise<string | null> {
   // corridor and gets pulled in, splitting `sodium chloride`, `citric acid`
   // and `capryloyl glycine`. Fixing that needs real line segmentation, not a
   // tolerance tweak. Until then the flat text scores better.
-  return annotation.text ?? null;
+  if (!annotation.text) return { ok: false, noText: true };
+  return { ok: true, text: annotation.text };
 }
 
 // ── Parsing ─────────────────────────────────────────────────────────────────
