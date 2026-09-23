@@ -5,6 +5,8 @@ import {
   contraindications,
   flaggedIngredients,
   groupByRisk,
+  historyWarningCount,
+  irritationWarnings,
   isFlagged,
   isVerified,
 } from "@/lib/safety";
@@ -121,12 +123,14 @@ describe("contraindications", () => {
     expect(result[0].severity).toBe("irritant");
   });
 
-  it("reports an ingredient once even when both sensitivity and pregnancy flag it", () => {
-    // Same shape as "reports each problem ingredient once" above, but for the
-    // two checks that live in separate passes rather than the same loop:
-    // salicylic acid is both a dictionary "caution" entry (sensitivity) and a
-    // named pregnancy-caution pattern. A user who is both sensitive and
-    // pregnant must see it once, not twice.
+  it("reports an ingredient once per origin when both sensitivity and pregnancy flag it", () => {
+    // #187: pregnancy now gets its own section on the result screen, so an
+    // ingredient that is both a reactive-skin irritant and a pregnancy
+    // caution must appear in both sections — once per origin, not deduped
+    // into one entry. This intentionally replaces the old "reports an
+    // ingredient once" expectation (was toHaveLength(1)): that invariant
+    // held only while there was a single combined count, and this ticket's
+    // fix is exactly what removes that count.
     const salicylicAcid: Ingredient = {
       id: "salicylic-acid",
       name: "Salicylic Acid",
@@ -138,7 +142,8 @@ describe("contraindications", () => {
       [salicylicAcid],
       profile({ sensitivity: "some", pregnancyStatus: "pregnant" })
     );
-    expect(result).toHaveLength(1);
+    expect(result).toHaveLength(2);
+    expect(result.map((r) => r.origin).sort()).toEqual(["pregnancy", "restricted"]);
   });
 
   // #186: names added to close a gap between the scoring rule and the
@@ -172,6 +177,18 @@ describe("contraindications", () => {
   it("does not flag benzyl salicylate as a pregnancy caution", () => {
     const ingredient = pregnancyCautionIngredient("benzyl salicylate");
     expect(contraindications([ingredient], profile({ pregnancyStatus: "pregnant" }))).toEqual([]);
+  });
+
+  // Found in review on #257 (Codex): a product whose only contraindication is
+  // pregnancy-origin (e.g. tretinoin) recorded warningsAtView: 0 via
+  // irritationWarnings, so it vanished from history's "N flagged" badge
+  // entirely instead of just moving to its own section on the live screen.
+  it("counts a pregnancy-only caution toward history but not toward the irritation card", () => {
+    const tretinoin = pregnancyCautionIngredient("tretinoin");
+    const warnings = contraindications([tretinoin], profile({ pregnancyStatus: "pregnant" }));
+    expect(warnings).toHaveLength(1);
+    expect(irritationWarnings(warnings)).toHaveLength(0);
+    expect(historyWarningCount(warnings)).toBe(1);
   });
 });
 

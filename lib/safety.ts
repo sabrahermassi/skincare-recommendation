@@ -84,6 +84,13 @@ export type Contraindication = {
    * that nuance belongs; a hard cap has none.
    */
   severity: "hazard" | "irritant";
+  /**
+   * Where this hit came from, so a consumer can group or filter without
+   * string-matching `reason` (#187). `pregnancy` hits are not a general
+   * irritation risk — they need their own section on the result screen,
+   * separate from the sensitivity/comedogenic count.
+   */
+  origin: "avoid" | "comedogenic" | "restricted" | "pregnancy";
 };
 
 /**
@@ -115,7 +122,7 @@ export function contraindications(
 
     // "avoid" applies to everyone — it is not profile-dependent.
     if (ingredient.safety === "avoid") {
-      found.push({ ingredient, reason: "Flagged as best avoided", severity: "hazard" });
+      found.push({ ingredient, reason: "Flagged as best avoided", severity: "hazard", origin: "avoid" });
       continue;
     }
 
@@ -127,6 +134,7 @@ export function contraindications(
         ingredient,
         reason: `Pore-clogging (${ingredient.comedogenic}/5) and you flagged acne-prone skin`,
         severity: "hazard",
+        origin: "comedogenic",
       });
       continue;
     }
@@ -136,6 +144,7 @@ export function contraindications(
         ingredient,
         reason: "Common irritant for sensitive skin",
         severity: "irritant",
+        origin: "restricted",
       });
     }
   }
@@ -145,19 +154,42 @@ export function contraindications(
   // dictionary field, so — like pore-clogging — it still fires on an
   // unrecognised name. A false negative here (missing "retinol" because the
   // row never matched our dictionary) is worse than a redundant warning.
+  //
+  // Pushed even for an ingredient already flagged above (#187): pregnancy
+  // gets its own section on the result screen now, so a retinol that is both
+  // a reactive-skin irritant and a pregnancy caution must appear in both —
+  // once per origin, not deduped into one. `__tests__/safety.test.ts` pins
+  // this as "reports an ingredient once per origin".
   if (profile.pregnancyStatus === "pregnant" || profile.pregnancyStatus === "breastfeeding") {
     for (const hit of pregnancyCautionHits(ingredients)) {
-      // An ingredient already flagged above (e.g. a dictionary "caution" hit
-      // for a sensitive profile) must not be pushed a second time here —
-      // `warnings` feeds a plain count (RiskCards' "N flagged", the History
-      // log's snapshot), and two entries for one ingredient would overstate
-      // it rather than add a second, distinct problem.
-      if (found.some((f) => f.ingredient.id === hit.ingredient.id)) continue;
-      found.push({ ingredient: hit.ingredient, reason: hit.reason, severity: "irritant" });
+      found.push({ ingredient: hit.ingredient, reason: hit.reason, severity: "irritant", origin: "pregnancy" });
     }
   }
 
   return found;
+}
+
+/**
+ * Warnings that count as a general irritation risk — everything except a
+ * pregnancy hit, which gets its own section rather than inflating a count
+ * that reads as "flagged for your skin" (#187). Used by the Irritation card
+ * alone: the History log's "N flagged" badge deliberately does NOT use this
+ * — see `historyWarningCount` below.
+ */
+export function irritationWarnings(warnings: Contraindication[]): Contraindication[] {
+  return warnings.filter((w) => w.origin !== "pregnancy");
+}
+
+/**
+ * Every contraindication, including pregnancy-origin ones — the count a
+ * history entry's "N flagged" badge (`warningsAtView`) is recorded with.
+ * Unlike `irritationWarnings` above, this must NOT exclude pregnancy hits:
+ * a pregnancy-only caution (e.g. tretinoin) has to still show as flagged in
+ * history, or it silently vanishes there instead of just moving to its own
+ * section on the live result screen. Found in review on #257 (Codex).
+ */
+export function historyWarningCount(warnings: Contraindication[]): number {
+  return warnings.length;
 }
 
 export type RiskGroup = "avoid" | "caution" | "clean" | "unknown";

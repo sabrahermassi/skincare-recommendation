@@ -2,6 +2,7 @@ import { View } from "react-native";
 
 import { Text } from "@/components/Text";
 import type { MatchReason, ScoreLine, Verdict } from "@/lib/matching";
+import type { Contraindication } from "@/lib/safety";
 import { BORDER_INACTIVE, INK, MUTED, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
 
 /**
@@ -32,6 +33,40 @@ export function ReasonLine({ reason }: { reason: MatchReason }) {
       detail={reason.reason}
       direction={reason.effect > 0 ? "up" : "down"}
     />
+  );
+}
+
+/**
+ * "While pregnant or breastfeeding" — pregnancy/breastfeeding-caution
+ * ingredients get their own place on the result screen, rather than sitting
+ * inside the Irritation-risk count under a "good fit" headline (#187).
+ *
+ * Renders whenever `warnings` carries a pregnancy-origin hit — no separate
+ * profile check needed, since `contraindications` only ever pushes a
+ * pregnancy hit when the profile's `pregnancyStatus` is "pregnant" or
+ * "breastfeeding". Shared by `app/product/[id].tsx` and
+ * `app/label-result.tsx`, same reason as `panelFor` above: both screens
+ * compute a `MatchResult` and both need this section, including on the
+ * `unknown` verdict — `contraindications` runs before the low-coverage
+ * refusal, so an unreadable formula can still carry a pregnancy hit.
+ */
+export function PregnancySection({ warnings }: { warnings: Contraindication[] }) {
+  const hits = warnings.filter((w) => w.origin === "pregnancy");
+  if (hits.length === 0) return null;
+  return (
+    <View style={{ gap: 10 }}>
+      <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
+        While pregnant or breastfeeding
+      </Text>
+      {hits.map((hit) => (
+        <ExplanationLine
+          key={hit.ingredient.id}
+          label={hit.ingredient.name.toLowerCase()}
+          detail={hit.reason}
+          direction="down"
+        />
+      ))}
+    </View>
   );
 }
 

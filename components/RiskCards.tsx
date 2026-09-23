@@ -6,7 +6,7 @@ import { Text } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import type { MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
-import { isVerified } from "@/lib/safety";
+import { irritationWarnings, isVerified } from "@/lib/safety";
 import { CARD_SHADOW, INK, RISK_ICON, RISK_TITLE } from "@/lib/tokens";
 
 /**
@@ -132,7 +132,8 @@ function RiskCard({
 
 /**
  * Irritation risk, from the EU regulatory status of what is actually in the
- * bottle plus anything contraindicated for this profile, plus any active the
+ * bottle plus anything contraindicated for this profile (pregnancy hits
+ * excluded — they get their own section, see #187), plus any active the
  * score charged as an irritant for this profile (`match.irritants`), which is
  * "safe" on the regulatory list but still shows as Avoid in the ingredient list.
  * Not a hazard score — a count of entries, said in words.
@@ -141,10 +142,14 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
   const restricted = product.ingredients.filter(
     (i) => isVerified(i) && i.safety !== "safe"
   ).length;
+  // Pregnancy hits get their own section on the result (#187) — they are not
+  // an irritation risk, so they must not inflate this card's count.
+  const nonPregnancyWarnings = irritationWarnings(match.warnings);
   // An ingredient can be both warned about and charged as an irritant: count it once.
-  const warned = new Set(match.warnings.map((w) => w.ingredient.name));
+  const warned = new Set(nonPregnancyWarnings.map((w) => w.ingredient.name));
   const charged = new Set(match.irritants.filter((name) => !warned.has(name)));
-  const personal = match.warnings.length + charged.size;
+  const personal = nonPregnancyWarnings.length + charged.size;
+  const hasPregnancyOnlyHit = personal === 0 && match.warnings.some((w) => w.origin === "pregnancy");
 
   if (product.ingredients.length === 0) {
     return { level: "Unknown", note: "Label not read yet", tone: "neutral", hasEntries: false };
@@ -158,7 +163,11 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
     };
   }
   if (restricted === 0) {
-    return { level: "Low", note: "Nothing restricted", tone: "good", hasEntries: false };
+    // "Nothing restricted" is an absolute claim — it must not run alongside
+    // a pregnancy section saying there's something to check (#187).
+    return hasPregnancyOnlyHit
+      ? { level: "Low", note: "See the pregnancy note above", tone: "good", hasEntries: false }
+      : { level: "Low", note: "Nothing restricted", tone: "good", hasEntries: false };
   }
   if (restricted <= 2) {
     return {

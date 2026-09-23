@@ -7,7 +7,7 @@ import { IngredientsSheet, ingredientsSheetPeek, type IngredientsSheetHandle } f
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
-import { ExplanationLine, ReasonLine, panelFor } from "@/components/VerdictExplanation";
+import { ExplanationLine, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
@@ -208,6 +208,13 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
               </Text>
             </View>
           ) : null}
+        </View>
+
+        {/* Renders regardless of lowCoverage: contraindications runs before
+            the low-coverage refusal (#187), so a pregnant user photographing
+            an unreadable formula still gets warned. */}
+        <View style={{ paddingHorizontal: SPACE.gutter }}>
+          <PregnancySection warnings={match.warnings} />
         </View>
 
         {lowCoverage ? (
