@@ -322,13 +322,24 @@ function NameStep({ barcode, ingredients, readToken }: { barcode: string; ingred
                 </Text>
               ))}
               <Pressable
-                onPress={() => retakePhoto(barcode)}
+                onPress={() => {
+                  if (saving) return;
+                  retakePhoto(barcode);
+                }}
+                disabled={saving}
                 accessibilityRole="button"
                 accessibilityLabel="Retake the photo"
                 hitSlop={8}
                 style={{ alignSelf: "flex-start", marginTop: SPACE.text / 2 }}
               >
-                <Text style={{ fontSize: TYPE.label, fontWeight: "500", color: MUTED, textDecorationLine: "underline" }}>
+                <Text
+                  style={{
+                    fontSize: TYPE.label,
+                    fontWeight: "500",
+                    color: saving ? MUTED_FAINT : MUTED,
+                    textDecorationLine: "underline",
+                  }}
+                >
                   Not right? Retake the photo
                 </Text>
               </Pressable>

@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 import AddProduct from "@/app/add-product";
+import { saveScannedProduct } from "@/data/api";
 import { clearLabelRead, heldLabelRead, holdLabelRead } from "@/lib/pending-label";
 
 /**
@@ -34,6 +35,9 @@ jest.mock("@/data/api", () => ({
   fetchProductByBarcode: jest.fn(),
   saveScannedProduct: jest.fn(),
 }));
+
+// Structural cast rather than `jest.Mock`: the jest namespace is not in scope here (see jest-globals.d.ts).
+type MockFn = { mockReturnValue(value: unknown): void };
 
 const INGREDIENTS = ["Water", "Glycerin", "Niacinamide"];
 
@@ -70,6 +74,35 @@ describe("AddProduct — review section", () => {
 
     expect(heldLabelRead()).toBeNull();
     expect(mockReplace).toHaveBeenCalledWith({ pathname: "/scan-label", params: { barcode: "1234567890123" } });
+  });
+
+  it("retake is disabled while a save is in flight, so it can't clobber the save's own clear-and-navigate", async () => {
+    // Found in review on #245: without this guard, tapping Retake mid-save
+    // let the stale save's `.then` continuation run after a new photo had
+    // already been held, wiping it out and navigating to the wrong result.
+    let resolveSave!: (value: Awaited<ReturnType<typeof saveScannedProduct>>) => void;
+    (saveScannedProduct as unknown as MockFn).mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+
+    holdLabelRead({ barcode: "1234567890123", ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    await render(<AddProduct />);
+
+    await fireEvent.changeText(screen.getByLabelText("Product name"), "Test Toner");
+    await fireEvent.press(screen.getByText("Save and see my match"));
+    await fireEvent.press(screen.getByText("3 ingredients read — check them"));
+    await fireEvent.press(screen.getByText("Not right? Retake the photo"));
+
+    // Retake did nothing: the held read from before the save is untouched,
+    // and nothing navigated to the camera.
+    expect(heldLabelRead()).not.toBeNull();
+    expect(mockReplace).not.toHaveBeenCalledWith(expect.objectContaining({ pathname: "/scan-label" }));
+
+    await act(async () => {
+      resolveSave({ ok: false, reason: "failed" });
+    });
   });
 });
 
