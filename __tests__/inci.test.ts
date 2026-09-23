@@ -228,6 +228,17 @@ describe("resolveKnownName: spacing, spelling and common names", () => {
     expect(resolveKnownName("peg-400 stearate", dictionary)).toBe("peg-400 stearate");
   });
 
+  // Found in review on #247: stripping every non-[a-z0-9] character
+  // collapsed any two pure-CJK strings to the identical empty key (`""`),
+  // so two unrelated Korean synonyms would bucket together in `squashIndex`
+  // and an unresolved CJK fragment could get fuzzy-matched to whichever one
+  // was nearest by edit distance, across the whole bucket — not narrowed to
+  // same-content candidates the way a Latin name already is.
+  it("keeps CJK characters in the key, so two different Korean names never share a squash bucket", () => {
+    expect(squashKey("글리세린")).not.toBe(squashKey("나이아신아마이드"));
+    expect(squashKey("글리세린")).toBe("글리세린");
+  });
+
   it("reads a British spelling", () => {
     expect(resolveKnownName("sodium lauryl sulphate", dictionary)).toBe("sodium lauryl sulfate");
   });
@@ -569,6 +580,85 @@ describe("parseIngredientBlock", () => {
   it("recognises a Korean ingredients heading", () => {
     const parsed = parseIngredientBlock("수분 크림 전성분: Water, Glycerin, Niacinamide");
     expect(parsed.map((p) => p.inci_name)).toEqual(["water", "glycerin", "niacinamide"]);
+  });
+
+  // #185: a Hangul or kana/kanji name used to become an empty string (the
+  // trailing/leading strip in `normalise` and the `/[a-z]/` filter both
+  // discarded anything with no Latin letters) and vanish before it ever
+  // reached the synonym lookup — this is a parser assertion, and needs no
+  // dictionary data to be meaningful (done-when 1).
+  it("keeps a Hangul-only name instead of discarding it", () => {
+    const parsed = parseIngredientBlock("정제수, Glycerin, Niacinamide");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["정제수", "glycerin", "niacinamide"]);
+  });
+
+  it("keeps a kana/kanji-only name instead of discarding it", () => {
+    // A single-character name ("水", water) is separately dropped by the
+    // `n.length > 1` filter a few lines below in `parseIngredientBlock` —
+    // real, but out of #185's blast radius (it isn't a Latin-only check and
+    // affects a one-character Latin name identically), so this uses
+    // realistic multi-character names instead of chasing that too.
+    const parsed = parseIngredientBlock("香料, グリセリン, Niacinamide");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["香料", "グリセリン", "niacinamide"]);
+  });
+
+  // Found in review on #247: #185 is scoped to Korean and Japanese, but an
+  // earlier version of this fix widened the filter to `\p{L}` — any Unicode
+  // letter script at all, not just Hangul/kana/Han. That kept a script
+  // `gateRatio` doesn't know to exempt (Cyrillic, Arabic, Greek, Hebrew,
+  // Thai, ...), so an unresolved name in one of those now dragged the 60%
+  // gate down where the old `[a-z]`-only filter would have discarded it
+  // before it ever reached `parsed` — a regression on exactly the labels
+  // this ticket isn't about. Narrowed back to Latin + the four CJK scripts,
+  // so anything else is still discarded exactly as it was before this PR.
+  it("still discards a non-CJK, non-Latin name (out of #185's scope)", () => {
+    const parsed = parseIngredientBlock("Кириллица, Water, Glycerin");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["water", "glycerin"]);
+  });
+
+  // Found in review on #247: the trim in `normalise` kept the four CJK
+  // scripts but not U+30FC, the katakana-hiragana prolongation mark, which
+  // is Script=Common rather than Katakana -- so a real word like "ポリマー"
+  // (polymer) lost its final mark and became "ポリマ", matching nothing.
+  it("keeps the katakana prolongation mark instead of trimming it off", () => {
+    const parsed = parseIngredientBlock("ポリマー, Water, Glycerin");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["ポリマー", "water", "glycerin"]);
+  });
+
+  // Found in review on #247: full-width Latin/digits (a normal OCR read on a
+  // Japanese label) are Script=Common too, so a name like "ＰＥＧ－４０" was
+  // stripped as decoration rather than kept as "peg-40". NFKC folds it to
+  // its standard-width spelling before the trim runs.
+  it("keeps a full-width Latin/digit name after folding it to standard width", () => {
+    const parsed = parseIngredientBlock("ＰＥＧ－４０, Water, Glycerin");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["peg-40", "water", "glycerin"]);
+  });
+
+  // Found in review on #247: real Japanese labels use their own punctuation
+  // -- 全成分 as the heading, U+3001 (、) as the list separator -- neither of
+  // which the parser recognised, so a label using standard Japanese
+  // formatting (not the ASCII punctuation earlier fixtures used) still read
+  // as a single unsplittable blob.
+  it("recognises a Japanese ingredients heading and the ideographic comma", () => {
+    const parsed = parseIngredientBlock("全成分：グリセリン、ナイアシンアミド、香料");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["グリセリン", "ナイアシンアミド", "香料"]);
+  });
+
+  // Done-when 7's fallback branch: staging's `ingredient_synonyms` cannot be
+  // checked from this session (no `.env.staging` / staging credentials are
+  // available here), so per the ticket's own instruction this asserts
+  // resolution against an injected test dictionary instead of live data —
+  // the live Korean path is unproven until #201 imports real Korean
+  // synonyms. Say so plainly rather than treating this test as equivalent.
+  it("a Korean-only label resolves end to end against an injected dictionary (live path unproven — see #201)", () => {
+    const dictionaryWithKorean = new Set(["aqua", "glycerin", "niacinamide"]);
+    const koreanAliases = new Map([
+      ["정제수", "aqua"],
+      ["글리세린", "glycerin"],
+      ["나이아신아마이드", "niacinamide"],
+    ]);
+    const parsed = parseIngredientBlock("정제수, 글리세린, 나이아신아마이드", dictionaryWithKorean, koreanAliases);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "niacinamide"]);
   });
 
   it.each([

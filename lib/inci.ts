@@ -20,13 +20,24 @@
  */
 export function normalise(raw: string): string {
   return raw
+    // Full-width Latin/digits/punctuation (a common OCR read on a Japanese
+    // label, e.g. "ＰＥＧ－４０") are Script=Common, not Latin or one of the
+    // CJK scripts below, so the trim at the end stripped them as decoration
+    // rather than keeping them as the name they are. NFKC folds them to
+    // their standard-width equivalents first, matching how the dictionary
+    // itself is spelled.
+    .normalize("NFKC")
     .replace(/\([^)]*\)/g, " ")
     .replace(/[*_[\]]/g, " ")
     .replace(/\b\d+([.,]\d+)?\s*%/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
-    .replace(/^[^a-z0-9]+|[^a-z0-9)]+$/g, "");
+    // U+30FC, the katakana-hiragana prolongation mark ("ー" in "ポリマー"),
+    // is Script=Common rather than Katakana, so it needs to be named
+    // explicitly to survive the trim below the same way the four CJK
+    // scripts do.
+    .replace(/^[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+|[^a-z0-9)\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+$/gu, "");
 }
 
 export type ParsedIngredient = { inci_name: string; position: number };
@@ -68,7 +79,11 @@ function splitOnSeparators(text: string): string[] {
     offset > 0 && /\d/.test(text[offset - 1]) ? PLACEHOLDER : match
   );
   return protectedText
-    .split(/[;•·]|,|\.(?=\s)/)
+    // U+3001, the ideographic (full-width) comma, is the separator standard
+    // Japanese ingredient lists actually print ("水、グリセリン") -- the ASCII
+    // comma never appears in one at all, so without this every such label
+    // produced a single unsplittable block instead of real tokens.
+    .split(/[;•·、]|,|\.(?=\s)/)
     .map((s) => s.replace(new RegExp(PLACEHOLDER, "g"), ",").replace(//g, "."));
 }
 
@@ -370,9 +385,18 @@ const lengthIndexCache = new WeakMap<ReadonlySet<string>, Map<number, string[]>>
  * and "methyl-styrene" are one key. Labels and the dictionary disagree about
  * spaces and punctuation far more often than about spelling, and digits stay
  * in the key so "peg-4" and "peg-40" can never meet.
+ *
+ * CJK characters are kept alongside `[a-z0-9]` rather than stripped with
+ * everything else (#185; found in review on #247): stripping them collapsed
+ * every pure-Hangul/kana/Han string to the same empty key, so once real
+ * Korean/Japanese synonyms exist in the dictionary (the point of #185),
+ * `squashIndex`'s `""` bucket would hold all of them together regardless of
+ * content, and `resolveKnownName`'s fuzzy tie-break would pick the nearest
+ * one across that whole undifferentiated bucket instead of narrowing to
+ * same-content candidates the way a Latin name already does.
  */
 export function squashKey(name: string): string {
-  return name.replace(/[^a-z0-9]/g, "");
+  return name.replace(/[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/gu, "");
 }
 
 function squashIndex(dictionary: ReadonlySet<string>): Map<string, string[]> {
@@ -672,7 +696,7 @@ export function parseIngredientBlock(
 ): ParsedIngredient[] {
   const flat = text.replace(/\r/g, "").replace(/\n+/g, " ").replace(/\s+/g, " ").replace(/\b(?:inactive ingredients?|may contain|peu(?:t|vent) contenir|puede contener|kann enthalten)\s*[:：]?\s*/gi, ", ");
 
-  const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:\bingredients?\b|전성분|성분)\s*[:：]?\s*/i.exec(flat);
+  const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:\bingredients?\b|전성분|성분|全成分)\s*[:：]?\s*/i.exec(flat);
   let block = heading ? flat.slice(heading.index + heading[0].length) : flat;
 
   // With a dictionary the heading's language stops mattering: the list is
@@ -703,7 +727,7 @@ export function parseIngredientBlock(
   const fuzzyAttempts = { remaining: MAX_FUZZY_ATTEMPTS_PER_BLOCK };
   const delimited = splitOnSeparators(block)
     .map(normalise)
-    .filter((n) => n.length > 1 && n.length < 120 && /[a-z]/.test(n))
+    .filter((n) => n.length > 1 && n.length < 120 && /[a-z]|\p{Script=Hangul}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Han}/u.test(n))
     .flatMap((name) => {
       const resolved = canonical(name);
       // Without a dictionary a long real name cannot be recognised as known, so it is

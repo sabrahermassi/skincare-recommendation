@@ -64,13 +64,14 @@ const COMMON_NAME_ALIASES = {
  */
 function normalise(raw) {
   return raw
+    .normalize("NFKC")
     .replace(/\([^)]*\)/g, " ")
     .replace(/[*_[\]]/g, " ")
     .replace(/\b\d+([.,]\d+)?\s*%/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
-    .replace(/^[^a-z0-9]+|[^a-z0-9)]+$/g, "");
+    .replace(/^[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+|[^a-z0-9)\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+$/gu, "");
 }
 
 /**

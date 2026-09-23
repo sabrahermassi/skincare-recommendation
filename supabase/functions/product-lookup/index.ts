@@ -412,7 +412,12 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
   // was stored with "ingredients water" as its first entry, so the app could
   // not say what water was. `lib/inci.ts` has always stripped this; the two
   // parsers simply disagreed.
-  const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*/i, "")
+  // 전성분/성분 (Korean) and 全成分 (Japanese) are the "ingredients" heading in
+  // those languages -- never added here when #185 widened the client and
+  // label-ocr parsers, so an OBF/INCI-API entry using one still fused the
+  // heading onto the first name the same way an unstripped "Ingredients:"
+  // used to.
+  const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe|전성분|성분|全成分)\s*[:：]\s*/i, "")
     .replace(/\b(?:inactive ingredients?|may contain|peu(?:t|vent) contenir|puede contener|kann enthalten)\s*[:：]?\s*/gi, ", ");
 
   // ...and truncate at whatever shares the back of the label. Legal
@@ -445,7 +450,9 @@ function parseInci(text: string): { inci_name: string; position: number }[] {
     // A comma directly between two digits belongs to the name —
     // "1,2-Hexanediol" is one ingredient, and splitting there yields a bare
     // "1" and an orphaned "2-hexanediol". Kept in step with `lib/inci.ts`.
-    .split(/[;]|,(?!\d)|\.(?=\s)/)
+    // U+3001, the ideographic (full-width) comma, is the separator standard
+    // Japanese ingredient lists actually print -- never added here either.
+    .split(/[;、]|,(?!\d)|\.(?=\s)/)
     .map((part) => normalise(part.replace(/\uE001/g, ".")))
     // No dictionary here, so a long real name (a fermented extract naming a dozen
     // species) cannot be recognised as known: it is exempt from the word limit only,
@@ -478,11 +485,22 @@ function dedupe(names: string[]): { inci_name: string; position: number }[] {
 
 function normalise(raw: string): string {
   return raw
+    // Full-width Latin/digits/punctuation (a common OCR read on a Japanese
+    // label, e.g. "ＰＥＧ－４０") are Script=Common, not Latin or one of the
+    // CJK scripts below, so the trim at the end stripped them as decoration
+    // rather than keeping them as the name they are. NFKC folds them to
+    // their standard-width equivalents first, matching how the dictionary
+    // itself is spelled.
+    .normalize("NFKC")
     .replace(/\([^)]*\)/g, " ")
     .replace(/[*_[\]]/g, " ")
     .replace(/\b\d+([.,]\d+)?\s*%/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
-    .replace(/^[^a-z0-9]+|[^a-z0-9)]+$/g, "");
+    // U+30FC, the katakana-hiragana prolongation mark ("ー" in "ポリマー"),
+    // is Script=Common rather than Katakana, so it needs to be named
+    // explicitly to survive the trim below the same way the four CJK
+    // scripts do.
+    .replace(/^[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+|[^a-z0-9)\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+$/gu, "");
 }

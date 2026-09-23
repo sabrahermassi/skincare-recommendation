@@ -1209,9 +1209,25 @@ export type LabelRead =
        * build, not something a retry fixes. `server_unavailable` is the 503 the
        * server itself returns when *its* Vision API key is unset, which is a
        * temporary, ops-fixable condition. See `failureCopy` in
-       * `components/LabelCamera.tsx`.
+       * `lib/read-label-photo.ts`.
+       *
+       * `too_little_text` and `unrecognised_names` are also not the same
+       * failure, both 422s from the server but distinguished by its
+       * `not_enough_text` vs `low_confidence` error strings (#185):
+       * `too_little_text` means the read found nothing worth calling a list —
+       * "get closer" is the right advice. `unrecognised_names` means names
+       * were read (a Korean or Japanese label parses now, per #185) but too
+       * few matched the ingredient dictionary to score — telling that user to
+       * get closer is a lie, since the photo was already good enough to read.
+       * Full resolution for those names is #201, not yet run anywhere.
        */
-      reason: "not_configured" | "server_unavailable" | "unreadable" | "too_little_text" | "rate_limited";
+      reason:
+        | "not_configured"
+        | "server_unavailable"
+        | "unreadable"
+        | "too_little_text"
+        | "unrecognised_names"
+        | "rate_limited";
       rawText?: string;
     };
 
@@ -1247,9 +1263,25 @@ export async function readLabel(imageBase64: string): Promise<LabelRead> {
   });
 
   if (error) {
-    const status = (error as { context?: { status?: number } }).context?.status;
+    const context = (error as { context?: { status?: number; json?: () => Promise<unknown> } }).context;
+    const status = context?.status;
     if (status === 429) return { ok: false, reason: "rate_limited" };
-    if (status === 422) return { ok: false, reason: "too_little_text" };
+    if (status === 422) {
+      // Both `not_enough_text` and `low_confidence` are 422s — the status
+      // alone can't tell them apart, and they need different copy (#185: see
+      // the `LabelRead` reason field's own comment for why). `context` is a
+      // real `Response` in production; guarded rather than assumed, since a
+      // context that isn't one (a test double, or a future error shape with
+      // no body) should fall back to the same `too_little_text` this branch
+      // always returned, not throw.
+      const body = (
+        typeof context?.json === "function" ? await context.json().catch(() => null) : null
+      ) as { error?: string; rawText?: string } | null;
+      if (body?.error === "low_confidence") {
+        return { ok: false, reason: "unrecognised_names", rawText: body?.rawText };
+      }
+      return { ok: false, reason: "too_little_text", rawText: body?.rawText };
+    }
     if (status === 503) return { ok: false, reason: "server_unavailable" };
     return { ok: false, reason: "unreadable" };
   }
