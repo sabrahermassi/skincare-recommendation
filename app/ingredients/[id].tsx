@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
@@ -7,7 +7,7 @@ import { IngredientTabsList, TABS, type Tab } from "@/components/IngredientTabsL
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
-import { failureMessage, fetchProduct, type FetchFailure } from "@/data/api";
+import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
 import { matchProduct } from "@/lib/matching";
@@ -29,8 +29,12 @@ export default function IngredientList() {
   // links straight into the filtered view rather than dropping you on "All"
   // to find them yourself.
   const { id, tab: initialTab } = useLocalSearchParams<{ id: string; tab?: string }>();
-  const [product, setProduct] = useState<ProductWithIngredients | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Seeded from the catalogue cache so a product already in memory paints on
+  // the first frame instead of a spinner — same seam as `app/product/[id].tsx`.
+  const [product, setProduct] = useState<ProductWithIngredients | null>(() =>
+    peekProducts("all")?.find((p) => p.id === id) ?? null,
+  );
+  const [loading, setLoading] = useState(() => !product);
   // Set only when the catalogue could not be asked — distinct from
   // `product === null`, which is the catalogue answering it does not have
   // this id. Same split as `app/product/[id].tsx`; this screen used to fold
@@ -38,26 +42,38 @@ export default function IngredientList() {
   // and offered no way back short of leaving the screen.
   const [failure, setFailure] = useState<FetchFailure | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  /**
+   * Which id the product in state belongs to — same purpose as
+   * `app/product/[id].tsx`'s own `loadedFor`. Seeded to `id` when `product`
+   * itself was seeded from the cache above, so a failed background refetch
+   * doesn't wipe out a product that was already correct on screen.
+   */
+  const loadedFor = useRef<string | null>(product ? id : null);
 
   const profile = useAppStore((s) => s.profile);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    // Skipped when `product` was already seeded from the cache for this
+    // exact id — showing the spinner over content that's already correct is
+    // the exact flash seeding was added to avoid. The fetch below still
+    // runs, silently revalidating behind it.
+    if (!(product && loadedFor.current === id)) setLoading(true);
     setFailure(null);
     fetchProduct(id)
       .then((result) => {
         if (cancelled) return;
-        // A failure clears the product for the same reason the old `catch`
-        // did: without this, a failed request left the *previous* id's
-        // product in state. `loading` gates the spinner so nothing renders it
-        // mid-request, but the moment this resolves, the not-found branch
-        // below is skipped and the prior product renders under the new
-        // route's id — for a request that never actually answered for it.
         if (result.ok) {
           setProduct(result.value);
+          loadedFor.current = id;
         } else {
-          setProduct(null);
+          // A failed retry of the id already on screen keeps that copy — it
+          // beats an error page. A failed load of a *different* id must not
+          // inherit it. Same split as `app/product/[id].tsx`'s `loadedFor`.
+          if (loadedFor.current !== id) {
+            setProduct(null);
+            loadedFor.current = null;
+          }
           setFailure(result.failure);
         }
         setLoading(false);
@@ -65,6 +81,10 @@ export default function IngredientList() {
     return () => {
       cancelled = true;
     };
+    // `product` is read deliberately, not as a dependency: it's checked only
+    // to decide whether *this run* of the effect should show the spinner,
+    // not to decide whether the effect re-runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, retryKey]);
 
   const match = useMemo(

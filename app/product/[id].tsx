@@ -15,7 +15,7 @@ import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { HeartIcon } from "@/components/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { failureMessage, fetchProduct, type FetchFailure } from "@/data/api";
+import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import {
   confidenceLabel,
@@ -152,14 +152,19 @@ const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 export default function ProductScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [product, setProduct] = useState<ProductWithIngredients | null>(null);
+  // Seeded from the catalogue cache so a product already in memory paints on
+  // the first frame instead of a spinner — the same `peekProducts` seam
+  // `app/(tabs)/browse.tsx` uses for a warm start.
+  const [product, setProduct] = useState<ProductWithIngredients | null>(() =>
+    peekProducts("all")?.find((p) => p.id === id) ?? null,
+  );
   const [showWhy, setShowWhy] = useState(false);
   // Measured, so the bottle, name and cards fill the screen exactly down to where
   // the ingredients sheet begins: the screen's height and the height of everything
   // under the picture decide how big the picture can be.
   const [viewportH, setViewportH] = useState(0);
   const [restH, setRestH] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !product);
   /**
    * Set only when the catalogue could not be *asked*. Distinct from
    * `product === null`, which is the catalogue answering that it does not have
@@ -176,8 +181,13 @@ export default function ProductScreen() {
    * changed: without this, routing to a different product whose load then
    * failed left the previous one rendering under the new id, which is the
    * exact trap `app/ingredients/[id].tsx` documents on its own fetch.
+   *
+   * Seeded to `id` when `product` itself was seeded from the cache above —
+   * otherwise a failed first fetch would read as "a different id's product
+   * is still on screen" and wipe out the very product that skipped the
+   * spinner.
    */
-  const loadedFor = useRef<string | null>(null);
+  const loadedFor = useRef<string | null>(product ? id : null);
 
   // Pinned at mount for the same reason the ingredient screen pins its own:
   // `react-hooks/purity` flags `Date.now()` during render.
@@ -190,14 +200,30 @@ export default function ProductScreen() {
   const fillInViewScore = useAppStore((s) => s.fillInViewScore);
   const saved = savedProducts.some((p) => p.id === id);
   const loggedId = useRef<string | null>(null);
+  /**
+   * Which id `fetchProduct` has actually confirmed still exists, distinct
+   * from `loadedFor` — that ref is seeded at mount for a cache hit so the
+   * *screen* doesn't flash a spinner, but the view-history log below must
+   * not trust a possibly-stale cached row until the network has actually
+   * confirmed it. Only set on a successful fetch, never at the cache seed.
+   *
+   * State, not a ref: for a cache hit that was already fresh, `fetchProduct`
+   * resolves with the same object already in `product`, so `setProduct`
+   * is a no-op render-wise — a ref written in that same branch would never
+   * be seen by the logging effect below, since nothing would re-run it.
+   */
+  const [confirmedFor, setConfirmedFor] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     // `loading` starts true for the initial mount, but this effect also
     // re-runs when `id` changes while the screen stays mounted — without
     // resetting it here too, the previous product stays on screen while
-    // the new one fetches.
-    setLoading(true);
+    // the new one fetches. Skipped when `product` was already seeded from
+    // the cache for this exact id: showing the spinner over content that's
+    // already correct is the exact flash seeding was added to avoid — the
+    // fetch below still runs, silently revalidating behind it.
+    if (!(product && loadedFor.current === id)) setLoading(true);
     setFailure(null);
     fetchProduct(id)
       .then((result) => {
@@ -205,6 +231,7 @@ export default function ProductScreen() {
         if (result.ok) {
           setProduct(result.value);
           loadedFor.current = id;
+          setConfirmedFor(id);
         } else {
           // A failed retry of the id already on screen keeps that copy — it
           // beats an error page. A failed load of a *different* id must not
@@ -220,18 +247,31 @@ export default function ProductScreen() {
     return () => {
       cancelled = true;
     };
+    // `product` is read deliberately, not as a dependency: it's checked only
+    // to decide whether *this run* of the effect should show the spinner,
+    // not to decide whether the effect re-runs — re-running on every
+    // `setProduct` inside it would refetch in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, retryKey]);
 
   // Opening a product logs it, so "have I already checked this?" is answerable
   // without the user having had the foresight to save it. Keyed on the product
   // alone and guarded by a ref: reading the profile through `getState` keeps a
   // later profile edit from re-firing this and inflating the view count.
+  //
+  // Gated on `confirmedFor`, not just `product`: a cache-seeded product can
+  // be up to the catalogue's staleness window old, so this waits for
+  // `fetchProduct` to actually confirm the id still exists — and with its
+  // current formula — before it's worth a history entry. Otherwise a stale
+  // score got logged before the fresh one arrived, and `loggedId` (below)
+  // would then block the corrected score from ever being recorded; a
+  // product deleted in the interval would log a view for it anyway.
   useEffect(() => {
-    if (!product || loggedId.current === product.id) return;
+    if (!product || confirmedFor !== product.id || loggedId.current === product.id) return;
     loggedId.current = product.id;
     const { score, warnings } = matchProduct(product, useAppStore.getState().profile);
     recordView({ id: product.id, known: true, score, warnings: warnings.length });
-  }, [product, recordView]);
+  }, [product, confirmedFor, recordView]);
 
   // The effect above captures the score as it stood when the screen opened,
   // which for someone with no profile is no score at all. The inline prompt

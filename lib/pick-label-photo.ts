@@ -4,8 +4,12 @@ import { launchImageLibraryAsync } from "expo-image-picker";
 
 import { shrinkWidth } from "@/lib/crop-to-guide";
 
-/** The widest a picked photo is sent: the ingredient text stays readable, the upload stays small. */
-const LIBRARY_MAX_WIDTH = 2000;
+/**
+ * The widest a photo of the ingredient list is sent: the text stays readable,
+ * the upload stays small. Shared with the camera path in
+ * `components/LabelCamera.tsx` so the two cannot drift apart.
+ */
+export const LIBRARY_MAX_WIDTH = 2000;
 
 /**
  * Remove a temp photo file from cache once nothing needs it any more — see
