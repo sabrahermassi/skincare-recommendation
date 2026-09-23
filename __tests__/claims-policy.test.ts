@@ -2,7 +2,7 @@ import { INGREDIENTS } from "@/data/ingredients";
 import { PRODUCTS } from "@/data/products";
 import { claimPolicyViolations } from "@/lib/claims-policy";
 import { PORE_CLOGGERS } from "@/lib/pore-clogging";
-import { scoreExplanation, type MatchResult } from "@/lib/matching";
+import { scoreExplanation, verdictHeadline, type MatchResult } from "@/lib/matching";
 import { INGREDIENT_RULES } from "@/lib/rules";
 import { contraindications } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -33,7 +33,35 @@ const EXPLANATION_RESULTS = [
     }) as unknown as MatchResult
 );
 
+// #187: verdictHeadline was never in this audit before — added as its own
+// collection, covering every band and both the pregnancy and non-pregnancy
+// variant, since a pregnancy qualifier is new user-facing copy.
+const PREGNANCY_WARNING = {
+  ingredient: { id: "retinol", name: "Retinol", comedogenic: 0, safety: "safe" as const, verified: true },
+  reason: "A vitamin A derivative — commonly advised against in pregnancy and while breastfeeding",
+  severity: "irritant" as const,
+  origin: "pregnancy" as const,
+};
+
+const HEADLINE_RESULTS: OwnedClaim[] = (["excellent", "good", "fair", "poor"] as const)
+  .flatMap((verdict) =>
+    [false, true].map((pregnant) => ({
+      source: `verdictHeadline.${verdict}${pregnant ? ".pregnant" : ""}`,
+      text: verdictHeadline({
+        verdict,
+        warnings: pregnant ? [PREGNANCY_WARNING] : [],
+      } as unknown as MatchResult),
+    }))
+  )
+  .concat(
+    (["not_personalized", "low_coverage"] as const).map((unknownReason) => ({
+      source: `verdictHeadline.unknown.${unknownReason}`,
+      text: verdictHeadline({ verdict: "unknown", warnings: [], unknownReason } as unknown as MatchResult),
+    }))
+  );
+
 const OWNED_CLAIMS: OwnedClaim[] = [
+  ...HEADLINE_RESULTS,
   ...INGREDIENT_RULES.map((rule, index) => ({
     source: `INGREDIENT_RULES[${index}].reason`,
     text: rule.reason,

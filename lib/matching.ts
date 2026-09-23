@@ -641,13 +641,25 @@ function verdictFor(score: number, hazardCount: number): Verdict {
  * Deliberately says "we can't tell" rather than guessing.
  */
 export function verdictHeadline(result: MatchResult): string {
+  // A pregnancy caution never changes score or verdict — an ingredient list
+  // carries no concentration — but "Looks like a good fit" over a retinoid
+  // caution reads as a contradiction (#187). Only excellent/good/fair get the
+  // qualifier: poor is already cautionary and unknown has no verdict to
+  // qualify.
+  const pregnancyHits = result.warnings.filter((w) => w.origin === "pregnancy").length;
+
   switch (result.verdict) {
     case "excellent":
-      return "One of the better matches for your skin";
     case "good":
-      return "Looks like a good fit for your skin";
+      return pregnancyHits > 0
+        ? `Suits your skin — ${pregnancyHits === 1 ? "one thing" : `${pregnancyHits} things`} to check while pregnant`
+        : result.verdict === "excellent"
+          ? "One of the better matches for your skin"
+          : "Looks like a good fit for your skin";
     case "fair":
-      return "Could work, with a caveat or two";
+      return pregnancyHits > 0
+        ? "Could work, and there's something to check while pregnant"
+        : "Could work, with a caveat or two";
     case "poor":
       return result.warnings.some((w) => w.severity === "hazard")
         ? "Contains something worth avoiding for your skin"

@@ -9,6 +9,7 @@ import {
   rungFor,
   SCORE_BANDS,
   scoreExplanation,
+  verdictHeadline,
   type MatchResult,
 } from "@/lib/matching";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -468,6 +469,7 @@ describe("verdict engine", () => {
           ingredient: product.ingredients[1],
           reason: "Flagged as best avoided",
           severity: "hazard",
+          origin: "avoid",
         },
       ];
 
@@ -484,6 +486,7 @@ describe("verdict engine", () => {
         ingredient: product.ingredients[i],
         reason: "Flagged as best avoided",
         severity: "hazard" as const,
+        origin: "avoid" as const,
       }));
       const detail = scoreExplanation(result)[0].detail;
       expect(detail).toContain(product.ingredients[1].name);
@@ -875,6 +878,55 @@ describe("verdict engine", () => {
     const b = synthetic(["water", "glycerin", "sodium hyaluronate", ...FILLER], {});
     b.id = "a-completely-different-id";
     expect(matchProduct(a, prof).score).toBe(matchProduct(b, prof).score);
+  });
+
+  // #187: a pregnancy caution never changes score or verdict, but the
+  // headline must say so rather than reading like an unqualified "good fit".
+  describe("verdictHeadline", () => {
+    function withPregnancyHits(result: MatchResult, count = 1): MatchResult {
+      return {
+        ...result,
+        warnings: Array.from({ length: count }, (_, i) => ({
+          ingredient: { id: `retinol-${i}`, name: `Retinol ${i}`, comedogenic: 0, safety: "safe" as const, verified: true },
+          reason: "A vitamin A derivative — commonly advised against in pregnancy and while breastfeeding",
+          severity: "irritant" as const,
+          origin: "pregnancy" as const,
+        })),
+      };
+    }
+
+    it("qualifies an excellent verdict with a singular pregnancy caution count", () => {
+      const result = withPregnancyHits(resultAt(95, { concernFit: 95 }));
+      expect(verdictHeadline(result)).toBe("Suits your skin — one thing to check while pregnant");
+    });
+
+    it("qualifies a good verdict, pluralising more than one pregnancy hit", () => {
+      const result = withPregnancyHits(resultAt(80, { concernFit: 80 }), 2);
+      expect(verdictHeadline(result)).toBe("Suits your skin — 2 things to check while pregnant");
+    });
+
+    it("leaves a good verdict unqualified with no pregnancy hit", () => {
+      expect(verdictHeadline(resultAt(80, { concernFit: 80 }))).toBe("Looks like a good fit for your skin");
+    });
+
+    it("qualifies a fair verdict with a pregnancy caution", () => {
+      const result = withPregnancyHits(resultAt(65, { concernFit: 65 }));
+      expect(verdictHeadline(result)).toBe("Could work, and there's something to check while pregnant");
+    });
+
+    it("does not qualify a poor verdict — it's already cautionary", () => {
+      const result = withPregnancyHits(resultAt(40, { concernFit: 20 }));
+      expect(verdictHeadline(result)).toBe("Probably not the right pick for you");
+    });
+
+    it("does not qualify the unknown verdict, even though the hit still shows in warnings", () => {
+      const product = synthetic(["water", "tretinoin", ...FILLER]);
+      const unpersonalizedPregnant = profile({ pregnancyStatus: "pregnant" });
+      const result = matchProduct(product, unpersonalizedPregnant);
+      expect(result.verdict).toBe("unknown");
+      expect(result.warnings.some((w) => w.origin === "pregnancy")).toBe(true);
+      expect(verdictHeadline(result)).toBe("Answer a few questions and we can tell you how this suits you");
+    });
   });
 });
 

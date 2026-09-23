@@ -13,7 +13,7 @@ import { IngredientsSheet, ingredientsSheetPeek } from "@/components/Ingredients
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
-import { ExplanationLine, ReasonLine, panelFor } from "@/components/VerdictExplanation";
+import { ExplanationLine, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { HeartIcon } from "@/components/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
@@ -23,7 +23,7 @@ import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/genie";
 import { productPictureSize } from "@/lib/product-layout";
 import { isPersonalized } from "@/lib/profile";
-import { isVerified } from "@/lib/safety";
+import { irritationWarnings, isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
 
@@ -206,7 +206,9 @@ export default function ProductScreen() {
     if (!product || confirmedFor !== product.id || loggedId.current === product.id) return;
     loggedId.current = product.id;
     const { score, warnings } = matchProduct(product, useAppStore.getState().profile);
-    recordView({ id: product.id, known: true, score, warnings: warnings.length });
+    // Pregnancy hits don't count toward "flagged" here either (#187) — same
+    // exclusion as the Irritation card, so the two never disagree.
+    recordView({ id: product.id, known: true, score, warnings: irritationWarnings(warnings).length });
   }, [product, confirmedFor, recordView]);
 
   // The effect above captures the score as it stood when the screen opened,
@@ -221,7 +223,7 @@ export default function ProductScreen() {
   useEffect(() => {
     if (!product || loggedId.current !== product.id) return;
     const { score, warnings } = matchProduct(product, profile);
-    fillInViewScore(product.id, { score, warnings: warnings.length });
+    fillInViewScore(product.id, { score, warnings: irritationWarnings(warnings).length });
   }, [product, profile, fillInViewScore]);
 
   if (loading) {
@@ -568,6 +570,10 @@ export default function ProductScreen() {
             ) : null}
           </>
         ) : null}
+        </View>
+
+        <View style={{ paddingHorizontal: SPACE.gutter }}>
+          <PregnancySection warnings={match.warnings} />
         </View>
 
         {/*
