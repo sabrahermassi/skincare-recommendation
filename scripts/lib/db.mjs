@@ -84,7 +84,7 @@ export function projectRef(url) {
  */
 export const PRODUCTION_REF = "phwtskwqjrwetbpygpwy";
 
-export const VALID_ENVS = ["staging", "production"];
+const VALID_ENVS = ["staging", "production"];
 
 /**
  * Whether this run may proceed, and what to tell the operator either way.
