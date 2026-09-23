@@ -13,11 +13,12 @@ import { IngredientsSheet, ingredientsSheetPeek } from "@/components/Ingredients
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
-import { ContextNudgesSection, ExplanationLine, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
+import { ContextNudgesSection, ExplanationLine, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { HeartIcon } from "@/components/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
+import { pairingNotesFor } from "@/lib/active-pairings";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { confidenceLabel, matchProduct, scoreExplanation, verdictHeadline } from "@/lib/matching";
 import { relativeTime } from "@/lib/format";
@@ -581,6 +582,7 @@ export default function ProductScreen() {
               ...goalNudgesFor(product.ingredients, profile.concerns, product.type),
             ]}
           />
+          <PairingSection notes={pairingNotesFor(product.ingredients)} />
         </View>
 
         {/*

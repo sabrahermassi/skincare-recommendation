@@ -14,6 +14,7 @@ import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { canPhotographLabelFor, fetchProductsByIds, resolveIngredientNames } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
+import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/genie";
 import { matchProduct, matchTone } from "@/lib/matching";
@@ -128,6 +129,13 @@ export default function Saved() {
   });
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+
+  // Pairings across the shelf (#233), from the products already loaded here —
+  // the shelf lives on this device, so this needs no account.
+  const shelfNotes = useMemo(
+    () => shelfPairingNotes(byId ? savedIds.flatMap((id) => (byId[id] ? [byId[id]] : [])) : []),
+    [byId, savedIds]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -321,6 +329,8 @@ export default function Saved() {
           {undo?.kind === "saved" && (
             <UndoBar label="Removed" onUndo={() => { restoreSavedProduct(undo.product); dismissUndo(); }} />
           )}
+
+          <ShelfPairings notes={shelfNotes} />
 
           <ClearAll
             label="Clear saved products"
@@ -552,6 +562,40 @@ function RemoveButton({ onPress }: { onPress: () => void }) {
         />
       </Svg>
     </Pressable>
+  );
+}
+
+/**
+ * "Worth knowing about your shelf" — saved products whose actives tend to add
+ * up to more irritation used together (#233). The same heading-then-lines
+ * treatment as the result screen's context sections, on a card so it reads
+ * over the background. Its own line rather than `ExplanationLine`, which
+ * capitalises every word of its label — wrong for a product's own name.
+ */
+function ShelfPairings({ notes }: { notes: PairingNote[] }) {
+  if (notes.length === 0) return null;
+  return (
+    <View
+      style={{
+        gap: 12,
+        marginTop: 6,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: BORDER_INACTIVE,
+        backgroundColor: SURFACE,
+        padding: 16,
+      }}
+    >
+      <Text accessibilityRole="header" style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
+        Worth knowing about your shelf
+      </Text>
+      {notes.map((note) => (
+        <View key={note.id} style={{ gap: 1 }}>
+          <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{note.label}</Text>
+          <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{note.text}</Text>
+        </View>
+      ))}
+    </View>
   );
 }
 

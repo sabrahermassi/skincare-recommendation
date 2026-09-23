@@ -37,6 +37,17 @@ export const RETINYL_PALMITATE_NAME = "retinyl palmitate";
 // than at plain retinol's, see lib/rules.ts.
 export const RETINYL_RETINOATE_NAME = "retinyl retinoate";
 
+// "Is there a working retinoid in this formula?" — the question the daytime-SPF
+// nudge and the pairing flags both ask: the main retinoids, the
+// prescription-only ones, and retinyl retinoate. The fatty-acid retinyl esters
+// (palmitate and friends) are left out: they're weak converters, and scoring
+// rates them separately for the same reason.
+export const RETINOID_ACTIVE_PATTERNS: (string | RegExp)[] = [
+  ...RETINOID_NAMES,
+  ...RETINOID_PRESCRIPTION_NAMES,
+  RETINYL_RETINOATE_NAME,
+];
+
 export const SALICYLATE_NAMES: (string | RegExp)[] = ["salicylic acid", "betaine salicylate"];
 
 // Sodium and potassium salicylate are salicylate salts, not the free acid —

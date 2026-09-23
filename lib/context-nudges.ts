@@ -1,7 +1,7 @@
 import type { Concern, Ingredient, ProductType } from "@/data/types";
 import { AHA_NAMES } from "./aha-names";
-import { RETINOID_NAMES, RETINOID_PRESCRIPTION_NAMES, RETINYL_RETINOATE_NAME } from "./retinoid-salicylate-names";
-import { INGREDIENT_RULES, normaliseFunction, ruleMatches } from "./rules";
+import { RETINOID_ACTIVE_PATTERNS } from "./retinoid-salicylate-names";
+import { INGREDIENT_RULES, nameMatches, normaliseFunction, ruleMatches } from "./rules";
 import { MINERAL_UV_FILTER_NAMES, ORGANIC_UV_FILTER_NAMES } from "./uv-filter-names";
 
 /**
@@ -35,23 +35,6 @@ export type ContextNudge = {
   text: string;
 };
 
-// The main retinoid rule's names, the prescription-only ones (tretinoin and
-// tazarotene carry the strongest sun guidance of the family), and retinyl
-// retinoate — scored on its own, gentler rule since #186, but still a
-// retinoid, so the sun advice still applies. The fatty-acid retinyl esters
-// (palmitate and friends) are left out: they're weak converters, and
-// scoring rates them separately for the same reason.
-const RETINOID_PATTERNS: (string | RegExp)[] = [
-  ...RETINOID_NAMES,
-  ...RETINOID_PRESCRIPTION_NAMES,
-  RETINYL_RETINOATE_NAME,
-];
-
-function matchesAny(patterns: (string | RegExp)[], inciName: string): boolean {
-  const name = inciName.trim().toLowerCase();
-  return patterns.some((pattern) => (typeof pattern === "string" ? name === pattern : pattern.test(name)));
-}
-
 /**
  * Whether this is sun protection — a "pair this with SPF" line on a sunscreen
  * is the one outcome that makes the whole feature look careless. Evidence,
@@ -71,8 +54,8 @@ function matchesAny(patterns: (string | RegExp)[], inciName: string): boolean {
 function isSunProtection(ingredients: Ingredient[], productType?: ProductType): boolean {
   if (productType === "sunscreen") return true;
   return ingredients.some((ingredient) => {
-    if (matchesAny(MINERAL_UV_FILTER_NAMES, ingredient.name)) return false;
-    if (matchesAny(ORGANIC_UV_FILTER_NAMES, ingredient.name)) return true;
+    if (nameMatches(MINERAL_UV_FILTER_NAMES, ingredient.name)) return false;
+    if (nameMatches(ORGANIC_UV_FILTER_NAMES, ingredient.name)) return true;
     return (ingredient.functions ?? []).some((fn) => {
       const role = normaliseFunction(fn);
       return role === "uv-filter" || role === "uv-absorber";
@@ -88,8 +71,8 @@ function isSunProtection(ingredients: Ingredient[], productType?: ProductType): 
 export function nudgesFor(ingredients: Ingredient[], productType?: ProductType): ContextNudge[] {
   if (isSunProtection(ingredients, productType)) return [];
 
-  const aha = ingredients.some((i) => matchesAny(AHA_NAMES, i.name));
-  const retinoid = ingredients.some((i) => matchesAny(RETINOID_PATTERNS, i.name));
+  const aha = ingredients.some((i) => nameMatches(AHA_NAMES, i.name));
+  const retinoid = ingredients.some((i) => nameMatches(RETINOID_ACTIVE_PATTERNS, i.name));
   if (!aha && !retinoid) return [];
 
   // One nudge, not two saying the same thing, when a formula has both.
