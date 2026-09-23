@@ -248,11 +248,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   imageBase64 = cleaned.base64;
 
-  const text = await runOcr(imageBase64);
-  if (text === null) {
-    await logRead("upstream_failure");
+  const ocr = await runOcr(imageBase64);
+  if (!ocr.ok) {
+    // A blank, blurred or text-free photo is an ordinary read failure, not
+    // Vision having a bad day — logged as `not_enough_text` with zero parsed
+    // names, the same outcome the too-few-fragments check below uses for the
+    // same underlying fact ("nothing usable came out of this photo").
+    await logRead(ocr.noText ? "not_enough_text" : "upstream_failure", { namesParsed: 0 });
     return json(req, { error: "Could not read the image" }, 502);
   }
+  const text = ocr.text;
 
   // Aliases are cheap (one small table) and needed on every path, so they are
   // fetched unconditionally. The dictionary is tens of thousands of rows and
@@ -506,14 +511,22 @@ async function saveProduct(
 
 // ── OCR ─────────────────────────────────────────────────────────────────────
 
-async function runOcr(imageBase64: string): Promise<string | null> {
+type OcrResult =
+  | { ok: true; text: string }
+  // `noText` distinguishes Vision genuinely answering "nothing here" (a
+  // blank, blurred or text-free photo — an ordinary read failure, not an
+  // outage) from Vision being unreachable or refusing the request. Both used
+  // to collapse into the same `null`, which logged every blank photo as
+  // `upstream_failure` and inflated the one bucket meant to mean "Vision
+  // itself is having a bad day". Found in review on #246.
+  | { ok: false; noText: boolean };
+
+async function runOcr(imageBase64: string): Promise<OcrResult> {
   // Wrapped, where it wasn't before: an unreachable Vision (DNS, TLS, a
-  // dropped connection) threw out of a bare `await fetch`, past every 502
-  // this function returns for a *reachable-but-unhelpful* Vision, and became
-  // an uncaught 500 with no `scan_log` row at all — invisible to the very
-  // metric #236 exists to produce. Folded into the same `null` return every
-  // other Vision failure already uses, so the caller's `logRead
-  // ("upstream_failure")` covers this path too without knowing it exists.
+  // dropped connection) threw out of a bare `await fetch`, past every
+  // failure this function otherwise returns for a *reachable-but-unhelpful*
+  // Vision, and became an uncaught 500 with no `scan_log` row at all —
+  // invisible to the very metric #236 exists to produce.
   let res: Response;
   try {
     res = await fetch(`${VISION_URL}?key=${VISION_API_KEY}`, {
@@ -533,12 +546,12 @@ async function runOcr(imageBase64: string): Promise<string | null> {
     });
   } catch (err) {
     console.error("Vision request failed:", err);
-    return null;
+    return { ok: false, noText: false };
   }
-  if (!res.ok) return null;
+  if (!res.ok) return { ok: false, noText: false };
   const body = await res.json().catch(() => null);
   const annotation = body?.responses?.[0]?.fullTextAnnotation;
-  if (!annotation) return null;
+  if (!annotation) return { ok: false, noText: true };
 
   // Vision's own reading order, which interleaves words across line wraps on a
   // label photographed sideways: "ophiopogon" lands ten fragments from
@@ -558,7 +571,8 @@ async function runOcr(imageBase64: string): Promise<string | null> {
   // corridor and gets pulled in, splitting `sodium chloride`, `citric acid`
   // and `capryloyl glycine`. Fixing that needs real line segmentation, not a
   // tolerance tweak. Until then the flat text scores better.
-  return annotation.text ?? null;
+  if (!annotation.text) return { ok: false, noText: true };
+  return { ok: true, text: annotation.text };
 }
 
 // ── Parsing ─────────────────────────────────────────────────────────────────
