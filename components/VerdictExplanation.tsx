@@ -1,6 +1,7 @@
 import { View } from "react-native";
 
 import { Text } from "@/components/Text";
+import type { ContextNudge } from "@/lib/context-nudges";
 import type { MatchReason, ScoreLine, Verdict } from "@/lib/matching";
 import type { Contraindication } from "@/lib/safety";
 import { BORDER_INACTIVE, INK, MUTED, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
@@ -65,6 +66,25 @@ export function PregnancySection({ warnings }: { warnings: Contraindication[] })
           detail={hit.reason}
           direction="down"
         />
+      ))}
+    </View>
+  );
+}
+
+/**
+ * "Worth knowing" — hand-written context nudges from `lib/context-nudges.ts`
+ * (#234). Deliberately the same treatment as `PregnancySection` above —
+ * heading, then one line per note — and rendered directly beside it: neither
+ * is a warning, both are context, and two visual styles for the same idea
+ * would make one of them look more alarming than it is.
+ */
+export function ContextNudgesSection({ nudges }: { nudges: ContextNudge[] }) {
+  if (nudges.length === 0) return null;
+  return (
+    <View style={{ gap: 10 }}>
+      <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>Worth knowing</Text>
+      {nudges.map((nudge) => (
+        <ExplanationLine key={nudge.id} label={nudge.label} detail={nudge.text} direction="down" />
       ))}
     </View>
   );
