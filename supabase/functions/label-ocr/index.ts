@@ -554,7 +554,18 @@ async function runOcr(imageBase64: string): Promise<OcrResult> {
   }
   if (!res.ok) return { ok: false, noText: false };
   const body = await res.json().catch(() => null);
-  const annotation = body?.responses?.[0]?.fullTextAnnotation;
+  // A malformed/truncated HTTP body (`body === null`) and a per-image
+  // `responses[0].error` — Vision's own HTTP-200 shape for "couldn't process
+  // this image" (bad or corrupted image data) — both mean Vision failed to
+  // do its job, not that it looked and found nothing. Reachable from an
+  // ordinary flaky upload, not just a hostile caller:
+  // `stripBase64ImageMetadata` (`_shared/strip-metadata.ts`) doesn't decode
+  // the entropy-coded image data, and explicitly accepts a JPEG truncated
+  // with no EOI marker ("real cameras do produce truncated files"). Found in
+  // review on #246 — without this, both collapsed into the same `noText`
+  // outcome as a genuinely blank photo.
+  if (body === null || body?.responses?.[0]?.error) return { ok: false, noText: false };
+  const annotation = body.responses?.[0]?.fullTextAnnotation;
   if (!annotation) return { ok: false, noText: true };
 
   // Vision's own reading order, which interleaves words across line wraps on a
