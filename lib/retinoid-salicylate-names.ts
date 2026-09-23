@@ -16,7 +16,6 @@ export const RETINOID_NAMES: (string | RegExp)[] = [
   "retinal",
   "retinaldehyde",
   "hydroxypinacolone retinoate",
-  "retinyl retinoate",
   "adapalene",
 ];
 
@@ -32,11 +31,21 @@ export const RETINOID_PRESCRIPTION_NAMES: string[] = ["tretinoin", "tazarotene"]
 export const RETINYL_ESTER_PATTERN = /^retinyl (palmitate|acetate|linoleate|propionate)$/;
 export const RETINYL_PALMITATE_NAME = "retinyl palmitate";
 
-export const SALICYLATE_NAMES: (string | RegExp)[] = [
-  "salicylic acid",
-  "betaine salicylate",
-  /^(sodium|potassium) salicylate$/,
-];
+// A retinoid ester distinct from the four RETINYL_ESTER_PATTERN esters above
+// (it pairs retinol with retinoic acid, not a fatty acid) — kept out of
+// RETINOID_NAMES on purpose, since scoring rates it on its own weight rather
+// than at plain retinol's, see lib/rules.ts.
+export const RETINYL_RETINOATE_NAME = "retinyl retinoate";
+
+export const SALICYLATE_NAMES: (string | RegExp)[] = ["salicylic acid", "betaine salicylate"];
+
+// Sodium and potassium salicylate are salicylate salts, not the free acid —
+// unlike betaine salicylate, they don't hydrolyse to salicylic acid on skin.
+// Pregnancy guidance still treats them as a salicylate exposure, but
+// scoring's salicylic-acid rule is specifically about the acid's
+// pore-clearing/exfoliating action, so this stays out of SALICYLATE_NAMES
+// and out of rules.ts's composed list.
+export const SALICYLATE_SALT_PATTERN = /^(sodium|potassium) salicylate$/;
 
 // A marketing shorthand for salicylic acid (Beta Hydroxy Acid), sometimes
 // printed on a label in place of the INCI name. Scoring recognises it;

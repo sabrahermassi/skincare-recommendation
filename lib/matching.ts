@@ -645,20 +645,22 @@ export function verdictHeadline(result: MatchResult): string {
   // carries no concentration — but "Looks like a good fit" over a retinoid
   // caution reads as a contradiction (#187). Only excellent/good/fair get the
   // qualifier: poor is already cautionary and unknown has no verdict to
-  // qualify.
+  // qualify. Says "pregnant or breastfeeding", like the section heading:
+  // a breastfeeding profile gets the same hits, and "while pregnant" alone
+  // made its caution read as not applying (#257 review).
   const pregnancyHits = result.warnings.filter((w) => w.origin === "pregnancy").length;
 
   switch (result.verdict) {
     case "excellent":
     case "good":
       return pregnancyHits > 0
-        ? `Suits your skin — ${pregnancyHits === 1 ? "one thing" : `${pregnancyHits} things`} to check while pregnant`
+        ? `Suits your skin — ${pregnancyHits === 1 ? "one thing" : `${pregnancyHits} things`} to check while pregnant or breastfeeding`
         : result.verdict === "excellent"
           ? "One of the better matches for your skin"
           : "Looks like a good fit for your skin";
     case "fair":
       return pregnancyHits > 0
-        ? "Could work, and there's something to check while pregnant"
+        ? "Could work, and there's something to check while pregnant or breastfeeding"
         : "Could work, with a caveat or two";
     case "poor":
       return result.warnings.some((w) => w.severity === "hazard")
