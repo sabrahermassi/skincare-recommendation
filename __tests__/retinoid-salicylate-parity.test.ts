@@ -2,6 +2,7 @@ import { INGREDIENT_RULES } from "@/lib/rules";
 import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import {
   RETINYL_PALMITATE_NAME,
+  RETINYL_RETINOATE_NAME,
   BENZYL_SALICYLATE_NAME,
   SALICYLATE_SALT_PATTERN,
 } from "@/lib/retinoid-salicylate-names";
@@ -81,7 +82,11 @@ function assertNoUndocumentedDivergence(
 
 describe("retinoid/salicylate name parity", () => {
   it("shares every retinoid name between scoring and pregnancy caution, or documents why not", () => {
-    const rulesNames = [...findRuleNames("retinol"), ...findRuleNames(RETINYL_PALMITATE_NAME)];
+    const rulesNames = [
+      ...findRuleNames("retinol"),
+      ...findRuleNames(RETINYL_PALMITATE_NAME),
+      ...findRuleNames(RETINYL_RETINOATE_NAME),
+    ];
     const pregnancyNames = findPregnancyNames("retinoid");
     assertNoUndocumentedDivergence(rulesNames, pregnancyNames, "retinoid");
   });

@@ -3,6 +3,7 @@ import {
   RETINOID_NAMES,
   RETINOID_PRESCRIPTION_NAMES,
   RETINYL_ESTER_PATTERN,
+  RETINYL_RETINOATE_NAME,
   SALICYLATE_NAMES,
   SALICYLATE_FALLBACK_NAMES,
   SALICYLATE_SALT_PATTERN,
@@ -38,7 +39,7 @@ type PregnancyCautionEntry = {
 
 export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
   {
-    names: [...RETINOID_NAMES, ...RETINOID_PRESCRIPTION_NAMES, RETINYL_ESTER_PATTERN],
+    names: [...RETINOID_NAMES, ...RETINOID_PRESCRIPTION_NAMES, RETINYL_ESTER_PATTERN, RETINYL_RETINOATE_NAME],
     category: "retinoid",
     reason:
       "A vitamin A derivative — commonly advised against in pregnancy and while breastfeeding",

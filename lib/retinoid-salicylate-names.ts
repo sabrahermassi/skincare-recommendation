@@ -16,7 +16,6 @@ export const RETINOID_NAMES: (string | RegExp)[] = [
   "retinal",
   "retinaldehyde",
   "hydroxypinacolone retinoate",
-  "retinyl retinoate",
   "adapalene",
 ];
 
@@ -31,6 +30,12 @@ export const RETINOID_PRESCRIPTION_NAMES: string[] = ["tretinoin", "tazarotene"]
 // reduced weight, since it has its own weaker evidence.
 export const RETINYL_ESTER_PATTERN = /^retinyl (palmitate|acetate|linoleate|propionate)$/;
 export const RETINYL_PALMITATE_NAME = "retinyl palmitate";
+
+// A retinoid ester distinct from the four RETINYL_ESTER_PATTERN esters above
+// (it pairs retinol with retinoic acid, not a fatty acid) — kept out of
+// RETINOID_NAMES on purpose, since scoring rates it on its own weight rather
+// than at plain retinol's, see lib/rules.ts.
+export const RETINYL_RETINOATE_NAME = "retinyl retinoate";
 
 export const SALICYLATE_NAMES: (string | RegExp)[] = ["salicylic acid", "betaine salicylate"];
 

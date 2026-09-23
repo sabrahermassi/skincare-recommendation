@@ -1,6 +1,7 @@
 import type { Ingredient, SkinProfile } from "@/data/types";
 import { matchProduct } from "@/lib/matching";
 import { INGREDIENT_RULES, ruleMatches } from "@/lib/rules";
+import { RETINYL_RETINOATE_NAME } from "@/lib/retinoid-salicylate-names";
 import dictionarySnapshot from "../test-fixtures/scoring-dictionary.json";
 import {
   SCORING_FIXTURE_SCHEMA_VERSION,
@@ -266,17 +267,6 @@ describe("scoring validation invariants", () => {
       scoreFormula(fixture, dryProfile, withoutFunction)
     );
   });
-
-  // #186 added "retinyl retinoate" to RETINOID_NAMES to close a gap with
-  // pregnancy caution. That list is also spread into the retinol scoring
-  // rule, so the name now affects scoring too, not only the pregnancy-only
-  // path -- self-review found no test exercised that side.
-  it("matches retinyl retinoate to the retinol actives rule", () => {
-    const rule = INGREDIENT_RULES.find((r) => ruleMatches(r, "retinyl retinoate"));
-    expect(rule).toBeDefined();
-    expect(rule?.category).toBe("actives");
-    expect(rule?.helps?.concerns).toContain("fine-lines");
-  });
 });
 
 describe("declared reactive-skin harm reaches the irritation penalty", () => {
@@ -396,6 +386,22 @@ describe("declared reactive-skin harm reaches the irritation penalty", () => {
       expect(result.reasons.some((reason) => reason.ingredient === name && reason.effect > 0)).toBe(true);
     }
   );
+
+  // #256 round 2: retinyl retinoate previously shared its rule with plain
+  // retinol, so it got retinol's full irritation weight too. It's now its
+  // own rule, deliberately between retinol and the fully-discounted
+  // retinyl-palmitate rule -- gentler than retinol, but (unlike retinyl
+  // palmitate) not risk-free.
+  it("retinyl retinoate is gentler than retinol but not risk-free", () => {
+    const sensitiveDry = profile({ concerns: ["fine-lines"], sensitivity: "high", baseSkinType: "dry" });
+    const retinolPenalty = matchProduct(treatment("retinol"), sensitiveDry).breakdown.irritationPenalty;
+    const retinoatePenalty = matchProduct(
+      treatment(RETINYL_RETINOATE_NAME),
+      sensitiveDry
+    ).breakdown.irritationPenalty;
+    expect(retinoatePenalty).toBeGreaterThan(0);
+    expect(retinoatePenalty).toBeLessThan(retinolPenalty as number);
+  });
 
   it("keeps sparse hydration evidence partial rather than special-casing one formula", () => {
     const dehydrated = profile({ concerns: ["dehydrated"] });
