@@ -145,7 +145,7 @@ export const SCHOOL: SchoolCategory[] = [
         id: "ai",
         question: "Does the app use AI?",
         answer:
-          "No. The score comes from fixed rules about ingredients, each carrying the sentence you see on screen, and these answers are fixed text too — nothing is generated when you open them. The only automated step is reading the text off a label photo.",
+          "No. The score comes from fixed rules about ingredients, each carrying the sentence you see on screen, and these answers are fixed text too — nothing is generated when you open them. The one step that uses a trained model is reading the text off a label photo.",
       },
     ],
   },

@@ -18,8 +18,9 @@ const AVATAR_ART = require("@/assets/illustrations/avatar-empty.png");
 
 /**
  * Profile — who you are to the app, and the way to everything about you: your
- * skin profile (the quiz answers, editable), support, privacy, and deleting it
- * all. The answers themselves are edited on their own screen (`/skin-profile`).
+ * skin profile (the quiz answers, editable), the reference pages (Skincare
+ * School, support, privacy), and deleting it all. The answers themselves are
+ * edited on their own screen (`/skin-profile`).
  */
 export default function Profile() {
   const insets = useSafeAreaInsets();

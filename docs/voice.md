@@ -146,6 +146,7 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 | Pregnancy-caution reasons | `lib/pregnancy-caution.ts` | Yes — `PREGNANCY_CAUTION.*.reason`, audited directly (the `contraindications[]` collection never reached them: it runs over the sample ingredients, which hold none of these names) |
 | Contraindication reasons | `lib/safety.ts` (`contraindications`) | Yes — `contraindications[]` |
 | Context nudges (sun/SPF) | `lib/context-nudges.ts` | Yes — `contextNudges[]`, every variant (#234) |
+| Skincare School | `data/school.ts` | Yes — every question and answer, `SCHOOL.*` (#235) |
 | Sample ingredient notes | `data/ingredients.ts` (`.note`) | Yes — `INGREDIENTS.*.note` |
 | Sample product copy | `data/products.ts` (`.description`, `.benefits`) | Yes — `PRODUCTS.*` |
 | Onboarding carousel | `app/onboarding/index.tsx` (`SCREENS`) | No — not a claim surface (headline/supporting copy naming what the app does, not an ingredient/product claim) |
