@@ -130,6 +130,7 @@ export default function RootLayout() {
           options={{ title: "Read the label", presentation: "modal", headerShown: false }}
         />
         <Stack.Screen name="add-product" options={{ headerShown: false }} />
+        <Stack.Screen name="label-result" options={{ headerShown: false }} />
       </Stack>
     </>
   );
