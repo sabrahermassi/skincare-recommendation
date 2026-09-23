@@ -89,8 +89,11 @@ begin
 
   perform purge_scan_log();
 
-  select caller into v_recent_caller from scan_log
-    where caller = 'fp-recent' or (path = 'barcode' and created_at > now() - interval '3 hours' and caller is null);
+  -- `caller` alone, not a broader time-window predicate: several other
+  -- fixture rows in this file are also recent and also `path = 'barcode'`,
+  -- and a `SELECT INTO` with no `ORDER BY` is free to return any one of them.
+  -- Found in review on #246.
+  select caller into v_recent_caller from scan_log where caller = 'fp-recent';
   select caller into v_old_caller from scan_log
     where created_at < now() - interval '1 day' and created_at > now() - interval '3 days';
   select count(*) into v_ancient_count from scan_log where created_at < now() - interval '35 days';

@@ -100,8 +100,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
   //
   // A body with no Content-Length (chunked) cannot be pre-checked; that case
   // falls through to the existing check, which still holds.
+  //
+  // Sized for an image (`MAX_BODY_BYTES` = `MAX_IMAGE_CHARS` plus a small
+  // envelope), so a body this large is, in practice, always an oversized
+  // label photo rather than a save request — a save's body is a name, a
+  // barcode and a list of short ingredient names, nowhere near this ceiling.
+  // Rate-limited and logged against the read bucket on that basis: the rare
+  // save request big enough to trip this is already the shape of abuse,
+  // whichever bucket it debits. Found in review on #246 — this is the
+  // ordinary path for an oversized photo (a normal `fetch` sends
+  // `Content-Length`), not the edge case the chunked-request fallback below
+  // covers, so it needs the limiter and a log row of its own rather than
+  // sharing the read path's later call, which does not run until well after
+  // the body — and therefore `saving` — is known.
   const declaredLength = Number(req.headers.get("content-length") ?? Number.NaN);
   if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    const refusal = await enforceRateLimit(req, db, "label-ocr", RATE_LIMIT);
+    if (refusal) return refusal;
+    // `image_bytes` is left unset here, matching migration 0024's own note on
+    // that column: only the declared length is known at this point, and that
+    // is not the same measurement `image_bytes` means everywhere else it's
+    // recorded (the actual base64 payload size).
+    await logScanBounded(req, db, callerSalt(), { path: "label", outcome: "image_too_large" });
     return json(req, { error: "Image too large — retake it closer in" }, 413);
   }
 

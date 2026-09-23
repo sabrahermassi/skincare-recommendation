@@ -184,7 +184,16 @@ async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
     `${OBF_BASE}/product/${barcode}.json?fields=code,product_name,brands,image_url,ingredients_text,quantity,categories_tags`,
     { headers: { "User-Agent": USER_AGENT } }
   );
-  if (!res.ok) return null;
+  // A 404 is OBF's genuine answer for a barcode it has never heard of — a
+  // real miss. Anything else non-OK (429, 5xx) is OBF itself being
+  // unavailable or rate-limiting us, not an answer about the barcode, and
+  // `safely()`'s caller needs to tell the two apart (`scan_log`'s
+  // `upstream_failure` vs `not_found` — found in review on #246, since both
+  // used to collapse into the same `return null`).
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    throw new Error(`Open Beauty Facts: ${res.status}`);
+  }
 
   const body = await res.json();
   if (body.status !== 1 || !body.product) return null;
@@ -244,7 +253,13 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
   const res = await fetch(`${INCI_BASE}/products/${barcode}`, {
     headers: { "X-API-Key": INCI_API_KEY, Accept: "application/json" },
   });
-  if (!res.ok) return null; // 404 product_not_found / invalid_barcode
+  // Same split as the OBF branch above: 404 (product_not_found /
+  // invalid_barcode) is a real answer, anything else non-OK is INCI API
+  // being unavailable or rate-limiting us.
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    throw new Error(`INCI API: ${res.status}`);
+  }
 
   const p = await res.json();
   if (!p?.name) return null;
