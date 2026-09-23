@@ -140,8 +140,10 @@ SCORE = 30 + 0.7 × FIT − irritation penalty − pore penalty
 (90/75/60 excellent/good/fair, else poor) — **always read that constant,
 never hardcode a cutoff.**
 
-Evidence, in priority order: **`lib/rules.ts`** (59 curated rules, each
-carrying the sentence shown to the user) > **CosIng `functions`**
+Evidence, in priority order: **`lib/rules.ts`** (`INGREDIENT_RULES` — 61
+curated rules today, each carrying the sentence shown to the user; #237
+takes this toward ~500, so count the array rather than trusting this
+number) > **CosIng `functions`**
 (benefit-only signal; a named rule always beats a declared function,
 nothing counts twice) > **`lib/pore-clogging.ts`** (27 clogger families
 with confidence tiers, owns acne fit).
