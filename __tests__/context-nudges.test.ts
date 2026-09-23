@@ -19,6 +19,12 @@ describe("nudgesFor", () => {
     expect(nudgesFor([ing("tretinoin")])[0].text).toMatch(/^Retinoids /);
   });
 
+  // #186 moved retinyl retinoate out of RETINOID_NAMES onto its own scoring
+  // rule; it's still a retinoid, so it must not quietly lose the nudge.
+  it("still adds it for retinyl retinoate, now on its own scoring rule", () => {
+    expect(nudgesFor([ing("retinyl retinoate")])[0].text).toMatch(/^Retinoids /);
+  });
+
   it("says it once, naming both, when a formula has an AHA and a retinoid", () => {
     const nudges = nudgesFor([ing("lactic acid"), ing("retinal")]);
     expect(nudges).toHaveLength(1);

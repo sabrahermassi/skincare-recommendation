@@ -1,6 +1,6 @@
 import type { Concern, Ingredient } from "@/data/types";
 import { AHA_NAMES } from "./aha-names";
-import { RETINOID_NAMES, RETINOID_PRESCRIPTION_NAMES } from "./retinoid-salicylate-names";
+import { RETINOID_NAMES, RETINOID_PRESCRIPTION_NAMES, RETINYL_RETINOATE_NAME } from "./retinoid-salicylate-names";
 import { INGREDIENT_RULES, normaliseFunction, ruleMatches } from "./rules";
 import { CHEMICAL_UV_FILTER_NAMES, MINERAL_UV_FILTER_NAMES } from "./uv-filter-names";
 
@@ -35,11 +35,17 @@ export type ContextNudge = {
   text: string;
 };
 
-// The main retinoid rule's names plus the prescription-only ones — tretinoin
-// and tazarotene carry the strongest sun guidance of the family. Retinyl
-// esters are left out: they're weak converters, and scoring rates them
-// separately for the same reason.
-const RETINOID_PATTERNS: (string | RegExp)[] = [...RETINOID_NAMES, ...RETINOID_PRESCRIPTION_NAMES];
+// The main retinoid rule's names, the prescription-only ones (tretinoin and
+// tazarotene carry the strongest sun guidance of the family), and retinyl
+// retinoate — scored on its own, gentler rule since #186, but still a
+// retinoid, so the sun advice still applies. The fatty-acid retinyl esters
+// (palmitate and friends) are left out: they're weak converters, and
+// scoring rates them separately for the same reason.
+const RETINOID_PATTERNS: (string | RegExp)[] = [
+  ...RETINOID_NAMES,
+  ...RETINOID_PRESCRIPTION_NAMES,
+  RETINYL_RETINOATE_NAME,
+];
 
 function matchesAny(patterns: (string | RegExp)[], inciName: string): boolean {
   const name = inciName.trim().toLowerCase();
