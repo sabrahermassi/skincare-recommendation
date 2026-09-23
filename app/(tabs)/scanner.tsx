@@ -38,7 +38,7 @@ import { BUTTON_SHADOW, CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SURFA
 
 // Watercolor art from the onboarding set, reused on the two light screens that
 // sit in front of the camera (see components/ScanIntro.tsx).
-const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.png");
+const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.webp");
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
