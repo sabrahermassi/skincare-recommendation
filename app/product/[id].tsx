@@ -200,6 +200,14 @@ export default function ProductScreen() {
   const fillInViewScore = useAppStore((s) => s.fillInViewScore);
   const saved = savedProducts.some((p) => p.id === id);
   const loggedId = useRef<string | null>(null);
+  /**
+   * Which id `fetchProduct` has actually confirmed still exists, distinct
+   * from `loadedFor` — that ref is seeded at mount for a cache hit so the
+   * *screen* doesn't flash a spinner, but the view-history log below must
+   * not trust a possibly-stale cached row until the network has actually
+   * confirmed it. Only set on a successful fetch, never at the cache seed.
+   */
+  const confirmedFor = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -218,6 +226,7 @@ export default function ProductScreen() {
         if (result.ok) {
           setProduct(result.value);
           loadedFor.current = id;
+          confirmedFor.current = id;
         } else {
           // A failed retry of the id already on screen keeps that copy — it
           // beats an error page. A failed load of a *different* id must not
@@ -244,8 +253,16 @@ export default function ProductScreen() {
   // without the user having had the foresight to save it. Keyed on the product
   // alone and guarded by a ref: reading the profile through `getState` keeps a
   // later profile edit from re-firing this and inflating the view count.
+  //
+  // Gated on `confirmedFor`, not just `product`: a cache-seeded product can
+  // be up to the catalogue's staleness window old, so this waits for
+  // `fetchProduct` to actually confirm the id still exists — and with its
+  // current formula — before it's worth a history entry. Otherwise a stale
+  // score got logged before the fresh one arrived, and `loggedId` (below)
+  // would then block the corrected score from ever being recorded; a
+  // product deleted in the interval would log a view for it anyway.
   useEffect(() => {
-    if (!product || loggedId.current === product.id) return;
+    if (!product || confirmedFor.current !== product.id || loggedId.current === product.id) return;
     loggedId.current = product.id;
     const { score, warnings } = matchProduct(product, useAppStore.getState().profile);
     recordView({ id: product.id, known: true, score, warnings: warnings.length });
