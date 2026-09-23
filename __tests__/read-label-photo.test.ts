@@ -74,6 +74,29 @@ describe("readLabelPhoto", () => {
     expect(heldLabelRead()).toEqual({ ingredients: ["water", "glycerin"], readToken: "tok", barcode: "8801234567890" });
   });
 
+  // #191: a read takes seconds, and by the time it lands the caller may no
+  // longer want it (switched mode and back, or left the scanner). Nothing
+  // navigates for it either way — that decision is the caller's own guard —
+  // but without this, the list and its single-use read token would sit in
+  // lib/pending-label until the next read overwrites them.
+  it("holds nothing when the caller no longer wants the read, even though it succeeded", async () => {
+    analyse.mockResolvedValue(readOk());
+    expect(await readLabelPhoto("x", "8801234567890", () => false)).toEqual({ kind: "read" });
+    expect(heldLabelRead()).toBeNull();
+  });
+
+  it("still holds a good read when the caller says it's still wanted", async () => {
+    analyse.mockResolvedValue(readOk());
+    expect(await readLabelPhoto("x", "8801234567890", () => true)).toEqual({ kind: "read" });
+    expect(heldLabelRead()).not.toBeNull();
+  });
+
+  it("omitting isStillWanted holds the read normally — every existing caller is unaffected", async () => {
+    analyse.mockResolvedValue(readOk());
+    expect(await readLabelPhoto("x", "8801234567890")).toEqual({ kind: "read" });
+    expect(heldLabelRead()).not.toBeNull();
+  });
+
   it("holds nothing when the read fails", async () => {
     analyse.mockResolvedValue({ ok: false, reason: "unreadable" });
     await readLabelPhoto("x");
