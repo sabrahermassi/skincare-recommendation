@@ -90,7 +90,6 @@ const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return preflight(req);
   if (req.method !== "POST") return json(req, { error: "POST only" }, 405);
-  if (!VISION_API_KEY) return json(req, { error: "OCR is not configured" }, 503);
 
   // Refuse an oversized body BEFORE reading it. `req.json()` buffers the whole
   // request into memory first, so the `MAX_IMAGE_CHARS` check further down —
@@ -198,6 +197,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const rawImageBytes = Math.round((imageBase64.length * 3) / 4);
   const logRead = (outcome: ScanOutcome, extra: { namesParsed?: number; namesResolved?: number } = {}) =>
     logScanBounded(req, db, callerSalt(), { path: "label", outcome, imageBytes: rawImageBytes, ...extra });
+
+  // Moved here from the top of the handler (was checked before `saving` was
+  // even known, blocking a save too — the save path never touches Vision).
+  // The real reason it lives here, though: `logRead` needs the body parsed
+  // and `rawImageBytes` measured to exist at all, and without this check
+  // running through it, a missing key returned 503 with no row — every read
+  // attempt during a misconfiguration vanished from the metric this PR
+  // exists to produce. Found live on staging (#246 review).
+  if (!VISION_API_KEY) {
+    await logRead("internal_error");
+    return json(req, { error: "OCR is not configured" }, 503);
+  }
 
   if (imageBase64.length > MAX_IMAGE_CHARS) {
     await logRead("image_too_large");
