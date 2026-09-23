@@ -2,6 +2,7 @@ import { fetchProduct } from "@/data/api";
 import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
 import {
   confidenceLabel,
+  isLowCoverage,
   matchProduct,
   matchTone,
   resetScoreCache,
@@ -800,6 +801,28 @@ describe("verdict engine", () => {
       expect(result.coverage).toBeGreaterThan(0.25);
       expect(result.score).toBeNull();
       expect(result.unknownReason).toBe("low_coverage");
+    });
+
+    // #214's PR review: `computeMatch` checks `isPersonalized` first and
+    // refuses "not_personalized" unconditionally, so `unknownReason` is
+    // never "low_coverage" with no profile set — a caller that needs to know
+    // "is this formula unreadable at all" (app/label-result.tsx, for a
+    // first-time user who has no profile yet) can't read that off
+    // `matchProduct`'s own result and needs `isLowCoverage` instead.
+    it("isLowCoverage answers the coverage question on its own, independent of profile state", () => {
+      const p = synthetic(["water", "glycerin", "unknown"]);
+      p.ingredients[2] = { ...p.ingredients[2], verified: false };
+
+      expect(isLowCoverage(p.ingredients)).toBe(true);
+      // Same formula, no profile at all: matchProduct's own reason is masked...
+      expect(matchProduct(p, profile()).unknownReason).toBe("not_personalized");
+      // ...but isLowCoverage still reports it accurately.
+      expect(isLowCoverage(p.ingredients)).toBe(true);
+    });
+
+    it("isLowCoverage is false for a formula that scores normally", () => {
+      const p = synthetic(["water", "glycerin", "niacinamide"]);
+      expect(isLowCoverage(p.ingredients)).toBe(false);
     });
 
     it("lets one unknown lower confidence without changing the score", () => {
