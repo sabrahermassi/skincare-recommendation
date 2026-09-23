@@ -249,7 +249,19 @@ export default function Scan() {
       }
       return () => {
         lookups.current.invalidate();
-        reads.invalidate();
+        // Not unconditional: this same cleanup also fires on the blur that
+        // `openAddProduct` itself causes (`preserveMode()` then
+        // `router.push`) — a *wanted* navigation, not an exit, and
+        // `IngredientsStage` isn't remounted for it (`skipResetOnNextFocus`
+        // is what keeps `setMode` from resetting above). Invalidating here
+        // regardless would permanently break that surviving instance's
+        // `stillWanted()` the moment it regains focus, silently dropping
+        // every photo taken for the rest of that visit — a fresher bug than
+        // the mode-pill one this same guard already covers. Checked at
+        // blur time, before the next focus consumes it: still true only for
+        // a `preserveMode`-guarded push, false for a genuine exit. See
+        // issue #191's PR review.
+        if (!skipResetOnNextFocus.current) reads.invalidate();
         dismissGuard.reset();
         setStatus({ kind: "idle" });
         busy.current = false;
