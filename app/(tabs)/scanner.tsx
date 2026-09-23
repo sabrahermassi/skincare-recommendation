@@ -32,6 +32,7 @@ import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type Fetc
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
 import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
+import { rememberScanMode, rememberedScanMode, type ScanMode } from "@/lib/scan-mode";
 import { createStaleGuard } from "@/lib/stale-guard";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
@@ -71,7 +72,7 @@ const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as co
 // render, and the camera reads a changed setting as a reason to reconfigure.
 const BARCODE_SETTINGS = { barcodeTypes: [...BARCODE_TYPES] };
 
-type Mode = "Barcode" | "Photo";
+type Mode = ScanMode;
 /**
  * `missed` and `unreachable` are deliberately separate.
  *
@@ -132,11 +133,13 @@ const MODES: {
 
 export default function Scan() {
   const [permission, requestPermission] = useCameraPermissions();
-  // Barcode everywhere now. Web used to open on Search because the browser
-  // could only decode QR codes, which made a barcode viewfinder a dead end
-  // there; SDK 57's detector handles retail formats, so the MVP's "barcode is
-  // the default mode" holds on every platform.
-  const [mode, setMode] = useState<Mode>("Barcode");
+  // Photo is the default now (issue #214): reading a label works on every
+  // product, in any shop, with no catalogue coverage needed — a barcode only
+  // resolves for the ~851 products the catalogue already has. Seeded from
+  // `lib/scan-mode.ts`, which remembers a mode switch for the session (a
+  // cold start always reads Photo); the focus-reset below reads the same
+  // module rather than hardcoding either mode.
+  const [mode, setMode] = useState<Mode>(() => rememberedScanMode());
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const recordView = useAppStore((s) => s.recordView);
@@ -169,7 +172,7 @@ export default function Scan() {
   // again" button and `BarcodeStage.onBarcode` also call on purpose.
   const dismissGuard = useRef(createScanDismissGuard()).current;
   // Same mechanism as `lookups` below, for a label read in flight:
-  // `IngredientsStage`'s mount begins a generation, and its `openAddProduct`
+  // `IngredientsStage`'s mount begins a generation, and its `openVerdict`
   // checks it before navigating. Switching mode away and back remounts
   // `IngredientsStage` (a fresh generation), so a read from the earlier
   // mount is stale either way — one guard covers both "switched away" and
@@ -213,6 +216,7 @@ export default function Scan() {
       // have invalidated, permanently dropping every read for the rest of
       // that visit. See issue #191.
       if (next !== mode) reads.invalidate();
+      rememberScanMode(next);
       setMode(next);
     },
     [status, mode, dismissGuard, reads]
@@ -245,12 +249,15 @@ export default function Scan() {
       if (skipResetOnNextFocus.current) {
         skipResetOnNextFocus.current = false;
       } else {
-        setMode("Barcode");
+        // Falls back to the remembered mode, not a hardcoded default — see
+        // `lib/scan-mode.ts`. A genuine exit (this branch) still resets the
+        // *screen state*, just not to a fixed mode.
+        setMode(rememberedScanMode());
       }
       return () => {
         lookups.current.invalidate();
         // Not unconditional: this same cleanup also fires on the blur that
-        // `openAddProduct` itself causes (`preserveMode()` then
+        // `openVerdict` itself causes (`preserveMode()` then
         // `router.push`) — a *wanted* navigation, not an exit, and
         // `IngredientsStage` isn't remounted for it (`skipResetOnNextFocus`
         // is what keeps `setMode` from resetting above). Invalidating here
@@ -833,7 +840,7 @@ function BarcodeStage({
       : status.kind === "missed"
         ? notProduct
           ? "That isn't a product barcode. Point the camera at the barcode on the packaging."
-          : "We don't have this product. Photograph its ingredient list to add it."
+          : "We don't have this product yet. Photograph its ingredient list to add it."
         : status.kind === "unreachable"
           ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
           : "";
@@ -917,7 +924,7 @@ function BarcodeStage({
                     ? "Couldn't check this barcode"
                     : notProduct
                       ? "That isn't a product barcode"
-                      : "We don't have this product"}
+                      : "We don't have this product yet"}
               </Text>
               <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
                 {status.kind === "looking"
@@ -1110,14 +1117,16 @@ function IngredientsStage({
     () => focusedRef.current && reads.isCurrent(myGeneration),
     [focusedRef, reads, myGeneration]
   );
-  // Where a finished read goes, whether it came from the camera or a chosen photo:
-  // name the product, then save it with the barcode.
-  const openAddProduct = () => {
+  // Where a finished read goes, whether it came from the camera or a chosen
+  // photo: straight to the verdict, no name or barcode required first
+  // (issue #214) — naming and adding the product is a follow-up offered from
+  // that screen, not a gate in front of it.
+  const openVerdict = () => {
     // The X (or a tab switch), or a mode switch away and back, can land
     // while a read is still pending.
     if (!stillWanted()) return;
     preserveMode();
-    router.push({ pathname: "/add-product", params: barcode ? { barcode } : {} });
+    router.push({ pathname: "/label-result", params: barcode ? { barcode } : {} });
   };
 
   return (
@@ -1130,7 +1139,7 @@ function IngredientsStage({
           barcode={barcode}
           frameTopOffset={CLOSE_CLEARANCE}
           bottomInset={clearance}
-          onRead={openAddProduct}
+          onRead={openVerdict}
           isStillWanted={stillWanted}
         />
       ) : null}
@@ -1142,7 +1151,7 @@ function IngredientsStage({
           title="Photograph the ingredient list"
           body="Take a photo of the list on the back and we'll read it. We crop to the frame, send it to Google to read the text, and never store the image."
           bottomInset={clearance}
-          extra={<ChoosePhotoInstead barcode={barcode} onRead={openAddProduct} isStillWanted={stillWanted} />}
+          extra={<ChoosePhotoInstead barcode={barcode} onRead={openVerdict} isStillWanted={stillWanted} />}
         />
       ) : null}
     </View>

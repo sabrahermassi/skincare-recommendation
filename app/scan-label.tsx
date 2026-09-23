@@ -29,10 +29,12 @@ export default function ScanLabel() {
       barcode={barcode}
       onClose={() => router.back()}
       // replace, not push: reading is finished either way, so this screen has no
-      // business staying on the back stack under the next one.
+      // business staying on the back stack under the next one. Goes straight
+      // to the verdict (#214) — naming and adding the product is that
+      // screen's own follow-up, not a gate in front of it.
       onRead={() => {
         if (!active.current) return;
-        router.replace({ pathname: "/add-product", params: barcode ? { barcode } : {} });
+        router.replace({ pathname: "/label-result", params: barcode ? { barcode } : {} });
       }}
     />
   );

@@ -13,26 +13,19 @@ import { IngredientsSheet, ingredientsSheetPeek } from "@/components/Ingredients
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
+import { ExplanationLine, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { HeartIcon } from "@/components/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
-import {
-  confidenceLabel,
-  matchProduct,
-  scoreExplanation,
-  verdictHeadline,
-  type MatchReason,
-  type ScoreLine,
-  type Verdict,
-} from "@/lib/matching";
+import { confidenceLabel, matchProduct, scoreExplanation, verdictHeadline } from "@/lib/matching";
 import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/genie";
 import { productPictureSize } from "@/lib/product-layout";
 import { isPersonalized } from "@/lib/profile";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN, toneForVerdict } from "@/lib/tokens";
+import { CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
 // draw from the shared `PrimaryButton` component's `tone="cta"` — added
@@ -86,65 +79,8 @@ const PICTURE_MIN = 64;
 const PICTURE_MAX = 150;
 const PICTURE_DEFAULT = 120;
 
-function panelFor(verdict: Verdict): { bg: string; border: string; label: string; ink: string } {
-  const tone = toneForVerdict(verdict);
-  const colors = tone
-    ? { bg: VERDICT[tone].tint, border: VERDICT[tone].solid, ink: VERDICT[tone].deep }
-    : { bg: VERDICT_NEUTRAL.tint, border: BORDER_INACTIVE, ink: VERDICT_NEUTRAL.deep };
-  return { ...colors, label: VERDICT_LABEL[verdict] };
-}
-
-/**
- * One line of "why", naming the ingredient and carrying its own sentence.
- *
- * The sentence comes from `lib/rules.ts`, where every claim the app makes is
- * written next to the rule that makes it — so anything on screen here can be
- * traced to a line of code and argued with.
- */
-function ReasonLine({ reason }: { reason: MatchReason }) {
-  return (
-    <ExplanationLine
-      label={(reason.ingredient ?? "").toLowerCase()}
-      detail={reason.reason}
-      direction={reason.effect > 0 ? "up" : "down"}
-    />
-  );
-}
-
-/** A verdict-level explanation, rendered before its ingredient-level evidence. */
-function ExplanationLine({ label, detail, direction }: ScoreLine) {
-  const positive = direction === "up";
-  return (
-    <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
-      {/* Inline style, not a Tailwind className: `bg-tint-mint`/`bg-tint-pink`
-          are also the scanner's unrelated "looking/missed" status icon, so
-          they can't be repointed at the verdict ramp without recoloring that
-          too. This reads the same VERDICT tokens the score ring above uses,
-          rather than a third green/pink pair. */}
-      <View
-        style={{
-          width: 18,
-          height: 18,
-          borderRadius: 9,
-          marginTop: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: positive ? VERDICT.high.tint : VERDICT.low.tint,
-        }}
-      >
-        <Text style={{ fontSize: TYPE.caption, fontWeight: "bold", lineHeight: 14, color: INK }}>
-          {positive ? "+" : "−"}
-        </Text>
-      </View>
-      <View style={{ flex: 1, gap: 1 }}>
-        <Text style={{ fontSize: TYPE.label, fontWeight: "600", textTransform: "capitalize", color: INK }}>
-          {label}
-        </Text>
-        <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{detail}</Text>
-      </View>
-    </View>
-  );
-}
+// panelFor / ReasonLine / ExplanationLine now live in
+// components/VerdictExplanation.tsx, shared with app/label-result.tsx (#214).
 
 // See `staleNotice`.
 const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;

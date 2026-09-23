@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Animated, BackHandler, Easing, PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -29,6 +29,9 @@ export function ingredientsSheetPeek(bottomInset: number) {
   return HEADER_HEIGHT + PEEK_ROWS * ROW_HEIGHT + Math.max(16, bottomInset);
 }
 
+/** Imperative control for a caller that has no other way to open the sheet — see `openRef` below. */
+export type IngredientsSheetHandle = { open: () => void };
+
 /**
  * The ingredient list as a sheet resting at the bottom of the product screen:
  * its header and the first couple of ingredients show, and dragging it up (or
@@ -39,13 +42,15 @@ export function ingredientsSheetPeek(bottomInset: number) {
  * Replaces the "View ingredients" button that opened the list as a separate
  * screen.
  */
-export function IngredientsSheet({
-  product,
-  match,
-}: {
-  product: ProductWithIngredients;
+export const IngredientsSheet = forwardRef<IngredientsSheetHandle, {
+  /** Only `.id`, `.ingredients` and `.fetchedAt` are read — narrowed so
+   *  `app/label-result.tsx` (#214) can pass a bare list with no product row.
+   *  An empty `.id` degrades `openIngredient` below to the same
+   *  no-product-context lookup `app/ingredient/[inci].tsx` already offers a
+   *  pasted-list check. */
+  product: Pick<ProductWithIngredients, "id" | "ingredients" | "fetchedAt">;
   match: MatchResult;
-}) {
+}>(function IngredientsSheet({ product, match }, openRef) {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const total = product.ingredients.length;
@@ -89,6 +94,12 @@ export function IngredientsSheet({
     [y],
   );
 
+  // Only `app/label-result.tsx` uses this: RiskCards' irritation/pore taps
+  // there have nowhere else to send someone (no product id for
+  // `/ingredients/[id]`), so they open this same sheet instead. Every other
+  // caller passes no ref and is unaffected.
+  useImperativeHandle(openRef, () => ({ open: () => snap(true) }), [snap]);
+
   useEffect(() => {
     if (!expanded) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -99,7 +110,6 @@ export function IngredientsSheet({
   }, [expanded, snap]);
 
   // The handlers read refs, but only when a finger moves — never during render.
-  // eslint-disable-next-line react-hooks/refs
   const [pan] = useState(() =>
     PanResponder.create({
       onMoveShouldSetPanResponder: (_event, g) => Math.abs(g.dy) > 6 && Math.abs(g.dy) > Math.abs(g.dx),
@@ -227,4 +237,4 @@ export function IngredientsSheet({
       </Animated.View>
     </>
   );
-}
+});

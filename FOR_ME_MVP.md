@@ -271,13 +271,6 @@ What this means concretely:
 - the barcode-miss copy points at the photo path as the normal route rather
   than as a fallback (copy work tracked in #204).
 
-> **Not built yet — the code and this section disagree, and the code is what
-> runs.** `app/(tabs)/scanner.tsx` still starts in barcode mode and resets to
-> it on every focus. #214 is the ticket that flips it, and it depends on #185
-> (Korean/Japanese ingredient names), #193 (show the parsed list before
-> saving) and #205 (resize camera photos). Do not read this section as a
-> description of `main` until #214 has merged.
-
 ## Barcode scanning
 
 Barcode detection should be:
@@ -366,12 +359,6 @@ label gets a full verdict and is never pushed through a naming or barcode
 step to see it; adding the product to the shared catalogue is offered
 afterwards as a choice. See "Confirming the list" below for the step between
 OCR and analysis.
-
-> **Current code, until #214 merges:** the scanner opens in barcode mode, so
-> reaching this path means switching mode first —
-> **Switch Mode → Camera → Take One Photo → Tap Scan → OCR → Confirm the
-> list → Ingredient Analysis → Results** — and a successful read routes into
-> "Add product," which asks for a barcode.
 
 For MVP:
 

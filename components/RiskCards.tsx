@@ -33,7 +33,9 @@ export function RiskCards({
   onIrritationPress,
   onPorePress,
 }: {
-  product: ProductWithIngredients;
+  /** Only `.ingredients` is read — narrowed so `app/label-result.tsx` (#214) can pass a
+   *  bare list with no product row, not the full catalogue shape. */
+  product: Pick<ProductWithIngredients, "ingredients">;
   match: MatchResult;
   /** Opens the ingredient list filtered to what's driving irritation risk. */
   onIrritationPress?: () => void;
@@ -135,7 +137,7 @@ function RiskCard({
  * "safe" on the regulatory list but still shows as Avoid in the ingredient list.
  * Not a hazard score — a count of entries, said in words.
  */
-export function irritationRisk(product: ProductWithIngredients, match: MatchResult): Risk {
+export function irritationRisk(product: Pick<ProductWithIngredients, "ingredients">, match: MatchResult): Risk {
   const restricted = product.ingredients.filter(
     (i) => isVerified(i) && i.safety !== "safe"
   ).length;
@@ -185,7 +187,7 @@ export function irritationRisk(product: ProductWithIngredients, match: MatchResu
  * the card now summarises `poreVerdict` rather than racing it to a different
  * conclusion. Two answers to one question is worse than either answer.
  */
-function poreRisk(product: ProductWithIngredients): Risk {
+function poreRisk(product: Pick<ProductWithIngredients, "ingredients">): Risk {
   const verdict = poreVerdict(product.ingredients);
 
   if (verdict.kind === "unknown") {
