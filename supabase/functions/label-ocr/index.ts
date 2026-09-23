@@ -206,6 +206,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Cheap rejection of garbage before it reaches Vision: a non-base64 payload
   // would otherwise spend a network round trip only to be rejected there.
   if (!/^[A-Za-z0-9+/=\s]+$/.test(imageBase64)) {
+    // Same bucket as `unsupported_image` below — both mean "not decodable
+    // image data" — rather than a new outcome value for one more shape of
+    // the same failure. Found in review on #246.
+    await logRead("unsupported_image");
     return json(req, { error: "imageBase64 is not valid base64" }, 400);
   }
 
