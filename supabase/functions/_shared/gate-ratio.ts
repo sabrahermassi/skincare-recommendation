@@ -38,6 +38,26 @@ export function isNonLatinName(name: string): boolean {
 const MAX_EXEMPT_NON_LATIN = 40;
 
 /**
+ * How many names must actually be recognised before any exemption is
+ * granted at all — independent of `MAX_EXEMPT_NON_LATIN`, which only bounds
+ * volume.
+ *
+ * Found in review on #247, round two: the volume cap alone still let a
+ * *small* amount of junk through at full confidence — one resolved Latin
+ * ingredient plus a few unresolved CJK fragments (misparsed boilerplate the
+ * `stop` regex missed) is comfortably under the volume cap, so all of it got
+ * exempted and the ratio came out as 1.0 on a single real ingredient. Half
+ * of `MIN_INGREDIENTS` (the floor a read has to clear before this gate ever
+ * runs at all): enough independently-verified evidence that the read itself
+ * was good before any of it is extended to content the dictionary can't
+ * verify. Below this floor, nothing is exempted and an unresolved non-Latin
+ * name counts against the ratio exactly like an unresolved Latin one always
+ * has — which is also the correct, honest behaviour for a Korean-only label
+ * that hasn't resolved a single name (see `gateRatio`'s own comment).
+ */
+const MIN_RESOLVED_TO_EXEMPT = 2;
+
+/**
  * `MIN_KNOWN_INGREDIENT_RATIO`'s denominator.
  *
  * The dictionary is Latin-only today. Widening the parser to keep Hangul/kana
@@ -65,6 +85,7 @@ const MAX_EXEMPT_NON_LATIN = 40;
  * not a bug this function needs to paper over.
  */
 export function gateRatio(parsed: readonly { inci_name: string }[], known: ReadonlySet<string>): number {
+  const canExempt = known.size >= MIN_RESOLVED_TO_EXEMPT;
   let exempted = 0;
   let judgeable = 0;
   for (const p of parsed) {
@@ -72,7 +93,7 @@ export function gateRatio(parsed: readonly { inci_name: string }[], known: Reado
       judgeable++;
       continue;
     }
-    if (isNonLatinName(p.inci_name) && exempted < MAX_EXEMPT_NON_LATIN) {
+    if (canExempt && isNonLatinName(p.inci_name) && exempted < MAX_EXEMPT_NON_LATIN) {
       exempted++;
       continue;
     }

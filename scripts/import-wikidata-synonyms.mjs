@@ -66,7 +66,15 @@ function isCodeNotName(value) {
   if (/^e\s?\d{3}/i.test(value)) return true; // E-number
   if (/^c\.?\s?i\.?\s?\d+/i.test(value)) return true; // colour index
   if (/^[a-z]{1,3}\d+([a-z]{1,3}\d*)*$/i.test(value)) return true; // formula-ish, e.g. fe2o3
-  if (!/[a-z]{3}/i.test(value)) return true; // no real word in it
+  // No real word in it — three consecutive Latin letters, or two consecutive
+  // CJK characters (each is its own syllable/ideograph, so the same "three
+  // in a row" bar would reject almost every real Hangul/kana/kanji name).
+  // Found in review on #247: `normalise` (above) stopped mangling non-Latin
+  // Wikidata labels into empty strings, but this check still dropped every
+  // one of them right afterwards, so a Korean/Japanese synonym still could
+  // not reach `ingredient_synonyms` — the exact case #185 exists to unblock.
+  if (!/[a-z]{3}/i.test(value) && !/[\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]{2}/u.test(value))
+    return true;
   // Cross-database identifiers. These read as names because they contain a
   // word ("pubchem 84369"), but no label prints them.
   if (
