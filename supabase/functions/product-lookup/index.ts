@@ -102,7 +102,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq("barcode", barcode)
     .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .maybeSingle();
-  if (existing.data) {
+  // A failed query behaves exactly like "not in our catalogue" below --
+  // `existing.data` is falsy either way, so this still falls through to OBF/
+  // INCI rather than failing loudly (unchanged from before). `catalogueFailed`
+  // only matters for the final classification: without it, a database outage
+  // that also comes up empty on every external source logged as an ordinary
+  // `not_found`, indistinguishable from a barcode nobody has ever heard of --
+  // the same miscount `upstreamFailed` exists to prevent for the sources
+  // below. Found in review on #246.
+  let catalogueFailed = false;
+  if (existing.error) {
+    console.error("catalogue lookup failed:", existing.error);
+    catalogueFailed = true;
+  } else if (existing.data) {
     // A row with no ingredients is a leftover half-product (a barcode and a name
     // from the retired barcode database), not something that can be scored. Say
     // "not found" so the app asks for the ingredient list; `label-ocr` then fills
@@ -168,7 +180,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // barcode and an ingredient list, so a source that knows a barcode but not
   // its formula is no source at all: the client is told "not found" and asks
   // the user for the ingredient list instead.
-  await logScan(upstreamFailed ? "upstream_failure" : "not_found");
+  await logScan(catalogueFailed ? "internal_error" : upstreamFailed ? "upstream_failure" : "not_found");
   return json(req, { error: "Not found in any source" }, 404);
 });
 

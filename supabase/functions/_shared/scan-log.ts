@@ -44,7 +44,9 @@ export type ScanLogEntry = {
  */
 export type ScanLogDb = {
   from(table: "scan_log"): {
-    insert(row: Record<string, unknown>): PromiseLike<{ error: unknown }>;
+    insert(row: Record<string, unknown>): PromiseLike<{ error: unknown }> & {
+      abortSignal(signal: AbortSignal): PromiseLike<{ error: unknown }>;
+    };
   };
 };
 
@@ -73,10 +75,16 @@ export async function logScan(
   db: ScanLogDb,
   salt: string,
   entry: ScanLogEntry,
+  /**
+   * Wired through from `logScanBounded`, whose timeout aborts this same
+   * request rather than merely giving up on awaiting it. Optional so this
+   * function stays directly callable (and testable) on its own.
+   */
+  signal?: AbortSignal,
 ): Promise<void> {
   try {
     const caller = await fingerprintCaller(callerKey(req), salt);
-    const { error } = await db.from("scan_log").insert({
+    const query = db.from("scan_log").insert({
       caller,
       path: entry.path,
       outcome: entry.outcome,
@@ -84,8 +92,12 @@ export async function logScan(
       names_resolved: entry.namesResolved ?? null,
       image_bytes: entry.imageBytes ?? null,
     });
+    const { error } = await (signal ? query.abortSignal(signal) : query);
     if (error) console.error("[scan-log] insert failed:", error);
   } catch (err) {
+    // An abort fires this same catch (fetch rejects with an AbortError) --
+    // indistinguishable here from any other swallowed failure, which is
+    // correct: a cancelled log row is just another dropped log row.
     console.error("[scan-log] logScan threw:", err);
   }
 }
@@ -95,6 +107,13 @@ export async function logScan(
  * noticeable delay to the response the user is actually waiting on. A
  * timed-out insert is simply a dropped log row, same as any other failure
  * this function already swallows.
+ *
+ * The timeout also aborts the underlying request (via `AbortController`)
+ * rather than only giving up on awaiting it -- without this, `Promise.race`
+ * resolving through the timer left the PostgREST request itself still live,
+ * so a database outage could accumulate an unbounded number of in-flight
+ * inserts that outlast every response this function claims to have given up
+ * on. Found in review on #246.
  */
 export function logScanBounded(
   req: Request,
@@ -102,8 +121,14 @@ export function logScanBounded(
   salt: string,
   entry: ScanLogEntry,
 ): Promise<void> {
+  const controller = new AbortController();
   return Promise.race([
-    logScan(req, db, salt, entry),
-    new Promise<void>((resolve) => setTimeout(resolve, TIMEOUT_MS)),
+    logScan(req, db, salt, entry, controller.signal),
+    new Promise<void>((resolve) =>
+      setTimeout(() => {
+        controller.abort();
+        resolve();
+      }, TIMEOUT_MS)
+    ),
   ]);
 }
