@@ -206,6 +206,11 @@ export function LabelCamera({
             croppedUri = cropped.uri;
             if (cropped.base64) imageBase64 = cropped.base64;
             imageWidth = cropped.width;
+            // Swap the frozen frame to what's actually inside the guide
+            // window — the raw sensor frame set at capture is a much wider
+            // field of view, so leaving it in place made the window look
+            // like it zoomed out the moment the shutter was pressed.
+            setPreview(cropped.uri);
           } catch {
             // Fall through with the uncropped photo — see comment above. It's
             // the largest one there is, so it still needs the resize below.
