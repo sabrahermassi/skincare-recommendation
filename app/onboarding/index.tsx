@@ -160,7 +160,7 @@ export default function Onboarding() {
           >
             <Text style={{ fontSize: 11, fontWeight: "700", color: CANVAS }}>✓</Text>
           </View>
-          <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>Your profile has been erased</Text>
+          <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>Your profile is erased</Text>
         </View>
       )}
     </View>
