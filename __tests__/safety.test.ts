@@ -140,6 +140,39 @@ describe("contraindications", () => {
     );
     expect(result).toHaveLength(1);
   });
+
+  // #186: names added to close a gap between the scoring rule and the
+  // pregnancy-caution list — each must fire the caution on its own.
+  function pregnancyCautionIngredient(name: string, overrides: Partial<Ingredient> = {}): Ingredient {
+    return { id: name, name, comedogenic: 0, safety: "safe", verified: true, ...overrides };
+  }
+
+  it.each([
+    "hydroxypinacolone retinoate",
+    "retinyl retinoate",
+    "betaine salicylate",
+    "salix alba bark extract",
+  ])('flags "%s" as a pregnancy caution for pregnant and breastfeeding', (name: string) => {
+    const ingredient = pregnancyCautionIngredient(name);
+    expect(contraindications([ingredient], profile({ pregnancyStatus: "pregnant" }))).toHaveLength(
+      1
+    );
+    expect(
+      contraindications([ingredient], profile({ pregnancyStatus: "breastfeeding" }))
+    ).toHaveLength(1);
+  });
+
+  it("flags salix alba bark extract even when unrecognised", () => {
+    const unverified = pregnancyCautionIngredient("salix alba bark extract", { verified: false });
+    const result = contraindications([unverified], profile({ pregnancyStatus: "pregnant" }));
+    expect(result).toHaveLength(1);
+    expect(result[0].severity).toBe("irritant");
+  });
+
+  it("does not flag benzyl salicylate as a pregnancy caution", () => {
+    const ingredient = pregnancyCautionIngredient("benzyl salicylate");
+    expect(contraindications([ingredient], profile({ pregnancyStatus: "pregnant" }))).toEqual([]);
+  });
 });
 
 /**
