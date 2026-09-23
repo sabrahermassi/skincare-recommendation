@@ -328,18 +328,19 @@ export default function Scan() {
 
   // A quiet nudge toward Photo mode when a barcode just isn't reading — too
   // blurry, too small, or on a dark shelf (#195). Starts only while genuinely
-  // idle in Barcode mode on the visible screen, so it can never appear over
-  // a found sheet or a miss/unreachable panel, and clears itself the moment
-  // any of those conditions stops being true — a mode change, any status
-  // change (including the read that made the timer pointless), or losing
-  // focus.
+  // idle in Barcode mode on the visible screen with the camera actually
+  // granted, so it can never appear over a found sheet, a miss/unreachable
+  // panel, or the camera-permission intro — where it rendered invisibly
+  // (cream on cream) on top of the intro's Browse link and stole its taps
+  // (#260 review). Clears itself the moment any of those stops being true.
+  const granted = permission?.granted === true;
   const [showScanHint, setShowScanHint] = useState(false);
   useEffect(() => {
     setShowScanHint(false);
-    if (mode !== "Barcode" || status.kind !== "idle" || !isFocused) return;
+    if (mode !== "Barcode" || status.kind !== "idle" || !isFocused || !granted) return;
     const timer = setTimeout(() => setShowScanHint(true), IDLE_HINT_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [mode, status, isFocused]);
+  }, [mode, status, isFocused, granted]);
 
   const handleBarcode = useCallback(
     async (data: string, target?: Box) => {
@@ -429,7 +430,6 @@ export default function Scan() {
     [handleBarcode, dismissGuard]
   );
 
-  const granted = permission?.granted === true;
   const needsPermission = permission !== null && !permission.granted;
   const scanning = mode === "Photo" || status.kind === "idle" || status.kind === "looking";
   const cameraLive = isFocused && granted;

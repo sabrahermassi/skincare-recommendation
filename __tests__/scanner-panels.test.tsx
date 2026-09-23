@@ -13,13 +13,14 @@ import { fetchProductByBarcode } from "@/data/api";
 // The camera is mocked down to a prop sink: the test plays the part of the
 // camera by calling the `onBarcodeScanned` the screen last handed it.
 const mockCamera: { onBarcodeScanned?: (result: unknown) => void } = {};
+const mockPermission = { granted: true, canAskAgain: true };
 
 jest.mock("expo-camera", () => ({
   CameraView: (props: { onBarcodeScanned?: (result: unknown) => void }) => {
     mockCamera.onBarcodeScanned = props.onBarcodeScanned;
     return null;
   },
-  useCameraPermissions: () => [{ granted: true, canAskAgain: true }, jest.fn()],
+  useCameraPermissions: () => [mockPermission, jest.fn()],
 }));
 
 jest.mock("expo-router", () => {
@@ -72,6 +73,41 @@ function scan(code: string) {
 
 beforeEach(() => {
   (fetchProductByBarcode as unknown as MockFn).mockClear();
+  mockPermission.granted = true;
+});
+
+const HINT = "Not scanning? Photograph the ingredient list instead.";
+
+// #195: the idle hint, and the permission gate on it (#260 review).
+describe("scanner idle hint", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("appears after eight idle seconds in Barcode mode, and switches to Photo when tapped", async () => {
+    jest.useFakeTimers();
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+    expect(screen.queryByText(HINT)).toBeNull();
+
+    await act(async () => {
+      jest.advanceTimersByTime(8_000);
+    });
+    await fireEvent.press(screen.getByRole("button", { name: HINT }));
+    expect(screen.queryByText(HINT)).toBeNull();
+  });
+
+  it("never appears while the camera isn't granted — it would sit on top of the permission screen", async () => {
+    mockPermission.granted = false;
+    jest.useFakeTimers();
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+
+    await act(async () => {
+      jest.advanceTimersByTime(20_000);
+    });
+    expect(screen.queryByText(HINT)).toBeNull();
+  });
 });
 
 describe("scanner status panels", () => {
