@@ -228,6 +228,17 @@ describe("resolveKnownName: spacing, spelling and common names", () => {
     expect(resolveKnownName("peg-400 stearate", dictionary)).toBe("peg-400 stearate");
   });
 
+  // Found in review on #247: stripping every non-[a-z0-9] character
+  // collapsed any two pure-CJK strings to the identical empty key (`""`),
+  // so two unrelated Korean synonyms would bucket together in `squashIndex`
+  // and an unresolved CJK fragment could get fuzzy-matched to whichever one
+  // was nearest by edit distance, across the whole bucket — not narrowed to
+  // same-content candidates the way a Latin name already is.
+  it("keeps CJK characters in the key, so two different Korean names never share a squash bucket", () => {
+    expect(squashKey("글리세린")).not.toBe(squashKey("나이아신아마이드"));
+    expect(squashKey("글리세린")).toBe("글리세린");
+  });
+
   it("reads a British spelling", () => {
     expect(resolveKnownName("sodium lauryl sulphate", dictionary)).toBe("sodium lauryl sulfate");
   });
