@@ -31,6 +31,7 @@ import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
+import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
 import { createStaleGuard } from "@/lib/stale-guard";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
@@ -162,6 +163,25 @@ export default function Scan() {
     const { width, height } = event.nativeEvent.layout;
     setCameraSize({ width, height });
   }, []);
+  // Suppresses the camera re-reading a code that was just dismissed — see
+  // lib/scan-dismiss-guard.ts and issue #190. Consulted only in `onScanned`,
+  // the camera-only path; never in `handleBarcode` itself, which the "Try
+  // again" button and `BarcodeStage.onBarcode` also call on purpose.
+  const dismissGuard = useRef(createScanDismissGuard()).current;
+  // Same mechanism as `lookups` below, for a label read in flight:
+  // `IngredientsStage`'s mount begins a generation, and its `openAddProduct`
+  // checks it before navigating. Switching mode away and back remounts
+  // `IngredientsStage` (a fresh generation), so a read from the earlier
+  // mount is stale either way — one guard covers both "switched away" and
+  // "switched away and back" without a mode check bolted on beside it. See
+  // issue #191.
+  //
+  // `useState`, not `useRef().current`: this value is passed down as a prop
+  // (to `IngredientsStage`, below), and reading a ref's `.current` at that
+  // render-time position is exactly what react-hooks/refs exists to catch —
+  // a plain, never-updated piece of state sidesteps the rule without
+  // changing the behaviour (it's never set again after this initial value).
+  const [reads] = useState(() => createStaleGuard());
 
   // Tapping Barcode again after a miss or a failed lookup is how you scan
   // another: it clears the message and the camera comes back. That replaces the
@@ -172,12 +192,30 @@ export default function Scan() {
       // (or tapping Barcode again) puts it away rather than leaving it over the
       // other mode's shutter.
       if (status.kind === "found" || (next === "Barcode" && (status.kind === "missed" || status.kind === "unreachable"))) {
+        // The code is still sitting in frame, so the camera reads it again on
+        // the very next frame the moment this clears — without this, the
+        // panel pops straight back up (and, worse, `recordView` runs a
+        // second time for a bottle looked at once). See issue #190.
+        if (status.kind === "missed" || status.kind === "unreachable") {
+          dismissGuard.noteDismissal(status.code, Date.now());
+        }
         setStatus({ kind: "idle" });
         busy.current = false;
       }
+      // A read in flight (from whichever mode this switches away from) is no
+      // longer wanted the moment mode changes — including switching straight
+      // back to Photo, which remounts `IngredientsStage` with a fresh
+      // generation. Guarded on an actual change: `ModePill` has no
+      // already-selected guard, so tapping the current pill (e.g. an
+      // impatient extra tap on "Photo" while a read is in flight) reaches
+      // here with `next === mode`, and `setMode` would then be a no-op —
+      // no remount, so no fresh generation ever replaces the one this would
+      // have invalidated, permanently dropping every read for the rest of
+      // that visit. See issue #191.
+      if (next !== mode) reads.invalidate();
       setMode(next);
     },
-    [status.kind]
+    [status, mode, dismissGuard, reads]
   );
 
   // Only two things are allowed to reset this screen back to Barcode: the X
@@ -211,9 +249,27 @@ export default function Scan() {
       }
       return () => {
         lookups.current.invalidate();
+        // Not unconditional: this same cleanup also fires on the blur that
+        // `openAddProduct` itself causes (`preserveMode()` then
+        // `router.push`) — a *wanted* navigation, not an exit, and
+        // `IngredientsStage` isn't remounted for it (`skipResetOnNextFocus`
+        // is what keeps `setMode` from resetting above). Invalidating here
+        // regardless would permanently break that surviving instance's
+        // `stillWanted()` the moment it regains focus, silently dropping
+        // every photo taken for the rest of that visit — a fresher bug than
+        // the mode-pill one this same guard already covers. Checked at
+        // blur time, before the next focus consumes it: still true only for
+        // a `preserveMode`-guarded push, false for a genuine exit. See
+        // issue #191's PR review.
+        if (!skipResetOnNextFocus.current) reads.invalidate();
+        dismissGuard.reset();
         setStatus({ kind: "idle" });
         busy.current = false;
       };
+      // dismissGuard and reads are both stable values (see their own
+      // declarations above); including them in the deps array would just be
+      // noise.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
 
@@ -316,9 +372,14 @@ export default function Scan() {
       // camera stays up behind a "not in our catalogue" panel, so it must not
       // read the same code again the moment the panel appears.
       if (modeRef.current !== "Barcode" || statusRef.current.kind !== "idle") return;
+      // The status check above only covers *while* a result is showing. The
+      // moment it's dismissed, status is back to `idle` and the barcode is
+      // still sitting in frame — this covers the gap between that dismissal
+      // and the code actually leaving frame. See lib/scan-dismiss-guard.ts.
+      if (dismissGuard.shouldIgnoreScan(data, Date.now())) return;
       void handleBarcode(data, barcodeBox({ bounds, cornerPoints }));
     },
-    [handleBarcode]
+    [handleBarcode, dismissGuard]
   );
 
   const granted = permission?.granted === true;
@@ -349,6 +410,7 @@ export default function Scan() {
         barcode={status.kind === "missed" && canPhotographLabelFor(status.code) ? status.code : undefined}
         preserveMode={preserveMode}
         focusedRef={focusedRef}
+        reads={reads}
       />
     );
 
@@ -407,6 +469,9 @@ export default function Scan() {
             product={status.product}
             bottomInset={insets.bottom}
             onClose={() => {
+              // Same reasoning as the missed/unreachable clear in
+              // `selectMode` — the barcode is still in frame. See #190.
+              dismissGuard.noteDismissal(status.product.barcode, Date.now());
               setStatus({ kind: "idle" });
               busy.current = false;
             }}
@@ -1011,6 +1076,7 @@ function IngredientsStage({
   barcode,
   preserveMode,
   focusedRef,
+  reads,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
   requestPermission: () => void;
@@ -1022,15 +1088,34 @@ function IngredientsStage({
   preserveMode: () => void;
   /** True while the scanner is the focused screen; a read that finishes after it is left is dropped. */
   focusedRef: React.RefObject<boolean>;
+  /**
+   * Shared with the parent screen, so switching mode away (`selectMode`) or
+   * leaving the scanner entirely (the focus-effect cleanup) can invalidate a
+   * read this exact mount started. See issue #191.
+   */
+  reads: ReturnType<typeof createStaleGuard>;
 }) {
   const insets = useSafeAreaInsets();
   const needsPermission = permission !== null && !permission.granted;
   const clearance = Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
+  // One generation per mount — switching to Barcode and back to Photo
+  // remounts this stage, so a read from the earlier mount is stale even if
+  // it lands while `mode` reads "Photo" again by the time it resolves. Read
+  // once via useState's lazy initializer, not useRef's initial-value
+  // argument: that argument is still evaluated on every render even though
+  // only the first one is kept, which would advance the generation counter
+  // on every re-render of this stage.
+  const [myGeneration] = useState(() => reads.begin());
+  const stillWanted = useCallback(
+    () => focusedRef.current && reads.isCurrent(myGeneration),
+    [focusedRef, reads, myGeneration]
+  );
   // Where a finished read goes, whether it came from the camera or a chosen photo:
   // name the product, then save it with the barcode.
   const openAddProduct = () => {
-    // The X (or a tab switch) can land while a read is still pending.
-    if (!focusedRef.current) return;
+    // The X (or a tab switch), or a mode switch away and back, can land
+    // while a read is still pending.
+    if (!stillWanted()) return;
     preserveMode();
     router.push({ pathname: "/add-product", params: barcode ? { barcode } : {} });
   };
@@ -1046,6 +1131,7 @@ function IngredientsStage({
           frameTopOffset={CLOSE_CLEARANCE}
           bottomInset={clearance}
           onRead={openAddProduct}
+          isStillWanted={stillWanted}
         />
       ) : null}
 
@@ -1056,7 +1142,7 @@ function IngredientsStage({
           title="Photograph the ingredient list"
           body="Take a photo of the list on the back and we'll read it. We crop to the frame, send it to Google to read the text, and never store the image."
           bottomInset={clearance}
-          extra={<ChoosePhotoInstead barcode={barcode} onRead={openAddProduct} />}
+          extra={<ChoosePhotoInstead barcode={barcode} onRead={openAddProduct} isStillWanted={stillWanted} />}
         />
       ) : null}
     </View>

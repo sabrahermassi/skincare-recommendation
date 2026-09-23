@@ -23,11 +23,14 @@ type State =
 export function ChoosePhotoInstead({
   barcode,
   onRead,
+  isStillWanted,
 }: {
   /** Handed over by whoever sent the user here after a miss; the product read is saved under it. */
   barcode?: string;
   /** Called once the photo has been read and its list is held for the add-product screen. */
   onRead: () => void;
+  /** Same as `LabelCamera`'s own prop of the same name — see its comment (issue #191). */
+  isStillWanted?: () => boolean;
 }) {
   const [state, setState] = useState<State>({ kind: "idle" });
   const reading = state.kind === "reading";
@@ -52,7 +55,7 @@ export function ChoosePhotoInstead({
         });
         return;
       }
-      const outcome = await readLabelPhoto(picked.base64, barcode);
+      const outcome = await readLabelPhoto(picked.base64, barcode, isStillWanted);
       if (outcome.kind === "read") {
         setState({ kind: "idle" });
         onRead();

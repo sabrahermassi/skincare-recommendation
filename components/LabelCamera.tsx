@@ -54,6 +54,15 @@ type Props = {
   onClose?: () => void;
   /** Called once a photo has been read and its list is being held for the add-product screen. */
   onRead: () => void;
+  /**
+   * Threaded straight through to `readLabelPhoto`, so a read the caller no
+   * longer wants (the user switched away and back while it was in flight —
+   * see issue #191) doesn't leave a stale list and a live, single-use read
+   * token sitting in `lib/pending-label`. Whether `onRead` gets called at
+   * all is unaffected — that decision, and whether to navigate on it, stays
+   * with the caller's own guard. Omitted, every read is always wanted.
+   */
+  isStillWanted?: () => boolean;
   /** Room to leave clear at the bottom, e.g. for the scanner's mode switcher. */
   bottomInset?: number;
   /** How far below the safe area the frame starts, to clear whatever sits across the top. */
@@ -75,6 +84,7 @@ export function LabelCamera({
   active = true,
   onClose,
   onRead,
+  isStillWanted,
   bottomInset,
   frameTopOffset,
   camera: externalCamera,
@@ -243,7 +253,7 @@ export function LabelCamera({
         }
       }
 
-      const outcome = await readLabelPhoto(imageBase64, barcode);
+      const outcome = await readLabelPhoto(imageBase64, barcode, isStillWanted);
       if (outcome.kind === "read") {
         // Back to the ready camera before leaving: this screen stays mounted under
         // the next one, so swiping back must find a camera to use, not "Reading…".
@@ -302,7 +312,7 @@ export function LabelCamera({
           onPress={permission.canAskAgain === false ? () => void Linking.openSettings() : requestPermission}
         />
         {/* Reading a chosen picture needs no camera, so this is not a dead end. */}
-        <ChoosePhotoInstead barcode={barcode} onRead={onRead} />
+        <ChoosePhotoInstead barcode={barcode} onRead={onRead} isStillWanted={isStillWanted} />
       </View>
     );
   }
