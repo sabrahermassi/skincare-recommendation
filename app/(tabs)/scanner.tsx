@@ -31,6 +31,7 @@ import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
+import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
 import { createStaleGuard } from "@/lib/stale-guard";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
@@ -162,6 +163,11 @@ export default function Scan() {
     const { width, height } = event.nativeEvent.layout;
     setCameraSize({ width, height });
   }, []);
+  // Suppresses the camera re-reading a code that was just dismissed — see
+  // lib/scan-dismiss-guard.ts and issue #190. Consulted only in `onScanned`,
+  // the camera-only path; never in `handleBarcode` itself, which the "Try
+  // again" button and `BarcodeStage.onBarcode` also call on purpose.
+  const dismissGuard = useRef(createScanDismissGuard()).current;
 
   // Tapping Barcode again after a miss or a failed lookup is how you scan
   // another: it clears the message and the camera comes back. That replaces the
@@ -172,12 +178,19 @@ export default function Scan() {
       // (or tapping Barcode again) puts it away rather than leaving it over the
       // other mode's shutter.
       if (status.kind === "found" || (next === "Barcode" && (status.kind === "missed" || status.kind === "unreachable"))) {
+        // The code is still sitting in frame, so the camera reads it again on
+        // the very next frame the moment this clears — without this, the
+        // panel pops straight back up (and, worse, `recordView` runs a
+        // second time for a bottle looked at once). See issue #190.
+        if (status.kind === "missed" || status.kind === "unreachable") {
+          dismissGuard.noteDismissal(status.code, Date.now());
+        }
         setStatus({ kind: "idle" });
         busy.current = false;
       }
       setMode(next);
     },
-    [status.kind]
+    [status, dismissGuard]
   );
 
   // Only two things are allowed to reset this screen back to Barcode: the X
@@ -211,9 +224,13 @@ export default function Scan() {
       }
       return () => {
         lookups.current.invalidate();
+        dismissGuard.reset();
         setStatus({ kind: "idle" });
         busy.current = false;
       };
+      // dismissGuard is a stable ref value (see its own declaration above);
+      // including it in the deps array would just be noise.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
 
@@ -316,9 +333,14 @@ export default function Scan() {
       // camera stays up behind a "not in our catalogue" panel, so it must not
       // read the same code again the moment the panel appears.
       if (modeRef.current !== "Barcode" || statusRef.current.kind !== "idle") return;
+      // The status check above only covers *while* a result is showing. The
+      // moment it's dismissed, status is back to `idle` and the barcode is
+      // still sitting in frame — this covers the gap between that dismissal
+      // and the code actually leaving frame. See lib/scan-dismiss-guard.ts.
+      if (dismissGuard.shouldIgnoreScan(data, Date.now())) return;
       void handleBarcode(data, barcodeBox({ bounds, cornerPoints }));
     },
-    [handleBarcode]
+    [handleBarcode, dismissGuard]
   );
 
   const granted = permission?.granted === true;
@@ -407,6 +429,9 @@ export default function Scan() {
             product={status.product}
             bottomInset={insets.bottom}
             onClose={() => {
+              // Same reasoning as the missed/unreachable clear in
+              // `selectMode` — the barcode is still in frame. See #190.
+              dismissGuard.noteDismissal(status.product.barcode, Date.now());
               setStatus({ kind: "idle" });
               busy.current = false;
             }}
