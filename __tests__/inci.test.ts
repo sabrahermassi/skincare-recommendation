@@ -616,6 +616,34 @@ describe("parseIngredientBlock", () => {
     expect(parsed.map((p) => p.inci_name)).toEqual(["water", "glycerin"]);
   });
 
+  // Found in review on #247: the trim in `normalise` kept the four CJK
+  // scripts but not U+30FC, the katakana-hiragana prolongation mark, which
+  // is Script=Common rather than Katakana -- so a real word like "ポリマー"
+  // (polymer) lost its final mark and became "ポリマ", matching nothing.
+  it("keeps the katakana prolongation mark instead of trimming it off", () => {
+    const parsed = parseIngredientBlock("ポリマー, Water, Glycerin");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["ポリマー", "water", "glycerin"]);
+  });
+
+  // Found in review on #247: full-width Latin/digits (a normal OCR read on a
+  // Japanese label) are Script=Common too, so a name like "ＰＥＧ－４０" was
+  // stripped as decoration rather than kept as "peg-40". NFKC folds it to
+  // its standard-width spelling before the trim runs.
+  it("keeps a full-width Latin/digit name after folding it to standard width", () => {
+    const parsed = parseIngredientBlock("ＰＥＧ－４０, Water, Glycerin");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["peg-40", "water", "glycerin"]);
+  });
+
+  // Found in review on #247: real Japanese labels use their own punctuation
+  // -- 全成分 as the heading, U+3001 (、) as the list separator -- neither of
+  // which the parser recognised, so a label using standard Japanese
+  // formatting (not the ASCII punctuation earlier fixtures used) still read
+  // as a single unsplittable blob.
+  it("recognises a Japanese ingredients heading and the ideographic comma", () => {
+    const parsed = parseIngredientBlock("全成分：グリセリン、ナイアシンアミド、香料");
+    expect(parsed.map((p) => p.inci_name)).toEqual(["グリセリン", "ナイアシンアミド", "香料"]);
+  });
+
   // Done-when 7's fallback branch: staging's `ingredient_synonyms` cannot be
   // checked from this session (no `.env.staging` / staging credentials are
   // available here), so per the ticket's own instruction this asserts

@@ -16,13 +16,14 @@
 
 export function normalise(raw) {
   return raw
+    .normalize("NFKC")
     .replace(/\([^)]*\)/g, " ")
     .replace(/[*_[\]]/g, " ")
     .replace(/\b\d+([.,]\d+)?\s*%/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
-    .replace(/^[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]+|[^a-z0-9)\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]+$/gu, "");
+    .replace(/^[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+|[^a-z0-9)\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+$/gu, "");
 }
 
 /**
@@ -62,7 +63,7 @@ function splitOnSeparators(text) {
     offset > 0 && /\d/.test(text[offset - 1]) ? PLACEHOLDER : match
   );
   return protectedText
-    .split(/[;•·]|,|\.(?=\s)/)
+    .split(/[;•·、]|,|\.(?=\s)/)
     .map((s) => s.replace(new RegExp(PLACEHOLDER, "g"), ",").replace(//g, "."));
 }
 
@@ -544,7 +545,7 @@ export function parseInci(text, dictionary, rejected, aliases) {
 
   // 1 ── Drop everything up to and including an "Ingredients:" heading. Same
   // pattern as lib/inci.ts.
-  const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:\bingredients?\b|전성분|성분)\s*[:：]?\s*/i.exec(flat);
+  const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:\bingredients?\b|전성분|성분|全成分)\s*[:：]?\s*/i.exec(flat);
   let block = heading ? flat.slice(heading.index + heading[0].length) : flat;
 
   // With a dictionary the heading's language stops mattering; see lib/inci.ts.
