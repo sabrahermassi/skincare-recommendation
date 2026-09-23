@@ -206,8 +206,13 @@ export default function ProductScreen() {
    * *screen* doesn't flash a spinner, but the view-history log below must
    * not trust a possibly-stale cached row until the network has actually
    * confirmed it. Only set on a successful fetch, never at the cache seed.
+   *
+   * State, not a ref: for a cache hit that was already fresh, `fetchProduct`
+   * resolves with the same object already in `product`, so `setProduct`
+   * is a no-op render-wise — a ref written in that same branch would never
+   * be seen by the logging effect below, since nothing would re-run it.
    */
-  const confirmedFor = useRef<string | null>(null);
+  const [confirmedFor, setConfirmedFor] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -226,7 +231,7 @@ export default function ProductScreen() {
         if (result.ok) {
           setProduct(result.value);
           loadedFor.current = id;
-          confirmedFor.current = id;
+          setConfirmedFor(id);
         } else {
           // A failed retry of the id already on screen keeps that copy — it
           // beats an error page. A failed load of a *different* id must not
@@ -262,11 +267,11 @@ export default function ProductScreen() {
   // would then block the corrected score from ever being recorded; a
   // product deleted in the interval would log a view for it anyway.
   useEffect(() => {
-    if (!product || confirmedFor.current !== product.id || loggedId.current === product.id) return;
+    if (!product || confirmedFor !== product.id || loggedId.current === product.id) return;
     loggedId.current = product.id;
     const { score, warnings } = matchProduct(product, useAppStore.getState().profile);
     recordView({ id: product.id, known: true, score, warnings: warnings.length });
-  }, [product, recordView]);
+  }, [product, confirmedFor, recordView]);
 
   // The effect above captures the score as it stood when the screen opened,
   // which for someone with no profile is no score at all. The inline prompt
