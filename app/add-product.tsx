@@ -48,9 +48,13 @@ export default function AddProduct() {
       <BarcodeStep
         onKnown={(id) => {
           // The barcode they scanned turned out to be in the catalogue after all:
-          // nothing to add, so show it.
+          // nothing to add, so show it. `dismissTo`, not `replace`: this screen
+          // is reached by a push from `/label-result` (#214) now, not always a
+          // direct push from the scanner — `replace` only swaps this screen,
+          // leaving the old, now-stale verdict underneath on the back stack.
+          // `dismissTo` pops everything back to (and lands on) the target.
           clearLabelRead();
-          router.replace({ pathname: "/result/[id]", params: { id } });
+          router.dismissTo({ pathname: "/result/[id]", params: { id } });
         }}
         onUnknown={setBarcode}
       />
@@ -256,7 +260,8 @@ function NameStep({ barcode, ingredients, readToken }: { barcode: string; ingred
     const result = await saveScannedProduct({ barcode, name: trimmed, ingredients, readToken });
     if (result.ok) {
       clearLabelRead();
-      router.replace({ pathname: "/result/[id]", params: { id: result.product.id } });
+      // `dismissTo`, not `replace` — see the same note on `onKnown` above.
+      router.dismissTo({ pathname: "/result/[id]", params: { id: result.product.id } });
       return;
     }
     setSaving(false);
