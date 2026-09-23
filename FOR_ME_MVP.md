@@ -835,6 +835,15 @@ Everything above, plus:
   INCI/CosIng, CIR and PubMed (#237). See §26.
 - Open Beauty Facts as the product seed source.
 - Supabase Auth (#218); analytics for guests and signed-in users (#225).
+- **Sign-in is Sign in with Apple and Sign in with Google** (#217, decided
+  23 September 2026). Both are native identity-token sign-ins, so there is
+  no password to store or reset and no email to deliver. Two consequences
+  are not optional and are part of the same shippable unit, not follow-ups:
+  offering Google makes Sign in with Apple mandatory under App Store Review
+  Guideline 4.8, and offering account creation at all makes **in-app
+  account deletion** mandatory under Guideline 5.1.1(v) — which, with Apple
+  sign-in, includes revoking the user's token through Apple's REST API
+  (#224). No email/password and no magic link in this MVP.
 
 Features already implemented should be preserved. Nothing here should be
 expanded beyond what this section names.

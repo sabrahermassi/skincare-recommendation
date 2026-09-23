@@ -111,8 +111,13 @@ native.
 **State** — `store/useAppStore.ts`, one Zustand store: skin profile,
 onboarding flag, wishlist. Persisted via `persist` + AsyncStorage, gated on
 `useAppStore.persist.hasHydrated()` in `app/_layout.tsx`.
-**`store/useAppStore.ts` is the only file allowed to import AsyncStorage**
-— see `docs/device-storage-policy.md` for which data class goes where.
+**Two files may import AsyncStorage, and no third without review:**
+`store/useAppStore.ts` (the user's own state) and `data/catalogue-cache.ts`
+(public catalogue rows, the dictionary and freshness watermarks — and
+nothing derived from the user). The point was never the number one, it is
+that every write site stays known and reviewable — see
+`docs/device-storage-policy.md` for which data class goes where and why the
+catalogue earned its own file.
 
 Profile shape: `concerns` (max `MAX_CONCERNS` = 3), `baseSkinType`
 (nullable — "I don't know" is a real answer), `sensitivity`
@@ -135,8 +140,10 @@ SCORE = 30 + 0.7 × FIT − irritation penalty − pore penalty
 (90/75/60 excellent/good/fair, else poor) — **always read that constant,
 never hardcode a cutoff.**
 
-Evidence, in priority order: **`lib/rules.ts`** (59 curated rules, each
-carrying the sentence shown to the user) > **CosIng `functions`**
+Evidence, in priority order: **`lib/rules.ts`** (`INGREDIENT_RULES` — 61
+curated rules today, each carrying the sentence shown to the user; #237
+takes this toward ~500, so count the array rather than trusting this
+number) > **CosIng `functions`**
 (benefit-only signal; a named rule always beats a declared function,
 nothing counts twice) > **`lib/pore-clogging.ts`** (27 clogger families
 with confidence tiers, owns acne fit).
