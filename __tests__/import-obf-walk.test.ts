@@ -6,7 +6,9 @@ import {
   MAX_REQUESTS,
   PAGE_SIZE,
   TARGET_ROWS,
+  STAMPED_MODULES,
   dictionaryStamp,
+  moduleStamp,
   parseCheckpoint,
   resumeProblem,
   serialiseCheckpoint,
@@ -58,6 +60,23 @@ describe("import:obf resume safety", () => {
     expect(dictionaryStamp(new Set(["glycerin", "aqua"]), new Map([["water", "aqua"]]))).toBe(stamp);
     expect(dictionaryStamp(known, new Map([["water", "glycerin"]]))).not.toBe(stamp);
     expect(dictionaryStamp(new Set(["aqua", "glycerine"]), new Map([["water", "aqua"]]))).not.toBe(stamp);
+  });
+
+  // #265 review round 3: the module half of the stamp.
+  it("stamps modules by their bytes, so editing one changes the stamp", () => {
+    const dir = mkdtempSync(join(tmpdir(), "obf-stamp-"));
+    const parser = join(dir, "parser.mjs");
+    writeFileSync(parser, "export const rule = 1;");
+    const before = moduleStamp([parser]);
+    writeFileSync(parser, "export const rule = 2;");
+    expect(moduleStamp([parser])).not.toBe(before);
+  });
+
+  it("names modules that exist — a typo'd or dropped path would silently stop guarding", () => {
+    expect(STAMPED_MODULES).toEqual(
+      expect.arrayContaining(["./import-obf.mjs", "./lib/inci-parse.mjs", "./lib/guess-type-from-ingredients.mjs"])
+    );
+    for (const file of STAMPED_MODULES) expect(existsSync(join(__dirname, "..", "scripts", file))).toBe(true);
   });
 
   it("replaces the file whole, leaving no temp copy behind", () => {
