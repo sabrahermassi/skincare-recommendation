@@ -9,7 +9,7 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
-import { failureMessage, fetchProductByBarcode, saveScannedProduct } from "@/data/api";
+import { failureMessage, fetchProductByBarcode, forgetScanned, saveScannedProduct } from "@/data/api";
 import { clearLabelRead, heldLabelRead } from "@/lib/pending-label";
 import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
 import {
@@ -332,6 +332,12 @@ function NameStep({
       router.dismissTo({ pathname: "/result/[id]", params: { id: result.value.id } });
       return;
     }
+    // This lookup can itself cache a miss (the cascade hasn't indexed the
+    // just-saved row yet) for up to an hour — evict it, or the next tap of
+    // "Show me that product" reads that same stale miss back and never
+    // reaches the network at all (#258 review, found after the pre-lookup
+    // miss above it was already fixed the same way).
+    forgetScanned(barcode);
     // The lookup failed or missed, but the row is still saved — so stay in
     // `already_saved` and let the lookup be tried again. Dropping back to
     // `failed` would swap this button for Save, which resubmits the spent

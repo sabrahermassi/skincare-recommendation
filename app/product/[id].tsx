@@ -23,7 +23,7 @@ import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/genie";
 import { productPictureSize } from "@/lib/product-layout";
 import { isPersonalized } from "@/lib/profile";
-import { irritationWarnings, isVerified } from "@/lib/safety";
+import { historyWarningCount, isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
 
@@ -206,9 +206,9 @@ export default function ProductScreen() {
     if (!product || confirmedFor !== product.id || loggedId.current === product.id) return;
     loggedId.current = product.id;
     const { score, warnings } = matchProduct(product, useAppStore.getState().profile);
-    // Pregnancy hits don't count toward "flagged" here either (#187) — same
-    // exclusion as the Irritation card, so the two never disagree.
-    recordView({ id: product.id, known: true, score, warnings: irritationWarnings(warnings).length });
+    // historyWarningCount, not irritationWarnings (#187 found in review) —
+    // see lib/safety.ts for why the two must differ.
+    recordView({ id: product.id, known: true, score, warnings: historyWarningCount(warnings) });
   }, [product, confirmedFor, recordView]);
 
   // The effect above captures the score as it stood when the screen opened,
@@ -223,7 +223,7 @@ export default function ProductScreen() {
   useEffect(() => {
     if (!product || loggedId.current !== product.id) return;
     const { score, warnings } = matchProduct(product, profile);
-    fillInViewScore(product.id, { score, warnings: irritationWarnings(warnings).length });
+    fillInViewScore(product.id, { score, warnings: historyWarningCount(warnings) });
   }, [product, profile, fillInViewScore]);
 
   if (loading) {
