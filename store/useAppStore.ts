@@ -482,15 +482,14 @@ export const useAppStore = create<AppState>()(
         // the app as reinstalled and silently sign the user out. Whether
         // "erase everything" should also sign out is left to the account
         // screens (#220), which can call sign-out deliberately.
+        // This one `set` is also what resets the disk: `persist` writes the
+        // whole persisted blob on every change, so the first-run values
+        // replace what was stored and the next rehydration reads them back.
+        // It used to be followed by `persist.clearStorage()`, which is
+        // unsafe now: its unawaited remove can land after this write and
+        // delete the kept flag with everything else, so the next launch would
+        // wipe the Keychain and sign the user out by accident of timing.
         set((state) => ({ ...INITIAL_STATE, secureStoreClaimed: state.secureStoreClaimed }));
-        // Also wipe what is on disk. Without this the in-memory reset is
-        // undone by the next rehydration and the app "forgets" the reset.
-        void useAppStore.persist.clearStorage();
-        // ...then write the first-run state straight back, so the kept
-        // `secureStoreClaimed` is on disk too. Left cleared, the next launch
-        // would find no flag and wipe the Keychain — signing the user out as
-        // an accident of storage order rather than a decision.
-        useAppStore.setState({});
         // Barcodes looked up this session live outside the store, in the
         // catalogue cache's memory layer. They are a record of what this
         // person pointed a camera at, so they belong to this reset even though

@@ -6,6 +6,7 @@
 const mockKeychain = new Map<string, string>();
 const mockFailingReads = new Set<string>();
 const mockWriteOptions: unknown[] = [];
+const mockFailingDeletes = new Set<string>();
 
 jest.mock("expo-secure-store", () => ({
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 42,
@@ -18,12 +19,16 @@ jest.mock("expo-secure-store", () => ({
     mockWriteOptions.push(options);
   }),
   deleteItemAsync: jest.fn(async (key: string) => {
+    if (mockFailingDeletes.has(key)) throw new Error("Keychain busy");
     mockKeychain.delete(key);
   }),
 }));
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import {
   CHUNK_SIZE,
+  MANIFEST_KEY,
   authStorage,
   authStorageFor,
   createMemoryStorage,
@@ -37,6 +42,7 @@ beforeEach(() => {
   mockKeychain.clear();
   mockFailingReads.clear();
   mockWriteOptions.length = 0;
+  mockFailingDeletes.clear();
   resetSecureStorageForTests();
   useAppStore.setState({ secureStoreClaimed: true });
 });
@@ -84,6 +90,15 @@ describe("the session on a phone", () => {
     expect(await authStorage.getItem(KEY)).toBeNull();
   });
 
+  // #270 review: a crash after the chunks but before the count left chunks
+  // that nothing knew to delete.
+  it("deletes chunks whose count was never written", async () => {
+    await authStorage.setItem(KEY, "e".repeat(CHUNK_SIZE * 3));
+    mockKeychain.delete(KEY);
+    await authStorage.removeItem(KEY);
+    expect([...mockKeychain.keys()].filter((k) => k.startsWith(KEY))).toEqual([]);
+  });
+
   it("does not interleave a write with a sign-out that overlaps it", async () => {
     await authStorage.setItem(KEY, "old");
     await Promise.all([authStorage.setItem(KEY, "d".repeat(CHUNK_SIZE * 2)), authStorage.removeItem(KEY)]);
@@ -105,15 +120,55 @@ describe("a reinstalled app", () => {
     expect(useAppStore.getState().secureStoreClaimed).toBe(true);
   });
 
+  // #270 review: a failed delete used to be swallowed and the install marked
+  // clean anyway, so the old session survived and was never retried.
+  it("retries next launch when a delete fails, and never hands back the old session meanwhile", async () => {
+    await authStorage.setItem(KEY, "previous owner");
+    useAppStore.setState({ secureStoreClaimed: false });
+    resetSecureStorageForTests();
+    mockFailingDeletes.add(`${KEY}.0`);
+
+    expect(await authStorage.getItem(KEY)).toBeNull();
+    expect(useAppStore.getState().secureStoreClaimed).toBe(false);
+
+    // A sign-in during the same launch is still readable.
+    await authStorage.setItem("other-key", "new session");
+    expect(await authStorage.getItem("other-key")).toBe("new session");
+
+    // Next launch, the delete works: the leftover goes and the install is claimed.
+    mockFailingDeletes.clear();
+    resetSecureStorageForTests();
+    expect(await authStorage.getItem(KEY)).toBeNull();
+    expect(mockKeychain.has(`${KEY}.0`)).toBe(false);
+    expect(useAppStore.getState().secureStoreClaimed).toBe(true);
+  });
+
+  it("does not trust leftovers when the list of what to delete cannot be read", async () => {
+    await authStorage.setItem(KEY, "previous owner");
+    useAppStore.setState({ secureStoreClaimed: false });
+    resetSecureStorageForTests();
+    mockFailingReads.add(MANIFEST_KEY);
+
+    expect(await authStorage.getItem(KEY)).toBeNull();
+    expect(useAppStore.getState().secureStoreClaimed).toBe(false);
+  });
+
   it("keeps the session on an ordinary relaunch", async () => {
     await authStorage.setItem(KEY, "mine");
     resetSecureStorageForTests();
     expect(await authStorage.getItem(KEY)).toBe("mine");
   });
 
-  it("keeps the install marker through erase-everything, so it does not sign out by accident", () => {
+  // #270 review: an unawaited clear raced the write that restored the flag,
+  // so the disk could end up without it. Pinned on disk, not just in memory.
+  it("keeps the install marker through erase-everything, on disk too", async () => {
+    useAppStore.getState().completeOnboarding();
     useAppStore.getState().resetApp();
     expect(useAppStore.getState().secureStoreClaimed).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const stored = JSON.parse((await AsyncStorage.getItem("forme-store")) ?? "null");
+    expect(stored?.state.secureStoreClaimed).toBe(true);
+    expect(stored?.state.hasSeenOnboarding).toBe(false);
   });
 });
 
