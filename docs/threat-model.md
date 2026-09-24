@@ -17,9 +17,11 @@ As of this writing, the backend holds a database but no user data:
   the migration, not a deliberate decision, and worth its own follow-up.
   No table has write policies; every write goes through the service-role
   key, server-side only, never from the client.
-- There is no authentication anywhere in the app. No sign-in, no session, no
-  token. The client holds the Supabase anon key only.
-- There is no user-owned table. No owner column, no profiles, no quiz
+- Sign-in exists as of #218: Sign in with Apple and Sign in with Google,
+  through Supabase Auth, and nothing else — no email, no password. The
+  session lives in the Keychain/Keystore on a phone and in memory on web (see
+  the Session token row below). The client still holds only the anon key.
+- There is still no user-owned table (#219 adds the first). No owner column, no profiles, no quiz
   answers, no saved-product list, no scan history, on the backend.
 
 But personal data already exists, just not on the backend: the Zustand store
