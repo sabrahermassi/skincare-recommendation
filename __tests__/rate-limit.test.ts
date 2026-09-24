@@ -699,6 +699,30 @@ describe("who a request is charged to", () => {
     expect(verifier.calls).toHaveLength(2);
   });
 
+  // #282 review: a flood of forged tokens, each slightly different, was a
+  // fresh cache miss — and a fresh Auth call — every time, before the free
+  // limiter had said anything.
+  it("caps Auth checks per address, so varied forged tokens can't turn into Auth calls", async () => {
+    const verifier = auth(null);
+    for (let i = 0; i < 25; i++) {
+      const forged = token({ role: "authenticated", sub: `x-${i}`, exp: inAnHour });
+      expect(await chargeTo(request(forged), verifier)).toBe("81.229.14.22");
+    }
+    expect(verifier.calls).toHaveLength(10);
+    // Another address has its own allowance.
+    await chargeTo(request(token({ role: "authenticated", sub: "y", exp: inAnHour }), "203.0.113.9"), verifier);
+    expect(verifier.calls).toHaveLength(11);
+  });
+
+  it("keeps a real account's cached token working past the cap", async () => {
+    const verifier = auth({ id: "u-1" });
+    expect(await chargeTo(request(USER_TOKEN), verifier)).toBe("user:u-1");
+    for (let i = 0; i < 20; i++) {
+      await chargeTo(request(token({ role: "authenticated", sub: `x-${i}`, exp: inAnHour })), verifier);
+    }
+    expect(await chargeTo(request(USER_TOKEN), verifier)).toBe("user:u-1");
+  });
+
   it("charges by address when no verifier is available", async () => {
     expect(await chargeTo(request(USER_TOKEN), undefined)).toBe("81.229.14.22");
   });

@@ -328,6 +328,14 @@ export function callerKey(req: Request): string {
 const verified = new Map<string, { account: string | null; until: number }>();
 const REFUSED_TOKEN_TTL_MS = 60_000;
 
+/**
+ * Uncached tokens one address may have checked with Auth per minute, per
+ * isolate. A person has one token at a time (refreshed hourly), so this is
+ * far past honest use and small enough that a flood of forged tokens costs
+ * Auth almost nothing.
+ */
+const VERIFY_LIMIT: RateLimit = { windowSeconds: 60, maxRequests: 10 };
+
 /** For tests, which would otherwise carry one case's verdicts into the next. */
 export function resetVerifiedTokens(): void {
   verified.clear();
@@ -375,6 +383,15 @@ export async function signedInAccount(req: Request, auth: SessionVerifier | unde
   const now = Date.now();
   const cached = verified.get(token);
   if (cached && cached.until > now) return cached.account;
+
+  // Asking Auth is a network round trip, and it happens before the limiter
+  // below has said anything — so it is capped per address first, for free.
+  // A forged token costs nothing to vary, and each variation would otherwise
+  // be a fresh cache miss and a fresh call to Auth (#282 review). Past the
+  // cap a request is charged by address, which the limiter then handles like
+  // any guest's. A real account's token is cached after its first check, so
+  // it never meets this.
+  if (tally(`auth-verify:${callerKey(req)}`, VERIFY_LIMIT) > VERIFY_LIMIT.maxRequests) return null;
 
   let account: string | null = null;
   try {
