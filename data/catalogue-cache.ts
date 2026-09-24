@@ -1374,6 +1374,24 @@ export function putScanned(
 }
 
 /**
+ * Evicts one barcode's cached lookup, so the next `readScanned` misses and a
+ * fresh network call actually happens.
+ *
+ * For the one case a fresh `null`/product write can't cover (#188): a save
+ * whose response parse failed after the write already committed
+ * server-side. The barcode-first flow caches a miss for this barcode before
+ * the photo is even taken (`fetchProductByBarcode`'s own `putScanned`), and
+ * that miss is still fresh by the time the save fails — `putScanned` can
+ * overwrite it with a good result, but there is no good result to write
+ * here, only "go ask again." `undefined` (an evicted entry) and `null` (a
+ * cached miss) are different values to `readScanned`; this produces the
+ * former.
+ */
+export function forgetScanned(barcode: string): void {
+  scanned.delete(barcode);
+}
+
+/**
  * Forget every barcode looked up this session.
  *
  * Called by `resetApp`. This map is the one thing in this module derived from

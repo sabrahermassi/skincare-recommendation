@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 import AddProduct from "@/app/add-product";
-import { saveScannedProduct } from "@/data/api";
+import { fetchProductByBarcode, forgetScanned, saveScannedProduct } from "@/data/api";
 import { clearLabelRead, heldLabelRead, holdLabelRead } from "@/lib/pending-label";
 import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
 
@@ -13,10 +13,12 @@ import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
  */
 
 const mockReplace = jest.fn();
+const mockDismissTo = jest.fn();
 
 jest.mock("expo-router", () => ({
   router: {
     replace: (...args: unknown[]) => mockReplace(...args),
+    dismissTo: (...args: unknown[]) => mockDismissTo(...args),
     back: jest.fn(),
   },
   useLocalSearchParams: () => ({}),
@@ -34,11 +36,12 @@ jest.mock("react-native-safe-area-context", () => ({
 jest.mock("@/data/api", () => ({
   failureMessage: () => "",
   fetchProductByBarcode: jest.fn(),
+  forgetScanned: jest.fn(),
   saveScannedProduct: jest.fn(),
 }));
 
 // Structural cast rather than `jest.Mock`: the jest namespace is not in scope here (see jest-globals.d.ts).
-type MockFn = { mockReturnValue(value: unknown): void };
+type MockFn = { mockReturnValue(value: unknown): void; mockClear(): void };
 
 const INGREDIENTS = ["Water", "Glycerin", "Niacinamide"];
 
@@ -48,6 +51,10 @@ function freshToken(deadline: number) {
 
 beforeEach(() => {
   mockReplace.mockClear();
+  mockDismissTo.mockClear();
+  (saveScannedProduct as unknown as MockFn).mockClear();
+  (fetchProductByBarcode as unknown as MockFn).mockClear();
+  (forgetScanned as unknown as MockFn).mockClear();
   clearLabelRead();
 });
 
@@ -162,6 +169,72 @@ describe("AddProduct — expired read token", () => {
 
     expect(screen.getByText("Save and see my match")).toBeTruthy();
     expect(screen.queryByText("Scan it again")).toBeNull();
+  });
+});
+
+describe("AddProduct — already saved (#188)", () => {
+  it("offers a lookup instead of a retry, and does not let the name field be edited", async () => {
+    (saveScannedProduct as unknown as MockFn).mockReturnValue(
+      Promise.resolve({ ok: false, reason: "already_saved" })
+    );
+    holdLabelRead({ barcode: "1234567890123", ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    await render(<AddProduct />);
+
+    await fireEvent.changeText(screen.getByLabelText("Product name"), "Test Toner");
+    await fireEvent.press(screen.getByText("Save and see my match"));
+
+    expect(screen.queryByText("Save and see my match")).toBeNull();
+    expect(screen.getByText("Show me that product")).toBeTruthy();
+    expect(screen.getAllByText("That saved, but we couldn't open it just now.").length).toBeGreaterThan(0);
+  });
+
+  it("looks up the barcode just submitted and opens the product it finds, rather than resubmitting the spent read token", async () => {
+    (saveScannedProduct as unknown as MockFn).mockReturnValue(
+      Promise.resolve({ ok: false, reason: "already_saved" })
+    );
+    (fetchProductByBarcode as unknown as MockFn).mockReturnValue(
+      Promise.resolve({ ok: true, value: { id: "just-saved-product" } })
+    );
+    holdLabelRead({ barcode: "1234567890123", ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    await render(<AddProduct />);
+
+    await fireEvent.changeText(screen.getByLabelText("Product name"), "Test Toner");
+    await fireEvent.press(screen.getByText("Save and see my match"));
+    await fireEvent.press(screen.getByText("Show me that product"));
+
+    expect(fetchProductByBarcode).toHaveBeenCalledWith("1234567890123");
+    expect(saveScannedProduct).toHaveBeenCalledTimes(1); // never resubmitted
+    expect(mockDismissTo).toHaveBeenCalledWith({
+      pathname: "/result/[id]",
+      params: { id: "just-saved-product" },
+    });
+    expect(heldLabelRead()).toBeNull();
+  });
+});
+
+describe("AddProduct — already saved, lookup fails (#258 review)", () => {
+  it("keeps the lookup button and never falls back to a Save that would resubmit the spent token", async () => {
+    (saveScannedProduct as unknown as MockFn).mockReturnValue(
+      Promise.resolve({ ok: false, reason: "already_saved" })
+    );
+    (fetchProductByBarcode as unknown as MockFn).mockReturnValue(Promise.resolve({ ok: true, value: null }));
+    holdLabelRead({ barcode: "1234567890123", ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    await render(<AddProduct />);
+
+    await fireEvent.changeText(screen.getByLabelText("Product name"), "Test Toner");
+    await fireEvent.press(screen.getByText("Save and see my match"));
+    await fireEvent.press(screen.getByText("Show me that product"));
+
+    expect(screen.getByText("Show me that product")).toBeTruthy();
+    expect(screen.queryByText("Save and see my match")).toBeNull();
+    expect(screen.getAllByText(/Still couldn't open it/).length).toBeGreaterThan(0);
+    expect(saveScannedProduct).toHaveBeenCalledTimes(1);
+    expect(mockDismissTo).not.toHaveBeenCalled();
+    // The core of this round's fix: the recovery lookup that just missed
+    // cached that miss for up to an hour. Without evicting it here, the next
+    // tap of "Show me that product" would read the same stale miss back
+    // instead of reaching the network again.
+    expect(forgetScanned).toHaveBeenCalledWith("1234567890123");
   });
 });
 

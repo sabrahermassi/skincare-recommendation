@@ -135,10 +135,21 @@ export function failureCopy(
     | "unreadable"
     | "too_little_text"
     | "unrecognised_names"
-    | "rate_limited",
+    | "rate_limited"
+    | "network_error",
   hasBarcode: boolean
 ): LabelReadFailure {
   switch (reason) {
+    case "network_error":
+      // Offline, timed out, or a 5xx we don't special-case (#188) — us or
+      // the connection, never the photo. The barcode and Browse both need
+      // the same network that just failed, so neither belongs in the hint
+      // (same reasoning as the scanner's own unreachable panel).
+      return {
+        message: "We couldn't reach our servers.",
+        hint: "Check your connection and try again.",
+        retryable: true,
+      };
     case "too_little_text":
       return {
         message: "We couldn't find an ingredient list in that photo.",

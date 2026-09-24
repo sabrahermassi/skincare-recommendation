@@ -137,6 +137,18 @@ describe("readLabelPhoto", () => {
     expect(await readLabelPhoto("x")).toMatchObject({ kind: "failed", retryable: true });
   });
 
+  // #188: offline, timed out and an unclassified 5xx (502 included) all
+  // collapse to this one reason in data/api.ts, so one case here covers all
+  // three — they get identical copy.
+  it("turns a network failure into network copy, not photo copy", async () => {
+    analyse.mockResolvedValue({ ok: false, reason: "network_error" });
+    expect(await readLabelPhoto("x")).toMatchObject({
+      kind: "failed",
+      message: "We couldn't reach our servers.",
+      retryable: true,
+    });
+  });
+
   it("lets a rejected request reach the caller, which owns the generic message", async () => {
     analyse.mockRejectedValue(new Error("network"));
     await expect(readLabelPhoto("x")).rejects.toThrow("network");
@@ -159,5 +171,18 @@ describe("failureCopy", () => {
     expect(failureCopy("server_unavailable", true).hint).toBe("Look the product up in Browse, or try again later.");
     expect(failureCopy("server_unavailable", false).hint).toBe("Try the barcode instead, or look the product up in Browse.");
     expect(failureCopy("not_configured", true).hint).toBe("Look the product up in Browse instead.");
+  });
+
+  // #188: unlike the other network-adjacent branches, a genuine connection
+  // failure makes both suggestions dead — they need the same network that
+  // just failed — so neither should appear, with or without a barcode.
+  it("never points a network failure at the barcode or Browse", () => {
+    expect(failureCopy("network_error", false).hint).toBe("Check your connection and try again.");
+    expect(failureCopy("network_error", true).hint).toBe("Check your connection and try again.");
+    expect(failureCopy("network_error", false).hint).not.toMatch(/barcode|Browse/);
+  });
+
+  it("can be retried after a network failure — a retry genuinely can succeed", () => {
+    expect(failureCopy("network_error", false).retryable).toBe(true);
   });
 });

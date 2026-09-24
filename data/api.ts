@@ -6,6 +6,7 @@ import {
   dropLegacyBlobs,
   hasCheckedThisLaunch,
   markCheckedThisLaunch,
+  forgetScanned,
   msSinceLastCheck,
   peekCatalogue,
   productById,
@@ -1103,6 +1104,14 @@ export async function fetchProductTypes(): Promise<ProductType[]> {
 }
 
 /**
+ * Evicts a barcode's cached lookup result, in or out of `fetchProductByBarcode`'s
+ * own control. Re-exported (not just used internally) because a caller can
+ * know a cached miss is stale in a way `fetchProductByBarcode` itself can't —
+ * see `app/add-product.tsx`'s recovery lookup for the case this exists for.
+ */
+export { forgetScanned };
+
+/**
  * Barcode lookup for the scanner. A miss is an ordinary outcome here (an
  * unrecognised bottle), not a bad request.
  *
@@ -1227,7 +1236,14 @@ export type LabelRead =
         | "unreadable"
         | "too_little_text"
         | "unrecognised_names"
-        | "rate_limited";
+        | "rate_limited"
+        /**
+         * Offline, timed out, or an unclassified 5xx (502 included) — us or
+         * the connection, never the photo (#188). Not split further into
+         * offline/timeout: both get the same "check your connection" copy
+         * in `failureCopy`, so one reason is enough.
+         */
+        | "network_error";
       rawText?: string;
     };
 
@@ -1283,7 +1299,12 @@ export async function readLabel(imageBase64: string): Promise<LabelRead> {
       return { ok: false, reason: "too_little_text", rawText: body?.rawText };
     }
     if (status === 503) return { ok: false, reason: "server_unavailable" };
-    return { ok: false, reason: "unreadable" };
+    // 413/415 are the only other statuses that are genuinely about this
+    // photo (too large, or not an image at all). Everything else — no
+    // status at all (offline, timed out), or a 5xx we don't special-case
+    // like 502 — is a reachability problem, not a read problem (#188).
+    if (status === 413 || status === 415) return { ok: false, reason: "unreadable" };
+    return { ok: false, reason: "network_error" };
   }
 
   const read = data?.ingredients;
@@ -1305,7 +1326,25 @@ export async function readLabel(imageBase64: string): Promise<LabelRead> {
  */
 export type SaveProductResult =
   | { ok: true; product: ProductWithIngredients }
-  | { ok: false; reason: "not_configured" | "unreadable_list" | "expired" | "rate_limited" | "failed" };
+  | {
+      ok: false;
+      reason:
+        | "not_configured"
+        | "unreadable_list"
+        | "expired"
+        | "rate_limited"
+        | "failed"
+        /** Offline, timed out, or an unclassified 5xx — see `LabelRead`'s same reason (#188). */
+        | "network_error"
+        /**
+         * The write already succeeded server-side — `data.product` came
+         * back non-null — but the client couldn't turn it into a product.
+         * Retrying `saveScannedProduct` would resubmit an already-consumed
+         * read token and land on `expired`; recovery is a barcode lookup
+         * for the barcode just submitted, not a re-save (#188).
+         */
+        | "already_saved";
+    };
 
 export async function saveScannedProduct(input: {
   barcode: string;
@@ -1327,7 +1366,9 @@ export async function saveScannedProduct(input: {
     if (status === 429) return { ok: false, reason: "rate_limited" };
     if (status === 422) return { ok: false, reason: "unreadable_list" };
     if (status === 403) return { ok: false, reason: "expired" };
-    return { ok: false, reason: "failed" };
+    // Offline, timed out, or an unclassified 5xx — us or the connection,
+    // not the photo or the list (#188).
+    return { ok: false, reason: "network_error" };
   }
   if (!data?.product) return { ok: false, reason: "failed" };
 
@@ -1335,7 +1376,25 @@ export async function saveScannedProduct(input: {
   // the one the user most expects to find afterwards — they just did the work of
   // adding it. See `addScannedToCatalogue` for why this is an insert rather than
   // something a freshness check should have to discover.
-  const product = rowToProduct(data.product as CatalogueRow);
+  //
+  // Guarded, unlike before (#188): `data.product` is truthy here, meaning the
+  // write already committed server-side and the read token is already spent.
+  // If this throws — a response shape `rowToProduct` doesn't expect — the row
+  // is still saved, so the caller must not offer a plain retry (it would
+  // resubmit a consumed token and land on `expired`); it recovers via a
+  // barcode lookup instead.
+  let product: ProductWithIngredients;
+  try {
+    product = rowToProduct(data.product as CatalogueRow);
+  } catch {
+    // The barcode-first flow that sent the user here already cached a miss
+    // for this exact barcode (`fetchProductByBarcode`, below) before the
+    // photo was even taken, and that miss is still fresh. Without evicting
+    // it, the recovery lookup this failure sends the caller to would read
+    // the stale miss straight back and never reach the network at all.
+    forgetScanned(input.barcode);
+    return { ok: false, reason: "already_saved" };
+  }
   addScannedToCatalogue(product);
 
   // The barcode lookup that sent the user here cached a miss for this barcode,

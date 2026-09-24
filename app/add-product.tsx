@@ -9,7 +9,7 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
-import { failureMessage, fetchProductByBarcode, saveScannedProduct } from "@/data/api";
+import { failureMessage, fetchProductByBarcode, forgetScanned, saveScannedProduct } from "@/data/api";
 import { clearLabelRead, heldLabelRead } from "@/lib/pending-label";
 import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
 import {
@@ -223,7 +223,14 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
   );
 }
 
-type SaveFailure = "unreadable_list" | "expired" | "rate_limited" | "failed" | "not_configured";
+type SaveFailure =
+  | "unreadable_list"
+  | "expired"
+  | "rate_limited"
+  | "failed"
+  | "not_configured"
+  | "network_error"
+  | "already_saved";
 
 const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
   unreadable_list: "That ingredient list didn't look right. Go back and photograph it again.",
@@ -231,7 +238,17 @@ const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
   rate_limited: "That's a lot of products in a short time. Give it a few minutes and try again.",
   failed: "Couldn't save that just now. Check your connection and try again.",
   not_configured: "Adding products isn't available in this build.",
+  network_error: "Couldn't reach our servers. Check your connection and try again.",
+  // It did save — the write already committed server-side before the parse
+  // that hit this failed (#188). "Show me that product" below looks it up
+  // by the barcode just submitted, rather than re-saving with a read token
+  // that's already been spent.
+  already_saved: "That saved, but we couldn't open it just now.",
 };
+
+// Shown under `already_saved` when the recovery lookup itself fails too.
+// The product is still saved, so the ask is only to try the lookup again.
+const LOOKUP_FAILED_COPY = "Still couldn't open it — check your connection and tap Show me that product again.";
 
 /**
  * `expired` (unlike the other failures) has no useful retry: the read token is
@@ -274,8 +291,13 @@ function NameStep({
     () => (Date.now() - receivedAt > READ_TOKEN_TTL_MS ? "expired" : null)
   );
   const [reviewOpen, setReviewOpen] = useState(false);
+  // Set when the `already_saved` recovery lookup itself fails or misses.
+  // Kept apart from `failure` so that state — and its lookup button —
+  // survives: see `findSavedProduct`.
+  const [lookupFailed, setLookupFailed] = useState(false);
   const trimmed = name.trim();
   const expired = failure === "expired";
+  const alreadySaved = failure === "already_saved";
 
   async function save() {
     if (saving || !trimmed) return;
@@ -292,9 +314,42 @@ function NameStep({
     setFailure(result.reason);
   }
 
+  /**
+   * Recovery for `already_saved` (#188): the write already committed
+   * server-side, so a plain retry would resubmit a now-consumed read token
+   * and land on `expired` instead — a real save reported as a lost one. The
+   * barcode just submitted now resolves, since the row exists, so this looks
+   * it up directly rather than re-saving.
+   */
+  async function findSavedProduct() {
+    if (saving) return;
+    setSaving(true);
+    setLookupFailed(false);
+    const result = await fetchProductByBarcode(barcode);
+    setSaving(false);
+    if (result.ok && result.value) {
+      clearLabelRead();
+      router.dismissTo({ pathname: "/result/[id]", params: { id: result.value.id } });
+      return;
+    }
+    // This lookup can itself cache a miss (the cascade hasn't indexed the
+    // just-saved row yet) for up to an hour — evict it, or the next tap of
+    // "Show me that product" reads that same stale miss back and never
+    // reaches the network at all (#258 review, found after the pre-lookup
+    // miss above it was already fixed the same way).
+    forgetScanned(barcode);
+    // The lookup failed or missed, but the row is still saved — so stay in
+    // `already_saved` and let the lookup be tried again. Dropping back to
+    // `failed` would swap this button for Save, which resubmits the spent
+    // read token and lands on `expired` (#258 review).
+    setLookupFailed(true);
+  }
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenReaderAnnouncer message={failure ? SAVE_FAILURE_COPY[failure] : ""} />
+      <ScreenReaderAnnouncer
+        message={alreadySaved && lookupFailed ? LOOKUP_FAILED_COPY : failure ? SAVE_FAILURE_COPY[failure] : ""}
+      />
       <ScreenHeader title="Add this product" />
       {/*
         Scrolls the whole form, not just the ingredient panel above: on a
@@ -405,7 +460,7 @@ function NameStep({
           autoFocus
           autoCorrect={false}
           maxLength={200}
-          editable={!expired}
+          editable={!expired && !alreadySaved}
           returnKeyType="done"
           onSubmitEditing={() => void save()}
           style={{
@@ -423,9 +478,20 @@ function NameStep({
         {failure ? (
           <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{SAVE_FAILURE_COPY[failure]}</Text>
         ) : null}
+        {alreadySaved && lookupFailed ? (
+          <Text style={{ fontSize: TYPE.label, color: MUTED }}>{LOOKUP_FAILED_COPY}</Text>
+        ) : null}
 
         {expired ? (
           <PrimaryButton tone="cta" size={56} label="Scan it again" onPress={() => retakePhoto(barcode)} />
+        ) : alreadySaved ? (
+          <PrimaryButton
+            tone="cta"
+            size={56}
+            label={saving ? "Opening…" : "Show me that product"}
+            disabled={saving}
+            onPress={() => void findSavedProduct()}
+          />
         ) : (
           <PrimaryButton
             tone="cta"
