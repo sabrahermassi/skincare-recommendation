@@ -13,11 +13,12 @@ import { IngredientsSheet, ingredientsSheetPeek } from "@/components/Ingredients
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
-import { ExplanationLine, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
+import { ContextNudgesSection, ExplanationLine, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { HeartIcon } from "@/components/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
+import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { confidenceLabel, matchProduct, scoreExplanation, verdictHeadline } from "@/lib/matching";
 import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/genie";
@@ -572,8 +573,14 @@ export default function ProductScreen() {
         ) : null}
         </View>
 
-        <View style={{ paddingHorizontal: SPACE.gutter }}>
+        <View style={{ paddingHorizontal: SPACE.gutter, gap: SPACE.block }}>
           <PregnancySection warnings={match.warnings} />
+          <ContextNudgesSection
+            nudges={[
+              ...nudgesFor(product.ingredients, product.type),
+              ...goalNudgesFor(product.ingredients, profile.concerns, product.type),
+            ]}
+          />
         </View>
 
         {/*

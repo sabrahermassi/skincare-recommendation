@@ -1,6 +1,7 @@
 import { INGREDIENTS } from "@/data/ingredients";
 import { PRODUCTS } from "@/data/products";
 import { claimPolicyViolations } from "@/lib/claims-policy";
+import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { PORE_CLOGGERS } from "@/lib/pore-clogging";
 import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import { scoreExplanation, verdictHeadline, type MatchResult } from "@/lib/matching";
@@ -61,8 +62,25 @@ const HEADLINE_RESULTS: OwnedClaim[] = (["excellent", "good", "fair", "poor"] as
     }))
   );
 
+// #234: sun/SPF context nudges — the copy most at risk of reading as a
+// disease-prevention claim, so every variant is audited, not a sample.
+const nudgeIngredient = (name: string) => ({
+  id: name,
+  name,
+  comedogenic: 0 as const,
+  safety: "safe" as const,
+  verified: true,
+});
+const NUDGE_RESULTS: OwnedClaim[] = [
+  ...nudgesFor([nudgeIngredient("glycolic acid")]),
+  ...nudgesFor([nudgeIngredient("retinol")]),
+  ...nudgesFor([nudgeIngredient("glycolic acid"), nudgeIngredient("retinol")]),
+  ...goalNudgesFor([nudgeIngredient("niacinamide")], ["hyperpigmentation"]),
+].map((nudge, index) => ({ source: `contextNudges[${index}].${nudge.id}`, text: nudge.text }));
+
 const OWNED_CLAIMS: OwnedClaim[] = [
   ...HEADLINE_RESULTS,
+  ...NUDGE_RESULTS,
   // Audited directly (#261 review): `WARNINGS` below comes from the sample
   // INGREDIENTS, which hold none of the pregnancy-caution names — so these
   // reasons were never actually reaching the audit, despite
@@ -102,6 +120,19 @@ const OWNED_CLAIMS: OwnedClaim[] = [
 ];
 
 describe("medical and safety claims policy", () => {
+  // Without this, a regression that stopped the nudges firing would empty
+  // the collection and the audit below would pass on nothing.
+  it("audits every context-nudge variant, not an empty collection", () => {
+    expect(NUDGE_RESULTS.map((claim) => claim.source)).toEqual([
+      "contextNudges[0].photosensitising",
+      "contextNudges[1].photosensitising",
+      "contextNudges[2].photosensitising",
+      "contextNudges[3].pigment-goal",
+    ]);
+    // Four distinct sentences — the three photosensitising variants differ by subject.
+    expect(new Set(NUDGE_RESULTS.map((claim) => claim.text)).size).toBe(4);
+  });
+
   it("keeps every app-authored ingredient and product claim within policy", () => {
     const failures = OWNED_CLAIMS.flatMap(({ source, text }) =>
       claimPolicyViolations(text).map((rule) => ({ source, text, rule: rule.id }))

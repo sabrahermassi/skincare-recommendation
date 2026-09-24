@@ -1,4 +1,6 @@
 import type { BaseSkinType, Concern, ProductType } from "@/data/types";
+import { AHA_NAMES } from "./aha-names";
+import { MINERAL_UV_FILTER_NAMES } from "./uv-filter-names";
 import {
   RETINOID_NAMES,
   RETINYL_PALMITATE_NAME,
@@ -302,7 +304,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     weight: 10,
   },
   {
-    names: ["glycolic acid", "lactic acid", "mandelic acid", "aha", "malic acid", "tartaric acid"],
+    names: [...AHA_NAMES],
     category: "actives",
     helps: { concerns: ["dullness", "hyperpigmentation", "post-acne-marks"] },
     hurts: { sensitive: true },
@@ -379,7 +381,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
 
   // ── UV filters ────────────────────────────────────────────────────────────
   {
-    names: ["zinc oxide", "titanium dioxide"],
+    names: [...MINERAL_UV_FILTER_NAMES],
     category: "actives",
     helps: { sensitive: true },
     reason: "Mineral UV filters sit on the surface and rarely provoke reactive skin",
