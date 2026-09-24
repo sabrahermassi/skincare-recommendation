@@ -106,6 +106,27 @@ describe("scanner status panels", () => {
     expect(screen.queryByText("We don't have this product yet")).toBeNull();
   });
 
+  // Found in review on #259 (Codex): "Add via Photo" on a plain miss keeps
+  // `status` as `missed` after switching to Photo mode, so `IngredientsStage`
+  // can still read the barcode. If the user backs out of that by tapping
+  // Barcode instead, the stale panel used to reappear immediately and block
+  // scanning until "Scan something else" was also pressed.
+  it("clears a stale miss when backing out of Add via Photo to Barcode", async () => {
+    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: null });
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+
+    await scan("8801234567890");
+    expect(screen.getByText("We don't have this product yet")).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole("button", { name: "Photograph the ingredients" }));
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+    expect(screen.queryByText("We don't have this product yet")).toBeNull();
+
+    await scan("8809999999999");
+    expect(fetchProductByBarcode).toHaveBeenLastCalledWith("8809999999999");
+  });
+
   it("lets you leave a non-product code with Scan again", async () => {
     await render(<Scan />);
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
