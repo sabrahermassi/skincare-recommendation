@@ -53,11 +53,23 @@ export default function Account() {
             <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>
               {ACCOUNT_PITCH}
             </Text>
-            <PrimaryButton tone="cta" size={52} label="Sign in" onPress={() => router.push("/sign-in")} />
+            <PrimaryButton
+              tone="cta"
+              size={52}
+              label="Sign in"
+              onPress={() => {
+                setNotice(null);
+                router.push("/sign-in");
+              }}
+            />
           </>
         )}
 
-        {notice ? (
+        {/* A "you're signed out" line is about the moment it was shown; once
+            someone signs back in it would contradict the card above it
+            (#272 review). The one notice that belongs to a signed-in screen
+            is the sign-out that failed. */}
+        {notice && (status !== "signed-in" || notice === SIGN_OUT_FAILED) ? (
           <Text accessibilityLiveRegion="polite" style={{ fontSize: 13.5, lineHeight: 20, color: INK }}>
             {notice}
           </Text>
