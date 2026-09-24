@@ -136,7 +136,7 @@ holds per account, owner-only under row-level security (migration 0025):
 
 | Data | Kept |
 |---|---|
-| Account (email, provider ids) | Until the account is deleted |
+| Account (email, provider ids; with Google also its name and profile-picture URL) | Until the account is deleted |
 | Saved products — product id, when saved, the formula version seen | Until removed, or the account is deleted |
 | Journal note on a saved product (#228) — the person's own words, up to 500 characters | Same. Never shared, never in analytics |
 | Routine step on a saved product (#227) | Same |
