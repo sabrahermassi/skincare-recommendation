@@ -53,6 +53,7 @@ const {
   default: Account,
   HIDDEN_EMAIL_NOTE,
   SIGN_OUT_FAILED,
+  SIGNED_OUT_EVERYWHERE,
   SIGNED_OUT_HERE_ONLY,
 } = require("@/app/account") as typeof import("@/app/account");
 const { useAuth } = require("@/lib/auth") as typeof import("@/lib/auth");
@@ -150,11 +151,31 @@ describe("the account screen", () => {
   });
 
   it("is honest when the other devices could not be signed out", async () => {
-    mockSignOutEverywhere.mockResolvedValueOnce(false);
+    // This phone's session still ends offline (pinned against the real
+    // client in auth-signout-offline.test.ts); only the others are unknown.
+    mockSignOutEverywhere.mockImplementationOnce(async () => {
+      useAuth.setState({ status: "signed-out", session: null });
+      return false;
+    });
     useAuth.setState({ status: "signed-in", session: session("jane@gmail.com", ["google"]) });
     await render(<Account />);
     await act(async () => fireEvent.press(screen.getByText("Sign out on every device")));
     expect(screen.getByText(SIGNED_OUT_HERE_ONLY)).toBeTruthy();
+  });
+
+  // #272 review: the old notice stayed under a fresh sign-in.
+  it("drops the signed-out notice once someone is signed in again", async () => {
+    // As the real client does: the session ends with the sign-out.
+    mockSignOutEverywhere.mockImplementationOnce(async () => {
+      useAuth.setState({ status: "signed-out", session: null });
+      return true;
+    });
+    useAuth.setState({ status: "signed-in", session: session("jane@gmail.com", ["google"]) });
+    await render(<Account />);
+    await act(async () => fireEvent.press(screen.getByText("Sign out on every device")));
+    expect(screen.getByText(SIGNED_OUT_EVERYWHERE)).toBeTruthy();
+    await act(async () => useAuth.setState({ status: "signed-in", session: session("jane@gmail.com", ["google"]) }));
+    expect(screen.queryByText(SIGNED_OUT_EVERYWHERE)).toBeNull();
   });
 
   it("says so when this phone could not be signed out, instead of spinning", async () => {
