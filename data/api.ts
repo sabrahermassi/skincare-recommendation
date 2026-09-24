@@ -1104,6 +1104,14 @@ export async function fetchProductTypes(): Promise<ProductType[]> {
 }
 
 /**
+ * Evicts a barcode's cached lookup result, in or out of `fetchProductByBarcode`'s
+ * own control. Re-exported (not just used internally) because a caller can
+ * know a cached miss is stale in a way `fetchProductByBarcode` itself can't —
+ * see `app/add-product.tsx`'s recovery lookup for the case this exists for.
+ */
+export { forgetScanned };
+
+/**
  * Barcode lookup for the scanner. A miss is an ordinary outcome here (an
  * unrecognised bottle), not a bad request.
  *
