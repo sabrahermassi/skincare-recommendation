@@ -1123,7 +1123,17 @@ export async function fetchProductTypes(): Promise<ProductType[]> {
  */
 export const LOCAL_RECHECK_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
-function isDueForRecheck(product: ProductWithIngredients): boolean {
+/**
+ * When this session last asked the server about a barcode it answered
+ * locally. An unchanged product keeps its old `fetchedAt` (see
+ * `recheckInBackground`), so without this a popular old product would be
+ * re-checked every hour it's scanned rather than every week (#267 review).
+ */
+const lastRecheck = new Map<string, number>();
+
+function isDueForRecheck(barcode: string, product: ProductWithIngredients): boolean {
+  const checkedAt = lastRecheck.get(barcode);
+  if (checkedAt !== undefined && Date.now() - checkedAt < LOCAL_RECHECK_AFTER_MS) return false;
   const readAt = product.fetchedAt ? Date.parse(product.fetchedAt) : Number.NaN;
   return !Number.isFinite(readAt) || Date.now() - readAt > LOCAL_RECHECK_AFTER_MS;
 }
@@ -1144,6 +1154,7 @@ const rechecking = new Set<string>();
 async function recheckInBackground(barcode: string, local: ProductWithIngredients): Promise<void> {
   if (rechecking.has(barcode)) return;
   rechecking.add(barcode);
+  lastRecheck.set(barcode, Date.now());
   try {
     const { data, error } = await supabase!.functions.invoke(LOOKUP_FUNCTION, {
       body: { barcode },
@@ -1180,10 +1191,15 @@ export async function fetchProductByBarcode(
     // works offline, where this used to say "Couldn't check this barcode"
     // about a product in the phone's own cache (#196). An old copy is shown
     // at once and re-checked behind it; see `recheckInBackground`.
-    const entry = peekCatalogue() ?? (await readCatalogue());
+    //
+    // `readCatalogue`, not `peekCatalogue`: it is the cache's one TTL check,
+    // and an app left running past the window would otherwise keep answering
+    // from an expired catalogue with no network call at all (#267 review). An
+    // expired copy is still used — but only when the network fails, below.
+    const entry = await readCatalogue();
     const local = entry ? productByBarcode(entry, barcode) : undefined;
     if (local) {
-      if (isDueForRecheck(local)) void recheckInBackground(barcode, local);
+      if (isDueForRecheck(barcode, local)) void recheckInBackground(barcode, local);
       return { ok: true, value: local };
     }
     // A remembered miss only after the catalogue: a refresh since that miss
@@ -1221,6 +1237,11 @@ export async function fetchProductByBarcode(
         putScanned(barcode, null);
         return { ok: true, value: null };
       }
+      // Offline with a catalogue past its window: its copy of this product
+      // still beats "Couldn't check this barcode".
+      const expired = peekCatalogue();
+      const fallback = expired ? productByBarcode(expired, barcode) : undefined;
+      if (fallback) return { ok: true, value: fallback };
       return { ok: false, failure: classifyFailure(error) };
     }
 

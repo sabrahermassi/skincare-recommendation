@@ -13,6 +13,7 @@ jest.mock("@/lib/supabase", () => ({
 
 import { LOCAL_RECHECK_AFTER_MS, fetchProductByBarcode } from "@/data/api";
 import {
+  DISK_TTL_MS,
   barcodeWinner,
   peekCatalogue,
   productByBarcode,
@@ -32,9 +33,10 @@ function ingredient(name: string): Ingredient {
 
 function product(overrides: Partial<ProductWithIngredients> = {}): ProductWithIngredients {
   const ingredients = [ingredient("water"), ingredient("glycerin")];
+  const barcode = overrides.barcode ?? BARCODE;
   return {
-    id: `obf-${BARCODE}`,
-    barcode: BARCODE,
+    id: `obf-${barcode}`,
+    barcode,
     brand: "Brand",
     name: "Toner",
     type: "toner",
@@ -57,10 +59,10 @@ function product(overrides: Partial<ProductWithIngredients> = {}): ProductWithIn
 }
 
 /** A `product-lookup` response row with this formula, in the shape the Edge Function returns. */
-function lookupRow(names: string[]) {
+function lookupRow(names: string[], barcode = BARCODE) {
   return {
-    id: `obf-${BARCODE}`,
-    barcode: BARCODE,
+    id: `obf-${barcode}`,
+    barcode,
     brand: "Brand",
     name: "Toner",
     type: "toner",
@@ -83,10 +85,13 @@ function lookupRow(names: string[]) {
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+let now = NOW;
+
 beforeEach(async () => {
   mockInvoke.mockReset();
   await resetCatalogueCache();
-  jest.spyOn(Date, "now").mockReturnValue(NOW);
+  now = NOW;
+  jest.spyOn(Date, "now").mockImplementation(() => now);
 });
 
 afterEach(() => {
@@ -127,6 +132,36 @@ describe("answering a barcode from the device", () => {
     const result = await fetchProductByBarcode(BARCODE);
     expect(result.ok && result.value?.id).toBe(`obf-${BARCODE}`);
     await flush();
+  });
+});
+
+// #267 review: an app left running past the catalogue's window must not keep
+// answering from it without asking — but offline, its copy still helps.
+describe("a catalogue past its window", () => {
+  it("asks the server instead of answering from it", async () => {
+    putCatalogue([product()], WATERMARK);
+    now = NOW + DISK_TTL_MS + 1000;
+    mockInvoke.mockResolvedValue({ data: lookupRow(["water", "glycerin"]), error: null });
+
+    await fetchProductByBarcode(BARCODE);
+    expect(mockInvoke).toHaveBeenCalledWith("product-lookup", expect.objectContaining({ body: { barcode: BARCODE } }));
+  });
+
+  it("still answers from it when the server can't be reached", async () => {
+    const held = product();
+    putCatalogue([held], WATERMARK);
+    now = NOW + DISK_TTL_MS + 1000;
+    mockInvoke.mockResolvedValue({ data: null, error: new TypeError("Network request failed") });
+
+    expect(await fetchProductByBarcode(BARCODE)).toEqual({ ok: true, value: held });
+  });
+
+  it("still reports a genuine miss as a miss", async () => {
+    putCatalogue([product()], WATERMARK);
+    now = NOW + DISK_TTL_MS + 1000;
+    mockInvoke.mockResolvedValue({ data: null, error: { context: { status: 404 } } });
+
+    expect(await fetchProductByBarcode(BARCODE)).toEqual({ ok: true, value: null });
   });
 });
 
@@ -177,29 +212,38 @@ describe("re-checking an old local copy", () => {
   });
 
   it("shows an old copy at once, and keeps it when the formula hasn't changed", async () => {
-    const held = product({ fetchedAt: OLD });
+    const code = "8800000000011";
+    const held = product({ barcode: code, fetchedAt: OLD });
     putCatalogue([held], WATERMARK);
-    mockInvoke.mockResolvedValue({ data: lookupRow(["water", "glycerin"]), error: null });
+    mockInvoke.mockResolvedValue({ data: lookupRow(["water", "glycerin"], code), error: null });
 
-    expect(await fetchProductByBarcode(BARCODE)).toEqual({ ok: true, value: held });
+    expect(await fetchProductByBarcode(code)).toEqual({ ok: true, value: held });
     await flush();
 
     expect(mockInvoke).toHaveBeenCalledTimes(1);
     expect(peekCatalogue()!.byId.get(held.id)).toBe(held);
     // Remembered, so the next scan neither re-checks nor changes answer.
-    expect(await fetchProductByBarcode(BARCODE)).toEqual({ ok: true, value: held });
+    expect(await fetchProductByBarcode(code)).toEqual({ ok: true, value: held });
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+
+    // #267 review: past the hour's scan memory, but inside the week, it still
+    // isn't asked about again — its fetchedAt stays old on purpose.
+    now = NOW + 2 * 60 * 60 * 1000;
+    expect(await fetchProductByBarcode(code)).toEqual({ ok: true, value: held });
+    await flush();
     expect(mockInvoke).toHaveBeenCalledTimes(1);
   });
 
   it("replaces an old copy whose formula changed, for the next scan and the catalogue", async () => {
-    const held = product({ fetchedAt: OLD });
+    const code = "8800000000028";
+    const held = product({ barcode: code, fetchedAt: OLD });
     putCatalogue([held], WATERMARK);
-    mockInvoke.mockResolvedValue({ data: lookupRow(["water", "glycerin", "niacinamide"]), error: null });
+    mockInvoke.mockResolvedValue({ data: lookupRow(["water", "glycerin", "niacinamide"], code), error: null });
 
-    expect(await fetchProductByBarcode(BARCODE)).toEqual({ ok: true, value: held });
+    expect(await fetchProductByBarcode(code)).toEqual({ ok: true, value: held });
     await flush();
 
-    const next = await fetchProductByBarcode(BARCODE);
+    const next = await fetchProductByBarcode(code);
     expect(next.ok && next.value?.ingredientIds).toEqual(["water", "glycerin", "niacinamide"]);
     expect(peekCatalogue()!.byId.get(held.id)?.ingredientIds).toEqual(["water", "glycerin", "niacinamide"]);
     expect(held.fetchedAt).toBe(OLD);
