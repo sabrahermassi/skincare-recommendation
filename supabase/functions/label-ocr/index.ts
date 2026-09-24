@@ -33,11 +33,13 @@ import {
 import { gateRatio } from "../_shared/gate-ratio.ts";
 import { paginateOrdered } from "../_shared/paginate.ts";
 import {
+  MAX_BRAND_CHARS,
+  MAX_NAME_CHARS,
   MAX_NEW_STUBS_PER_SAVE,
   acceptedProductType,
   exactIlikePattern,
   mostCommonSpelling,
-  productTextProblem,
+  savedTextProblem,
   tidySpacing,
 } from "../_shared/product-text.ts";
 import { readTokenDeadline, signReadToken, verifyReadToken } from "../_shared/read-token.ts";
@@ -172,7 +174,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // the person fixes the name and saves the same read again (#200).
     for (const [field, value] of [["name", name], ["brand", brand]] as const) {
       if (value === undefined || value.trim() === "") continue;
-      const problem = productTextProblem(value);
+      const problem = savedTextProblem(field, value);
       if (problem) return json(req, { error: "bad_product_text", field, problem }, 422);
     }
     if (
@@ -491,7 +493,7 @@ async function saveProduct(
     id: existing?.id ?? `ocr-${barcode}`,
     barcode,
     brand: canonicalBrand,
-    name: tidySpacing(name).slice(0, 200),
+    name: tidySpacing(name).slice(0, MAX_NAME_CHARS),
     // The person's own pick, when they made one (#200). A photographed
     // ingredient list gives no basis for guessing a category, so without a
     // pick it says "unknown" rather than defaulting to "serum" — the bug that
@@ -1440,15 +1442,16 @@ async function existingIngredientNames(names: string[]): Promise<Set<string>> {
  * "CeraVe"). A brand nobody has used yet is stored as typed.
  */
 async function brandAsStored(brand: string | undefined): Promise<string> {
-  const tidied = tidySpacing(brand ?? "").slice(0, 120);
+  const tidied = tidySpacing(brand ?? "").slice(0, MAX_BRAND_CHARS);
   if (!tidied) return "Unknown";
-  const { data, error } = await db
-    .from("products")
-    .select("brand")
-    .ilike("brand", exactIlikePattern(tidied))
-    .limit(1000);
-  if (error) throw new Error(`brandAsStored: ${error.message}`);
-  return mostCommonSpelling((data ?? []).map((row) => row.brand as string)) ?? tidied;
+  // Every matching row, not the first page: once a brand runs past one page,
+  // an unordered subset could crown a minority spelling (#266 review).
+  const rows = await paginateOrdered<{ id: string; brand: string }>(db, "products", {
+    select: "id, brand",
+    cursorColumn: "id",
+    filter: (q) => q.ilike("brand", exactIlikePattern(tidied)),
+  });
+  return mostCommonSpelling(rows.map((row) => row.brand)) ?? tidied;
 }
 
 async function knownIngredients(names: string[]): Promise<Set<string>> {

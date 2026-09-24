@@ -37,6 +37,20 @@ export function productTextProblem(text: string): ProductTextProblem | null {
   return null;
 }
 
+/** How much of a name and a brand a save stores. */
+export const MAX_NAME_CHARS = 200;
+export const MAX_BRAND_CHARS = 120;
+
+/**
+ * `productTextProblem` on the part a save would actually store. `label-ocr`
+ * runs this before its rate limiter, so it must never scan an unbounded
+ * string — a multi-megabyte name would otherwise buy several full regex
+ * passes for free (#266 review).
+ */
+export function savedTextProblem(field: "name" | "brand", value: string): ProductTextProblem | null {
+  return productTextProblem(value.slice(0, field === "name" ? MAX_NAME_CHARS : MAX_BRAND_CHARS));
+}
+
 /** Trimmed, with runs of whitespace collapsed to one space — the form a brand is stored and matched in. */
 export function tidySpacing(text: string): string {
   return text.trim().replace(/\s+/g, " ");
