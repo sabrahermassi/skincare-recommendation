@@ -213,12 +213,28 @@ async function writeChunked(key: string, value: string): Promise<void> {
   writtenThisLaunch.add(key);
 }
 
+/**
+ * Written over a value's count when its delete fails. It is not a number, so
+ * `readChunked` returns nothing for it — the session is unreadable even
+ * though its pieces could not be deleted yet. The next write or the next
+ * reinstall purge removes them.
+ */
+const REMOVED = "removed";
+
+/**
+ * Sign-out's delete. A delete that fails must not leave the session readable
+ * on the next launch — that would sign the person back in after they signed
+ * out (#270 review). So a failed delete falls back to overwriting the count;
+ * if even that fails, the error reaches the caller rather than a quiet
+ * success.
+ */
 async function removeItem(key: string): Promise<void> {
   checkKey(key);
   await claimOnce();
   const manifest = (await readManifest()) ?? {};
-  await removeChunked(key, manifest[key] ?? 0);
   writtenThisLaunch.add(key);
+  if (await removeChunked(key, manifest[key] ?? 0)) return;
+  await SecureStore.setItemAsync(key, REMOVED, OPTIONS);
 }
 
 const nativeStorage: SessionStorage = {
