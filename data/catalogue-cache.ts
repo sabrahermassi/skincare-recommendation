@@ -1562,18 +1562,30 @@ function sameDefinition(a: Ingredient, b: Ingredient): boolean {
   );
 }
 
-/** Same formula, same definitions, and nothing else the app shows or scores on has moved. */
+/**
+ * Every field compared except `fetchedAt` — a row can be re-read without
+ * anything changing — so a metadata-only correction (volume, stock, a
+ * description) still reaches memory and disk, and a field added to `Product`
+ * later is covered without anyone remembering to list it here (#268 review).
+ */
 function sameProduct(a: ProductWithIngredients, b: ProductWithIngredients): boolean {
-  return (
-    a.name === b.name &&
-    a.brand === b.brand &&
-    a.type === b.type &&
-    a.barcode === b.barcode &&
-    a.source === b.source &&
-    a.formulaChangedAt === b.formulaChangedAt &&
+  const sameFormula =
     a.ingredients.length === b.ingredients.length &&
-    a.ingredients.every((ingredient, index) => sameDefinition(ingredient, b.ingredients[index]) && ingredient.id === b.ingredients[index].id)
-  );
+    a.ingredients.every((ingredient, index) => ingredient.id === b.ingredients[index].id && sameDefinition(ingredient, b.ingredients[index]));
+  if (!sameFormula) return false;
+  const fieldsA = a as unknown as Record<string, unknown>;
+  const fieldsB = b as unknown as Record<string, unknown>;
+  for (const key of new Set([...Object.keys(fieldsA), ...Object.keys(fieldsB)])) {
+    if (key === "fetchedAt" || key === "ingredients") continue;
+    if (!sameValue(fieldsA[key], fieldsB[key])) return false;
+  }
+  return true;
+}
+
+/** Equal primitives, or arrays of equal primitives — the shapes a `Product` field takes. */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((item, index) => item === b[index]);
+  return a === b;
 }
 
 /**

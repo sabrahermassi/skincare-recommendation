@@ -1,6 +1,6 @@
 import type { Ingredient } from "@/data/types";
 import { AHA_NAMES } from "./aha-names";
-import { RETINOID_ACTIVE_PATTERNS, SALICYLATE_ABBREVIATION_NAMES, SALICYLATE_NAMES } from "./retinoid-salicylate-names";
+import { RETINOID_ACTIVE_PATTERNS, SALICYLATE_NAMES } from "./retinoid-salicylate-names";
 import { INGREDIENT_RULES, nameMatches } from "./rules";
 
 /**
@@ -64,7 +64,10 @@ function ruleNames(anchor: string): readonly (string | RegExp)[] {
 }
 
 const RETINOID: Active = { noun: "a retinoid", names: RETINOID_ACTIVE_PATTERNS };
-const BHA: Active = { noun: "BHA", names: [...SALICYLATE_NAMES, ...SALICYLATE_ABBREVIATION_NAMES] };
+// Not the bare "bha": printed in an ingredient list, "BHA" is the INCI name
+// for butylated hydroxyanisole, an antioxidant preservative, so a flag on it
+// would warn about a salicylate the formula doesn't contain.
+const BHA: Active = { noun: "BHA", names: SALICYLATE_NAMES };
 const AHA: Active = { noun: "AHAs", names: AHA_NAMES };
 const SULFUR: Active = { noun: "sulfur", names: ruleNames("sulfur") };
 const BENZOYL_PEROXIDE: Active = { noun: "benzoyl peroxide", names: ruleNames("benzoyl peroxide") };

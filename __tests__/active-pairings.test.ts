@@ -47,11 +47,16 @@ describe("pairingNotesFor", () => {
   });
 
   it("names a retinoid as the partner for each other active, with no evening note", () => {
-    for (const name of ["salicylic acid", "bha", "glycolic acid", "benzoyl peroxide", "sulfur"]) {
+    for (const name of ["salicylic acid", "betaine salicylate", "glycolic acid", "benzoyl peroxide", "sulfur"]) {
       const notes = pairingNotesFor([ing(name)]);
       expect(notes.map((n) => n.id)).toEqual(["layering"]);
       expect(notes[0].text).toMatch(/another product with a retinoid /);
     }
+  });
+
+  // "BHA" on a label is butylated hydroxyanisole, a preservative (#264 review).
+  it("doesn't read a bare BHA as salicylic acid", () => {
+    expect(pairingNotesFor([ing("bha")])).toEqual([]);
   });
 
   it("matches a label's casing and spacing", () => {

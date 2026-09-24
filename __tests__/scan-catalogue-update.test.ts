@@ -124,6 +124,15 @@ describe("a rescan that changes a product", () => {
     expect(next.byId.get("b")).toBe(b);
   });
 
+  // #268 review: only fetchedAt is ignored.
+  it("treats a metadata-only change as a change", () => {
+    addScannedToCatalogue(rescan(a, { volume: "50ml", inStock: false }));
+    const next = peekCatalogue()!.byId.get("a")!;
+    expect(next).not.toBe(a);
+    expect(next.volume).toBe("50ml");
+    expect(next.inStock).toBe(false);
+  });
+
   it("treats a new formula as a change", () => {
     addScannedToCatalogue(rescan(a, { ingredients: [{ ...WATER }, { ...GLYCERIN }], ingredientIds: ["water", "glycerin"] }));
     expect(peekCatalogue()!.byId.get("a")!.ingredientIds).toEqual(["water", "glycerin"]);

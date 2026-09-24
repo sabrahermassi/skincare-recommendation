@@ -34,7 +34,7 @@ export const SCHOOL: SchoolCategory[] = [
         id: "inci-names",
         question: "Why do ingredient names look so technical?",
         answer:
-          "Most labels use INCI names, a shared international naming system, so the same ingredient carries the same name on a bottle in Seoul or in Paris. That's why water can show up as \"Aqua\" and shea butter as \"Butyrospermum Parkii Butter\".",
+          "Most labels use INCI names, a shared international naming system for cosmetic ingredients. That's why shea butter can show up as \"Butyrospermum Parkii Butter\". Spellings still vary by market, though: a US or Korean label may say \"Water\" where a European one says \"Aqua\" — this app treats both as the same ingredient.",
       },
       {
         id: "fragrance",
@@ -63,7 +63,7 @@ export const SCHOOL: SchoolCategory[] = [
         id: "retinoids",
         question: "What are retinoids?",
         answer:
-          "A family of vitamin A ingredients, including retinol and retinal, with the strongest evidence of any active for lines and congestion. They also have the highest irritation cost, especially on dry or sensitive skin, and they can leave skin more reactive to sunlight — so a daytime SPF is worth pairing with them. They're commonly advised against in pregnancy and while breastfeeding.",
+          "A family of vitamin A ingredients, and its members differ. Retinol and retinal have the strongest evidence of any active for lines and congestion, and the highest irritation cost, especially on dry or sensitive skin. Gentler forms, like retinyl retinoate, cost less irritation, and retinyl palmitate has to be converted in skin before it acts, so it does less. The stronger ones can leave skin more reactive to sunlight — so a daytime SPF is worth pairing with them. Retinoids are commonly advised against in pregnancy and while breastfeeding.",
       },
       {
         id: "ahas",
