@@ -4,6 +4,7 @@ import {
   PRODUCT_TYPES,
   acceptedProductType,
   exactIlikePattern,
+  mostCommonSpelling,
   productTextProblem,
   tidySpacing,
 } from "@/supabase/functions/_shared/product-text";
@@ -40,6 +41,12 @@ describe("productTextProblem", () => {
 describe("brand handling", () => {
   it("collapses whitespace the way a brand is stored and matched", () => {
     expect(tidySpacing("  Round   Lab \n")).toBe("Round Lab");
+  });
+
+  it("picks the spelling most of the catalogue uses, so one odd row can't set it", () => {
+    expect(mostCommonSpelling(["cerave", "Cerave", "CeraVe", "Cerave", "CeraVe", "CeraVe"])).toBe("CeraVe");
+    expect(mostCommonSpelling(["Cerave", "CeraVe"])).toBe(mostCommonSpelling(["CeraVe", "Cerave"]));
+    expect(mostCommonSpelling([])).toBeNull();
   });
 
   it("escapes ILIKE wildcards so a brand only ever matches itself", () => {

@@ -42,6 +42,22 @@ export function tidySpacing(text: string): string {
   return text.trim().replace(/\s+/g, " ");
 }
 
+/**
+ * The spelling most of the catalogue already uses for one brand, so a single
+ * odd row can't set it for everyone. Ties go to the first in plain code-point
+ * order, which makes the pick the same on every run. Null for no spellings.
+ */
+export function mostCommonSpelling(spellings: readonly string[]): string | null {
+  const counts = new Map<string, number>();
+  for (const spelling of spellings) counts.set(spelling, (counts.get(spelling) ?? 0) + 1);
+  let best: string | null = null;
+  for (const [spelling, count] of counts) {
+    const bestCount = best === null ? 0 : counts.get(best)!;
+    if (count > bestCount || (count === bestCount && best !== null && spelling < best)) best = spelling;
+  }
+  return best;
+}
+
 /** A value for a SQL `ILIKE` that matches `text` exactly, ignoring case — its wildcards escaped. */
 export function exactIlikePattern(text: string): string {
   return text.replace(/[\\%_]/g, (character) => `\\${character}`);

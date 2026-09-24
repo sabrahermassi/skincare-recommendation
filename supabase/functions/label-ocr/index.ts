@@ -36,6 +36,7 @@ import {
   MAX_NEW_STUBS_PER_SAVE,
   acceptedProductType,
   exactIlikePattern,
+  mostCommonSpelling,
   productTextProblem,
   tidySpacing,
 } from "../_shared/product-text.ts";
@@ -1434,8 +1435,9 @@ async function existingIngredientNames(names: string[]): Promise<Set<string>> {
 /**
  * The brand as the catalogue already spells it, so "cerave" and "CeraVe"
  * don't split one brand across Browse and search (#200). Spacing is tidied
- * first; the first existing product whose brand matches ignoring case wins,
- * and a brand nobody has used yet is stored as typed.
+ * first; then, among existing products whose brand matches ignoring case, the
+ * most common spelling wins (imports themselves carry both "Cerave" and
+ * "CeraVe"). A brand nobody has used yet is stored as typed.
  */
 async function brandAsStored(brand: string | undefined): Promise<string> {
   const tidied = tidySpacing(brand ?? "").slice(0, 120);
@@ -1444,10 +1446,9 @@ async function brandAsStored(brand: string | undefined): Promise<string> {
     .from("products")
     .select("brand")
     .ilike("brand", exactIlikePattern(tidied))
-    .order("brand")
-    .limit(1);
+    .limit(1000);
   if (error) throw new Error(`brandAsStored: ${error.message}`);
-  return (data?.[0]?.brand as string | undefined) ?? tidied;
+  return mostCommonSpelling((data ?? []).map((row) => row.brand as string)) ?? tidied;
 }
 
 async function knownIngredients(names: string[]): Promise<Set<string>> {
