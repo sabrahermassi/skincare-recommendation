@@ -7,6 +7,7 @@ const mockKeychain = new Map<string, string>();
 const mockFailingReads = new Set<string>();
 const mockWriteOptions: unknown[] = [];
 const mockFailingDeletes = new Set<string>();
+const mockFailingWrites = new Set<string>();
 
 jest.mock("expo-secure-store", () => ({
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 42,
@@ -15,6 +16,7 @@ jest.mock("expo-secure-store", () => ({
     return mockKeychain.get(key) ?? null;
   }),
   setItemAsync: jest.fn(async (key: string, value: string, options: unknown) => {
+    if (mockFailingWrites.has(key)) throw new Error("Keychain busy");
     mockKeychain.set(key, value);
     mockWriteOptions.push(options);
   }),
@@ -43,6 +45,7 @@ beforeEach(() => {
   mockFailingReads.clear();
   mockWriteOptions.length = 0;
   mockFailingDeletes.clear();
+  mockFailingWrites.clear();
   resetSecureStorageForTests();
   useAppStore.setState({ secureStoreClaimed: true });
 });
@@ -88,6 +91,30 @@ describe("the session on a phone", () => {
     await authStorage.setItem(KEY, "c".repeat(CHUNK_SIZE * 2));
     mockKeychain.delete(`${KEY}.1`);
     expect(await authStorage.getItem(KEY)).toBeNull();
+  });
+
+  // #270 review, round 2: a sign-out whose delete failed used to report
+  // success and leave the session readable on the next launch.
+  it("leaves nothing readable when a sign-out's delete fails", async () => {
+    await authStorage.setItem(KEY, "f".repeat(CHUNK_SIZE * 2));
+    mockFailingDeletes.add(KEY);
+    mockFailingDeletes.add(`${KEY}.0`);
+    await authStorage.removeItem(KEY);
+
+    resetSecureStorageForTests(); // the next launch
+    expect(await authStorage.getItem(KEY)).toBeNull();
+
+    // And the next sign-in still works over the leftovers.
+    mockFailingDeletes.clear();
+    await authStorage.setItem(KEY, "new session");
+    expect(await authStorage.getItem(KEY)).toBe("new session");
+  });
+
+  it("tells the caller when a sign-out could neither delete nor overwrite", async () => {
+    await authStorage.setItem(KEY, "session");
+    mockFailingDeletes.add(KEY);
+    mockFailingWrites.add(KEY);
+    await expect(authStorage.removeItem(KEY)).rejects.toThrow();
   });
 
   // #270 review: a crash after the chunks but before the count left chunks
