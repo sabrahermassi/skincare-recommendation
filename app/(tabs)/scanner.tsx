@@ -995,7 +995,7 @@ function BarcodeStage({
           gap: 12,
         }}
       >
-        {status.kind !== "idle" && (
+        {status.kind !== "idle" && status.kind !== "found" && (
           <View
             // Grouped into one node so a screen reader reaching this panel
             // reads one sentence rather than the icon, a headline and a
