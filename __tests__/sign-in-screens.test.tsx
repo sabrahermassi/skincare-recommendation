@@ -62,9 +62,10 @@ beforeEach(() => {
 });
 
 async function tapApple() {
-  await act(async () => {
-    fireEvent.press(await screen.findByText("Sign in with Apple"));
-  });
+  // Found before the act, not inside it: a find waits in its own act, and
+  // nesting the two leaks into the next test.
+  const apple = await screen.findByText("Sign in with Apple");
+  await act(async () => fireEvent.press(apple));
 }
 
 describe("the sign-in sheet", () => {
@@ -73,6 +74,19 @@ describe("the sign-in sheet", () => {
     await render(<SignIn />);
     await tapApple();
     expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  // #272 review: a sign-in that finishes after "Not now" must not pop the
+  // screen underneath.
+  it("does not go back again when a sign-in finishes after the sheet was closed", async () => {
+    let finish: (value: unknown) => void = () => {};
+    mockSignInWithApple.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    const { unmount } = await render(<SignIn />);
+    const apple = await screen.findByText("Sign in with Apple");
+    await act(async () => fireEvent.press(apple));
+    await act(async () => unmount());
+    await act(async () => finish({ ok: true }));
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it("stays exactly as it was when the person closes Apple's sheet", async () => {

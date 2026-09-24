@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
-import { accountSummary, signOut, signOutEverywhere, useAuth } from "@/lib/auth";
+import { ACCOUNT_PITCH, accountSummary, signOut, signOutEverywhere, useAuth } from "@/lib/auth";
 import { CANVAS, CARD_SHADOW, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 /**
@@ -51,7 +51,7 @@ export default function Account() {
         ) : (
           <>
             <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>
-              An account keeps what you save on every phone you use. Scanning never needs one.
+              {ACCOUNT_PITCH}
             </Text>
             <PrimaryButton tone="cta" size={52} label="Sign in" onPress={() => router.push("/sign-in")} />
           </>

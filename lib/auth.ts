@@ -254,6 +254,16 @@ async function forgetGoogleAccount(): Promise<void> {
   }
 }
 
+/**
+ * What an account is for, in the sign-in sheet and on the signed-out account
+ * screen. It says what is true today: saving needs an account. It does not
+ * promise the shelf follows you to another phone — that is #223 (the shelf on
+ * the server), which should bring the cross-device line back when it lands
+ * (#272 review).
+ */
+export const ACCOUNT_PITCH =
+  "Sign in to keep a shelf of the products and ingredients you save. Scanning never needs an account.";
+
 export type AccountSummary = {
   /** "Apple", "Google", or "Apple and Google" once both are linked. */
   providers: string;
