@@ -97,9 +97,16 @@ export async function isAppleSignInAvailable(): Promise<boolean> {
 /**
  * Whether the Google button should be shown. Needs the iOS client ID, which
  * also drives the URL scheme `app.config.js` adds at build time — without it
- * the native sheet has nowhere to return to.
+ * the native sheet has nowhere to return to. Also needs the web client ID
+ * (#270 review, CodeRabbit): the library's own docs are explicit that
+ * `idToken` is populated only when a valid `webClientId` is configured, on
+ * every platform — without it, every sign-in attempt reaches the native
+ * sheet and then fails with "Google returned no identity token", rather
+ * than the button being correctly withheld.
  */
-export const isGoogleSignInConfigured = Boolean(supabase && Platform.OS === "ios" && GOOGLE_IOS_CLIENT_ID);
+export const isGoogleSignInConfigured = Boolean(
+  supabase && Platform.OS === "ios" && GOOGLE_IOS_CLIENT_ID && GOOGLE_WEB_CLIENT_ID,
+);
 
 function codeOf(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error
