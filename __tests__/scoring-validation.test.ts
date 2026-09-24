@@ -403,6 +403,19 @@ describe("declared reactive-skin harm reaches the irritation penalty", () => {
     expect(retinoatePenalty).toBeLessThan(retinolPenalty as number);
   });
 
+  // Self-review on #256: the above only checked the harm side. A tolerant
+  // profile (no sensitivity/dry-skin trigger) isolates the benefit side,
+  // confirming "gentler irritation" didn't come at the cost of losing the
+  // "substantial anti-aging credit" this rule is meant to carry.
+  it("retinyl retinoate earns positive benefit credit on its own", () => {
+    const tolerant = profile({ concerns: ["fine-lines"], sensitivity: "none", baseSkinType: "oily" });
+    const result = matchProduct(treatment(RETINYL_RETINOATE_NAME), tolerant);
+    expect(result.breakdown.irritationPenalty).toBe(0);
+    expect(
+      result.reasons.some((reason) => reason.ingredient === RETINYL_RETINOATE_NAME && reason.effect > 0)
+    ).toBe(true);
+  });
+
   it("keeps sparse hydration evidence partial rather than special-casing one formula", () => {
     const dehydrated = profile({ concerns: ["dehydrated"] });
     const sparse = ["water", "sodium hyaluronate", "unmatched test control"].map((name) => ({
