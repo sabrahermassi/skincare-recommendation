@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 import Scan from "@/app/(tabs)/scanner";
 import { fetchProductByBarcode } from "@/data/api";
+import type { Ingredient, ProductWithIngredients } from "@/data/types";
 
 /**
  * The scanner's status panels (#192, #259 review): every panel that stops the
@@ -100,6 +101,35 @@ beforeEach(() => {
 
 const HINT = "Not scanning? Photograph the ingredient list instead.";
 
+function ingredient(name: string): Ingredient {
+  return { id: name, name, comedogenic: 0, safety: "safe", verified: true };
+}
+
+function foundProduct(barcode: string): ProductWithIngredients {
+  const ingredients = [ingredient("water"), ingredient("glycerin")];
+  return {
+    id: `obf-${barcode}`,
+    barcode,
+    brand: "Brand",
+    name: "Toner",
+    type: "toner",
+    productType: "serum",
+    price: 0,
+    volume: "",
+    suitableFor: [],
+    targets: [],
+    description: "",
+    benefits: [],
+    imageUrl: null,
+    attribution: null,
+    fetchedAt: "2026-09-23T00:00:00Z",
+    source: "obf",
+    ingredientIds: ingredients.map((i) => i.id),
+    inStock: true,
+    ingredients,
+  };
+}
+
 // #195: the idle hint, and the permission gate on it (#260 review).
 describe("scanner idle hint", () => {
   afterEach(() => {
@@ -169,6 +199,22 @@ describe("scanner status panels", () => {
 
     await fireEvent.press(screen.getByRole("button", { name: "Scan something else" }));
     expect(screen.queryByText("We don't have this product yet")).toBeNull();
+  });
+
+  // Found during manual device QA on #268: the status panel's render guard
+  // only excluded "idle", not "found", and its message ternary has no
+  // "found" branch — so a successful scan showed the correct found sheet
+  // with the wrong "We don't have this product yet" panel stacked
+  // underneath it, straight from the panel's own fallback case.
+  it("shows only the found sheet, never the status panel, once a barcode resolves to a known product", async () => {
+    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: foundProduct("8801234567890") });
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+
+    await scan("8801234567890");
+    expect(screen.getByRole("button", { name: "See the full result" })).toBeTruthy();
+    expect(screen.queryByText("We don't have this product yet")).toBeNull();
+    expect(screen.queryByText("Photograph its ingredient list and we'll add it")).toBeNull();
   });
 
   // Found in review on #259 (Codex): "Add via Photo" on a plain miss keeps
