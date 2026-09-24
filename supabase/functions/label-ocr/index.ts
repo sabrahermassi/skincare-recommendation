@@ -31,6 +31,7 @@ import {
   type RateLimit,
 } from "../_shared/http.ts";
 import { gateRatio } from "../_shared/gate-ratio.ts";
+import { MAX_IMAGE_CHARS } from "../_shared/image-limits.ts";
 import { paginateOrdered } from "../_shared/paginate.ts";
 import {
   MAX_NEW_STUBS_PER_SAVE,
@@ -60,8 +61,6 @@ const RATE_LIMIT: RateLimit = { windowSeconds: 300, maxRequests: 10 };
  */
 const SAVE_RATE_LIMIT: RateLimit = { windowSeconds: 300, maxRequests: 20 };
 
-/** Roughly 4 MB of base64 — well past what a legible label photo needs. */
-const MAX_IMAGE_CHARS = 5_500_000;
 
 /**
  * The same plausibility floor the import scripts use before they'll write a

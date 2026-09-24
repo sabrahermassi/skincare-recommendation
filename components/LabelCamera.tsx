@@ -12,6 +12,7 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { coverFitCropRect, shrinkWidth, type Rect, type Size } from "@/lib/crop-to-guide";
+import { fitUpload } from "@/lib/fit-upload";
 import { deleteTempFile, LIBRARY_MAX_WIDTH, pickLabelPhoto } from "@/lib/pick-label-photo";
 import { readLabelPhoto } from "@/lib/read-label-photo";
 import { CAMERA_STAGE, CANVAS, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
@@ -149,6 +150,8 @@ export function LabelCamera({
     let capturedUri: string | undefined;
     let croppedUri: string | undefined;
     let resizedUri: string | undefined;
+    // Any smaller versions `fitUpload` had to make to get under the upload limit.
+    const shrunkUris: string[] = [];
     // The picker's copies of a chosen picture, which stay behind when it is shrunk.
     let releasePick: (() => void) | undefined;
 
@@ -229,12 +232,14 @@ export function LabelCamera({
       }
 
       // `takePictureAsync` never resizes, unlike the library pick — a 48–50 MP
-      // sensor lands well past `MAX_IMAGE_CHARS` (`label-ocr:53`), which reads
+      // sensor lands well past `MAX_IMAGE_CHARS` (`_shared/image-limits.ts`), which reads
       // to the user as an unreadable photo (#188). Shares `LIBRARY_MAX_WIDTH`
       // and `shrinkWidth` with the library path so the two caps cannot drift.
       // Runs on the cropped photo when cropping succeeded, and on the
       // uncropped fall-through above when it didn't — whichever is largest.
       if (source === "camera" && imageWidth) {
+        // The width of whatever `imageBase64` currently holds.
+        let sentWidth = imageWidth;
         const width = shrinkWidth(imageWidth, LIBRARY_MAX_WIDTH);
         if (width) {
           try {
@@ -244,12 +249,26 @@ export function LabelCamera({
               format: SaveFormat.JPEG,
             });
             resizedUri = resized.uri;
-            if (resized.base64) imageBase64 = resized.base64;
+            if (resized.base64) {
+              imageBase64 = resized.base64;
+              sentWidth = resized.width;
+            }
           } catch {
             // Send what we already have rather than block the scan on a
             // resize failure — the crop's own fallback above takes the same
             // approach.
           }
+        }
+        // A width cap alone doesn't bound the encoded size: a detailed or
+        // noisy frame can still come out over the limit, and the server would
+        // refuse it as an unreadable photo (#251). Same fallback as above if
+        // shrinking fails.
+        try {
+          const fitted = await fitUpload(croppedUri ?? photo.uri, imageBase64, sentWidth);
+          shrunkUris.push(...fitted.tempUris);
+          imageBase64 = fitted.base64;
+        } catch {
+          // See above.
         }
       }
 
@@ -275,6 +294,7 @@ export function LabelCamera({
       deleteTempFile(capturedUri);
       deleteTempFile(croppedUri);
       deleteTempFile(resizedUri);
+      for (const uri of shrunkUris) deleteTempFile(uri);
     }
   }
 

@@ -3,6 +3,7 @@ import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { launchImageLibraryAsync } from "expo-image-picker";
 
 import { shrinkWidth } from "@/lib/crop-to-guide";
+import { fitUpload } from "@/lib/fit-upload";
 
 /**
  * The widest a photo of the ingredient list is sent: the text stays readable,
@@ -57,9 +58,11 @@ export async function pickLabelPhoto(): Promise<PickedLabelPhoto | null> {
   let photo = picked.assets[0];
   const pickedUri = photo.uri;
   let resizedUri: string | undefined;
+  const shrunkUris: string[] = [];
   const cleanup = () => {
     deleteTempFile(pickedUri);
     deleteTempFile(resizedUri);
+    for (const uri of shrunkUris) deleteTempFile(uri);
   };
 
   try {
@@ -72,6 +75,12 @@ export async function pickLabelPhoto(): Promise<PickedLabelPhoto | null> {
       });
       resizedUri = resized.uri;
       photo = { ...photo, uri: resized.uri, base64: resized.base64, width: resized.width, height: resized.height };
+    }
+    // A width cap alone doesn't bound the encoded size (#251).
+    if (photo.base64) {
+      const fitted = await fitUpload(pickedUri, photo.base64, photo.width);
+      shrunkUris.push(...fitted.tempUris);
+      photo = { ...photo, base64: fitted.base64 };
     }
   } catch (error) {
     cleanup();
