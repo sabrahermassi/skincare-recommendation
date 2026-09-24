@@ -175,6 +175,7 @@ describe("what survives an app restart", () => {
       "profile",
       "savedIngredients",
       "savedProducts",
+      "secureStoreClaimed",
     ]);
 
     s().saveProduct("keep-me");

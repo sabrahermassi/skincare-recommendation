@@ -35,8 +35,9 @@ module.exports = defineConfig([
                                    // disposable, per docs/device-storage-policy.md.
                                    // Narrowed again by the block below: this file is
                                    // exempt from the AsyncStorage ban and nothing else.
-      // 'lib/secure-storage.{ts,tsx}', // uncomment with the auth PR — the only
-                                   // file permitted to import expo-secure-store
+      'lib/secure-storage.{ts,tsx}', // the only file permitted to import
+                                   // expo-secure-store (#218). Narrowed the same way
+                                   // by its own block below.
     ],
     rules: {
       'no-restricted-imports': ['error', {
@@ -117,6 +118,44 @@ module.exports = defineConfig([
       'no-restricted-globals': ['error',
         { name: 'localStorage', message: 'Reach AsyncStorage, not localStorage. See docs/device-storage-policy.md.' },
         { name: 'sessionStorage', message: 'Not a store this file may use. See docs/device-storage-policy.md.' },
+      ],
+      'no-restricted-properties': ['error',
+        { object: 'window', property: 'localStorage', message: 'See docs/device-storage-policy.md.' },
+        { object: 'window', property: 'sessionStorage', message: 'See docs/device-storage-policy.md.' },
+        { object: 'globalThis', property: 'localStorage', message: 'See docs/device-storage-policy.md.' },
+        { object: 'globalThis', property: 'sessionStorage', message: 'See docs/device-storage-policy.md.' },
+      ],
+    },
+  },
+  {
+    // The session store is exempted above from the expo-secure-store ban, and
+    // from nothing else. A token reaching AsyncStorage or localStorage from
+    // the one file that handles tokens is the exact failure the policy exists
+    // to prevent. See docs/device-storage-policy.md, row 1.
+    files: ['lib/secure-storage.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [
+          {
+            name: '@react-native-async-storage/async-storage',
+            message: 'Session material never goes to AsyncStorage. See docs/device-storage-policy.md.',
+          },
+        ],
+      }],
+      'no-restricted-syntax': ['error',
+        {
+          selector:
+            "CallExpression[callee.name='require'][arguments.0.value=/async-storage/]",
+          message: 'Same rule as no-restricted-imports — see docs/device-storage-policy.md.',
+        },
+        {
+          selector: "ImportExpression[source.value=/async-storage/]",
+          message: 'Same rule as no-restricted-imports — see docs/device-storage-policy.md.',
+        },
+      ],
+      'no-restricted-globals': ['error',
+        { name: 'localStorage', message: 'Web sessions are memory-only. See docs/device-storage-policy.md.' },
+        { name: 'sessionStorage', message: 'Web sessions are memory-only. See docs/device-storage-policy.md.' },
       ],
       'no-restricted-properties': ['error',
         { object: 'window', property: 'localStorage', message: 'See docs/device-storage-policy.md.' },

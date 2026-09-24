@@ -104,6 +104,14 @@ type AppState = {
   // ── History: automatic, written on every product view and scan ──
   history: HistoryEntry[];
 
+  /**
+   * Whether this install has already cleared whatever an earlier install left
+   * in the Keychain — see `claimOnce` in lib/secure-storage.ts. A plain flag,
+   * never the session itself: tokens go to secure storage, not here.
+   */
+  secureStoreClaimed: boolean;
+  claimSecureStore: () => void;
+
   /** Shallow-merges into the profile. Used by every quiz step and by /profile. */
   setProfile: (patch: Partial<SkinProfile>) => void;
   /** Enforces the cap of `MAX_CONCERNS`. */
@@ -199,6 +207,7 @@ export const PERSISTED_KEYS = [
   "savedProducts",
   "savedIngredients",
   "history",
+  "secureStoreClaimed",
 ] as const;
 
 export type PersistedState = Pick<AppState, (typeof PERSISTED_KEYS)[number]>;
@@ -211,6 +220,7 @@ export function partializeState(state: AppState): PersistedState {
     savedProducts: state.savedProducts,
     savedIngredients: state.savedIngredients,
     history: state.history,
+    secureStoreClaimed: state.secureStoreClaimed,
   };
 }
 
@@ -222,6 +232,7 @@ const INITIAL_STATE = {
   savedProducts: [] as SavedProduct[],
   savedIngredients: [] as string[],
   history: [] as HistoryEntry[],
+  secureStoreClaimed: false,
 };
 
 /**
@@ -463,11 +474,23 @@ export const useAppStore = create<AppState>()(
               }
         ),
 
+      claimSecureStore: () => set({ secureStoreClaimed: true }),
+
       resetApp: () => {
-        set({ ...INITIAL_STATE });
+        // Keeps `secureStoreClaimed`: this install already cleared the
+        // Keychain, and resetting the flag would make the next launch treat
+        // the app as reinstalled and silently sign the user out. Whether
+        // "erase everything" should also sign out is left to the account
+        // screens (#220), which can call sign-out deliberately.
+        set((state) => ({ ...INITIAL_STATE, secureStoreClaimed: state.secureStoreClaimed }));
         // Also wipe what is on disk. Without this the in-memory reset is
         // undone by the next rehydration and the app "forgets" the reset.
         void useAppStore.persist.clearStorage();
+        // ...then write the first-run state straight back, so the kept
+        // `secureStoreClaimed` is on disk too. Left cleared, the next launch
+        // would find no flag and wipe the Keychain — signing the user out as
+        // an accident of storage order rather than a decision.
+        useAppStore.setState({});
         // Barcodes looked up this session live outside the store, in the
         // catalogue cache's memory layer. They are a record of what this
         // person pointed a camera at, so they belong to this reset even though
