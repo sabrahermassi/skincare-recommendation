@@ -73,10 +73,11 @@ export function PregnancySection({ warnings }: { warnings: Contraindication[] })
 
 /**
  * "Worth knowing" — hand-written context nudges from `lib/context-nudges.ts`
- * (#234). Deliberately the same treatment as `PregnancySection` above —
- * heading, then one line per note — and rendered directly beside it: neither
- * is a warning, both are context, and two visual styles for the same idea
- * would make one of them look more alarming than it is.
+ * (#234). Same heading-then-lines layout as `PregnancySection` above, but
+ * `direction="neutral"` rather than `"down"`: a nudge carries no score effect
+ * and isn't a caution the way a pregnancy hit is, so it shouldn't borrow that
+ * section's red minus-sign treatment (#262 review, CodeRabbit) — it gets its
+ * own, calmer indicator instead.
  */
 export function ContextNudgesSection({ nudges }: { nudges: ContextNudge[] }) {
   if (nudges.length === 0) return null;
@@ -84,15 +85,28 @@ export function ContextNudgesSection({ nudges }: { nudges: ContextNudge[] }) {
     <View style={{ gap: 10 }}>
       <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>Worth knowing</Text>
       {nudges.map((nudge) => (
-        <ExplanationLine key={nudge.id} label={nudge.label} detail={nudge.text} direction="down" />
+        <ExplanationLine key={nudge.id} label={nudge.label} detail={nudge.text} direction="neutral" />
       ))}
     </View>
   );
 }
 
+type ExplanationDirection = ScoreLine["direction"] | "neutral";
+
 /** A verdict-level explanation, rendered before its ingredient-level evidence. */
-export function ExplanationLine({ label, detail, direction }: ScoreLine) {
-  const positive = direction === "up";
+export function ExplanationLine({
+  label,
+  detail,
+  direction,
+}: {
+  label: string;
+  detail: string;
+  direction: ExplanationDirection;
+}) {
+  const glyph = direction === "up" ? "+" : direction === "down" ? "−" : "•";
+  const dotColor =
+    direction === "up" ? VERDICT.high.tint : direction === "down" ? VERDICT.low.tint : VERDICT_NEUTRAL.tint;
+  const glyphColor = direction === "neutral" ? VERDICT_NEUTRAL.deep : INK;
   return (
     <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
       {/* Inline style, not a Tailwind className: `bg-tint-mint`/`bg-tint-pink`
@@ -108,12 +122,10 @@ export function ExplanationLine({ label, detail, direction }: ScoreLine) {
           marginTop: 1,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: positive ? VERDICT.high.tint : VERDICT.low.tint,
+          backgroundColor: dotColor,
         }}
       >
-        <Text style={{ fontSize: TYPE.caption, fontWeight: "bold", lineHeight: 14, color: INK }}>
-          {positive ? "+" : "−"}
-        </Text>
+        <Text style={{ fontSize: TYPE.caption, fontWeight: "bold", lineHeight: 14, color: glyphColor }}>{glyph}</Text>
       </View>
       <View style={{ flex: 1, gap: 1 }}>
         <Text style={{ fontSize: TYPE.label, fontWeight: "600", textTransform: "capitalize", color: INK }}>
