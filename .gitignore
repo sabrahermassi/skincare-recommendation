@@ -36,6 +36,7 @@ web-build/
 
 # An unfinished `import:obf` run's progress — see CHECKPOINT_FILE in scripts/import-obf.mjs.
 .import-obf-checkpoint.json
+.import-obf-checkpoint.json.tmp
 
 # debug
 npm-debug.*
