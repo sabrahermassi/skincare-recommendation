@@ -26,6 +26,7 @@ import { openScanner } from "@/lib/genie";
 import { productPictureSize } from "@/lib/product-layout";
 import { isPersonalized } from "@/lib/profile";
 import { saveOrAskToSignIn } from "@/lib/save-gate";
+import { track } from "@/lib/analytics";
 import { irritationWarnings, isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
@@ -90,7 +91,9 @@ const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 
 export default function ProductScreen() {
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `from` says how the person got here, for the funnel (#225) only: the
+  // scanner and the label flow set it, and anything else is browsing.
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   // Seeded from the catalogue cache so a product already in memory paints on
   // the first frame instead of a spinner — the same `peekProducts` seam
   // `app/(tabs)/browse.tsx` uses for a warm start.
@@ -213,7 +216,8 @@ export default function ProductScreen() {
     // Pregnancy hits don't count toward "flagged" here either (#187) — same
     // exclusion as the Irritation card, so the two never disagree.
     recordView({ id: product.id, known: true, score, warnings: irritationWarnings(warnings).length });
-  }, [product, confirmedFor, recordView]);
+    track("verdict_viewed", { path: from === "barcode" || from === "label" ? from : "browse" });
+  }, [product, confirmedFor, recordView, from]);
 
   // The effect above captures the score as it stood when the screen opened,
   // which for someone with no profile is no score at all. The inline prompt
@@ -384,7 +388,7 @@ export default function ProductScreen() {
               onPress={() =>
                 saved
                   ? toggleSaved(product.id)
-                  : saveOrAskToSignIn(() => saveProduct(product.id, product.fetchedAt))
+                  : saveOrAskToSignIn(() => saveProduct(product.id, product.fetchedAt), "product")
               }
               hitSlop={12}
               accessibilityRole="button"

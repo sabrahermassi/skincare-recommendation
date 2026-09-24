@@ -57,7 +57,7 @@ export default function AddProduct() {
           // leaving the old, now-stale verdict underneath on the back stack.
           // `dismissTo` pops everything back to (and lands on) the target.
           clearLabelRead();
-          router.dismissTo({ pathname: "/result/[id]", params: { id } });
+          router.dismissTo({ pathname: "/result/[id]", params: { id, from: "label" } });
         }}
         onUnknown={setBarcode}
       />
@@ -320,7 +320,7 @@ function NameStep({
     if (result.ok) {
       clearLabelRead();
       // `dismissTo`, not `replace` — see the same note on `onKnown` above.
-      router.dismissTo({ pathname: "/result/[id]", params: { id: result.product.id } });
+      router.dismissTo({ pathname: "/result/[id]", params: { id: result.product.id, from: "label" } });
       return;
     }
     setSaving(false);
@@ -342,7 +342,7 @@ function NameStep({
     setSaving(false);
     if (result.ok && result.value) {
       clearLabelRead();
-      router.dismissTo({ pathname: "/result/[id]", params: { id: result.value.id } });
+      router.dismissTo({ pathname: "/result/[id]", params: { id: result.value.id, from: "label" } });
       return;
     }
     // The lookup failed or missed, but the row is still saved — so stay in

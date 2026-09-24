@@ -56,6 +56,12 @@ module.exports = defineConfig([
               'Create it per docs/device-storage-policy.md and add it to the ' +
               'allowlist in eslint.config.js in the same commit.',
           },
+          {
+            name: 'posthog-react-native',
+            message:
+              'Analytics goes through lib/analytics.ts only, where the event list and the ' +
+              'content rule (#225) live. Import track/identifyAccount/forgetAccount from there.',
+          },
         ],
       }],
       // no-restricted-imports does not see require() or dynamic import().
@@ -102,6 +108,12 @@ module.exports = defineConfig([
               'The catalogue cache holds public, non-personal data and has no ' +
               'business here — see docs/device-storage-policy.md.',
           },
+          {
+            name: 'posthog-react-native',
+            message:
+              'Analytics goes through lib/analytics.ts only, where the event list and the ' +
+              'content rule (#225) live. Import track/identifyAccount/forgetAccount from there.',
+          },
         ],
       }],
       'no-restricted-syntax': ['error',
@@ -140,6 +152,12 @@ module.exports = defineConfig([
             name: '@react-native-async-storage/async-storage',
             message: 'Session material never goes to AsyncStorage. See docs/device-storage-policy.md.',
           },
+          {
+            name: 'posthog-react-native',
+            message:
+              'Analytics goes through lib/analytics.ts only, where the event list and the ' +
+              'content rule (#225) live. Import track/identifyAccount/forgetAccount from there.',
+          },
         ],
       }],
       'no-restricted-syntax': ['error',
@@ -163,6 +181,26 @@ module.exports = defineConfig([
         { object: 'globalThis', property: 'localStorage', message: 'See docs/device-storage-policy.md.' },
         { object: 'globalThis', property: 'sessionStorage', message: 'See docs/device-storage-policy.md.' },
       ],
+    },
+  },
+  {
+    // lib/analytics.ts is the one file allowed PostHog (#225). It keeps every
+    // other restriction: the same list as the main block, without the
+    // posthog entry that block adds.
+    files: ['lib/analytics.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [
+          {
+            name: '@react-native-async-storage/async-storage',
+            message: 'Analytics keeps its own file (persistence: "file"); never AsyncStorage.',
+          },
+          {
+            name: 'expo-secure-store',
+            message: 'expo-secure-store may only be imported from lib/secure-storage.ts.',
+          },
+        ],
+      }],
     },
   },
 ]);

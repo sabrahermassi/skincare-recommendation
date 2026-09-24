@@ -1,4 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
+
+import { track } from "@/lib/analytics";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -69,6 +71,8 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
   const profile = useAppStore((s) => s.profile);
   const [ingredients, setIngredients] = useState<Ingredient[] | null>(null);
   const sheetRef = useRef<IngredientsSheetHandle>(null);
+
+  useEffect(() => track("verdict_viewed", { path: "label" }), []);
 
   useEffect(() => {
     let cancelled = false;

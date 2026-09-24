@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 
+import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
@@ -37,8 +38,10 @@ export function useCanSave(): boolean {
 }
 
 /** Saves now, or holds the save and opens the sign-in sheet. */
-export function saveOrAskToSignIn(save: () => void): void {
-  if (canSaveNow()) {
+export function saveOrAskToSignIn(save: () => void, target: "product" | "ingredient"): void {
+  const signedIn = canSaveNow();
+  track("save_tapped", { target, signed_in: signedIn });
+  if (signedIn) {
     save();
     return;
   }
@@ -49,7 +52,7 @@ export function saveOrAskToSignIn(save: () => void): void {
   // tap after that opens it again.
   const sheetAlreadyAsked = pending !== null;
   pending = save;
-  if (!sheetAlreadyAsked) router.push("/sign-in");
+  if (!sheetAlreadyAsked) router.push({ pathname: "/sign-in", params: { from: "save" } });
 }
 
 /** Called by the sign-in sheet once someone is signed in. */

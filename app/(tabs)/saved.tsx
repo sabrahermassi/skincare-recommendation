@@ -932,7 +932,13 @@ function EmptyState({ tab, guest }: { tab: Tab; guest: boolean }) {
             tone="cta"
             size={50}
             label={actionLabel}
-            onPress={() => (actionHref === "/scanner" ? openScanner() : router.push(actionHref))}
+            onPress={() =>
+              actionHref === "/scanner"
+                ? openScanner()
+                : actionHref === "/sign-in"
+                  ? router.push({ pathname: "/sign-in", params: { from: "shelf" } })
+                  : router.push(actionHref)
+            }
             style={{ marginTop: 8 }}
           />
         </View>
