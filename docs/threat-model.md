@@ -233,6 +233,25 @@ second table is planned; if that ever changes, it gets its own row.
   user-scoped operations go through the authenticated client role, not
   around it.
 
+  **The one exception, and why it is safe: `delete-account` (#224).**
+  Deleting an auth user needs the service-role key, so this function holds
+  it. The user it deletes is taken from the caller's token, verified by
+  Supabase Auth (`auth.getUser(token)`); the request body is read for one
+  field only, an Apple authorization code, and anything it says about
+  *who* is ignored — honouring a `user_id` would be an account-deletion
+  IDOR. `supabase/tests/delete_account.test.ts` pins that no token and a
+  forged token delete nothing and that a body naming another user is
+  ignored; `npm run check:delete-account` runs the same against the
+  deployed function on staging. The saved shelf cascades from `auth.users`,
+  so the function never touches those rows itself.
+- **Backend ↔ Apple (Sign in with Apple REST API, #224).** Deleting an
+  Apple-linked account revokes the app's Apple grant first (App Store
+  Guideline 5.1.1(v)). The Apple key (`APPLE_PRIVATE_KEY`, with
+  `APPLE_KEY_ID`, `APPLE_TEAM_ID`, `APPLE_CLIENT_ID`) lives only in the
+  function's environment — never an `EXPO_PUBLIC_` value — and signs a
+  five-minute client secret per request. Apple receives a one-time
+  authorization code the person just approved and nothing else about them.
+
 ## 3. Attackers in scope
 
 - **Another authenticated user**, reaching for a profile, history entry, or

@@ -47,6 +47,13 @@ export const SURFACE = "#FFFFFF";
  */
 export const INK = "#241F1E";
 
+/**
+ * The dimmed backdrop behind a confirmation dialog: `INK` at 45%. Named
+ * with #224's second dialog — it had been written out by hand in
+ * profile.tsx. Same value; not a new colour.
+ */
+export const SCRIM = "rgba(36,31,30,0.45)";
+
 /** Secondary text, 6.1:1. The old #96605A was close enough to the accent
  *  browns that a muted line and a peach surface read as the same weight. */
 export const MUTED = "#6B5A54";

@@ -1,6 +1,6 @@
 import { defaultPackagingType } from "@/components/BottleIcon";
 import type { Shelf, ShelfPush } from "@/lib/shelf";
-import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@/lib/supabase";
+import { DELETE_ACCOUNT_FUNCTION, isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@/lib/supabase";
 import {
   abandonDiskRead,
   addScannedToCatalogue,
@@ -1795,5 +1795,101 @@ export async function pushShelf(owner: string, push: ShelfPush): Promise<Fetched
     return { ok: true, value: undefined };
   } catch (err) {
     return { ok: false, failure: classifyFailure(err) };
+  }
+}
+
+// ── The account itself (#224) ───────────────────────────────────────────────
+
+/** Everything the account holds, for the data export. Never rejects. */
+export type AccountExportRows = {
+  products: { productId: string; savedAt: string; formulaFetchedAt: string | null; note: string | null; routineStep: number | null }[];
+  ingredients: { inciName: string; savedAt: string }[];
+};
+
+export async function fetchAccountExport(): Promise<Fetched<AccountExportRows>> {
+  if (!usingSupabase()) return { ok: false, failure: NO_BACKEND };
+  try {
+    const [products, ingredients] = await Promise.all([
+      withTimeout(
+        (signal) =>
+          supabase!
+            .from("saved_products")
+            .select("product_id, saved_at, formula_fetched_at, note, routine_step")
+            .order("saved_at", { ascending: true })
+            .abortSignal(signal),
+        "fetchAccountExport products",
+      ),
+      withTimeout(
+        (signal) =>
+          supabase!.from("saved_ingredients").select("inci_name, saved_at").order("saved_at", { ascending: true }).abortSignal(signal),
+        "fetchAccountExport ingredients",
+      ),
+    ]);
+    if (products.error) return { ok: false, failure: classifyFailure(products.error) };
+    if (ingredients.error) return { ok: false, failure: classifyFailure(ingredients.error) };
+    type ProductRow = ShelfProductRow & { note: string | null; routine_step: number | null };
+    return {
+      ok: true,
+      value: {
+        products: (products.data as ProductRow[]).map((row) => ({
+          productId: row.product_id,
+          savedAt: row.saved_at,
+          formulaFetchedAt: row.formula_fetched_at,
+          note: row.note,
+          routineStep: row.routine_step,
+        })),
+        ingredients: (ingredients.data as ShelfIngredientRow[]).map((row) => ({
+          inciName: row.inci_name,
+          savedAt: row.saved_at,
+        })),
+      },
+    };
+  } catch (err) {
+    return { ok: false, failure: classifyFailure(err) };
+  }
+}
+
+export type DeleteAccountResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason:
+        | "apple_reauth_required"
+        | "apple_not_configured"
+        | "apple_revoke_failed"
+        | "not_signed_in"
+        | "network"
+        | "failed";
+    };
+
+/**
+ * Deletes the signed-in account through the `delete-account` function, which
+ * takes the identity from the session token alone. An Apple-linked account
+ * needs a fresh Apple authorization code so Apple's grant can be revoked
+ * first (App Store Guideline 5.1.1(v)). Never rejects.
+ */
+export async function deleteAccount(appleAuthorizationCode?: string): Promise<DeleteAccountResult> {
+  if (!usingSupabase()) return { ok: false, reason: "failed" };
+  try {
+    const { error } = await supabase!.functions.invoke(DELETE_ACCOUNT_FUNCTION, {
+      body: appleAuthorizationCode ? { appleAuthorizationCode } : {},
+    });
+    if (!error) return { ok: true };
+    const context = (error as { context?: { status?: number; json?: () => Promise<unknown> } }).context;
+    if (typeof context?.status !== "number") return { ok: false, reason: "network" };
+    const body = (typeof context.json === "function" ? await context.json().catch(() => null) : null) as {
+      error?: string;
+    } | null;
+    switch (body?.error) {
+      case "apple_reauth_required":
+      case "apple_not_configured":
+      case "apple_revoke_failed":
+      case "not_signed_in":
+        return { ok: false, reason: body.error };
+      default:
+        return { ok: false, reason: "failed" };
+    }
+  } catch {
+    return { ok: false, reason: "network" };
   }
 }

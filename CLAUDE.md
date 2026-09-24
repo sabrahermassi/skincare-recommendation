@@ -22,8 +22,8 @@ catalogue, and a web-only limitation is a note rather than a defect. Revisit
 only if a real reason appears for either platform — not merely because the
 code still runs there.
 
-Supabase is the live backend (Edge Functions `product-lookup`, `label-ocr`
-deployed). `data/api.ts` falls back to 8 sample products only when
+Supabase is the live backend (Edge Functions `product-lookup`, `label-ocr`,
+`delete-account` deployed). `data/api.ts` falls back to 8 sample products only when
 `EXPO_PUBLIC_SUPABASE_URL`/`_ANON_KEY` are absent — keeps checkouts and
 tests hermetic. Live catalogue: 851 products (grows when someone runs the
 operator script `import:obf`, or when a user photographs a list and names a
@@ -86,16 +86,17 @@ migration to staging by hand, and do not reach for the Supabase CLI when
 something fails — that workflow's own header explains why the CLI path was
 rejected. If a run fails, read the log and fix the cause.
 
-**Edge Functions deploy themselves — for exactly two functions.**
-`staging-deploy-functions.yml` auto-deploys `label-ocr` and `product-lookup`
-on any push touching them or `_shared/`. **Neither that workflow nor
-`ci.yml` discovers a new function.** So if you add any third Edge Function,
-update both by hand, in the same PR that adds it:
+**Edge Functions deploy themselves — for exactly the three listed.**
+`staging-deploy-functions.yml` auto-deploys `label-ocr`, `product-lookup`
+and `delete-account` (#224) on any push touching them or `_shared/`.
+**Neither that workflow nor `ci.yml` discovers a new function.** So if you
+add a fourth Edge Function, update both by hand, in the same PR that adds
+it:
 
 - `.github/workflows/ci.yml` — the "Typecheck the Deno Edge Functions"
   step's file list
 - `.github/workflows/staging-deploy-functions.yml` — both the trigger paths
-  and the two `supabase functions deploy` lines
+  and the `supabase functions deploy` lines
 
 Forgetting this ships a function that is never type-checked and never
 reaches staging. That gap has already existed once.

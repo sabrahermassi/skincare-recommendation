@@ -246,6 +246,40 @@ export async function signOutEverywhere(): Promise<boolean> {
   return !error;
 }
 
+/**
+ * Asks Apple to confirm once more and returns the authorization code it
+ * hands back — what account deletion needs to revoke the app's Apple grant
+ * (#224). Nothing is requested: no email, no name. `null` when the person
+ * closes the sheet or Apple can't be asked.
+ */
+export async function confirmWithApple(): Promise<string | null> {
+  if (!(await isAppleSignInAvailable())) return null;
+  try {
+    const credential = await AppleAuthentication.signInAsync({ requestedScopes: [] });
+    return credential.authorizationCode ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * After the account is deleted: removes this device's session and, for a
+ * Google account, disconnects the app from it, so a later Google sign-in asks
+ * again from scratch. The session is already dead on the server; this is only
+ * about what the phone still holds.
+ */
+export async function forgetDeletedAccount(): Promise<void> {
+  if (!supabase) return;
+  await supabase.auth.signOut({ scope: "local" });
+  if (!isGoogleSignInConfigured) return;
+  try {
+    const google = await import("@react-native-google-signin/google-signin");
+    await google.GoogleSignin.revokeAccess();
+  } catch {
+    // Not a Google account, or the module is absent (Expo Go).
+  }
+}
+
 const beforeSignOutHooks = new Set<() => Promise<void>>();
 
 /**
