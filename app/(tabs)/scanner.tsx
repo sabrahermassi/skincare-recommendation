@@ -194,14 +194,36 @@ export default function Scan() {
       // A found product's card belongs to the barcode it read: switching mode
       // (or tapping Barcode again) puts it away rather than leaving it over the
       // other mode's shutter.
-      if (status.kind === "found" || (next === "Barcode" && (status.kind === "missed" || status.kind === "unreachable"))) {
-        // The code is still sitting in frame, so the camera reads it again on
-        // the very next frame the moment this clears — without this, the
-        // panel pops straight back up (and, worse, `recordView` runs a
-        // second time for a bottle looked at once). See issue #190.
-        if (status.kind === "missed" || status.kind === "unreachable") {
-          dismissGuard.noteDismissal(status.code, Date.now());
-        }
+      //
+      // A missed/unreachable panel no longer clears on a same-pill re-tap
+      // (#192): tapping the already-selected Barcode pill used to double as
+      // its dismissal, which nothing on screen said it did and a screen
+      // reader could not surface. Dismissing those two states is now the
+      // explicit "Scan again" / "Scan something else" action below — see
+      // `dismissStatus`.
+      if (status.kind === "found") {
+        setStatus({ kind: "idle" });
+        busy.current = false;
+      } else if (
+        (status.kind === "missed" || status.kind === "unreachable") &&
+        mode === "Photo" &&
+        next === "Barcode"
+      ) {
+        // Except when abandoning the one flow that deliberately keeps a
+        // missed status alive across a mode switch: "Add via Photo" on a
+        // barcode miss calls `selectMode("Photo")` while leaving `status`
+        // as `missed`, so `IngredientsStage` can still read the barcode
+        // (below). If the user backs out of that by tapping Barcode
+        // instead of finishing it, this is a genuine Photo-to-Barcode
+        // switch, not a re-tap — without clearing here, the stale miss
+        // panel reappears immediately and blocks scanning until "Scan
+        // something else" is also pressed (#259 review).
+        //
+        // The barcode can still be sitting in frame the moment Barcode mode
+        // remounts, so this needs the same dismiss-guard note `dismissStatus`
+        // uses — without it, the camera reads it again on the very next
+        // frame and the same panel pops straight back up (#190).
+        dismissGuard.noteDismissal(status.code, Date.now());
         setStatus({ kind: "idle" });
         busy.current = false;
       }
@@ -219,8 +241,23 @@ export default function Scan() {
       rememberScanMode(next);
       setMode(next);
     },
-    [status, mode, dismissGuard, reads]
+    [status, mode, reads, dismissGuard]
   );
+
+  /**
+   * The explicit way to clear a "missed" or "unreachable" panel (#192) —
+   * "Scan again" on a non-product code, "Scan something else" on a plain
+   * miss. Records the dismissal exactly like the old pill-tap special case
+   * did, so the camera does not immediately re-read the same code still
+   * sitting in frame (#190's guard) — only how it's reached has changed.
+   */
+  const dismissStatus = useCallback(() => {
+    if (status.kind === "missed" || status.kind === "unreachable") {
+      dismissGuard.noteDismissal(status.code, Date.now());
+    }
+    setStatus({ kind: "idle" });
+    busy.current = false;
+  }, [status, dismissGuard]);
 
   // Only two things are allowed to reset this screen back to Barcode: the X
   // button, and switching to another tab and back. Nothing else — not the
@@ -403,6 +440,7 @@ export default function Scan() {
         status={status}
         onBarcode={handleBarcode}
         onAdd={() => selectMode("Photo")}
+        onDismiss={dismissStatus}
         preserveMode={preserveMode}
       />
     ) : (
@@ -806,6 +844,7 @@ function BarcodeStage({
   status,
   onBarcode,
   onAdd,
+  onDismiss,
   preserveMode,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
@@ -815,6 +854,9 @@ function BarcodeStage({
   onBarcode: (data: string) => void;
   /** Starts adding the product we don't have: the ingredient photo. */
   onAdd: () => void;
+  /** Clears a "missed" or "unreachable" panel and returns the scanner to
+   *  Ready — "Scan again" / "Scan something else" below (#192). */
+  onDismiss: () => void;
   /** Call before any navigation away from this stage that isn't a tab
    *  switch — see `Scan`'s own `preserveMode` doc comment for why. */
   preserveMode: () => void;
@@ -839,10 +881,10 @@ function BarcodeStage({
         ? `Found ${status.product.name}. See full result is below.`
       : status.kind === "missed"
         ? notProduct
-          ? "That isn't a product barcode. Point the camera at the barcode on the packaging."
+          ? "That isn't a product barcode. Tap Scan again to try a different one."
           : "We don't have this product yet. Photograph its ingredient list to add it."
         : status.kind === "unreachable"
-          ? `${failureMessage(status.failure)} Try again, or find it in Browse.`
+          ? `${failureMessage(status.failure)} Try again, scan something else, or find it in Browse.`
           : "";
 
   // `null` is still asking the OS, which is not the same as refused — showing
@@ -932,17 +974,54 @@ function BarcodeStage({
                   : status.kind === "unreachable"
                     ? failureMessage(status.failure)
                     : notProduct
-                      ? "Point the camera at the barcode on the packaging"
+                      ? "Tap Scan again to try a different barcode"
                       : "Photograph its ingredient list and we'll add it"}
               </Text>
             </View>
           </View>
         )}
 
-        {/* After a plain miss: the one way forward. */}
+        {/* After a plain miss: the primary way forward, plus a secondary
+            escape to a different barcode without switching to Photo and
+            back (#192). */}
         {status.kind === "missed" && !notProduct && (
+          <>
+            <Pressable
+              onPress={onAdd}
+              accessibilityRole="button"
+              style={{
+                height: TOUCH_TARGET,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 999,
+                backgroundColor: TERRACOTTA,
+              }}
+              className="active:opacity-90"
+            >
+              <Text style={{ fontSize: 13, fontWeight: "600", color: CTA_TEXT }}>Photograph the ingredients</Text>
+            </Pressable>
+            <Pressable
+              onPress={onDismiss}
+              accessibilityRole="button"
+              accessibilityLabel="Scan something else"
+              style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+              className="active:opacity-70"
+            >
+              <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}>
+                Scan something else
+              </Text>
+            </Pressable>
+          </>
+        )}
+
+        {/* The non-product state (a QR code, a non-retail barcode) has no
+            ingredient photo to offer, and the camera will not read another
+            code while this panel is up — so without this, the state was a
+            dead end reachable only by the hidden, unannounced effect of
+            re-tapping the already-selected Barcode pill (#192). */}
+        {notProduct && (
           <Pressable
-            onPress={onAdd}
+            onPress={onDismiss}
             accessibilityRole="button"
             style={{
               height: TOUCH_TARGET,
@@ -953,7 +1032,7 @@ function BarcodeStage({
             }}
             className="active:opacity-90"
           >
-            <Text style={{ fontSize: 13, fontWeight: "600", color: CTA_TEXT }}>Photograph the ingredients</Text>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: CTA_TEXT }}>Scan again</Text>
           </Pressable>
         )}
 
@@ -961,11 +1040,14 @@ function BarcodeStage({
             that just failed, so offering it here would be the second of two
             failures on one interaction. The only honest primary action when we
             could not reach the catalogue is to ask it again. Starting over is
-            tapping Barcode. */}
+            "Scan something else" below — the only way out now that re-tapping
+            the Barcode pill no longer clears this panel (#192, #259 review:
+            without it this state trapped the scanner until you left it). */}
         {status.kind === "unreachable" && (
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Pressable
               onPress={() => onBarcode(status.code)}
+              accessibilityRole="button"
               style={{
                 flex: 1,
                 height: TOUCH_TARGET,
@@ -979,6 +1061,19 @@ function BarcodeStage({
               <Text style={{ fontSize: 13, fontWeight: "600", color: CTA_TEXT }}>Try again</Text>
             </Pressable>
           </View>
+        )}
+        {status.kind === "unreachable" && (
+          <Pressable
+            onPress={onDismiss}
+            accessibilityRole="button"
+            accessibilityLabel="Scan something else"
+            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+            className="active:opacity-70"
+          >
+            <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}>
+              Scan something else
+            </Text>
+          </Pressable>
         )}
 
         {/* Only when the lookup could not be made. It is the one suggestion here
