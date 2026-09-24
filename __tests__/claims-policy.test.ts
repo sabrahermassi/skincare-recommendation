@@ -94,6 +94,11 @@ const PAIRING_CLAIMS: OwnedClaim[] = [
     shelfItem("C", ["retinol"]),
     shelfItem("D", ["salicylic acid", "glycolic acid", "benzoyl peroxide", "sulfur"]),
   ]),
+  // The count line past the cap (#264 review).
+  ...shelfPairingNotes([
+    shelfItem("R", ["retinol"]),
+    ...Array.from({ length: 12 }, (_, i) => shelfItem(`S${i}`, ["salicylic acid"])),
+  ]).filter((note) => note.id === "more"),
 ].map((note, index) => ({ source: `pairingNotes[${index}].${note.id}`, text: note.text }));
 
 // #235: Skincare School — paragraphs about ingredients, the largest body of
@@ -172,9 +177,10 @@ describe("medical and safety claims policy", () => {
       "pairingNotes[5].layering",
       "pairingNotes[6].A+B",
       "pairingNotes[7].C+D",
+      "pairingNotes[8].more",
     ]);
     // The four single-partner lines all read "with a retinoid", so they collapse to one.
-    expect(new Set(PAIRING_CLAIMS.map((claim) => claim.text)).size).toBe(5);
+    expect(new Set(PAIRING_CLAIMS.map((claim) => claim.text)).size).toBe(6);
   });
 
   it("keeps every app-authored ingredient and product claim within policy", () => {
