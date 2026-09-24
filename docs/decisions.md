@@ -304,7 +304,10 @@ empty shelf. Google does not work in Expo Go at all. Test accounts, #222's
 shelf migration and #223's sync need a development build.
 
 **No name is requested from Apple.** Nothing in the app shows one, and a
-field never collected is one that never needs deleting (#224).
+field never collected is one that never needs deleting (#224). Google can't
+be narrowed the same way: its sign-in always carries the basic profile (name,
+picture), which Supabase stores with the account. The Privacy screen says so
+rather than claiming no name is kept (#277 review).
 
 **The shelf syncs by queue, not by comparing copies (#223).** The device
 never pushes its cache, only the changes it queued — so a phone that still

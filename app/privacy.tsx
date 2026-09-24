@@ -17,7 +17,8 @@ const SECTIONS: { title: string; lines: string[] }[] = [
     title: "If you sign in",
     lines: [
       "You don't need an account to scan or see a verdict. You need one to keep a shelf.",
-      "Signing in with Apple or Google gives us your email address (with Apple, it can be a Hide My Email address) and an account ID. We don't ask for your name.",
+      "Signing in gives us your email address and an account ID. With Apple, the address can be a Hide My Email one, and we don't ask Apple for your name.",
+      "Google always shares your name and profile picture when you sign in with it, and they're kept with your account. The app doesn't show or use them, and deleting your account deletes them.",
       "Your saved products and starred ingredients are kept with your account on our servers, so they're on every phone you sign in on. Only you can read them.",
       "Profile → Account lets you download everything in your account as a file, or delete your account. Deleting it removes the account and everything saved to it straight away.",
     ],

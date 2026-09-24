@@ -122,8 +122,13 @@ keep a shelf across phones (#221, #223).
 with Google return an identity token that Supabase Auth verifies. What this
 app receives and keeps: the account's **email address** (with Apple, possibly
 a Hide My Email relay address) and the provider's **subject id**, in
-Supabase's `auth.users` / `auth.identities`. **No name is requested** from
-Apple, and none is stored from Google. Identities that share a verified
+Supabase's `auth.users` / `auth.identities`. **No name is requested from
+Apple** (the `EMAIL` scope only). **Google is different:** its sign-in always
+includes the basic profile — name and profile-picture URL — in the ID token,
+the app cannot narrow that, and Supabase copies those claims into the user's
+metadata and identity record. They are kept with the account, never shown or
+used by the app, and deleted with it. (#277 review caught an earlier draft of
+this section claiming otherwise.) Identities that share a verified
 email are linked into one account (docs/decisions.md, "Accounts").
 
 **Hosting — Supabase**, the same project that serves the catalogue. What it
@@ -131,7 +136,7 @@ holds per account, owner-only under row-level security (migration 0025):
 
 | Data | Kept |
 |---|---|
-| Account (email, provider ids) | Until the account is deleted |
+| Account (email, provider ids; with Google also its name and profile-picture URL) | Until the account is deleted |
 | Saved products — product id, when saved, the formula version seen | Until removed, or the account is deleted |
 | Journal note on a saved product (#228) — the person's own words, up to 500 characters | Same. Never shared, never in analytics |
 | Routine step on a saved product (#227) | Same |
