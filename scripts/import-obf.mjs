@@ -8,6 +8,7 @@
  * Run:
  *   node scripts/import-obf.mjs --dry-run      # print what would be written
  *   node scripts/import-obf.mjs                # write to Supabase
+ *   node scripts/import-obf.mjs --resume       # continue a write run that stopped partway
  *
  * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY — including for --dry-run,
  * unlike every other importer here. The plausibility gate below judges a parsed
@@ -21,7 +22,7 @@
  * not shipped code, and this way they need no build step and no new devDeps.
  */
 
-import { realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { connect } from "./lib/db.mjs";
@@ -58,18 +59,25 @@ const USE_SOURCE_PHOTOS = false;
  * How many usable products one run may write, and the hard ceiling on requests
  * it may spend reaching that.
  *
- * Step 4 of the data-strategy plan. The cap is deliberate and temporary: the
- * client still downloads the whole catalogue on first launch and holds it in
- * AsyncStorage, whose Android SQLite ceiling is ~6MB, so the catalogue cannot
- * be allowed to grow without the paging work in steps 7-8 landing first. 500
- * is comfortably inside that budget at the post-step-2 payload size.
+ * Step 7 of the data-strategy plan (#180) lifted the old 500 cap. It existed
+ * for Android's ~6MB AsyncStorage ceiling; iOS is the only release target and
+ * its cache budget is 32MB (`IOS_TOTAL_BUDGET_BYTES`), so 5,000 rows at the
+ * measured ~1,640 bytes each is about a quarter of it.
+ *
+ * In practice the categories run out first: in September 2026 the six below
+ * held ~1,500 completed products before overlap and the gates. The run says
+ * which limit it hit, so a catalogue that stops growing is never mistaken for
+ * a cap.
  *
  * MAX_REQUESTS exists so a malformed or unchanging response can never loop
- * forever. It is a budget across every category, not per category — hitting
- * it is a signal something is wrong, and the run says so.
+ * forever. It is a budget across every category, not per category, and it is
+ * kept at three times what a full 5,000-row run needs (50 pages of 100, before
+ * rejections and overlap). Reaching it therefore means something is wrong, not
+ * that the run was big — and the run says so. At SEARCH_INTERVAL_MS it is
+ * about sixteen minutes of requests.
  */
-const TARGET_ROWS = 500;
-const MAX_REQUESTS = 40;
+const TARGET_ROWS = 5_000;
+const MAX_REQUESTS = 150;
 const PAGE_SIZE = 100;
 
 /**
@@ -88,7 +96,7 @@ const PAGE_SIZE = 100;
  * throws and nothing above it retries.
  *
  * The cost is real: a seven-request run goes from roughly two seconds to
- * forty-five, and a full MAX_REQUESTS run would take about four minutes. For
+ * forty-five, and a full MAX_REQUESTS run would take about sixteen minutes. For
  * an operator script run by hand a few times a year, against a service run by
  * volunteers, that is the right side of the trade.
  *
@@ -119,8 +127,10 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
  *   en:suncare       410      en:creams         24
  *   en:cleansers     195      en:moisturizers   11
  *
- * Roughly 1,500 before overlap, against a 500 cap — enough supply to be
- * selective, which is what lets the gates below stay strict.
+ * Roughly 1,500 before overlap — against the old 500 cap that was enough
+ * supply to be selective, which is what let the gates below stay strict. With
+ * the cap lifted (#180) these categories are now the limit: a September 2026
+ * run kept 1,111 of 1,522.
  *
  * The trade is untagged products: about half of OBF's completed rows carry no
  * category at all, and those are now unreachable. That is the right side to
@@ -161,8 +171,11 @@ const CATEGORIES = [
  * 0.8 would throw away the K-beauty rows this catalogue exists for.
  *
  * Lowering it is not obviously safe either: precision is worth more than
- * recall here, because with 20,174 candidates behind a 500-row cap a rejected
- * good product costs nothing — another takes its slot.
+ * recall here, because with 20,174 candidates behind the old 500-row cap a
+ * rejected good product cost nothing — another took its slot. Since #180 the
+ * categories, not the cap, are the limit, so a rejection now does cost a row
+ * (66 of 1,522 in the September 2026 run). The threshold is unchanged; this is
+ * the argument to revisit if the catalogue needs to be bigger.
  *
  * Considered and rejected: matching leniently against an "organic "-stripped
  * form, since "organic coconut oil" misses a dictionary that holds "coconut
@@ -173,6 +186,62 @@ const CATEGORIES = [
 const MIN_KNOWN_INGREDIENT_RATIO = 0.6;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Why the walk stopped, in words an operator can act on. The three causes need
+ * different responses — nothing, add a category, or investigate — and printing
+ * one line for all of them is how a run that ran out of budget used to read as
+ * a run that ran out of products (#180).
+ *
+ * @param {"target" | "budget" | "exhausted"} reason
+ */
+function stopMessage(reason, rowCount) {
+  if (reason === "budget") {
+    return (
+      `  ! Stopped at the ${MAX_REQUESTS}-request budget with ${rowCount} of ${TARGET_ROWS} rows. ` +
+      "That budget is set well above what a healthy run needs, so reaching it means something is wrong — " +
+      "a response that never ends, or a page that keeps repeating. Check the per-page lines above."
+    );
+  }
+  if (reason === "exhausted" && rowCount < TARGET_ROWS) {
+    return (
+      `  ! Only ${rowCount} of ${TARGET_ROWS} rows after every category was exhausted. ` +
+      "Not itself an error — it means the skincare categories are the limit, not the cap.\n" +
+      "    Add a category to CATEGORIES if the catalogue needs to be bigger."
+    );
+  }
+  return null;
+}
+
+/**
+ * Where an unfinished write run keeps its progress, so a run that dies partway
+ * — a dropped connection an hour into a rate-limited walk — picks up where it
+ * stopped with `--resume` instead of starting over. In the working directory
+ * (every script here runs from the repo root) and gitignored. Deleted once the
+ * bookmark is written, so it only ever exists for a run that didn't finish.
+ *
+ * A dry run never writes one: it has nothing worth resuming.
+ */
+const CHECKPOINT_FILE = ".import-obf-checkpoint.json";
+const RESUME = process.argv.includes("--resume");
+
+/** The walk's full state, as JSON. Maps become entry arrays; nothing else needs converting. */
+function serialiseCheckpoint(state) {
+  return JSON.stringify({
+    ...state,
+    rows: [...state.rows.entries()],
+    rejected: [...state.rejected.entries()],
+  });
+}
+
+function parseCheckpoint(text) {
+  const raw = JSON.parse(text);
+  return { ...raw, rows: new Map(raw.rows), rejected: new Map(raw.rejected) };
+}
+
+function saveCheckpoint(state) {
+  writeFileSync(CHECKPOINT_FILE, serialiseCheckpoint(state));
+}
 
 /**
  * One page of products that OBF itself considers to have a complete ingredient
@@ -384,6 +453,18 @@ function toRow(p, known, samples, rejectedNames, aliases) {
 }
 
 async function main() {
+  if (DRY_RUN && RESUME) throw new Error("--resume continues a write run; a dry run has nothing to resume.");
+  if (RESUME && !existsSync(CHECKPOINT_FILE)) {
+    throw new Error(`--resume: no ${CHECKPOINT_FILE} in this directory, so there is nothing to resume.`);
+  }
+  // Refused rather than overwritten: silently starting fresh would throw away
+  // the very progress the file exists to keep.
+  if (!DRY_RUN && !RESUME && existsSync(CHECKPOINT_FILE)) {
+    throw new Error(
+      `${CHECKPOINT_FILE} holds an unfinished run. Pass --resume to continue it, or delete the file to start over.`
+    );
+  }
+
   // Credentials up front, for both modes — the gate needs the dictionary, and
   // a dry run that skipped the gate would print a number a real run would not
   // reproduce, so a dry run without credentials is refused too. See the file
@@ -394,95 +475,126 @@ async function main() {
   const aliases = await fetchAliases(db);
   console.log(`Dictionary: ${known.size} known ingredient names.\n`);
 
-  const rows = new Map();
-  const rejected = new Map();
+  // Everything the walk and the writes need to pick up again, in one object so
+  // a checkpoint is simply this, serialised. See CHECKPOINT_FILE.
+  //
+  // `newestModifiedAt` is the watermark this run reaches: the newest
+  // `last_modified_t` across every product OBF returned, kept or not. A
+  // rejected row (no name, no formula) is still evidence of how far into OBF's
+  // data this run looked — only the catalogue write should be conditional on
+  // usability, not the bookmark.
+  //
+  // Read this before making the import incremental. This number is "the newest
+  // modification time this run happened to see", NOT "everything older than
+  // this is imported". The search returns products in OBF's own order, not by
+  // modification time, and this run stops at TARGET_ROWS — so a product
+  // modified before this watermark can easily sit on a page nobody fetched.
+  // Passing it back as `&last_modified_t>=` would silently skip those forever.
+  // An incremental version has to *sort* by modification time first, which is
+  // a different query, not a different constant.
+  const state = RESUME
+    ? parseCheckpoint(readFileSync(CHECKPOINT_FILE, "utf8"))
+    : {
+        categoryIndex: 0,
+        page: 1,
+        pagesRead: 0,
+        seen: 0,
+        newestModifiedAt: null,
+        rows: new Map(),
+        rejected: new Map(),
+        /** @type {"target" | "budget" | "exhausted" | null} */
+        stopReason: null,
+        written: 0,
+      };
+  if (RESUME) {
+    console.log(
+      `Resuming: ${state.rows.size} rows from ${state.pagesRead} request(s), ${state.written} already written.\n`
+    );
+  }
+  const { rows, rejected } = state;
+  // Diagnostics only, so not checkpointed: a resumed run prints this session's samples.
   const rejectSamples = [];
   // Fragments the name check refused to write, so a new junk shape is visible
   // in the run's output instead of only in the dictionary afterwards.
   const rejectedNames = [];
-  let seen = 0;
-  let pagesRead = 0;
-  // The watermark this run reaches: the newest `last_modified_t` across every
-  // product OBF returned, kept or not. A rejected row (no name, no formula) is
-  // still evidence of how far into OBF's data this run looked — only the
-  // catalogue write should be conditional on usability, not the bookmark.
-  //
-  // Read this before making the import incremental (steps 7-8). This number is
-  // "the newest modification time this run happened to see", NOT "everything
-  // older than this is imported". The search returns products in OBF's own
-  // order, not by modification time, and this run stops at TARGET_ROWS — so a
-  // product modified before this watermark can easily sit on a page nobody
-  // fetched. Passing it back as `&last_modified_t>=` would silently skip those
-  // forever. An incremental version has to *sort* by modification time first,
-  // which is a different query, not a different constant.
-  let newestModifiedAt = null;
 
   // Categories are walked in order, each paged to exhaustion, until the cap is
   // reached. A product tagged with two of them is fetched twice and kept once —
   // the `rows` map is keyed on product id, so the overlap between `en:face` and
   // `en:face-creams` costs requests, not duplicate rows.
-  category: for (const category of CATEGORIES) {
-    for (let page = 1; ; page += 1) {
-      if (rows.size >= TARGET_ROWS) break category;
-      if (pagesRead >= MAX_REQUESTS) {
-        console.warn(`\n  ! Hit the ${MAX_REQUESTS}-request budget. Stopping early.`);
-        break category;
+  while (state.stopReason === null) {
+    const category = CATEGORIES[state.categoryIndex];
+    if (category === undefined) {
+      state.stopReason = "exhausted";
+      break;
+    }
+    if (rows.size >= TARGET_ROWS) {
+      state.stopReason = "target";
+      break;
+    }
+    if (state.pagesRead >= MAX_REQUESTS) {
+      state.stopReason = "budget";
+      break;
+    }
+
+    // Paced before the request rather than after the page, so the gap sits
+    // between consecutive requests exactly once and no run pays for a sleep
+    // it never uses — the old placement slept, then immediately broke out of
+    // the category, wasting one interval per category and one at the cap.
+    if (state.pagesRead > 0) await sleep(SEARCH_INTERVAL_MS);
+
+    const products = await fetchPage(category, state.page);
+    state.pagesRead += 1;
+
+    state.seen += products.length;
+    let kept = 0;
+    let duplicates = 0;
+    for (const p of products) {
+      if (typeof p.last_modified_t === "number") {
+        state.newestModifiedAt = Math.max(state.newestModifiedAt ?? 0, p.last_modified_t);
       }
-
-      // Paced before the request rather than after the page, so the gap sits
-      // between consecutive requests exactly once and no run pays for a sleep
-      // it never uses — the old placement slept, then immediately broke out of
-      // the category, wasting one interval per category and one at the cap.
-      if (pagesRead > 0) await sleep(SEARCH_INTERVAL_MS);
-
-      const products = await fetchPage(category, page);
-      pagesRead += 1;
-      if (products.length === 0) break; // this category is exhausted
-
-      seen += products.length;
-      let kept = 0;
-      let duplicates = 0;
-      for (const p of products) {
-        if (typeof p.last_modified_t === "number") {
-          newestModifiedAt = Math.max(newestModifiedAt ?? 0, p.last_modified_t);
-        }
-        const row = toRow(p, known, rejectSamples, rejectedNames, aliases);
-        if (typeof row === "string") {
-          rejected.set(row, (rejected.get(row) ?? 0) + 1);
-          continue;
-        }
-        if (rows.has(row.product.id)) {
-          duplicates += 1;
-          continue;
-        }
-        rows.set(row.product.id, row);
-        kept += 1;
-        // Checked inside the loop, not just between pages: without this the cap
-        // is "500 rounded up to a page boundary" rather than 500.
-        if (rows.size >= TARGET_ROWS) break;
+      const row = toRow(p, known, rejectSamples, rejectedNames, aliases);
+      if (typeof row === "string") {
+        rejected.set(row, (rejected.get(row) ?? 0) + 1);
+        continue;
       }
+      if (rows.has(row.product.id)) {
+        duplicates += 1;
+        continue;
+      }
+      rows.set(row.product.id, row);
+      kept += 1;
+      // Checked inside the loop, not just between pages: without this the cap
+      // is "TARGET_ROWS rounded up to a page boundary" rather than TARGET_ROWS.
+      if (rows.size >= TARGET_ROWS) break;
+    }
 
+    if (products.length > 0) {
       console.log(
-        `  ${category.padEnd(16)} p${String(page).padStart(2)}` +
+        `  ${category.padEnd(16)} p${String(state.page).padStart(2)}` +
           `  ${String(products.length).padStart(3)} found` +
           `  ${String(kept).padStart(3)} new` +
           `  ${String(duplicates).padStart(3)} dup` +
-          `  ${String(rows.size).padStart(3)}/${TARGET_ROWS} total`
+          `  ${String(rows.size).padStart(4)}/${TARGET_ROWS} total`
       );
-      if (products.length < PAGE_SIZE) break; // last page of this category
     }
+    // A short (or empty) page is this category's last.
+    if (products.length < PAGE_SIZE) {
+      state.categoryIndex += 1;
+      state.page = 1;
+    } else {
+      state.page += 1;
+    }
+    if (!DRY_RUN) saveCheckpoint(state);
   }
+  if (!DRY_RUN) saveCheckpoint(state);
+  const { pagesRead, seen, newestModifiedAt } = state;
 
   const all = [...rows.values()];
   const withImage = all.filter((r) => r.product.image_url).length;
   if (!USE_SOURCE_PHOTOS) console.log("  (photos disabled — see USE_SOURCE_PHOTOS)");
-  if (all.length < TARGET_ROWS) {
-    console.warn(
-      `\n  ! Only ${all.length} of ${TARGET_ROWS} rows after every category was exhausted. ` +
-        "Not itself an error — it means the skincare categories are the limit, not the cap.\n" +
-        "    Add a category to CATEGORIES if the catalogue needs to be bigger."
-    );
-  }
+  const stopped = stopMessage(state.stopReason, all.length);
+  if (stopped) console.warn(`\n${stopped}`);
   console.log(
     `\n${seen} records seen over ${pagesRead} request(s), ${all.length} usable ` +
       `(${withImage} with a photo), ` +
@@ -519,6 +631,8 @@ async function main() {
   // refreshed after importing nothing would hide the same breakage behind a
   // healthy-looking timestamp.
   if (all.length === 0) {
+    // Nothing to resume, and a leftover file would block the next run.
+    if (!DRY_RUN) rmSync(CHECKPOINT_FILE, { force: true });
     throw new Error(
       `No usable products found across ${pagesRead} page(s) of ${seen} records. ` +
         "Check the OBF endpoint and the gates above." +
@@ -562,15 +676,18 @@ async function main() {
   // than throwing, so every result is checked: an unchecked call would let a
   // partially-failed import reach the bookmark below and record success.
   // Throwing hands it to the top-level `main().catch()`, and the bookmark is
-  // then never written — so the next run simply redoes the whole thing, which
-  // is the correct recovery and needs no resume logic.
+  // then never written. `--resume` carries on from the checkpoint; each write
+  // replaces the product whole, so re-writing the few since the last save is
+  // harmless.
   //
   // A product already in the catalogue whose stored list differs from this one
   // only because the parser improved is not a reformulation, and must not
   // stamp `formula_changed_at` (migration 0021).
   const stored = await fetchStoredFormulas(db, all.map((r) => r.product.id));
-  let written = 0;
-  for (const r of all) {
+  // A resumed run skips the rows an earlier attempt already wrote. The array's
+  // order is the walk's, and the checkpoint keeps it, so the index is stable.
+  let written = state.written;
+  for (const r of all.slice(state.written)) {
     const { error } = await db.rpc("replace_product_with_ingredients", {
       p_product: r.product,
       p_ingredients: r.ingredients,
@@ -582,12 +699,15 @@ async function main() {
       ...(isParserRefresh(stored.get(r.product.id), r.ingredients, known, aliases) ? { p_parser_refresh: true } : {}),
     });
     if (error) {
+      saveCheckpoint(state);
       throw new Error(
         `replace_product_with_ingredients failed for ${r.product.id} ` +
           `(${written} of ${all.length} already written): ${error.message}`
       );
     }
     written += 1;
+    state.written = written;
+    if (written % 25 === 0) saveCheckpoint(state);
     process.stdout.write(`\r  ${written}/${all.length}`);
   }
 
@@ -612,6 +732,7 @@ async function main() {
     { onConflict: "source" }
   );
   if (bookmarkError) throw new Error(`sync_bookmarks upsert failed: ${bookmarkError.message}`);
+  rmSync(CHECKPOINT_FILE, { force: true });
 }
 
 /**
@@ -650,4 +771,17 @@ if (invokedDirectly()) {
 // Exported for `__tests__/import-obf-gates.test.ts`. Deliberately just the
 // pure parts — the gates and the parser — so a test never needs a network or a
 // service-role key to pin the behaviour this step is measured on.
-export { parseInci, toRow, guessType, normalise, retryAfterMs, MIN_KNOWN_INGREDIENT_RATIO };
+export {
+  parseInci,
+  toRow,
+  guessType,
+  normalise,
+  retryAfterMs,
+  MIN_KNOWN_INGREDIENT_RATIO,
+  stopMessage,
+  serialiseCheckpoint,
+  parseCheckpoint,
+  TARGET_ROWS,
+  MAX_REQUESTS,
+  PAGE_SIZE,
+};

@@ -63,10 +63,11 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
  * Rows *successfully touched* per run (changed, unchanged, or confirmed
  * gone from OBF — not retryable), regardless of `--limit`. Comfortably
  * inside a GitHub Actions job's runtime at 4.5s/row (~22 min for a full
- * batch on an ordinary night), and rotates through today's ~500-row `obf`
- * catalogue roughly every two nights. Raise this once step 7 lifts the
- * import cap and the catalogue actually grows — not before, since there is
- * nothing to gain from checking rows faster than OBF's own data changes.
+ * batch on an ordinary night). Step 7 (#180) lifted the import cap, and the
+ * `obf` catalogue it fills — ~1,100 rows, limited by OBF's skincare
+ * categories — rotates in about four nights. That is still faster than OBF's
+ * own data changes, so this stays; raise it only if a much larger catalogue
+ * makes a full rotation take weeks.
  */
 const BATCH_SIZE = 300;
 

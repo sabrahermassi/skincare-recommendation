@@ -34,6 +34,9 @@ web-build/
 # Metro
 .metro-health-check*
 
+# An unfinished `import:obf` run's progress — see CHECKPOINT_FILE in scripts/import-obf.mjs.
+.import-obf-checkpoint.json
+
 # debug
 npm-debug.*
 yarn-debug.*
