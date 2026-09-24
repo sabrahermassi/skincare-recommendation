@@ -1,8 +1,8 @@
 # Voice
 
 How for.me sounds, across verdicts, onboarding, and every empty, error and
-permission state (`FOR_ME_MVP.md` §25, "One voice across verdicts,
-onboarding and entries").
+permission state (`FOR_ME_MVP.md`, "Matching and content, in both tiers":
+"One voice across verdicts, onboarding and entries").
 
 ## This document loses to the claims policy
 
@@ -66,9 +66,9 @@ form is honest rather than lazy.
 
 > **What we ship:** "That's a lot of ingredient photos in a short time."
 > (`lib/read-label-photo.ts`) — not "rate-limited", a word about *our*
-> system, not theirs. `data/api.ts:374` states this directly: *"the person
-> reading this is holding a bottle in a shop, and the word is ours, not
-> theirs."*
+> system, not theirs. `data/api.ts`'s `rate-limited` case states this
+> directly: *"the person reading this is holding a bottle in a shop, and
+> the word is ours, not theirs."*
 >
 > **What we don't write:** "You've exceeded the request limit."
 
@@ -173,10 +173,13 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 | Empty states | `app/(tabs)/saved.tsx` (`EMPTY_COPY`) | No, same reason |
 | Journal notes | Not built yet — `#228`/`#229`/`#230`. This document exists so that copy has a voice to write against from the start. | N/A yet |
 
-**Out of scope, on purpose:** `INGREDIENT_RULES[].reason` (61 strings) and
-`PORE_CLOGGERS[].reason` (27 strings) are each a specific evidence claim —
-`CLAUDE.md` records that every rule carries "the sentence shown to the
-user." The claims-policy denylist catches a forbidden word; it does not
-catch a claim quietly softened or strengthened by a warmth pass. Rewriting
-89 evidence sentences needs an evidence review per sentence, not a voice
-pass, and is its own ticket if it happens at all.
+**Out of scope, on purpose:** `INGREDIENT_RULES[].reason` and
+`PORE_CLOGGERS[].reason` are each a specific evidence claim — `CLAUDE.md`
+records that every rule carries "the sentence shown to the user." The
+claims-policy denylist catches a forbidden word; it does not catch a
+claim quietly softened or strengthened by a warmth pass. Rewriting that
+many evidence sentences needs an evidence review per sentence, not a
+voice pass, and is its own ticket if it happens at all. (Deliberately not
+naming a count here: `CLAUDE.md` dropped its own hardcoded rule-count for
+the same reason — `INGREDIENT_RULES` grows independently of this
+document.)
