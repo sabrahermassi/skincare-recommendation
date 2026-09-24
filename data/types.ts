@@ -280,6 +280,13 @@ export type Product = {
    * changed, a distinction `fetchedAt` alone can't carry on its own.
    */
   formulaChangedAt?: string;
+  /**
+   * Where the row came from — "obf", "ocr", "inci_api" and so on. Decides
+   * which row a shared barcode resolves to on the device (`barcodeWinner`).
+   * Absent on rows from `product-lookup`, whose narrower select doesn't
+   * carry it, and on caches written before it was kept.
+   */
+  source?: string;
   /** Ordered INCI list — references `Ingredient.id`. */
   ingredientIds: string[];
   inStock: boolean;

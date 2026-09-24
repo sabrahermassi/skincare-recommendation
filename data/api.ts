@@ -9,6 +9,7 @@ import {
   forgetScanned,
   msSinceLastCheck,
   peekCatalogue,
+  productByBarcode,
   productById,
   productsForType,
   putCatalogue,
@@ -584,6 +585,7 @@ function buildProduct(
     attribution: row.attribution,
     fetchedAt: row.fetched_at ?? undefined,
     formulaChangedAt: row.formula_changed_at ?? undefined,
+    source: row.source,
     ingredientIds: ingredients.map((i) => i.id),
     inStock: row.in_stock,
     ingredients,
@@ -1113,6 +1115,55 @@ export async function fetchProductTypes(): Promise<ProductType[]> {
  * shipped in the bundle, and because a fresh fetch has to be written back with
  * the right licence terms attached.
  */
+/**
+ * How old a locally answered product's formula may be before a scan also asks
+ * the server about it. Roughly how long a formula read can go unchecked
+ * before a reformulation is worth a background call; the answer on screen
+ * never waits for it.
+ */
+export const LOCAL_RECHECK_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+function isDueForRecheck(product: ProductWithIngredients): boolean {
+  const readAt = product.fetchedAt ? Date.parse(product.fetchedAt) : Number.NaN;
+  return !Number.isFinite(readAt) || Date.now() - readAt > LOCAL_RECHECK_AFTER_MS;
+}
+
+const rechecking = new Set<string>();
+
+/**
+ * Ask `product-lookup` about a barcode already answered from the device, and
+ * replace the local copy only if the formula actually changed. Anything else —
+ * offline, a failure, the same list — leaves it alone.
+ *
+ * Deliberately not "the newest thing the user saw": the screen already showed
+ * the local copy, and `SavedProduct.formulaFetchedAt` must keep describing
+ * *that* formula so the reformulation notice compares against what was on
+ * screen. A changed formula arrives through the catalogue and the scan memory,
+ * where the next render and the next scan pick it up.
+ */
+async function recheckInBackground(barcode: string, local: ProductWithIngredients): Promise<void> {
+  if (rechecking.has(barcode)) return;
+  rechecking.add(barcode);
+  try {
+    const { data, error } = await supabase!.functions.invoke(LOOKUP_FUNCTION, {
+      body: { barcode },
+      timeout: NETWORK_TIMEOUT_MS,
+    });
+    if (error || !data) return;
+    const fresh = rowToProduct(data as CatalogueRow);
+    const unchanged =
+      fresh.ingredientIds.length === local.ingredientIds.length &&
+      fresh.ingredientIds.every((id, index) => id === local.ingredientIds[index]);
+    // Remembered either way, so another scan within the hour doesn't ask again.
+    putScanned(barcode, unchanged ? local : fresh);
+    if (!unchanged) addScannedToCatalogue(fresh);
+  } catch {
+    // A background check has no one to report to; the local answer stands.
+  } finally {
+    rechecking.delete(barcode);
+  }
+}
+
 export async function fetchProductByBarcode(
   barcode: string
 ): Promise<Fetched<ProductWithIngredients | null>> {
@@ -1122,7 +1173,22 @@ export async function fetchProductByBarcode(
     // backing out of the result and scanning again) should not re-run the
     // whole cascade.
     const remembered = readScanned(barcode);
-    if (remembered !== undefined) return { ok: true, value: remembered };
+    if (remembered) return { ok: true, value: remembered };
+
+    // The phone already holds the catalogue, so a barcode in it is answered
+    // here with no network call — no round trip, no rate-limit spend, and it
+    // works offline, where this used to say "Couldn't check this barcode"
+    // about a product in the phone's own cache (#196). An old copy is shown
+    // at once and re-checked behind it; see `recheckInBackground`.
+    const entry = peekCatalogue() ?? (await readCatalogue());
+    const local = entry ? productByBarcode(entry, barcode) : undefined;
+    if (local) {
+      if (isDueForRecheck(local)) void recheckInBackground(barcode, local);
+      return { ok: true, value: local };
+    }
+    // A remembered miss only after the catalogue: a refresh since that miss
+    // may have brought the product in, and the catalogue is the newer word.
+    if (remembered === null) return { ok: true, value: null };
 
     // A deadline, for the same reason the direct reads have one — and this is
     // the call that needed it most. The barcode cascade tries its sources in

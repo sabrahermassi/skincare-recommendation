@@ -246,6 +246,8 @@ type MemoryEntry = {
   /** Lazily filled, one stable array per type filter. */
   byType: Map<ProductType | "all", ProductWithIngredients[]>;
   byId: Map<string, ProductWithIngredients>;
+  /** One product per barcode, chosen by `barcodeWinner`. Rows with no barcode are left out. */
+  byBarcode: Map<string, ProductWithIngredients>;
   types: ProductType[] | null;
 };
 
@@ -350,12 +352,54 @@ function buildEntry(
   storedAt: number,
 ): MemoryEntry {
   const byId = new Map<string, ProductWithIngredients>();
-  for (const product of products) byId.set(product.id, product);
+  const byBarcode = new Map<string, ProductWithIngredients>();
+  for (const product of products) {
+    byId.set(product.id, product);
+    if (!product.barcode) continue;
+    const held = byBarcode.get(product.barcode);
+    byBarcode.set(product.barcode, held ? barcodeWinner(held, product) : product);
+  }
 
   const byType = new Map<ProductType | "all", ProductWithIngredients[]>();
   byType.set("all", products);
 
-  return { products, watermark, storedAt, byType, byId, types: null };
+  return { products, watermark, storedAt, byType, byId, byBarcode, types: null };
+}
+
+/**
+ * Which source's row answers a barcode when two rows share one — an imported
+ * row and a user's `ocr-<barcode>` save of the same bottle can coexist, and so
+ * can a register row once #181 lands. The rule is #181's precedence: a fresh
+ * user read of the physical box beats a government register, which beats a
+ * crowdsourced or commercial entry. Higher wins.
+ */
+const BARCODE_SOURCE_RANK: Record<string, number> = { ocr: 2, mfds: 1 };
+
+/**
+ * Where a row came from: its `source` column, or — for a row from a producer
+ * that doesn't select it, or a cache written before it was kept — the prefix
+ * every writer puts on the id (`obf-`, `ocr-`, `inci-`).
+ */
+function sourceOf(product: ProductWithIngredients): string {
+  return product.source ?? product.id.split("-")[0];
+}
+
+/**
+ * The row a barcode resolves to. Source first, then the more recently read
+ * formula, then the lower id — a total order, so two devices holding the same
+ * catalogue always resolve the same barcode to the same product.
+ */
+export function barcodeWinner(
+  a: ProductWithIngredients,
+  b: ProductWithIngredients,
+): ProductWithIngredients {
+  const rankA = BARCODE_SOURCE_RANK[sourceOf(a)] ?? 0;
+  const rankB = BARCODE_SOURCE_RANK[sourceOf(b)] ?? 0;
+  if (rankA !== rankB) return rankA > rankB ? a : b;
+  const readA = a.fetchedAt ?? "";
+  const readB = b.fetchedAt ?? "";
+  if (readA !== readB) return readA > readB ? a : b;
+  return a.id <= b.id ? a : b;
 }
 
 /**
@@ -1329,6 +1373,14 @@ export function productById(
   id: string,
 ): ProductWithIngredients | undefined {
   return entry.byId.get(id);
+}
+
+/** The product this barcode resolves to on this device, if the catalogue holds one. See `barcodeWinner`. */
+export function productByBarcode(
+  entry: MemoryEntry,
+  barcode: string,
+): ProductWithIngredients | undefined {
+  return entry.byBarcode.get(barcode);
 }
 
 /** Distinct types present, cached so the filter bar stops issuing its own query. */
