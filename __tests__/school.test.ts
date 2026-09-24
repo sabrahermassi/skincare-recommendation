@@ -59,7 +59,10 @@ describe("Skincare School content", () => {
   });
 
   it("names a missing skin profile as a reason it can't tell, not only the photo", () => {
-    expect(questions.find((q) => q.id === "cant-tell")!.answer).toMatch(/skin-profile questions/);
+    const answer = questions.find((q) => q.id === "cant-tell")!.answer;
+    expect(answer).toMatch(/no skin type and no concerns/);
+    // #263 review round 5: "I don't know" to both still leaves nothing to match on.
+    expect(answer).toMatch(/Pick a skin type or at least one concern/);
   });
 
   it("has no empty question or answer", () => {
