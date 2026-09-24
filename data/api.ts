@@ -1,4 +1,5 @@
 import { defaultPackagingType } from "@/components/BottleIcon";
+import type { Shelf, ShelfPush } from "@/lib/shelf";
 import { isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@/lib/supabase";
 import {
   abandonDiskRead,
@@ -1645,4 +1646,154 @@ export async function searchProducts(query: string): Promise<ProductWithIngredie
       .slice(0, SEARCH_RESULT_LIMIT)
       .map(resolveIngredients)
   );
+}
+
+// ── The signed-in shelf (#223) ──────────────────────────────────────────────
+//
+// The server half of lib/shelf.ts. The store holds the cached shelf and the
+// queue; these two functions are the only place it touches the wire. Both
+// run as the signed-in user: the client carries their session, and the
+// tables' own policies (migration 0025) keep every read and write to their
+// rows. `owner` is sent explicitly on writes so a row can only ever be
+// written for the account the cache belongs to — a policy refuses anything
+// else anyway.
+
+type ShelfProductRow = { product_id: string; saved_at: string; formula_fetched_at: string | null };
+type ShelfIngredientRow = { inci_name: string; saved_at: string };
+
+const NO_BACKEND: FetchFailure = { kind: "server", message: "no backend configured" };
+
+/** Reads the account's whole shelf. Never rejects. */
+export async function fetchShelf(): Promise<Fetched<Shelf>> {
+  if (!usingSupabase()) return { ok: false, failure: NO_BACKEND };
+  try {
+    const [products, ingredients] = await Promise.all([
+      withTimeout(
+        (signal) =>
+          supabase!
+            .from("saved_products")
+            .select("product_id, saved_at, formula_fetched_at")
+            .order("saved_at", { ascending: true })
+            .abortSignal(signal),
+        "fetchShelf products",
+      ),
+      withTimeout(
+        (signal) =>
+          supabase!
+            .from("saved_ingredients")
+            .select("inci_name, saved_at")
+            .order("saved_at", { ascending: true })
+            .abortSignal(signal),
+        "fetchShelf ingredients",
+      ),
+    ]);
+    if (products.error) return { ok: false, failure: classifyFailure(products.error) };
+    if (ingredients.error) return { ok: false, failure: classifyFailure(ingredients.error) };
+    return {
+      ok: true,
+      value: {
+        products: (products.data as ShelfProductRow[]).map((row) => ({
+          id: row.product_id,
+          savedAt: Date.parse(row.saved_at),
+          // Postgres answers "…+00:00"; the device writes "…Z". Same instant,
+          // and the formula-changed notice compares with Date.parse, but one
+          // spelling in the cache keeps it from ever looking like a change.
+          formulaFetchedAt: row.formula_fetched_at ? new Date(row.formula_fetched_at).toISOString() : undefined,
+        })),
+        ingredients: (ingredients.data as ShelfIngredientRow[]).map((row) => row.inci_name),
+      },
+    };
+  } catch (err) {
+    return { ok: false, failure: classifyFailure(err) };
+  }
+}
+
+/**
+ * Pushes one batch of queued shelf changes (already reduced by `planPush`).
+ * Never rejects. Safe to repeat: every step is idempotent, so a batch that
+ * half-landed before a failure is simply pushed again whole.
+ */
+export async function pushShelf(owner: string, push: ShelfPush): Promise<Fetched<void>> {
+  if (!usingSupabase()) return { ok: false, failure: NO_BACKEND };
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const run = async (label: string, request: (signal: AbortSignal) => PromiseLike<{ error: unknown }>) => {
+    const { error } = await withTimeout(request, label);
+    if (error) throw error;
+  };
+  try {
+    // Removals first, so a remove-then-save in the same batch lands as a new row.
+    if (push.deleteProducts.length > 0) {
+      await run("pushShelf delete products", (signal) =>
+        supabase!.from("saved_products").delete().eq("user_id", owner).in("product_id", push.deleteProducts).abortSignal(signal),
+      );
+    }
+    if (push.deleteIngredients.length > 0) {
+      await run("pushShelf delete ingredients", (signal) =>
+        supabase!.from("saved_ingredients").delete().eq("user_id", owner).in("inci_name", push.deleteIngredients).abortSignal(signal),
+      );
+    }
+
+    // Saves: insert what the account doesn't have, leave what it does.
+    // `note` and `routine_step` are never in the payload, so a save can never
+    // blank what the person wrote on another phone.
+    if (push.saveProducts.length > 0) {
+      await run("pushShelf save products", (signal) =>
+        supabase!
+          .from("saved_products")
+          .upsert(
+            push.saveProducts.map((p) => ({
+              user_id: owner,
+              product_id: p.id,
+              saved_at: iso(p.savedAt),
+              formula_fetched_at: p.formulaFetchedAt ?? null,
+            })),
+            { onConflict: "user_id,product_id", ignoreDuplicates: true },
+          )
+          .abortSignal(signal),
+      );
+    }
+    if (push.saveIngredients.length > 0) {
+      await run("pushShelf save ingredients", (signal) =>
+        supabase!
+          .from("saved_ingredients")
+          .upsert(
+            push.saveIngredients.map((i) => ({ user_id: owner, inci_name: i.name, saved_at: iso(i.savedAt) })),
+            { onConflict: "user_id,inci_name", ignoreDuplicates: true },
+          )
+          .abortSignal(signal),
+      );
+    }
+
+    // Earliest save wins: where the account already had the item from a later
+    // save (another phone, or a shelf carried in from before accounts), this
+    // device's earlier time — and the formula it saw then — replaces it. A
+    // `fresh` save follows a removal in this batch, so its row is new.
+    for (const p of push.saveProducts) {
+      if (p.fresh) continue;
+      await run("pushShelf earliest product", (signal) =>
+        supabase!
+          .from("saved_products")
+          .update({ saved_at: iso(p.savedAt), formula_fetched_at: p.formulaFetchedAt ?? null })
+          .eq("user_id", owner)
+          .eq("product_id", p.id)
+          .gt("saved_at", iso(p.savedAt))
+          .abortSignal(signal),
+      );
+    }
+    for (const i of push.saveIngredients) {
+      if (i.fresh) continue;
+      await run("pushShelf earliest ingredient", (signal) =>
+        supabase!
+          .from("saved_ingredients")
+          .update({ saved_at: iso(i.savedAt) })
+          .eq("user_id", owner)
+          .eq("inci_name", i.name)
+          .gt("saved_at", iso(i.savedAt))
+          .abortSignal(signal),
+      );
+    }
+    return { ok: true, value: undefined };
+  } catch (err) {
+    return { ok: false, failure: classifyFailure(err) };
+  }
 }

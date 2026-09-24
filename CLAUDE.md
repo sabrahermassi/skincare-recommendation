@@ -160,6 +160,15 @@ that every write site stays known and reviewable — see
 `docs/device-storage-policy.md` for which data class goes where and why the
 catalogue earned its own file.
 
+**The saved shelf is an account's, cached on the device (#222, #223).**
+Signed in, `savedProducts`/`savedIngredients` are a cache of the server's
+`saved_products`/`saved_ingredients`, and every store action that changes
+them also queues the change (`shelfQueue`) while `shelfOwner` is set.
+`lib/shelf-sync.ts` pushes and reads back; `lib/shelf.ts` holds the conflict
+rule. A new action that touches the shelf must queue its change too, or the
+next sync silently undoes it. Sign-out clears the shelf, never the profile
+or history.
+
 Profile shape: `concerns` (max `MAX_CONCERNS` = 3), `baseSkinType`
 (nullable — "I don't know" is a real answer), `sensitivity`
 (`"none" | "some" | "high" | null`), `pregnancyStatus` (nullable). No

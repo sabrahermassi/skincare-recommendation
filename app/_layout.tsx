@@ -15,6 +15,7 @@ import { AppState } from "react-native";
 
 import { startAuth } from "@/lib/auth";
 import { COLORS } from "@/lib/colors";
+import { startShelfSync } from "@/lib/shelf-sync";
 import { revalidateOnForeground, warmCatalogue } from "@/data/api";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -83,6 +84,9 @@ export default function RootLayout() {
   // Follows the stored session, sign-ins and sign-outs for the life of the
   // app, and pauses token refresh while it is in the background.
   useEffect(() => startAuth(), []);
+
+  // Keeps a signed-in shelf in step with the account (#223).
+  useEffect(() => startShelfSync(), []);
 
   const ready = fontsLoaded && hydrated && catalogueWarm;
 

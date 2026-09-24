@@ -797,13 +797,13 @@ const EMPTY_COPY: Record<Tab, EmptyCopy> = {
 export const GUEST_EMPTY_COPY: Partial<Record<Tab, EmptyCopy>> = {
   saved: {
     title: "Keep a shelf of your own",
-    body: "Sign in and anything you save waits for you here. Scanning never needs an account.",
+    body: "Sign in and anything you save stays with you, on every phone you use. Scanning never needs an account.",
     actionLabel: "Sign in",
     actionHref: "/sign-in",
   },
   ingredients: {
     title: "Keep the ingredients you trust",
-    body: "Sign in to star ingredients and find them here.",
+    body: "Sign in to star ingredients and find them here, on every phone you use.",
     actionLabel: "Sign in",
     actionHref: "/sign-in",
   },
