@@ -20,6 +20,7 @@ import { openScanner } from "@/lib/genie";
 import { matchProduct, matchTone } from "@/lib/matching";
 import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
 import { isVerified } from "@/lib/safety";
+import { useCanSave } from "@/lib/save-gate";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
@@ -192,6 +193,9 @@ export default function Saved() {
     { saved: savedIds.length, history: history.length, ingredients: savedIngredients.length },
     undo?.kind,
   );
+  // A guest's empty shelf invites sign-in rather than implying nothing has
+  // been saved yet (#221).
+  const canSave = useCanSave();
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
@@ -243,7 +247,7 @@ export default function Saved() {
       </View>
 
       {isEmpty ? (
-        <EmptyState tab={tab} />
+        <EmptyState tab={tab} guest={!canSave} />
       ) : tab === "ingredients" ? (
         <IngredientsTab
           key="ingredients"
@@ -760,7 +764,9 @@ const EMPTY_ART = {
   ingredients: { source: require("@/assets/illustrations/ingredients-empty.png"), aspect: 1400 / 855 },
 } as const;
 
-const EMPTY_COPY: Record<Tab, { title: string; body: string; actionLabel: string; actionHref: "/scanner" | "/browse" }> = {
+type EmptyCopy = { title: string; body: string; actionLabel: string; actionHref: "/scanner" | "/browse" | "/sign-in" };
+
+const EMPTY_COPY: Record<Tab, EmptyCopy> = {
   saved: {
     title: "No products saved yet",
     body: "Tap Save on any product and it will wait for you here - including next time you open the app.",
@@ -778,6 +784,28 @@ const EMPTY_COPY: Record<Tab, { title: string; body: string; actionLabel: string
     body: "Open a product, tap an ingredient, then tap its star to keep it here.",
     actionLabel: "Browse products",
     actionHref: "/browse",
+  },
+};
+
+/**
+ * What a guest sees instead, on the two tabs that fill by saving (#221).
+ * Saving needs an account, so "nothing saved yet" would be untrue for them:
+ * they can't. This is the Save action's own destination explaining itself,
+ * not a second sign-up prompt. History is open to everyone, so it has none.
+ * Exported for the tests.
+ */
+export const GUEST_EMPTY_COPY: Partial<Record<Tab, EmptyCopy>> = {
+  saved: {
+    title: "Keep a shelf of your own",
+    body: "Sign in and anything you save stays with you, on every phone you use. Scanning never needs an account.",
+    actionLabel: "Sign in",
+    actionHref: "/sign-in",
+  },
+  ingredients: {
+    title: "Keep the ingredients you trust",
+    body: "Sign in to star ingredients and find them here, on every phone you use.",
+    actionLabel: "Sign in",
+    actionHref: "/sign-in",
   },
 };
 
@@ -819,7 +847,7 @@ function useReduceMotion(): boolean | null {
  * moves: the title, the sentence and the button change in place at once, so they
  * stay solid on the screen.
  */
-function EmptyState({ tab }: { tab: Tab }) {
+function EmptyState({ tab, guest }: { tab: Tab; guest: boolean }) {
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
   const [artOpacity] = useState(
@@ -841,7 +869,7 @@ function EmptyState({ tab }: { tab: Tab }) {
     return () => pictures.stop();
   }, [tab, artOpacity, reduceMotion]);
 
-  const { title, body, actionLabel, actionHref } = EMPTY_COPY[tab];
+  const { title, body, actionLabel, actionHref } = (guest ? GUEST_EMPTY_COPY[tab] : undefined) ?? EMPTY_COPY[tab];
 
   return (
     // Asymmetric flex spacers (0.4/0.6), not `justifyContent: "center"" —

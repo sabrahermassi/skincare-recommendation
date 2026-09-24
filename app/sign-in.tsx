@@ -12,9 +12,11 @@ import {
   signInFailureCopy,
   signInWithApple,
   signInWithGoogle,
+  useAuth,
   type Provider,
   type SignInResult,
 } from "@/lib/auth";
+import { completePendingSave, dropPendingSave } from "@/lib/save-gate";
 import { CANVAS, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 /** The same height as the app's own detail-screen buttons (`PrimaryButton` size 52). */
@@ -43,8 +45,21 @@ export default function SignIn() {
     });
     return () => {
       cancelled = true;
+      // Closed without signing in: the save that opened this sheet is dropped
+      // (#221). After a sign-in it has already run, so this does nothing.
+      dropPendingSave();
     };
   }, []);
+
+  // Signed in — by a button here, or by a stored session that finished
+  // loading after a Save tap opened this sheet. Either way the save the
+  // person asked for happens now, and the sheet gets out of the way.
+  const status = useAuth((s) => s.status);
+  useEffect(() => {
+    if (status !== "signed-in") return;
+    completePendingSave();
+    router.back();
+  }, [status]);
 
   const signIn = async (provider: Provider) => {
     if (busy) return;
@@ -52,9 +67,10 @@ export default function SignIn() {
     setFailure(null);
     const result: SignInResult = provider === "apple" ? await signInWithApple() : await signInWithGoogle();
     setBusy(null);
-    if (result.ok) {
-      router.back();
-    } else if (result.reason === "failed") {
+    // Success needs nothing here: the session arrives through `useAuth`, and
+    // the effect above closes the sheet.
+    if (result.ok) return;
+    if (result.reason === "failed") {
       setFailure(signInFailureCopy(result.kind, provider));
     } else if (result.reason === "unavailable") {
       setFailure(UNAVAILABLE);
