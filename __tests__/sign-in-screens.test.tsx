@@ -52,6 +52,7 @@ const { default: SignIn, HIDE_MY_EMAIL_NOTE } = require("@/app/sign-in") as type
 const {
   default: Account,
   HIDDEN_EMAIL_NOTE,
+  SIGN_OUT_FAILED,
   SIGNED_OUT_HERE_ONLY,
 } = require("@/app/account") as typeof import("@/app/account");
 const { useAuth } = require("@/lib/auth") as typeof import("@/lib/auth");
@@ -140,6 +141,14 @@ describe("the account screen", () => {
     await render(<Account />);
     await act(async () => fireEvent.press(screen.getByText("Sign out on every device")));
     expect(screen.getByText(SIGNED_OUT_HERE_ONLY)).toBeTruthy();
+  });
+
+  it("says so when this phone could not be signed out, instead of spinning", async () => {
+    mockSignOut.mockRejectedValueOnce(new Error("Keychain busy"));
+    useAuth.setState({ status: "signed-in", session: session("jane@gmail.com", ["google"]) });
+    await render(<Account />);
+    await act(async () => fireEvent.press(screen.getByText("Sign out")));
+    expect(screen.getByText(SIGN_OUT_FAILED)).toBeTruthy();
   });
 
   it("offers the sign-in sheet when signed out, and nothing else stands in the way", async () => {

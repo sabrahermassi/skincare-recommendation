@@ -23,13 +23,21 @@ export default function Account() {
   const leave = async (everywhere: boolean) => {
     setWorking(true);
     setNotice(null);
-    if (everywhere) {
-      const reachedServer = await signOutEverywhere();
-      setNotice(reachedServer ? SIGNED_OUT_EVERYWHERE : SIGNED_OUT_HERE_ONLY);
-    } else {
-      await signOut();
+    try {
+      if (everywhere) {
+        const reachedServer = await signOutEverywhere();
+        setNotice(reachedServer ? SIGNED_OUT_EVERYWHERE : SIGNED_OUT_HERE_ONLY);
+      } else {
+        await signOut();
+      }
+    } catch {
+      // The phone's secure storage refused to let go of the session
+      // (lib/secure-storage.ts's `removeItem`). Rare, and worth saying
+      // plainly rather than leaving the button spinning.
+      setNotice(SIGN_OUT_FAILED);
+    } finally {
+      setWorking(false);
     }
-    setWorking(false);
   };
 
   return (
@@ -103,5 +111,6 @@ function SignedIn({
 export const HIDDEN_EMAIL_NOTE =
   "This is the address Apple made with Hide My Email. It forwards to your own inbox.";
 export const SIGNED_OUT_EVERYWHERE = "You're signed out on every device.";
+export const SIGN_OUT_FAILED = "We couldn't sign you out on this phone. Restart the app and try again.";
 export const SIGNED_OUT_HERE_ONLY =
   "You're signed out on this phone, but we couldn't reach our servers to sign out your other devices. Sign in and try again when you have a signal.";
