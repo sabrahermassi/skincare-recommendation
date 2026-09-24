@@ -90,7 +90,11 @@ async function readManifest(): Promise<Manifest | null> {
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
     const manifest: Manifest = {};
     for (const [key, chunks] of Object.entries(parsed)) {
-      if (VALID_KEY.test(key) && Number.isInteger(chunks) && (chunks as number) >= 0) manifest[key] = chunks as number;
+      // One bad entry makes the whole list untrustworthy: skipping it would
+      // let a reinstall purge "everything" while missing exactly the key the
+      // entry named, and then trust what that key still holds (#270 review).
+      if (!VALID_KEY.test(key) || !Number.isInteger(chunks) || (chunks as number) < 0) return null;
+      manifest[key] = chunks as number;
     }
     return manifest;
   } catch {
