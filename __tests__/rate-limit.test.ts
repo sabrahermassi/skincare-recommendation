@@ -1,12 +1,15 @@
 import {
   callerKey,
+  chargeTo,
   consumeRateLimit,
   fingerprintCaller,
   resetRateLimits,
+  resetVerifiedTokens,
   retryAfterSeconds,
   withinRateLimit,
   type RateLimit,
   type RateLimitDb,
+  type SessionVerifier,
 } from "@/lib/rate-limit";
 
 /**
@@ -628,5 +631,85 @@ describe("who the caller is", () => {
 
   it("says unknown rather than throwing when nothing identifies the caller", () => {
     expect(callerKey(req({}))).toBe("unknown");
+  });
+});
+
+// #241: a signed-in caller is charged to their account, a guest to their
+// address — and a token is believed only once Auth has confirmed it.
+describe("who a request is charged to", () => {
+  const base64url = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const token = (claims: object) => `${base64url({ alg: "HS256" })}.${base64url(claims)}.signature`;
+  const inAnHour = Math.floor(Date.now() / 1000) + 3600;
+  const USER_TOKEN = token({ role: "authenticated", sub: "u-1", exp: inAnHour });
+  const ANON_KEY = token({ role: "anon" });
+
+  const request = (bearer: string | null, address = "81.229.14.22") =>
+    new Request("https://x/", {
+      headers: { "cf-connecting-ip": address, ...(bearer ? { authorization: `Bearer ${bearer}` } : {}) },
+    });
+
+  function auth(answer: { id: string } | null | "throws"): SessionVerifier & { calls: string[] } {
+    const calls: string[] = [];
+    return {
+      calls,
+      getUser(jwt) {
+        calls.push(jwt);
+        if (answer === "throws") return Promise.reject(new Error("auth down"));
+        return Promise.resolve(answer ? { data: { user: answer }, error: null } : { data: { user: null }, error: "bad" });
+      },
+    };
+  }
+
+  beforeEach(() => resetVerifiedTokens());
+
+  it("charges a guest by address, without asking Auth", async () => {
+    const verifier = auth({ id: "u-1" });
+    expect(await chargeTo(request(ANON_KEY), verifier)).toBe("81.229.14.22");
+    expect(await chargeTo(request(null), verifier)).toBe("81.229.14.22");
+    expect(await chargeTo(request("not-a-jwt"), verifier)).toBe("81.229.14.22");
+    expect(verifier.calls).toEqual([]);
+  });
+
+  it("charges a confirmed account by its id, wherever it connects from", async () => {
+    const verifier = auth({ id: "u-1" });
+    expect(await chargeTo(request(USER_TOKEN, "81.229.14.22"), verifier)).toBe("user:u-1");
+    expect(await chargeTo(request(USER_TOKEN, "203.0.113.9"), verifier)).toBe("user:u-1");
+  });
+
+  it("asks Auth once per token, not once per request", async () => {
+    const verifier = auth({ id: "u-1" });
+    await chargeTo(request(USER_TOKEN), verifier);
+    await chargeTo(request(USER_TOKEN), verifier);
+    expect(verifier.calls).toHaveLength(1);
+  });
+
+  it("charges a token Auth refuses by address — a forged sub gets no bucket of its own", async () => {
+    const verifier = auth(null);
+    const forged = token({ role: "authenticated", sub: "anyone-i-like", exp: inAnHour });
+    expect(await chargeTo(request(forged), verifier)).toBe("81.229.14.22");
+    // Remembered, so the same bad token isn't sent to Auth on every request.
+    await chargeTo(request(forged), verifier);
+    expect(verifier.calls).toHaveLength(1);
+  });
+
+  it("falls back to the address when Auth can't be reached, and asks again next time", async () => {
+    const verifier = auth("throws");
+    expect(await chargeTo(request(USER_TOKEN), verifier)).toBe("81.229.14.22");
+    await chargeTo(request(USER_TOKEN), verifier);
+    expect(verifier.calls).toHaveLength(2);
+  });
+
+  it("charges by address when no verifier is available", async () => {
+    expect(await chargeTo(request(USER_TOKEN), undefined)).toBe("81.229.14.22");
+  });
+
+  it("gives an account one allowance across two networks", async () => {
+    const verifier = auth({ id: "u-1" });
+    const counter = db(ALLOWED);
+    for (const address of ["81.229.14.22", "203.0.113.9", "81.229.14.22", "203.0.113.9"]) {
+      await consumeRateLimit(counter, "b", await chargeTo(request(USER_TOKEN, address), verifier), LIMIT, OPTS);
+    }
+    // The fourth request was refused locally: both networks shared one tally.
+    expect(counter.calls).toHaveLength(LIMIT.maxRequests);
   });
 });

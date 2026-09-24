@@ -29,7 +29,8 @@
     "audit:data": "npm run audit:duplicate-ingredients && npm run audit:safety-labels && npm run audit:function-tags && npm run audit:ingredient-coverage -- --check",
     "promotion-plan": "node scripts/promotion-plan.mjs",
     "check:shelf-rls": "node scripts/check-shelf-rls.mjs",
-    "check:delete-account": "node scripts/check-delete-account.mjs"
+    "check:delete-account": "node scripts/check-delete-account.mjs",
+    "check:cors": "node scripts/check-cors.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/caveat": "^0.4.2",

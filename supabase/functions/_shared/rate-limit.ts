@@ -27,6 +27,13 @@ export type RateLimitDb = {
       p_max_requests: number;
     },
   ): PromiseLike<{ data: unknown; error: unknown }>;
+  /** Confirms a signed-in caller's token (#241). Absent, everyone is charged by address. */
+  auth?: SessionVerifier;
+};
+
+/** The part of a Supabase client that can confirm a session token is real. */
+export type SessionVerifier = {
+  getUser(jwt: string): PromiseLike<{ data: { user: { id: string } | null }; error: unknown }>;
 };
 
 // ── Windows ─────────────────────────────────────────────────────────────────
@@ -309,6 +316,91 @@ export function callerKey(req: Request): string {
   // direction to be wrong in. Read the note above for why this is not a
   // fallback but a refusal to guess.
   return "unknown";
+}
+
+// ── Signed-in callers (#241) ────────────────────────────────────────────────
+
+/**
+ * A signed-in caller's confirmed account id, cached per isolate until the
+ * token expires — or, for a token Auth refused, for a minute. `null` is a
+ * refusal worth remembering, so the same bad token isn't sent to Auth again.
+ */
+const verified = new Map<string, { account: string | null; until: number }>();
+const REFUSED_TOKEN_TTL_MS = 60_000;
+
+/** For tests, which would otherwise carry one case's verdicts into the next. */
+export function resetVerifiedTokens(): void {
+  verified.clear();
+}
+
+function bearerToken(req: Request): string | null {
+  const match = /^Bearer\s+(\S+)$/i.exec(req.headers.get("authorization") ?? "");
+  return match ? match[1] : null;
+}
+
+/**
+ * The token's claims, **unverified** — read only to decide whether it is
+ * worth asking Auth about. Nothing here is trusted until `getUser` agrees.
+ */
+function unverifiedClaims(token: string): { role?: unknown; sub?: unknown; exp?: unknown } | null {
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(base64 + "=".repeat((4 - (base64.length % 4)) % 4)));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The account behind this request, or `null` for a guest.
+ *
+ * Guests send the project's anon key, whose `role` is `anon`, and never reach
+ * Auth. A token claiming `authenticated` is checked with Auth before its
+ * `sub` is believed: the gateway's own JWT check already refuses a forged
+ * signature, but a function deployed without it would otherwise let a caller
+ * write any `sub` they liked and mint a fresh bucket per request — the exact
+ * failure `callerKey` refuses `x-device-id` for. Anything Auth doesn't
+ * confirm, or can't be asked about, is treated as a guest and charged by
+ * address, which still limits it.
+ */
+export async function signedInAccount(req: Request, auth: SessionVerifier | undefined): Promise<string | null> {
+  if (!auth) return null;
+  const token = bearerToken(req);
+  if (!token) return null;
+  const claims = unverifiedClaims(token);
+  if (claims?.role !== "authenticated" || typeof claims.sub !== "string") return null;
+
+  const now = Date.now();
+  const cached = verified.get(token);
+  if (cached && cached.until > now) return cached.account;
+
+  let account: string | null = null;
+  try {
+    const { data, error } = await auth.getUser(token);
+    if (!error && data.user) account = data.user.id;
+  } catch {
+    // Auth unreachable: charged by address this time, and asked again next time.
+    return null;
+  }
+  const expires = typeof claims.exp === "number" ? claims.exp * 1000 : now;
+  if (verified.size > 5_000) {
+    for (const [t, v] of verified) if (v.until <= now) verified.delete(t);
+  }
+  verified.set(token, { account, until: account ? expires : now + REFUSED_TOKEN_TTL_MS });
+  return account;
+}
+
+/**
+ * Who a request is charged to: a signed-in account by its id, so a network
+ * change doesn't hand it a fresh allowance and a shared café connection
+ * doesn't make strangers share one; everyone else by address, as before.
+ * Scanning stays open to guests, so the address bucket stays too.
+ */
+export async function chargeTo(req: Request, auth: SessionVerifier | undefined): Promise<string> {
+  const account = await signedInAccount(req, auth);
+  return account ? `user:${account}` : callerKey(req);
 }
 
 // ── The caller fingerprint ──────────────────────────────────────────────────

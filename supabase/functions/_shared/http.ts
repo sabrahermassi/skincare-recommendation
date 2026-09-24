@@ -11,7 +11,7 @@
 // for the same lesson learned on the parser.
 
 import {
-  callerKey,
+  chargeTo,
   consumeRateLimit,
   retryAfterSeconds,
   type RateLimit,
@@ -27,11 +27,18 @@ import {
  * exactly how this went unnoticed: `data/api.ts` maps the failure to
  * "unreadable", so a blocked preflight looked like a bad photo.
  *
- * `ALLOWED_ORIGINS` (comma-separated) narrows this when set. Unset falls back
- * to `*`, which is safe *today* and only today: these endpoints are
- * unauthenticated, carry no cookies and hold no session, so a wildcard grants a
- * hostile page nothing it could not get with curl. The moment accounts exist,
- * set the variable — issue #31 tracks the policy.
+ * `ALLOWED_ORIGINS` (comma-separated) narrows this, and **accounts exist now
+ * (#218), so every deployed environment must set it** (#241). Only browsers
+ * send an Origin; the iOS app sends none and is unaffected either way. A
+ * value that names no real origin — `none` — refuses every browser, which
+ * is right for production while there is no web app; staging lists the
+ * local web dev server. No `Access-Control-Allow-Credentials` is ever sent,
+ * so even a wildcard never lets a page ride a cookie — but a session token
+ * is a credential, and a wildcard is not a policy.
+ *
+ * Unset still falls back to `*`, and only so a fresh local `supabase
+ * functions serve` works without configuration. `npm run check:cors` asks a
+ * deployed environment directly whether it is relying on that.
  */
 const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
   .split(",")
@@ -144,7 +151,9 @@ export async function enforceRateLimit(
   // id — the whole point is that a user quoting it lands on one line.
   const rid = requestId(req);
 
-  const allowed = await consumeRateLimit(db, bucket, callerKey(req), limit, {
+  // A signed-in caller is charged to their account, a guest to their address
+  // (#241). The fingerprint below turns either into the same opaque key.
+  const allowed = await consumeRateLimit(db, bucket, await chargeTo(req, db.auth), limit, {
     secret: callerSalt(),
     requestId: rid,
   });
@@ -160,8 +169,9 @@ export async function enforceRateLimit(
 
 
 // Types only. The three values that used to be re-exported here —
-// `callerKey`, `consumeRateLimit` and `retryAfterSeconds` — are now called by
-// `enforceRateLimit` above and by nothing else, so passing them back out again
+// `callerKey`, `consumeRateLimit` and `retryAfterSeconds` — are now reached
+// through `enforceRateLimit` above (`callerKey` by way of `chargeTo`) and
+// nothing else, so passing them back out again
 // kept alive a surface no function used. That is the same finding an earlier
 // review made about `withinRateLimit` and `resetRateLimits`, and extracting
 // `enforceRateLimit` quietly recreated it; the comment here went on claiming
