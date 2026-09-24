@@ -94,6 +94,29 @@ describe("saveScannedProduct", () => {
     expect(await saveScannedProduct(input)).toEqual({ ok: false, reason: "expired" });
   });
 
+  it("names what's wrong with a refused name, and keeps other 422s as unreadable_list (#200)", async () => {
+    const refused = (problem: string) =>
+      errorWithStatus(422, { error: "bad_product_text", field: "name", problem });
+
+    mockInvoke.mockResolvedValue({ data: null, error: refused("url") });
+    expect(await saveScannedProduct(input)).toEqual({ ok: false, reason: "name_has_url" });
+    mockInvoke.mockResolvedValue({ data: null, error: refused("repetition") });
+    expect(await saveScannedProduct(input)).toEqual({ ok: false, reason: "name_repeats" });
+    for (const problem of ["punctuation", "control"]) {
+      mockInvoke.mockResolvedValue({ data: null, error: refused(problem) });
+      expect(await saveScannedProduct(input)).toEqual({ ok: false, reason: "name_unreadable" });
+    }
+
+    mockInvoke.mockResolvedValue({ data: null, error: errorWithStatus(422, { error: "too_many_new_ingredients" }) });
+    expect(await saveScannedProduct(input)).toEqual({ ok: false, reason: "unreadable_list" });
+  });
+
+  it("sends the picked product type with the save", async () => {
+    mockInvoke.mockResolvedValue({ data: {}, error: null });
+    await saveScannedProduct({ ...input, type: "toner" });
+    expect(mockInvoke).toHaveBeenCalledWith("label-ocr", expect.objectContaining({ body: expect.objectContaining({ type: "toner" }) }));
+  });
+
   // The core #188 fix: the write already committed (data.product is
   // present), but the client can't parse it. This must return a failure —
   // never throw — and it must be distinguishable from a network failure so

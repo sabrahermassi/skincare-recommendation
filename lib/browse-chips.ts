@@ -5,7 +5,7 @@ import { PRODUCT_TYPE_LABEL, type ProductType } from "@/data/types";
  * largest first, as counted from the live catalogue on 2026-09-19. Fixed on
  * purpose: the order is a rough guide set once, not re-sorted on every import.
  */
-const LEADING_TYPES: ProductType[] = [
+export const LEADING_TYPES: ProductType[] = [
   "sunscreen",
   "moisturizer",
   "cleanser",

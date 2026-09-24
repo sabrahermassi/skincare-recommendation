@@ -1343,7 +1343,14 @@ export type SaveProductResult =
          * read token and land on `expired`; recovery is a barcode lookup
          * for the barcode just submitted, not a re-save (#188).
          */
-        | "already_saved";
+        | "already_saved"
+        /**
+         * label-ocr refused the name before saving anything (#200) — the read
+         * token is untouched, so fixing the name and saving again works.
+         */
+        | "name_has_url"
+        | "name_unreadable"
+        | "name_repeats";
     };
 
 export async function saveScannedProduct(input: {
@@ -1353,6 +1360,8 @@ export async function saveScannedProduct(input: {
   ingredients: string[];
   /** From the read that produced `ingredients`. */
   readToken: string;
+  /** The person's pick; omitted when they didn't choose, which the server stores as "unknown". */
+  type?: ProductType;
 }): Promise<SaveProductResult> {
   if (!usingSupabase()) return { ok: false, reason: "not_configured" };
 
@@ -1362,9 +1371,22 @@ export async function saveScannedProduct(input: {
   });
 
   if (error) {
-    const status = (error as { context?: { status?: number } }).context?.status;
+    const context = (error as { context?: { status?: number; json?: () => Promise<unknown> } }).context;
+    const status = context?.status;
     if (status === 429) return { ok: false, reason: "rate_limited" };
-    if (status === 422) return { ok: false, reason: "unreadable_list" };
+    if (status === 422) {
+      // A refused name and a refused list are both 422s; only the body tells
+      // them apart (#200). Guarded like `readLabel`'s 422 branch.
+      const body = (
+        typeof context?.json === "function" ? await context.json().catch(() => null) : null
+      ) as { error?: string; problem?: string } | null;
+      if (body?.error === "bad_product_text") {
+        if (body.problem === "url") return { ok: false, reason: "name_has_url" };
+        if (body.problem === "repetition") return { ok: false, reason: "name_repeats" };
+        return { ok: false, reason: "name_unreadable" };
+      }
+      return { ok: false, reason: "unreadable_list" };
+    }
     if (status === 403) return { ok: false, reason: "expired" };
     // Offline, timed out, or an unclassified 5xx — us or the connection,
     // not the photo or the list (#188).

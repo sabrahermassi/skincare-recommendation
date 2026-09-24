@@ -32,6 +32,14 @@ import {
 } from "../_shared/http.ts";
 import { gateRatio } from "../_shared/gate-ratio.ts";
 import { paginateOrdered } from "../_shared/paginate.ts";
+import {
+  MAX_NEW_STUBS_PER_SAVE,
+  acceptedProductType,
+  exactIlikePattern,
+  mostCommonSpelling,
+  savedTextProblem,
+  storedText,
+} from "../_shared/product-text.ts";
 import { readTokenDeadline, signReadToken, verifyReadToken } from "../_shared/read-token.ts";
 import { logScanBounded, type ScanOutcome } from "../_shared/scan-log.ts";
 import { stripBase64ImageMetadata } from "../_shared/strip-metadata.ts";
@@ -131,8 +139,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let brand: string | undefined;
   let ingredients: unknown;
   let readToken: unknown;
+  let type: unknown;
   try {
-    ({ barcode, imageBase64, name, brand, ingredients, readToken } = await req.json());
+    ({ barcode, imageBase64, name, brand, ingredients, readToken, type } = await req.json());
   } catch {
     return json(req, { error: "Body must be JSON" }, 400);
   }
@@ -159,6 +168,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (saving) {
     if (!barcode) return json(req, { error: "barcode is required" }, 400);
     if (!name || name.trim().length === 0) return json(req, { error: "name is required" }, 400);
+    // Before the rate limiter and the token, so a refused name spends neither:
+    // the person fixes the name and saves the same read again (#200).
+    for (const [field, value] of [["name", name], ["brand", brand]] as const) {
+      if (value === undefined || value.trim() === "") continue;
+      const problem = savedTextProblem(field, value);
+      if (problem) return json(req, { error: "bad_product_text", field, problem }, 422);
+    }
     if (
       !Array.isArray(ingredients) ||
       ingredients.length > MAX_SAVED_INGREDIENTS ||
@@ -175,7 +191,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!(await verifyReadToken(readToken, ingredients as string[], SERVICE_ROLE_KEY))) {
       return json(req, { error: "read_expired" }, 403);
     }
-    return saveProduct(req, barcode, name, brand, ingredients as string[], readToken);
+    return saveProduct(req, barcode, name, brand, acceptedProductType(type), ingredients as string[], readToken);
   }
 
   if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
@@ -416,6 +432,7 @@ async function saveProduct(
   barcode: string,
   name: string,
   brand: string | undefined,
+  type: string,
   names: string[],
   readToken: string
 ): Promise<Response> {
@@ -461,15 +478,34 @@ async function saveProduct(
     );
   }
 
+  // Every name the dictionary lacks becomes a permanent stub row, so one save
+  // may only add so many (#200). `known` is verified names only; a name that
+  // is already an unverified stub costs nothing new, so it isn't counted.
+  let newStubs: number;
+  let canonicalBrand: string;
+  try {
+    const unmatched = parsed.map((p) => p.inci_name).filter((n) => !known.has(n));
+    const existing = await existingIngredientNames(unmatched);
+    newStubs = unmatched.filter((n) => !existing.has(n)).length;
+    canonicalBrand = await brandAsStored(brand);
+  } catch (err) {
+    console.error("save pre-checks failed:", err);
+    return json(req, { error: "Could not save the product" }, 502);
+  }
+  if (newStubs > MAX_NEW_STUBS_PER_SAVE) {
+    return json(req, { error: "too_many_new_ingredients", found: parsed.length, newIngredients: newStubs }, 422);
+  }
+
   const product = {
     id: existing?.id ?? `ocr-${barcode}`,
     barcode,
-    brand: (brand ?? "Unknown").trim().slice(0, 120) || "Unknown",
-    name: name.trim().slice(0, 200),
-    // A photographed ingredient list gives no basis for a category, so it says
-    // "unknown" rather than defaulting to "serum" — the bug that had a
-    // photographed foot cream displayed as one.
-    type: "unknown",
+    brand: canonicalBrand,
+    name: storedText("name", name),
+    // The person's own pick, when they made one (#200). A photographed
+    // ingredient list gives no basis for guessing a category, so without a
+    // pick it says "unknown" rather than defaulting to "serum" — the bug that
+    // had a photographed foot cream displayed as one.
+    type,
     area: "face",
     description: null,
     image_url: null,
@@ -1388,6 +1424,41 @@ async function fetchAliases(): Promise<Map<string, string>> {
     { select: "synonym, inci_name", cursorColumn: "synonym" }
   );
   return new Map(rows.map((row) => [row.synonym, row.inci_name]));
+}
+
+/**
+ * Which of `names` already have an `ingredients` row, verified or not — the
+ * ones a save would not add as new stubs. Thrown on error for the same reason
+ * as `knownIngredients` below.
+ */
+async function existingIngredientNames(names: string[]): Promise<Set<string>> {
+  const found = new Set<string>();
+  for (let i = 0; i < names.length; i += 200) {
+    const { data, error } = await db.from("ingredients").select("inci_name").in("inci_name", names.slice(i, i + 200));
+    if (error) throw new Error(`existingIngredientNames: ${error.message}`);
+    for (const row of data ?? []) found.add(row.inci_name as string);
+  }
+  return found;
+}
+
+/**
+ * The brand as the catalogue already spells it, so "cerave" and "CeraVe"
+ * don't split one brand across Browse and search (#200). Spacing is tidied
+ * first; then, among existing products whose brand matches ignoring case, the
+ * most common spelling wins (imports themselves carry both "Cerave" and
+ * "CeraVe"). A brand nobody has used yet is stored as typed.
+ */
+async function brandAsStored(brand: string | undefined): Promise<string> {
+  const tidied = storedText("brand", brand ?? "");
+  if (!tidied) return "Unknown";
+  // Every matching row, not the first page: once a brand runs past one page,
+  // an unordered subset could crown a minority spelling (#266 review).
+  const rows = await paginateOrdered<{ id: string; brand: string }>(db, "products", {
+    select: "id, brand",
+    cursorColumn: "id",
+    filter: (q) => q.ilike("brand", exactIlikePattern(tidied)),
+  });
+  return mostCommonSpelling(rows.map((row) => row.brand)) ?? tidied;
 }
 
 async function knownIngredients(names: string[]): Promise<Set<string>> {
