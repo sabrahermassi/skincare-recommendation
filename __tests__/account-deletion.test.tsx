@@ -145,6 +145,22 @@ describe("the account screen", () => {
     expect(mockDeleteAccount).not.toHaveBeenCalled();
   });
 
+  // #275 review: a double tap ran the delete twice.
+  it("deletes once for a double tap on the confirmation", async () => {
+    signedIn(["google"]);
+    let finish: (value: unknown) => void = () => {};
+    mockDeleteAccount.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+    await render(<Account />);
+    await act(async () => fireEvent.press(screen.getByText("Delete my account")));
+    const confirm = screen.getAllByText("Delete my account").at(-1)!;
+    await act(async () => {
+      fireEvent.press(confirm);
+      fireEvent.press(confirm);
+    });
+    await act(async () => finish({ ok: true }));
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+  });
+
   it("deletes once confirmed, and says so", async () => {
     signedIn(["google"]);
     mockForget.mockImplementationOnce(async () => {
