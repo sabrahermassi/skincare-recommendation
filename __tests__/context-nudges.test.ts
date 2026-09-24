@@ -45,8 +45,15 @@ describe("nudgesFor", () => {
     // A filter on no name list, so only the tag can be what recognises it.
     const filter = (tag: string) => ing("tris-biphenyl triazine", { functions: [tag] });
     expect(nudgesFor([ing("glycolic acid"), filter("uv-filter")])).toEqual([]);
-    expect(nudgesFor([ing("retinol"), filter("UV absorber")])).toEqual([]);
+    expect(nudgesFor([ing("retinol"), filter("UV Filter")])).toEqual([]);
     expect(nudgesFor([ing("retinol"), filter("en:uv-filter")])).toEqual([]);
+  });
+
+  // #175: CosIng's "UV absorber" protects the product from light, not the
+  // skin. A stabiliser carrying only that tag must not silence the SPF line.
+  it("still nudges when the only UV tag is a product stabiliser's 'UV absorber'", () => {
+    const stabiliser = ing("benzotriazolyl dodecyl p-cresol", { functions: ["UV absorber"] });
+    expect(nudgesFor([ing("glycolic acid"), stabiliser])).toHaveLength(1);
   });
 
   // #262 review: an unresolved label photo arrives as stubs with no

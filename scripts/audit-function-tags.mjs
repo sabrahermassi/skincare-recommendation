@@ -2,8 +2,8 @@
  * Check that the CosIng function tags in `ingredients.functions` are the ones
  * the scoring reads, and that they hold for well-known ingredients.
  *
- * `lib/rules.ts` scores 13 declared functions (humectant, emollient,
- * antioxidant, ...). A tag it never sees, because the column spells it another
+ * `lib/rules.ts` scores 11 declared functions (humectant, emollient,
+ * soothing, ...). A tag it never sees, because the column spells it another
  * way or no row carries it, is a scoring signal that silently never fires.
  * Read only, this reports:
  *
@@ -43,10 +43,8 @@ export const SCORED_FUNCTIONS = [
   "skin-protecting",
   "refatting",
   "film-forming",
-  "antioxidant",
   "soothing",
   "uv-filter",
-  "uv-absorber",
   "smoothing",
   "absorbent",
   "tonic",
@@ -62,8 +60,9 @@ export const ANCHORS = [
   ["sodium hyaluronate", "humectant"],
   ["urea", "humectant"],
   ["butylene glycol", "humectant"],
-  ["tocopherol", "antioxidant"],
-  ["ascorbic acid", "antioxidant"],
+  // No `antioxidant` anchors since #175: scoring no longer reads that tag
+  // (it describes preserving the product, not the skin), so whether the
+  // import kept it no longer matters to a score.
   ["allantoin", "soothing"],
   ["bisabolol", "soothing"],
   ["squalane", "emollient"],

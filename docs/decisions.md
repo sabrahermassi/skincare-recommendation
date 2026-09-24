@@ -105,16 +105,23 @@ benefit multiplier across ingredients, concentrations, vehicles, and use
 conditions. The benefit numbers therefore remain heuristic and should be
 calibrated against expert-reviewed product/profile benchmarks.
 
-**Deliberately not touched here:** which rule categories feed the irritation
-accumulator. It was `fragrance`/`alcohol`/`irritants` before this PR and
-still is — a draft of this PR also widened it to any `hurts: { sensitive:
-true }` rule (catching salicylic acid, AHAs, retinoids, vitamin C, tea tree
-oil, benzoyl peroxide), which is a real, evidenced gap — a plain leave-on
-serum with salicylic acid moved from a **fair** to a **poor** verdict for a
-highly sensitive profile when tested — but it is a catalogue-wide change
-independent of contact weighting, unrelated to what this PR is about, and
-was pulled out to be reviewed and merged on its own. See PR #127's review
-and its follow-up.
+**Which rule categories feed the irritation accumulator** was deliberately
+left out of the contact-weight PR (#127), and has since landed on its own.
+Today `fragrance`, `alcohol` and `irritants` rules feed it as before, and so
+does **any rule with `hurts: { sensitive: true }`**, whatever its category
+(`hurtsReactiveSkin` in `lib/matching.ts`). That widening catches salicylic
+acid, AHAs, retinoids, vitamin C, tea tree oil and benzoyl peroxide, and it
+charges each only once. A plain leave-on salicylic serum moving from fair to
+poor for a highly sensitive profile was the measured gap it closed. Since
+#183, "sensitive" on the harm side also covers a scored profile with
+sensitivity unset. (This paragraph used to say the widening had not
+happened; #175 corrected it.)
+
+**How much `unknown` matters has changed.** The paragraph above reasons from
+`unknown` being roughly 28% of the imported catalogue. On staging on
+2026-09-24 it was about 2% of products with a formula (#175), after the
+classifier work. The 0.25 benefit discount is kept, but it now affects a
+small minority of scores rather than a quarter of them.
 
 Considered and rejected: dropping `contactWeight` entirely for pure
 ingredient scoring. It would remove the type dependency altogether, but a
@@ -186,6 +193,31 @@ in 84% of products) is graded on the same curve as a concern that's
 genuinely hard to serve (e.g. "fine lines"), and the easy concern's users
 see inflated 80s while everyone else sees deflated 60s for formulas that
 actually serve them equally well.
+
+**Why declared antioxidant and UV-absorber functions earn nothing (#175):**
+the fallback layer that scores CosIng's declared functions credited
+`antioxidant` to fine lines, dullness and dark spots, and `uv-absorber` to
+dark spots and fine lines. Both functions describe the *product*: the EU
+ingredient inventory defines an antioxidant as something that "inhibits
+reactions promoted by oxygen, thus avoiding oxidation and rancidity", and a
+UV absorber as something that protects the cosmetic product from light. The
+skin-protecting counterpart is `uv-filter`, which stays. So BHT and sodium
+metabisulfite were being scored like vitamin C, and shown under "Why this
+score" as "an active with a relevant effect". The antioxidants with real skin
+evidence each have a named rule, and a named rule always wins over a declared
+function, so removing the two signals only stops crediting preservation
+chemistry. Measured on 1,107 scoreable staging products:
+- dullness + dark spots (somewhat sensitive): 507 scores fell by 1-8 points,
+  and the mean went from 61.5 to 60.4;
+- fine lines + eczema-prone (somewhat sensitive): 483 fell by 1-6, and the
+  mean went from 63 to 62.4;
+- 106 verdicts dropped a band in total. The four other fixed profiles did not
+  move.
+
+The same definition made the sun nudge wrong in the unsafe direction. An
+ingredient tagged only `uv-absorber` (a stabiliser in an AHA serum) counted
+as sun protection, and silenced "pair this with a daytime SPF". Only
+`uv-filter` counts now.
 
 **Why `hazard` and `irritant` are different tiers, not one:** an earlier
 version capped the score on both. That put 40% of the catalogue at "Poor"

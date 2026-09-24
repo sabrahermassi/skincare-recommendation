@@ -44,7 +44,11 @@ export type ContextNudge = {
  *   way a mineral-only sunscreen is recognised, see below);
  * - an organic filter, by name — which also works on an unresolved label
  *   photo's stubs, since those carry no `functions` (#262 review);
- * - a CosIng "uv-filter"/"uv-absorber" tag on anything but the two minerals.
+ * - a CosIng "uv-filter" tag on anything but the two minerals. Not
+ *   "uv-absorber" (#175): that function protects the *product* from light,
+ *   so a stabiliser like benzotriazolyl dodecyl p-cresol in an AHA serum
+ *   silenced the SPF line on a formula that shields no one's skin. Every
+ *   real sunscreen filter carries "uv-filter" as well.
  *
  * Titanium dioxide and zinc oxide are never evidence on their own, by name
  * or by tag: both are pigments as often as filters, so a retinoid
@@ -56,10 +60,7 @@ function isSunProtection(ingredients: Ingredient[], productType?: ProductType): 
   return ingredients.some((ingredient) => {
     if (nameMatches(MINERAL_UV_FILTER_NAMES, ingredient.name)) return false;
     if (nameMatches(ORGANIC_UV_FILTER_NAMES, ingredient.name)) return true;
-    return (ingredient.functions ?? []).some((fn) => {
-      const role = normaliseFunction(fn);
-      return role === "uv-filter" || role === "uv-absorber";
-    });
+    return (ingredient.functions ?? []).some((fn) => normaliseFunction(fn) === "uv-filter");
   });
 }
 
