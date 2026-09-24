@@ -237,6 +237,11 @@ module.exports = {
         // mockups use it: large, once per screen, never at small sizes.
         display: ["PlayfairDisplay_500Medium"],
         "display-medium": ["PlayfairDisplay_600SemiBold"],
+        // A journal note's handwriting (#229), and nothing else. Mirrored as
+        // `NOTE_FONT` in lib/tokens.ts; lib/note-font.ts decides per note
+        // whether it applies (Hangul, emoji, large text all fall back to the
+        // UI font).
+        note: ["Caveat_500Medium"],
         // There is deliberately NO `sans` override here, and `Text` no longer
         // injects a family class. The mockups set body text in the OS UI font
         // (`-apple-system, "SF Pro Text", system-ui`), and every platform

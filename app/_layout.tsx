@@ -7,6 +7,7 @@ import {
   PlayfairDisplay_600SemiBold,
   useFonts,
 } from "@expo-google-fonts/playfair-display";
+import { loadAsync as loadFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -15,6 +16,7 @@ import { AppState } from "react-native";
 
 import { startAuth } from "@/lib/auth";
 import { COLORS } from "@/lib/colors";
+import { NOTE_FONT_SOURCE } from "@/lib/note-font";
 import { startShelfSync } from "@/lib/shelf-sync";
 import { revalidateOnForeground, warmCatalogue } from "@/data/api";
 import { useAppStore } from "@/store/useAppStore";
@@ -92,6 +94,14 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();
+  }, [ready]);
+
+  // A journal note's handwriting (#229) starts loading once the app is up,
+  // never inside the gate above: it is for one card, for signed-in people
+  // with notes, and must not cost anyone's first paint. A note shown before
+  // it lands is in the UI font, then switches (lib/note-font.ts).
+  useEffect(() => {
+    if (ready) loadFonts(NOTE_FONT_SOURCE).catch(() => undefined);
   }, [ready]);
 
   // Every screen renders text through the loaded fonts (see components/Text)

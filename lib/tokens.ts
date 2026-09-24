@@ -299,6 +299,13 @@ export const TYPE = {
 } as const;
 
 /**
+ * The handwritten face for a journal note (#229), and nothing else — the
+ * mirror of `tailwind.config.js`'s `fontFamily.note`. Whether a given note
+ * actually gets it is `lib/note-font.ts`'s call, never a component's.
+ */
+export const NOTE_FONT = "Caveat_500Medium";
+
+/**
  * A token color at partial opacity, as an `rgba()` string — for translucent
  * overlays a plain hex can't express (light-on-dark camera chrome, a pressed
  * wash) without hand-typing the same RGB triplet at every call site. Derives

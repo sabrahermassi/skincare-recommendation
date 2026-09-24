@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, TextInput, View } fro
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 import { MAX_NOTE_CHARS, NOTE_COPY, cleanNote, tooLongCopy } from "@/lib/journal";
+import { useNoteTextStyle } from "@/lib/note-font";
 import {
   BORDER_INACTIVE,
   CANVAS,
@@ -33,6 +34,7 @@ import {
  */
 export function ProductNote({ note, onSave }: { note: string | undefined; onSave: (note: string | null) => void }) {
   const [editing, setEditing] = useState(false);
+  const noteStyle = useNoteTextStyle(note ?? "", "card");
   return (
     <>
       {note ? (
@@ -43,7 +45,7 @@ export function ProductNote({ note, onSave }: { note: string | undefined; onSave
               <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{NOTE_COPY.edit}</Text>
             </Pressable>
           </View>
-          <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{note}</Text>
+          <Text style={{ ...noteStyle, color: INK }}>{note}</Text>
         </View>
       ) : (
         <Pressable
@@ -67,6 +69,19 @@ export function ProductNote({ note, onSave }: { note: string | undefined; onSave
         }}
       />
     </>
+  );
+}
+
+/**
+ * The two lines of a note on a Saved card — the same handwriting decision as
+ * the product screen's, at the card's size.
+ */
+export function NotePreview({ note }: { note: string }) {
+  const noteStyle = useNoteTextStyle(note, "preview");
+  return (
+    <Text numberOfLines={2} style={{ ...noteStyle, marginTop: 6, color: MUTED }}>
+      {note}
+    </Text>
   );
 }
 
