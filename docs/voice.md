@@ -53,6 +53,15 @@ it — because the fix is different (retake vs. check your signal), and
 places. (`classifyFailure` is the barcode lookup's equivalent; the photo
 path doesn't use it.)
 
+The one deliberate exception: `components/LabelCamera.tsx` and
+`components/ChoosePhotoInstead.tsx` each wrap the whole capture/read
+sequence in a last-resort `catch` for a genuinely unexpected exception —
+not a classified photo/network failure, which `readLabelPhoto`'s own
+typed result already handles — and that catch falls back to "Something
+went wrong reading that." There's no true statement about an
+unanticipated exception's cause, so this is the one place the generic
+form is honest rather than lazy.
+
 ### 3. The reader is not to blame, and the tone should never suggest it
 
 > **What we ship:** "That's a lot of ingredient photos in a short time."
@@ -69,12 +78,16 @@ produced it, it is not ready to ship.
 
 ### 4. Confidence without certainty
 
-> **What we ship:** "The assessment is an ingredient-based compatibility
-> analysis and is not a guarantee of an individual's skin reaction."
-> (`FOR_ME_MVP.md` §28, already the shipped disclaimer copy) and "We
-> couldn't read enough of this formula to judge it" (`verdictHeadline`,
-> `unknownReason: "low_coverage"`) rather than silently scoring a formula
-> the app barely identified.
+> **What we ship:** "We couldn't read enough of this formula to judge it"
+> (`verdictHeadline`, `unknownReason: "low_coverage"`) rather than silently
+> scoring a formula the app barely identified.
+>
+> **Written but not yet on screen:** "The assessment is an ingredient-based
+> compatibility analysis and is not a guarantee of an individual's skin
+> reaction." (`FOR_ME_MVP.md`, "Brief context/disclaimer") — the intended
+> results-screen disclaimer. No component renders it yet (a repo-wide
+> search turns up nothing), so treat it as the register that sentence
+> should hit once it ships, not as already-shipped copy.
 >
 > **What we don't write:** "This product is a safe match for your skin."
 
@@ -112,8 +125,10 @@ side.
 - **Second person, always.** "Your skin", "you can", never "the user."
 - **Contractions.** "We couldn't", "doesn't", "isn't" — not "we could not",
   "does not." The one place this app deliberately breaks its own pattern
-  is a legal/medical disclaimer sentence (`FOR_ME_MVP.md` §28), where the
-  slightly more formal register is the point.
+  is the legal/medical disclaimer sentence (`FOR_ME_MVP.md`, "Brief
+  context/disclaimer") — not yet rendered anywhere, but the intended
+  exception once it is, where the slightly more formal register is the
+  point.
 - **Sentence case for titles and headlines**, not Title Case. "We don't
   have this product yet", not "We Don't Have This Product Yet."
 - **One sentence of feeling, then the instruction.** A failure state names
