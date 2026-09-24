@@ -141,6 +141,33 @@ describe("a rescan that changes a product", () => {
   });
 });
 
+// #268 review, CodeRabbit: product-lookup's select omits `source` entirely,
+// unlike the on-device list's, so a plain re-scan of an already-known,
+// catalogue-sourced product would otherwise always look changed — defeating
+// the fast path this whole PR exists for.
+describe("a rescan whose lookup source came back undefined", () => {
+  it("is not treated as a change on its own", async () => {
+    const sourced = product("with-source", [WATER], { source: "obf" });
+    putCatalogue([sourced], WATERMARK);
+    await writesSettled();
+
+    const entry = peekCatalogue();
+    addScannedToCatalogue(rescan(sourced, { source: undefined }));
+    await writesSettled();
+
+    expect(peekCatalogue()).toBe(entry);
+  });
+
+  it("keeps the held source if some other field genuinely changed", () => {
+    const sourced = product("with-source-2", [WATER], { source: "obf" });
+    putCatalogue([sourced], WATERMARK);
+
+    addScannedToCatalogue(rescan(sourced, { source: undefined, volume: "50ml" }));
+
+    expect(peekCatalogue()!.byId.get("with-source-2")!.source).toBe("obf");
+  });
+});
+
 describe("the disk write after a scan", () => {
   it("waits, then lands, and several scans share one write", async () => {
     jest.useFakeTimers();
@@ -173,6 +200,29 @@ describe("the disk write after a scan", () => {
 
     await writesSettled();
     expect(JSON.parse((await AsyncStorage.getItem(META_KEY))!).watermark.count).toBe(99);
+  });
+
+  // #268 review, CodeRabbit: an unrelated write landing successfully must not
+  // clear diskBlobStale on the scan write's account — a persistMeta call
+  // right after would otherwise stamp the current watermark beside a
+  // products blob still missing the scan.
+  it("keeps a metadata-only write held back even after an unrelated write lands while the scan write is still pending", async () => {
+    const META_KEY = "forme-catalogue-meta-v3";
+
+    addScannedToCatalogue(product("new-5", [WATER]));
+
+    // Called directly, not through the scan path — lands and succeeds while
+    // the scan write above is still only pending.
+    putCatalogue([a, b, c], { ...WATERMARK, count: 7 });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(JSON.parse((await AsyncStorage.getItem(META_KEY))!).watermark.count).toBe(7);
+
+    touchCatalogue({ ...WATERMARK, count: 42 });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(JSON.parse((await AsyncStorage.getItem(META_KEY))!).watermark.count).toBe(7);
+
+    await writesSettled();
+    expect(JSON.parse((await AsyncStorage.getItem(META_KEY))!).watermark.count).toBe(42);
   });
 
   it("is flushed when the app goes to the background", async () => {
