@@ -7,6 +7,7 @@ import {
   groupByRisk,
   isFlagged,
   isVerified,
+  UNSET_SENSITIVITY_REASON,
 } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
@@ -68,15 +69,39 @@ describe("contraindications", () => {
   });
 
   it("does NOT flag a comedogenic ingredient when the user is not acne-prone", () => {
-    const p = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+    // "none", not unset: an unset sensitivity now lists coconut oil's
+    // `caution` as an irritant (#183), which is a different question.
+    const p = profile({ baseSkinType: "dry", concerns: ["dehydrated"], sensitivity: "none" });
     expect(contraindications([moderate], p)).toEqual([]);
   });
 
-  it("flags 'caution' irritants only for sensitive skin", () => {
+  it("flags 'caution' irritants for sensitive skin, not for skin that said it isn't", () => {
     const sensitive = profile({ sensitivity: "some" });
-    const notSensitive = profile({ baseSkinType: "oily" });
+    const notSensitive = profile({ baseSkinType: "oily", sensitivity: "none" });
     expect(contraindications([cautionIrritant], sensitive)).toHaveLength(1);
     expect(contraindications([cautionIrritant], notSensitive)).toEqual([]);
+  });
+
+  // #183: an unset sensitivity is judged at the middle setting, so the
+  // irritant the score charges is also the one listed.
+  it("flags 'caution' irritants for a scored profile with sensitivity unset, in words that claim nothing they said", () => {
+    const unset = profile({ baseSkinType: "oily", sensitivity: null });
+    const [warning] = contraindications([cautionIrritant], unset);
+    expect(warning).toMatchObject({ severity: "irritant", origin: "restricted", reason: UNSET_SENSITIVITY_REASON });
+    expect(warning.reason).not.toMatch(/you (told|said)|not sure|sensitive skin/i);
+    // Someone who did say they're sensitive keeps the existing wording.
+    expect(contraindications([cautionIrritant], profile({ sensitivity: "some" }))[0].reason).toBe(
+      "Common irritant for sensitive skin"
+    );
+  });
+
+  // The regression the naive "null means sensitive" version would cause: a
+  // visitor with no profile at all seeing "N flagged for your skin".
+  it("shows a visitor with no profile nothing but profile-independent hazards", () => {
+    expect(contraindications([cautionIrritant, moderate, safe], EMPTY_PROFILE)).toEqual([]);
+    expect(contraindications([cautionIrritant, severeComedogenic], EMPTY_PROFILE).map((w) => w.origin)).toEqual([
+      "avoid",
+    ]);
   });
 
   it("reports each problem ingredient once", () => {

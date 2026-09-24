@@ -19,6 +19,26 @@ export function isSensitive(profile: { sensitivity: Sensitivity | null }): boole
   return profile.sensitivity === "some" || profile.sensitivity === "high";
 }
 
+/**
+ * Whether an irritant should be *charged* as if the skin reacts (#183). Wider
+ * than `isSensitive`, on the harm side only: an unset sensitivity — never
+ * reached in the quiz, or "I don't know" — is judged at the middle setting,
+ * not as "not sensitive". Reading a non-answer as the most lenient one was
+ * the false-safe default the scoring rules forbid; `contactWeight` makes the
+ * same call for an unknown product type.
+ *
+ * Only for someone we are actually scoring. A visitor with no profile at all
+ * earns no irritant warnings — `contraindications` runs before the
+ * not-personalised refusal and its warnings travel out with it, and "the
+ * 'avoid' check applies to every visitor" is the only thing they should see.
+ *
+ * Never used for a benefit or a label: a "good for sensitive skin" bonus is
+ * not credited on a non-answer, and no copy calls them sensitive.
+ */
+export function treatAsReactive(profile: SkinProfile): boolean {
+  return isSensitive(profile) || (profile.sensitivity === null && isPersonalized(profile));
+}
+
 const SENSITIVITY_LABEL: Record<Sensitivity, string> = {
   none: "Not sensitive",
   some: "Somewhat sensitive",

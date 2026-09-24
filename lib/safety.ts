@@ -1,6 +1,6 @@
 import type { Ingredient, SkinProfile } from "@/data/types";
 import { pregnancyCautionHits } from "./pregnancy-caution";
-import { isSensitive } from "./profile";
+import { isSensitive, treatAsReactive } from "./profile";
 
 /**
  * Single source of truth for ingredient risk. Previously this predicate was
@@ -94,6 +94,14 @@ export type Contraindication = {
 };
 
 /**
+ * A restricted ingredient's warning when sensitivity isn't set (#183). Says
+ * what the app did, never what the person said — most unset profiles simply
+ * stopped the quiz before that question.
+ */
+export const UNSET_SENSITIVITY_REASON =
+  "May irritate reactive skin — judged at the middle setting because your sensitivity isn't set";
+
+/**
  * Ingredients that are a problem *for this particular user*, as opposed to
  * generally flagged.
  *
@@ -113,7 +121,11 @@ export function contraindications(
 ): Contraindication[] {
   const found: Contraindication[] = [];
   const { concerns } = profile;
-  const sensitive = isSensitive(profile);
+  // Listed on the same condition the irritation penalty charges them (#183),
+  // so a score docked for an irritant always shows which one. `treatAsReactive`
+  // is false for a visitor with no profile, who keeps seeing hazards only.
+  const reactive = treatAsReactive(profile);
+  const cautionReason = isSensitive(profile) ? "Common irritant for sensitive skin" : UNSET_SENSITIVITY_REASON;
 
   for (const ingredient of ingredients) {
     // An unrecognised name supports no claim in either direction. Skipping it
@@ -139,10 +151,10 @@ export function contraindications(
       continue;
     }
 
-    if (sensitive && ingredient.safety === "caution") {
+    if (reactive && ingredient.safety === "caution") {
       found.push({
         ingredient,
-        reason: "Common irritant for sensitive skin",
+        reason: cautionReason,
         severity: "irritant",
         origin: "restricted",
       });
