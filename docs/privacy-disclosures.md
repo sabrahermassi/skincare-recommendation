@@ -141,6 +141,7 @@ holds per account, owner-only under row-level security (migration 0025):
 | Journal note on a saved product (#228) — the person's own words, up to 500 characters | Same. Never shared, never in analytics |
 | Routine step on a saved product (#227) | Same |
 | Starred ingredients | Same |
+| Which catalogue products the account added from a label photo (#241) — `product_authors`, readable only by that account and the service role, never public | Until the account is deleted, when the link is cleared and the product stays. In the export |
 | When the account first saved a product (#230) — one date in the account's metadata, so the "first page of your journal" welcome shows once, on any phone | Until the account is deleted. In the export |
 
 **On the phone:** the session token in the Keychain/Keystore (memory only
@@ -152,10 +153,13 @@ at sign-out (docs/device-storage-policy.md).
 row, immediately. For an Apple-linked account it first revokes the app's
 Apple grant through Apple's REST API (Guideline 5.1.1(v)); Apple receives a
 one-time authorization code the person has just approved. Products someone
-added to the public catalogue are not personal data and stay.
+added to the public catalogue are not personal data and stay; the record of
+who added them (`product_authors.user_id`) is set to null by the same
+deletion, so no account id outlives its account.
 
 **Export (#224):** Profile → Account → Download my data. A JSON file of the
-shelf, notes, routine steps and starred ingredients, which says in the file
+shelf, notes, routine steps, starred ingredients and the products the account
+added (#241), which says in the file
 that the skin profile and scan history are not in it because they never
 left the phone.
 
