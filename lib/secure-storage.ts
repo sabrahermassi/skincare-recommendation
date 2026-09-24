@@ -31,9 +31,40 @@ const OPTIONS: SecureStore.SecureStoreOptions = {
  * Some iOS releases refuse a single value above about 2KB, and a Supabase
  * session — two tokens plus the user record — is usually larger. So a value
  * is split across numbered keys (`key.0`, `key.1`, …), with the count stored
- * under the key itself. Exported for the tests.
+ * under the key itself. The limit is in stored bytes, so this is too: a
+ * chunk holds at most this many UTF-8 bytes. Exported for the tests.
  */
 export const CHUNK_SIZE = 1800;
+
+/** UTF-8 length of one code point. */
+function utf8Bytes(codePoint: number): number {
+  return codePoint < 0x80 ? 1 : codePoint < 0x800 ? 2 : codePoint < 0x10000 ? 3 : 4;
+}
+
+/**
+ * Splits a value into chunks of at most `CHUNK_SIZE` UTF-8 bytes, never
+ * inside a character (#270 review): a session's user record can carry a
+ * name in CJK or an emoji, which is 3–4 bytes a character, and slicing by
+ * string length would both overshoot the limit and cut an emoji's two
+ * halves into different chunks. Exported for the tests.
+ */
+export function splitForKeychain(value: string): string[] {
+  const chunks: string[] = [];
+  let current = "";
+  let bytes = 0;
+  for (const char of value) {
+    const size = utf8Bytes(char.codePointAt(0)!);
+    if (bytes + size > CHUNK_SIZE) {
+      chunks.push(current);
+      current = "";
+      bytes = 0;
+    }
+    current += char;
+    bytes += size;
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
 
 /**
  * Every key this module has written, each with the most chunks ever stored
@@ -201,7 +232,8 @@ async function writeChunked(key: string, value: string): Promise<void> {
   await claimOnce();
   const manifest = (await readManifest()) ?? {};
   const recorded = manifest[key] ?? 0;
-  const count = Math.ceil(value.length / CHUNK_SIZE);
+  const chunks = splitForKeychain(value);
+  const count = chunks.length;
   // The manifest learns about every chunk before it exists, so no crash can
   // leave a chunk nothing knows to delete.
   if (!(key in manifest) || count > recorded) {
@@ -210,7 +242,7 @@ async function writeChunked(key: string, value: string): Promise<void> {
   // Drop the old value first so a shorter new one leaves no stale tail.
   await removeChunked(key, recorded);
   for (let i = 0; i < count; i++) {
-    await SecureStore.setItemAsync(`${key}.${i}`, value.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE), OPTIONS);
+    await SecureStore.setItemAsync(`${key}.${i}`, chunks[i], OPTIONS);
   }
   // The count goes last: until it is written, a reader sees no value at all.
   await SecureStore.setItemAsync(key, String(count), OPTIONS);

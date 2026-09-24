@@ -35,6 +35,7 @@ import {
   authStorageFor,
   createMemoryStorage,
   resetSecureStorageForTests,
+  splitForKeychain,
 } from "@/lib/secure-storage";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -58,6 +59,20 @@ describe("the session on a phone", () => {
     for (const [key, value] of mockKeychain) {
       if (key.startsWith(`${KEY}.`)) expect(value.length).toBeLessThanOrEqual(CHUNK_SIZE);
     }
+  });
+
+  // #270 review: slicing by string length measured UTF-16 units, not stored
+  // bytes, and could cut an emoji in half.
+  it("chunks by stored bytes and never splits a character", async () => {
+    const session = `{"name":"${"김".repeat(700)}${"🧴".repeat(700)}"}`;
+    await authStorage.setItem(KEY, session);
+    expect(await authStorage.getItem(KEY)).toBe(session);
+    for (const [key, value] of mockKeychain) {
+      if (!key.startsWith(`${KEY}.`)) continue;
+      expect(Buffer.byteLength(value, "utf8")).toBeLessThanOrEqual(CHUNK_SIZE);
+      expect(value).not.toMatch(/^[\uDC00-\uDFFF]|[\uD800-\uDBFF]$/);
+    }
+    expect(splitForKeychain("a".repeat(CHUNK_SIZE * 2 + 1)).map((c) => c.length)).toEqual([CHUNK_SIZE, CHUNK_SIZE, 1]);
   });
 
   it("keeps every item on this device only, while unlocked", async () => {
