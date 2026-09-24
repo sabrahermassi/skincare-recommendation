@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState } from "react-native";
 
 import {
@@ -7,6 +8,7 @@ import {
   peekCatalogue,
   putCatalogue,
   resetCatalogueCache,
+  touchCatalogue,
   writesSettled,
   type CatalogueWatermark,
 } from "@/data/catalogue-cache";
@@ -157,6 +159,20 @@ describe("the disk write after a scan", () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  // #268 review round 2: a current watermark must not land beside pre-scan products.
+  it("holds back a metadata-only write while a scan write is waiting, then lands both together", async () => {
+    const META_KEY = "forme-catalogue-meta-v3";
+    const before = await AsyncStorage.getItem(META_KEY);
+
+    addScannedToCatalogue(product("new-4", [WATER]));
+    touchCatalogue({ ...WATERMARK, count: 99 });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(await AsyncStorage.getItem(META_KEY)).toBe(before);
+
+    await writesSettled();
+    expect(JSON.parse((await AsyncStorage.getItem(META_KEY))!).watermark.count).toBe(99);
   });
 
   it("is flushed when the app goes to the background", async () => {

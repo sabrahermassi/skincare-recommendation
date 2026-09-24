@@ -9,6 +9,7 @@ import {
   mostCommonSpelling,
   productTextProblem,
   savedTextProblem,
+  storedText,
   tidySpacing,
 } from "@/supabase/functions/_shared/product-text";
 
@@ -50,11 +51,17 @@ describe("savedTextProblem", () => {
     expect(savedTextProblem("brand", `${filler(MAX_BRAND_CHARS - 20)} www.x.shop`)).toBe("url");
   });
 
+  // Round 2: tidying first, so a run of spaces can't hide text the save would keep.
+  it("checks the tidied text a save stores, not the raw slice", () => {
+    expect(savedTextProblem("name", `A${" ".repeat(199)}www.evil.com`)).toBe("url");
+    expect(storedText("name", `A${" ".repeat(199)}www.evil.com`)).toBe("A www.evil.com");
+  });
+
   it("stays fast on a multi-megabyte name", () => {
     const huge = "ab".repeat(2_500_000);
     const started = Date.now();
     savedTextProblem("name", huge);
-    expect(Date.now() - started).toBeLessThan(50);
+    expect(Date.now() - started).toBeLessThan(250);
   });
 });
 

@@ -15,10 +15,13 @@ import { LOCAL_RECHECK_AFTER_MS, fetchProductByBarcode } from "@/data/api";
 import {
   DISK_TTL_MS,
   barcodeWinner,
+  forgetMemoryLayer,
+  forgetScannedBarcodes,
   peekCatalogue,
   productByBarcode,
   putCatalogue,
   resetCatalogueCache,
+  writesSettled,
   type CatalogueWatermark,
 } from "@/data/catalogue-cache";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
@@ -156,6 +159,20 @@ describe("a catalogue past its window", () => {
     expect(await fetchProductByBarcode(BARCODE)).toEqual({ ok: true, value: held });
   });
 
+  // Round 2: a cold start with an expired disk copy never loads it into memory.
+  it("still answers offline after a cold start with an expired copy on disk", async () => {
+    const held = product();
+    putCatalogue([held], WATERMARK);
+    await writesSettled();
+    forgetMemoryLayer();
+    now = NOW + DISK_TTL_MS + 1000;
+    mockInvoke.mockResolvedValue({ data: null, error: new TypeError("Network request failed") });
+
+    const result = await fetchProductByBarcode(BARCODE);
+    expect(result.ok && result.value?.id).toBe(held.id);
+    expect(peekCatalogue()).toBeNull();
+  });
+
   it("still reports a genuine miss as a miss", async () => {
     putCatalogue([product()], WATERMARK);
     now = NOW + DISK_TTL_MS + 1000;
@@ -232,6 +249,32 @@ describe("re-checking an old local copy", () => {
     expect(await fetchProductByBarcode(code)).toEqual({ ok: true, value: held });
     await flush();
     expect(mockInvoke).toHaveBeenCalledTimes(1);
+  });
+
+  // Round 2: only an answered check holds off the next one.
+  it("tries again on the next scan when a background check failed", async () => {
+    const code = "8800000000035";
+    putCatalogue([product({ barcode: code, fetchedAt: OLD })], WATERMARK);
+    mockInvoke.mockResolvedValue({ data: null, error: new TypeError("Network request failed") });
+
+    await fetchProductByBarcode(code);
+    await flush();
+    await fetchProductByBarcode(code);
+    await flush();
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
+  });
+
+  it("forgets which barcodes it re-checked when the scan memory is erased", async () => {
+    const code = "8800000000042";
+    putCatalogue([product({ barcode: code, fetchedAt: OLD })], WATERMARK);
+    mockInvoke.mockResolvedValue({ data: lookupRow(["water", "glycerin"], code), error: null });
+
+    await fetchProductByBarcode(code);
+    await flush();
+    forgetScannedBarcodes();
+    await fetchProductByBarcode(code);
+    await flush();
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
   });
 
   it("replaces an old copy whose formula changed, for the next scan and the catalogue", async () => {
