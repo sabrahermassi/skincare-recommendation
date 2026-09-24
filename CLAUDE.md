@@ -257,8 +257,15 @@ with confidence tiers, owns acne fit).
 
 ## Running on a device
 
-`expo-camera` is bundled in Expo Go — no dev build needed, *if* Expo Go's
-installed SDK matches this project's.
+**Accounts need a development build (#218).** Expo Go still runs the app,
+but Google sign-in does not work there at all, and an Apple sign-in in Expo
+Go creates a different account from the one a real build creates. Test
+anything account-related — sign-in, the shelf moving to the server — on a
+development build with this app's bundle ID. Why: `docs/decisions.md`,
+"Accounts".
+
+For everything else, `expo-camera` is bundled in Expo Go — no dev build
+needed, *if* Expo Go's installed SDK matches this project's.
 
 - **iPhone:** if a plain App Store Expo Go refuses the project, use
   `eas go` (Apple Developer Program + TestFlight) or sign.expo.dev

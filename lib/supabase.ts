@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+import { authStorage } from "@/lib/secure-storage";
+
 /**
  * Supabase client for the catalogue.
  *
@@ -26,16 +28,19 @@ export const isSupabaseConfigured = Boolean(url && anonKey);
 export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(url as string, anonKey as string, {
       auth: {
-        // There are no accounts. Persisting or refreshing a session would be
-        // machinery for a feature that does not exist — and `storage` is
-        // deliberately absent: @supabase/auth-js ignores it entirely while
-        // persistSession is false, so naming AsyncStorage here bought nothing
-        // and left a trap. Flipping persistSession to true would have started
-        // writing tokens to plaintext AsyncStorage with no other line
-        // changing. See docs/device-storage-policy.md for what must be
-        // passed instead, once there is a session to persist.
-        persistSession: false,
-        autoRefreshToken: false,
+        // Accounts (#218). `persistSession` and `storage` change together,
+        // never one without the other: with no `storage`, @supabase/auth-js
+        // falls back to `localStorage` on web and plaintext on native.
+        // `authStorage` is the Keychain/Keystore on a phone and a memory-only
+        // map on web — see lib/secure-storage.ts and
+        // docs/device-storage-policy.md, row 1.
+        persistSession: true,
+        storage: authStorage,
+        // Refresh is started and stopped with the app's foreground state in
+        // lib/auth.ts, the way supabase-js asks React Native apps to.
+        autoRefreshToken: true,
+        // Sign-in is a native identity token, never a redirect, so there is
+        // nothing in a URL to read.
         detectSessionInUrl: false,
       },
     })

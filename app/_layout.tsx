@@ -13,6 +13,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { AppState } from "react-native";
 
+import { startAuth } from "@/lib/auth";
 import { COLORS } from "@/lib/colors";
 import { revalidateOnForeground, warmCatalogue } from "@/data/api";
 import { useAppStore } from "@/store/useAppStore";
@@ -78,6 +79,10 @@ export default function RootLayout() {
     });
     return () => subscription.remove();
   }, []);
+
+  // Follows the stored session, sign-ins and sign-outs for the life of the
+  // app, and pauses token refresh while it is in the background.
+  useEffect(() => startAuth(), []);
 
   const ready = fontsLoaded && hydrated && catalogueWarm;
 

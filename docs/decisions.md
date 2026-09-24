@@ -264,6 +264,48 @@ has refused this project for the opposite reason at times — it shipped
 ahead of the project's SDK. `npx expo-go download android <sdk>` sidesteps
 this in either direction.
 
+## Accounts
+
+**Sign-in is Sign in with Apple and Sign in with Google, both native (#217,
+decided 23 September 2026; the rest settled by the owner on 24 September
+2026).** No email, password or magic link. Both hand an identity token to
+`supabase.auth.signInWithIdToken`; nothing goes through a browser redirect.
+
+**One person, two providers: linked by verified email.** Supabase links
+identities that share a *verified* email into one user automatically — it is
+not a setting, and it refuses to link on an unverified address, which is what
+stops someone pre-registering a victim's email. Apple and Google both return
+verified addresses, so "signed in with Google, later with Apple, same email"
+is one account and one shelf. **Hide My Email breaks this on purpose:** Apple
+returns a relay address that matches nothing, so that person gets a second,
+empty account. The sign-in screen (#220) says so in one line rather than
+letting it surprise anyone. Merging accounts by hand is not offered.
+
+**Google uses the native module, not the browser flow.** Sign in with Apple
+already needs a development build carrying this app's bundle ID, so the
+browser flow's one advantage — working in Expo Go — buys nothing. Two
+consequences worth knowing:
+
+- The free `@react-native-google-signin/google-signin` cannot pass a nonce,
+  and the iOS Google SDK puts one in the token anyway, so the Supabase Google
+  provider needs **"Skip nonce check"** turned on or every Google sign-in is
+  refused. That is Supabase's documented setting for this library, not a
+  workaround invented here.
+- The config plugin is added by `app.config.js` only when
+  `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` is set. Listed bare in `app.json`, it
+  switches to Firebase mode and adds Android Google Services build steps this
+  app does not use.
+
+**This is where Expo Go stopped being enough.** A plain App Store Expo Go
+still runs the app and still offers Sign in with Apple, but the Apple
+account it creates is tied to Expo Go's bundle ID, not this app's — the same
+person signing in from a real build arrives as a different user with an
+empty shelf. Google does not work in Expo Go at all. Test accounts, #222's
+shelf migration and #223's sync need a development build.
+
+**No name is requested from Apple.** Nothing in the app shows one, and a
+field never collected is one that never needs deleting (#224).
+
 ## Staging infrastructure
 
 **Staging had never once worked, and nothing said so.** Discovered

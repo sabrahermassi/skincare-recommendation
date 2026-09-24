@@ -14,22 +14,20 @@ class, per platform, and what enforces it.
 | Cached catalogue data (product rows, ingredient dictionary, freshness watermark) | AsyncStorage | AsyncStorage | AsyncStorage (`localStorage`-backed by `react-native-web`) |
 | Session-scoped state (compare tray, pasted ingredient list) | not persisted | not persisted | not persisted |
 
-**None of row 1 exists yet.** There is no sign-in, no session, and no token
-anywhere in this app. Row 1 is written before there is anything to store,
-because the alternative is deciding it inside the pull request that adds
-authentication — where the path of least resistance is `persistSession: true`
-and no second thought, and that path is wrong.
+**Row 1 exists as of #218.** Sign in with Apple and Sign in with Google put
+a Supabase session on the device, and `lib/secure-storage.ts` is where it
+lives: the Keychain/Keystore on a phone, a memory-only map on web.
+`lib/supabase.ts` sets `persistSession: true` and `storage` in the same
+edit, and `__tests__/supabase-client.test.ts` pins the pair so neither can
+change alone. Row 1 was written before there was anything to store, so this
+PR followed it rather than deciding it — the checklist below is what it was
+held to.
 
-**That pull request is now launch work.** Accounts are in the MVP: it has a
-guest tier (scan, full verdict, device-only history, no signup) and a
-signed-in tier (saved shelf, journal notes, routine-step tagging), and the
-two are #217–#230. Three of those steps land directly on this file.
+Accounts are in the MVP: a guest tier (scan, full verdict, device-only
+history, no signup) and a signed-in tier (saved shelf, journal notes,
+routine-step tagging), built in #217–#230. Two more steps land directly on
+this file.
 
-- **#218** turns on Supabase Auth. Row 1 stops being hypothetical here, and
-  `lib/supabase.ts` currently carries the matching comment on the client
-  side, explaining why `storage` is deliberately absent while
-  `persistSession` is false. Both were written for this moment; read them
-  together before changing either.
 - **#223** points the saved shelf at the server, which puts row 2 in tension
   with the rule below that `store/useAppStore.ts` is the only file allowed to
   touch AsyncStorage. #223 asks for that to be settled here in writing rather
@@ -39,8 +37,6 @@ two are #217–#230. Three of those steps land directly on this file.
   no row in the table below currently covers. It needs its own row, not a
   corner of row 2.
 
-Whoever picks up #218 should arrive here first rather than discover this file
-in review.
 
 ## Why the profile and scan history stay on AsyncStorage
 
@@ -73,7 +69,10 @@ left to be rediscovered.
 **Revisit trigger:** the first time this project moves off Expo Go onto a
 development build (`android:dataExtractionRules` / `allowBackup`, iOS
 `isExcludedFromBackup` all require a config plugin, which is inert in Expo
-Go) — or the first store submission, whichever comes first. The actual
+Go) — or the first store submission, whichever comes first. **#218 is that
+move:** Sign in with Apple and the native Google module need a development
+build, so the trigger has fired, and the backup exposure is now a live
+question for #14/#24 rather than a future one. The actual
 control belongs to issue #14 (regulatory determination) and #24 (retention),
 which are where "health-adjacent data in a consumer cloud backup" gets
 adjudicated; this document only names the gap and the trigger.
@@ -148,6 +147,25 @@ Three caveats worth stating so nobody over-claims what this buys:
 
 ## When authentication is added — the checklist that PR must satisfy
 
+Met by #218, item by item, with two departures stated here so they are not
+mistaken for drift:
+
+- **Item 3's first-launch sentinel is a flag in `useAppStore`
+  (`secureStoreClaimed`), not a new AsyncStorage key in
+  `lib/secure-storage.ts`.** Writing the sentinel from the secure-storage file
+  would have made it a third AsyncStorage file, which this policy does not
+  allow without review. The flag is a plain boolean, never a token, so it sits
+  within row 2's contents. Secure storage cannot list its own keys, so it
+  keeps a manifest of what it wrote and deletes all of it when the flag is
+  missing.
+- **Item 3's interface is `authStorage`, not `secureStorage`/`StateStorage`.**
+  The only consumer is the Supabase client, whose storage contract is three
+  async methods; the Zustand type bought nothing. A session is larger than
+  the ~2KB some iOS releases accept per item, so values are split across
+  numbered keys.
+- **Item 6 stays open, deliberately:** sign-out leaves the local profile,
+  history and shelf alone for now. The decision belongs with #222.
+
 1. Add `expo-secure-store` at the version matching the installed Expo SDK
    (confirm with `npx expo install --check`, or read it directly out of
    `node_modules/expo/bundledNativeModules.json`) — do not assume a version
@@ -216,7 +234,9 @@ Two layers, because the rule is really two different failure modes:
    `@react-native-async-storage/async-storage` and `expo-secure-store` to
    their one approved file each, and restricts the bare and qualified forms
    of `localStorage`/`sessionStorage`. This catches someone reaching for the
-   wrong primitive from a new file.
+   wrong primitive from a new file. `lib/secure-storage.ts` is exempt from the
+   `expo-secure-store` ban only; its own block keeps it off AsyncStorage and
+   `localStorage`.
 2. **`__tests__/store.test.ts`** pins the exact key set `PERSISTED_KEYS`
    writes to AsyncStorage, and asserts none of them look credential-shaped.
    This catches someone adding a new field to the *already-allowlisted*
