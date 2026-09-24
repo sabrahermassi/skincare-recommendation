@@ -283,13 +283,22 @@ function resumeProblem(state, ref, stamp) {
  * the fast half.
  */
 function checkpointStamp(known, aliases) {
-  const hash = createHash("sha256");
   // This file and every module `toRow` parses or classifies with (#265
   // review, round 2: counts alone miss a corrected mapping, and this file
   // alone misses a parser fix).
-  for (const file of STAMPED_MODULES) hash.update(readFileSync(fileURLToPath(new URL(file, import.meta.url))));
-  hash.update(dictionaryStamp(known, aliases));
-  return hash.digest("hex").slice(0, 32);
+  const paths = STAMPED_MODULES.map((file) => fileURLToPath(new URL(file, import.meta.url)));
+  return createHash("sha256")
+    .update(moduleStamp(paths))
+    .update(dictionaryStamp(known, aliases))
+    .digest("hex")
+    .slice(0, 32);
+}
+
+/** The bytes of these files, hashed in order. Split out so a test can reach it without `import.meta.url`. */
+function moduleStamp(paths) {
+  const hash = createHash("sha256");
+  for (const path of paths) hash.update(readFileSync(path));
+  return hash.digest("hex");
 }
 
 /** The dictionary and aliases by content, not size — a corrected name or mapping keeps the count the same. */
@@ -856,6 +865,8 @@ export {
   parseCheckpoint,
   resumeProblem,
   dictionaryStamp,
+  moduleStamp,
+  STAMPED_MODULES,
   writeAtomically,
   TARGET_ROWS,
   MAX_REQUESTS,
