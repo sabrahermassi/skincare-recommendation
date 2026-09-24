@@ -8,7 +8,7 @@ be rewritten against (#26) once it lands.
 
 ## Where this stands today
 
-As of this writing, the backend holds a database but no user data:
+When this was first written, the backend held a database but no user data (the account work since — #218 onward — is noted inline):
 
 - Four tables — `ingredients`, `products`, `product_ingredients`,
   `ingredient_synonyms` — all shared catalogue data. RLS is enabled with a
@@ -25,11 +25,11 @@ As of this writing, the backend holds a database but no user data:
   RLS. Still no profile, quiz answers or scan history on the backend, by
   decision.
 
-But personal data already exists, just not on the backend: the Zustand store
-(`store/useAppStore.ts`) persists skin profile — gender, age group, body
-area, concerns, skin type, sensitivity — plus a 50-entry scan history, to
-AsyncStorage, unencrypted, on-device. That is health-adjacent data, live
-today, with zero accounts involved.
+Personal data also exists on the device: the Zustand store
+(`store/useAppStore.ts`) persists the skin profile — concerns, skin type,
+sensitivity, pregnancy status — plus a 50-entry scan history, to
+AsyncStorage, unencrypted, on-device, and never sends either anywhere.
+That is health-adjacent data, held the same way with or without an account.
 
 The product direction (confirmed while planning this doc): accounts with
 cross-device sync are the destination for this data. Photos are never stored
@@ -41,9 +41,9 @@ constraints below, not defaults that might slide.
 
 | Data | What it is | Sensitivity | Lives today | After accounts | Retention |
 |---|---|---|---|---|---|
-| Skin profile | gender, age group, body area, concerns, base skin type, sensitivity | Health-adjacent | AsyncStorage, unencrypted, on-device | Synced row, owned by user id | Until account deletion |
-| Quiz answers | the same fields, as collected during onboarding | Health-adjacent | Folded into skin profile above | Same as skin profile | Same as skin profile |
-| Scan history | last 50 scans: product id, score, warning count, timestamp | Health-adjacent (reveals concerns by inference — a run of "avoid" verdicts on acne products implies acne-prone skin) | AsyncStorage, on-device | Synced row, owned by user id | User-configurable; default cap already exists (50 entries) client-side, needs a server-side equivalent |
+| Skin profile | concerns, base skin type, sensitivity, pregnancy status (gender, age group and body area were collected once and have been removed) | Health-adjacent; pregnancy status may be GDPR Art. 9 data (#14) | AsyncStorage, unencrypted, on-device | **No change: never leaves the device, signed in or not** (#219 — no `skin_profiles` table, no opt-in) | Until the person changes it or taps Delete my profile |
+| Quiz answers | the same fields, as collected during onboarding | Health-adjacent | Folded into skin profile above | Same as skin profile — device only | Same as skin profile |
+| Scan history | last 50 scans: product id, score, warning count, timestamp | Health-adjacent (reveals concerns by inference — a run of "avoid" verdicts on acne products implies acne-prone skin) | AsyncStorage, on-device | **No change: never leaves the device** (#219, `FOR_ME_MVP.md`) | The newest 50 (`HISTORY_LIMIT`); the person can remove entries or clear it |
 | Saved products | product id (or raw barcode), when it was saved, and which formula version was on screen | Low sensitivity alone, but joins with scan history to reveal the same inferences | AsyncStorage, on-device | `saved_products` (migration 0025), one row per product, owner-only under RLS; the device keeps a cached copy (#223) | Until removed, or until account deletion — `on delete cascade` from `auth.users` |
 | Saved ingredients | starred ingredient names | Low sensitivity alone; a run of starred actives hints at concerns | AsyncStorage, on-device | `saved_ingredients` (migration 0025), owner-only under RLS | Same as saved products |
 | Journal note | up to 500 characters the user wrote about a saved product (#228) | Potentially health-adjacent — the prompt asks about the product, but people may write anything, and it is theirs | Does not exist yet | `saved_products.note`, owner-only under RLS; never shared, never in analytics | Same as saved products |

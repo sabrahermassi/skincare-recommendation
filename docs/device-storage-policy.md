@@ -9,7 +9,8 @@ class, per platform, and what enforces it.
 | Data class | iOS | Android | Web |
 |---|---|---|---|
 | Auth / session material (access token, refresh token, PKCE verifier, any credential-equivalent) | `expo-secure-store` (Keychain), `WHEN_UNLOCKED_THIS_DEVICE_ONLY` | `expo-secure-store` (Keystore), backup-excluded | **Memory only.** Never `localStorage`, `sessionStorage`, IndexedDB, or a non-`HttpOnly` cookie |
-| Skin profile, quiz answers, scan history, saved products, saved ingredients, product suggestions | AsyncStorage | AsyncStorage | AsyncStorage (`localStorage`-backed by `react-native-web`) |
+| Skin profile, quiz answers, scan history — device only, for everyone; never sent anywhere | AsyncStorage | AsyncStorage | AsyncStorage (`localStorage`-backed by `react-native-web`) |
+| Saved products and saved ingredients — signed in, a cache of the account's shelf plus its queue of unsynced changes (#223); a pre-accounts shelf on a device never signed in | AsyncStorage (in `useAppStore`), cleared at sign-out | same | same |
 | Journal note (#228) — free text the user wrote about a saved product | AsyncStorage, as part of the cached shelf; source of truth is `saved_products.note` on the server | same | same |
 | UI-only state (onboarding flag, future filter state) | AsyncStorage | AsyncStorage | AsyncStorage |
 | Analytics id and queued funnel events (#225) — PostHog's random id, and events waiting to send | PostHog SDK's own file in the app's document directory (`persistence: "file"`, via `expo-file-system`) — **not** AsyncStorage | same | **Memory only** (`persistence: "memory"`): the SDK's web store is `localStorage` |

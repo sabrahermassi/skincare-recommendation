@@ -9,8 +9,17 @@ const SECTIONS: { title: string; lines: string[] }[] = [
   {
     title: "Stays on your phone",
     lines: [
-      "Your skin profile, your saved products, your history and your starred ingredients are stored on this device only. There is no account.",
-      "They can be included in your phone's own backups. Delete my profile, in Profile, erases all of it.",
+      "Your skin profile — your concerns, skin type, sensitivity and pregnancy answer — and your scan history never leave this phone, whether or not you have an account.",
+      "They can be included in your phone's own backups. Delete my profile, in Profile, erases them, along with your shelf.",
+    ],
+  },
+  {
+    title: "If you sign in",
+    lines: [
+      "You don't need an account to scan or see a verdict. You need one to keep a shelf.",
+      "Signing in with Apple or Google gives us your email address (with Apple, it can be a Hide My Email address) and an account ID. We don't ask for your name.",
+      "Your saved products and starred ingredients are kept with your account on our servers, so they're on every phone you sign in on. Only you can read them.",
+      "Profile → Account lets you download everything in your account as a file, or delete your account. Deleting it removes the account and everything saved to it straight away.",
     ],
   },
   {
