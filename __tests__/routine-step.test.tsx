@@ -137,6 +137,16 @@ describe("the shelf", () => {
     expect(screen.queryByText("Hanbang Rice Ferment", { exact: false })).toBeNull();
   });
 
+  // #278 review: filtering to a group and then emptying it left a blank shelf
+  // with the pills gone.
+  it("shows the whole shelf again when the filtered group empties", async () => {
+    await render(<Saved />);
+    await screen.findByText("Hanbang Rice Ferment", { exact: false });
+    await act(async () => fireEvent.press(screen.getAllByText("Cleanse")[0]));
+    await act(async () => useAppStore.getState().toggleSaved("mugwort-gel-cleanser"));
+    expect(screen.getByText("Hanbang Rice Ferment", { exact: false })).toBeTruthy();
+  });
+
   it("lets a product be put in a step, and says a guess is a guess", async () => {
     await render(<Saved />);
     await screen.findByText("Hanbang Rice Ferment", { exact: false });

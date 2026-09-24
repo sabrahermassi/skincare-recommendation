@@ -153,6 +153,14 @@ export default function Saved() {
     return stepOf(product.type, savedProducts.find((p) => p.id === id)?.routineStep);
   };
 
+  // The groups with something in them, and the filter actually applied. A
+  // filter whose group has just emptied — its last product removed or moved —
+  // falls back to All rather than leaving a blank shelf with the pills gone
+  // (#278 review). The pills only show with two groups to choose between, so
+  // with fewer there is nothing to filter by either.
+  const presentGroups = STEP_ORDER.filter((group) => savedIds.some((id) => groupOf(id) === group));
+  const activeFilter = stepFilter !== "all" && presentGroups.length > 1 && presentGroups.includes(stepFilter) ? stepFilter : "all";
+
   useEffect(() => {
     let cancelled = false;
     setError(false);
@@ -302,15 +310,11 @@ export default function Saved() {
         // same spot, so without it React reuses one scroll view for both and the
         // scroll position carries over when switching tabs.
         <ScrollView key="saved" ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
-          <StepFilter
-            groups={STEP_ORDER.filter((group) => savedIds.some((id) => groupOf(id) === group))}
-            selected={stepFilter}
-            onSelect={setStepFilter}
-          />
+          <StepFilter groups={presentGroups} selected={activeFilter} onSelect={setStepFilter} />
           {savedIds.map((id) => {
             const product = byId[id];
             if (!product) return null;
-            if (stepFilter !== "all" && groupOf(id) !== stepFilter) return null;
+            if (activeFilter !== "all" && groupOf(id) !== activeFilter) return null;
             const match = matchProduct(product, profile);
             const score = match.score;
             const tone = score === null ? null : matchTone(score);
