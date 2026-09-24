@@ -124,6 +124,7 @@ export default function RootLayout() {
         <Stack.Screen name="ingredient/[inci]" options={{ headerShown: false }} />
         <Stack.Screen name="skin-profile" options={{ headerShown: false }} />
         <Stack.Screen name="support" options={{ headerShown: false }} />
+        <Stack.Screen name="school" options={{ headerShown: false }} />
         <Stack.Screen name="privacy" options={{ headerShown: false }} />
         <Stack.Screen
           name="scan-label"

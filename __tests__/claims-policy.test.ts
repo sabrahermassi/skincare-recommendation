@@ -1,5 +1,6 @@
 import { INGREDIENTS } from "@/data/ingredients";
 import { PRODUCTS } from "@/data/products";
+import { SCHOOL } from "@/data/school";
 import { claimPolicyViolations } from "@/lib/claims-policy";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { PORE_CLOGGERS } from "@/lib/pore-clogging";
@@ -78,9 +79,19 @@ const NUDGE_RESULTS: OwnedClaim[] = [
   ...goalNudgesFor([nudgeIngredient("niacinamide")], ["hyperpigmentation"]),
 ].map((nudge, index) => ({ source: `contextNudges[${index}].${nudge.id}`, text: nudge.text }));
 
+// #235: Skincare School — paragraphs about ingredients, the largest body of
+// app-authored copy, so every question and every answer is audited.
+const SCHOOL_CLAIMS: OwnedClaim[] = SCHOOL.flatMap((category) =>
+  category.questions.flatMap((item) => [
+    { source: `SCHOOL.${item.id}.question`, text: item.question },
+    { source: `SCHOOL.${item.id}.answer`, text: item.answer },
+  ])
+);
+
 const OWNED_CLAIMS: OwnedClaim[] = [
   ...HEADLINE_RESULTS,
   ...NUDGE_RESULTS,
+  ...SCHOOL_CLAIMS,
   // Audited directly (#261 review): `WARNINGS` below comes from the sample
   // INGREDIENTS, which hold none of the pregnancy-caution names — so these
   // reasons were never actually reaching the audit, despite
