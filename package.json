@@ -17,6 +17,7 @@
     "import:obf": "node scripts/import-obf.mjs",
     "prune:incomplete": "node scripts/prune-incomplete-products.mjs",
     "import:wikidata-synonyms": "node scripts/import-wikidata-synonyms.mjs",
+    "import:mfds": "node scripts/import-mfds.mjs",
     "reclassify-types": "node scripts/reclassify-types.mjs",
     "reclassify-from-tags": "node scripts/reclassify-from-tags.mjs",
     "reconcile:obf": "node scripts/reconcile-obf.mjs",
