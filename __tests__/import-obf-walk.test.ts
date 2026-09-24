@@ -1,10 +1,16 @@
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+
 import {
   MAX_REQUESTS,
   PAGE_SIZE,
   TARGET_ROWS,
   parseCheckpoint,
+  resumeProblem,
   serialiseCheckpoint,
   stopMessage,
+  writeAtomically,
 } from "../scripts/import-obf.mjs";
 
 /**
@@ -29,6 +35,27 @@ describe("import:obf walk limits", () => {
 
   it("says nothing when the run reached its target", () => {
     expect(stopMessage("target", TARGET_ROWS)).toBeNull();
+  });
+});
+
+// #265 review: a checkpoint must not be resumed against another project, or
+// over rows parsed under a different dictionary or script, and a crash while
+// saving it must not leave a half-written file.
+describe("import:obf resume safety", () => {
+  const saved = { target: "staging-ref", stamp: "abc:36000:25000" };
+
+  it("resumes only against the project and stamp it was written with", () => {
+    expect(resumeProblem(saved, "staging-ref", "abc:36000:25000")).toBeNull();
+    expect(resumeProblem(saved, "prod-ref", "abc:36000:25000")).toMatch(/written against project staging-ref, not prod-ref/);
+    expect(resumeProblem(saved, "staging-ref", "abc:36100:25000")).toMatch(/different dictionary or version/);
+  });
+
+  it("replaces the file whole, leaving no temp copy behind", () => {
+    const path = join(mkdtempSync(join(tmpdir(), "obf-")), "checkpoint.json");
+    writeFileSync(path, "old");
+    writeAtomically(path, "new");
+    expect(readFileSync(path, "utf8")).toBe("new");
+    expect(existsSync(`${path}.tmp`)).toBe(false);
   });
 });
 

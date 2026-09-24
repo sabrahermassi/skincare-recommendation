@@ -22,7 +22,8 @@
  * not shipped code, and this way they need no build step and no new devDeps.
  */
 
-import { existsSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { connect } from "./lib/db.mjs";
@@ -239,8 +240,51 @@ function parseCheckpoint(text) {
   return { ...raw, rows: new Map(raw.rows), rejected: new Map(raw.rejected) };
 }
 
+// Written aside, then renamed over the real file: a crash mid-save — the very
+// thing this file exists to survive — then leaves the previous complete
+// checkpoint rather than a truncated one `--resume` can't parse (#265 review).
+function writeAtomically(path, text) {
+  writeFileSync(`${path}.tmp`, text);
+  renameSync(`${path}.tmp`, path);
+}
+
 function saveCheckpoint(state) {
-  writeFileSync(CHECKPOINT_FILE, serialiseCheckpoint(state));
+  writeAtomically(CHECKPOINT_FILE, serialiseCheckpoint(state));
+}
+
+/**
+ * Why a checkpoint can't be resumed here, or null when it can: it belongs to
+ * another project, or its rows were parsed under a different dictionary or
+ * script (see `checkpointStamp`).
+ */
+function resumeProblem(state, ref, stamp) {
+  if (state.target !== ref) {
+    return (
+      `${CHECKPOINT_FILE} was written against project ${state.target}, not ${ref}. ` +
+      "Resume it with that project's credentials, or delete the file to start over here."
+    );
+  }
+  if (state.stamp !== stamp) {
+    return (
+      `${CHECKPOINT_FILE} was parsed under a different dictionary or version of this script, ` +
+      "so its rows may no longer pass the gates as they would now. Delete it and run again without --resume."
+    );
+  }
+  return null;
+}
+
+/**
+ * What a checkpoint's rows depend on, so a resume can tell they're still
+ * valid: this script's own code (the gates and parser in `toRow`) and the
+ * dictionary and aliases it judged them against. Rows parsed under different
+ * ones would be written as they are, silently mixed with rows parsed now —
+ * the same failure `reclassify-from-tags.mjs`'s `--restart` exists for
+ * (docs/decisions.md). Refusing is cheaper than a partial redo: the walk is
+ * the fast half.
+ */
+function checkpointStamp(known, aliases) {
+  const code = createHash("sha256").update(readFileSync(fileURLToPath(import.meta.url))).digest("hex").slice(0, 16);
+  return `${code}:${known.size}:${aliases.size}`;
 }
 
 /**
@@ -469,11 +513,12 @@ async function main() {
   // a dry run that skipped the gate would print a number a real run would not
   // reproduce, so a dry run without credentials is refused too. See the file
   // header.
-  const { db } = connect({ write: !DRY_RUN });
+  const { db, ref } = connect({ write: !DRY_RUN });
 
   const known = await fetchKnownIngredients(db);
   const aliases = await fetchAliases(db);
   console.log(`Dictionary: ${known.size} known ingredient names.\n`);
+  const stamp = DRY_RUN ? null : checkpointStamp(known, aliases);
 
   // Everything the walk and the writes need to pick up again, in one object so
   // a checkpoint is simply this, serialised. See CHECKPOINT_FILE.
@@ -495,6 +540,10 @@ async function main() {
   const state = RESUME
     ? parseCheckpoint(readFileSync(CHECKPOINT_FILE, "utf8"))
     : {
+        // Which project the run writes to, so a staging run's progress can't
+        // be resumed against production and skip rows there (#265 review).
+        target: ref,
+        stamp,
         categoryIndex: 0,
         page: 1,
         pagesRead: 0,
@@ -506,6 +555,8 @@ async function main() {
         stopReason: null,
         written: 0,
       };
+  const refusal = RESUME ? resumeProblem(state, ref, stamp) : null;
+  if (refusal) throw new Error(refusal);
   if (RESUME) {
     console.log(
       `Resuming: ${state.rows.size} rows from ${state.pagesRead} request(s), ${state.written} already written.\n`
@@ -781,6 +832,8 @@ export {
   stopMessage,
   serialiseCheckpoint,
   parseCheckpoint,
+  resumeProblem,
+  writeAtomically,
   TARGET_ROWS,
   MAX_REQUESTS,
   PAGE_SIZE,
