@@ -115,6 +115,7 @@ describe("the export", () => {
       {
         products: [{ productId: "a", savedAt: "2026-09-01T00:00:00Z", formulaFetchedAt: null, note: 'Loved it, "really"\nwould rebuy', routineStep: 2 }],
         ingredients: [{ inciName: "niacinamide", savedAt: "2026-09-02T00:00:00Z" }],
+        added: [{ productId: "ocr-8801234567890", addedAt: "2026-09-03T00:00:00Z" }],
       },
       new Date("2026-09-24T00:00:00Z"),
       "2026-09-01T00:00:00.000Z",
@@ -130,6 +131,8 @@ describe("the export", () => {
       routineStep: 2,
     });
     expect(roundTripped.savedIngredients).toEqual([{ inciName: "niacinamide", savedAt: "2026-09-02T00:00:00Z" }]);
+    // The products this account added (#241) are its data too.
+    expect(roundTripped.productsYouAdded).toEqual([{ productId: "ocr-8801234567890", addedAt: "2026-09-03T00:00:00Z" }]);
     expect(roundTripped.notIncluded).toMatch(/scan history and skin profile/);
   });
 });

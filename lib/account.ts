@@ -68,6 +68,9 @@ export function exportDocument(
     account: { email, signInWith: providers, journalStartedAt },
     savedProducts: rows.products,
     savedIngredients: rows.ingredients,
+    // Products this account added to the shared catalogue from a label photo
+    // (#241). The products stay after the account goes; this link to it doesn't.
+    productsYouAdded: rows.added,
     // Said in the file as well as on screen, so a copy on its own is honest
     // about what it leaves out.
     notIncluded:
