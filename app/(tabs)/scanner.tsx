@@ -218,6 +218,12 @@ export default function Scan() {
         // switch, not a re-tap — without clearing here, the stale miss
         // panel reappears immediately and blocks scanning until "Scan
         // something else" is also pressed (#259 review).
+        //
+        // The barcode can still be sitting in frame the moment Barcode mode
+        // remounts, so this needs the same dismiss-guard note `dismissStatus`
+        // uses — without it, the camera reads it again on the very next
+        // frame and the same panel pops straight back up (#190).
+        dismissGuard.noteDismissal(status.code, Date.now());
         setStatus({ kind: "idle" });
         busy.current = false;
       }
@@ -235,7 +241,7 @@ export default function Scan() {
       rememberScanMode(next);
       setMode(next);
     },
-    [status, mode, reads]
+    [status, mode, reads, dismissGuard]
   );
 
   /**
