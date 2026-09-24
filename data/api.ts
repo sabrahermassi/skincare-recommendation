@@ -7,7 +7,9 @@ import {
   hasCheckedThisLaunch,
   markCheckedThisLaunch,
   forgetScanned,
+  lastRechecked,
   msSinceLastCheck,
+  noteRechecked,
   peekCatalogue,
   productByBarcode,
   productById,
@@ -15,6 +17,7 @@ import {
   putCatalogue,
   putScanned,
   readCatalogue,
+  readExpiredCatalogue,
   readScanned,
   touchCatalogue,
   typesFrom,
@@ -1124,15 +1127,14 @@ export async function fetchProductTypes(): Promise<ProductType[]> {
 export const LOCAL_RECHECK_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * When this session last asked the server about a barcode it answered
- * locally. An unchanged product keeps its old `fetchedAt` (see
- * `recheckInBackground`), so without this a popular old product would be
- * re-checked every hour it's scanned rather than every week (#267 review).
+ * An unchanged product keeps its old `fetchedAt` (see `recheckInBackground`),
+ * so the last successful re-check is remembered too — otherwise a popular old
+ * product would be re-checked every hour it's scanned rather than every week
+ * (#267 review). Kept by `catalogue-cache` beside the scan memory, and erased
+ * with it.
  */
-const lastRecheck = new Map<string, number>();
-
 function isDueForRecheck(barcode: string, product: ProductWithIngredients): boolean {
-  const checkedAt = lastRecheck.get(barcode);
+  const checkedAt = lastRechecked(barcode);
   if (checkedAt !== undefined && Date.now() - checkedAt < LOCAL_RECHECK_AFTER_MS) return false;
   const readAt = product.fetchedAt ? Date.parse(product.fetchedAt) : Number.NaN;
   return !Number.isFinite(readAt) || Date.now() - readAt > LOCAL_RECHECK_AFTER_MS;
@@ -1154,7 +1156,6 @@ const rechecking = new Set<string>();
 async function recheckInBackground(barcode: string, local: ProductWithIngredients): Promise<void> {
   if (rechecking.has(barcode)) return;
   rechecking.add(barcode);
-  lastRecheck.set(barcode, Date.now());
   try {
     const { data, error } = await supabase!.functions.invoke(LOOKUP_FUNCTION, {
       body: { barcode },
@@ -1162,6 +1163,9 @@ async function recheckInBackground(barcode: string, local: ProductWithIngredient
     });
     if (error || !data) return;
     const fresh = rowToProduct(data as CatalogueRow);
+    // Only a real answer counts: a failed or malformed check must not hold
+    // off the next one for a week (#267 review, round 2).
+    noteRechecked(barcode);
     const unchanged =
       fresh.ingredientIds.length === local.ingredientIds.length &&
       fresh.ingredientIds.every((id, index) => id === local.ingredientIds[index]);
@@ -1238,8 +1242,9 @@ export async function fetchProductByBarcode(
         return { ok: true, value: null };
       }
       // Offline with a catalogue past its window: its copy of this product
-      // still beats "Couldn't check this barcode".
-      const expired = peekCatalogue();
+      // still beats "Couldn't check this barcode" — read from disk if a cold
+      // start never loaded it (#267 review, round 2).
+      const expired = await readExpiredCatalogue();
       const fallback = expired ? productByBarcode(expired, barcode) : undefined;
       if (fallback) return { ok: true, value: fallback };
       return { ok: false, failure: classifyFailure(error) };
