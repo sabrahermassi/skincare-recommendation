@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, View } from "react-native";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -43,13 +43,24 @@ export default function Account() {
     if (outcome !== "shared") setNotice(EXPORT_COPY[outcome]);
   };
 
+  // A ref, not the `working` state: a second tap can land before React has
+  // re-rendered the button disabled, and a second delete of an account the
+  // first one already removed would come back "nothing was deleted" — a
+  // wrong message about an irreversible action (#275 review).
+  const deleting = useRef(false);
   const remove = async () => {
+    if (deleting.current) return;
+    deleting.current = true;
     setConfirmingDelete(false);
     setWorking(true);
     setNotice(null);
-    const outcome = await deleteMyAccount();
-    setWorking(false);
-    if (outcome !== "cancelled") setNotice(DELETE_COPY[outcome]);
+    try {
+      const outcome = await deleteMyAccount();
+      if (outcome !== "cancelled") setNotice(DELETE_COPY[outcome]);
+    } finally {
+      deleting.current = false;
+      setWorking(false);
+    }
   };
 
   const leave = async (everywhere: boolean) => {
@@ -129,6 +140,7 @@ export default function Account() {
             <View style={{ gap: 10 }}>
               <Pressable
                 onPress={() => void remove()}
+                disabled={working}
                 accessibilityRole="button"
                 style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: DANGER }}
                 className="active:opacity-90"
