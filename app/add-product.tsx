@@ -9,7 +9,10 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
+import { TypeChip } from "@/components/TypeChip";
 import { failureMessage, fetchProductByBarcode, saveScannedProduct } from "@/data/api";
+import { PRODUCT_TYPE_LABEL, type ProductType } from "@/data/types";
+import { LEADING_TYPES } from "@/lib/browse-chips";
 import { clearLabelRead, heldLabelRead } from "@/lib/pending-label";
 import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
 import {
@@ -230,7 +233,10 @@ type SaveFailure =
   | "failed"
   | "not_configured"
   | "network_error"
-  | "already_saved";
+  | "already_saved"
+  | "name_has_url"
+  | "name_unreadable"
+  | "name_repeats";
 
 const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
   unreadable_list: "That ingredient list didn't look right. Go back and photograph it again.",
@@ -244,6 +250,11 @@ const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
   // by the barcode just submitted, rather than re-saving with a read token
   // that's already been spent.
   already_saved: "That saved, but we couldn't open it just now.",
+  // Refused before anything was saved (#200), so the same read can be saved
+  // again once the name is fixed.
+  name_has_url: "Product names can't include a web address. Type just the name on the pack.",
+  name_unreadable: "That name needs some letters or numbers. Type it as it's printed on the pack.",
+  name_repeats: "That name repeats itself a lot. Type it as it's printed on the pack.",
 };
 
 // Shown under `already_saved` when the recovery lookup itself fails too.
@@ -276,6 +287,8 @@ function NameStep({
   receivedAt: number;
 }) {
   const [name, setName] = useState("");
+  // null is "Not sure", which the server stores as "unknown" (#200).
+  const [type, setType] = useState<ProductType | null>(null);
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<SaveFailure | null>(
     // The 30-minute window (`READ_TOKEN_TTL_MS`) exists to bound an
@@ -303,7 +316,7 @@ function NameStep({
     if (saving || !trimmed) return;
     setSaving(true);
     setFailure(null);
-    const result = await saveScannedProduct({ barcode, name: trimmed, ingredients, readToken });
+    const result = await saveScannedProduct({ barcode, name: trimmed, ingredients, readToken, type: type ?? undefined });
     if (result.ok) {
       clearLabelRead();
       // `dismissTo`, not `replace` — see the same note on `onKnown` above.
@@ -468,6 +481,28 @@ function NameStep({
             color: INK,
           }}
         />
+
+        {/*
+          Optional. A photographed list gives no basis for guessing a type, so
+          without a pick the product is saved as "unknown" — which scores its
+          benefits at a quarter (`contactWeight`). Same order as Browse's
+          leading chips, largest first; the rarer types aren't offered here.
+        */}
+        <View style={{ gap: SPACE.text }}>
+          <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>What kind of product is it?</Text>
+          <View accessibilityRole="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <TypeChip label="Not sure" selected={type === null} disabled={saving} onPress={() => setType(null)} />
+            {LEADING_TYPES.map((option) => (
+              <TypeChip
+                key={option}
+                label={PRODUCT_TYPE_LABEL[option]}
+                selected={type === option}
+                disabled={saving}
+                onPress={() => setType(option)}
+              />
+            ))}
+          </View>
+        </View>
 
         {failure ? (
           <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{SAVE_FAILURE_COPY[failure]}</Text>

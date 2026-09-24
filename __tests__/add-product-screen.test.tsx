@@ -12,6 +12,10 @@ import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
  * this focuses on what #193 actually added.
  */
 
+// The first render loads the screen's whole module graph, which ran past
+// jest's default 5s under a full, parallel suite run (it passed alone).
+jest.setTimeout(20_000);
+
 const mockReplace = jest.fn();
 const mockDismissTo = jest.fn();
 
@@ -228,6 +232,35 @@ describe("AddProduct — already saved, lookup fails (#258 review)", () => {
     expect(screen.getAllByText(/Still couldn't open it/).length).toBeGreaterThan(0);
     expect(saveScannedProduct).toHaveBeenCalledTimes(1);
     expect(mockDismissTo).not.toHaveBeenCalled();
+  });
+});
+
+describe("AddProduct — product type and name checks (#200)", () => {
+  it("sends the picked type with the save, and no type while Not sure is selected", async () => {
+    (saveScannedProduct as unknown as MockFn).mockReturnValue(Promise.resolve({ ok: false, reason: "failed" }));
+    holdLabelRead({ barcode: "1234567890123", ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    await render(<AddProduct />);
+
+    expect(screen.getByRole("radio", { name: "Not sure" }).props.accessibilityState).toMatchObject({ checked: true });
+    await fireEvent.changeText(screen.getByLabelText("Product name"), "Test Toner");
+    await fireEvent.press(screen.getByText("Save and see my match"));
+    expect(saveScannedProduct).toHaveBeenLastCalledWith(expect.objectContaining({ type: undefined }));
+
+    await fireEvent.press(screen.getByRole("radio", { name: "Toner" }));
+    await fireEvent.press(screen.getByText("Save and see my match"));
+    expect(saveScannedProduct).toHaveBeenLastCalledWith(expect.objectContaining({ type: "toner" }));
+  });
+
+  it("says what to fix when the name is refused, and still offers Save with the same read", async () => {
+    (saveScannedProduct as unknown as MockFn).mockReturnValue(Promise.resolve({ ok: false, reason: "name_has_url" }));
+    holdLabelRead({ barcode: "1234567890123", ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    await render(<AddProduct />);
+
+    await fireEvent.changeText(screen.getByLabelText("Product name"), "www.example.shop");
+    await fireEvent.press(screen.getByText("Save and see my match"));
+
+    expect(screen.getAllByText(/can't include a web address/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Save and see my match")).toBeTruthy();
   });
 });
 

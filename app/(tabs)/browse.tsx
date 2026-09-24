@@ -9,9 +9,7 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
 import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
-// One selected-outline color app-wide — see profile.tsx's own note on why
-// this FOR.ME shell token is reused outside its original scope.
-import { TERRACOTTA } from "@/components/shell/shared";
+import { TypeChip } from "@/components/TypeChip";
 import { openScanner } from "@/lib/genie";
 import { Text } from "@/components/Text";
 import { fetchProducts, peekProducts, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
@@ -21,7 +19,7 @@ import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized, profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md).
 
@@ -679,39 +677,5 @@ function ChipPlaceholder() {
         ...CHIP_SHADOW,
       }}
     />
-  );
-}
-
-/** Horizontal-scroll filter pill - same visual language as the ingredient
- *  tabs pills (components/IngredientTabsList.tsx), just this screen's own
- *  instance since it filters by product type, not by ingredient rung. */
-function TypeChip({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
-      style={{
-        height: TOUCH_TARGET,
-        paddingHorizontal: 16,
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: RADIUS_SELECTOR,
-        borderWidth: selected ? 1.5 : 1,
-        borderColor: selected ? TERRACOTTA : BORDER_INACTIVE,
-        backgroundColor: selected ? SELECTED : CANVAS,
-        ...CHIP_SHADOW,
-      }}
-    >
-      <Text style={{ fontSize: 13.5, fontWeight: "600", color: selected ? INK : MUTED }}>{label}</Text>
-    </Pressable>
   );
 }
