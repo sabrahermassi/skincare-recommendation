@@ -2,7 +2,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
-import { ACTIVE_PAIRINGS, pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
+import { ACTIVE_PAIRINGS, MAX_SHELF_NOTES, pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
 import { matchProduct, resetScoreCache } from "@/lib/matching";
 import { RETINOID_ACTIVE_PATTERNS } from "@/lib/retinoid-salicylate-names";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -100,6 +100,19 @@ describe("shelfPairingNotes", () => {
     const notes = shelfPairingNotes([shelf("A", ["retinol"]), shelf("B", ["salicylic acid", "glycolic acid"])]);
     expect(notes).toHaveLength(1);
     expect(notes[0].text).toMatch(/a retinoid with BHA and AHAs/);
+  });
+
+  // #264 review: the shelf has no size limit, so the output must have one.
+  it("shows at most MAX_SHELF_NOTES pairs, then one line counting the rest", () => {
+    const shelfItems = [shelf("R", ["retinol"]), ...Array.from({ length: 12 }, (_, i) => shelf(`S${i}`, ["salicylic acid"]))];
+    const notes = shelfPairingNotes(shelfItems);
+    expect(notes).toHaveLength(MAX_SHELF_NOTES + 1);
+    expect(notes[MAX_SHELF_NOTES]).toMatchObject({ id: "more", text: "2 more pairs of saved products bring these actives together too." });
+  });
+
+  it("leaves products holding none of these actives out of the pairing", () => {
+    const plain = Array.from({ length: 200 }, (_, i) => shelf(`P${i}`, ["water", "glycerin"]));
+    expect(shelfPairingNotes([shelf("R", ["retinol"]), ...plain, shelf("B", ["salicylic acid"])])).toHaveLength(1);
   });
 
   it("doesn't flag a single product against itself", () => {
