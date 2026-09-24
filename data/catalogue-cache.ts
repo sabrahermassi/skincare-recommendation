@@ -246,6 +246,8 @@ type MemoryEntry = {
   /** Lazily filled, one stable array per type filter. */
   byType: Map<ProductType | "all", ProductWithIngredients[]>;
   byId: Map<string, ProductWithIngredients>;
+  /** One product per barcode, chosen by `barcodeWinner`. Rows with no barcode are left out. */
+  byBarcode: Map<string, ProductWithIngredients>;
   types: ProductType[] | null;
 };
 
@@ -350,12 +352,54 @@ function buildEntry(
   storedAt: number,
 ): MemoryEntry {
   const byId = new Map<string, ProductWithIngredients>();
-  for (const product of products) byId.set(product.id, product);
+  const byBarcode = new Map<string, ProductWithIngredients>();
+  for (const product of products) {
+    byId.set(product.id, product);
+    if (!product.barcode) continue;
+    const held = byBarcode.get(product.barcode);
+    byBarcode.set(product.barcode, held ? barcodeWinner(held, product) : product);
+  }
 
   const byType = new Map<ProductType | "all", ProductWithIngredients[]>();
   byType.set("all", products);
 
-  return { products, watermark, storedAt, byType, byId, types: null };
+  return { products, watermark, storedAt, byType, byId, byBarcode, types: null };
+}
+
+/**
+ * Which source's row answers a barcode when two rows share one — an imported
+ * row and a user's `ocr-<barcode>` save of the same bottle can coexist, and so
+ * can a register row once #181 lands. The rule is #181's precedence: a fresh
+ * user read of the physical box beats a government register, which beats a
+ * crowdsourced or commercial entry. Higher wins.
+ */
+const BARCODE_SOURCE_RANK: Record<string, number> = { ocr: 2, mfds: 1 };
+
+/**
+ * Where a row came from: its `source` column, or — for a row from a producer
+ * that doesn't select it, or a cache written before it was kept — the prefix
+ * every writer puts on the id (`obf-`, `ocr-`, `inci-`).
+ */
+function sourceOf(product: ProductWithIngredients): string {
+  return product.source ?? product.id.split("-")[0];
+}
+
+/**
+ * The row a barcode resolves to. Source first, then the more recently read
+ * formula, then the lower id — a total order, so two devices holding the same
+ * catalogue always resolve the same barcode to the same product.
+ */
+export function barcodeWinner(
+  a: ProductWithIngredients,
+  b: ProductWithIngredients,
+): ProductWithIngredients {
+  const rankA = BARCODE_SOURCE_RANK[sourceOf(a)] ?? 0;
+  const rankB = BARCODE_SOURCE_RANK[sourceOf(b)] ?? 0;
+  if (rankA !== rankB) return rankA > rankB ? a : b;
+  const readA = a.fetchedAt ?? "";
+  const readB = b.fetchedAt ?? "";
+  if (readA !== readB) return readA > readB ? a : b;
+  return a.id <= b.id ? a : b;
 }
 
 /**
@@ -495,6 +539,72 @@ function extractDictionary(products: ProductWithIngredients[]): Ingredient[] {
  * A failure at any point here is not an error the caller should see — a cache
  * that cannot be read is a cache miss, and the network path handles it.
  */
+/**
+ * The catalogue on disk, parsed and validated — or null when there is none, it
+ * doesn't parse, or (unless `allowExpired`) it is past `DISK_TTL_MS`. Throws
+ * on storage or JSON errors; callers decide what that means.
+ */
+async function loadDiskCatalogue(
+  allowExpired: boolean,
+): Promise<{ meta: CatalogueMeta; rehydrated: ProductWithIngredients[] } | null> {
+  const rawMeta = await AsyncStorage.getItem(META_KEY);
+  if (rawMeta === null) return null;
+
+  const meta = parseMeta(JSON.parse(rawMeta) as unknown);
+  if (!meta) return null;
+  if (!allowExpired && Date.now() - meta.storedAt > DISK_TTL_MS) return null;
+
+  const rawProducts = await readProductsBlob();
+  if (rawProducts === null) return null;
+
+  const stored = JSON.parse(rawProducts) as unknown;
+  if (typeof stored !== "object" || stored === null) return null;
+  const { dictionary, products } = stored as Partial<PersistedCatalogue>;
+  if (!Array.isArray(products) || products.length === 0) return null;
+  if (!Array.isArray(dictionary)) return null;
+  if (!dictionary.every(isUsableIngredient)) return null;
+  // The cast this replaces asserted a shape nothing had checked. A blob
+  // written by an older build — or half-written, or hand-edited — could
+  // put `[{}]` here, and the first thing to touch it is
+  // `matchProduct`/`ProductRow` reading `product.ingredients.length`,
+  // which throws while rendering rather than anywhere it can be caught.
+  // `isIdentifiable` guards the *network* rows before `rowToProduct`;
+  // nothing guarded the persisted ones. A miss is recoverable — the
+  // network path is right there — so validating down to the fields those
+  // consumers actually dereference is enough.
+  if (!products.every(isUsableProduct)) return null;
+  return { meta, rehydrated: rehydrate({ dictionary, products }) };
+}
+
+/** The last `readExpiredCatalogue` result, for as long as nothing has replaced the catalogue since. */
+let expiredCopy: { generation: number; entry: MemoryEntry | null } | null = null;
+
+/**
+ * The catalogue as this device last had it, whether or not it is past its
+ * window — for one use only: answering a scan when the network can't be
+ * reached (#196, #267 review). Never installed as `memory`, so the TTL that
+ * every normal read enforces is untouched.
+ *
+ * Exists because on a cold start with an expired disk copy `readCatalogue`
+ * returns null without loading anything, so `peekCatalogue` has nothing
+ * either, and an offline scan of a product the disk still holds would say
+ * "Couldn't check this barcode".
+ */
+export async function readExpiredCatalogue(): Promise<MemoryEntry | null> {
+  if (memory) return memory;
+  if (expiredCopy && expiredCopy.generation === catalogueGeneration) return expiredCopy.entry;
+  const generation = catalogueGeneration;
+  let entry: MemoryEntry | null = null;
+  try {
+    const loaded = await loadDiskCatalogue(true);
+    if (loaded) entry = buildEntry(loaded.rehydrated, loaded.meta.watermark, loaded.meta.storedAt);
+  } catch {
+    // Same as `readCatalogue`: unreadable means there is nothing to offer.
+  }
+  expiredCopy = { generation, entry };
+  return entry;
+}
+
 export async function readCatalogue(): Promise<MemoryEntry | null> {
   // `touchCatalogue` moves `storedAt` forward whenever a freshness check
   // confirms nothing changed, so this measures time since the copy was last
@@ -511,33 +621,9 @@ export async function readCatalogue(): Promise<MemoryEntry | null> {
 
   diskRead = (async () => {
     try {
-      const rawMeta = await AsyncStorage.getItem(META_KEY);
-      if (rawMeta === null) return null;
-
-      const meta = parseMeta(JSON.parse(rawMeta) as unknown);
-      if (!meta) return null;
-      if (Date.now() - meta.storedAt > DISK_TTL_MS) return null;
-
-      const rawProducts = await readProductsBlob();
-      if (rawProducts === null) return null;
-
-      const stored = JSON.parse(rawProducts) as unknown;
-      if (typeof stored !== "object" || stored === null) return null;
-      const { dictionary, products } = stored as Partial<PersistedCatalogue>;
-      if (!Array.isArray(products) || products.length === 0) return null;
-      if (!Array.isArray(dictionary)) return null;
-      if (!dictionary.every(isUsableIngredient)) return null;
-      // The cast this replaces asserted a shape nothing had checked. A blob
-      // written by an older build — or half-written, or hand-edited — could
-      // put `[{}]` here, and the first thing to touch it is
-      // `matchProduct`/`ProductRow` reading `product.ingredients.length`,
-      // which throws while rendering rather than anywhere it can be caught.
-      // `isIdentifiable` guards the *network* rows before `rowToProduct`;
-      // nothing guarded the persisted ones. A miss is recoverable — the
-      // network path is right there — so validating down to the fields those
-      // consumers actually dereference is enough.
-      if (!products.every(isUsableProduct)) return null;
-      const rehydrated = rehydrate({ dictionary, products });
+      const loaded = await loadDiskCatalogue(false);
+      if (!loaded) return null;
+      const { meta, rehydrated } = loaded;
 
       // Something replaced or cleared the memory layer while this read was in
       // flight — almost certainly the network fetch that ran because this read
@@ -1331,6 +1417,14 @@ export function productById(
   return entry.byId.get(id);
 }
 
+/** The product this barcode resolves to on this device, if the catalogue holds one. See `barcodeWinner`. */
+export function productByBarcode(
+  entry: MemoryEntry,
+  barcode: string,
+): ProductWithIngredients | undefined {
+  return entry.byBarcode.get(barcode);
+}
+
 /** Distinct types present, cached so the filter bar stops issuing its own query. */
 export function typesFrom(entry: MemoryEntry): ProductType[] {
   if (entry.types) return entry.types;
@@ -1406,6 +1500,23 @@ export function forgetScanned(barcode: string): void {
  */
 export function forgetScannedBarcodes(): void {
   scanned.clear();
+  rechecked.clear();
+}
+
+/**
+ * When this session last got an answer from the server about a barcode it
+ * answered from the catalogue (#196). Lives here beside `scanned` because it
+ * is the same kind of thing — barcodes this person scanned — and is erased
+ * with it (#267 review).
+ */
+const rechecked = new Map<string, number>();
+
+export function lastRechecked(barcode: string): number | undefined {
+  return rechecked.get(barcode);
+}
+
+export function noteRechecked(barcode: string): void {
+  rechecked.set(barcode, Date.now());
 }
 
 /**
@@ -1514,6 +1625,8 @@ export function forgetMemoryLayer(): void {
  * module touches — scanned barcodes — never reaches the disk at all.
  */
 export async function resetCatalogueCache(): Promise<void> {
+  expiredCopy = null;
+  rechecked.clear();
   memory = null;
   catalogueGeneration++;
   diskRead = null;

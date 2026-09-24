@@ -7,13 +7,17 @@ import {
   hasCheckedThisLaunch,
   markCheckedThisLaunch,
   forgetScanned,
+  lastRechecked,
   msSinceLastCheck,
+  noteRechecked,
   peekCatalogue,
+  productByBarcode,
   productById,
   productsForType,
   putCatalogue,
   putScanned,
   readCatalogue,
+  readExpiredCatalogue,
   readScanned,
   touchCatalogue,
   typesFrom,
@@ -584,6 +588,7 @@ function buildProduct(
     attribution: row.attribution,
     fetchedAt: row.fetched_at ?? undefined,
     formulaChangedAt: row.formula_changed_at ?? undefined,
+    source: row.source,
     ingredientIds: ingredients.map((i) => i.id),
     inStock: row.in_stock,
     ingredients,
@@ -1121,6 +1126,67 @@ export { forgetScanned };
  * shipped in the bundle, and because a fresh fetch has to be written back with
  * the right licence terms attached.
  */
+/**
+ * How old a locally answered product's formula may be before a scan also asks
+ * the server about it. Roughly how long a formula read can go unchecked
+ * before a reformulation is worth a background call; the answer on screen
+ * never waits for it.
+ */
+export const LOCAL_RECHECK_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * An unchanged product keeps its old `fetchedAt` (see `recheckInBackground`),
+ * so the last successful re-check is remembered too — otherwise a popular old
+ * product would be re-checked every hour it's scanned rather than every week
+ * (#267 review). Kept by `catalogue-cache` beside the scan memory, and erased
+ * with it.
+ */
+function isDueForRecheck(barcode: string, product: ProductWithIngredients): boolean {
+  const checkedAt = lastRechecked(barcode);
+  if (checkedAt !== undefined && Date.now() - checkedAt < LOCAL_RECHECK_AFTER_MS) return false;
+  const readAt = product.fetchedAt ? Date.parse(product.fetchedAt) : Number.NaN;
+  return !Number.isFinite(readAt) || Date.now() - readAt > LOCAL_RECHECK_AFTER_MS;
+}
+
+const rechecking = new Set<string>();
+
+/**
+ * Ask `product-lookup` about a barcode already answered from the device, and
+ * replace the local copy only if the formula actually changed. Anything else —
+ * offline, a failure, the same list — leaves it alone.
+ *
+ * Deliberately not "the newest thing the user saw": the screen already showed
+ * the local copy, and `SavedProduct.formulaFetchedAt` must keep describing
+ * *that* formula so the reformulation notice compares against what was on
+ * screen. A changed formula arrives through the catalogue and the scan memory,
+ * where the next render and the next scan pick it up.
+ */
+async function recheckInBackground(barcode: string, local: ProductWithIngredients): Promise<void> {
+  if (rechecking.has(barcode)) return;
+  rechecking.add(barcode);
+  try {
+    const { data, error } = await supabase!.functions.invoke(LOOKUP_FUNCTION, {
+      body: { barcode },
+      timeout: NETWORK_TIMEOUT_MS,
+    });
+    if (error || !data) return;
+    const fresh = rowToProduct(data as CatalogueRow);
+    // Only a real answer counts: a failed or malformed check must not hold
+    // off the next one for a week (#267 review, round 2).
+    noteRechecked(barcode);
+    const unchanged =
+      fresh.ingredientIds.length === local.ingredientIds.length &&
+      fresh.ingredientIds.every((id, index) => id === local.ingredientIds[index]);
+    // Remembered either way, so another scan within the hour doesn't ask again.
+    putScanned(barcode, unchanged ? local : fresh);
+    if (!unchanged) addScannedToCatalogue(fresh);
+  } catch {
+    // A background check has no one to report to; the local answer stands.
+  } finally {
+    rechecking.delete(barcode);
+  }
+}
+
 export async function fetchProductByBarcode(
   barcode: string
 ): Promise<Fetched<ProductWithIngredients | null>> {
@@ -1130,7 +1196,27 @@ export async function fetchProductByBarcode(
     // backing out of the result and scanning again) should not re-run the
     // whole cascade.
     const remembered = readScanned(barcode);
-    if (remembered !== undefined) return { ok: true, value: remembered };
+    if (remembered) return { ok: true, value: remembered };
+
+    // The phone already holds the catalogue, so a barcode in it is answered
+    // here with no network call — no round trip, no rate-limit spend, and it
+    // works offline, where this used to say "Couldn't check this barcode"
+    // about a product in the phone's own cache (#196). An old copy is shown
+    // at once and re-checked behind it; see `recheckInBackground`.
+    //
+    // `readCatalogue`, not `peekCatalogue`: it is the cache's one TTL check,
+    // and an app left running past the window would otherwise keep answering
+    // from an expired catalogue with no network call at all (#267 review). An
+    // expired copy is still used — but only when the network fails, below.
+    const entry = await readCatalogue();
+    const local = entry ? productByBarcode(entry, barcode) : undefined;
+    if (local) {
+      if (isDueForRecheck(barcode, local)) void recheckInBackground(barcode, local);
+      return { ok: true, value: local };
+    }
+    // A remembered miss only after the catalogue: a refresh since that miss
+    // may have brought the product in, and the catalogue is the newer word.
+    if (remembered === null) return { ok: true, value: null };
 
     // A deadline, for the same reason the direct reads have one — and this is
     // the call that needed it most. The barcode cascade tries its sources in
@@ -1163,6 +1249,12 @@ export async function fetchProductByBarcode(
         putScanned(barcode, null);
         return { ok: true, value: null };
       }
+      // Offline with a catalogue past its window: its copy of this product
+      // still beats "Couldn't check this barcode" — read from disk if a cold
+      // start never loaded it (#267 review, round 2).
+      const expired = await readExpiredCatalogue();
+      const fallback = expired ? productByBarcode(expired, barcode) : undefined;
+      if (fallback) return { ok: true, value: fallback };
       return { ok: false, failure: classifyFailure(error) };
     }
 
