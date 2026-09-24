@@ -31,7 +31,16 @@ jest.mock("expo-apple-authentication", () => ({
 
 // Required rather than imported: an import is hoisted above the mocks'
 // declarations, and lib/auth reads the fake client as it loads.
-const { signInWithApple, signOut, startAuth, useAuth } = require("@/lib/auth") as typeof import("@/lib/auth");
+const {
+  accountSummary,
+  classifySignInError,
+  signInFailureCopy,
+  signInWithApple,
+  signOut,
+  signOutEverywhere,
+  startAuth,
+  useAuth,
+} = require("@/lib/auth") as typeof import("@/lib/auth");
 
 const session = { access_token: "a", refresh_token: "r" } as Session;
 const emit = (event: string, value: Session | null) => mockListeners.forEach((l) => l(event, value));
@@ -107,7 +116,51 @@ describe("Sign in with Apple", () => {
   it("reports a rejected token as a failure", async () => {
     mockAppleSignIn.mockResolvedValue({ identityToken: "apple-jwt" });
     mockAuth.signInWithIdToken.mockResolvedValueOnce({ error: { message: "Invalid audience" } });
-    await expect(signInWithApple()).resolves.toEqual({ ok: false, reason: "failed", message: "Invalid audience" });
+    await expect(signInWithApple()).resolves.toEqual({
+      ok: false,
+      reason: "failed",
+      kind: "provider",
+      message: "Invalid audience",
+    });
+  });
+});
+
+describe("telling failures apart (#220)", () => {
+  it.each([
+    [{ name: "AuthRetryableFetchError", message: "Failed to fetch", status: 0 }, "network"],
+    [new TypeError("Network request failed"), "network"],
+    [{ message: "The request timed out." }, "network"],
+    [{ code: "email_exists", message: "Email already registered" }, "linked-elsewhere"],
+    [{ code: "identity_already_exists", message: "Identity is already linked" }, "linked-elsewhere"],
+    [{ message: "Invalid audience", status: 400 }, "provider"],
+    [Object.assign(new Error("The operation couldn't be completed."), { code: "ERR_REQUEST_FAILED" }), "provider"],
+  ])("%p is a %s failure", (error: unknown, kind: string) => {
+    expect(classifySignInError(error)).toBe(kind);
+  });
+
+  it("gives every failure its own words, and names the provider only when it was theirs", () => {
+    const network = signInFailureCopy("network", "google");
+    expect(network).toMatch(/couldn't reach our servers/);
+    expect(network).not.toMatch(/Google/);
+    expect(signInFailureCopy("provider", "google")).toMatch(/^Google couldn't sign you in/);
+    expect(signInFailureCopy("linked-elsewhere", "apple")).toMatch(/different sign-in/);
+  });
+});
+
+describe("who is signed in", () => {
+  const withUser = (email: string | undefined, app_metadata: Record<string, unknown>) =>
+    ({ user: { id: "u", email, app_metadata } }) as unknown as Session;
+
+  it("recognises an Apple Hide My Email relay address", () => {
+    expect(accountSummary(withUser("x7@privaterelay.appleid.com", { provider: "apple", providers: ["apple"] })))
+      .toEqual({ providers: "Apple", email: "x7@privaterelay.appleid.com", isHiddenEmail: true });
+  });
+
+  it("lists every linked provider once, and falls back to the single provider field", () => {
+    expect(accountSummary(withUser("j@gmail.com", { providers: ["google", "apple", "google"] })).providers).toBe(
+      "Google and Apple",
+    );
+    expect(accountSummary(withUser("j@gmail.com", { provider: "google" })).providers).toBe("Google");
   });
 });
 
@@ -115,5 +168,12 @@ describe("signing out", () => {
   it("ends this device's session only", async () => {
     await signOut();
     expect(mockAuth.signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+
+  it("signs out every device, and says whether the server heard", async () => {
+    await expect(signOutEverywhere()).resolves.toBe(true);
+    expect(mockAuth.signOut).toHaveBeenCalledWith({ scope: "global" });
+    mockAuth.signOut.mockResolvedValueOnce({ error: { message: "offline" } } as never);
+    await expect(signOutEverywhere()).resolves.toBe(false);
   });
 });
