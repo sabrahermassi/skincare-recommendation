@@ -254,8 +254,10 @@ export function isLowCoverage(ingredients: ProductWithIngredients["ingredients"]
  * change to the formula underneath it, which is exactly the case that must
  * miss: a rescanned bottle whose ingredients were reformulated has the same id
  * and a different score. `data/catalogue-cache.ts` never mutates a product in
- * place — `addScannedToCatalogue` rebuilds the entry, and `rehydrate` builds
- * fresh objects — so a changed product is always a new object and a new key.
+ * place — `addScannedToCatalogue` swaps a changed product for a new object
+ * and leaves every other product's object (and so its cached score) alone,
+ * and `rehydrate` builds fresh objects — so a changed product is always a new
+ * object and a new key.
  * That invariant is what makes this safe; if a writer ever starts mutating a
  * product in place, this cache is what will serve the stale answer.
  *

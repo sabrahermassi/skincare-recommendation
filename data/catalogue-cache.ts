@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 
 import type { Ingredient, ProductType, ProductWithIngredients } from "./types";
 
@@ -1213,10 +1213,12 @@ function enqueueWrite(write: () => Promise<void>): Promise<void> {
 }
 
 /**
- * Resolves once every write queued so far has finished. For tests, which
- * otherwise have to guess at how many ticks a two-part write takes.
+ * Resolves once every write queued so far has finished — starting a delayed
+ * scan write first, if one is waiting. For tests, which otherwise have to
+ * guess at how many ticks a two-part write takes.
  */
 export function writesSettled(): Promise<void> {
+  flushScanWrite();
   return writeQueue;
 }
 
@@ -1494,44 +1496,117 @@ export function addScannedToCatalogue(product: ProductWithIngredients): void {
   if (!memory) return;
   if (!product.barcode) return;
 
-  // A new array rather than a push or an in-place splice: the existing one is
-  // handed to screens as a stable reference and memoised on its identity, so
-  // mutating it would leave Browse showing the old list with no way to know it
-  // changed. Replacing the entry is what makes the change appear.
-  const products = memory.byId.has(product.id)
-    ? memory.products.map((p) => (p.id === product.id ? product : p))
-    : [product, ...memory.products];
+  // The common case once #196 answers known barcodes locally: a lookup that
+  // came back with exactly what is already held. Nothing to rebuild, no index
+  // work, no disk write (#197). "Exactly" means the formula and what the app
+  // shows of it — not `fetchedAt`, which a row can gain without its formula
+  // changing (migration 0021: a parser refresh is not a reformulation).
+  const held = memory.byId.get(product.id);
+  if (held && sameProduct(held, product)) return;
 
-  // The scanned product's ingredient objects are its own, not references into
-  // the shared dictionary — it arrived through the inlined single-row select,
-  // the right shape for one row. But they can be *more current* than what
-  // every other product in memory still points at for the same name: the
-  // whole reason to rescan a bottle is that its formula, or an ingredient's
-  // safety rating, may have changed since the catalogue was last fetched.
-  //
-  // `extractDictionary` below is first-wins by array order, not freshness-
-  // aware — left alone, whichever object it meets first for a given name
-  // could just as easily be the stale one, discarding the update this scan
-  // was for. Worse, that stale object would then persist, and on the next
-  // disk rehydration even *this* product — the one just rescanned — would
-  // revert to it, since `rehydrate` resolves every product's formula through
-  // that one dictionary. Propagating the fresh objects to every product that
-  // shares a name restores the sharing invariant immediately, so there is
-  // only ever one object per name by the time `extractDictionary` runs and
-  // its iteration order stops mattering.
-  const refreshed = new Map(product.ingredients.map((i) => [i.id, i]));
-  const reconciled = products.map((p) =>
-    p.id === product.id
-      ? p
-      : { ...p, ingredients: p.ingredients.map((i) => refreshed.get(i.id) ?? i) }
-  );
-
-  memory = buildEntry(reconciled, memory.watermark, memory.storedAt);
-  catalogueGeneration++;
-  void persist(memory.products, {
-    watermark: memory.watermark,
-    storedAt: memory.storedAt,
+  // The scanned product's ingredient objects are its own copies — it arrived
+  // through the inlined single-row select. Reuse the shared object for every
+  // definition that hasn't changed, so the catalogue keeps one object per
+  // name (`listRowToProduct`'s whole point), and remember the ones that have:
+  // the whole reason to rescan a bottle can be that an ingredient's rating
+  // changed, and the fresh definition has to reach every product that shares
+  // it, or `extractDictionary`'s first-wins merge could persist the stale one.
+  const shared = sharedIngredients(memory.products);
+  const changed = new Map<string, Ingredient>();
+  const ingredients = product.ingredients.map((fresh) => {
+    const current = shared.get(fresh.id);
+    if (current && sameDefinition(current, fresh)) return current;
+    if (current) changed.set(fresh.id, fresh);
+    return fresh;
   });
+
+  // Always a new object, never an in-place edit of `held`. The score cache in
+  // lib/matching.ts is a WeakMap keyed on the product *object*: a changed
+  // product must arrive as a new key, or it keeps serving the score of its
+  // old formula with nothing to notice. Every product this scan didn't touch
+  // keeps its object — and with it, its cached score.
+  const replacement: ProductWithIngredients = { ...product, ingredients };
+  const withDefinitions = (p: ProductWithIngredients) =>
+    changed.size > 0 && p.ingredients.some((i) => changed.has(i.id))
+      ? { ...p, ingredients: p.ingredients.map((i) => changed.get(i.id) ?? i) }
+      : p;
+  const products = held
+    ? memory.products.map((p) => (p.id === product.id ? replacement : withDefinitions(p)))
+    : [replacement, ...memory.products.map(withDefinitions)];
+
+  // A new array, not a push or a splice: screens memoise on the array's
+  // identity, so the change only appears if the entry is replaced.
+  memory = buildEntry(products, memory.watermark, memory.storedAt);
+  catalogueGeneration++;
+  scheduleScanWrite();
+}
+
+/** One object per ingredient name across the catalogue, as `listRowToProduct` builds it. */
+function sharedIngredients(products: readonly ProductWithIngredients[]): Map<string, Ingredient> {
+  const byName = new Map<string, Ingredient>();
+  for (const p of products) for (const i of p.ingredients) if (!byName.has(i.id)) byName.set(i.id, i);
+  return byName;
+}
+
+function sameDefinition(a: Ingredient, b: Ingredient): boolean {
+  const fa = a.functions ?? [];
+  const fb = b.functions ?? [];
+  return (
+    a.name === b.name &&
+    a.comedogenic === b.comedogenic &&
+    a.safety === b.safety &&
+    (a.note ?? null) === (b.note ?? null) &&
+    (a.verified ?? null) === (b.verified ?? null) &&
+    fa.length === fb.length &&
+    fa.every((fn, index) => fn === fb[index])
+  );
+}
+
+/** Same formula, same definitions, and nothing else the app shows or scores on has moved. */
+function sameProduct(a: ProductWithIngredients, b: ProductWithIngredients): boolean {
+  return (
+    a.name === b.name &&
+    a.brand === b.brand &&
+    a.type === b.type &&
+    a.barcode === b.barcode &&
+    a.source === b.source &&
+    a.formulaChangedAt === b.formulaChangedAt &&
+    a.ingredients.length === b.ingredients.length &&
+    a.ingredients.every((ingredient, index) => sameDefinition(ingredient, b.ingredients[index]) && ingredient.id === b.ingredients[index].id)
+  );
+}
+
+/**
+ * How long a scan waits before its catalogue change reaches the disk. The
+ * write is the whole catalogue, and it used to start at the exact moment the
+ * found sheet animated in; a few seconds later, several scans share one write.
+ */
+export const SCAN_WRITE_DELAY_MS = 3_000;
+
+let pendingScanWrite: ReturnType<typeof setTimeout> | null = null;
+let watchingAppState = false;
+
+function scheduleScanWrite(): void {
+  if (pendingScanWrite) clearTimeout(pendingScanWrite);
+  pendingScanWrite = setTimeout(flushScanWrite, SCAN_WRITE_DELAY_MS);
+  // Flushed on the way to the background: a delayed write that never lands
+  // because the app was closed is worse than an immediate one, since the next
+  // cold start would silently read an older catalogue.
+  if (!watchingAppState) {
+    watchingAppState = true;
+    AppState.addEventListener("change", (state) => {
+      if (state !== "active") flushScanWrite();
+    });
+  }
+}
+
+/** Write a delayed scan change now, if one is waiting. Reads `memory` at the moment it runs, so it is never stale. */
+export function flushScanWrite(): void {
+  if (!pendingScanWrite) return;
+  clearTimeout(pendingScanWrite);
+  pendingScanWrite = null;
+  if (!memory) return;
+  void persist(memory.products, { watermark: memory.watermark, storedAt: memory.storedAt });
 }
 
 /**
@@ -1543,6 +1618,9 @@ export function addScannedToCatalogue(product: ProductWithIngredients): void {
  * mocked AsyncStorage down with it and destroy the very copy under test.
  */
 export function forgetMemoryLayer(): void {
+  // Land a delayed scan write first — the app going away is exactly when it
+  // must not be lost (see `scheduleScanWrite`).
+  flushScanWrite();
   memory = null;
   // Nothing in memory can be ahead of disk once memory is empty.
   diskBlobStale = false;
@@ -1566,6 +1644,8 @@ export function forgetMemoryLayer(): void {
  * module touches — scanned barcodes — never reaches the disk at all.
  */
 export async function resetCatalogueCache(): Promise<void> {
+  if (pendingScanWrite) clearTimeout(pendingScanWrite);
+  pendingScanWrite = null;
   memory = null;
   catalogueGeneration++;
   diskRead = null;
