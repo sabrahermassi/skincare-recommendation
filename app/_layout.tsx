@@ -16,6 +16,7 @@ import { AppState } from "react-native";
 
 import { startAuth } from "@/lib/auth";
 import { COLORS } from "@/lib/colors";
+import { startFirstPage } from "@/lib/first-page";
 import { NOTE_FONT_SOURCE } from "@/lib/note-font";
 import { startShelfSync } from "@/lib/shelf-sync";
 import { revalidateOnForeground, warmCatalogue } from "@/data/api";
@@ -89,6 +90,9 @@ export default function RootLayout() {
 
   // Keeps a signed-in shelf in step with the account (#223).
   useEffect(() => startShelfSync(), []);
+
+  // Tells the account about a first-page moment this phone showed offline (#230).
+  useEffect(() => startFirstPage(), []);
 
   const ready = fontsLoaded && hydrated && catalogueWarm;
 

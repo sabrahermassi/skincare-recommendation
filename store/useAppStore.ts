@@ -148,6 +148,14 @@ type AppState = {
    */
   parkedShelf: { owner: string; queue: ShelfOp[] } | null;
   /**
+   * Accounts that have had their "first page of your journal" moment on this
+   * phone (#230). A fast path only: the account's own `user_metadata` is the
+   * record, and this covers the gap until that write lands — a second render,
+   * or a save made with no signal. See lib/first-page.ts.
+   */
+  journalStarted: string[];
+  markJournalStarted: (account: string) => void;
+  /**
    * Makes the cached shelf an account's. On the first sign-in on this device
    * the pre-accounts shelf is queued as saves into it; otherwise the cache
    * starts empty and fills from the server.
@@ -284,6 +292,7 @@ export const PERSISTED_KEYS = [
   "shelfQueue",
   "legacyShelfMigrated",
   "parkedShelf",
+  "journalStarted",
 ] as const;
 
 export type PersistedState = Pick<AppState, (typeof PERSISTED_KEYS)[number]>;
@@ -301,6 +310,7 @@ export function partializeState(state: AppState): PersistedState {
     shelfQueue: state.shelfQueue,
     legacyShelfMigrated: state.legacyShelfMigrated,
     parkedShelf: state.parkedShelf,
+    journalStarted: state.journalStarted,
   };
 }
 
@@ -317,6 +327,7 @@ const INITIAL_STATE = {
   shelfQueue: [] as ShelfOp[],
   legacyShelfMigrated: false,
   parkedShelf: null as { owner: string; queue: ShelfOp[] } | null,
+  journalStarted: [] as string[],
 };
 
 /** The queue with `ops` added — only while the shelf belongs to an account. */
@@ -629,6 +640,11 @@ export const useAppStore = create<AppState>()(
         ),
 
       claimSecureStore: () => set({ secureStoreClaimed: true }),
+
+      markJournalStarted: (account) =>
+        set((state) =>
+          state.journalStarted.includes(account) ? state : { journalStarted: [...state.journalStarted, account] }
+        ),
 
       adoptShelf: (owner) =>
         set((state) => {

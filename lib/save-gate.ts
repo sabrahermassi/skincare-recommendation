@@ -2,6 +2,7 @@ import { router } from "expo-router";
 
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
+import { noteProductSaved } from "@/lib/first-page";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 /**
@@ -41,8 +42,15 @@ export function useCanSave(): boolean {
 export function saveOrAskToSignIn(save: () => void, target: "product" | "ingredient"): void {
   const signedIn = canSaveNow();
   track("save_tapped", { target, signed_in: signedIn });
-  if (signedIn) {
+  // The first product an account saves is the first page of its journal
+  // (#230) — checked after the save itself has happened, so a guest sees it
+  // only once signed in and the sheet has closed.
+  const saveThenMaybeFirstPage = () => {
     save();
+    if (target === "product") noteProductSaved();
+  };
+  if (signedIn) {
+    saveThenMaybeFirstPage();
     return;
   }
   // A second tap while the sheet is already on its way (or up) updates what
@@ -51,7 +59,7 @@ export function saveOrAskToSignIn(save: () => void, target: "product" | "ingredi
   // the person was on. Closing the sheet drops the pending save, so the next
   // tap after that opens it again.
   const sheetAlreadyAsked = pending !== null;
-  pending = save;
+  pending = saveThenMaybeFirstPage;
   if (!sheetAlreadyAsked) router.push({ pathname: "/sign-in", params: { from: "save" } });
 }
 

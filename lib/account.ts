@@ -3,6 +3,7 @@ import { Share } from "react-native";
 
 import { deleteAccount, fetchAccountExport, type AccountExportRows } from "@/data/api";
 import { accountSummary, confirmWithApple, forgetDeletedAccount, useAuth } from "@/lib/auth";
+import { JOURNAL_STARTED_KEY } from "@/lib/first-page";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -53,11 +54,18 @@ export async function deleteMyAccount(): Promise<DeleteOutcome> {
 }
 
 /** Exported for the tests. */
-export function exportDocument(email: string | null, providers: string, rows: AccountExportRows, now: Date) {
+export function exportDocument(
+  email: string | null,
+  providers: string,
+  rows: AccountExportRows,
+  now: Date,
+  /** When the account first saved a product (#230) — kept on the account so the welcome shows once. */
+  journalStartedAt: string | null = null,
+) {
   return {
     exportedAt: now.toISOString(),
     app: "for.me",
-    account: { email, signInWith: providers },
+    account: { email, signInWith: providers, journalStartedAt },
     savedProducts: rows.products,
     savedIngredients: rows.ingredients,
     // Said in the file as well as on screen, so a copy on its own is honest
@@ -81,7 +89,12 @@ export async function exportMyData(): Promise<ExportOutcome> {
   if (!rows.ok) return rows.failure.kind === "offline" || rows.failure.kind === "timeout" ? "network" : "failed";
 
   const { email, providers } = accountSummary(session);
-  const text = JSON.stringify(exportDocument(email, providers, rows.value, new Date()), null, 2);
+  const started = session.user.user_metadata?.[JOURNAL_STARTED_KEY];
+  const text = JSON.stringify(
+    exportDocument(email, providers, rows.value, new Date(), typeof started === "string" ? started : null),
+    null,
+    2,
+  );
   try {
     const file = new File(Paths.cache, "for.me-account-export.json");
     file.create({ overwrite: true });

@@ -141,6 +141,7 @@ holds per account, owner-only under row-level security (migration 0025):
 | Journal note on a saved product (#228) — the person's own words, up to 500 characters | Same. Never shared, never in analytics |
 | Routine step on a saved product (#227) | Same |
 | Starred ingredients | Same |
+| When the account first saved a product (#230) — one date in the account's metadata, so the "first page of your journal" welcome shows once, on any phone | Until the account is deleted. In the export |
 
 **On the phone:** the session token in the Keychain/Keystore (memory only
 on web), and a cached copy of the shelf in the app's own storage, cleared
