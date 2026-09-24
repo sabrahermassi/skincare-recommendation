@@ -50,6 +50,23 @@ describe("the gate", () => {
     expect(mockPush).toHaveBeenCalledWith("/sign-in");
   });
 
+  // #273 review: a double tap opened two sheets.
+  it("opens one sheet for a double tap, and again after the sheet was closed", () => {
+    const first = jest.fn();
+    const second = jest.fn();
+    gate.saveOrAskToSignIn(first);
+    gate.saveOrAskToSignIn(second);
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    gate.completePendingSave();
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+
+    gate.saveOrAskToSignIn(first);
+    gate.dropPendingSave();
+    gate.saveOrAskToSignIn(first);
+    expect(mockPush).toHaveBeenCalledTimes(3);
+  });
+
   it("does the held save once they sign in, exactly once", () => {
     const save = jest.fn();
     gate.saveOrAskToSignIn(save);
