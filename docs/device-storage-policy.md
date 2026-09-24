@@ -45,8 +45,11 @@ this file.
   left on the phone would be carried into whichever account signs in next.
   The profile and scan history are the device's for everyone, signed in or
   not, so signing out never touches them. Queued shelf changes get one last
-  push before a deliberate sign-out; a sign-out the app didn't choose (a
-  revoked session) clears whatever was still queued.
+  push before a deliberate sign-out. Whatever still hasn't reached the
+  server — offline at sign-out, or a session that ended on its own — is
+  parked for that one account (`parkedShelf`): never shown, pushed when the
+  same account next signs in on this phone, dropped if a different one
+  does.
 - **#228** adds a journal note to a saved product — free text the user wrote
   themselves, which is the most personal thing this app will hold. It has
   its own row in the table above (added with #219, which created the

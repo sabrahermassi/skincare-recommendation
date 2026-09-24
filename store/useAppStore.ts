@@ -131,6 +131,14 @@ type AppState = {
    */
   legacyShelfMigrated: boolean;
   /**
+   * Changes that had not reached the server when the session ended — offline
+   * at sign-out, or a session that ended on its own (#274 review). Set aside
+   * for that one account, never shown and never carried into any other: the
+   * next time the same account signs in here they are pushed, and if a
+   * different account signs in they are dropped.
+   */
+  parkedShelf: { owner: string; queue: ShelfOp[] } | null;
+  /**
    * Makes the cached shelf an account's. On the first sign-in on this device
    * the pre-accounts shelf is queued as saves into it; otherwise the cache
    * starts empty and fills from the server.
@@ -143,9 +151,10 @@ type AppState = {
    */
   applyServerShelf: (owner: string, pushed: readonly ShelfOp[], server: Shelf) => void;
   /**
-   * Sign-out (#222): the cached shelf and its queue are cleared. A signed-out
-   * person cannot have a shelf (#221), and one left behind would be carried
-   * into whichever account signs in next. The profile and history stay.
+   * Sign-out (#222): the cached shelf is cleared. A signed-out person cannot
+   * have a shelf (#221), and one left behind would be carried into whichever
+   * account signs in next. Changes still queued are parked for this account
+   * rather than lost (`parkedShelf`). The profile and history stay.
    */
   leaveShelf: () => void;
 
@@ -250,6 +259,7 @@ export const PERSISTED_KEYS = [
   "shelfOwner",
   "shelfQueue",
   "legacyShelfMigrated",
+  "parkedShelf",
 ] as const;
 
 export type PersistedState = Pick<AppState, (typeof PERSISTED_KEYS)[number]>;
@@ -266,6 +276,7 @@ export function partializeState(state: AppState): PersistedState {
     shelfOwner: state.shelfOwner,
     shelfQueue: state.shelfQueue,
     legacyShelfMigrated: state.legacyShelfMigrated,
+    parkedShelf: state.parkedShelf,
   };
 }
 
@@ -281,6 +292,7 @@ const INITIAL_STATE = {
   shelfOwner: null as string | null,
   shelfQueue: [] as ShelfOp[],
   legacyShelfMigrated: false,
+  parkedShelf: null as { owner: string; queue: ShelfOp[] } | null,
 };
 
 /** The queue with `ops` added — only while the shelf belongs to an account. */
@@ -573,21 +585,32 @@ export const useAppStore = create<AppState>()(
       adoptShelf: (owner) =>
         set((state) => {
           if (state.shelfOwner === owner) return state;
+          // What this account left unsynced last time comes back into the
+          // queue; anyone else's parked changes are dropped, never pushed.
+          const parked = state.parkedShelf?.owner === owner ? state.parkedShelf.queue : [];
           if (state.shelfOwner === null && !state.legacyShelfMigrated) {
             // The first sign-in on this device: the shelf it already has is
             // carried into the account rather than lost.
             return {
               shelfOwner: owner,
               legacyShelfMigrated: true,
-              shelfQueue: shelfAsSaves(
-                { products: state.savedProducts, ingredients: state.savedIngredients },
-                Date.now(),
-              ),
+              parkedShelf: null,
+              shelfQueue: [
+                ...parked,
+                ...shelfAsSaves({ products: state.savedProducts, ingredients: state.savedIngredients }, Date.now()),
+              ],
             };
           }
           // Anyone else's cache (there should be none; sign-out clears it)
           // never crosses into another account.
-          return { shelfOwner: owner, legacyShelfMigrated: true, shelfQueue: [], savedProducts: [], savedIngredients: [] };
+          return {
+            shelfOwner: owner,
+            legacyShelfMigrated: true,
+            parkedShelf: null,
+            shelfQueue: parked,
+            savedProducts: [],
+            savedIngredients: [],
+          };
         }),
 
       applyServerShelf: (owner, pushed, server) =>
@@ -600,7 +623,15 @@ export const useAppStore = create<AppState>()(
 
       leaveShelf: () =>
         set((state) =>
-          state.shelfOwner === null ? state : { shelfOwner: null, shelfQueue: [], savedProducts: [], savedIngredients: [] }
+          state.shelfOwner === null
+            ? state
+            : {
+                shelfOwner: null,
+                shelfQueue: [],
+                savedProducts: [],
+                savedIngredients: [],
+                parkedShelf: state.shelfQueue.length > 0 ? { owner: state.shelfOwner, queue: state.shelfQueue } : null,
+              }
         ),
 
       resetApp: () => {
@@ -625,6 +656,8 @@ export const useAppStore = create<AppState>()(
           secureStoreClaimed: state.secureStoreClaimed,
           shelfOwner: state.shelfOwner,
           legacyShelfMigrated: state.legacyShelfMigrated,
+          // Changes parked from an earlier sign-out are shelf data too.
+          parkedShelf: null,
           shelfQueue: state.shelfOwner
             ? [
                 ...state.shelfQueue,

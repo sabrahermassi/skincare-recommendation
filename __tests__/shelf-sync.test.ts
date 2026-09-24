@@ -36,7 +36,14 @@ beforeEach(() => {
   jest.clearAllMocks();
   resetShelfSyncForTests();
   useAuth.setState({ status: "loading", session: null });
-  useAppStore.setState({ savedProducts: [], savedIngredients: [], shelfOwner: null, shelfQueue: [], legacyShelfMigrated: false });
+  useAppStore.setState({
+    savedProducts: [],
+    savedIngredients: [],
+    shelfOwner: null,
+    shelfQueue: [],
+    legacyShelfMigrated: false,
+    parkedShelf: null,
+  });
   mockPushShelf.mockResolvedValue({ ok: true, value: undefined });
   mockFetchShelf.mockResolvedValue({ ok: true, value: { products: [], ingredients: [] } });
 });
@@ -122,6 +129,27 @@ describe("following the account", () => {
     useAuth.setState({ status: "signed-out", session: null });
     expect(s().shelfOwner).toBeNull();
     expect(s().savedProducts).toEqual([]);
+    stop();
+  });
+
+  // #274 review: the push before sign-out can fail, and the change must
+  // survive it.
+  it("keeps a change that could not be pushed before sign-out, for that account's next sign-in", async () => {
+    const { signOut } = require("@/lib/auth") as typeof import("@/lib/auth");
+    mockPushShelf.mockResolvedValue(OFFLINE);
+    const stop = startShelfSync();
+    useAuth.setState({ status: "signed-in", session: session("user-a") });
+    s().saveProduct("saved-in-the-shop");
+
+    await signOut();
+    useAuth.setState({ status: "signed-out", session: null }); // as the real client reports it
+
+    expect(s().savedProducts).toEqual([]);
+    expect(s().parkedShelf?.queue).toEqual([expect.objectContaining({ id: "saved-in-the-shop" })]);
+
+    mockPushShelf.mockResolvedValue({ ok: true, value: undefined });
+    useAuth.setState({ status: "signed-in", session: session("user-a") });
+    expect(s().shelfQueue).toEqual([expect.objectContaining({ id: "saved-in-the-shop" })]);
     stop();
   });
 

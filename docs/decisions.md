@@ -321,7 +321,10 @@ first sign-in, through that same rule — so a second phone's legacy shelf
 merges into an account that already has one. The flag is set even when
 there was nothing to carry, so the migration can never re-run and put back
 items removed after signing in. Sign-out clears the shelf and leaves the
-profile and history (docs/device-storage-policy.md).
+profile and history (docs/device-storage-policy.md). Changes that never
+reached the server are parked for that account rather than lost — #274's
+review found an offline sign-out silently dropping them — and are never
+carried into a different account.
 
 ## Staging infrastructure
 

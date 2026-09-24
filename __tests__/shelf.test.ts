@@ -17,6 +17,7 @@ beforeEach(() => {
     shelfOwner: null,
     shelfQueue: [],
     legacyShelfMigrated: false,
+    parkedShelf: null,
   });
 });
 
@@ -99,6 +100,9 @@ describe("a shelf from before accounts (#222)", () => {
   it("never runs again, so a removal after signing in stays removed", () => {
     useAppStore.setState({ savedProducts: [{ id: "legacy", savedAt: 3 }] });
     s().adoptShelf("user-a");
+    s().applyServerShelf("user-a", s().shelfQueue, { products: [{ id: "legacy", savedAt: 3 }], ingredients: [] });
+    s().toggleSaved("legacy"); // removed after signing in…
+    s().applyServerShelf("user-a", s().shelfQueue, { products: [], ingredients: [] }); // …and synced
     s().leaveShelf();
     useAppStore.setState({ savedProducts: [{ id: "legacy", savedAt: 3 }] }); // as if somehow left behind
     s().adoptShelf("user-a");
@@ -185,9 +189,33 @@ describe("signing out (#222)", () => {
     expect(s().savedProducts.map((p) => p.id)).toEqual(["guest"]);
 
     s().adoptShelf("user-a");
+    s().applyServerShelf("user-a", s().shelfQueue, { products: [], ingredients: [] }); // synced
     s().leaveShelf();
     expect(s().shelfOwner).toBeNull();
     expect(s().savedProducts).toEqual([]);
     expect(s().shelfQueue).toEqual([]);
+    expect(s().parkedShelf).toBeNull();
+  });
+
+  // #274 review: an offline sign-out used to drop changes that never synced.
+  it("parks unsynced changes for that account and pushes them when it signs back in", () => {
+    s().adoptShelf("user-a");
+    s().saveProduct("saved-offline");
+    s().leaveShelf();
+    expect(s().savedProducts).toEqual([]); // nothing shown while signed out
+    expect(s().parkedShelf?.owner).toBe("user-a");
+
+    s().adoptShelf("user-a");
+    expect(s().shelfQueue).toEqual([expect.objectContaining({ kind: "save-product", id: "saved-offline" })]);
+    expect(s().parkedShelf).toBeNull();
+  });
+
+  it("never carries one account's parked changes into another", () => {
+    s().adoptShelf("user-a");
+    s().saveProduct("jane's");
+    s().leaveShelf();
+    s().adoptShelf("user-b");
+    expect(s().shelfQueue).toEqual([]);
+    expect(s().parkedShelf).toBeNull();
   });
 });

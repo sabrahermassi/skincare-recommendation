@@ -173,6 +173,7 @@ describe("what survives an app restart", () => {
       "hasSeenOnboarding",
       "history",
       "legacyShelfMigrated",
+      "parkedShelf",
       "profile",
       "savedIngredients",
       "savedProducts",
