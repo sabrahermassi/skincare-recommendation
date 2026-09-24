@@ -1,12 +1,13 @@
 import * as AppleAuthentication from "expo-apple-authentication";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { Text } from "@/components/Text";
 import {
+  ACCOUNT_PITCH,
   isAppleSignInAvailable,
   isGoogleSignInConfigured,
   signInFailureCopy,
@@ -38,13 +39,20 @@ export default function SignIn() {
   const [busy, setBusy] = useState<Provider | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
+  // A sign-in can finish after the sheet has already been closed ("Not now",
+  // or a swipe down). Going back then would pop whatever screen is under it
+  // (#272 review), so navigation only happens while the sheet is still up.
+  const mounted = useRef(true);
+
   useEffect(() => {
+    mounted.current = true;
     let cancelled = false;
     void isAppleSignInAvailable().then((available) => {
       if (!cancelled) setAppleAvailable(available);
     });
     return () => {
       cancelled = true;
+      mounted.current = false;
       // Closed without signing in: the save that opened this sheet is dropped
       // (#221). After a sign-in it has already run, so this does nothing.
       dropPendingSave();
@@ -66,6 +74,7 @@ export default function SignIn() {
     setBusy(provider);
     setFailure(null);
     const result: SignInResult = provider === "apple" ? await signInWithApple() : await signInWithGoogle();
+    if (!mounted.current) return;
     setBusy(null);
     // Success needs nothing here: the session arrives through `useAuth`, and
     // the effect above closes the sheet.
@@ -84,7 +93,7 @@ export default function SignIn() {
       <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 28, paddingBottom: insets.bottom + 32, gap: 18 }}>
         <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 26, color: INK }}>Keep your shelf</Text>
         <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>
-          An account keeps what you save on every phone you use. Scanning never needs one.
+          {ACCOUNT_PITCH}
         </Text>
 
         <View style={{ gap: 12, paddingTop: 8, alignItems: "center" }}>
