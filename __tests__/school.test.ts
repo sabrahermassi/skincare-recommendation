@@ -45,6 +45,19 @@ describe("Skincare School content", () => {
     }
   });
 
+  // #263 review round 4: two answers overstated what's uniform.
+  it("doesn't promise an ingredient has one spelling everywhere", () => {
+    const answer = questions.find((q) => q.id === "inci-names")!.answer;
+    expect(answer).not.toMatch(/same name on a bottle/);
+    expect(answer).toMatch(/vary by market/);
+  });
+
+  it("says retinoids differ instead of giving the whole family retinol's evidence", () => {
+    const answer = questions.find((q) => q.id === "retinoids")!.answer;
+    expect(answer).toMatch(/members differ/);
+    expect(answer).toMatch(/retinyl palmitate/);
+  });
+
   it("names a missing skin profile as a reason it can't tell, not only the photo", () => {
     expect(questions.find((q) => q.id === "cant-tell")!.answer).toMatch(/skin-profile questions/);
   });
