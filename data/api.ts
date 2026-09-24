@@ -1842,12 +1842,14 @@ export async function pushShelf(owner: string, push: ShelfPush): Promise<Fetched
 export type AccountExportRows = {
   products: { productId: string; savedAt: string; formulaFetchedAt: string | null; note: string | null; routineStep: number | null }[];
   ingredients: { inciName: string; savedAt: string }[];
+  /** Catalogue products this account added from a label photo (#241) — readable only by its author. */
+  added: { productId: string; addedAt: string }[];
 };
 
 export async function fetchAccountExport(): Promise<Fetched<AccountExportRows>> {
   if (!usingSupabase()) return { ok: false, failure: NO_BACKEND };
   try {
-    const [products, ingredients] = await Promise.all([
+    const [products, ingredients, added] = await Promise.all([
       withTimeout(
         (signal) =>
           supabase!
@@ -1862,9 +1864,15 @@ export async function fetchAccountExport(): Promise<Fetched<AccountExportRows>> 
           supabase!.from("saved_ingredients").select("inci_name, saved_at").order("saved_at", { ascending: true }).abortSignal(signal),
         "fetchAccountExport ingredients",
       ),
+      withTimeout(
+        (signal) =>
+          supabase!.from("product_authors").select("product_id, created_at").order("created_at", { ascending: true }).abortSignal(signal),
+        "fetchAccountExport added",
+      ),
     ]);
     if (products.error) return { ok: false, failure: classifyFailure(products.error) };
     if (ingredients.error) return { ok: false, failure: classifyFailure(ingredients.error) };
+    if (added.error) return { ok: false, failure: classifyFailure(added.error) };
     type ProductRow = ShelfProductRow & { note: string | null; routine_step: number | null };
     return {
       ok: true,
@@ -1879,6 +1887,10 @@ export async function fetchAccountExport(): Promise<Fetched<AccountExportRows>> 
         ingredients: (ingredients.data as ShelfIngredientRow[]).map((row) => ({
           inciName: row.inci_name,
           savedAt: row.saved_at,
+        })),
+        added: (added.data as { product_id: string; created_at: string }[]).map((row) => ({
+          productId: row.product_id,
+          addedAt: row.created_at,
         })),
       },
     };

@@ -20,6 +20,7 @@ const SECTIONS: { title: string; lines: string[] }[] = [
       "Signing in gives us your email address and an account ID. With Apple, the address can be a Hide My Email one, and we don't ask Apple for your name.",
       "Google always shares your name and profile picture when you sign in with it, and they're kept with your account. The app doesn't show or use them, and deleting your account deletes them.",
       "Your saved products — with any note you write and the routine step you pick — and your starred ingredients are kept with your account on our servers, so they're on every phone you sign in on. Only you can read them. Notes are never shared or counted.",
+      "If you add a product from a label photo while signed in, we note that your account added it, so a wrong entry can be traced and fixed. Only you can see that note. Deleting your account removes it; the product stays in the catalogue.",
       "Profile → Account lets you download everything in your account as a file, or delete your account. Deleting it removes the account and everything saved to it straight away.",
     ],
   },
