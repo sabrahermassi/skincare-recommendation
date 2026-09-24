@@ -104,10 +104,14 @@ begin
   exception when insufficient_privilege then null;
   end;
 
-  -- Positive: A can update A's own row.
+  -- Positive: A can update A's own rows — on both tables, so an UPDATE
+  -- policy that refuses everything cannot pass on empty results alone.
   update saved_products set note = 'edited', routine_step = 1 where product_id = 'a-product';
   get diagnostics n = row_count;
   assert n = 1, 'A could not update A''s own saved product';
+  update saved_ingredients set saved_at = now() where inci_name = 'glycerin';
+  get diagnostics n = row_count;
+  assert n = 1, 'A could not update A''s own saved ingredient';
 
   -- DELETE of B's rows touches nothing.
   delete from saved_products where user_id = b;

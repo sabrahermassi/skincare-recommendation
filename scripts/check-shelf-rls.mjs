@@ -34,7 +34,12 @@ function check(ok, message) {
   if (!ok) failures.push(message);
 }
 
-async function makeUser(label) {
+/**
+ * Creates and signs in a throwaway account. It goes onto `users` the moment
+ * it exists, before the sign-in that can still fail, so the clean-up below
+ * deletes it whatever happens next.
+ */
+async function makeUser(label, users) {
   const email = `rls-check-${label}-${randomBytes(6).toString("hex")}@example.com`;
   const password = randomBytes(24).toString("base64url");
   const { data, error } = await db.auth.admin.createUser({ email, password, email_confirm: true });
@@ -43,9 +48,12 @@ async function makeUser(label) {
   const client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  const user = { id: data.user.id, client };
+  users.push(user);
+
   const { error: signInError } = await client.auth.signInWithPassword({ email, password });
   if (signInError) throw new Error(`could not sign in user ${label}: ${signInError.message}`);
-  return { id: data.user.id, client };
+  return user;
 }
 
 /** Everything A tries against B's rows on one table, plus A's own row. */
@@ -75,6 +83,11 @@ async function probe(table, keyColumn, a, b) {
   const updated = await a.client.from(table).update(patch).eq("user_id", b.id).select(keyColumn);
   check(!updated.error && updated.data.length === 0, "UPDATE: A cannot change B's row");
 
+  // The permitted case, so an UPDATE policy that refuses everything cannot
+  // pass the two checks around it on an empty result alone.
+  const ownUpdated = await a.client.from(table).update(patch).eq(keyColumn, own).select(keyColumn);
+  check(!ownUpdated.error && ownUpdated.data.length === 1, "UPDATE: A can change A's own row");
+
   const moved = await a.client.from(table).update({ user_id: b.id }).eq(keyColumn, own).select(keyColumn);
   check(Boolean(moved.error) || moved.data.length === 0, "UPDATE: A cannot hand A's row to B");
 
@@ -90,10 +103,8 @@ async function probe(table, keyColumn, a, b) {
 
 const users = [];
 try {
-  const a = await makeUser("a");
-  users.push(a);
-  const b = await makeUser("b");
-  users.push(b);
+  const a = await makeUser("a", users);
+  const b = await makeUser("b", users);
 
   await probe("saved_products", "product_id", a, b);
   await probe("saved_ingredients", "inci_name", a, b);
