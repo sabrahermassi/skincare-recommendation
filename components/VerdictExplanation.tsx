@@ -1,6 +1,7 @@
 import { View } from "react-native";
 
 import { Text } from "@/components/Text";
+import type { PairingNote } from "@/lib/active-pairings";
 import type { ContextNudge } from "@/lib/context-nudges";
 import type { MatchReason, ScoreLine, Verdict } from "@/lib/matching";
 import type { Contraindication } from "@/lib/safety";
@@ -56,7 +57,7 @@ export function PregnancySection({ warnings }: { warnings: Contraindication[] })
   if (hits.length === 0) return null;
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
+      <Text accessibilityRole="header" style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
         While pregnant or breastfeeding
       </Text>
       {hits.map((hit) => (
@@ -80,12 +81,49 @@ export function PregnancySection({ warnings }: { warnings: Contraindication[] })
  * own, calmer indicator instead.
  */
 export function ContextNudgesSection({ nudges }: { nudges: ContextNudge[] }) {
-  if (nudges.length === 0) return null;
+  return <NotesSection title="Worth knowing" notes={nudges} />;
+}
+
+/**
+ * "In a routine" — the evening note and layering line from
+ * `lib/active-pairings.ts` (#233), in the same treatment as the two sections
+ * above so the three read as one kind of context — except a pairing note
+ * isn't uniformly neutral the way a context nudge is: the evening-routine
+ * note is pure scheduling, but the layering/shelf-pairing notes say plainly
+ * that a combination "can add up to more dryness and irritation" — a real
+ * caution, not a calmer FYI, so it keeps the warning-style indicator.
+ */
+export function PairingSection({ notes }: { notes: PairingNote[] }) {
+  return (
+    <NotesSection
+      title="In a routine"
+      notes={notes.map((note) => ({ ...note, direction: note.id === "retinoid-evening" ? "neutral" : "down" }))}
+    />
+  );
+}
+
+/**
+ * A heading, then one line per note — the shared treatment for context that
+ * isn't a warning, though an individual note can still opt into the warning
+ * indicator via `direction` when it genuinely is one (see `PairingSection`
+ * above). Defaults to "neutral": every `ContextNudge` is purely informational
+ * (#262 review, CodeRabbit), so `ContextNudgesSection` never needs to set it.
+ */
+export function NotesSection({
+  title,
+  notes,
+}: {
+  title: string;
+  notes: { id: string; label: string; text: string; direction?: ExplanationDirection }[];
+}) {
+  if (notes.length === 0) return null;
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>Worth knowing</Text>
-      {nudges.map((nudge) => (
-        <ExplanationLine key={nudge.id} label={nudge.label} detail={nudge.text} direction="neutral" />
+      <Text accessibilityRole="header" style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
+        {title}
+      </Text>
+      {notes.map((note) => (
+        <ExplanationLine key={note.id} label={note.label} detail={note.text} direction={note.direction ?? "neutral"} />
       ))}
     </View>
   );

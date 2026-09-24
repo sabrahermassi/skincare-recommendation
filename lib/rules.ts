@@ -875,12 +875,15 @@ export function alphabeticalTailStart(names: readonly string[]): number | null {
   return start < 1 || runLength < MIN_ALPHABETICAL_RUN ? null : start;
 }
 
+/** Matches an ingredient name against a list of exact names and patterns. */
+export function nameMatches(patterns: readonly (string | RegExp)[], inciName: string): boolean {
+  const name = inciName.trim().toLowerCase();
+  return patterns.some((pattern) => (typeof pattern === "string" ? name === pattern : pattern.test(name)));
+}
+
 /** Matches an ingredient name against a rule's name patterns. */
 export function ruleMatches(rule: IngredientRule, inciName: string): boolean {
-  const name = inciName.trim().toLowerCase();
-  return rule.names.some((pattern) =>
-    typeof pattern === "string" ? name === pattern : pattern.test(name)
-  );
+  return nameMatches(rule.names, inciName);
 }
 
 /** Whether a rule target applies to this profile. */

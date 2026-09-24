@@ -1,6 +1,7 @@
 import { INGREDIENTS } from "@/data/ingredients";
 import { PRODUCTS } from "@/data/products";
 import { SCHOOL } from "@/data/school";
+import { pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
 import { claimPolicyViolations } from "@/lib/claims-policy";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { PORE_CLOGGERS } from "@/lib/pore-clogging";
@@ -79,6 +80,27 @@ const NUDGE_RESULTS: OwnedClaim[] = [
   ...goalNudgesFor([nudgeIngredient("niacinamide")], ["hyperpigmentation"]),
 ].map((nudge, index) => ({ source: `contextNudges[${index}].${nudge.id}`, text: nudge.text }));
 
+// #233: pairing notes — the evening line, every per-product layering
+// variant (each active alone, then a retinoid facing all four partners), and
+// the shelf line in its one- and many-partner forms.
+const shelfItem = (id: string, names: string[]) => ({ id, name: id, ingredients: names.map(nudgeIngredient) });
+const PAIRING_CLAIMS: OwnedClaim[] = [
+  ...pairingNotesFor([nudgeIngredient("retinol")]),
+  ...["salicylic acid", "glycolic acid", "benzoyl peroxide", "sulfur"].flatMap((name) =>
+    pairingNotesFor([nudgeIngredient(name)])
+  ),
+  ...shelfPairingNotes([shelfItem("A", ["retinol"]), shelfItem("B", ["salicylic acid"])]),
+  ...shelfPairingNotes([
+    shelfItem("C", ["retinol"]),
+    shelfItem("D", ["salicylic acid", "glycolic acid", "benzoyl peroxide", "sulfur"]),
+  ]),
+  // The count line past the cap (#264 review).
+  ...shelfPairingNotes([
+    shelfItem("R", ["retinol"]),
+    ...Array.from({ length: 12 }, (_, i) => shelfItem(`S${i}`, ["salicylic acid"])),
+  ]).filter((note) => note.id === "more"),
+].map((note, index) => ({ source: `pairingNotes[${index}].${note.id}`, text: note.text }));
+
 // #235: Skincare School — paragraphs about ingredients, the largest body of
 // app-authored copy, so every question and every answer is audited.
 const SCHOOL_CLAIMS: OwnedClaim[] = SCHOOL.flatMap((category) =>
@@ -91,6 +113,7 @@ const SCHOOL_CLAIMS: OwnedClaim[] = SCHOOL.flatMap((category) =>
 const OWNED_CLAIMS: OwnedClaim[] = [
   ...HEADLINE_RESULTS,
   ...NUDGE_RESULTS,
+  ...PAIRING_CLAIMS,
   ...SCHOOL_CLAIMS,
   // Audited directly (#261 review): `WARNINGS` below comes from the sample
   // INGREDIENTS, which hold none of the pregnancy-caution names — so these
@@ -142,6 +165,22 @@ describe("medical and safety claims policy", () => {
     ]);
     // Four distinct sentences — the three photosensitising variants differ by subject.
     expect(new Set(NUDGE_RESULTS.map((claim) => claim.text)).size).toBe(4);
+  });
+
+  it("audits every pairing-note variant, not an empty collection", () => {
+    expect(PAIRING_CLAIMS.map((claim) => claim.source)).toEqual([
+      "pairingNotes[0].retinoid-evening",
+      "pairingNotes[1].layering",
+      "pairingNotes[2].layering",
+      "pairingNotes[3].layering",
+      "pairingNotes[4].layering",
+      "pairingNotes[5].layering",
+      "pairingNotes[6].A+B",
+      "pairingNotes[7].C+D",
+      "pairingNotes[8].more",
+    ]);
+    // The four single-partner lines all read "with a retinoid", so they collapse to one.
+    expect(new Set(PAIRING_CLAIMS.map((claim) => claim.text)).size).toBe(6);
   });
 
   it("keeps every app-authored ingredient and product claim within policy", () => {

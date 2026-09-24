@@ -7,11 +7,12 @@ import { IngredientsSheet, ingredientsSheetPeek, type IngredientsSheetHandle } f
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
-import { ContextNudgesSection, ExplanationLine, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
+import { ContextNudgesSection, ExplanationLine, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
 import type { Ingredient } from "@/data/types";
+import { pairingNotesFor } from "@/lib/active-pairings";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { confidenceLabel, isLowCoverage, matchProduct, scoreExplanation, verdictHeadline } from "@/lib/matching";
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
@@ -214,7 +215,8 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
         {/* Renders regardless of lowCoverage: contraindications runs before
             the low-coverage refusal (#187), so a pregnant user photographing
             an unreadable formula still gets warned — and a context nudge
-            (#234) is still true of whatever names were read. */}
+            (#234) or pairing note (#233) is still true of whatever names
+            were read. */}
         <View style={{ paddingHorizontal: SPACE.gutter, gap: SPACE.block }}>
           <PregnancySection warnings={match.warnings} />
           <ContextNudgesSection
@@ -223,6 +225,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
               ...goalNudgesFor(product.ingredients, profile.concerns, product.type),
             ]}
           />
+          <PairingSection notes={pairingNotesFor(product.ingredients)} />
         </View>
 
         {lowCoverage ? (
