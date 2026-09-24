@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 import AddProduct from "@/app/add-product";
-import { fetchProductByBarcode, saveScannedProduct } from "@/data/api";
+import { fetchProductByBarcode, forgetScanned, saveScannedProduct } from "@/data/api";
 import { clearLabelRead, heldLabelRead, holdLabelRead } from "@/lib/pending-label";
 import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
 
@@ -36,6 +36,7 @@ jest.mock("react-native-safe-area-context", () => ({
 jest.mock("@/data/api", () => ({
   failureMessage: () => "",
   fetchProductByBarcode: jest.fn(),
+  forgetScanned: jest.fn(),
   saveScannedProduct: jest.fn(),
 }));
 
@@ -53,6 +54,7 @@ beforeEach(() => {
   mockDismissTo.mockClear();
   (saveScannedProduct as unknown as MockFn).mockClear();
   (fetchProductByBarcode as unknown as MockFn).mockClear();
+  (forgetScanned as unknown as MockFn).mockClear();
   clearLabelRead();
 });
 
@@ -228,6 +230,11 @@ describe("AddProduct — already saved, lookup fails (#258 review)", () => {
     expect(screen.getAllByText(/Still couldn't open it/).length).toBeGreaterThan(0);
     expect(saveScannedProduct).toHaveBeenCalledTimes(1);
     expect(mockDismissTo).not.toHaveBeenCalled();
+    // The core of this round's fix: the recovery lookup that just missed
+    // cached that miss for up to an hour. Without evicting it here, the next
+    // tap of "Show me that product" would read the same stale miss back
+    // instead of reaching the network again.
+    expect(forgetScanned).toHaveBeenCalledWith("1234567890123");
   });
 });
 

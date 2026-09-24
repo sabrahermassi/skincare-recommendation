@@ -27,6 +27,23 @@ jest.mock("expo-camera", () => ({
   useCameraPermissions: () => [mockPermission, jest.fn()],
 }));
 
+// The real AppState mock (@react-native/jest-preset) never actually calls a
+// registered handler, so it can't play the part of a background/foreground
+// transition. Captures the handler instead, same trick as `mockCamera` above.
+// Mocked at its own module path, not the whole "react-native" package —
+// react-native-css-interop wraps that package's own View/Text/etc. exports
+// at require time, and replacing the package wholesale broke that wrapping.
+let mockAppStateHandler: ((state: string) => void) | undefined;
+jest.mock("react-native/Libraries/AppState/AppState", () => ({
+  __esModule: true,
+  default: {
+    addEventListener: (_type: string, handler: (state: string) => void) => {
+      mockAppStateHandler = handler;
+      return { remove: jest.fn() };
+    },
+  },
+}));
+
 jest.mock("expo-router", () => {
   const React = require("react");
   return {
@@ -78,6 +95,7 @@ function scan(code: string) {
 beforeEach(() => {
   (fetchProductByBarcode as unknown as MockFn).mockClear();
   mockPermission.granted = true;
+  mockAppStateHandler = undefined;
 });
 
 const HINT = "Not scanning? Photograph the ingredient list instead.";
@@ -155,5 +173,23 @@ describe("scanner status panels", () => {
 
     await fireEvent.press(screen.getByRole("button", { name: "Scan again" }));
     expect(screen.queryByText("That isn't a product barcode")).toBeNull();
+  });
+});
+
+// #260 review (Codex): backgrounding the app doesn't blur this screen's
+// navigation focus, so the torch must be reset by an AppState listener too,
+// not only by the focus-effect cleanup that covers actually leaving the screen.
+describe("scanner torch", () => {
+  it("turns the torch off when the app backgrounds, without a new tap", async () => {
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+
+    await fireEvent.press(screen.getByRole("button", { name: "Turn on the torch" }));
+    expect(screen.getByRole("button", { name: "Turn off the torch" })).toBeTruthy();
+
+    await act(async () => {
+      mockAppStateHandler?.("background");
+    });
+    expect(screen.getByRole("button", { name: "Turn on the torch" })).toBeTruthy();
   });
 });
