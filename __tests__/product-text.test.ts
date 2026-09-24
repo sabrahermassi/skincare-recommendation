@@ -1,11 +1,14 @@
 import { PRODUCT_TYPE_LABEL } from "@/data/types";
 import {
+  MAX_BRAND_CHARS,
+  MAX_NAME_CHARS,
   MAX_NEW_STUBS_PER_SAVE,
   PRODUCT_TYPES,
   acceptedProductType,
   exactIlikePattern,
   mostCommonSpelling,
   productTextProblem,
+  savedTextProblem,
   tidySpacing,
 } from "@/supabase/functions/_shared/product-text";
 
@@ -35,6 +38,23 @@ describe("productTextProblem", () => {
     ["spam spam spam spam", "repetition"],
   ])("refuses %j as %s", (name: string, problem: string) => {
     expect(productTextProblem(name)).toBe(problem);
+  });
+});
+
+// #266 review: the check runs before label-ocr's rate limiter.
+describe("savedTextProblem", () => {
+  it("only reads the part a save would store", () => {
+    const filler = (length: number) =>
+      Array.from({ length: 100 }, (_, i) => `Word${i}`).join(" ").slice(0, length);
+    expect(savedTextProblem("name", `${filler(MAX_NAME_CHARS)} https://example.test`)).toBeNull();
+    expect(savedTextProblem("brand", `${filler(MAX_BRAND_CHARS - 20)} www.x.shop`)).toBe("url");
+  });
+
+  it("stays fast on a multi-megabyte name", () => {
+    const huge = "ab".repeat(2_500_000);
+    const started = Date.now();
+    savedTextProblem("name", huge);
+    expect(Date.now() - started).toBeLessThan(50);
   });
 });
 
