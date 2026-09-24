@@ -186,38 +186,63 @@ export function pairingNotesFor(ingredients: readonly Ingredient[]): PairingNote
 
 type ShelfProduct = { id: string; name: string; ingredients: readonly Ingredient[] };
 
+/** At most this many pair lines on Saved; any beyond are summed up in one more line. */
+export const MAX_SHELF_NOTES = 10;
+
 /**
  * Pairings across the shelf: one line per two saved products whose actives
  * tend to stack. Computed from whatever is saved on this device, so it needs
- * no account. A shelf is small; every pair is checked.
+ * no account.
+ *
+ * Bounded, because the shelf isn't (#264 review): each formula is scanned
+ * once, only products holding one of these actives are paired, and past
+ * `MAX_SHELF_NOTES` the rest become a single count line rather than hundreds
+ * of rows on the Saved screen.
  */
 export function shelfPairingNotes(products: readonly ShelfProduct[]): PairingNote[] {
+  const flagged = products
+    .map((product) => ({
+      product,
+      a: SHOWN.map((pairing) => has(product.ingredients, pairing.a)),
+      b: SHOWN.map((pairing) => has(product.ingredients, pairing.b)),
+    }))
+    .filter((entry) => entry.a.some(Boolean) || entry.b.some(Boolean));
+
   const notes: PairingNote[] = [];
-  for (let i = 0; i < products.length; i++) {
-    for (let j = i + 1; j < products.length; j++) {
-      const first = products[i];
-      const second = products[j];
+  let pairs = 0;
+  for (let i = 0; i < flagged.length; i++) {
+    for (let j = i + 1; j < flagged.length; j++) {
+      const first = flagged[i];
+      const second = flagged[j];
       // Grouped by side A's noun, so a retinoid facing BHA and AHAs reads as
       // one sentence rather than two.
       const partnersBySide = new Map<string, string[]>();
-      for (const pairing of SHOWN) {
-        const matched =
-          (has(first.ingredients, pairing.a) && has(second.ingredients, pairing.b)) ||
-          (has(first.ingredients, pairing.b) && has(second.ingredients, pairing.a));
-        if (!matched) continue;
+      SHOWN.forEach((pairing, index) => {
+        const matched = (first.a[index] && second.b[index]) || (first.b[index] && second.a[index]);
+        if (!matched) return;
         const partners = partnersBySide.get(pairing.a.noun) ?? [];
         if (!partners.includes(pairing.b.noun)) partners.push(pairing.b.noun);
         partnersBySide.set(pairing.a.noun, partners);
-      }
+      });
       if (partnersBySide.size === 0) continue;
 
+      pairs += 1;
+      if (notes.length >= MAX_SHELF_NOTES) continue;
       const combos = [...partnersBySide].map(([side, partners]) => `${side} with ${joinAnd(partners)}`);
       notes.push({
-        id: `${first.id}+${second.id}`,
-        label: `${first.name} + ${second.name}`,
+        id: `${first.product.id}+${second.product.id}`,
+        label: `${first.product.name} + ${second.product.name}`,
         text: `Between them, these bring together ${joinAnd(combos)}, which ${EFFECT} when they're used at the same time. ${HEDGE}`,
       });
     }
+  }
+  const more = pairs - notes.length;
+  if (more > 0) {
+    notes.push({
+      id: "more",
+      label: "More on your shelf",
+      text: `${more} more ${more === 1 ? "pair" : "pairs"} of saved products bring these actives together too.`,
+    });
   }
   return notes;
 }
