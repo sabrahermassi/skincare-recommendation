@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement, type React
 import {
   ActivityIndicator,
   Animated,
+  AppState,
   Easing,
   Linking,
   type LayoutChangeEvent,
@@ -147,6 +148,18 @@ export default function Scan() {
   // moment the scanner regains focus with no one having asked for that — a
   // battery cost and a real annoyance in a shop (#195).
   const [torchOn, setTorchOn] = useState(false);
+  // The focus-effect reset below only covers leaving this *screen*; backgrounding
+  // or locking the device blurs nothing in React Navigation, so that cleanup
+  // never runs. Without this, the OS suspends the camera (and its hardware
+  // torch) while `torchOn` stays true, and resuming can relight it with no new
+  // tap, or leave the button reading "Turn off the torch" for a light that's
+  // already off (#260 review, Codex).
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState !== "active") setTorchOn(false);
+    });
+    return () => subscription.remove();
+  }, []);
 
   const recordView = useAppStore((s) => s.recordView);
   const dismissQuizAcknowledgement = useAppStore((s) => s.dismissQuizAcknowledgement);
