@@ -90,6 +90,13 @@ describe("scanner status panels", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Scan something else" }));
     expect(screen.queryByText("Couldn't check this barcode")).toBeNull();
 
+    // Rescanning the same code the panel was just dismissed for must not
+    // reopen it — dismissGuard suppresses it (#190). Found in review on
+    // #259 (CodeRabbit): the test proved the panel could be left, but not
+    // that this specific guard is what's doing it.
+    await scan("8801234567890");
+    expect(fetchProductByBarcode).toHaveBeenCalledTimes(1);
+
     await scan("8809999999999");
     expect(fetchProductByBarcode).toHaveBeenLastCalledWith("8809999999999");
   });
@@ -122,6 +129,11 @@ describe("scanner status panels", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Photograph the ingredients" }));
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
     expect(screen.queryByText("We don't have this product yet")).toBeNull();
+
+    // Same guard, same reason as the unreachable-panel test above: the
+    // barcode can still be in frame the moment Barcode mode remounts.
+    await scan("8801234567890");
+    expect(fetchProductByBarcode).toHaveBeenCalledTimes(1);
 
     await scan("8809999999999");
     expect(fetchProductByBarcode).toHaveBeenLastCalledWith("8809999999999");
