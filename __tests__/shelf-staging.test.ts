@@ -184,6 +184,17 @@ run("the shelf on staging", () => {
     expect(after.value.products.map((p) => p.id).sort()).toEqual(["p-serum", "p-toner"]);
     expect(after.value.products.find((p) => p.id === "p-toner")!.savedAt).toBe(Date.parse("2026-09-20T00:00:00Z"));
 
+    // A routine step chosen on one phone reads back on the other (#227), and
+    // clearing it goes back to the guess.
+    await push(ipad, [{ kind: "set-product-step", id: "p-serum", step: 3 }]);
+    const tagged = await phone.api.fetchShelf();
+    if (!tagged.ok) throw new Error(JSON.stringify(tagged.failure));
+    expect(tagged.value.products.find((p) => p.id === "p-serum")!.routineStep).toBe(3);
+    await push(phone, [{ kind: "set-product-step", id: "p-serum", step: null }]);
+    const cleared = await ipad.api.fetchShelf();
+    if (!cleared.ok) throw new Error(JSON.stringify(cleared.failure));
+    expect(cleared.value.products.find((p) => p.id === "p-serum")!.routineStep).toBeUndefined();
+
     // Pushing the same batch twice changes nothing (a retry after a failure).
     const again = shelfAsSaves({ products: [{ id: "p-serum", savedAt: Date.parse("2026-09-10T10:00:00Z") }], ingredients: [] }, 0);
     await push(phone, again);

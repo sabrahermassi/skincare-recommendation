@@ -1658,7 +1658,12 @@ export async function searchProducts(query: string): Promise<ProductWithIngredie
 // written for the account the cache belongs to — a policy refuses anything
 // else anyway.
 
-type ShelfProductRow = { product_id: string; saved_at: string; formula_fetched_at: string | null };
+type ShelfProductRow = {
+  product_id: string;
+  saved_at: string;
+  formula_fetched_at: string | null;
+  routine_step?: number | null;
+};
 type ShelfIngredientRow = { inci_name: string; saved_at: string };
 
 const NO_BACKEND: FetchFailure = { kind: "server", message: "no backend configured" };
@@ -1672,7 +1677,7 @@ export async function fetchShelf(): Promise<Fetched<Shelf>> {
         (signal) =>
           supabase!
             .from("saved_products")
-            .select("product_id, saved_at, formula_fetched_at")
+            .select("product_id, saved_at, formula_fetched_at, routine_step")
             .order("saved_at", { ascending: true })
             .abortSignal(signal),
         "fetchShelf products",
@@ -1699,6 +1704,9 @@ export async function fetchShelf(): Promise<Fetched<Shelf>> {
           // and the formula-changed notice compares with Date.parse, but one
           // spelling in the cache keeps it from ever looking like a change.
           formulaFetchedAt: row.formula_fetched_at ? new Date(row.formula_fetched_at).toISOString() : undefined,
+          ...(row.routine_step === 1 || row.routine_step === 2 || row.routine_step === 3
+            ? { routineStep: row.routine_step }
+            : {}),
         })),
         ingredients: (ingredients.data as ShelfIngredientRow[]).map((row) => row.inci_name),
       },
@@ -1760,6 +1768,20 @@ export async function pushShelf(owner: string, push: ShelfPush): Promise<Fetched
             push.saveIngredients.map((i) => ({ user_id: owner, inci_name: i.name, saved_at: iso(i.savedAt) })),
             { onConflict: "user_id,inci_name", ignoreDuplicates: true },
           )
+          .abortSignal(signal),
+      );
+    }
+
+    // Routine steps (#227), after the saves so a product saved and tagged in
+    // the same batch has a row to tag. A cleared step writes null: back to
+    // the guess from the type.
+    for (const { id, step } of push.productSteps) {
+      await run("pushShelf routine step", (signal) =>
+        supabase!
+          .from("saved_products")
+          .update({ routine_step: step })
+          .eq("user_id", owner)
+          .eq("product_id", id)
           .abortSignal(signal),
       );
     }

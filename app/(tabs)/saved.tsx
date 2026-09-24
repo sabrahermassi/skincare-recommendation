@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { Link, router, useFocusEffect, useScrollToTop } from "expo-router";
 import type { ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -12,18 +12,20 @@ import { ProductThumbnail } from "@/components/ProductThumbnail";
 // this FOR.ME shell token is reused outside its original scope.
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
+import { TypeChip } from "@/components/TypeChip";
 import { canPhotographLabelFor, fetchProductsByIds, resolveIngredientNames } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/genie";
 import { matchProduct, matchTone } from "@/lib/matching";
+import { STEP_LABEL, STEP_ORDER, TYPE_STEP, stepOf, type RoutineStep, type StepGroup } from "@/lib/routine-step";
 import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
 import { isVerified } from "@/lib/safety";
 import { useCanSave } from "@/lib/save-gate";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SCRIM, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
 
 type Tab = SavedTab;
@@ -59,6 +61,7 @@ export default function Saved() {
   const savedIngredients = useAppStore((s) => s.savedIngredients);
   const history = useAppStore((s) => s.history);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
+  const setRoutineStep = useAppStore((s) => s.setRoutineStep);
   const restoreSavedProduct = useAppStore((s) => s.restoreSavedProduct);
   const clearHistory = useAppStore((s) => s.clearHistory);
   const clearSavedProducts = useAppStore((s) => s.clearSavedProducts);
@@ -98,6 +101,11 @@ export default function Saved() {
   // confirming — same reasoning as profile.tsx's own reset, done at the tap
   // that causes it rather than in an effect reacting to it after the fact.
   const [confirmingClear, setConfirmingClear] = useState(false);
+
+  // Routine steps (#227): which group the shelf is narrowed to, and which
+  // product's step is being chosen.
+  const [stepFilter, setStepFilter] = useState<StepGroup | "all">("all");
+  const [pickingStepFor, setPickingStepFor] = useState<string | null>(null);
   // The tab stays mounted while another one is showing, so an armed "Clear it" would
   // still be waiting when the person came back. Leaving the screen disarms all three.
   useFocusEffect(
@@ -137,6 +145,13 @@ export default function Saved() {
     () => shelfPairingNotes(byId ? savedIds.flatMap((id) => (byId[id] ? [byId[id]] : [])) : []),
     [byId, savedIds]
   );
+
+  /** A saved product's shelf group: the person's step, or the guess from its type. */
+  const groupOf = (id: string): StepGroup | null => {
+    const product = byId?.[id];
+    if (!product) return null;
+    return stepOf(product.type, savedProducts.find((p) => p.id === id)?.routineStep);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -287,9 +302,15 @@ export default function Saved() {
         // same spot, so without it React reuses one scroll view for both and the
         // scroll position carries over when switching tabs.
         <ScrollView key="saved" ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
+          <StepFilter
+            groups={STEP_ORDER.filter((group) => savedIds.some((id) => groupOf(id) === group))}
+            selected={stepFilter}
+            onSelect={setStepFilter}
+          />
           {savedIds.map((id) => {
             const product = byId[id];
             if (!product) return null;
+            if (stepFilter !== "all" && groupOf(id) !== stepFilter) return null;
             const match = matchProduct(product, profile);
             const score = match.score;
             const tone = score === null ? null : matchTone(score);
@@ -299,6 +320,13 @@ export default function Saved() {
                 key={id}
                 product={product}
                 bar={verdict.solid}
+                footer={
+                  <StepLine
+                    group={groupOf(id)}
+                    chosen={savedProducts.find((p) => p.id === id)?.routineStep !== undefined}
+                    onChange={() => setPickingStepFor(id)}
+                  />
+                }
                 onRemove={() => {
                   const saved = savedProducts.find((p) => p.id === id);
                   toggleSaved(id);
@@ -335,6 +363,17 @@ export default function Saved() {
           )}
 
           <ShelfPairings notes={shelfNotes} />
+
+          <StepPicker
+            productId={pickingStepFor}
+            guess={pickingStepFor && byId[pickingStepFor] ? TYPE_STEP[byId[pickingStepFor].type] : null}
+            chosen={savedProducts.find((p) => p.id === pickingStepFor)?.routineStep ?? null}
+            onPick={(step) => {
+              if (pickingStepFor) setRoutineStep(pickingStepFor, step);
+              setPickingStepFor(null);
+            }}
+            onClose={() => setPickingStepFor(null)}
+          />
 
           <ClearAll
             label="Clear saved products"
@@ -484,11 +523,14 @@ function Row({
   bar,
   onRemove,
   children,
+  footer,
 }: {
   product: ProductWithIngredients;
   bar: string;
   onRemove: () => void;
   children: ReactNode;
+  /** Controls under the card's link, outside it — see the note below on why. */
+  footer?: ReactNode;
 }) {
   const [scale, press] = usePressScale();
   return (
@@ -521,6 +563,7 @@ function Row({
           </View>
         </Pressable>
       </Link>
+      {footer}
 
       <RemoveButton onPress={onRemove} />
     </View>
@@ -1077,5 +1120,98 @@ function IngredientRow({ name, bar, onRemove }: { name: string; bar: string; onR
       <RemoveButton onPress={onRemove} />
     </View>
     </LiftedCard>
+  );
+}
+
+/**
+ * The shelf's filter pills (#227): All, then each group that has something
+ * in it, in the fixed order of `STEP_ORDER`. Hidden until there are two
+ * groups to choose between.
+ */
+function StepFilter({
+  groups,
+  selected,
+  onSelect,
+}: {
+  groups: StepGroup[];
+  selected: StepGroup | "all";
+  onSelect: (group: StepGroup | "all") => void;
+}) {
+  if (groups.length < 2) return null;
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+      <TypeChip label="All" selected={selected === "all"} onPress={() => onSelect("all")} />
+      {groups.map((group) => (
+        <TypeChip key={String(group)} label={STEP_LABEL[group]} selected={selected === group} onPress={() => onSelect(group)} />
+      ))}
+    </ScrollView>
+  );
+}
+
+/**
+ * One line under a saved card: which step it is in, and a way to change it.
+ * "Not sorted" asks to be sorted; "Body & hair" is simply where it belongs.
+ */
+function StepLine({ group, chosen, onChange }: { group: StepGroup | null; chosen: boolean; onChange: () => void }) {
+  if (group === null) return null;
+  return (
+    <Pressable
+      onPress={onChange}
+      accessibilityRole="button"
+      accessibilityLabel={`Routine step: ${STEP_LABEL[group]}. Change`}
+      style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 17, borderTopWidth: 1, borderTopColor: BORDER_INACTIVE }}
+    >
+      <Text style={{ flex: 1, fontSize: TYPE.caption, color: MUTED }}>
+        {group === "unsorted" ? "Not sorted yet" : STEP_LABEL[group]}
+        {chosen ? "" : group === "unsorted" ? "" : " · our guess"}
+      </Text>
+      <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>{group === "unsorted" ? "Pick a step" : "Change"}</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * Choosing a step (#227). The three steps a product can be put in, and — once
+ * the person has chosen — a way back to the guess from the product's type.
+ * Where a product belongs, never when to use it: no morning or evening, no
+ * order.
+ */
+function StepPicker({
+  productId,
+  guess,
+  chosen,
+  onPick,
+  onClose,
+}: {
+  productId: string | null;
+  guess: StepGroup | null;
+  chosen: RoutineStep | null;
+  onPick: (step: RoutineStep | null) => void;
+  onClose: () => void;
+}) {
+  const current = chosen ?? guess;
+  return (
+    <Modal visible={productId !== null} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: SCRIM, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+        <Pressable
+          onPress={(e) => e.stopPropagation()}
+          style={{ width: "100%", maxWidth: 340, borderRadius: 20, backgroundColor: SURFACE, padding: 24, gap: 16, ...FLOATING_SHADOW }}
+        >
+          <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 19, color: INK }}>Which step is it?</Text>
+          <View style={{ gap: 10 }}>
+            {([1, 2, 3] as const).map((step) => (
+              <TypeChip key={step} label={STEP_LABEL[step]} selected={current === step} onPress={() => onPick(step)} />
+            ))}
+          </View>
+          {chosen !== null && guess !== null ? (
+            <Pressable onPress={() => onPick(null)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}>
+              <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK }}>
+                {guess === "unsorted" ? "Clear my choice" : `Use our guess: ${STEP_LABEL[guess]}`}
+              </Text>
+            </Pressable>
+          ) : null}
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
