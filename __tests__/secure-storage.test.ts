@@ -180,6 +180,19 @@ describe("a reinstalled app", () => {
     expect(useAppStore.getState().secureStoreClaimed).toBe(false);
   });
 
+  // #270 review, round 3: a malformed entry used to be skipped, and the rest
+  // of the list trusted as complete.
+  it("does not trust leftovers when one entry in the list is malformed", async () => {
+    await authStorage.setItem(KEY, "previous owner");
+    const manifest = JSON.parse(mockKeychain.get(MANIFEST_KEY)!);
+    mockKeychain.set(MANIFEST_KEY, JSON.stringify({ ...manifest, "bad key!": 1 }));
+    useAppStore.setState({ secureStoreClaimed: false });
+    resetSecureStorageForTests();
+
+    expect(await authStorage.getItem(KEY)).toBeNull();
+    expect(useAppStore.getState().secureStoreClaimed).toBe(false);
+  });
+
   it("keeps the session on an ordinary relaunch", async () => {
     await authStorage.setItem(KEY, "mine");
     resetSecureStorageForTests();
