@@ -13,7 +13,10 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+import { fetchAliases, fetchDictionary, knownIngredients } from "../_shared/dictionary.ts";
+import { readFormula, type FormulaSources } from "../_shared/formula-gate.ts";
 import { guessTypeFromIngredients } from "../_shared/guess-type-from-ingredients.ts";
+import type { ParsedIngredient } from "../_shared/inci-parse.ts";
 import { isParserOnlyChange } from "../_shared/parser-refresh.ts";
 import { guessType } from "../_shared/product-type-classifier.mjs";
 import {
@@ -92,7 +95,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const refusal = await enforceRateLimit(req, db, "product-lookup", RATE_LIMIT);
   if (refusal) return refusal;
 
-  const logScan = (outcome: "resolved" | "not_found" | "upstream_failure" | "internal_error") =>
+  const logScan = (outcome: "resolved" | "not_found" | "quality_gate" | "upstream_failure" | "internal_error") =>
     logScanBounded(req, db, callerSalt(), { path: "barcode", outcome });
 
   // 1 ── our own catalogue, which already excludes anything past its deadline
@@ -137,16 +140,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // that outage from a genuine miss: without it, every source throwing looked
   // exactly like a barcode nobody has ever heard of, which is the opposite of
   // what #236 exists to measure.
+  //
+  // A failure reading our own dictionary during the gate is ours, not the
+  // source's, and is counted as `internal_error` rather than blamed on it.
   let upstreamFailed = false;
-  const safely = async (fn: () => Promise<Fetched | null>): Promise<Fetched | null> => {
+  let dictionaryFailed = false;
+  const safely = async (fn: () => Promise<Lookup>): Promise<Lookup> => {
     try {
       return await fn();
     } catch (err) {
       console.error("lookup source failed:", err);
-      upstreamFailed = true;
+      if (err instanceof DictionaryError) dictionaryFailed = true;
+      else upstreamFailed = true;
       return null;
     }
   };
+
+  // A source whose text fails the quality gate (#184) is not a hit: nothing
+  // is written — the write is the point, since a stored row answers every
+  // later scan from the cache above — and the next source is asked instead.
+  let gated = false;
 
   // A write failure here must not read as "not found" (wrong — the product IS
   // in the source that was just consulted) or as success with a body the
@@ -166,21 +179,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // 2 ── Open Beauty Facts: the only source we may keep permanently
   const fromObf = await safely(() => lookupOpenBeautyFacts(barcode));
-  if (fromObf) return persistOrFail(fromObf);
+  if (fromObf === GATED) gated = true;
+  else if (fromObf) return persistOrFail(fromObf);
 
   // 3 ── INCI API: better data, but cached under their terms, not owned. Kept
   // behind the OBF short-circuit above so a hit there never spends metered
-  // quota on the 2,000-request/month tier.
+  // quota on the 2,000-request/month tier. An OBF formula the gate refused is
+  // not a hit, and this is exactly when their better data is worth the call.
   if (INCI_API_KEY) {
     const fromInci = await safely(() => lookupInciApi(barcode));
-    if (fromInci) return persistOrFail(fromInci);
+    if (fromInci === GATED) gated = true;
+    else if (fromInci) return persistOrFail(fromInci);
   }
 
   // Nothing else is consulted. A product is stored only when it has a name, a
   // barcode and an ingredient list, so a source that knows a barcode but not
   // its formula is no source at all: the client is told "not found" and asks
-  // the user for the ingredient list instead.
-  await logScan(catalogueFailed ? "internal_error" : upstreamFailed ? "upstream_failure" : "not_found");
+  // the user for the ingredient list instead — the photo path, which reads
+  // the real label rather than someone's edit of it.
+  await logScan(
+    catalogueFailed || dictionaryFailed
+      ? "internal_error"
+      : upstreamFailed
+        ? "upstream_failure"
+        : gated
+          ? "quality_gate"
+          : "not_found"
+  );
   return json(req, { error: "Not found in any source" }, 404);
 });
 
@@ -188,10 +213,40 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 type Fetched = {
   product: Record<string, unknown>;
-  ingredients: { inci_name: string; position: number }[];
+  ingredients: ParsedIngredient[];
+  /** The parser the formula was read with — see `FormulaRead`. */
+  reparse: (text: string) => ParsedIngredient[];
 };
 
-async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
+/** A source had the barcode, but its formula failed the quality gate. */
+const GATED = "gated";
+
+/** A hit, a formula the gate refused, or nothing usable. */
+type Lookup = Fetched | typeof GATED | null;
+
+/** Our own dictionary could not be read — ours to report, not the source's. */
+class DictionaryError extends Error {}
+
+/**
+ * The gate's view of the dictionary. Only ever consulted on a cache miss — a
+ * barcode already in the catalogue returns before any of this runs.
+ */
+const FORMULA_SOURCES: FormulaSources = {
+  known: (names) =>
+    knownIngredients(db, names).catch((err) => {
+      throw new DictionaryError(String(err));
+    }),
+  dictionary: async () => {
+    try {
+      const [dictionary, aliases] = await Promise.all([fetchDictionary(db), fetchAliases(db)]);
+      return { dictionary, aliases };
+    } catch (err) {
+      throw new DictionaryError(String(err));
+    }
+  },
+};
+
+async function lookupOpenBeautyFacts(barcode: string): Promise<Lookup> {
   const res = await fetch(
     `${OBF_BASE}/product/${barcode}.json?fields=code,product_name,brands,image_url,ingredients_text,quantity,categories_tags`,
     { headers: { "User-Agent": USER_AGENT } }
@@ -222,9 +277,11 @@ async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
   // for a product the importer would have typed from the same formula — the
   // same barcode ending up with two different types depending on how it
   // arrived.
-  const ingredients = parseInci(inci);
-  // Text that parses to no ingredient at all is no formula.
-  if (ingredients.length === 0) return null;
+  const read = await readFormula(inci, FORMULA_SOURCES);
+  // Text that parses to no ingredient at all is no formula; text that parses
+  // mostly into names nobody recognises is not one we keep.
+  if (!read.ok) return read.reason === "gated" ? GATED : null;
+  const { ingredients, reparse } = read;
   const byName = guessType(p.categories_tags ?? [], name);
 
   return {
@@ -250,6 +307,7 @@ async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
       expires_at: null, // ODbL — ours to keep
     },
     ingredients,
+    reparse,
   };
 }
 
@@ -261,7 +319,7 @@ async function lookupOpenBeautyFacts(barcode: string): Promise<Fetched | null> {
  * (`api.inciapi.com`, `Authorization: Bearer`, an `ingredients[]` of objects)
  * didn't match anything the service actually serves.
  */
-async function lookupInciApi(barcode: string): Promise<Fetched | null> {
+async function lookupInciApi(barcode: string): Promise<Lookup> {
   const res = await fetch(`${INCI_BASE}/products/${barcode}`, {
     headers: { "X-API-Key": INCI_API_KEY, Accept: "application/json" },
   });
@@ -277,10 +335,11 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
   if (!p?.name) return null;
 
   const category: string[] = Array.isArray(p.category) ? p.category : [];
-  // Same ordering as the OBF branch above, and for the same reason.
-  const ingredients = parseInci(typeof p.ingredients === "string" ? p.ingredients : "");
-  // A product with no ingredient list is not one we can judge or store.
-  if (ingredients.length === 0) return null;
+  // Same ordering and the same gate as the OBF branch above, for the same
+  // reasons. A product with no ingredient list is not one we can judge or store.
+  const read = await readFormula(typeof p.ingredients === "string" ? p.ingredients : "", FORMULA_SOURCES);
+  if (!read.ok) return read.reason === "gated" ? GATED : null;
+  const { ingredients, reparse } = read;
   const byName = guessType(category, p.name);
 
   return {
@@ -305,6 +364,7 @@ async function lookupInciApi(barcode: string): Promise<Fetched | null> {
       expires_at: new Date(Date.now() + ttlFrom(res) * 1000).toISOString(),
     },
     ingredients,
+    reparse,
   };
 }
 
@@ -326,7 +386,7 @@ function ttlFrom(res: Response): number {
 class PersistError extends Error {}
 
 async function persist(fetched: Fetched) {
-  const { product, ingredients } = fetched;
+  const { product, ingredients, reparse } = fetched;
   const id = product.id as string;
 
   // One RPC, one transaction: the stub ingredient rows, the product, and the
@@ -349,7 +409,7 @@ async function persist(fetched: Fetched) {
     .from("product_ingredients")
     .select("inci_name, position")
     .eq("product_id", id);
-  const parserRefresh = isParserOnlyChange(stored ?? [], ingredients, parseInci);
+  const parserRefresh = isParserOnlyChange(stored ?? [], ingredients, reparse);
   const { error } = await db.rpc("replace_product_with_ingredients", {
     p_product: product,
     p_ingredients: ingredients,
@@ -366,141 +426,4 @@ async function persist(fetched: Fetched) {
   if (readbackError) throw new PersistError(`post-write readback: ${readbackError.message}`);
   if (!data) throw new PersistError("post-write readback: row not found after write");
   return data;
-}
-
-// ── Parsing helpers ─────────────────────────────────────────────────────────
-
-/**
- * Whether a parsed fragment can be an ingredient name at all.
- *
- * The last line of defence for text that reached the name filter without a
- * heading to strip: a label section ("package labeling: label.jpg"), a file
- * name from a mis-scanned photo, or a paragraph of marketing copy. None of
- * those is a name, and a stub written for one sits in the shared dictionary
- * until somebody deletes it by hand.
- *
- * A colon between two digits is kept — "ci 77268:1" and "pigment red 57:1" are
- * real colour-index names. Any other colon is a heading that leaked into the
- * name. Eight words clears every name a label is likely to print and stays
- * below the sentences found in the dictionary; a few dictionary entries run
- * longer (fermented extracts naming dozens of species), but a caller that
- * holds the dictionary checks it first, so a known long name never reaches this,
- * and one that does not passes `allowLong`, which skips the word limit and nothing else. An HTML entity ("&lt;") or a run of seven digits
- * (a barcode, a batch number) is packaging text that OCR or a paste carried in,
- * as is a web address or e-mail, and a fragment that opens with the word
- * "ingredients" is a footnote about the list, not a member of it.
- */
-export function isPlausibleIngredientName(name: string, allowLong = false): boolean {
-  if (/[:：]/.test(name.replace(/\d[:：]\d/g, ""))) return false;
-  if (/\.(?:jpe?g|png|gif|webp|pdf)\b/i.test(name)) return false;
-  if (/&(?:lt|gt|amp|quot|nbsp|#\d+)\b|[<>]/i.test(name)) return false;
-  if (/\d{7,}/.test(name)) return false;
-  if (/\bwww\.|https?:|@|\.(?:com|net|org)\b/i.test(name)) return false;
-  if (/^ingr[eé]dients?\b/i.test(name)) return false;
-  return allowLong || name.split(/\s+/).length <= 8;
-}
-
-/**
- * INCI lists are comma-separated, but real labels are messy: bracketed
- * qualifiers, asterisks for organic, trailing percentages. This keeps the
- * order (which is regulated information) and drops the decoration.
- */
-function parseInci(text: string): { inci_name: string; position: number }[] {
-  // Open Beauty Facts' ingredient text sometimes carries the label's own
-  // heading. Without this the heading fuses onto the first name and the most
-  // basic ingredient in the formula stops resolving — Torriden's DIVE-In pad
-  // was stored with "ingredients water" as its first entry, so the app could
-  // not say what water was. `lib/inci.ts` has always stripped this; the two
-  // parsers simply disagreed.
-  // 전성분/성분 (Korean) and 全成分 (Japanese) are the "ingredients" heading in
-  // those languages -- never added here when #185 widened the client and
-  // label-ocr parsers, so an OBF/INCI-API entry using one still fused the
-  // heading onto the first name the same way an unstripped "Ingredients:"
-  // used to.
-  const withoutHeading = text.replace(/^\s*(?:full\s+|all\s+)?(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe|전성분|성분|全成分)\s*[:：]\s*/i, "")
-    .replace(/\b(?:inactive ingredients?|may contain|peu(?:t|vent) contenir|puede contener|kann enthalten)\s*[:：]?\s*/gi, ", ");
-
-  // ...and truncate at whatever shares the back of the label. Legal
-  // boilerplate and net-quantity marks reliably follow the formula, and
-  // without this the last ingredient is stored as "glycerin. made in
-  // nigeria" — a junk name that reaches the shared `ingredients` dictionary
-  // as a stub, and that no exact-name lookup (the UV-filter and acid lists
-  // in the ingredient fallback, for two) can match. `lib/inci.ts` and
-  // `import-obf.mjs` have always done this; this parser simply never did.
-  const stop =
-    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b|\bstorage\b)/i
-      .exec(withoutHeading);
-  const block = stop ? withoutHeading.slice(0, stop.index) : withoutHeading;
-
-  // A full stop inside brackets ("(Vit. E)") is part of the qualifier, not the
-  // end of a name: without this, "Tocopheryl Acetate (Vit. E)" split into
-  // "tocopheryl acetate (vit" and "e)". Same guard as `lib/inci.ts`; the
-  // stand-in is written as an escape so it survives editors that hide
-  // private-use characters.
-  const bracketGuarded = block.replace(/\([^)]*\)/g, (group) => group.replace(/\./g, "\uE001"));
-  // An abbreviation's own full stop is not a separator either: "Vit. E", or a genus
-  // abbreviated at the start of an item ("C. Sinensis Leaf Extract"). Same rule as
-  // `lib/inci.ts`.
-  const guarded = bracketGuarded.replace(
-    /(^|[;,.]\s*)[A-Za-z]\.(?=\s)|\b(?:vit|spp|sp|var|ssp|subsp)\.(?=\s)/gi,
-    (stop) => stop.replace(/\.$/, "\uE001")
-  );
-
-  const parsed = guarded
-    // A comma directly between two digits belongs to the name —
-    // "1,2-Hexanediol" is one ingredient, and splitting there yields a bare
-    // "1" and an orphaned "2-hexanediol". Kept in step with `lib/inci.ts`.
-    // U+3001, the ideographic (full-width) comma, is the separator standard
-    // Japanese ingredient lists actually print -- never added here either.
-    .split(/[;、]|,(?!\d)|\.(?=\s)/)
-    .map((part) => normalise(part.replace(/\uE001/g, ".")))
-    // No dictionary here, so a long real name (a fermented extract naming a dozen
-    // species) cannot be recognised as known: it is exempt from the word limit only,
-    // and every other check still reads the whole name.
-    .filter((part) => part.length > 1 && part.length < 120 && isPlausibleIngredientName(part, true));
-
-  return dedupe(parsed);
-}
-
-/**
- * `product_ingredients` is keyed on (product_id, position), not inci_name —
- * nothing stops two rows naming the same ingredient, and a real label does
- * repeat one: `ci 77491` in a tinted product, `parfum` a second time under a
- * fragrance-allergen disclosure. The client keys rows by inci_name (its `id`
- * is the ingredient name, not the position), so a genuine duplicate crashes
- * into a React key collision there. First occurrence wins. Kept in step with
- * the identical function in `supabase/functions/label-ocr/index.ts` and
- * `lib/inci.ts`.
- */
-function dedupe(names: string[]): { inci_name: string; position: number }[] {
-  const seen = new Set<string>();
-  const out: { inci_name: string; position: number }[] = [];
-  for (const name of names) {
-    if (seen.has(name)) continue;
-    seen.add(name);
-    out.push({ inci_name: name, position: out.length });
-  }
-  return out;
-}
-
-function normalise(raw: string): string {
-  return raw
-    // Full-width Latin/digits/punctuation (a common OCR read on a Japanese
-    // label, e.g. "ＰＥＧ－４０") are Script=Common, not Latin or one of the
-    // CJK scripts below, so the trim at the end stripped them as decoration
-    // rather than keeping them as the name they are. NFKC folds them to
-    // their standard-width equivalents first, matching how the dictionary
-    // itself is spelled.
-    .normalize("NFKC")
-    .replace(/\([^)]*\)/g, " ")
-    .replace(/[*_[\]]/g, " ")
-    .replace(/\b\d+([.,]\d+)?\s*%/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase()
-    // U+30FC, the katakana-hiragana prolongation mark ("ー" in "ポリマー"),
-    // is Script=Common rather than Katakana, so it needs to be named
-    // explicitly to survive the trim below the same way the four CJK
-    // scripts do.
-    .replace(/^[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+|[^a-z0-9)\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+$/gu, "");
 }

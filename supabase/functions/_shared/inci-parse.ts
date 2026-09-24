@@ -1,47 +1,21 @@
-/**
- * Canonical INCI-label parsing.
- *
- * Ingredient text reaches us from three places and all three are messy:
- * crowdsourced Open Beauty Facts entries (frequently OCR-mangled at source),
- * a photographed label, and hand-curated rows. This is the one definition of
- * how a printed list becomes an ordered array of names.
- *
- * `supabase/functions/_shared/inci-parse.ts` (which both Edge Functions
- * import) and `scripts/lib/inci-parse.mjs` hold copies, because a Deno edge
- * runtime and plain .mjs scripts cannot import this module without a build
- * step. Those copies must be kept in step with this one — it
- * is the version under test.
- */
+// The ingredient-list parser every Deno writer reads through: `label-ocr`
+// (a photographed label) and `product-lookup` (a barcode's Open Beauty Facts
+// or INCI API text). Moved here verbatim from `label-ocr/index.ts` (#184) —
+// `product-lookup` had its own smaller `parseInci`, with no dictionary repair,
+// no synonyms and no run-together or slash splitting, and it had already
+// drifted once (`dedupe()` never reached it).
+//
+// It imports nothing and touches no Deno global: the dictionary and aliases
+// arrive as arguments, and the caller fetches them. `lib/inci.ts` (the client)
+// and `scripts/lib/inci-parse.mjs` (the importers) cannot import Deno code,
+// so they stay separate copies — `__tests__/inci-parser-parity.test.ts` holds
+// all three in step against this file.
 
-/**
- * Reduce a printed fragment to the form the ingredient dictionary is keyed on.
- *
- * Real labels carry decoration the dictionary does not: bracketed botanical
- * qualifiers, asterisks marking organic content, trailing percentages.
- */
-export function normalise(raw: string): string {
-  return raw
-    // Full-width Latin/digits/punctuation (a common OCR read on a Japanese
-    // label, e.g. "ＰＥＧ－４０") are Script=Common, not Latin or one of the
-    // CJK scripts below, so the trim at the end stripped them as decoration
-    // rather than keeping them as the name they are. NFKC folds them to
-    // their standard-width equivalents first, matching how the dictionary
-    // itself is spelled.
-    .normalize("NFKC")
-    .replace(/\([^)]*\)/g, " ")
-    .replace(/[*_[\]]/g, " ")
-    .replace(/\b\d+([.,]\d+)?\s*%/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase()
-    // U+30FC, the katakana-hiragana prolongation mark ("ー" in "ポリマー"),
-    // is Script=Common rather than Katakana, so it needs to be named
-    // explicitly to survive the trim below the same way the four CJK
-    // scripts do.
-    .replace(/^[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+|[^a-z0-9)\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+$/gu, "");
-}
 
 export type ParsedIngredient = { inci_name: string; position: number };
+
+const MIN_DELIMITED_TOKENS = 4;
+const MAX_WINDOW_WORDS = 6;
 
 /**
  * Split a printed list on its separators.
@@ -59,7 +33,7 @@ export type ParsedIngredient = { inci_name: string; position: number };
  * done via the match offset against the original text rather than a
  * lookbehind, which not every runtime this parser has to run on supports.
  */
-function splitOnSeparators(text: string): string[] {
+export function splitOnSeparators(text: string): string[] {
   // U+E000, the first Private Use Area codepoint — never appears in printed
   // ingredient text, so it is safe as a one-character sentinel standing in
   // for a protected comma while the real separators are split on.
@@ -88,226 +62,22 @@ function splitOnSeparators(text: string): string[] {
     .map((s) => s.replace(new RegExp(PLACEHOLDER, "g"), ",").replace(//g, "."));
 }
 
-/** Below this many delimiter-split tokens, the split itself is untrustworthy. */
-const MIN_DELIMITED_TOKENS = 4;
-
-/** Longest run of words tried as one ingredient name (e.g. "Peg-20 Methyl Glucose Sesquistearate"). */
-const MAX_WINDOW_WORDS = 6;
-
 /**
- * Ceiling on the words reconstruction will consider.
- *
- * Reconstruction is the expensive path — every window is checked against a
- * dictionary of tens of thousands of names, with a fuzzy pass behind it — and
- * it only runs when the block could not be split on punctuation. If the block
- * boundary is ever missed, that block becomes the whole label and the work
- * grows with it: a real request died on the Edge Function's compute limit
- * exactly this way. No ingredient list runs past this, so the cap costs
- * nothing and bounds the damage when the boundary is wrong.
+ * Ceiling on the words reconstruction will consider. Reconstruction checks
+ * every window against a dictionary of tens of thousands of names with a fuzzy
+ * pass behind it, so if the block boundary is ever missed and the "block"
+ * becomes the whole label, the work grows with it — a real request died on this
+ * function's compute limit exactly that way. No ingredient list runs this long.
  */
 const MAX_RECONSTRUCTED_WORDS = 400;
 
 /**
  * Ceiling on fuzzy-match attempts across one `reconstructFromDictionary`
- * call. Every unmatched position can try up to `MAX_WINDOW_WORDS` window
- * spans, each of which can call `fuzzyLookup` more than once (the spaced
- * form, the joined form, the slash head) — and each `fuzzyLookup` scans every
- * dictionary entry within the edit-distance budget's length buckets. Without
- * a ceiling, a long run of unmatched words (the reconstruction path only
- * runs when the label was already too garbled to delimiter-split) still
- * spends real CPU per request even with the word cap above in place.
- *
- * Not benchmarked against real garbled labels — picked generously above what
- * a legitimate reconstruction should ever need, so it should only ever bite
- * on pathological input. Revisit with real data if it turns out too tight.
+ * call — bounds the same unmatched-run cost `MAX_RECONSTRUCTED_WORDS` bounds
+ * for word count, since a long unmatched run can still call `fuzzyLookup`
+ * many times per word without it. Kept in step with `lib/inci.ts`.
  */
 const MAX_FUZZY_ATTEMPTS_PER_BLOCK = 800;
-
-/**
- * Bounded Levenshtein distance — returns early once the result is certain to
- * exceed `max`, since this runs against many candidate dictionary entries per
- * word and the exact distance beyond `max` is never needed.
- */
-function levenshtein(a: string, b: string, max: number): number {
-  if (Math.abs(a.length - b.length) > max) return max + 1;
-
-  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    const curr = [i];
-    let rowMin = curr[0];
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
-      rowMin = Math.min(rowMin, curr[j]);
-    }
-    if (rowMin > max) return max + 1; // whole row exceeds budget — no recovery possible
-    prev = curr;
-  }
-  return prev[b.length];
-}
-
-/**
- * How much OCR noise a candidate may carry and still count as a match.
- *
- * Zero below `MIN_FUZZY_LENGTH`: within one edit of a short fragment sits half
- * the dictionary, so "oil", "code" and "fll" would all resolve to some real
- * ingredient. A fabricated match is worse than an unrecognised one — it inflates
- * coverage and can put a safety note on something that was never in the product
- * — so short fragments are left unmatched instead.
- */
-const MIN_FUZZY_LENGTH = 8;
-
-function fuzzyBudget(length: number): number {
-  if (length < MIN_FUZZY_LENGTH) return 0;
-  return length <= 15 ? 1 : 2;
-}
-
-/**
- * Closest dictionary entry within the edit budget, or null. Length-bucketed to
- * keep the scan small.
- *
- * A tie is refused rather than broken. When two different names sit the same
- * distance from what was printed, nothing in the text says which one it was,
- * and picking either invents an ingredient the product may not contain. This
- * matters more as the dictionary grows: every name added is another
- * near-neighbour, so the safeguard has to scale with it.
- */
-function fuzzyLookup(
-  candidate: string,
-  byLength: Map<number, string[]>,
-  attempts: { remaining: number }
-): string | null {
-  if (attempts.remaining <= 0) return null;
-  attempts.remaining -= 1;
-
-  const budget = fuzzyBudget(candidate.length);
-  if (budget === 0) return null;
-
-  let best: string | null = null;
-  let bestDist = budget + 1;
-  let ambiguous = false;
-  for (let len = candidate.length - budget; len <= candidate.length + budget; len++) {
-    for (const entry of byLength.get(len) ?? []) {
-      const dist = levenshtein(candidate, entry, budget);
-      if (dist === 0) return entry;
-      if (dist < bestDist) {
-        best = entry;
-        bestDist = dist;
-        ambiguous = false;
-      } else if (dist === bestDist && entry !== best) {
-        ambiguous = true;
-      }
-    }
-  }
-  return ambiguous ? null : best;
-}
-
-/**
- * Resolve one window of words to a dictionary name, or null.
- *
- * Three shapes are tried, because a printed label is not a database:
- *  - the words as written;
- *  - the words with the spaces removed, since OCR splits a single printed word
- *    across a line-wrap ("polyacryloyldimethyl taurate" for one printed word);
- *  - either side of a slash. On a label "/" separates two names for ONE
- *    ingredient — "Aqua/Water", "Butyrospermum Parkii Butter/Shea Butter" — so
- *    the canonical first name is what we store.
- *
- * The slash case is deliberately strict. Accepting it whenever the first part
- * matched would let a long window swallow whatever followed the slash: for
- * "…seed oil/rapeseed taurate peg-100" the first part matches outright, and the
- * three words after it are a different ingredient. So every later part must
- * itself be a name we know, or be a single word.
- */
-function matchWindow(
-  window: string[],
-  dictionary: ReadonlySet<string>,
-  byLength: Map<number, string[]>,
-  fuzzy: boolean,
-  attempts: { remaining: number }
-): string | null {
-  const lookup = (value: string): string | null => {
-    if (value.length <= 1) return null;
-    if (dictionary.has(value)) return value;
-    return fuzzy ? fuzzyLookup(value, byLength, attempts) : null;
-  };
-
-  const spaced = normalise(window.join(" "));
-  const direct = lookup(spaced);
-  if (direct) return direct;
-
-  if (window.length > 1) {
-    const joined = lookup(normalise(window.join("")));
-    if (joined) return joined;
-  }
-
-  if (spaced.includes("/")) {
-    const parts = spaced.split("/").map((part) => normalise(part));
-    const head = parts[0] ? lookup(parts[0]) : null;
-    // Exact-only for the trailing annotation, deliberately: allowing it to
-    // match approximately let "…butter/shea butter glycerin" through as one
-    // ingredient, eating the glycerin that followed it.
-    const restIsPlausible = parts
-      .slice(1)
-      .every((part) => part.length > 1 && (dictionary.has(part) || !part.includes(" ")));
-    if (head && parts.length > 1 && restIsPlausible) return head;
-  }
-
-  return null;
-}
-
-/**
- * Reconstruct ingredient boundaries from a run of words that carries no
- * delimiters at all — the printed bullet separators (•) between ingredients
- * are sometimes invisible to OCR entirely, not just misread, leaving one
- * undifferentiated block of words with nothing to split on.
- *
- * Greedy longest-match against the known ingredient dictionary, word by
- * word: try the longest plausible window first, since a multi-word name like
- * "Butyrospermum Parkii Butter" must win over matching "Butyrospermum" alone
- * and leaving "Parkii Butter" stranded. Exact matches are exhausted at every
- * window length before any fuzzy match is considered at any length — a name we
- * hold verbatim always beats a longer approximate one. When nothing matches at
- * all the bare word is emitted unverified, so this never stalls and never
- * silently drops a fragment.
- */
-export function reconstructFromDictionary(
-  words: string[],
-  dictionary: ReadonlySet<string>
-): ParsedIngredient[] {
-  const byLength = new Map<number, string[]>();
-  for (const entry of dictionary) {
-    const bucket = byLength.get(entry.length);
-    if (bucket) bucket.push(entry);
-    else byLength.set(entry.length, [entry]);
-  }
-
-  const out: ParsedIngredient[] = [];
-  const fuzzyAttempts = { remaining: MAX_FUZZY_ATTEMPTS_PER_BLOCK };
-  let i = 0;
-
-  while (i < words.length) {
-    let matched: { name: string; consumed: number } | null = null;
-    const maxSpan = Math.min(MAX_WINDOW_WORDS, words.length - i);
-
-    for (const fuzzy of [false, true]) {
-      for (let span = maxSpan; span >= 1 && !matched; span--) {
-        const name = matchWindow(words.slice(i, i + span), dictionary, byLength, fuzzy, fuzzyAttempts);
-        if (name) matched = { name, consumed: span };
-      }
-      if (matched) break;
-    }
-
-    if (!matched) matched = { name: normalise(words[i]), consumed: 1 };
-
-    if (matched.name.length > 1) {
-      out.push({ inci_name: matched.name, position: out.length });
-    }
-    i += matched.consumed;
-  }
-
-  return out;
-}
 
 /**
  * Whether a parsed fragment can be an ingredient name at all.
@@ -400,7 +170,7 @@ export function squashKey(name: string): string {
   return name.replace(/[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/gu, "");
 }
 
-function squashIndex(dictionary: ReadonlySet<string>): Map<string, string[]> {
+export function squashIndex(dictionary: ReadonlySet<string>): Map<string, string[]> {
   const cached = squashIndexCache.get(dictionary);
   if (cached) return cached;
   const index = new Map();
@@ -414,7 +184,7 @@ function squashIndex(dictionary: ReadonlySet<string>): Map<string, string[]> {
   return index;
 }
 
-function lengthIndex(dictionary: ReadonlySet<string>): Map<number, string[]> {
+export function lengthIndex(dictionary: ReadonlySet<string>): Map<number, string[]> {
   const cached = lengthIndexCache.get(dictionary);
   if (cached) return cached;
   const index = new Map();
@@ -675,20 +445,19 @@ export function salvageKnownNames(name: string, dictionary: ReadonlySet<string>,
 }
 
 /**
- * Extract the ordered ingredient list from a block of label text.
+ * Pull the INCI list out of whatever else the OCR picked up.
  *
- * Position is preserved because INCI order is regulated information —
- * descending concentration — and the verdict engine weights by it. A photo
- * also catches claims, directions and small print, so the list is isolated
- * from an "Ingredients:" heading where one exists (including the Korean
- * 전성분) and truncated at the next section heading.
+ * Real label photos capture claims, directions and barcodes alongside the
+ * formula, so this first tries to isolate the block after an "Ingredients:"
+ * heading, and only falls back to the whole text when there isn't one.
  *
- * `dictionary`, when supplied, backstops the common delimiter split: some
- * labels print bullet-separated ingredients with dots small or light enough
- * that OCR drops them entirely rather than misreading them, leaving no
- * punctuation to split on at all. When the plain split comes back too thin to
- * trust, the block is re-parsed by matching known ingredient names directly
- * against the run of words. Without a dictionary, behaviour is unchanged.
+ * `dictionary`, when supplied, backstops the delimiter split for labels
+ * whose bullet separators (•) are small or low-contrast enough that Vision
+ * doesn't detect them as characters at all — confirmed against a real photo,
+ * not a hypothetical: the ingredients came back as one undifferentiated run
+ * of words with no punctuation whatsoever to split on. Kept in step with
+ * `lib/inci.ts`, the version under test — see that file for the same logic
+ * annotated in more detail.
  */
 export function parseIngredientBlock(
   text: string,
@@ -758,16 +527,13 @@ export function parseIngredientBlock(
 
 /**
  * `product_ingredients` is keyed on (product_id, position), not inci_name —
- * nothing stops two rows naming the same ingredient. A regulated INCI list
- * never repeats a name, but two *different* multi-word ingredients that both
- * fail to match the dictionary can degrade to the same bare leftover word
- * (two different oils both landing on "oil"), and the UI keys rows by
- * inci_name, so a genuine duplicate crashes into a React key collision.
- * First occurrence wins — earliest position is the more informative one to
- * keep, since INCI order is descending concentration — and positions are
- * renumbered so there is no gap where a duplicate was dropped.
+ * nothing stops two rows naming the same ingredient. Two different
+ * multi-word ingredients that both fail to match the dictionary can degrade
+ * to the same bare leftover word (two different oils both landing on
+ * "oil"), and the client keys rows by inci_name, so a genuine duplicate
+ * crashes into a React key collision there. First occurrence wins.
  */
-function dedupe(parsed: ParsedIngredient[]): ParsedIngredient[] {
+export function dedupe(parsed: ParsedIngredient[]): ParsedIngredient[] {
   const seen = new Set<string>();
   const out: ParsedIngredient[] = [];
   for (const p of parsed) {
@@ -775,5 +541,186 @@ function dedupe(parsed: ParsedIngredient[]): ParsedIngredient[] {
     seen.add(p.inci_name);
     out.push({ inci_name: p.inci_name, position: out.length });
   }
+  return out;
+}
+
+/** Same normalisation as the import scripts, or the dictionary cannot match. */
+export function normalise(raw: string): string {
+  return raw
+    // Full-width Latin/digits/punctuation (a common OCR read on a Japanese
+    // label, e.g. "ＰＥＧ－４０") are Script=Common, not Latin or one of the
+    // CJK scripts below, so the trim at the end stripped them as decoration
+    // rather than keeping them as the name they are. NFKC folds them to
+    // their standard-width equivalents first, matching how the dictionary
+    // itself is spelled.
+    .normalize("NFKC")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[*_[\]]/g, " ")
+    .replace(/\b\d+([.,]\d+)?\s*%/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    // U+30FC, the katakana-hiragana prolongation mark ("ー" in "ポリマー"),
+    // is Script=Common rather than Katakana, so it needs to be named
+    // explicitly to survive the trim below the same way the four CJK
+    // scripts do.
+    .replace(/^[^a-z0-9\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+|[^a-z0-9)\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+$/gu, "");
+}
+
+/** Bounded edit distance — returns early once the result is certain to exceed `max`. */
+function levenshtein(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const curr = [i];
+    let rowMin = curr[0];
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+      rowMin = Math.min(rowMin, curr[j]);
+    }
+    if (rowMin > max) return max + 1;
+    prev = curr;
+  }
+  return prev[b.length];
+}
+
+/**
+ * Zero below `MIN_FUZZY_LENGTH`: within one edit of a short fragment sits half
+ * the dictionary, so "oil", "code" and "fll" would each resolve to some real
+ * ingredient. A fabricated match is worse than an unrecognised one.
+ */
+const MIN_FUZZY_LENGTH = 8;
+
+function fuzzyBudget(length: number): number {
+  if (length < MIN_FUZZY_LENGTH) return 0;
+  return length <= 15 ? 1 : 2;
+}
+
+/**
+ * Closest dictionary entry within the edit budget, or null.
+ *
+ * A tie is refused rather than broken: two different names equally close means
+ * nothing in the text says which was printed, and picking either invents an
+ * ingredient. Kept in step with `lib/inci.ts`.
+ */
+function fuzzyLookup(
+  candidate: string,
+  byLength: Map<number, string[]>,
+  attempts: { remaining: number }
+): string | null {
+  if (attempts.remaining <= 0) return null;
+  attempts.remaining -= 1;
+
+  const budget = fuzzyBudget(candidate.length);
+  if (budget === 0) return null;
+
+  let best: string | null = null;
+  let bestDist = budget + 1;
+  let ambiguous = false;
+  for (let len = candidate.length - budget; len <= candidate.length + budget; len++) {
+    for (const entry of byLength.get(len) ?? []) {
+      const dist = levenshtein(candidate, entry, budget);
+      if (dist === 0) return entry;
+      if (dist < bestDist) {
+        best = entry;
+        bestDist = dist;
+        ambiguous = false;
+      } else if (dist === bestDist && entry !== best) {
+        ambiguous = true;
+      }
+    }
+  }
+  return ambiguous ? null : best;
+}
+
+/**
+ * Resolve one window of words to a dictionary name, or null. Tries the words
+ * as written, the words with spaces removed (OCR splits a printed word across
+ * a line-wrap), and either side of a slash — on a label "/" separates two
+ * names for ONE ingredient ("Aqua/Water"), so the canonical first name wins.
+ * The slash case is strict: every later part must itself be a known name or a
+ * single word, or a long window would swallow whatever followed the slash.
+ * Kept in step with `lib/inci.ts`, the version under test.
+ */
+function matchWindow(
+  window: string[],
+  dictionary: ReadonlySet<string>,
+  byLength: Map<number, string[]>,
+  fuzzy: boolean,
+  attempts: { remaining: number }
+): string | null {
+  const lookup = (value: string): string | null => {
+    if (value.length <= 1) return null;
+    if (dictionary.has(value)) return value;
+    return fuzzy ? fuzzyLookup(value, byLength, attempts) : null;
+  };
+
+  const spaced = normalise(window.join(" "));
+  const direct = lookup(spaced);
+  if (direct) return direct;
+
+  if (window.length > 1) {
+    const joined = lookup(normalise(window.join("")));
+    if (joined) return joined;
+  }
+
+  if (spaced.includes("/")) {
+    const parts = spaced.split("/").map((part) => normalise(part));
+    const head = parts[0] ? lookup(parts[0]) : null;
+    // Exact-only for the trailing annotation, deliberately: allowing it to
+    // match approximately let "…butter/shea butter glycerin" through as one
+    // ingredient, eating the glycerin that followed it.
+    const restIsPlausible = parts
+      .slice(1)
+      .every((part) => part.length > 1 && (dictionary.has(part) || !part.includes(" ")));
+    if (head && parts.length > 1 && restIsPlausible) return head;
+  }
+
+  return null;
+}
+
+/**
+ * Reconstruct ingredient boundaries from a run of words with no delimiters at
+ * all, greedily matching the longest known dictionary name at each position.
+ * Exact matches are exhausted at every window length before any fuzzy match is
+ * considered at any length.
+ */
+function reconstructFromDictionary(
+  words: string[],
+  dictionary: ReadonlySet<string>
+): ParsedIngredient[] {
+  const byLength = new Map<number, string[]>();
+  for (const entry of dictionary) {
+    const bucket = byLength.get(entry.length);
+    if (bucket) bucket.push(entry);
+    else byLength.set(entry.length, [entry]);
+  }
+
+  const out: ParsedIngredient[] = [];
+  const fuzzyAttempts = { remaining: MAX_FUZZY_ATTEMPTS_PER_BLOCK };
+  let i = 0;
+
+  while (i < words.length) {
+    let matched: { name: string; consumed: number } | null = null;
+    const maxSpan = Math.min(MAX_WINDOW_WORDS, words.length - i);
+
+    for (const fuzzy of [false, true]) {
+      for (let span = maxSpan; span >= 1 && !matched; span--) {
+        const name = matchWindow(words.slice(i, i + span), dictionary, byLength, fuzzy, fuzzyAttempts);
+        if (name) matched = { name, consumed: span };
+      }
+      if (matched) break;
+    }
+
+    if (!matched) matched = { name: normalise(words[i]), consumed: 1 };
+
+    if (matched.name.length > 1) {
+      out.push({ inci_name: matched.name, position: out.length });
+    }
+    i += matched.consumed;
+  }
+
   return out;
 }
