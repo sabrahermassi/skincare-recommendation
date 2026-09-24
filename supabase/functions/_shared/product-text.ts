@@ -90,6 +90,9 @@ export function exactIlikePattern(text: string): string {
 /**
  * Every `ProductType` in `data/types.ts`. A copy, because Deno can't import
  * the app's types; `__tests__/product-text.test.ts` fails if the two drift.
+ * The database enforces the same list (`products_type_known`, migration 0027,
+ * #199), so a new product type also needs a migration widening that check —
+ * the same test holds all three together.
  */
 export const PRODUCT_TYPES: readonly string[] = [
   "cleanser",
