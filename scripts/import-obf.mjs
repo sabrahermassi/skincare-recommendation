@@ -283,9 +283,31 @@ function resumeProblem(state, ref, stamp) {
  * the fast half.
  */
 function checkpointStamp(known, aliases) {
-  const code = createHash("sha256").update(readFileSync(fileURLToPath(import.meta.url))).digest("hex").slice(0, 16);
-  return `${code}:${known.size}:${aliases.size}`;
+  const hash = createHash("sha256");
+  // This file and every module `toRow` parses or classifies with (#265
+  // review, round 2: counts alone miss a corrected mapping, and this file
+  // alone misses a parser fix).
+  for (const file of STAMPED_MODULES) hash.update(readFileSync(fileURLToPath(new URL(file, import.meta.url))));
+  hash.update(dictionaryStamp(known, aliases));
+  return hash.digest("hex").slice(0, 32);
 }
+
+/** The dictionary and aliases by content, not size — a corrected name or mapping keeps the count the same. */
+function dictionaryStamp(known, aliases) {
+  return createHash("sha256")
+    .update([...known].sort().join("\n"))
+    .update("\n\n")
+    .update([...aliases].map(([from, to]) => `${from}\t${to}`).sort().join("\n"))
+    .digest("hex");
+}
+
+/** Relative to this file: itself and the parsing and classifying code `toRow` depends on. */
+const STAMPED_MODULES = [
+  "./import-obf.mjs",
+  "./lib/inci-parse.mjs",
+  "./lib/guess-type-from-ingredients.mjs",
+  "../supabase/functions/_shared/product-type-classifier.mjs",
+];
 
 /**
  * One page of products that OBF itself considers to have a complete ingredient
@@ -833,6 +855,7 @@ export {
   serialiseCheckpoint,
   parseCheckpoint,
   resumeProblem,
+  dictionaryStamp,
   writeAtomically,
   TARGET_ROWS,
   MAX_REQUESTS,

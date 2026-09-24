@@ -539,6 +539,72 @@ function extractDictionary(products: ProductWithIngredients[]): Ingredient[] {
  * A failure at any point here is not an error the caller should see — a cache
  * that cannot be read is a cache miss, and the network path handles it.
  */
+/**
+ * The catalogue on disk, parsed and validated — or null when there is none, it
+ * doesn't parse, or (unless `allowExpired`) it is past `DISK_TTL_MS`. Throws
+ * on storage or JSON errors; callers decide what that means.
+ */
+async function loadDiskCatalogue(
+  allowExpired: boolean,
+): Promise<{ meta: CatalogueMeta; rehydrated: ProductWithIngredients[] } | null> {
+  const rawMeta = await AsyncStorage.getItem(META_KEY);
+  if (rawMeta === null) return null;
+
+  const meta = parseMeta(JSON.parse(rawMeta) as unknown);
+  if (!meta) return null;
+  if (!allowExpired && Date.now() - meta.storedAt > DISK_TTL_MS) return null;
+
+  const rawProducts = await readProductsBlob();
+  if (rawProducts === null) return null;
+
+  const stored = JSON.parse(rawProducts) as unknown;
+  if (typeof stored !== "object" || stored === null) return null;
+  const { dictionary, products } = stored as Partial<PersistedCatalogue>;
+  if (!Array.isArray(products) || products.length === 0) return null;
+  if (!Array.isArray(dictionary)) return null;
+  if (!dictionary.every(isUsableIngredient)) return null;
+  // The cast this replaces asserted a shape nothing had checked. A blob
+  // written by an older build — or half-written, or hand-edited — could
+  // put `[{}]` here, and the first thing to touch it is
+  // `matchProduct`/`ProductRow` reading `product.ingredients.length`,
+  // which throws while rendering rather than anywhere it can be caught.
+  // `isIdentifiable` guards the *network* rows before `rowToProduct`;
+  // nothing guarded the persisted ones. A miss is recoverable — the
+  // network path is right there — so validating down to the fields those
+  // consumers actually dereference is enough.
+  if (!products.every(isUsableProduct)) return null;
+  return { meta, rehydrated: rehydrate({ dictionary, products }) };
+}
+
+/** The last `readExpiredCatalogue` result, for as long as nothing has replaced the catalogue since. */
+let expiredCopy: { generation: number; entry: MemoryEntry | null } | null = null;
+
+/**
+ * The catalogue as this device last had it, whether or not it is past its
+ * window — for one use only: answering a scan when the network can't be
+ * reached (#196, #267 review). Never installed as `memory`, so the TTL that
+ * every normal read enforces is untouched.
+ *
+ * Exists because on a cold start with an expired disk copy `readCatalogue`
+ * returns null without loading anything, so `peekCatalogue` has nothing
+ * either, and an offline scan of a product the disk still holds would say
+ * "Couldn't check this barcode".
+ */
+export async function readExpiredCatalogue(): Promise<MemoryEntry | null> {
+  if (memory) return memory;
+  if (expiredCopy && expiredCopy.generation === catalogueGeneration) return expiredCopy.entry;
+  const generation = catalogueGeneration;
+  let entry: MemoryEntry | null = null;
+  try {
+    const loaded = await loadDiskCatalogue(true);
+    if (loaded) entry = buildEntry(loaded.rehydrated, loaded.meta.watermark, loaded.meta.storedAt);
+  } catch {
+    // Same as `readCatalogue`: unreadable means there is nothing to offer.
+  }
+  expiredCopy = { generation, entry };
+  return entry;
+}
+
 export async function readCatalogue(): Promise<MemoryEntry | null> {
   // `touchCatalogue` moves `storedAt` forward whenever a freshness check
   // confirms nothing changed, so this measures time since the copy was last
@@ -555,33 +621,9 @@ export async function readCatalogue(): Promise<MemoryEntry | null> {
 
   diskRead = (async () => {
     try {
-      const rawMeta = await AsyncStorage.getItem(META_KEY);
-      if (rawMeta === null) return null;
-
-      const meta = parseMeta(JSON.parse(rawMeta) as unknown);
-      if (!meta) return null;
-      if (Date.now() - meta.storedAt > DISK_TTL_MS) return null;
-
-      const rawProducts = await readProductsBlob();
-      if (rawProducts === null) return null;
-
-      const stored = JSON.parse(rawProducts) as unknown;
-      if (typeof stored !== "object" || stored === null) return null;
-      const { dictionary, products } = stored as Partial<PersistedCatalogue>;
-      if (!Array.isArray(products) || products.length === 0) return null;
-      if (!Array.isArray(dictionary)) return null;
-      if (!dictionary.every(isUsableIngredient)) return null;
-      // The cast this replaces asserted a shape nothing had checked. A blob
-      // written by an older build — or half-written, or hand-edited — could
-      // put `[{}]` here, and the first thing to touch it is
-      // `matchProduct`/`ProductRow` reading `product.ingredients.length`,
-      // which throws while rendering rather than anywhere it can be caught.
-      // `isIdentifiable` guards the *network* rows before `rowToProduct`;
-      // nothing guarded the persisted ones. A miss is recoverable — the
-      // network path is right there — so validating down to the fields those
-      // consumers actually dereference is enough.
-      if (!products.every(isUsableProduct)) return null;
-      const rehydrated = rehydrate({ dictionary, products });
+      const loaded = await loadDiskCatalogue(false);
+      if (!loaded) return null;
+      const { meta, rehydrated } = loaded;
 
       // Something replaced or cleared the memory layer while this read was in
       // flight — almost certainly the network fetch that ran because this read
@@ -1460,6 +1502,23 @@ export function forgetScanned(barcode: string): void {
  */
 export function forgetScannedBarcodes(): void {
   scanned.clear();
+  rechecked.clear();
+}
+
+/**
+ * When this session last got an answer from the server about a barcode it
+ * answered from the catalogue (#196). Lives here beside `scanned` because it
+ * is the same kind of thing — barcodes this person scanned — and is erased
+ * with it (#267 review).
+ */
+const rechecked = new Map<string, number>();
+
+export function lastRechecked(barcode: string): number | undefined {
+  return rechecked.get(barcode);
+}
+
+export function noteRechecked(barcode: string): void {
+  rechecked.set(barcode, Date.now());
 }
 
 /**
@@ -1599,6 +1658,13 @@ let pendingScanWrite: ReturnType<typeof setTimeout> | null = null;
 let watchingAppState = false;
 
 function scheduleScanWrite(): void {
+  // Disk is behind memory until this lands. Saying so holds back a
+  // metadata-only write (`touchCatalogue` → `persistMeta`) meanwhile, which
+  // would otherwise stamp a current watermark beside the pre-scan products —
+  // and if the delayed write then never landed, the next cold start would
+  // trust that older blob and skip the refetch (#268 review, round 2). The
+  // delayed write carries the current metadata with it when it runs.
+  diskBlobStale = true;
   if (pendingScanWrite) clearTimeout(pendingScanWrite);
   pendingScanWrite = setTimeout(flushScanWrite, SCAN_WRITE_DELAY_MS);
   // Flushed on the way to the background: a delayed write that never lands
@@ -1658,6 +1724,9 @@ export function forgetMemoryLayer(): void {
 export async function resetCatalogueCache(): Promise<void> {
   if (pendingScanWrite) clearTimeout(pendingScanWrite);
   pendingScanWrite = null;
+  diskBlobStale = false;
+  expiredCopy = null;
+  rechecked.clear();
   memory = null;
   catalogueGeneration++;
   diskRead = null;
