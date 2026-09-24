@@ -27,7 +27,8 @@
     "fix:duplicate-ingredients": "node scripts/fix-duplicate-ingredients.mjs",
     "audit:ingredient-coverage": "node scripts/audit-ingredient-coverage.mjs",
     "audit:data": "npm run audit:duplicate-ingredients && npm run audit:safety-labels && npm run audit:function-tags && npm run audit:ingredient-coverage -- --check",
-    "promotion-plan": "node scripts/promotion-plan.mjs"
+    "promotion-plan": "node scripts/promotion-plan.mjs",
+    "check:shelf-rls": "node scripts/check-shelf-rls.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/cormorant-garamond": "^0.4.1",
