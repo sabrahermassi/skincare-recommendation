@@ -42,8 +42,14 @@ export function saveOrAskToSignIn(save: () => void): void {
     save();
     return;
   }
+  // A second tap while the sheet is already on its way (or up) updates what
+  // will be saved but opens no second sheet (#273 review): two stacked sheets
+  // would both close on sign-in and the second close would pop the screen
+  // the person was on. Closing the sheet drops the pending save, so the next
+  // tap after that opens it again.
+  const sheetAlreadyAsked = pending !== null;
   pending = save;
-  router.push("/sign-in");
+  if (!sheetAlreadyAsked) router.push("/sign-in");
 }
 
 /** Called by the sign-in sheet once someone is signed in. */
