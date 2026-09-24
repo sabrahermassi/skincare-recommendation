@@ -261,15 +261,11 @@ export function LabelCamera({
         }
         // A width cap alone doesn't bound the encoded size: a detailed or
         // noisy frame can still come out over the limit, and the server would
-        // refuse it as an unreadable photo (#251). Same fallback as above if
-        // shrinking fails.
-        try {
-          const fitted = await fitUpload(croppedUri ?? photo.uri, imageBase64, sentWidth);
-          shrunkUris.push(...fitted.tempUris);
-          imageBase64 = fitted.base64;
-        } catch {
-          // See above.
-        }
+        // refuse it as an unreadable photo (#251). `fitUpload` never throws —
+        // a failed shrink hands back its best attempt, like the fallbacks above.
+        const fitted = await fitUpload(croppedUri ?? photo.uri, imageBase64, sentWidth);
+        shrunkUris.push(...fitted.tempUris);
+        imageBase64 = fitted.base64;
       }
 
       const outcome = await readLabelPhoto(imageBase64, barcode, isStillWanted);

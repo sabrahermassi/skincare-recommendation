@@ -59,6 +59,25 @@ describe("fitUpload", () => {
     expect(fitted.base64).toBe(TOO_BIG);
   });
 
+  // #269 review round 1.
+  it("still re-encodes a photo already at or under the floor, at its own width", async () => {
+    encodeFitsBelow(0);
+    await fitUpload("file:///p.png", TOO_BIG, 800);
+    expect(manipulate.mock.calls.map((call) => call[1][0].resize.width)).toEqual([800, 800]);
+  });
+
+  it("hands back the files it already made when a later step fails, instead of throwing", async () => {
+    let call = 0;
+    manipulate.mockImplementation(async () => {
+      call += 1;
+      if (call === 2) throw new Error("no memory");
+      return { uri: "file:///cache/first.jpg", base64: TOO_BIG.slice(1), width: 1500 };
+    });
+
+    const fitted = await fitUpload("file:///p.jpg", TOO_BIG, 2000);
+    expect(fitted).toEqual({ base64: TOO_BIG.slice(1), tempUris: ["file:///cache/first.jpg"] });
+  });
+
   it("can't shrink a photo of unknown width, so sends it as it is", async () => {
     expect(await fitUpload("file:///p.jpg", TOO_BIG, undefined)).toEqual({ base64: TOO_BIG, tempUris: [] });
   });
