@@ -121,10 +121,14 @@ begin
   get diagnostics n = row_count;
   assert n = 0, 'A deleted B''s saved ingredient';
 
-  -- Positive: A can delete A's own rows.
+  -- Positive: A can delete A's own rows — on both tables, so a DELETE policy
+  -- that refuses everything cannot pass on empty results alone.
   delete from saved_ingredients where inci_name = 'glycerin';
   get diagnostics n = row_count;
   assert n = 1, 'A could not delete A''s own saved ingredient';
+  delete from saved_products where product_id = 'a-product';
+  get diagnostics n = row_count;
+  assert n = 1, 'A could not delete A''s own saved product';
 end $$;
 
 -- ── The schema's own limits hold for a signed-in user too ───────────────────
