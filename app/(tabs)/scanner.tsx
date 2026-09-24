@@ -214,12 +214,35 @@ export default function Scan() {
       // (or tapping Barcode again) puts it away rather than leaving it over the
       // other mode's shutter.
       //
-      // A missed/unreachable panel no longer clears this way (#192): tapping
-      // the already-selected Barcode pill used to double as its dismissal,
-      // which nothing on screen said it did and a screen reader could not
-      // surface. Dismissing those two states is now the explicit "Scan
-      // again" / "Scan something else" action below — see `dismissStatus`.
+      // A missed/unreachable panel no longer clears on a same-pill re-tap
+      // (#192): tapping the already-selected Barcode pill used to double as
+      // its dismissal, which nothing on screen said it did and a screen
+      // reader could not surface. Dismissing those two states is now the
+      // explicit "Scan again" / "Scan something else" action below — see
+      // `dismissStatus`.
       if (status.kind === "found") {
+        setStatus({ kind: "idle" });
+        busy.current = false;
+      } else if (
+        (status.kind === "missed" || status.kind === "unreachable") &&
+        mode === "Photo" &&
+        next === "Barcode"
+      ) {
+        // Except when abandoning the one flow that deliberately keeps a
+        // missed status alive across a mode switch: "Add via Photo" on a
+        // barcode miss calls `selectMode("Photo")` while leaving `status`
+        // as `missed`, so `IngredientsStage` can still read the barcode
+        // (below). If the user backs out of that by tapping Barcode
+        // instead of finishing it, this is a genuine Photo-to-Barcode
+        // switch, not a re-tap — without clearing here, the stale miss
+        // panel reappears immediately and blocks scanning until "Scan
+        // something else" is also pressed (#259 review).
+        //
+        // The barcode can still be sitting in frame the moment Barcode mode
+        // remounts, so this needs the same dismiss-guard note `dismissStatus`
+        // uses — without it, the camera reads it again on the very next
+        // frame and the same panel pops straight back up (#190).
+        dismissGuard.noteDismissal(status.code, Date.now());
         setStatus({ kind: "idle" });
         busy.current = false;
       }
@@ -237,7 +260,7 @@ export default function Scan() {
       rememberScanMode(next);
       setMode(next);
     },
-    [status, mode, reads]
+    [status, mode, reads, dismissGuard]
   );
 
   /**
