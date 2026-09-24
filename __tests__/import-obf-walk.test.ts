@@ -6,6 +6,7 @@ import {
   MAX_REQUESTS,
   PAGE_SIZE,
   TARGET_ROWS,
+  dictionaryStamp,
   parseCheckpoint,
   resumeProblem,
   serialiseCheckpoint,
@@ -48,6 +49,15 @@ describe("import:obf resume safety", () => {
     expect(resumeProblem(saved, "staging-ref", "abc:36000:25000")).toBeNull();
     expect(resumeProblem(saved, "prod-ref", "abc:36000:25000")).toMatch(/written against project staging-ref, not prod-ref/);
     expect(resumeProblem(saved, "staging-ref", "abc:36100:25000")).toMatch(/different dictionary or version/);
+  });
+
+  // #265 review round 2: counts alone miss a corrected mapping.
+  it("stamps the dictionary by content, so a corrected mapping with the same count still changes it", () => {
+    const known = new Set(["aqua", "glycerin"]);
+    const stamp = dictionaryStamp(known, new Map([["water", "aqua"]]));
+    expect(dictionaryStamp(new Set(["glycerin", "aqua"]), new Map([["water", "aqua"]]))).toBe(stamp);
+    expect(dictionaryStamp(known, new Map([["water", "glycerin"]]))).not.toBe(stamp);
+    expect(dictionaryStamp(new Set(["aqua", "glycerine"]), new Map([["water", "aqua"]]))).not.toBe(stamp);
   });
 
   it("replaces the file whole, leaving no temp copy behind", () => {

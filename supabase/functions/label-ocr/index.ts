@@ -33,14 +33,12 @@ import {
 import { gateRatio } from "../_shared/gate-ratio.ts";
 import { paginateOrdered } from "../_shared/paginate.ts";
 import {
-  MAX_BRAND_CHARS,
-  MAX_NAME_CHARS,
   MAX_NEW_STUBS_PER_SAVE,
   acceptedProductType,
   exactIlikePattern,
   mostCommonSpelling,
   savedTextProblem,
-  tidySpacing,
+  storedText,
 } from "../_shared/product-text.ts";
 import { readTokenDeadline, signReadToken, verifyReadToken } from "../_shared/read-token.ts";
 import { logScanBounded, type ScanOutcome } from "../_shared/scan-log.ts";
@@ -493,7 +491,7 @@ async function saveProduct(
     id: existing?.id ?? `ocr-${barcode}`,
     barcode,
     brand: canonicalBrand,
-    name: tidySpacing(name).slice(0, MAX_NAME_CHARS),
+    name: storedText("name", name),
     // The person's own pick, when they made one (#200). A photographed
     // ingredient list gives no basis for guessing a category, so without a
     // pick it says "unknown" rather than defaulting to "serum" — the bug that
@@ -1442,7 +1440,7 @@ async function existingIngredientNames(names: string[]): Promise<Set<string>> {
  * "CeraVe"). A brand nobody has used yet is stored as typed.
  */
 async function brandAsStored(brand: string | undefined): Promise<string> {
-  const tidied = tidySpacing(brand ?? "").slice(0, MAX_BRAND_CHARS);
+  const tidied = storedText("brand", brand ?? "");
   if (!tidied) return "Unknown";
   // Every matching row, not the first page: once a brand runs past one page,
   // an unordered subset could crown a minority spelling (#266 review).
