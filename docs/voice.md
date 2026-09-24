@@ -161,7 +161,8 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 | Empty states | `app/(tabs)/saved.tsx` (`EMPTY_COPY`, and `GUEST_EMPTY_COPY` for a signed-out shelf, #221) | No, same reason |
 | Sign-in sheet and its failures | `app/sign-in.tsx`, `lib/auth.ts` (`signInFailureCopy`) | No — account copy, not an ingredient/product claim. Closing the provider's sheet deliberately has no copy at all (#220) |
 | Account screen | `app/account.tsx` | No, same reason |
-| Journal notes | Not built yet — `#228`/`#229`/`#230`. This document exists so that copy has a voice to write against from the start. | N/A yet |
+| Journal note — the app's prompt, placeholder, buttons and too-long message | `lib/journal.ts` (`NOTE_COPY`, `tooLongCopy`) | Yes — `NOTE_CLAIMS` (#228). The prompt asks about the product ("What did you think of it?"), never about skin |
+| Journal note — the note itself | The person's own words, on the saved row | **No, deliberately** — `docs/claims-policy.md` governs app-authored copy; a note is never audited, rewritten or refused for wording (#228) |
 
 **Out of scope, on purpose:** `INGREDIENT_RULES[].reason` (61 strings) and
 `PORE_CLOGGERS[].reason` (27 strings) are each a specific evidence claim —

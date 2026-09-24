@@ -26,6 +26,7 @@ import { openScanner } from "@/lib/genie";
 import { productPictureSize } from "@/lib/product-layout";
 import { isPersonalized } from "@/lib/profile";
 import { saveOrAskToSignIn } from "@/lib/save-gate";
+import { ProductNote } from "@/components/ProductNote";
 import { track } from "@/lib/analytics";
 import { irritationWarnings, isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
@@ -139,6 +140,7 @@ export default function ProductScreen() {
   const savedProducts = useAppStore((s) => s.savedProducts);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
   const saveProduct = useAppStore((s) => s.saveProduct);
+  const setNote = useAppStore((s) => s.setNote);
   const recordView = useAppStore((s) => s.recordView);
   const fillInViewScore = useAppStore((s) => s.fillInViewScore);
   const saved = savedProducts.some((p) => p.id === id);
@@ -587,6 +589,8 @@ export default function ProductScreen() {
         </View>
 
         <View style={{ paddingHorizontal: SPACE.gutter, gap: SPACE.block }}>
+          {/* The person's own note (#228), only for a product on their shelf. */}
+          {savedEntry ? <ProductNote note={savedEntry.note} onSave={(note) => setNote(product.id, note)} /> : null}
           <PregnancySection warnings={match.warnings} />
           <ContextNudgesSection
             nudges={[

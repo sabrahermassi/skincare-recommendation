@@ -1,6 +1,7 @@
 import { INGREDIENTS } from "@/data/ingredients";
 import { PRODUCTS } from "@/data/products";
 import { SCHOOL } from "@/data/school";
+import { NOTE_COPY, tooLongCopy } from "@/lib/journal";
 import { pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
 import { claimPolicyViolations } from "@/lib/claims-policy";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
@@ -110,8 +111,16 @@ const SCHOOL_CLAIMS: OwnedClaim[] = SCHOOL.flatMap((category) =>
   ])
 );
 
+// #228: the app's copy around a journal note — never the note itself, which
+// is the person's own words and is not the app's to audit or rewrite.
+const NOTE_CLAIMS: OwnedClaim[] = [
+  ...Object.entries(NOTE_COPY).map(([key, text]) => ({ source: `NOTE_COPY.${key}`, text })),
+  { source: "tooLongCopy(612)", text: tooLongCopy(612) },
+];
+
 const OWNED_CLAIMS: OwnedClaim[] = [
   ...HEADLINE_RESULTS,
+  ...NOTE_CLAIMS,
   ...NUDGE_RESULTS,
   ...PAIRING_CLAIMS,
   ...SCHOOL_CLAIMS,
