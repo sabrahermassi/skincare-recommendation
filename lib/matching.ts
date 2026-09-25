@@ -826,7 +826,7 @@ export function scoreExplanation(result: MatchResult): ScoreLine[] {
         detail:
           requiredDirection === "up"
             ? `The combined evidence supports ${result.verdict === "excellent" ? "an excellent" : "a good"} match`
-            : "There is not enough positive evidence to make this a good match",
+            : "There isn't enough positive evidence to make this a good match",
         direction: requiredDirection,
         weight: Number.POSITIVE_INFINITY,
       });
