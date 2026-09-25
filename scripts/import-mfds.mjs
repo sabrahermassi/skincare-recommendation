@@ -67,14 +67,16 @@ export function totalFrom(page) {
 
 /**
  * One MFDS record's names, split and normalised. Alternative names are
- * comma- or semicolon-separated — but a comma between digits is part of a
- * name ("1,3-butanediol"), exactly as the ingredient parser treats it, and a
- * slash can be too ("peg/ppg-18/18 dimethicone"), so neither splits.
+ * comma- or semicolon-separated — but a comma with a digit on both sides is
+ * part of a name ("1,3-butanediol"), the same rule as the ingredient
+ * parser's `splitOnSeparators`, and a slash can be too ("peg/ppg-18/18
+ * dimethicone"), so neither splits. A comma with a digit on one side only
+ * ("glycerol,1-hexanol") still separates two names (#286 review).
  */
 function namesOf(record) {
   const korean = normalise(String(record.INGR_KOR_NAME ?? ""));
   const alternatives = String(record.INGR_SYNONYM ?? "")
-    .split(/[;\n]|,(?!\d)/)
+    .split(/[;\n]|(?<!\d),|,(?!\d)/)
     .map((name) => normalise(name))
     .filter(Boolean);
   return { korean, alternatives };
@@ -147,10 +149,29 @@ export function proposeSynonyms(records, { verified, casIndex, existing }) {
   return { rows, stats };
 }
 
+/**
+ * The key as the query string needs it. data.go.kr issues each key twice,
+ * "encoded" (already percent-escaped) and "decoded"; escaping the encoded one
+ * again sends `%252B` for a `+` and the API refuses it. So an escaped key is
+ * decoded first, and either form reaches the API escaped exactly once (#286
+ * review).
+ */
+export function serviceKeyParam(key) {
+  let raw = key;
+  if (/%[0-9A-Fa-f]{2}/.test(key)) {
+    try {
+      raw = decodeURIComponent(key);
+    } catch {
+      // Not really escaped after all; sent as given.
+    }
+  }
+  return encodeURIComponent(raw);
+}
+
 async function fetchRegister(key) {
   const records = [];
   for (let pageNo = 1; ; pageNo++) {
-    const url = `${ENDPOINT}?serviceKey=${encodeURIComponent(key)}&pageNo=${pageNo}&numOfRows=${PAGE_SIZE}&type=json`;
+    const url = `${ENDPOINT}?serviceKey=${serviceKeyParam(key)}&pageNo=${pageNo}&numOfRows=${PAGE_SIZE}&type=json`;
     const res = await fetch(url, { headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error(`MFDS register: HTTP ${res.status}`);
     const page = await res.json();
