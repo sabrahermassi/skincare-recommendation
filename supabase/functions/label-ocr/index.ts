@@ -281,11 +281,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const ocr = await runOcr(imageBase64);
   if (!ocr.ok) {
-    // A blank, blurred or text-free photo is an ordinary read failure, not
-    // Vision having a bad day — logged as `not_enough_text` with zero parsed
-    // names, the same outcome the too-few-fragments check below uses for the
-    // same underlying fact ("nothing usable came out of this photo").
-    await logRead(ocr.noText ? "not_enough_text" : "upstream_failure", { namesParsed: 0 });
+    if (ocr.noText) {
+      // A blank, blurred or text-free photo is an ordinary read failure, not
+      // Vision having a bad day — the same "not enough text" bucket the
+      // too-few-fragments check below uses, and the same 422 shape, so the
+      // client's existing handling classifies it as a photo problem rather
+      // than folding it into the generic 5xx "network_error" case (#188
+      // review: a 502 here was indistinguishable from a genuine upstream
+      // failure, so a blank photo told the user to check their connection).
+      await logRead("not_enough_text", { namesParsed: 0 });
+      return json(req, { error: "not_enough_text", found: 0 }, 422);
+    }
+    // Vision itself failed to answer — a genuine upstream/reachability
+    // problem, not the photo's fault.
+    await logRead("upstream_failure", { namesParsed: 0 });
     return json(req, { error: "Could not read the image" }, 502);
   }
   const text = ocr.text;

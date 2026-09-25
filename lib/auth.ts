@@ -1,5 +1,6 @@
 import type { Session } from "@supabase/supabase-js";
 import * as AppleAuthentication from "expo-apple-authentication";
+import * as Crypto from "expo-crypto";
 import { AppState, Platform } from "react-native";
 import { create } from "zustand";
 
@@ -170,9 +171,16 @@ export async function isAppleSignInAvailable(): Promise<boolean> {
 /**
  * Whether the Google button should be shown. Needs the iOS client ID, which
  * also drives the URL scheme `app.config.js` adds at build time — without it
- * the native sheet has nowhere to return to.
+ * the native sheet has nowhere to return to. Also needs the web client ID
+ * (#270 review, CodeRabbit): the library's own docs are explicit that
+ * `idToken` is populated only when a valid `webClientId` is configured, on
+ * every platform — without it, every sign-in attempt reaches the native
+ * sheet and then fails with "Google returned no identity token", rather
+ * than the button being correctly withheld.
  */
-export const isGoogleSignInConfigured = Boolean(supabase && Platform.OS === "ios" && GOOGLE_IOS_CLIENT_ID);
+export const isGoogleSignInConfigured = Boolean(
+  supabase && Platform.OS === "ios" && GOOGLE_IOS_CLIENT_ID && GOOGLE_WEB_CLIENT_ID,
+);
 
 function codeOf(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error
@@ -188,13 +196,24 @@ function messageOf(error: unknown): string {
 export async function signInWithApple(): Promise<SignInResult> {
   if (!supabase || !(await isAppleSignInAvailable())) return { ok: false, reason: "unavailable" };
   try {
+    // A fresh nonce per attempt binds the token to this sign-in, so a captured
+    // token can't be replayed within its validity window (#270 review).
+    // Apple gets the SHA-256 hash; Supabase gets the raw value and checks it
+    // against the hash inside the token.
+    const rawNonce = Crypto.randomUUID();
+    const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce);
     // Email only. The name is not asked for: nothing in the app shows it,
     // and a field never collected is one that never needs deleting.
     const credential = await AppleAuthentication.signInAsync({
       requestedScopes: [AppleAuthentication.AppleAuthenticationScope.EMAIL],
+      nonce: hashedNonce,
     });
     if (!credential.identityToken) return failed(new Error("Apple returned no identity token."));
-    const { data, error } = await supabase.auth.signInWithIdToken({ provider: "apple", token: credential.identityToken });
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: "apple",
+      token: credential.identityToken,
+      nonce: rawNonce,
+    });
     return error ? failed(error) : signedIn("apple", data?.user?.created_at);
   } catch (error) {
     if (codeOf(error) === "ERR_REQUEST_CANCELED") return { ok: false, reason: "cancelled" };
