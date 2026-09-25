@@ -1,8 +1,8 @@
 # Voice
 
 How for.me sounds, across verdicts, onboarding, and every empty, error and
-permission state (`FOR_ME_MVP.md` §25, "One voice across verdicts,
-onboarding and entries").
+permission state (`FOR_ME_MVP.md`, "Matching and content, in both tiers":
+"One voice across verdicts, onboarding and entries").
 
 ## This document loses to the claims policy
 
@@ -53,13 +53,22 @@ it — because the fix is different (retake vs. check your signal), and
 places. (`classifyFailure` is the barcode lookup's equivalent; the photo
 path doesn't use it.)
 
+The one deliberate exception: `components/LabelCamera.tsx` and
+`components/ChoosePhotoInstead.tsx` each wrap the whole capture/read
+sequence in a last-resort `catch` for a genuinely unexpected exception —
+not a classified photo/network failure, which `readLabelPhoto`'s own
+typed result already handles — and that catch falls back to "Something
+went wrong reading that." There's no true statement about an
+unanticipated exception's cause, so this is the one place the generic
+form is honest rather than lazy.
+
 ### 3. The reader is not to blame, and the tone should never suggest it
 
 > **What we ship:** "That's a lot of ingredient photos in a short time."
 > (`lib/read-label-photo.ts`) — not "rate-limited", a word about *our*
-> system, not theirs. `data/api.ts:374` states this directly: *"the person
-> reading this is holding a bottle in a shop, and the word is ours, not
-> theirs."*
+> system, not theirs. `data/api.ts`'s `rate-limited` case states this
+> directly: *"the person reading this is holding a bottle in a shop, and
+> the word is ours, not theirs."*
 >
 > **What we don't write:** "You've exceeded the request limit."
 
@@ -69,12 +78,16 @@ produced it, it is not ready to ship.
 
 ### 4. Confidence without certainty
 
-> **What we ship:** "The assessment is an ingredient-based compatibility
-> analysis and is not a guarantee of an individual's skin reaction."
-> (`FOR_ME_MVP.md` §28, already the shipped disclaimer copy) and "We
-> couldn't read enough of this formula to judge it" (`verdictHeadline`,
-> `unknownReason: "low_coverage"`) rather than silently scoring a formula
-> the app barely identified.
+> **What we ship:** "We couldn't read enough of this formula to judge it"
+> (`verdictHeadline`, `unknownReason: "low_coverage"`) rather than silently
+> scoring a formula the app barely identified.
+>
+> **Written but not yet on screen:** "The assessment is an ingredient-based
+> compatibility analysis and is not a guarantee of an individual's skin
+> reaction." (`FOR_ME_MVP.md`, "Brief context/disclaimer") — the intended
+> results-screen disclaimer. No component renders it yet (a repo-wide
+> search turns up nothing), so treat it as the register that sentence
+> should hit once it ships, not as already-shipped copy.
 >
 > **What we don't write:** "This product is a safe match for your skin."
 
@@ -112,8 +125,10 @@ side.
 - **Second person, always.** "Your skin", "you can", never "the user."
 - **Contractions.** "We couldn't", "doesn't", "isn't" — not "we could not",
   "does not." The one place this app deliberately breaks its own pattern
-  is a legal/medical disclaimer sentence (`FOR_ME_MVP.md` §28), where the
-  slightly more formal register is the point.
+  is the legal/medical disclaimer sentence (`FOR_ME_MVP.md`, "Brief
+  context/disclaimer") — not yet rendered anywhere, but the intended
+  exception once it is, where the slightly more formal register is the
+  point.
 - **Sentence case for titles and headlines**, not Title Case. "We don't
   have this product yet", not "We Don't Have This Product Yet."
 - **One sentence of feeling, then the instruction.** A failure state names
@@ -163,10 +178,13 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 | Account screen | `app/account.tsx` | No, same reason |
 | Journal notes | Not built yet — `#228`/`#229`/`#230`. This document exists so that copy has a voice to write against from the start. | N/A yet |
 
-**Out of scope, on purpose:** `INGREDIENT_RULES[].reason` (61 strings) and
-`PORE_CLOGGERS[].reason` (27 strings) are each a specific evidence claim —
-`CLAUDE.md` records that every rule carries "the sentence shown to the
-user." The claims-policy denylist catches a forbidden word; it does not
-catch a claim quietly softened or strengthened by a warmth pass. Rewriting
-89 evidence sentences needs an evidence review per sentence, not a voice
-pass, and is its own ticket if it happens at all.
+**Out of scope, on purpose:** `INGREDIENT_RULES[].reason` and
+`PORE_CLOGGERS[].reason` are each a specific evidence claim — `CLAUDE.md`
+records that every rule carries "the sentence shown to the user." The
+claims-policy denylist catches a forbidden word; it does not catch a
+claim quietly softened or strengthened by a warmth pass. Rewriting that
+many evidence sentences needs an evidence review per sentence, not a
+voice pass, and is its own ticket if it happens at all. (Deliberately not
+naming a count here: `CLAUDE.md` dropped its own hardcoded rule-count for
+the same reason — `INGREDIENT_RULES` grows independently of this
+document.)
