@@ -439,10 +439,16 @@ describe("verdict engine", () => {
         const lines = scoreExplanation(resultAt(score));
         if (requiredDirection === null) {
           // Fair is the mixed middle: with no material factor there is no
-          // invented positive or negative claim.
-          expect(lines).toEqual([]);
+          // invented positive or negative claim — only the neutral concern
+          // line, which is said whenever concerns were named (#292).
+          expect(lines).toEqual([
+            { label: "Your concerns", detail: "Nothing here strongly targets what you asked about", direction: "down" },
+          ]);
         } else {
-          expect(lines[0]?.direction).toBe(requiredDirection);
+          // The label too, not only the direction: the neutral concern line
+          // (#292) points down but moved nothing, so it must not lead a Poor
+          // explanation in place of the honest aggregate.
+          expect(lines[0]).toMatchObject({ label: "Overall match", direction: requiredDirection });
         }
       }
     );
@@ -494,11 +500,33 @@ describe("verdict engine", () => {
     });
 
     it("does not present neutral concern evidence as positive", () => {
-      expect(scoreExplanation(resultAt(60, { concernFit: 50 }))).toEqual([]);
+      expect(scoreExplanation(resultAt(60, { concernFit: 50 }))).toEqual([
+        { label: "Your concerns", detail: "Nothing here strongly targets what you asked about", direction: "down" },
+      ]);
       expect(scoreExplanation(resultAt(75, { concernFit: 50 }))[0]).toMatchObject({
         label: "Overall match",
         direction: "up",
       });
+    });
+
+    // #292: someone who named concerns always sees how the product met them.
+    it.each([
+      [80, "up", "This formula works on what you asked about"],
+      [53, "down", "Nothing here strongly targets what you asked about"],
+      [20, "down", "This formula works against what you asked about"],
+    ] as const)("always explains concern fit %i", (concernFit: number, direction: "up" | "down", detail: string) => {
+      const lines = scoreExplanation(resultAt(65, { concernFit }));
+      expect(lines.find((line) => line.label === "Your concerns")).toEqual({ label: "Your concerns", detail, direction });
+    });
+
+    it("shows no concern line when no concerns were named", () => {
+      const lines = scoreExplanation(resultAt(65, { concernFit: null }));
+      expect(lines.some((line) => line.label === "Your concerns")).toBe(false);
+    });
+
+    it("sorts the neutral concern line after anything that moved the score", () => {
+      const lines = scoreExplanation(resultAt(65, { concernFit: 50, irritationPenalty: 6 }));
+      expect(lines.map((line) => line.label)).toEqual(["Irritation risk", "Your concerns"]);
     });
 
     it("reports lower confidence for a formula it mostly could not read", () => {
