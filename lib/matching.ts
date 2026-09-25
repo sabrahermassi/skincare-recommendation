@@ -775,8 +775,8 @@ export function scoreExplanation(result: MatchResult): ScoreLine[] {
   if (concernFit !== null) {
     const above = concernFit - 50;
     // Inside this dead zone there is too little movement to call the line
-    // positive or negative. Omitting it is more honest than the old `>= 0`
-    // branch, which displayed neutral evidence with a positive icon.
+    // positive or negative — the old `>= 0` branch displayed neutral
+    // evidence with a positive icon.
     if (Math.abs(above) > 8) {
       lines.push({
         label: "Your concerns",
@@ -786,6 +786,18 @@ export function scoreExplanation(result: MatchResult): ScoreLine[] {
             : "This formula works against what you asked about",
         direction: above > 0 ? "up" : "down",
         weight: Math.abs(above) * 0.7,
+      });
+    } else {
+      // Still said, never left out (#292, owner decision 26 Sep 2026): without
+      // it a person who named concerns can't tell whether they were weighed
+      // at all. `FOR_ME_MVP.md` §15 lists "does not strongly support a
+      // selected concern" among the cautionary factors, hence `down`. Zero
+      // weight so it sorts after anything that actually moved the number.
+      lines.push({
+        label: "Your concerns",
+        detail: "Nothing here strongly targets what you asked about",
+        direction: "down",
+        weight: 0,
       });
     }
   }
