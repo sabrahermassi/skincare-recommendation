@@ -11,7 +11,7 @@
 // for the same lesson learned on the parser.
 
 import {
-  chargeTo,
+  chargesFor,
   consumeRateLimit,
   retryAfterSeconds,
   type RateLimit,
@@ -151,26 +151,31 @@ export async function enforceRateLimit(
   // id — the whole point is that a user quoting it lands on one line.
   const rid = requestId(req);
 
-  // A signed-in caller is charged to their account, a guest to their address
-  // (#241). The fingerprint below turns either into the same opaque key.
-  const allowed = await consumeRateLimit(db, bucket, await chargeTo(req, db.auth), limit, {
-    secret: callerSalt(),
-    requestId: rid,
-  });
-  if (allowed) return null;
+  // A guest is charged to their address; a signed-in caller to their account
+  // and, more loosely, to their address as well (#241, `chargesFor`). The
+  // fingerprint turns each into the same opaque key. In order, stopping at
+  // the first refusal, so a spent account doesn't also burn the address.
+  for (const charge of await chargesFor(req, db.auth, bucket, limit)) {
+    const allowed = await consumeRateLimit(db, charge.bucket, charge.caller, charge.limit, {
+      secret: callerSalt(),
+      requestId: rid,
+    });
+    if (allowed) continue;
 
-  // `Retry-After` is computed from the window rather than guessed, so a client
-  // can back off exactly as long as it needs to and no longer.
-  return json(req, { error: "Too many requests" }, 429, {
-    "x-request-id": rid,
-    "Retry-After": String(retryAfterSeconds(limit)),
-  });
+    // `Retry-After` is computed from the window rather than guessed, so a
+    // client can back off exactly as long as it needs to and no longer.
+    return json(req, { error: "Too many requests" }, 429, {
+      "x-request-id": rid,
+      "Retry-After": String(retryAfterSeconds(charge.limit)),
+    });
+  }
+  return null;
 }
 
 
 // Types only. The three values that used to be re-exported here —
 // `callerKey`, `consumeRateLimit` and `retryAfterSeconds` — are now reached
-// through `enforceRateLimit` above (`callerKey` by way of `chargeTo`) and
+// through `enforceRateLimit` above (`callerKey` by way of `chargesFor`) and
 // nothing else, so passing them back out again
 // kept alive a surface no function used. That is the same finding an earlier
 // review made about `withinRateLimit` and `resetRateLimits`, and extracting
