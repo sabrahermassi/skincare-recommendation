@@ -13,11 +13,16 @@ const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
 const HELP: { title: string; body: string }[] = [
   {
     title: "A product isn't in our catalogue",
-    body: "Open the scanner, choose Photo and photograph its ingredient list. We read it and add the product, so the next scan finds it.",
+    // A photo alone gives a result, never a catalogue entry: a product is only
+    // added with a name, a barcode and an ingredient list, enforced in
+    // `replace_product_with_ingredients` (#293).
+    body: "Open the scanner, choose Photo and photograph its ingredient list: you get a result straight away. To add it to the catalogue so the next scan finds it, tap “Name and add this product” — we need its name, its barcode and the ingredient list.",
   },
   {
     title: "The ingredients look wrong",
-    body: "Formulas change and labels can be misread. Photograph the ingredient list again to refresh what we hold, and check the packaging for anything that matters.",
+    // Not "photograph it again to refresh what we hold": `label-ocr` leaves a
+    // product that already has ingredients as it is (#293).
+    body: "Formulas change and labels can be misread. Photograph the ingredient list on your bottle to get a result for exactly what it says, and check the packaging for anything that matters.",
   },
   {
     title: "How the score is worked out",
