@@ -4,6 +4,7 @@ import { createJSONStorage, persist, type StateStorage } from "zustand/middlewar
 
 import { forgetScannedBarcodes } from "@/data/catalogue-cache";
 import { resetScoreCache } from "@/lib/matching";
+import { applyOps, shelfAsSaves, type Shelf, type ShelfOp } from "@/lib/shelf";
 
 import type { Concern, SkinProfile } from "@/data/types";
 
@@ -112,6 +113,51 @@ type AppState = {
   secureStoreClaimed: boolean;
   claimSecureStore: () => void;
 
+  // ── The signed-in shelf (#222, #223) — see lib/shelf.ts for the rules ──
+
+  /**
+   * The account the cached shelf belongs to, or null when it belongs to no
+   * one: a guest's shelf from before accounts existed. While it is set, every
+   * change to the shelf is also queued for the server.
+   */
+  shelfOwner: string | null;
+  /** Shelf changes not yet on the server, oldest first. */
+  shelfQueue: ShelfOp[];
+  /**
+   * Whether this device has already carried its pre-accounts shelf into an
+   * account (#222). Set on the first sign-in, whether or not there was
+   * anything to carry, so the migration can never run twice and put back
+   * items removed after signing in.
+   */
+  legacyShelfMigrated: boolean;
+  /**
+   * Changes that had not reached the server when the session ended — offline
+   * at sign-out, or a session that ended on its own (#274 review). Set aside
+   * for that one account, never shown and never carried into any other: the
+   * next time the same account signs in here they are pushed, and if a
+   * different account signs in they are dropped.
+   */
+  parkedShelf: { owner: string; queue: ShelfOp[] } | null;
+  /**
+   * Makes the cached shelf an account's. On the first sign-in on this device
+   * the pre-accounts shelf is queued as saves into it; otherwise the cache
+   * starts empty and fills from the server.
+   */
+  adoptShelf: (owner: string) => void;
+  /**
+   * The server's shelf has been read. Replaces the cache with it, drops the
+   * queued changes that were just pushed, and lays the ones queued since on
+   * top. Ignored if the shelf changed hands in the meantime.
+   */
+  applyServerShelf: (owner: string, pushed: readonly ShelfOp[], server: Shelf) => void;
+  /**
+   * Sign-out (#222): the cached shelf is cleared. A signed-out person cannot
+   * have a shelf (#221), and one left behind would be carried into whichever
+   * account signs in next. Changes still queued are parked for this account
+   * rather than lost (`parkedShelf`). The profile and history stay.
+   */
+  leaveShelf: () => void;
+
   /** Shallow-merges into the profile. Used by every quiz step and by /profile. */
   setProfile: (patch: Partial<SkinProfile>) => void;
   /** Enforces the cap of `MAX_CONCERNS`. */
@@ -210,6 +256,10 @@ export const PERSISTED_KEYS = [
   "savedIngredients",
   "history",
   "secureStoreClaimed",
+  "shelfOwner",
+  "shelfQueue",
+  "legacyShelfMigrated",
+  "parkedShelf",
 ] as const;
 
 export type PersistedState = Pick<AppState, (typeof PERSISTED_KEYS)[number]>;
@@ -223,6 +273,10 @@ export function partializeState(state: AppState): PersistedState {
     savedIngredients: state.savedIngredients,
     history: state.history,
     secureStoreClaimed: state.secureStoreClaimed,
+    shelfOwner: state.shelfOwner,
+    shelfQueue: state.shelfQueue,
+    legacyShelfMigrated: state.legacyShelfMigrated,
+    parkedShelf: state.parkedShelf,
   };
 }
 
@@ -235,7 +289,16 @@ const INITIAL_STATE = {
   savedIngredients: [] as string[],
   history: [] as HistoryEntry[],
   secureStoreClaimed: false,
+  shelfOwner: null as string | null,
+  shelfQueue: [] as ShelfOp[],
+  legacyShelfMigrated: false,
+  parkedShelf: null as { owner: string; queue: ShelfOp[] } | null,
 };
+
+/** The queue with `ops` added — only while the shelf belongs to an account. */
+function queued(state: { shelfOwner: string | null; shelfQueue: ShelfOp[] }, ...ops: ShelfOp[]) {
+  return state.shelfOwner && ops.length > 0 ? { shelfQueue: [...state.shelfQueue, ...ops] } : {};
+}
 
 /**
  * Storage schema upgrades. Exported so the riskiest thing in this file is
@@ -395,37 +458,65 @@ export const useAppStore = create<AppState>()(
       dismissQuizAcknowledgement: () => set({ justFinishedQuiz: false }),
 
       saveProduct: (id, formulaFetchedAt) =>
-        set((state) =>
-          state.savedProducts.some((p) => p.id === id)
-            ? state
-            : { savedProducts: [...state.savedProducts, { id, savedAt: Date.now(), formulaFetchedAt }] }
-        ),
+        set((state) => {
+          if (state.savedProducts.some((p) => p.id === id)) return state;
+          const product = { id, savedAt: Date.now(), formulaFetchedAt };
+          return {
+            savedProducts: [...state.savedProducts, product],
+            ...queued(state, { kind: "save-product", ...product }),
+          };
+        }),
 
       toggleSaved: (id, formulaFetchedAt) =>
-        set((state) => ({
-          savedProducts: state.savedProducts.some((p) => p.id === id)
-            ? state.savedProducts.filter((p) => p.id !== id)
-            : [...state.savedProducts, { id, savedAt: Date.now(), formulaFetchedAt }],
-        })),
+        set((state) => {
+          if (state.savedProducts.some((p) => p.id === id)) {
+            return {
+              savedProducts: state.savedProducts.filter((p) => p.id !== id),
+              ...queued(state, { kind: "remove-product", id }),
+            };
+          }
+          const product = { id, savedAt: Date.now(), formulaFetchedAt };
+          return {
+            savedProducts: [...state.savedProducts, product],
+            ...queued(state, { kind: "save-product", ...product }),
+          };
+        }),
 
       restoreSavedProduct: (product) =>
         set((state) =>
           state.savedProducts.some((p) => p.id === product.id)
             ? state
-            : { savedProducts: [...state.savedProducts, product] }
+            : {
+                savedProducts: [...state.savedProducts, product],
+                // Undo puts the row back with its original time, on the
+                // server as well: the queue then holds a removal and a save
+                // of the same item, which the push turns into that row again.
+                ...queued(state, { kind: "save-product", ...product }),
+              }
         ),
 
       saveIngredient: (name) =>
         set((state) =>
-          state.savedIngredients.includes(name) ? state : { savedIngredients: [...state.savedIngredients, name] }
+          state.savedIngredients.includes(name)
+            ? state
+            : {
+                savedIngredients: [...state.savedIngredients, name],
+                ...queued(state, { kind: "save-ingredient", name, savedAt: Date.now() }),
+              }
         ),
 
       toggleSavedIngredient: (name) =>
-        set((state) => ({
-          savedIngredients: state.savedIngredients.includes(name)
-            ? state.savedIngredients.filter((n) => n !== name)
-            : [...state.savedIngredients, name],
-        })),
+        set((state) =>
+          state.savedIngredients.includes(name)
+            ? {
+                savedIngredients: state.savedIngredients.filter((n) => n !== name),
+                ...queued(state, { kind: "remove-ingredient", name }),
+              }
+            : {
+                savedIngredients: [...state.savedIngredients, name],
+                ...queued(state, { kind: "save-ingredient", name, savedAt: Date.now() }),
+              }
+        ),
 
       recordView: ({ id, known, score, warnings }) =>
         set((state) => {
@@ -466,8 +557,16 @@ export const useAppStore = create<AppState>()(
         }),
 
       clearHistory: () => set({ history: [] }),
-      clearSavedProducts: () => set({ savedProducts: [] }),
-      clearSavedIngredients: () => set({ savedIngredients: [] }),
+      clearSavedProducts: () =>
+        set((state) => ({
+          savedProducts: [],
+          ...queued(state, ...state.savedProducts.map((p): ShelfOp => ({ kind: "remove-product", id: p.id }))),
+        })),
+      clearSavedIngredients: () =>
+        set((state) => ({
+          savedIngredients: [],
+          ...queued(state, ...state.savedIngredients.map((name): ShelfOp => ({ kind: "remove-ingredient", name }))),
+        })),
       removeHistoryEntry: (id) =>
         set((state) => ({ history: state.history.filter((h) => h.id !== id) })),
       restoreHistoryEntry: (entry) =>
@@ -483,6 +582,58 @@ export const useAppStore = create<AppState>()(
 
       claimSecureStore: () => set({ secureStoreClaimed: true }),
 
+      adoptShelf: (owner) =>
+        set((state) => {
+          if (state.shelfOwner === owner) return state;
+          // What this account left unsynced last time comes back into the
+          // queue; anyone else's parked changes are dropped, never pushed.
+          const parked = state.parkedShelf?.owner === owner ? state.parkedShelf.queue : [];
+          if (state.shelfOwner === null && !state.legacyShelfMigrated) {
+            // The first sign-in on this device: the shelf it already has is
+            // carried into the account rather than lost.
+            return {
+              shelfOwner: owner,
+              legacyShelfMigrated: true,
+              parkedShelf: null,
+              shelfQueue: [
+                ...parked,
+                ...shelfAsSaves({ products: state.savedProducts, ingredients: state.savedIngredients }, Date.now()),
+              ],
+            };
+          }
+          // Anyone else's cache (there should be none; sign-out clears it)
+          // never crosses into another account.
+          return {
+            shelfOwner: owner,
+            legacyShelfMigrated: true,
+            parkedShelf: null,
+            shelfQueue: parked,
+            savedProducts: [],
+            savedIngredients: [],
+          };
+        }),
+
+      applyServerShelf: (owner, pushed, server) =>
+        set((state) => {
+          if (state.shelfOwner !== owner) return state;
+          const pending = state.shelfQueue.filter((op) => !pushed.includes(op));
+          const shelf = applyOps(server, pending);
+          return { savedProducts: shelf.products, savedIngredients: shelf.ingredients, shelfQueue: pending };
+        }),
+
+      leaveShelf: () =>
+        set((state) =>
+          state.shelfOwner === null
+            ? state
+            : {
+                shelfOwner: null,
+                shelfQueue: [],
+                savedProducts: [],
+                savedIngredients: [],
+                parkedShelf: state.shelfQueue.length > 0 ? { owner: state.shelfOwner, queue: state.shelfQueue } : null,
+              }
+        ),
+
       resetApp: () => {
         // Keeps `secureStoreClaimed`: this install already cleared the
         // Keychain, and resetting the flag would make the next launch treat
@@ -496,7 +647,25 @@ export const useAppStore = create<AppState>()(
         // unsafe now: its unawaited remove can land after this write and
         // delete the kept flag with everything else, so the next launch would
         // wipe the Keychain and sign the user out by accident of timing.
-        set((state) => ({ ...INITIAL_STATE, secureStoreClaimed: state.secureStoreClaimed }));
+        //
+        // Signed in, the account's shelf is erased too; otherwise the next
+        // sync would bring back everything this just promised to erase. The
+        // account itself, and this device's claim on it, stay.
+        set((state) => ({
+          ...INITIAL_STATE,
+          secureStoreClaimed: state.secureStoreClaimed,
+          shelfOwner: state.shelfOwner,
+          legacyShelfMigrated: state.legacyShelfMigrated,
+          // Changes parked from an earlier sign-out are shelf data too.
+          parkedShelf: null,
+          shelfQueue: state.shelfOwner
+            ? [
+                ...state.shelfQueue,
+                ...state.savedProducts.map((p): ShelfOp => ({ kind: "remove-product", id: p.id })),
+                ...state.savedIngredients.map((name): ShelfOp => ({ kind: "remove-ingredient", name })),
+              ]
+            : [],
+        }));
         // Barcodes looked up this session live outside the store, in the
         // catalogue cache's memory layer. They are a record of what this
         // person pointed a camera at, so they belong to this reset even though

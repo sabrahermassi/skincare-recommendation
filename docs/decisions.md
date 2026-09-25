@@ -306,6 +306,26 @@ shelf migration and #223's sync need a development build.
 **No name is requested from Apple.** Nothing in the app shows one, and a
 field never collected is one that never needs deleting (#224).
 
+**The shelf syncs by queue, not by comparing copies (#223).** The device
+never pushes its cache, only the changes it queued — so a phone that still
+has an item cached cannot put back something removed on another phone.
+Two phones editing offline resolve by one rule: saves union, the earliest
+save time wins per item (it is when the person decided they liked it, and
+the formula version they saw then goes with it), and a removal beats any
+save made before it. A save after a removal is a new save with its own
+time. Rules: `lib/shelf.ts`; tested against staging by
+`__tests__/shelf-staging.test.ts` (`SHELF_STAGING_E2E=1`).
+
+**A pre-accounts shelf is carried across once per device (#222)**, on the
+first sign-in, through that same rule — so a second phone's legacy shelf
+merges into an account that already has one. The flag is set even when
+there was nothing to carry, so the migration can never re-run and put back
+items removed after signing in. Sign-out clears the shelf and leaves the
+profile and history (docs/device-storage-policy.md). Changes that never
+reached the server are parked for that account rather than lost — #274's
+review found an offline sign-out silently dropping them — and are never
+carried into a different account.
+
 ## Staging infrastructure
 
 **Staging had never once worked, and nothing said so.** Discovered

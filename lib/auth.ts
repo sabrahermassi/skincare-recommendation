@@ -243,6 +243,7 @@ export async function signInWithGoogle(): Promise<SignInResult> {
  */
 export async function signOut(): Promise<void> {
   if (!supabase) return;
+  await runBeforeSignOut();
   await supabase.auth.signOut({ scope: "local" });
   await forgetGoogleAccount();
 }
@@ -258,9 +259,35 @@ export async function signOut(): Promise<void> {
  */
 export async function signOutEverywhere(): Promise<boolean> {
   if (!supabase) return true;
+  await runBeforeSignOut();
   const { error } = await supabase.auth.signOut({ scope: "global" });
   await forgetGoogleAccount();
   return !error;
+}
+
+const beforeSignOutHooks = new Set<() => Promise<void>>();
+
+/**
+ * Work that needs the session one last time before a deliberate sign-out —
+ * pushing the shelf's queued changes (lib/shelf-sync.ts). Registered rather
+ * than imported, so this file does not depend on what uses it. A hook that
+ * fails never blocks the sign-out. Returns the unregister.
+ */
+export function beforeSignOut(hook: () => Promise<void>): () => void {
+  beforeSignOutHooks.add(hook);
+  return () => {
+    beforeSignOutHooks.delete(hook);
+  };
+}
+
+async function runBeforeSignOut(): Promise<void> {
+  for (const hook of beforeSignOutHooks) {
+    try {
+      await hook();
+    } catch {
+      // Signing out goes ahead regardless.
+    }
+  }
 }
 
 async function forgetGoogleAccount(): Promise<void> {
@@ -275,13 +302,11 @@ async function forgetGoogleAccount(): Promise<void> {
 
 /**
  * What an account is for, in the sign-in sheet and on the signed-out account
- * screen. It says what is true today: saving needs an account. It does not
- * promise the shelf follows you to another phone — that is #223 (the shelf on
- * the server), which should bring the cross-device line back when it lands
- * (#272 review).
+ * screen. The shelf follows the account to every phone it signs in on (#223,
+ * lib/shelf-sync.ts) — until that landed this line deliberately did not say
+ * so (#272 review).
  */
-export const ACCOUNT_PITCH =
-  "Sign in to keep a shelf of the products and ingredients you save. Scanning never needs an account.";
+export const ACCOUNT_PITCH = "An account keeps what you save on every phone you use. Scanning never needs one.";
 
 export type AccountSummary = {
   /** "Apple", "Google", or "Apple and Google" once both are linked. */

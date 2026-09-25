@@ -29,10 +29,27 @@ history, no signup) and a signed-in tier (saved shelf, journal notes,
 routine-step tagging), built in #217–#230. Two more steps land directly on
 this file.
 
-- **#223** points the saved shelf at the server, which puts row 2 in tension
-  with the rule below that `store/useAppStore.ts` is the only file allowed to
-  touch AsyncStorage. #223 asks for that to be settled here in writing rather
-  than in passing.
+- **#223** points the saved shelf at the server. Settled in writing, as it
+  asked: **the shelf's cached copy stays in `useAppStore`**, where
+  `savedProducts` and `savedIngredients` already were, together with the
+  queue of changes not yet pushed (`shelfQueue`) and the account the cache
+  belongs to (`shelfOwner`). No third AsyncStorage file. The catalogue
+  cache's reasons for a file of its own — public, identical per install,
+  large — are all untrue of a shelf, and `data/catalogue-cache.ts` may hold
+  nothing derived from the user. The network half goes through
+  `data/api.ts` (`fetchShelf`, `pushShelf`); the rules are in
+  `lib/shelf.ts`.
+- **#222** decided what sign-out does to local data, which item 6 of the
+  checklist below had left open: **the shelf is cleared; the profile and the
+  history stay.** After #221 a signed-out person cannot have a shelf, and one
+  left on the phone would be carried into whichever account signs in next.
+  The profile and scan history are the device's for everyone, signed in or
+  not, so signing out never touches them. Queued shelf changes get one last
+  push before a deliberate sign-out. Whatever still hasn't reached the
+  server — offline at sign-out, or a session that ended on its own — is
+  parked for that one account (`parkedShelf`): never shown, pushed when the
+  same account next signs in on this phone, dropped if a different one
+  does.
 - **#228** adds a journal note to a saved product — free text the user wrote
   themselves, which is the most personal thing this app will hold. It has
   its own row in the table above (added with #219, which created the
@@ -168,8 +185,8 @@ mistaken for drift:
   async methods; the Zustand type bought nothing. A session is larger than
   the ~2KB some iOS releases accept per item, so values are split across
   numbered keys.
-- **Item 6 stays open, deliberately:** sign-out leaves the local profile,
-  history and shelf alone for now. The decision belongs with #222.
+- **Item 6 was left open by #218 and decided in #222:** sign-out clears the
+  shelf and keeps the profile and history (see the #222 note at the top).
 
 1. Add `expo-secure-store` at the version matching the installed Expo SDK
    (confirm with `npx expo install --check`, or read it directly out of

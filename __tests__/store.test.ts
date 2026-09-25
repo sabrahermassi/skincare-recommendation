@@ -172,10 +172,14 @@ describe("what survives an app restart", () => {
     expect([...PERSISTED_KEYS].sort()).toEqual([
       "hasSeenOnboarding",
       "history",
+      "legacyShelfMigrated",
+      "parkedShelf",
       "profile",
       "savedIngredients",
       "savedProducts",
       "secureStoreClaimed",
+      "shelfOwner",
+      "shelfQueue",
     ]);
 
     s().saveProduct("keep-me");
