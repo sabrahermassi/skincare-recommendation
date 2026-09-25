@@ -410,14 +410,45 @@ export async function signedInAccount(req: Request, auth: SessionVerifier | unde
 }
 
 /**
- * Who a request is charged to: a signed-in account by its id, so a network
- * change doesn't hand it a fresh allowance and a shared café connection
- * doesn't make strangers share one; everyone else by address, as before.
- * Scanning stays open to guests, so the address bucket stays too.
+ * How many signed-in allowances one address may spend between them, per
+ * window. Enough for a shared café connection with a few signed-in people;
+ * small enough that a stack of accounts on one machine doesn't multiply the
+ * metered Vision budget without end (security review of the accounts stack).
  */
-export async function chargeTo(req: Request, auth: SessionVerifier | undefined): Promise<string> {
+export const SIGNED_IN_PER_ADDRESS = 5;
+
+/** One counter a request is charged against. */
+export type Charge = { bucket: string; caller: string; limit: RateLimit };
+
+/**
+ * Every counter a request is charged against; it is refused if any of them
+ * is spent.
+ *
+ * A guest: their address, as before. A signed-in caller: their account, so a
+ * network change doesn't hand it a fresh allowance and a shared connection
+ * doesn't make strangers share one — **and** their address, in a separate
+ * bucket at `SIGNED_IN_PER_ADDRESS` times the limit. Charging the account
+ * alone let one machine holding fifty accounts spend fifty allowances; the
+ * address ceiling bounds that without putting signed-in people back into the
+ * guests' bucket.
+ */
+export async function chargesFor(
+  req: Request,
+  auth: SessionVerifier | undefined,
+  bucket: string,
+  limit: RateLimit,
+): Promise<Charge[]> {
   const account = await signedInAccount(req, auth);
-  return account ? `user:${account}` : callerKey(req);
+  const address = callerKey(req);
+  if (!account) return [{ bucket, caller: address, limit }];
+  return [
+    { bucket, caller: `user:${account}`, limit },
+    {
+      bucket: `${bucket}:signed-in`,
+      caller: address,
+      limit: { windowSeconds: limit.windowSeconds, maxRequests: limit.maxRequests * SIGNED_IN_PER_ADDRESS },
+    },
+  ];
 }
 
 // ── The caller fingerprint ──────────────────────────────────────────────────

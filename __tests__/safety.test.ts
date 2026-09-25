@@ -5,6 +5,8 @@ import {
   contraindications,
   flaggedIngredients,
   groupByRisk,
+  historyWarningCount,
+  irritationWarnings,
   isFlagged,
   isVerified,
   UNSET_SENSITIVITY_REASON,
@@ -200,6 +202,18 @@ describe("contraindications", () => {
   it("does not flag benzyl salicylate as a pregnancy caution", () => {
     const ingredient = pregnancyCautionIngredient("benzyl salicylate");
     expect(contraindications([ingredient], profile({ pregnancyStatus: "pregnant" }))).toEqual([]);
+  });
+
+  // Found in review on #257 (Codex): a product whose only contraindication is
+  // pregnancy-origin (e.g. tretinoin) recorded warningsAtView: 0 via
+  // irritationWarnings, so it vanished from history's "N flagged" badge
+  // entirely instead of just moving to its own section on the live screen.
+  it("counts a pregnancy-only caution toward history but not toward the irritation card", () => {
+    const tretinoin = pregnancyCautionIngredient("tretinoin");
+    const warnings = contraindications([tretinoin], profile({ pregnancyStatus: "pregnant" }));
+    expect(warnings).toHaveLength(1);
+    expect(irritationWarnings(warnings)).toHaveLength(0);
+    expect(historyWarningCount(warnings)).toBe(1);
   });
 });
 

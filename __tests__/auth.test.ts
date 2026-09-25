@@ -29,6 +29,16 @@ jest.mock("expo-apple-authentication", () => ({
   signInAsync: (...args: unknown[]) => mockAppleSignIn(...args),
 }));
 
+// A real SHA-256 (Node's), so the test proves the hash sent to Apple is the
+// hash of the raw nonce sent to Supabase — not just that two strings exist.
+let mockNonceCount = 0;
+jest.mock("expo-crypto", () => ({
+  CryptoDigestAlgorithm: { SHA256: "SHA-256" },
+  randomUUID: () => `nonce-${++mockNonceCount}`,
+  digestStringAsync: async (_algorithm: string, value: string) =>
+    require("crypto").createHash("sha256").update(value).digest("hex"),
+}));
+
 // Required rather than imported: an import is hoisted above the mocks'
 // declarations, and lib/auth reads the fake client as it loads.
 const {
@@ -104,8 +114,31 @@ describe("Sign in with Apple", () => {
   it("asks for the email only, and hands the token to Supabase", async () => {
     mockAppleSignIn.mockResolvedValue({ identityToken: "apple-jwt" });
     await expect(signInWithApple()).resolves.toEqual({ ok: true });
-    expect(mockAppleSignIn).toHaveBeenCalledWith({ requestedScopes: [1] });
-    expect(mockAuth.signInWithIdToken).toHaveBeenCalledWith({ provider: "apple", token: "apple-jwt" });
+    expect(mockAppleSignIn).toHaveBeenCalledWith(expect.objectContaining({ requestedScopes: [1] }));
+    expect(mockAuth.signInWithIdToken).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "apple", token: "apple-jwt" }),
+    );
+  });
+
+  // #270 review (CodeRabbit): without a nonce, a captured Apple token could be
+  // replayed within its validity window.
+  it("binds the token to this attempt: Apple gets the hashed nonce, Supabase the raw one", async () => {
+    mockAppleSignIn.mockResolvedValue({ identityToken: "apple-jwt" });
+    await signInWithApple();
+    const { nonce: hashed } = mockAppleSignIn.mock.calls[0][0] as { nonce: string };
+    const [[{ nonce: raw }]] = mockAuth.signInWithIdToken.mock.calls as unknown as [{ nonce: string }][];
+    expect(raw).toBeTruthy();
+    expect(hashed).toBe(require("crypto").createHash("sha256").update(raw).digest("hex"));
+    expect(hashed).not.toBe(raw);
+  });
+
+  it("uses a fresh nonce on every attempt", async () => {
+    mockAppleSignIn.mockResolvedValue({ identityToken: "apple-jwt" });
+    await signInWithApple();
+    await signInWithApple();
+    const calls = mockAuth.signInWithIdToken.mock.calls as unknown as [{ nonce: string }][];
+    const [first, second] = calls.map(([args]) => args.nonce);
+    expect(first).not.toBe(second);
   });
 
   it("treats closing the sheet as a cancel, not a failure", async () => {

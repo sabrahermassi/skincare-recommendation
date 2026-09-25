@@ -49,11 +49,14 @@ describe("nudgesFor", () => {
     expect(nudgesFor([ing("retinol"), filter("en:uv-filter")])).toEqual([]);
   });
 
-  // #175: CosIng's "UV absorber" protects the product from light, not the
-  // skin. A stabiliser carrying only that tag must not silence the SPF line.
-  it("still nudges when the only UV tag is a product stabiliser's 'UV absorber'", () => {
-    const stabiliser = ing("benzotriazolyl dodecyl p-cresol", { functions: ["UV absorber"] });
-    expect(nudgesFor([ing("glycolic acid"), stabiliser])).toHaveLength(1);
+  // #175, #262 review (Codex): CosIng also tags photostabilisers "uv-absorber"
+  // — additives that protect a formula's other ingredients from light, not the
+  // wearer's skin. Benzotriazolyl Dodecyl P-Cresol carries only this tag and
+  // is used at 0.01-0.1%, far below anything that filters UV for a person.
+  it("does not take a bare uv-absorber tag as proof of sun protection, in any spelling", () => {
+    const photostabiliser = (tag: string) => ing("benzotriazolyl dodecyl p-cresol", { functions: [tag] });
+    expect(nudgesFor([ing("retinol"), photostabiliser("uv-absorber")])).toHaveLength(1);
+    expect(nudgesFor([ing("glycolic acid"), photostabiliser("UV absorber")])).toHaveLength(1);
   });
 
   // #262 review: an unresolved label photo arrives as stubs with no
@@ -69,15 +72,58 @@ describe("nudgesFor", () => {
 
   // #262 review: both are pigments as often as filters. A retinoid foundation
   // or an AHA clay mask with titanium dioxide still gets its nudge — by name
-  // or by CosIng's unconditional uv-filter tag.
-  it("never takes titanium dioxide or zinc oxide alone as proof of a sunscreen", () => {
-    expect(nudgesFor([ing("retinol"), ing("titanium dioxide", { functions: ["uv-filter", "colorant"] })])).toHaveLength(1);
-    expect(nudgesFor([ing("glycolic acid"), ing("zinc oxide", { verified: false, functions: undefined })])).toHaveLength(1);
+  // or by CosIng's unconditional uv-filter tag — once it sits deep in the
+  // list, where pigment use typically does.
+  it("does not take a titanium dioxide or zinc oxide deep in the list as proof of a sunscreen", () => {
+    const deepTitanium = [
+      ing("water"),
+      ing("glycerin"),
+      ing("dimethicone"),
+      ing("niacinamide"),
+      ing("phenoxyethanol"),
+      ing("titanium dioxide", { functions: ["uv-filter", "colorant"] }),
+      ing("retinol"),
+    ];
+    expect(nudgesFor(deepTitanium)).toHaveLength(1);
+
+    const deepZinc = [
+      ing("water"),
+      ing("glycerin"),
+      ing("dimethicone"),
+      ing("niacinamide"),
+      ing("phenoxyethanol"),
+      ing("zinc oxide", { verified: false, functions: undefined }),
+      ing("glycolic acid"),
+    ];
+    expect(nudgesFor(deepZinc)).toHaveLength(1);
   });
 
-  it("treats a product typed sunscreen as sun protection — the one signal a mineral-only sunscreen has", () => {
-    expect(nudgesFor([ing("glycolic acid"), ing("zinc oxide")], "sunscreen")).toEqual([]);
-    expect(nudgesFor([ing("glycolic acid"), ing("zinc oxide")], "serum")).toHaveLength(1);
+  // #262 review, Codex: a photographed read never has a product type to fall
+  // back on (#214), so a mineral-only sunscreen needs another signal. Real
+  // mineral sunscreens use 5-25% titanium dioxide/zinc oxide — high enough to
+  // sit near the top of a list printed in concentration order — while pigment
+  // use is usually a smaller share further down.
+  it("takes a titanium dioxide or zinc oxide near the top of the list as evidence of a sunscreen", () => {
+    expect(
+      nudgesFor([ing("water"), ing("titanium dioxide", { functions: ["uv-filter", "colorant"] }), ing("retinol")])
+    ).toEqual([]);
+    expect(nudgesFor([ing("zinc oxide", { verified: false, functions: undefined }), ing("glycolic acid")])).toEqual(
+      []
+    );
+  });
+
+  it("treats a product typed sunscreen as sun protection — the one signal a deep-list mineral-only sunscreen has", () => {
+    const deepZinc = [
+      ing("water"),
+      ing("glycerin"),
+      ing("dimethicone"),
+      ing("niacinamide"),
+      ing("phenoxyethanol"),
+      ing("zinc oxide"),
+      ing("glycolic acid"),
+    ];
+    expect(nudgesFor(deepZinc, "sunscreen")).toEqual([]);
+    expect(nudgesFor(deepZinc, "serum")).toHaveLength(1);
   });
 
   it("is deterministic — nothing reads the clock", () => {
