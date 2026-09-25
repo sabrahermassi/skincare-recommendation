@@ -10,6 +10,22 @@ export function isPersonalized(profile: SkinProfile): boolean {
 }
 
 /**
+ * Someone who went through the quiz but gave it nothing to score with — "I
+ * don't know", "I don't have any concerns", "Prefer not to say" — as opposed
+ * to someone who skipped it (#291). For copy only: `isPersonalized` still
+ * decides whether a score exists, and nothing here changes that.
+ *
+ * "I don't know" is stored as `null`, the same as a skipped step, so the tell
+ * is an answer only ever set by answering: sensitivity or pregnancy. Someone
+ * who answered the first steps and skipped those two reads as skipped, which
+ * errs toward the copy that asks for more rather than the copy that thanks
+ * them for answers they didn't give.
+ */
+export function answeredWithoutSignal(profile: SkinProfile): boolean {
+  return !isPersonalized(profile) && (profile.sensitivity !== null || profile.pregnancyStatus !== null);
+}
+
+/**
  * The boolean the rules table still speaks. Derived rather than stored, so
  * there is one source of truth and no way for the two to drift — which is
  * exactly what happened when `sensitive` and the skin type were separate

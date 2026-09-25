@@ -724,7 +724,9 @@ export function verdictHeadline(result: MatchResult): string {
           return "We couldn't read enough of this formula to judge it";
         case "not_personalized":
         default:
-          return "Answer a few questions and we can tell you how this suits you";
+          // True whether the quiz was skipped or answered "I don't know"
+          // throughout (#291): both need a skin type or a concern to score.
+          return "Add your skin type or a concern and we can tell you how this suits you";
       }
   }
 }

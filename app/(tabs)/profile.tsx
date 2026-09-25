@@ -8,7 +8,7 @@ import { Modal, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/Text";
-import { profileHeadline } from "@/lib/profile";
+import { answeredWithoutSignal, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, SCRIM, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -76,7 +76,9 @@ export default function Profile() {
           ) : (
             // Tucked up under the title, centred as a block of its own.
             <Text style={{ alignSelf: "center", maxWidth: 280, marginTop: -10, fontSize: 13, lineHeight: 19, color: MUTED, textAlign: "center" }}>
-              Answer a few questions and every score will be made for your skin.
+              {answeredWithoutSignal(profile)
+                ? "Scores aren't personal yet. Add your skin type or a concern when you know it."
+                : "Answer a few questions and every score will be made for your skin."}
             </Text>
           )}
         </View>

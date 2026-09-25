@@ -996,7 +996,7 @@ describe("verdict engine", () => {
       const result = matchProduct(product, unpersonalizedPregnant);
       expect(result.verdict).toBe("unknown");
       expect(result.warnings.some((w) => w.origin === "pregnancy")).toBe(true);
-      expect(verdictHeadline(result)).toBe("Answer a few questions and we can tell you how this suits you");
+      expect(verdictHeadline(result)).toBe("Add your skin type or a concern and we can tell you how this suits you");
     });
   });
 });
