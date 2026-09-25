@@ -16,7 +16,7 @@ import { fetchProducts, peekProducts, searchProducts, SEARCH_RESULT_LIMIT } from
 import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients, type SkinProfile } from "@/data/types";
 import { activeTypeFilter, visibleTypeChips } from "@/lib/browse-chips";
 import { matchProduct, type MatchResult } from "@/lib/matching";
-import { isPersonalized, profileSummary } from "@/lib/profile";
+import { answeredWithoutSignal, isPersonalized, profileSummary } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, TOUCH_TARGET, TYPE } from "@/lib/tokens";
@@ -505,7 +505,9 @@ export default function Browse() {
           >
             <Pressable onPress={() => router.push("/skin-profile")} style={{ flex: 1 }}>
               <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>
-                Answer four quick questions to see how each product suits your skin -&gt;
+                {answeredWithoutSignal(profile)
+                  ? "Add your skin type or a concern to see how each product suits your skin ->"
+                  : "Answer four quick questions to see how each product suits your skin ->"}
               </Text>
             </Pressable>
             <Pressable onPress={() => setBannerDismissed(true)} hitSlop={8}>
@@ -650,7 +652,9 @@ export default function Browse() {
                     ? ranking
                       ? `Ranking for ${profileSummary(profile).toLowerCase()}…`
                       : `Ranked for ${profileSummary(profile).toLowerCase()}`
-                    : "No profile yet - showing unsorted results"}
+                    : answeredWithoutSignal(profile)
+                      ? "No skin type or concern yet - showing unsorted results"
+                      : "No profile yet - showing unsorted results"}
                 </Text>
               )}
             </View>

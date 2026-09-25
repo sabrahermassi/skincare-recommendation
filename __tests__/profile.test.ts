@@ -1,5 +1,6 @@
 import type { SkinProfile } from "@/data/types";
 import {
+  answeredWithoutSignal,
   isPersonalized,
   isSensitive,
   nextQuizRoute,
@@ -34,6 +35,26 @@ describe("isPersonalized", () => {
 
   it("is true once at least one concern is set", () => {
     expect(isPersonalized(profile({ concerns: ["redness"] }))).toBe(true);
+  });
+});
+
+// #291: copy that tells an "I don't know" quiz-taker to answer the questions
+// they just answered reads as the app not listening.
+describe("answeredWithoutSignal", () => {
+  it("is true for a quiz answered with I don't know / no concerns / prefer not to say", () => {
+    expect(answeredWithoutSignal(profile({ pregnancyStatus: "prefer-not-to-say" }))).toBe(true);
+  });
+
+  it("is true when only sensitivity was answered", () => {
+    expect(answeredWithoutSignal(profile({ sensitivity: "none" }))).toBe(true);
+  });
+
+  it("is false for a skipped quiz", () => {
+    expect(answeredWithoutSignal(EMPTY_PROFILE)).toBe(false);
+  });
+
+  it("is false once there is something to score with", () => {
+    expect(answeredWithoutSignal(profile({ baseSkinType: "dry", pregnancyStatus: "neither" }))).toBe(false);
   });
 });
 

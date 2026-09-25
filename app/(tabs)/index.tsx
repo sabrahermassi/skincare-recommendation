@@ -10,7 +10,7 @@ import { PressableCard } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/genie";
 import { homeGreetingLayout, SIGNATURE_WIDTH } from "@/lib/home-greeting";
-import { isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
+import { answeredWithoutSignal, isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -82,6 +82,9 @@ export default function Home() {
   const signatureScale = signatureWidth === null ? 0 : signatureWidth / SIGNATURE_WIDTH;
   const profile = useAppStore((s) => s.profile);
   const personalized = isPersonalized(profile);
+  // Answered the quiz, but nothing in it can drive a score (#291): the card
+  // must not tell them to answer the questions they just answered.
+  const answered = answeredWithoutSignal(profile);
 
   const { title, tags } = profileHeadline(profile);
   const chips = [
@@ -164,7 +167,11 @@ export default function Home() {
             // arrow at the far right, centred on the card.
             <PressableCard
               onPress={() => router.push("/skin-profile")}
-              accessibilityLabel="Your skin profile is not set up yet. Open it to answer the skin questions."
+              accessibilityLabel={
+                answered
+                  ? "Your scores aren't personal yet. Open your skin profile to add your skin type or a concern."
+                  : "Your skin profile is not set up yet. Open it to answer the skin questions."
+              }
               radius={22}
               backgroundColor={SURFACE}
               style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 24, borderWidth: 1, borderColor: BORDER_INACTIVE }}
@@ -172,7 +179,9 @@ export default function Home() {
               <View style={{ flex: 1, gap: 18 }}>
                 <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>Your skin profile</Text>
                 <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>
-                  Not set up yet. Answer the skin questions and every score will be made for your skin.
+                  {answered
+                    ? "Scores aren't personal yet. Add your skin type or a concern when you know it, and every score will be made for your skin."
+                    : "Not set up yet. Answer the skin questions and every score will be made for your skin."}
                 </Text>
               </View>
               <ArrowIcon size={22} color={INK} />

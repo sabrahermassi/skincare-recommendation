@@ -48,6 +48,13 @@ describe("SkinProfileScreen", () => {
     expect(screen.queryByText("Find my matches")).toBeNull();
   });
 
+  it("says 'No concerns', not 'Not set', once the quiz was answered without any (#291)", async () => {
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, pregnancyStatus: "prefer-not-to-say" } }, false);
+    await render(<SkinProfileScreen />);
+
+    expect(screen.getByText("No concerns")).toBeTruthy();
+  });
+
   it("selecting a concern makes the draft dirty and reveals the save bar, without touching the store until saved", async () => {
     await render(<SkinProfileScreen />);
 

@@ -20,6 +20,7 @@ import type {
   SkinProfile,
 } from "@/data/types";
 import {
+  answeredWithoutSignal,
   POST_ONBOARDING_ROUTE,
   pregnancyLabel,
   sensitivityLabel,
@@ -184,7 +185,9 @@ export default function ProfileScreen() {
             ? { icon: option.icon, label: option.label }
             : { icon: UNSURE_ICON, label: "Eczema-prone" };
         })
-      : [{ icon: null, label: "Not set" }];
+      : // "I don't have any concerns" is stored as no concerns, the same as a
+        // skipped step; once the quiz was answered, say what they chose (#291).
+        [{ icon: null, label: answeredWithoutSignal(draft) ? "No concerns" : "Not set" }];
 
   const skinTypeOption = draft.baseSkinType ? SKIN_TYPE_LOOKUP.get(draft.baseSkinType) : undefined;
   const skinTypeRows: SummaryRow[] = [
