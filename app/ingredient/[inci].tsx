@@ -15,7 +15,7 @@ import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { COLORS } from "@/lib/colors";
 import { comedogenicLabel } from "@/lib/format";
 import { matchProduct, positionNote, ruleFor, rungFor, type Contraindication, type Rung } from "@/lib/matching";
-import { isSensitive } from "@/lib/profile";
+import { isSensitive, treatAsReactive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { saveOrAskToSignIn } from "@/lib/save-gate";
@@ -217,10 +217,12 @@ export default function IngredientDetail() {
   const meta = RUNG[rung];
 
   const rule = ruleFor(ingredient);
-  // The rules table takes a boolean; sensitivity has three levels now.
-  const target = { ...profile, sensitive: isSensitive(profile) };
-  const helps = rule ? targetApplies(rule.helps, target) : false;
-  const hurts = rule ? targetApplies(rule.hurts, target) : false;
+  // The rules table takes a boolean; sensitivity has three levels now. Harm
+  // reads an unset sensitivity at the middle setting and benefit never
+  // credits it — the same split `computeMatch` makes (#183), so this screen
+  // and the product's score agree about the same ingredient.
+  const helps = rule ? targetApplies(rule.helps, { ...profile, sensitive: isSensitive(profile) }) : false;
+  const hurts = rule ? targetApplies(rule.hurts, { ...profile, sensitive: treatAsReactive(profile) }) : false;
 
   // The design sets a common name under the INCI name. We don't hold one, but
   // many INCI names carry it in parentheses ("Panthenol (Vitamin B5)"), and

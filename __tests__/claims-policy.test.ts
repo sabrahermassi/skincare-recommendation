@@ -10,7 +10,7 @@ import { PORE_CLOGGERS } from "@/lib/pore-clogging";
 import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import { scoreExplanation, verdictHeadline, type MatchResult } from "@/lib/matching";
 import { INGREDIENT_RULES } from "@/lib/rules";
-import { contraindications } from "@/lib/safety";
+import { UNSET_SENSITIVITY_REASON, contraindications } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 type OwnedClaim = { source: string; text: string };
@@ -30,14 +30,22 @@ const EXPLANATION_RESULTS = [
   { concernFit: 100, typeFit: 100 },
   { concernFit: 0, typeFit: 0 },
   { concernFit: 50, typeFit: 50 },
-].map(
-  (fit) =>
-    ({
-      score: 50,
-      breakdown: { ...fit, irritationPenalty: 10, porePenalty: 10 },
-      warnings: WARNINGS,
-    }) as unknown as MatchResult
-);
+]
+  .map(
+    (fit) =>
+      ({
+        score: 50,
+        breakdown: { ...fit, irritationPenalty: 10, porePenalty: 10 },
+        warnings: WARNINGS,
+      }) as unknown as MatchResult
+  )
+  // #183: the irritation line's middle-setting note for an unset sensitivity.
+  .concat({
+    score: 50,
+    breakdown: { concernFit: 50, typeFit: 50, irritationPenalty: 10, porePenalty: 0 },
+    warnings: [],
+    sensitivityUnset: true,
+  } as unknown as MatchResult);
 
 // #187: verdictHeadline was never in this audit before — added as its own
 // collection, covering every band and both the pregnancy and non-pregnancy
@@ -128,6 +136,9 @@ const FIRST_PAGE_CLAIMS: OwnedClaim[] = Object.entries(FIRST_PAGE_COPY).map(([ke
 
 const OWNED_CLAIMS: OwnedClaim[] = [
   ...HEADLINE_RESULTS,
+  // #183: the restricted-ingredient warning for an unset sensitivity. The
+  // `contraindications` collection below runs at "high", so it never reaches it.
+  { source: "UNSET_SENSITIVITY_REASON", text: UNSET_SENSITIVITY_REASON },
   ...NOTE_CLAIMS,
   ...FIRST_PAGE_CLAIMS,
   ...NUDGE_RESULTS,

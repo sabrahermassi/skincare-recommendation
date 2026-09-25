@@ -5,7 +5,7 @@ import type {
   SkinProfile,
 } from "@/data/types";
 import { poreCloggingHits, type CloggerHit } from "./pore-clogging";
-import { isPersonalized, isSensitive } from "./profile";
+import { isPersonalized, isSensitive, treatAsReactive } from "./profile";
 import {
   CATEGORY_LABEL,
   contactWeight,
@@ -137,6 +137,13 @@ export type MatchResult = {
    * a refusal — see `confidence` above.
    */
   unknownReason?: "not_personalized" | "low_coverage";
+  /**
+   * Set when a scored profile has no sensitivity answer, so irritants were
+   * judged at the middle setting (#183). `scoreExplanation` reads it to say
+   * so beside the irritation charge — it never claims the person told us
+   * they were unsure, since most unset profiles just stopped the quiz early.
+   */
+  sensitivityUnset?: true;
 };
 
 /**
@@ -199,10 +206,18 @@ function poreRelevance(profile: SkinProfile): number {
   return 0.15;
 }
 
-/** Irritants are judged harder the more reactive the user says they are. */
-const SENSITIVITY_MULTIPLIER: Record<NonNullable<SkinProfile["sensitivity"]>, number> = {
+/**
+ * Irritants are judged harder the more reactive the user says they are.
+ *
+ * `unset` is spelled out rather than left to a `?? "none"` fallback (#183):
+ * that fallback read "I don't know" as the most lenient answer, so not
+ * answering scored better than "somewhat sensitive". An unset sensitivity is
+ * judged at the middle setting, and `scoreExplanation` says so.
+ */
+const SENSITIVITY_MULTIPLIER: Record<NonNullable<SkinProfile["sensitivity"]> | "unset", number> = {
   none: 0.5,
   some: 1,
+  unset: 1,
   high: 1.6,
 };
 
@@ -356,7 +371,16 @@ function computeMatch(
   // The rules table speaks a boolean; sensitivity has three levels, and the
   // magnitude is applied to the irritation penalty rather than to whether a
   // rule fires at all.
-  const target = { ...profile, sensitive: isSensitive(profile) };
+  //
+  // Two targets since #183, because harm and benefit read an unset
+  // sensitivity differently: a harm to reactive skin is charged at the
+  // middle setting (`treatAsReactive`), a benefit to it is never credited on
+  // a non-answer (`isSensitive`). `targetApplies` is an OR across concerns,
+  // skin type and sensitivity, so a single target would either miss every
+  // rule whose only `hurts` key is `sensitive` (the AHA rule) or credit every
+  // "soothing for sensitive skin" rule to someone who never said so.
+  const harmTarget = { ...profile, sensitive: treatAsReactive(profile) };
+  const benefitTarget = { ...profile, sensitive: isSensitive(profile) };
   const contact = contactWeight(product.type);
 
   const reasons: MatchReason[] = [];
@@ -382,8 +406,8 @@ function computeMatch(
     if (rule) {
       const benefitWeight = rule.weight * positionFactor * contact.benefit;
       const harmWeight = rule.weight * positionFactor * contact.harm;
-      const helps = targetApplies(rule.helps, target);
-      const hurts = targetApplies(rule.hurts, target);
+      const helps = targetApplies(rule.helps, benefitTarget);
+      const hurts = targetApplies(rule.hurts, harmTarget);
 
       // `targetApplies` is an OR across concerns, skin type and sensitivity.
       // Track the paths that actually charge harm so a reason cannot claim
@@ -391,7 +415,7 @@ function computeMatch(
       // reaches irritation even if its category is "actives" (or salicylic
       // acid's "pore-clogging"), without treating every active as an irritant.
       const hurtsIrritantCategory = hurts && IRRITANT_CATEGORIES.has(rule.category);
-      const hurtsReactiveSkin = hurts && rule.hurts?.sensitive === true && isSensitive(profile);
+      const hurtsReactiveSkin = hurts && rule.hurts?.sensitive === true && treatAsReactive(profile);
       const hurtsIrritation = hurtsIrritantCategory || hurtsReactiveSkin;
       // Deliberately NOT excluding pore-clogging/pore-led concerns here, even
       // though the concernEvidence loop below does. That exclusion exists so
@@ -470,7 +494,7 @@ function computeMatch(
     // named rule always wins and nothing is counted twice.
     for (const declared of ingredient.functions ?? []) {
       const signal = functionSignal(declared);
-      if (!signal || !targetApplies(signal.helps, target)) continue;
+      if (!signal || !targetApplies(signal.helps, benefitTarget)) continue;
       const weight = signal.weight * positionFactor * contact.benefit;
       for (const concern of profile.concerns) {
         if (signal.helps.concerns?.includes(concern)) bump(concernEvidence, concern, weight);
@@ -489,12 +513,14 @@ function computeMatch(
   });
 
   // Regulatory caution flags add irritation risk for anyone who said their
-  // skin reacts — the rules table names specific sensitisers, this catches
-  // the EU-restricted ones it does not. An ingredient whose rule already
-  // charged it as a reactive-skin irritant is not charged again here.
+  // skin reacts, or didn't say (#183) — the rules table names specific
+  // sensitisers, this catches the EU-restricted ones it does not. An
+  // ingredient whose rule already charged it as a reactive-skin irritant is
+  // not charged again here. `contraindications` lists the same ingredients
+  // on the same condition, so the count on screen and the charge agree.
   for (const [position, ingredient] of product.ingredients.entries()) {
     if (!isVerified(ingredient) || ingredient.safety !== "caution") continue;
-    if (!isSensitive(profile)) continue;
+    if (!treatAsReactive(profile)) continue;
     if (reactiveCharged.has(position)) continue;
     irritation += 2.5 * positionFactors[position] * contact.harm;
   }
@@ -556,7 +582,7 @@ function computeMatch(
   // guardrail; it is not presented as a medical threshold.
   const irritationPenalty = Math.min(
     MAX_IRRITATION_PENALTY,
-    irritation * SENSITIVITY_MULTIPLIER[profile.sensitivity ?? "none"]
+    irritation * SENSITIVITY_MULTIPLIER[profile.sensitivity ?? "unset"]
   );
   const porePenalty =
     MAX_PORE_PENALTY * poreRelevance(profile) * saturate(poreLoad, PORE_SATURATION);
@@ -592,6 +618,7 @@ function computeMatch(
     coverage,
     confidence: confidenceFor(coverage, scored),
     breakdown: { concernFit, typeFit, irritationPenalty, porePenalty },
+    ...(profile.sensitivity === null ? { sensitivityUnset: true as const } : {}),
   };
 }
 
@@ -695,6 +722,10 @@ export function verdictHeadline(result: MatchResult): string {
  */
 export type ScoreLine = { label: string; detail: string; direction: "up" | "down" };
 
+/** Beside the irritation charge when sensitivity isn't set (#183). */
+export const SENSITIVITY_UNSET_NOTE =
+  "We don't know how sensitive your skin is, so irritants are judged at the middle setting.";
+
 export function scoreExplanation(result: MatchResult): ScoreLine[] {
   if (result.score === null) return [];
   const { concernFit, typeFit, irritationPenalty, porePenalty } = result.breakdown;
@@ -747,7 +778,13 @@ export function scoreExplanation(result: MatchResult): ScoreLine[] {
   if (irritationPenalty > 1) {
     lines.push({
       label: "Irritation risk",
-      detail: "Contains ingredients that commonly cause reactions",
+      // The app's own state, never "you told us you're not sure" (#183): an
+      // unset sensitivity is as often a quiz stopped at step one as it is
+      // "I don't know", and quoting back an answer nobody gave is worse
+      // than saying nothing.
+      detail: result.sensitivityUnset
+        ? `Contains ingredients that commonly cause reactions. ${SENSITIVITY_UNSET_NOTE}`
+        : "Contains ingredients that commonly cause reactions",
       direction: "down",
       weight: irritationPenalty,
     });
