@@ -18,7 +18,7 @@ import { formulaCoverage, isVerified } from "@/lib/safety";
  *      acid and coconut oil could net to zero and report "nothing flagged".
  *   3. `RiskCards.poreRisk` could only reach "Elevated" through the
  *      `comedogenic` column, which is empty for every real catalogue row.
- *   4. `ingredientTone` reads `MatchResult.reasons`, which is truncated to
+ *   4. `ingredientTone` read `MatchResult.reasons`, which was truncated to
  *      six entries, so a seventh flagged ingredient rendered as "good".
  *
  * A checker whose job is "warn me" cannot have false negatives. So detection

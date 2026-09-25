@@ -6,8 +6,8 @@ import { PressableCard } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
 
 import type { ProductWithIngredients } from "@/data/types";
+import { irritationCounts } from "@/components/RiskCards";
 import { matchTone, type MatchResult } from "@/lib/matching";
-import { flaggedIngredients } from "@/lib/safety";
 import { INK, LINE, MUTED, MUTED_FAINT, SURFACE, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { ProductThumbnail } from "./ProductThumbnail";
 
@@ -42,7 +42,11 @@ export const ProductRow = memo(function ProductRow({
   last?: boolean;
 }) {
   const total = product.ingredients.length;
-  const flagged = flaggedIngredients(product.ingredients).length;
+  // The same two numbers the product page's irritation card reads, so the row
+  // and the page never disagree (#290): what is flagged for this person
+  // first, and what carries an EU restriction when nothing is.
+  const { personal, restricted } = irritationCounts(product, match);
+  const flagged = personal > 0 || restricted > 0;
   const tone = match.score === null ? null : matchTone(match.score);
   const verdict = tone ? VERDICT[tone] : VERDICT_NEUTRAL;
   // Colour from the tone, word from the verdict — see `VERDICT_LABEL`. The
@@ -54,7 +58,7 @@ export const ProductRow = memo(function ProductRow({
     total === 0
       ? "Formula not read yet"
       : `${total} ingredient${total === 1 ? "" : "s"} · ${
-          flagged === 0 ? "none flagged" : `${flagged} flagged`
+          personal > 0 ? `${personal} flagged` : restricted > 0 ? `${restricted} restricted` : "none flagged"
         }`;
 
   return (
@@ -99,7 +103,7 @@ export const ProductRow = memo(function ProductRow({
             <Text style={{ marginTop: 2, fontSize: 13.5, fontWeight: "500", lineHeight: 18, color: INK }}>
               {product.name}
             </Text>
-            <Text style={{ marginTop: 2, fontSize: TYPE.caption, color: flagged > 0 ? WARN : MUTED }}>
+            <Text style={{ marginTop: 2, fontSize: TYPE.caption, color: flagged ? WARN : MUTED }}>
               {meta}
             </Text>
           </View>

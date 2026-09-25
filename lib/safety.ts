@@ -41,30 +41,6 @@ export function formulaCoverage(ingredients: Ingredient[]): number {
   return ingredients.filter(isVerified).length / ingredients.length;
 }
 
-/**
- * Worth surfacing to any user, regardless of profile.
- *
- * The comedogenic half of this test only ever fires on the hand-written sample
- * catalogue: no real row carries a rating, and `data/api.ts` collapses that
- * absence to 0. That is deliberate rather than an oversight — see
- * `ComedogenicRating` in `data/types.ts` — so on catalogue products this
- * reduces to the regulatory `safety` field, and pore-clogging is judged by
- * `INGREDIENT_RULES` instead.
- */
-export function isFlagged(ingredient: Ingredient): boolean {
-  // An unrecognised name is not "not flagged" — it is unassessed. Returning
-  // false here would let it count silently toward a clean bill of health.
-  if (!isVerified(ingredient)) return false;
-  return (
-    ingredient.comedogenic >= COMEDOGENIC_FLAG_THRESHOLD ||
-    ingredient.safety !== "safe"
-  );
-}
-
-export function flaggedIngredients(ingredients: Ingredient[]): Ingredient[] {
-  return ingredients.filter(isFlagged);
-}
-
 export type Contraindication = {
   ingredient: Ingredient;
   /** Short, user-facing reason this specific profile should be careful. */
@@ -208,9 +184,7 @@ export type RiskGroup = "avoid" | "caution" | "clean" | "unknown";
 
 /**
  * Buckets ingredients into three risk tiers for the detail screen's grouped
- * list. Built from the same predicates as `isFlagged`, so the grouped view
- * and any flat count elsewhere can never disagree about which ingredients
- * are worth a look.
+ * list, from the regulatory `safety` field and the comedogenic threshold.
  */
 export function groupByRisk(ingredients: Ingredient[]): Record<RiskGroup, Ingredient[]> {
   const groups: Record<RiskGroup, Ingredient[]> = {

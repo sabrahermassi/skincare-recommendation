@@ -71,11 +71,12 @@ describe("scoreFactors", () => {
   });
 
   /**
-   * `reasons` is capped at six for readability. The bars must aggregate every
-   * contribution regardless, or a factor built from many small effects would
-   * silently under-report.
+   * The bars must aggregate every contribution, or a factor built from many
+   * small effects would silently under-report. `reasons` used to be capped at
+   * six and this pinned that the bars looked past the cap; the cap is gone
+   * (#290), so the two now cover the same ingredients.
    */
-  it("aggregates every contribution, not just the six shown as reasons", () => {
+  it("aggregates every contribution, including past the sixth", () => {
     const many = [
       "water", "glycerin", "sodium hyaluronate", "urea", "panthenol", "allantoin",
       "centella asiatica extract", "bisabolol", "beta-glucan", "niacinamide",
@@ -86,8 +87,8 @@ describe("scoreFactors", () => {
       sensitivity: "some",
     }));
     const counted = result.factors.reduce((n, f) => n + f.ingredients.length, 0);
-    expect(result.reasons.length).toBeLessThanOrEqual(6);
-    expect(counted).toBeGreaterThan(result.reasons.length);
+    expect(result.reasons.length).toBeGreaterThan(6);
+    expect(counted).toBe(result.reasons.length);
   });
 
   it("drops factors that netted to zero rather than drawing an empty bar", () => {
