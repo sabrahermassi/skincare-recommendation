@@ -131,6 +131,10 @@ export default function RootLayout() {
         <Stack.Screen name="support" options={{ headerShown: false }} />
         <Stack.Screen name="school" options={{ headerShown: false }} />
         <Stack.Screen name="privacy" options={{ headerShown: false }} />
+        <Stack.Screen name="account" options={{ headerShown: false }} />
+        {/* A sheet over wherever sign-in was asked for, so closing it returns
+            the person exactly there (#220). */}
+        <Stack.Screen name="sign-in" options={{ headerShown: false, presentation: "modal" }} />
         <Stack.Screen
           name="scan-label"
           options={{ title: "Read the label", presentation: "modal", headerShown: false }}

@@ -174,6 +174,8 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 | Scanner status panels | `app/(tabs)/scanner.tsx` (`BarcodeStage`, `IngredientsStage`) | No, same reason |
 | Camera/permission intros | `app/(tabs)/scanner.tsx` (`CameraPermissionIntro` usages), `app/add-product.tsx` | No, same reason |
 | Empty states | `app/(tabs)/saved.tsx` (`EMPTY_COPY`) | No, same reason |
+| Sign-in sheet and its failures | `app/sign-in.tsx`, `lib/auth.ts` (`signInFailureCopy`) | No — account copy, not an ingredient/product claim. Closing the provider's sheet deliberately has no copy at all (#220) |
+| Account screen | `app/account.tsx` | No, same reason |
 | Journal notes | Not built yet — `#228`/`#229`/`#230`. This document exists so that copy has a voice to write against from the start. | N/A yet |
 
 **Out of scope, on purpose:** `INGREDIENT_RULES[].reason` and
