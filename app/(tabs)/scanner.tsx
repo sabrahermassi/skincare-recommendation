@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement, type React
 import {
   ActivityIndicator,
   Animated,
+  AppState,
   Easing,
   Linking,
   type LayoutChangeEvent,
@@ -148,6 +149,18 @@ export default function Scan() {
   // moment the scanner regains focus with no one having asked for that — a
   // battery cost and a real annoyance in a shop (#195).
   const [torchOn, setTorchOn] = useState(false);
+  // The focus-effect reset below only covers leaving this *screen*; backgrounding
+  // or locking the device blurs nothing in React Navigation, so that cleanup
+  // never runs. Without this, the OS suspends the camera (and its hardware
+  // torch) while `torchOn` stays true, and resuming can relight it with no new
+  // tap, or leave the button reading "Turn off the torch" for a light that's
+  // already off (#260 review, Codex).
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState !== "active") setTorchOn(false);
+    });
+    return () => subscription.remove();
+  }, []);
 
   const recordView = useAppStore((s) => s.recordView);
   const dismissQuizAcknowledgement = useAppStore((s) => s.dismissQuizAcknowledgement);
@@ -202,12 +215,35 @@ export default function Scan() {
       // (or tapping Barcode again) puts it away rather than leaving it over the
       // other mode's shutter.
       //
-      // A missed/unreachable panel no longer clears this way (#192): tapping
-      // the already-selected Barcode pill used to double as its dismissal,
-      // which nothing on screen said it did and a screen reader could not
-      // surface. Dismissing those two states is now the explicit "Scan
-      // again" / "Scan something else" action below — see `dismissStatus`.
+      // A missed/unreachable panel no longer clears on a same-pill re-tap
+      // (#192): tapping the already-selected Barcode pill used to double as
+      // its dismissal, which nothing on screen said it did and a screen
+      // reader could not surface. Dismissing those two states is now the
+      // explicit "Scan again" / "Scan something else" action below — see
+      // `dismissStatus`.
       if (status.kind === "found") {
+        setStatus({ kind: "idle" });
+        busy.current = false;
+      } else if (
+        (status.kind === "missed" || status.kind === "unreachable") &&
+        mode === "Photo" &&
+        next === "Barcode"
+      ) {
+        // Except when abandoning the one flow that deliberately keeps a
+        // missed status alive across a mode switch: "Add via Photo" on a
+        // barcode miss calls `selectMode("Photo")` while leaving `status`
+        // as `missed`, so `IngredientsStage` can still read the barcode
+        // (below). If the user backs out of that by tapping Barcode
+        // instead of finishing it, this is a genuine Photo-to-Barcode
+        // switch, not a re-tap — without clearing here, the stale miss
+        // panel reappears immediately and blocks scanning until "Scan
+        // something else" is also pressed (#259 review).
+        //
+        // The barcode can still be sitting in frame the moment Barcode mode
+        // remounts, so this needs the same dismiss-guard note `dismissStatus`
+        // uses — without it, the camera reads it again on the very next
+        // frame and the same panel pops straight back up (#190).
+        dismissGuard.noteDismissal(status.code, Date.now());
         setStatus({ kind: "idle" });
         busy.current = false;
       }
@@ -225,7 +261,7 @@ export default function Scan() {
       rememberScanMode(next);
       setMode(next);
     },
-    [status, mode, reads]
+    [status, mode, reads, dismissGuard]
   );
 
   /**
@@ -961,7 +997,7 @@ function BarcodeStage({
           gap: 12,
         }}
       >
-        {status.kind !== "idle" && (
+        {status.kind !== "idle" && status.kind !== "found" && (
           <View
             // Grouped into one node so a screen reader reaching this panel
             // reads one sentence rather than the icon, a headline and a
