@@ -4,6 +4,7 @@ import { createJSONStorage, persist, type StateStorage } from "zustand/middlewar
 
 import { forgetScannedBarcodes } from "@/data/catalogue-cache";
 import { resetScoreCache } from "@/lib/matching";
+import type { RoutineStep } from "@/lib/routine-step";
 import { applyOps, shelfAsSaves, type Shelf, type ShelfOp } from "@/lib/shelf";
 
 import type { Concern, SkinProfile } from "@/data/types";
@@ -23,6 +24,12 @@ export type SavedProduct = {
    * falls back to comparing against `savedAt` for those.
    */
   formulaFetchedAt?: string;
+  /**
+   * The person's own routine step (#227), overriding the guess from the
+   * product's type (`lib/routine-step.ts`). Absent means "use the guess",
+   * so a later correction to the type still moves an untouched product.
+   */
+  routineStep?: RoutineStep;
 };
 
 /**
@@ -192,6 +199,9 @@ type AppState = {
    * can't create a second row.
    */
   restoreSavedProduct: (product: SavedProduct) => void;
+
+  /** Puts a saved product in a routine step, or back to the guess (`null`) — #227. */
+  setRoutineStep: (id: string, step: RoutineStep | null) => void;
 
   /** Add/remove an ingredient name from the starred list. */
   toggleSavedIngredient: (name: string) => void;
@@ -500,6 +510,18 @@ export const useAppStore = create<AppState>()(
                 ...queued(state, { kind: "save-product", ...product }),
               }
         ),
+
+      setRoutineStep: (id, step) =>
+        set((state) => {
+          if (!state.savedProducts.some((p) => p.id === id)) return state;
+          const shelf = applyOps({ products: state.savedProducts, ingredients: [] }, [
+            { kind: "set-product-step", id, step },
+          ]);
+          return {
+            savedProducts: shelf.products,
+            ...queued(state, { kind: "set-product-step", id, step }),
+          };
+        }),
 
       saveIngredient: (name) =>
         set((state) =>

@@ -20,15 +20,21 @@
  * - A save made after a removal is a new save, with its own time.
  */
 
+import type { RoutineStep } from "@/lib/routine-step";
+
 export type ShelfProduct = {
   id: string;
   savedAt: number;
   formulaFetchedAt?: string;
+  /** The person's own routine step (#227); absent means "use the guess from the type". */
+  routineStep?: RoutineStep;
 };
 
 export type ShelfOp =
   | { kind: "save-product"; id: string; savedAt: number; formulaFetchedAt?: string }
   | { kind: "remove-product"; id: string }
+  /** A routine step chosen, or cleared back to the guess (`null`). */
+  | { kind: "set-product-step"; id: string; step: RoutineStep | null }
   | { kind: "save-ingredient"; name: string; savedAt: number }
   | { kind: "remove-ingredient"; name: string };
 
@@ -48,6 +54,8 @@ export type ShelfPush = {
    * whichever save time is earlier.
    */
   saveProducts: (ShelfProduct & { fresh: boolean })[];
+  /** Routine steps to write after the saves, the last choice per product. */
+  productSteps: { id: string; step: RoutineStep | null }[];
   deleteIngredients: string[];
   saveIngredients: { name: string; savedAt: number; fresh: boolean }[];
 };
@@ -57,9 +65,17 @@ type Outcome<T> = { removed: boolean; save: T | null };
 /** Reduces a queue to one outcome per item, in the order the ops happened. */
 export function planPush(ops: readonly ShelfOp[]): ShelfPush {
   const products = new Map<string, Outcome<ShelfProduct>>();
+  const steps = new Map<string, RoutineStep | null>();
   const ingredients = new Map<string, Outcome<{ name: string; savedAt: number }>>();
 
   for (const op of ops) {
+    if (op.kind === "set-product-step") {
+      steps.set(op.id, op.step);
+      continue;
+    }
+    // A removed row takes its step with it; a step chosen after a re-save
+    // comes later in the queue and is set again above.
+    if (op.kind === "remove-product") steps.delete(op.id);
     if (op.kind === "save-product" || op.kind === "remove-product") {
       const prev = products.get(op.id) ?? { removed: false, save: null };
       products.set(
@@ -81,7 +97,13 @@ export function planPush(ops: readonly ShelfOp[]): ShelfPush {
     }
   }
 
-  const push: ShelfPush = { deleteProducts: [], saveProducts: [], deleteIngredients: [], saveIngredients: [] };
+  const push: ShelfPush = {
+    deleteProducts: [],
+    saveProducts: [],
+    productSteps: [...steps].map(([id, step]) => ({ id, step })),
+    deleteIngredients: [],
+    saveIngredients: [],
+  };
   for (const [id, outcome] of products) {
     if (outcome.removed) push.deleteProducts.push(id);
     if (outcome.save) push.saveProducts.push({ ...outcome.save, fresh: outcome.removed });
@@ -111,6 +133,11 @@ export function applyOps(base: Shelf, ops: readonly ShelfOp[]): Shelf {
       case "remove-product":
         products = products.filter((p) => p.id !== op.id);
         break;
+      case "set-product-step":
+        products = products.map((p) =>
+          p.id !== op.id ? p : op.step === null ? withoutStep(p) : { ...p, routineStep: op.step },
+        );
+        break;
       case "save-ingredient":
         if (!ingredients.includes(op.name)) ingredients = [...ingredients, op.name];
         break;
@@ -120,6 +147,10 @@ export function applyOps(base: Shelf, ops: readonly ShelfOp[]): Shelf {
     }
   }
   return { products, ingredients };
+}
+
+function withoutStep({ routineStep: _cleared, ...product }: ShelfProduct): ShelfProduct {
+  return product;
 }
 
 /**
@@ -132,6 +163,9 @@ export function shelfAsSaves(shelf: Shelf, now: number): ShelfOp[] {
   return [
     ...shelf.products.map(
       (p): ShelfOp => ({ kind: "save-product", id: p.id, savedAt: p.savedAt, formulaFetchedAt: p.formulaFetchedAt }),
+    ),
+    ...shelf.products.flatMap((p): ShelfOp[] =>
+      p.routineStep ? [{ kind: "set-product-step", id: p.id, step: p.routineStep }] : [],
     ),
     // Starred ingredients never recorded when they were starred; the device's
     // own order is kept by spacing them a millisecond apart.
