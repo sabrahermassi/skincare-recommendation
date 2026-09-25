@@ -926,8 +926,16 @@ let diskBlobStale = false;
 function recordWrite(outcome: CacheWriteOutcome): void {
   lastWrite = outcome;
   // A write that did not land leaves disk behind memory; one that did brings
-  // them back into step. See `diskBlobStale`.
-  diskBlobStale = outcome.kind !== "ok";
+  // them back into step. See `diskBlobStale`. But not unconditionally: a scan
+  // write can still be armed (`pendingScanWrite`, its timer not yet fired) or
+  // in flight (`scanWritesInFlight`, its `persist` call queued but not yet
+  // resolved) when some *other*, unrelated write lands successfully here —
+  // and that other write's success says nothing about whether the scan's own
+  // changes have reached disk yet. Clearing the flag on its account would let
+  // a `persistMeta` queued right after it stamp a current watermark beside a
+  // products blob still missing the scan (#268 review, CodeRabbit).
+  // `flushScanWrite` re-derives the flag once the scan write itself settles.
+  diskBlobStale = outcome.kind !== "ok" || pendingScanWrite !== null || scanWritesInFlight > 0;
 }
 
 /**
@@ -1584,7 +1592,12 @@ export function addScannedToCatalogue(product: ProductWithIngredients): void {
   // product must arrive as a new key, or it keeps serving the score of its
   // old formula with nothing to notice. Every product this scan didn't touch
   // keeps its object — and with it, its cached score.
-  const replacement: ProductWithIngredients = { ...product, ingredients };
+  //
+  // `source` falls back to `held`'s: `product-lookup`'s select omits the
+  // column entirely (unlike the on-device list's), so a plain re-scan of an
+  // already-known product would otherwise silently blank out a source the
+  // catalogue already had (#268 review, CodeRabbit).
+  const replacement: ProductWithIngredients = { ...product, source: product.source ?? held?.source, ingredients };
   const withDefinitions = (p: ProductWithIngredients) =>
     changed.size > 0 && p.ingredients.some((i) => changed.has(i.id))
       ? { ...p, ingredients: p.ingredients.map((i) => changed.get(i.id) ?? i) }
@@ -1626,6 +1639,13 @@ function sameDefinition(a: Ingredient, b: Ingredient): boolean {
  * anything changing — so a metadata-only correction (volume, stock, a
  * description) still reaches memory and disk, and a field added to `Product`
  * later is covered without anyone remembering to list it here (#268 review).
+ *
+ * `source` on `b` (the fresh read) gets one more exception: `undefined` there
+ * means "this producer didn't select the column", not "no source" —
+ * `product-lookup`'s select omits it entirely, unlike the on-device list's.
+ * Comparing it like any other field would make every re-scan of an
+ * already-known, catalogue-sourced product look changed, defeating the fast
+ * path this function exists for (#268 review, CodeRabbit).
  */
 function sameProduct(a: ProductWithIngredients, b: ProductWithIngredients): boolean {
   const sameFormula =
@@ -1636,6 +1656,7 @@ function sameProduct(a: ProductWithIngredients, b: ProductWithIngredients): bool
   const fieldsB = b as unknown as Record<string, unknown>;
   for (const key of new Set([...Object.keys(fieldsA), ...Object.keys(fieldsB)])) {
     if (key === "fetchedAt" || key === "ingredients") continue;
+    if (key === "source" && fieldsB[key] === undefined) continue;
     if (!sameValue(fieldsA[key], fieldsB[key])) return false;
   }
   return true;
@@ -1655,6 +1676,14 @@ function sameValue(a: unknown, b: unknown): boolean {
 export const SCAN_WRITE_DELAY_MS = 3_000;
 
 let pendingScanWrite: ReturnType<typeof setTimeout> | null = null;
+// How many scan `persist` calls are queued or running right now — armed
+// (the timer fired, `persist` has been called) but not yet resolved. Kept
+// separate from `pendingScanWrite`, which only covers the *timer*: once
+// `flushScanWrite` fires, the timer marker is gone but the write itself can
+// still be sitting in `persist`'s queue behind another job. `recordWrite`
+// reads both, so an unrelated write landing in that gap can't clear
+// `diskBlobStale` out from under the scan write it doesn't know about.
+let scanWritesInFlight = 0;
 let watchingAppState = false;
 
 function scheduleScanWrite(): void {
@@ -1684,7 +1713,19 @@ export function flushScanWrite(): void {
   clearTimeout(pendingScanWrite);
   pendingScanWrite = null;
   if (!memory) return;
-  void persist(memory.products, { watermark: memory.watermark, storedAt: memory.storedAt });
+  // Counted from here, not from `scheduleScanWrite`: the timer marker above
+  // is what `recordWrite` checks while the write is only armed, and this
+  // counter is what it checks once the write has actually been handed to
+  // `persist`'s queue — the two together cover the whole window, with no gap
+  // where an unrelated write could see neither and clear `diskBlobStale`
+  // early (#268 review, CodeRabbit).
+  scanWritesInFlight++;
+  void persist(memory.products, { watermark: memory.watermark, storedAt: memory.storedAt }).finally(() => {
+    scanWritesInFlight--;
+    if (scanWritesInFlight === 0 && pendingScanWrite === null) {
+      diskBlobStale = lastWrite?.kind !== "ok";
+    }
+  });
 }
 
 /**

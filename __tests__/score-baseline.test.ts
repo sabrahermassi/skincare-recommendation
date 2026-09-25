@@ -11,6 +11,7 @@
  * `matchProduct` itself; nothing here re-implements the scoring.
  */
 import { createClient } from "@supabase/supabase-js";
+import { createHash } from "crypto";
 import { writeFileSync } from "fs";
 
 import type { Concern, Ingredient, ProductType, SafetyLevel, SkinProfile } from "@/data/types";
@@ -34,6 +35,21 @@ if (env) globalThis.fetch = nodeFetch as typeof fetch;
 const run = env?.SUPABASE_ENV === "staging" ? describe : describe.skip;
 
 type Scored = { id: string; type: ProductType; ingredients: Ingredient[] };
+
+/**
+ * What a product's score is computed from — its type and every resolved
+ * ingredient in order, with the dictionary fields scoring reads. Two baseline
+ * files can only be compared product by product where this is unchanged:
+ * a score that moved with a changed fingerprint moved because staging's data
+ * did, not because the code did (#285 review, CodeRabbit).
+ */
+function inputFingerprint(p: Scored): string {
+  const inputs = [
+    p.type,
+    ...p.ingredients.map((i) => [i.name, i.safety, i.verified, [...(i.functions ?? [])].sort().join(",")].join("|")),
+  ];
+  return createHash("sha256").update(JSON.stringify(inputs)).digest("hex").slice(0, 16);
+}
 
 /** Every product with a formula, resolved against the dictionary the way `data/api` does. */
 async function loadCatalogue(url: string, key: string): Promise<Scored[]> {
@@ -152,7 +168,9 @@ run("the scoring baseline on staging", () => {
   it("records the score distribution for six fixed profiles", () => {
     const lines = ["| Profile | Scored | Refused | Mean | P25 | Median | P75 | Excellent | Good | Fair | Poor |", "|---|---|---|---|---|---|---|---|---|---|---|"];
     // `SCORE_BASELINE_OUT=<file>` also writes every product's score per
-    // profile, so a score-moving change can list exactly what it moved.
+    // profile, so a score-moving change can list exactly what it moved — and
+    // each product's input fingerprint, so a comparison between two runs
+    // only counts products whose staging data didn't change in between.
     const perProduct: Record<string, Record<string, number | null>> = {};
     for (const [name, profile] of Object.entries(PROFILES)) {
       const scores: number[] = [];
@@ -173,7 +191,13 @@ run("the scoring baseline on staging", () => {
       );
     }
     console.log(`Distribution:\n${lines.join("\n")}`);
-    if (process.env.SCORE_BASELINE_OUT) writeFileSync(process.env.SCORE_BASELINE_OUT, JSON.stringify(perProduct));
+    if (process.env.SCORE_BASELINE_OUT) writeFileSync(
+        process.env.SCORE_BASELINE_OUT,
+        JSON.stringify({
+          inputs: Object.fromEntries(catalogue.map((p) => [p.id, inputFingerprint(p)])),
+          scores: perProduct,
+        }),
+      );
     expect(lines.length).toBe(2 + Object.keys(PROFILES).length);
   });
 });

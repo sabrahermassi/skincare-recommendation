@@ -1,4 +1,4 @@
-import { itemsFrom, proposeSynonyms, totalFrom } from "../scripts/import-mfds.mjs";
+import { itemsFrom, proposeSynonyms, serviceKeyParam, totalFrom } from "../scripts/import-mfds.mjs";
 
 /**
  * The MFDS register → Korean synonyms (#201). The API needs a data.go.kr key
@@ -74,6 +74,13 @@ describe("what gets written", () => {
     ]);
   });
 
+  // #286 review: only a comma with a digit on *both* sides is protected, as in
+  // the parser — one just before a digit-led name still separates two names.
+  it("splits a comma with a digit on one side only", () => {
+    const { rows } = proposeSynonyms([record("글리세린", "Glycerin", "", "glycerol,1-glycerin alt")], world());
+    expect(rows.map((r: { synonym: string }) => r.synonym)).toEqual(["글리세린", "glycerol", "1-glycerin alt"]);
+  });
+
   it("never turns a real ingredient's own name into a synonym of another", () => {
     const { rows } = proposeSynonyms([record("글리세린", "Glycerin", "", "niacinamide")], world());
     expect(rows.map((r: { synonym: string }) => r.synonym)).toEqual(["글리세린"]);
@@ -98,5 +105,21 @@ describe("what gets written", () => {
     );
     expect(rows).toEqual([]);
     expect(stats).toMatchObject({ alreadyHeld: 1, clashes: 1 });
+  });
+});
+
+// #286 review: data.go.kr hands out an already-escaped and a plain copy of
+// each key; both must reach the API escaped exactly once.
+describe("the service key", () => {
+  it("escapes a plain key once", () => {
+    expect(serviceKeyParam("ab+c/d=")).toBe("ab%2Bc%2Fd%3D");
+  });
+
+  it("does not escape an already-escaped key a second time", () => {
+    expect(serviceKeyParam("ab%2Bc%2Fd%3D")).toBe("ab%2Bc%2Fd%3D");
+  });
+
+  it("sends a key with a stray % as given, escaped once", () => {
+    expect(serviceKeyParam("ab%zz")).toBe("ab%25zz");
   });
 });
