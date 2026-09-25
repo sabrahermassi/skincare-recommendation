@@ -117,8 +117,11 @@ describe("the export", () => {
         ingredients: [{ inciName: "niacinamide", savedAt: "2026-09-02T00:00:00Z" }],
       },
       new Date("2026-09-24T00:00:00Z"),
+      "2026-09-01T00:00:00.000Z",
     );
     const roundTripped = JSON.parse(JSON.stringify(doc));
+    // The first-page flag (#230) is the account's data too.
+    expect(roundTripped.account.journalStartedAt).toBe("2026-09-01T00:00:00.000Z");
     expect(roundTripped.savedProducts[0]).toEqual({
       productId: "a",
       savedAt: "2026-09-01T00:00:00Z",

@@ -96,6 +96,23 @@ implies a guarantee the ingredient list can't support — this is the same
 line the claims policy draws, from the copy side rather than the policy
 side.
 
+### 5. Warm means saying what just happened, not celebrating it
+
+> **What we ship:** "The first page of your journal" / "Everything you save
+> is kept here, on any phone you sign in on. Add a note when you like — how
+> it wore, whether you'd buy it again." (`lib/first-page.ts`,
+> `FIRST_PAGE_COPY`, #230 — shown once per account, on its first saved
+> product)
+>
+> **What we don't write:** "Congratulations! You've started your skincare
+> journey!"
+
+The warm version names what happened and what it's for, in the reader's own
+terms: a journal, a note, buying again. No exclamation point, no "journey",
+and nothing about their skin — the note prompt's rule (#228) holds here too.
+The string lives in the code; this is its example, not a second copy to keep
+in step.
+
 ## What this voice is not
 
 - **Not clinical.** No "the formula demonstrates", no passive-voice lab
@@ -178,6 +195,7 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 | Account screen | `app/account.tsx` | No, same reason |
 | Journal note — the app's prompt, placeholder, buttons and too-long message | `lib/journal.ts` (`NOTE_COPY`, `tooLongCopy`) | Yes — `NOTE_CLAIMS` (#228). The prompt asks about the product ("What did you think of it?"), never about skin |
 | Journal note — the note itself | The person's own words, on the saved row | **No, deliberately** — `docs/claims-policy.md` governs app-authored copy; a note is never audited, rewritten or refused for wording (#228) |
+| First-page moment | `lib/first-page.ts` (`FIRST_PAGE_COPY`) | Yes — `FIRST_PAGE_CLAIMS` (#230). Example under principle 5 |
 
 **Out of scope, on purpose:** `INGREDIENT_RULES[].reason` and
 `PORE_CLOGGERS[].reason` are each a specific evidence claim — `CLAUDE.md`

@@ -1,6 +1,7 @@
 import { INGREDIENTS } from "@/data/ingredients";
 import { PRODUCTS } from "@/data/products";
 import { SCHOOL } from "@/data/school";
+import { FIRST_PAGE_COPY } from "@/lib/first-page";
 import { NOTE_COPY, tooLongCopy } from "@/lib/journal";
 import { pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
 import { claimPolicyViolations } from "@/lib/claims-policy";
@@ -118,9 +119,17 @@ const NOTE_CLAIMS: OwnedClaim[] = [
   { source: "tooLongCopy(612)", text: tooLongCopy(612) },
 ];
 
+// #230: the first-page moment — warm copy, which is exactly where a claim
+// can creep in unnoticed.
+const FIRST_PAGE_CLAIMS: OwnedClaim[] = Object.entries(FIRST_PAGE_COPY).map(([key, text]) => ({
+  source: `FIRST_PAGE_COPY.${key}`,
+  text,
+}));
+
 const OWNED_CLAIMS: OwnedClaim[] = [
   ...HEADLINE_RESULTS,
   ...NOTE_CLAIMS,
+  ...FIRST_PAGE_CLAIMS,
   ...NUDGE_RESULTS,
   ...PAIRING_CLAIMS,
   ...SCHOOL_CLAIMS,

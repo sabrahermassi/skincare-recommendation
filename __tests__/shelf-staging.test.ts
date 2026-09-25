@@ -17,6 +17,7 @@ import { existsSync, readFileSync } from "fs";
 import { request } from "https";
 import { join } from "path";
 
+import { JOURNAL_STARTED_KEY } from "@/lib/first-page";
 import { planPush, shelfAsSaves, type ShelfOp } from "@/lib/shelf";
 
 jest.setTimeout(120_000);
@@ -103,13 +104,18 @@ run("the shelf on staging", () => {
     process.env = saved;
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    return { api, userId: data.user.id };
+    return { api, supabase, userId: data.user.id };
   }
 
-  async function account(label: string) {
+  async function account(label: string, metadata: Record<string, unknown> = {}) {
     const email = `shelf-e2e-${label}-${randomBytes(5).toString("hex")}@example.com`;
     const password = randomBytes(24).toString("base64url");
-    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: metadata,
+    });
     if (error) throw error;
     created.push(data.user.id);
     return { email, password };
@@ -220,6 +226,26 @@ run("the shelf on staging", () => {
     const steady = await phone.api.fetchShelf();
     if (!steady.ok) throw new Error(JSON.stringify(steady.failure));
     expect(steady.value.products.find((p) => p.id === "p-serum")!.savedAt).toBe(Date.parse("2026-09-05T08:00:00Z"));
+  });
+
+  // #230: the first-page flag is merged into the account's metadata, so the
+  // name and picture Google put there stay — and it reads back on sign-in.
+  it("records the first page on the account without touching the rest of its metadata", async () => {
+    mockKeychain.clear();
+    const kim = await account("kim", { full_name: "Kim Test", avatar_url: "https://example.com/a.png" });
+    const device = await deviceFor(kim.email, kim.password);
+    const { error } = await device.supabase.auth.updateUser({ data: { [JOURNAL_STARTED_KEY]: "2026-09-24T00:00:00.000Z" } });
+    expect(error).toBeNull();
+    const { data } = await admin.auth.admin.getUserById(device.userId);
+    expect(data.user?.user_metadata).toMatchObject({
+      full_name: "Kim Test",
+      avatar_url: "https://example.com/a.png",
+      [JOURNAL_STARTED_KEY]: "2026-09-24T00:00:00.000Z",
+    });
+    mockKeychain.clear();
+    const again = await deviceFor(kim.email, kim.password);
+    const { data: session } = await again.supabase.auth.getSession();
+    expect(session.session?.user.user_metadata[JOURNAL_STARTED_KEY]).toBe("2026-09-24T00:00:00.000Z");
   });
 
   it("never shows one account's shelf to another", async () => {

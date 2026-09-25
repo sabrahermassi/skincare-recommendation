@@ -26,6 +26,7 @@ import { openScanner } from "@/lib/genie";
 import { productPictureSize } from "@/lib/product-layout";
 import { isPersonalized } from "@/lib/profile";
 import { saveOrAskToSignIn } from "@/lib/save-gate";
+import { FirstPageMoment } from "@/components/FirstPageMoment";
 import { ProductNote } from "@/components/ProductNote";
 import { track } from "@/lib/analytics";
 import { historyWarningCount, isVerified } from "@/lib/safety";
@@ -415,6 +416,8 @@ export default function ProductScreen() {
           </View>
         }
       />
+
+      <FirstPageMoment />
 
       <ScrollView
         onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}

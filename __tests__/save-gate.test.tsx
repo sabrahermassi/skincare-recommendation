@@ -15,6 +15,7 @@ jest.mock("expo-router", () => {
   return {
     router: { push: (...args: unknown[]) => mockPush(...args), back: () => mockBack() },
     useLocalSearchParams: () => ({ id: "hanbang-rice-serum" }),
+    useIsFocused: () => true,
     useScrollToTop: () => undefined,
     useFocusEffect: (effect: () => void | (() => void)) => {
       useEffect(() => effect(), []); // eslint-disable-line react-hooks/exhaustive-deps

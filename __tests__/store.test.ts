@@ -172,6 +172,7 @@ describe("what survives an app restart", () => {
     expect([...PERSISTED_KEYS].sort()).toEqual([
       "hasSeenOnboarding",
       "history",
+      "journalStarted",
       "legacyShelfMigrated",
       "parkedShelf",
       "profile",
