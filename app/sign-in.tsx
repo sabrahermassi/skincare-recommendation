@@ -1,7 +1,7 @@
 import * as AppleAuthentication from "expo-apple-authentication";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
@@ -97,8 +97,11 @@ export default function SignIn() {
   const anyProvider = appleAvailable || isGoogleSignInConfigured;
 
   return (
-    <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 28, paddingBottom: insets.bottom + 32, gap: 18 }}>
+    // Sized to its content (a form sheet, `app/_layout.tsx`), so no `flex: 1`
+    // and no scroll view — both stretched the sheet to full height around a
+    // few lines of text (#296).
+    <View style={{ backgroundColor: CANVAS }}>
+      <View style={{ padding: 24, paddingTop: 28, paddingBottom: insets.bottom + 32, gap: 18 }}>
         <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 26, color: INK }}>Keep your shelf</Text>
         <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>
           {ACCOUNT_PITCH}
@@ -139,7 +142,7 @@ export default function SignIn() {
         >
           <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Not now</Text>
         </Pressable>
-      </ScrollView>
+      </View>
     </View>
   );
 }

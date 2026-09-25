@@ -204,6 +204,10 @@ export default function IngredientDetail() {
         });
 
   const match = product ? matchProduct(product, profile) : null;
+  // "Back to list" and "Next ingredient" only mean something with a list
+  // behind them. Opened on its own — from a pasted list or a link — "Next"
+  // just went back (#296).
+  const inList = product !== null && index >= 0;
   const verified = isVerified(ingredient);
   // `match` is null when this screen is opened without a product context
   // (e.g. from search) — there's nothing to score against yet, so an
@@ -246,6 +250,9 @@ export default function IngredientDetail() {
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader
         right={
+          // Nothing to keep: starring an unrecognised name would save a string
+          // we can say nothing about (#296).
+          !verified ? undefined : (
           <Pressable
             // Un-starring never asks; starring asks a guest to sign in first (#221).
             onPress={() =>
@@ -261,6 +268,7 @@ export default function IngredientDetail() {
               <StarIcon filled={starred} />
             </PopOnToggle>
           </Pressable>
+          )
         }
       />
 
@@ -379,92 +387,99 @@ export default function IngredientDetail() {
         {/* Plain bordered card, not a tinted lilac panel — the design
             system keeps no tinted panels (design/DESIGN_SYSTEM.md's Colour
             section): an earlier onboarding revision tried them and the
-            illustrations' own colour shapes competed with the panel. */}
-        <Pressable
-          onPress={() =>
-            void Linking.openURL(
-              `https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(ingredient.name)}`
-            ).catch((err) => console.warn("openURL failed:", err))
-          }
-          style={{
-            marginTop: 28,
-            marginHorizontal: 24,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: BORDER_INACTIVE,
-            backgroundColor: CANVAS,
-            ...CARD_SHADOW,
-            paddingHorizontal: 20,
-            paddingVertical: 16,
-          }}
-          className="active:opacity-80"
-        >
-          <View className="gap-0.5">
-            <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Want to learn more?</Text>
-            <Text style={{ fontSize: 12.5, color: MUTED }}>See studies and evidence</Text>
-          </View>
-          <ArrowIcon size={17} color={INK} />
-        </Pressable>
+            illustrations' own colour shapes competed with the panel. Hidden
+            for a name we couldn't recognise: a search for it finds nothing
+            useful (#296). */}
+        {verified ? (
+          <Pressable
+            onPress={() =>
+              void Linking.openURL(
+                `https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(ingredient.name)}`
+              ).catch((err) => console.warn("openURL failed:", err))
+            }
+            style={{
+              marginTop: 28,
+              marginHorizontal: 24,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: BORDER_INACTIVE,
+              backgroundColor: CANVAS,
+              ...CARD_SHADOW,
+              paddingHorizontal: 20,
+              paddingVertical: 16,
+            }}
+            className="active:opacity-80"
+          >
+            <View className="gap-0.5">
+              <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Want to learn more?</Text>
+              <Text style={{ fontSize: 12.5, color: MUTED }}>See studies and evidence</Text>
+            </View>
+            <ArrowIcon size={17} color={INK} />
+          </Pressable>
+        ) : null}
 
         <Text style={{ paddingHorizontal: 24, paddingTop: 36, fontSize: TYPE.caption, color: MUTED_FAINT }}>
           Reference data from Open Beauty Facts and EU CosIng.
         </Text>
       </ScrollView>
 
-      <View
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          flexDirection: "row",
-          gap: 12,
-          borderTopWidth: 1,
-          borderTopColor: BORDER_INACTIVE,
-          backgroundColor: CANVAS,
-          paddingHorizontal: 24,
-          // Was a bare 32 — see app/product/[id].tsx's own note on why that's
-          // not guaranteed to clear Android's nav/gesture bar.
-          paddingBottom: Math.max(32, insets.bottom + 12),
-          paddingTop: 12,
-        }}
-      >
-        <Pressable
-          onPress={() => router.back()}
+      {inList ? (
+        <View
           style={{
-            flex: 1,
-            height: 56,
-            alignItems: "center",
-            justifyContent: "center",
-            // True-pill radius (height / 2), matching the CTA beside it —
-            // was RADIUS_SELECTOR (14), the same drifted radius the CTA used
-            // to carry before it moved onto PrimaryButton's shared cta tone.
-            borderRadius: 28,
-            borderWidth: 1,
-            borderColor: BORDER_INACTIVE,
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            flexDirection: "row",
+            gap: 12,
+            borderTopWidth: 1,
+            borderTopColor: BORDER_INACTIVE,
             backgroundColor: CANVAS,
+            paddingHorizontal: 24,
+            // Was a bare 32 — see app/product/[id].tsx's own note on why that's
+            // not guaranteed to clear Android's nav/gesture bar.
+            paddingBottom: Math.max(32, insets.bottom + 12),
+            paddingTop: 12,
           }}
         >
-          <Text style={{ fontSize: 15.5, fontWeight: "600", color: INK }}>Back to list</Text>
-        </Pressable>
-        <PrimaryButton
-          tone="cta"
-          size={56}
-          style={{ flex: 1 }}
-          label="Next ingredient"
-          onPress={() => {
-            if (!product || index < 0) return router.back();
-            const next = product.ingredients[(index + 1) % product.ingredients.length];
-            router.replace({
-              pathname: "/ingredient/[inci]",
-              params: { inci: next.name, product: product.id },
-            });
-          }}
-        />
-      </View>
+          <Pressable
+            onPress={() => router.back()}
+            style={{
+              flex: 1,
+              height: 56,
+              alignItems: "center",
+              justifyContent: "center",
+              // True-pill radius (height / 2), matching the CTA beside it —
+              // was RADIUS_SELECTOR (14), the same drifted radius the CTA used
+              // to carry before it moved onto PrimaryButton's shared cta tone.
+              borderRadius: 28,
+              borderWidth: 1,
+              borderColor: BORDER_INACTIVE,
+              backgroundColor: CANVAS,
+            }}
+          >
+            <Text style={{ fontSize: 15.5, fontWeight: "600", color: INK }}>Back to list</Text>
+          </Pressable>
+          <PrimaryButton
+            tone="cta"
+            size={56}
+            style={{ flex: 1 }}
+            label="Next ingredient"
+            onPress={() => {
+              // Only rendered `inList`, so the product and position are there.
+              if (!product) return;
+              const next = product.ingredients[(index + 1) % product.ingredients.length];
+              router.replace({
+                pathname: "/ingredient/[inci]",
+                params: { inci: next.name, product: product.id },
+              });
+            }}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }

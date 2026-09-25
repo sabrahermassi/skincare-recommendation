@@ -155,6 +155,7 @@ export default function Browse() {
   // filter layered on top of Barcode. `searchResults` is null until a query
   // of at least 2 characters has actually been searched.
   const [query, setQuery] = useState("");
+  const searchInput = useRef<TextInput>(null);
   const [searchResults, setSearchResults] = useState<ProductWithIngredients[] | null>(null);
   const [searching, setSearching] = useState(false);
   const searchActive = query.trim().length >= 2;
@@ -213,6 +214,10 @@ export default function Browse() {
       if (cached) setProducts(cached);
       const all = peekProducts("all");
       if (all) setAllProducts(all);
+      // Leaving with the search box focused brought the keyboard back up on
+      // return — iOS restores the focus — covering the tab bar (#296). Blur
+      // on the way out; the query itself stays.
+      return () => searchInput.current?.blur();
     }, [typeFilter]),
   );
 
@@ -602,6 +607,7 @@ export default function Browse() {
             <View style={{ paddingHorizontal: HEADER_GUTTER, gap: 10 }}>
               <View style={{ position: "relative", justifyContent: "center" }}>
                 <TextInput
+                  ref={searchInput}
                   value={query}
                   onChangeText={setQuery}
                   placeholder="Search products or brands"

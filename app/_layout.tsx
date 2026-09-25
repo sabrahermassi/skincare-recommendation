@@ -152,7 +152,13 @@ export default function RootLayout() {
         <Stack.Screen name="account" options={{ headerShown: false }} />
         {/* A sheet over wherever sign-in was asked for, so closing it returns
             the person exactly there (#220). */}
-        <Stack.Screen name="sign-in" options={{ headerShown: false, presentation: "modal" }} />
+        <Stack.Screen
+          name="sign-in"
+          // Sized to what it holds: a full-height modal left a few lines of
+          // text on an empty sheet (#296). `fitToContents` is supported by
+          // this SDK's expo-router (`sheetAllowedDetents`, formSheet only).
+          options={{ headerShown: false, presentation: "formSheet", sheetAllowedDetents: "fitToContents", sheetGrabberVisible: true }}
+        />
         <Stack.Screen
           name="scan-label"
           options={{ title: "Read the label", presentation: "modal", headerShown: false }}
