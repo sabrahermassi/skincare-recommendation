@@ -57,8 +57,9 @@ export default function PregnancyStep() {
       onNext={finish}
       nextDisabled={!picked}
       // It lands on Home, not the scanner (POST_ONBOARDING_ROUTE), so it says
-      // what it does (#295).
-      nextLabel="Done"
+      // what it does (#295). Not "Done": Skin profile's per-section "Done"
+      // only closes a section without saving (#308 review).
+      nextLabel="Finish"
     >
       <View>
         {OPTIONS.map((option) => (
