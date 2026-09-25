@@ -143,6 +143,8 @@ type AppState = {
 
   /** Add/remove an ingredient name from the starred list. */
   toggleSavedIngredient: (name: string) => void;
+  /** Idempotent add, like `saveProduct` — for a star held while a guest signs in (#221). */
+  saveIngredient: (name: string) => void;
   /** Empties the Saved tab's shelf — the wipe-everything action, as opposed to
    *  `toggleSaved`'s per-row "x". Leaves history and starred ingredients alone. */
   clearSavedProducts: () => void;
@@ -411,6 +413,11 @@ export const useAppStore = create<AppState>()(
           state.savedProducts.some((p) => p.id === product.id)
             ? state
             : { savedProducts: [...state.savedProducts, product] }
+        ),
+
+      saveIngredient: (name) =>
+        set((state) =>
+          state.savedIngredients.includes(name) ? state : { savedIngredients: [...state.savedIngredients, name] }
         ),
 
       toggleSavedIngredient: (name) =>

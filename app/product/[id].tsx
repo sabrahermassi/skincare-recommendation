@@ -25,6 +25,7 @@ import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/genie";
 import { productPictureSize } from "@/lib/product-layout";
 import { isPersonalized } from "@/lib/profile";
+import { saveOrAskToSignIn } from "@/lib/save-gate";
 import { historyWarningCount, isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
@@ -134,6 +135,7 @@ export default function ProductScreen() {
   const profile = useAppStore((s) => s.profile);
   const savedProducts = useAppStore((s) => s.savedProducts);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
+  const saveProduct = useAppStore((s) => s.saveProduct);
   const recordView = useAppStore((s) => s.recordView);
   const fillInViewScore = useAppStore((s) => s.fillInViewScore);
   const saved = savedProducts.some((p) => p.id === id);
@@ -377,7 +379,13 @@ export default function ProductScreen() {
         right={
           <View style={{ flexDirection: "row", alignItems: "center", gap: 22 }}>
             <Pressable
-              onPress={() => toggleSaved(product.id, product.fetchedAt)}
+              // Removing never asks; adding asks a guest to sign in first,
+              // and the save completes itself once they have (#221).
+              onPress={() =>
+                saved
+                  ? toggleSaved(product.id)
+                  : saveOrAskToSignIn(() => saveProduct(product.id, product.fetchedAt))
+              }
               hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel={saved ? "Remove from saved" : "Save"}

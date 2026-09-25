@@ -60,6 +60,7 @@ const { useAuth } = require("@/lib/auth") as typeof import("@/lib/auth");
 
 beforeEach(() => {
   jest.clearAllMocks();
+  useAuth.setState({ status: "signed-out", session: null });
 });
 
 async function tapApple() {
@@ -71,7 +72,11 @@ async function tapApple() {
 
 describe("the sign-in sheet", () => {
   it("closes itself once signed in", async () => {
-    mockSignInWithApple.mockResolvedValue({ ok: true });
+    // As the real client does: the session arrives through `useAuth`.
+    mockSignInWithApple.mockImplementation(async () => {
+      useAuth.setState({ status: "signed-in", session: {} as never });
+      return { ok: true };
+    });
     await render(<SignIn />);
     await tapApple();
     expect(mockBack).toHaveBeenCalledTimes(1);

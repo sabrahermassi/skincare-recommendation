@@ -18,6 +18,7 @@ import { matchProduct, positionNote, ruleFor, rungFor, type Contraindication, ty
 import { isSensitive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
+import { saveOrAskToSignIn } from "@/lib/save-gate";
 import { useAppStore } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, INK, MUTED, MUTED_FAINT, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 
@@ -147,6 +148,7 @@ export default function IngredientDetail() {
   const profile = useAppStore((s) => s.profile);
   const savedIngredients = useAppStore((s) => s.savedIngredients);
   const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
+  const saveIngredient = useAppStore((s) => s.saveIngredient);
 
   useEffect(() => {
     let cancelled = false;
@@ -242,7 +244,12 @@ export default function IngredientDetail() {
       <ScreenHeader
         right={
           <Pressable
-            onPress={() => toggleSavedIngredient(ingredient.name)}
+            // Un-starring never asks; starring asks a guest to sign in first (#221).
+            onPress={() =>
+              starred
+                ? toggleSavedIngredient(ingredient.name)
+                : saveOrAskToSignIn(() => saveIngredient(ingredient.name))
+            }
             hitSlop={12}
             accessibilityLabel={starred ? "Remove from starred ingredients" : "Star this ingredient"}
             accessibilityState={{ selected: starred }}
