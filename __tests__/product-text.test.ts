@@ -1,3 +1,6 @@
+import { readFileSync } from "fs";
+import { join } from "path";
+
 import { PRODUCT_TYPE_LABEL } from "@/data/types";
 import {
   MAX_BRAND_CHARS,
@@ -84,6 +87,15 @@ describe("brand handling", () => {
 describe("product type", () => {
   it("lists exactly the app's ProductType values", () => {
     expect([...PRODUCT_TYPES].sort()).toEqual(Object.keys(PRODUCT_TYPE_LABEL).sort());
+  });
+
+  // #199: the database refuses any other type, so its list must be this one.
+  // A later migration that widens the check should be read here instead.
+  it("is exactly the list the database's products_type_known check allows", () => {
+    const sql = readFileSync(join(__dirname, "..", "supabase", "migrations", "0027_catalogue_tidy.sql"), "utf8");
+    const check = sql.slice(sql.indexOf("products_type_known check (type in ("));
+    const allowed = [...check.slice(0, check.indexOf("))")).matchAll(/'([a-z-]+)'/g)].map((m) => m[1]);
+    expect(allowed.sort()).toEqual([...PRODUCT_TYPES].sort());
   });
 
   it("keeps a real pick and falls back to unknown for anything else", () => {
