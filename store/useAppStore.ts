@@ -157,6 +157,12 @@ type AppState = {
    * rather than lost (`parkedShelf`). The profile and history stay.
    */
   leaveShelf: () => void;
+  /**
+   * The account was deleted (#224): the cached shelf, its queue and anything
+   * parked for it are dropped outright — there is no account left to push
+   * them to. The profile and history stay; they were never the account's.
+   */
+  discardShelf: () => void;
 
   /** Shallow-merges into the profile. Used by every quiz step and by /profile. */
   setProfile: (patch: Partial<SkinProfile>) => void;
@@ -620,6 +626,9 @@ export const useAppStore = create<AppState>()(
           const shelf = applyOps(server, pending);
           return { savedProducts: shelf.products, savedIngredients: shelf.ingredients, shelfQueue: pending };
         }),
+
+      discardShelf: () =>
+        set({ shelfOwner: null, shelfQueue: [], parkedShelf: null, savedProducts: [], savedIngredients: [] }),
 
       leaveShelf: () =>
         set((state) =>

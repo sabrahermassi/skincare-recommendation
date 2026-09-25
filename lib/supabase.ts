@@ -52,3 +52,6 @@ export const LOOKUP_FUNCTION = "product-lookup";
 /** Reads an ingredient list off a photographed label. Holds the Vision key. */
 export const OCR_FUNCTION = "label-ocr";
 
+/** Deletes the signed-in account (#224). Holds the service-role and Apple keys. */
+export const DELETE_ACCOUNT_FUNCTION = "delete-account";
+

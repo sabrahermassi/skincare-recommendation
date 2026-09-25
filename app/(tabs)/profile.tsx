@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/Text";
 import { profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, SCRIM, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 const AVATAR = 120;
@@ -94,7 +94,7 @@ export default function Profile() {
       <Modal visible={confirmingErase} transparent animationType="fade" onRequestClose={() => setConfirmingErase(false)}>
         <Pressable
           onPress={() => setConfirmingErase(false)}
-          style={{ flex: 1, backgroundColor: "rgba(36,31,30,0.45)", alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}
+          style={{ flex: 1, backgroundColor: SCRIM, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}
         >
           {/* Swallows its own tap so tapping the card doesn't also hit the
               scrim's onPress behind it and dismiss the confirmation. */}

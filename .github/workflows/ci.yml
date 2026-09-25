@@ -177,7 +177,15 @@ jobs:
       # Deno's default global-cache resolution here matches how this code
       # actually runs.
       - name: Typecheck the Deno Edge Functions
-        run: deno check --node-modules-dir=none supabase/functions/label-ocr/index.ts supabase/functions/product-lookup/index.ts
+        run: deno check --node-modules-dir=none supabase/functions/label-ocr/index.ts supabase/functions/product-lookup/index.ts supabase/functions/delete-account/index.ts
+
+      # Account deletion's decisions (#224): no token or a forged one deletes
+      # nothing, identity never comes from the body, and an Apple-linked
+      # account is not deleted until Apple's grant is revoked. Fakes only —
+      # the staging run against the deployed function is
+      # scripts/check-delete-account.mjs.
+      - name: Account deletion
+        run: deno test --node-modules-dir=none supabase/tests/delete_account.test.ts
 
       - name: The limiter, end to end
         run: deno test --allow-net --allow-env supabase/tests/rate_limit_e2e.test.ts
