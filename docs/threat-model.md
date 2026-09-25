@@ -17,12 +17,15 @@ As of this writing, the backend holds a database but no user data:
   the migration, not a deliberate decision, and worth its own follow-up.
   No table has write policies; every write goes through the service-role
   key, server-side only, never from the client.
-- Sign-in exists as of #218: Sign in with Apple and Sign in with Google,
-  through Supabase Auth, and nothing else — no email, no password. The
-  session lives in the Keychain/Keystore on a phone and in memory on web (see
-  the Session token row below). The client still holds only the anon key.
-- There is still no user-owned table (#219 adds the first). No owner column, no profiles, no quiz
-  answers, no saved-product list, no scan history, on the backend.
+- *Superseded by #218:* there was no authentication anywhere in the app.
+  Sign in with Apple and Google now put a Supabase session on the device —
+  no email, no password. The session lives in the Keychain/Keystore on a
+  phone and in memory on web (see §1's session row). The client still holds
+  only the anon key.
+- *Superseded by #219:* there was no user-owned table. Migration 0025 adds
+  the first two, `saved_products` and `saved_ingredients`, owner-only under
+  RLS. Still no profile, quiz answers or scan history on the backend, by
+  decision.
 
 But personal data already exists, just not on the backend: the Zustand store
 (`store/useAppStore.ts`) persists skin profile — gender, age group, body
@@ -43,7 +46,10 @@ constraints below, not defaults that might slide.
 | Skin profile | gender, age group, body area, concerns, base skin type, sensitivity | Health-adjacent | AsyncStorage, unencrypted, on-device | Synced row, owned by user id | Until account deletion |
 | Quiz answers | the same fields, as collected during onboarding | Health-adjacent | Folded into skin profile above | Same as skin profile | Same as skin profile |
 | Scan history | last 50 scans: product id, score, warning count, timestamp | Health-adjacent (reveals concerns by inference — a run of "avoid" verdicts on acne products implies acne-prone skin) | AsyncStorage, on-device | Synced row, owned by user id | User-configurable; default cap already exists (50 entries) client-side, needs a server-side equivalent |
-| Saved products | list of product ids | Low sensitivity alone, but joins with scan history to reveal the same inferences | AsyncStorage, on-device | Synced row, owned by user id | Until account deletion |
+| Saved products | product id (or raw barcode), when it was saved, and which formula version was on screen | Low sensitivity alone, but joins with scan history to reveal the same inferences | AsyncStorage, on-device | `saved_products` (migration 0025), one row per product, owner-only under RLS; the device keeps a cached copy (#223) | Until removed, or until account deletion — `on delete cascade` from `auth.users` |
+| Saved ingredients | starred ingredient names | Low sensitivity alone; a run of starred actives hints at concerns | AsyncStorage, on-device | `saved_ingredients` (migration 0025), owner-only under RLS | Same as saved products |
+| Journal note | up to 500 characters the user wrote about a saved product (#228) | Potentially health-adjacent — the prompt asks about the product, but people may write anything, and it is theirs | Does not exist yet | `saved_products.note`, owner-only under RLS; never shared, never in analytics | Same as saved products |
+| Routine step | the user's own step 1/2/3 for a saved product (#227) | Low | Does not exist yet | `saved_products.routine_step` | Same as saved products |
 | Account identifier | email and the Apple or Google subject id, from Sign in with Apple / Sign in with Google (#217, #218). Apple's email may be a Hide My Email relay address. No name is requested from Apple | PII | Supabase Auth `auth.users` and `auth.identities`, created on first sign-in (#218). Identities that share a verified email are linked into one user | Same, referenced by every owner column | Until account deletion |
 | Session token | access token, refresh token and user record — proof of authenticated identity | Credential-equivalent | On iOS/Android, the Keychain/Keystore through `lib/secure-storage.ts` (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`, backup-excluded, cleared on a fresh install); on web, memory only (#218). Never AsyncStorage, never `localStorage` — see `docs/device-storage-policy.md` row 1 | Same | Until sign-out, or until a refresh is refused (revoked token, deleted account), which clears it |
 | Caller IP | used for rate-limiting in `_shared/rate-limit.ts`, and for the scan outcome log in `_shared/scan-log.ts` (migration 0024) | PII under GDPR — a dynamic IP can identify a person even without being combined with other logs | Never persisted as an address. Held in-memory per Edge Function isolate, and as the same truncated HMAC fingerprint (`fingerprintCaller`) in both `rate_limits` and `scan_log`, both service-role only. The raw address reaches Edge Function logs on the request that first crosses the limit — once per caller per window globally when the shared counter refuses, once per isolate when a single isolate spends the whole allowance itself | Same | In-memory: isolate lifetime. Fingerprint in `rate_limits`: purged hourly, max ~25h. Fingerprint in `scan_log`: nulled hourly once the row is over a day old, same ~25h ceiling — the outcome counts around it live longer (see the `Scan outcome log` row below), but the fingerprint itself never outlives what this row already promises. Logs: the platform's own log retention |
@@ -407,11 +413,13 @@ this changed anything.
 **A policy is not verified until a negative test fails without it (issue
 #17).** RLS failures are silent — a wrong policy doesn't error, it returns
 another user's row, so "the migration includes an RLS policy" is not
-evidence the policy does anything. None of the three features above exist
-yet: as of this writing there is no `auth.users`-referencing table, no
-owner column, and no storage bucket anywhere in `supabase/migrations`
-(confirmed by grep, not assumed). That makes this the right point to fix
-the requirement rather than the code, so it isn't relitigated per-migration:
+evidence the policy does anything. When this was written there was no
+`auth.users`-referencing table, no owner column, and no storage bucket
+anywhere in `supabase/migrations`. Migration 0025 (#219) is the first
+user-owned table and met the bar below: `supabase/tests/saved_shelf.test.sql`
+runs in CI, and `npm run check:shelf-rls` runs the same checks on staging
+with two real accounts. There is still no storage bucket. The requirement,
+fixed here so it isn't relitigated per-migration:
 
 - **Every migration that creates or alters a user-owned table must land a
   negative authorization test in the same PR** — user A cannot read,

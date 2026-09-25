@@ -10,6 +10,7 @@ class, per platform, and what enforces it.
 |---|---|---|---|
 | Auth / session material (access token, refresh token, PKCE verifier, any credential-equivalent) | `expo-secure-store` (Keychain), `WHEN_UNLOCKED_THIS_DEVICE_ONLY` | `expo-secure-store` (Keystore), backup-excluded | **Memory only.** Never `localStorage`, `sessionStorage`, IndexedDB, or a non-`HttpOnly` cookie |
 | Skin profile, quiz answers, scan history, saved products, saved ingredients, product suggestions | AsyncStorage | AsyncStorage | AsyncStorage (`localStorage`-backed by `react-native-web`) |
+| Journal note (#228) — free text the user wrote about a saved product | AsyncStorage, as part of the cached shelf; source of truth is `saved_products.note` on the server | same | same |
 | UI-only state (onboarding flag, future filter state) | AsyncStorage | AsyncStorage | AsyncStorage |
 | Cached catalogue data (product rows, ingredient dictionary, freshness watermark) | AsyncStorage | AsyncStorage | AsyncStorage (`localStorage`-backed by `react-native-web`) |
 | Session-scoped state (compare tray, pasted ingredient list) | not persisted | not persisted | not persisted |
@@ -33,9 +34,13 @@ this file.
   touch AsyncStorage. #223 asks for that to be settled here in writing rather
   than in passing.
 - **#228** adds a journal note to a saved product — free text the user wrote
-  themselves, which is the most personal thing this app will hold and which
-  no row in the table below currently covers. It needs its own row, not a
-  corner of row 2.
+  themselves, which is the most personal thing this app will hold. It has
+  its own row in the table above (added with #219, which created the
+  `note` column), rather than a corner of row 2. On the device it rides
+  inside the cached shelf, so it is plaintext at rest like the rest of that
+  row, behind the platform's file protection; it is never written anywhere
+  else, never shared and never sent to analytics. The column caps it at 500
+  characters.
 
 
 ## Why the profile and scan history stay on AsyncStorage
