@@ -1,5 +1,5 @@
 /**
- * Skincare School — curated beginner questions with fixed, pre-written
+ * Skincare School: curated beginner questions with fixed, pre-written
  * answers (`FOR_ME_MVP.md` §25, #235). Static text: no network, nothing
  * generated when the screen opens.
  *
@@ -11,7 +11,7 @@
  *   question this app doesn't answer, however it's hedged. Questions are
  *   about ingredients, formulas, routines and reading a label.
  * - An answer about an ingredient the app scores must agree with that
- *   ingredient's `INGREDIENT_RULES[].reason` in `lib/rules.ts` — two
+ *   ingredient's `INGREDIENT_RULES[].reason` in `lib/rules.ts`: two
  *   different explanations of retinoids in one app is drift.
  * - Written in the `docs/voice.md` register: second person, plain, no
  *   promises.
@@ -28,13 +28,13 @@ export const SCHOOL: SchoolCategory[] = [
         id: "list-order",
         question: "Why are ingredients listed in that order?",
         answer:
-          "On an ordinary cosmetic label, they're listed from most to least, down to the ones that make up about 1% of the formula — below that, brands can list them in any order. So the first few names are most of what's in the bottle, and an active near the end is usually there in a small amount. Sunscreens and some blemish products sold in the US carry a \"Drug Facts\" box instead: the active ingredients come first with their strength printed beside them, and the rest are often listed alphabetically, so there the order says nothing about amounts.",
+          "On an ordinary cosmetic label, they're listed from most to least, down to the ones that make up about 1% of the formula. Below that, brands can list them in any order. So the first few names are most of what's in the bottle, and an active near the end is usually there in a small amount. Sunscreens and some blemish products sold in the US carry a \"Drug Facts\" box instead: the active ingredients come first with their strength printed beside them, and the rest are often listed alphabetically, so there the order says nothing about amounts.",
       },
       {
         id: "inci-names",
         question: "Why do ingredient names look so technical?",
         answer:
-          "Most labels use INCI names, a shared international naming system for cosmetic ingredients. That's why shea butter can show up as \"Butyrospermum Parkii Butter\". Spellings still vary by market, though: a US or Korean label may say \"Water\" where a European one says \"Aqua\" — this app treats both as the same ingredient.",
+          "Most labels use INCI names, a shared international naming system for cosmetic ingredients. That's why shea butter can show up as \"Butyrospermum Parkii Butter\". Spellings still vary by market, though: a US or Korean label may say \"Water\" where a European one says \"Aqua\"; this app treats both as the same ingredient.",
       },
       {
         id: "fragrance",
@@ -46,7 +46,7 @@ export const SCHOOL: SchoolCategory[] = [
         id: "natural-clean",
         question: "Does \"natural\" or \"clean\" on the front mean anything?",
         answer:
-          "Not in any regulated way — neither word has a shared definition behind it. The ingredient list on the back is the part with rules behind it, and it's the part this app reads.",
+          "Not in any regulated way: neither word has a shared definition behind it. The ingredient list on the back is the part with rules behind it, and it's the part this app reads.",
       },
       {
         id: "no-amounts",
@@ -63,19 +63,19 @@ export const SCHOOL: SchoolCategory[] = [
         id: "retinoids",
         question: "What are retinoids?",
         answer:
-          "A family of vitamin A ingredients, and its members differ. Retinol and retinal have the strongest evidence of any active for lines and congestion, and the highest irritation cost, especially on dry or sensitive skin. Gentler forms, like retinyl retinoate, cost less irritation, and retinyl palmitate has to be converted in skin before it acts, so it does less. The stronger ones can leave skin more reactive to sunlight — so a daytime SPF is worth pairing with them. Retinoids are commonly advised against in pregnancy and while breastfeeding.",
+          "A family of vitamin A ingredients, and its members differ. Retinol and retinal have the strongest evidence of any active for lines and congestion, and the highest irritation cost, especially on dry or sensitive skin. Gentler forms, like retinyl retinoate, cost less irritation, and retinyl palmitate has to be converted in skin before it acts, so it does less. The stronger ones can leave skin more reactive to sunlight, so a daytime SPF is worth pairing with them. Retinoids are commonly advised against in pregnancy and while breastfeeding.",
       },
       {
         id: "ahas",
         question: "What do AHAs do?",
         answer:
-          "Alpha hydroxy acids — glycolic, lactic and mandelic acid among them — loosen the outermost layer of dead skin cells, so skin can look smoother and brighter. The trade-off is tolerance: they can sting reactive skin, and they can leave skin more reactive to sunlight.",
+          "Alpha hydroxy acids (glycolic, lactic and mandelic acid among them) loosen the outermost layer of dead skin cells, so skin can look smoother and brighter. The trade-off is tolerance: they can sting reactive skin, and they can leave skin more reactive to sunlight.",
       },
       {
         id: "aha-vs-bha",
         question: "What's the difference between AHAs and BHA?",
         answer:
-          "AHAs dissolve in water and work on the skin's surface. BHA, which is salicylic acid, dissolves in oil, so it can work inside pores — that's why people reach for it for congestion. It can be drying on dry or reactive skin.",
+          "AHAs dissolve in water and work on the skin's surface. BHA, which is salicylic acid, dissolves in oil, so it can work inside pores. That's why people reach for it for congestion. It can be drying on dry or reactive skin.",
       },
       {
         id: "niacinamide",
@@ -98,7 +98,7 @@ export const SCHOOL: SchoolCategory[] = [
         id: "how-many-steps",
         question: "Do I need a lot of steps?",
         answer:
-          "No. A cleanser, a moisturiser and, in the daytime, a sunscreen cover the basics for most people. Everything else is optional — and adding several new actives at once makes it hard to tell which one your skin isn't getting on with.",
+          "No. A cleanser, a moisturiser and, in the daytime, a sunscreen cover the basics for most people. Everything else is optional, and adding several new actives at once makes it hard to tell which one your skin isn't getting on with.",
       },
       {
         id: "starting-new",
@@ -110,7 +110,7 @@ export const SCHOOL: SchoolCategory[] = [
         id: "two-actives",
         question: "Can I use two strong actives together?",
         answer:
-          "Often, yes — but layering strong ones, like a retinoid with an AHA, raises the chance of irritation. Plenty of people use them on different days instead.",
+          "Often, yes, but layering strong ones, like a retinoid with an AHA, raises the chance of irritation. Plenty of people use them on different days instead.",
       },
       {
         id: "order",
@@ -127,13 +127,13 @@ export const SCHOOL: SchoolCategory[] = [
         id: "score-meaning",
         question: "What does the score mean?",
         answer:
-          "It's how well a product's ingredients line up with the skin profile you gave us, from 0 to 100. It isn't a rating of the product's quality or safety, and it can't promise how your skin will react — it's a starting point for your own decision.",
+          "It's how well a product's ingredients line up with the skin profile you gave us, from 0 to 100. It isn't a rating of the product's quality or safety, and it can't promise how your skin will react. It's a starting point for your own decision.",
       },
       {
         id: "cant-tell",
         question: "Why does it sometimes say it can't tell?",
         answer:
-          "Two reasons. If your profile has no skin type and no concerns yet — including when you answered \"I don't know\" to both — there's nothing to match the product against. Pick a skin type or at least one concern in your profile, and every score is made for your skin. Otherwise, when we can't recognise enough of the ingredient list — a blurry photo, or names we don't have yet — we'd rather say so than guess. An ingredient we don't recognise doesn't count toward the score as good or bad; it just makes the answer less certain. One exception: if you've told us you're pregnant or breastfeeding, a name that looks like one to check is still flagged, even when we can't fully confirm it.",
+          "Two reasons. If your profile has no skin type and no concerns yet (including when you answered \"I don't know\" to both), there's nothing to match the product against. Pick a skin type or at least one concern in your profile, and every score is made for your skin. Otherwise, when we can't recognise enough of the ingredient list (a blurry photo, or names we don't have yet), we'd rather say so than guess. An ingredient we don't recognise doesn't count toward the score as good or bad; it just makes the answer less certain. One exception: if you've told us you're pregnant or breastfeeding, a name that looks like one to check is still flagged, even when we can't fully confirm it.",
       },
       {
         id: "is-it-safe",
@@ -145,7 +145,7 @@ export const SCHOOL: SchoolCategory[] = [
         id: "ai",
         question: "Does the app use AI?",
         answer:
-          "For one step. When you photograph a label, Google's trained text-recognition model reads the words off the photo. Everything after that is fixed: the score comes from fixed rules about ingredients, each carrying the sentence you see on screen, and these answers are fixed text too — nothing is generated when you open them.",
+          "For one step. When you photograph a label, Google's trained text-recognition model reads the words off the photo. Everything after that is fixed: the score comes from fixed rules about ingredients, each carrying the sentence you see on screen, and these answers are fixed text too: nothing is generated when you open them.",
       },
     ],
   },
