@@ -8,7 +8,7 @@ be rewritten against (#26) once it lands.
 
 ## Where this stands today
 
-As of this writing, the backend holds a database but no user data:
+When this was first written, the backend held a database but no user data (the account work since — #218 onward — is noted inline):
 
 - Four tables — `ingredients`, `products`, `product_ingredients`,
   `ingredient_synonyms` — all shared catalogue data. RLS is enabled with a
@@ -27,11 +27,11 @@ As of this writing, the backend holds a database but no user data:
   RLS. Still no profile, quiz answers or scan history on the backend, by
   decision.
 
-But personal data already exists, just not on the backend: the Zustand store
-(`store/useAppStore.ts`) persists skin profile — gender, age group, body
-area, concerns, skin type, sensitivity — plus a 50-entry scan history, to
-AsyncStorage, unencrypted, on-device. That is health-adjacent data, live
-today, with zero accounts involved.
+Personal data also exists on the device: the Zustand store
+(`store/useAppStore.ts`) persists the skin profile — concerns, skin type,
+sensitivity, pregnancy status — plus a 50-entry scan history, to
+AsyncStorage, unencrypted, on-device, and never sends either anywhere.
+That is health-adjacent data, held the same way with or without an account.
 
 The product direction (confirmed while planning this doc): accounts with
 cross-device sync are the destination for this data. Photos are never stored
@@ -43,14 +43,14 @@ constraints below, not defaults that might slide.
 
 | Data | What it is | Sensitivity | Lives today | After accounts | Retention |
 |---|---|---|---|---|---|
-| Skin profile | gender, age group, body area, concerns, base skin type, sensitivity | Health-adjacent | AsyncStorage, unencrypted, on-device | Synced row, owned by user id | Until account deletion |
-| Quiz answers | the same fields, as collected during onboarding | Health-adjacent | Folded into skin profile above | Same as skin profile | Same as skin profile |
-| Scan history | last 50 scans: product id, score, warning count, timestamp | Health-adjacent (reveals concerns by inference — a run of "avoid" verdicts on acne products implies acne-prone skin) | AsyncStorage, on-device | Synced row, owned by user id | User-configurable; default cap already exists (50 entries) client-side, needs a server-side equivalent |
+| Skin profile | concerns, base skin type, sensitivity, pregnancy status (gender, age group and body area were collected once and have been removed) | Health-adjacent; pregnancy status may be GDPR Art. 9 data (#14) | AsyncStorage, unencrypted, on-device | **No change: never leaves the device, signed in or not** (#219 — no `skin_profiles` table, no opt-in) | Until the person changes it or taps Delete my profile |
+| Quiz answers | the same fields, as collected during onboarding | Health-adjacent | Folded into skin profile above | Same as skin profile — device only | Same as skin profile |
+| Scan history | last 50 scans: product id, score, warning count, timestamp | Health-adjacent (reveals concerns by inference — a run of "avoid" verdicts on acne products implies acne-prone skin) | AsyncStorage, on-device | **No change: never leaves the device** (#219, `FOR_ME_MVP.md`) | The newest 50 (`HISTORY_LIMIT`); the person can remove entries or clear it |
 | Saved products | product id (or raw barcode), when it was saved, and which formula version was on screen | Low sensitivity alone, but joins with scan history to reveal the same inferences | AsyncStorage, on-device | `saved_products` (migration 0025), one row per product, owner-only under RLS; the device keeps a cached copy (#223) | Until removed, or until account deletion — `on delete cascade` from `auth.users` |
 | Saved ingredients | starred ingredient names | Low sensitivity alone; a run of starred actives hints at concerns | AsyncStorage, on-device | `saved_ingredients` (migration 0025), owner-only under RLS | Same as saved products |
 | Journal note | up to 500 characters the user wrote about a saved product (#228) | Potentially health-adjacent — the prompt asks about the product, but people may write anything, and it is theirs | Does not exist yet | `saved_products.note`, owner-only under RLS; never shared, never in analytics | Same as saved products |
 | Routine step | the user's own step 1/2/3 for a saved product (#227) | Low | Does not exist yet | `saved_products.routine_step` | Same as saved products |
-| Account identifier | email and the Apple or Google subject id, from Sign in with Apple / Sign in with Google (#217, #218). Apple's email may be a Hide My Email relay address. No name is requested from Apple | PII | Supabase Auth `auth.users` and `auth.identities`, created on first sign-in (#218). Identities that share a verified email are linked into one user | Same, referenced by every owner column | Until account deletion |
+| Account identifier | email and the Apple or Google subject id, from Sign in with Apple / Sign in with Google (#217, #218). Apple's email may be a Hide My Email relay address. No name is requested from Apple; Google's sign-in always includes the account's name and profile-picture URL, which Supabase keeps in the user's metadata (unused by the app) | PII | Supabase Auth `auth.users` and `auth.identities`, created on first sign-in (#218). Identities that share a verified email are linked into one user | Same, referenced by every owner column | Until account deletion |
 | Usage events (#225) | five funnel events with fixed-value properties, PostHog's lifecycle events and device facts; never content or profile fields | Low alone; **linked to the account id after sign-in**, which makes a guest's earlier events attributable to that account | PostHog SDK file on the phone; PostHog (EU region) once sent | Same, joined to the account id | PostHog project retention (operator-set). A new random id after sign-out |
 | Session token | access token, refresh token and user record — proof of authenticated identity | Credential-equivalent | On iOS/Android, the Keychain/Keystore through `lib/secure-storage.ts` (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`, backup-excluded, cleared on a fresh install); on web, memory only (#218). Never AsyncStorage, never `localStorage` — see `docs/device-storage-policy.md` row 1 | Same | Until sign-out, or until a refresh is refused (revoked token, deleted account), which clears it |
 | Caller IP | used for rate-limiting in `_shared/rate-limit.ts`, and for the scan outcome log in `_shared/scan-log.ts` (migration 0024) | PII under GDPR — a dynamic IP can identify a person even without being combined with other logs | Never persisted as an address. Held in-memory per Edge Function isolate, and as the same truncated HMAC fingerprint (`fingerprintCaller`) in both `rate_limits` and `scan_log`, both service-role only. The raw address reaches Edge Function logs on the request that first crosses the limit — once per caller per window globally when the shared counter refuses, once per isolate when a single isolate spends the whole allowance itself | Same | In-memory: isolate lifetime. Fingerprint in `rate_limits`: purged hourly, max ~25h. Fingerprint in `scan_log`: nulled hourly once the row is over a day old, same ~25h ceiling — the outcome counts around it live longer (see the `Scan outcome log` row below), but the fingerprint itself never outlives what this row already promises. Logs: the platform's own log retention |

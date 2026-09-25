@@ -113,14 +113,64 @@ reporting is ever turned on (it is not).
 **EU lawful basis** is not decided here: whether consent is required
 depends on #14, and the question has been raised there.
 
+## Accounts (#217–#224)
+
+An account is optional: scanning and verdicts never need one. It exists to
+keep a shelf across phones (#221, #223).
+
+**Identity providers — Apple and Google.** Sign in with Apple and Sign in
+with Google return an identity token that Supabase Auth verifies. What this
+app receives and keeps: the account's **email address** (with Apple, possibly
+a Hide My Email relay address) and the provider's **subject id**, in
+Supabase's `auth.users` / `auth.identities`. **No name is requested from
+Apple** (the `EMAIL` scope only). **Google is different:** its sign-in always
+includes the basic profile — name and profile-picture URL — in the ID token,
+the app cannot narrow that, and Supabase copies those claims into the user's
+metadata and identity record. They are kept with the account, never shown or
+used by the app, and deleted with it. (#277 review caught an earlier draft of
+this section claiming otherwise.) Identities that share a verified
+email are linked into one account (docs/decisions.md, "Accounts").
+
+**Hosting — Supabase**, the same project that serves the catalogue. What it
+holds per account, owner-only under row-level security (migration 0025):
+
+| Data | Kept |
+|---|---|
+| Account (email, provider ids; with Google also its name and profile-picture URL) | Until the account is deleted |
+| Saved products — product id, when saved, the formula version seen | Until removed, or the account is deleted |
+| Journal note on a saved product (#228) — the person's own words, up to 500 characters | Same. Never shared, never in analytics |
+| Routine step on a saved product (#227) | Same |
+| Starred ingredients | Same |
+
+**On the phone:** the session token in the Keychain/Keystore (memory only
+on web), and a cached copy of the shelf in the app's own storage, cleared
+at sign-out (docs/device-storage-policy.md).
+
+**Deletion (#224):** Profile → Account → Delete my account. The
+`delete-account` function deletes the account and, by cascade, every saved
+row, immediately. For an Apple-linked account it first revokes the app's
+Apple grant through Apple's REST API (Guideline 5.1.1(v)); Apple receives a
+one-time authorization code the person has just approved. Products someone
+added to the public catalogue are not personal data and stay.
+
+**Export (#224):** Profile → Account → Download my data. A JSON file of the
+shelf, notes, routine steps and starred ingredients, which says in the file
+that the skin profile and scan history are not in it because they never
+left the phone.
+
 ## What isn't sent anywhere
 
-- Skin profile, quiz answers, scan history, saved products: on-device only
-  today (`AsyncStorage`, unencrypted — a separate, already-tracked gap, not
-  this document's subject; see `docs/device-storage-policy.md`). That
-  storage is also swept into Android's default `allowBackup` and iOS
-  device/iCloud backups, which is a disclosable processing fact for whatever
-  becomes the real privacy policy.
+- **The skin profile and quiz answers** — concerns, base skin type,
+  sensitivity, pregnancy status — **never leave the phone**, signed in or
+  not. There is no server copy and no opt-in to make one (#219: pregnancy
+  status may be special-category data under GDPR Art. 9, and #14 has not
+  decided it).
+- **Scan history** never leaves the phone either.
+- Both live in `AsyncStorage`, unencrypted (a separate, already-tracked gap;
+  see `docs/device-storage-policy.md`), and are swept into Android's default
+  `allowBackup` and iOS device/iCloud backups — a disclosable processing fact
+  for whatever becomes the real privacy policy.
+- A **signed-out** phone keeps no shelf at all (#221, #222).
 - Face or skin photographs: this app has no feature that captures one. If
   one is ever added, it needs its own entry here and its own regulatory
   review — see `docs/threat-model.md`'s non-goals.
