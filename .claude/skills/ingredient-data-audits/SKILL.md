@@ -1,6 +1,6 @@
 ---
 name: ingredient-data-audits
-description: Populate and audit the ingredients dictionary — the imports that fill it (CosIng, OBF taxonomy, OBF products, Wikidata synonyms) and the read-only checks for duplicates, safety labels, function tags and coverage. Use when running a dictionary import, checking data quality on `ingredients`, or fixing duplicate ingredient rows.
+description: Populate and audit the ingredients dictionary — the imports that fill it (CosIng, OBF taxonomy, OBF products, Wikidata and Korean MFDS synonyms) and the read-only checks for duplicates, safety labels, function tags and coverage. Use when running a dictionary import, checking data quality on `ingredients`, or fixing duplicate ingredient rows.
 ---
 
 # Ingredient dictionary imports and audits
@@ -20,7 +20,23 @@ npm run import:inci-dictionary       # Open Beauty Facts taxonomy (~31k rows, th
 npm run import:cosing                # EU CosIng; no argument = the mirrored export
 npm run import:obf                   # products, not the dictionary
 npm run import:wikidata-synonyms     # ingredient_synonyms only, CAS-matched (e.g. "glycérine" → glycerin)
+npm run import:mfds                  # Korean names from Korea's MFDS register (e.g. "글리세린" → glycerin)
 ```
+
+`import:mfds` (#201) reads 식품의약품안전처_화장품 원료성분정보 on data.go.kr,
+whose licence says 이용허락범위 제한 없음 (no restriction on use). It needs
+`MFDS_SERVICE_KEY` in the shell: a data.go.kr service key the operator applies
+for on that dataset's page. Each record is matched to a verified ingredient by
+its English name, then by a CAS number only one ingredient holds, and never by
+the Korean name. Its Korean standard name and alternative names become
+`ingredient_synonyms` rows with `locale = 'ko'` and `source = 'mfds'`. It
+**adds, never takes over**: a synonym another source already holds is left
+alone, and a clash is counted in the output. It rebuilds only its own rows, so
+a re-run after the Wikidata import is safe. `ingredients.korean_name` is not
+used: synonyms are the one home for another language's name. The register
+lists no purpose per ingredient, so it adds nothing to `functions`. There is
+no Japanese equivalent; kana and kanji resolve only through whatever Wikidata
+carries.
 
 `import:cosing` never overwrites a row another source already verified —
 re-running it is safe. `import:inci-dictionary` likewise only rewrites its own
