@@ -11,7 +11,7 @@
 // for the same lesson learned on the parser.
 
 import {
-  callerKey,
+  chargesFor,
   consumeRateLimit,
   retryAfterSeconds,
   type RateLimit,
@@ -27,11 +27,20 @@ import {
  * exactly how this went unnoticed: `data/api.ts` maps the failure to
  * "unreadable", so a blocked preflight looked like a bad photo.
  *
- * `ALLOWED_ORIGINS` (comma-separated) narrows this when set. Unset falls back
- * to `*`, which is safe *today* and only today: these endpoints are
- * unauthenticated, carry no cookies and hold no session, so a wildcard grants a
- * hostile page nothing it could not get with curl. The moment accounts exist,
- * set the variable — issue #31 tracks the policy.
+ * `ALLOWED_ORIGINS` (comma-separated) lists the origins a browser may call
+ * from. Accounts exist (#218), so **unset refuses every browser** (#241):
+ * an environment that was never configured must not be open to any page. It
+ * used to fall back to `*` for local convenience, and production sat on that
+ * fallback unnoticed (#282 self-review). Only browsers send an Origin; the
+ * iOS app sends none and is unaffected either way.
+ *
+ * So production, while there is no web app, needs nothing set. An
+ * environment with a web client lists it (staging: the local web dev
+ * server), and a local `supabase functions serve` that wants any origin sets
+ * `ALLOWED_ORIGINS=*` explicitly. No `Access-Control-Allow-Credentials` is
+ * ever sent, so even a wildcard never lets a page ride a cookie — but a
+ * session token is a credential, and a wildcard is a choice, not a default.
+ * `npm run check:cors` asks a deployed environment which it is doing.
  */
 const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
   .split(",")
@@ -45,12 +54,11 @@ export function corsHeaders(req: Request): Record<string, string> {
   // the header anyway would be noise.
   if (!origin) return {};
 
-  const allowed =
-    ALLOWED_ORIGINS.length === 0
-      ? "*"
-      : ALLOWED_ORIGINS.includes(origin)
-        ? origin
-        : null;
+  const allowed = ALLOWED_ORIGINS.includes("*")
+    ? "*"
+    : ALLOWED_ORIGINS.includes(origin)
+      ? origin
+      : null;
   if (!allowed) return {};
 
   return {
@@ -144,24 +152,32 @@ export async function enforceRateLimit(
   // id — the whole point is that a user quoting it lands on one line.
   const rid = requestId(req);
 
-  const allowed = await consumeRateLimit(db, bucket, callerKey(req), limit, {
-    secret: callerSalt(),
-    requestId: rid,
-  });
-  if (allowed) return null;
+  // A guest is charged to their address; a signed-in caller to their account
+  // and, more loosely, to their address as well (#241, `chargesFor`). The
+  // fingerprint turns each into the same opaque key. In order, stopping at
+  // the first refusal, so a spent account doesn't also burn the address.
+  for (const charge of await chargesFor(req, db.auth, bucket, limit)) {
+    const allowed = await consumeRateLimit(db, charge.bucket, charge.caller, charge.limit, {
+      secret: callerSalt(),
+      requestId: rid,
+    });
+    if (allowed) continue;
 
-  // `Retry-After` is computed from the window rather than guessed, so a client
-  // can back off exactly as long as it needs to and no longer.
-  return json(req, { error: "Too many requests" }, 429, {
-    "x-request-id": rid,
-    "Retry-After": String(retryAfterSeconds(limit)),
-  });
+    // `Retry-After` is computed from the window rather than guessed, so a
+    // client can back off exactly as long as it needs to and no longer.
+    return json(req, { error: "Too many requests" }, 429, {
+      "x-request-id": rid,
+      "Retry-After": String(retryAfterSeconds(charge.limit)),
+    });
+  }
+  return null;
 }
 
 
 // Types only. The three values that used to be re-exported here —
-// `callerKey`, `consumeRateLimit` and `retryAfterSeconds` — are now called by
-// `enforceRateLimit` above and by nothing else, so passing them back out again
+// `callerKey`, `consumeRateLimit` and `retryAfterSeconds` — are now reached
+// through `enforceRateLimit` above (`callerKey` by way of `chargesFor`) and
+// nothing else, so passing them back out again
 // kept alive a surface no function used. That is the same finding an earlier
 // review made about `withinRateLimit` and `resetRateLimits`, and extracting
 // `enforceRateLimit` quietly recreated it; the comment here went on claiming

@@ -27,6 +27,13 @@ export type RateLimitDb = {
       p_max_requests: number;
     },
   ): PromiseLike<{ data: unknown; error: unknown }>;
+  /** Confirms a signed-in caller's token (#241). Absent, everyone is charged by address. */
+  auth?: SessionVerifier;
+};
+
+/** The part of a Supabase client that can confirm a session token is real. */
+export type SessionVerifier = {
+  getUser(jwt: string): PromiseLike<{ data: { user: { id: string } | null }; error: unknown }>;
 };
 
 // ── Windows ─────────────────────────────────────────────────────────────────
@@ -309,6 +316,139 @@ export function callerKey(req: Request): string {
   // direction to be wrong in. Read the note above for why this is not a
   // fallback but a refusal to guess.
   return "unknown";
+}
+
+// ── Signed-in callers (#241) ────────────────────────────────────────────────
+
+/**
+ * A signed-in caller's confirmed account id, cached per isolate until the
+ * token expires — or, for a token Auth refused, for a minute. `null` is a
+ * refusal worth remembering, so the same bad token isn't sent to Auth again.
+ */
+const verified = new Map<string, { account: string | null; until: number }>();
+const REFUSED_TOKEN_TTL_MS = 60_000;
+
+/**
+ * Uncached tokens one address may have checked with Auth per minute, per
+ * isolate. A person has one token at a time (refreshed hourly), so this is
+ * far past honest use and small enough that a flood of forged tokens costs
+ * Auth almost nothing.
+ */
+const VERIFY_LIMIT: RateLimit = { windowSeconds: 60, maxRequests: 10 };
+
+/** For tests, which would otherwise carry one case's verdicts into the next. */
+export function resetVerifiedTokens(): void {
+  verified.clear();
+}
+
+function bearerToken(req: Request): string | null {
+  const match = /^Bearer\s+(\S+)$/i.exec(req.headers.get("authorization") ?? "");
+  return match ? match[1] : null;
+}
+
+/**
+ * The token's claims, **unverified** — read only to decide whether it is
+ * worth asking Auth about. Nothing here is trusted until `getUser` agrees.
+ */
+function unverifiedClaims(token: string): { role?: unknown; sub?: unknown; exp?: unknown } | null {
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(base64 + "=".repeat((4 - (base64.length % 4)) % 4)));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The account behind this request, or `null` for a guest.
+ *
+ * Guests send the project's anon key, whose `role` is `anon`, and never reach
+ * Auth. A token claiming `authenticated` is checked with Auth before its
+ * `sub` is believed: the gateway's own JWT check already refuses a forged
+ * signature, but a function deployed without it would otherwise let a caller
+ * write any `sub` they liked and mint a fresh bucket per request — the exact
+ * failure `callerKey` refuses `x-device-id` for. Anything Auth doesn't
+ * confirm, or can't be asked about, is treated as a guest and charged by
+ * address, which still limits it.
+ */
+export async function signedInAccount(req: Request, auth: SessionVerifier | undefined): Promise<string | null> {
+  if (!auth) return null;
+  const token = bearerToken(req);
+  if (!token) return null;
+  const claims = unverifiedClaims(token);
+  if (claims?.role !== "authenticated" || typeof claims.sub !== "string") return null;
+
+  const now = Date.now();
+  const cached = verified.get(token);
+  if (cached && cached.until > now) return cached.account;
+
+  // Asking Auth is a network round trip, and it happens before the limiter
+  // below has said anything — so it is capped per address first, for free.
+  // A forged token costs nothing to vary, and each variation would otherwise
+  // be a fresh cache miss and a fresh call to Auth (#282 review). Past the
+  // cap a request is charged by address, which the limiter then handles like
+  // any guest's. A real account's token is cached after its first check, so
+  // it never meets this.
+  if (tally(`auth-verify:${callerKey(req)}`, VERIFY_LIMIT) > VERIFY_LIMIT.maxRequests) return null;
+
+  let account: string | null = null;
+  try {
+    const { data, error } = await auth.getUser(token);
+    if (!error && data.user) account = data.user.id;
+  } catch {
+    // Auth unreachable: charged by address this time, and asked again next time.
+    return null;
+  }
+  const expires = typeof claims.exp === "number" ? claims.exp * 1000 : now;
+  if (verified.size > 5_000) {
+    for (const [t, v] of verified) if (v.until <= now) verified.delete(t);
+  }
+  verified.set(token, { account, until: account ? expires : now + REFUSED_TOKEN_TTL_MS });
+  return account;
+}
+
+/**
+ * How many signed-in allowances one address may spend between them, per
+ * window. Enough for a shared café connection with a few signed-in people;
+ * small enough that a stack of accounts on one machine doesn't multiply the
+ * metered Vision budget without end (security review of the accounts stack).
+ */
+export const SIGNED_IN_PER_ADDRESS = 5;
+
+/** One counter a request is charged against. */
+export type Charge = { bucket: string; caller: string; limit: RateLimit };
+
+/**
+ * Every counter a request is charged against; it is refused if any of them
+ * is spent.
+ *
+ * A guest: their address, as before. A signed-in caller: their account, so a
+ * network change doesn't hand it a fresh allowance and a shared connection
+ * doesn't make strangers share one — **and** their address, in a separate
+ * bucket at `SIGNED_IN_PER_ADDRESS` times the limit. Charging the account
+ * alone let one machine holding fifty accounts spend fifty allowances; the
+ * address ceiling bounds that without putting signed-in people back into the
+ * guests' bucket.
+ */
+export async function chargesFor(
+  req: Request,
+  auth: SessionVerifier | undefined,
+  bucket: string,
+  limit: RateLimit,
+): Promise<Charge[]> {
+  const account = await signedInAccount(req, auth);
+  const address = callerKey(req);
+  if (!account) return [{ bucket, caller: address, limit }];
+  return [
+    { bucket, caller: `user:${account}`, limit },
+    {
+      bucket: `${bucket}:signed-in`,
+      caller: address,
+      limit: { windowSeconds: limit.windowSeconds, maxRequests: limit.maxRequests * SIGNED_IN_PER_ADDRESS },
+    },
+  ];
 }
 
 // ── The caller fingerprint ──────────────────────────────────────────────────

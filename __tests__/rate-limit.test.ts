@@ -1,12 +1,16 @@
 import {
   callerKey,
+  chargesFor,
   consumeRateLimit,
   fingerprintCaller,
   resetRateLimits,
+  resetVerifiedTokens,
   retryAfterSeconds,
+  SIGNED_IN_PER_ADDRESS,
   withinRateLimit,
   type RateLimit,
   type RateLimitDb,
+  type SessionVerifier,
 } from "@/lib/rate-limit";
 
 /**
@@ -628,5 +632,160 @@ describe("who the caller is", () => {
 
   it("says unknown rather than throwing when nothing identifies the caller", () => {
     expect(callerKey(req({}))).toBe("unknown");
+  });
+});
+
+// #241: a signed-in caller is charged to their account, a guest to their
+// address — and a token is believed only once Auth has confirmed it.
+describe("who a request is charged to", () => {
+  const base64url = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const token = (claims: object) => `${base64url({ alg: "HS256" })}.${base64url(claims)}.signature`;
+  const inAnHour = Math.floor(Date.now() / 1000) + 3600;
+  const USER_TOKEN = token({ role: "authenticated", sub: "u-1", exp: inAnHour });
+  const ANON_KEY = token({ role: "anon" });
+
+  const request = (bearer: string | null, address = "81.229.14.22") =>
+    new Request("https://x/", {
+      headers: { "cf-connecting-ip": address, ...(bearer ? { authorization: `Bearer ${bearer}` } : {}) },
+    });
+
+  function auth(answer: { id: string } | null | "throws"): SessionVerifier & { calls: string[] } {
+    const calls: string[] = [];
+    return {
+      calls,
+      getUser(jwt) {
+        calls.push(jwt);
+        if (answer === "throws") return Promise.reject(new Error("auth down"));
+        return Promise.resolve(answer ? { data: { user: answer }, error: null } : { data: { user: null }, error: "bad" });
+      },
+    };
+  }
+
+  /** Whom the request's main counter is charged to — its first charge. */
+  const chargeTo = async (req: Request, verifier: SessionVerifier | undefined) =>
+    (await chargesFor(req, verifier, "b", LIMIT))[0].caller;
+
+  beforeEach(() => resetVerifiedTokens());
+
+  it("charges a guest by address, without asking Auth", async () => {
+    const verifier = auth({ id: "u-1" });
+    expect(await chargeTo(request(ANON_KEY), verifier)).toBe("81.229.14.22");
+    expect(await chargeTo(request(null), verifier)).toBe("81.229.14.22");
+    expect(await chargeTo(request("not-a-jwt"), verifier)).toBe("81.229.14.22");
+    expect(verifier.calls).toEqual([]);
+  });
+
+  it("charges a confirmed account by its id, wherever it connects from", async () => {
+    const verifier = auth({ id: "u-1" });
+    expect(await chargeTo(request(USER_TOKEN, "81.229.14.22"), verifier)).toBe("user:u-1");
+    expect(await chargeTo(request(USER_TOKEN, "203.0.113.9"), verifier)).toBe("user:u-1");
+  });
+
+  it("asks Auth once per token, not once per request", async () => {
+    const verifier = auth({ id: "u-1" });
+    await chargeTo(request(USER_TOKEN), verifier);
+    await chargeTo(request(USER_TOKEN), verifier);
+    expect(verifier.calls).toHaveLength(1);
+  });
+
+  it("charges a token Auth refuses by address — a forged sub gets no bucket of its own", async () => {
+    const verifier = auth(null);
+    const forged = token({ role: "authenticated", sub: "anyone-i-like", exp: inAnHour });
+    expect(await chargeTo(request(forged), verifier)).toBe("81.229.14.22");
+    // Remembered, so the same bad token isn't sent to Auth on every request.
+    await chargeTo(request(forged), verifier);
+    expect(verifier.calls).toHaveLength(1);
+  });
+
+  it("falls back to the address when Auth can't be reached, and asks again next time", async () => {
+    const verifier = auth("throws");
+    expect(await chargeTo(request(USER_TOKEN), verifier)).toBe("81.229.14.22");
+    await chargeTo(request(USER_TOKEN), verifier);
+    expect(verifier.calls).toHaveLength(2);
+  });
+
+  // #282 review: a flood of forged tokens, each slightly different, was a
+  // fresh cache miss — and a fresh Auth call — every time, before the free
+  // limiter had said anything.
+  it("caps Auth checks per address, so varied forged tokens can't turn into Auth calls", async () => {
+    const verifier = auth(null);
+    for (let i = 0; i < 25; i++) {
+      const forged = token({ role: "authenticated", sub: `x-${i}`, exp: inAnHour });
+      expect(await chargeTo(request(forged), verifier)).toBe("81.229.14.22");
+    }
+    expect(verifier.calls).toHaveLength(10);
+    // Another address has its own allowance.
+    await chargeTo(request(token({ role: "authenticated", sub: "y", exp: inAnHour }), "203.0.113.9"), verifier);
+    expect(verifier.calls).toHaveLength(11);
+  });
+
+  it("keeps a real account's cached token working past the cap", async () => {
+    const verifier = auth({ id: "u-1" });
+    expect(await chargeTo(request(USER_TOKEN), verifier)).toBe("user:u-1");
+    for (let i = 0; i < 20; i++) {
+      await chargeTo(request(token({ role: "authenticated", sub: `x-${i}`, exp: inAnHour })), verifier);
+    }
+    expect(await chargeTo(request(USER_TOKEN), verifier)).toBe("user:u-1");
+  });
+
+  it("charges by address when no verifier is available", async () => {
+    expect(await chargeTo(request(USER_TOKEN), undefined)).toBe("81.229.14.22");
+  });
+
+  it("gives an account one allowance across two networks", async () => {
+    const verifier = auth({ id: "u-1" });
+    const counter = db(ALLOWED);
+    for (const address of ["81.229.14.22", "203.0.113.9", "81.229.14.22", "203.0.113.9"]) {
+      await consumeRateLimit(counter, "b", await chargeTo(request(USER_TOKEN, address), verifier), LIMIT, OPTS);
+    }
+    // The fourth request was refused locally: both networks shared one tally.
+    expect(counter.calls).toHaveLength(LIMIT.maxRequests);
+  });
+
+  /** Mirrors `enforceRateLimit`: every charge in order, refused at the first spent one. */
+  async function allowed(req: Request, verifier: SessionVerifier, counter: RateLimitDb): Promise<boolean> {
+    for (const charge of await chargesFor(req, verifier, "b", LIMIT)) {
+      if (!(await consumeRateLimit(counter, charge.bucket, charge.caller, charge.limit, OPTS))) return false;
+    }
+    return true;
+  }
+
+  it("charges a guest once, and a signed-in caller to their account and their address", async () => {
+    const verifier = auth({ id: "u-1" });
+    expect(await chargesFor(request(ANON_KEY), verifier, "b", LIMIT)).toEqual([
+      { bucket: "b", caller: "81.229.14.22", limit: LIMIT },
+    ]);
+    expect(await chargesFor(request(USER_TOKEN), verifier, "b", LIMIT)).toEqual([
+      { bucket: "b", caller: "user:u-1", limit: LIMIT },
+      {
+        bucket: "b:signed-in",
+        caller: "81.229.14.22",
+        limit: { windowSeconds: LIMIT.windowSeconds, maxRequests: LIMIT.maxRequests * SIGNED_IN_PER_ADDRESS },
+      },
+    ]);
+  });
+
+  // Security review of the accounts stack: charging the account alone let
+  // one machine holding many accounts spend one allowance per account.
+  it("caps how many allowances one address can spend across many accounts", async () => {
+    const counter = db(ALLOWED);
+    // Fewer than the ten fresh tokens an address may have checked per minute,
+    // so every one of these is a confirmed account rather than a guest.
+    const accounts = SIGNED_IN_PER_ADDRESS + 3;
+    let granted = 0;
+    for (let a = 0; a < accounts; a++) {
+      const verifier = auth({ id: `farm-${a}` });
+      const t = token({ role: "authenticated", sub: `farm-${a}`, exp: inAnHour });
+      for (let i = 0; i < LIMIT.maxRequests; i++) if (await allowed(request(t), verifier, counter)) granted++;
+    }
+    expect(granted).toBe(LIMIT.maxRequests * SIGNED_IN_PER_ADDRESS);
+  });
+
+  it("leaves guests on the same address their own allowance", async () => {
+    const counter = db(ALLOWED);
+    const verifier = auth({ id: "u-1" });
+    for (let i = 0; i < LIMIT.maxRequests; i++) await allowed(request(USER_TOKEN), verifier, counter);
+    expect(await allowed(request(USER_TOKEN), verifier, counter)).toBe(false);
+    expect(await allowed(request(ANON_KEY), verifier, counter)).toBe(true);
   });
 });

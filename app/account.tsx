@@ -234,11 +234,11 @@ export const SIGNED_OUT_EVERYWHERE = "You're signed out on every device.";
 export const SIGN_OUT_FAILED = "We couldn't sign you out on this phone. Restart the app and try again.";
 /** What the export holds and, as plainly, what it can't (#224). */
 export const EXPORT_EXPLAINER =
-  "A file with your saved products, notes, routine steps and starred ingredients. Your scan history and skin profile stay on this phone and aren't part of your account, so they're not in it.";
+  "A file with your saved products, notes, routine steps and starred ingredients, and any products you added from a label photo. Your scan history and skin profile stay on this phone and aren't part of your account, so they're not in it.";
 
 /** The confirmation says exactly what goes, and what stays. */
 export const DELETE_WARNING =
-  "This deletes your account and everything saved to it: your shelf, notes, routine steps and starred ingredients, on every phone. Your scan history and skin profile stay on this phone. It can't be undone.";
+  "This deletes your account and everything saved to it: your shelf, notes, routine steps and starred ingredients, on every phone. Products you added to the catalogue stay there for everyone, no longer linked to you. Your scan history and skin profile stay on this phone. It can't be undone.";
 
 export const ACCOUNT_DELETED = "Your account and everything saved to it are deleted.";
 

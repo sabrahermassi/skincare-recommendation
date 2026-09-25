@@ -41,6 +41,7 @@ import {
   savedTextProblem,
   storedText,
 } from "../_shared/product-text.ts";
+import { signedInAccount } from "../_shared/rate-limit.ts";
 import { readTokenDeadline, signReadToken, verifyReadToken } from "../_shared/read-token.ts";
 import { logScanBounded, type ScanOutcome } from "../_shared/scan-log.ts";
 import { stripBase64ImageMetadata } from "../_shared/strip-metadata.ts";
@@ -564,6 +565,22 @@ async function saveProduct(
   if (readbackError || !data) {
     console.error("post-write readback failed:", readbackError);
     return json(req, { error: "Could not save the product" }, 502);
+  }
+
+  // Who added it (#241), when a signed-in person did — confirmed with Auth,
+  // never read off the token on trust. Kept out of `products` itself, which
+  // is public (migration 0026). First author wins: if another save of this
+  // barcode landed between the check above and the write, theirs is the row
+  // read back, and a guest's leaves no author row for this one to take over
+  // — a narrow race, and the wrong attribution it could cause is ours to
+  // see, never shown to anyone. A failed write costs the record, not the
+  // save the person just made.
+  const author = await signedInAccount(req, db.auth);
+  if (author && data.id === product.id) {
+    const { error: authorError } = await db
+      .from("product_authors")
+      .upsert({ product_id: data.id, user_id: author }, { onConflict: "product_id", ignoreDuplicates: true });
+    if (authorError) console.error("product_authors write failed:", authorError);
   }
 
   return json(req, { product: data, recognised: known.size, total: parsed.length }, 200);
