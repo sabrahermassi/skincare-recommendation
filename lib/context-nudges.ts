@@ -40,25 +40,43 @@ export type ContextNudge = {
  * is the one outcome that makes the whole feature look careless. Evidence,
  * any of:
  *
- * - the product is typed "sunscreen" (a guess from its name — and the only
- *   way a mineral-only sunscreen is recognised, see below);
+ * - the product is typed "sunscreen" (a guess from its name);
  * - an organic filter, by name — which also works on an unresolved label
  *   photo's stubs, since those carry no `functions` (#262 review);
- * - a CosIng "uv-filter" tag on anything but the two minerals. Not
- *   "uv-absorber" (#175): that function protects the *product* from light,
- *   so a stabiliser like benzotriazolyl dodecyl p-cresol in an AHA serum
- *   silenced the SPF line on a formula that shields no one's skin. Every
- *   real sunscreen filter carries "uv-filter" as well.
+ * - a CosIng "uv-filter" tag on anything but the two minerals;
+ * - titanium dioxide or zinc oxide within the first `MINERAL_LEADING_POSITION_MAX`
+ *   ingredients (see below) — the one case a mineral name/tag alone isn't
+ *   proof, but its position in the list still can be.
  *
- * Titanium dioxide and zinc oxide are never evidence on their own, by name
- * or by tag: both are pigments as often as filters, so a retinoid
- * foundation or a clay mask would otherwise lose its nudge (#262 review;
- * see `MINERAL_UV_FILTER_NAMES`).
+ * Titanium dioxide and zinc oxide are never evidence by name or tag alone:
+ * both are pigments as often as filters, so a retinoid foundation or a clay
+ * mask would otherwise lose its nudge (#262 review; see
+ * `MINERAL_UV_FILTER_NAMES`). But real mineral sunscreens use them as an
+ * active at 5-25% — high enough to sit near the top of an ingredient list,
+ * which is printed in concentration order — while pigment use is usually a
+ * smaller share further down. `productType === "sunscreen"` still covers a
+ * database/barcode product either way; this position check is what a
+ * photographed read (always typed "unknown", #214) falls back on for a
+ * mineral-only sunscreen, since it has no type to rely on (#262 review,
+ * Codex). `ACID_LEADING_POSITION_MAX` in
+ * `supabase/functions/_shared/guess-type-from-ingredients.ts` is the same
+ * pattern for a leading acid active.
+ *
+ * A "uv-absorber" tag alone is deliberately NOT evidence (#262 review,
+ * Codex): CosIng uses it for photostabilisers too — additives that shield a
+ * *formula's* other ingredients (a retinoid, an organic filter) from
+ * breaking down in light, at a level far too low to filter UV for the
+ * wearer. Benzotriazolyl Dodecyl P-Cresol is the concrete case: CosIng
+ * carries only "uv-absorber" for it, and it's used at 0.01-0.1% purely to
+ * protect other actives — crediting that as sun protection would suppress
+ * the sun nudge on a product that provides none.
  */
+const MINERAL_LEADING_POSITION_MAX = 5;
+
 function isSunProtection(ingredients: Ingredient[], productType?: ProductType): boolean {
   if (productType === "sunscreen") return true;
-  return ingredients.some((ingredient) => {
-    if (nameMatches(MINERAL_UV_FILTER_NAMES, ingredient.name)) return false;
+  return ingredients.some((ingredient, position) => {
+    if (nameMatches(MINERAL_UV_FILTER_NAMES, ingredient.name)) return position < MINERAL_LEADING_POSITION_MAX;
     if (nameMatches(ORGANIC_UV_FILTER_NAMES, ingredient.name)) return true;
     return (ingredient.functions ?? []).some((fn) => normaliseFunction(fn) === "uv-filter");
   });

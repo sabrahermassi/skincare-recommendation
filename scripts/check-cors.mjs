@@ -36,7 +36,7 @@ for (const name of FUNCTIONS) {
 }
 
 if (failed > 0) {
-  console.error(`\n${failed} function(s) on ${env} (${ref}) would answer a page from any origin. Set ALLOWED_ORIGINS.`);
+  console.error(`\n${failed} function(s) on ${env} (${ref}) would answer a page from any origin. Remove "*" from ALLOWED_ORIGINS (unset refuses every browser).`);
   process.exit(1);
 }
 console.log(`\nEvery function on ${env} (${ref}) refuses an unlisted origin.`);

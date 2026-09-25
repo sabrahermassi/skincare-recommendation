@@ -1,11 +1,12 @@
 import {
   callerKey,
-  chargeTo,
+  chargesFor,
   consumeRateLimit,
   fingerprintCaller,
   resetRateLimits,
   resetVerifiedTokens,
   retryAfterSeconds,
+  SIGNED_IN_PER_ADDRESS,
   withinRateLimit,
   type RateLimit,
   type RateLimitDb,
@@ -660,6 +661,10 @@ describe("who a request is charged to", () => {
     };
   }
 
+  /** Whom the request's main counter is charged to — its first charge. */
+  const chargeTo = async (req: Request, verifier: SessionVerifier | undefined) =>
+    (await chargesFor(req, verifier, "b", LIMIT))[0].caller;
+
   beforeEach(() => resetVerifiedTokens());
 
   it("charges a guest by address, without asking Auth", async () => {
@@ -735,5 +740,52 @@ describe("who a request is charged to", () => {
     }
     // The fourth request was refused locally: both networks shared one tally.
     expect(counter.calls).toHaveLength(LIMIT.maxRequests);
+  });
+
+  /** Mirrors `enforceRateLimit`: every charge in order, refused at the first spent one. */
+  async function allowed(req: Request, verifier: SessionVerifier, counter: RateLimitDb): Promise<boolean> {
+    for (const charge of await chargesFor(req, verifier, "b", LIMIT)) {
+      if (!(await consumeRateLimit(counter, charge.bucket, charge.caller, charge.limit, OPTS))) return false;
+    }
+    return true;
+  }
+
+  it("charges a guest once, and a signed-in caller to their account and their address", async () => {
+    const verifier = auth({ id: "u-1" });
+    expect(await chargesFor(request(ANON_KEY), verifier, "b", LIMIT)).toEqual([
+      { bucket: "b", caller: "81.229.14.22", limit: LIMIT },
+    ]);
+    expect(await chargesFor(request(USER_TOKEN), verifier, "b", LIMIT)).toEqual([
+      { bucket: "b", caller: "user:u-1", limit: LIMIT },
+      {
+        bucket: "b:signed-in",
+        caller: "81.229.14.22",
+        limit: { windowSeconds: LIMIT.windowSeconds, maxRequests: LIMIT.maxRequests * SIGNED_IN_PER_ADDRESS },
+      },
+    ]);
+  });
+
+  // Security review of the accounts stack: charging the account alone let
+  // one machine holding many accounts spend one allowance per account.
+  it("caps how many allowances one address can spend across many accounts", async () => {
+    const counter = db(ALLOWED);
+    // Fewer than the ten fresh tokens an address may have checked per minute,
+    // so every one of these is a confirmed account rather than a guest.
+    const accounts = SIGNED_IN_PER_ADDRESS + 3;
+    let granted = 0;
+    for (let a = 0; a < accounts; a++) {
+      const verifier = auth({ id: `farm-${a}` });
+      const t = token({ role: "authenticated", sub: `farm-${a}`, exp: inAnHour });
+      for (let i = 0; i < LIMIT.maxRequests; i++) if (await allowed(request(t), verifier, counter)) granted++;
+    }
+    expect(granted).toBe(LIMIT.maxRequests * SIGNED_IN_PER_ADDRESS);
+  });
+
+  it("leaves guests on the same address their own allowance", async () => {
+    const counter = db(ALLOWED);
+    const verifier = auth({ id: "u-1" });
+    for (let i = 0; i < LIMIT.maxRequests; i++) await allowed(request(USER_TOKEN), verifier, counter);
+    expect(await allowed(request(USER_TOKEN), verifier, counter)).toBe(false);
+    expect(await allowed(request(ANON_KEY), verifier, counter)).toBe(true);
   });
 });
