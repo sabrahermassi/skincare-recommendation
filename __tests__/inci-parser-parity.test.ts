@@ -20,7 +20,11 @@ import path from "node:path";
  */
 
 const CLIENT_PATH = path.join(__dirname, "..", "lib", "inci.ts");
-const EDGE_PATH = path.join(__dirname, "..", "supabase", "functions", "label-ocr", "index.ts");
+// The Deno parser, which both `label-ocr` and `product-lookup` import (#184).
+// It lived inside `label-ocr/index.ts` until then; pointing this at the old
+// path after the move would find nothing and fail every case, and pointing a
+// looser check at it would pass on nothing — see the move test below.
+const EDGE_PATH = path.join(__dirname, "..", "supabase", "functions", "_shared", "inci-parse.ts");
 
 /**
  * Every function `lib/inci.ts` and the Deno copy must agree on byte-for-byte
@@ -106,7 +110,7 @@ function extractTable(source: string, opener: string, closer: string): string {
 const extractCommonNames = (source: string) => extractTable(source, "const COMMON_NAMES = new Map([", "\n]);");
 const extractSynonymGroups = (source: string) => extractTable(source, "const SYNONYM_GROUPS = [", "\n];");
 
-describe("label-ocr's parser stays in step with lib/inci.ts", () => {
+describe("the Deno parser stays in step with lib/inci.ts", () => {
   const client = fs.readFileSync(CLIENT_PATH, "utf8");
   const edge = fs.readFileSync(EDGE_PATH, "utf8");
 
@@ -260,66 +264,41 @@ describe("the import scripts stay in step with lib/inci.ts", () => {
 });
 
 /**
- * `product-lookup` holds a third copy of the parser, and this file's own
- * header names it as a past drift victim — yet nothing here covered it, which
- * is how it went on storing "glycerin. made in nigeria" as an ingredient long
- * after the other two parsers learned to truncate. A junk name like that
- * reaches the shared `ingredients` dictionary as a stub row, and matches no
- * exact-name lookup — including the UV-filter and acid lists the type
- * fallback reads.
+ * `product-lookup` used to hold a copy of its own, and this file's header
+ * names it as a past drift victim — it stored "glycerin. made in nigeria" as an
+ * ingredient long after the other parsers learned to truncate, and never got
+ * `dedupe()`, the CJK headings or the bracket guard until each was caught here
+ * one at a time. Since #184 neither Deno function holds a copy: both import
+ * `_shared/inci-parse.ts`, which the block above holds to `lib/inci.ts`. These
+ * fail if a local copy grows back in either.
  */
-describe("product-lookup's parser stays in step with lib/inci.ts", () => {
-  const client = fs.readFileSync(CLIENT_PATH, "utf8");
-  const lookup = fs.readFileSync(
-    path.join(__dirname, "..", "supabase", "functions", "product-lookup", "index.ts"),
-    "utf8",
-  );
+describe("the Deno functions read through the shared parser", () => {
+  const read = (name: string) =>
+    fs.readFileSync(path.join(__dirname, "..", "supabase", "functions", name, "index.ts"), "utf8");
 
-  it("reuses the boilerplate stop clause verbatim", () => {
-    const marker = "/(?:\\bdirections?\\b";
-    expect(extractRegexLiteral(lookup, marker)).toBe(extractRegexLiteral(client, marker));
-  });
-
-  it("has the canonical isPlausibleIngredientName()", () => {
-    expect(extractFunctionBody(lookup, "isPlausibleIngredientName")).toBe(
-      extractFunctionBody(client, "isPlausibleIngredientName")
+  it.each(["label-ocr", "product-lookup"])("%s holds no parser copy of its own", (name: string) => {
+    expect(read(name)).not.toMatch(
+      /^(?:export )?function (?:parseInci|parseIngredientBlock|normalise|dedupe|isPlausibleIngredientName|splitOnSeparators)\(/m
     );
   });
 
-  // This copy's normalise() was never widened when #185 added CJK support,
-  // then never caught up to #247's width-folding/prolongation-mark fix
-  // either -- nothing here compared it to the client's, so it kept stripping
-  // every Korean and Japanese ingredient name silently.
-  it("has the canonical normalise()", () => {
-    expect(extractFunctionBody(lookup, "normalise")).toBe(extractFunctionBody(client, "normalise"));
+  it("label-ocr imports the shared parser", () => {
+    expect(read("label-ocr")).toMatch(/import \{[^}]*\bparseIngredientBlock\b[^}]*\} from "\.\.\/_shared\/inci-parse\.ts"/);
   });
 
-  it("recognises the Korean and Japanese ingredients headings, like the other copies", () => {
-    expect(lookup).toContain("전성분");
-    expect(lookup).toContain("全成分");
+  it("product-lookup reads every formula through the shared gate", () => {
+    const lookup = read("product-lookup");
+    expect(lookup).toMatch(/import \{[^}]*\breadFormula\b[^}]*\} from "\.\.\/_shared\/formula-gate\.ts"/);
+    // Both sources, not only Open Beauty Facts.
+    expect(lookup.match(/await readFormula\(/g)).toHaveLength(2);
   });
 
-  it("splits on the ideographic comma, like the other copies", () => {
-    expect(lookup).toContain("[;、]");
-  });
-
-  // "Tocopheryl Acetate (Vit. E)" must not split at the full stop inside the
-  // brackets — lib/inci.ts and label-ocr guard it, and this copy did not.
-  it("guards full stops inside brackets before splitting, like the other copies", () => {
-    expect(client).toContain("group.replace(/\\./g,");
-    expect(lookup).toContain("const bracketGuarded = block.replace(/\\([^)]*\\)/g, (group) => group.replace(/\\./g,");
-  });
-
-  // No dictionary here, so a long real name cannot be recognised as known and
-  // the eight-word cap must not drop it.
-  it("protects abbreviation full stops the same way as the other copies", () => {
-    const rule = "(?:vit|spp|sp|var|ssp|subsp)";
-    expect(client).toContain(rule);
-    expect(lookup).toContain(rule);
-  });
-
-  it("skips only the word limit, so every other check reads the whole name", () => {
-    expect(lookup).toContain("isPlausibleIngredientName(part, true)");
-    expect(lookup).not.toContain(".slice(0, 8)");
+  // One ratio for both Deno writers (#184).
+  it("defines MIN_KNOWN_INGREDIENT_RATIO once, in _shared/gate-ratio.ts", () => {
+    for (const name of ["label-ocr", "product-lookup"]) {
+      expect(read(name)).not.toMatch(/const MIN_KNOWN_INGREDIENT_RATIO\b/);
+    }
+    const shared = fs.readFileSync(path.join(__dirname, "..", "supabase", "functions", "_shared", "gate-ratio.ts"), "utf8");
+    expect(shared).toMatch(/export const MIN_KNOWN_INGREDIENT_RATIO = 0\.6;/);
   });
 });

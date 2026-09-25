@@ -17,6 +17,9 @@ export type ScanOutcome =
   | "not_found"
   // label path
   | "read_ok"
+  // Both paths since #184: a label read, or a barcode source's formula,
+  // that mostly missed the dictionary. Migration 0024's check already allows
+  // it on either path; its comment grouping predates the barcode gate.
   | "quality_gate"
   | "not_enough_text"
   | "image_too_large"

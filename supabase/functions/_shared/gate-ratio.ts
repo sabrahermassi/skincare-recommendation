@@ -7,6 +7,24 @@
 // exercise the exact logic Deno runs, rather than a hand-copy of it.
 
 /**
+ * The same plausibility floor the import scripts use before they'll write a
+ * formula — `MIN_KNOWN_INGREDIENT_RATIO` in `scripts/import-obf.mjs`. Step 5's
+ * gates apply to what we import; this applies the same bar to what the two
+ * Deno writers store: a label `label-ocr` read, and a barcode's text
+ * `product-lookup` fetched (#184). One definition for both, here.
+ *
+ * Without it, `label-ocr` committed a formula to the shared catalogue as soon
+ * as OCR produced four comma-separated fragments — regardless of whether any
+ * of them looked like a real ingredient — and `product-lookup` stored anything
+ * Open Beauty Facts held, permanently. Because a barcode with *any* stored
+ * formula short-circuits straight to it, a bad first write didn't just create
+ * one bad row: it answered every later scan of the same bottle with it.
+ * (`scripts/import-obf.mjs` keeps its own copy of the number: it cannot import
+ * Deno code.)
+ */
+export const MIN_KNOWN_INGREDIENT_RATIO = 0.6;
+
+/**
  * Whether `name` (already `normalise`d, so lowercase) contains a CJK
  * character — Hangul, Hiragana, Katakana or Han. Used only to decide what
  * the dictionary-coverage gate can fairly judge; it is not a language
@@ -62,7 +80,7 @@ const MIN_RESOLVED_TO_EXEMPT = 2;
  *
  * The dictionary is Latin-only today. Widening the parser to keep Hangul/kana
  * names (see `normalise` and `parseIngredientBlock`'s delimited-path filter
- * in `lib/inci.ts` / `label-ocr/index.ts`) grows the parsed count without
+ * in `lib/inci.ts` / `_shared/inci-parse.ts`) grows the parsed count without
  * growing the resolved count — so a straight `known / parsed` would turn "we
  * widened the parser" into "a label that passed this gate yesterday fails it
  * today", which is a regression on the primary scan path, not an improvement

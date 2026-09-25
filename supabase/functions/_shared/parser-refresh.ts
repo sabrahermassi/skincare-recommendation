@@ -13,7 +13,9 @@ export type FormulaRow = { inci_name: string; position: number };
  * "reformulated" notice for everyone who saved the product. A caller that can
  * see the stored formula passes the answer as `p_parser_refresh` (migration
  * 0021). Plain TypeScript with no Deno imports, so Jest can import it; the parser
- * is passed in because each Edge Function holds its own copy.
+ * is passed in because only the caller knows which read produced the fresh
+ * list — the plain one, or the dictionary-repaired one `formula-gate.ts` falls
+ * back to — and the stored names must be read back the same way.
  *
  * A product with no stored formula is new or identity-only, which the database
  * already treats as not a change, and an identical formula needs no flag.
