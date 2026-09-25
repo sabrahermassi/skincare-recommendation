@@ -1,10 +1,11 @@
 import * as AppleAuthentication from "expo-apple-authentication";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { track } from "@/lib/analytics";
 import { Text } from "@/components/Text";
 import {
   ACCOUNT_PITCH,
@@ -43,6 +44,13 @@ export default function SignIn() {
   // or a swipe down). Going back then would pop whatever screen is under it
   // (#272 review), so navigation only happens while the sheet is still up.
   const mounted = useRef(true);
+
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  useEffect(() => {
+    track("sign_in_shown", { from: from === "save" || from === "shelf" ? from : "account" });
+    // Once per opening of the sheet.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     mounted.current = true;

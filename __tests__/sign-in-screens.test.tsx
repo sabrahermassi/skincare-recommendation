@@ -13,6 +13,7 @@ const mockBack = jest.fn();
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   router: { back: () => mockBack(), push: (...args: unknown[]) => mockPush(...args) },
+  useLocalSearchParams: () => ({}),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -195,6 +196,6 @@ describe("the account screen", () => {
     useAuth.setState({ status: "signed-out", session: null });
     await render(<Account />);
     fireEvent.press(screen.getByText("Sign in"));
-    expect(mockPush).toHaveBeenCalledWith("/sign-in");
+    expect(mockPush).toHaveBeenCalledWith({ pathname: "/sign-in", params: { from: "account" } });
   });
 });

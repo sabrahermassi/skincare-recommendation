@@ -4,6 +4,7 @@ import * as Crypto from "expo-crypto";
 import { AppState, Platform } from "react-native";
 import { create } from "zustand";
 
+import { forgetAccount, identifyAccount, track } from "@/lib/analytics";
 import { supabase } from "@/lib/supabase";
 
 /**
@@ -58,7 +59,15 @@ export function startAuth(): () => void {
   if (!supabase) return () => {};
   const client = supabase;
 
-  const { data } = client.auth.onAuthStateChange((_event, session) => applySession(session));
+  const { data } = client.auth.onAuthStateChange((event, session) => {
+    applySession(session);
+    // The funnel's join (#225): the phone's random analytics id is linked to
+    // the account — the account id alone, nothing else about the person.
+    // A sign-out starts a fresh random id; a guest who was never signed in
+    // keeps theirs, so their funnel isn't cut in half at every launch.
+    if (session?.user?.id) identifyAccount(session.user.id);
+    else if (event === "SIGNED_OUT") forgetAccount();
+  });
 
   // The client starts refreshing on its own when it loads, so only the
   // changes after launch need handling here.
@@ -111,6 +120,22 @@ export function classifySignInError(error: unknown): SignInFailure {
   const text = typeof message === "string" ? message : String(error);
   if (/network|internet|offline|timed? ?out|failed to fetch|could not connect/i.test(text)) return "network";
   return "provider";
+}
+
+/**
+ * A new account's user record was created by this very sign-in; a returning
+ * one's was created long before. A minute's margin covers the clock gap
+ * between the phone and the server. Exported for the tests.
+ */
+export function isNewAccount(createdAt: string | undefined, now: number): boolean {
+  const created = createdAt ? Date.parse(createdAt) : NaN;
+  return Number.isFinite(created) && now - created < 60_000;
+}
+
+/** The funnel's last step (#225): which button, and whether it made an account. */
+function signedIn(provider: Provider, createdAt: string | undefined): SignInResult {
+  track("signed_in", { provider, new_account: isNewAccount(createdAt, Date.now()) });
+  return { ok: true };
 }
 
 function failed(error: unknown): SignInResult {
@@ -184,12 +209,12 @@ export async function signInWithApple(): Promise<SignInResult> {
       nonce: hashedNonce,
     });
     if (!credential.identityToken) return failed(new Error("Apple returned no identity token."));
-    const { error } = await supabase.auth.signInWithIdToken({
+    const { data, error } = await supabase.auth.signInWithIdToken({
       provider: "apple",
       token: credential.identityToken,
       nonce: rawNonce,
     });
-    return error ? failed(error) : { ok: true };
+    return error ? failed(error) : signedIn("apple", data?.user?.created_at);
   } catch (error) {
     if (codeOf(error) === "ERR_REQUEST_CANCELED") return { ok: false, reason: "cancelled" };
     return failed(error);
@@ -220,8 +245,8 @@ export async function signInWithGoogle(): Promise<SignInResult> {
     if (!google.isSuccessResponse(response)) return { ok: false, reason: "cancelled" };
     const token = response.data.idToken;
     if (!token) return failed(new Error("Google returned no identity token."));
-    const { error } = await supabase.auth.signInWithIdToken({ provider: "google", token });
-    return error ? failed(error) : { ok: true };
+    const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token });
+    return error ? failed(error) : signedIn("google", data?.user?.created_at);
   } catch (error) {
     if (codeOf(error) === google.statusCodes.SIGN_IN_CANCELLED) return { ok: false, reason: "cancelled" };
     return failed(error);

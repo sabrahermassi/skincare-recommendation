@@ -36,6 +36,7 @@ import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
 import { rememberScanMode, rememberedScanMode, type ScanMode } from "@/lib/scan-mode";
 import { createStaleGuard } from "@/lib/stale-guard";
 import { matchProduct } from "@/lib/matching";
+import { track } from "@/lib/analytics";
 import { useAppStore } from "@/store/useAppStore";
 import { BUTTON_SHADOW, CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
 
@@ -398,6 +399,7 @@ export default function Scan() {
       // that fails the same way every time. Treated as a miss without the
       // doomed round trip, which is the answer the network call would give
       // anyway.
+      track("scan_started", { path: "barcode" });
       if (!canPhotographLabelFor(data)) {
         recordView({ id: data, known: false, score: null, warnings: 0 });
         setStatus({ kind: "missed", code: data });
@@ -563,7 +565,7 @@ export default function Scan() {
             }}
             onOpen={() => {
               preserveMode();
-              router.push({ pathname: "/result/[id]", params: { id: status.product.id } });
+              router.push({ pathname: "/result/[id]", params: { id: status.product.id, from: "barcode" } });
             }}
           />
         ) : null}

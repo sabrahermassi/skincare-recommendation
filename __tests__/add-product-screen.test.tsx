@@ -210,7 +210,7 @@ describe("AddProduct — already saved (#188)", () => {
     expect(saveScannedProduct).toHaveBeenCalledTimes(1); // never resubmitted
     expect(mockDismissTo).toHaveBeenCalledWith({
       pathname: "/result/[id]",
-      params: { id: "just-saved-product" },
+      params: { id: "just-saved-product", from: "label" },
     });
     expect(heldLabelRead()).toBeNull();
   });

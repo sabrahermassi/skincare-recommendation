@@ -108,7 +108,7 @@ export default function Account() {
               label="Sign in"
               onPress={() => {
                 setNotice(null);
-                router.push("/sign-in");
+                router.push({ pathname: "/sign-in", params: { from: "account" } });
               }}
             />
           </>

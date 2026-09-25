@@ -38,9 +38,16 @@ const SECTIONS: { title: string; lines: string[] }[] = [
     ],
   },
   {
+    title: "Counting what gets used",
+    lines: [
+      "We count a few steps — starting a scan, seeing a verdict, tapping Save, signing in — to learn where people stop. PostHog processes these counts for us, on servers in the EU.",
+      "A count never includes what you scanned, a product name, a photo, or anything from your skin profile. Counts are tied to a random number made on your phone, and to your account only if you sign in. Signing out starts a new random number.",
+    ],
+  },
+  {
     title: "What we do not do",
     lines: [
-      "We do not take photos of your face or skin, and nothing is sent in the background.",
+      "We do not take photos of your face or skin, and we do not track you across other apps or websites.",
     ],
   },
 ];

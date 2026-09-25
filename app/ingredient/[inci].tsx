@@ -248,7 +248,7 @@ export default function IngredientDetail() {
             onPress={() =>
               starred
                 ? toggleSavedIngredient(ingredient.name)
-                : saveOrAskToSignIn(() => saveIngredient(ingredient.name))
+                : saveOrAskToSignIn(() => saveIngredient(ingredient.name), "ingredient")
             }
             hitSlop={12}
             accessibilityLabel={starred ? "Remove from starred ingredients" : "Star this ingredient"}

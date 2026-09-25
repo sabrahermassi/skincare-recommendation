@@ -15,6 +15,7 @@ import { coverFitCropRect, shrinkWidth, type Rect, type Size } from "@/lib/crop-
 import { fitUpload } from "@/lib/fit-upload";
 import { deleteTempFile, LIBRARY_MAX_WIDTH, pickLabelPhoto } from "@/lib/pick-label-photo";
 import { readLabelPhoto } from "@/lib/read-label-photo";
+import { track } from "@/lib/analytics";
 import { CAMERA_STAGE, CANVAS, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -268,6 +269,7 @@ export function LabelCamera({
         imageBase64 = fitted.base64;
       }
 
+      track("scan_started", { path: "label" });
       const outcome = await readLabelPhoto(imageBase64, barcode, isStillWanted);
       if (outcome.kind === "read") {
         // Back to the ready camera before leaving: this screen stays mounted under

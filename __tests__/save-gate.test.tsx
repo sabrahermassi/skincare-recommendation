@@ -45,31 +45,31 @@ beforeEach(() => {
 describe("the gate", () => {
   it("holds a guest's save and opens the sign-in sheet", () => {
     const save = jest.fn();
-    gate.saveOrAskToSignIn(save);
+    gate.saveOrAskToSignIn(save, "product");
     expect(save).not.toHaveBeenCalled();
-    expect(mockPush).toHaveBeenCalledWith("/sign-in");
+    expect(mockPush).toHaveBeenCalledWith({ pathname: "/sign-in", params: { from: "save" } });
   });
 
   // #273 review: a double tap opened two sheets.
   it("opens one sheet for a double tap, and again after the sheet was closed", () => {
     const first = jest.fn();
     const second = jest.fn();
-    gate.saveOrAskToSignIn(first);
-    gate.saveOrAskToSignIn(second);
+    gate.saveOrAskToSignIn(first, "product");
+    gate.saveOrAskToSignIn(second, "product");
     expect(mockPush).toHaveBeenCalledTimes(1);
     gate.completePendingSave();
     expect(second).toHaveBeenCalledTimes(1);
     expect(first).not.toHaveBeenCalled();
 
-    gate.saveOrAskToSignIn(first);
+    gate.saveOrAskToSignIn(first, "product");
     gate.dropPendingSave();
-    gate.saveOrAskToSignIn(first);
+    gate.saveOrAskToSignIn(first, "product");
     expect(mockPush).toHaveBeenCalledTimes(3);
   });
 
   it("does the held save once they sign in, exactly once", () => {
     const save = jest.fn();
-    gate.saveOrAskToSignIn(save);
+    gate.saveOrAskToSignIn(save, "product");
     gate.completePendingSave();
     gate.completePendingSave();
     expect(save).toHaveBeenCalledTimes(1);
@@ -77,7 +77,7 @@ describe("the gate", () => {
 
   it("forgets the held save when they close the sheet instead", () => {
     const save = jest.fn();
-    gate.saveOrAskToSignIn(save);
+    gate.saveOrAskToSignIn(save, "product");
     gate.dropPendingSave();
     gate.completePendingSave();
     expect(save).not.toHaveBeenCalled();
@@ -86,7 +86,7 @@ describe("the gate", () => {
   it("saves straight away for someone signed in", () => {
     useAuth.setState({ status: "signed-in", session: {} as never });
     const save = jest.fn();
-    gate.saveOrAskToSignIn(save);
+    gate.saveOrAskToSignIn(save, "product");
     expect(save).toHaveBeenCalledTimes(1);
     expect(mockPush).not.toHaveBeenCalled();
   });
@@ -104,7 +104,7 @@ describe("the heart on a product", () => {
     await render(<ProductScreen />);
     const heart = await screen.findByLabelText("Save");
     await act(async () => fireEvent.press(heart));
-    expect(mockPush).toHaveBeenCalledWith("/sign-in");
+    expect(mockPush).toHaveBeenCalledWith({ pathname: "/sign-in", params: { from: "save" } });
     expect(useAppStore.getState().savedProducts).toEqual([]);
 
     // Signing in completes the save with no second tap.
@@ -126,7 +126,7 @@ describe("the sign-in sheet", () => {
   it("completes the held save and closes when a session arrives", async () => {
     const SignIn = (require("@/app/sign-in") as { default: () => React.JSX.Element }).default;
     const save = jest.fn();
-    gate.saveOrAskToSignIn(save);
+    gate.saveOrAskToSignIn(save, "product");
     await render(<SignIn />);
     await act(async () => useAuth.setState({ status: "signed-in", session: {} as never }));
     expect(save).toHaveBeenCalledTimes(1);
@@ -136,7 +136,7 @@ describe("the sign-in sheet", () => {
   it("drops the held save when closed without signing in", async () => {
     const SignIn = (require("@/app/sign-in") as { default: () => React.JSX.Element }).default;
     const save = jest.fn();
-    gate.saveOrAskToSignIn(save);
+    gate.saveOrAskToSignIn(save, "product");
     const { unmount } = await render(<SignIn />);
     await act(async () => unmount());
     useAuth.setState({ status: "signed-in", session: {} as never });
@@ -153,6 +153,6 @@ describe("the Saved tab for a guest", () => {
     expect(await screen.findByText(GUEST_EMPTY_COPY.saved!.title)).toBeTruthy();
     expect(screen.queryByText("No products saved yet")).toBeNull();
     fireEvent.press(screen.getByText("Sign in"));
-    expect(mockPush).toHaveBeenCalledWith("/sign-in");
+    expect(mockPush).toHaveBeenCalledWith({ pathname: "/sign-in", params: { from: "shelf" } });
   });
 });

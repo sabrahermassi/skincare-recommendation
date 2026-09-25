@@ -76,6 +76,43 @@ content is sent to these — only the scanned barcode number. See
 `docs/threat-model.md`'s trust-boundary section for the untrusted-input
 handling on the way back.
 
+### PostHog — usage analytics (#225)
+
+**What is sent:** five funnel events and nothing else — `scan_started`,
+`verdict_viewed`, `save_tapped`, `sign_in_shown`, `signed_in` — each with a
+couple of fixed-value properties (which path: barcode, label or browse;
+product or ingredient; signed in or not; Apple or Google; new account or
+not), plus PostHog's own app-lifecycle events (opened, backgrounded,
+installed, updated) and the device facts its SDK attaches (OS, app version,
+device model, locale). **Never** an ingredient list, product name, barcode,
+image, or any skin-profile field; no person properties at all. The closed
+list lives in `lib/analytics.ts` and `__tests__/analytics.test.ts` fails if
+a free-text or personal property is added.
+
+**Identity:** a random id PostHog generates on the phone. Not a device
+identifier, not an advertising id — the SDK reads neither, so there is **no
+App Tracking Transparency prompt** and nothing is tracked across other apps
+or websites. **On sign-in that random id is linked to the account id**
+(the id only — no email, no name). That is the moment a guest's earlier
+events become attributable to an account; it is what lets the funnel count
+sign-ups, and it is disclosed on the Privacy screen. Signing out starts a
+new random id, so the next person on the phone is not linked to the last.
+
+**Where and how long:** PostHog's EU region (`eu.i.posthog.com`) by
+default. Geo-IP lookup is off in the SDK. The request still carries the
+caller's IP to PostHog; the project setting **"Discard client IP data"**
+should be on, and retention set in the project, before launch — both are
+the operator's to set in PostHog.
+
+**App Store privacy labels** (App Store Connect → App Privacy), for this
+processor: *Usage Data → Product Interaction* and *Identifiers → User ID*
+(once signed in), both **linked to the user** after sign-in, **not used for
+tracking**, used for **Analytics**. *Diagnostics* only if PostHog's crash
+reporting is ever turned on (it is not).
+
+**EU lawful basis** is not decided here: whether consent is required
+depends on #14, and the question has been raised there.
+
 ## What isn't sent anywhere
 
 - Skin profile, quiz answers, scan history, saved products: on-device only
