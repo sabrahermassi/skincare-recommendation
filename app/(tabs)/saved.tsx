@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { NotePreview } from "@/components/ProductNote";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
@@ -339,9 +340,7 @@ export default function Saved() {
               >
                 {savedProducts.find((p) => p.id === id)?.note ? (
                   // The person's own words, exactly as written (#228).
-                  <Text numberOfLines={2} style={{ marginTop: 6, fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>
-                    {savedProducts.find((p) => p.id === id)!.note}
-                  </Text>
+                  <NotePreview note={savedProducts.find((p) => p.id === id)!.note!} />
                 ) : null}
                 {tone && score !== null && (
                   <View
