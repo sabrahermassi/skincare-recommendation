@@ -9,6 +9,110 @@ These are model gaps, not universal product verdicts. A formula snapshot does
 not establish clinical efficacy, concentration, exposure, or suitability for
 every person.
 
+## Audit 2026-09-24: the baseline #237 recalibrates against (#175)
+
+Measured with `SCORE_BASELINE=1 npx jest score-baseline`, which is read-only
+against staging and scores every product through `matchProduct` itself. On
+2026-09-24 staging held 1,112 products with a formula, and 5 of them are
+refused as unreadable for every profile. Re-run it before and after #237 so
+any drift can be attributed.
+
+### Score distribution, six fixed profiles
+
+After this audit's one scoring change (see `docs/decisions.md`, "Why declared
+antioxidant and UV-absorber functions earn nothing"):
+
+| Profile | Scored | Mean | P25 | Median | P75 | Excellent | Good | Fair | Poor |
+|---|---|---|---|---|---|---|---|---|---|
+| oily · acne-prone · not sensitive | 1107 | 72.5 | 66 | 76 | 81 | 14 | 599 | 348 | 146 |
+| dry · dehydrated · not sensitive | 1107 | 72.1 | 68 | 74 | 79 | 0 | 529 | 475 | 103 |
+| combination · dullness + dark spots · somewhat | 1107 | 60.4 | 54 | 62 | 67 | 0 | 79 | 600 | 428 |
+| normal · redness · very sensitive | 1107 | 49.1 | 38 | 50 | 62 | 0 | 47 | 308 | 752 |
+| dry · fine lines + eczema-prone · somewhat | 1107 | 62.4 | 55 | 64 | 72 | 0 | 196 | 513 | 398 |
+| combination · large pores · unset | 1107 | 66.1 | 58 | 68 | 77 | 1 | 372 | 417 | 317 |
+
+Before that change, only two rows differed: dullness + dark spots had a mean
+of 61.5 with 115 Good, 597 Fair and 395 Poor; fine lines + eczema-prone had a
+mean of 63 with 220 Good, 502 Fair and 385 Poor. Every movement was downward:
+507 and 483 scores fell, by 1 to 8 points, and 106 verdicts dropped a band.
+
+### Open: the saturation constants no longer sit at the 75th percentile
+
+`CONCERN_SATURATION` is documented as the 75th percentile of the evidence a
+real formula offers each concern. It was measured on 6 September 2026, when
+the catalogue held about 104-138 products. Re-measured the same way today:
+
+| Concern | Constant | Products with positive evidence | 75th percentile | Median |
+|---|---|---|---|---|
+| dehydrated | 16.6 | 86% | 10.8 | 6.8 |
+| atopic | 14.4 | 35% | 6.4 | 3.2 |
+| hyperpigmentation | 7.4 | 48% | 12.8 | 8.9 |
+| redness | 6.6 | 26% | 5.1 | 2.6 |
+| large-pores | 6.5 | 41% | 3.7 | 2.0 |
+| fine-lines | 4 | 68% | 12.0 | 3.7 |
+| dullness | 4 | 67% | 2.8 | 1.8 |
+| acne-prone | 4 | 16% | 3.8 | 2.2 |
+| post-acne-marks | 7 (estimated) | 21% | 5.3 | 3.3 |
+
+- **Method.** Evidence is each product's *net* concern evidence (benefits
+  minus harms), recovered from the concern fit `matchProduct` reports,
+  contact-weighted, over the products where it is positive. For
+  acne-prone and large-pores, the pore-safety half is taken out first.
+  `dehydrated` was reviewed in #161 as a 75th percentile of 16.6 and comes
+  out at 10.8 here. The definition the original measurement used is not
+  recorded — gross rather than net evidence, or before contact weights
+  existed, would each read higher — which is itself a reason to fix one
+  definition before recalibrating.
+- **Not recalibrated in #175, on purpose.** #237 grows the rules from 61 to
+  about 500, which changes every row of this table. Recalibrating now would
+  move every score twice in a few weeks. #237 should settle the method
+  above, recalibrate once, and list what moved.
+- Fine lines and dark spots stay high because the evidence is heavy-tailed
+  (medians of 3.7 and 8.9). The `smoothing` and `uv-filter` function
+  signals reach many products, and the sunscreen share is high (29% of
+  products).
+
+### Open: rule claims that disagree with the evidence (for #237's review)
+
+All 61 rules were read against published consensus. Most hold: the
+humectants, ceramides, niacinamide, retinoids, AHAs, salicylic acid,
+benzoyl peroxide, azelaic acid, the EU fragrance allergens, SLS and
+denatured alcohol. These don't. None is changed here, because each is a
+harm or benefit weighing on a table #237 rewrites. Each should be decided
+there, with the list of products it moves.
+
+- **`sodium hydroxide` as a reactive-skin irritant** (in 27% of products). It
+  neutralises carbomer and fatty acids during manufacture, so its presence
+  says nothing about the finished product's pH. The CIR finds it safe as a pH
+  adjuster. The rule's sentence ("can push a formula away from skin's natural
+  pH") describes the formula, and the ingredient list can't support that.
+  `sodium bicarbonate` is different: products use it *for* its alkalinity.
+  Recommend dropping `sodium hydroxide` from the rule.
+- **`dimethicone` (17%) and the fatty alcohols (`cetearyl alcohol` 23%,
+  `cetyl alcohol` 11%) charged against acne-prone skin.** Both are generally
+  regarded as non-comedogenic. The ratings behind "fatty alcohols clog" come
+  from the rabbit-ear assay, which dermatology no longer relies on.
+  `lib/pore-clogging.ts` gives contested cloggers zero weight. These rules
+  charge the acne-prone concern directly anyway, because their category is
+  `barrier`, not `pore-clogging`, so they bypass that policy. Recommend
+  moving any genuine concern into `lib/pore-clogging.ts` with a confidence
+  tier, or dropping the harm.
+- **The essential-oil patterns overmatch.** `/mentha/`, `/eucalyptus/` and
+  `/lavandula/` also catch leaf extracts and floral waters. Those are charged
+  with the "volatile essential oil" sentence and weight when they are not
+  oils. Recommend anchoring the patterns to `oil`.
+- **`silica` sits in the clay rule,** and its sentence calls it "an absorbent
+  clay". It is an absorbent powder in 7% of products, often a sunscreen
+  texturiser. Recommend a sentence of its own, or dropping it.
+- **Thin evidence behind a benefit:** topical `glutathione` (whose sentence
+  also says Korean tone-care "is built on" it), `panax ginseng` (whose
+  sentence says "circulation-boosting" — review under the claims policy's
+  closing rule), and `sarcosine` / `sodium cocoyl alaninate` for pores.
+  Recommend lower weights or removal at #237's review.
+- **Weak function signals:** `smoothing` (fine lines, dullness) describes a
+  surface feel, and `tonic` (redness) is CosIng's "feeling of well-being".
+  Neither is wrong by definition, the way `antioxidant` was. Both are thin.
+
 ## Closed 2026-09-21: sparse hydration formulas
 
 A formula whose only recognised dehydration signal is sodium hyaluronate remains

@@ -21,6 +21,14 @@ describe("the scored function list", () => {
   it("covers every tag an anchor expects", () => {
     for (const [, expected] of ANCHORS) expect(SCORED_FUNCTIONS).toContain(expected);
   });
+
+  // #175: both describe protecting the product, not the skin, so neither is
+  // skin-benefit evidence.
+  it("scores neither a formula antioxidant nor a product UV absorber", () => {
+    expect(functionSignal("antioxidant")).toBeUndefined();
+    expect(functionSignal("UV absorber")).toBeUndefined();
+    expect(functionSignal("uv-filter")).toBeDefined();
+  });
 });
 
 describe("checkFunctionTags", () => {
@@ -76,7 +84,7 @@ describe("checkFunctionTags", () => {
     ]);
     const problems = Object.fromEntries(result.anchorProblems.map((p) => [p.inci_name, p.found]));
     expect(problems.urea).toBe("missing");
-    expect(problems.tocopherol).toBe("absent");
+    expect(problems.allantoin).toBe("absent");
     expect(problems.glycerin).toBeUndefined();
     expect(problems["sodium hyaluronate"]).toBeUndefined();
   });

@@ -45,16 +45,18 @@ describe("nudgesFor", () => {
     // A filter on no name list, so only the tag can be what recognises it.
     const filter = (tag: string) => ing("tris-biphenyl triazine", { functions: [tag] });
     expect(nudgesFor([ing("glycolic acid"), filter("uv-filter")])).toEqual([]);
+    expect(nudgesFor([ing("retinol"), filter("UV Filter")])).toEqual([]);
     expect(nudgesFor([ing("retinol"), filter("en:uv-filter")])).toEqual([]);
   });
 
-  // #262 review (Codex): CosIng also tags photostabilisers "uv-absorber" —
-  // additives that protect a formula's other ingredients from light, not the
+  // #175, #262 review (Codex): CosIng also tags photostabilisers "uv-absorber"
+  // — additives that protect a formula's other ingredients from light, not the
   // wearer's skin. Benzotriazolyl Dodecyl P-Cresol carries only this tag and
   // is used at 0.01-0.1%, far below anything that filters UV for a person.
-  it("does not take a bare uv-absorber tag as proof of sun protection", () => {
-    const photostabiliser = ing("benzotriazolyl dodecyl p-cresol", { functions: ["uv-absorber"] });
-    expect(nudgesFor([ing("retinol"), photostabiliser])).toHaveLength(1);
+  it("does not take a bare uv-absorber tag as proof of sun protection, in any spelling", () => {
+    const photostabiliser = (tag: string) => ing("benzotriazolyl dodecyl p-cresol", { functions: [tag] });
+    expect(nudgesFor([ing("retinol"), photostabiliser("uv-absorber")])).toHaveLength(1);
+    expect(nudgesFor([ing("glycolic acid"), photostabiliser("UV absorber")])).toHaveLength(1);
   });
 
   // #262 review: an unresolved label photo arrives as stubs with no

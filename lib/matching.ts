@@ -162,8 +162,12 @@ const FIT_LEVER = 0.7;
  * products) is graded on the same curve as "fine lines" (where the actives
  * are rare), and a dehydrated user sees 80s while everyone else sees 60s for
  * formulas that serve them equally well.
+ *
+ * Exported, with `PORE_SATURATION` and `CLOGGER_WEIGHT`, only so
+ * `__tests__/score-baseline.test.ts` can re-measure them against the live
+ * catalogue rather than a copy of the numbers it is checking (#175).
  */
-const CONCERN_SATURATION: Record<Concern, number> = {
+export const CONCERN_SATURATION: Record<Concern, number> = {
   dehydrated: 16.6,
   atopic: 14.4,
   hyperpigmentation: 7.4,
@@ -184,7 +188,7 @@ const CONCERN_SATURATION: Record<Concern, number> = {
 };
 
 const TYPE_SATURATION = 12;
-const PORE_SATURATION = 3;
+export const PORE_SATURATION = 3;
 
 const MAX_IRRITATION_PENALTY = 34;
 const MAX_PORE_PENALTY = 22;
@@ -222,7 +226,7 @@ const SENSITIVITY_MULTIPLIER: Record<NonNullable<SkinProfile["sensitivity"]> | "
 };
 
 /** Confidence-tier weight for a pore-clogging hit. Contested ones count zero. */
-const CLOGGER_WEIGHT: Record<CloggerHit["confidence"], number> = {
+export const CLOGGER_WEIGHT: Record<CloggerHit["confidence"], number> = {
   high: 3,
   moderate: 1.8,
   contested: 0,

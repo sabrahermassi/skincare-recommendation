@@ -650,10 +650,19 @@ const FUNCTION_SIGNALS: Record<string, FunctionSignal> = {
   "skin-protecting": { category: "barrier", weight: 2.5, helps: { skinTypes: ["dry"], concerns: ["atopic"] } },
   refatting: { category: "barrier", weight: 3, helps: { skinTypes: ["dry"], concerns: ["atopic"] } },
   "film-forming": { category: "barrier", weight: 1.5, helps: { concerns: ["dehydrated"] } },
-  antioxidant: { category: "actives", weight: 3, helps: { concerns: ["dullness", "fine-lines", "hyperpigmentation"] } },
+  // No `antioxidant` and no `uv-absorber` (#175). Both are CosIng functions
+  // about the *product*, not the skin: the EU inventory defines an
+  // antioxidant as something that "inhibits reactions promoted by oxygen,
+  // thus avoiding oxidation and rancidity", and a UV absorber as something
+  // that protects the cosmetic product from UV light — as opposed to
+  // `uv-filter`, which protects the skin. Crediting them as fine-lines,
+  // dullness and dark-spot evidence put BHT and sodium metabisulfite beside
+  // vitamin C, and made fine-lines evidence appear in 73% of the catalogue.
+  // The antioxidants with real skin evidence (tocopherol, vitamin C and its
+  // derivatives, ferulic acid, green tea, CoQ10, resveratrol) each have a
+  // named rule above, which always wins over a declared function.
   soothing: { category: "soothing", weight: 4, helps: { concerns: ["redness", "atopic"], sensitive: true } },
   "uv-filter": { category: "actives", weight: 4, helps: { concerns: ["hyperpigmentation", "fine-lines"] } },
-  "uv-absorber": { category: "actives", weight: 3.5, helps: { concerns: ["hyperpigmentation", "fine-lines"] } },
   smoothing: { category: "actives", weight: 2, helps: { concerns: ["fine-lines", "dullness"] } },
   absorbent: { category: "actives", weight: 2.5, helps: { skinTypes: ["oily"], concerns: ["large-pores"] } },
   tonic: { category: "soothing", weight: 1.5, helps: { concerns: ["redness"] } },
