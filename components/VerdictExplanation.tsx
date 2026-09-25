@@ -74,10 +74,11 @@ export function PregnancySection({ warnings }: { warnings: Contraindication[] })
 
 /**
  * "Worth knowing" — hand-written context nudges from `lib/context-nudges.ts`
- * (#234). Deliberately the same treatment as `PregnancySection` above —
- * heading, then one line per note — and rendered directly beside it: neither
- * is a warning, both are context, and two visual styles for the same idea
- * would make one of them look more alarming than it is.
+ * (#234). Same heading-then-lines layout as `PregnancySection` above, but
+ * `direction="neutral"` rather than `"down"`: a nudge carries no score effect
+ * and isn't a caution the way a pregnancy hit is, so it shouldn't borrow that
+ * section's red minus-sign treatment (#262 review, CodeRabbit) — it gets its
+ * own, calmer indicator instead.
  */
 export function ContextNudgesSection({ nudges }: { nudges: ContextNudge[] }) {
   return <NotesSection title="Worth knowing" notes={nudges} />;
@@ -86,14 +87,35 @@ export function ContextNudgesSection({ nudges }: { nudges: ContextNudge[] }) {
 /**
  * "In a routine" — the evening note and layering line from
  * `lib/active-pairings.ts` (#233), in the same treatment as the two sections
- * above so the three read as one kind of context.
+ * above so the three read as one kind of context — except a pairing note
+ * isn't uniformly neutral the way a context nudge is: the evening-routine
+ * note is pure scheduling, but the layering/shelf-pairing notes say plainly
+ * that a combination "can add up to more dryness and irritation" — a real
+ * caution, not a calmer FYI, so it keeps the warning-style indicator.
  */
 export function PairingSection({ notes }: { notes: PairingNote[] }) {
-  return <NotesSection title="In a routine" notes={notes} />;
+  return (
+    <NotesSection
+      title="In a routine"
+      notes={notes.map((note) => ({ ...note, direction: note.id === "retinoid-evening" ? "neutral" : "down" }))}
+    />
+  );
 }
 
-/** A heading, then one line per note — the shared treatment for context that isn't a warning. */
-export function NotesSection({ title, notes }: { title: string; notes: { id: string; label: string; text: string }[] }) {
+/**
+ * A heading, then one line per note — the shared treatment for context that
+ * isn't a warning, though an individual note can still opt into the warning
+ * indicator via `direction` when it genuinely is one (see `PairingSection`
+ * above). Defaults to "neutral": every `ContextNudge` is purely informational
+ * (#262 review, CodeRabbit), so `ContextNudgesSection` never needs to set it.
+ */
+export function NotesSection({
+  title,
+  notes,
+}: {
+  title: string;
+  notes: { id: string; label: string; text: string; direction?: ExplanationDirection }[];
+}) {
   if (notes.length === 0) return null;
   return (
     <View style={{ gap: 10 }}>
@@ -101,15 +123,28 @@ export function NotesSection({ title, notes }: { title: string; notes: { id: str
         {title}
       </Text>
       {notes.map((note) => (
-        <ExplanationLine key={note.id} label={note.label} detail={note.text} direction="down" />
+        <ExplanationLine key={note.id} label={note.label} detail={note.text} direction={note.direction ?? "neutral"} />
       ))}
     </View>
   );
 }
 
+type ExplanationDirection = ScoreLine["direction"] | "neutral";
+
 /** A verdict-level explanation, rendered before its ingredient-level evidence. */
-export function ExplanationLine({ label, detail, direction }: ScoreLine) {
-  const positive = direction === "up";
+export function ExplanationLine({
+  label,
+  detail,
+  direction,
+}: {
+  label: string;
+  detail: string;
+  direction: ExplanationDirection;
+}) {
+  const glyph = direction === "up" ? "+" : direction === "down" ? "−" : "•";
+  const dotColor =
+    direction === "up" ? VERDICT.high.tint : direction === "down" ? VERDICT.low.tint : VERDICT_NEUTRAL.tint;
+  const glyphColor = direction === "neutral" ? VERDICT_NEUTRAL.deep : INK;
   return (
     <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
       {/* Inline style, not a Tailwind className: `bg-tint-mint`/`bg-tint-pink`
@@ -125,12 +160,10 @@ export function ExplanationLine({ label, detail, direction }: ScoreLine) {
           marginTop: 1,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: positive ? VERDICT.high.tint : VERDICT.low.tint,
+          backgroundColor: dotColor,
         }}
       >
-        <Text style={{ fontSize: TYPE.caption, fontWeight: "bold", lineHeight: 14, color: INK }}>
-          {positive ? "+" : "−"}
-        </Text>
+        <Text style={{ fontSize: TYPE.caption, fontWeight: "bold", lineHeight: 14, color: glyphColor }}>{glyph}</Text>
       </View>
       <View style={{ flex: 1, gap: 1 }}>
         <Text style={{ fontSize: TYPE.label, fontWeight: "600", textTransform: "capitalize", color: INK }}>

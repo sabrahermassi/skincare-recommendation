@@ -18,4 +18,15 @@ describe("PairingSection", () => {
     await render(<PairingSection notes={pairingNotesFor([ing("glycerin")])} />);
     expect(screen.queryByRole("header")).toBeNull();
   });
+
+  // #264 review: PairingSection reuses NotesSection with ContextNudgesSection,
+  // but a pairing note isn't uniformly neutral the way a context nudge is —
+  // the evening-routine note is pure scheduling, while the layering note
+  // states a real irritation cost, so only the evening note gets the calmer
+  // indicator.
+  it("gives the evening note a neutral indicator and the layering note a caution one", async () => {
+    await render(<PairingSection notes={pairingNotesFor([ing("retinol")])} />);
+    expect(screen.getAllByText("•")).toHaveLength(1);
+    expect(screen.getAllByText("−")).toHaveLength(1);
+  });
 });
