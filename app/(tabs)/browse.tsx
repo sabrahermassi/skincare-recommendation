@@ -12,7 +12,7 @@ import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { TypeChip } from "@/components/TypeChip";
 import { openScanner } from "@/lib/genie";
 import { Text } from "@/components/Text";
-import { fetchProducts, peekProducts, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
+import { fetchProducts, peekProducts, searchableQuery, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients, type SkinProfile } from "@/data/types";
 import { activeTypeFilter, visibleTypeChips } from "@/lib/browse-chips";
 import { matchProduct, type MatchResult } from "@/lib/matching";
@@ -236,7 +236,10 @@ export default function Browse() {
     if (!searchActive) return null;
     const cached = peekProducts("all");
     if (!cached) return null;
-    const needle = query.trim().toLowerCase();
+    // The same cleaning the server search applies, so "%%" or "--" match
+    // nothing here either (#297).
+    const needle = searchableQuery(query)?.toLowerCase();
+    if (!needle) return [];
     const hits: ProductWithIngredients[] = [];
     for (const product of cached) {
       if (

@@ -1625,12 +1625,29 @@ export async function resolveIngredientNames(
  */
 export const SEARCH_RESULT_LIMIT = 20;
 
+/**
+ * A search query with everything that would steer the server filter taken
+ * out, or `null` when nothing searchable is left (#297).
+ *
+ * `%`, `_` and `*` are wildcards in a PostgREST `ilike` (`*` stands for `%`),
+ * and `,` `(` `)` `"` `\` break the `.or()` filter string, so all of them
+ * become spaces. That alone turned "%%" into a search for two spaces, which
+ * matched the few names with a double space in them — so runs of spaces
+ * collapse, and a query with no letter or digit searches nothing at all.
+ * Browse runs its on-device match through the same function, so the two
+ * answers agree.
+ */
+export function searchableQuery(query: string): string | null {
+  const cleaned = query.replace(/[%_*,()"\\]/g, " ").replace(/\s+/g, " ").trim();
+  return /[\p{L}\p{N}]/u.test(cleaned) ? cleaned : null;
+}
+
 export async function searchProducts(query: string): Promise<ProductWithIngredients[]> {
-  const trimmed = query.trim();
-  if (trimmed.length < 2) return [];
+  if (query.trim().length < 2) return [];
+  const escaped = searchableQuery(query);
+  if (escaped === null) return [];
 
   if (usingSupabase()) {
-    const escaped = trimmed.replace(/[%,()]/g, " ");
     const { data, error } = await withTimeout(
       (signal) =>
         supabase!
@@ -1645,7 +1662,7 @@ export async function searchProducts(query: string): Promise<ProductWithIngredie
     return (data as unknown as CatalogueRow[]).filter(isIdentifiable).map(rowToProduct);
   }
 
-  const needle = trimmed.toLowerCase();
+  const needle = escaped.toLowerCase();
   return delay(
     PRODUCTS.filter(
       (p) =>
