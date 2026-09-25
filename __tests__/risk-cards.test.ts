@@ -104,6 +104,27 @@ describe("irritationCounts", () => {
   });
 });
 
+describe("irritationRisk wording", () => {
+  const withRestricted = (count: number) =>
+    ({
+      type: "serum",
+      ingredients: [
+        ...Array.from({ length: count }, (_, i) => ({ ...ingredient(`restricted ${i}`), safety: "caution" })),
+        ...FILLER.map(ingredient),
+      ],
+    }) as unknown as ProductWithIngredients;
+
+  // #294: "1 restricted entries".
+  it.each([
+    [1, "1 restricted entry"],
+    [2, "2 restricted entries"],
+  ])("says %i restricted as %s", (count: number, note: string) => {
+    const tolerant = profile({ baseSkinType: "normal", sensitivity: "none" });
+    const product = withRestricted(count);
+    expect(irritationRisk(product, matchProduct(product, tolerant)).note).toBe(note);
+  });
+});
+
 describe("poreRisk", () => {
   it("names the disputed entries the Pore clogging tab also lists", () => {
     const mixed = product(["water", "glyceryl stearate se", "steareth-20", ...FILLER]);

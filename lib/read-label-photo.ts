@@ -183,8 +183,8 @@ export function failureCopy(
       return {
         message: "Reading ingredient lists isn't available in this build.",
         hint: hasBarcode
-          ? "Look the product up in Browse instead."
-          : "Try the barcode instead, or look the product up in Browse.",
+          ? "Look the product up in Search instead."
+          : "Try the barcode instead, or look the product up in Search.",
         retryable: false,
       };
     case "server_unavailable":
@@ -195,8 +195,8 @@ export function failureCopy(
       return {
         message: "Reading ingredient lists is temporarily unavailable.",
         hint: hasBarcode
-          ? "Look the product up in Browse, or try again later."
-          : "Try the barcode instead, or look the product up in Browse.",
+          ? "Look the product up in Search, or try again later."
+          : "Try the barcode instead, or look the product up in Search.",
         retryable: true,
       };
     case "unreadable":

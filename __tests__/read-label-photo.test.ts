@@ -168,18 +168,18 @@ describe("failureCopy", () => {
   });
 
   it("does not send someone with a barcode in hand back to the barcode", () => {
-    expect(failureCopy("server_unavailable", true).hint).toBe("Look the product up in Browse, or try again later.");
-    expect(failureCopy("server_unavailable", false).hint).toBe("Try the barcode instead, or look the product up in Browse.");
-    expect(failureCopy("not_configured", true).hint).toBe("Look the product up in Browse instead.");
+    expect(failureCopy("server_unavailable", true).hint).toBe("Look the product up in Search, or try again later.");
+    expect(failureCopy("server_unavailable", false).hint).toBe("Try the barcode instead, or look the product up in Search.");
+    expect(failureCopy("not_configured", true).hint).toBe("Look the product up in Search instead.");
   });
 
   // #188: unlike the other network-adjacent branches, a genuine connection
   // failure makes both suggestions dead — they need the same network that
   // just failed — so neither should appear, with or without a barcode.
-  it("never points a network failure at the barcode or Browse", () => {
+  it("never points a network failure at the barcode or Search", () => {
     expect(failureCopy("network_error", false).hint).toBe("Check your connection and try again.");
     expect(failureCopy("network_error", true).hint).toBe("Check your connection and try again.");
-    expect(failureCopy("network_error", false).hint).not.toMatch(/barcode|Browse/);
+    expect(failureCopy("network_error", false).hint).not.toMatch(/barcode|Browse|Search/);
   });
 
   it("can be retried after a network failure — a retry genuinely can succeed", () => {

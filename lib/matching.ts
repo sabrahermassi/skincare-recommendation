@@ -4,6 +4,7 @@ import type {
   ProductWithIngredients,
   SkinProfile,
 } from "@/data/types";
+import { displayIngredientName } from "./ingredient-name";
 import { isWarnedPoreClogging, poreCloggingHits, type CloggerHit } from "./pore-clogging";
 import { isPersonalized, isSensitive, treatAsReactive } from "./profile";
 import {
@@ -938,25 +939,12 @@ function buildFactors(reasons: MatchReason[]): ScoreFactor[] {
 
 /** "Glycerin, panthenol and 2 more" — names the evidence without a wall of text. */
 function noteFor(ingredients: string[]): string {
-  const shown = ingredients.slice(0, 2).map(titleCase);
+  const shown = ingredients.slice(0, 2).map(displayIngredientName);
   if (ingredients.length === 1) return shown[0];
   if (ingredients.length === 2) return `${shown[0]} and ${shown[1]}`;
   return `${shown.join(", ")} and ${ingredients.length - 2} more`;
 }
 
-/**
- * Capitalises the first letter of each word.
- *
- * The regex here held a literal backspace byte (0x08) where the word-boundary
- * escape was meant: the two-character escape had been resolved into the source
- * at some point rather than written into it. A backspace followed by a
- * lowercase letter is a sequence no ingredient name contains, so the replace
- * matched nothing, this returned its input unchanged, and every name it
- * touched rendered lower-case. Nothing failed loudly, which is why it lasted.
- */
-function titleCase(name: string): string {
-  return name.replace(/\b[a-z]/g, (c) => c.toUpperCase());
-}
 
 /**
  * The single thing most worth the user's attention: the largest factor working

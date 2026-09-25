@@ -1,6 +1,7 @@
 import { View } from "react-native";
 
 import { Text } from "@/components/Text";
+import { displayIngredientName } from "@/lib/ingredient-name";
 import type { PairingNote } from "@/lib/active-pairings";
 import type { ContextNudge } from "@/lib/context-nudges";
 import type { MatchReason, ScoreLine, Verdict } from "@/lib/matching";
@@ -31,7 +32,7 @@ export function panelFor(verdict: Verdict): { bg: string; border: string; label:
 export function ReasonLine({ reason }: { reason: MatchReason }) {
   return (
     <ExplanationLine
-      label={(reason.ingredient ?? "").toLowerCase()}
+      label={displayIngredientName(reason.ingredient ?? "")}
       detail={reason.reason}
       direction={reason.effect > 0 ? "up" : "down"}
     />
@@ -63,7 +64,7 @@ export function PregnancySection({ warnings }: { warnings: Contraindication[] })
       {hits.map((hit) => (
         <ExplanationLine
           key={hit.ingredient.id}
-          label={hit.ingredient.name.toLowerCase()}
+          label={displayIngredientName(hit.ingredient.name)}
           detail={hit.reason}
           direction="down"
         />
@@ -166,8 +167,12 @@ export function ExplanationLine({
         <Text style={{ fontSize: TYPE.caption, fontWeight: "bold", lineHeight: 14, color: glyphColor }}>{glyph}</Text>
       </View>
       <View style={{ flex: 1, gap: 1 }}>
-        <Text style={{ fontSize: TYPE.label, fontWeight: "600", textTransform: "capitalize", color: INK }}>
-          {label}
+        {/* First letter only: a `capitalize` transform also title-cased the
+            score lines ("Irritation Risk", "Your Concerns") and INCI
+            abbreviations ("Stearate Se") — #294. Ingredient names arrive
+            already cased by `displayIngredientName`. */}
+        <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
+          {label.charAt(0).toUpperCase() + label.slice(1)}
         </Text>
         <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{detail}</Text>
       </View>
