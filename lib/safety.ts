@@ -172,11 +172,24 @@ export function contraindications(
 /**
  * Warnings that count as a general irritation risk — everything except a
  * pregnancy hit, which gets its own section rather than inflating a count
- * that reads as "flagged for your skin" (#187). Shared by the Irritation
- * card and the History log's "N flagged" badge, so the two can't drift.
+ * that reads as "flagged for your skin" (#187). Used by the Irritation card
+ * alone: the History log's "N flagged" badge deliberately does NOT use this
+ * — see `historyWarningCount` below.
  */
 export function irritationWarnings(warnings: Contraindication[]): Contraindication[] {
   return warnings.filter((w) => w.origin !== "pregnancy");
+}
+
+/**
+ * Every contraindication, including pregnancy-origin ones — the count a
+ * history entry's "N flagged" badge (`warningsAtView`) is recorded with.
+ * Unlike `irritationWarnings` above, this must NOT exclude pregnancy hits:
+ * a pregnancy-only caution (e.g. tretinoin) has to still show as flagged in
+ * history, or it silently vanishes there instead of just moving to its own
+ * section on the live result screen. Found in review on #257 (Codex).
+ */
+export function historyWarningCount(warnings: Contraindication[]): number {
+  return warnings.length;
 }
 
 export type RiskGroup = "avoid" | "caution" | "clean" | "unknown";
