@@ -1,4 +1,4 @@
-import { irritationRisk } from "@/components/RiskCards";
+import { irritationCounts, irritationRisk, poreRisk } from "@/components/RiskCards";
 import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -72,5 +72,46 @@ describe("irritationRisk", () => {
     const pregnant = profile({ concerns: ["fine-lines"], pregnancyStatus: "pregnant" });
     const risk = irritationRisk(clean, matchProduct(clean, pregnant));
     expect(risk.note).toBe("Nothing restricted");
+  });
+});
+
+// #290: the browse row reads these same counts, so it can't say "1 flagged"
+// above a product page that says "3 flagged for your skin".
+describe("irritationCounts", () => {
+  it("counts what this profile is charged for, not only the EU-restricted entries", () => {
+    const scented = product(["water", "parfum", "alcohol denat", ...FILLER]);
+    const reactive = profile({ baseSkinType: "dry", sensitivity: "high" });
+    const match = matchProduct(scented, reactive);
+    const counts = irritationCounts(scented, match);
+    expect(counts.personal).toBeGreaterThan(0);
+    expect(irritationRisk(scented, match).note).toBe(`${counts.personal} flagged for your skin`);
+  });
+
+  it("counts nothing personal for a formula with nothing to flag", () => {
+    const clean = product(["water", ...FILLER]);
+    expect(irritationCounts(clean, matchProduct(clean, profile({ sensitivity: "high", baseSkinType: "dry" })))).toEqual({
+      personal: 0,
+      restricted: 0,
+    });
+  });
+
+  it("does not count an unrecognised name as restricted — it is unassessed, not flagged", () => {
+    const unread = {
+      type: "serum",
+      ingredients: [{ ...ingredient("mystery extract"), safety: "caution", verified: false }, ...FILLER.map(ingredient)],
+    } as unknown as ProductWithIngredients;
+    expect(irritationCounts(unread, matchProduct(unread, EMPTY_PROFILE)).restricted).toBe(0);
+  });
+});
+
+describe("poreRisk", () => {
+  it("names the disputed entries the Pore clogging tab also lists", () => {
+    const mixed = product(["water", "glyceryl stearate se", "steareth-20", ...FILLER]);
+    expect(poreRisk(mixed)).toMatchObject({ level: "Moderate", note: "1 on the lists · 1 disputed" });
+  });
+
+  it("keeps the short note when nothing is disputed", () => {
+    const single = product(["water", "glyceryl stearate se", ...FILLER]);
+    expect(poreRisk(single).note).toBe("1 on the lists");
   });
 });

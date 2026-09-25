@@ -698,6 +698,66 @@ describe("verdict engine", () => {
     }
   });
 
+  // #290: the ingredient list's badge must tell the same story as the score,
+  // the risk cards and the CLOGGING tag on the same row.
+  describe("ingredient rungs agree with the score", () => {
+    const FILL = ["glycerin", "propanediol", "carbomer", "xanthan gum", "allantoin", "panthenol", "tocopherol"];
+    const withClogger = synthetic(["water", "glyceryl stearate se", ...FILL]);
+    const clogger = withClogger.ingredients.find((i) => i.name === "glyceryl stearate se") as Ingredient;
+
+    it("badges a listed clogger Avoid for an acne-prone profile, whose score it cost", () => {
+      const result = matchProduct(withClogger, profile({ concerns: ["acne-prone"] }));
+      expect(result.cloggersCharged).toEqual(["glyceryl stearate se"]);
+      expect(rungFor(clogger, result)).toBe("avoid");
+    });
+
+    it("badges the same clogger Watch, never Good, when no pore-led concern is set", () => {
+      const result = matchProduct(withClogger, profile({ baseSkinType: "dry" }));
+      expect(result.cloggersCharged).toEqual([]);
+      expect(rungFor(clogger, result)).toBe("watch");
+    });
+
+    it("badges the same clogger Watch when there is no profile at all", () => {
+      const result = matchProduct(withClogger, EMPTY_PROFILE);
+      expect(rungFor(clogger, result)).toBe("watch");
+    });
+
+    it("does not warn about a contested clogger, which charged nothing", () => {
+      const contested = synthetic(["water", "steareth-20", ...FILL]);
+      const result = matchProduct(contested, profile({ concerns: ["acne-prone"] }));
+      expect(result.cloggersCharged).toEqual([]);
+      const steareth = contested.ingredients.find((i) => i.name === "steareth-20") as Ingredient;
+      expect(rungFor(steareth, result)).toBe("good");
+    });
+
+    it("with no profile, badges an ingredient that works against some skin Watch rather than Good", () => {
+      const scented = synthetic(["water", "parfum", ...FILL]);
+      const result = matchProduct(scented, EMPTY_PROFILE);
+      const parfum = scented.ingredients.find((i) => i.name === "parfum") as Ingredient;
+      const glycerin = scented.ingredients.find((i) => i.name === "glycerin") as Ingredient;
+      expect(rungFor(parfum, result)).toBe("watch");
+      expect(rungFor(glycerin, result)).toBe("good");
+    });
+
+    it("keeps every reason, so an effect past the sixth still reaches the badge", () => {
+      const rich = synthetic([
+        "water",
+        "glycerin",
+        "niacinamide",
+        "sodium hyaluronate",
+        "panthenol",
+        "ceramide np",
+        "squalane",
+        "allantoin",
+        "centella asiatica extract",
+        "butylene glycol",
+        "tocopherol",
+      ]);
+      const result = matchProduct(rich, profile({ baseSkinType: "dry", concerns: ["dehydrated", "redness"] }));
+      expect(result.reasons.length).toBeGreaterThan(6);
+    });
+  });
+
   describe("refusing to guess", () => {
     /**
      * The gate this asserts was added after measuring that it fires: on 104

@@ -139,16 +139,7 @@ function RiskCard({
  * Not a hazard score — a count of entries, said in words.
  */
 export function irritationRisk(product: Pick<ProductWithIngredients, "ingredients">, match: MatchResult): Risk {
-  const restricted = product.ingredients.filter(
-    (i) => isVerified(i) && i.safety !== "safe"
-  ).length;
-  // Pregnancy hits get their own section on the result (#187) — they are not
-  // an irritation risk, so they must not inflate this card's count.
-  const nonPregnancyWarnings = irritationWarnings(match.warnings);
-  // An ingredient can be both warned about and charged as an irritant: count it once.
-  const warned = new Set(nonPregnancyWarnings.map((w) => w.ingredient.name));
-  const charged = new Set(match.irritants.filter((name) => !warned.has(name)));
-  const personal = nonPregnancyWarnings.length + charged.size;
+  const { personal, restricted } = irritationCounts(product, match);
   const hasPregnancyOnlyHit = personal === 0 && match.warnings.some((w) => w.origin === "pregnancy");
 
   if (product.ingredients.length === 0) {
@@ -186,6 +177,28 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
 }
 
 /**
+ * The two numbers the irritation card is built from, shared with the browse
+ * row (`ProductRow`) so a product never reads "1 flagged" in the list and "3
+ * flagged for your skin" on its own page (#290).
+ *
+ * `personal` is what this profile is warned about or was charged for;
+ * `restricted` is what carries an EU restriction whoever you are.
+ */
+export function irritationCounts(
+  product: Pick<ProductWithIngredients, "ingredients">,
+  match: MatchResult
+): { personal: number; restricted: number } {
+  const restricted = product.ingredients.filter((i) => isVerified(i) && i.safety !== "safe").length;
+  // Pregnancy hits get their own section on the result (#187) — they are not
+  // an irritation risk, so they must not inflate this count.
+  const nonPregnancyWarnings = irritationWarnings(match.warnings);
+  // An ingredient can be both warned about and charged as an irritant: count it once.
+  const warned = new Set(nonPregnancyWarnings.map((w) => w.ingredient.name));
+  const charged = new Set(match.irritants.filter((name) => !warned.has(name)));
+  return { personal: nonPregnancyWarnings.length + charged.size, restricted };
+}
+
+/**
  * Pore-clogging risk, read from the same detection the band at the top of the
  * product screen uses.
  *
@@ -196,7 +209,7 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
  * the card now summarises `poreVerdict` rather than racing it to a different
  * conclusion. Two answers to one question is worse than either answer.
  */
-function poreRisk(product: Pick<ProductWithIngredients, "ingredients">): Risk {
+export function poreRisk(product: Pick<ProductWithIngredients, "ingredients">): Risk {
   const verdict = poreVerdict(product.ingredients);
 
   if (verdict.kind === "unknown") {
@@ -226,8 +239,13 @@ function poreRisk(product: Pick<ProductWithIngredients, "ingredients">): Risk {
       hasEntries: true,
     };
   }
+  // The Pore clogging tab this card opens lists contested entries too, so the
+  // note names them — "1 on the lists" above a tab of three read as a
+  // miscount (#290).
+  const contested = hits.length - warned.length;
+  const note = contested > 0 ? `${warned.length} on the lists · ${contested} disputed` : `${warned.length} on the lists`;
   if (warned.some((h: CloggerHit) => h.confidence === "high")) {
-    return { level: "Elevated", note: `${warned.length} on the lists`, tone: "avoid", hasEntries: true };
+    return { level: "Elevated", note, tone: "avoid", hasEntries: true };
   }
-  return { level: "Moderate", note: `${warned.length} on the lists`, tone: "watch", hasEntries: true };
+  return { level: "Moderate", note, tone: "watch", hasEntries: true };
 }

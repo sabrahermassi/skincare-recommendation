@@ -4,7 +4,7 @@ import type {
   ProductWithIngredients,
   SkinProfile,
 } from "@/data/types";
-import { poreCloggingHits, type CloggerHit } from "./pore-clogging";
+import { isWarnedPoreClogging, poreCloggingHits, type CloggerHit } from "./pore-clogging";
 import { isPersonalized, isSensitive, treatAsReactive } from "./profile";
 import {
   CATEGORY_LABEL,
@@ -90,7 +90,12 @@ export type MatchResult = {
   verdict: Verdict;
   /** Ingredients that are a problem for this specific profile. */
   warnings: Contraindication[];
-  /** Why the score is what it is, strongest first. Drives the explanation. */
+  /**
+   * Why the score is what it is, strongest first. Every one, not a top few:
+   * the ingredient list reads this to decide whether a row worked against
+   * the person, and a truncated list badged the seventh such ingredient
+   * "Good" (#290). Screens that want a short "why" slice it themselves.
+   */
   reasons: MatchReason[];
   /**
    * Ingredients whose rule charged a harm to the irritation penalty. Kept beside
@@ -100,6 +105,16 @@ export type MatchResult = {
    * shown as fine.
    */
   irritants: string[];
+  /**
+   * Pore-cloggers on the published lists (contested entries excluded) that
+   * this person's score was charged for through a pore-led concern — acne or
+   * large pores, where formula cleanliness is most of the concern fit. Kept
+   * beside `reasons` because clogging never becomes a reason line: it moves
+   * the concern fit through `lib/pore-clogging.ts` instead. The ingredient
+   * list reads this so a clogger that cost an acne-prone person points is
+   * not badged "Good" beside its own CLOGGING tag (#290).
+   */
+  cloggersCharged: string[];
   /** The same effects rolled up by category — the breakdown bars. */
   factors: ScoreFactor[];
   /** How much of the formula we could actually identify, 0–1. */
@@ -358,6 +373,7 @@ function computeMatch(
     warnings,
     reasons: [],
     irritants: [],
+    cloggersCharged: [],
     factors: [],
     coverage,
     confidence: 0,
@@ -535,6 +551,11 @@ function computeMatch(
   // lib/pore-clogging.ts, which has no profile argument, no netting and no
   // truncation; this only decides how loudly it lands.
   const cloggers = poreCloggingHits(product.ingredients);
+  const poreLed = profile.concerns.some((concern) => PORE_LED_CONCERNS.includes(concern));
+  // Contested entries weigh nothing (`CLOGGER_WEIGHT`), so they charged nothing.
+  const cloggersCharged = poreLed
+    ? cloggers.filter((hit) => hit.confidence !== "contested").map((hit) => hit.name)
+    : [];
   const poreLoad = cloggers.reduce(
     (sum, hit) =>
       sum + CLOGGER_WEIGHT[hit.confidence] * positionFactors[hit.position - 1] * contact.harm,
@@ -613,11 +634,9 @@ function computeMatch(
     score: finalScore,
     verdict: verdictFor(finalScore, hazards.length),
     warnings,
-    // Capped for the "Why" list, which is a readable summary…
-    reasons: reasons.slice(0, 6),
+    reasons,
     irritants,
-    // …but the bars aggregate every contribution, or they would under-report
-    // a factor made of many small effects.
+    cloggersCharged,
     factors: buildFactors(reasons),
     coverage,
     confidence: confidenceFor(coverage, scored),
@@ -941,7 +960,9 @@ export function biggestConcern(result: MatchResult): ScoreFactor | null {
  * flagged-ingredient count.
  *
  *   flag     works against this profile, or is contraindicated for it
- *   watch    carries an EU restriction, or we could not identify it
+ *   watch    carries an EU restriction, is on the published pore-clogging
+ *            lists, or we could not identify it — or, with no profile to
+ *            judge against, can work against some skin
  *   good     recognised and either helpful or inert
  */
 type IngredientTone = "good" | "watch" | "flag";
@@ -953,9 +974,22 @@ function ingredientTone(
   if (result.warnings.some((w) => w.ingredient.id === ingredient.id)) return "flag";
   if (result.reasons.some((r) => r.ingredient === ingredient.name && r.effect < 0)) return "flag";
   if (result.irritants.includes(ingredient.name)) return "flag";
+  if (result.cloggersCharged.includes(ingredient.name)) return "flag";
   if (!isVerified(ingredient)) return "watch";
   if (ingredient.safety !== "safe") return "watch";
+  // The row already wears a CLOGGING tag; "Good" beside it contradicts the
+  // tag even when this profile's score was not charged for it (#290).
+  if (isWarnedPoreClogging(ingredient)) return "watch";
+  // With no profile there is no "you" to be good for: a rule that works
+  // against some skin (fragrance, denatured alcohol) is worth a look, not a
+  // verdict — "Good" beside "strips a dry barrier" read as a contradiction.
+  if (result.unknownReason === "not_personalized" && hasHarm(findRule(ingredient))) return "watch";
   return "good";
+}
+
+function hasHarm(rule: IngredientRule | undefined): boolean {
+  const hurts = rule?.hurts;
+  return !!hurts && (!!hurts.sensitive || !!hurts.concerns?.length || !!hurts.skinTypes?.length);
 }
 
 /**

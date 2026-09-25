@@ -3,11 +3,9 @@ import type { SkinProfile } from "@/data/types";
 import type { Ingredient } from "@/data/types";
 import {
   contraindications,
-  flaggedIngredients,
   groupByRisk,
   historyWarningCount,
   irritationWarnings,
-  isFlagged,
   isVerified,
   UNSET_SENSITIVITY_REASON,
 } from "@/lib/safety";
@@ -22,34 +20,6 @@ const moderate = INGREDIENTS["coconut-oil"]; // 4, caution
 function profile(overrides: Partial<SkinProfile> = {}): SkinProfile {
   return { ...EMPTY_PROFILE, ...overrides };
 }
-
-describe("isFlagged", () => {
-  it("does not flag a benign ingredient", () => {
-    expect(isFlagged(safe)).toBe(false);
-  });
-
-  it("flags on safety level even when comedogenic rating is 0", () => {
-    expect(isFlagged(cautionIrritant)).toBe(true);
-    expect(isFlagged(INGREDIENTS["denatured-alcohol"])).toBe(true);
-  });
-
-  it("flags on comedogenic rating even when safety is 'safe'", () => {
-    // Guards the threshold: 2 is below it, so a fatty alcohol stays unflagged.
-    expect(isFlagged(mildlyComedogenic)).toBe(false);
-  });
-
-  it("flags high comedogenic ratings", () => {
-    expect(isFlagged(moderate)).toBe(true);
-    expect(isFlagged(severeComedogenic)).toBe(true);
-  });
-});
-
-describe("flaggedIngredients", () => {
-  it("returns only the flagged subset, preserving order", () => {
-    const result = flaggedIngredients([safe, severeComedogenic, mildlyComedogenic, cautionIrritant]);
-    expect(result.map((i) => i.id)).toEqual(["isopropyl-myristate", "fragrance"]);
-  });
-});
 
 describe("contraindications", () => {
   it("returns nothing for a clean formula", () => {
@@ -240,11 +210,6 @@ describe("unverified ingredients", () => {
 
   it("treats an explicit false as unverified", () => {
     expect(isVerified(unrecognised)).toBe(false);
-  });
-
-  it("does not flag an unrecognised name — it is unassessed, not clean", () => {
-    expect(isFlagged(unrecognised)).toBe(false);
-    expect(flaggedIngredients([unrecognised])).toEqual([]);
   });
 
   /** The heart of it: never file an unknown under "No concerns". */
