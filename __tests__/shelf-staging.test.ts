@@ -195,6 +195,24 @@ run("the shelf on staging", () => {
     if (!cleared.ok) throw new Error(JSON.stringify(cleared.failure));
     expect(cleared.value.products.find((p) => p.id === "p-serum")!.routineStep).toBeUndefined();
 
+    // A journal note written on one phone reads back on the other exactly as
+    // written — quotes, commas, a line break — and a deletion reads back as
+    // no note (#228). The column's own cap refuses a note over 500.
+    const note = 'Loved it, "really".\nWould buy again';
+    await push(ipad, [{ kind: "set-product-note", id: "p-serum", note }]);
+    const noted = await phone.api.fetchShelf();
+    if (!noted.ok) throw new Error(JSON.stringify(noted.failure));
+    expect(noted.value.products.find((p) => p.id === "p-serum")!.note).toBe(note);
+    await push(phone, [{ kind: "set-product-note", id: "p-serum", note: null }]);
+    const unnoted = await ipad.api.fetchShelf();
+    if (!unnoted.ok) throw new Error(JSON.stringify(unnoted.failure));
+    expect(unnoted.value.products.find((p) => p.id === "p-serum")!.note).toBeUndefined();
+    const tooLong = await phone.api.pushShelf(
+      phone.userId,
+      planPush([{ kind: "set-product-note", id: "p-serum", note: "x".repeat(501) }]),
+    );
+    expect(tooLong.ok).toBe(false);
+
     // Pushing the same batch twice changes nothing (a retry after a failure).
     const again = shelfAsSaves({ products: [{ id: "p-serum", savedAt: Date.parse("2026-09-10T10:00:00Z") }], ingredients: [] }, 0);
     await push(phone, again);

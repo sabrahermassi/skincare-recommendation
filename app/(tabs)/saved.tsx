@@ -337,6 +337,12 @@ export default function Saved() {
                   if (saved) showUndo({ kind: "saved", product: saved });
                 }}
               >
+                {savedProducts.find((p) => p.id === id)?.note ? (
+                  // The person's own words, exactly as written (#228).
+                  <Text numberOfLines={2} style={{ marginTop: 6, fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>
+                    {savedProducts.find((p) => p.id === id)!.note}
+                  </Text>
+                ) : null}
                 {tone && score !== null && (
                   <View
                     style={{

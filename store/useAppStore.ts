@@ -30,6 +30,8 @@ export type SavedProduct = {
    * so a later correction to the type still moves an untouched product.
    */
   routineStep?: RoutineStep;
+  /** The person's journal note (#228) — their own words, trimmed; absent means none. */
+  note?: string;
 };
 
 /**
@@ -202,6 +204,12 @@ type AppState = {
 
   /** Puts a saved product in a routine step, or back to the guess (`null`) — #227. */
   setRoutineStep: (id: string, step: RoutineStep | null) => void;
+  /**
+   * Writes, edits or (`null`) deletes a saved product's journal note — #228.
+   * Applied here at once and queued, so a note written with no signal is
+   * kept until it syncs.
+   */
+  setNote: (id: string, note: string | null) => void;
 
   /** Add/remove an ingredient name from the starred list. */
   toggleSavedIngredient: (name: string) => void;
@@ -520,6 +528,18 @@ export const useAppStore = create<AppState>()(
           return {
             savedProducts: shelf.products,
             ...queued(state, { kind: "set-product-step", id, step }),
+          };
+        }),
+
+      setNote: (id, note) =>
+        set((state) => {
+          if (!state.savedProducts.some((p) => p.id === id)) return state;
+          const shelf = applyOps({ products: state.savedProducts, ingredients: [] }, [
+            { kind: "set-product-note", id, note },
+          ]);
+          return {
+            savedProducts: shelf.products,
+            ...queued(state, { kind: "set-product-note", id, note }),
           };
         }),
 

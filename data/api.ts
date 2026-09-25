@@ -1671,6 +1671,7 @@ type ShelfProductRow = {
   saved_at: string;
   formula_fetched_at: string | null;
   routine_step?: number | null;
+  note?: string | null;
 };
 type ShelfIngredientRow = { inci_name: string; saved_at: string };
 
@@ -1685,7 +1686,7 @@ export async function fetchShelf(): Promise<Fetched<Shelf>> {
         (signal) =>
           supabase!
             .from("saved_products")
-            .select("product_id, saved_at, formula_fetched_at, routine_step")
+            .select("product_id, saved_at, formula_fetched_at, routine_step, note")
             .order("saved_at", { ascending: true })
             .abortSignal(signal),
         "fetchShelf products",
@@ -1715,6 +1716,7 @@ export async function fetchShelf(): Promise<Fetched<Shelf>> {
           ...(row.routine_step === 1 || row.routine_step === 2 || row.routine_step === 3
             ? { routineStep: row.routine_step }
             : {}),
+          ...(row.note ? { note: row.note } : {}),
         })),
         ingredients: (ingredients.data as ShelfIngredientRow[]).map((row) => row.inci_name),
       },
@@ -1788,6 +1790,20 @@ export async function pushShelf(owner: string, push: ShelfPush): Promise<Fetched
         supabase!
           .from("saved_products")
           .update({ routine_step: step })
+          .eq("user_id", owner)
+          .eq("product_id", id)
+          .abortSignal(signal),
+      );
+    }
+
+    // Journal notes (#228), the same way: after the saves, the last version
+    // per product, null for a deleted note. The column's own 500-character
+    // cap stands behind the editor's.
+    for (const { id, note } of push.productNotes) {
+      await run("pushShelf note", (signal) =>
+        supabase!
+          .from("saved_products")
+          .update({ note })
           .eq("user_id", owner)
           .eq("product_id", id)
           .abortSignal(signal),

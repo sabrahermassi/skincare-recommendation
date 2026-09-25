@@ -28,6 +28,8 @@ export type ShelfProduct = {
   formulaFetchedAt?: string;
   /** The person's own routine step (#227); absent means "use the guess from the type". */
   routineStep?: RoutineStep;
+  /** The person's journal note (#228), already trimmed; absent means none. */
+  note?: string;
 };
 
 export type ShelfOp =
@@ -35,6 +37,8 @@ export type ShelfOp =
   | { kind: "remove-product"; id: string }
   /** A routine step chosen, or cleared back to the guess (`null`). */
   | { kind: "set-product-step"; id: string; step: RoutineStep | null }
+  /** A journal note written or edited, or deleted (`null`). */
+  | { kind: "set-product-note"; id: string; note: string | null }
   | { kind: "save-ingredient"; name: string; savedAt: number }
   | { kind: "remove-ingredient"; name: string };
 
@@ -56,6 +60,8 @@ export type ShelfPush = {
   saveProducts: (ShelfProduct & { fresh: boolean })[];
   /** Routine steps to write after the saves, the last choice per product. */
   productSteps: { id: string; step: RoutineStep | null }[];
+  /** Journal notes to write after the saves, the last version per product. */
+  productNotes: { id: string; note: string | null }[];
   deleteIngredients: string[];
   saveIngredients: { name: string; savedAt: number; fresh: boolean }[];
 };
@@ -66,6 +72,7 @@ type Outcome<T> = { removed: boolean; save: T | null };
 export function planPush(ops: readonly ShelfOp[]): ShelfPush {
   const products = new Map<string, Outcome<ShelfProduct>>();
   const steps = new Map<string, RoutineStep | null>();
+  const notes = new Map<string, string | null>();
   const ingredients = new Map<string, Outcome<{ name: string; savedAt: number }>>();
 
   for (const op of ops) {
@@ -73,9 +80,16 @@ export function planPush(ops: readonly ShelfOp[]): ShelfPush {
       steps.set(op.id, op.step);
       continue;
     }
-    // A removed row takes its step with it; a step chosen after a re-save
-    // comes later in the queue and is set again above.
-    if (op.kind === "remove-product") steps.delete(op.id);
+    if (op.kind === "set-product-note") {
+      notes.set(op.id, op.note);
+      continue;
+    }
+    // A removed row takes its step and note with it; one set after a
+    // re-save comes later in the queue and is set again above.
+    if (op.kind === "remove-product") {
+      steps.delete(op.id);
+      notes.delete(op.id);
+    }
     if (op.kind === "save-product" || op.kind === "remove-product") {
       const prev = products.get(op.id) ?? { removed: false, save: null };
       products.set(
@@ -101,6 +115,7 @@ export function planPush(ops: readonly ShelfOp[]): ShelfPush {
     deleteProducts: [],
     saveProducts: [],
     productSteps: [...steps].map(([id, step]) => ({ id, step })),
+    productNotes: [...notes].map(([id, note]) => ({ id, note })),
     deleteIngredients: [],
     saveIngredients: [],
   };
@@ -138,6 +153,11 @@ export function applyOps(base: Shelf, ops: readonly ShelfOp[]): Shelf {
           p.id !== op.id ? p : op.step === null ? withoutStep(p) : { ...p, routineStep: op.step },
         );
         break;
+      case "set-product-note":
+        products = products.map((p) =>
+          p.id !== op.id ? p : op.note === null ? withoutNote(p) : { ...p, note: op.note },
+        );
+        break;
       case "save-ingredient":
         if (!ingredients.includes(op.name)) ingredients = [...ingredients, op.name];
         break;
@@ -150,6 +170,10 @@ export function applyOps(base: Shelf, ops: readonly ShelfOp[]): Shelf {
 }
 
 function withoutStep({ routineStep: _cleared, ...product }: ShelfProduct): ShelfProduct {
+  return product;
+}
+
+function withoutNote({ note: _deleted, ...product }: ShelfProduct): ShelfProduct {
   return product;
 }
 
@@ -167,6 +191,7 @@ export function shelfAsSaves(shelf: Shelf, now: number): ShelfOp[] {
     ...shelf.products.flatMap((p): ShelfOp[] =>
       p.routineStep ? [{ kind: "set-product-step", id: p.id, step: p.routineStep }] : [],
     ),
+    ...shelf.products.flatMap((p): ShelfOp[] => (p.note ? [{ kind: "set-product-note", id: p.id, note: p.note }] : [])),
     // Starred ingredients never recorded when they were starred; the device's
     // own order is kept by spacing them a millisecond apart.
     ...shelf.ingredients.map((name, i): ShelfOp => ({ kind: "save-ingredient", name, savedAt: now + i })),
