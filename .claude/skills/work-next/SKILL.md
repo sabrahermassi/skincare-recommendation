@@ -286,6 +286,59 @@ do the same four things directly, just without the model change.
   this same uncommitted diff first, so the first thing pushed to GitHub is
   already past both passes.
 
+## 4b. Check it in the iOS Simulator — then fix what you find
+
+Unit tests prove the logic; they don't prove the screen works. If this
+ticket changes anything a user can see or tap, run it and use it before
+moving on. Skip this step only for tickets with no visible effect (a
+script, a migration, a docs-only change) and say so in the PR.
+
+**Needs the Argent MCP tools** (`mcp__argent__*`), which only a local
+session on the operator's Mac has. If they aren't available, don't stop
+the chain: write "Not checked in the simulator — Argent not available" in
+the PR's `## Verified in simulator` section and carry on.
+
+1. **Run this ticket's code, nothing else.** Stop any Expo/Metro server
+   already running (`lsof -ti :8081 | xargs kill` or the port it uses),
+   then from this ticket's branch start `npx expo start --ios` in the
+   background with output to a log file. A server left running from
+   another branch or worktree means you are testing the wrong code.
+2. **Staging only.** `.env` must point `EXPO_PUBLIC_SUPABASE_URL` at the
+   staging project with the staging anon key. If `.env` is missing or
+   points anywhere else, don't edit it — note it in the PR and test on the
+   sample products, listing the backend screens as not checked.
+3. **Use the feature.** With Argent, go to the changed screen and walk the
+   ticket's Definition of Done step by step, as a user would. Then try the
+   obvious edge cases for this change: empty state, a failed or missing
+   result, back and forth navigation, "I don't know" profile answers,
+   long text. Follow the `argent-qa-flows` / `argent-test-ui-flow` skills
+   if they're installed.
+4. **Screenshot** each state you checked.
+5. **Fix and re-check.** A bug in what this ticket touches: fix it, re-run
+   `npm run typecheck && npm run lint && npm test`, reload the app (`r` in
+   the Expo log's terminal, or relaunch), and check that screen again.
+   Repeat until it works. A bug outside this ticket's scope: don't fix it
+   here — note it for the report's `## Gaps` section so it becomes its own
+   ticket.
+6. **Can't be tested here:** live camera, barcode scanning, Sign in with
+   Apple / Google, anything needing a real device. Photo flows *can* be
+   tested: `xcrun simctl addmedia booted <image>` then "choose photo". List
+   the rest under "Needs a real iPhone" — never claim them as checked.
+7. **Stop the Expo server** when done, so the next ticket starts clean.
+
+Rules:
+- **One session drives the simulator at a time.** If the simulator is
+  clearly in use by something else, note it and skip rather than fight
+  over it.
+- **Never point the app at production**, and don't turn off the Mac's
+  network to test offline states — it cuts this session's connection too.
+- Don't sign in to real accounts on the simulator; screenshots leave the
+  machine.
+
+The PR body (step 6) gets a `## Verified in simulator` section: what was
+checked, the screenshots, and the "Needs a real iPhone" list. If a review
+round in step 7 changes anything visible, repeat this step for that change.
+
 ## 5. Hygiene, then self-review — still no push
 
 **Both are user-level skills (`~/.claude/skills/hygiene`,
@@ -342,7 +395,8 @@ Write the body to a scratchpad file first rather than passing it inline —
 Body: what changed, `Closes #<n>` (the ticket's own issue number — this is
 what makes step 8's "the issue only actually closes once they merge" true;
 without it, merging the PR closes nothing), the scope-source link,
-test/lint/typecheck results, a `## Open questions` section for anything
+test/lint/typecheck results, the `## Verified in simulator` section from
+step 4b, a `## Open questions` section for anything
 step 5 found that needed a decision, and — for every ticket after the
 first — "**Stacked on #<previous PR> — merge that first.**" Do not merge,
 do not enable auto-merge.
