@@ -4,6 +4,7 @@ import { AppState } from "react-native";
 import {
   SCAN_WRITE_DELAY_MS,
   addScannedToCatalogue,
+  flushScanWrite,
   lastCacheWrite,
   peekCatalogue,
   putCatalogue,
@@ -141,6 +142,33 @@ describe("a rescan that changes a product", () => {
   });
 });
 
+// #268 review, CodeRabbit: product-lookup's select omits `source` entirely,
+// unlike the on-device list's, so a plain re-scan of an already-known,
+// catalogue-sourced product would otherwise always look changed — defeating
+// the fast path this whole PR exists for.
+describe("a rescan whose lookup source came back undefined", () => {
+  it("is not treated as a change on its own", async () => {
+    const sourced = product("with-source", [WATER], { source: "obf" });
+    putCatalogue([sourced], WATERMARK);
+    await writesSettled();
+
+    const entry = peekCatalogue();
+    addScannedToCatalogue(rescan(sourced, { source: undefined }));
+    await writesSettled();
+
+    expect(peekCatalogue()).toBe(entry);
+  });
+
+  it("keeps the held source if some other field genuinely changed", () => {
+    const sourced = product("with-source-2", [WATER], { source: "obf" });
+    putCatalogue([sourced], WATERMARK);
+
+    addScannedToCatalogue(rescan(sourced, { source: undefined, volume: "50ml" }));
+
+    expect(peekCatalogue()!.byId.get("with-source-2")!.source).toBe("obf");
+  });
+});
+
 describe("the disk write after a scan", () => {
   it("waits, then lands, and several scans share one write", async () => {
     jest.useFakeTimers();
@@ -173,6 +201,95 @@ describe("the disk write after a scan", () => {
 
     await writesSettled();
     expect(JSON.parse((await AsyncStorage.getItem(META_KEY))!).watermark.count).toBe(99);
+  });
+
+  // #268 review, CodeRabbit: an unrelated write landing successfully must not
+  // clear diskBlobStale on the scan write's account — a persistMeta call
+  // right after would otherwise stamp the current watermark beside a
+  // products blob still missing the scan.
+  it("keeps a metadata-only write held back even after an unrelated write lands while the scan write is still pending", async () => {
+    const META_KEY = "forme-catalogue-meta-v3";
+
+    addScannedToCatalogue(product("new-5", [WATER]));
+
+    // Called directly, not through the scan path — lands and succeeds while
+    // the scan write above is still only pending.
+    putCatalogue([a, b, c], { ...WATERMARK, count: 7 });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(JSON.parse((await AsyncStorage.getItem(META_KEY))!).watermark.count).toBe(7);
+
+    touchCatalogue({ ...WATERMARK, count: 42 });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(JSON.parse((await AsyncStorage.getItem(META_KEY))!).watermark.count).toBe(7);
+
+    await writesSettled();
+    expect(JSON.parse((await AsyncStorage.getItem(META_KEY))!).watermark.count).toBe(42);
+  });
+
+  // #268 review, CodeRabbit: the test above only proves the case where the
+  // scan write's timer hasn't fired yet (`pendingScanWrite`). This one proves
+  // the narrower gap the timer marker alone can't cover — CodeRabbit's exact
+  // description: "persist → persistMeta → scan persist". All three are
+  // enqueued in that order (all four calls below are synchronous, nothing
+  // awaited yet, so pendingScanWrite is already null and scanWritesInFlight
+  // already 1 before any of the three has actually run), then run strictly
+  // one at a time. By the time the first one's recordWrite fires,
+  // scanWritesInFlight is the only thing left holding diskBlobStale up.
+  // Confirmed to fail if that check alone is removed from recordWrite: the
+  // metadata-only write (count 42) would land right after the unrelated one
+  // (count 11), instead of waiting for the scan write to actually finish.
+  it("keeps a metadata-only write held back while it's queued behind an unrelated write, with the scan write already flushed behind both", async () => {
+    const META_KEY = "forme-catalogue-meta-v3";
+    const PRODUCTS_KEY = "forme-catalogue-v3";
+    // Structural cast rather than `jest.Mock` — the jest namespace is not in
+    // scope here (see jest-globals.d.ts).
+    const setItemMock = AsyncStorage.setItem as unknown as {
+      getMockImplementation: () => (key: string, value: string) => Promise<void>;
+      mockImplementation: (fn: (key: string, value: string) => Promise<void>) => void;
+    };
+    const originalSetItem = setItemMock.getMockImplementation();
+
+    // Blocks only the scan write's own products blob — identified by content
+    // ("new-6", the scanned product), not by call order, so this holds up
+    // regardless of whether the bug being tested for is present or fixed.
+    let releaseScanWrite: () => void = () => undefined;
+    const scanWriteBlocked = new Promise<void>((resolve) => {
+      releaseScanWrite = resolve;
+    });
+    setItemMock.mockImplementation(async (key: string, value: string) => {
+      if (key === PRODUCTS_KEY && value.includes("new-6")) {
+        await scanWriteBlocked;
+      }
+      return originalSetItem(key, value);
+    });
+
+    // Enqueued first: an ordinary write, unrelated to the scan below. Must
+    // come before addScannedToCatalogue — it replaces `memory` outright, so
+    // scanning first and putting the catalogue second would silently discard
+    // the scan's own in-memory change before flushScanWrite ever saw it.
+    putCatalogue([a, b, c], { ...WATERMARK, count: 11 });
+
+    // Arms pendingScanWrite; doesn't enqueue anything yet. Builds on the
+    // in-memory state `putCatalogue` just set, so the eventual flushed write
+    // carries this product alongside a, b and c.
+    addScannedToCatalogue(product("new-6", [WATER]));
+
+    // Enqueued second, right behind the first — persistMeta checks
+    // diskBlobStale only once the queue reaches it, not now.
+    touchCatalogue({ ...WATERMARK, count: 42 });
+
+    // Enqueued third and last, and now blocked on its own products write —
+    // clears pendingScanWrite and counts this write in scanWritesInFlight.
+    flushScanWrite();
+
+    // Long enough for the first two (real, unblocked) writes to fully land
+    // while the third stays stuck.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(JSON.parse((await AsyncStorage.getItem(META_KEY))!).watermark.count).toBe(11);
+
+    releaseScanWrite();
+    await writesSettled();
+    expect(JSON.parse((await AsyncStorage.getItem(META_KEY))!).watermark.count).toBe(42);
   });
 
   it("is flushed when the app goes to the background", async () => {

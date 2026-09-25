@@ -26,8 +26,6 @@ jest.mock("expo-secure-store", () => ({
   }),
 }));
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import {
   CHUNK_SIZE,
   MANIFEST_KEY,
@@ -37,7 +35,7 @@ import {
   resetSecureStorageForTests,
   splitForKeychain,
 } from "@/lib/secure-storage";
-import { useAppStore } from "@/store/useAppStore";
+import { useAppStore, type PersistedState } from "@/store/useAppStore";
 
 const KEY = "sb-project-auth-token";
 
@@ -221,7 +219,12 @@ describe("a reinstalled app", () => {
     useAppStore.getState().resetApp();
     expect(useAppStore.getState().secureStoreClaimed).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const stored = JSON.parse((await AsyncStorage.getItem("forme-store")) ?? "null");
+    // Read back through the store's own persist storage rather than importing
+    // AsyncStorage here — the storage policy keeps that import to the store.
+    const stored = (await useAppStore.persist.getOptions().storage?.getItem("forme-store")) as
+      | { state: PersistedState }
+      | null
+      | undefined;
     expect(stored?.state.secureStoreClaimed).toBe(true);
     expect(stored?.state.hasSeenOnboarding).toBe(false);
   });

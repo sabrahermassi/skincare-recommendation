@@ -19,7 +19,9 @@ When this was first written, the backend held a database but no user data (the a
   key, server-side only, never from the client.
 - *Superseded by #218:* there was no authentication anywhere in the app.
   Sign in with Apple and Google now put a Supabase session on the device —
-  see §1's session row.
+  no email, no password. The session lives in the Keychain/Keystore on a
+  phone and in memory on web (see §1's session row). The client still holds
+  only the anon key.
 - *Superseded by #219:* there was no user-owned table. Migration 0025 adds
   the first two, `saved_products` and `saved_ingredients`, owner-only under
   RLS. Still no profile, quiz answers or scan history on the backend, by
