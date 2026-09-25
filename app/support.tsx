@@ -30,7 +30,7 @@ const HELP: { title: string; body: string }[] = [
   },
   {
     title: "Change your answers",
-    body: "Profile → Skin profile. Nothing is re-scored until you tap “Find my matches”.",
+    body: "Profile → Skin profile. Nothing is re-scored until you tap “Save”.",
   },
 ];
 

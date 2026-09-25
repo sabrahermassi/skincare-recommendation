@@ -56,7 +56,9 @@ export default function PregnancyStep() {
       subtitle="This helps us give more relevant recommendations."
       onNext={finish}
       nextDisabled={!picked}
-      nextLabel="Start scanning"
+      // It lands on Home, not the scanner (POST_ONBOARDING_ROUTE), so it says
+      // what it does (#295).
+      nextLabel="Done"
     >
       <View>
         {OPTIONS.map((option) => (

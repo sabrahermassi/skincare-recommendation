@@ -45,7 +45,7 @@ describe("SkinProfileScreen", () => {
 
     expect(screen.getAllByText("Not set").length).toBeGreaterThan(0);
     expect(screen.getAllByText("I don't know").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Find my matches")).toBeNull();
+    expect(screen.queryByText("Save")).toBeNull();
   });
 
   it("says 'No concerns', not 'Not set', once the quiz was answered without any (#291)", async () => {
@@ -61,10 +61,10 @@ describe("SkinProfileScreen", () => {
     await fireEvent.press(screen.getAllByText("Edit")[0]);
     await fireEvent.press(screen.getByText("Dullness"));
 
-    expect(screen.getByText("Find my matches")).toBeTruthy();
+    expect(screen.getByText("Save")).toBeTruthy();
     expect(useAppStore.getState().profile.concerns).toEqual([]);
 
-    await fireEvent.press(screen.getByText("Find my matches"));
+    await fireEvent.press(screen.getByText("Save"));
 
     expect(useAppStore.getState().profile.concerns).toEqual(["dullness"]);
     expect(mockReplace).toHaveBeenCalled();
@@ -85,7 +85,7 @@ describe("SkinProfileScreen", () => {
     await fireEvent.press(screen.getByText("Keep editing"));
     expect(screen.queryByText("You have unsaved changes. Leave without saving?")).toBeNull();
     // Still just a draft — "Keep editing" must not have saved or discarded it.
-    expect(screen.getByText("Find my matches")).toBeTruthy();
+    expect(screen.getByText("Save")).toBeTruthy();
     expect(useAppStore.getState().profile.concerns).toEqual([]);
 
     await fireEvent.press(screen.getByLabelText("Back"));
