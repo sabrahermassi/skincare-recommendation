@@ -1880,7 +1880,10 @@ export async function fetchAccountExport(): Promise<Fetched<AccountExportRows>> 
     ]);
     if (products.error) return { ok: false, failure: classifyFailure(products.error) };
     if (ingredients.error) return { ok: false, failure: classifyFailure(ingredients.error) };
-    if (added.error) return { ok: false, failure: classifyFailure(added.error) };
+    // A project without migration 0026 yet has no `product_authors` table, and
+    // so no products anyone added through it: that is an empty list, not a
+    // reason to refuse the rest of the export. Any other failure still is.
+    if (added.error && !isMissingTable(added.error)) return { ok: false, failure: classifyFailure(added.error) };
     type ProductRow = ShelfProductRow & { note: string | null; routine_step: number | null };
     return {
       ok: true,
@@ -1896,7 +1899,7 @@ export async function fetchAccountExport(): Promise<Fetched<AccountExportRows>> 
           inciName: row.inci_name,
           savedAt: row.saved_at,
         })),
-        added: (added.data as { product_id: string; created_at: string }[]).map((row) => ({
+        added: ((added.error ? [] : added.data) as { product_id: string; created_at: string }[]).map((row) => ({
           productId: row.product_id,
           addedAt: row.created_at,
         })),
@@ -1905,6 +1908,16 @@ export async function fetchAccountExport(): Promise<Fetched<AccountExportRows>> 
   } catch (err) {
     return { ok: false, failure: classifyFailure(err) };
   }
+}
+
+/**
+ * Whether a read failed because the table isn't there at all: PostgREST's
+ * "not in the schema cache" (`PGRST205`), or Postgres's own "undefined table"
+ * (`42P01`). Exported for the tests.
+ */
+export function isMissingTable(error: unknown): boolean {
+  const code = typeof error === "object" && error !== null ? (error as { code?: unknown }).code : undefined;
+  return code === "PGRST205" || code === "42P01";
 }
 
 export type DeleteAccountResult =

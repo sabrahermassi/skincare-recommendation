@@ -34,7 +34,7 @@ import { assertEquals } from "jsr:@std/assert@1";
 import { Client } from "jsr:@db/postgres@0.19";
 
 import { enforceRateLimit, type RateLimit, type RateLimitDb } from "../functions/_shared/http.ts";
-import { resetRateLimits } from "../functions/_shared/rate-limit.ts";
+import { resetRateLimits, resetVerifiedTokens, SIGNED_IN_PER_ADDRESS } from "../functions/_shared/rate-limit.ts";
 
 /**
  * The real client is `jsr:@supabase/supabase-js`, which speaks PostgREST over
@@ -286,5 +286,62 @@ Deno.test("a cold start does not hand out a fresh allowance", () =>
       assertEquals(rows.rows[0][0], 21, "the refused request still incremented the shared count");
     } finally {
       await second.end();
+    }
+  }));
+
+/** A session token's shape: only its claims are read before Auth confirms it. */
+function sessionToken(sub: string): string {
+  const part = (value: object) =>
+    btoa(JSON.stringify(value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  return `${part({ alg: "HS256" })}.${part({ role: "authenticated", sub, exp })}.signature`;
+}
+
+function signedIn(ip: string, sub: string): Request {
+  const req = request(ip, 0);
+  req.headers.set("authorization", `Bearer ${sessionToken(sub)}`);
+  return req;
+}
+
+// Security review of the accounts stack: a signed-in request used to be
+// charged to its account alone, so one machine holding many accounts got one
+// allowance per account. Driven through `enforceRateLimit` itself, so the
+// order of the charges and the refusal are the shipped code's, not a copy.
+Deno.test("many accounts on one machine share one ceiling", () =>
+  inOneWindow(async (b) => {
+    resetVerifiedTokens();
+    const client = await connect();
+    // Auth confirms every token as the account its `sub` names.
+    const db: RateLimitDb = {
+      ...dbOver(client),
+      auth: {
+        getUser: (jwt) =>
+          Promise.resolve({ data: { user: { id: JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).sub } }, error: null }),
+      },
+    };
+    const small: RateLimit = { windowSeconds: LIMIT.windowSeconds, maxRequests: 2 };
+
+    try {
+      // Fewer accounts than the ten fresh tokens an address may have checked
+      // per minute, so every request is a confirmed account's.
+      let allowed = 0;
+      for (let a = 0; a < SIGNED_IN_PER_ADDRESS + 3; a++) {
+        for (let i = 0; i < small.maxRequests; i++) {
+          const res = await enforceRateLimit(signedIn("203.0.113.20", `farm-${a}`), db, b, small);
+          if (res === null) allowed++;
+          else await res.body?.cancel();
+        }
+      }
+      assertEquals(allowed, small.maxRequests * SIGNED_IN_PER_ADDRESS, "the address ceiling capped the accounts");
+
+      // Each account's own allowance still applies on a fresh address.
+      const own = await enforceRateLimit(signedIn("198.51.100.20", "farm-0"), db, b, small);
+      assertEquals(own?.status, 429, "an account's own allowance was spent");
+      await own?.body?.cancel();
+
+      // And a guest on the farmed address keeps the guests' own allowance.
+      assertEquals(await enforceRateLimit(request("203.0.113.20", 1), db, b, small), null);
+    } finally {
+      await client.end();
     }
   }));
