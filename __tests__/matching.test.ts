@@ -445,7 +445,10 @@ describe("verdict engine", () => {
             { label: "Your concerns", detail: "Nothing here strongly targets what you asked about", direction: "down" },
           ]);
         } else {
-          expect(lines[0]?.direction).toBe(requiredDirection);
+          // The label too, not only the direction: the neutral concern line
+          // (#292) points down but moved nothing, so it must not lead a Poor
+          // explanation in place of the honest aggregate.
+          expect(lines[0]).toMatchObject({ label: "Overall match", direction: requiredDirection });
         }
       }
     );

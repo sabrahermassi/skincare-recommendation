@@ -853,7 +853,11 @@ export function scoreExplanation(result: MatchResult): ScoreLine[] {
         : null;
 
   if (requiredDirection) {
-    const matchingIndex = lines.findIndex((line) => line.direction === requiredDirection);
+    // Only a line that moved the score can carry the verdict. The zero-weight
+    // neutral concern line (#292) must not stand in for "There isn't enough
+    // positive evidence" on a Poor score: it would blame concern fit for a
+    // number concern fit didn't move.
+    const matchingIndex = lines.findIndex((line) => line.direction === requiredDirection && line.weight > 0);
     if (matchingIndex > 0) {
       const [matching] = lines.splice(matchingIndex, 1);
       lines.unshift(matching);
