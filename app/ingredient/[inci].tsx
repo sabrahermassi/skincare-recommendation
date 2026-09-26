@@ -8,6 +8,7 @@ import Svg, { Path } from "react-native-svg";
 
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { ReportMistakeLink } from "@/components/ReportMistakeLink";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SourceLink } from "@/components/SourceLink";
 import { Text } from "@/components/Text";
@@ -436,6 +437,11 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
         <Text style={{ paddingHorizontal: 24, paddingTop: 36, fontSize: TYPE.caption, color: MUTED_FAINT }}>
           Reference data from Open Beauty Facts and EU CosIng.
         </Text>
+
+        {/* A wrong name, reading or claim gets told to us (#327). */}
+        <View style={{ paddingHorizontal: 24, paddingTop: 8 }}>
+          <ReportMistakeLink subject={{ kind: "ingredient", name: ingredient.name }} />
+        </View>
       </ScrollView>
 
       {inList ? (

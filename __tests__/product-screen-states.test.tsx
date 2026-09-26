@@ -20,6 +20,9 @@ jest.mock("expo-router", () => ({
   router: { back: jest.fn(), canGoBack: () => true, push: jest.fn(), replace: jest.fn() },
   Stack: { Screen: () => null },
   useLocalSearchParams: () => mockParams,
+  // What a loaded product's screen reaches for (#327's tests open one).
+  useIsFocused: () => true,
+  useFocusEffect: () => undefined,
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -77,5 +80,55 @@ describe.each([
     expect(screen.getByText("Product not found")).toBeTruthy();
     expect(screen.getByText("Search instead")).toBeTruthy();
     expect(screen.queryByText("Couldn't load this product")).toBeNull();
+  });
+});
+
+// #327: a loaded product ends with a quiet "Report a mistake" link, when
+// there is a support address to send it to.
+describe("the product screen's Report a mistake link", () => {
+  const original = process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
+  afterEach(() => {
+    process.env.EXPO_PUBLIC_SUPPORT_EMAIL = original;
+  });
+
+  const PRODUCT = {
+    id: "obf-8801234567890",
+    barcode: "8801234567890",
+    brand: "Brand",
+    name: "Toner",
+    type: "toner",
+    productType: "toner",
+    price: 0,
+    volume: "",
+    suitableFor: [],
+    targets: [],
+    description: "",
+    benefits: [],
+    imageUrl: null,
+    attribution: null,
+    fetchedAt: "2026-09-26T00:00:00Z",
+    ingredientIds: [],
+    inStock: true,
+    ingredients: [],
+  };
+
+  async function open() {
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+  }
+
+  it("shows the link when a support address is set", async () => {
+    process.env.EXPO_PUBLIC_SUPPORT_EMAIL = "help@example.com";
+    await open();
+    expect(screen.getAllByText("Toner").length).toBeGreaterThan(0);
+    expect(screen.getByText("Report a mistake")).toBeTruthy();
+  });
+
+  it("hides it when none is", async () => {
+    delete process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
+    await open();
+    expect(screen.getAllByText("Toner").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Report a mistake")).toBeNull();
   });
 });

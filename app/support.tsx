@@ -5,11 +5,12 @@ import { Linking, Pressable, ScrollView, View } from "react-native";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
+import { supportEmail } from "@/lib/support-email";
 import { CANVAS, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
-// Where to write to. Set it in the app's environment; until it is, the screen
-// shows the help below and no contact button rather than a made-up address.
-const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
+// Where to write to. Until it is set, the screen shows the help below and no
+// contact button rather than a made-up address.
+const SUPPORT_EMAIL = supportEmail();
 
 const HELP: { title: string; body: string }[] = [
   {

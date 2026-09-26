@@ -13,6 +13,7 @@ import { IngredientsSheet, ingredientsSheetPeek } from "@/components/Ingredients
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
+import { ReportMistakeLink } from "@/components/ReportMistakeLink";
 import { ContextNudgesSection, ExplanationLine, HowScoringLink, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { HeartIcon } from "@/components/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -715,6 +716,13 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
             })
           }
         />
+
+        {/* Last and quiet: a wrong name or list gets told to us (#327). */}
+        <View style={{ paddingHorizontal: SPACE.gutter }}>
+          <ReportMistakeLink
+            subject={{ kind: "product", id: product.id, name: product.name, brand: product.brand, barcode: product.barcode }}
+          />
+        </View>
 
         </View>
       </ScrollView>
