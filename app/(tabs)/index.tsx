@@ -12,13 +12,14 @@ import { homeGreetingLayout, SIGNATURE_WIDTH } from "@/lib/home-greeting";
 import { tabBarClearance } from "@/lib/tab-bar";
 import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, SPACE } from "@/lib/tokens";
 
-// The watercolor from onboarding's second screen: a bottle and its ingredient list.
-const SCAN_ART = require("@/assets/illustrations/scan-a-product.png");
-// "Find skincare": the tube under a magnifier, from onboarding's ingredients
-// screen, standing in until the card has art of its own.
-const FIND_ART = require("@/assets/illustrations/onboarding/hero-ingredients.png");
-// The picture at the top of each of the two cards.
-const ACTION_ART_HEIGHT = 96;
+// The two cards' watercolors: a hand holding a tube inside a scanner's frame, and
+// two hands holding a serum and a pump bottle. Square, on cream paper, drawn edge
+// to edge across the top of their cards (brought down to 600px from 1254px).
+const SCAN_ART = require("@/assets/illustrations/home-scan.png");
+const FIND_ART = require("@/assets/illustrations/home-find.png");
+// The picture's shape on the card: a little wider than tall, so the square art
+// loses a sliver top and bottom and the card stays short enough for the still life.
+const ACTION_ART_ASPECT = 1.15;
 // The watercolor still life under the cards: bottles, a vase and a handwritten
 // "A little progress every day", on a transparent ground.
 const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.png");
@@ -192,8 +193,8 @@ export default function Home() {
 }
 
 /**
- * One of Home's two cards: a picture on top, the title with its arrow, and a
- * line under it. The shade sits on an outer view: a view that clips its picture
+ * One of Home's two cards: a picture across the top, the title with its arrow,
+ * and a line under it. The shade sits on an outer view: a view that clips its picture
  * (overflow hidden) loses its own shade on iOS.
  */
 function ActionCard({ title, detail, art, onPress }: { title: string; detail: string; art: number; onPress: () => void }) {
@@ -209,10 +210,11 @@ function ActionCard({ title, detail, art, onPress }: { title: string; detail: st
         accessibilityRole="button"
         accessibilityLabel={`${title}. ${detail}`}
         className="active:opacity-90"
-        style={{ flexGrow: 1, borderRadius: 22, padding: 16, gap: 10, overflow: "hidden" }}
+        style={{ flexGrow: 1, borderRadius: 22, overflow: "hidden" }}
       >
-        <Image source={art} contentFit="contain" accessibilityLabel="" style={{ width: "100%", height: ACTION_ART_HEIGHT }} />
-        <View style={{ gap: 4 }}>
+        {/* Edge to edge: the card's rounded corners clip the picture's top corners. */}
+        <Image source={art} contentFit="cover" accessibilityLabel="" style={{ width: "100%", aspectRatio: ACTION_ART_ASPECT }} />
+        <View style={{ gap: 4, padding: 16, paddingTop: 12 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Text style={{ flexShrink: 1, fontFamily: "PlayfairDisplay_500Medium", fontSize: 19, color: INK }}>{title}</Text>
             <ArrowIcon size={18} color={INK} strokeWidth={2.4} />
