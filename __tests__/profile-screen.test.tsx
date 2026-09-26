@@ -145,4 +145,28 @@ describe("ProfileScreen", () => {
     await fireEvent.press(screen.getByText("Skin profile"));
     expect(mockPush).toHaveBeenLastCalledWith("/skin-profile");
   });
+
+  it("asks to fill in the skin profile only until the answers score", async () => {
+    await render(<ProfileScreen />);
+    expect(screen.getByRole("button", { name: "Skin profile. Tap to fill in" })).toBeTruthy();
+    await act(async () => screen.unmount());
+
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["dullness"] } }, false);
+    await render(<ProfileScreen />);
+    expect(screen.queryByText("Tap to fill in")).toBeNull();
+    expect(screen.getByRole("button", { name: "Skin profile" })).toBeTruthy();
+  });
+
+  it("opens the skincare routine, account, privacy policy and support from the menu", async () => {
+    await render(<ProfileScreen />);
+    for (const [label, route] of [
+      ["Skincare routine", "/routine"],
+      ["Account", "/account"],
+      ["Privacy policy", "/privacy"],
+      ["Support", "/support"],
+    ] as const) {
+      await fireEvent.press(screen.getByRole("button", { name: label }));
+      expect(mockPush).toHaveBeenLastCalledWith(route);
+    }
+  });
 });
