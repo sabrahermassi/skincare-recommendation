@@ -18,6 +18,7 @@ jest.setTimeout(20_000);
 
 const mockReplace = jest.fn();
 const mockDismissTo = jest.fn();
+let mockParams: Record<string, string> = {};
 
 jest.mock("expo-router", () => ({
   router: {
@@ -25,7 +26,7 @@ jest.mock("expo-router", () => ({
     dismissTo: (...args: unknown[]) => mockDismissTo(...args),
     back: jest.fn(),
   },
-  useLocalSearchParams: () => ({}),
+  useLocalSearchParams: () => mockParams,
 }));
 
 jest.mock("expo-camera", () => ({
@@ -38,6 +39,7 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 
 jest.mock("@/data/api", () => ({
+  canPhotographLabelFor: jest.requireActual("@/data/api").canPhotographLabelFor,
   failureMessage: () => "",
   fetchProductByBarcode: jest.fn(),
   forgetScanned: jest.fn(),
@@ -54,6 +56,7 @@ function freshToken(deadline: number) {
 }
 
 beforeEach(() => {
+  mockParams = {};
   mockReplace.mockClear();
   mockDismissTo.mockClear();
   (saveScannedProduct as unknown as MockFn).mockClear();
@@ -278,5 +281,23 @@ describe("AddProduct — no held read", () => {
     expect(
       screen.getByText("There's no ingredient list to add. Scan a product and photograph its ingredients to start.")
     ).toBeTruthy();
+  });
+});
+
+// #29: `forme://add-product?barcode=…` can carry anything.
+describe("AddProduct — barcode from a link", () => {
+  it("drops a barcode that isn't one and asks for the real one", async () => {
+    mockParams = { barcode: "../../account" };
+    holdLabelRead({ ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    await render(<AddProduct />);
+    expect(screen.getByText("Now scan its barcode")).toBeTruthy();
+    expect(screen.queryByText(/Barcode \.\.\//)).toBeNull();
+  });
+
+  it("uses a well-formed one", async () => {
+    mockParams = { barcode: "8801234567890" };
+    holdLabelRead({ ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    await render(<AddProduct />);
+    expect(screen.getByText("Barcode 8801234567890")).toBeTruthy();
   });
 });

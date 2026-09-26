@@ -106,6 +106,36 @@ second table is planned; if that ever changes, it gets its own row.
   scan that took it.
 - **Client ↔ backend (Supabase).** Anon key today; will carry a session token
   once accounts exist. This is where every RLS policy does its work.
+- **Links into the app (`forme://`, #29).** Any web page, QR code or other
+  app can open a route with whatever it likes in the path and query, so a
+  link is untrusted input. Two properties hold:
+  1. **Opening a route changes nothing.** Every write — saving, erasing,
+     signing in, deleting the account, adding a product — needs a tap on the
+     screen the link opened. No session arrives by URL either: sign-in uses
+     native ID tokens with a nonce, and Supabase is told not to read sessions
+     from URLs (`detectSessionInUrl: false`, `lib/supabase.ts`).
+  2. **Every parameter a route reads is checked before use**
+     (`lib/route-params.ts`, tested in `__tests__/deep-link-params.test.tsx`).
+     A malformed one shows "Page not found" or is dropped; it never reaches a
+     query, the saved shelf or the screen's text.
+
+  The routes, and what a link can put in them:
+
+  | Route | Parameters from a link | Check |
+  |---|---|---|
+  | `/`, `/browse`, `/saved`, `/profile` (tabs), `/school`, `/support`, `/privacy`, `/scanner` | none | — |
+  | `/product/<id>`, `/result/<id>` | `id`; `from` (analytics only) | `productIdParam`: letters, digits, `-`, `_`, ≤128; else Page not found. `from` is matched against fixed values |
+  | `/ingredients/<id>` | `id`; `tab` | `productIdParam`; `tab` must be one of the list's tabs, else "All" |
+  | `/ingredient/<name>` | `name`; `product` | `ingredientNameParam`: non-empty, ≤2,048, no control or invisible formatting characters, else Page not found. A malformed `product` is dropped |
+  | `/scan-label`, `/label-result`, `/add-product` | `barcode` | `barcodeParam`: 8–14 digits, else dropped. The ingredient list itself is never taken from a link: it is held in memory from the photo just read |
+  | `/sign-in` | `from` (analytics only) | fixed values |
+  | `/skin-profile` | `returnTo` | only `"product"` does anything (goes back) |
+  | `/onboarding` | none | "Your profile is erased" comes from the erase itself, held in memory (`lib/erase-notice.ts`), never from the URL |
+  | `/account` | none | shows account details only for this phone's own session |
+  | anything else | — | Page not found (`app/+not-found.tsx`) |
+
+  A new route that reads a parameter adds a row here and a check in
+  `lib/route-params.ts`.
 - **Backend ↔ Google Vision.** One image per label scan, in transit only.
   Response text is trusted only as far as `label-ocr`'s existing parsing
   guards go, and none of it is sent back to the app when a read fails. The

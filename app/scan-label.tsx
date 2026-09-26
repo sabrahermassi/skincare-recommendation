@@ -2,6 +2,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useRef } from "react";
 
 import { LabelCamera } from "@/components/LabelCamera";
+import { barcodeParam as barcodeParamOf } from "@/lib/route-params";
 
 /**
  * Photograph the ingredient list — the full-screen route. The camera and the
@@ -11,7 +12,8 @@ import { LabelCamera } from "@/components/LabelCamera";
  * hand when they have one.
  */
 export default function ScanLabel() {
-  const { barcode } = useLocalSearchParams<{ barcode?: string }>();
+  // From a link, so only a real barcode is kept (#29).
+  const barcode = barcodeParamOf(useLocalSearchParams<{ barcode?: string }>().barcode);
   // False once this screen is closed (the X, hardware Back) or covered: a read that was
   // pending then must not `replace` whatever screen is showing with its result.
   const active = useRef(true);

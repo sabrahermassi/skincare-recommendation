@@ -22,6 +22,7 @@ import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { barcodeParam as barcodeParamOf } from "@/lib/route-params";
 
 /**
  * The verdict from a photographed label alone — score, reasons, confidence,
@@ -34,7 +35,8 @@ import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
  * add-product is reached from the button below, not the other way round.
  */
 export default function LabelResult() {
-  const { barcode: barcodeParam } = useLocalSearchParams<{ barcode?: string }>();
+  // From a link, so only a real barcode is kept (#29).
+  const barcodeParam = barcodeParamOf(useLocalSearchParams<{ barcode?: string }>().barcode);
   const [read] = useState(heldLabelRead);
 
   if (!read) return <NothingToShow />;

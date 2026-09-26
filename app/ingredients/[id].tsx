@@ -10,6 +10,8 @@ import { Text } from "@/components/Text";
 import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
+import { productIdParam } from "@/lib/route-params";
+import NotFound from "@/app/+not-found";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, INK, MUTED, TYPE } from "@/lib/tokens";
@@ -24,11 +26,18 @@ import { CANVAS, INK, MUTED, TYPE } from "@/lib/tokens";
  * this and reading the back of the box.
  */
 
-export default function IngredientList() {
+/** The route: a link's id that can't be a catalogue id is a page that doesn't exist (#29). */
+export default function IngredientListRoute() {
   // `tab` arrives from the product screen's pore-clogging list, which deep
   // links straight into the filtered view rather than dropping you on "All"
   // to find them yourself.
   const { id, tab: initialTab } = useLocalSearchParams<{ id: string; tab?: string }>();
+  const productId = productIdParam(id);
+  if (!productId) return <NotFound />;
+  return <IngredientList id={productId} initialTab={initialTab} />;
+}
+
+function IngredientList({ id, initialTab }: { id: string; initialTab?: string }) {
   // Seeded from the catalogue cache so a product already in memory paints on
   // the first frame instead of a spinner — same seam as `app/product/[id].tsx`.
   const [product, setProduct] = useState<ProductWithIngredients | null>(() =>

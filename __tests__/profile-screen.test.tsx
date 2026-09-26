@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import ProfileScreen from "@/app/(tabs)/profile";
 import type { HistoryEntry, SavedProduct } from "@/store/useAppStore";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
+import { profileErasedNoticePending } from "@/lib/erase-notice";
 
 /**
  * The first screen-render test in this repo — see issue #153. Everything
@@ -89,10 +90,9 @@ describe("ProfileScreen", () => {
     await fireEvent.press(screen.getByText("Yes, delete my profile"));
 
     expect(useAppStore.getState().profile).toEqual(EMPTY_PROFILE);
-    expect(mockReplace).toHaveBeenCalledWith({
-      pathname: "/onboarding",
-      params: { erased: "1" },
-    });
+    expect(mockReplace).toHaveBeenCalledWith("/onboarding");
+    // The "erased" notice travels in memory, never in a URL a link could set (#29).
+    expect(profileErasedNoticePending()).toBe(true);
   });
 
   it("erase also clears the saved shelf, starred ingredients and history, not just the profile", async () => {
