@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HEADER_GUTTER } from "@/components/AppHeader";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text } from "@/components/Text";
+import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { homeGreetingWidth } from "@/lib/home-greeting";
 import { tabBarClearance } from "@/lib/tab-bar";
@@ -17,6 +18,10 @@ import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, TYPE } from "@/lib/tokens";
 // margins trimmed, and brought down to 500px from 1254px).
 const SCAN_ART = require("@/assets/illustrations/home-scan.webp");
 const FIND_ART = require("@/assets/illustrations/home-find.webp");
+// Stand-ins from the watercolor set until the owner's own art for these two
+// cards arrives: a line of products for Find a product, a shelf for the routine.
+const MATCH_ART = require("@/assets/illustrations/history-empty.webp");
+const ROUTINE_ART = require("@/assets/illustrations/saved-empty-shelf.webp");
 // The gap between the two cards.
 const ACTION_CARD_GAP = 12;
 // The least room the picture keeps. The cards are square, and grow taller rather
@@ -42,11 +47,11 @@ const ACTION_CARD_PRESSED = 0.96;
 /**
  * Home — the first screen after the intro.
  *
- * A greeting, then two cards side by side — "Scan a product", which opens the
- * full-screen scanner, and "Find skincare", which opens Browse — and a
- * watercolor still life under them, running on past the bottom edge of the screen. The layout is
- * fixed while it fits; on a short screen or with large text it scrolls, so both
- * cards are always reachable.
+ * A greeting, then four cards two by two — "Scan a product" (the full-screen
+ * scanner), "Find a product" (the skin quiz), "Skincare routine" (not built
+ * yet) and "Search" (Browse) — and a watercolor still life under them, running
+ * on past the bottom edge of the screen. The layout is fixed while it fits; on
+ * a short screen or with large text it scrolls, so every card is reachable.
  */
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -77,23 +82,37 @@ export default function Home() {
             style={{ width: greetingWidth, aspectRatio: GREETING_ASPECT }}
           />
 
-          {/* The two ways in, side by side: scan a product in hand, or find one
-              by name. "Find skincare" opens Browse, which has no tab of its own. */}
-          <View style={{ flexDirection: "row", gap: ACTION_CARD_GAP }}>
-            <ActionCard
-              title="Scan a product"
-              detail="Analyze a product by photo or barcode."
-              art={SCAN_ART}
-              side={cardSide}
-              onPress={openScanner}
-            />
-            <ActionCard
-              title="Find skincare"
-              detail="Search products or brands."
-              art={FIND_ART}
-              side={cardSide}
-              onPress={() => router.navigate("/browse")}
-            />
+          {/* The four ways in, two by two (owner): scan a product in hand; find
+              one that fits, starting with the skin quiz; the skincare routine,
+              still to come; and search by name, which opens Browse (it has no
+              tab of its own). */}
+          <View style={{ gap: ACTION_CARD_GAP }}>
+            <View style={{ flexDirection: "row", gap: ACTION_CARD_GAP }}>
+              <ActionCard
+                title="Scan a product"
+                detail="Analyze a product by photo or barcode."
+                art={SCAN_ART}
+                side={cardSide}
+                onPress={openScanner}
+              />
+              <ActionCard
+                title="Find a product"
+                detail="Take the skin quiz to see what fits you."
+                art={MATCH_ART}
+                side={cardSide}
+                onPress={openQuiz}
+              />
+            </View>
+            <View style={{ flexDirection: "row", gap: ACTION_CARD_GAP }}>
+              <ActionCard title="Skincare routine" detail="Coming soon." art={ROUTINE_ART} side={cardSide} />
+              <ActionCard
+                title="Search"
+                detail="Search products or brands."
+                art={FIND_ART}
+                side={cardSide}
+                onPress={() => router.navigate("/browse")}
+              />
+            </View>
           </View>
 
         </View>
@@ -117,8 +136,9 @@ export default function Home() {
 }
 
 /**
- * One of Home's two cards, square at least (`side`): the picture on top, then
- * the title with its arrow and a line under it. The shade sits on an outer view: a view that clips its picture
+ * One of Home's four cards, square at least (`side`): the picture on top, then
+ * the title with its arrow and a line under it. With no `onPress` (the routine,
+ * not built yet) it is a plain card: no arrow, not a button. The shade sits on an outer view: a view that clips its picture
  * (overflow hidden) loses its own shade on iOS.
  */
 function ActionCard({
@@ -132,7 +152,7 @@ function ActionCard({
   detail: string;
   art: number;
   side: number;
-  onPress: () => void;
+  onPress?: () => void;
 }) {
   const [scale] = useState(() => new Animated.Value(1));
   const press = (to: number) =>
@@ -150,9 +170,11 @@ function ActionCard({
     >
       <Pressable
         onPress={onPress}
-        onPressIn={() => press(ACTION_CARD_PRESSED)}
-        onPressOut={() => press(1)}
-        accessibilityRole="button"
+        onPressIn={onPress ? () => press(ACTION_CARD_PRESSED) : undefined}
+        onPressOut={onPress ? () => press(1) : undefined}
+        disabled={!onPress}
+        accessibilityRole={onPress ? "button" : undefined}
+        accessible
         accessibilityLabel={`${title}. ${detail}`}
         className="active:opacity-90"
         style={{ flexGrow: 1, borderRadius: 22, overflow: "hidden" }}
@@ -167,7 +189,7 @@ function ActionCard({
         <View style={{ gap: 2, paddingHorizontal: 14, paddingTop: 6, paddingBottom: 14 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
             <Text style={{ flexShrink: 1, fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.body, color: INK }}>{title}</Text>
-            <ArrowIcon size={15} color={INK} strokeWidth={2.4} />
+            {onPress ? <ArrowIcon size={15} color={INK} strokeWidth={2.4} /> : null}
           </View>
           <Text style={{ fontSize: 11.5, lineHeight: 15, color: MUTED }}>{detail}</Text>
         </View>

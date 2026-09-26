@@ -8,8 +8,6 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 jest.setTimeout(30000);
 
-const mockOpenScanner = jest.fn();
-jest.mock("@/lib/open-scanner", () => ({ openPhotoScanner: (photo: unknown) => mockOpenScanner(photo) }));
 
 // Search's own params (`byName`, #323).
 let mockParams: Record<string, string> = {};
@@ -58,10 +56,11 @@ it("goes back to Home from its back arrow, having no tab of its own", async () =
 });
 
 describe("before typing", () => {
-  it("shows the search box and the watercolor still life, and no product list", async () => {
+  it("shows the search box, a picture and what Search is for, and no product list", async () => {
     await render(<Search />);
     expect(screen.getByLabelText("Search products or brands")).toBeTruthy();
     expect(screen.getByLabelText("A little progress every day")).toBeTruthy();
+    expect(screen.getByText("Search by name or brand")).toBeTruthy();
     expect(screen.queryByText("Scan a product instead")).toBeNull();
     expect(screen.queryByText("Recently viewed")).toBeNull();
     expect(screen.queryByText("Hanbang Rice Ferment Hydrating Serum")).toBeNull();
@@ -101,14 +100,13 @@ describe("typing", () => {
     expect(scores).toEqual([...scores].sort((a, b) => b - a));
   });
 
-  it("offers to photograph the ingredient list when nothing matches", async () => {
+  it("says it looked everywhere when nothing matches, with no button", async () => {
     await render(<Search />);
     await act(async () => fireEvent.changeText(screen.getByLabelText("Search products or brands"), "zzzz nothing"));
-    expect(await screen.findByText("We don't have this product in our library yet.", {}, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText("We looked everywhere", {}, { timeout: 3000 })).toBeTruthy();
+    expect(screen.getByText("This product isn't in our library yet. Try searching for another one.")).toBeTruthy();
     expect(screen.queryByLabelText("A little progress every day")).toBeNull();
-    await act(async () => fireEvent.press(screen.getByText("Scan the list of ingredients instead")));
-    // The scanner, in Photo mode.
-    expect(mockOpenScanner).toHaveBeenCalledWith({});
+    expect(screen.queryByRole("button", { name: "Scan the list of ingredients instead" })).toBeNull();
   });
 
   it("waits for three letters before it searches", async () => {
@@ -118,7 +116,7 @@ describe("typing", () => {
     // line saying why nothing happened yet.
     expect(screen.getByLabelText("A little progress every day")).toBeTruthy();
     expect(screen.getByText("Type at least three letters to search.")).toBeTruthy();
-    expect(screen.queryByText("We don't have this product in our library yet.")).toBeNull();
+    expect(screen.queryByText("We looked everywhere")).toBeNull();
 
     await act(async () => fireEvent.changeText(screen.getByLabelText("Search products or brands"), "cer"));
     expect(screen.queryByLabelText("A little progress every day")).toBeNull();
