@@ -144,7 +144,7 @@ describe("the quiz, as a modal", () => {
         <PregnancyStep />
       </QuizFrame>,
     );
-    await fireEvent.press(screen.getByText("Neither"));
+    await fireEvent.press(screen.getByText("No"));
     await fireEvent.press(screen.getByText("Finish"));
     expect(mockGoBack).toHaveBeenCalledTimes(1);
     expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -171,7 +171,7 @@ describe("the quiz opened from a link, with nothing behind it", () => {
         <PregnancyStep />
       </QuizFrame>,
     );
-    await fireEvent.press(screen.getByText("Neither"));
+    await fireEvent.press(screen.getByText("No"));
     await fireEvent.press(screen.getByText("Finish"));
     expect(mockGoBack).not.toHaveBeenCalled();
     expect(mockRouter.replace).toHaveBeenCalledWith("/");

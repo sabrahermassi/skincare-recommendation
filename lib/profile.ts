@@ -84,12 +84,28 @@ export const CONCERN_TITLE: Record<Concern, string> = {
   atopic: "Eczema-prone",
 };
 
+// Asked as a yes or no (owner). "breastfeeding" and "prefer-not-to-say" are
+// no longer offered, but an older answer can still hold them.
 const PREGNANCY_LABEL: Record<Pregnancy, string> = {
-  pregnant: "Pregnant",
-  breastfeeding: "Breastfeeding",
-  neither: "Neither",
+  pregnant: "Yes",
+  breastfeeding: "Yes",
+  neither: "No",
   "prefer-not-to-say": "Prefer not to say",
 };
+
+/**
+ * Which of the two offered answers an answer counts as: breastfeeding is a
+ * Yes, like pregnant (scoring treats them the same). Only a legacy "prefer not
+ * to say" matches neither.
+ */
+export function pregnancyYesNo(status: Pregnancy): Pregnancy {
+  return status === "breastfeeding" ? "pregnant" : status;
+}
+
+/** The pregnancy question in its own words, and why it's asked. */
+export const PREGNANCY_QUESTION = "Are you pregnant or breastfeeding?";
+export const PREGNANCY_WHY =
+  "This helps us flag ingredients best avoided while pregnant or breastfeeding, like retinoids, salicylic acid and hydroquinone.";
 
 export function pregnancyLabel(status: Pregnancy): string {
   return PREGNANCY_LABEL[status];

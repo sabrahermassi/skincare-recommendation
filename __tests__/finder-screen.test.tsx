@@ -25,7 +25,7 @@ beforeEach(() => {
 
 it("shows all four questions at once, and waits for one answer before showing products", async () => {
   await render(<Finder />);
-  for (const title of ["Skin concerns", "Skin type", "Sensitivity", "Pregnant or breastfeeding?"]) {
+  for (const title of ["Skin concerns", "Skin type", "Sensitivity", "Are you pregnant or breastfeeding?"]) {
     expect(screen.getByRole("header", { name: title })).toBeTruthy();
   }
   await fireEvent.press(screen.getByRole("button", { name: "Show products" }));
@@ -53,4 +53,12 @@ it("starts from its own last choices, not the skin profile", async () => {
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "dry" } });
   await render(<Finder />);
   expect(screen.getByRole("radio", { name: "Dry" }).props.accessibilityState.checked).toBe(false);
+});
+
+it("asks about pregnancy as a yes or no, and says why", async () => {
+  await render(<Finder />);
+  expect(screen.getByRole("radio", { name: "Yes" })).toBeTruthy();
+  expect(screen.getByRole("radio", { name: "No" })).toBeTruthy();
+  expect(screen.queryByRole("radio", { name: "Prefer not to say" })).toBeNull();
+  expect(screen.getByText(/flag ingredients best avoided while pregnant or breastfeeding/)).toBeTruthy();
 });

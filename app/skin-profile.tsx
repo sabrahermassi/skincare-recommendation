@@ -8,7 +8,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import { haptic } from "@/lib/haptics";
-import { answeredWithoutSignal, CONCERN_TITLE, isPersonalized, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
+import { answeredWithoutSignal, CONCERN_TITLE, isPersonalized, PREGNANCY_QUESTION, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
 import { CANVAS, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
 
@@ -21,7 +21,7 @@ const TITLES: Record<Question, string> = {
   sensitivity: "Sensitivity",
   pregnancy: "Pregnancy",
 };
-const QUESTIONS: Record<Question, string> = { ...TITLES, pregnancy: "Pregnant or breastfeeding?" };
+const QUESTIONS: Record<Question, string> = { ...TITLES, pregnancy: PREGNANCY_QUESTION };
 
 /**
  * Skin profile (owner's reference, a settings list): each answer from the skin
