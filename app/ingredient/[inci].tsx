@@ -121,14 +121,19 @@ function HeartIcon({ color }: { color: string }) {
   );
 }
 
-/** The "Want to learn more?" arrow, grown with its 14.5px title (#334). */
+/** The "Want to learn more?" title's size, which its arrow follows. */
+const LEARN_MORE_SIZE = 14.5;
+/** A "Things to know" note's size, which its tick follows. */
+const NOTE_SIZE = 13;
+
+/** The "Want to learn more?" arrow, grown with its title (#334). */
 function LearnMoreArrow() {
-  return <ArrowIcon size={17 * useTextScale(14.5)} color={INK} />;
+  return <ArrowIcon size={17 * useTextScale(LEARN_MORE_SIZE)} color={INK} />;
 }
 
-/** A "Things to know" tick, grown with the 13px note beside it (#334). */
+/** A "Things to know" tick, grown with the note beside it (#334). */
 function CheckIcon({ color }: { color: string }) {
-  const size = 16 * useTextScale(13);
+  const size = 16 * useTextScale(NOTE_SIZE);
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m5 12.6 4.6 4.6L19 6.8" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
@@ -402,7 +407,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
               {notes.map((note) => (
                 <View key={note} className="flex-row items-center gap-3">
                   <CheckIcon color={meta.hero} />
-                  <Text style={{ flex: 1, fontSize: 13, lineHeight: 18, color: INK }}>{note}</Text>
+                  <Text style={{ flex: 1, fontSize: NOTE_SIZE, lineHeight: 18, color: INK }}>{note}</Text>
                 </View>
               ))}
             </View>
@@ -445,7 +450,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             className="active:opacity-80"
           >
             <View className="shrink gap-0.5">
-              <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Want to learn more?</Text>
+              <Text style={{ fontSize: LEARN_MORE_SIZE, fontWeight: "600", color: INK }}>Want to learn more?</Text>
               <Text style={{ fontSize: 12.5, color: MUTED }}>See studies and evidence</Text>
             </View>
             <LearnMoreArrow />
