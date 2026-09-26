@@ -114,24 +114,30 @@ export default function IngredientList() {
 
   if (failure && !product) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS, paddingHorizontal: 32, gap: 16 }}>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: INK, textAlign: "center" }}>
-          Couldn&apos;t load this product
-        </Text>
-        <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
-          {failureMessage(failure)}
-        </Text>
-        <PrimaryButton size={52} label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
+      <View style={{ flex: 1, backgroundColor: CANVAS }}>
+        <ScreenHeader title="Ingredients" />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 16 }}>
+          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: INK, textAlign: "center" }}>
+            Couldn&apos;t load this product
+          </Text>
+          <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
+            {failureMessage(failure)}
+          </Text>
+          <PrimaryButton size={52} label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
+        </View>
       </View>
     );
   }
 
   if (!product || !match) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS, paddingHorizontal: 32 }}>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: INK }}>
-          Product not found
-        </Text>
+      <View style={{ flex: 1, backgroundColor: CANVAS }}>
+        <ScreenHeader title="Ingredients" />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: INK }}>
+            Product not found
+          </Text>
+        </View>
       </View>
     );
   }

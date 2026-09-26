@@ -1,9 +1,10 @@
 import { Image } from "expo-image";
-import { router, Stack, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import { usePreventRemove } from "expo-router/react-navigation";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
-import { BackHandler, Pressable, ScrollView, View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -93,9 +94,9 @@ export default function ProfileScreen() {
 
   const [draft, setDraft] = useState<SkinProfile>(storedProfile);
   const [expanded, setExpanded] = useState<SectionKey | null>(null);
-  // Gates the back chevron: the expand-in-place editors make it
-  // easy to tap a couple of chips and then reflexively tap back, which used
-  // to discard that draft with no warning at all.
+  // Gates every way back: the expand-in-place editors make it easy to tap a
+  // couple of chips and then reflexively go back, which used to discard that
+  // draft with no warning at all.
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   function patch(p: Partial<SkinProfile>) {
     setDraft((d) => ({ ...d, ...p }));
@@ -129,21 +130,26 @@ export default function ProfileScreen() {
     return normalize(draft) !== normalize(storedProfile);
   }, [draft, storedProfile]);
 
-  // The chevron asks before throwing an edit away, but the system back paths skip it:
-  // Android's hardware and gesture back arrive as a "hardwareBackPress" event, and the
-  // iOS swipe-back pops the route directly. While there is an unsaved draft the first is
-  // caught and sent to the same confirmation, and the swipe is switched off (see the
-  // Stack.Screen below), so the chevron's confirmation is the only way out.
-  useEffect(() => {
-    if (!dirty) return;
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      setConfirmingDiscard(true);
-      return true;
-    });
-    return () => subscription.remove();
-  }, [dirty]);
+  // Every way out — the chevron, the iOS swipe-back, Android's back — arrives here
+  // while there is an unsaved draft, and waits on the confirmation below. The
+  // leave that was held back is kept, so "Discard changes" finishes that same
+  // leave (a swipe goes back, a link-straight-here fallback still replaces).
+  // Saving is the one leave that must not ask: the store has the draft already,
+  // but `dirty` still reads the last render until the screen re-renders.
+  const navigation = useNavigation();
+  const heldLeave = useRef<Parameters<typeof navigation.dispatch>[0] | null>(null);
+  const saving = useRef(false);
+  usePreventRemove(dirty, ({ data }) => {
+    if (saving.current) {
+      navigation.dispatch(data.action);
+      return;
+    }
+    heldLeave.current = data.action;
+    setConfirmingDiscard(true);
+  });
 
   function save() {
+    saving.current = true;
     setProfile(draft);
     haptic.success();
     // Go straight to the screen that shows the effect of the save: the product
@@ -160,18 +166,6 @@ export default function ProfileScreen() {
   function leave() {
     if (router.canGoBack()) router.back();
     else router.replace("/browse");
-  }
-
-  function goBack() {
-    // An in-progress edit (a chip tapped, nothing saved yet) used to vanish
-    // silently the moment this was tapped — the expand-in-place editors make
-    // that easy to hit by accident now that browsing between cards happens
-    // before the one save action, not during every keystroke.
-    if (dirty) {
-      setConfirmingDiscard(true);
-      return;
-    }
-    leave();
   }
 
   const concernRows: SummaryRow[] =
@@ -213,10 +207,9 @@ export default function ProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <Stack.Screen options={{ gestureEnabled: !dirty }} />
       <View style={{ paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: 2 }}>
         <Pressable
-          onPress={goBack}
+          onPress={leave}
           hitSlop={14}
           accessibilityRole="button"
           accessibilityLabel="Back"
@@ -253,7 +246,9 @@ export default function ProfileScreen() {
             <Pressable
               onPress={() => {
                 setConfirmingDiscard(false);
-                leave();
+                const held = heldLeave.current;
+                heldLeave.current = null;
+                if (held) navigation.dispatch(held);
               }}
               accessibilityRole="button"
               style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}

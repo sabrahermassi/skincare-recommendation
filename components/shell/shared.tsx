@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Pressable, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text } from "@/components/Text";
 import { COLORS } from "@/lib/colors";
 import { CANVAS } from "@/lib/tokens";
@@ -69,16 +70,22 @@ export function ProgressDots({ count, activeIndex }: { count: number; activeInde
 /** Skip's type size: the same on the intro screens and the quiz. */
 const SKIP_SIZE = 17;
 
+/** The top row Skip and the intro's Back sit on: 6% down the screen, never
+ *  higher than the safe area plus 10. */
+function useTopRow() {
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  return Math.max(insets.top + 10, height * 0.06);
+}
+
 /**
  * The Skip at the top right of the intro screens and of the skin quiz: one
- * component so they cannot drift apart. Same spot (6% down the screen, never
- * higher than the safe area plus 10), same font and size, the same press fade;
- * only the colour is the screen's own.
+ * component so they cannot drift apart. Same spot, same font and size, the
+ * same press fade; only the colour is the screen's own.
  */
 export function SkipButton({ onPress, color }: { onPress: () => void; color: string }) {
   const [pressed, setPressed] = useState(false);
-  const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
+  const top = useTopRow();
   return (
     <Pressable
       onPress={onPress}
@@ -88,7 +95,7 @@ export function SkipButton({ onPress, color }: { onPress: () => void; color: str
       accessibilityRole="button"
       style={{
         position: "absolute",
-        top: Math.max(insets.top + 10, height * 0.06),
+        top,
         right: H_PADDING,
         minHeight: 44,
         minWidth: 44,
@@ -98,6 +105,27 @@ export function SkipButton({ onPress, color }: { onPress: () => void; color: str
       }}
     >
       <Text style={{ fontFamily: FONT.bodyRegular, fontSize: SKIP_SIZE, color }}>Skip</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * Back on the intro's second and third screens (#313): they swap in place
+ * rather than being pushed, so iOS gives them no back of its own. Opposite
+ * Skip, on the same row.
+ */
+export function ShellBackButton({ onPress, color }: { onPress: () => void; color: string }) {
+  const top = useTopRow();
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel="Back"
+      style={{ position: "absolute", top, left: H_PADDING, minHeight: 44, minWidth: 44, justifyContent: "center" }}
+      className="active:opacity-60"
+    >
+      <ArrowIcon direction="left" size={24} color={color} />
     </Pressable>
   );
 }
