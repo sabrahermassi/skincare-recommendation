@@ -25,7 +25,7 @@ import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/compone
 import { SHEET_INSET, SHEET_OUTLINE, SHEET_RADIUS } from "@/components/IngredientsSheet";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
-import { GLASS_BUTTON_SMALL, GlassButton } from "@/components/GlassButton";
+import { GlassButton } from "@/components/GlassButton";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
@@ -584,6 +584,7 @@ export default function Scan() {
       {/* Glass buttons across the top, as in the iOS camera: close on the left,
           the torch in the middle, "i" on the right. */}
       <GlassButton
+        symbol="xmark"
         icon="close"
         accessibilityLabel="Close scanner"
         onDark={!needsPermission}
@@ -601,6 +602,7 @@ export default function Scan() {
       {cameraLive ? (
         <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, top: insets.top + 8, alignItems: "center" }}>
           <GlassButton
+            symbol={torchOn ? "bolt.fill" : "bolt"}
             icon={torchOn ? "flash" : "flash-outline"}
             accessibilityLabel={torchOn ? "Turn off the torch" : "Turn on the torch"}
             onDark
@@ -611,7 +613,8 @@ export default function Scan() {
 
       {/* How we score products. Not linked yet: the owner adds where it goes. */}
       <GlassButton
-        icon="information"
+        symbol="info.circle"
+        icon="information-circle-outline"
         accessibilityLabel="How we score products"
         onDark={!needsPermission}
         style={{ position: "absolute", right: 16, top: insets.top + 8 }}
@@ -686,10 +689,11 @@ function FoundSheet({
         }}
       >
         <GlassButton
+          symbol="xmark"
           icon="close"
           accessibilityLabel="Close"
           onPress={onClose}
-          size={GLASS_BUTTON_SMALL}
+          small
           style={{ position: "absolute", top: 14, right: 14 }}
         />
 

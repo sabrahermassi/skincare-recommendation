@@ -18,7 +18,7 @@ import { deleteTempFile, LIBRARY_MAX_WIDTH, pickLabelPhoto } from "@/lib/pick-la
 import { failureFromState, readLabelPhoto } from "@/lib/read-label-photo";
 import { scanStateCopy, scanStateSpeech } from "@/lib/scan-copy";
 import { track } from "@/lib/analytics";
-import { CAMERA_STAGE, CANVAS, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, INK, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 
@@ -357,18 +357,15 @@ export function LabelCamera({
             alignItems: "center",
           }}
         >
-          <View
-            style={{
-              alignItems: "center",
-              gap: 2,
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 18,
-              backgroundColor: withAlpha(CANVAS, 0.95),
-            }}
-          >
-            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>{readyCopy.title}</Text>
-            <Text style={{ textAlign: "center", fontSize: 11, color: MUTED }}>{readyCopy.line}</Text>
+          {/* White on the camera, no box behind it (owner): a soft shadow keeps
+              it readable over a bright label. */}
+          <View style={{ alignItems: "center", gap: 3, paddingHorizontal: 8 }}>
+            <Text style={[TIP_SHADOW, { textAlign: "center", fontSize: TYPE.label, fontWeight: "700", color: CANVAS }]}>
+              {readyCopy.title}
+            </Text>
+            <Text style={[TIP_SHADOW, { textAlign: "center", fontSize: TYPE.caption, fontWeight: "600", color: CANVAS }]}>
+              {readyCopy.line}
+            </Text>
           </View>
         </FadeIn>
       ) : null}
@@ -506,3 +503,10 @@ function FadeIn({ style, children }: { style?: ViewStyle; children: ReactNode })
   }, [opacity]);
   return <Animated.View style={[style, { opacity }]}>{children}</Animated.View>;
 }
+
+// Keeps the white tip readable over whatever the camera sees.
+const TIP_SHADOW = {
+  textShadowColor: withAlpha(CAMERA_STAGE, 0.6),
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 4,
+};

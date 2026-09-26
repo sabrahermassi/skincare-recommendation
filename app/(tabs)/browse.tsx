@@ -4,7 +4,7 @@ import { FlatList, Pressable, TextInput, View, type ListRenderItem } from "react
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HEADER_GUTTER } from "@/components/AppHeader";
-import { GLASS_BUTTON_SMALL, GlassButton } from "@/components/GlassButton";
+import { GlassButton } from "@/components/GlassButton";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
@@ -342,10 +342,11 @@ export default function Browse() {
               />
               {query.length > 0 && (
                 <GlassButton
+                  symbol="xmark"
                   icon="close"
                   accessibilityLabel="Clear search"
                   onPress={() => changeQuery("")}
-                  size={GLASS_BUTTON_SMALL}
+                  small
                   style={{ position: "absolute", right: HEADER_GUTTER + 12 }}
                 />
               )}
