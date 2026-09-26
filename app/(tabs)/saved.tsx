@@ -439,9 +439,8 @@ export default function Saved() {
         </Text>
       </View>
 
-      {/* The three lists in one capsule, like the scanner's Barcode / Photo
-          (owner). Ingredients carries no count: three segments leave each
-          about a third of the row. */}
+      {/* The three lists in one light capsule (owner's reference). Ingredients
+          carries no count: three segments leave each about a third of the row. */}
       <SegmentedSwitch
         options={[
           { value: "saved", label: savedProducts.length ? `Saved (${savedProducts.length})` : "Saved" },
@@ -450,6 +449,7 @@ export default function Saved() {
         ]}
         selected={tab}
         onSelect={selectTab}
+        tone="light"
         style={{ paddingHorizontal: 16, paddingVertical: 14 }}
       />
 

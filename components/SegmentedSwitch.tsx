@@ -3,7 +3,7 @@ import { Animated, Platform, Pressable, View, type StyleProp, type ViewStyle } f
 
 import { Text } from "@/components/Text";
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { CANVAS, CTA, INK, TYPE } from "@/lib/tokens";
+import { CANVAS, CHIP_SHADOW, CTA, GRAY_FILL, INK, SURFACE, TYPE } from "@/lib/tokens";
 
 /** The switch's height: the owner's reference, measured off its screenshot. */
 export const SWITCH_HEIGHT = 56;
@@ -15,21 +15,31 @@ const SWITCH_PADDING = 4;
 // damping = 4π × fraction / response, for a mass of 1.
 const IOS_SPRING = { mass: 1, stiffness: 322, damping: 35.9 };
 
+// The two looks (owner's references). Dark over the camera: an ink capsule
+// with a peach thumb. Light on the page: a pale warm track with a white thumb
+// and ink words throughout.
+const TONES = {
+  dark: { track: INK, thumb: CTA, label: CANVAS, chosenLabel: INK, thumbShadow: null },
+  light: { track: GRAY_FILL, thumb: SURFACE, label: INK, chosenLabel: INK, thumbShadow: CHIP_SHADOW },
+} as const;
+
 /**
- * A row of choices in one dark capsule, the chosen one on a peach thumb that
- * springs across to it (owner's reference): the scanner's Barcode / Photo, and
- * Saved's Saved / History / Ingredients. Words only. With Reduce Motion on,
- * the thumb just moves.
+ * A row of choices in one capsule, the chosen one on a thumb that springs
+ * across to it: the scanner's Barcode / Photo (dark, over the camera), and
+ * Saved's Saved / History / Ingredients (light). Words only. With Reduce
+ * Motion on, the thumb just moves.
  */
 export function SegmentedSwitch<T extends string>({
   options,
   selected,
   onSelect,
+  tone = "dark",
   style,
 }: {
   options: { value: T; label: string }[];
   selected: T;
   onSelect: (value: T) => void;
+  tone?: keyof typeof TONES;
   style?: StyleProp<ViewStyle>;
 }) {
   const index = Math.max(0, options.findIndex((o) => o.value === selected));
@@ -44,6 +54,7 @@ export function SegmentedSwitch<T extends string>({
   }, [index, slide]);
 
   const segment = width > 0 ? (width - 2 * SWITCH_PADDING) / options.length : 0;
+  const look = TONES[tone];
 
   return (
     <View accessibilityRole="tablist" style={style}>
@@ -51,7 +62,7 @@ export function SegmentedSwitch<T extends string>({
           caller's padding, which is not room the thumb can use. */}
       <View
         onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-        style={{ height: SWITCH_HEIGHT, borderRadius: SWITCH_HEIGHT / 2, padding: SWITCH_PADDING, flexDirection: "row", backgroundColor: INK, overflow: "hidden" }}
+        style={{ height: SWITCH_HEIGHT, borderRadius: SWITCH_HEIGHT / 2, padding: SWITCH_PADDING, flexDirection: "row", backgroundColor: look.track }}
       >
         {segment > 0 ? (
           <Animated.View
@@ -63,7 +74,8 @@ export function SegmentedSwitch<T extends string>({
               left: SWITCH_PADDING,
               width: segment,
               borderRadius: (SWITCH_HEIGHT - 2 * SWITCH_PADDING) / 2,
-              backgroundColor: CTA,
+              backgroundColor: look.thumb,
+              ...look.thumbShadow,
               transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [0, segment] }) }],
             }}
           />
@@ -84,7 +96,7 @@ export function SegmentedSwitch<T extends string>({
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.8}
-                style={{ fontSize: TYPE.body, fontWeight: "600", color: on ? INK : CANVAS }}
+                style={{ fontSize: TYPE.body, fontWeight: "600", color: on ? look.chosenLabel : look.label }}
               >
                 {label}
               </Text>
