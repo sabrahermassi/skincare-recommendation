@@ -10,7 +10,7 @@ import { PopOnToggle } from "@/components/PopOnToggle";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SourceLink } from "@/components/SourceLink";
-import { Text } from "@/components/Text";
+import { ReadingScale, Text, useLargeText, useIconScale } from "@/components/Text";
 import { fetchProduct, resolveIngredientNames } from "@/data/api";
 import { unknownIngredient, type Ingredient, type ProductWithIngredients } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
@@ -23,7 +23,7 @@ import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, INK, MUTED, MUTED_FAINT, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, FONT_SCALE, INK, MUTED, MUTED_FAINT, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 import { ingredientNameParam, productIdParam } from "@/lib/route-params";
 import NotFound from "@/app/+not-found";
@@ -127,9 +127,11 @@ const RUNG: Record<
   },
 };
 
+/** Grown with the 18px headline beside it (#334). */
 function HeartIcon({ color }: { color: string }) {
+  const size = 19 * useIconScale(18);
   return (
-    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 20.2s-7.6-4.7-7.6-9.7A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 7.6 2.8c0 5-7.6 9.7-7.6 9.7Z"
         stroke={color}
@@ -137,6 +139,28 @@ function HeartIcon({ color }: { color: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+/** The size of the function line under the name ("Skin-Conditioning"). */
+const FUNCTION_LINE_SIZE = 19;
+/** The "Want to learn more?" title's size, which its arrow follows. */
+const LEARN_MORE_SIZE = 14.5;
+/** A "Things to know" note's size, which its tick follows. */
+const NOTE_SIZE = 13;
+
+/** The "Want to learn more?" arrow, grown with its title (#334). */
+function LearnMoreArrow() {
+  return <ArrowIcon size={17 * useIconScale(LEARN_MORE_SIZE)} color={INK} />;
+}
+
+/** A "Things to know" tick, grown with the note beside it (#334). */
+function CheckIcon({ color }: { color: string }) {
+  const size = 16 * useIconScale(NOTE_SIZE);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="m5 12.6 4.6 4.6L19 6.8" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -173,6 +197,9 @@ export default function IngredientRoute() {
 
 function IngredientDetail({ inci, productId }: { inci: string; productId?: string }) {
   const insets = useSafeAreaInsets();
+  // Past the ordinary text ceiling the name needs the whole width, so the
+  // decorative picture beside it goes (#334).
+  const largeText = useLargeText();
 
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [resolvedIngredient, setResolvedIngredient] = useState<Ingredient | null>(null);
@@ -321,6 +348,10 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
       />
 
       <ScrollView contentContainerClassName="pb-40">
+        {/* The reading part of the screen: its text follows the phone's text
+            size all the way up (#334). The header and the buttons at the
+            bottom keep the ordinary ceiling. */}
+        <ReadingScale>
         {/* flexWrap: at the image's larger size, a merely-medium-length name
             like "Niacinamide" no longer has room beside it (390pt viewport
             minus the image's own width, gap and horizontal padding) and, with
@@ -344,9 +375,13 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             </Text>
             {secondary ? (
               <Text
+                // Stops where label text stops, below the name (which stops
+                // where body text does), so at the largest sizes the two
+                // don't end up the same size (#334).
+                maxFontSizeMultiplier={(TYPE.label * FONT_SCALE.reading) / FUNCTION_LINE_SIZE}
                 style={{
                   fontFamily: "PlayfairDisplay_500Medium",
-                  fontSize: 19,
+                  fontSize: FUNCTION_LINE_SIZE,
                   lineHeight: 19,
                   color: MUTED,
                 }}
@@ -365,13 +400,15 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
               bottle scene, wider than the old single-flask icon, so the
               slot is sized to its own aspect ratio (1400x1001, cropped to
               content) rather than the old icon's square. */}
-          <Image
-            source={require("@/assets/illustrations/flask-with-serum.png")}
-            style={{ width: 168, height: 120 }}
-            contentFit="contain"
-            transition={120}
-            accessibilityLabel=""
-          />
+          {largeText ? null : (
+            <Image
+              source={require("@/assets/illustrations/flask-with-serum.png")}
+              style={{ width: 168, height: 120 }}
+              contentFit="contain"
+              transition={120}
+              accessibilityLabel=""
+            />
+          )}
         </View>
 
         <Section title="What it does">
@@ -388,7 +425,8 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
           >
             <View className="flex-row items-center gap-2.5">
               <HeartIcon color={meta.hero} />
-              <Text className={`font-display text-[18px] leading-[21px] ${meta.ink}`}>
+              {/* Shrinks to wrap inside the panel at the larger text sizes. */}
+              <Text style={{ flexShrink: 1 }} className={`font-display text-[18px] leading-[21px] ${meta.ink}`}>
                 {fitHeadline(fit, helps, hurts, warning)}
               </Text>
             </View>
@@ -412,16 +450,8 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             <View style={{ gap: 23 }}>
               {notes.map((note) => (
                 <View key={note} className="flex-row items-center gap-3">
-                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="m5 12.6 4.6 4.6L19 6.8"
-                      stroke={meta.hero}
-                      strokeWidth={2.2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                  <Text style={{ flex: 1, fontSize: 13, lineHeight: 18, color: INK }}>{note}</Text>
+                  <CheckIcon color={meta.hero} />
+                  <Text style={{ flex: 1, fontSize: NOTE_SIZE, lineHeight: 18, color: INK }}>{note}</Text>
                 </View>
               ))}
             </View>
@@ -465,17 +495,18 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             }}
             className="active:opacity-80"
           >
-            <View className="gap-0.5">
-              <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Want to learn more?</Text>
+            <View className="shrink gap-0.5">
+              <Text style={{ fontSize: LEARN_MORE_SIZE, fontWeight: "600", color: INK }}>Want to learn more?</Text>
               <Text style={{ fontSize: 12.5, color: MUTED }}>Look it up on PubChem</Text>
             </View>
-            <ArrowIcon size={17} color={INK} />
+            <LearnMoreArrow />
           </Pressable>
         ) : null}
 
         <Text style={{ paddingHorizontal: 24, paddingTop: 36, fontSize: TYPE.caption, color: MUTED_FAINT }}>
           Reference data from Open Beauty Facts and EU CosIng.
         </Text>
+        </ReadingScale>
       </ScrollView>
 
       {inList ? (
