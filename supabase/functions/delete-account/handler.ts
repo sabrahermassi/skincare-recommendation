@@ -20,7 +20,9 @@
 //
 // The saved shelf goes with the auth user: both tables reference it
 // `on delete cascade` (migration 0025). Catalogue products the person added
-// are public rows with no link to them, so they stay (#219).
+// are public rows with no link to them, so they stay (#219). The account's
+// analytics person in PostHog is deleted after it (#24), and never decides
+// the reply: the account is already gone by then.
 
 export type AccountUser = {
   id: string;
@@ -30,6 +32,8 @@ export type AccountUser = {
 
 export type AppleRevocation = "revoked" | "not-configured" | "failed";
 
+export type AnalyticsForget = "deleted" | "not-configured" | "failed";
+
 export type DeleteAccountDeps = {
   /** The user the token was issued to, or null for a missing, forged or expired token. */
   userFromToken(token: string): Promise<AccountUser | null>;
@@ -37,6 +41,8 @@ export type DeleteAccountDeps = {
   revokeApple(authorizationCode: string): Promise<AppleRevocation>;
   /** Deletes the auth user; the shelf rows cascade. */
   deleteUser(id: string): Promise<boolean>;
+  /** Deletes the account's analytics person and events (PostHog, #24). */
+  forgetAnalytics(id: string): Promise<AnalyticsForget>;
 };
 
 export type DeleteAccountReply = {
@@ -86,5 +92,11 @@ export async function handleDeleteAccount(req: Request, deps: DeleteAccountDeps)
   }
 
   if (!(await deps.deleteUser(user.id))) return { status: 500, body: { error: "delete_failed" } };
+
+  // Only after the account is gone, and never able to change the answer: a
+  // PostHog outage leaves an analytics person to delete by hand, not an
+  // account that still exists. The id is the one to delete by hand.
+  const analytics = await deps.forgetAnalytics(user.id).catch((): AnalyticsForget => "failed");
+  if (analytics !== "deleted") console.warn(`delete-account: PostHog person not deleted (${analytics}) for ${user.id}`);
   return { status: 200, body: { deleted: true } };
 }
