@@ -158,7 +158,8 @@ native.
 
 **State** — `store/useAppStore.ts`, one Zustand store: skin profile,
 onboarding flag, wishlist. Persisted via `persist` + AsyncStorage, gated on
-`useAppStore.persist.hasHydrated()` in `app/_layout.tsx`.
+`useAppStore.persist.hasHydrated()` in `app/_layout.tsx` — except the profile,
+which `formeStorageFor` keeps in the Keychain on a phone (#189).
 **Two files may import AsyncStorage, and no third without review:**
 `store/useAppStore.ts` (the user's own state) and `data/catalogue-cache.ts`
 (public catalogue rows, the dictionary and freshness watermarks — and

@@ -10,6 +10,8 @@ import {
   EMPTY_PROFILE,
   formeStorage,
   HISTORY_LIMIT,
+  HISTORY_MAX_AGE_DAYS,
+  keptHistory,
   MAX_CONCERNS,
   migratePersisted,
   PERSISTED_KEYS,
@@ -241,6 +243,47 @@ describe("history log", () => {
     expect(s().history.map((h) => h.id)).toEqual(["c", "b", "a"]);
     view("a");
     expect(s().history.map((h) => h.id)).toEqual(["a", "c", "b"]);
+  });
+
+  describe(`drops entries older than ${HISTORY_MAX_AGE_DAYS} days (#189)`, () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const entry = (id: string, daysAgo: number) => ({
+      id,
+      known: true,
+      firstSeenAt: Date.now() - daysAgo * DAY,
+      lastSeenAt: Date.now() - daysAgo * DAY,
+      seenCount: 1,
+      scoreAtView: 70,
+      warningsAtView: 0,
+    });
+
+    it("when a view is written: an old entry goes, a recent one stays", () => {
+      useAppStore.setState({ history: [entry("recent", HISTORY_MAX_AGE_DAYS - 1), entry("old", HISTORY_MAX_AGE_DAYS + 1)] });
+      view("new");
+      expect(s().history.map((h) => h.id)).toEqual(["new", "recent"]);
+    });
+
+    it("on app start, and without a write when nothing is old", () => {
+      useAppStore.setState({ history: [entry("recent", 1), entry("old", HISTORY_MAX_AGE_DAYS + 30)] });
+      s().expireHistory();
+      expect(s().history.map((h) => h.id)).toEqual(["recent"]);
+
+      const before = s().history;
+      s().expireHistory();
+      expect(s().history).toBe(before);
+    });
+
+    it("when an entry is put back with Undo", () => {
+      useAppStore.setState({ history: [entry("old", HISTORY_MAX_AGE_DAYS + 1)] });
+      s().restoreHistoryEntry(entry("recent", 2));
+      expect(s().history.map((h) => h.id)).toEqual(["recent"]);
+    });
+
+    it("keeps the 50-entry limit too", () => {
+      const many = Array.from({ length: HISTORY_LIMIT + 5 }, (_, i) => entry(`p${i}`, 1));
+      expect(keptHistory(many, Date.now())).toHaveLength(HISTORY_LIMIT);
+      expect(keptHistory([entry("old", HISTORY_MAX_AGE_DAYS + 1), ...many], Date.now())[0].id).toBe("p0");
+    });
   });
 
   it("caps the log, dropping the oldest entries", () => {
@@ -614,6 +657,25 @@ describe("v7 -> v8 migration (#300)", () => {
 
   it("leaves a v8 install alone", () => {
     const state = v7({});
+    expect(migratePersisted(state, 8)).toEqual(state);
+  });
+});
+
+// #189: the shape doesn't change; the bump is what makes persist write the
+// state back on the first launch, and that write moves the profile into the
+// Keychain (__tests__/profile-keychain.test.ts covers the move itself).
+describe("v8 -> v9 migration (#189)", () => {
+  it("keeps every field, the profile included", () => {
+    const state = {
+      profile: { concerns: ["acne-prone"], baseSkinType: "oily", sensitivity: "high", pregnancyStatus: "pregnant" },
+      hasSeenOnboarding: true,
+      savedProducts: [{ id: "a", savedAt: 1 }],
+      savedIngredients: [],
+      history: [],
+      shelfOwner: null,
+      shelfQueue: [],
+      parkedShelf: null,
+    };
     expect(migratePersisted(state, 8)).toEqual(state);
   });
 });

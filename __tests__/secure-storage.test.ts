@@ -32,6 +32,10 @@ import {
   authStorage,
   authStorageFor,
   createMemoryStorage,
+  PROFILE_KEY,
+  readSecureProfile,
+  removeSecureProfile,
+  writeSecureProfile,
   resetSecureStorageForTests,
   splitForKeychain,
 } from "@/lib/secure-storage";
@@ -144,6 +148,29 @@ describe("the session on a phone", () => {
     await Promise.all([authStorage.setItem(KEY, "d".repeat(CHUNK_SIZE * 2)), authStorage.removeItem(KEY)]);
     expect(await authStorage.getItem(KEY)).toBeNull();
     expect([...mockKeychain.keys()].filter((k) => k.startsWith(KEY))).toEqual([]);
+  });
+});
+
+// #189: the skin profile's own item. The store's routing is tested in
+// __tests__/profile-keychain.test.ts; this is the item itself.
+describe("the skin profile on a phone", () => {
+  it("keeps it on this device only, while unlocked, in one item outside the reinstall list", async () => {
+    expect(await writeSecureProfile('{"concerns":[]}')).toBe(true);
+    expect(mockKeychain.get(PROFILE_KEY)).toBe('{"concerns":[]}');
+    expect(mockWriteOptions).toEqual([{ keychainAccessible: 42 }]);
+    expect(mockKeychain.has(MANIFEST_KEY)).toBe(false);
+  });
+
+  it("reports a refused read, rather than passing it off as no profile", async () => {
+    mockFailingReads.add(PROFILE_KEY);
+    expect(await readSecureProfile()).toEqual({ ok: false });
+  });
+
+  it("leaves nothing readable as a profile when its delete fails", async () => {
+    await writeSecureProfile('{"concerns":["acne-prone"]}');
+    mockFailingDeletes.add(PROFILE_KEY);
+    expect(await removeSecureProfile()).toBe(true);
+    expect(await readSecureProfile()).toEqual({ ok: true, value: "removed" });
   });
 });
 
