@@ -1,5 +1,7 @@
 import { Platform } from "react-native";
 
+import { COLORS } from "./colors";
+
 import type { Verdict } from "./matching";
 
 /**
@@ -132,6 +134,20 @@ export const SELECTED = "#F9E7DC";
  * with the CTA, the same restraint as iOS's own light gray fill.
  */
 export const GRAY_FILL = "#ECE4DD";
+
+/**
+ * The button colours, one set per variant (owner, 27 September 2026): primary
+ * for the one main action on a screen, secondary for a less critical one,
+ * tertiary as an outline for low-emphasis actions, and one disabled look for
+ * all three. Secondary's label is INK, not white: white on its fill is 2.1:1,
+ * INK 7.6:1 (computed). The raw values live in `lib/colors.ts`.
+ */
+export const BUTTON = {
+  primary: { fill: COLORS.buttonPrimary, label: COLORS.buttonPrimaryText },
+  secondary: { fill: COLORS.buttonSecondary, label: INK },
+  tertiary: { border: COLORS.buttonTertiary, label: COLORS.buttonTertiary, borderWidth: 1.5 },
+  disabled: { fill: COLORS.buttonDisabled, label: MUTED_FAINT },
+} as const;
 
 /**
  * One shape for every selectable control in the app — chips, option cards,

@@ -555,7 +555,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             paddingTop: 12,
           }}
         >
-          <PrimaryButton variant="gray" size={56} style={{ flex: 1 }} label="Back to list" onPress={() => router.back()} />
+          <PrimaryButton variant="secondary" size={56} style={{ flex: 1 }} label="Back to list" onPress={() => router.back()} />
           <PrimaryButton
             size={56}
             style={{ flex: 1 }}

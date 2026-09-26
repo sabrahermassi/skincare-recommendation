@@ -5,7 +5,7 @@ import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, V
 import { Text } from "@/components/Text";
 import { slideDirection } from "@/lib/onboarding-slide";
 import { H_PADDING, INTRO, INTRO_INACTIVE_DOT_OPACITY, ProgressDots, ShellBackButton, SkipButton } from "@/components/shell/shared";
-import { CANVAS } from "@/lib/tokens";
+import { BUTTON, CANVAS } from "@/lib/tokens";
 
 // The intro's type (owner, 26 September 2026): a Playfair headline whose first
 // line is in the accent colour and the rest in ink; system-font subtext; a
@@ -351,10 +351,10 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
           onPress={onNext}
           accessibilityRole="button"
           accessibilityLabel={buttonLabel}
-          style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: INTRO.button, alignItems: "center", justifyContent: "center" }}
+          style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: BUTTON.primary.fill, alignItems: "center", justifyContent: "center" }}
           className="active:opacity-80"
         >
-          <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: BUTTON_LABEL_SIZE, fontWeight: "600", color: INTRO.buttonText }}>
+          <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: BUTTON_LABEL_SIZE, fontWeight: "600", color: BUTTON.primary.label }}>
             {buttonLabel}
           </Text>
         </Pressable>

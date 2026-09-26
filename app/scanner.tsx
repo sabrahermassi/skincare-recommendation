@@ -675,7 +675,7 @@ function NoMatchSheet({
               <PrimaryButton label={primaryLabel} onPress={onPrimary} size={56} twoLines />
             </View>
             <View style={{ flex: 1 }}>
-              <PrimaryButton label={secondaryLabel} onPress={onSecondary} size={56} variant="gray" twoLines />
+              <PrimaryButton label={secondaryLabel} onPress={onSecondary} size={56} variant="secondary" twoLines />
             </View>
           </View>
         </View>

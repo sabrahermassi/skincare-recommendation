@@ -105,10 +105,10 @@ it("shows each screen's sentence in the muted colour, and moves through all thre
   expect(screen.getByText("See how each formula matches your skin, concerns and goals.")).toBeTruthy();
 });
 
-it("draws the button as a flat pill in the intro's colours, and Skip in the muted one", async () => {
+it("draws the button in the primary button colours, and Skip in the muted one", async () => {
   await render(<Onboarding />);
   const button = screen.getByRole("button", { name: "Continue" });
-  expect(textStyle(button).backgroundColor).toBe(COLORS.introButton);
-  expect(textStyle(screen.getByText("Continue")).color).toBe(COLORS.introButtonText);
+  expect(textStyle(button).backgroundColor).toBe(COLORS.buttonPrimary);
+  expect(textStyle(screen.getByText("Continue")).color).toBe(COLORS.buttonPrimaryText);
   expect(textStyle(screen.getByText("Skip")).color).toBe(COLORS.introMuted);
 });

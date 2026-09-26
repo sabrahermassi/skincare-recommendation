@@ -64,6 +64,15 @@ export const COLORS = {
   introAccent: "#9B614E", // the headline's first phrase, the active dot, Back
   introInk: "#240904", // the rest of the headline
   introMuted: "#8F8275", // subtext, Skip, the inactive dots
-  introButton: "#BA765F", // the pill button
-  introButtonText: "#FCF7F3", // its label
+
+  // Buttons (owner, 27 September 2026), matched to the intro illustrations.
+  // Contrast computed, not read off a mockup (WCAG relative luminance):
+  // white on buttonPrimary is 3.6:1 (AA for large text only); white on
+  // buttonSecondary is 2.1:1, so its label is ink instead (7.6:1);
+  // buttonPrimary as outline text on the canvas is 3.4:1.
+  buttonPrimary: "#BA765F", // the one main action on a screen
+  buttonPrimaryText: "#FFFFFF",
+  buttonSecondary: "#D4A88F", // a less critical action
+  buttonTertiary: "#BA765F", // outline and label of a low-emphasis action
+  buttonDisabled: "#E8D9CE", // any variant, disabled
 } as const;

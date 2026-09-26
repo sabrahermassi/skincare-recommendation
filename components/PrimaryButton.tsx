@@ -3,13 +3,13 @@ import { Animated, Pressable, type StyleProp, type ViewStyle } from "react-nativ
 
 import { usePressScale } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
-import { WatercolorFill } from "@/components/WatercolorFill";
-import { BUTTON_SHADOW, CTA, FONT_SCALE, GRAY_FILL, INK, MUTED_FAINT } from "@/lib/tokens";
+import { BUTTON, BUTTON_SHADOW, FONT_SCALE } from "@/lib/tokens";
 
 /**
- * Every full-width button in the app, in Apple's two styles that the app
- * uses: **filled** — the peach call to action, one per screen — and **gray**,
- * for a secondary action beside it (#313).
+ * Every full-width button in the app, in three variants (owner, 27 September
+ * 2026, colours in `BUTTON`): **primary**, the one main action on a screen;
+ * **secondary**, a less critical action, often beside it; and **tertiary**,
+ * an outline for low-emphasis actions. Disabled looks the same in all three.
  *
  * The height is an inline `style`, not a `h-[56px]` utility, and that is
  * deliberate. A Tailwind class is only as good as the compiled stylesheet
@@ -24,10 +24,11 @@ import { BUTTON_SHADOW, CTA, FONT_SCALE, GRAY_FILL, INK, MUTED_FAINT } from "@/l
  * places the design draws them shorter, not as a free dial.
  *
  * Pressed, it shrinks a little (owner decision, #313) — the same spring as a
- * pressed card. It used to dim only its inner layer over a fill of the same
- * colour, which barely showed.
+ * pressed card. Disabled, it has no pressed state at all.
  */
 type ButtonSize = 48 | 50 | 52 | 56;
+
+export type ButtonVariant = "primary" | "secondary" | "tertiary";
 
 /**
  * Playfair Display sits low in its line box, so a label centred by its box looks
@@ -48,8 +49,8 @@ const TWO_LINE_HEIGHT = 18;
 type Props = {
   label: string;
   onPress: () => void;
-  /** "filled" is the peach call to action; "gray" a secondary action beside it. */
-  variant?: "filled" | "gray";
+  /** "primary" is the one main action on a screen; see the note above for the others. */
+  variant?: ButtonVariant;
   size?: ButtonSize;
   disabled?: boolean;
   /** A glyph before the label, e.g. the heart on "Save to my shelf". */
@@ -67,7 +68,7 @@ type Props = {
 export function PrimaryButton({
   label,
   onPress,
-  variant = "filled",
+  variant = "primary",
   size = 56,
   disabled = false,
   icon,
@@ -77,18 +78,20 @@ export function PrimaryButton({
   twoLines = false,
 }: Props) {
   const [scale, press] = usePressScale();
-  const filled = variant === "filled" && !disabled;
-  const background = disabled ? GRAY_FILL : filled ? CTA : GRAY_FILL;
+  const primary = variant === "primary" && !disabled;
+  const outline = variant === "tertiary" && !disabled;
+  const background = disabled ? BUTTON.disabled.fill : variant === "tertiary" ? "transparent" : BUTTON[variant].fill;
+  const labelColor = disabled ? BUTTON.disabled.label : BUTTON[variant].label;
 
-  // The shade and the press scale sit on an outer view: the button clips its
-  // wash to the pill, and a view that clips loses its own shade on iOS. Margins
-  // and `flex` from the caller go here too, since it is what sits in the layout.
+  // The shade and the press scale sit on an outer view: a view that clips loses
+  // its own shade on iOS. Margins and `flex` from the caller go here too, since
+  // it is what sits in the layout.
   return (
     <Animated.View
       className={className}
       style={[
         { borderRadius: size / 2, backgroundColor: background, transform: [{ scale }] },
-        filled ? BUTTON_SHADOW : null,
+        primary ? BUTTON_SHADOW : null,
         style,
       ]}
     >
@@ -104,9 +107,13 @@ export function PrimaryButton({
         // A fixed height with the label centred, so no vertical padding: 16
         // either side left a 50dp button only 18dp for a label that needs 22,
         // and a phone clips what does not fit.
-        style={{ height: size, borderRadius: size / 2, overflow: "hidden" }}
+        // The outline is drawn inside the fixed height, so it never makes the
+        // button taller.
+        style={[
+          { height: size, borderRadius: size / 2, overflow: "hidden" },
+          outline ? { borderWidth: BUTTON.tertiary.borderWidth, borderColor: BUTTON.tertiary.border } : null,
+        ]}
       >
-        {filled ? <WatercolorFill /> : null}
         {icon}
         <Text
           style={{
@@ -116,7 +123,7 @@ export function PrimaryButton({
             textAlign: "center",
             includeFontPadding: false,
             transform: [{ translateY: -LABEL_LIFT }],
-            color: disabled ? MUTED_FAINT : INK,
+            color: labelColor,
           }}
           numberOfLines={twoLines ? 2 : 1}
           // Breaks so no word is left alone on the second line.

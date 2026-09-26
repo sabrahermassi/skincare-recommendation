@@ -35,8 +35,6 @@ export const INTRO = {
   accent: COLORS.introAccent,
   ink: COLORS.introInk,
   muted: COLORS.introMuted,
-  button: COLORS.introButton,
-  buttonText: COLORS.introButtonText,
 } as const;
 /** How faint the intro's inactive dots are. */
 export const INTRO_INACTIVE_DOT_OPACITY = 0.35;
