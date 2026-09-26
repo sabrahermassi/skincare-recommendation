@@ -1,9 +1,9 @@
-import { Image } from "expo-image";
 import { useScrollToTop } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { HeartMark } from "@/components/icons/HeartMark";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import type { SchoolQuestion } from "@/data/school";
@@ -25,9 +25,8 @@ import {
   TYPE,
 } from "@/lib/tokens";
 
-// The app's own hand-drawn heart, from Home's signature line: the School's
-// face until there is a mascot of its own (#352).
-const AVATAR_ART = require("@/assets/illustrations/home-heart.png");
+// The School's face: a plain circle with the app's own heart mark, the one
+// the app icon is drawn from, until there is a mascot of its own (#352).
 const AVATAR = 32;
 const CARD_WIDTH = 220;
 
@@ -251,7 +250,7 @@ function AppBubble({ label, children }: { label?: string; children: React.ReactN
           backgroundColor: SELECTED,
         }}
       >
-        <Image source={AVATAR_ART} contentFit="contain" accessibilityLabel="" style={{ width: 18, height: 16 }} />
+        <HeartMark size={16} variant="filled" />
       </View>
       <View
         accessible={label !== undefined}
