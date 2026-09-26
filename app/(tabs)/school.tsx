@@ -1,21 +1,28 @@
-import { useState } from "react";
+import { useScrollToTop } from "expo-router";
+import { useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
-import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { SCHOOL, type SchoolQuestion } from "@/data/school";
+import { tabBarClearance } from "@/lib/tab-bar";
 import { CANVAS, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 /**
- * Skincare School (#235) — reference content, reached from a Profile menu
- * row the same way Support and Privacy are. One screen, categories with
+ * Skincare School (#235) — reference content, a tab of its own in the bar
+ * (where Browse was; Browse is now reached from Home's "Find skincare" card).
+ * Its address is still `/school`. One screen, categories with
  * expandable questions, rather than a list plus a `school/[id]` detail
  * route: at under twenty items an accordion is the whole job, and a
  * dynamic segment would add a deep-link surface (#29) for nothing.
  */
 export default function SkincareSchool() {
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const insets = useSafeAreaInsets();
+  // Tapping the tab again scrolls back to the top, as on the other tabs.
+  const listRef = useRef<ScrollView>(null);
+  useScrollToTop(listRef);
 
   function toggle(id: string) {
     setOpen((current) => {
@@ -28,8 +35,19 @@ export default function SkincareSchool() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenHeader title="Skincare School" />
-      <ScrollView contentContainerStyle={{ padding: 24, gap: 28, paddingBottom: 60 }}>
+      {/* A tab: a centred title, as on Saved, and no back chevron. */}
+      <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 10 }}>
+        <Text
+          accessibilityRole="header"
+          style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.title, color: INK }}
+        >
+          Skincare School
+        </Text>
+      </View>
+      <ScrollView
+        ref={listRef}
+        contentContainerStyle={{ padding: 24, gap: 28, paddingBottom: tabBarClearance(insets.bottom) }}
+      >
         {SCHOOL.map((category) => (
           <View key={category.title} style={{ gap: 4 }}>
             <Text accessibilityRole="header" style={{ fontSize: TYPE.body, fontWeight: "600", color: INK, marginBottom: 4 }}>

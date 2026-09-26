@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-
 
 import TabsLayout from "@/app/(tabs)/_layout";
 import SearchScreen from "@/app/(tabs)/browse";
-import HomeScreen from "@/app/(tabs)/index";
 import Onboarding from "@/app/onboarding";
 import ConcernsStep from "@/app/quiz/concerns";
 import PregnancyStep from "@/app/quiz/pregnancy";
@@ -181,12 +180,6 @@ describe("the quiz opened from a link, with nothing behind it", () => {
 });
 
 describe("the other ways into the quiz", () => {
-  it("opens it from Home's skin-profile card while nothing scores", async () => {
-    await render(<HomeScreen />);
-    await fireEvent.press(screen.getByLabelText("Your skin profile is not set up yet. Open the skin questions."));
-    expect(mockRouter.push).toHaveBeenCalledWith("/quiz/concerns");
-  });
-
   it("offers it above Search results while nothing scores, and not once the answers do", async () => {
     await render(<SearchScreen />);
     await fireEvent.changeText(screen.getByLabelText("Search products or brands"), "Toner");

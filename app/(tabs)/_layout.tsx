@@ -19,7 +19,7 @@ import { haptic } from "@/lib/haptics";
 // they share a single muted colour and nothing else.
 const TAB_ICONS = {
   home: { on: "home", off: "home-outline" },
-  browse: { on: "search", off: "search-outline" },
+  school: { on: "school", off: "school-outline" },
   saved: { on: "heart", off: "heart-outline" },
   profile: { on: "person", off: "person-outline" },
 } as const;
@@ -205,29 +205,19 @@ export default function TabsLayout() {
           tabBarButton: (props) => <TabButton tab="home" {...props} />,
         }}
       />
+      {/*
+        Skincare School, in the place Browse had. Browse is still a screen in this
+        group (declared last, below) but has no button in the bar: it opens from
+        Home's "Find skincare" card and from the links that ask for a search.
+      */}
       <Tabs.Screen
-        name="browse"
+        name="school"
         options={{
-          // Stays "for.me", and is not the in-app header it looks like.
-          // `headerShown` is false for this whole group (see screenOptions
-          // above), so no `title` here renders on screen at all — Browse draws
-          // `AppHeader`, which is the heart mark, the script wordmark having
-          // been retired everywhere in the UI.
-          //
-          // What `title` actually sets is the web document title: the browser
-          // tab, the bookmark, the history entry. The app name is the right
-          // thing there, and the reasoning that it should not be repeated
-          // inside the app does not reach it. This one already carries the
-          // app name, so unlike its siblings it needs no "· for.me" suffix.
-          title: "for.me",
-          tabBarLabel: "Search",
-          tabBarAccessibilityLabel: "Search",
-          // A magnifier, not a house or a bare list: a house promises "back to
-          // the start" (the start route `/` is the scanner), and a list glyph
-          // reads as a menu or a to-do list. The magnifier is the recognised
-          // symbol for browsing and it is what this tab opens with — the
-          // search box.
-          tabBarButton: (props) => <TabButton tab="browse" {...props} />,
+          title: "Skincare School · for.me",
+          tabBarLabel: "Skincare School",
+          tabBarAccessibilityLabel: "Skincare School",
+          // A mortarboard.
+          tabBarButton: (props) => <TabButton tab="school" {...props} />,
         }}
       />
       {/*
@@ -264,6 +254,19 @@ export default function TabsLayout() {
           tabBarLabel: "Profile",
           tabBarAccessibilityLabel: "Profile",
           tabBarButton: (props) => <TabButton tab="profile" {...props} />,
+        }}
+      />
+      {/*
+        Browse: a screen in the group without a button in the bar (`href: null`).
+        Reached from Home's "Find skincare" card and every "search instead" link;
+        the bar stays under it, so Home is one tap away. `title` is the web
+        document title only (headerShown is false for this group).
+      */}
+      <Tabs.Screen
+        name="browse"
+        options={{
+          title: "for.me",
+          href: null,
         }}
       />
     </Tabs>

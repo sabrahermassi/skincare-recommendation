@@ -1044,7 +1044,7 @@ function BarcodeStage({
           <Pressable
             onPress={() => {
               preserveMode();
-              // Closes the scanner onto the Search tab. The scanner is a
+              // Closes the scanner onto Search. The scanner is a
               // modal (#313): a push would open the tabs inside it.
               router.dismissTo("/browse");
             }}

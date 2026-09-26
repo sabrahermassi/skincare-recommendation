@@ -96,8 +96,8 @@ two points, both later, deliberate decisions rather than drift to silently paper
   described.
 - **The "Onboarding wordmark" row no longer applies.** A later redesign removed the
   wordmark and heart from every onboarding screen entirely — branding now lives on the app
-  icon and the tab-bar mark only (`components/icons/HeartMark.tsx`), not as text on any
-  onboarding screen. There is nothing to size or color here any more.
+  icon only (the in-app heart mark, last drawn at the top of Browse, was removed on
+  26 September 2026), not as text on any onboarding screen. There is nothing to size or color here any more.
 
 | Role | Size | Weight | Line-height | Tracking |
 |---|---|---|---|---|

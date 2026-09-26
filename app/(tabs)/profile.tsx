@@ -94,7 +94,6 @@ export default function Profile() {
             onPress={() => (isPersonalized(profile) ? router.push("/skin-profile") : openQuiz())}
           />
           <MenuRow icon="person-circle-outline" label="Account" onPress={() => router.push("/account")} />
-          <MenuRow icon="school-outline" label="Skincare School" onPress={() => router.push("/school")} />
           <MenuRow icon="chatbubble-ellipses-outline" label="Support" onPress={() => router.push("/support")} />
           <MenuRow icon="shield-checkmark-outline" label="Privacy policy" onPress={() => router.push("/privacy")} />
           <MenuRow icon="trash-outline" label="Delete my profile" danger onPress={() => setConfirmingErase(true)} />

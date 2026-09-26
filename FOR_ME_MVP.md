@@ -128,8 +128,8 @@ No personalization questionnaire is required before scanning.
 
 The skin quiz (Concerns → Skin Type → Sensitivity → Pregnancy, `app/quiz/`)
 opens as a modal over whatever asked for it: a result's "See your skin
-match", Home's skin-profile card, Profile's "Skin profile" row, or the top of
-Search results (`lib/open-quiz.ts`).
+match", Profile's "Skin profile" row, or the top of Search results
+(`lib/open-quiz.ts`).
 
 Flow:
 
