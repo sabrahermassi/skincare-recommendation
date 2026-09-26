@@ -9,11 +9,14 @@ import { CANVAS } from "@/lib/tokens";
 
 // The intro's type (owner, 26 September 2026): a Playfair headline whose first
 // line is in the accent colour and the rest in ink; system-font subtext; a
-// flat pill button.
+// flat pill button. The sizes (owner, 27 September) are the earlier intro's as
+// they looked on screen, measured off its screenshots rather than copied as
+// numbers, since its fonts were different: "skincare product" 273pt wide,
+// a subtext line about 16pt from cap to descender, "Skip" about 35pt wide.
 const HEADLINE_FONT = "PlayfairDisplay_500Medium";
-const HEADLINE_SIZE = 29;
-const BODY_SIZE = 16;
-const SKIP_SIZE = 15;
+const HEADLINE_SIZE = 36;
+const BODY_SIZE = 18;
+const SKIP_SIZE = 18;
 const BUTTON_LABEL_SIZE = 17;
 const BUTTON_HEIGHT = 56;
 
@@ -40,11 +43,12 @@ const BANDS = {
   // top), and the illustration was given the rest of it (was 21.9/66.0)
   // rather than leaving a bare gap at the top of every screen.
   skip: { top: 6.0, bottom: 11.4 },
-  illustration: { top: 13.0, bottom: 66.0 },
-  // The headline is two lines at 29pt now, and the subtext wraps to two lines,
-  // so the headline gives the copy some of its old room.
-  headline: { top: 68.8, bottom: 77.0 },
-  copy: { top: 77.8, bottom: 85.8 },
+  illustration: { top: 13.0, bottom: 65.5 },
+  // Two headline lines at 36pt and two subtext lines at 18pt, placed where the
+  // earlier intro's sat on its screenshots (headline ~69.5–78.5%, subtext
+  // ~81–85.5%); the picture gave up half a percent for the room.
+  headline: { top: 66.5, bottom: 79.0 },
+  copy: { top: 79.5, bottom: 86.5 },
   dots: { top: 87.4, bottom: 88.8 },
   button: { top: 90.5, bottom: 96.0 },
 } as const;
@@ -293,6 +297,8 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
           {/* One sentence, wrapped by the screen rather than by hand. */}
           <Text
             maxFontSizeMultiplier={MAX_FONT_SCALE}
+            // Breaks so no word is left alone on the last line.
+            lineBreakStrategyIOS="standard"
             style={{ fontSize: BODY_SIZE, lineHeight: BODY_SIZE * 1.4, fontWeight: "400", color: INTRO.muted, textAlign: "center" }}
           >
             {screen.supportingCopy}
