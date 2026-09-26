@@ -33,7 +33,7 @@ jobs:
     if: github.repository == 'sabrahermassi/skincare-recommendation' && github.actor != 'dependabot[bot]'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install psql
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
