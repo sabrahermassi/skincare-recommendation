@@ -3,10 +3,11 @@ import { useState } from "react";
 import { View } from "react-native";
 
 import { QuizOptionCard, QUIZ_OPTION_GRID } from "@/components/QuizOptionCard";
+import { useQuizFrame } from "@/components/QuizFrame";
 import { QuizScreen } from "@/components/QuizScreen";
 import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
-import { CONCERN_TITLE, nextQuizRoute, POST_ONBOARDING_ROUTE, quizStepNumber } from "@/lib/profile";
+import { CONCERN_TITLE, nextQuizRoute, quizStepNumber } from "@/lib/profile";
 import { MAX_CONCERNS, useAppStore } from "@/store/useAppStore";
 import { MUTED } from "@/lib/tokens";
 
@@ -69,6 +70,7 @@ const NONE_ICON = require("@/assets/illustrations/quiz/concern-none.png");
 const OPTION_VALUES = new Set(OPTIONS.map((o) => o.value));
 
 export default function ConcernsStep() {
+  const { close } = useQuizFrame();
   const concerns = useAppStore((s) => s.profile.concerns);
   const toggleConcern = useAppStore((s) => s.toggleConcern);
   const setProfile = useAppStore((s) => s.setProfile);
@@ -92,30 +94,30 @@ export default function ConcernsStep() {
   }
 
   // Same pattern skin-type.tsx and sensitivity.tsx use, rather than a
-  // hardcoded `router.push("/onboarding/skin-type")` — concerns is never the
+  // hardcoded `router.push("/quiz/skin-type")` — concerns is never the
   // last step today, so the `null` branch is unreachable, but a hardcoded
   // route silently stops following `STEPS` the moment someone reorders it,
   // which is exactly why the other two screens don't do it either.
   function next() {
-    const route = nextQuizRoute("/onboarding/concerns");
+    const route = nextQuizRoute("/quiz/concerns");
     if (route) {
       router.push(route);
       return;
     }
-    router.replace(POST_ONBOARDING_ROUTE);
+    close();
   }
 
   return (
     <QuizScreen
-      step={quizStepNumber("/onboarding/concerns")}
+      step={quizStepNumber("/quiz/concerns")}
       title="What are your main skin concerns?"
       subtitle={`Pick up to ${MAX_CONCERNS}. You can change these later.`}
       onNext={next}
       nextDisabled={concerns.length === 0 && !noneChosen}
-      // This is the quiz's first step. Onboarding replaces into it rather
-      // than pushing (see app/onboarding/index.tsx), so there is nothing on
-      // the back stack for router.back() to pop — it errored. Every later
-      // step is reached by push and keeps its arrow.
+      // This is the quiz's first step: the modal opens on it (#346), so
+      // there is no earlier step for router.back() to return to. Skip, or a
+      // swipe down, closes the quiz. Every later step is reached by push and
+      // keeps its arrow.
       showBack={false}
     >
       <View style={QUIZ_OPTION_GRID}>

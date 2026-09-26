@@ -42,11 +42,12 @@ export const ProductRow = memo(function ProductRow({
   last?: boolean;
 }) {
   const total = product.ingredients.length;
-  // The same two numbers the product page's irritation card reads, so the row
+  // The same numbers the product page's irritation card reads, so the row
   // and the page never disagree (#290): what is flagged for this person
-  // first, and what carries an EU restriction when nothing is.
-  const { personal, restricted } = irritationCounts(product, match);
-  const flagged = personal > 0 || restricted > 0;
+  // first, then what carries an EU restriction, then the common irritants
+  // flagged for everyone (#345).
+  const { personal, restricted, common } = irritationCounts(product, match);
+  const flagged = personal > 0 || restricted > 0 || common > 0;
   const tone = match.score === null ? null : matchTone(match.score);
   const verdict = tone ? VERDICT[tone] : VERDICT_NEUTRAL;
   // Colour from the tone, word from the verdict — see `VERDICT_LABEL`. The
@@ -58,7 +59,13 @@ export const ProductRow = memo(function ProductRow({
     total === 0
       ? "Formula not read yet"
       : `${total} ingredient${total === 1 ? "" : "s"} · ${
-          personal > 0 ? `${personal} flagged` : restricted > 0 ? `${restricted} restricted` : "none flagged"
+          personal > 0
+            ? `${personal} flagged`
+            : restricted > 0
+              ? `${restricted} restricted`
+              : common > 0
+                ? `${common} common ${common === 1 ? "irritant" : "irritants"}`
+                : "none flagged"
         }`;
 
   return (
