@@ -125,6 +125,7 @@ import {
   FOREGROUND_RECHECK_MS,
   NETWORK_TIMEOUT_MS,
   OCR_TIMEOUT_MS,
+  prefetchCatalogue,
   readLabel,
   revalidateOnForeground,
   saveScannedProduct,
@@ -570,10 +571,58 @@ describe("returning to the app", () => {
     expect(peekCatalogue()!.products).toHaveLength(3);
   });
 
-  /** Nothing cached means no watermark to compare and nothing on screen to fix. */
-  it("does nothing with no catalogue held", async () => {
+  /**
+   * Nothing cached means no watermark to compare — and, since Search stopped
+   * listing the catalogue (#317), nothing else that would fetch one. A first
+   * launch with no signal gets its catalogue on the next return instead.
+   */
+  it("downloads the catalogue when none is held", async () => {
     revalidateOnForeground();
-    await flush();
+    await settle();
+
+    expect(mockCalls).toEqual(["watermark", "dict-watermark", "rows", "dict"]);
+    expect(peekCatalogue()!.products).toHaveLength(2);
+  });
+});
+
+/** Enough turns of the event loop for a whole cold download to land. */
+async function settle(): Promise<void> {
+  for (let i = 0; i < 20; i++) await flush();
+}
+
+describe("the launch download (#317)", () => {
+  /**
+   * What a fresh install does: the splash finds nothing on disk, then the
+   * download runs with no screen asking. Search no longer lists the catalogue,
+   * so without this the cache stays empty and every instant answer built on it
+   * — an offline barcode (#196), search as you type, a product page with no
+   * spinner — goes to the network instead.
+   */
+  it("fills the catalogue cache on a cold start", async () => {
+    await warmCatalogue();
+    expect(peekCatalogue()).toBeNull();
+
+    prefetchCatalogue();
+    await settle();
+
+    expect(peekCatalogue()!.products.map((p) => p.id)).toEqual(["a", "b"]);
+    expect(await AsyncStorage.getAllKeys()).not.toHaveLength(0);
+  });
+
+  it("downloads once however many times it is asked", async () => {
+    prefetchCatalogue();
+    prefetchCatalogue();
+    await settle();
+
+    expect(mockCalls.filter((c) => c === "rows")).toHaveLength(1);
+  });
+
+  it("costs nothing when the catalogue is already held", async () => {
+    await fetchProducts();
+    mockCalls.length = 0;
+
+    prefetchCatalogue();
+    await settle();
 
     expect(mockCalls).toEqual([]);
   });
