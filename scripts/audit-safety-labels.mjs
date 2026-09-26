@@ -30,8 +30,8 @@ import { paginateOrdered } from "./lib/paginate.mjs";
 const DEFAULT_LIMIT = 25;
 
 // The four shapes `safetyFrom` writes into `note`; the annex text is what it was given.
-// The refined-grade exemption (`safetyFor`, #354) writes a fifth on purpose, which
-// this doesn't match: its `caution` would otherwise read as disagreeing with its ban.
+// The refined-grade exemption (`safetyFor`, #354, #361) writes a fifth on purpose,
+// which this doesn't match: its `safe` would otherwise read as disagreeing with its ban.
 const ANNEX_NOTE =
   /^(?:(?:Prohibited in cosmetics|Prohibited for some uses, allowed for others|Restricted use) \(EU Annex ([\s\S]*)\)|EU Annex ([\s\S]*))$/;
 

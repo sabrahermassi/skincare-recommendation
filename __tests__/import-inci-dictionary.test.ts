@@ -32,10 +32,11 @@ describe("safetyFrom", () => {
 });
 
 // #354: petrolatum's Annex II entry bans only petrolatum of unknown refining.
+// #361: and it is `safe`, not `caution`, which the app reads as an irritant.
 describe("safetyFor", () => {
-  it("makes petrolatum a caution that says why, keeping the citation", () => {
+  it("makes petrolatum safe with a note that says why, keeping the citation", () => {
     const rating = safetyFor("petrolatum", { en: "II/904" });
-    expect(rating.safety).toBe("caution");
+    expect(rating.safety).toBe("safe");
     expect(rating.note).toBe("Allowed when fully refined. The EU bans it only when its refining history isn't known (EU Annex II/904)");
     // Not one of safetyFrom's shapes, so the safety-label audit doesn't call it a mismatch.
     expect(annexCited(rating.note)).toBeNull();
@@ -47,7 +48,7 @@ describe("safetyFor", () => {
 
   it("carries the exemption into the rows the import writes", () => {
     const rows = toRows({ "en:petrolatum": { name: { en: "Petrolatum" }, inci_restriction: { en: "II/904" } } });
-    expect(rows.find((row) => row.inci_name === "petrolatum")).toMatchObject({ safety: "caution" });
+    expect(rows.find((row) => row.inci_name === "petrolatum")).toMatchObject({ safety: "safe" });
   });
 });
 
