@@ -244,6 +244,14 @@ const SENSITIVITY_MULTIPLIER: Record<NonNullable<SkinProfile["sensitivity"]> | "
   high: 1.6,
 };
 
+/**
+ * For "very sensitive" only, a fragrance rule's irritation charge counts at
+ * least this share of its weight, wherever it sits in the list (#301, #363):
+ * fragrance is usually near the end, where the position discount left
+ * "very" barely different from "somewhat".
+ */
+const FRAGRANCE_POSITION_FLOOR_HIGH = 0.7;
+
 /** Confidence-tier weight for a pore-clogging hit. Contested ones count zero. */
 export const CLOGGER_WEIGHT: Record<CloggerHit["confidence"], number> = {
   high: 3,
@@ -440,6 +448,13 @@ function computeMatch(
     if (rule) {
       const benefitWeight = rule.weight * positionFactor * contact.benefit;
       const harmWeight = rule.weight * positionFactor * contact.harm;
+      // What an irritant charges: the same, except fragrance for "very
+      // sensitive", which keeps at least `FRAGRANCE_POSITION_FLOOR_HIGH` of
+      // its weight (#363). Concern and skin-type evidence keep `harmWeight`.
+      const irritationWeight =
+        rule.category === "fragrance" && profile.sensitivity === "high"
+          ? rule.weight * Math.max(positionFactor, FRAGRANCE_POSITION_FLOOR_HIGH) * contact.harm
+          : harmWeight;
       const helps = targetApplies(rule.helps, benefitTarget);
       const hurts = targetApplies(rule.hurts, harmTarget);
 
@@ -472,9 +487,11 @@ function computeMatch(
       // A rule can both help and hurt the same person — salicylic acid on
       // oily, sensitive skin. That is a genuine tension, not a bug, so both
       // are recorded and the net effect is what moves the score.
+      // The harm shown is the one charged, so "Why this score" ranks a
+      // floored fragrance where its irritation charge puts it.
       let effect = 0;
       if (helps) effect += benefitWeight;
-      if (harmApplied) effect -= harmWeight;
+      if (harmApplied) effect -= hurtsIrritation ? irritationWeight : harmWeight;
 
       for (const concern of profile.concerns) {
         if (rule.helps?.concerns?.includes(concern)) {
@@ -503,7 +520,7 @@ function computeMatch(
       // ingredient is also in an irritant category; contact and INCI position
       // still determine the size of that single charge.
       if (hurtsIrritation) {
-        irritation += harmWeight;
+        irritation += irritationWeight;
         irritants.push(ingredient.name);
       }
       if (hurtsReactiveSkin && !hurtsIrritantCategory) reactiveCharged.add(position);
