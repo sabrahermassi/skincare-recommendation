@@ -1,0 +1,44 @@
+# Dependency update PRs (#33). The policy — who reviews them, how fast, and
+# why the ignores below exist — is docs/dependencies.md.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Two PRs a week at most: the Expo SDK's own packages together, and
+    # everything else together. A package goes to the first group it matches.
+    groups:
+      expo:
+        patterns:
+          - "expo"
+          - "expo-*"
+          - "@expo/*"
+          - "*-expo"
+      everything-else:
+        patterns:
+          - "*"
+    ignore:
+      # An Expo SDK upgrade is done by hand, after checking which SDK Expo Go
+      # ships (CLAUDE.md, "Constraints"). These packages' major version is the
+      # SDK number, so a major bump is an SDK upgrade.
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "expo-*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@expo/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "*-expo"
+        update-types: ["version-update:semver-major"]
+      # React Native moves with the SDK; its minor is its breaking release.
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # NativeWind's runtime needs Tailwind 3; v4 breaks styling silently.
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
