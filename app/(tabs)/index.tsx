@@ -34,9 +34,10 @@ const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.webp");
 // Its own proportions, so it is never stretched.
 const STILL_LIFE_ASPECT = 1400 / 849;
 // How far below the tab bar's top it reaches, in dp: 1.5 cm on a phone (160 dp
-// to the inch), so its water runs on behind the bar. No spacing token is that
-// large, so it is named here rather than typed inline.
-const STILL_LIFE_DROP = 94;
+// to the inch), less the 1.5 mm the owner raised it by (9 dp), so its water
+// runs on behind the bar. No spacing token is that large, so it is named here
+// rather than typed inline.
+const STILL_LIFE_DROP = 85;
 
 // The handwritten "Hi, there!" on top of the screen, cut from design-watercolor/text.png.
 const GREETING_ART = require("@/assets/illustrations/home-greeting.png");
@@ -124,7 +125,7 @@ export default function Home() {
 
         </View>
 
-        {/* The still life: full width, standing 1.5 cm below the bottom of the
+        {/* The still life: full width, standing about 1.35 cm below the bottom of the
             room the cards leave, so its water runs on behind the tab bar. Drawn behind
             the cards (zIndex) and out of the layout, so it never adds scrolling;
             when large text leaves no room it slides up behind the cards rather
