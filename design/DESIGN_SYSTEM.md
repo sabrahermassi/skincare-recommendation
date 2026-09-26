@@ -26,7 +26,7 @@ files. Import from the token module; if a value you need isn't there, add it the
 
 | Token | Hex | Contrast on canvas | Used for |
 |---|---|---|---|
-| `CANVAS` | `#FBF6EE` | — | screen background — flat, no pattern, no panels |
+| `CANVAS` | `#FDF9F0` | — | every screen's background — flat, no pattern, no panels, no background pictures |
 | `SURFACE` | `#FFFFFF` | — | raised card fill |
 | `INK` | `#241F1E` | 15:1 | headlines, body copy, button text, active progress dots |
 | `MUTED` | `#6B5A54` | 6.0:1 | secondary copy, plain-text secondary actions |
@@ -138,7 +138,7 @@ recalculated for this size/line-height at up to two lines).
 ## Screen skeleton
 
 Both onboarding screens are a single full-screen column (`flex-direction: column`,
-`background: #FBF6EE`) built from **elastic spacers with explicit weights**, not equal
+`background: #FDF9F0`, i.e. `CANVAS`) built from **elastic spacers with explicit weights**, not equal
 `flex:1` spacers and not auto-margins:
 
 | Screen | Spacer weights | Resolves to (375×812) |
