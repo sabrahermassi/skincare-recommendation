@@ -91,7 +91,7 @@ async function launch(): Promise<typeof AppStore> {
   jest.isolateModules(() => {
     // This launch's AppState, so a test can bring the app to the front.
     const { AppState } = require("react-native") as typeof import("react-native");
-    jest.spyOn(AppState, "addEventListener").mockImplementation((_type, handler) => {
+    jest.spyOn(AppState, "addEventListener").mockImplementation((_type: string, handler: unknown) => {
       lifecycle = handler as (status: string) => void;
       return { remove: jest.fn() };
     });
@@ -229,9 +229,9 @@ describe("launching", () => {
 
     mockFail.reads = true;
     const locked = await launch();
-    await locked.getState().setProfile({ pregnancyStatus: "none" });
+    await locked.getState().setProfile({ pregnancyStatus: "neither" });
     expect(keychainProfile()).toEqual(PROFILE);
-    expect(file()?.state.profile).toEqual({ ...EMPTY_PROFILE, pregnancyStatus: "none" });
+    expect(file()?.state.profile).toEqual({ ...EMPTY_PROFILE, pregnancyStatus: "neither" });
   });
 
   it("reads the profile again when the app comes to the front, and shows it", async () => {
