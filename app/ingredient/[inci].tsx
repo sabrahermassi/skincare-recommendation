@@ -434,6 +434,10 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             <Text style={{ fontSize: 13, lineHeight: 19.5, color: INK }}>
               {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), warning)}
             </Text>
+            {/* The body above is the warning's own sentence whenever there is
+                one, so its source goes under it (#347) — a pregnancy caution's
+                or an EU prohibition's, as on the product page. */}
+            {fit !== "unknown" && warning?.source ? <SourceLink source={warning.source} /> : null}
             {/* The small qualifier pill the design puts under the verdict. */}
             <View
               style={{ backgroundColor: meta.chip }}

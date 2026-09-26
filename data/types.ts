@@ -188,8 +188,9 @@ export type PackagingType =
  * — so filling this column would put a fabricated rating next to a measured one
  * with nothing to tell them apart. Pore-clogging judgement lives in
  * `INGREDIENT_RULES` (`lib/rules.ts`) instead, where it covers only the handful
- * of ingredients with reasonably consistent human evidence and each claim
- * carries the sentence shown to the user.
+ * of ingredients those lists name most often, weighted gently because the
+ * evidence is still mostly animal testing, and each claim carries the sentence
+ * shown to the user.
  *
  * Only the hand-written sample catalogue in `data/ingredients.ts` sets it.
  */

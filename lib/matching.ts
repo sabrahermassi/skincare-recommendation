@@ -760,7 +760,13 @@ export function verdictHeadline(result: MatchResult): string {
  * labels, which meant it could name a direction but never a magnitude, and it
  * had no way to say which of two factors mattered more.
  */
-export type ScoreLine = { label: string; detail: string; direction: "up" | "down" };
+export type ScoreLine = {
+  label: string;
+  detail: string;
+  direction: "up" | "down";
+  /** Where the line's claim comes from, when every warning behind it shares one (#347). */
+  source?: RuleSource;
+};
 
 /** Beside the irritation charge when sensitivity isn't set (#183). */
 export const SENSITIVITY_UNSET_NOTE =
@@ -776,7 +782,12 @@ export function scoreExplanation(result: MatchResult): ScoreLine[] {
   // capped at Poor while its "why" list contains nothing but benefits.
   const hazards = result.warnings.filter((warning) => warning.severity === "hazard");
   if (hazards.length > 0) {
+    // One link under the line, so only when it backs every name in it: an EU
+    // prohibition says nothing about a pore rating that is also a hazard.
+    const source = hazards[0].source;
+    const shared = source && hazards.every((h) => h.source?.url === source.url) ? source : undefined;
     lines.push({
+      ...(shared ? { source: shared } : {}),
       label: "Safety warning",
       detail:
         hazards.length === 1
@@ -889,7 +900,7 @@ export function scoreExplanation(result: MatchResult): ScoreLine[] {
     }
   }
 
-  return lines.map(({ label, detail, direction }) => ({ label, detail, direction }));
+  return lines.map(({ label, detail, direction, source }) => (source ? { label, detail, direction, source } : { label, detail, direction }));
 }
 
 /**
