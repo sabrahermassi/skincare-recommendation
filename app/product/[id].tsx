@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, Share, View } from "react-nat
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
-import { Text } from "@/components/Text";
+import { ReadingScale, Text, useIconScale, useLargeText, useRingScale } from "@/components/Text";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
@@ -14,7 +14,7 @@ import { PopOnToggle } from "@/components/PopOnToggle";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { ReportMistakeLink } from "@/components/ReportMistakeLink";
-import { ContextNudgesSection, ExplanationLine, HowScoringLink, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
+import { ContextNudgesSection, ExplanationLine, HowScoringLink, PairingSection, PregnancySection, ProfileArrow, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { HeartIcon } from "@/components/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
@@ -32,7 +32,7 @@ import { ProductNote } from "@/components/ProductNote";
 import { track } from "@/lib/analytics";
 import { historyWarningCount, isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
+import { CANVAS, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 import { productIdParam } from "@/lib/route-params";
 import NotFound from "@/app/+not-found";
@@ -107,6 +107,10 @@ export default function ProductRoute() {
 
 function ProductScreen({ id, from }: { id: string; from?: string }) {
   const insets = useSafeAreaInsets();
+  // Past the ordinary text ceiling the verdict's words no longer fit beside
+  // the score ring, so the ring goes above them (#334).
+  const largeText = useLargeText();
+  const ringScale = useRingScale();
   // Seeded from the catalogue cache so a product already in memory paints on
   // the first frame instead of a spinner — the same `peekProducts` seam
   // `app/(tabs)/browse.tsx` uses for a warm start.
@@ -126,13 +130,16 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
   const scrollRef = useRef<ScrollView>(null);
   const restY = useRef(0);
   const panelY = useRef(0);
+  // Where "Why this score" sits inside the panel. At the largest text sizes the
+  // score and verdict above it fill the screen on their own, so the reasons
+  // are brought to the top instead of the panel (#334).
+  const whyY = useRef(0);
   useEffect(() => {
     if (!showWhy) return;
-    const frame = requestAnimationFrame(() =>
-      scrollRef.current?.scrollTo({ y: Math.max(0, restY.current + panelY.current - SPACE.text), animated: true })
-    );
+    const target = restY.current + panelY.current + (largeText ? whyY.current : 0) - SPACE.text;
+    const frame = requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: Math.max(0, target), animated: true }));
     return () => cancelAnimationFrame(frame);
-  }, [showWhy]);
+  }, [showWhy, largeText]);
   const [loading, setLoading] = useState(() => !product);
   /**
    * Set only when the catalogue could not be *asked*. Distinct from
@@ -409,6 +416,8 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
         })
       : PICTURE_DEFAULT;
 
+  const scoreRing = <ScoreRing score={match.score} size={82 * ringScale} label="/100" tone={match.verdict} />;
+
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader
@@ -461,6 +470,10 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
           paddingBottom: total > 0 ? sheetPeek + SPACE.block : 200,
         }}
       >
+        {/* The reading part of the screen: its text follows the phone's text
+            size all the way up (#334). The header and the ingredients sheet
+            keep the ordinary ceiling. */}
+        <ReadingScale>
         {/*
           The bottle on top, its name underneath, then the cards. Its size is
           worked out so all of it ends where the ingredients sheet begins (see
@@ -478,10 +491,19 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
           style={{ gap: SPACE.block }}
         >
         <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: SPACE.gutter }}>
-          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.9, color: MUTED_FAINT }}>
+          {/* The header names the product; the reading part of the page starts at
+              the verdict. Brand, name and details keep their ordinary ceilings:
+              grown with body text, the name filled the whole first screen and
+              pushed the verdict two scrolls down, and a capped name under a
+              full-size brand read smaller than it (#334). */}
+          <Text
+            maxFontSizeMultiplier={FONT_SCALE.ui}
+            style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.9, color: MUTED_FAINT }}
+          >
             {product.brand}
           </Text>
           <Text
+            maxFontSizeMultiplier={FONT_SCALE.display}
             style={{
               textAlign: "center",
               fontFamily: "PlayfairDisplay_500Medium",
@@ -493,7 +515,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
           >
             {product.name}
           </Text>
-          <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
+          <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.caption, color: MUTED }}>
             {[
               product.volume,
               // A genuinely unidentified product says so nowhere near here —
@@ -542,17 +564,24 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
           onPress={() => router.push({ pathname: "/skin-profile", params: { returnTo: "product" } })}
           accessibilityRole={needsProfile ? "button" : undefined}
           accessibilityLabel={needsProfile ? "Open your skin profile to get your score" : undefined}
-          className="flex-row items-center active:opacity-70"
+          className={`${largeText ? "items-start" : "flex-row items-center"} active:opacity-70`}
           style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
         >
-          <ScoreRing
-            score={match.score}
-            size={82}
-            label="/100"
-            tone={match.verdict}
-          />
-          <View className="flex-1 gap-1.5 pr-6">
+          {/* Stacked, the arrow sits level with the ring rather than on a line of
+              its own under the words (#334). */}
+          {largeText && needsProfile ? (
+            <View className="flex-row items-center justify-between self-stretch">
+              {scoreRing}
+              <ProfileArrow />
+            </View>
+          ) : (
+            scoreRing
+          )}
+          <View className={largeText ? "gap-1.5 self-stretch" : "flex-1 gap-1.5 pr-6"}>
             <Text
+              // Follows the phone as far as body text does, so at the largest sizes
+              // the verdict still stands a step above the sentence under it (#334).
+              maxFontSizeMultiplier={FONT_SCALE.reading}
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: TYPE.title,
@@ -567,7 +596,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
               {verdictHeadline(match)}
             </Text>
           </View>
-          {needsProfile ? <ArrowIcon size={22} color={INK} /> : null}
+          {needsProfile && !largeText ? <ProfileArrow /> : null}
         </Pressable>
 
         {/*
@@ -587,6 +616,9 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
           <>
             <Pressable
               onPress={() => setShowWhy((open) => !open)}
+              onLayout={(e) => {
+                whyY.current = e.nativeEvent.layout.y;
+              }}
               accessibilityRole="button"
               accessibilityLabel="Why this score"
               accessibilityState={{ expanded: showWhy }}
@@ -601,8 +633,8 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
               }}
               className="active:opacity-70"
             >
-              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: panel.ink }}>Why this score</Text>
-              <ArrowIcon direction={showWhy ? "up" : "down"} size={16} color={INK} />
+              <Text style={{ flexShrink: 1, fontSize: TYPE.label, fontWeight: "600", color: panel.ink }}>Why this score</Text>
+              <WhyChevron open={showWhy} />
             </Pressable>
 
             {showWhy ? (
@@ -725,9 +757,16 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
         </View>
 
         </View>
+        </ReadingScale>
       </ScrollView>
 
       {total > 0 ? <IngredientsSheet product={product} match={match} /> : null}
     </View>
   );
+}
+
+/** The "Why this score" chevron, grown with the words beside it (#334). */
+function WhyChevron({ open }: { open: boolean }) {
+  const scale = useIconScale(TYPE.label);
+  return <ArrowIcon direction={open ? "up" : "down"} size={16 * scale} color={INK} />;
 }

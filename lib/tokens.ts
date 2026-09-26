@@ -316,11 +316,22 @@ export const TYPE = {
  * - `display`: the Playfair / Cormorant headings, already the largest text.
  * - `ui`: everything else — reading text, labels, chips, buttons, badges.
  *   One ceiling for both keeps a paragraph from outgrowing its own heading.
+ * - `reading`: inside a `ReadingScale` (#334) — the reading part of the
+ *   product, ingredient and label-result screens — body text may grow this
+ *   far, which is above iOS's largest size (about 3.57×), so it never stops.
+ *   Larger text there stops at the size body text reaches
+ *   (`TYPE.body × reading`), so a heading ends level with its paragraphs
+ *   rather than three times their size, and never below them.
+ * - `icon`: how far an icon beside reading text grows with it (#334) — a
+ *   chevron, a tick, the score ring. Far enough to stay visible next to
+ *   large words, not so far that it takes their width.
  * Applied in `components/Text.tsx`; see `docs/decisions.md`.
  */
 export const FONT_SCALE = {
   display: 1.3,
   ui: 1.5,
+  reading: 3.6,
+  icon: 2,
 } as const;
 
 /**
