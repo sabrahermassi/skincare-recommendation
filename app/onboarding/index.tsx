@@ -95,9 +95,9 @@ export default function Onboarding() {
   }
 
   // "Back from screen 2 or 3 should return to the previous screen, not exit
-  // the flow" — Android's hardware back button is the one way to trigger
-  // that outside the carousel's own UI. On screen 1 there's nothing to
-  // intercept: falling through to the default behaviour is correct there.
+  // the flow" — the shell's Back arrow on iOS, and Android's hardware back
+  // too. On screen 1 there's nothing to intercept: falling through to the
+  // default behaviour is correct there.
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
       if (index === 0) return false;
@@ -114,9 +114,11 @@ export default function Onboarding() {
         activeIndex={index}
         onNext={onNext}
         onSkip={goToQuiz}
+        onBack={index > 0 ? () => setIndex(index - 1) : undefined}
       />
 
-      {showErasedToast && (
+      {/* First screen only: from the second on, Back sits where the toast would. */}
+      {showErasedToast && index === 0 && (
         <View
           accessible
           accessibilityLiveRegion="polite"

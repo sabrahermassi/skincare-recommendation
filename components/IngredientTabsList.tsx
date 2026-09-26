@@ -11,7 +11,7 @@ import { displayIngredientName } from "@/lib/ingredient-name";
 import { isVerified } from "@/lib/safety";
 import { ruleFor, RUNG_META, rungFor, type Contraindication, type MatchResult, type Rung } from "@/lib/matching";
 import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
-import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG_META's good/watch/avoid
 // colors are semantic (the per-ingredient verdict, the whole point of this
@@ -79,7 +79,7 @@ export function IngredientTabsList({
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               style={{
-                height: 44,
+                height: TOUCH_TARGET,
                 paddingHorizontal: 18,
                 alignItems: "center",
                 justifyContent: "center",
@@ -89,6 +89,7 @@ export function IngredientTabsList({
                 backgroundColor: active ? SELECTED : CANVAS,
                 ...CHIP_SHADOW,
               }}
+              className="active:opacity-70"
             >
               <Text style={{ fontSize: 14.5, fontWeight: "600", color: active ? INK : MUTED }}>
                 {label}
@@ -175,6 +176,7 @@ export function IngredientListRow({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
       style={{
         gap: 11,
         flexDirection: "row",

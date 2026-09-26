@@ -35,6 +35,7 @@ export function TypeChip({
         backgroundColor: selected ? SELECTED : CANVAS,
         ...CHIP_SHADOW,
       }}
+      className="active:opacity-70"
     >
       <Text style={{ fontSize: 13.5, fontWeight: "600", color: selected ? INK : MUTED }}>{label}</Text>
     </Pressable>

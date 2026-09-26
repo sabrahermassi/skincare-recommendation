@@ -4,7 +4,8 @@ import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from 
 
 import { Text } from "@/components/Text";
 import { slideDirection } from "@/lib/onboarding-slide";
-import { CANVAS, CHARCOAL, FONT, H_PADDING, PrimaryButton, ProgressDots, SkipButton, TERRACOTTA } from "@/components/shell/shared";
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { CANVAS, CHARCOAL, FONT, H_PADDING, ProgressDots, ShellBackButton, SkipButton, TERRACOTTA } from "@/components/shell/shared";
 
 const HEADLINE_SIZE = 44;
 const BODY_SIZE = 17;
@@ -101,6 +102,8 @@ type OnboardingShellProps = {
   activeIndex: number;
   onNext: () => void;
   onSkip: () => void;
+  /** Absent on the first screen, which has nothing to go back to. */
+  onBack?: () => void;
 };
 
 /**
@@ -115,7 +118,7 @@ type OnboardingShellProps = {
  * inside a horizontally-paged ScrollView, so navigating animated the whole
  * page (button included) across the screen as part of the transition.
  */
-export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: OnboardingShellProps) {
+export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }: OnboardingShellProps) {
   // `shownIndex` trails `activeIndex` by the slide-out: the content on screen is
   // the old screen's until it has faded away, and only then swaps to the new one.
   const [shownIndex, setShownIndex] = useState(activeIndex);
@@ -305,6 +308,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
           and a later sibling is what sits on top of it and stays tappable.
           `pointerEvents="none"` on the wrapper would do the same but takes its
           text out of the VoiceOver tree on iOS. */}
+      {onBack ? <ShellBackButton onPress={onBack} color={TERRACOTTA} /> : null}
       <SkipButton onPress={onSkip} color={TERRACOTTA} />
 
       {/* Shown on every screen, including the first — per the redesign
@@ -333,7 +337,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
           justifyContent: "center",
         }}
       >
-        <PrimaryButton label={buttonLabel} onPress={onNext} size="large" />
+        <PrimaryButton label={buttonLabel} onPress={onNext} size={56} />
       </View>
     </View>
   );

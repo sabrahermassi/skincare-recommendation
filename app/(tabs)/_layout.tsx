@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 import { useEffect } from "react";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, View, type GestureResponderEvent } from "react-native";
 
@@ -11,6 +11,7 @@ import { openScanner } from "@/lib/open-scanner";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT, SCAN_ICON, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
 import { RAISED_SHADOW, SELECTED, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { haptic } from "@/lib/haptics";
 
 // Outline when unselected, filled when selected — the shape changes as well as
 // the colour, so the current tab does not rest on a contrast difference alone.
@@ -55,7 +56,8 @@ function TabButton({
   const color = focused ? TERRACOTTA : TAB_INACTIVE;
   const shown = useSharedValue(focused ? 1 : 0);
   useEffect(() => {
-    shown.value = withTiming(focused ? 1 : 0, { duration: PILL_MS, easing: Easing.out(Easing.cubic) });
+    // ReduceMotion.System: no grow with Reduce Motion on (#313).
+    shown.value = withTiming(focused ? 1 : 0, { duration: PILL_MS, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System });
   }, [focused, shown]);
   const pillStyle = useAnimatedStyle(() => ({
     opacity: shown.value,
@@ -96,8 +98,12 @@ function ScanTabButton() {
   return (
     <View pointerEvents="box-none" style={{ flex: 1, alignItems: "center" }}>
       <Pressable
-        onPress={openScanner}
-        accessibilityRole="tab"
+        onPress={() => {
+          haptic.tap();
+          openScanner();
+        }}
+        // A button, not a tab: it opens the scanner over the tabs (#313).
+        accessibilityRole="button"
         accessibilityLabel="Scan"
         style={{
           position: "absolute",

@@ -516,14 +516,20 @@ export default function Browse() {
               paddingVertical: 13,
             }}
           >
-            <Pressable onPress={() => router.push("/skin-profile")} style={{ flex: 1 }}>
+            <Pressable onPress={() => router.push("/skin-profile")} accessibilityRole="button" style={{ flex: 1 }} className="active:opacity-70">
               <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>
                 {answeredWithoutSignal(profile)
                   ? "Add your skin type or a concern to see how each product suits your skin ->"
                   : "Answer four quick questions to see how each product suits your skin ->"}
               </Text>
             </Pressable>
-            <Pressable onPress={() => setBannerDismissed(true)} hitSlop={8}>
+            <Pressable
+              onPress={() => setBannerDismissed(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss"
+              style={{ minWidth: TOUCH_TARGET, minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+              className="active:opacity-70"
+            >
               <Text style={{ fontSize: 14, fontWeight: "600", color: MUTED }}>&#x2715;</Text>
             </Pressable>
           </View>
@@ -538,7 +544,7 @@ export default function Browse() {
             <Text style={{ textAlign: "center", fontSize: 13, color: MUTED }}>
               Couldn&apos;t load products. Check your connection and try again.
             </Text>
-            <Pressable onPress={() => setRetryKey((k) => k + 1)}>
+            <Pressable onPress={() => setRetryKey((k) => k + 1)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
               <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
                 Try again
               </Text>
@@ -562,7 +568,7 @@ export default function Browse() {
             <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
               Try the Scan tab to scan its barcode or ingredients instead.
             </Text>
-            <PrimaryButton tone="cta" size={52} label="Go to Scan" onPress={openScanner} />
+            <PrimaryButton size={52} label="Go to Scan" onPress={openScanner} />
           </View>
         );
 
@@ -648,6 +654,7 @@ export default function Browse() {
                       alignItems: "center",
                       justifyContent: "center",
                     }}
+                    className="active:opacity-70"
                   >
                     <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
                       <Path d="M6 6l12 12M18 6 6 18" stroke={MUTED} strokeWidth={2.2} strokeLinecap="round" />

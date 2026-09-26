@@ -32,15 +32,12 @@ import { track } from "@/lib/analytics";
 import { historyWarningCount, isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
+import { haptic } from "@/lib/haptics";
 
 // The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
-// draw from the shared `PrimaryButton` component's `tone="cta"` — added
-// specifically so this screen (and browse, the pasted-list empty state, and
-// ingredient detail) stop hand-rolling the same button and drifting apart,
-// which they already had by the time this was written (three different
-// corner radii across the four files). `PrimaryButton`'s *default* tone is
-// still the old purple/lilac fill every screen not yet restyled to for.me
-// uses — `tone="cta"` opts a call site in, it never changes the default.
+// are the shared `PrimaryButton` — one component so this screen, browse and
+// ingredient detail stop hand-rolling the same button and drifting apart
+// (three different corner radii once, across four files).
 
 /**
  * The product screen — one screen, however you arrive at it.
@@ -274,11 +271,12 @@ export default function ProductScreen() {
           <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
             {failureMessage(failure)}
           </Text>
-          <PrimaryButton tone="cta" size={52} label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
+          <PrimaryButton size={52} label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
           <Pressable
             onPress={() => router.push("/browse")}
             accessibilityRole="link"
             style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+            className="active:opacity-70"
           >
             <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
               Search the catalogue
@@ -297,7 +295,7 @@ export default function ProductScreen() {
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, color: INK }}>
             Product not found
           </Text>
-          <PrimaryButton tone="cta" size={52} label="Scan another" onPress={openScanner} />
+          <PrimaryButton size={52} label="Scan another" onPress={openScanner} />
           {/* "Scan another" assumes a physical bottle in hand, which isn't
               true for everyone who lands here — a stale link, a bookmark to
               a removed product. Same escape hatch the missed-barcode panel
@@ -306,6 +304,7 @@ export default function ProductScreen() {
             onPress={() => router.push("/browse")}
             accessibilityRole="link"
             style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+            className="active:opacity-70"
           >
             <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
               Search instead
@@ -402,21 +401,22 @@ export default function ProductScreen() {
             <Pressable
               // Removing never asks; adding asks a guest to sign in first,
               // and the save completes itself once they have (#221).
-              onPress={() =>
-                saved
-                  ? toggleSaved(product.id)
-                  : saveOrAskToSignIn(() => saveProduct(product.id, product.fetchedAt), "product")
-              }
+              onPress={() => {
+                haptic.tap();
+                if (saved) toggleSaved(product.id);
+                else saveOrAskToSignIn(() => saveProduct(product.id, product.fetchedAt), "product");
+              }}
               hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel={saved ? "Remove from saved" : "Save"}
               accessibilityState={{ selected: saved }}
+              className="active:opacity-70"
             >
               <PopOnToggle active={saved}>
                 <HeartIcon size={21} filled={saved} color={saved ? VERDICT.low.solid : undefined} />
               </PopOnToggle>
             </Pressable>
-            <Pressable onPress={share} hitSlop={12} accessibilityLabel="Share this result">
+            <Pressable onPress={share} hitSlop={13} accessibilityRole="button" accessibilityLabel="Share this result" className="active:opacity-70">
               <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
                 <Path
                   d="M12 15.5V3.4M7.8 7.6 12 3.4l4.2 4.2M5 13.6V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.4"
@@ -433,8 +433,12 @@ export default function ProductScreen() {
 
       <FirstPageMoment />
 
+      {/* "handled": the note editor's sheet renders inside this scroll view, and
+          touches follow the React tree, not the Modal's window. Without it, the
+          first tap on "Save note" while typing only closed the keyboard. */}
       <ScrollView
         ref={scrollRef}
+        keyboardShouldPersistTaps="handled"
         onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}
         contentContainerStyle={{
           gap: SPACE.block,
@@ -523,7 +527,7 @@ export default function ProductScreen() {
           onPress={() => router.push({ pathname: "/skin-profile", params: { returnTo: "product" } })}
           accessibilityRole={needsProfile ? "button" : undefined}
           accessibilityLabel={needsProfile ? "Open your skin profile to get your score" : undefined}
-          className="flex-row items-center"
+          className="flex-row items-center active:opacity-70"
           style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
         >
           <ScoreRing

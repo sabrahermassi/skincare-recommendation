@@ -6,6 +6,7 @@ import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
 import { CTA_TEXT, TERRACOTTA } from "@/components/shell/shared";
 import { CANVAS, INK, LINE, RADIUS_SELECTOR, SELECTED } from "@/lib/tokens";
+import { haptic } from "@/lib/haptics";
 
 /** Shared minimum height for every answer button on all four screens — the
  *  concerns grid and the single-column steps — so they stay identical at
@@ -61,7 +62,10 @@ export function QuizOptionCard({
       style={{ width: grid ? "48%" : undefined, marginBottom: 10, opacity: disabled ? 0.5 : 1 }}
     >
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        haptic.select();
+        onPress();
+      }}
       disabled={disabled}
       {...press}
       accessibilityRole={multiple ? "checkbox" : "radio"}

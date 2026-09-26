@@ -1,17 +1,16 @@
 import { router, useFocusEffect } from "expo-router";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
-import { useCallback, useState, type ReactNode } from "react";
-import { AccessibilityInfo, Animated, Platform, Pressable, ScrollView, View } from "react-native";
+import { useCallback, type ReactNode } from "react";
+import { Image } from "expo-image";
+import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { quizTopPadding, useQuizFrame } from "@/components/QuizFrame";
+import { QUIZ_BACKGROUND, quizTopPadding, useQuizFrame } from "@/components/QuizFrame";
 import { Text } from "@/components/Text";
 import { ProgressDots } from "@/components/shell/shared";
 import { quizStepCount } from "@/lib/profile";
 import { INK, MUTED } from "@/lib/tokens";
 
-// How long a step's content takes to fade in when it becomes the one showing.
-const CONTENT_FADE_MS = 200;
 /** Gaps measured off design-watercolor/skin quiz/screens, at 393pt wide:
  *  Skip sits on the first row, the dots ~95pt below it, then the back arrow,
  *  then the question. */
@@ -38,7 +37,7 @@ type Props = {
 
 /**
  * One quiz step's content — progress dots, back arrow, question and answers —
- * on a see-through page. The background, the hand-lettered lines, Skip and the
+ * on its own copy of the quiz background, so it can slide. Skip and the
  * Continue button belong to QuizFrame and stay put; this step hands its button
  * label, state and action to QuizFrame while it's the step showing.
  */
@@ -54,7 +53,7 @@ export function QuizScreen({
 }: Props) {
   const insets = useSafeAreaInsets();
   const { setFooter, releaseFooter } = useQuizFrame();
-  const [opacity] = useState(() => new Animated.Value(0));
+  const window = useWindowDimensions();
 
   // Re-runs whenever the label, state or action changes while this step is
   // showing, and again when it becomes the one showing after Back.
@@ -68,43 +67,18 @@ export function QuizScreen({
     }, [setFooter, releaseFooter, nextLabel, nextDisabled, onNext]),
   );
 
-  // Steps switch with no slide (a see-through page sliding over another
-  // would show both questions at once), so the content fades in instead.
-  //
-  // Skipped entirely when the system asks for reduced motion. The fade is
-  // decorative — it conveys nothing the layout does not — so the honest
-  // response to that setting is no animation at all rather than a shorter
-  // one. Onboarding is also the first thing anyone sees, which makes it the
-  // worst place to ignore the preference. Checked on each focus rather than
-  // once at mount: the setting can change while the app is open.
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      opacity.setValue(0);
-
-      AccessibilityInfo.isReduceMotionEnabled()
-        .catch(() => false)
-        .then((reduced) => {
-          if (cancelled) return;
-          if (reduced) {
-            opacity.setValue(1);
-            return;
-          }
-          Animated.timing(opacity, {
-            toValue: 1,
-            duration: CONTENT_FADE_MS,
-            useNativeDriver: Platform.OS !== "web",
-          }).start();
-        });
-
-      return () => {
-        cancelled = true;
-      };
-    }, [opacity]),
-  );
-
+  // Each step draws the quiz background itself, sized to the whole window so it
+  // lines up exactly with QuizFrame's copy behind the footer: steps now slide in
+  // from the right like any iOS push (#313, owner decision), and a see-through
+  // page sliding over another would show both questions at once.
   return (
-    <Animated.View style={{ flex: 1, opacity }}>
+    <View style={{ flex: 1 }}>
+      <Image
+        source={QUIZ_BACKGROUND}
+        style={{ position: "absolute", top: 0, left: 0, width: window.width, height: window.height }}
+        contentFit="cover"
+        accessibilityLabel=""
+      />
       {/* The quiz's own dots, one per step. The 3-screen intro before it
           draws its own 3 (OnboardingShell). */}
       <View style={{ marginTop: quizTopPadding(insets.top) + DOTS_TOP }}>
@@ -124,6 +98,7 @@ export function QuizScreen({
             alignItems: "flex-start",
             justifyContent: "center",
           }}
+          className="active:opacity-70"
         >
           <ArrowIcon direction="left" size={26} color={INK} />
         </Pressable>
@@ -170,6 +145,6 @@ export function QuizScreen({
       >
         {children}
       </ScrollView>
-    </Animated.View>
+    </View>
   );
 }

@@ -10,8 +10,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/Text";
 import { answeredWithoutSignal, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, SCRIM, SELECTED, SURFACE } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, GRAY_FILL, INK, MUTED, SCRIM, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { haptic } from "@/lib/haptics";
 
 const AVATAR = 120;
 const AVATAR_ART = require("@/assets/illustrations/avatar-empty.png");
@@ -111,10 +112,12 @@ export default function Profile() {
             <View style={{ gap: 10 }}>
               <Pressable
                 onPress={() => {
+                  haptic.warning();
                   setConfirmingErase(false);
                   resetApp();
                   router.replace({ pathname: "/onboarding", params: { erased: "1" } });
                 }}
+                accessibilityRole="button"
                 style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: DANGER }}
                 className="active:opacity-90"
               >
@@ -122,7 +125,9 @@ export default function Profile() {
               </Pressable>
               <Pressable
                 onPress={() => setConfirmingErase(false)}
-                style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, borderWidth: 1, borderColor: BORDER_INACTIVE }}
+                accessibilityRole="button"
+                style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: GRAY_FILL }}
+                className="active:opacity-70"
               >
                 <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Cancel</Text>
               </Pressable>
@@ -134,7 +139,10 @@ export default function Profile() {
   );
 }
 
-/** One row of the menu: an icon, its name, and an arrow. */
+/**
+ * One row of the menu: an icon, its name, and an arrow — except on a
+ * destructive row, which opens a confirmation rather than a screen (#313).
+ */
 function MenuRow({
   icon,
   label,
@@ -156,7 +164,7 @@ function MenuRow({
     >
       <Ionicons name={icon} size={22} color={danger ? DANGER : MUTED} />
       <Text style={{ flex: 1, fontSize: 16, fontWeight: "500", color }}>{label}</Text>
-      <ArrowIcon size={20} color={INK} />
+      {danger ? null : <ArrowIcon size={20} color={INK} />}
     </PressableCard>
   );
 }

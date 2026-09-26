@@ -11,6 +11,7 @@ import { relativeTime } from "@/lib/format";
 import { rungFor, type MatchResult } from "@/lib/matching";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { CANVAS, INK, MUTED, TYPE } from "@/lib/tokens";
+import { reduceMotionNow } from "@/lib/reduce-motion";
 
 // How many ingredients show while the sheet is resting, and roughly how tall a
 // row is, which sets how much of the sheet is above the bottom edge.
@@ -86,7 +87,8 @@ export const IngredientsSheet = forwardRef<IngredientsSheetHandle, {
       setExpanded(open);
       Animated.timing(y, {
         toValue: open ? 0 : collapsedRef.current,
-        duration: SNAP_MS,
+        // With Reduce Motion on, the sheet snaps straight to place (#313).
+        duration: reduceMotionNow() ? 0 : SNAP_MS,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: false,
       }).start();
@@ -175,6 +177,7 @@ export const IngredientsSheet = forwardRef<IngredientsSheetHandle, {
               accessibilityHint={expanded ? "Closes the full list" : "Opens the full list"}
               accessibilityState={{ expanded }}
               style={{ height: HEADER_HEIGHT, paddingHorizontal: 24, justifyContent: "center" }}
+              className="active:opacity-70"
             >
               {/* A bare chevron in place of the grab bar: up while the list is
                   closed (pull it up), down once it is open. Grey, heavier and wider than

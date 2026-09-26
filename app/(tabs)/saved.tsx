@@ -2,10 +2,11 @@ import { Image } from "expo-image";
 import { Link, router, useFocusEffect, useScrollToTop } from "expo-router";
 import type { ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
+import { BottomSheet } from "@/components/BottomSheet";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { NotePreview } from "@/components/ProductNote";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
@@ -27,8 +28,9 @@ import { isVerified } from "@/lib/safety";
 import { useCanSave } from "@/lib/save-gate";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SCRIM, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
+import { haptic } from "@/lib/haptics";
 
 type Tab = SavedTab;
 
@@ -297,7 +299,7 @@ export default function Saved() {
           <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
             Couldn&apos;t load your saved products. Check your connection and try again.
           </Text>
-          <Pressable onPress={() => setRetryKey((k) => k + 1)}>
+          <Pressable onPress={() => setRetryKey((k) => k + 1)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
             <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
               Try again
             </Text>
@@ -471,16 +473,16 @@ function ClearAll({
     <View style={{ alignItems: "center", gap: 10, paddingVertical: 12 }}>
       <Text style={{ fontSize: 12.5, color: MUTED }}>{question}</Text>
       <View style={{ flexDirection: "row", gap: 20 }}>
-        <Pressable onPress={onCancel} accessibilityRole="button" style={CLEAR_TARGET}>
+        <Pressable onPress={onCancel} accessibilityRole="button" style={CLEAR_TARGET} className="active:opacity-70">
           <Text style={{ fontSize: 12, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>Keep it</Text>
         </Pressable>
-        <Pressable onPress={onConfirm} accessibilityRole="button" style={CLEAR_TARGET}>
+        <Pressable onPress={onConfirm} accessibilityRole="button" style={CLEAR_TARGET} className="active:opacity-70">
           <Text style={{ fontSize: 12, fontWeight: "600", color: DANGER, textDecorationLine: "underline" }}>Clear it</Text>
         </Pressable>
       </View>
     </View>
   ) : (
-    <Pressable onPress={onAsk} accessibilityRole="button" style={[CLEAR_TARGET, { alignSelf: "center" }]}>
+    <Pressable onPress={onAsk} accessibilityRole="button" style={[CLEAR_TARGET, { alignSelf: "center" }]} className="active:opacity-70">
       <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>{label}</Text>
     </Pressable>
   );
@@ -514,6 +516,7 @@ function SegmentButton({
         backgroundColor: active ? SELECTED : CANVAS,
         ...CHIP_SHADOW,
       }}
+      className="active:opacity-70"
     >
       <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: "600", color: active ? INK : MUTED }}>
         {label}
@@ -594,7 +597,10 @@ function RemoveButton({ onPress }: { onPress: () => void }) {
   // isn't something this pass can generate.
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        haptic.tap();
+        onPress();
+      }}
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel="Remove"
@@ -609,6 +615,7 @@ function RemoveButton({ onPress }: { onPress: () => void }) {
         borderRadius: 15,
         backgroundColor: SELECTED,
       }}
+      className="active:opacity-70"
     >
       <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
         <Path
@@ -678,7 +685,7 @@ function UndoBar({ label, onUndo }: { label: string; onUndo: () => void }) {
       }}
     >
       <Text style={{ fontSize: 13, color: MUTED }}>{label}</Text>
-      <Pressable onPress={onUndo} hitSlop={8}>
+      <Pressable onPress={onUndo} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
         <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
           Undo
         </Text>
@@ -785,7 +792,7 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
             onPress={() => router.push({ pathname: "/scan-label", params: { barcode: entry.id } })}
             accessibilityRole="button"
             accessibilityLabel={`Photograph the ingredients list for barcode ${entry.id}`}
-            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }}
             style={{ marginTop: 8, alignSelf: "flex-start" }}
             className="active:opacity-70"
           >
@@ -982,7 +989,6 @@ function EmptyState({ tab, guest }: { tab: Tab; guest: boolean }) {
               Saved/History tab (the near-certain first visit to either) was a
               dead end you had to know to escape yourself, via the tab bar. */}
           <PrimaryButton
-            tone="cta"
             size={50}
             label={actionLabel}
             onPress={() =>
@@ -1069,7 +1075,7 @@ function IngredientsTab({
         <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
           Couldn&apos;t load your starred ingredients. Check your connection and try again.
         </Text>
-        <Pressable onPress={() => setRetryKey((k) => k + 1)}>
+        <Pressable onPress={() => setRetryKey((k) => k + 1)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
           <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
             Try again
           </Text>
@@ -1170,6 +1176,7 @@ function StepLine({ group, chosen, onChange }: { group: StepGroup | null; chosen
       accessibilityRole="button"
       accessibilityLabel={`Routine step: ${STEP_LABEL[group]}. Change`}
       style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 17, borderTopWidth: 1, borderTopColor: BORDER_INACTIVE }}
+      className="active:opacity-70"
     >
       <Text style={{ flex: 1, fontSize: TYPE.caption, color: MUTED }}>
         {group === "unsorted" ? "Not sorted yet" : STEP_LABEL[group]}
@@ -1201,27 +1208,20 @@ function StepPicker({
 }) {
   const current = chosen ?? guess;
   return (
-    <Modal visible={productId !== null} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: SCRIM, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
-        <Pressable
-          onPress={(e) => e.stopPropagation()}
-          style={{ width: "100%", maxWidth: 340, borderRadius: 20, backgroundColor: SURFACE, padding: 24, gap: 16, ...FLOATING_SHADOW }}
-        >
-          <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 19, color: INK }}>Which step is it?</Text>
-          <View style={{ gap: 10 }}>
-            {([1, 2, 3] as const).map((step) => (
-              <TypeChip key={step} label={STEP_LABEL[step]} selected={current === step} onPress={() => onPick(step)} />
-            ))}
-          </View>
-          {chosen !== null && guess !== null ? (
-            <Pressable onPress={() => onPick(null)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}>
-              <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK }}>
-                {guess === "unsorted" ? "Clear my choice" : `Use our guess: ${STEP_LABEL[guess]}`}
-              </Text>
-            </Pressable>
-          ) : null}
+    <BottomSheet visible={productId !== null} onClose={onClose}>
+      <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 19, color: INK }}>Which step is it?</Text>
+      <View style={{ gap: 10 }}>
+        {([1, 2, 3] as const).map((step) => (
+          <TypeChip key={step} label={STEP_LABEL[step]} selected={current === step} onPress={() => onPick(step)} />
+        ))}
+      </View>
+      {chosen !== null && guess !== null ? (
+        <Pressable onPress={() => onPick(null)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
+          <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK }}>
+            {guess === "unsorted" ? "Clear my choice" : `Use our guess: ${STEP_LABEL[guess]}`}
+          </Text>
         </Pressable>
-      </Pressable>
-    </Modal>
+      ) : null}
+    </BottomSheet>
   );
 }

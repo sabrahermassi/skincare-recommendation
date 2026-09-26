@@ -25,11 +25,12 @@ export default function NotFound() {
         <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
           This link doesn&apos;t lead anywhere in the app.
         </Text>
-        <PrimaryButton tone="cta" size={52} label="Go to Home" onPress={() => router.replace("/")} />
+        <PrimaryButton size={52} label="Go to Home" onPress={() => router.replace("/")} />
         <Pressable
           onPress={() => router.replace("/browse")}
           accessibilityRole="link"
           style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+          className="active:opacity-70"
         >
           <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
             Search instead

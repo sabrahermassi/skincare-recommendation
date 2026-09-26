@@ -29,6 +29,7 @@ import {
   TYPE,
   withAlpha,
 } from "@/lib/tokens";
+import { haptic } from "@/lib/haptics";
 
 /**
  * Adding a product we don't have.
@@ -82,7 +83,7 @@ function NothingToAdd() {
         <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>
           There&apos;s no ingredient list to add. Scan a product and photograph its ingredients to start.
         </Text>
-        <PrimaryButton tone="cta" size={56} label="Back to the scanner" onPress={() => router.back()} />
+        <PrimaryButton size={56} label="Back to the scanner" onPress={() => router.back()} />
       </View>
     </View>
   );
@@ -138,7 +139,6 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
             We need camera access to scan the barcode.
           </Text>
           <PrimaryButton
-            tone="cta"
             size={56}
             label="Grant permission"
             // Once the system will not ask again, asking does nothing: send them to
@@ -205,7 +205,8 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
                 setStatus({ kind: "idle" });
               }}
               accessibilityRole="button"
-              style={{ alignSelf: "flex-start" }}
+              style={{ alignSelf: "flex-start", minHeight: TOUCH_TARGET, justifyContent: "center" }}
+              className="active:opacity-70"
             >
               <Text style={{ fontSize: TYPE.label, fontWeight: "500", color: withAlpha(CANVAS, 0.8), textDecorationLine: "underline" }}>
                 Try again
@@ -215,7 +216,7 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
         ) : null}
 
         {status.kind !== "checking" ? (
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" style={{ alignItems: "center" }}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" style={{ alignItems: "center", minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
             <Text style={{ fontSize: TYPE.label, fontWeight: "500", color: withAlpha(CANVAS, 0.8), textDecorationLine: "underline" }}>
               Cancel
             </Text>
@@ -318,6 +319,7 @@ function NameStep({
     setFailure(null);
     const result = await saveScannedProduct({ barcode, name: trimmed, ingredients, readToken, type: type ?? undefined });
     if (result.ok) {
+      haptic.success();
       clearLabelRead();
       // `dismissTo`, not `replace` — see the same note on `onKnown` above.
       router.dismissTo({ pathname: "/result/[id]", params: { id: result.product.id, from: "label" } });
@@ -446,8 +448,8 @@ function NameStep({
                 disabled={saving}
                 accessibilityRole="button"
                 accessibilityLabel="Retake the photo"
-                hitSlop={8}
-                style={{ alignSelf: "flex-start", marginTop: SPACE.text / 2 }}
+                style={{ alignSelf: "flex-start", minHeight: TOUCH_TARGET, justifyContent: "center" }}
+                className="active:opacity-70"
               >
                 <Text
                   style={{
@@ -518,10 +520,9 @@ function NameStep({
         ) : null}
 
         {expired ? (
-          <PrimaryButton tone="cta" size={56} label="Scan it again" onPress={() => retakePhoto(barcode)} />
+          <PrimaryButton size={56} label="Scan it again" onPress={() => retakePhoto(barcode)} />
         ) : alreadySaved ? (
           <PrimaryButton
-            tone="cta"
             size={56}
             label={saving ? "Opening…" : "Show me that product"}
             disabled={saving}
@@ -529,7 +530,6 @@ function NameStep({
           />
         ) : (
           <PrimaryButton
-            tone="cta"
             size={56}
             label={saving ? "Saving…" : "Save and see my match"}
             disabled={!trimmed || saving}

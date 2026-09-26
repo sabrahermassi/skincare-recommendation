@@ -1,20 +1,21 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Text } from "@/components/Text";
-import { CTA_TEXT, SkipButton, TERRACOTTA } from "@/components/shell/shared";
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { SkipButton } from "@/components/shell/shared";
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
-import { BUTTON_SHADOW, CANVAS, DOT_INACTIVE, INK, MUTED } from "@/lib/tokens";
+import { CANVAS, INK } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { haptic } from "@/lib/haptics";
 
 // design-watercolor/skin quiz/screens/skin quiz background.png, resized to
 // 1440px wide — enough for the densest phone screens, where the 3412px
 // original would only add weight to the download. No lettering on it, by
 // explicit request: the quiz screens carry no text but their own.
-const QUIZ_BACKGROUND = require("@/assets/illustrations/onboarding/quiz-background.webp");
+export const QUIZ_BACKGROUND = require("@/assets/illustrations/onboarding/quiz-background.webp");
 
 /** Top padding of the quiz's first row. Shared so QuizScreen's dots and back
  *  arrow line up with Skip here. */
@@ -48,7 +49,6 @@ export function QuizFrame({ children }: { children: ReactNode }) {
   const completeOnboarding = useAppStore((s) => s.completeOnboarding);
   const [label, setLabel] = useState("Continue");
   const [disabled, setDisabled] = useState(true);
-  const [pressed, setPressed] = useState(false);
   // A ref, not state: steps pass a new function on every render, and storing
   // it as state would re-render the frame (and so the step) every time.
   const onPressRef = useRef<() => void>(() => {});
@@ -76,6 +76,7 @@ export function QuizFrame({ children }: { children: ReactNode }) {
   function pressFooter() {
     if (navigatingRef.current) return;
     navigatingRef.current = true;
+    haptic.tap();
     onPressRef.current();
   }
 
@@ -101,25 +102,8 @@ export function QuizFrame({ children }: { children: ReactNode }) {
         <View style={{ flex: 1 }}>{children}</View>
 
         <View style={{ paddingHorizontal: 24, paddingBottom: Math.max(28, insets.bottom + 14) }}>
-          <Pressable
-            onPress={pressFooter}
-            disabled={disabled}
-            onPressIn={() => setPressed(true)}
-            onPressOut={() => setPressed(false)}
-            accessibilityRole="button"
-            style={{
-              minHeight: 48,
-              borderRadius: 24,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: disabled ? DOT_INACTIVE : TERRACOTTA,
-              opacity: pressed ? 0.9 : 1,
-              ...(disabled ? null : BUTTON_SHADOW),
-            }}
-          >
-            <Text style={{ fontSize: 16, fontWeight: "500", color: disabled ? MUTED : CTA_TEXT }}>{label}</Text>
-          </Pressable>
+          {/* The app's one filled button style (#313): peach, shrinks when pressed. */}
+          <PrimaryButton label={label} onPress={pressFooter} disabled={disabled} size={48} />
         </View>
 
         {/* After the step navigator, so it's drawn (and tappable) above it. */}

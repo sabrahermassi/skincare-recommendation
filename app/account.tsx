@@ -7,19 +7,8 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { deleteMyAccount, exportMyData, type DeleteOutcome, type ExportOutcome } from "@/lib/account";
 import { ACCOUNT_PITCH, accountSummary, signOut, signOutEverywhere, useAuth } from "@/lib/auth";
-import {
-  BORDER_INACTIVE,
-  CANVAS,
-  CARD_SHADOW,
-  DANGER,
-  FLOATING_SHADOW,
-  INK,
-  MUTED,
-  SCRIM,
-  SURFACE,
-  TOUCH_TARGET,
-  TYPE,
-} from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, DANGER, FLOATING_SHADOW, GRAY_FILL, INK, MUTED, SCRIM, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { haptic } from "@/lib/haptics";
 
 /**
  * Account (#220, #224): who is signed in, and the ways out — sign out of
@@ -103,7 +92,6 @@ export default function Account() {
               {ACCOUNT_PITCH}
             </Text>
             <PrimaryButton
-              tone="cta"
               size={52}
               label="Sign in"
               onPress={() => {
@@ -139,7 +127,10 @@ export default function Account() {
             <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>{DELETE_WARNING}</Text>
             <View style={{ gap: 10 }}>
               <Pressable
-                onPress={() => void remove()}
+                onPress={() => {
+                  haptic.warning();
+                  void remove();
+                }}
                 disabled={working}
                 accessibilityRole="button"
                 style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: DANGER }}
@@ -150,7 +141,8 @@ export default function Account() {
               <Pressable
                 onPress={() => setConfirmingDelete(false)}
                 accessibilityRole="button"
-                style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, borderWidth: 1, borderColor: BORDER_INACTIVE }}
+                style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: GRAY_FILL }}
+                className="active:opacity-70"
               >
                 <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Cancel</Text>
               </Pressable>
@@ -187,7 +179,7 @@ function SignedIn({
         ) : null}
       </View>
 
-      <PrimaryButton variant="outline" size={52} label="Sign out" disabled={working} onPress={() => onLeave(false)} />
+      <PrimaryButton variant="gray" size={52} label="Sign out" disabled={working} onPress={() => onLeave(false)} />
 
       <View style={{ gap: 6 }}>
         <Pressable
@@ -195,6 +187,7 @@ function SignedIn({
           disabled={working}
           accessibilityRole="button"
           style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
+          className="active:opacity-70"
         >
           <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Sign out on every device</Text>
         </Pressable>
@@ -209,6 +202,7 @@ function SignedIn({
           disabled={working}
           accessibilityRole="button"
           style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
+          className="active:opacity-70"
         >
           <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Download my data</Text>
         </Pressable>
@@ -220,6 +214,7 @@ function SignedIn({
         disabled={working}
         accessibilityRole="button"
         style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
+        className="active:opacity-70"
       >
         <Text style={{ fontSize: 14.5, fontWeight: "600", color: DANGER }}>Delete my account</Text>
       </Pressable>

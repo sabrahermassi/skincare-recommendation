@@ -18,6 +18,7 @@ import { readLabelPhoto } from "@/lib/read-label-photo";
 import { track } from "@/lib/analytics";
 import { CAMERA_STAGE, CANVAS, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { haptic } from "@/lib/haptics";
 
 // The design system (design/DESIGN_SYSTEM.md). The live camera view stays plain
 // black, same reasoning as the scanner's own dark stage — only the
@@ -272,6 +273,7 @@ export function LabelCamera({
       track("scan_started", { path: "label" });
       const outcome = await readLabelPhoto(imageBase64, barcode, isStillWanted);
       if (outcome.kind === "read") {
+        haptic.success();
         // Back to the ready camera before leaving: this screen stays mounted under
         // the next one, so swiping back must find a camera to use, not "Reading…".
         setStatus({ kind: "framing" });
@@ -322,7 +324,6 @@ export function LabelCamera({
           strip location data, and never store the image.
         </Text>
         <PrimaryButton
-          tone="cta"
           size={52}
           label="Grant permission"
           // Once the system will not ask again, asking does nothing: send them to
@@ -428,6 +429,7 @@ export function LabelCamera({
             alignItems: "center",
             justifyContent: "center",
           }}
+          className="active:opacity-70"
         >
           <Ionicons name="close" size={26} color={CANVAS} />
         </Pressable>
@@ -514,7 +516,10 @@ export function LabelCamera({
           <Ionicons name="images-outline" size={26} color={status.kind === "reading" || cannotRetry ? withAlpha(CANVAS, 0.4) : CANVAS} />
         </Pressable>
         <Pressable
-          onPress={() => capture()}
+          onPress={() => {
+            haptic.tap();
+            void capture();
+          }}
           disabled={status.kind === "reading" || cannotRetry}
           accessibilityRole="button"
           accessibilityLabel={status.kind === "failed" ? "Try again" : "Take a photo of the ingredient list"}

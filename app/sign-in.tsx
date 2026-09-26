@@ -140,6 +140,7 @@ export default function SignIn() {
           onPress={() => router.back()}
           accessibilityRole="button"
           style={{ minHeight: TOUCH_TARGET, alignSelf: "center", justifyContent: "center", paddingHorizontal: 16 }}
+          className="active:opacity-70"
         >
           <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Not now</Text>
         </Pressable>

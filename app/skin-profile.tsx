@@ -1,9 +1,10 @@
 import { Image } from "expo-image";
-import { router, Stack, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import { usePreventRemove } from "expo-router/react-navigation";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
-import { BackHandler, Pressable, ScrollView, View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -27,7 +28,8 @@ import {
   sensitivityLabel,
 } from "@/lib/profile";
 import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, CTA, DANGER, FLOATING_SHADOW, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { haptic } from "@/lib/haptics";
 
 // The design system (design/DESIGN_SYSTEM.md), restyled per
 // design-watercolor/reference.png's "My profile" screen.
@@ -92,9 +94,9 @@ export default function ProfileScreen() {
 
   const [draft, setDraft] = useState<SkinProfile>(storedProfile);
   const [expanded, setExpanded] = useState<SectionKey | null>(null);
-  // Gates the back chevron: the expand-in-place editors make it
-  // easy to tap a couple of chips and then reflexively tap back, which used
-  // to discard that draft with no warning at all.
+  // Gates every way back: the expand-in-place editors make it easy to tap a
+  // couple of chips and then reflexively go back, which used to discard that
+  // draft with no warning at all.
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   function patch(p: Partial<SkinProfile>) {
     setDraft((d) => ({ ...d, ...p }));
@@ -128,22 +130,28 @@ export default function ProfileScreen() {
     return normalize(draft) !== normalize(storedProfile);
   }, [draft, storedProfile]);
 
-  // The chevron asks before throwing an edit away, but the system back paths skip it:
-  // Android's hardware and gesture back arrive as a "hardwareBackPress" event, and the
-  // iOS swipe-back pops the route directly. While there is an unsaved draft the first is
-  // caught and sent to the same confirmation, and the swipe is switched off (see the
-  // Stack.Screen below), so the chevron's confirmation is the only way out.
-  useEffect(() => {
-    if (!dirty) return;
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      setConfirmingDiscard(true);
-      return true;
-    });
-    return () => subscription.remove();
-  }, [dirty]);
+  // Every way out — the chevron, the iOS swipe-back, Android's back — arrives here
+  // while there is an unsaved draft, and waits on the confirmation below. The
+  // leave that was held back is kept, so "Discard changes" finishes that same
+  // leave (a swipe goes back, a link-straight-here fallback still replaces).
+  // Saving is the one leave that must not ask: the store has the draft already,
+  // but `dirty` still reads the last render until the screen re-renders.
+  const navigation = useNavigation();
+  const heldLeave = useRef<Parameters<typeof navigation.dispatch>[0] | null>(null);
+  const saving = useRef(false);
+  usePreventRemove(dirty, ({ data }) => {
+    if (saving.current) {
+      navigation.dispatch(data.action);
+      return;
+    }
+    heldLeave.current = data.action;
+    setConfirmingDiscard(true);
+  });
 
   function save() {
+    saving.current = true;
     setProfile(draft);
+    haptic.success();
     // Go straight to the screen that shows the effect of the save: the product
     // the questions were opened from, else Home.
     if (returnTo === "product" && router.canGoBack()) router.back();
@@ -158,18 +166,6 @@ export default function ProfileScreen() {
   function leave() {
     if (router.canGoBack()) router.back();
     else router.replace("/browse");
-  }
-
-  function goBack() {
-    // An in-progress edit (a chip tapped, nothing saved yet) used to vanish
-    // silently the moment this was tapped — the expand-in-place editors make
-    // that easy to hit by accident now that browsing between cards happens
-    // before the one save action, not during every keystroke.
-    if (dirty) {
-      setConfirmingDiscard(true);
-      return;
-    }
-    leave();
   }
 
   const concernRows: SummaryRow[] =
@@ -211,14 +207,14 @@ export default function ProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <Stack.Screen options={{ gestureEnabled: !dirty }} />
       <View style={{ paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: 2 }}>
         <Pressable
-          onPress={goBack}
+          onPress={leave}
           hitSlop={14}
           accessibilityRole="button"
           accessibilityLabel="Back"
           style={{ width: 21 }}
+          className="active:opacity-70"
         >
           <ArrowIcon direction="left" size={24} color={INK} />
         </Pressable>
@@ -242,7 +238,7 @@ export default function ProfileScreen() {
             You have unsaved changes. Leave without saving?
           </Text>
           <View style={{ flexDirection: "row", gap: 20 }}>
-            <Pressable onPress={() => setConfirmingDiscard(false)} hitSlop={8}>
+            <Pressable onPress={() => setConfirmingDiscard(false)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
               <Text style={{ fontSize: 12, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
                 Keep editing
               </Text>
@@ -250,9 +246,13 @@ export default function ProfileScreen() {
             <Pressable
               onPress={() => {
                 setConfirmingDiscard(false);
-                leave();
+                const held = heldLeave.current;
+                heldLeave.current = null;
+                if (held) navigation.dispatch(held);
               }}
-              hitSlop={8}
+              accessibilityRole="button"
+              style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
+              className="active:opacity-70"
             >
               <Text style={{ fontSize: 12, fontWeight: "600", color: DANGER, textDecorationLine: "underline" }}>
                 Discard changes
@@ -385,7 +385,7 @@ export default function ProfileScreen() {
             paddingTop: 14,
           }}
         >
-          <PrimaryButton tone="cta" size={52} label="Save" onPress={save} />
+          <PrimaryButton size={52} label="Save" onPress={save} />
         </View>
       )}
     </View>
@@ -445,6 +445,7 @@ function ProfileChip({
         ...CHIP_SHADOW,
         opacity: disabled ? 0.4 : 1,
       }}
+      className="active:opacity-70"
     >
       <Text style={{ fontSize: 13.5, fontWeight: "600", color: selected ? INK : MUTED }}>
         {label}
@@ -494,8 +495,10 @@ function Section({
           hitSlop={8}
           accessibilityRole="button"
           style={{ minHeight: 44, minWidth: 44, alignItems: "flex-end", justifyContent: "center", paddingHorizontal: 4 }}
+          className="active:opacity-70"
         >
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: CTA }}>{expanded ? "Done" : "Edit"}</Text>
+          {/* INK, not the peach CTA: CTA as text on white is about 2.5:1 (#313). */}
+          <Text style={{ fontSize: 12.5, fontWeight: "600", color: INK }}>{expanded ? "Done" : "Edit"}</Text>
         </Pressable>
       </View>
 

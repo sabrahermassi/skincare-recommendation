@@ -7,6 +7,11 @@ import { NotePreview, ProductNote } from "@/components/ProductNote";
 import { SCRIPT_COVERAGE, inScriptCoverage, usesHandwriting } from "@/lib/note-font";
 import { NOTE_FONT } from "@/lib/tokens";
 
+// The note editor is a BottomSheet (#313), which pads for the home indicator.
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 /**
  * A journal note in handwriting (#229): only where the face can draw every
  * character, only when the person hasn't asked for larger or bolder text,

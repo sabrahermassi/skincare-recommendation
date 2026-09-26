@@ -5,6 +5,11 @@ import { MAX_NOTE_CHARS, NOTE_COPY, cleanNote, tooLongCopy } from "@/lib/journal
 import { applyOps, planPush, shelfAsSaves } from "@/lib/shelf";
 import { useAppStore } from "@/store/useAppStore";
 
+// The note editor is a BottomSheet (#313), which pads for the home indicator.
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 /**
  * The journal note (#228): kept as written, never cut down silently, synced
  * like the rest of the shelf, and never lost for want of a signal.

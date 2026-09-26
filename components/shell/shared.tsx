@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Pressable, useWindowDimensions, View, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text } from "@/components/Text";
 import { COLORS } from "@/lib/colors";
-import { BUTTON_SHADOW, CANVAS } from "@/lib/tokens";
+import { CANVAS } from "@/lib/tokens";
 
 /**
  * FOR.ME shell tokens — shared by `OnboardingShell` and `QuizShell` only.
@@ -44,77 +45,6 @@ export const FONT = {
  *  per screen size except the hero/question regions each shell owns itself. */
 export const H_PADDING = 24;
 
-type PrimaryButtonSize = "large" | "default";
-
-/** large = onboarding's 56pt CTA. default = the quiz's 48pt Continue. */
-const BUTTON_HEIGHT: Record<PrimaryButtonSize, number> = {
-  large: 56,
-  default: 48,
-};
-
-type PrimaryButtonProps = {
-  label: string;
-  onPress: () => void;
-  /** @default "large" */
-  size?: PrimaryButtonSize;
-  disabled?: boolean;
-  accessibilityLabel?: string;
-  style?: StyleProp<ViewStyle>;
-};
-
-/**
- * The one CTA both shells render. Colour, corner radius (always a true
- * pill — radius = height/2) and label styling live here once; only height
- * varies, via `size`, so onboarding and the quiz can never drift onto two
- * different button designs the way the rest of the app's buttons did before
- * `components/PrimaryButton.tsx` was unified (see that file's own comment).
- *
- * This is a distinct component from `components/PrimaryButton.tsx` — that
- * one is the app's main button (accent/cta tone, sizes 50/52/56) and
- * still backs every screen outside onboarding/quiz. Same name, different
- * module, imported nowhere in common: not a collision.
- */
-export function PrimaryButton({
-  label,
-  onPress,
-  size = "large",
-  disabled = false,
-  accessibilityLabel,
-  style,
-}: PrimaryButtonProps) {
-  const [pressed, setPressed] = useState(false);
-  const height = BUTTON_HEIGHT[size];
-
-  return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={() => setPressed(true)}
-      onPressOut={() => setPressed(false)}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={{ disabled }}
-      style={[
-        {
-          height,
-          borderRadius: height / 2,
-          backgroundColor: disabled ? SAND : TERRACOTTA,
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: pressed ? 0.85 : 1,
-          // A button you can press is lifted off the page; a disabled one lies flat.
-          ...(disabled ? null : BUTTON_SHADOW),
-        },
-        style,
-      ]}
-    >
-      <Text style={{ fontFamily: FONT.bodyRegular, fontSize: size === "large" ? 18 : 16, color: CTA_TEXT }}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 /** Three-dot progress indicator, shared by both shells' fixed regions. */
 export function ProgressDots({ count, activeIndex }: { count: number; activeIndex: number }) {
   // 12 * 0.6 = 7.2 — 40% smaller than the previous size, per explicit request.
@@ -140,16 +70,22 @@ export function ProgressDots({ count, activeIndex }: { count: number; activeInde
 /** Skip's type size: the same on the intro screens and the quiz. */
 const SKIP_SIZE = 17;
 
+/** The top row Skip and the intro's Back sit on: 6% down the screen, never
+ *  higher than the safe area plus 10. */
+function useTopRow() {
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  return Math.max(insets.top + 10, height * 0.06);
+}
+
 /**
  * The Skip at the top right of the intro screens and of the skin quiz: one
- * component so they cannot drift apart. Same spot (6% down the screen, never
- * higher than the safe area plus 10), same font and size, the same press fade;
- * only the colour is the screen's own.
+ * component so they cannot drift apart. Same spot, same font and size, the
+ * same press fade; only the colour is the screen's own.
  */
 export function SkipButton({ onPress, color }: { onPress: () => void; color: string }) {
   const [pressed, setPressed] = useState(false);
-  const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
+  const top = useTopRow();
   return (
     <Pressable
       onPress={onPress}
@@ -159,7 +95,7 @@ export function SkipButton({ onPress, color }: { onPress: () => void; color: str
       accessibilityRole="button"
       style={{
         position: "absolute",
-        top: Math.max(insets.top + 10, height * 0.06),
+        top,
         right: H_PADDING,
         minHeight: 44,
         minWidth: 44,
@@ -169,6 +105,27 @@ export function SkipButton({ onPress, color }: { onPress: () => void; color: str
       }}
     >
       <Text style={{ fontFamily: FONT.bodyRegular, fontSize: SKIP_SIZE, color }}>Skip</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * Back on the intro's second and third screens (#313): they swap in place
+ * rather than being pushed, so iOS gives them no back of its own. Opposite
+ * Skip, on the same row.
+ */
+export function ShellBackButton({ onPress, color }: { onPress: () => void; color: string }) {
+  const top = useTopRow();
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel="Back"
+      style={{ position: "absolute", top, left: H_PADDING, minHeight: 44, minWidth: 44, justifyContent: "center" }}
+      className="active:opacity-60"
+    >
+      <ArrowIcon direction="left" size={24} color={color} />
     </Pressable>
   );
 }
