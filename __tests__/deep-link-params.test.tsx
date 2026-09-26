@@ -12,6 +12,7 @@ import {
   ingredientNameParam,
   productIdParam,
 } from "@/lib/route-params";
+import { noteProfileErased, profileErasedNoticePending } from "@/lib/erase-notice";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -146,16 +147,23 @@ describe("a hostile link to an ingredient", () => {
 });
 
 describe("a link claiming the profile was erased", () => {
-  it("says so only after a real erase, never to someone who still has a profile", async () => {
-    mockParams = { erased: "1" };
-    useAppStore.setState({ hasSeenOnboarding: true });
-    const view = await render(<Onboarding />);
-    expect(screen.queryByText("Your profile is erased")).toBeNull();
-    view.unmount();
+  it.each([true, false])(
+    "never shows the erased message (onboarded: %s): only the erase itself can",
+    async (hasSeenOnboarding: boolean) => {
+      mockParams = { erased: "1" };
+      useAppStore.setState({ hasSeenOnboarding });
+      await render(<Onboarding />);
+      expect(screen.queryByText("Your profile is erased")).toBeNull();
+    },
+  );
 
-    // What "Erase my profile" leaves behind.
+  it("shows it once after Profile's erase, with no parameter at all", async () => {
+    mockParams = {};
     useAppStore.setState({ hasSeenOnboarding: false });
+    noteProfileErased();
     await render(<Onboarding />);
     expect(screen.getByText("Your profile is erased")).toBeTruthy();
+    // Shown, so a later visit to onboarding doesn't repeat it.
+    expect(profileErasedNoticePending()).toBe(false);
   });
 });

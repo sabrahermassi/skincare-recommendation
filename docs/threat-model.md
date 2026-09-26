@@ -130,7 +130,7 @@ second table is planned; if that ever changes, it gets its own row.
   | `/scan-label`, `/label-result`, `/add-product` | `barcode` | `barcodeParam`: 8–14 digits, else dropped. The ingredient list itself is never taken from a link: it is held in memory from the photo just read |
   | `/sign-in` | `from` (analytics only) | fixed values |
   | `/skin-profile` | `returnTo` | only `"product"` does anything (goes back) |
-  | `/onboarding` | `erased` | "Your profile is erased" shows only when the profile really was erased |
+  | `/onboarding` | none | "Your profile is erased" comes from the erase itself, held in memory (`lib/erase-notice.ts`), never from the URL |
   | `/account` | none | shows account details only for this phone's own session |
   | anything else | — | Page not found (`app/+not-found.tsx`) |
 

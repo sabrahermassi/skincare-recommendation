@@ -13,6 +13,7 @@ import { tabBarClearance } from "@/lib/tab-bar";
 import { CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, GRAY_FILL, INK, MUTED, SCRIM, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
+import { noteProfileErased } from "@/lib/erase-notice";
 
 const AVATAR = 120;
 const AVATAR_ART = require("@/assets/illustrations/avatar-empty.png");
@@ -115,7 +116,8 @@ export default function Profile() {
                   haptic.warning();
                   setConfirmingErase(false);
                   resetApp();
-                  router.replace({ pathname: "/onboarding", params: { erased: "1" } });
+                  noteProfileErased();
+                  router.replace("/onboarding");
                 }}
                 accessibilityRole="button"
                 style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: DANGER }}

@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { BackHandler, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OnboardingShell, type OnboardingScreenContent } from "@/components/shell/OnboardingShell";
 import { Text } from "@/components/Text";
 import { TERRACOTTA } from "@/components/shell/shared";
+import { clearProfileErasedNotice, profileErasedNoticePending } from "@/lib/erase-notice";
 import { quizRoutes } from "@/lib/profile";
 import { CANVAS, FLOATING_SHADOW, INK } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -59,19 +60,16 @@ export default function Onboarding() {
   const insets = useSafeAreaInsets();
 
   // Profile's "Erase my profile" confirm lands here (a wiped profile has
-  // nothing left to do but re-onboard) with `?erased=1`. Landing on a fresh
+  // nothing left to do but re-onboard). Landing on a fresh
   // onboarding screen is itself proof the wipe worked, but a silent
   // redirect with no acknowledgment at all still reads as "did that
   // actually do anything?" for a second — this brief toast closes that gap
   // without needing a toast library this app doesn't otherwise have.
   //
-  // Only after a real erase: a link can carry `?erased=1` too (#29), and must
-  // not tell someone who still has a profile that it's gone. An erase resets
-  // `hasSeenOnboarding`, so it is false exactly when the toast is true.
-  const { erased } = useLocalSearchParams<{ erased?: string }>();
-  const [showErasedToast, setShowErasedToast] = useState(
-    () => erased === "1" && !useAppStore.getState().hasSeenOnboarding,
-  );
+  // The erase leaves a note in memory (`lib/erase-notice.ts`), never a URL
+  // parameter a link could set (#29). Read on mount, cleared once shown.
+  const [showErasedToast, setShowErasedToast] = useState(profileErasedNoticePending);
+  useEffect(() => clearProfileErasedNotice(), []);
   useEffect(() => {
     if (!showErasedToast) return;
     const timer = setTimeout(() => setShowErasedToast(false), 3000);
