@@ -11,6 +11,12 @@
  * runtime and plain .mjs scripts cannot import this module without a build
  * step. Those copies must be kept in step with this one — it
  * is the version under test.
+ *
+ * **No app code imports this any more** (the paste-a-list flow it served is
+ * gone), and it stays on purpose (#206): it is the copy the parser's own tests
+ * run against (`__tests__/inci.test.ts`, `__tests__/parser-refresh.test.ts`),
+ * and `__tests__/inci-parser-parity.test.ts` holds the Deno and script copies
+ * to it. Deleting it would delete the parser's test coverage, not dead code.
  */
 
 /**

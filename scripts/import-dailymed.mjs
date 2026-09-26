@@ -501,7 +501,7 @@ function toRow(spl, xml, known, samples, aliases) {
       // EAN/UPC a phone camera reads off a bottle, so claiming one would make
       // these rows look scannable when they are not. They are browsable
       // catalogue depth, not scan targets — `isIdentifiable` in data/api.ts
-      // hides only barcode-less *OCR* rows, so these still list.
+      // hides only rows named by a bare barcode, so these still list.
       barcode: null,
       brand: labeler ? tidy(labeler) : "Unknown",
       name: tidy(name),

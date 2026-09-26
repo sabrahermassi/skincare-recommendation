@@ -163,11 +163,11 @@ export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
  * the same vessel, so both take `productType: "cleanser-tube"`.
  *
  * Originated from a since-deleted design handoff's bottle-shape reference.
- * The SVG set this type once mapped to (`components/BottleIcon.tsx`'s old
- * `BottleIcon`/`Btl*` components) is gone — deleted as dead code once
+ * The SVG set this type once mapped to (the old `BottleIcon`/`Btl*`
+ * components) is gone — deleted as dead code once
  * `lib/productIllustration.ts`'s PNG set had fully replaced it — but the
- * axis itself is still real: `components/BottleIcon.tsx`'s surviving
- * `defaultPackagingType` still maps into it.
+ * axis itself is still real: `defaultPackagingType` (`data/packaging.ts`)
+ * still maps into it.
  */
 export type PackagingType =
   | "serum"
@@ -223,6 +223,18 @@ export type Ingredient = {
    */
   functions?: string[];
 };
+
+/**
+ * A name the ingredient dictionary doesn't carry, shown as unverified rather
+ * than dropped — a shortened list would be a quieter, worse lie than an
+ * unrecognised name. Every stub is made here so they can't drift (#206):
+ * `safety` is "caution", the conservative value, though every reader checks
+ * `verified` first (`isVerified` in `lib/safety.ts`), so a stub never scores
+ * or flags anything.
+ */
+export function unknownIngredient(name: string, note?: string): Ingredient {
+  return { id: name, name, comedogenic: 0, safety: "caution", verified: false, ...(note ? { note } : {}) };
+}
 
 export type Product = {
   id: string;

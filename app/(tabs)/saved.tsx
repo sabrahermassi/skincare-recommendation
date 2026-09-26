@@ -16,7 +16,7 @@ import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { TypeChip } from "@/components/TypeChip";
 import { canPhotographLabelFor, fetchProductsByIds, resolveIngredientNames } from "@/data/api";
-import type { Ingredient, ProductWithIngredients } from "@/data/types";
+import { unknownIngredient, type Ingredient, type ProductWithIngredients } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime } from "@/lib/format";
@@ -1083,8 +1083,7 @@ function IngredientsTab({
   return (
     <ScrollView ref={scrollRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
       {names.map((name) => {
-        const ingredient: Ingredient =
-          byName[name] ?? { id: name, name, comedogenic: 0, safety: "safe", verified: false };
+        const ingredient: Ingredient = byName[name] ?? unknownIngredient(name);
         const verdict = isVerified(ingredient)
           ? ingredient.safety === "avoid"
             ? VERDICT.low
