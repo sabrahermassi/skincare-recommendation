@@ -39,6 +39,7 @@ const INGREDIENTS = [
   ingredient("lanolin", { functions: ["emollient", "skin conditioning"] }),
   ingredient("some restricted preservative", { safety: "caution" }),
   ingredient("retinol"),
+  ingredient("isopropyl myristate", { verified: false }),
 ];
 
 const PRODUCT: ProductWithIngredients = {
@@ -87,6 +88,21 @@ describe("the ingredient page, opened from a product", () => {
     expect(screen.getAllByText("Worth knowing").length).toBeGreaterThan(0);
     expect(screen.getByText("Common irritant for sensitive skin")).toBeTruthy();
     expect(screen.queryByText("Flagged for everyone")).toBeNull();
+  });
+
+  it("says a misread pore-clogger the score charged counts against the person, not that it can't be judged", async () => {
+    await open("isopropyl myristate", { concerns: ["acne-prone"] });
+    expect(screen.getByText("Works against your profile")).toBeTruthy();
+    expect(screen.getByText("This is one of the things pulling the score down for the skin you described.")).toBeTruthy();
+    expect(screen.queryByText("We can't judge this one")).toBeNull();
+  });
+
+  it("says a misread pore-clogger is on the lists when the score didn't charge it", async () => {
+    await open("isopropyl myristate", {});
+    expect(screen.getByText("Worth a second look")).toBeTruthy();
+    expect(
+      screen.getByText("This name didn't match our ingredient dictionary, but it is on the published pore-clogging lists."),
+    ).toBeTruthy();
   });
 
   it("flags a pregnancy caution for this person, even with no skin profile", async () => {

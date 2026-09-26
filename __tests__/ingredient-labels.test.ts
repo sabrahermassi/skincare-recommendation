@@ -140,6 +140,16 @@ describe("ingredientLabel, for a name on the pore-clogging lists", () => {
     expect(ingredientLabel(LANOLIN, match, true)).toBe("watch");
   });
 
+  it("says Watch, not Unknown, for a misread name that is on the lists and cost the score", () => {
+    // Pore-clogging matching fires on an unrecognised name, and charges it.
+    const MISREAD = ingredient("isopropyl myristate", { verified: false });
+    const match = matchProduct(product([...PLAIN, GLYCERIN, MISREAD]), profile({ concerns: ["acne-prone"] }));
+    expect(match.cloggersCharged).toContain("isopropyl myristate");
+    expect(ingredientLabel(MISREAD, match, true)).toBe("watch");
+    const noProfile = matchProduct(product([...PLAIN, MISREAD]), EMPTY_PROFILE);
+    expect(ingredientLabel(MISREAD, noProfile, false)).toBe("watch");
+  });
+
   it("says Watch with no skin profile, and stays out of the fold", () => {
     const match = matchProduct(product([...PLAIN, LANOLIN]), EMPTY_PROFILE);
     expect(ingredientLabel(LANOLIN, match, false)).toBe("watch");

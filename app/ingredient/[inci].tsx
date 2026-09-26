@@ -15,7 +15,7 @@ import { unknownIngredient, type Ingredient, type ProductWithIngredients } from 
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { COLORS } from "@/lib/colors";
 import { comedogenicLabel } from "@/lib/format";
-import { ingredientLabel, type IngredientLabel } from "@/lib/ingredient-labels";
+import { countedAgainst, ingredientLabel, type IngredientLabel } from "@/lib/ingredient-labels";
 import { matchProduct, positionNote, ruleFor, type Contraindication } from "@/lib/matching";
 import { isPersonalized, isSensitive, treatAsReactive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
@@ -261,16 +261,13 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
   // label: a rule that "hurts sensitive skin" said "Works against your
   // profile" to someone with no profile, beside a list that gave the row no
   // word at all.
-  const name = ingredient.name;
   const helps = match
     ? fit === "good"
     : rule
       ? targetApplies(rule.helps, { ...profile, sensitive: isSensitive(profile) })
       : false;
   const hurts = match
-    ? match.reasons.some((r) => r.ingredient === name && r.effect < 0) ||
-      match.irritants.includes(name) ||
-      match.cloggersCharged.includes(name)
+    ? countedAgainst(ingredient, match)
     : rule
       ? targetApplies(rule.hurts, { ...profile, sensitive: treatAsReactive(profile) })
       : false;
@@ -388,7 +385,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             <View className="flex-row items-center gap-2.5">
               <HeartIcon color={meta.hero} />
               <Text className={`font-display text-[18px] leading-[21px] ${meta.ink}`}>
-                {fitHeadline(fit, helps, hurts, verified, warning)}
+                {fitHeadline(fit, helps, hurts, warning)}
               </Text>
             </View>
             <Text style={{ fontSize: 13, lineHeight: 19.5, color: INK }}>
@@ -400,7 +397,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
               className="self-start rounded-full px-3 py-1.5"
             >
               <Text className={`text-[11.5px] font-medium ${meta.ink}`}>
-                {fitPill(fit, helps, hurts, verified, warning)}
+                {fitPill(fit, helps, hurts, warning)}
               </Text>
             </View>
           </View>
@@ -568,14 +565,18 @@ function whatItDoes(ingredient: Ingredient, ruleReason: string | undefined): str
   return "We hold no declared function for this one yet.";
 }
 
+/*
+ * An unrecognised name is "unknown" unless something outranks not knowing — a
+ * warning, a charge on the score, or a name on the pore-clogging lists
+ * (`ingredientLabel`) — and then it reads like any other row with that label.
+ */
 function fitHeadline(
   fit: Fit,
   helps: boolean,
   hurts: boolean,
-  verified: boolean,
   warning?: Contraindication
 ): string {
-  if (!verified) return fit === "avoid" && warning ? "Flagged for you" : "We can't judge this one";
+  if (fit === "unknown") return "We can't judge this one";
   // A caution for this person outranks what a rule says it does: a retinoid
   // is not a "Great match" while pregnant.
   if (fit === "avoid" && warning) return "Flagged for you";
@@ -594,14 +595,15 @@ function fitBody(
   hasRule: boolean,
   warning?: Contraindication
 ): string {
-  if (!verified) {
-    return fit === "avoid" && warning
-      ? warning.reason
-      : "An unrecognised name supports no claim in either direction, so this one neither counts for nor against the product's score.";
+  if (fit === "unknown") {
+    return "An unrecognised name supports no claim in either direction, so this one neither counts for nor against the product's score.";
   }
   // The warning's own sentence is the most specific thing we hold.
   if (warning) return warning.reason;
   if (hurts) return "This is one of the things pulling the score down for the skin you described.";
+  if (!verified) {
+    return "This name didn't match our ingredient dictionary, but it is on the published pore-clogging lists.";
+  }
   if (helps) return "This actively helps with what you told us about your skin.";
   if (fit === "avoid") {
     return "The EU inventory restricts or prohibits this one, which applies to everybody rather than to your profile in particular.";
@@ -619,10 +621,9 @@ function fitPill(
   fit: Fit,
   helps: boolean,
   hurts: boolean,
-  verified: boolean,
   warning?: Contraindication
 ): string {
-  if (!verified) return fit === "avoid" && warning ? "Flagged for you" : "Unassessed";
+  if (fit === "unknown") return "Unassessed";
   if (fit === "avoid" && warning) return "Flagged for you";
   if (hurts) return "Counts against your goals";
   if (helps) return "Good for your goals";

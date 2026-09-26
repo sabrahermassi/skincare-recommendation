@@ -178,10 +178,11 @@ export function IngredientTabsList({
         <Pressable
           onPress={() => setUnfolded(true)}
           accessibilityRole="button"
+          accessibilityHint="Shows the rest of the ingredients"
           style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 12 }}
           className="active:opacity-70"
         >
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK }}>
+          <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
             {folded === 1 ? "1 more ingredient with no known concerns" : `${folded} more ingredients with no known concerns`}
           </Text>
         </Pressable>
@@ -220,7 +221,11 @@ export function IngredientListRow({
   const subtitle = !isVerified(ingredient)
     ? label === "avoid" && warning
       ? warning.reason
-      : "Not recognised - we can't assess this one"
+      : clogs
+        ? // Pore-clogging matching fires on an unrecognised name too, and the
+          // row is Watch for it, not Unknown.
+          "On the published pore-clogging lists"
+        : "Not recognised - we can't assess this one"
     : clogs
       ? "On the published pore-clogging lists"
       : rule

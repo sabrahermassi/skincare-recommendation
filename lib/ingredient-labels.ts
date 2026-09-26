@@ -45,28 +45,40 @@ export function ingredientLabel(ingredient: Ingredient, match: MatchResult, pers
   const warnings = match.warnings.filter((w) => w.ingredient.id === ingredient.id);
   // A hazard or a pregnancy caution outranks not knowing, and outranks having
   // no profile: pregnancy matching fires on an exact name even when a label
-  // read left the row unverified. A
-  // pregnancy hit is `severity: "irritant"` for the score (see
-  // `lib/pregnancy-caution.ts`), so it is named here rather than caught by
-  // the severity check. Every warning is read: one ingredient can carry one
-  // per origin.
+  // read left the row unverified. A pregnancy hit is `severity: "irritant"`
+  // for the score (see `lib/pregnancy-caution.ts`), so it is named here
+  // rather than caught by the severity check. Every warning is read: one
+  // ingredient can carry one per origin.
   if (warnings.some((w) => w.severity === "hazard" || w.origin === "pregnancy")) return "avoid";
 
   const risk = riskOf(ingredient);
   if (risk === "avoid") return "avoid";
+  // Both also outrank not knowing. Pore-clogging matching fires on an
+  // unrecognised name too, so a misread name can wear the CLOGGING tag and
+  // cost the score: "Unknown" beside that contradicts both.
+  if (countedAgainst(ingredient, match) || isWarnedPoreClogging(ingredient)) return "watch";
   if (risk === "unknown") return "unknown";
-  if (isWarnedPoreClogging(ingredient)) return "watch";
 
   if (!personalized) return ingredient.safety === "caution" ? "watch" : null;
 
+  if (warnings.length > 0 || risk === "caution") return "watch";
+  if (match.reasons.some((r) => r.ingredient === ingredient.name && r.effect > 0)) return "good";
+  return null;
+}
+
+/**
+ * Whether the score counted this ingredient against the person: a negative
+ * reason, or an irritation or pore-clogging charge. Shared with the
+ * ingredient page, so its "Works against your profile" can't drift from the
+ * list's Watch.
+ */
+export function countedAgainst(ingredient: Ingredient, match: MatchResult): boolean {
   const name = ingredient.name;
-  const countedAgainst =
+  return (
     match.reasons.some((r) => r.ingredient === name && r.effect < 0) ||
     match.irritants.includes(name) ||
-    match.cloggersCharged.includes(name);
-  if (warnings.length > 0 || risk === "caution" || countedAgainst) return "watch";
-  if (match.reasons.some((r) => r.ingredient === name && r.effect > 0)) return "good";
-  return null;
+    match.cloggersCharged.includes(name)
+  );
 }
 
 function riskOf(ingredient: Ingredient) {

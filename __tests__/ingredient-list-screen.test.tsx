@@ -105,6 +105,19 @@ describe("the ingredient list", () => {
     expect(screen.getByText("What matters first")).toBeTruthy();
   });
 
+  it("labels a misread name on the pore-clogging lists Watch, with the lists as its reason", async () => {
+    const misread = ingredient("isopropyl myristate", { verified: false });
+    (fetchProduct as unknown as { mockResolvedValue(value: unknown): void }).mockResolvedValue({
+      ok: true,
+      value: { ...PRODUCT, ingredientIds: [...PRODUCT.ingredientIds, misread.id], ingredients: [...INGREDIENTS, misread] },
+    });
+    await render(<IngredientListRoute />);
+    await act(async () => {});
+    expect(screen.getByText("Watch")).toBeTruthy();
+    expect(screen.getByText("On the published pore-clogging lists")).toBeTruthy();
+    expect(screen.queryByText("Not recognised - we can't assess this one")).toBeNull();
+  });
+
   it("with no skin profile, says why nothing is Good, and never says it", async () => {
     useAppStore.setState({ profile: EMPTY_PROFILE });
     await open();
