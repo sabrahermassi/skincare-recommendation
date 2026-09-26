@@ -314,7 +314,7 @@ export const TYPE = {
  * How far iOS Larger Text / Android font size may grow text (#314). The
  * accessibility sizes scale text about 3×, which no fixed layout here
  * survives, so text grows up to these multiples and stops:
- * - `display`: the Playfair / Cormorant headings, already the largest text.
+ * - `display`: the Playfair headings, already the largest text.
  * - `ui`: everything else — reading text, labels, chips, buttons, badges.
  *   One ceiling for both keeps a paragraph from outgrowing its own heading.
  * - `reading`: inside a `ReadingScale` (#334) — the reading part of the

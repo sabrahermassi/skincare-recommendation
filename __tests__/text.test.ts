@@ -61,7 +61,7 @@ describe("defaultFontScale", () => {
   it("lets display headings grow least, by class or by the loaded face", () => {
     expect(defaultFontScale("font-display text-2xl", undefined)).toBe(FONT_SCALE.display);
     expect(defaultFontScale(undefined, { fontFamily: "PlayfairDisplay_500Medium" })).toBe(FONT_SCALE.display);
-    expect(defaultFontScale(undefined, [{ fontSize: 20 }, { fontFamily: "CormorantGaramond_500Medium" }])).toBe(
+    expect(defaultFontScale(undefined, [{ fontSize: 20 }, { fontFamily: "PlayfairDisplay_600SemiBold" }])).toBe(
       FONT_SCALE.display,
     );
   });

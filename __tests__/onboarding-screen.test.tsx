@@ -2,7 +2,9 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 
 import Onboarding from "@/app/onboarding";
+import { scaleThatFits } from "@/components/shell/OnboardingShell";
 import { noteProfileErased } from "@/lib/erase-notice";
+import { COLORS } from "@/lib/colors";
 import { CANVAS } from "@/lib/tokens";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
@@ -77,4 +79,56 @@ it("ends on Get started, which finishes the intro", async () => {
   await fireEvent.press(screen.getByText("Continue"));
   await act(async () => fireEvent.press(screen.getByText("Get started")));
   expect(useAppStore.getState().hasSeenOnboarding).toBe(true);
+});
+
+// The owner's type spec (26 September 2026): the first line of each headline
+// in the accent colour and the rest in ink, muted subtext and Skip, and a flat
+// pill button in the intro's own colours.
+const textStyle = (node: { props: { style?: StyleProp<ViewStyle> } }) => StyleSheet.flatten(node.props.style) as Record<string, unknown>;
+
+it("colours the headline's first line as the accent and the rest as ink", async () => {
+  await render(<Onboarding />);
+  expect(textStyle(screen.getByText("Scan any")).color).toBe(COLORS.introAccent);
+  expect(textStyle(screen.getByText("skincare product")).color).toBe(COLORS.introInk);
+  expect(textStyle(screen.getByText("Scan any")).fontFamily).toBe("PlayfairDisplay_500Medium");
+});
+
+it("shows each screen's sentence in the muted colour, and moves through all three", async () => {
+  await render(<Onboarding />);
+  const first = screen.getByText("Point your camera at a barcode or ingredient list.");
+  expect(textStyle(first).color).toBe(COLORS.introMuted);
+  await fireEvent.press(screen.getByText("Continue"));
+  // The words change halfway through the slide.
+  expect(await screen.findByText("Know")).toBeTruthy();
+  expect(screen.getByText("Understand the ingredients and what they mean for your skin.")).toBeTruthy();
+  await fireEvent.press(screen.getByText("Continue"));
+  expect(await screen.findByText("Find what fits")).toBeTruthy();
+  expect(screen.getByText("See how each formula matches your skin, concerns and goals.")).toBeTruthy();
+});
+
+it("draws the button as a flat pill in the intro's colours, and Skip in the muted one", async () => {
+  await render(<Onboarding />);
+  const button = screen.getByRole("button", { name: "Continue" });
+  expect(textStyle(button).backgroundColor).toBe(COLORS.introButton);
+  expect(textStyle(screen.getByText("Continue")).color).toBe(COLORS.introButtonText);
+  expect(textStyle(screen.getByText("Skip")).color).toBe(COLORS.introMuted);
+});
+
+// A larger text setting grows the headline only as far as its band holds it.
+describe("scaleThatFits", () => {
+  const band = { top: 64.5, bottom: 76.5 };
+  it("allows the full 1.3 when the band has room", () => {
+    expect(scaleThatFits(2000, band, 79)).toBe(1.3);
+  });
+
+  it("stops where the band is full on a short phone", () => {
+    const scale = scaleThatFits(667, band, 79);
+    expect(scale).toBeGreaterThanOrEqual(1);
+    expect(scale).toBeLessThan(1.3);
+    expect(79 * scale).toBeLessThanOrEqual((667 * 12) / 100 + 0.001);
+  });
+
+  it("never goes below the base size", () => {
+    expect(scaleThatFits(300, band, 79)).toBe(1);
+  });
 });

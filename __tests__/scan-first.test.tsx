@@ -151,29 +151,46 @@ describe("the quiz, as a modal", () => {
     expect(useAppStore.getState().profile.pregnancyStatus).toBe("neither");
   });
 
-  it("keeps what was answered when closed early", async () => {
+  it("has no Skip, and saves each answer as it's tapped, so a quiz swiped away keeps it", async () => {
     await render(
       <QuizFrame>
         <SkinTypeStep />
       </QuizFrame>,
     );
+    expect(screen.queryByText("Skip")).toBeNull();
     await fireEvent.press(screen.getByText("Oily"));
-    await fireEvent.press(screen.getByText("Skip"));
-    expect(mockGoBack).toHaveBeenCalledTimes(1);
-    expect(mockRouter.replace).not.toHaveBeenCalled();
     expect(useAppStore.getState().profile.baseSkinType).toBe("oily");
+  });
+
+  it("closes on VoiceOver's escape gesture, since there is no Skip to tap", async () => {
+    await render(
+      <QuizFrame>
+        <SkinTypeStep />
+      </QuizFrame>,
+    );
+    type Node = { props?: { onAccessibilityEscape?: () => void }; children?: (Node | string)[] | null };
+    const find = (node: Node | string | null | undefined): (() => void) | undefined => {
+      if (!node || typeof node === "string") return undefined;
+      return node.props?.onAccessibilityEscape ?? node.children?.map(find).find(Boolean);
+    };
+    const tree = screen.toJSON() as Node | Node[] | null;
+    const escape = (Array.isArray(tree) ? tree : [tree]).map(find).find(Boolean);
+    expect(escape).toBeDefined();
+    await act(async () => escape?.());
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("the quiz opened from a link, with nothing behind it", () => {
-  it("goes Home when closed", async () => {
+  it("goes Home when finished", async () => {
     mockCanGoBack = false;
     await render(
       <QuizFrame>
-        <SkinTypeStep />
+        <PregnancyStep />
       </QuizFrame>,
     );
-    await fireEvent.press(screen.getByText("Skip"));
+    await fireEvent.press(screen.getByText("Neither"));
+    await fireEvent.press(screen.getByText("Finish"));
     expect(mockGoBack).not.toHaveBeenCalled();
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
   });

@@ -4,14 +4,13 @@ import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
-import { SkipButton } from "@/components/shell/shared";
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
-import { CANVAS, INK } from "@/lib/tokens";
+import { CANVAS } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
 
-/** Top padding of the quiz's first row. Shared so QuizScreen's dots and back
- *  arrow line up with Skip here. */
+/** Top padding of the quiz's first row, where QuizScreen's dots and back
+ *  arrow start. */
 export function quizTopPadding(insetTop: number) {
   return Math.max(20, insetTop + 10);
 }
@@ -35,7 +34,8 @@ export function useQuizFrame(): QuizFrameValue {
 
 /**
  * Everything on the quiz screens that must not move between steps: the
- * background, Skip, and the Continue / Finish button. Rendered once
+ * background and the Continue / Finish button. No Skip (owner): the quiz is a
+ * sheet, so a swipe down closes it like any iOS sheet. Rendered once
  * by app/quiz/_layout.tsx around the step navigator, so tapping
  * Continue only changes the see-through step page inside it.
  *
@@ -62,9 +62,8 @@ export function QuizFrame({ children }: { children: ReactNode }) {
 
   const value = useMemo<QuizFrameValue>(
     () => ({
-      // Skip, and Finish on the last step. It skips the rest, not what's
-      // answered: every answer is saved as it's tapped, so closing early
-      // keeps them (#346).
+      // Finish on the last step. Every answer is saved as it's tapped, so a
+      // quiz swiped away early keeps what was answered too (#346).
       close() {
         // Opened from a link, the quiz can be the only screen there is.
         if (navigation.canGoBack()) navigation.goBack();
@@ -91,16 +90,15 @@ export function QuizFrame({ children }: { children: ReactNode }) {
 
   return (
     <QuizFrameContext.Provider value={value}>
-      <View style={{ flex: 1, backgroundColor: CANVAS }}>
+      {/* No Skip on screen (owner), so VoiceOver's escape gesture (a two-finger
+          Z) closes the quiz too, the way a swipe down does. */}
+      <View style={{ flex: 1, backgroundColor: CANVAS }} onAccessibilityEscape={value.close}>
         <View style={{ flex: 1 }}>{children}</View>
 
         <View style={{ paddingHorizontal: 24, paddingBottom: Math.max(28, insets.bottom + 14) }}>
           {/* The app's one filled button style (#313): peach, shrinks when pressed. */}
           <PrimaryButton label={label} onPress={pressFooter} disabled={disabled} size={48} />
         </View>
-
-        {/* After the step navigator, so it's drawn (and tappable) above it. */}
-        <SkipButton onPress={value.close} color={INK} />
       </View>
     </QuizFrameContext.Provider>
   );

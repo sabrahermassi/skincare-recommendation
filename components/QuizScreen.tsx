@@ -11,8 +11,8 @@ import { quizStepCount } from "@/lib/profile";
 import { CANVAS, INK, MUTED } from "@/lib/tokens";
 
 /** Gaps measured off design-watercolor/skin quiz/screens, at 393pt wide:
- *  Skip sits on the first row, the dots ~95pt below it, then the back arrow,
- *  then the question. */
+ *  the dots sit ~95pt below the first row, then the back arrow, then the
+ *  question. */
 const DOTS_TOP = 44;
 
 type Props = {
@@ -25,7 +25,7 @@ type Props = {
   nextDisabled?: boolean;
   /** False only on the quiz's first step, which the quiz's modal opens on
    *  (`lib/open-quiz.ts`, #346): there is no earlier step behind it, and
-   *  Skip closes the quiz. Every later step is reached by push (see
+   *  a swipe down closes the quiz. Every later step is reached by push (see
    *  nextQuizRoute), so it has a real previous step to return to and keeps
    *  the arrow. */
   showBack?: boolean;
@@ -34,8 +34,8 @@ type Props = {
 
 /**
  * One quiz step's content — progress dots, back arrow, question and answers —
- * on its own painted page, so it can slide. Skip and the
- * Continue button belong to QuizFrame and stay put; this step hands its button
+ * on its own painted page, so it can slide. The
+ * Continue button belongs to QuizFrame and stay put; this step hands its button
  * label, state and action to QuizFrame while it's the step showing.
  */
 export function QuizScreen({

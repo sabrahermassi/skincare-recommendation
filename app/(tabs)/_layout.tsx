@@ -208,7 +208,7 @@ export default function TabsLayout() {
       {/*
         Skincare School, in the place Browse had. Browse is still a screen in this
         group (declared last, below) but has no button in the bar: it opens from
-        Home's "Find skincare" card and from the links that ask for a search.
+        Home's "Search" card and from the links that ask for a search.
       */}
       <Tabs.Screen
         name="school"
@@ -258,7 +258,7 @@ export default function TabsLayout() {
       />
       {/*
         Browse: a screen in the group without a button in the bar (`href: null`).
-        Reached from Home's "Find skincare" card and every "search instead" link;
+        Reached from Home's "Search" card and every "search instead" link;
         the bar stays under it, so Home is one tap away. `title` is the web
         document title only (headerShown is false for this group).
       */}
