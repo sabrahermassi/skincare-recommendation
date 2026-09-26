@@ -16,6 +16,7 @@ import { Text } from "@/components/Text";
 import { TypeChip } from "@/components/TypeChip";
 import { canPhotographLabelFor, fetchProductsByIds, resolveIngredientNames } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
+import { displayIngredientName } from "@/lib/ingredient-name";
 import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/genie";
@@ -834,7 +835,7 @@ const EMPTY_COPY: Record<Tab, EmptyCopy> = {
   ingredients: {
     title: "No starred ingredients yet",
     body: "Open a product, tap an ingredient, then tap its star to keep it here.",
-    actionLabel: "Browse products",
+    actionLabel: "Search products",
     actionHref: "/browse",
   },
 };
@@ -1119,8 +1120,8 @@ function IngredientRow({ name, bar, onRemove }: { name: string; bar: string; onR
         <Pressable style={{ flexDirection: "row" }} {...press}>
           <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
           <View style={{ flex: 1, justifyContent: "center", padding: 16, paddingRight: 40 }}>
-            <Text style={{ fontSize: 14, textTransform: "capitalize", color: INK }} numberOfLines={2}>
-              {name}
+            <Text style={{ fontSize: 14, color: INK }} numberOfLines={2}>
+              {displayIngredientName(name)}
             </Text>
           </View>
         </Pressable>

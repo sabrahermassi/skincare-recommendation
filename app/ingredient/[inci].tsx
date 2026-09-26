@@ -12,6 +12,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { fetchProduct, resolveIngredientNames } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
+import { displayIngredientName } from "@/lib/ingredient-name";
 import { COLORS } from "@/lib/colors";
 import { comedogenicLabel } from "@/lib/format";
 import { matchProduct, positionNote, ruleFor, rungFor, type Contraindication, type Rung } from "@/lib/matching";
@@ -278,25 +279,23 @@ export default function IngredientDetail() {
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: 34,
-                textTransform: "capitalize",
                 lineHeight: 36,
                 letterSpacing: -0.61,
                 color: INK,
               }}
             >
-              {primary}
+              {displayIngredientName(primary)}
             </Text>
             {secondary ? (
               <Text
                 style={{
                   fontFamily: "PlayfairDisplay_500Medium",
                   fontSize: 19,
-                  textTransform: "capitalize",
                   lineHeight: 19,
                   color: MUTED,
                 }}
               >
-                {secondary}
+                {displayIngredientName(secondary)}
               </Text>
             ) : null}
             <View

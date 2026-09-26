@@ -267,7 +267,7 @@ export default function ProductScreen() {
             style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
           >
             <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-              Browse the catalogue
+              Search the catalogue
             </Text>
           </Pressable>
         </View>
@@ -294,7 +294,7 @@ export default function ProductScreen() {
             style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
           >
             <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-              Browse instead
+              Search instead
             </Text>
           </Pressable>
         </View>

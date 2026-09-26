@@ -963,7 +963,7 @@ function BarcodeStage({
           ? "That isn't a product barcode. Tap Scan again to try a different one."
           : "We don't have this product yet. Photograph its ingredient list to add it."
         : status.kind === "unreachable"
-          ? `${failureMessage(status.failure)} Try again, scan something else, or find it in Browse.`
+          ? `${failureMessage(status.failure)} Try again, scan something else, or find it in Search.`
           : "";
 
   // `null` is still asking the OS, which is not the same as refused — showing
@@ -1176,7 +1176,7 @@ function BarcodeStage({
             <Text
               style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}
             >
-              Or find it in Browse instead.
+              Or find it in Search instead.
             </Text>
           </Pressable>
         )}
@@ -1265,7 +1265,7 @@ function CameraPermissionIntro({
         className="active:opacity-70"
       >
         <Text style={{ fontSize: 12.5, color: MUTED, textDecorationLine: "underline" }}>
-          Or find the product in Browse instead.
+          Or find the product in Search instead.
         </Text>
       </Pressable>
     </ScanIntro>

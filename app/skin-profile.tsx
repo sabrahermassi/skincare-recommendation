@@ -21,6 +21,7 @@ import type {
 } from "@/data/types";
 import {
   answeredWithoutSignal,
+  CONCERN_TITLE,
   POST_ONBOARDING_ROUTE,
   pregnancyLabel,
   sensitivityLabel,
@@ -37,14 +38,14 @@ const SENSITIVITY_OPTIONS: Sensitivity[] = ["none", "some", "high"];
 // decision to drop it from every selectable surface (the `atopic` concern and
 // its scoring rules stay intact for any profile that already carries it).
 const CONCERN_OPTIONS: { value: Concern; label: string; icon: number }[] = [
-  { value: "dehydrated", label: "Dry / Dehydrated", icon: require("@/assets/illustrations/quiz/concern-dehydrated.png") },
-  { value: "dullness", label: "Dullness", icon: require("@/assets/illustrations/quiz/concern-dullness.png") },
-  { value: "acne-prone", label: "Acne or pimples", icon: require("@/assets/illustrations/quiz/concern-acne.png") },
-  { value: "hyperpigmentation", label: "Dark spots", icon: require("@/assets/illustrations/quiz/concern-dark-spots.png") },
-  { value: "large-pores", label: "Enlarged pores", icon: require("@/assets/illustrations/quiz/concern-large-pores.png") },
-  { value: "fine-lines", label: "Fine lines and wrinkles", icon: require("@/assets/illustrations/quiz/concern-fine-lines.png") },
-  { value: "redness", label: "Redness or rosacea", icon: require("@/assets/illustrations/quiz/concern-redness.png") },
-  { value: "post-acne-marks", label: "Post-acne marks", icon: require("@/assets/illustrations/quiz/concern-post-acne.png") },
+  { value: "dehydrated", label: CONCERN_TITLE.dehydrated, icon: require("@/assets/illustrations/quiz/concern-dehydrated.png") },
+  { value: "dullness", label: CONCERN_TITLE.dullness, icon: require("@/assets/illustrations/quiz/concern-dullness.png") },
+  { value: "acne-prone", label: CONCERN_TITLE["acne-prone"], icon: require("@/assets/illustrations/quiz/concern-acne.png") },
+  { value: "hyperpigmentation", label: CONCERN_TITLE.hyperpigmentation, icon: require("@/assets/illustrations/quiz/concern-dark-spots.png") },
+  { value: "large-pores", label: CONCERN_TITLE["large-pores"], icon: require("@/assets/illustrations/quiz/concern-large-pores.png") },
+  { value: "fine-lines", label: CONCERN_TITLE["fine-lines"], icon: require("@/assets/illustrations/quiz/concern-fine-lines.png") },
+  { value: "redness", label: CONCERN_TITLE.redness, icon: require("@/assets/illustrations/quiz/concern-redness.png") },
+  { value: "post-acne-marks", label: CONCERN_TITLE["post-acne-marks"], icon: require("@/assets/illustrations/quiz/concern-post-acne.png") },
 ];
 const CONCERN_LOOKUP = new Map(CONCERN_OPTIONS.map((o) => [o.value, o]));
 
@@ -183,7 +184,7 @@ export default function ProfileScreen() {
           // means the opposite of what's true.
           return option
             ? { icon: option.icon, label: option.label }
-            : { icon: UNSURE_ICON, label: "Eczema-prone" };
+            : { icon: UNSURE_ICON, label: CONCERN_TITLE.atopic };
         })
       : // "I don't have any concerns" is stored as no concerns, the same as a
         // skipped step; once the quiz was answered, say what they chose (#291).

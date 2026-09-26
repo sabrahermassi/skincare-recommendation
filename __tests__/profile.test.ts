@@ -147,8 +147,12 @@ describe("profileHeadline", () => {
   it("titles by skin type and tags sensitivity, then concerns", () => {
     const h = profileHeadline(profile({ baseSkinType: "oily", sensitivity: "high", concerns: ["acne-prone", "redness"] }));
     expect(h.title).toBe("Oily skin");
-    expect(h.tags[0]).toBe("Very sensitive");
-    expect(h.tags).toHaveLength(3);
+    // The quiz's own words, so a chip can't rename an answer (#294).
+    expect(h.tags).toEqual(["Very sensitive", "Acne or pimples", "Redness or rosacea"]);
+  });
+
+  it("tags some sensitivity in the quiz's words", () => {
+    expect(profileHeadline(profile({ baseSkinType: "dry", sensitivity: "some" })).tags).toEqual(["Somewhat sensitive"]);
   });
 
   it("says Your skin when only concerns are answered", () => {

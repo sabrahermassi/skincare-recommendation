@@ -6,7 +6,7 @@ import { QuizOptionCard, QUIZ_OPTION_GRID } from "@/components/QuizOptionCard";
 import { QuizScreen } from "@/components/QuizScreen";
 import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
-import { nextQuizRoute, POST_ONBOARDING_ROUTE, quizStepNumber } from "@/lib/profile";
+import { CONCERN_TITLE, nextQuizRoute, POST_ONBOARDING_ROUTE, quizStepNumber } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 import { MUTED } from "@/lib/tokens";
 
@@ -25,34 +25,34 @@ import { MUTED } from "@/lib/tokens";
 const OPTIONS: { value: Concern; label: string; icon: number }[] = [
   {
     value: "dehydrated",
-    label: "Dry / Dehydrated",
+    label: CONCERN_TITLE.dehydrated,
     icon: require("@/assets/illustrations/quiz/concern-dehydrated.png"),
   },
-  { value: "dullness", label: "Dullness", icon: require("@/assets/illustrations/quiz/concern-dullness.png") },
-  { value: "acne-prone", label: "Acne or pimples", icon: require("@/assets/illustrations/quiz/concern-acne.png") },
+  { value: "dullness", label: CONCERN_TITLE.dullness, icon: require("@/assets/illustrations/quiz/concern-dullness.png") },
+  { value: "acne-prone", label: CONCERN_TITLE["acne-prone"], icon: require("@/assets/illustrations/quiz/concern-acne.png") },
   {
     value: "hyperpigmentation",
-    label: "Dark spots",
+    label: CONCERN_TITLE.hyperpigmentation,
     icon: require("@/assets/illustrations/quiz/concern-dark-spots.png"),
   },
   {
     value: "large-pores",
-    label: "Enlarged pores",
+    label: CONCERN_TITLE["large-pores"],
     icon: require("@/assets/illustrations/quiz/concern-large-pores.png"),
   },
   {
     value: "fine-lines",
-    label: "Fine lines and wrinkles",
+    label: CONCERN_TITLE["fine-lines"],
     icon: require("@/assets/illustrations/quiz/concern-fine-lines.png"),
   },
   {
     value: "redness",
-    label: "Redness or rosacea",
+    label: CONCERN_TITLE.redness,
     icon: require("@/assets/illustrations/quiz/concern-redness.png"),
   },
   {
     value: "post-acne-marks",
-    label: "Post-acne marks",
+    label: CONCERN_TITLE["post-acne-marks"],
     icon: require("@/assets/illustrations/quiz/concern-post-acne.png"),
   },
 ];

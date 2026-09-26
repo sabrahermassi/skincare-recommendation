@@ -77,6 +77,26 @@ const CONCERN_LABEL: Record<Concern, string> = {
   "post-acne-marks": "post-acne marks",
 };
 
+/**
+ * Each concern in the quiz's own words — the option labels on the concerns
+ * step and the Skin profile editor, and the chips that echo them back on Home
+ * and Profile. One list, so a chip can't say "large pores" about an answer
+ * the quiz called "Enlarged pores" (#294). `CONCERN_LABEL` above stays for
+ * lower-case use mid-sentence ("Ranked for dry · large pores").
+ */
+export const CONCERN_TITLE: Record<Concern, string> = {
+  dehydrated: "Dry / Dehydrated",
+  dullness: "Dullness",
+  "acne-prone": "Acne or pimples",
+  hyperpigmentation: "Dark spots",
+  "large-pores": "Enlarged pores",
+  "fine-lines": "Fine lines and wrinkles",
+  redness: "Redness or rosacea",
+  "post-acne-marks": "Post-acne marks",
+  // No quiz option any more; a profile from before that change can still carry it.
+  atopic: "Eczema-prone",
+};
+
 const PREGNANCY_LABEL: Record<Pregnancy, string> = {
   pregnant: "Pregnant",
   breastfeeding: "Breastfeeding",
@@ -100,8 +120,9 @@ export function profileHeadline(profile: SkinProfile): { title: string; tags: st
       ? "Your skin"
       : "Your skin profile";
   const tags: string[] = [];
-  if (isSensitive(profile)) tags.push(profile.sensitivity === "high" ? "Very sensitive" : "Sensitive");
-  tags.push(...profile.concerns.map((c) => CONCERN_LABEL[c]));
+  // The quiz's own words, capitalised like the title chip beside them (#294).
+  if (profile.sensitivity && isSensitive(profile)) tags.push(sensitivityLabel(profile.sensitivity));
+  tags.push(...profile.concerns.map((c) => CONCERN_TITLE[c]));
   return { title, tags };
 }
 

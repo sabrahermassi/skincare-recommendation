@@ -163,14 +163,14 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
   if (restricted <= 2) {
     return {
       level: "Moderate",
-      note: `${restricted} restricted entries`,
+      note: `${restricted} restricted ${restricted === 1 ? "entry" : "entries"}`,
       tone: "watch",
       hasEntries: true,
     };
   }
   return {
     level: "Elevated",
-    note: `${restricted} restricted entries`,
+    note: `${restricted} restricted ${restricted === 1 ? "entry" : "entries"}`,
     tone: "avoid",
     hasEntries: true,
   };

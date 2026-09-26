@@ -236,12 +236,17 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
           <PrimaryButton tone="cta" size={52} label="Retake the photo" onPress={() => retake(barcode)} />
         ) : (
           <>
-            <RiskCards
-              product={product}
-              match={match}
-              onIrritationPress={() => sheetRef.current?.open()}
-              onPorePress={() => sheetRef.current?.open()}
-            />
+            {/* RiskCards brings its own gutter, as on the product page; inside
+                this already-padded scroll view that doubled it, and the
+                narrower cards cut "Pore-clogging risk" off (#294). */}
+            <View style={{ marginHorizontal: -SPACE.gutter }}>
+              <RiskCards
+                product={product}
+                match={match}
+                onIrritationPress={() => sheetRef.current?.open()}
+                onPorePress={() => sheetRef.current?.open()}
+              />
+            </View>
             <PrimaryButton
               tone="cta"
               size={56}

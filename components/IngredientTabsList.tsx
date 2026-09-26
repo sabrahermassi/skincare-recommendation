@@ -7,6 +7,7 @@ import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import type { Ingredient } from "@/data/types";
+import { displayIngredientName } from "@/lib/ingredient-name";
 import { isVerified } from "@/lib/safety";
 import { ruleFor, RUNG_META, rungFor, type Contraindication, type MatchResult, type Rung } from "@/lib/matching";
 import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
@@ -195,12 +196,11 @@ export function IngredientListRow({
               flexShrink: 1,
               fontSize: 13.5,
               fontWeight: "500",
-              textTransform: "capitalize",
               lineHeight: 18,
               color: INK,
             }}
           >
-            {ingredient.name}
+            {displayIngredientName(ingredient.name)}
           </Text>
           {/* The highlight the external checkers give you, on the row itself. */}
           {clogs ? (
