@@ -8,7 +8,7 @@ import Svg, { Path } from "react-native-svg";
 
 import { ArtOnLine } from "@/components/ArtOnLine";
 import { BottomSheet } from "@/components/BottomSheet";
-import { GlassButton } from "@/components/GlassButton";
+import { ConfirmSheet } from "@/components/ConfirmSheet";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { NotePreview } from "@/components/ProductNote";
@@ -34,7 +34,7 @@ import { isVerified } from "@/lib/safety";
 import { useCanJournal, useGuestShelf } from "@/lib/saving";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, SELECTED, SURFACE, SPACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
@@ -273,6 +273,7 @@ export default function Saved() {
                 <ClearAll
                   label="Clear ingredients"
                   question="Clear all your starred ingredients?"
+                  line="Every ingredient you starred leaves this list."
                   confirming={confirmingClear}
                   onAsk={() => setConfirmingClear(true)}
                   onCancel={() => setConfirmingClear(false)}
@@ -367,6 +368,7 @@ export default function Saved() {
               <ClearAll
                 label="Clear saved products"
                 question="Clear all your saved products?"
+                line="Every product leaves your shelf. It can't be undone."
                 confirming={confirmingClear}
                 onAsk={() => setConfirmingClear(true)}
                 onCancel={() => setConfirmingClear(false)}
@@ -397,10 +399,14 @@ export default function Saved() {
                 );
               })}
 
-              <DeleteSheet
+              <ConfirmSheet
                 visible={deleting !== null}
+                title="Delete product?"
+                line="It will disappear from your history."
+                keepLabel="Keep it"
+                confirmLabel="Delete"
                 onClose={() => setDeleting(null)}
-                onDelete={() => {
+                onConfirm={() => {
                   if (deleting) removeHistoryEntry(deleting.id);
                   setDeleting(null);
                 }}
@@ -409,6 +415,7 @@ export default function Saved() {
               <ClearAll
                 label="Clear history"
                 question="Clear your whole history?"
+                line="Every product you opened or scanned leaves your history. It can't be undone."
                 confirming={confirmingClear}
                 onAsk={() => setConfirmingClear(true)}
                 onCancel={() => setConfirmingClear(false)}
@@ -475,11 +482,13 @@ const CLEAR_TARGET = {
   justifyContent: "center",
 } as const;
 
-/** The "Clear …" link at the foot of a list, and its second-tap confirm. One
- *  component so Saved, History and Ingredients wipe the same way. */
+/** The "Clear …" link at the foot of a list, and the sheet that asks before it
+ *  clears (`ConfirmSheet`). One component so Saved, History and Ingredients
+ *  wipe the same way. */
 function ClearAll({
   label,
   question,
+  line,
   confirming,
   onAsk,
   onCancel,
@@ -487,36 +496,27 @@ function ClearAll({
 }: {
   label: string;
   question: string;
+  /** What clearing takes away, under the question. */
+  line: string;
   confirming: boolean;
   onAsk: () => void;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  return confirming ? (
-    <View style={{ alignItems: "center", gap: 10, paddingVertical: 12 }}>
-      <Text style={{ fontSize: 12.5, color: MUTED }}>{question}</Text>
-      <View style={{ flexDirection: "row", gap: 20 }}>
-        <Pressable onPress={onCancel} accessibilityRole="button" style={CLEAR_TARGET} className="active:opacity-70">
-          <Text style={{ fontSize: 12, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>Keep it</Text>
-        </Pressable>
-        <Pressable onPress={onConfirm} accessibilityRole="button" style={CLEAR_TARGET} className="active:opacity-70">
-          <Text style={{ fontSize: 12, fontWeight: "600", color: DANGER, textDecorationLine: "underline" }}>Clear it</Text>
-        </Pressable>
-      </View>
-    </View>
-  ) : (
-    <Pressable onPress={onAsk} accessibilityRole="button" style={[CLEAR_TARGET, { alignSelf: "center" }]} className="active:opacity-70">
-      <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>{label}</Text>
-    </Pressable>
+  return (
+    <>
+      <Pressable onPress={onAsk} accessibilityRole="button" style={[CLEAR_TARGET, { alignSelf: "center" }]} className="active:opacity-70">
+        <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>{label}</Text>
+      </Pressable>
+      <ConfirmSheet visible={confirming} title={question} line={line} keepLabel="Keep them" confirmLabel={label} onClose={onCancel} onConfirm={onConfirm} />
+    </>
   );
 }
 
-/** A white card with the verdict down its leading edge — same object as a
- *  browse row (`components/ProductRow.tsx`), laid out for a taller shelf card.
- *  The whole card is a link to the product; the "x" is a second, nested
- *  `Pressable` that captures its own tap without also triggering the link
- *  underneath — the same nesting this file's old "Remove" text link already
- *  relied on. */
+/** A Saved or History card: white and rounded, the picture, brand and name,
+ *  whatever the caller puts under them, and the heart in the corner. The
+ *  whole card is a link to the product; the heart is a sibling of the link,
+ *  not inside it (see below). */
 function Row({
   product,
   corner,
@@ -567,36 +567,6 @@ function Row({
 const CARD_RADIUS = 24;
 const CARD_THUMB = 72;
 const CORNER_CLEARANCE = 52;
-
-/**
- * "Delete product?" — the second step after a history card's bin, so one
- * stray swipe and tap can't lose an entry. The X, or a tap on the dimmed
- * screen, keeps it.
- */
-function DeleteSheet({ visible, onClose, onDelete }: { visible: boolean; onClose: () => void; onDelete: () => void }) {
-  return (
-    <BottomSheet visible={visible} onClose={onClose}>
-      <GlassButton symbol="xmark" icon="close" accessibilityLabel="Keep it" onPress={onClose} small style={{ alignSelf: "flex-end" }} />
-      <View style={{ alignItems: "center", gap: SPACE.text }}>
-        <Text accessibilityRole="header" style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
-          Delete product?
-        </Text>
-        <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>It will disappear from your history.</Text>
-      </View>
-      <Pressable
-        onPress={() => {
-          haptic.warning();
-          onDelete();
-        }}
-        accessibilityRole="button"
-        className="active:opacity-90"
-        style={{ alignSelf: "center", width: "70%", minHeight: 52, marginTop: SPACE.text, alignItems: "center", justifyContent: "center", borderRadius: 26, backgroundColor: DANGER }}
-      >
-        <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: SURFACE }}>Delete</Text>
-      </Pressable>
-    </BottomSheet>
-  );
-}
 
 /** The "x" in the top-right corner of every Saved/History card — unsaves a
  *  shelf row, or drops one entry from the log (see the two different store

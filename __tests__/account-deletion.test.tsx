@@ -8,7 +8,14 @@ import type { Session } from "@supabase/supabase-js";
 
 jest.setTimeout(30000);
 
-jest.mock("expo-router", () => ({ router: { back: jest.fn(), push: jest.fn() }, useLocalSearchParams: () => ({}) }));
+const mockReplace = jest.fn();
+jest.mock("expo-router", () => ({
+  router: { back: jest.fn(), push: jest.fn(), replace: (...args: unknown[]) => mockReplace(...args) },
+  useLocalSearchParams: () => ({}),
+  // One mount is enough here: Account closes its confirmations on losing focus.
+  useFocusEffect: (effect: () => void | (() => void)) =>
+    jest.requireActual<typeof import("react")>("react").useEffect(effect, []), // eslint-disable-line react-hooks/exhaustive-deps
+}));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -34,7 +41,8 @@ jest.mock("@/lib/auth", () => {
 const { deleteMyAccount, exportDocument } = require("@/lib/account") as typeof import("@/lib/account");
 const { useAuth } = require("@/lib/auth") as typeof import("@/lib/auth");
 const { EMPTY_PROFILE, useAppStore } = require("@/store/useAppStore") as typeof import("@/store/useAppStore");
-const { default: Account, DELETE_WARNING, ACCOUNT_DELETED } = require("@/app/account") as typeof import("@/app/account");
+const { default: Account, DELETE_WARNING, ACCOUNT_DELETED, ERASE_WARNING } = require("@/app/account") as typeof import("@/app/account");
+const { profileErasedNoticePending } = require("@/lib/erase-notice") as typeof import("@/lib/erase-notice");
 
 function signedIn(providers: string[]) {
   const session = { user: { id: "u", email: "jane@example.com", app_metadata: { providers } } } as unknown as Session;
@@ -141,13 +149,14 @@ describe("the account screen", () => {
   it("confirms before deleting, and says what goes and what stays", async () => {
     signedIn(["google"]);
     await render(<Account />);
-    await act(async () => fireEvent.press(screen.getByText("Delete my account")));
+    await act(async () => fireEvent.press(screen.getByText("Delete account")));
     expect(mockDeleteAccount).not.toHaveBeenCalled();
+    expect(screen.getByText("Are you sure?")).toBeTruthy();
     expect(screen.getByText(DELETE_WARNING)).toBeTruthy();
     expect(DELETE_WARNING).toMatch(/shelf, notes, routine steps/);
     expect(DELETE_WARNING).toMatch(/scan history and skin profile stay/);
 
-    await act(async () => fireEvent.press(screen.getByText("Cancel")));
+    await act(async () => fireEvent.press(screen.getByText("Keep my account")));
     expect(mockDeleteAccount).not.toHaveBeenCalled();
   });
 
@@ -157,8 +166,8 @@ describe("the account screen", () => {
     let finish: (value: unknown) => void = () => {};
     mockDeleteAccount.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
     await render(<Account />);
-    await act(async () => fireEvent.press(screen.getByText("Delete my account")));
-    const confirm = screen.getAllByText("Delete my account").at(-1)!;
+    await act(async () => fireEvent.press(screen.getByText("Delete account")));
+    const confirm = screen.getByText("Delete my account");
     await act(async () => {
       fireEvent.press(confirm);
       fireEvent.press(confirm);
@@ -173,10 +182,54 @@ describe("the account screen", () => {
       useAuth.setState({ status: "signed-out", session: null });
     });
     await render(<Account />);
-    await act(async () => fireEvent.press(screen.getByText("Delete my account")));
-    const confirm = screen.getAllByText("Delete my account").at(-1)!;
+    await act(async () => fireEvent.press(screen.getByText("Delete account")));
+    const confirm = screen.getByText("Delete my account");
     await act(async () => fireEvent.press(confirm));
     expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
     expect(screen.getByText(ACCOUNT_DELETED)).toBeTruthy();
+  });
+});
+
+// "Delete my profile" moved here from Profile (owner): signed out, it erases
+// the profile, shelf and history on this phone.
+describe("deleting the profile, signed out", () => {
+  beforeEach(() => {
+    useAuth.setState({ status: "signed-out", session: null });
+    useAppStore.setState({ hasSeenOnboarding: true });
+  });
+
+  it("asks first, and keeps everything on Keep my profile", async () => {
+    await render(<Account />);
+    await act(async () => fireEvent.press(screen.getByText("Delete my profile")));
+    expect(screen.getByText(ERASE_WARNING)).toBeTruthy();
+    // The tap that opened the sheet must not itself have erased anything.
+    expect(useAppStore.getState().profile.concerns).toEqual(["redness"]);
+
+    await act(async () => fireEvent.press(screen.getByText("Keep my profile")));
+    expect(useAppStore.getState().profile.concerns).toEqual(["redness"]);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("erases the profile, shelf and history once confirmed, and goes back to the intro", async () => {
+    await render(<Account />);
+    await act(async () => fireEvent.press(screen.getByText("Delete my profile")));
+    await act(async () => fireEvent.press(screen.getByText("Yes, delete my profile")));
+
+    expect(useAppStore.getState()).toMatchObject({
+      profile: EMPTY_PROFILE,
+      savedProducts: [],
+      history: [],
+      hasSeenOnboarding: false,
+    });
+    expect(mockReplace).toHaveBeenCalledWith("/onboarding");
+    // The "erased" notice travels in memory, never in a URL a link could set (#29).
+    expect(profileErasedNoticePending()).toBe(true);
+  });
+
+  it("offers deleting the account instead once signed in", async () => {
+    signedIn(["google"]);
+    await render(<Account />);
+    expect(screen.getByText("Delete account")).toBeTruthy();
+    expect(screen.queryByText("Delete my profile")).toBeNull();
   });
 });

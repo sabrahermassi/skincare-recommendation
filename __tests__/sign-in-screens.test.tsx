@@ -14,6 +14,9 @@ const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   router: { back: () => mockBack(), push: (...args: unknown[]) => mockPush(...args) },
   useLocalSearchParams: () => ({}),
+  // Account closes its confirmations when it loses focus; one mount is enough here.
+  useFocusEffect: (effect: () => void | (() => void)) =>
+    jest.requireActual<typeof import("react")>("react").useEffect(effect, []), // eslint-disable-line react-hooks/exhaustive-deps
 }));
 
 jest.mock("react-native-safe-area-context", () => ({

@@ -7,6 +7,7 @@ import { useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ConfirmSheet } from "@/components/ConfirmSheet";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 // TERRACOTTA is otherwise a FOR.ME shell-only token (see shared.tsx's own
@@ -28,7 +29,7 @@ import {
   sensitivityLabel,
 } from "@/lib/profile";
 import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
 // The design system (design/DESIGN_SYSTEM.md), restyled per
@@ -215,47 +216,20 @@ export default function ProfileScreen() {
         </Pressable>
       </View>
 
-      {confirmingDiscard && (
-        <View
-          style={{
-            marginHorizontal: 20,
-            marginBottom: 4,
-            padding: 14,
-            gap: 10,
-            borderRadius: 14,
-            borderWidth: 1,
-            borderColor: BORDER_INACTIVE,
-            backgroundColor: SURFACE,
-            ...FLOATING_SHADOW,
-          }}
-        >
-          <Text style={{ fontSize: 12.5, lineHeight: 17, color: MUTED }}>
-            You have unsaved changes. Leave without saving?
-          </Text>
-          <View style={{ flexDirection: "row", gap: 20 }}>
-            <Pressable onPress={() => setConfirmingDiscard(false)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
-              <Text style={{ fontSize: 12, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-                Keep editing
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                setConfirmingDiscard(false);
-                const held = heldLeave.current;
-                heldLeave.current = null;
-                if (held) navigation.dispatch(held);
-              }}
-              accessibilityRole="button"
-              style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
-              className="active:opacity-70"
-            >
-              <Text style={{ fontSize: 12, fontWeight: "600", color: DANGER, textDecorationLine: "underline" }}>
-                Discard changes
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
+      <ConfirmSheet
+        visible={confirmingDiscard}
+        title="Leave without saving?"
+        line="The changes you made here will be lost."
+        keepLabel="Keep editing"
+        confirmLabel="Discard changes"
+        onClose={() => setConfirmingDiscard(false)}
+        onConfirm={() => {
+          setConfirmingDiscard(false);
+          const held = heldLeave.current;
+          heldLeave.current = null;
+          if (held) navigation.dispatch(held);
+        }}
+      />
 
       <ScrollView
         contentContainerStyle={{

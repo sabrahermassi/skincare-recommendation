@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 
 import SkinProfileScreen from "@/app/skin-profile";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
@@ -60,7 +60,7 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-const DISCARD_PROMPT = "You have unsaved changes. Leave without saving?";
+const DISCARD_PROMPT = "Leave without saving?";
 
 beforeEach(() => {
   mockReplace.mockClear();
@@ -118,7 +118,8 @@ describe("SkinProfileScreen", () => {
     expect(mockLeft).toEqual([]);
 
     await fireEvent.press(screen.getByText("Keep editing"));
-    expect(screen.queryByText(DISCARD_PROMPT)).toBeNull();
+    // The sheet slides away before it unmounts.
+    await waitFor(() => expect(screen.queryByText(DISCARD_PROMPT)).toBeNull());
     // Still just a draft — "Keep editing" must not have saved or discarded it.
     expect(screen.getByText("Save")).toBeTruthy();
     expect(useAppStore.getState().profile.concerns).toEqual([]);

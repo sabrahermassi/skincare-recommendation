@@ -10,7 +10,7 @@ const SECTIONS: { title: string; lines: string[] }[] = [
     title: "Stays on your phone",
     lines: [
       "Your skin profile — your concerns, skin type, sensitivity and pregnancy answer — and your scan history never leave this phone, whether or not you have an account.",
-      "They can be included in your phone's own backups. Delete my profile, in Profile, erases them, along with your shelf.",
+      "They can be included in your phone's own backups. Delete my profile, at the foot of the Account screen, erases them, along with your shelf.",
     ],
   },
   {
