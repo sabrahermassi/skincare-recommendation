@@ -833,9 +833,9 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
 // One picture for each tab's empty state, with its own proportions (width / height)
 // so `contain` never letterboxes it.
 const EMPTY_ART = {
-  saved: { source: require("@/assets/illustrations/saved-empty-shelf.png"), aspect: 1400 / 810 },
-  history: { source: require("@/assets/illustrations/history-empty.png"), aspect: 1400 / 927 },
-  ingredients: { source: require("@/assets/illustrations/ingredients-empty.png"), aspect: 1400 / 855 },
+  saved: { source: require("@/assets/illustrations/saved-empty-shelf.webp"), aspect: 1400 / 779 },
+  history: { source: require("@/assets/illustrations/history-empty.webp"), aspect: 1400 / 891 },
+  ingredients: { source: require("@/assets/illustrations/ingredients-empty.webp"), aspect: 1400 / 884 },
 } as const;
 
 type EmptyCopy = { title: string; body: string; actionLabel: string; actionHref: "/scanner" | "/browse" };

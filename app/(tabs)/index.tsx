@@ -15,8 +15,8 @@ import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, SPACE, TYPE } from "@/lib/to
 // The two cards' watercolors, on transparent ground: a hand holding a tube inside
 // a scanner's frame, and two hands holding a serum and a pump bottle (their empty
 // margins trimmed, and brought down to 500px from 1254px).
-const SCAN_ART = require("@/assets/illustrations/home-scan.png");
-const FIND_ART = require("@/assets/illustrations/home-find.png");
+const SCAN_ART = require("@/assets/illustrations/home-scan.webp");
+const FIND_ART = require("@/assets/illustrations/home-find.webp");
 // The gap between the two cards.
 const ACTION_CARD_GAP = 12;
 // The least room the picture keeps. The cards are square, and grow taller rather
