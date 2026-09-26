@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View, type LayoutChangeEvent } from "react-native";
+import MaskedView from "@react-native-masked-view/masked-view";
 import { BlurView } from "expo-blur";
-import Svg, { Defs, Mask, Path, Rect } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
@@ -41,6 +42,10 @@ const FRAME_MIX_MS = 360;
 const SCRIM_ALPHA = 0.25;
 // How strongly the camera is blurred outside the window (expo-blur, 1-100).
 const BLUR_INTENSITY = 40;
+// The blur fades in over this many points out from the window's edge, in
+// FEATHER_STEPS rings, so the window has a soft rounded edge, not a cut one.
+const FEATHER = 18;
+const FEATHER_STEPS = 9;
 // The barcode window: this share of the screen's width, and twice as wide as tall.
 const BARCODE_WIDTH_SHARE = 0.63;
 const BARCODE_ASPECT = 2;
@@ -261,13 +266,15 @@ export function ScanViewfinder({
     if (ready) onWindow?.({ x: settled.x, y: settled.y, width: settled.w, height: settled.h });
   }, [ready, settled.x, settled.y, settled.w, settled.h, onWindow]);
   const radius = Math.min(lerp(CORNER_RADIUS, WINDOW_RADIUS, mixed), rect.h / 2, rect.w / 2);
-  // The blur, as four panes around the window: above, below, left and right.
-  const panes = [
-    { left: 0, top: 0, width: size?.w ?? 0, height: rect.y },
-    { left: 0, top: rect.y + rect.h, width: size?.w ?? 0, height: Math.max(0, (size?.h ?? 0) - rect.y - rect.h) },
-    { left: 0, top: rect.y, width: rect.x, height: rect.h },
-    { left: rect.x + rect.w, top: rect.y, width: Math.max(0, (size?.w ?? 0) - rect.x - rect.w), height: rect.h },
-  ];
+  // The blur's mask: opaque everywhere but a rounded hole the window's shape,
+  // whose edge fades from clear (at the window) to full (FEATHER out) in rings.
+  const screenPath = size ? `M0 0H${size.w}V${size.h}H0Z` : "";
+  const grown = (by: number) => roundedRectPath(rect.x - by, rect.y - by, rect.w + by * 2, rect.h + by * 2, radius + by);
+  const step = FEATHER / FEATHER_STEPS;
+  const rings = Array.from({ length: FEATHER_STEPS }, (_, i) => ({
+    d: `${grown((i + 1) * step)} ${grown(i * step)}`,
+    opacity: (i + 1) / (FEATHER_STEPS + 1),
+  }));
 
   return (
     <View testID="scan-viewfinder" style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onLayout}>
@@ -288,25 +295,23 @@ export function ScanViewfinder({
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
           >
-            {panes.map((pane, i) => (
-              <BlurView key={i} intensity={BLUR_INTENSITY} tint="dark" style={{ position: "absolute", ...pane }} />
-            ))}
-            <Svg width={size.w} height={size.h} style={StyleSheet.absoluteFill}>
-              <Defs>
-                <Mask id="scan-window" x={0} y={0} width={size.w} height={size.h}>
-                  <Rect x={0} y={0} width={size.w} height={size.h} fill="white" />
-                  <Rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} rx={radius} fill="black" />
-                </Mask>
-              </Defs>
-              <Rect
-                x={0}
-                y={0}
-                width={size.w}
-                height={size.h}
-                fill={withAlpha(CAMERA_STAGE, SCRIM_ALPHA)}
-                mask="url(#scan-window)"
-              />
-            </Svg>
+            {/* One blur over the whole camera, masked to everything but the
+                window: a single surface, so no seams, and its hole has the
+                window's rounded corners and a soft edge. */}
+            <MaskedView
+              style={StyleSheet.absoluteFill}
+              maskElement={
+                <Svg width={size.w} height={size.h}>
+                  <Path d={`${screenPath} ${grown(FEATHER)}`} fill="black" fillRule="evenodd" />
+                  {rings.map((ring, i) => (
+                    <Path key={i} d={ring.d} fill="black" fillOpacity={ring.opacity} fillRule="evenodd" />
+                  ))}
+                </Svg>
+              }
+            >
+              <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(CAMERA_STAGE, SCRIM_ALPHA) }]} />
+            </MaskedView>
 
             {/* Four layers — cream and terracotta, as corners and as a full outline —
                 faded into each other as the mode changes and as a barcode locks. */}
@@ -348,5 +353,16 @@ export function ScanViewfinder({
         </>
       ) : null}
     </View>
+  );
+}
+
+/** A rounded rectangle as an SVG path, for the blur's mask. */
+function roundedRectPath(x: number, y: number, w: number, h: number, r: number): string {
+  const radius = Math.max(0, Math.min(r, w / 2, h / 2));
+  return (
+    `M${x + radius} ${y}H${x + w - radius}A${radius} ${radius} 0 0 1 ${x + w} ${y + radius}` +
+    `V${y + h - radius}A${radius} ${radius} 0 0 1 ${x + w - radius} ${y + h}` +
+    `H${x + radius}A${radius} ${radius} 0 0 1 ${x} ${y + h - radius}` +
+    `V${y + radius}A${radius} ${radius} 0 0 1 ${x + radius} ${y}Z`
   );
 }
