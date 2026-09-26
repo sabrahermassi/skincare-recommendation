@@ -10,7 +10,7 @@ import { Text } from "@/components/Text";
 import { openQuiz } from "@/lib/open-quiz";
 import { answeredWithoutSignal, isPersonalized, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { CANVAS, CARD_SHADOW, CHIP_SHADOW, CTA, DANGER, FLOATING_SHADOW, GRAY_FILL, INK, MUTED, SCRIM, SELECTED, SURFACE } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, CHIP_SHADOW, CTA, DANGER, FLOATING_SHADOW, GRAY_FILL, INK, MUTED, SCRIM, SELECTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { noteProfileErased } from "@/lib/erase-notice";
@@ -194,8 +194,8 @@ function MenuRow({
       style={{ minHeight: ROW_HEIGHT, flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20 }}
     >
       <Ionicons name={icon} size={22} color={color} />
-      <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-        <Text style={{ fontSize: 16, fontWeight: "500", color: danger ? DANGER : INK }}>{label}</Text>
+      <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: SPACE.text }}>
+        <Text style={{ fontSize: TYPE.body, fontWeight: "500", color: danger ? DANGER : INK }}>{label}</Text>
         {badge ? (
           <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: CTA }}>
             <Text style={{ fontSize: 12.5, fontWeight: "600", color: INK }}>{badge}</Text>
