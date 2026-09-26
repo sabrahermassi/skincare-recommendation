@@ -188,7 +188,7 @@ second table is planned; if that ever changes, it gets its own row.
   would be to never send the image anywhere at all. Every on-device option
   (ML Kit wrappers, Vision-framework wrappers) is a native module, and a
   native module needs a real development build — this project does not use
-  one, and stays on Expo Go instead. `label-ocr/index.ts`'s own header
+  one, and stays on Expo Go instead. `label-ocr/handler.ts`'s own header
   comment already made this call when OCR shipped; this is that decision
   promoted from an implicit code comment to an explicit one.
 
