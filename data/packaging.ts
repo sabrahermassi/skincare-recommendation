@@ -1,4 +1,4 @@
-import type { PackagingType, ProductType } from "@/data/types";
+import type { PackagingType, ProductType } from "./types";
 
 /**
  * A sensible `productType` for catalogue rows that predate the column — real
@@ -6,12 +6,9 @@ import type { PackagingType, ProductType } from "@/data/types";
  * shape. Not used by the hand-written sample catalogue, which sets
  * `productType` explicitly per product.
  *
- * The bottle icon set this file used to draw (`BtlSerum`, `BottleIcon`, and
- * the rest) is gone — `lib/productIllustration.ts`'s PNG illustrations and
- * `components/ProductThumbnail.tsx` replaced it everywhere, and nothing was
- * still importing the SVG set by the time this was checked (hygiene audit,
- * confirmed against the whole tree, not just this file's own callers). Only
- * this mapping function survives, since `data/api.ts` still needs it.
+ * Moved here from `components/BottleIcon.tsx` (#206), whose drawings had long
+ * gone: a data mapping belongs below the UI, and `data/api.ts` importing a
+ * component was the one place the data layer reached up into it.
  */
 export function defaultPackagingType(type: ProductType): PackagingType {
   switch (type) {

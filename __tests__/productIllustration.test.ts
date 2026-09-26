@@ -1,6 +1,6 @@
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/data/types";
 import { productIllustrationSource } from "@/lib/productIllustration";
-import { defaultPackagingType } from "@/components/BottleIcon";
+import { defaultPackagingType } from "@/data/packaging";
 
 /**
  * Every `ProductType` (all 30, including the 16 added alongside the

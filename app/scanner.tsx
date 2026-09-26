@@ -285,8 +285,8 @@ export default function Scan() {
   // cancelling out of the label camera — is "leaving the scanner", and this
   // screen should never guess otherwise. The problem is that React
   // Navigation can't tell those apart on its own: pushing a screen from
-  // *within* this tab (a search result, the label-photo modal, the pasted
-  // list) blurs this tab's focus exactly the same way switching to a sibling
+  // *within* this tab (a search result, the label-photo modal) blurs this
+  // tab's focus exactly the same way switching to a sibling
   // tab does, because both put another screen on top of it. `preserveMode`
   // is how every one of those internal pushes tells this effect "this isn't
   // an exit" — it's called right before each one, and consumed the moment
@@ -428,10 +428,8 @@ export default function Scan() {
       if (product) {
         // Deliberately not recorded here. `/result/[id]` re-exports the
         // product screen, which logs the view once it has loaded — so doing it
-        // here too counted one physical scan as two, and the two entries were
-        // scored from different evidence: the lookup response omits
-        // `ingredients.functions`, the direct fetch behind that screen does
-        // not. One owner, and it is the screen that shows the verdict.
+        // here too counted one physical scan as two. One owner, and it is the
+        // screen that shows the verdict.
         // The product slides up over the camera; its button opens the full
         // result. `busy` stays set until the sheet is closed or left.
         setStatus({ kind: "found", product });
