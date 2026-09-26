@@ -4,7 +4,7 @@ import Svg, { Path } from "react-native-svg";
 
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
-import { CANVAS, CHOSEN, INK, LINE, RADIUS_SELECTOR } from "@/lib/tokens";
+import { BUTTON, CANVAS, CHOSEN, INK, LINE, RADIUS_SELECTOR } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
 /** Shared minimum height for every answer button on all four screens — the
@@ -120,9 +120,7 @@ export function QuizOptionCard({
             width: tickSize,
             height: tickSize,
             borderRadius: tickSize / 2,
-            // A white disc with the tick in the card's own colour: on the
-            // chosen fill a filled disc of that colour would vanish.
-            backgroundColor: CHOSEN.label,
+            backgroundColor: CHOSEN.accent,
             alignItems: "center",
             justifyContent: "center",
           }}
@@ -135,7 +133,7 @@ export function QuizOptionCard({
           <Svg width={tickSize * 0.55} height={tickSize * 0.55} viewBox="0 0 24 24" fill="none">
             <Path
               d="m5 12.6 4.6 4.6L19 6.8"
-              stroke={CHOSEN.fill}
+              stroke={BUTTON.primary.label}
               strokeWidth={2.6}
               strokeLinecap="round"
               strokeLinejoin="round"

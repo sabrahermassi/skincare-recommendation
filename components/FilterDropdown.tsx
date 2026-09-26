@@ -38,8 +38,8 @@ export function FilterDropdown<T extends string>({
         className="active:opacity-70"
       >
         <Text style={{ fontSize: TYPE.body, color: INK }}>Filter:</Text>
-        <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: CHOSEN.fill }}>{current}</Text>
-        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color={CHOSEN.fill} />
+        <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: CHOSEN.accent }}>{current}</Text>
+        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color={CHOSEN.accent} />
       </Pressable>
       {open ? (
         <View
@@ -71,7 +71,7 @@ export function FilterDropdown<T extends string>({
                 className="active:opacity-70"
               >
                 <Text style={{ fontSize: TYPE.body, fontWeight: "500", color: INK }}>{label}</Text>
-                {active ? <Ionicons name="checkmark" size={20} color={CHOSEN.fill} /> : null}
+                {active ? <Ionicons name="checkmark" size={20} color={CHOSEN.accent} /> : null}
               </Pressable>
             );
           })}
