@@ -3,13 +3,13 @@ import { StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 
 import Onboarding from "@/app/onboarding";
 import { noteProfileErased } from "@/lib/erase-notice";
-import { CANVAS, ONBOARDING_CANVAS } from "@/lib/tokens";
+import { CANVAS } from "@/lib/tokens";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
  * The intro (per #155): the three screens with their watercolor heroes, on the
- * intro's own lighter cream, and the "Your profile is erased" toast sitting
- * flush on that cream rather than on the rest of the app's.
+ * same cream as every other screen (`CANVAS`), and the "Your profile is erased"
+ * toast sitting flush on it.
  */
 
 jest.setTimeout(30_000);
@@ -55,18 +55,19 @@ it("shows one watercolor hero per screen, in order", async () => {
   expect(screen.getAllByTestId("image").map((image) => image.props.source)).toEqual(HEROES);
 });
 
-it("paints the intro on its own cream, not the app's", async () => {
+it("paints the intro on the app's one background colour and no other", async () => {
   await render(<Onboarding />);
   const painted = backgrounds(screen.toJSON());
-  expect(painted).toContain(ONBOARDING_CANVAS);
-  expect(painted).not.toContain(CANVAS);
+  expect(painted).toContain(CANVAS);
+  // The intro's own cream from before every screen shared one (#FDFAF2).
+  expect(painted).not.toContain("#FDFAF2");
 });
 
-it("puts the erased-profile toast on the intro's cream, so it sits flush", async () => {
+it("puts the erased-profile toast on the page's cream, so it sits flush", async () => {
   noteProfileErased();
   await render(<Onboarding />);
   const toast = screen.getByRole("alert");
-  expect(background(toast)).toBe(ONBOARDING_CANVAS);
+  expect(background(toast)).toBe(CANVAS);
   expect(screen.getByText("Your profile is erased")).toBeTruthy();
 });
 
