@@ -93,8 +93,11 @@ describe("ingredientLabel, with no skin profile", () => {
 
   it("never says Good, and never a Watch that depends on the person", () => {
     expect(label(GLYCERIN)).toBeNull();
-    expect(label(FRAGRANCE)).toBeNull();
     for (const i of ALL) expect(label(i)).not.toBe("good");
+  });
+
+  it("says Watch for a common irritant, which is flagged for everyone (#345)", () => {
+    expect(label(FRAGRANCE)).toBe("watch");
   });
 });
 

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { IngredientCheck } from "@/components/IngredientCheck";
 import { IngredientsSheet, ingredientsSheetPeek, type IngredientsSheetHandle } from "@/components/IngredientsSheet";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { RiskCards } from "@/components/RiskCards";
@@ -153,6 +154,13 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
         <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
           {total > 0 ? `${total} ingredients read` : "Nothing was read"}
         </Text>
+
+        {/* The same for everyone, profile or not (#345). The list it opens
+            isn't there for an unreadable read. */}
+        <IngredientCheck
+          ingredients={product.ingredients}
+          onPress={!lowCoverage && total > 0 ? () => sheetRef.current?.open() : undefined}
+        />
 
         <View
           className="rounded-card border"
