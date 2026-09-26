@@ -13,7 +13,7 @@ import { IngredientsSheet, ingredientsSheetPeek } from "@/components/Ingredients
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
-import { ContextNudgesSection, ExplanationLine, PairingSection, PregnancySection, ProfileArrow, ReasonLine, panelFor } from "@/components/VerdictExplanation";
+import { ContextNudgesSection, ExplanationLine, HowScoringLink, PairingSection, PregnancySection, ProfileArrow, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { HeartIcon } from "@/components/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
@@ -654,6 +654,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
                   From {recognised} of {total} ingredients we could identify
                   {confidence === "high" ? "" : ` — ${confidence} confidence`}.
                 </Text>
+                <HowScoringLink />
               </View>
             ) : null}
           </>

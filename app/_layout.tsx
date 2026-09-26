@@ -158,6 +158,7 @@ export default function RootLayout() {
         <Stack.Screen name="skin-profile" options={{ headerShown: false }} />
         <Stack.Screen name="support" options={{ headerShown: false }} />
         <Stack.Screen name="school" options={{ headerShown: false }} />
+        <Stack.Screen name="scoring" options={{ headerShown: false }} />
         <Stack.Screen name="privacy" options={{ headerShown: false }} />
         <Stack.Screen name="account" options={{ headerShown: false }} />
         {/* A sheet over wherever sign-in was asked for, so closing it returns
