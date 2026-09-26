@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 
-import SkincareSchool from "@/app/school";
+import SkincareSchool from "@/app/(tabs)/school";
 import { SCHOOL } from "@/data/school";
 
 /**
@@ -9,7 +9,7 @@ import { SCHOOL } from "@/data/school";
  * answer appears only once it's opened.
  */
 
-jest.mock("expo-router", () => ({ router: { back: jest.fn() } }));
+jest.mock("expo-router", () => ({ router: { back: jest.fn() }, useScrollToTop: () => undefined }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));

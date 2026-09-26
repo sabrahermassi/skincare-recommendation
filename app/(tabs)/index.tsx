@@ -17,6 +17,11 @@ import { useAppStore } from "@/store/useAppStore";
 
 // The watercolor from onboarding's second screen: a bottle and its ingredient list.
 const SCAN_ART = require("@/assets/illustrations/scan-a-product.png");
+// "Find skincare": the tube under a magnifier, from onboarding's ingredients
+// screen, standing in until the card has art of its own.
+const FIND_ART = require("@/assets/illustrations/onboarding/hero-ingredients.png");
+// The picture at the top of each of the two cards.
+const ACTION_ART_HEIGHT = 96;
 // The watercolor still life under the cards: bottles, a vase and a handwritten
 // "A little progress every day", on a transparent ground.
 const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.png");
@@ -51,17 +56,16 @@ const SIGNATURE_RIGHT = HEADER_GUTTER - 4;
  *
  * A greeting, the skin profile the quiz produced as a card of chips (every score
  * on the other tabs is judged against it; it is edited under Profile), then the
- * scan card, which opens the full-screen scanner, and a watercolor still life
- * under them, running on past the bottom edge of the screen. The layout is fixed while it fits; on a
- * short screen or with large text it scrolls, so the scan card is always reachable.
+ * two cards side by side — "Scan a product", which opens the full-screen
+ * scanner, and "Find skincare", which opens Browse — and a watercolor still
+ * life under them, running on past the bottom edge of the screen. The layout is
+ * fixed while it fits; on a short screen or with large text it scrolls, so both
+ * cards are always reachable.
  */
-/** How far the scan card sinks when pressed: it reads as a button though it is a card. */
-const SCAN_CARD_PRESSED = 0.96;
+/** How far a card sinks when pressed: it reads as a button though it is a card. */
+const ACTION_CARD_PRESSED = 0.96;
 
 export default function Home() {
-  const [scale] = useState(() => new Animated.Value(1));
-  const press = (to: number) =>
-    Animated.spring(scale, { toValue: to, friction: 6, tension: 220, useNativeDriver: Platform.OS !== "web" }).start();
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
   // Both are pictures: the greeting follows the text size, and the signature takes only
@@ -160,41 +164,22 @@ export default function Home() {
             </PressableCard>
           )}
 
-          {/* The scan card. The shade sits on an outer view: a view that clips
-              its picture (overflow hidden) loses its own shade on iOS. */}
-          <Animated.View style={{ minHeight: 150, borderRadius: 22, backgroundColor: SELECTED, ...CARD_SHADOW, transform: [{ scale }] }}>
-          <Pressable
-            onPress={openScanner}
-            onPressIn={() => press(SCAN_CARD_PRESSED)}
-            onPressOut={() => press(1)}
-            accessibilityRole="button"
-            accessibilityLabel="Scan a product. Analyze a product by photo or barcode."
-            className="active:opacity-90"
-            style={{
-              flexGrow: 1,
-              borderRadius: 22,
-              padding: 20,
-              overflow: "hidden",
-              justifyContent: "center",
-            }}
-          >
-            <View style={{ maxWidth: "60%", gap: 6 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: INK }}>Scan a product</Text>
-                <ArrowIcon size={22} color={INK} strokeWidth={2.4} />
-              </View>
-              {/* Narrower than the title above it, so it stops short of the picture. */}
-              <Text style={{ maxWidth: 150, fontSize: 13, lineHeight: 19, color: MUTED }}>Analyze a product by photo or barcode.</Text>
-            </View>
-            <Image
-              source={SCAN_ART}
-              contentFit="contain"
-              accessibilityLabel=""
-              // Whole and centred on the card's right side, top to bottom: nothing cropped.
-              style={{ position: "absolute", right: 6, top: 6, bottom: 6, width: 150 }}
+          {/* The two ways in, side by side: scan a product in hand, or find one
+              by name. "Find skincare" opens Browse, which has no tab of its own. */}
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <ActionCard
+              title="Scan a product"
+              detail="Analyze a product by photo or barcode."
+              art={SCAN_ART}
+              onPress={openScanner}
             />
-          </Pressable>
-          </Animated.View>
+            <ActionCard
+              title="Find skincare"
+              detail="Search products or brands."
+              art={FIND_ART}
+              onPress={() => router.navigate("/browse")}
+            />
+          </View>
 
           {/* The signature: a floating layer, not part of the column, so it takes no
               space and can cross the top edge of the skin profile card. Last in the
@@ -270,6 +255,39 @@ export default function Home() {
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+/**
+ * One of Home's two cards: a picture on top, the title with its arrow, and a
+ * line under it. The shade sits on an outer view: a view that clips its picture
+ * (overflow hidden) loses its own shade on iOS.
+ */
+function ActionCard({ title, detail, art, onPress }: { title: string; detail: string; art: number; onPress: () => void }) {
+  const [scale] = useState(() => new Animated.Value(1));
+  const press = (to: number) =>
+    Animated.spring(scale, { toValue: to, friction: 6, tension: 220, useNativeDriver: Platform.OS !== "web" }).start();
+  return (
+    <Animated.View style={{ flex: 1, borderRadius: 22, backgroundColor: SELECTED, ...CARD_SHADOW, transform: [{ scale }] }}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => press(ACTION_CARD_PRESSED)}
+        onPressOut={() => press(1)}
+        accessibilityRole="button"
+        accessibilityLabel={`${title}. ${detail}`}
+        className="active:opacity-90"
+        style={{ flexGrow: 1, borderRadius: 22, padding: 16, gap: 10, overflow: "hidden" }}
+      >
+        <Image source={art} contentFit="contain" accessibilityLabel="" style={{ width: "100%", height: ACTION_ART_HEIGHT }} />
+        <View style={{ gap: 4 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={{ flexShrink: 1, fontFamily: "PlayfairDisplay_500Medium", fontSize: 19, color: INK }}>{title}</Text>
+            <ArrowIcon size={18} color={INK} strokeWidth={2.4} />
+          </View>
+          <Text style={{ fontSize: 13, lineHeight: 18, color: MUTED }}>{detail}</Text>
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
