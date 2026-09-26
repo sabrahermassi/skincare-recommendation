@@ -29,11 +29,19 @@ import { COLORS } from "@/lib/colors";
 // import them from this path.
 export const TERRACOTTA = COLORS.shellTerracotta;
 const SAND = COLORS.shellSand;
-export const CHARCOAL = COLORS.shellCharcoal;
 export const CTA_TEXT = COLORS.shellCtaText;
+/** The intro screens' own colours (owner): see `lib/colors.ts`. */
+export const INTRO = {
+  accent: COLORS.introAccent,
+  ink: COLORS.introInk,
+  muted: COLORS.introMuted,
+  button: COLORS.introButton,
+  buttonText: COLORS.introButtonText,
+} as const;
+/** How faint the intro's inactive dots are. */
+export const INTRO_INACTIVE_DOT_OPACITY = 0.35;
 
-export const FONT = {
-  headline: "CormorantGaramond_500Medium",
+const FONT = {
   bodyLight: "Montserrat_300Light",
   bodyRegular: "Montserrat_400Regular",
 } as const;
@@ -43,7 +51,19 @@ export const FONT = {
 export const H_PADDING = 24;
 
 /** Three-dot progress indicator, shared by both shells' fixed regions. */
-export function ProgressDots({ count, activeIndex }: { count: number; activeIndex: number }) {
+export function ProgressDots({
+  count,
+  activeIndex,
+  activeColor = TERRACOTTA,
+  inactiveColor = SAND,
+  inactiveOpacity = 1,
+}: {
+  count: number;
+  activeIndex: number;
+  activeColor?: string;
+  inactiveColor?: string;
+  inactiveOpacity?: number;
+}) {
   // 12 * 0.6 = 7.2 — 40% smaller than the previous size, per explicit request.
   const DOT_SIZE = 7.2;
   const DOT_GAP = 15;
@@ -56,7 +76,8 @@ export function ProgressDots({ count, activeIndex }: { count: number; activeInde
             width: DOT_SIZE,
             height: DOT_SIZE,
             borderRadius: DOT_SIZE / 2,
-            backgroundColor: i === activeIndex ? TERRACOTTA : SAND,
+            backgroundColor: i === activeIndex ? activeColor : inactiveColor,
+            opacity: i === activeIndex ? 1 : inactiveOpacity,
           }}
         />
       ))}
@@ -80,7 +101,18 @@ function useTopRow() {
  * component so they cannot drift apart. Same spot, same font and size, the
  * same press fade; only the colour is the screen's own.
  */
-export function SkipButton({ onPress, color }: { onPress: () => void; color: string }) {
+export function SkipButton({
+  onPress,
+  color,
+  fontSize = SKIP_SIZE,
+  fontFamily = FONT.bodyRegular,
+}: {
+  onPress: () => void;
+  color: string;
+  fontSize?: number;
+  /** null for the system font. */
+  fontFamily?: string | null;
+}) {
   const [pressed, setPressed] = useState(false);
   const top = useTopRow();
   return (
@@ -101,7 +133,7 @@ export function SkipButton({ onPress, color }: { onPress: () => void; color: str
         opacity: pressed ? 0.6 : 1,
       }}
     >
-      <Text style={{ fontFamily: FONT.bodyRegular, fontSize: SKIP_SIZE, color }}>Skip</Text>
+      <Text style={{ fontFamily: fontFamily ?? undefined, fontSize, color }}>Skip</Text>
     </Pressable>
   );
 }

@@ -21,19 +21,19 @@ const HERO_FOR_ME = require("@/assets/illustrations/onboarding/hero-for-me.webp"
 const SCREENS: OnboardingScreenContent[] = [
   {
     headline: ["Scan any", "skincare product"],
-    supportingCopy: ["Point your camera at a barcode", "or ingredient list."],
+    supportingCopy: "Point your camera at a barcode or ingredient list.",
     buttonLabel: "Continue",
     illustrationSource: HERO_SCAN,
   },
   {
-    headline: ["Ingredients,", "made simple"],
-    supportingCopy: ["See what the ingredients", "mean for your skin."],
+    headline: ["Know", "what's inside"],
+    supportingCopy: "Understand the ingredients and what they mean for your skin.",
     buttonLabel: "Continue",
     illustrationSource: HERO_INGREDIENTS,
   },
   {
-    headline: ["Choose with", "confidence"],
-    supportingCopy: ["Discover products that fit", "your skin, goals and lifestyle."],
+    headline: ["Find what fits", "your skin"],
+    supportingCopy: "See how each formula matches your skin, concerns and goals.",
     // Lands on Home now, not the quiz (#346), so it no longer promises one.
     buttonLabel: "Get started",
     illustrationSource: HERO_FOR_ME,

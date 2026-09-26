@@ -148,4 +148,4 @@ function fontSizeOf(className: string | undefined, style: TextProps["style"]): n
 }
 
 /** The loaded display faces (`app/_layout.tsx`); body text is the system font. */
-const DISPLAY_FAMILY = /^(PlayfairDisplay|CormorantGaramond)_/;
+const DISPLAY_FAMILY = /^PlayfairDisplay_/;

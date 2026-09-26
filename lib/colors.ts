@@ -57,6 +57,13 @@ export const COLORS = {
   // names so its ten importers are unaffected.
   shellTerracotta: "#C4654F",
   shellSand: "#E8DDD1",
-  shellCharcoal: "#2E2E2E",
   shellCtaText: "#FFFFFF",
+  // The intro screens' own type and button colours, given by the owner
+  // (26 September 2026). Intro only: the quiz, the tab bar and the scanner
+  // keep the shell colours above.
+  introAccent: "#9B614E", // the headline's first phrase, the active dot, Back
+  introInk: "#240904", // the rest of the headline
+  introMuted: "#8F8275", // subtext, Skip, the inactive dots
+  introButton: "#BA765F", // the pill button
+  introButtonText: "#FCF7F3", // its label
 } as const;

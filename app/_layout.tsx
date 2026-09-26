@@ -1,6 +1,5 @@
 import "../global.css";
 
-import { CormorantGaramond_500Medium } from "@expo-google-fonts/cormorant-garamond";
 import { Montserrat_300Light, Montserrat_400Regular } from "@expo-google-fonts/montserrat";
 import {
   PlayfairDisplay_500Medium,
@@ -32,14 +31,13 @@ export default function RootLayout() {
   // font (see tailwind.config.js's `sans` family), so only the display
   // faces block startup now.
   //
-  // The Cormorant Garamond / Montserrat pair is the FOR.ME onboarding
-  // reskin (design-watercolor/FOR_ME_Onboarding_Design_Spec.md) — loaded
-  // here for the same reason: onboarding is the first thing a new install
-  // renders, so its fonts can't be missing on first paint either.
+  // Montserrat is the FOR.ME shell's (the quiz's Skip, among others) —
+  // loaded here for the same reason: onboarding is the first thing a new
+  // install renders, so its fonts can't be missing on first paint either.
+  // The intro's headline is Playfair (owner, 26 September 2026).
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_500Medium,
     PlayfairDisplay_600SemiBold,
-    CormorantGaramond_500Medium,
     Montserrat_300Light,
     Montserrat_400Regular,
   });

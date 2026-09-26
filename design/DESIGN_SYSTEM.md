@@ -86,14 +86,14 @@ file's reasoning, not to pick a new hex.
 against the two onboarding handoffs named in Provenance. What actually shipped diverged on
 two points, both later, deliberate decisions rather than drift to silently paper over:
 
-- **The onboarding carousel's screen headline renders in Cormorant Garamond
-  (`CormorantGaramond_500Medium`, `components/shell/shared.tsx`'s `FONT.headline`), not
-  Playfair Display.** This followed `design-watercolor/FOR_ME_Onboarding_Design_Spec.md`, a
-  later handoff not listed in this file's own Provenance table. Playfair Display is still
-  real and still used — the product screen, and the quiz's own question headline
-  (`PlayfairDisplay_600SemiBold`, hardcoded directly in `components/QuizScreen.tsx` rather
-  than read from a shared constant) — just not by the carousel this section originally
-  described.
+- **The onboarding carousel's type and colours follow the owner's spec of 26 September
+  2026** (`components/shell/OnboardingShell.tsx`): a Playfair Display 500 headline at 29pt,
+  its first line in `introAccent` (#9B614E) and the rest in `introInk` (#240904); system-font
+  subtext at 16pt in `introMuted` (#8F8275); Skip at 15pt in the same muted colour; dots
+  `introAccent` / `introMuted` at low opacity; and a flat pill button in `introButton`
+  (#BA765F) with a 17pt semibold `introButtonText` (#FCF7F3) label — all in `lib/colors.ts`.
+  It briefly used Cormorant Garamond (`design-watercolor/FOR_ME_Onboarding_Design_Spec.md`);
+  that font is no longer loaded.
 - **The "Onboarding wordmark" row no longer applies.** A later redesign removed the
   wordmark and heart from every onboarding screen entirely — branding now lives on the app
   icon and the in-app heart mark (`components/icons/HeartMark.tsx`, which since
@@ -102,7 +102,7 @@ two points, both later, deliberate decisions rather than drift to silently paper
 
 | Role | Size | Weight | Line-height | Tracking |
 |---|---|---|---|---|
-| Screen headline (carousel) — **Cormorant Garamond 500, see correction above** | 30 | 500 | 1.08 | −.018em |
+| Screen headline (carousel) — **Playfair Display 500 at 29, see correction above** | 30 | 500 | 1.08 | −.018em |
 | Tagline / supporting copy | 15 (single-screen) / 14.5 (carousel) | 400 | 1.5 | — |
 | Icon label | 12 | 600 | normal | −.004em |
 | Button label | 15 | 500 | normal | — |

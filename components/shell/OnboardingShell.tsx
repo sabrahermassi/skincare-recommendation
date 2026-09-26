@@ -1,15 +1,21 @@
 import { Image } from "expo-image";
 import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { slideDirection } from "@/lib/onboarding-slide";
-import { PrimaryButton } from "@/components/PrimaryButton";
-import { CHARCOAL, FONT, H_PADDING, ProgressDots, ShellBackButton, SkipButton, TERRACOTTA } from "@/components/shell/shared";
+import { H_PADDING, INTRO, INTRO_INACTIVE_DOT_OPACITY, ProgressDots, ShellBackButton, SkipButton } from "@/components/shell/shared";
 import { CANVAS } from "@/lib/tokens";
 
-const HEADLINE_SIZE = 44;
-const BODY_SIZE = 17;
+// The intro's type (owner, 26 September 2026): a Playfair headline whose first
+// line is in the accent colour and the rest in ink; system-font subtext; a
+// flat pill button.
+const HEADLINE_FONT = "PlayfairDisplay_500Medium";
+const HEADLINE_SIZE = 29;
+const BODY_SIZE = 16;
+const SKIP_SIZE = 15;
+const BUTTON_LABEL_SIZE = 17;
+const BUTTON_HEIGHT = 56;
 
 /**
  * Percentage-of-screen-height positions, measured directly off the approved
@@ -35,8 +41,10 @@ const BANDS = {
   // rather than leaving a bare gap at the top of every screen.
   skip: { top: 6.0, bottom: 11.4 },
   illustration: { top: 13.0, bottom: 66.0 },
-  headline: { top: 68.8, bottom: 79.0 },
-  copy: { top: 80.7, bottom: 85.3 },
+  // The headline is two lines at 29pt now, and the subtext wraps to two lines,
+  // so the headline gives the copy some of its old room.
+  headline: { top: 68.8, bottom: 77.0 },
+  copy: { top: 77.8, bottom: 85.8 },
   dots: { top: 87.4, bottom: 88.8 },
   button: { top: 90.5, bottom: 96.0 },
 } as const;
@@ -86,8 +94,8 @@ export type OnboardingScreenContent = {
   /** Explicit line breaks, not auto-wrap — up to 2 lines; the headline band
    *  reserves the same height whether 1 or 2 lines are passed. */
   headline: string[];
-  /** Up to 2 lines. */
-  supportingCopy: string[];
+  /** One sentence; the screen wraps it (up to 2 lines). */
+  supportingCopy: string;
   buttonLabel: string;
   illustrationSource: number;
 };
@@ -242,22 +250,26 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
             justifyContent: "center",
           }}
         >
-          {screen.headline.map((line) => (
-            <Text
-              key={line}
-              maxFontSizeMultiplier={MAX_FONT_SCALE}
-              style={{
-                fontFamily: FONT.headline,
-                fontSize: HEADLINE_SIZE,
-                lineHeight: HEADLINE_SIZE * 1.0,
-                letterSpacing: HEADLINE_SIZE * -0.02,
-                color: CHARCOAL,
-                textAlign: "center",
-              }}
-            >
-              {line}
-            </Text>
-          ))}
+          {/* One heading for a screen reader, drawn a line at a time: the first
+              line in the accent colour, the rest in ink. (Nested text with its
+              own line height drew only the first line on iOS.) */}
+          <View accessible accessibilityRole="header" accessibilityLabel={screen.headline.join(" ")} style={{ alignItems: "center" }}>
+            {screen.headline.map((line, i) => (
+              <Text
+                key={line}
+                maxFontSizeMultiplier={MAX_FONT_SCALE}
+                style={{
+                  fontFamily: HEADLINE_FONT,
+                  fontSize: HEADLINE_SIZE,
+                  lineHeight: HEADLINE_SIZE * 1.2,
+                  color: i === 0 ? INTRO.accent : INTRO.ink,
+                  textAlign: "center",
+                }}
+              >
+                {line}
+              </Text>
+            ))}
+          </View>
         </View>
 
         <View
@@ -278,25 +290,13 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
             justifyContent: "center",
           }}
         >
-          {screen.supportingCopy.map((line) => (
-            <Text
-              key={line}
-              maxFontSizeMultiplier={MAX_FONT_SCALE}
-              style={{
-                fontFamily: FONT.bodyRegular,
-                fontSize: BODY_SIZE,
-                // 1.3 * 1.16: explicit "16% more space between lines". Same
-                // 1.3 number as MAX_FONT_SCALE above by coincidence, not
-                // relation — that one caps accessibility scaling, this one is
-                // the design's own line-height multiplier.
-                lineHeight: BODY_SIZE * 1.3 * 1.16,
-                color: CHARCOAL,
-                textAlign: "center",
-              }}
-            >
-              {line}
-            </Text>
-          ))}
+          {/* One sentence, wrapped by the screen rather than by hand. */}
+          <Text
+            maxFontSizeMultiplier={MAX_FONT_SCALE}
+            style={{ fontSize: BODY_SIZE, lineHeight: BODY_SIZE * 1.4, fontWeight: "400", color: INTRO.muted, textAlign: "center" }}
+          >
+            {screen.supportingCopy}
+          </Text>
         </View>
       </Animated.View>
 
@@ -304,8 +304,8 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
           and a later sibling is what sits on top of it and stays tappable.
           `pointerEvents="none"` on the wrapper would do the same but takes its
           text out of the VoiceOver tree on iOS. */}
-      {onBack ? <ShellBackButton onPress={onBack} color={TERRACOTTA} /> : null}
-      <SkipButton onPress={onSkip} color={TERRACOTTA} />
+      {onBack ? <ShellBackButton onPress={onBack} color={INTRO.accent} /> : null}
+      <SkipButton onPress={onSkip} color={INTRO.muted} fontSize={SKIP_SIZE} fontFamily={null} />
 
       {/* Shown on every screen, including the first — per the redesign
           spec, dots are no longer withheld until the user has advanced. */}
@@ -320,7 +320,13 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
           justifyContent: "center",
         }}
       >
-        <ProgressDots count={screens.length} activeIndex={activeIndex} />
+        <ProgressDots
+          count={screens.length}
+          activeIndex={activeIndex}
+          activeColor={INTRO.accent}
+          inactiveColor={INTRO.muted}
+          inactiveOpacity={INTRO_INACTIVE_DOT_OPACITY}
+        />
       </View>
 
       <View
@@ -333,7 +339,19 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
           justifyContent: "center",
         }}
       >
-        <PrimaryButton label={buttonLabel} onPress={onNext} size={56} />
+        {/* A flat pill in the intro's own colour (owner), not the app's
+            watercolor call to action. */}
+        <Pressable
+          onPress={onNext}
+          accessibilityRole="button"
+          accessibilityLabel={buttonLabel}
+          style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: INTRO.button, alignItems: "center", justifyContent: "center" }}
+          className="active:opacity-80"
+        >
+          <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: BUTTON_LABEL_SIZE, fontWeight: "600", color: INTRO.buttonText }}>
+            {buttonLabel}
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
