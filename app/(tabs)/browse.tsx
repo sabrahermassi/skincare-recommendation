@@ -10,7 +10,7 @@ import { ProductRow } from "@/components/ProductRow";
 import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { TypeChip } from "@/components/TypeChip";
-import { openScanner } from "@/lib/genie";
+import { openScanner } from "@/lib/open-scanner";
 import { Text } from "@/components/Text";
 import { fetchProducts, peekProducts, searchableQuery, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients, type SkinProfile } from "@/data/types";

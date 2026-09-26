@@ -11,7 +11,7 @@
  * code inside the dismiss window. A deliberate re-ask of the same code (the
  * "Try again" button on the unreachable panel, or `BarcodeStage`'s
  * `onBarcode` prop) goes through `handleBarcode` directly and never calls
- * `shouldIgnoreScan` — see `onScanned` in `app/(tabs)/scanner.tsx` for where
+ * `shouldIgnoreScan` — see `onScanned` in `app/scanner.tsx` for where
  * the line is drawn.
  *
  * Time is injected rather than read from `Date.now()` internally, so the

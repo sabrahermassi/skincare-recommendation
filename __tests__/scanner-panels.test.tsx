@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
-import Scan from "@/app/(tabs)/scanner";
+import Scan from "@/app/scanner";
 import { fetchProductByBarcode } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 
@@ -48,7 +48,7 @@ jest.mock("react-native/Libraries/AppState/AppState", () => ({
 jest.mock("expo-router", () => {
   const React = require("react");
   return {
-    router: { push: jest.fn(), back: jest.fn(), navigate: jest.fn(), canGoBack: () => true },
+    router: { push: jest.fn(), back: jest.fn(), navigate: jest.fn(), dismissTo: jest.fn(), canGoBack: () => true },
     useFocusEffect: (effect: () => void | (() => void)) => React.useEffect(effect, []),
   };
 });
@@ -64,10 +64,6 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-jest.mock("@/components/GenieShell", () => {
-  const React = require("react");
-  return { GenieShell: React.forwardRef(({ children }: { children: unknown }, _ref: unknown) => children) };
-});
 jest.mock("@/components/LabelCamera", () => ({ LabelCamera: () => null }));
 jest.mock("@/components/ScanIntro", () => ({ ScanIntro: () => null }));
 jest.mock("@/components/ChoosePhotoInstead", () => ({ ChoosePhotoInstead: () => null }));
@@ -187,6 +183,21 @@ describe("scanner status panels", () => {
 
     await scan("8809999999999");
     expect(fetchProductByBarcode).toHaveBeenLastCalledWith("8809999999999");
+  });
+
+  it("closes the scanner to reach Search, rather than stacking Search inside it", async () => {
+    // The scanner is a full-screen modal (#313): a push put a second copy of
+    // the tabs inside it, with the scanner still underneath (#315 review).
+    const { router } = jest.requireMock("expo-router") as { router: { push: MockFn; dismissTo: MockFn } };
+    router.push.mockClear();
+    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: false, failure: { kind: "offline" } });
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+    await scan("8801234567890");
+
+    await fireEvent.press(screen.getByText("Or find it in Search instead."));
+    expect(router.dismissTo).toHaveBeenCalledWith("/browse");
+    expect(router.push).not.toHaveBeenCalled();
   });
 
   it("lets you leave a plain miss the same way", async () => {

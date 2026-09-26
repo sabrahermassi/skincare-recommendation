@@ -19,7 +19,7 @@ import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime } from "@/lib/format";
-import { openScanner } from "@/lib/genie";
+import { openScanner } from "@/lib/open-scanner";
 import { matchProduct, matchTone } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, TYPE_STEP, stepOf, type RoutineStep, type StepGroup } from "@/lib/routine-step";
 import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";

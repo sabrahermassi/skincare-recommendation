@@ -22,7 +22,7 @@ import { pairingNotesFor } from "@/lib/active-pairings";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { confidenceLabel, matchProduct, scoreExplanation, verdictHeadline } from "@/lib/matching";
 import { relativeTime } from "@/lib/format";
-import { openScanner } from "@/lib/genie";
+import { openScanner } from "@/lib/open-scanner";
 import { productPictureSize } from "@/lib/product-layout";
 import { isPersonalized } from "@/lib/profile";
 import { saveOrAskToSignIn } from "@/lib/save-gate";

@@ -317,7 +317,7 @@ returns to Home.
 > of the scan-failure help in #195. This section used to say "no dedicated
 > flash button for MVP"; that sentence is removed rather than left to
 > contradict the toggle above, but the toggle itself doesn't exist in
-> `app/(tabs)/scanner.tsx` yet — do not read this as a description of `main`
+> `app/scanner.tsx` yet — do not read this as a description of `main`
 > until #195 merges.
 
 ---
