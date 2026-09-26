@@ -41,7 +41,6 @@ beforeEach(() => {
     savedIngredients: [],
     shelfOwner: null,
     shelfQueue: [],
-    legacyShelfMigrated: false,
     parkedShelf: null,
   });
   mockPushShelf.mockResolvedValue({ ok: true, value: undefined });

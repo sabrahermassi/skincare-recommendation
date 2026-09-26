@@ -18,7 +18,6 @@ import {
   type Provider,
   type SignInResult,
 } from "@/lib/auth";
-import { completePendingSave, dropPendingSave } from "@/lib/save-gate";
 import { CANVAS, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 /** The same height as the app's own detail-screen buttons (`PrimaryButton` size 52). */
@@ -27,8 +26,8 @@ const APPLE_BUTTON_HEIGHT = 52;
 /**
  * The sign-in sheet (#220): Sign in with Apple and Sign in with Google, and
  * nothing else — no form, no password, no email to type (#217). Reached only
- * from the Save prompt (#221) and the account screen; there is no sign-in wall
- * anywhere else.
+ * from the Saved tab and the account screen; there is no sign-in wall
+ * anywhere, and saving never asks (#300).
  *
  * Closing the provider's own sheet is someone changing their mind, not an
  * error, so it leaves this screen exactly as it was. A real failure gets one
@@ -47,7 +46,7 @@ export default function SignIn() {
 
   const { from } = useLocalSearchParams<{ from?: string }>();
   useEffect(() => {
-    track("sign_in_shown", { from: from === "save" || from === "shelf" ? from : "account" });
+    track("sign_in_shown", { from: from === "shelf" ? "shelf" : "account" });
     // Once per opening of the sheet.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -61,20 +60,15 @@ export default function SignIn() {
     return () => {
       cancelled = true;
       mounted.current = false;
-      // Closed without signing in: the save that opened this sheet is dropped
-      // (#221). After a sign-in it has already run, so this does nothing.
-      dropPendingSave();
     };
   }, []);
 
   // Signed in — by a button here, or by a stored session that finished
-  // loading after a Save tap opened this sheet. Either way the save the
-  // person asked for happens now, and the sheet gets out of the way.
+  // loading while the sheet was opening. Either way it gets out of the way;
+  // the shelf saved on this phone is carried into the account (#300).
   const status = useAuth((s) => s.status);
   useEffect(() => {
-    if (status !== "signed-in") return;
-    completePendingSave();
-    router.back();
+    if (status === "signed-in") router.back();
   }, [status]);
 
   const signIn = async (provider: Provider) => {

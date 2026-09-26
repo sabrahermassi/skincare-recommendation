@@ -19,7 +19,7 @@ import { matchProduct, positionNote, ruleFor, rungFor, type Contraindication, ty
 import { isSensitive, treatAsReactive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
-import { saveOrAskToSignIn } from "@/lib/save-gate";
+import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, INK, MUTED, MUTED_FAINT, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
@@ -253,11 +253,11 @@ export default function IngredientDetail() {
           // we can say nothing about (#296).
           !verified ? undefined : (
           <Pressable
-            // Un-starring never asks; starring asks a guest to sign in first (#221).
+            // Stars for anyone, signed in or not (#300).
             onPress={() => {
               haptic.tap();
               if (starred) toggleSavedIngredient(ingredient.name);
-              else saveOrAskToSignIn(() => saveIngredient(ingredient.name), "ingredient");
+              else saveFromTap(() => saveIngredient(ingredient.name), "ingredient");
             }}
             hitSlop={12}
             accessibilityRole="button"

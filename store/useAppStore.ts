@@ -126,19 +126,12 @@ type AppState = {
 
   /**
    * The account the cached shelf belongs to, or null when it belongs to no
-   * one: a guest's shelf from before accounts existed. While it is set, every
+   * one: a guest's shelf, saved signed out (#300). While it is set, every
    * change to the shelf is also queued for the server.
    */
   shelfOwner: string | null;
   /** Shelf changes not yet on the server, oldest first. */
   shelfQueue: ShelfOp[];
-  /**
-   * Whether this device has already carried its pre-accounts shelf into an
-   * account (#222). Set on the first sign-in, whether or not there was
-   * anything to carry, so the migration can never run twice and put back
-   * items removed after signing in.
-   */
-  legacyShelfMigrated: boolean;
   /**
    * Changes that had not reached the server when the session ended — offline
    * at sign-out, or a session that ended on its own (#274 review). Set aside
@@ -156,9 +149,10 @@ type AppState = {
   journalStarted: string[];
   markJournalStarted: (account: string) => void;
   /**
-   * Makes the cached shelf an account's. On the first sign-in on this device
-   * the pre-accounts shelf is queued as saves into it; otherwise the cache
-   * starts empty and fills from the server.
+   * Makes the cached shelf an account's. A guest's shelf is queued as saves
+   * into it, at every sign-in (#300): sign-out empties the shelf, so whatever
+   * is on it with no owner was saved signed out. Another account's cache is
+   * never carried; the shelf starts empty and fills from the server.
    */
   adoptShelf: (owner: string) => void;
   /**
@@ -168,10 +162,11 @@ type AppState = {
    */
   applyServerShelf: (owner: string, pushed: readonly ShelfOp[], server: Shelf) => void;
   /**
-   * Sign-out (#222): the cached shelf is cleared. A signed-out person cannot
-   * have a shelf (#221), and one left behind would be carried into whichever
-   * account signs in next. Changes still queued are parked for this account
-   * rather than lost (`parkedShelf`). The profile and history stay.
+   * Sign-out (#222): the cached shelf is cleared. It is the account's and
+   * leaves with it; one left behind would be carried into whichever account
+   * signs in next. The person starts a fresh guest shelf (#300). Changes still
+   * queued are parked for this account rather than lost (`parkedShelf`). The
+   * profile and history stay.
    */
   leaveShelf: () => void;
   /**
@@ -221,7 +216,7 @@ type AppState = {
 
   /** Add/remove an ingredient name from the starred list. */
   toggleSavedIngredient: (name: string) => void;
-  /** Idempotent add, like `saveProduct` — for a star held while a guest signs in (#221). */
+  /** Idempotent add, like `saveProduct`. */
   saveIngredient: (name: string) => void;
   /** Empties the Saved tab's shelf — the wipe-everything action, as opposed to
    *  `toggleSaved`'s per-row "x". Leaves history and starred ingredients alone. */
@@ -290,7 +285,6 @@ export const PERSISTED_KEYS = [
   "secureStoreClaimed",
   "shelfOwner",
   "shelfQueue",
-  "legacyShelfMigrated",
   "parkedShelf",
   "journalStarted",
 ] as const;
@@ -308,7 +302,6 @@ export function partializeState(state: AppState): PersistedState {
     secureStoreClaimed: state.secureStoreClaimed,
     shelfOwner: state.shelfOwner,
     shelfQueue: state.shelfQueue,
-    legacyShelfMigrated: state.legacyShelfMigrated,
     parkedShelf: state.parkedShelf,
     journalStarted: state.journalStarted,
   };
@@ -325,7 +318,6 @@ const INITIAL_STATE = {
   secureStoreClaimed: false,
   shelfOwner: null as string | null,
   shelfQueue: [] as ShelfOp[],
-  legacyShelfMigrated: false,
   parkedShelf: null as { owner: string; queue: ShelfOp[] } | null,
   journalStarted: [] as string[],
 };
@@ -387,8 +379,24 @@ function queued(state: { shelfOwner: string | null; shelfQueue: ShelfOp[] }, ...
  * along in the runtime store, unreachable through the `AppState` type but
  * still sitting there, until some unrelated write happened to overwrite the
  * whole persisted blob. Found in review on #124.
+ *
+ * v7 -> v8 drops `legacyShelfMigrated` (#300). It marked the one sign-in on a
+ * phone that carried the pre-accounts shelf into an account; now a guest's
+ * shelf is carried at every sign-in, so there is nothing to mark. A phone
+ * where it was set and no account owns the shelf has signed in before and
+ * since signed out, and sign-out empties the shelf, so anything still on it
+ * is leftover no one saved as a guest. It is cleared here, before the new
+ * rule would carry it into the next account to sign in.
  */
 export function migratePersisted(persisted: unknown, version: number): PersistedState | undefined {
+  const migrated = migrateProfile(persisted, version);
+  if (!migrated || version >= 8) return migrated;
+  const { legacyShelfMigrated, ...rest } = migrated as PersistedState & { legacyShelfMigrated?: boolean };
+  return legacyShelfMigrated && rest.shelfOwner == null ? { ...rest, savedProducts: [], savedIngredients: [] } : rest;
+}
+
+/** Up to v7: the profile's shape, and the dropped `productSuggestions`. */
+function migrateProfile(persisted: unknown, version: number): PersistedState | undefined {
   const state = persisted as (PersistedState & {
     profile?: Partial<SkinProfile> & {
       skinTypeSource?: unknown;
@@ -652,12 +660,12 @@ export const useAppStore = create<AppState>()(
           // What this account left unsynced last time comes back into the
           // queue; anyone else's parked changes are dropped, never pushed.
           const parked = state.parkedShelf?.owner === owner ? state.parkedShelf.queue : [];
-          if (state.shelfOwner === null && !state.legacyShelfMigrated) {
-            // The first sign-in on this device: the shelf it already has is
-            // carried into the account rather than lost.
+          if (state.shelfOwner === null) {
+            // A guest's shelf is carried into the account rather than lost.
+            // The saves only add: an account row already there keeps its own
+            // date, note and step (lib/shelf.ts).
             return {
               shelfOwner: owner,
-              legacyShelfMigrated: true,
               parkedShelf: null,
               shelfQueue: [
                 ...parked,
@@ -665,11 +673,10 @@ export const useAppStore = create<AppState>()(
               ],
             };
           }
-          // Anyone else's cache (there should be none; sign-out clears it)
-          // never crosses into another account.
+          // Another account's cache (there should be none; sign-out clears
+          // it) never crosses into this one.
           return {
             shelfOwner: owner,
-            legacyShelfMigrated: true,
             parkedShelf: null,
             shelfQueue: parked,
             savedProducts: [],
@@ -722,7 +729,6 @@ export const useAppStore = create<AppState>()(
           ...INITIAL_STATE,
           secureStoreClaimed: state.secureStoreClaimed,
           shelfOwner: state.shelfOwner,
-          legacyShelfMigrated: state.legacyShelfMigrated,
           // Changes parked from an earlier sign-out are shelf data too.
           parkedShelf: null,
           shelfQueue: state.shelfOwner
@@ -755,7 +761,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: NEW_STORAGE_KEY,
-      version: 7,
+      version: 8,
       storage: createJSONStorage(() => formeStorage),
       partialize: partializeState,
       migrate: migratePersisted,

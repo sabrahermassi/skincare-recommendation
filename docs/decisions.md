@@ -351,12 +351,20 @@ save made before it. A save after a removal is a new save with its own
 time. Rules: `lib/shelf.ts`; tested against staging by
 `__tests__/shelf-staging.test.ts` (`SHELF_STAGING_E2E=1`).
 
-**A pre-accounts shelf is carried across once per device (#222)**, on the
-first sign-in, through that same rule — so a second phone's legacy shelf
-merges into an account that already has one. The flag is set even when
-there was nothing to carry, so the migration can never re-run and put back
-items removed after signing in. Sign-out clears the shelf and leaves the
-profile and history (docs/device-storage-policy.md). Changes that never
+**A guest's shelf is carried into the account at every sign-in (#300)**,
+through that same rule — so it merges into an account that already has a
+shelf, and an account row already there keeps its own date, note and step.
+This replaced #222's "carry the pre-accounts shelf once per device", with its
+flag set on the first sign-in, when #300 (26 September 2026) let signed-out
+people save. Carrying every time is safe because sign-out clears the shelf:
+anything on a shelf no account owns was saved signed out, so a removal made
+while signed in can't come back. The one gap, accepted: a product saved as a
+guest and removed from the account on another phone comes back at sign-in;
+closing it needs a server-side record of removals. Store v8 dropped the old
+flag and cleared any shelf left on a phone that had signed in and out.
+Notes and routine steps stay signed-in only, so a guest's note can never
+replace the account's. Sign-out clears the shelf and leaves the profile and
+history (docs/device-storage-policy.md). Changes that never
 reached the server are parked for that account rather than lost — #274's
 review found an offline sign-out silently dropping them — and are never
 carried into a different account.

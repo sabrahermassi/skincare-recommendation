@@ -25,7 +25,7 @@ import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/open-scanner";
 import { productPictureSize } from "@/lib/product-layout";
 import { isPersonalized } from "@/lib/profile";
-import { saveOrAskToSignIn } from "@/lib/save-gate";
+import { saveFromTap, useCanJournal } from "@/lib/saving";
 import { FirstPageMoment } from "@/components/FirstPageMoment";
 import { ProductNote } from "@/components/ProductNote";
 import { track } from "@/lib/analytics";
@@ -156,6 +156,7 @@ export default function ProductScreen() {
   const recordView = useAppStore((s) => s.recordView);
   const fillInViewScore = useAppStore((s) => s.fillInViewScore);
   const saved = savedProducts.some((p) => p.id === id);
+  const canJournal = useCanJournal();
   const loggedId = useRef<string | null>(null);
   /**
    * Which id `fetchProduct` has actually confirmed still exists, distinct
@@ -399,12 +400,11 @@ export default function ProductScreen() {
         right={
           <View style={{ flexDirection: "row", alignItems: "center", gap: 22 }}>
             <Pressable
-              // Removing never asks; adding asks a guest to sign in first,
-              // and the save completes itself once they have (#221).
+              // Saves for anyone, signed in or not (#300).
               onPress={() => {
                 haptic.tap();
                 if (saved) toggleSaved(product.id);
-                else saveOrAskToSignIn(() => saveProduct(product.id, product.fetchedAt), "product");
+                else saveFromTap(() => saveProduct(product.id, product.fetchedAt), "product");
               }}
               hitSlop={12}
               accessibilityRole="button"
@@ -616,7 +616,8 @@ export default function ProductScreen() {
 
         <View style={{ paddingHorizontal: SPACE.gutter, gap: SPACE.block }}>
           {/* The person's own note (#228), only for a product on their shelf. */}
-          {savedEntry ? <ProductNote note={savedEntry.note} onSave={(note) => setNote(product.id, note)} /> : null}
+          {/* Signed in only (#300): see useCanJournal. */}
+          {savedEntry && canJournal ? <ProductNote note={savedEntry.note} onSave={(note) => setNote(product.id, note)} /> : null}
           <PregnancySection warnings={match.warnings} />
           <ContextNudgesSection
             nudges={[

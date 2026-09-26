@@ -365,7 +365,8 @@ async function forgetGoogleAccount(): Promise<void> {
  * lib/shelf-sync.ts) — until that landed this line deliberately did not say
  * so (#272 review).
  */
-export const ACCOUNT_PITCH = "An account keeps what you save on every phone you use. Scanning never needs one.";
+export const ACCOUNT_PITCH =
+  "An account keeps what you save on every phone you use. You don't need one to scan or to save.";
 
 export type AccountSummary = {
   /** "Apple", "Google", or "Apple and Google" once both are linked. */

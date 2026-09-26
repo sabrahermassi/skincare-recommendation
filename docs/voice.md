@@ -190,7 +190,7 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 | Barcode lookup failure | `data/api.ts` (`failureMessage`) | No, same reason |
 | Scanner status panels | `app/scanner.tsx` (`BarcodeStage`, `IngredientsStage`) | No, same reason |
 | Camera/permission intros | `app/scanner.tsx` (`CameraPermissionIntro` usages), `app/add-product.tsx` | No, same reason |
-| Empty states | `app/(tabs)/saved.tsx` (`EMPTY_COPY`, and `GUEST_EMPTY_COPY` for a signed-out shelf, #221) | No, same reason |
+| Empty states, and the guest line | `app/(tabs)/saved.tsx` (`EMPTY_COPY`, `GUEST_SHELF_LINE`, #300) | No, same reason |
 | Sign-in sheet and its failures | `app/sign-in.tsx`, `lib/auth.ts` (`signInFailureCopy`) | No — account copy, not an ingredient/product claim. Closing the provider's sheet deliberately has no copy at all (#220) |
 | Account screen | `app/account.tsx` | No, same reason |
 | Journal note — the app's prompt, placeholder, buttons and too-long message | `lib/journal.ts` (`NOTE_COPY`, `tooLongCopy`) | Yes — `NOTE_CLAIMS` (#228). The prompt asks about the product ("What did you think of it?"), never about skin |

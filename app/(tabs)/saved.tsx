@@ -25,7 +25,7 @@ import { matchProduct, matchTone } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, TYPE_STEP, stepOf, type RoutineStep, type StepGroup } from "@/lib/routine-step";
 import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
 import { isVerified } from "@/lib/safety";
-import { useCanSave } from "@/lib/save-gate";
+import { useCanJournal, useGuestShelf } from "@/lib/saving";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
@@ -72,14 +72,17 @@ export default function Saved() {
   const clearSavedIngredients = useAppStore((s) => s.clearSavedIngredients);
   const removeHistoryEntry = useAppStore((s) => s.removeHistoryEntry);
   const restoreHistoryEntry = useAppStore((s) => s.restoreHistoryEntry);
+  const shelfOwner = useAppStore((s) => s.shelfOwner);
+  const guest = useGuestShelf();
+  const canJournal = useCanJournal();
 
   // A removed row's own data, held just long enough to put it back — nothing
   // here is written until a timer or a tab switch clears it, so Undo can
   // always restore exactly what was on screen a moment ago rather than
   // re-deriving it from whatever the list looks like by the time it's
   // tapped.
-  const [undo, setUndo] = useState<
-    { kind: "saved"; product: SavedProduct } | { kind: "history"; entry: HistoryEntry } | null
+  const [pendingUndo, setUndo] = useState<
+    { kind: "saved"; product: SavedProduct; owner: string | null } | { kind: "history"; entry: HistoryEntry } | null
   >(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -87,7 +90,7 @@ export default function Saved() {
       if (undoTimer.current) clearTimeout(undoTimer.current);
     };
   }, []);
-  function showUndo(next: NonNullable<typeof undo>) {
+  function showUndo(next: NonNullable<typeof pendingUndo>) {
     if (undoTimer.current) clearTimeout(undoTimer.current);
     setUndo(next);
     undoTimer.current = setTimeout(() => setUndo(null), 4000);
@@ -96,6 +99,11 @@ export default function Saved() {
     if (undoTimer.current) clearTimeout(undoTimer.current);
     setUndo(null);
   }
+  // A removed shelf row belongs to whoever owned the shelf then. If the shelf
+  // has changed hands since (signed out, or in), putting it back would hand
+  // one person's item to the next shelf, which is carried into an account at
+  // sign-in (#300). So the offer goes with the owner; its timer clears it.
+  const undo = pendingUndo?.kind === "saved" && pendingUndo.owner !== shelfOwner ? null : pendingUndo;
 
   // The one irreversible action on this screen (see `clearHistory` below) —
   // gated behind a second tap the same way `profile.tsx`'s erase/discard
@@ -220,9 +228,6 @@ export default function Saved() {
     { saved: savedIds.length, history: history.length, ingredients: savedIngredients.length },
     undo?.kind,
   );
-  // A guest's empty shelf invites sign-in rather than implying nothing has
-  // been saved yet (#221).
-  const canSave = useCanSave();
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
@@ -273,8 +278,10 @@ export default function Saved() {
         />
       </View>
 
+      {guest && tab !== "history" ? <GuestShelfLine /> : null}
+
       {isEmpty ? (
-        <EmptyState tab={tab} guest={!canSave} />
+        <EmptyState tab={tab} />
       ) : tab === "ingredients" ? (
         <IngredientsTab
           key="ingredients"
@@ -332,13 +339,14 @@ export default function Saved() {
                   <StepLine
                     group={groupOf(id)}
                     chosen={savedProducts.find((p) => p.id === id)?.routineStep !== undefined}
-                    onChange={() => setPickingStepFor(id)}
+                    // Steps, like notes, are signed-in only (#300).
+                    onChange={canJournal ? () => setPickingStepFor(id) : undefined}
                   />
                 }
                 onRemove={() => {
                   const saved = savedProducts.find((p) => p.id === id);
                   toggleSaved(id);
-                  if (saved) showUndo({ kind: "saved", product: saved });
+                  if (saved) showUndo({ kind: "saved", product: saved, owner: shelfOwner });
                 }}
               >
                 {savedProducts.find((p) => p.id === id)?.note ? (
@@ -371,7 +379,13 @@ export default function Saved() {
             );
           })}
           {undo?.kind === "saved" && (
-            <UndoBar label="Removed" onUndo={() => { restoreSavedProduct(undo.product); dismissUndo(); }} />
+            <UndoBar
+              label="Removed"
+              onUndo={() => {
+                if (useAppStore.getState().shelfOwner === undo.owner) restoreSavedProduct(undo.product);
+                dismissUndo();
+              }}
+            />
           )}
 
           <ShelfPairings notes={shelfNotes} />
@@ -824,7 +838,7 @@ const EMPTY_ART = {
   ingredients: { source: require("@/assets/illustrations/ingredients-empty.png"), aspect: 1400 / 855 },
 } as const;
 
-type EmptyCopy = { title: string; body: string; actionLabel: string; actionHref: "/scanner" | "/browse" | "/sign-in" };
+type EmptyCopy = { title: string; body: string; actionLabel: string; actionHref: "/scanner" | "/browse" };
 
 const EMPTY_COPY: Record<Tab, EmptyCopy> = {
   saved: {
@@ -844,28 +858,6 @@ const EMPTY_COPY: Record<Tab, EmptyCopy> = {
     body: "Open a product, tap an ingredient, then tap its star to keep it here.",
     actionLabel: "Search products",
     actionHref: "/browse",
-  },
-};
-
-/**
- * What a guest sees instead, on the two tabs that fill by saving (#221).
- * Saving needs an account, so "nothing saved yet" would be untrue for them:
- * they can't. This is the Save action's own destination explaining itself,
- * not a second sign-up prompt. History is open to everyone, so it has none.
- * Exported for the tests.
- */
-export const GUEST_EMPTY_COPY: Partial<Record<Tab, EmptyCopy>> = {
-  saved: {
-    title: "Keep a shelf of your own",
-    body: "Sign in and anything you save stays with you, on every phone you use. Scanning never needs an account.",
-    actionLabel: "Sign in",
-    actionHref: "/sign-in",
-  },
-  ingredients: {
-    title: "Keep the ingredients you trust",
-    body: "Sign in to star ingredients and find them here, on every phone you use.",
-    actionLabel: "Sign in",
-    actionHref: "/sign-in",
   },
 };
 
@@ -907,7 +899,7 @@ function useReduceMotion(): boolean | null {
  * moves: the title, the sentence and the button change in place at once, so they
  * stay solid on the screen.
  */
-function EmptyState({ tab, guest }: { tab: Tab; guest: boolean }) {
+function EmptyState({ tab }: { tab: Tab }) {
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
   const [artOpacity] = useState(
@@ -929,7 +921,7 @@ function EmptyState({ tab, guest }: { tab: Tab; guest: boolean }) {
     return () => pictures.stop();
   }, [tab, artOpacity, reduceMotion]);
 
-  const { title, body, actionLabel, actionHref } = (guest ? GUEST_EMPTY_COPY[tab] : undefined) ?? EMPTY_COPY[tab];
+  const { title, body, actionLabel, actionHref } = EMPTY_COPY[tab];
 
   return (
     // Asymmetric flex spacers (0.4/0.6), not `justifyContent: "center"" —
@@ -992,11 +984,7 @@ function EmptyState({ tab, guest }: { tab: Tab; guest: boolean }) {
             size={50}
             label={actionLabel}
             onPress={() =>
-              actionHref === "/scanner"
-                ? openScanner()
-                : actionHref === "/sign-in"
-                  ? router.push({ pathname: "/sign-in", params: { from: "shelf" } })
-                  : router.push(actionHref)
+              actionHref === "/scanner" ? openScanner() : router.push(actionHref)
             }
             style={{ marginTop: 8 }}
           />
@@ -1168,20 +1156,52 @@ function StepFilter({
  * One line under a saved card: which step it is in, and a way to change it.
  * "Not sorted" asks to be sorted; "Body & hair" is simply where it belongs.
  */
-function StepLine({ group, chosen, onChange }: { group: StepGroup | null; chosen: boolean; onChange: () => void }) {
+/** What the guest line says (#300). Exported for the tests. */
+export const GUEST_SHELF_LINE = "Saves stay on this phone.";
+
+/**
+ * Signed out, under the Saved and Ingredients tabs: saving works, and this
+ * says where it goes and offers the account that keeps it on every phone.
+ * Quiet, one line, never in the way of the shelf itself.
+ */
+function GuestShelfLine() {
+  return (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 6, paddingHorizontal: 20, marginTop: -6 }}>
+      <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{GUEST_SHELF_LINE}</Text>
+      <Pressable
+        onPress={() => router.push({ pathname: "/sign-in", params: { from: "shelf" } })}
+        accessibilityRole="link"
+        style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
+        className="active:opacity-70"
+      >
+        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+          Sign in to keep them on every phone
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function StepLine({ group, chosen, onChange }: { group: StepGroup | null; chosen: boolean; onChange?: () => void }) {
   if (group === null) return null;
+  const label = (
+    <Text style={{ flex: 1, fontSize: TYPE.caption, color: MUTED }}>
+      {group === "unsorted" ? "Not sorted yet" : STEP_LABEL[group]}
+      {chosen ? "" : group === "unsorted" ? "" : " · our guess"}
+    </Text>
+  );
+  const lineStyle = { minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 17, borderTopWidth: 1, borderTopColor: BORDER_INACTIVE } as const;
+  // A guest sees the step but can't choose one.
+  if (!onChange) return <View style={lineStyle}>{label}</View>;
   return (
     <Pressable
       onPress={onChange}
       accessibilityRole="button"
       accessibilityLabel={`Routine step: ${STEP_LABEL[group]}. Change`}
-      style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 17, borderTopWidth: 1, borderTopColor: BORDER_INACTIVE }}
+      style={lineStyle}
       className="active:opacity-70"
     >
-      <Text style={{ flex: 1, fontSize: TYPE.caption, color: MUTED }}>
-        {group === "unsorted" ? "Not sorted yet" : STEP_LABEL[group]}
-        {chosen ? "" : group === "unsorted" ? "" : " · our guess"}
-      </Text>
+      {label}
       <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>{group === "unsorted" ? "Pick a step" : "Change"}</Text>
     </Pressable>
   );

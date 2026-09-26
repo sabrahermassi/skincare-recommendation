@@ -171,7 +171,10 @@ them also queues the change (`shelfQueue`) while `shelfOwner` is set.
 `lib/shelf-sync.ts` pushes and reads back; `lib/shelf.ts` holds the conflict
 rule. A new action that touches the shelf must queue its change too, or the
 next sync silently undoes it. Sign-out clears the shelf, never the profile
-or history.
+or history. Signed out, anyone can still save (#300): the shelf has no owner,
+nothing is queued, and `adoptShelf` carries it into the account at every
+sign-in. Notes and routine steps stay signed-in only (`useCanJournal` in
+`lib/saving.ts`).
 
 Profile shape: `concerns` (max `MAX_CONCERNS` = 3), `baseSkinType`
 (nullable — "I don't know" is a real answer), `sensitivity`

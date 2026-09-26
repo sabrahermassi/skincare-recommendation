@@ -44,7 +44,7 @@ export const EVENTS = {
   /** The Save heart or ingredient star was tapped to add. */
   save_tapped: { target: ["product", "ingredient"], signed_in: [true, false] },
   /** The sign-in sheet opened, and from where. */
-  sign_in_shown: { from: ["save", "account", "shelf"] },
+  sign_in_shown: { from: ["account", "shelf"] },
   /** A session began from the sign-in sheet — a new account or a returning one. */
   signed_in: { provider: ["apple", "google"], new_account: [true, false] },
 } as const;

@@ -11,7 +11,7 @@ import { useAppStore } from "@/store/useAppStore";
  * shelf.
  *
  * Shelf length can't decide it. An emptied shelf would bring it back, and a
- * shelf carried in from before accounts (#222) would mean it never came. So
+ * guest shelf carried in at sign-in (#300) would mean it never came. So
  * it's a real flag, on the account itself: `user_metadata`, which travels with
  * the session, survives a reinstall and needs no table. It is a nicety, never
  * a permission — the person can write their own metadata, and nothing reads
@@ -48,8 +48,10 @@ export function dismissFirstPage(): void {
 
 /**
  * A product has just been saved. If this is the account's first, the moment
- * is queued and the account told. Called by lib/save-gate.ts after the save
- * itself — so for a guest it lands after sign-in, never before.
+ * is queued and the account told. Called by lib/saving.ts after the save
+ * itself. Signed out there is no account, so nothing happens: a guest's saves
+ * are carried in at sign-in, and the moment waits for the first save made
+ * signed in (#300).
  */
 export function noteProductSaved(): void {
   const user = useAuth.getState().session?.user;
