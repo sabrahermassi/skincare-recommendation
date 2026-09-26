@@ -9,7 +9,7 @@ import Svg, { Path } from "react-native-svg";
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { ReadingScale, Text, useLargeText, useTextScale } from "@/components/Text";
+import { ReadingScale, Text, useLargeText, useIconScale } from "@/components/Text";
 import { fetchProduct, resolveIngredientNames } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
@@ -21,7 +21,7 @@ import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, INK, MUTED, MUTED_FAINT, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, FONT_SCALE, INK, MUTED, MUTED_FAINT, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 import { ingredientNameParam, productIdParam } from "@/lib/route-params";
 import NotFound from "@/app/+not-found";
@@ -107,7 +107,7 @@ const RUNG: Record<
 
 /** Grown with the 18px headline beside it (#334). */
 function HeartIcon({ color }: { color: string }) {
-  const size = 19 * useTextScale(18);
+  const size = 19 * useIconScale(18);
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -121,6 +121,8 @@ function HeartIcon({ color }: { color: string }) {
   );
 }
 
+/** The size of the function line under the name ("Skin-Conditioning"). */
+const FUNCTION_LINE_SIZE = 19;
 /** The "Want to learn more?" title's size, which its arrow follows. */
 const LEARN_MORE_SIZE = 14.5;
 /** A "Things to know" note's size, which its tick follows. */
@@ -128,12 +130,12 @@ const NOTE_SIZE = 13;
 
 /** The "Want to learn more?" arrow, grown with its title (#334). */
 function LearnMoreArrow() {
-  return <ArrowIcon size={17 * useTextScale(LEARN_MORE_SIZE)} color={INK} />;
+  return <ArrowIcon size={17 * useIconScale(LEARN_MORE_SIZE)} color={INK} />;
 }
 
 /** A "Things to know" tick, grown with the note beside it (#334). */
 function CheckIcon({ color }: { color: string }) {
-  const size = 16 * useTextScale(NOTE_SIZE);
+  const size = 16 * useIconScale(NOTE_SIZE);
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m5 12.6 4.6 4.6L19 6.8" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
@@ -336,9 +338,13 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             </Text>
             {secondary ? (
               <Text
+                // Stops where label text stops, below the name (which stops
+                // where body text does), so at the largest sizes the two
+                // don't end up the same size (#334).
+                maxFontSizeMultiplier={(TYPE.label * FONT_SCALE.reading) / FUNCTION_LINE_SIZE}
                 style={{
                   fontFamily: "PlayfairDisplay_500Medium",
-                  fontSize: 19,
+                  fontSize: FUNCTION_LINE_SIZE,
                   lineHeight: 19,
                   color: MUTED,
                 }}

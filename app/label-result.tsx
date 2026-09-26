@@ -11,7 +11,7 @@ import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { ContextNudgesSection, ExplanationLine, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { ReadingScale, Text, useLargeText } from "@/components/Text";
+import { ReadingScale, Text, useLargeText, useRingScale } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
 import type { Ingredient } from "@/data/types";
 import { pairingNotesFor } from "@/lib/active-pairings";
@@ -76,6 +76,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
   // Past the ordinary text ceiling the verdict's words no longer fit beside
   // the score ring, so the ring goes above them (#334).
   const largeText = useLargeText();
+  const ringScale = useRingScale();
 
   useEffect(() => track("verdict_viewed", { path: "label" }), []);
 
@@ -170,7 +171,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
             className={`${largeText ? "items-start" : "flex-row items-center"} active:opacity-70`}
             style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
           >
-            <ScoreRing score={match.score} size={82} label="/100" tone={match.verdict} />
+            <ScoreRing score={match.score} size={82 * ringScale} label="/100" tone={match.verdict} />
             <View className={largeText ? "gap-1.5 self-stretch" : "flex-1 gap-1.5 pr-6"}>
               <Text
                 style={{

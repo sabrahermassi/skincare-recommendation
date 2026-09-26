@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, Share, View } from "react-nat
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
-import { ReadingScale, Text, useLargeText, useTextScale } from "@/components/Text";
+import { ReadingScale, Text, useIconScale, useLargeText, useRingScale } from "@/components/Text";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
@@ -109,6 +109,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
   // Past the ordinary text ceiling the verdict's words no longer fit beside
   // the score ring, so the ring goes above them (#334).
   const largeText = useLargeText();
+  const ringScale = useRingScale();
   // Seeded from the catalogue cache so a product already in memory paints on
   // the first frame instead of a spinner — the same `peekProducts` seam
   // `app/(tabs)/browse.tsx` uses for a warm start.
@@ -555,7 +556,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
         >
           <ScoreRing
             score={match.score}
-            size={82}
+            size={82 * ringScale}
             label="/100"
             tone={match.verdict}
           />
@@ -738,6 +739,6 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
 
 /** The "Why this score" chevron, grown with the words beside it (#334). */
 function WhyChevron({ open }: { open: boolean }) {
-  const scale = useTextScale(TYPE.label);
+  const scale = useIconScale(TYPE.label);
   return <ArrowIcon direction={open ? "up" : "down"} size={16 * scale} color={INK} />;
 }

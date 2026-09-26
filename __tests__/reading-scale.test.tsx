@@ -1,8 +1,8 @@
-import { render, screen } from "@testing-library/react-native";
+import { render, screen, within } from "@testing-library/react-native";
 import { StyleSheet, View } from "react-native";
 
 import { RiskCards } from "@/components/RiskCards";
-import { ReadingScale, Text, readingFontScale } from "@/components/Text";
+import { ReadingScale, Text, readingFontScale, useIconScale, useRingScale } from "@/components/Text";
 import { ExplanationLine } from "@/components/VerdictExplanation";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { matchProduct } from "@/lib/matching";
@@ -80,16 +80,24 @@ describe("Text in and out of a ReadingScale", () => {
   });
 });
 
-describe("ExplanationLine's dot", () => {
+describe("ExplanationLine's sign", () => {
   const line = <ExplanationLine label="Your concerns" detail="This formula works on what you asked about" direction="up" />;
 
-  it("grows its sign with the words inside a ReadingScale", async () => {
+  it("moves into the label past the ordinary ceiling, so it can't be cut off from it", async () => {
     mockFontScale = LARGEST;
     await render(<ReadingScale>{line}</ReadingScale>);
-    expect(screen.getByText("+").props.maxFontSizeMultiplier).toBe(LARGEST);
+    // The sign is part of the label's own line, not a separate dot.
+    expect(within(screen.getByText("+ Your concerns")).getByText("+")).toBeTruthy();
   });
 
-  it("stops at the ordinary ceiling outside one, and never shrinks below its drawn size", async () => {
+  it("stays in its dot, grown with the words, up to the ordinary ceiling", async () => {
+    mockFontScale = FONT_SCALE.ui;
+    await render(<ReadingScale>{line}</ReadingScale>);
+    expect(screen.getByText("+").props.maxFontSizeMultiplier).toBe(FONT_SCALE.ui);
+    expect(screen.getByText("Your concerns")).toBeTruthy();
+  });
+
+  it("stays in its dot outside a ReadingScale, and never shrinks below its drawn size", async () => {
     mockFontScale = LARGEST;
     const { rerender } = await render(line);
     expect(screen.getByText("+").props.maxFontSizeMultiplier).toBe(FONT_SCALE.ui);
@@ -97,6 +105,32 @@ describe("ExplanationLine's dot", () => {
     mockFontScale = 0.8;
     await rerender(<ReadingScale>{line}</ReadingScale>);
     expect(screen.getByText("+").props.maxFontSizeMultiplier).toBe(1);
+  });
+});
+
+describe("icon and ring growth", () => {
+  function Probe({ fontSize }: { fontSize: number }) {
+    return <Text>{`${useIconScale(fontSize)} ${useRingScale()}`}</Text>;
+  }
+
+  it("stops icons at FONT_SCALE.icon however large the text gets", async () => {
+    mockFontScale = LARGEST;
+    await render(
+      <ReadingScale>
+        <Probe fontSize={TYPE.label} />
+      </ReadingScale>,
+    );
+    expect(screen.getByText(`${FONT_SCALE.icon} ${FONT_SCALE.icon}`)).toBeTruthy();
+  });
+
+  it("grows the ring only past the ordinary ceiling", async () => {
+    mockFontScale = FONT_SCALE.ui;
+    const { rerender } = await render(<Probe fontSize={TYPE.label} />);
+    expect(screen.getByText(`${FONT_SCALE.ui} 1`)).toBeTruthy();
+
+    mockFontScale = 2.25;
+    await rerender(<Probe fontSize={TYPE.label} />);
+    expect(screen.getByText(`${FONT_SCALE.ui} ${2.25 / FONT_SCALE.ui}`)).toBeTruthy();
   });
 });
 

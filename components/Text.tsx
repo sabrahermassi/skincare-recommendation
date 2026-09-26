@@ -42,16 +42,28 @@ export function useLargeText(): boolean {
 }
 
 /**
- * How much text of this size is actually grown right here — the phone's text
- * size, under whichever ceiling applies — so an icon drawn beside it (a
- * reason's +/− dot, a chevron) can grow with it instead of shrinking beside
- * it. Never below 1: an icon keeps its drawn size at the smaller text sizes.
+ * How far to grow an icon drawn beside text of this size (a reason's +/− dot,
+ * a chevron, a tick): as far as the text itself is grown right here, up to
+ * `FONT_SCALE.icon`, so it stays visible next to large words without taking
+ * their width. Never below 1: an icon keeps its drawn size at the smaller
+ * text sizes.
  */
-export function useTextScale(fontSize: number): number {
+export function useIconScale(fontSize: number): number {
   const reading = useContext(ReadingScope);
   const { fontScale } = useWindowDimensions();
   const ceiling = reading ? Math.max(FONT_SCALE.ui, readingCeiling(fontSize)) : FONT_SCALE.ui;
-  return Math.max(1, Math.min(fontScale, ceiling));
+  return Math.max(1, Math.min(fontScale, ceiling, FONT_SCALE.icon));
+}
+
+/**
+ * How far to grow the score ring (#334). It is drawn to fit text at the
+ * ordinary ceiling, so it grows only once the phone's text size passes that —
+ * in step with it, up to `FONT_SCALE.icon` — and the score stays the thing
+ * that stands out on the verdict panel rather than the smallest thing on it.
+ */
+export function useRingScale(): number {
+  const { fontScale } = useWindowDimensions();
+  return Math.min(Math.max(1, fontScale / FONT_SCALE.ui), FONT_SCALE.icon);
 }
 
 /**

@@ -351,14 +351,20 @@ avoided:
 
 Past 1.5× (`useLargeText`) the layouts that can't hold two things side by side
 stack: the score ring goes above its verdict, the two risk cards stack, a
-reason's label drops under its dot when it doesn't fit beside it, and the
-ingredient page drops its decorative picture so the name has the width.
-Icons beside reading text grow with it (`useTextScale`). Opening "Why this
+reason's +/− moves from its dot into the start of its label (in the verdict
+ink, 5.5:1 or better on every panel tint) so it can't end up on a line of its
+own, and the ingredient page drops its decorative picture so the name has the
+width. The ingredient's function line stops where label text stops, below the
+name. Icons beside reading text grow with it up to `FONT_SCALE.icon` (2×,
+`useIconScale`), enough to stay visible without taking the words' width; the
+score ring grows the same way once text passes 1.5× (`useRingScale`), so the
+score stays the thing that stands out on the verdict panel. Opening "Why this
 score" at those sizes scrolls to the reasons rather than the top of the panel,
-which the score and verdict fill on their own. Checked at
-`accessibility-extra-extra-extra-large` on the iPhone 18 Pro Max simulator;
-nothing changes at the default size, by construction (every rule above only
-acts past a multiplier of 1).
+which the score and verdict fill on their own. At the very largest size the
+words "Why this score" are wider than the panel and take two lines whatever the
+chevron's size. Checked at `accessibility-extra-extra-extra-large` on the iPhone
+18 Pro Max simulator; nothing changes at the default size, by construction
+(every rule above only acts past a multiplier of 1).
 
 ## Accounts
 

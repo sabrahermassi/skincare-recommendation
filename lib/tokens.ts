@@ -322,12 +322,16 @@ export const TYPE = {
  *   Larger text there stops at the size body text reaches
  *   (`TYPE.body × reading`), so a heading ends level with its paragraphs
  *   rather than three times their size, and never below them.
+ * - `icon`: how far an icon beside reading text grows with it (#334) — a
+ *   chevron, a tick, the score ring. Far enough to stay visible next to
+ *   large words, not so far that it takes their width.
  * Applied in `components/Text.tsx`; see `docs/decisions.md`.
  */
 export const FONT_SCALE = {
   display: 1.3,
   ui: 1.5,
   reading: 3.6,
+  icon: 2,
 } as const;
 
 /**

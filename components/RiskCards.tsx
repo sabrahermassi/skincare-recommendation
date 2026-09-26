@@ -2,7 +2,7 @@ import { Pressable, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
-import { Text, useLargeText, useTextScale } from "@/components/Text";
+import { Text, useLargeText, useIconScale } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import type { MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
@@ -51,7 +51,7 @@ export function RiskCards({
   // they stack (#334).
   const largeText = useLargeText();
   // The icons and chevron grow with the card titles beside them.
-  const icon = 16 * useTextScale(TITLE_SIZE);
+  const icon = 16 * useIconScale(TITLE_SIZE);
 
   return (
     <View style={{ flexDirection: largeText ? "column" : "row", gap: 12, paddingHorizontal: 24 }}>
