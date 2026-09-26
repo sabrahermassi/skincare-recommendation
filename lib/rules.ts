@@ -85,7 +85,18 @@ export type IngredientRule = {
    * Kept small for anything contested.
    */
   weight: number;
+  /**
+   * Where the claim in `reason` comes from (#326), shown as "Source: <label>"
+   * under it. Only a page that was opened and read as supporting this exact
+   * claim — a regulator, an expert panel, a dermatology reference or a
+   * peer-reviewed paper; never a blog, brand or retailer. A rule without one
+   * is listed in `UNSOURCED_RULES` (`__tests__/rule-sources.test.ts`).
+   */
+  source?: RuleSource;
 };
+
+/** A citation for a claim the app makes: what to call it, and where it is. */
+export type RuleSource = { label: string; url: string };
 
 export const INGREDIENT_RULES: IngredientRule[] = [
   // ── Hydration and barrier ─────────────────────────────────────────────────
@@ -110,6 +121,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     reason:
       "Ceramides supply barrier lipids that dry, reactive and eczema-prone skin can run short of",
     weight: 10,
+    source: { label: "International Journal of Cosmetic Science review, 2024", url: "https://pubmed.ncbi.nlm.nih.gov/39113291/" },
   },
   {
     names: ["panthenol", "dexpanthenol", "d-panthenol"],
@@ -128,6 +140,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     helps: { concerns: ["atopic", "redness"], sensitive: true },
     reason: "Colloidal oatmeal is a classic comforting barrier ingredient for eczema-prone skin",
     weight: 9,
+    source: { label: "Journal of Drugs in Dermatology trial, 2020", url: "https://pubmed.ncbi.nlm.nih.gov/32484623/" },
   },
   {
     names: [/^butyrospermum/, "shea butter", /^helianthus annuus seed oil/, "canola oil"],
@@ -165,6 +178,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     helps: { skinTypes: ["dry"], sensitive: true, concerns: ["atopic"] },
     reason: "Cholesterol is one of the three lipids skin builds its barrier from",
     weight: 7,
+    source: { label: "International Journal of Cosmetic Science review, 2024", url: "https://pubmed.ncbi.nlm.nih.gov/39113291/" },
   },
   {
     names: ["tocopherol", "tocopheryl acetate", "vitamin e"],
@@ -181,6 +195,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     reason:
       "Silicone smooths and slows water loss, though a heavier occlusive layer can trap congestion",
     weight: 5,
+    source: { label: "DermNet: emollients and moisturisers", url: "https://dermnetnz.org/topics/emollients-and-moisturisers" },
   },
   {
     names: ["caprylic/capric triglyceride", "caprylic capric triglyceride", "tricaprylin"],
@@ -294,6 +309,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     },
     reason: "Niacinamide moderates oil, evens tone and strengthens the barrier - unusually versatile",
     weight: 10,
+    source: { label: "DermNet: nicotinamide", url: "https://dermnetnz.org/topics/nicotinamide" },
   },
   {
     names: [...SALICYLATE_NAMES, ...SALICYLATE_ABBREVIATION_NAMES],
@@ -302,6 +318,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     hurts: { sensitive: true, skinTypes: ["dry"] },
     reason: "Salicylic acid clears pores from the inside - effective on congestion, drying on dry or reactive skin",
     weight: 10,
+    source: { label: "DermNet: salicylic acid", url: "https://dermnetnz.org/topics/salicylic-acid" },
   },
   {
     names: [...AHA_NAMES],
@@ -310,6 +327,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     hurts: { sensitive: true },
     reason: "Alpha hydroxy acids resurface and brighten, at the cost of tolerance on reactive skin",
     weight: 8,
+    source: { label: "US FDA: alpha hydroxy acids", url: "https://www.fda.gov/cosmetics/cosmetic-ingredients/alpha-hydroxy-acids" },
   },
   {
     names: [...RETINOID_NAMES],
@@ -318,6 +336,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     hurts: { sensitive: true, skinTypes: ["dry"] },
     reason: "Retinoids have the strongest evidence for lines and congestion, and the highest irritation cost",
     weight: 11,
+    source: { label: "DermNet: topical retinoids", url: "https://dermnetnz.org/topics/topical-retinoids" },
   },
   {
     names: [RETINYL_PALMITATE_NAME],
@@ -363,6 +382,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     helps: { concerns: ["redness", "acne-prone", "hyperpigmentation", "post-acne-marks"] },
     reason: "Azelaic acid is one of the few actives that suits redness and congestion at once",
     weight: 9,
+    source: { label: "DermNet: azelaic acid", url: "https://dermnetnz.org/topics/azelaic-acid" },
   },
   {
     names: ["adenosine"],
@@ -386,6 +406,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     helps: { sensitive: true },
     reason: "Mineral UV filters sit on the surface and rarely provoke reactive skin",
     weight: 6,
+    source: { label: "DermNet: sunscreens", url: "https://dermnetnz.org/topics/topical-sunscreen-agents" },
   },
 
   // ── Irritants and drying agents ───────────────────────────────────────────
@@ -402,6 +423,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     hurts: { sensitive: true, concerns: ["redness", "atopic"] },
     reason: "Fragrance is the most common cause of cosmetic contact reactions",
     weight: 9,
+    source: { label: "DermNet: contact reactions to cosmetics", url: "https://dermnetnz.org/topics/contact-reactions-to-cosmetics" },
   },
   {
     names: [
@@ -416,6 +438,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     // on purpose, see lib/retinoid-salicylate-names.ts.
     reason: "An EU-labelled fragrance allergen - declared precisely because it sensitises some people",
     weight: 6,
+    source: { label: "DermNet: fragrance allergy", url: "https://dermnetnz.org/topics/fragrance-allergy" },
   },
   {
     // Tea tree is pulled out of the essential-oil family below and listed
@@ -441,6 +464,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     hurts: { sensitive: true, concerns: ["redness", "atopic"] },
     reason: "Volatile essential oil - pleasant, but a frequent irritant on reactive skin",
     weight: 7,
+    source: { label: "DermNet: contact allergy to essential oils", url: "https://dermnetnz.org/topics/allergic-contact-dermatitis-to-essential-oils" },
   },
   {
     names: ["menthol", "camphor", "menthyl lactate"],
@@ -455,6 +479,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     hurts: { skinTypes: ["dry"], sensitive: true, concerns: ["atopic"] },
     reason: "A harsh primary surfactant - the standard irritant control in patch testing",
     weight: 8,
+    source: { label: "Contact Dermatitis study, 2003", url: "https://pubmed.ncbi.nlm.nih.gov/12694214/" },
   },
   {
     names: ["sodium bicarbonate", "sodium hydroxide"],
@@ -563,6 +588,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     helps: { concerns: ["fine-lines", "acne-prone"] },
     reason: "Bakuchiol gives retinol-like smoothing with far less irritation - the gentle alternative",
     weight: 7,
+    source: { label: "British Journal of Dermatology trial, 2019", url: "https://pubmed.ncbi.nlm.nih.gov/29947134/" },
   },
   {
     names: ["ubiquinone", "coenzyme q-10", "ubiquinol"],

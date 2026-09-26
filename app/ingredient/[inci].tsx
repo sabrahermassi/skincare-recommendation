@@ -9,6 +9,7 @@ import Svg, { Path } from "react-native-svg";
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { SourceLink } from "@/components/SourceLink";
 import { Text } from "@/components/Text";
 import { fetchProduct, resolveIngredientNames } from "@/data/api";
 import { unknownIngredient, type Ingredient, type ProductWithIngredients } from "@/data/types";
@@ -47,11 +48,13 @@ import NotFound from "@/app/+not-found";
  * a blank page. Where a fact is genuinely missing, the section says so in a
  * sentence rather than disappearing.
  *
- * The design's closing "See studies and evidence" card links out to PubChem's
- * search for this exact name — a real, working source rather than the
- * plausible-but-fake citation the mockup implies. Same reasoning for the
- * header's star: it toggles `savedIngredients` in the store rather than
- * sitting there as a tappable no-op.
+ * A claim from a curated rule carries its checked source underneath
+ * ("Source: …", #326). The design's closing card is only the fallback for a
+ * name no rule covers: a "Look it up" link to PubChem's search for this exact
+ * name — a real, working search rather than the plausible-but-fake citation
+ * the mockup implies, and never passed off as backing a claim we make. Same
+ * reasoning for the header's star: it toggles `savedIngredients` in the store
+ * rather than sitting there as a tappable no-op.
  */
 
 const RUNG: Record<
@@ -335,6 +338,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
           <Text style={{ fontSize: 13.5, lineHeight: 21, color: INK }}>
             {whatItDoes(ingredient, rule?.reason)}
           </Text>
+          {rule?.source ? <SourceLink source={rule.source} /> : null}
         </Section>
 
         <Section title="How it fits your skin" gap={14} top={36}>
@@ -394,8 +398,10 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             section): an earlier onboarding revision tried them and the
             illustrations' own colour shapes competed with the panel. Hidden
             for a name we couldn't recognise: a search for it finds nothing
-            useful (#296). */}
-        {verified ? (
+            useful (#296). And only for a name no rule covers (#326): a rule's
+            claim links its own source above, and a general search beside it
+            would read as backing the claim. */}
+        {verified && !rule ? (
           <Pressable
             onPress={() =>
               void Linking.openURL(
@@ -421,7 +427,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
           >
             <View className="gap-0.5">
               <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Want to learn more?</Text>
-              <Text style={{ fontSize: 12.5, color: MUTED }}>See studies and evidence</Text>
+              <Text style={{ fontSize: 12.5, color: MUTED }}>Look it up on PubChem</Text>
             </View>
             <ArrowIcon size={17} color={INK} />
           </Pressable>

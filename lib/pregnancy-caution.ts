@@ -1,4 +1,5 @@
 import type { Ingredient } from "@/data/types";
+import type { RuleSource } from "./rules";
 import {
   RETINOID_NAMES,
   RETINOID_PRESCRIPTION_NAMES,
@@ -35,6 +36,8 @@ type PregnancyCautionEntry = {
   names: (string | RegExp)[];
   category: "retinoid" | "salicylic-acid" | "hydroquinone" | "essential-oil";
   reason: string;
+  /** Where the caution comes from (#326) — same rules as `IngredientRule.source`. */
+  source?: RuleSource;
 };
 
 export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
@@ -54,6 +57,10 @@ export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
     names: ["hydroquinone"],
     category: "hydroquinone",
     reason: "Hydroquinone — commonly advised against in pregnancy and while breastfeeding",
+    source: {
+      label: "NSW Health MotherSafe",
+      url: "https://www.seslhd.health.nsw.gov.au/sites/default/files/groups/Royal_Hospital_for_Women/Mothersafe/documents/skinhaircareandcosmetictreatmentsapril2021.pdf",
+    },
   },
   {
     names: [
@@ -76,6 +83,7 @@ function entryMatches(entry: PregnancyCautionEntry, inciName: string): boolean {
 export type PregnancyCautionHit = {
   ingredient: Ingredient;
   reason: string;
+  source?: RuleSource;
 };
 
 /** Every pregnancy/breastfeeding-caution ingredient in a formula, label order. */
@@ -83,7 +91,7 @@ export function pregnancyCautionHits(ingredients: Ingredient[]): PregnancyCautio
   const hits: PregnancyCautionHit[] = [];
   for (const ingredient of ingredients) {
     const entry = PREGNANCY_CAUTION.find((candidate) => entryMatches(candidate, ingredient.name));
-    if (entry) hits.push({ ingredient, reason: entry.reason });
+    if (entry) hits.push({ ingredient, reason: entry.reason, source: entry.source });
   }
   return hits;
 }

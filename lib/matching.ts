@@ -18,6 +18,7 @@ import {
   targetApplies,
   type IngredientRule,
   type RuleCategory,
+  type RuleSource,
 } from "./rules";
 import { contraindications, formulaCoverage, isVerified, type Contraindication } from "./safety";
 
@@ -61,6 +62,8 @@ export type MatchReason = {
   category: RuleCategory;
   /** Positive helps this profile, negative works against it. */
   effect: number;
+  /** The rule's source, when it has one (#326). */
+  source?: RuleSource;
 };
 
 /**
@@ -516,6 +519,7 @@ function computeMatch(
           reason: rule.reason,
           category: rule.category,
           effect,
+          source: rule.source,
         });
       }
       return;
