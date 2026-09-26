@@ -586,6 +586,7 @@ export default function Scan() {
           alignItems: "center",
           justifyContent: "center",
         }}
+        className="active:opacity-70"
       >
         <Ionicons name="close" size={26} color={needsPermission ? INK : CANVAS} />
       </Pressable>
@@ -608,6 +609,7 @@ export default function Scan() {
             alignItems: "center",
             justifyContent: "center",
           }}
+          className="active:opacity-70"
         >
           <Ionicons name={torchOn ? "flash" : "flash-outline"} size={24} color={CANVAS} />
         </Pressable>
@@ -698,6 +700,7 @@ function FoundSheet({
             justifyContent: "center",
             backgroundColor: withAlpha(INK, 0.08),
           }}
+          className="active:opacity-70"
         >
           <Ionicons name="close" size={18} color={MUTED} />
         </Pressable>
@@ -884,6 +887,7 @@ function ModePill({
         justifyContent: "center",
         borderRadius: SWITCHER_HEIGHT / 2,
       }}
+      className="active:opacity-70"
     >
       <Animated.View
         pointerEvents="none"

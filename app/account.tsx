@@ -183,6 +183,7 @@ function SignedIn({
           disabled={working}
           accessibilityRole="button"
           style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
+          className="active:opacity-70"
         >
           <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Sign out on every device</Text>
         </Pressable>
@@ -197,6 +198,7 @@ function SignedIn({
           disabled={working}
           accessibilityRole="button"
           style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
+          className="active:opacity-70"
         >
           <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Download my data</Text>
         </Pressable>
@@ -208,6 +210,7 @@ function SignedIn({
         disabled={working}
         accessibilityRole="button"
         style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
+        className="active:opacity-70"
       >
         <Text style={{ fontSize: 14.5, fontWeight: "600", color: DANGER }}>Delete my account</Text>
       </Pressable>

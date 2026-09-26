@@ -98,6 +98,7 @@ export function QuizScreen({
             alignItems: "flex-start",
             justifyContent: "center",
           }}
+          className="active:opacity-70"
         >
           <ArrowIcon direction="left" size={26} color={INK} />
         </Pressable>

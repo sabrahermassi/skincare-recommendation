@@ -137,7 +137,10 @@ export default function Profile() {
   );
 }
 
-/** One row of the menu: an icon, its name, and an arrow. */
+/**
+ * One row of the menu: an icon, its name, and an arrow — except on a
+ * destructive row, which opens a confirmation rather than a screen (#313).
+ */
 function MenuRow({
   icon,
   label,
@@ -159,7 +162,7 @@ function MenuRow({
     >
       <Ionicons name={icon} size={22} color={danger ? DANGER : MUTED} />
       <Text style={{ flex: 1, fontSize: 16, fontWeight: "500", color }}>{label}</Text>
-      <ArrowIcon size={20} color={INK} />
+      {danger ? null : <ArrowIcon size={20} color={INK} />}
     </PressableCard>
   );
 }

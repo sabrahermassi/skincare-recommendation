@@ -204,7 +204,8 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
                 setStatus({ kind: "idle" });
               }}
               accessibilityRole="button"
-              style={{ alignSelf: "flex-start" }}
+              style={{ alignSelf: "flex-start", minHeight: TOUCH_TARGET, justifyContent: "center" }}
+              className="active:opacity-70"
             >
               <Text style={{ fontSize: TYPE.label, fontWeight: "500", color: withAlpha(CANVAS, 0.8), textDecorationLine: "underline" }}>
                 Try again
@@ -214,7 +215,7 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
         ) : null}
 
         {status.kind !== "checking" ? (
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" style={{ alignItems: "center" }}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" style={{ alignItems: "center", minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
             <Text style={{ fontSize: TYPE.label, fontWeight: "500", color: withAlpha(CANVAS, 0.8), textDecorationLine: "underline" }}>
               Cancel
             </Text>
@@ -445,8 +446,8 @@ function NameStep({
                 disabled={saving}
                 accessibilityRole="button"
                 accessibilityLabel="Retake the photo"
-                hitSlop={8}
-                style={{ alignSelf: "flex-start", marginTop: SPACE.text / 2 }}
+                style={{ alignSelf: "flex-start", minHeight: TOUCH_TARGET, justifyContent: "center" }}
+                className="active:opacity-70"
               >
                 <Text
                   style={{

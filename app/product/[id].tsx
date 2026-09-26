@@ -275,6 +275,7 @@ export default function ProductScreen() {
             onPress={() => router.push("/browse")}
             accessibilityRole="link"
             style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+            className="active:opacity-70"
           >
             <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
               Search the catalogue
@@ -302,6 +303,7 @@ export default function ProductScreen() {
             onPress={() => router.push("/browse")}
             accessibilityRole="link"
             style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+            className="active:opacity-70"
           >
             <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
               Search instead
@@ -407,12 +409,13 @@ export default function ProductScreen() {
               accessibilityRole="button"
               accessibilityLabel={saved ? "Remove from saved" : "Save"}
               accessibilityState={{ selected: saved }}
+              className="active:opacity-70"
             >
               <PopOnToggle active={saved}>
                 <HeartIcon size={21} filled={saved} color={saved ? VERDICT.low.solid : undefined} />
               </PopOnToggle>
             </Pressable>
-            <Pressable onPress={share} hitSlop={12} accessibilityLabel="Share this result">
+            <Pressable onPress={share} hitSlop={13} accessibilityRole="button" accessibilityLabel="Share this result" className="active:opacity-70">
               <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
                 <Path
                   d="M12 15.5V3.4M7.8 7.6 12 3.4l4.2 4.2M5 13.6V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.4"
@@ -519,7 +522,7 @@ export default function ProductScreen() {
           onPress={() => router.push({ pathname: "/skin-profile", params: { returnTo: "product" } })}
           accessibilityRole={needsProfile ? "button" : undefined}
           accessibilityLabel={needsProfile ? "Open your skin profile to get your score" : undefined}
-          className="flex-row items-center"
+          className="flex-row items-center active:opacity-70"
           style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
         >
           <ScoreRing

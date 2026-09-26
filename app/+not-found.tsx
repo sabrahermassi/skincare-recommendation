@@ -30,6 +30,7 @@ export default function NotFound() {
           onPress={() => router.replace("/browse")}
           accessibilityRole="link"
           style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+          className="active:opacity-70"
         >
           <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
             Search instead

@@ -98,7 +98,8 @@ function ScanTabButton() {
     <View pointerEvents="box-none" style={{ flex: 1, alignItems: "center" }}>
       <Pressable
         onPress={openScanner}
-        accessibilityRole="tab"
+        // A button, not a tab: it opens the scanner over the tabs (#313).
+        accessibilityRole="button"
         accessibilityLabel="Scan"
         style={{
           position: "absolute",

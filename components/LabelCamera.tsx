@@ -427,6 +427,7 @@ export function LabelCamera({
             alignItems: "center",
             justifyContent: "center",
           }}
+          className="active:opacity-70"
         >
           <Ionicons name="close" size={26} color={CANVAS} />
         </Pressable>

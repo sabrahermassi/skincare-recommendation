@@ -68,6 +68,7 @@ function Card() {
         onPress={dismissFirstPage}
         accessibilityRole="button"
         style={{ alignSelf: "flex-end", minHeight: TOUCH_TARGET, justifyContent: "center" }}
+        className="active:opacity-70"
       >
         <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{FIRST_PAGE_COPY.dismiss}</Text>
       </Pressable>

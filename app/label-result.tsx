@@ -158,7 +158,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
             onPress={() => router.push({ pathname: "/skin-profile", params: { returnTo: "product" } })}
             accessibilityRole={needsProfile ? "button" : undefined}
             accessibilityLabel={needsProfile ? "Open your skin profile to get your score" : undefined}
-            className="flex-row items-center"
+            className="flex-row items-center active:opacity-70"
             style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
           >
             <ScoreRing score={match.score} size={82} label="/100" tone={match.verdict} />

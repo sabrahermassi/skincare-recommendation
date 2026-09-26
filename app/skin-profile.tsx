@@ -27,7 +27,7 @@ import {
   sensitivityLabel,
 } from "@/lib/profile";
 import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, CTA, DANGER, FLOATING_SHADOW, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md), restyled per
 // design-watercolor/reference.png's "My profile" screen.
@@ -219,6 +219,7 @@ export default function ProfileScreen() {
           accessibilityRole="button"
           accessibilityLabel="Back"
           style={{ width: 21 }}
+          className="active:opacity-70"
         >
           <ArrowIcon direction="left" size={24} color={INK} />
         </Pressable>
@@ -242,7 +243,7 @@ export default function ProfileScreen() {
             You have unsaved changes. Leave without saving?
           </Text>
           <View style={{ flexDirection: "row", gap: 20 }}>
-            <Pressable onPress={() => setConfirmingDiscard(false)} hitSlop={8}>
+            <Pressable onPress={() => setConfirmingDiscard(false)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
               <Text style={{ fontSize: 12, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
                 Keep editing
               </Text>
@@ -252,7 +253,9 @@ export default function ProfileScreen() {
                 setConfirmingDiscard(false);
                 leave();
               }}
-              hitSlop={8}
+              accessibilityRole="button"
+              style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
+              className="active:opacity-70"
             >
               <Text style={{ fontSize: 12, fontWeight: "600", color: DANGER, textDecorationLine: "underline" }}>
                 Discard changes
@@ -445,6 +448,7 @@ function ProfileChip({
         ...CHIP_SHADOW,
         opacity: disabled ? 0.4 : 1,
       }}
+      className="active:opacity-70"
     >
       <Text style={{ fontSize: 13.5, fontWeight: "600", color: selected ? INK : MUTED }}>
         {label}
@@ -494,8 +498,10 @@ function Section({
           hitSlop={8}
           accessibilityRole="button"
           style={{ minHeight: 44, minWidth: 44, alignItems: "flex-end", justifyContent: "center", paddingHorizontal: 4 }}
+          className="active:opacity-70"
         >
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: CTA }}>{expanded ? "Done" : "Edit"}</Text>
+          {/* INK, not the peach CTA: CTA as text on white is about 2.5:1 (#313). */}
+          <Text style={{ fontSize: 12.5, fontWeight: "600", color: INK }}>{expanded ? "Done" : "Edit"}</Text>
         </Pressable>
       </View>
 

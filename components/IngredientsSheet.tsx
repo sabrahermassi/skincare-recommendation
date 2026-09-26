@@ -178,6 +178,7 @@ export const IngredientsSheet = forwardRef<IngredientsSheetHandle, {
               accessibilityHint={expanded ? "Closes the full list" : "Opens the full list"}
               accessibilityState={{ expanded }}
               style={{ height: HEADER_HEIGHT, paddingHorizontal: 24, justifyContent: "center" }}
+              className="active:opacity-70"
             >
               {/* A bare chevron in place of the grab bar: up while the list is
                   closed (pull it up), down once it is open. Grey, heavier and wider than

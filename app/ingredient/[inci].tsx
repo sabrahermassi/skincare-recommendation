@@ -259,8 +259,10 @@ export default function IngredientDetail() {
                 : saveOrAskToSignIn(() => saveIngredient(ingredient.name), "ingredient")
             }
             hitSlop={12}
+            accessibilityRole="button"
             accessibilityLabel={starred ? "Remove from starred ingredients" : "Star this ingredient"}
             accessibilityState={{ selected: starred }}
+            className="active:opacity-70"
           >
             <PopOnToggle active={starred}>
               <StarIcon filled={starred} />
@@ -395,6 +397,7 @@ export default function IngredientDetail() {
                 `https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(ingredient.name)}`
               ).catch((err) => console.warn("openURL failed:", err))
             }
+            accessibilityRole="link"
             style={{
               marginTop: 28,
               marginHorizontal: 24,

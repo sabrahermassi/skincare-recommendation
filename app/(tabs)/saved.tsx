@@ -298,7 +298,7 @@ export default function Saved() {
           <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
             Couldn&apos;t load your saved products. Check your connection and try again.
           </Text>
-          <Pressable onPress={() => setRetryKey((k) => k + 1)}>
+          <Pressable onPress={() => setRetryKey((k) => k + 1)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
             <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
               Try again
             </Text>
@@ -472,16 +472,16 @@ function ClearAll({
     <View style={{ alignItems: "center", gap: 10, paddingVertical: 12 }}>
       <Text style={{ fontSize: 12.5, color: MUTED }}>{question}</Text>
       <View style={{ flexDirection: "row", gap: 20 }}>
-        <Pressable onPress={onCancel} accessibilityRole="button" style={CLEAR_TARGET}>
+        <Pressable onPress={onCancel} accessibilityRole="button" style={CLEAR_TARGET} className="active:opacity-70">
           <Text style={{ fontSize: 12, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>Keep it</Text>
         </Pressable>
-        <Pressable onPress={onConfirm} accessibilityRole="button" style={CLEAR_TARGET}>
+        <Pressable onPress={onConfirm} accessibilityRole="button" style={CLEAR_TARGET} className="active:opacity-70">
           <Text style={{ fontSize: 12, fontWeight: "600", color: DANGER, textDecorationLine: "underline" }}>Clear it</Text>
         </Pressable>
       </View>
     </View>
   ) : (
-    <Pressable onPress={onAsk} accessibilityRole="button" style={[CLEAR_TARGET, { alignSelf: "center" }]}>
+    <Pressable onPress={onAsk} accessibilityRole="button" style={[CLEAR_TARGET, { alignSelf: "center" }]} className="active:opacity-70">
       <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>{label}</Text>
     </Pressable>
   );
@@ -515,6 +515,7 @@ function SegmentButton({
         backgroundColor: active ? SELECTED : CANVAS,
         ...CHIP_SHADOW,
       }}
+      className="active:opacity-70"
     >
       <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: "600", color: active ? INK : MUTED }}>
         {label}
@@ -610,6 +611,7 @@ function RemoveButton({ onPress }: { onPress: () => void }) {
         borderRadius: 15,
         backgroundColor: SELECTED,
       }}
+      className="active:opacity-70"
     >
       <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
         <Path
@@ -679,7 +681,7 @@ function UndoBar({ label, onUndo }: { label: string; onUndo: () => void }) {
       }}
     >
       <Text style={{ fontSize: 13, color: MUTED }}>{label}</Text>
-      <Pressable onPress={onUndo} hitSlop={8}>
+      <Pressable onPress={onUndo} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
         <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
           Undo
         </Text>
@@ -786,7 +788,7 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
             onPress={() => router.push({ pathname: "/scan-label", params: { barcode: entry.id } })}
             accessibilityRole="button"
             accessibilityLabel={`Photograph the ingredients list for barcode ${entry.id}`}
-            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }}
             style={{ marginTop: 8, alignSelf: "flex-start" }}
             className="active:opacity-70"
           >
@@ -1069,7 +1071,7 @@ function IngredientsTab({
         <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
           Couldn&apos;t load your starred ingredients. Check your connection and try again.
         </Text>
-        <Pressable onPress={() => setRetryKey((k) => k + 1)}>
+        <Pressable onPress={() => setRetryKey((k) => k + 1)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
           <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
             Try again
           </Text>
@@ -1170,6 +1172,7 @@ function StepLine({ group, chosen, onChange }: { group: StepGroup | null; chosen
       accessibilityRole="button"
       accessibilityLabel={`Routine step: ${STEP_LABEL[group]}. Change`}
       style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 17, borderTopWidth: 1, borderTopColor: BORDER_INACTIVE }}
+      className="active:opacity-70"
     >
       <Text style={{ flex: 1, fontSize: TYPE.caption, color: MUTED }}>
         {group === "unsorted" ? "Not sorted yet" : STEP_LABEL[group]}
@@ -1202,19 +1205,19 @@ function StepPicker({
   const current = chosen ?? guess;
   return (
     <BottomSheet visible={productId !== null} onClose={onClose}>
-          <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 19, color: INK }}>Which step is it?</Text>
-          <View style={{ gap: 10 }}>
+      <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 19, color: INK }}>Which step is it?</Text>
+      <View style={{ gap: 10 }}>
         {([1, 2, 3] as const).map((step) => (
           <TypeChip key={step} label={STEP_LABEL[step]} selected={current === step} onPress={() => onPick(step)} />
         ))}
-          </View>
-          {chosen !== null && guess !== null ? (
-        <Pressable onPress={() => onPick(null)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}>
+      </View>
+      {chosen !== null && guess !== null ? (
+        <Pressable onPress={() => onPick(null)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
           <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK }}>
             {guess === "unsorted" ? "Clear my choice" : `Use our guess: ${STEP_LABEL[guess]}`}
           </Text>
         </Pressable>
-          ) : null}
+      ) : null}
     </BottomSheet>
   );
 }

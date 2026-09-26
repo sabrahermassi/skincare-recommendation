@@ -38,6 +38,7 @@ export function ScreenHeader({
         accessibilityRole="button"
         accessibilityLabel="Back"
         style={{ width: 21 }}
+        className="active:opacity-70"
       >
         <ArrowIcon direction="left" size={24} color={INK} />
       </Pressable>
