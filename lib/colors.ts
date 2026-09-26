@@ -63,7 +63,11 @@ export const COLORS = {
   // keep the shell colours above.
   introAccent: "#9B614E", // the headline's first phrase, the active dot, Back
   introInk: "#240904", // the rest of the headline
-  introMuted: "#8F8275", // subtext, Skip, the inactive dots
-  introButton: "#BA765F", // the pill button
+  // Muted and button are the owner's #8F8275 and #BA765F darkened by 13.5% and
+  // 16%, the least that reaches 4.5:1 (computed): muted on CANVAS, and the
+  // button under its label. At 3.56:1 and 3.38:1 the originals were too faint
+  // for text this size.
+  introMuted: "#7C7065", // subtext, Skip, the inactive dots
+  introButton: "#9C6350", // the pill button
   introButtonText: "#FCF7F3", // its label
 } as const;

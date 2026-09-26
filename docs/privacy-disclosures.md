@@ -142,7 +142,7 @@ holds per account, owner-only under row-level security (migration 0025):
 | Journal note on a saved product (#228) — the person's own words, up to 500 characters | Same. Never shared, never in analytics |
 | Routine step on a saved product (#227) | Same |
 | Starred ingredients | Same |
-| Which catalogue products the account added from a label photo (#241) — `product_authors`, readable only by that account and the service role, never public | Until the account is deleted, when the link is cleared and the product stays. In the export |
+| Which catalogue products the account added from a label photo (#241) — `product_authors`, readable only by that account and the service role, never public. No new rows since the app stopped adding products (#374) | Until the account is deleted, when the link is cleared and the product stays. In the export |
 | When the account first saved a product (#230) — one date in the account's metadata, so the "first page of your journal" welcome shows once, on any phone | Until the account is deleted. In the export |
 
 **On the phone:** the session token and the skin profile in the
