@@ -14,7 +14,7 @@ import { useAppStore } from "@/store/useAppStore";
 // 1440px wide — enough for the densest phone screens, where the 3412px
 // original would only add weight to the download. No lettering on it, by
 // explicit request: the quiz screens carry no text but their own.
-const QUIZ_BACKGROUND = require("@/assets/illustrations/onboarding/quiz-background.webp");
+export const QUIZ_BACKGROUND = require("@/assets/illustrations/onboarding/quiz-background.webp");
 
 /** Top padding of the quiz's first row. Shared so QuizScreen's dots and back
  *  arrow line up with Skip here. */

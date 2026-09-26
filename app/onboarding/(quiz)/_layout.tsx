@@ -4,10 +4,10 @@ import { useMemo } from "react";
 
 import { QuizFrame } from "@/components/QuizFrame";
 
-// The background, Skip and the Continue button live in QuizFrame and never
-// move; only the see-through step pages change inside it. No slide between
-// steps: a see-through page sliding over another would show both questions at
-// once — QuizScreen fades each step's content in instead.
+// Skip and the Continue button live in QuizFrame and never move; the step
+// pages slide in from the right inside it, like any iOS push (#313). Each
+// page draws its own copy of the background (QuizScreen), so a sliding page
+// never shows the question underneath.
 export default function QuizLayout() {
   const theme = useTheme();
   // Pages paint the navigation theme's background (grey by default) underneath
@@ -24,7 +24,7 @@ export default function QuizLayout() {
         <Stack
           screenOptions={{
             headerShown: false,
-            animation: "none",
+            animation: "slide_from_right",
             contentStyle: { backgroundColor: "transparent" },
           }}
         />
