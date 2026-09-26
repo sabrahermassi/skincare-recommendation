@@ -5,7 +5,8 @@ import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from 
 import { Text } from "@/components/Text";
 import { slideDirection } from "@/lib/onboarding-slide";
 import { PrimaryButton } from "@/components/PrimaryButton";
-import { CANVAS, CHARCOAL, FONT, H_PADDING, ProgressDots, ShellBackButton, SkipButton, TERRACOTTA } from "@/components/shell/shared";
+import { CHARCOAL, FONT, H_PADDING, ProgressDots, ShellBackButton, SkipButton, TERRACOTTA } from "@/components/shell/shared";
+import { ONBOARDING_CANVAS } from "@/lib/tokens";
 
 const HEADLINE_SIZE = 44;
 const BODY_SIZE = 17;
@@ -47,11 +48,6 @@ function pct(n: number) {
 function bandHeight(band: { top: number; bottom: number }) {
   return pct(band.bottom - band.top);
 }
-
-/** Screens 2/3's art already spans the full screen width, so "5% bigger"
- *  has to scale the image itself — the PNGs' 5-8% transparent side margins
- *  are what go off-screen, not artwork. */
-const ILLUSTRATION_SCALE = 1.05;
 
 /**
  * Caps how far accessibility text scaling can stretch the headline and
@@ -198,7 +194,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
   }, [activeIndex, opacity, translateX, pictureOpacity]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: CANVAS }}>
+    <View style={{ flex: 1, backgroundColor: ONBOARDING_CANVAS }}>
       {/* The pictures: they do not move, they cross-fade. Decorative, so out of
           the way of touches and the accessibility tree alike. */}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -209,9 +205,6 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
             height: bandHeight(BANDS.illustration),
             left: 0,
             right: 0,
-            // The scaled image extends ~9pt past this box; onb2-scan has no
-            // transparent top margin, so clipping here would cut the hair.
-            overflow: "visible",
           }}
         >
           {screens.map((screenContent, i) => (
@@ -221,7 +214,10 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
             >
               <Image
                 source={screenContent.illustrationSource}
-                style={{ width: "100%", height: "100%", transform: [{ scale: ILLUSTRATION_SCALE }] }}
+                // Unscaled: the heroes are taller than wide, so at full size
+                // the box's height decides, and any zoom pushed the wider one
+                // (the magnifier) off the side of the screen.
+                style={{ width: "100%", height: "100%" }}
                 contentFit="contain"
                 accessibilityLabel=""
               />

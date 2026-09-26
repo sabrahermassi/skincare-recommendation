@@ -14,6 +14,8 @@ module.exports = {
         // milky-pastel palette. Values taken directly from the mockup HTML
         // (Result/Scanner/Quiz), not invented, except where noted below.
         canvas: "#FBF6EE",
+        // The intro screens' background only (`ONBOARDING_CANVAS`), given by the owner.
+        "canvas-onboarding": "#FDFAF2",
         surface: "#FFFFFF",
 
         // The five Milky pastel colors, untouched. All five sit between

@@ -85,7 +85,7 @@ export const EMPTY_PROFILE: SkinProfile = {
 };
 
 type AppState = {
-  // ── Skin profile (captured in the onboarding quiz) ──
+  // ── Skin profile (captured in the skin quiz, `app/quiz/`) ──
   profile: SkinProfile;
 
   /**
@@ -183,8 +183,7 @@ type AppState = {
 
   completeOnboarding: () => void;
 
-  /** Called only from the quiz's real finish, alongside `completeOnboarding` —
-   *  see `justFinishedQuiz`. */
+  /** Called only from the quiz's real finish — see `justFinishedQuiz`. */
   markQuizJustFinished: () => void;
   /** Clears `justFinishedQuiz` — the scanner's acknowledgement banner calls
    *  this on dismiss, and also the moment a scan actually starts, so it
