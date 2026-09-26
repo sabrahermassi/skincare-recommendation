@@ -7,5 +7,8 @@ import { router } from "expo-router";
  * when closed (#313).
  */
 export function openScanner() {
-  router.push("/scanner");
+  // `navigate`, not `push`: a second tap before the first slide-up lands would
+  // push a second scanner, and the X would then close only the top one
+  // (#315 review). `navigate` reuses a scanner already in the stack.
+  router.navigate("/scanner");
 }
