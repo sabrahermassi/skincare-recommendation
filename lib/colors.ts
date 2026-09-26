@@ -6,6 +6,7 @@
  */
 export const COLORS = {
   canvas: "#FBF6EE",
+  canvasOnboarding: "#FDFAF2",
   surface: "#FFFFFF",
 
   tintPink: "#F7D9DA",

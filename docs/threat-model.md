@@ -133,7 +133,8 @@ second table is planned; if that ever changes, it gets its own row.
 
   | Route | Parameters from a link | Check |
   |---|---|---|
-  | `/`, `/browse`, `/saved`, `/profile` (tabs), `/school`, `/support`, `/privacy`, `/scoring` | none | — |
+  | `/`, `/browse`, `/saved`, `/profile` (tabs), `/school`, `/support`, `/privacy`, `/scoring`, `/skin-profile` | none | — |
+  | `/quiz/concerns`, `/quiz/skin-type`, `/quiz/sensitivity`, `/quiz/pregnancy` | none | opened with nothing behind it, closing goes Home (#346) |
   | `/scanner` | `mode`; `barcode` | only `"photo"` does anything (opens Photo mode); `barcodeParam`, else dropped (#204) |
   | `/product/<id>`, `/result/<id>` | `id`; `from` (analytics only) | `productIdParam`: letters, digits, `-`, `_`, ≤128; else Page not found. `from` is matched against fixed values |
   | `/ingredients/<id>` | `id`; `tab` | `productIdParam`; `tab` must be one of the list's tabs, else "All" |
@@ -141,7 +142,6 @@ second table is planned; if that ever changes, it gets its own row.
   | `/scan-label` | `barcode` | redirects to `/scanner?mode=photo`, carrying the barcode through `barcodeParam` (#204) |
   | `/label-result`, `/add-product` | `barcode` | `barcodeParam`: 8–14 digits, else dropped. The ingredient list itself is never taken from a link: it is held in memory from the photo just read |
   | `/sign-in` | `from` (analytics only) | fixed values |
-  | `/skin-profile` | `returnTo` | only `"product"` does anything (goes back) |
   | `/onboarding` | none | "Your profile is erased" comes from the erase itself, held in memory (`lib/erase-notice.ts`), never from the URL |
   | `/account` | none | shows account details only for this phone's own session |
   | anything else | — | Page not found (`app/+not-found.tsx`) |

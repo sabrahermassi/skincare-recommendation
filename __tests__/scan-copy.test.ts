@@ -64,7 +64,7 @@ describe("scanStateCopy", () => {
     }
   });
 
-  it("calls the Search tab by its name", () => {
+  it("calls the search screen Search, never Browse", () => {
     for (const state of EVERY_STATE) {
       expect(JSON.stringify(scanStateCopy(state))).not.toMatch(/Browse/);
     }

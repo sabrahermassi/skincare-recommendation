@@ -144,7 +144,7 @@ the real backend; the invariant keeps the seam clean for the day it isn't.
 **Routing** — Expo Router (file-based) in `app/`; web must work, not just
 native.
 
-- **`/` is `app/(tabs)/index.tsx`** (Home: scan card, search box, skin profile),
+- **`/` is `app/(tabs)/index.tsx`** (Home: "Scan a product" and "Find skincare" cards),
   not a product list. The scanner is `app/scanner.tsx`, a full-screen modal
   on the root stack (it slides up, iOS-style), opened by `openScanner()` in
   `lib/open-scanner.ts` — from the raised middle tab button and every "Scan"
