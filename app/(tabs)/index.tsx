@@ -12,27 +12,19 @@ import { openScanner } from "@/lib/open-scanner";
 import { homeGreetingLayout, SIGNATURE_WIDTH } from "@/lib/home-greeting";
 import { answeredWithoutSignal, isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, SELECTED, SPACE, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The watercolor from onboarding's second screen: a bottle and its ingredient list.
 const SCAN_ART = require("@/assets/illustrations/scan-a-product.png");
-// The watercolor scene under the cards (brought down to 1500px wide from the
-// 6144px original, its top edge faded into the screen and its water carried on
-// below the bottles so the tab bar sits on water rather than on the bottles).
-const SHELF_ART = require("@/assets/illustrations/home-shelf.webp");
-// Its own proportions (1500x1200), so it is never stretched.
-const SHELF_ASPECT = 1500 / 1200;
-// How wide it is drawn, as a multiple of the screen: a little past each side, so
-// it runs off the edges and, with its bottom on the screen's bottom, the bottles
-// stand just above the tab bar.
-const SHELF_WIDTH = 1.15;
-// A sliver of the water is drawn this far (a share of the picture's height)
-// below the screen, so the water reaches the bottom with no gap.
-const SHELF_BLEED_BELOW = 0.02;
-// How far the whole scene sits lower again, in dp: 6.5 mm on a phone (160 dp to the inch).
-// No spacing token is that large, so it is named here rather than typed inline.
-const SHELF_DROP = 41;
+// The watercolor still life under the cards: bottles, a vase and a handwritten
+// "A little progress every day", on a transparent ground.
+const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.png");
+// Its own proportions, so it is never stretched.
+const STILL_LIFE_ASPECT = 785 / 885;
+// The least room it is given. On a short screen or with large text the page
+// scrolls rather than shrinking the picture below this.
+const STILL_LIFE_MIN_HEIGHT = 200;
 
 // The handwriting on top of the screen, cut from design-watercolor/text.png. The
 // signature is recoloured to the app's terracotta (the same colour as the camera
@@ -58,8 +50,8 @@ const SIGNATURE_RIGHT = HEADER_GUTTER - 4;
  *
  * A greeting, the skin profile the quiz produced as a card of chips (every score
  * on the other tabs is judged against it; it is edited under Profile), then the
- * scan card, which opens the full-screen scanner, and a shelf of watercolor
- * bottles filling the rest of the screen. The layout is fixed while it fits; on a
+ * scan card, which opens the full-screen scanner, and a watercolor still life
+ * filling the rest of the screen down to the tab bar. The layout is fixed while it fits; on a
  * short screen or with large text it scrolls, so the scan card is always reachable.
  */
 /** How far the scan card sinks when pressed: it reads as a button though it is a card. */
@@ -98,27 +90,6 @@ export default function Home() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
-      {/* The scene fills the bottom of the screen, to its very bottom edge and a
-          little past each side, behind everything else. It stays where it is when
-          the content above scrolls. */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: -((width * SHELF_WIDTH) / SHELF_ASPECT) * SHELF_BLEED_BELOW - SHELF_DROP,
-          alignItems: "center",
-        }}
-      >
-        <Image
-          source={SHELF_ART}
-          contentFit="contain"
-          accessibilityLabel=""
-          style={{ width: width * SHELF_WIDTH, aspectRatio: SHELF_ASPECT }}
-        />
-      </View>
-
       {/* Scrolls only when the content is taller than the screen: flexGrow keeps a
           short page filling it, and the bounce and stretch that would make a page
           that fits look loose are switched off. */}
@@ -271,6 +242,23 @@ export default function Home() {
               </>
             ) : null}
           </View>
+        </View>
+
+        {/* The still life takes whatever room the cards leave, whole and resting on
+            the tab bar, so it fits every phone without running behind a card. Its
+            handwriting is read out, like the signature's. */}
+        <View
+          pointerEvents="none"
+          accessible
+          accessibilityLabel="A little progress every day"
+          style={{ flexGrow: 1, minHeight: STILL_LIFE_MIN_HEIGHT, paddingTop: SPACE.block, alignItems: "center" }}
+        >
+          <Image
+            source={STILL_LIFE_ART}
+            contentFit="contain"
+            accessibilityLabel=""
+            style={{ flex: 1, aspectRatio: STILL_LIFE_ASPECT }}
+          />
         </View>
       </ScrollView>
     </View>
