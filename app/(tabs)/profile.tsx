@@ -8,7 +8,8 @@ import { Modal, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/Text";
-import { answeredWithoutSignal, profileHeadline } from "@/lib/profile";
+import { openQuiz } from "@/lib/open-quiz";
+import { answeredWithoutSignal, isPersonalized, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
 import { CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, GRAY_FILL, INK, MUTED, SCRIM, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -86,7 +87,12 @@ export default function Profile() {
         </View>
 
         <View style={{ paddingHorizontal: 20, gap: 14 }}>
-          <MenuRow icon="water-outline" label="Skin profile" onPress={() => router.push("/skin-profile")} />
+          {/* Edits the answers once they score; until then, asks the questions (#346). */}
+          <MenuRow
+            icon="water-outline"
+            label="Skin profile"
+            onPress={() => (isPersonalized(profile) ? router.push("/skin-profile") : openQuiz())}
+          />
           <MenuRow icon="person-circle-outline" label="Account" onPress={() => router.push("/account")} />
           <MenuRow icon="school-outline" label="Skincare School" onPress={() => router.push("/school")} />
           <MenuRow icon="chatbubble-ellipses-outline" label="Support" onPress={() => router.push("/support")} />

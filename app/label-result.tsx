@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { track } from "@/lib/analytics";
 import { photoScannerHref } from "@/lib/open-scanner";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IngredientCheck } from "@/components/IngredientCheck";
@@ -13,6 +13,7 @@ import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { ContextNudgesSection, ExplanationLine, HowScoringLink, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { SkinMatchCard } from "@/components/SkinMatchCard";
 import { Text } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
 import type { Ingredient } from "@/data/types";
@@ -22,7 +23,6 @@ import { confidenceLabel, isLowCoverage, matchProduct, scoreExplanation, verdict
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 import { barcodeParam as barcodeParamOf } from "@/lib/route-params";
 
@@ -162,16 +162,17 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
           onPress={!lowCoverage && total > 0 ? () => sheetRef.current?.open() : undefined}
         />
 
+        {/* No profile yet: the quiz, not an empty score (#346). */}
+        {needsProfile ? (
+          <SkinMatchCard />
+        ) : (
         <View
           className="rounded-card border"
           style={{ backgroundColor: panel.bg, borderColor: panel.border, overflow: "hidden" }}
         >
-          <Pressable
-            disabled={!needsProfile}
-            onPress={() => router.push({ pathname: "/skin-profile", params: { returnTo: "product" } })}
-            accessibilityRole={needsProfile ? "button" : undefined}
-            accessibilityLabel={needsProfile ? "Open your skin profile to get your score" : undefined}
-            className="flex-row items-center active:opacity-70"
+          <View
+            accessible
+            className="flex-row items-center"
             style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
           >
             <ScoreRing score={match.score} size={82} label="/100" tone={match.verdict} />
@@ -193,8 +194,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
                   : verdictHeadline(match)}
               </Text>
             </View>
-            {needsProfile ? <ArrowIcon size={22} color={INK} /> : null}
-          </Pressable>
+          </View>
 
           {/* Unlike `product/[id].tsx`, this is not behind a "Why this
               score" toggle: the whole point of this screen is the full
@@ -229,6 +229,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
             </View>
           ) : null}
         </View>
+        )}
 
         {/* Renders regardless of lowCoverage: contraindications runs before
             the low-coverage refusal (#187), so a pregnant user photographing

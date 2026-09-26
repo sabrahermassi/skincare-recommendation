@@ -8,6 +8,7 @@ import { AppHeader, HEADER_GUTTER } from "@/components/AppHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
 import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
+import { SkinMatchCard } from "@/components/SkinMatchCard";
 import { openScanner } from "@/lib/open-scanner";
 import { Text } from "@/components/Text";
 import { fetchProductsByIds, peekProducts, searchableQuery, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
@@ -42,6 +43,7 @@ const SKELETON_ROWS = 6;
 // One flat array for the FlatList, which can only virtualize a single list.
 type SearchItem =
   | { kind: "scan" }
+  | { kind: "skin-match" }
   | { kind: "recent-heading" }
   | { kind: "skeleton"; id: string }
   | { kind: "empty-search" }
@@ -223,7 +225,9 @@ export default function Browse() {
     if (searchActive) {
       if (searching) return skeletonRows();
       if (scoredSearch === null || scoredSearch.length === 0) return [{ kind: "empty-search" }];
-      return scoredSearch.map(({ product, match }) => ({ kind: "product", product, match }) as const);
+      const rows = scoredSearch.map(({ product, match }) => ({ kind: "product", product, match }) as const);
+      // Results with no scores yet: the questions that would score them (#346).
+      return personalized ? rows : [{ kind: "skin-match" }, ...rows];
     }
     // Before typing. The scanner first: with the keyboard up, it is the one
     // thing sure to be above it.
@@ -235,7 +239,7 @@ export default function Browse() {
       );
     }
     return list;
-  }, [searchActive, searching, scoredSearch, recent, profile]);
+  }, [searchActive, searching, scoredSearch, recent, profile, personalized]);
 
   const renderItem: ListRenderItem<SearchItem> = ({ item }) => {
     switch (item.kind) {
@@ -243,6 +247,13 @@ export default function Browse() {
         return (
           <View style={{ paddingHorizontal: HEADER_GUTTER, paddingBottom: SPACE.block }}>
             <PrimaryButton variant="gray" size={48} label="Scan a product instead" onPress={openScanner} />
+          </View>
+        );
+
+      case "skin-match":
+        return (
+          <View style={{ paddingHorizontal: HEADER_GUTTER, paddingBottom: SPACE.block }}>
+            <SkinMatchCard />
           </View>
         );
 
