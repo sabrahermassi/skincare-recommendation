@@ -155,6 +155,7 @@ export default function Browse() {
   // filter layered on top of Barcode. `searchResults` is null until a query
   // of at least 2 characters has actually been searched.
   const [query, setQuery] = useState("");
+  const searchInput = useRef<TextInput>(null);
   const [searchResults, setSearchResults] = useState<ProductWithIngredients[] | null>(null);
   const [searching, setSearching] = useState(false);
   const searchActive = query.trim().length >= 2;
@@ -214,6 +215,15 @@ export default function Browse() {
       const all = peekProducts("all");
       if (all) setAllProducts(all);
     }, [typeFilter]),
+  );
+
+  // Leaving with the search box focused brought the keyboard back up on
+  // return — iOS restores the focus — covering the tab bar (#296). Blur on the
+  // way out; the query itself stays. Its own effect with no dependencies: in
+  // the one above, a type-filter change re-runs the cleanup while the screen
+  // is still focused, which closed the keyboard mid-typing (#309 review).
+  useFocusEffect(
+    useCallback(() => () => searchInput.current?.blur(), []),
   );
 
   // Narrow the cached catalogue on every keystroke, with no network and no
@@ -602,6 +612,7 @@ export default function Browse() {
             <View style={{ paddingHorizontal: HEADER_GUTTER, gap: 10 }}>
               <View style={{ position: "relative", justifyContent: "center" }}>
                 <TextInput
+                  ref={searchInput}
                   value={query}
                   onChangeText={setQuery}
                   placeholder="Search products or brands"

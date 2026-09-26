@@ -108,6 +108,20 @@ export default function ProductScreen() {
   // under the picture decide how big the picture can be.
   const [viewportH, setViewportH] = useState(0);
   const [restH, setRestH] = useState(0);
+  // Where the verdict panel starts in the scroll content, so opening "Why this
+  // score" can bring it to the top. Left where it was, the reasons opened
+  // underneath the fixed ingredients sheet and the risk cards dropped out of
+  // view behind it (#296).
+  const scrollRef = useRef<ScrollView>(null);
+  const restY = useRef(0);
+  const panelY = useRef(0);
+  useEffect(() => {
+    if (!showWhy) return;
+    const frame = requestAnimationFrame(() =>
+      scrollRef.current?.scrollTo({ y: Math.max(0, restY.current + panelY.current - SPACE.text), animated: true })
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [showWhy]);
   const [loading, setLoading] = useState(() => !product);
   /**
    * Set only when the catalogue could not be *asked*. Distinct from
@@ -420,6 +434,7 @@ export default function ProductScreen() {
       <FirstPageMoment />
 
       <ScrollView
+        ref={scrollRef}
         onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}
         contentContainerStyle={{
           gap: SPACE.block,
@@ -438,6 +453,7 @@ export default function ProductScreen() {
 
         <View
           onLayout={(e) => {
+            restY.current = e.nativeEvent.layout.y;
             if (!showWhy) setRestH(e.nativeEvent.layout.height);
           }}
           style={{ gap: SPACE.block }}
@@ -492,6 +508,9 @@ export default function ProductScreen() {
             when someone is holding the bottle in a shop. */}
         <View
           className="rounded-card border"
+          onLayout={(e) => {
+            panelY.current = e.nativeEvent.layout.y;
+          }}
           style={{
             marginHorizontal: SPACE.gutter,
             backgroundColor: panel.bg,
