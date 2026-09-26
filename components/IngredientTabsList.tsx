@@ -178,10 +178,11 @@ export function IngredientTabsList({
         <Pressable
           onPress={() => setUnfolded(true)}
           accessibilityRole="button"
+          accessibilityHint="Shows the rest of the ingredients"
           style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 12 }}
           className="active:opacity-70"
         >
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK }}>
+          <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
             {folded === 1 ? "1 more ingredient with no known concerns" : `${folded} more ingredients with no known concerns`}
           </Text>
         </Pressable>
@@ -206,13 +207,12 @@ export function IngredientListRow({
   const rule = ruleFor(ingredient);
   const clogs = isWarnedPoreClogging(ingredient);
 
-  // A warning outranks not knowing, the same precedence `rungFor` itself
+  // A warning outranks not knowing, the same precedence `ingredientLabel`
   // uses: pregnancy matching fires on an exact name even when OCR left the
   // row unverified, so the badge can already read "Avoid" here while this
   // subtitle used to still say "we can't assess this one" underneath it —
-  // the row contradicting its own rung. `warning` can still be absent on an
-  // unverified "avoid" row — `rungFor` also flags a negative match reason
-  // with no `Contraindication` behind it — which is what the fallback covers.
+  // the row contradicting its own label. `warning` can still be absent on an
+  // unverified "avoid" row, which is what the fallback covers.
   //
   // The verified branch is untouched: the most specific thing we hold there,
   // in order, is pore-clogging (the reason someone opened this screen), a
@@ -221,7 +221,11 @@ export function IngredientListRow({
   const subtitle = !isVerified(ingredient)
     ? label === "avoid" && warning
       ? warning.reason
-      : "Not recognised - we can't assess this one"
+      : clogs
+        ? // Pore-clogging matching fires on an unrecognised name too, and the
+          // row is Watch for it, not Unknown.
+          "On the published pore-clogging lists"
+        : "Not recognised - we can't assess this one"
     : clogs
       ? "On the published pore-clogging lists"
       : rule
