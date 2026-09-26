@@ -1,4 +1,5 @@
-import { View } from "react-native";
+import { router } from "expo-router";
+import { Pressable, View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { displayIngredientName } from "@/lib/ingredient-name";
@@ -6,7 +7,7 @@ import type { PairingNote } from "@/lib/active-pairings";
 import type { ContextNudge } from "@/lib/context-nudges";
 import type { MatchReason, ScoreLine, Verdict } from "@/lib/matching";
 import type { Contraindication } from "@/lib/safety";
-import { BORDER_INACTIVE, INK, MUTED, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
+import { BORDER_INACTIVE, INK, MUTED, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
 
 /**
  * The verdict panel's colours and label — shared by `app/product/[id].tsx`
@@ -177,5 +178,24 @@ export function ExplanationLine({
         <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{detail}</Text>
       </View>
     </View>
+  );
+}
+
+/**
+ * "How is this scored?" under a result's "Why this score" (#325): the reasons
+ * say what moved this score, the page says how every score works.
+ */
+export function HowScoringLink() {
+  return (
+    <Pressable
+      onPress={() => router.push("/scoring")}
+      accessibilityRole="link"
+      style={{ minHeight: TOUCH_TARGET, justifyContent: "center", alignSelf: "flex-start" }}
+      className="active:opacity-70"
+    >
+      <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+        How is this scored?
+      </Text>
+    </Pressable>
   );
 }

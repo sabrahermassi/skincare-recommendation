@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Linking, ScrollView, View } from "react-native";
+import { router } from "expo-router";
+import { Linking, Pressable, ScrollView, View } from "react-native";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
-import { CANVAS, INK, MUTED, TYPE } from "@/lib/tokens";
+import { CANVAS, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // Where to write to. Set it in the app's environment; until it is, the screen
 // shows the help below and no contact button rather than a made-up address.
@@ -26,7 +27,7 @@ const HELP: { title: string; body: string }[] = [
   },
   {
     title: "How the score is worked out",
-    body: "It compares the ingredient list with your skin profile. Open a product and tap “Why this score” to see which ingredients moved it.",
+    body: "It compares the ingredient list with your skin profile. Open a product and tap “Why this score” to see which ingredients moved it, or read how every score works below.",
   },
   {
     title: "Change your answers",
@@ -48,6 +49,18 @@ export default function Support() {
             <Text style={{ fontSize: 13.5, lineHeight: 20, color: MUTED }}>{item.body}</Text>
           </View>
         ))}
+
+        {/* The whole of how a score works, one tap from the answer above (#325). */}
+        <Pressable
+          onPress={() => router.push("/scoring")}
+          accessibilityRole="link"
+          style={{ minHeight: TOUCH_TARGET, justifyContent: "center", alignSelf: "flex-start" }}
+          className="active:opacity-70"
+        >
+          <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+            How scoring works
+          </Text>
+        </Pressable>
 
         {SUPPORT_EMAIL ? (
           <View style={{ gap: 10, paddingTop: 6 }}>

@@ -10,7 +10,7 @@ import { IngredientsSheet, ingredientsSheetPeek, type IngredientsSheetHandle } f
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
-import { ContextNudgesSection, ExplanationLine, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
+import { ContextNudgesSection, ExplanationLine, HowScoringLink, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
@@ -217,6 +217,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
                 From {recognised} of {total} ingredients we could identify
                 {confidence === "high" ? "" : ` — ${confidence} confidence`}.
               </Text>
+              <HowScoringLink />
             </View>
           ) : null}
         </View>
