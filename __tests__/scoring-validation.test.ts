@@ -430,7 +430,7 @@ describe("declared reactive-skin harm reaches the irritation penalty", () => {
     expect(broadResult.breakdown.concernFit).toBeGreaterThan(sparseResult.breakdown.concernFit!);
   });
 
-  it("charges lactic acid's reactive-skin downside as irritation, not only sodium hydroxide's", () => {
+  it("charges lactic acid's reactive-skin downside as irritation", () => {
     const fixture = byId.get("obf-0769915190373");
     if (!fixture) throw new Error("Missing lactic acid fixture");
     const ingredients = ingredientsFor(fixture);

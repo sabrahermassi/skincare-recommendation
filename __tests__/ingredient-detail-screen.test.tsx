@@ -53,6 +53,10 @@ const INGREDIENTS = [
   // real dictionary marks it `avoid` (scripts/import-inci-dictionary.mjs).
   ingredient("hydroquinone", { safety: "avoid" }),
   ingredient("some prohibited substance", { safety: "avoid" }),
+  // As the dictionary import writes it (#361): safe, with a note on the EU ban.
+  ingredient("petrolatum", {
+    note: "Allowed when fully refined. The EU bans it only when its refining history isn't known (EU Annex II/904)",
+  }),
 ];
 
 const PRODUCT: ProductWithIngredients = {
@@ -84,6 +88,12 @@ async function open(inci: string, profile: Partial<SkinProfile>) {
 }
 
 describe("the ingredient page, opened from a product", () => {
+  it("gives petrolatum's EU status as allowed when refined, not 'No restriction' (#362)", async () => {
+    await open("petrolatum", {});
+    expect(screen.getByText("EU regulatory status: Allowed when refined")).toBeTruthy();
+    expect(screen.queryByText("EU regulatory status: No restriction")).toBeNull();
+  });
+
   it("with no skin profile, doesn't call a plain ingredient Good, as the list gives it no word", async () => {
     await open("glycerin", {});
     expect(screen.getByText("No known concerns")).toBeTruthy();

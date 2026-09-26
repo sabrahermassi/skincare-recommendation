@@ -37,6 +37,43 @@ updates:
       # NativeWind's runtime needs Tailwind 3; v4 breaks styling silently.
       - dependency-name: "tailwindcss"
         update-types: ["version-update:semver-major"]
+      # The native libraries Expo pins to one version per SDK
+      # (node_modules/expo/bundledNativeModules.json). Expo Go only runs the
+      # versions its SDK ships, and one of these in the grouped weekly PR would
+      # fail `npx expo install --check` and hold back every other update in it.
+      # They move with a hand-made SDK upgrade (`npx expo install --fix`).
+      - dependency-name: "@react-native-async-storage/async-storage"
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "react-native-gesture-handler"
+      - dependency-name: "react-native-reanimated"
+      - dependency-name: "react-native-safe-area-context"
+      - dependency-name: "react-native-screens"
+      - dependency-name: "react-native-svg"
+      - dependency-name: "react-native-web"
+      - dependency-name: "react-native-worklets"
+      # Developer tools whose major version changes how tests, lint or the
+      # typecheck run. #367 took Jest 29 -> 30, ESLint 9 -> 10 and TypeScript
+      # 6 -> 7 in one grouped PR and the typecheck failed. A major here is a
+      # planned upgrade on its own branch; minors and patches still come.
+      - dependency-name: "jest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@jest/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "babel-jest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/jest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@testing-library/react-native"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "test-renderer"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /

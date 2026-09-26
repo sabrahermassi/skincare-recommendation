@@ -364,9 +364,60 @@ describe("Search by name", () => {
     await scan(code);
 
     expect(screen.getAllByText(alongside).length).toBeGreaterThan(0);
-    await fireEvent.press(screen.getByRole("link", { name: "Search by name" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Search by name" }));
     const [href] = router.dismissTo.mock.calls.at(-1) as [{ pathname: string; params: { byName: string } }];
     expect(href.pathname).toBe("/browse");
     expect(href.params.byName).toBeTruthy();
+  });
+});
+
+// OnSkin-style controls: glass buttons across the top, and both modes in one
+// pill with a thumb that slides between them.
+describe("scanner controls", () => {
+  it("has a glass close button that goes back, and an 'i' for how products are scored", async () => {
+    const { router } = jest.requireMock("expo-router") as { router: { back: MockFn } };
+    router.back.mockClear();
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("button", { name: "Close scanner" }));
+    expect(router.back).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "How we score products" })).toBeTruthy();
+  });
+
+  it("raises a no-match sheet for a barcode we don't have, with scan, search and add, and closes it with the X", async () => {
+    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: null });
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+    await scan("8801234567890");
+
+    expect(screen.getByText("We don't have this product yet")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Scan something else" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Search by name" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Photograph the ingredients" })).toBeTruthy();
+    // The sheet takes the bottom of the screen; the mode pill steps aside.
+    expect(screen.queryByRole("tab", { name: "Barcode" })).toBeNull();
+
+    await fireEvent.press(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByText("We don't have this product yet")).toBeNull();
+    expect(screen.getByRole("tab", { name: "Barcode" })).toBeTruthy();
+  });
+
+  it("offers no add for a code that isn't a product", async () => {
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+    await scan("https://example.com/promo");
+
+    expect(screen.getByText("That's not a product barcode")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Scan again" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Photograph the ingredients" })).toBeNull();
+  });
+
+  it("offers both modes as tabs, and moves the selection when a mode is tapped", async () => {
+    await render(<Scan />);
+    expect(screen.getAllByRole("tab").map((tab) => tab.props.accessibilityLabel)).toEqual(["Barcode", "Photo"]);
+    await fireEvent.press(screen.getByRole("tab", { name: "Photo" }));
+    expect(screen.getByRole("tab", { name: "Photo" }).props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByRole("tab", { name: "Barcode" }).props.accessibilityState).toMatchObject({ selected: false });
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+    expect(screen.getByRole("tab", { name: "Barcode" }).props.accessibilityState).toMatchObject({ selected: true });
   });
 });

@@ -83,7 +83,9 @@ export type ExportOutcome = "shared" | "network" | "failed";
 /**
  * Writes the account's data as JSON — not CSV: a note is free text, and
  * commas, quotes and line breaks are how a CSV quietly corrupts it — and
- * opens the share sheet so the person can keep it wherever they like.
+ * opens the share sheet so the person can keep it wherever they like. The
+ * file is deleted once the sheet closes: it holds the person's notes, and a
+ * copy left in the cache would outlive signing out.
  */
 export async function exportMyData(): Promise<ExportOutcome> {
   const session = useAuth.getState().session;
@@ -98,13 +100,19 @@ export async function exportMyData(): Promise<ExportOutcome> {
     null,
     2,
   );
+  const file = new File(Paths.cache, "for.me-account-export.json");
   try {
-    const file = new File(Paths.cache, "for.me-account-export.json");
     file.create({ overwrite: true });
     file.write(text);
     await Share.share({ url: file.uri, title: "for.me account export" });
     return "shared";
   } catch {
     return "failed";
+  } finally {
+    try {
+      if (file.exists) file.delete();
+    } catch {
+      // Best-effort: the OS clears the cache folder on its own in the end.
+    }
   }
 }

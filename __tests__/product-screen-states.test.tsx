@@ -193,4 +193,37 @@ describe("the product screen's Ingredient check", () => {
     await fireEvent.press(screen.getByLabelText("Ingredient check: 1 to avoid · 1 to watch"));
     expect(screen.getByText("Close")).toBeTruthy();
   });
+
+  it("doesn't say 'Nothing restricted' on the irritation card beside a fragrance to watch", async () => {
+    const scented = { ...PRODUCT, ingredients: PRODUCT.ingredients.filter((i) => i.safety === "safe") };
+    useAppStore.setState({
+      profile: { concerns: ["dehydrated"], baseSkinType: "normal", sensitivity: "none", pregnancyStatus: null },
+    });
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: scented }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+
+    expect(screen.getByLabelText("Ingredient check: 1 ingredient to watch")).toBeTruthy();
+    expect(screen.getByText("1 common irritant")).toBeTruthy();
+    expect(screen.queryByText("Nothing restricted")).toBeNull();
+  });
+
+  // #346: no profile, no empty score — the quiz, until the answers score.
+  it("offers See your skin match with no profile, and hides it once the answers score", async () => {
+    await open();
+    expect(screen.getByText("See your skin match")).toBeTruthy();
+    expect(screen.queryByText("Why this score")).toBeNull();
+    await act(async () => screen.unmount());
+
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["dehydrated"] } });
+    await open();
+    expect(screen.queryByText("See your skin match")).toBeNull();
+    expect(screen.getByText("Why this score")).toBeTruthy();
+  });
+
+  it("keeps the card while the answers given don't score yet", async () => {
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, sensitivity: "some" } });
+    await open();
+    expect(screen.getByText("See your skin match")).toBeTruthy();
+  });
 });

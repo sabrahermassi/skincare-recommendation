@@ -45,7 +45,6 @@ const SECTIONS: { title: string; lines: string[] }[] = [
     lines: [
       "Product data from Open Beauty Facts, used under ODbL.",
       "Label data from DailyMed (U.S. National Library of Medicine), public domain.",
-      "Some products are identified through UPCitemdb, which does not provide ingredients.",
     ],
   },
   {

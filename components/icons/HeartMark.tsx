@@ -3,8 +3,9 @@ import Svg, { Path } from "react-native-svg";
 import { TERRACOTTA } from "@/components/shell/shared";
 
 /**
- * The app's one heart glyph — the app icon and the nav-bar mark both draw
- * from this single path, per the "heart, not the script" brand decision.
+ * The app's one heart glyph — the app icon and Skincare School's avatar
+ * both draw from this single path, per the "heart, not the script" brand
+ * decision.
  * The app-icon PNGs (`assets/images/icon.png` and the Android adaptive/
  * monochrome/favicon variants) were rasterized from this exact path string
  * via a one-off script that was never checked into the repo — keep them in

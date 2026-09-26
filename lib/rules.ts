@@ -484,7 +484,11 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     source: { label: "Contact Dermatitis study, 2003", url: "https://pubmed.ncbi.nlm.nih.gov/12694214/" },
   },
   {
-    names: ["sodium bicarbonate", "sodium hydroxide"],
+    // Not sodium hydroxide: it neutralises carbomer and fatty acids during
+    // manufacture, so its presence says nothing about the finished product's
+    // pH (docs/scoring-validation-gaps.md). Sodium bicarbonate is used for
+    // its alkalinity.
+    names: ["sodium bicarbonate"],
     category: "irritants",
     hurts: { sensitive: true },
     reason: "Strongly alkaline; can push a formula away from skin's natural pH",

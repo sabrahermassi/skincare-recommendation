@@ -3,9 +3,10 @@ import { useState } from "react";
 import { View } from "react-native";
 
 import { QuizOptionCard } from "@/components/QuizOptionCard";
+import { useQuizFrame } from "@/components/QuizFrame";
 import { QuizScreen } from "@/components/QuizScreen";
 import type { BaseSkinType } from "@/data/types";
-import { nextQuizRoute, POST_ONBOARDING_ROUTE, quizStepNumber } from "@/lib/profile";
+import { nextQuizRoute, quizStepNumber } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
 /** Icons: design-watercolor/skin quiz/screens/skin quiz screen 2.png. */
@@ -19,6 +20,7 @@ const OPTIONS: { value: BaseSkinType; label: string; icon: number }[] = [
 const UNSURE_ICON = require("@/assets/illustrations/quiz/unsure.png");
 
 export default function SkinTypeStep() {
+  const { close } = useQuizFrame();
   const baseSkinType = useAppStore((s) => s.profile.baseSkinType);
   const setProfile = useAppStore((s) => s.setProfile);
   // "I don't know" writes null, which is also the unanswered value — so the
@@ -28,17 +30,17 @@ export default function SkinTypeStep() {
   const [picked, setPicked] = useState(baseSkinType !== null);
 
   function next() {
-    const route = nextQuizRoute("/onboarding/skin-type");
+    const route = nextQuizRoute("/quiz/skin-type");
     if (route) {
       router.push(route);
       return;
     }
-    router.replace(POST_ONBOARDING_ROUTE);
+    close();
   }
 
   return (
     <QuizScreen
-      step={quizStepNumber("/onboarding/skin-type")}
+      step={quizStepNumber("/quiz/skin-type")}
       title="What's your skin type?"
       subtitle="Pick the closest match."
       onNext={next}

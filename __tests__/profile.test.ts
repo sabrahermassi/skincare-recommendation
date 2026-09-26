@@ -83,21 +83,21 @@ describe("quiz flow", () => {
   });
 
   it("no longer asks for demographics or body area", () => {
-    expect(quizRoutes()).not.toContain("/onboarding/about-you");
-    expect(quizRoutes()).not.toContain("/onboarding/area");
+    expect(quizRoutes()).not.toContain("/quiz/about-you");
+    expect(quizRoutes()).not.toContain("/quiz/area");
   });
 
   it("treats pregnancy as the last step", () => {
     // null means "finish onboarding", not "navigate".
-    expect(nextQuizRoute("/onboarding/pregnancy")).toBeNull();
+    expect(nextQuizRoute("/quiz/pregnancy")).toBeNull();
   });
 
   it("moves from sensitivity to pregnancy, not straight to finishing", () => {
-    expect(nextQuizRoute("/onboarding/sensitivity")).toBe("/onboarding/pregnancy");
+    expect(nextQuizRoute("/quiz/sensitivity")).toBe("/quiz/pregnancy");
   });
 
   it("walks the whole flow end to end", () => {
-    const visited: QuizRoute[] = ["/onboarding/concerns"];
+    const visited: QuizRoute[] = ["/quiz/concerns"];
     let current = nextQuizRoute(visited[0]);
     while (current) {
       visited.push(current);

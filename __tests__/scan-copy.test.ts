@@ -64,7 +64,7 @@ describe("scanStateCopy", () => {
     }
   });
 
-  it("calls the Search tab by its name", () => {
+  it("calls the search screen Search, never Browse", () => {
     for (const state of EVERY_STATE) {
       expect(JSON.stringify(scanStateCopy(state))).not.toMatch(/Browse/);
     }
@@ -110,7 +110,7 @@ describe("scanStateSpeech", () => {
       "We couldn't check that just now. It's us or the connection, not your scan.",
     );
     expect(scanStateSpeech(scanStateCopy({ kind: "working", step: "photo" }))).toBe(
-      "Reading the ingredients… This takes a few seconds.",
+      "Checking our database… Hang on, this takes a few seconds.",
     );
   });
 });

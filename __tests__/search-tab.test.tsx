@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 /**
- * The Search tab (#317): search first, no catalogue list. Before typing it
+ * Search (#317): search first, no catalogue list. Before typing it
  * shows the box, the scanner and what was viewed last; typing shows ranked
  * matches, and a search with none offers the scanner.
  */
@@ -9,17 +9,16 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 jest.setTimeout(30000);
 
 const mockOpenScanner = jest.fn();
-jest.mock("@/lib/open-scanner", () => ({ openScanner: () => mockOpenScanner() }));
+jest.mock("@/lib/open-scanner", () => ({ openPhotoScanner: (photo: unknown) => mockOpenScanner(photo) }));
 
-// The Search tab's own params (`byName`, #323).
+// Search's own params (`byName`, #323).
 let mockParams: Record<string, string> = {};
 
 jest.mock("expo-router", () => {
   const { useEffect } = jest.requireActual<typeof import("react")>("react");
   return {
-    router: { push: jest.fn() },
+    router: { push: jest.fn(), navigate: jest.fn() },
     useLocalSearchParams: () => mockParams,
-    useScrollToTop: () => undefined,
     useFocusEffect: (effect: () => void | (() => void)) => {
       useEffect(() => effect(), []); // eslint-disable-line react-hooks/exhaustive-deps
     },
@@ -51,12 +50,19 @@ beforeEach(() => {
   useAppStore.setState({ profile: EMPTY_PROFILE, history: [] });
 });
 
+it("goes back to Home from its back arrow, having no tab of its own", async () => {
+  const { router } = require("expo-router") as { router: { navigate: (href: string) => void } };
+  await render(<Search />);
+  await act(async () => fireEvent.press(screen.getByRole("button", { name: "Back to Home" })));
+  expect(router.navigate).toHaveBeenCalledWith("/");
+});
+
 describe("before typing", () => {
-  it("shows no product list, only the search box and the scanner", async () => {
+  it("shows the search box and the watercolor still life, and no product list", async () => {
     await render(<Search />);
     expect(screen.getByLabelText("Search products or brands")).toBeTruthy();
-    await act(async () => fireEvent.press(screen.getByText("Scan a product instead")));
-    expect(mockOpenScanner).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("A little progress every day")).toBeTruthy();
+    expect(screen.queryByText("Scan a product instead")).toBeNull();
     expect(screen.queryByText("Recently viewed")).toBeNull();
     expect(screen.queryByText("Hanbang Rice Ferment Hydrating Serum")).toBeNull();
   });
@@ -95,12 +101,28 @@ describe("typing", () => {
     expect(scores).toEqual([...scores].sort((a, b) => b - a));
   });
 
-  it("offers the scanner when nothing matches", async () => {
+  it("offers to photograph the ingredient list when nothing matches", async () => {
     await render(<Search />);
     await act(async () => fireEvent.changeText(screen.getByLabelText("Search products or brands"), "zzzz nothing"));
     expect(await screen.findByText("We don't have this product in our library yet.", {}, { timeout: 3000 })).toBeTruthy();
-    await act(async () => fireEvent.press(screen.getByText("Go to Scan")));
-    expect(mockOpenScanner).toHaveBeenCalledTimes(1);
+    expect(screen.queryByLabelText("A little progress every day")).toBeNull();
+    await act(async () => fireEvent.press(screen.getByText("Scan the list of ingredients instead")));
+    // The scanner, in Photo mode.
+    expect(mockOpenScanner).toHaveBeenCalledWith({});
+  });
+
+  it("waits for three letters before it searches", async () => {
+    await render(<Search />);
+    await act(async () => fireEvent.changeText(screen.getByLabelText("Search products or brands"), "ce"));
+    // Two letters: still the still life, no results and no "not found", and a
+    // line saying why nothing happened yet.
+    expect(screen.getByLabelText("A little progress every day")).toBeTruthy();
+    expect(screen.getByText("Type at least three letters to search.")).toBeTruthy();
+    expect(screen.queryByText("We don't have this product in our library yet.")).toBeNull();
+
+    await act(async () => fireEvent.changeText(screen.getByLabelText("Search products or brands"), "cer"));
+    expect(screen.queryByLabelText("A little progress every day")).toBeNull();
+    expect(screen.queryByText("Type at least three letters to search.")).toBeNull();
   });
 });
 

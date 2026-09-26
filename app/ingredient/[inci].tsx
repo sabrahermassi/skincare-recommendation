@@ -21,7 +21,7 @@ import { countedAgainst, ingredientLabel, isCommonIrritant, type IngredientLabel
 import { matchProduct, positionNote, ruleFor, type Contraindication } from "@/lib/matching";
 import { isPersonalized, isSensitive, treatAsReactive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
-import { isVerified } from "@/lib/safety";
+import { isVerified, regulatoryStatus } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, FONT_SCALE, INK, MUTED, MUTED_FAINT, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
@@ -405,14 +405,14 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
               <Text className={`text-[12.5px] font-medium ${meta.ink}`}>{meta.label}</Text>
             </View>
           </View>
-          {/* design-watercolor/ingredient image.png — a flask + dropper
+          {/* new-watercolor/ingredient_transparent.png — a flask + dropper
               bottle scene, wider than the old single-flask icon, so the
-              slot is sized to its own aspect ratio (1400x1001, cropped to
+              slot is sized to its own aspect ratio (1400x915, cropped to
               content) rather than the old icon's square. */}
           {largeText ? null : (
             <Image
-              source={require("@/assets/illustrations/flask-with-serum.png")}
-              style={{ width: 168, height: 120 }}
+              source={require("@/assets/illustrations/flask-with-serum.webp")}
+              style={{ width: 168, height: 110 }}
               contentFit="contain"
               transition={120}
               accessibilityLabel=""
@@ -698,14 +698,3 @@ function fitPill(
   return "Neutral for your goals";
 }
 
-/**
- * The honest replacement for the design's EWG hazard score. This comes from the
- * EU Annex lists via CosIng, which is a regulator rather than an advocacy
- * group's rating, and is one of the few genuinely authoritative facts we hold.
- */
-function regulatoryStatus(ingredient: Ingredient): string {
-  if (!isVerified(ingredient)) return "Unmatched";
-  if (ingredient.safety === "avoid") return "Prohibited";
-  if (ingredient.safety === "caution") return "Restricted";
-  return "No restriction";
-}

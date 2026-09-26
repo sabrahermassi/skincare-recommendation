@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import { router, useNavigation } from "expo-router";
 import { usePreventRemove } from "expo-router/react-navigation";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import type { ReactNode } from "react";
@@ -35,7 +35,7 @@ import { haptic } from "@/lib/haptics";
 // design-watercolor/reference.png's "My profile" screen.
 
 const SENSITIVITY_OPTIONS: Sensitivity[] = ["none", "some", "high"];
-// Same set and order as the quiz's concerns step (app/onboarding/(quiz)/concerns.tsx)
+// Same set and order as the quiz's concerns step (app/quiz/concerns.tsx)
 // — "Eczema-prone" is not offered here either, per this session's design
 // decision to drop it from every selectable surface (the `atopic` concern and
 // its scoring rules stay intact for any profile that already carries it).
@@ -86,9 +86,6 @@ type SectionKey = "concerns" | "skinType" | "sensitivity" | "pregnancy";
  */
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  // Set by the product screen's score panel: answering the questions was to get
-  // that product's score, so saving returns to it instead of going Home.
-  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const storedProfile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
 
@@ -152,10 +149,8 @@ export default function ProfileScreen() {
     saving.current = true;
     setProfile(draft);
     haptic.success();
-    // Go straight to the screen that shows the effect of the save: the product
-    // the questions were opened from, else Home.
-    if (returnTo === "product" && router.canGoBack()) router.back();
-    else router.replace(POST_ONBOARDING_ROUTE);
+    // Home, which shows the profile the save produced.
+    router.replace(POST_ONBOARDING_ROUTE);
   }
 
   const visibleConcerns = visibleConcernCount(draft.concerns);

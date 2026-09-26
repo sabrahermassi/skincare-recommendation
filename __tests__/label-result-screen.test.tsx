@@ -83,4 +83,21 @@ describe("the label result's Ingredient check", () => {
     const check = screen.getByLabelText("Ingredient check: Not enough ingredients recognised to check");
     expect(check.props.accessibilityRole).toBeUndefined();
   });
+
+  // #346: the quiz in place of an empty score, gone once the answers score.
+  it("offers See your skin match with no profile, and not once the answers score", async () => {
+    await open(LIST);
+    expect(screen.getByText("See your skin match")).toBeTruthy();
+    await act(async () => screen.unmount());
+
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "dry" } });
+    await open(LIST);
+    expect(screen.queryByText("See your skin match")).toBeNull();
+  });
+
+  it("asks for a retake, not the quiz, when the read can't be scored", async () => {
+    await open(["water", "mystery extract", "another unknown"]);
+    expect(screen.queryByText("See your skin match")).toBeNull();
+    expect(screen.getByText("Retake the photo")).toBeTruthy();
+  });
 });

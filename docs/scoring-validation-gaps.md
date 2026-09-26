@@ -77,17 +77,20 @@ the catalogue held about 104-138 products. Re-measured the same way today:
 All 61 rules were read against published consensus. Most hold: the
 humectants, ceramides, niacinamide, retinoids, AHAs, salicylic acid,
 benzoyl peroxide, azelaic acid, the EU fragrance allergens, SLS and
-denatured alcohol. These don't. None is changed here, because each is a
-harm or benefit weighing on a table #237 rewrites. Each should be decided
-there, with the list of products it moves.
+denatured alcohol. These don't. Each is a harm or benefit weighing on a
+table #237 rewrites, and should be decided there, with the list of products
+it moves — except the first, which is done.
 
-- **`sodium hydroxide` as a reactive-skin irritant** (in 27% of products). It
-  neutralises carbomer and fatty acids during manufacture, so its presence
-  says nothing about the finished product's pH. The CIR finds it safe as a pH
-  adjuster. The rule's sentence ("can push a formula away from skin's natural
-  pH") describes the formula, and the ingredient list can't support that.
-  `sodium bicarbonate` is different: products use it *for* its alkalinity.
-  Recommend dropping `sodium hydroxide` from the rule.
+- **Done: `sodium hydroxide` as a reactive-skin irritant** (in 27% of
+  products), dropped from the rule. It neutralises carbomer and fatty acids
+  during manufacture, so its presence says nothing about the finished
+  product's pH. The CIR finds it safe as a pH adjuster. The rule's sentence
+  ("can push a formula away from skin's natural pH") describes the formula,
+  and the ingredient list can't support that. `sodium bicarbonate` is
+  different: products use it *for* its alkalinity, and stays. Once the
+  Ingredient check (#345) showed every rule in the `irritants` category as
+  "to watch" for everyone, this one put a watch on 28% of products, so it
+  couldn't wait for #237.
 - **`dimethicone` (17%) and the fatty alcohols (`cetearyl alcohol` 23%,
   `cetyl alcohol` 11%) charged against acne-prone skin.** Both are generally
   regarded as non-comedogenic. The ratings behind "fatty alcohols clog" come

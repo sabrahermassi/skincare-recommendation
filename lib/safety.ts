@@ -25,6 +25,29 @@ export function isVerified(ingredient: Ingredient): boolean {
 }
 
 /**
+ * How the note the dictionary import writes on a refined-grade exemption
+ * starts (`REFINED_GRADE_NOTE` in scripts/import-inci-dictionary.mjs):
+ * petrolatum, whose EU Annex II entry bans only petrolatum of unknown
+ * refining history (#361). `__tests__/petrolatum.test.ts` keeps the two in step.
+ */
+export const REFINED_GRADE_NOTE_START = "Allowed when fully refined.";
+
+/**
+ * The ingredient page's "EU regulatory status", the honest replacement for the
+ * design's EWG hazard score. It comes from the EU Annex lists via CosIng, a
+ * regulator rather than an advocacy group's rating, and is one of the few
+ * genuinely authoritative facts we hold. A refined-grade exemption says so,
+ * rather than "No restriction" under a note about an EU ban (#362).
+ */
+export function regulatoryStatus(ingredient: Ingredient): string {
+  if (!isVerified(ingredient)) return "Unmatched";
+  if (ingredient.safety === "avoid") return "Prohibited";
+  if (ingredient.safety === "caution") return "Restricted";
+  if (ingredient.note?.startsWith(REFINED_GRADE_NOTE_START)) return "Allowed when refined";
+  return "No restriction";
+}
+
+/**
  * Share of the ingredient list we could identify.
  *
  * Lives here rather than in `lib/matching.ts`, which is where it used to be:

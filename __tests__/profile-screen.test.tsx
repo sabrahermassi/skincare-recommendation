@@ -22,6 +22,7 @@ import { profileErasedNoticePending } from "@/lib/erase-notice";
 jest.setTimeout(30000);
 
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
 // Cleanups the screen registered through useFocusEffect; running them is how a test
 // simulates the tab losing focus.
 const mockBlurCallbacks: (() => void)[] = [];
@@ -29,6 +30,7 @@ const mockBlurCallbacks: (() => void)[] = [];
 jest.mock("expo-router", () => ({
   router: {
     replace: (...args: unknown[]) => mockReplace(...args),
+    push: (...args: unknown[]) => mockPush(...args),
   },
   useScrollToTop: () => undefined,
   useFocusEffect: (effect: () => void | (() => void)) => {
@@ -51,6 +53,7 @@ const blur = () => act(() => mockBlurCallbacks.forEach((cleanup) => cleanup()));
 beforeEach(() => {
   mockBlurCallbacks.length = 0;
   mockReplace.mockClear();
+  mockPush.mockClear();
   useAppStore.setState({ profile: EMPTY_PROFILE }, false);
 });
 
@@ -128,5 +131,18 @@ describe("ProfileScreen", () => {
       history: [],
       hasSeenOnboarding: false,
     });
+  });
+
+  // #346: the skin questions until the answers score, then the editor.
+  it("opens the quiz from Skin profile while nothing scores, and the editor once it does", async () => {
+    await render(<ProfileScreen />);
+    await fireEvent.press(screen.getByText("Skin profile"));
+    expect(mockPush).toHaveBeenLastCalledWith("/quiz/concerns");
+    await act(async () => screen.unmount());
+
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["dullness"] } }, false);
+    await render(<ProfileScreen />);
+    await fireEvent.press(screen.getByText("Skin profile"));
+    expect(mockPush).toHaveBeenLastCalledWith("/skin-profile");
   });
 });

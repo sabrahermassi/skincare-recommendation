@@ -1,11 +1,11 @@
-import { router } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 
 import { QuizOptionCard } from "@/components/QuizOptionCard";
+import { useQuizFrame } from "@/components/QuizFrame";
 import { QuizScreen } from "@/components/QuizScreen";
 import type { Pregnancy } from "@/data/types";
-import { POST_ONBOARDING_ROUTE, quizStepNumber } from "@/lib/profile";
+import { quizStepNumber } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -37,28 +37,28 @@ const OPTIONS: { value: Pregnancy; label: string; icon: number }[] = [
 export default function PregnancyStep() {
   const pregnancyStatus = useAppStore((s) => s.profile.pregnancyStatus);
   const setProfile = useAppStore((s) => s.setProfile);
-  const completeOnboarding = useAppStore((s) => s.completeOnboarding);
+  const { close } = useQuizFrame();
   const markQuizJustFinished = useAppStore((s) => s.markQuizJustFinished);
   const [picked, setPicked] = useState(pregnancyStatus !== null);
 
+  // Back to the screen the quiz opened over, which now shows the score (#346).
   function finish() {
-    completeOnboarding();
-    // Not set by skipping (QuizFrame's own finish) — there is nothing to
+    // Not set by skipping (QuizFrame's close) — there is nothing to
     // acknowledge for a quiz nobody answered. See issue #95.
     markQuizJustFinished();
-    router.replace(POST_ONBOARDING_ROUTE);
+    close();
   }
 
   return (
     <QuizScreen
-      step={quizStepNumber("/onboarding/pregnancy")}
+      step={quizStepNumber("/quiz/pregnancy")}
       title="Are you pregnant or breastfeeding?"
       subtitle="This helps us give more relevant recommendations."
       onNext={finish}
       nextDisabled={!picked}
-      // It lands on Home, not the scanner (POST_ONBOARDING_ROUTE), so it says
-      // what it does (#295). Not "Done": Skin profile's per-section "Done"
-      // only closes a section without saving (#308 review).
+      // Says what it does (#295): the quiz ends here. Not "Done": Skin
+      // profile's per-section "Done" only closes a section without saving
+      // (#308 review).
       nextLabel="Finish"
     >
       <View>
