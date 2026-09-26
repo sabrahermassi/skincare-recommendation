@@ -31,6 +31,7 @@ import {
   withAlpha,
 } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
+import { photoScannerHref } from "@/lib/open-scanner";
 import { barcodeParam as barcodeParamOf } from "@/lib/route-params";
 
 /**
@@ -278,6 +279,9 @@ const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
   name_repeats: "That name repeats itself a lot. Type it as it's printed on the pack.",
 };
 
+const RETAKE_ACTION = scanStateCopy({ kind: "couldnt-read", why: "retake" }).action ?? "";
+const SAVING = scanStateCopy({ kind: "working", step: "save" }).title ?? "";
+
 function saveFailureSpeech(reason: SaveFailureReason): string {
   return scanStateSpeech(scanStateCopy(saveFailureState(reason)));
 }
@@ -287,15 +291,15 @@ function saveFailureSpeech(reason: SaveFailureReason): string {
 const LOOKUP_FAILED_COPY = "Still couldn't open it — check your connection and tap Show me that product again.";
 
 /**
- * `expired` (unlike the other failures) has no useful retry: the read token is
- * gone and the held list can no longer be saved under it. Save is not just
- * disabled here — swapped for the one action that can actually fix it,
- * retracing the same `clearLabelRead` + `/scan-label` path as the review
- * section's own "Retake the photo" below. See issue #193.
+ * `expired` and `unreadable_list` (unlike the other failures) have no useful
+ * retry: the read token is gone, or the server refused the list, so the held
+ * list can't be saved. Save is not just disabled — swapped for the one action
+ * that can fix it, the same as the review section's own "Retake the photo"
+ * below (#193, #204): back to the scanner in Photo mode for this barcode.
  */
 function retakePhoto(barcode: string) {
   clearLabelRead();
-  router.replace({ pathname: "/scan-label", params: { barcode } });
+  router.dismissTo(photoScannerHref({ barcode }));
 }
 
 /** The last step: review the read, then a name, then everything is saved together. */
@@ -334,8 +338,12 @@ function NameStep({
   // survives: see `findSavedProduct`.
   const [lookupFailed, setLookupFailed] = useState(false);
   const trimmed = name.trim();
-  const expired = failure === "expired";
+  // Needs a new photo (#204): the read is too old, or the server refused its list.
+  const expired = failure === "expired" || failure === "unreadable_list";
   const alreadySaved = failure === "already_saved";
+  // A build with no backend can never save: Save stays off rather than
+  // failing the same way on every tap (#204).
+  const cannotSave = failure === "not_configured";
 
   async function save() {
     if (saving || !trimmed) return;
@@ -544,7 +552,7 @@ function NameStep({
         ) : null}
 
         {expired ? (
-          <PrimaryButton size={56} label="Scan it again" onPress={() => retakePhoto(barcode)} />
+          <PrimaryButton size={56} label={RETAKE_ACTION} onPress={() => retakePhoto(barcode)} />
         ) : alreadySaved ? (
           <PrimaryButton
             size={56}
@@ -555,8 +563,8 @@ function NameStep({
         ) : (
           <PrimaryButton
             size={56}
-            label={saving ? "Saving…" : "Save and see my match"}
-            disabled={!trimmed || saving}
+            label={saving ? SAVING : "Save and see my match"}
+            disabled={!trimmed || saving || cannotSave}
             onPress={() => void save()}
           />
         )}

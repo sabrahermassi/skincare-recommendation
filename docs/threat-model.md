@@ -123,11 +123,13 @@ second table is planned; if that ever changes, it gets its own row.
 
   | Route | Parameters from a link | Check |
   |---|---|---|
-  | `/`, `/browse`, `/saved`, `/profile` (tabs), `/school`, `/support`, `/privacy`, `/scanner` | none | — |
+  | `/`, `/browse`, `/saved`, `/profile` (tabs), `/school`, `/support`, `/privacy` | none | — |
+  | `/scanner` | `mode`; `barcode` | only `"photo"` does anything (opens Photo mode); `barcodeParam`, else dropped (#204) |
   | `/product/<id>`, `/result/<id>` | `id`; `from` (analytics only) | `productIdParam`: letters, digits, `-`, `_`, ≤128; else Page not found. `from` is matched against fixed values |
   | `/ingredients/<id>` | `id`; `tab` | `productIdParam`; `tab` must be one of the list's tabs, else "All" |
   | `/ingredient/<name>` | `name`; `product` | `ingredientNameParam`: non-empty, ≤2,048, no control or invisible formatting characters, else Page not found. A malformed `product` is dropped |
-  | `/scan-label`, `/label-result`, `/add-product` | `barcode` | `barcodeParam`: 8–14 digits, else dropped. The ingredient list itself is never taken from a link: it is held in memory from the photo just read |
+  | `/scan-label` | `barcode` | redirects to `/scanner?mode=photo`, carrying the barcode through `barcodeParam` (#204) |
+  | `/label-result`, `/add-product` | `barcode` | `barcodeParam`: 8–14 digits, else dropped. The ingredient list itself is never taken from a link: it is held in memory from the photo just read |
   | `/sign-in` | `from` (analytics only) | fixed values |
   | `/skin-profile` | `returnTo` | only `"product"` does anything (goes back) |
   | `/onboarding` | none | "Your profile is erased" comes from the erase itself, held in memory (`lib/erase-notice.ts`), never from the URL |

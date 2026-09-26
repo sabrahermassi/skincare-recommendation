@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import {
@@ -32,6 +32,7 @@ import { canPhotographLabelFor, fetchProductByBarcode, type FetchFailure } from 
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
 import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
+import { barcodeParam } from "@/lib/route-params";
 import { lookupFailureState, scanStateCopy, scanStateSpeech, type ScanState } from "@/lib/scan-copy";
 import { rememberScanMode, rememberedScanMode, type ScanMode } from "@/lib/scan-mode";
 import { createStaleGuard } from "@/lib/stale-guard";
@@ -117,13 +118,33 @@ const MODES: {
 
 export default function Scan() {
   const [permission, requestPermission] = useCameraPermissions();
+  // `?mode=photo&barcode=…` opens straight into Photo mode, with the barcode a
+  // read there is saved under (#204): Saved's recorded miss, and "Retake the
+  // photo" from the label result or add-product. The barcode comes from a
+  // route, so a link can set it too, and only a real one is kept (#29).
+  const params = useLocalSearchParams<{ mode?: string; barcode?: string }>();
+  const photoRequested = params.mode === "photo";
+  const requestedBarcode = photoRequested ? barcodeParam(params.barcode) : undefined;
+  const [photoBarcode, setPhotoBarcode] = useState<string | undefined>(requestedBarcode);
   // Photo is the default now (issue #214): reading a label works on every
   // product, in any shop, with no catalogue coverage needed — a barcode only
   // resolves for the ~851 products the catalogue already has. Seeded from
   // `lib/scan-mode.ts`, which remembers a mode switch for the session (a
   // cold start always reads Photo); the focus-reset below reads the same
   // module rather than hardcoding either mode.
-  const [mode, setMode] = useState<Mode>(() => rememberedScanMode());
+  const [mode, setMode] = useState<Mode>(() => (photoRequested ? "Photo" : rememberedScanMode()));
+  // A retake returns here by `router.dismissTo` with new params, on the same
+  // scanner: switch to Photo for that barcode. Adjusted while rendering, as
+  // React recommends for state that follows a prop, rather than in an effect.
+  const request = photoRequested ? `photo:${requestedBarcode ?? ""}` : "";
+  const [appliedRequest, setAppliedRequest] = useState(request);
+  if (request !== appliedRequest) {
+    setAppliedRequest(request);
+    if (photoRequested) {
+      setPhotoBarcode(requestedBarcode);
+      setMode("Photo");
+    }
+  }
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   // Off by default, and reset on leaving the scanner (below) rather than left
   // to whatever it was: the camera itself unmounts on blur, so the light goes
@@ -239,6 +260,8 @@ export default function Scan() {
       // have invalidated, permanently dropping every read for the rest of
       // that visit. See issue #191.
       if (next !== mode) reads.invalidate();
+      // Leaving Photo leaves the barcode a retake was for behind with it.
+      if (next === "Barcode") setPhotoBarcode(undefined);
       rememberScanMode(next);
       setMode(next);
     },
@@ -288,9 +311,10 @@ export default function Scan() {
         skipResetOnNextFocus.current = false;
       } else {
         // Falls back to the remembered mode, not a hardcoded default — see
-        // `lib/scan-mode.ts`. A genuine exit (this branch) still resets the
-        // *screen state*, just not to a fixed mode.
-        setMode(rememberedScanMode());
+        // `lib/scan-mode.ts` — unless this scanner was opened for a photo.
+        // A genuine exit (this branch) still resets the *screen state*, just
+        // not to a fixed mode.
+        setMode(photoRequested ? "Photo" : rememberedScanMode());
       }
       return () => {
         lookups.current.invalidate();
@@ -430,7 +454,7 @@ export default function Scan() {
   // down and brought up again on every switch — the black flash between Barcode
   // and Photo — so it lives here and the same view just changes what it listens
   // for. Most devices only let one CameraView hold the camera at a time: while
-  // another screen is on top (a result, /scan-label) `isFocused` is false and
+  // another screen is on top (a result, the label result) `isFocused` is false and
   // this lets go of it, so that screen's camera is not left waiting for it.
   // Otherwise it stays mounted — a read, a miss or a mode switch never stops and
   // restarts it, which is what showed as a black flash now and then.
@@ -477,7 +501,7 @@ export default function Scan() {
         cameraRef={cameraRef}
         cameraSize={cameraSize}
         windowBox={windowBox}
-        barcode={status.kind === "missed" && canPhotographLabelFor(status.code) ? status.code : undefined}
+        barcode={status.kind === "missed" && canPhotographLabelFor(status.code) ? status.code : photoBarcode}
         preserveMode={preserveMode}
         focusedRef={focusedRef}
         reads={reads}

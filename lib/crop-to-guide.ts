@@ -2,7 +2,8 @@
  * Map the on-screen guide box a user frames a label inside into a crop
  * rectangle in the captured photo's own pixel coordinates.
  *
- * `app/scan-label.tsx` draws a guide box over the camera preview and asks the
+ * The label camera (`components/LabelCamera.tsx`, the scanner's Photo mode)
+ * draws a guide box over the camera preview and asks the
  * user to fill it with the ingredient list, but until this existed that box
  * was decoration only — `takePictureAsync` returns the full sensor frame no
  * matter what's drawn on top of it, so everything around the bottle (a hand,
@@ -20,7 +21,7 @@
  *
  * Pure and framework-free on purpose: the geometry is fully described by
  * three rectangles' dimensions, so it can be exhaustively unit tested
- * without a device, a camera, or React Native at all. `app/scan-label.tsx`
+ * without a device, a camera, or React Native at all. The label camera
  * supplies the three inputs from real `onLayout` measurements and the real
  * `takePictureAsync` result.
  */

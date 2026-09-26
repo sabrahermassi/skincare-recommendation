@@ -45,11 +45,15 @@ jest.mock("react-native/Libraries/AppState/AppState", () => ({
   },
 }));
 
+// The scanner's own route params (`?mode=photo&barcode=…`, #204).
+let mockParams: Record<string, string> = {};
+
 jest.mock("expo-router", () => {
   const React = require("react");
   return {
     router: { push: jest.fn(), back: jest.fn(), navigate: jest.fn(), dismissTo: jest.fn(), canGoBack: () => true },
     useFocusEffect: (effect: () => void | (() => void)) => React.useEffect(effect, []),
+    useLocalSearchParams: () => mockParams,
   };
 });
 
@@ -64,7 +68,14 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-jest.mock("@/components/LabelCamera", () => ({ LabelCamera: () => null }));
+// Photo mode's camera, down to the barcode it was handed.
+let mockLabelCameraBarcode: string | undefined | null = null;
+jest.mock("@/components/LabelCamera", () => ({
+  LabelCamera: (props: { barcode?: string }) => {
+    mockLabelCameraBarcode = props.barcode;
+    return null;
+  },
+}));
 jest.mock("@/components/ScanIntro", () => ({ ScanIntro: () => null }));
 jest.mock("@/components/ChoosePhotoInstead", () => ({ ChoosePhotoInstead: () => null }));
 jest.mock("@/components/ProductThumbnail", () => ({ ProductThumbnail: () => null }));
@@ -90,6 +101,8 @@ function scan(code: string) {
 }
 
 beforeEach(() => {
+  mockParams = {};
+  mockLabelCameraBarcode = null;
   (fetchProductByBarcode as unknown as MockFn).mockClear();
   mockPermission.granted = true;
   mockAppStateHandler = undefined;
@@ -281,5 +294,41 @@ describe("scanner torch", () => {
       mockAppStateHandler?.("background");
     });
     expect(screen.getByRole("button", { name: "Turn on the torch" })).toBeTruthy();
+  });
+});
+
+// #204: Saved's recorded miss and every "Retake the photo" open the scanner in
+// Photo mode for a barcode, instead of a second camera screen.
+describe("scanner opened for a photo", () => {
+  it("opens in Photo mode and saves the read under the barcode it was given", async () => {
+    mockParams = { mode: "photo", barcode: "8801234567890" };
+    await render(<Scan />);
+    expect(screen.getByRole("tab", { name: "Photo" }).props.accessibilityState).toMatchObject({ selected: true });
+    expect(mockLabelCameraBarcode).toBe("8801234567890");
+  });
+
+  it("drops a barcode that isn't one, and still opens the camera", async () => {
+    mockParams = { mode: "photo", barcode: "../../account" };
+    await render(<Scan />);
+    expect(mockLabelCameraBarcode).toBeUndefined();
+  });
+
+  it("switches an open scanner to Photo when a retake comes back with a barcode", async () => {
+    const view = await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+    expect(screen.getByRole("tab", { name: "Barcode" }).props.accessibilityState).toMatchObject({ selected: true });
+
+    mockParams = { mode: "photo", barcode: "8801234567890" };
+    await view.rerender(<Scan />);
+    expect(screen.getByRole("tab", { name: "Photo" }).props.accessibilityState).toMatchObject({ selected: true });
+    expect(mockLabelCameraBarcode).toBe("8801234567890");
+  });
+
+  it("leaves the barcode behind when switched to Barcode mode", async () => {
+    mockParams = { mode: "photo", barcode: "8801234567890" };
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+    await fireEvent.press(screen.getByRole("tab", { name: "Photo" }));
+    expect(mockLabelCameraBarcode).toBeUndefined();
   });
 });

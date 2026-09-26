@@ -15,6 +15,8 @@ export type LabelReadFailure = {
   hint?: string;
   /** The button that fixes it (`scanStateCopy`'s action), when there is one. */
   action?: string;
+  /** A quieter way forward (`scanStateCopy`'s link): another photo, or Search. */
+  link?: string;
   /** Required, not optional: a failure whose retryability nobody decided defaults to "retryable" by accident. */
   retryable: boolean;
 };
@@ -22,7 +24,7 @@ export type LabelReadFailure = {
 /** A scan state's words as a failure to show under the shutter (#204). */
 export function failureFromState(state: ScanState): LabelReadFailure {
   const copy = scanStateCopy(state);
-  return { message: copy.title ?? "", hint: copy.line, action: copy.action, retryable: true };
+  return { message: copy.title ?? "", hint: copy.line, action: copy.action, link: copy.link, retryable: true };
 }
 
 /** `read`: the list is held for the add-product screen, which the caller now opens. */
@@ -49,8 +51,7 @@ export type LabelReadOutcome = { kind: "read" } | ({ kind: "failed" } & LabelRea
  * the only place that knows a hold is about to happen, so it is the only
  * place that can keep a dropped read from leaving a stale list and a live,
  * single-use read token sitting in `lib/pending-label` for nobody to use.
- * Omitted, every read is always wanted — the existing behaviour for every
- * caller that has no such staleness concept (`app/scan-label.tsx`).
+ * Omitted, every read is always wanted.
  */
 export async function readLabelPhoto(
   imageBase64: string,

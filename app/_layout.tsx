@@ -171,10 +171,6 @@ export default function RootLayout() {
           // `sheetAllowedDetents` is formSheet-only in this SDK's expo-router.
           options={{ headerShown: false, presentation: "formSheet", sheetAllowedDetents: [0.5, 1], sheetGrabberVisible: true }}
         />
-        <Stack.Screen
-          name="scan-label"
-          options={{ title: "Read the label", presentation: "modal", headerShown: false }}
-        />
         {/* Slides up over everything, full screen, and back down when closed —
             the standard iOS camera presentation (#313). */}
         <Stack.Screen name="scanner" options={{ headerShown: false, presentation: "fullScreenModal" }} />

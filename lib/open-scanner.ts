@@ -24,9 +24,26 @@ export function openScanner() {
   openScannerAt(Date.now());
 }
 
+/**
+ * Opens straight into Photo mode, with the barcode a list read there will be
+ * saved under — Saved's recorded miss (#204). A function of its own, not an
+ * argument to `openScanner`, which is handed straight to `onPress` and would
+ * take the press event for one.
+ */
+export function openPhotoScanner(photo: PhotoFor) {
+  openScannerAt(Date.now(), photo);
+}
+
+export type PhotoFor = { barcode?: string };
+
+/** The scanner route in Photo mode for `photo`, for `router.dismissTo` as well as a push. */
+export function photoScannerHref(photo: PhotoFor) {
+  return { pathname: "/scanner", params: { mode: "photo", ...(photo.barcode ? { barcode: photo.barcode } : {}) } } as const;
+}
+
 /** `openScanner` with the clock passed in — exported for the test. */
-export function openScannerAt(now: number) {
+export function openScannerAt(now: number, photo?: PhotoFor) {
   if (now - lastOpenedAt < REPEAT_GUARD_MS) return;
   lastOpenedAt = now;
-  router.push("/scanner");
+  router.push(photo ? photoScannerHref(photo) : "/scanner");
 }
