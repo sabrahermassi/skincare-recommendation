@@ -96,6 +96,12 @@ describe.each([
     expect(ring()).toEqual({ size: 82 * FONT_SCALE.icon, beside: false });
   });
 
+  it("keeps the Ingredient check at the ordinary ceiling, so it doesn't push the verdict off the first screen (#345)", async () => {
+    mockFontScale = LARGEST;
+    await renderSettled(screenFor());
+    expect(screen.getByText("Ingredient check").props.maxFontSizeMultiplier).toBe(FONT_SCALE.ui);
+  });
+
   it("with no profile yet, keeps the arrow level with the ring at the largest size, not under the words", async () => {
     useAppStore.setState({ profile: EMPTY_PROFILE });
     mockFontScale = LARGEST;
@@ -110,13 +116,6 @@ describe.each([
     await renderSettled(screenFor());
     expect(screen.getByText(VERDICT_NEUTRAL.label).props.maxFontSizeMultiplier).toBe(FONT_SCALE.reading);
   });
-});
-
-it("keeps the Ingredient check at the ordinary ceiling, so it doesn't push the verdict off the first screen (#345)", async () => {
-  mockParams = { id: PRODUCT };
-  mockFontScale = LARGEST;
-  await renderSettled(<ProductRoute />);
-  expect(screen.getByText("Ingredient check").props.maxFontSizeMultiplier).toBe(FONT_SCALE.ui);
 });
 
 it("keeps the product's header at its ordinary ceilings, so the verdict isn't pushed off the first screen", async () => {
