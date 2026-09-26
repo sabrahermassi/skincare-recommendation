@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HeartMark } from "@/components/icons/HeartMark";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
+import { TabTitle } from "@/components/TabTitle";
 import { Text } from "@/components/Text";
 import type { SchoolQuestion } from "@/data/school";
 import { reduceMotionNow } from "@/lib/reduce-motion";
@@ -120,14 +121,9 @@ export default function SkincareSchool() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      {/* A tab: a centred title, as on Saved, and no back chevron. */}
-      <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 10 }}>
-        <Text
-          accessibilityRole="header"
-          style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.title, color: INK }}
-        >
-          Skincare School
-        </Text>
+      {/* A tab: its title on the left, as on every tab, and no back chevron. */}
+      <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 14, paddingBottom: 10 }}>
+        <TabTitle>Skincare School</TabTitle>
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>

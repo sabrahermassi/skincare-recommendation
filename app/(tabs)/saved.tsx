@@ -19,6 +19,7 @@ import { SwipeToDelete } from "@/components/SwipeToDelete";
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
 import { TERRACOTTA } from "@/components/shell/shared";
+import { TabTitle } from "@/components/TabTitle";
 import { Text } from "@/components/Text";
 import { TypeChip } from "@/components/TypeChip";
 import { fetchProductsByIds, resolveIngredientNames } from "@/data/api";
@@ -433,10 +434,8 @@ export default function Saved() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 10 }}>
-        <Text style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>
-          Saved
-        </Text>
+      <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 14 }}>
+        <TabTitle>Saved</TabTitle>
       </View>
 
       {/* The three lists in one light capsule (owner's reference). Ingredients

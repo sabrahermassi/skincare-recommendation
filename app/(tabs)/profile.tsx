@@ -5,6 +5,7 @@ import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MenuGroup, MenuRow } from "@/components/MenuRows";
+import { TabTitle } from "@/components/TabTitle";
 import { Text } from "@/components/Text";
 import { openQuiz } from "@/lib/open-quiz";
 import { answeredWithoutSignal, isPersonalized, profileHeadline } from "@/lib/profile";
@@ -32,11 +33,9 @@ export default function Profile() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
       <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) }} showsVerticalScrollIndicator={false}>
-        <Text
-          style={{ paddingHorizontal: 24, paddingTop: 14, fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 26, color: INK }}
-        >
-          Profile
-        </Text>
+        <View style={{ paddingHorizontal: 20, paddingTop: 14 }}>
+          <TabTitle>Profile</TabTitle>
+        </View>
 
         <View style={{ alignItems: "center", gap: 20, paddingTop: 30, paddingBottom: 38, paddingHorizontal: 24 }}>
           {/* A placeholder for their own picture: the watercolor empty avatar. Its
