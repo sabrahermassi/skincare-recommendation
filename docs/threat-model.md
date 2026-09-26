@@ -123,7 +123,7 @@ second table is planned; if that ever changes, it gets its own row.
 
   | Route | Parameters from a link | Check |
   |---|---|---|
-  | `/`, `/browse`, `/saved`, `/profile` (tabs), `/school`, `/support`, `/privacy` | none | — |
+  | `/`, `/browse`, `/saved`, `/profile` (tabs), `/school`, `/support`, `/privacy`, `/scoring` | none | — |
   | `/scanner` | `mode`; `barcode` | only `"photo"` does anything (opens Photo mode); `barcodeParam`, else dropped (#204) |
   | `/product/<id>`, `/result/<id>` | `id`; `from` (analytics only) | `productIdParam`: letters, digits, `-`, `_`, ≤128; else Page not found. `from` is matched against fixed values |
   | `/ingredients/<id>` | `id`; `tab` | `productIdParam`; `tab` must be one of the list's tabs, else "All" |

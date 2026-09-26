@@ -254,9 +254,19 @@ export const CLOGGER_WEIGHT: Record<CloggerHit["confidence"], number> = {
  */
 const saturate = (value: number, k: number) => value / (value + k);
 
-/** Below this there is genuinely nothing to read — not merely nothing to say. */
-const MIN_COVERAGE = 0.25;
-const MIN_IDENTIFIED = 3;
+/**
+ * Below this there is genuinely nothing to read — not merely nothing to say.
+ * Exported for "How scoring works" (`app/scoring.tsx`, #325), which says them.
+ */
+export const MIN_COVERAGE = 0.25;
+export const MIN_IDENTIFIED = 3;
+
+/**
+ * The highest score a product with a hazard can get, and what each further
+ * hazard takes off. Named for "How scoring works" (#325); unchanged.
+ */
+export const HAZARD_SCORE_CAP = 45;
+export const HAZARD_EXTRA_PENALTY = 5;
 
 /**
  * Whether a formula is genuinely unreadable, on its own — independent of
@@ -626,7 +636,7 @@ function computeMatch(
   // double charge and a cliff: it put 40% of the catalogue at "Poor" for
   // anyone who ticked "somewhat sensitive".
   const hazards = warnings.filter((w) => w.severity === "hazard");
-  if (hazards.length > 0) score = Math.min(score, 45) - (hazards.length - 1) * 5;
+  if (hazards.length > 0) score = Math.min(score, HAZARD_SCORE_CAP) - (hazards.length - 1) * HAZARD_EXTRA_PENALTY;
 
   const finalScore = clamp(score);
   reasons.sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect));
