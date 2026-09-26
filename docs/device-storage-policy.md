@@ -144,7 +144,7 @@ default `allowBackup`); a Keychain item marked `THIS_DEVICE_ONLY` never is.
 | `skintel-store` | The store's pre-rebrand name | AsyncStorage | Copied to `forme-store` and deleted on first read | Yes, until then |
 | `forme-catalogue-v3`, `forme-catalogue-meta-v3`, `forme-catalogue-manifest-v3`, `forme-catalogue-chunk-…` | Public catalogue rows, the ingredient dictionary, freshness watermarks — nothing from the user | AsyncStorage (`data/catalogue-cache.ts`) | Replaced as the catalogue refreshes | Yes (public data) |
 | PostHog's file | The analytics id and events waiting to send (#225) | The app's document directory (web: memory) | Until sent; a new id after sign-out | Yes |
-| `for.me-account-export.json` | The account export, while it is being shared | The app's cache directory | Overwritten by the next export; the OS may clear it | No (cache) |
+| `for.me-account-export.json` | The account export, while it is being shared | The app's cache directory | Deleted once the share sheet closes (`lib/account.ts`) | No (cache) |
 | Label photos | A picked or taken label photo and its resized copies | The app's cache directory | Deleted once read (`lib/pick-label-photo.ts`) | No (cache) |
 
 ## Why cached catalogue data is its own class, in its own file
