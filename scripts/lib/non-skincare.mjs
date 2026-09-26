@@ -25,7 +25,9 @@ const NAME = [
   /\bnail varnish\b/i,
   /\bdissolvant\b/i, // French: nail polish remover (not "démaquillant", make-up remover)
   /\bvernis\b/i, // French: nail varnish
-  /\bongles?\b/i, // French: nails
+  // Not bare "ongles" (nails): "Crème Mains et Ongles" is a hand & nail
+  // cream, which stays (#312 review). Polish and remover are caught above.
+  /\bfaux ongles\b/i, // French: false nails
   /\bnagellack/i, // German: nail polish
   /\bquitaesmalte\b/i, // Spanish: nail polish remover
   /\bsmalto\b/i, // Italian: nail polish

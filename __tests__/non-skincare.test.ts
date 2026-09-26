@@ -15,6 +15,7 @@ describe("nonSkincareReason", () => {
     "Nail Polish Remover Acetone Free",
     "Nagellackentferner",
     "Dentifrice blancheur",
+    "Faux ongles adhésifs",
   ])("removes %p", (name: string) => {
     expect(nonSkincareReason({ name })).not.toBeNull();
   });
@@ -25,6 +26,8 @@ describe("nonSkincareReason", () => {
     "Aveeno ultra-calming sensitive skin foaming cleanser",
     "Palmer's Cocoa Butter Formula Geconcentreerde Crème",
     "Hand & Nail cream", // hand care
+    "Crème Mains et Ongles", // French hand & nail cream (#312 review)
+    "Soin fortifiant ongles et cuticules", // nail care, not polish
     "Gentle Exfoliating SA Cleanser",
     "Shampooing douceur", // hair is scored on purpose
   ])("keeps %p", (name: string) => {
