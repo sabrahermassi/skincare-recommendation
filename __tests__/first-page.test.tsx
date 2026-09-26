@@ -22,9 +22,9 @@ jest.mock("@/lib/supabase", () => ({
 }));
 
 const { useAuth } = require("@/lib/auth") as typeof import("@/lib/auth");
-const gate = require("@/lib/save-gate") as typeof import("@/lib/save-gate");
+const saving = require("@/lib/saving") as typeof import("@/lib/saving");
 const firstPage = require("@/lib/first-page") as typeof import("@/lib/first-page");
-const { FirstPageMoment, AFTER_SHEET_MS } = require("@/components/FirstPageMoment") as typeof import("@/components/FirstPageMoment");
+const { FirstPageMoment } = require("@/components/FirstPageMoment") as typeof import("@/components/FirstPageMoment");
 const { useAppStore } = require("@/store/useAppStore") as typeof import("@/store/useAppStore");
 
 const { FIRST_PAGE_COPY, JOURNAL_STARTED_KEY } = firstPage;
@@ -33,14 +33,13 @@ function signIn(id: string, metadata: Record<string, unknown> = {}) {
   useAuth.setState({ status: "signed-in", session: { user: { id, user_metadata: metadata } } as never });
 }
 
-const saveProduct = (id: string) => gate.saveOrAskToSignIn(() => useAppStore.getState().saveProduct(id), "product");
+const saveProduct = (id: string) => saving.saveFromTap(() => useAppStore.getState().saveProduct(id), "product");
 const showing = () => firstPage.useFirstPage.getState().showing;
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockUpdateUser.mockResolvedValue({ data: {}, error: null });
   mockFocused = true;
-  gate.dropPendingSave();
   firstPage.dismissFirstPage();
   useAuth.setState({ status: "signed-out", session: null });
   useAppStore.setState({ savedProducts: [], savedIngredients: [], journalStarted: [], shelfOwner: null, shelfQueue: [] });
@@ -66,7 +65,7 @@ describe("when the moment comes", () => {
     expect(mockUpdateUser).toHaveBeenCalledTimes(1);
   });
 
-  it("still comes for a shelf carried in from before accounts", () => {
+  it("still comes after a guest's shelf was carried in at sign-in", () => {
     useAppStore.setState({ savedProducts: [{ id: "old", savedAt: 1 }], shelfOwner: "u1" });
     signIn("u1");
     saveProduct("new");
@@ -82,16 +81,17 @@ describe("when the moment comes", () => {
 
   it("doesn't come for a starred ingredient", () => {
     signIn("u1");
-    gate.saveOrAskToSignIn(() => useAppStore.getState().saveIngredient("niacinamide"), "ingredient");
+    saving.saveFromTap(() => useAppStore.getState().saveIngredient("niacinamide"), "ingredient");
     expect(showing()).toBe(false);
   });
 
-  it("waits for a guest's sign-in, and comes after the held save is done", () => {
+  it("doesn't come for a guest's save, which has no account yet, and waits for the first one signed in (#300)", () => {
     saveProduct("a");
-    expect(showing()).toBe(false);
-    signIn("u1");
-    gate.completePendingSave();
     expect(useAppStore.getState().savedProducts.map((p) => p.id)).toEqual(["a"]);
+    expect(showing()).toBe(false);
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+    signIn("u1");
+    saveProduct("b");
     expect(showing()).toBe(true);
   });
 });
@@ -117,27 +117,15 @@ describe("catching the account up", () => {
 });
 
 describe("on screen", () => {
-  beforeEach(() => jest.useFakeTimers());
-  afterEach(() => jest.useRealTimers());
-
-  it("stays hidden while the sign-in sheet is up, then appears once it has gone", async () => {
-    mockFocused = false;
+  it("shows under the header while the product screen has the focus", async () => {
     firstPage.useFirstPage.setState({ showing: true });
-    const view = await render(<FirstPageMoment />);
-    expect(screen.queryByText(FIRST_PAGE_COPY.heading)).toBeNull();
-
-    mockFocused = true;
-    await view.rerender(<FirstPageMoment />);
-    // Focused as the sheet starts to close, not yet seen beside it.
-    expect(screen.queryByText(FIRST_PAGE_COPY.heading)).toBeNull();
-    await act(async () => jest.advanceTimersByTime(AFTER_SHEET_MS));
+    await render(<FirstPageMoment />);
     expect(screen.getByText(FIRST_PAGE_COPY.heading)).toBeTruthy();
   });
 
   it("goes on 'Got it'", async () => {
     firstPage.useFirstPage.setState({ showing: true });
     await render(<FirstPageMoment />);
-    await act(async () => jest.advanceTimersByTime(AFTER_SHEET_MS));
     await act(async () => fireEvent.press(screen.getByText(FIRST_PAGE_COPY.dismiss)));
     expect(screen.queryByText(FIRST_PAGE_COPY.heading)).toBeNull();
     expect(showing()).toBe(false);
@@ -146,7 +134,6 @@ describe("on screen", () => {
   it("counts leaving the screen as seen, so it can't turn up on the next product", async () => {
     firstPage.useFirstPage.setState({ showing: true });
     const view = await render(<FirstPageMoment />);
-    await act(async () => jest.advanceTimersByTime(AFTER_SHEET_MS));
     mockFocused = false;
     await view.rerender(<FirstPageMoment />);
     expect(showing()).toBe(false);

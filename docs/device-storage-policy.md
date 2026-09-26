@@ -43,8 +43,10 @@ this file.
   `lib/shelf.ts`.
 - **#222** decided what sign-out does to local data, which item 6 of the
   checklist below had left open: **the shelf is cleared; the profile and the
-  history stay.** After #221 a signed-out person cannot have a shelf, and one
-  left on the phone would be carried into whichever account signs in next.
+  history stay.** The shelf is the account's and leaves with it; one left on
+  the phone would be carried into whichever account signs in next. Since
+  #300 a signed-out person has a shelf of their own, saved on the phone and
+  carried into the account at their next sign-in; sign-out starts it empty.
   The profile and scan history are the device's for everyone, signed in or
   not, so signing out never touches them. Queued shelf changes get one last
   push before a deliberate sign-out. Whatever still hasn't reached the

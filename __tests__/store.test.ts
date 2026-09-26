@@ -173,7 +173,6 @@ describe("what survives an app restart", () => {
       "hasSeenOnboarding",
       "history",
       "journalStarted",
-      "legacyShelfMigrated",
       "parkedShelf",
       "profile",
       "savedIngredients",
@@ -562,6 +561,60 @@ describe("v6 -> v7 migration", () => {
     ) as Record<string, unknown> | undefined;
     expect(migrated).not.toHaveProperty("productSuggestions");
     expect(migrated?.profile).toEqual(EMPTY_PROFILE);
+  });
+});
+
+describe("v7 -> v8 migration (#300)", () => {
+  const v7 = (over: Record<string, unknown>) => ({
+    profile: EMPTY_PROFILE,
+    hasSeenOnboarding: true,
+    savedProducts: [{ id: "a", savedAt: 1 }],
+    savedIngredients: ["niacinamide"],
+    history: [],
+    shelfOwner: null,
+    shelfQueue: [],
+    parkedShelf: null,
+    ...over,
+  });
+
+  it("drops the carry-once flag", () => {
+    const migrated = migratePersisted(v7({ legacyShelfMigrated: false }), 7) as Record<string, unknown> | undefined;
+    expect(migrated).not.toHaveProperty("legacyShelfMigrated");
+  });
+
+  it("keeps a shelf from before accounts, which the next sign-in carries in", () => {
+    const migrated = migratePersisted(v7({ legacyShelfMigrated: false }), 7);
+    expect(migrated?.savedProducts).toEqual([{ id: "a", savedAt: 1 }]);
+    expect(migrated?.savedIngredients).toEqual(["niacinamide"]);
+  });
+
+  it("keeps a signed-in account's shelf", () => {
+    const migrated = migratePersisted(v7({ legacyShelfMigrated: true, shelfOwner: "user-a" }), 7);
+    expect(migrated?.savedProducts).toEqual([{ id: "a", savedAt: 1 }]);
+  });
+
+  it("clears what's left on a phone that signed in before and has since signed out", () => {
+    // Sign-out empties the shelf, so nothing here was saved as a guest; the
+    // new rule would otherwise carry it into the next account to sign in.
+    const migrated = migratePersisted(v7({ legacyShelfMigrated: true }), 7);
+    expect(migrated?.savedProducts).toEqual([]);
+    expect(migrated?.savedIngredients).toEqual([]);
+  });
+
+  it("runs after the older steps, from any version", () => {
+    const migrated = migratePersisted(
+      { ...v7({ legacyShelfMigrated: true }), productSuggestions: [], profile: { ...EMPTY_PROFILE, sensitive: true } },
+      3,
+    ) as Record<string, unknown> & { profile: { sensitivity: unknown }; savedProducts: unknown[] };
+    expect(migrated).not.toHaveProperty("legacyShelfMigrated");
+    expect(migrated).not.toHaveProperty("productSuggestions");
+    expect(migrated.profile.sensitivity).toBe("some");
+    expect(migrated.savedProducts).toEqual([]);
+  });
+
+  it("leaves a v8 install alone", () => {
+    const state = v7({});
+    expect(migratePersisted(state, 8)).toEqual(state);
   });
 });
 

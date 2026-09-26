@@ -10,8 +10,8 @@ import { useAppStore } from "@/store/useAppStore";
  * rules live in lib/shelf.ts, the wire in data/api.ts, the cache and queue in
  * useAppStore; this file only decides *when*.
  *
- * - Signing in makes the cache the account's (carrying a pre-accounts shelf
- *   across once per device, #222) and syncs.
+ * - Signing in makes the cache the account's (carrying a guest's shelf into
+ *   it, at every sign-in, #300) and syncs.
  * - Every shelf change syncs shortly after, so the other phone sees it soon.
  * - Coming back to the app syncs, to pick up changes made elsewhere.
  * - A sync that fails — no signal in a shop is the normal case — keeps its

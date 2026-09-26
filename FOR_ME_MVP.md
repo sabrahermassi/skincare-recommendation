@@ -762,10 +762,11 @@ Do not use:
 
 # 25. MVP Features — two tiers
 
-**The MVP has a guest tier and a signed-in tier.** Scanning is free forever
-and needs no account; an account buys somewhere to keep things. The only
-place a guest is ever asked to sign up is the Save action (#221) — never
-before a scan, never anywhere else.
+**The MVP has a guest tier and a signed-in tier.** Scanning and saving are
+free forever and need no account; an account keeps what you save on every
+phone. Nothing asks a guest to sign up: sign-in is offered, quietly, on the
+Saved tab and in Account (#300, 26 September 2026, superseding #221's "the
+Save action is the one place a guest is asked").
 
 **This is a different axis from Quick Scan vs. Personalize (§6), and the two
 do not interact.** Quick Scan vs. Personalize is about whether a *profile*
@@ -782,12 +783,14 @@ gets the complete verdict. Neither gate stands in for the other.
 - The full verdict and explanation, immediately.
 - Local scan history — on the device, never synced, for guests and
   signed-in users alike.
+- **Save products and star ingredients** — kept on this phone, and carried
+  into the account at sign-in (#300).
 
 ## Signed-in — free account
 
 Everything above, plus:
 
-- **The saved shelf** — persistent and synced across devices (#223).
+- **The saved shelf on every phone** — synced across devices (#223).
 - **Journal notes** — an optional short note when saving (#228).
 - **Routine-step tagging** — assign a saved product to a step, and filter
   the shelf by it (#227).
@@ -1062,7 +1065,8 @@ for.me is ready to move toward launch when a new user can reliably:
 
 A signed-in user must additionally be able to:
 
-13. Create an account from the Save action, and not be asked anywhere else.
+13. Create an account from the Saved tab or Account, and never be asked to
+    at a Save; what was saved signed out is carried into the account.
 14. Keep a saved shelf that survives a reinstall and appears on a second
     device.
 15. Write, edit and delete a note on a saved product.

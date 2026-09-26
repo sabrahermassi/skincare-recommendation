@@ -16,7 +16,6 @@ beforeEach(() => {
     history: [],
     shelfOwner: null,
     shelfQueue: [],
-    legacyShelfMigrated: false,
     parkedShelf: null,
   });
 });
@@ -74,7 +73,7 @@ describe("laying queued changes over the server's shelf", () => {
   });
 });
 
-describe("a shelf from before accounts (#222)", () => {
+describe("a guest's shelf (#300)", () => {
   it("becomes saves that keep each product's time and formula version", () => {
     const ops = shelfAsSaves(
       { products: [{ id: "a", savedAt: 7, formulaFetchedAt: "2026-08-01" }], ingredients: ["x", "y"] },
@@ -87,27 +86,60 @@ describe("a shelf from before accounts (#222)", () => {
     ]);
   });
 
-  it("is carried into the first account signed in on this device, once", () => {
-    useAppStore.setState({ savedProducts: [{ id: "legacy", savedAt: 3 }], savedIngredients: ["niacinamide"] });
+  it("is carried into a new account at sign-in, and stays on screen while it syncs", () => {
+    useAppStore.setState({ savedProducts: [{ id: "guest", savedAt: 3 }], savedIngredients: ["niacinamide"] });
     s().adoptShelf("user-a");
     expect(s().shelfOwner).toBe("user-a");
-    expect(s().legacyShelfMigrated).toBe(true);
     expect(s().shelfQueue.map((op) => op.kind)).toEqual(["save-product", "save-ingredient"]);
-    // Still on screen while it syncs.
-    expect(s().savedProducts.map((p) => p.id)).toEqual(["legacy"]);
+    expect(s().savedProducts.map((p) => p.id)).toEqual(["guest"]);
   });
 
-  it("never runs again, so a removal after signing in stays removed", () => {
-    useAppStore.setState({ savedProducts: [{ id: "legacy", savedAt: 3 }] });
+  it("merges into an account that already has a shelf, without overwriting its rows", () => {
+    useAppStore.setState({ savedProducts: [{ id: "both", savedAt: 50 }, { id: "guest", savedAt: 60 }] });
     s().adoptShelf("user-a");
-    s().applyServerShelf("user-a", s().shelfQueue, { products: [{ id: "legacy", savedAt: 3 }], ingredients: [] });
-    s().toggleSaved("legacy"); // removed after signing in…
-    s().applyServerShelf("user-a", s().shelfQueue, { products: [], ingredients: [] }); // …and synced
+    // The saves only add: pushed as plain saves, never as fresh rows, so the
+    // server keeps the account's own row for "both".
+    expect(planPush(s().shelfQueue).saveProducts.every((p) => !p.fresh)).toBe(true);
+    // Read back before the push lands: the account's row, note and date, wins.
+    s().applyServerShelf("user-a", [], {
+      products: [{ id: "both", savedAt: 10, note: "Holy grail" }, { id: "account", savedAt: 20 }],
+      ingredients: [],
+    });
+    expect(s().savedProducts).toEqual([
+      { id: "both", savedAt: 10, note: "Holy grail" },
+      { id: "account", savedAt: 20 },
+      { id: "guest", savedAt: 60 },
+    ]);
+  });
+
+  it("is carried again at a second sign-in after a sign-out", () => {
+    s().adoptShelf("user-a");
+    s().applyServerShelf("user-a", s().shelfQueue, { products: [{ id: "a1", savedAt: 1 }], ingredients: [] });
     s().leaveShelf();
-    useAppStore.setState({ savedProducts: [{ id: "legacy", savedAt: 3 }] }); // as if somehow left behind
+    expect(s().savedProducts).toEqual([]);
+    s().saveProduct("guest-again"); // saved signed out
+    s().adoptShelf("user-a");
+    expect(s().shelfQueue).toEqual([expect.objectContaining({ kind: "save-product", id: "guest-again" })]);
+  });
+
+  it("never puts back something removed while signed in", () => {
+    useAppStore.setState({ savedProducts: [{ id: "gone", savedAt: 3 }] });
+    s().adoptShelf("user-a");
+    s().applyServerShelf("user-a", s().shelfQueue, { products: [{ id: "gone", savedAt: 3 }], ingredients: [] });
+    s().toggleSaved("gone"); // removed while signed in…
+    s().applyServerShelf("user-a", s().shelfQueue, { products: [], ingredients: [] }); // …and synced
+    s().leaveShelf(); // sign-out empties the shelf, so there is nothing to carry
     s().adoptShelf("user-a");
     expect(s().shelfQueue).toEqual([]);
     expect(s().savedProducts).toEqual([]);
+  });
+
+  it("never carries another account's cache", () => {
+    s().adoptShelf("user-a");
+    s().saveProduct("a-only");
+    s().adoptShelf("user-b");
+    expect(s().savedProducts).toEqual([]);
+    expect(s().shelfQueue).toEqual([]);
   });
 
   it("does not touch the profile", () => {

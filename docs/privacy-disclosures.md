@@ -115,8 +115,8 @@ depends on #14, and the question has been raised there.
 
 ## Accounts (#217–#224)
 
-An account is optional: scanning and verdicts never need one. It exists to
-keep a shelf across phones (#221, #223).
+An account is optional: scanning, verdicts and saving never need one (#300).
+It exists to keep a shelf across phones (#223).
 
 **Identity providers — Apple and Google.** Sign in with Apple and Sign in
 with Google return an identity token that Supabase Auth verifies. What this
@@ -175,7 +175,11 @@ left the phone.
   see `docs/device-storage-policy.md`), and are swept into Android's default
   `allowBackup` and iOS device/iCloud backups — a disclosable processing fact
   for whatever becomes the real privacy policy.
-- A **signed-out** phone keeps no shelf at all (#221, #222).
+- A **signed-out** phone keeps its own shelf, on the phone only (#300): the
+  products and ingredients saved while signed out, in `AsyncStorage` like the
+  profile. Signing in carries it into the account, to the server; signing out
+  clears the account's shelf from the phone (#222). Notes and routine steps
+  are signed-in only.
 - Face or skin photographs: this app has no feature that captures one. If
   one is ever added, it needs its own entry here and its own regulatory
   review — see `docs/threat-model.md`'s non-goals.

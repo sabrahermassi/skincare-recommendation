@@ -1,18 +1,10 @@
 import { useIsFocused } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { AccessibilityInfo, Platform, Pressable, View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { FIRST_PAGE_COPY, dismissFirstPage, useFirstPage } from "@/lib/first-page";
 import { CARD_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
-
-/**
- * How long after the product screen gets the focus back before the moment
- * appears. The screen is focused as soon as the sign-in sheet starts to close,
- * and the moment must not be seen beside a sheet still sliding away (#230).
- * Longer than iOS's sheet dismissal; the device check in the PR confirms it.
- */
-export const AFTER_SHEET_MS = 500;
 
 /**
  * "The first page of your journal" (#230), under the product screen's header,
@@ -22,21 +14,15 @@ export const AFTER_SHEET_MS = 500;
 export function FirstPageMoment() {
   const showing = useFirstPage((s) => s.showing);
   const focused = useIsFocused();
-  const [settled, setSettled] = useState(false);
 
   useEffect(() => {
     if (!showing || !focused) return;
-    const timer = setTimeout(() => setSettled(true), AFTER_SHEET_MS);
-    return () => {
-      clearTimeout(timer);
-      setSettled(false);
-      // Leaving the screen with the moment up, or on its way up, counts as
-      // seen — it must not wait and turn up on the next product opened.
-      dismissFirstPage();
-    };
+    // Leaving the screen with the moment up counts as seen — it must not
+    // wait and turn up on the next product opened.
+    return () => dismissFirstPage();
   }, [showing, focused]);
 
-  if (!showing || !focused || !settled) return null;
+  if (!showing || !focused) return null;
   return <Card />;
 }
 
