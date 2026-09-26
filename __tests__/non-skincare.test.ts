@@ -16,6 +16,8 @@ describe("nonSkincareReason", () => {
     "Nagellackentferner",
     "Dentifrice blancheur",
     "Faux ongles adhésifs",
+    "Multi-Surface Cleaner",
+    "Glass Cleaning Wipes",
   ])("removes %p", (name: string) => {
     expect(nonSkincareReason({ name })).not.toBeNull();
   });
@@ -30,6 +32,10 @@ describe("nonSkincareReason", () => {
     "Soin fortifiant ongles et cuticules", // nail care, not polish
     "Gentle Exfoliating SA Cleanser",
     "Shampooing douceur", // hair is scored on purpose
+    "Glass Skin Cleansing Oil", // K-beauty "glass skin" (#312 review)
+    "Glass Skin Refining Cleanser",
+    "Cedar Wood Face Cleanser",
+    "Skin Surface Cleansing Foam",
   ])("keeps %p", (name: string) => {
     expect(nonSkincareReason({ name })).toBeNull();
   });

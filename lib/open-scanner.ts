@@ -15,10 +15,10 @@ let lastOpenedAt = 0;
  * like any iOS full-screen modal (`app/_layout.tsx`), and slides back down
  * when closed (#313).
  *
- * `push`, not `navigate`: `navigate` reuses any scanner already in the stack,
- * so "Scan another" on a result opened from the scanner would slide *back* to
- * that old scanner instead of opening a fresh one (#315 review). The repeat
- * guard is what stops a double tap from pushing two.
+ * `push`, so every open is a fresh scanner that slides up, and the repeat
+ * guard is what stops a double tap from pushing two (#315 review). With the
+ * installed expo-router, `navigate` would only have absorbed a repeat while a
+ * scanner was already on top; it never goes back to one lower in the stack.
  */
 export function openScanner() {
   openScannerAt(Date.now());
