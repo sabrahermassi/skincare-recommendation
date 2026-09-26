@@ -145,6 +145,10 @@ export default function RootLayout() {
         {/* Titled as a fallback for anything that ignores the display mode. */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "for.me" }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        {/* The skin quiz, over whatever screen asked for it, so finishing or
+            closing it returns exactly there (#346). Swiping it down keeps the
+            answers given so far: each is saved as it's tapped. */}
+        <Stack.Screen name="quiz" options={{ headerShown: false, presentation: "modal" }} />
         {/*
           No native header on any of these. The design draws its own top row on
           every pushed screen — back chevron on the canvas, screen-specific

@@ -106,34 +106,38 @@ Everything in the MVP should support this core experience.
 The first-ever app open starts with a 3-screen welcome/value-proposition
 carousel (`app/onboarding/index.tsx`).
 
-The carousel leads into personalization by default — both "Continue" on its
-last screen and "Skip" on any of its 3 screens go to the same place, the
-quiz's first step. The Quick Scan / Personalize choice is realized through
-the quiz's own Skip control rather than a dedicated welcome-time screen:
-Skip is available on every quiz step and jumps straight to Home (`/`),
-while completing all 4 steps finishes personalization first, also landing
-on Home. Home, not the scanner, is where onboarding hands off — the
-scanner opens from Home's raised floating button. See §8/§9.
+**Scan first, quiz later (#346, 26 September 2026).** "Get started" on the
+carousel's last screen and "Skip" on any of its 3 screens both go straight
+to Home (`/`). No skin question is asked before the first scan. Home, not
+the scanner, is where onboarding hands off — the scanner opens from Home's
+raised floating button. See §8/§9.
 
 ## Quick Scan
 
-Quick Scan is reachable at any point during the quiz — the shopping-in-a-
-hurry user doesn't have to answer any question to reach it.
+The default. A result without a profile still answers straight away with the
+Ingredient check (#345), the same for everyone, and offers **See your skin
+match** in place of a personal score.
 
 Flow:
 
-**Welcome carousel → Quiz → Skip (any step) → Home → Scan**
+**Welcome carousel → Home → Scan → Result (Ingredient check + See your skin match)**
 
 No personalization questionnaire is required before scanning.
 
 ## Personalize My Results
 
+The skin quiz (Concerns → Skin Type → Sensitivity → Pregnancy, `app/quiz/`)
+opens as a modal over whatever asked for it: a result's "See your skin
+match", Profile's "Skin profile" row, or the top of Search results
+(`lib/open-quiz.ts`).
+
 Flow:
 
-**Welcome carousel → Quiz (Concerns → Skin Type → Sensitivity → Pregnancy) → Home → Scan**
+**Result → See your skin match → Quiz → back to the same result, now scored**
 
-Home opens **immediately after the last quiz step**; the scanner is one tap
-away from there, not the immediate landing screen.
+Finishing the last step closes the quiz back onto that same screen. Skip, or
+swiping it down, closes it early and keeps every answer given so far; if
+they are enough to score, the score appears, otherwise the card stays.
 
 There is:
 
@@ -141,7 +145,7 @@ There is:
 - no summary/confirmation screen;
 - no extra educational screen.
 
-A subtle progress indicator is allowed during onboarding (the quiz's 4 dots,
+A subtle progress indicator is allowed in the quiz (its 4 dots,
 `components/QuizScreen.tsx`).
 
 ---
@@ -178,7 +182,7 @@ Multiple selection is allowed.
 
 Maximum: **3 concerns**.
 
-Available options (`app/onboarding/(quiz)/concerns.tsx`):
+Available options (`app/quiz/concerns.tsx`):
 
 1. Dry / Dehydrated
 2. Dullness
@@ -236,7 +240,7 @@ route `/`), regardless of whether the user has a personalized profile. The
 scanner is one tap away via Home's raised floating Scan button, not the
 landing screen itself.
 
-A returning user without a profile can still use Quick Scan and can personalize later.
+A returning user without a profile can still use Quick Scan and can personalize later, from any result's "See your skin match".
 
 Returning-user flow:
 
@@ -807,7 +811,10 @@ Everything above, plus:
 - **Hand-written UV and context nudges** — static content, no live API
   (#234).
 - **Skincare School** — 15–20 curated beginner questions with pre-written
-  answers, grouped by category; static, no AI (#235).
+  answers; static, no AI (#235). Laid out as a chat (#352): tap a suggested
+  question, or search the curated ones, and its pre-written answer appears
+  as a reply. The search box never writes an answer; with no match it says
+  so and offers questions it can answer.
 - Product search, and the existing detailed result breakdown.
 
 ## Journal identity
