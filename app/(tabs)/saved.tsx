@@ -1,16 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { Link, router, useFocusEffect, useScrollToTop } from "expo-router";
+import { Link, useFocusEffect, useScrollToTop } from "expo-router";
 import type { ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ArtOnLine } from "@/components/ArtOnLine";
 import { BottomSheet } from "@/components/BottomSheet";
 import { ConfirmSheet } from "@/components/ConfirmSheet";
 import { StarIcon } from "@/components/icons/StarIcon";
-import { PrimaryButton } from "@/components/PrimaryButton";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { NotePreview } from "@/components/ProductNote";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
@@ -27,7 +25,6 @@ import { unknownIngredient, type Ingredient, type ProductWithIngredients } from 
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime, SAFETY_LABEL } from "@/lib/format";
-import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, TYPE_STEP, stepOf, type RoutineStep, type StepGroup } from "@/lib/routine-step";
 import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
@@ -696,26 +693,20 @@ const EMPTY_ART = {
   ingredients: { source: require("@/assets/illustrations/ingredients-empty.webp"), aspect: 1400 / 884 },
 } as const;
 
-type EmptyCopy = { title: string; body: string; actionLabel: string; actionHref: "/scanner" | "/browse" };
+type EmptyCopy = { title: string; body: string };
 
 const EMPTY_COPY: Record<Tab, EmptyCopy> = {
   saved: {
     title: "No products saved yet",
     body: "Tap Save on any product and it will wait for you here - including next time you open the app.",
-    actionLabel: "Scan a product",
-    actionHref: "/scanner",
   },
   history: {
     title: "No history yet",
     body: "Every product you open or scan is logged here automatically, so you can tell at a glance whether you have already checked something.",
-    actionLabel: "Scan a product",
-    actionHref: "/scanner",
   },
   ingredients: {
     title: "No starred ingredients yet",
     body: "Open a product, tap an ingredient, then tap its star to keep it here.",
-    actionLabel: "Search products",
-    actionHref: "/browse",
   },
 };
 
@@ -777,21 +768,21 @@ function EmptyState({ tab }: { tab: Tab }) {
     return () => pictures.stop();
   }, [tab, artOpacity, reduceMotion]);
 
-  const { title, body, actionLabel, actionHref } = EMPTY_COPY[tab];
+  const { title, body } = EMPTY_COPY[tab];
 
   return (
-    // The picture sits on the line every empty state shares (`ArtOnLine`), so
-    // it doesn't jump between Saved, History, Ingredients and Search. Scrolls
-    // only when the art, copy and button do not fit (a short phone, large
-    // text); the bottom room keeps the button clear of the floating tab bar.
+    // Just the picture and its words, centred in the room between the tab
+    // switch and the tab bar (owner): no button. Every tab's block is the same
+    // height (the picture box and the reserved body height below), so the
+    // picture doesn't move when the tab changes. Scrolls only when it doesn't
+    // fit (a short phone, large text).
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ paddingHorizontal: 40, paddingBottom: tabBarClearance(insets.bottom) }}
+      contentContainerStyle={{ flexGrow: 1, justifyContent: "center", paddingHorizontal: 40, paddingBottom: tabBarClearance(insets.bottom) }}
       alwaysBounceVertical={false}
       overScrollMode="never"
       showsVerticalScrollIndicator={false}
     >
-      <ArtOnLine remeasureOn={tab}>
       <View style={{ alignItems: "center", gap: 10 }}>
         <View style={{ width: EMPTY_ART_WIDTH, height: EMPTY_ART_HEIGHT }}>
           {EMPTY_TABS.map((t) => (
@@ -821,20 +812,8 @@ function EmptyState({ tab }: { tab: Tab }) {
           <View style={{ minHeight: 57, justifyContent: "flex-start" }}>
             <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
           </View>
-          {/* The one-tap way back to the scanner — without this, an empty
-              Saved/History tab (the near-certain first visit to either) was a
-              dead end you had to know to escape yourself, via the tab bar. */}
-          <PrimaryButton
-            size={50}
-            label={actionLabel}
-            onPress={() =>
-              actionHref === "/scanner" ? openScanner() : router.push(actionHref)
-            }
-            style={{ marginTop: 8 }}
-          />
         </View>
       </View>
-      </ArtOnLine>
     </ScrollView>
   );
 }

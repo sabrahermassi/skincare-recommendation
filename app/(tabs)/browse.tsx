@@ -5,7 +5,6 @@ import { FlatList, Pressable, StyleSheet, TextInput, View, type DimensionValue, 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HEADER_GUTTER } from "@/components/AppHeader";
-import { ArtOnLine } from "@/components/ArtOnLine";
 import { GlassButton } from "@/components/GlassButton";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { ProductRow } from "@/components/ProductRow";
@@ -57,13 +56,13 @@ const KEEP_TYPING = "Type at least three letters to search.";
 const SKELETON_ROWS = 6;
 
 // One flat array for the FlatList, which can only virtualize a single list.
+// The two empty states aren't rows: they're the list's empty component, so
+// they can fill the room under the search box and sit centred in it.
 type SearchItem =
   | { kind: "keep-typing" }
-  | { kind: "welcome" }
   | { kind: "recent-heading" }
   | { kind: "recent"; product: ProductWithIngredients; match: MatchResult }
   | { kind: "skeleton"; id: string }
-  | { kind: "empty-search" }
   | { kind: "product"; product: ProductWithIngredients; match: MatchResult };
 
 function skeletonRows(): SearchItem[] {
@@ -236,7 +235,7 @@ export default function Browse() {
   const items = useMemo<SearchItem[]>(() => {
     if (searchActive) {
       if (searching) return skeletonRows();
-      if (scoredSearch === null || scoredSearch.length === 0) return [{ kind: "empty-search" }];
+      if (scoredSearch === null || scoredSearch.length === 0) return [];
       // Just the results: the skin questions live behind Home's "Find a
       // product" card, not above every search (owner).
       return scoredSearch.map(({ product, match }) => ({ kind: "product", product, match }) as const);
@@ -244,10 +243,9 @@ export default function Browse() {
     // Before typing: the watercolor still life (owner), then what was viewed
     // recently. Typed but too short to search: first say why nothing happens.
     // Once something has been viewed, the list takes the picture's place (owner).
-    const list: SearchItem[] = query.trim().length > 0 ? [{ kind: "keep-typing" }] : [];
-    if (recent.length === 0) return [...list, { kind: "welcome" }];
+    if (recent.length === 0) return [];
     return [
-      ...list,
+      ...(query.trim().length > 0 ? [{ kind: "keep-typing" } as const] : []),
       { kind: "recent-heading" },
       ...recent.map((product) => ({ kind: "recent", product, match: matchProduct(product, profile) }) as const),
     ];
@@ -260,18 +258,6 @@ export default function Browse() {
           <Text style={{ paddingHorizontal: HEADER_GUTTER, paddingBottom: SPACE.text, fontSize: TYPE.caption, color: MUTED }}>
             {KEEP_TYPING}
           </Text>
-        );
-
-      case "welcome":
-        return (
-          <EmptyState
-            art={WELCOME_ART}
-            aspect={WELCOME_ASPECT}
-            width={WELCOME_ART_WIDTH}
-            artLabel="A little progress every day"
-            title="Search by name or brand"
-            line="Look up any product in our library of analysed skincare."
-          />
         );
 
       case "recent-heading":
@@ -299,17 +285,6 @@ export default function Browse() {
       case "skeleton":
         return <ProductRowSkeleton />;
 
-      case "empty-search":
-        return (
-          <EmptyState
-            art={NO_MATCH_ART}
-            aspect={NO_MATCH_ASPECT}
-            artLabel=""
-            title="We looked everywhere"
-            line="This product isn't in our library yet. Try searching for another one."
-          />
-        );
-
       case "product":
         return <ProductRow product={item.product} match={item.match} />;
 
@@ -326,7 +301,37 @@ export default function Browse() {
           item.kind === "skeleton" ? item.id : item.kind === "product" || item.kind === "recent" ? `${item.kind}-${item.product.id}` : item.kind
         }
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarClearance(insets.bottom) }}
+        // Before typing with nothing viewed, or a search with no match: the
+        // picture and its words, centred in the room under the search box
+        // (owner). Typed but too short to search, it first says why.
+        ListEmptyComponent={
+          <View style={{ flex: 1 }}>
+            {searchActive ? null : query.trim().length > 0 ? (
+              <Text style={{ paddingHorizontal: HEADER_GUTTER, paddingBottom: SPACE.text, fontSize: TYPE.caption, color: MUTED }}>{KEEP_TYPING}</Text>
+            ) : null}
+            <View style={{ flex: 1, justifyContent: "center" }}>
+              {searchActive ? (
+                <EmptyState
+                  art={NO_MATCH_ART}
+                  aspect={NO_MATCH_ASPECT}
+                  artLabel=""
+                  title="We looked everywhere"
+                  line="This product isn't in our library yet. Try searching for another one."
+                />
+              ) : (
+                <EmptyState
+                  art={WELCOME_ART}
+                  aspect={WELCOME_ASPECT}
+                  width={WELCOME_ART_WIDTH}
+                  artLabel="A little progress every day"
+                  title="Search by name or brand"
+                  line="Look up any product in our library of analysed skincare."
+                />
+              )}
+            </View>
+          </View>
+        }
         // The search box lives in this same list's header, so with the
         // keyboard up, the default "never" meant a row's first tap only
         // dismissed the keyboard — the tap was consumed as "outside the
@@ -451,17 +456,13 @@ function EmptyState({
   line: string;
 }) {
   return (
-    // On the line every empty state's picture shares, so it sits level with
-    // Saved's, History's and Ingredients' (`ArtOnLine`).
-    <ArtOnLine>
-      <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: HEADER_GUTTER }}>
-        <Image source={art} contentFit="contain" accessibilityLabel={artLabel} style={{ width, aspectRatio: aspect }} />
-        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
-          {title}
-        </Text>
-        <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: TYPE.body * 1.4, color: MUTED }}>{line}</Text>
-      </View>
-    </ArtOnLine>
+    <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: HEADER_GUTTER }}>
+      <Image source={art} contentFit="contain" accessibilityLabel={artLabel} style={{ width, aspectRatio: aspect }} />
+      <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
+        {title}
+      </Text>
+      <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: TYPE.body * 1.4, color: MUTED }}>{line}</Text>
+    </View>
   );
 }
 

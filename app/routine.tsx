@@ -20,7 +20,10 @@ export default function Routine() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader title="Skincare routine" />
-      <ScrollView contentContainerStyle={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: HEADER_GUTTER, paddingVertical: SPACE.gutter }}>
+      {/* The picture and its words, centred in the screen (owner). */}
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center", gap: SPACE.text, paddingHorizontal: HEADER_GUTTER, paddingVertical: SPACE.gutter }}
+      >
         <Image source={ROUTINE_ART} contentFit="contain" accessibilityLabel="" style={{ width: "100%", aspectRatio: ROUTINE_ASPECT }} />
         <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
           Coming soon

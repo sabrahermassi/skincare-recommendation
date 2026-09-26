@@ -90,3 +90,12 @@ describe("History", () => {
     expect(useAppStore.getState().history).toHaveLength(1);
   });
 });
+
+it("shows an empty tab as just its picture and words, with no button", async () => {
+  await render(<Saved />);
+  expect(await screen.findByText("No products saved yet")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Scan a product" })).toBeNull();
+  await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" })));
+  expect(await screen.findByText("No starred ingredients yet")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Search products" })).toBeNull();
+});
