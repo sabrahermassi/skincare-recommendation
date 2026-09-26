@@ -33,6 +33,7 @@ import { fetchAliases } from "./lib/aliases.mjs";
 import { fetchStoredFormulas, isParserRefresh } from "./lib/formula-diff.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 import { normalise, parseInci } from "./lib/inci-parse.mjs";
+import { nonSkincareReason } from "./lib/non-skincare.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const OBF = "https://world.openbeautyfacts.org";
@@ -315,6 +316,7 @@ const STAMPED_MODULES = [
   "./import-obf.mjs",
   "./lib/inci-parse.mjs",
   "./lib/guess-type-from-ingredients.mjs",
+  "./lib/non-skincare.mjs",
   "../supabase/functions/_shared/product-type-classifier.mjs",
 ];
 
@@ -473,6 +475,9 @@ function toRow(p, known, samples, rejectedNames, aliases) {
   const name = (p.product_name ?? "").trim();
   const inci = (p.ingredients_text ?? "").trim();
   if (!name || !inci || !p.code) return "no name, formula or barcode";
+  // `en:cleansers` also holds nail polish removers and household cleaners
+  // (#299). A fixed string, like the other reasons, so the caller can group.
+  if (nonSkincareReason({ name, categories: p.categories_tags })) return "not skincare";
 
   const ingredients = parseInci(inci, known, rejectedNames, aliases);
   if (ingredients.length < 2) return "fewer than 2 parsed ingredients";
