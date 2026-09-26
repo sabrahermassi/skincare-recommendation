@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Pressable, View } from "react-native";
 
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
-import { Text } from "@/components/Text";
+import { Text, useIconScale } from "@/components/Text";
 import type { Ingredient } from "@/data/types";
 import { ingredientCheck, ingredientCheckLine, ingredientCheckTone } from "@/lib/ingredient-labels";
 import { RUNG_META } from "@/lib/matching";
@@ -17,6 +17,8 @@ import { BORDER_INACTIVE, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/
 export function IngredientCheck({ ingredients, onPress }: { ingredients: Ingredient[]; onPress?: () => void }) {
   const check = useMemo(() => ingredientCheck(ingredients), [ingredients]);
   const line = ingredientCheckLine(check);
+  // The dot and chevron grow with the line beside them (#334).
+  const icon = useIconScale(TYPE.label);
 
   return (
     <Pressable
@@ -38,12 +40,12 @@ export function IngredientCheck({ ingredients, onPress }: { ingredients: Ingredi
       }}
       className="rounded-control active:opacity-70"
     >
-      <View style={{ width: 9, height: 9 }} className={`rounded-full ${RUNG_META[ingredientCheckTone(check)].dot}`} />
+      <View style={{ width: 9 * icon, height: 9 * icon }} className={`rounded-full ${RUNG_META[ingredientCheckTone(check)].dot}`} />
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Ingredient check</Text>
         <Text style={{ fontSize: TYPE.label, lineHeight: 19, fontWeight: "600", color: INK }}>{line}</Text>
       </View>
-      {onPress ? <ArrowIcon size={16} color={INK} /> : null}
+      {onPress ? <ArrowIcon size={16 * icon} color={INK} /> : null}
     </Pressable>
   );
 }

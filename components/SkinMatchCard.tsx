@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
-import { Text } from "@/components/Text";
+import { Text, useIconScale } from "@/components/Text";
 import { openQuiz } from "@/lib/open-quiz";
 import { quizStepCount } from "@/lib/profile";
 import { BORDER_INACTIVE, CARD_SHADOW, INK, MUTED, SURFACE, TYPE } from "@/lib/tokens";
@@ -13,6 +13,8 @@ import { BORDER_INACTIVE, CARD_SHADOW, INK, MUTED, SURFACE, TYPE } from "@/lib/t
  */
 export function SkinMatchCard() {
   const body = `See how this fits your skin — ${quizStepCount()} quick questions.`;
+  // Grows with the words beside it on a result's reading screen (#334).
+  const arrow = 22 * useIconScale(TYPE.label);
   return (
     <Pressable
       onPress={openQuiz}
@@ -37,7 +39,9 @@ export function SkinMatchCard() {
         </Text>
         <Text style={{ fontSize: TYPE.label, lineHeight: 20, color: MUTED }}>{body}</Text>
       </View>
-      <ArrowIcon size={22} color={INK} />
+      <View testID="skin-match-arrow" style={{ width: arrow, height: arrow }}>
+        <ArrowIcon size={arrow} color={INK} />
+      </View>
     </Pressable>
   );
 }

@@ -14,7 +14,7 @@ import { ScoreRing } from "@/components/ScoreRing";
 import { ContextNudgesSection, ExplanationLine, HowScoringLink, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SkinMatchCard } from "@/components/SkinMatchCard";
-import { Text } from "@/components/Text";
+import { ReadingScale, Text, useLargeText, useRingScale } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
 import type { Ingredient } from "@/data/types";
 import { pairingNotesFor } from "@/lib/active-pairings";
@@ -23,7 +23,7 @@ import { confidenceLabel, isLowCoverage, matchProduct, scoreExplanation, verdict
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { CANVAS, FONT_SCALE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 import { barcodeParam as barcodeParamOf } from "@/lib/route-params";
 
 /**
@@ -77,6 +77,10 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
   const profile = useAppStore((s) => s.profile);
   const [ingredients, setIngredients] = useState<Ingredient[] | null>(null);
   const sheetRef = useRef<IngredientsSheetHandle>(null);
+  // Past the ordinary text ceiling the verdict's words no longer fit beside
+  // the score ring, so the ring goes above them (#334).
+  const largeText = useLargeText();
+  const ringScale = useRingScale();
 
   useEffect(() => track("verdict_viewed", { path: "label" }), []);
 
@@ -140,6 +144,8 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
   const needsProfile = !lowCoverage && match.unknownReason === "not_personalized";
   const sheetPeek = total > 0 ? ingredientsSheetPeek(insets.bottom) : 0;
 
+  const scoreRing = <ScoreRing score={match.score} size={82 * ringScale} label="/100" tone={match.verdict} />;
+
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader title="Your match" />
@@ -151,6 +157,10 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
           paddingHorizontal: SPACE.gutter,
         }}
       >
+        {/* The reading part of the screen: its text follows the phone's text
+            size all the way up (#334). The header and the ingredients sheet
+            keep the ordinary ceiling. */}
+        <ReadingScale>
         <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
           {total > 0 ? `${total} ingredients read` : "Nothing was read"}
         </Text>
@@ -172,12 +182,15 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
         >
           <View
             accessible
-            className="flex-row items-center"
+            className={largeText ? "items-start" : "flex-row items-center"}
             style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
           >
-            <ScoreRing score={match.score} size={82} label="/100" tone={match.verdict} />
-            <View className="flex-1 gap-1.5 pr-6">
+            {scoreRing}
+            <View className={largeText ? "gap-1.5 self-stretch" : "flex-1 gap-1.5 pr-6"}>
               <Text
+                // Follows the phone as far as body text does, so at the largest sizes
+                // the verdict still stands a step above the sentence under it (#334).
+                maxFontSizeMultiplier={FONT_SCALE.reading}
                 style={{
                   fontFamily: "PlayfairDisplay_500Medium",
                   fontSize: TYPE.title,
@@ -269,6 +282,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
             />
           </>
         )}
+        </ReadingScale>
       </ScrollView>
 
       {!lowCoverage && total > 0 ? <IngredientsSheet ref={sheetRef} product={product} match={match} /> : null}
