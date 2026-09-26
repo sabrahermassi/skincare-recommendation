@@ -64,8 +64,14 @@ export default function Onboarding() {
   // redirect with no acknowledgment at all still reads as "did that
   // actually do anything?" for a second — this brief toast closes that gap
   // without needing a toast library this app doesn't otherwise have.
+  //
+  // Only after a real erase: a link can carry `?erased=1` too (#29), and must
+  // not tell someone who still has a profile that it's gone. An erase resets
+  // `hasSeenOnboarding`, so it is false exactly when the toast is true.
   const { erased } = useLocalSearchParams<{ erased?: string }>();
-  const [showErasedToast, setShowErasedToast] = useState(erased === "1");
+  const [showErasedToast, setShowErasedToast] = useState(
+    () => erased === "1" && !useAppStore.getState().hasSeenOnboarding,
+  );
   useEffect(() => {
     if (!showErasedToast) return;
     const timer = setTimeout(() => setShowErasedToast(false), 3000);

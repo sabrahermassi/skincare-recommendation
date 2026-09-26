@@ -29,6 +29,7 @@ import {
   withAlpha,
 } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
+import { barcodeParam as barcodeParamOf } from "@/lib/route-params";
 
 /**
  * Adding a product we don't have.
@@ -40,7 +41,8 @@ import { haptic } from "@/lib/haptics";
  * saves all three together. Nothing is stored before then.
  */
 export default function AddProduct() {
-  const { barcode: barcodeParam } = useLocalSearchParams<{ barcode?: string }>();
+  // From a link, so only a real barcode is kept (#29); anything else leaves the step to ask for one.
+  const barcodeParam = barcodeParamOf(useLocalSearchParams<{ barcode?: string }>().barcode);
   const [read] = useState(heldLabelRead);
   const [barcode, setBarcode] = useState<string | undefined>(barcodeParam ?? read?.barcode);
 

@@ -23,6 +23,8 @@ import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, INK, MUTED, MUTED_FAINT, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
+import { ingredientNameParam, productIdParam } from "@/lib/route-params";
+import NotFound from "@/app/+not-found";
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG's `hero`/pill/panel colors
 // (below) are semantic — the per-ingredient verdict, the point of this
@@ -135,12 +137,20 @@ function StarIcon({ filled }: { filled: boolean }) {
   );
 }
 
-export default function IngredientDetail() {
+/**
+ * The route. A link can put anything in the name: one that can't be an
+ * ingredient name is a page that doesn't exist, and a malformed `product` is
+ * dropped, leaving the ingredient on its own (#29).
+ */
+export default function IngredientRoute() {
+  const params = useLocalSearchParams<{ inci: string; product?: string }>();
+  const inci = ingredientNameParam(params.inci);
+  if (!inci) return <NotFound />;
+  return <IngredientDetail inci={inci} productId={productIdParam(params.product) ?? undefined} />;
+}
+
+function IngredientDetail({ inci, productId }: { inci: string; productId?: string }) {
   const insets = useSafeAreaInsets();
-  const { inci, product: productId } = useLocalSearchParams<{
-    inci: string;
-    product?: string;
-  }>();
 
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [resolvedIngredient, setResolvedIngredient] = useState<Ingredient | null>(null);

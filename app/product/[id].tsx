@@ -33,6 +33,8 @@ import { historyWarningCount, isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
+import { productIdParam } from "@/lib/route-params";
+import NotFound from "@/app/+not-found";
 
 // The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
 // are the shared `PrimaryButton` — one component so this screen, browse and
@@ -88,11 +90,22 @@ const PICTURE_DEFAULT = 120;
 // See `staleNotice`.
 const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 
-export default function ProductScreen() {
-  const insets = useSafeAreaInsets();
+/**
+ * The route: the id comes from the URL, so a link can put anything in it. One
+ * that can't be a catalogue id is a page that doesn't exist, answered without
+ * asking the catalogue (#29).
+ */
+export default function ProductRoute() {
   // `from` says how the person got here, for the funnel (#225) only: the
   // scanner and the label flow set it, and anything else is browsing.
   const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  const productId = productIdParam(id);
+  if (!productId) return <NotFound />;
+  return <ProductScreen id={productId} from={from} />;
+}
+
+function ProductScreen({ id, from }: { id: string; from?: string }) {
+  const insets = useSafeAreaInsets();
   // Seeded from the catalogue cache so a product already in memory paints on
   // the first frame instead of a spinner — the same `peekProducts` seam
   // `app/(tabs)/browse.tsx` uses for a warm start.
