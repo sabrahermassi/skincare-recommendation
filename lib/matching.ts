@@ -5,7 +5,7 @@ import type {
   SkinProfile,
 } from "@/data/types";
 import { displayIngredientName } from "./ingredient-name";
-import { isWarnedPoreClogging, poreCloggingHits, type CloggerHit } from "./pore-clogging";
+import { poreCloggingHits, type CloggerHit } from "./pore-clogging";
 import { isPersonalized, isSensitive, treatAsReactive } from "./profile";
 import {
   CATEGORY_LABEL,
@@ -960,56 +960,12 @@ export function biggestConcern(result: MatchResult): ScoreFactor | null {
 }
 
 /**
- * How one ingredient reads for one profile — the dot and pill in the design's
- * legend. Lives here rather than in a screen so the list and the detail view
- * cannot drift apart, which is the bug this codebase already hit once with the
- * flagged-ingredient count.
- *
- *   flag     works against this profile, or is contraindicated for it
- *   watch    carries an EU restriction, is on the published pore-clogging
- *            lists, or we could not identify it — or, with no profile to
- *            judge against, can work against some skin
- *   good     recognised and either helpful or inert
+ * The four soft colour rungs an ingredient's word is drawn in. Which word a
+ * row gets is `ingredientLabel` (`lib/ingredient-labels.ts`, #324), shared by
+ * the ingredient list and the ingredient detail screen so the two cannot
+ * drift apart — a second, independent derivation drifted before.
  */
-type IngredientTone = "good" | "watch" | "flag";
-
-function ingredientTone(
-  ingredient: Ingredient,
-  result: MatchResult
-): IngredientTone {
-  if (result.warnings.some((w) => w.ingredient.id === ingredient.id)) return "flag";
-  if (result.reasons.some((r) => r.ingredient === ingredient.name && r.effect < 0)) return "flag";
-  if (result.irritants.includes(ingredient.name)) return "flag";
-  if (result.cloggersCharged.includes(ingredient.name)) return "flag";
-  if (!isVerified(ingredient)) return "watch";
-  if (ingredient.safety !== "safe") return "watch";
-  // The row already wears a CLOGGING tag; "Good" beside it contradicts the
-  // tag even when this profile's score was not charged for it (#290).
-  if (isWarnedPoreClogging(ingredient)) return "watch";
-  // With no profile there is no "you" to be good for: a rule that works
-  // against some skin (fragrance, denatured alcohol) is worth a look, not a
-  // verdict — "Good" beside "strips a dry barrier" read as a contradiction.
-  if (result.unknownReason === "not_personalized" && hasHarm(findRule(ingredient))) return "watch";
-  return "good";
-}
-
-function hasHarm(rule: IngredientRule | undefined): boolean {
-  const hurts = rule?.hurts;
-  return !!hurts && (!!hurts.sensitive || !!hurts.concerns?.length || !!hurts.skinTypes?.length);
-}
-
-/**
- * Four rungs, drawn soft. `ingredientTone` returns three, because it answers
- * "does this work for you"; an unrecognised name is a fourth thing — not good,
- * not a warning, just unassessed — and the design gives it its own quiet grey
- * rather than lumping it in with the watch-outs.
- *
- * Shared by the ingredient list and the ingredient detail screen, which show
- * a rung for the same ingredient — a second, independent derivation drifted
- * from this one before (the detail screen's null-match case fell back to
- * "watch" instead of using this function at all).
- */
-export type Rung = "good" | "watch" | "avoid" | "neutral";
+type Rung = "good" | "watch" | "avoid" | "neutral";
 
 export const RUNG_META: Record<Rung, { dot: string; pill: string; ink: string; label: string }> = {
   good: { dot: "bg-level-good", pill: "bg-level-good-tint", ink: "text-level-good-ink", label: "Good" },
@@ -1022,20 +978,6 @@ export const RUNG_META: Record<Rung, { dot: string; pill: string; ink: string; l
     label: "Neutral",
   },
 };
-
-export function rungFor(ingredient: Ingredient, match: MatchResult): Rung {
-  // Tone first, because a warning outranks not knowing. Pregnancy matching
-  // deliberately fires on an exact name even when OCR left the row unverified
-  // (see `lib/safety.ts`), and reading verification first meant the product
-  // said "Elevated" while the ingredient responsible for it sat in the quiet
-  // grey rung — the screen contradicting its own safety result.
-  const tone = ingredientTone(ingredient, match);
-  if (tone === "flag") return "avoid";
-  // Everything else unverified stays neutral: not good, not a warning, just
-  // unassessed.
-  if (!isVerified(ingredient)) return "neutral";
-  return tone;
-}
 
 /**
  * The rule that applies to an ingredient, if any — the detail screen uses it

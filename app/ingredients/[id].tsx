@@ -172,7 +172,9 @@ function IngredientList({ id, initialTab }: { id: string; initialTab?: string })
       />
 
       {/* INCI order is regulated information, and it is the single fact that
-          makes this list readable rather than just long. */}
+          makes this list readable rather than just long. Said of the pack,
+          not this list, which puts what matters first until "As printed"
+          is tapped (#324). */}
       <View
         style={{
           flexDirection: "row",
@@ -195,7 +197,7 @@ function IngredientList({ id, initialTab }: { id: string; initialTab?: string })
           />
         </Svg>
         <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
-          Ingredients are listed in order of concentration.
+          On the pack, ingredients are listed in order of concentration.
         </Text>
       </View>
     </View>

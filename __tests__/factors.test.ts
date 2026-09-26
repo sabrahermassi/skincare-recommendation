@@ -1,5 +1,6 @@
 import type { ProductWithIngredients, SkinProfile } from "@/data/types";
-import { biggestConcern, matchProduct, positionWeightLabel, rungFor } from "@/lib/matching";
+import { ingredientLabel } from "@/lib/ingredient-labels";
+import { biggestConcern, matchProduct, positionWeightLabel } from "@/lib/matching";
 import { CATEGORY_LABEL, INGREDIENT_RULES, type RuleCategory } from "@/lib/rules";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
@@ -183,11 +184,11 @@ describe("how a factor names its evidence", () => {
   });
 });
 
-describe("the rung an ingredient row shows", () => {
+describe("the label an ingredient row shows", () => {
   /**
    * Pregnancy matching is a name-pattern match and deliberately fires on an
-   * exact name even when OCR left the row unverified. `rungFor` used to return
-   * "neutral" for anything unverified before it consulted the warnings, so the
+   * exact name even when OCR left the row unverified. The row's verdict used to
+   * be "neutral" for anything unverified before it consulted the warnings, so the
    * product could say "Elevated" while the ingredient responsible for it sat
    * in the quiet grey rung — the screen contradicting its own safety result.
    */
@@ -202,15 +203,15 @@ describe("the rung an ingredient row shows", () => {
     const match = matchProduct(withUnverified, profile({ pregnancyStatus: "pregnant" }));
 
     expect(match.warnings.length).toBeGreaterThan(0);
-    expect(rungFor(unverified, match)).toBe("avoid");
+    expect(ingredientLabel(unverified, match, false)).toBe("avoid");
   });
 
   /** Everything else unverified stays in the grey rung: unassessed, not bad. */
-  it("leaves an unverified ingredient with no warning neutral", () => {
+  it("leaves an unverified ingredient with no warning Unknown", () => {
     const product = synthetic(["some unknown botanical", ...FILLER]);
     const unverified = { ...product.ingredients[0], verified: false };
     const match = matchProduct(product, profile());
 
-    expect(rungFor(unverified, match)).toBe("neutral");
+    expect(ingredientLabel(unverified, match, false)).toBe("unknown");
   });
 });
