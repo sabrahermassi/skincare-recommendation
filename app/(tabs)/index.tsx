@@ -10,7 +10,7 @@ import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/open-scanner";
 import { homeGreetingWidth } from "@/lib/home-greeting";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, SPACE, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, TYPE } from "@/lib/tokens";
 
 // The two cards' watercolors, on transparent ground: a hand holding a tube inside
 // a scanner's frame, and two hands holding a serum and a pump bottle (their empty
@@ -22,18 +22,11 @@ const ACTION_CARD_GAP = 12;
 // The least room the picture keeps. The cards are square, and grow taller rather
 // than squeeze the picture below this when larger text needs the room.
 const ACTION_ART_MIN_HEIGHT = 48;
-// The watercolor still life under the cards: bottles, a vase and a handwritten
-// "A little progress every day", on a transparent ground.
+// The watercolor still life under the cards: bottles and jars standing in water,
+// on a transparent ground (new-watercolor/home_screen_transparent.png).
 const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.webp");
 // Its own proportions, so it is never stretched.
-const STILL_LIFE_ASPECT = 1004 / 1187;
-// Where its handwriting starts, as a share of the picture's height. The picture
-// is placed so the handwriting begins just under the scan card; the flowers above
-// it run up behind the card, and the rest runs on past the bottom of the screen.
-const STILL_LIFE_TEXT_TOP = 0.155;
-// How much lower again it sits, in dp: 1.5 cm on a phone (160 dp to the inch).
-// No spacing token is that large, so it is named here rather than typed inline.
-const STILL_LIFE_DROP = 94;
+const STILL_LIFE_ASPECT = 1400 / 911;
 
 // The handwritten "Hi, there!" on top of the screen, cut from design-watercolor/text.png.
 const GREETING_ART = require("@/assets/illustrations/home-greeting.png");
@@ -101,28 +94,17 @@ export default function Home() {
 
         </View>
 
-        {/* The still life: full width, its handwriting a little under the cards,
-            its foot running on behind the tab bar and past the bottom of the
-            screen. Drawn behind the cards (zIndex) and out of the layout, so it
-            never adds scrolling. Its handwriting is read out: at least one point
-            tall, so when large text leaves it no room VoiceOver still reaches it. */}
-        <View
-          pointerEvents="none"
-          accessible
-          accessibilityLabel="A little progress every day"
-          style={{ flexGrow: 1, minHeight: 1, zIndex: -1 }}
-        >
+        {/* The still life: full width, standing on the bottom of the room the
+            cards leave, so its water sits just above the tab bar. Drawn behind
+            the cards (zIndex) and out of the layout, so it never adds scrolling;
+            when large text leaves no room it slides up behind the cards rather
+            than push them. Decorative: it has no words, so screen readers skip it. */}
+        <View testID="home-still-life" pointerEvents="none" style={{ flexGrow: 1, zIndex: -1 }}>
           <Image
             source={STILL_LIFE_ART}
             contentFit="contain"
             accessibilityLabel=""
-            style={{
-              position: "absolute",
-              left: 0,
-              top: SPACE.text + STILL_LIFE_DROP - (width / STILL_LIFE_ASPECT) * STILL_LIFE_TEXT_TOP,
-              width,
-              aspectRatio: STILL_LIFE_ASPECT,
-            }}
+            style={{ position: "absolute", left: 0, bottom: 0, width, aspectRatio: STILL_LIFE_ASPECT }}
           />
         </View>
       </ScrollView>
