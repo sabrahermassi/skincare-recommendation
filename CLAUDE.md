@@ -50,7 +50,10 @@ npm run lint               # expo lint
 ```
 
 **Every change:** `npm run typecheck && npm run lint && npm test` (narrow
-with `--` for a small change).
+with `--` for a small change). **Any PR that changes a screen adds or
+updates that screen's render test** (`__tests__/*-screen*.test.tsx`,
+`@testing-library/react-native`) — decided in #155, so screen states a
+pure-logic test can't see stay covered as the app grows.
 
 **Pre-merge only** — slow, and unit tests already cover logic, not
 rendering; this is the only thing that catches a native bundling break:

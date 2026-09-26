@@ -207,6 +207,14 @@ export const DISK_TTL_MS = 24 * 60 * 60 * 1000;
 export const SCANNED_TTL_MS = 60 * 60 * 1000;
 
 /**
+ * How long "not in any source" is kept (#204) — much shorter than a hit. A
+ * miss is the answer most likely to change soon: someone may add that very
+ * product from its label minutes later, in this shop, and a person scanning
+ * it again should see it rather than a stale "we don't have this yet".
+ */
+export const SCANNED_MISS_TTL_MS = 10 * 60 * 1000;
+
+/**
  * "Has anything changed?", cheaply.
  *
  * The whole point of the freshness check is that it costs 51 bytes instead of
@@ -1424,7 +1432,8 @@ export function productByBarcode(
 }
 
 /**
- * A barcode lookup from this session, if it is still inside its hour.
+ * A barcode lookup from this session, if it is still inside its window: an
+ * hour for a product, ten minutes for a miss.
  *
  * Memory only, and deliberately not written to disk. Which barcodes a person
  * has scanned is derived from that person — persisting it would put a
@@ -1442,7 +1451,7 @@ export function readScanned(
 ): ProductWithIngredients | null | undefined {
   const hit = scanned.get(barcode);
   if (!hit) return undefined;
-  if (Date.now() - hit.at > SCANNED_TTL_MS) {
+  if (Date.now() - hit.at > (hit.product ? SCANNED_TTL_MS : SCANNED_MISS_TTL_MS)) {
     scanned.delete(barcode);
     return undefined;
   }

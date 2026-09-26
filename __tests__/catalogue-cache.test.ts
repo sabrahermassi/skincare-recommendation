@@ -18,6 +18,7 @@ import {
   readScanned,
   resetCatalogueCache,
   sliceEnd,
+  SCANNED_MISS_TTL_MS,
   SCANNED_TTL_MS,
   touchCatalogue,
   watermarksMatch,
@@ -415,6 +416,22 @@ describe("scanned barcodes", () => {
     Date.now = () => realNow() + SCANNED_TTL_MS + 1;
     try {
       expect(readScanned("111")).toBeUndefined();
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  // #204: a miss is the answer most likely to change soon (someone adds the
+  // product from its label), so it is kept for ten minutes, not the hour.
+  it("forgets a miss after ten minutes, and keeps a product for its hour", () => {
+    putScanned("111", CATALOGUE[0]);
+    putScanned("222", null);
+
+    const realNow = Date.now;
+    Date.now = () => realNow() + SCANNED_MISS_TTL_MS + 1;
+    try {
+      expect(readScanned("222")).toBeUndefined();
+      expect(readScanned("111")).toBe(CATALOGUE[0]);
     } finally {
       Date.now = realNow;
     }

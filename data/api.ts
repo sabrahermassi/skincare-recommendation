@@ -157,8 +157,8 @@ export const NETWORK_TIMEOUT_MS = 12_000;
  * no way out but backing out of the screen and losing the photo anyway — so
  * the user loses the work *and* learns nothing. Forty-five seconds is well
  * past what a slow upload on shop wifi needs and still finite, and
- * `scan-label` already renders a failure with a retry, so the timeout lands
- * somewhere real.
+ * the label camera already renders a failure with a retry, so the timeout
+ * lands somewhere real.
  */
 export const OCR_TIMEOUT_MS = 45_000;
 

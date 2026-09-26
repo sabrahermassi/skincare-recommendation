@@ -1,14 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
   Animated,
   AppState,
   Easing,
-  Linking,
   type LayoutChangeEvent,
   Platform,
   Pressable,
@@ -19,8 +18,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Rect } from "react-native-svg";
 
 import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
+import { ScanCamera } from "@/components/ScanCamera";
 import { LabelCamera } from "@/components/LabelCamera";
-import { ScanIntro } from "@/components/ScanIntro";
+import { CameraPermissionScreen } from "@/components/CameraPermissionScreen";
 import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
 import { SHEET_INSET, SHEET_OUTLINE, SHEET_RADIUS } from "@/components/IngredientsSheet";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
@@ -28,10 +28,12 @@ import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
-import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
+import { canPhotographLabelFor, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
 import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
+import { barcodeParam } from "@/lib/route-params";
+import { lookupFailureState, scanStateCopy, scanStateSpeech, type ScanState } from "@/lib/scan-copy";
 import { rememberScanMode, rememberedScanMode, type ScanMode } from "@/lib/scan-mode";
 import { createStaleGuard } from "@/lib/stale-guard";
 import { haptic } from "@/lib/haptics";
@@ -40,10 +42,6 @@ import { matchProduct } from "@/lib/matching";
 import { track } from "@/lib/analytics";
 import { useAppStore } from "@/store/useAppStore";
 import { CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
-
-// Watercolor art from the onboarding set, reused on the two light screens that
-// sit in front of the camera (see components/ScanIntro.tsx).
-const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.webp");
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -58,22 +56,6 @@ const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.webp");
  * prompt is not the first thing that happens after three quiz questions.
  */
 
-/**
- * One list on every platform, as of SDK 57 (issue #11).
- *
- * This used to narrow web to `["qr"]`, because expo-camera decoded QR codes
- * only in the browser at SDK 54 — it used jsQR. That is no longer true:
- * `expo-camera@57.0.4` uses the browser's own `BarcodeDetector` where it
- * exists and falls back to the `barcode-detector` ponyfill it now depends on,
- * and both handle the EAN-13 / UPC-A printed on packaging. See
- * `node_modules/expo-camera/build/web/WebBarcodeScanner.js`, whose format map
- * covers ean_13, ean_8, upc_a, upc_e and code_128.
- */
-const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as const;
-
-// One object for the life of the app. Built inline it was a new value every
-// render, and the camera reads a changed setting as a reason to reconfigure.
-const BARCODE_SETTINGS = { barcodeTypes: [...BARCODE_TYPES] };
 
 type Mode = ScanMode;
 /**
@@ -136,13 +118,33 @@ const MODES: {
 
 export default function Scan() {
   const [permission, requestPermission] = useCameraPermissions();
+  // `?mode=photo&barcode=…` opens straight into Photo mode, with the barcode a
+  // read there is saved under (#204): Saved's recorded miss, and "Retake the
+  // photo" from the label result or add-product. The barcode comes from a
+  // route, so a link can set it too, and only a real one is kept (#29).
+  const params = useLocalSearchParams<{ mode?: string; barcode?: string }>();
+  const photoRequested = params.mode === "photo";
+  const requestedBarcode = photoRequested ? barcodeParam(params.barcode) : undefined;
+  const [photoBarcode, setPhotoBarcode] = useState<string | undefined>(requestedBarcode);
   // Photo is the default now (issue #214): reading a label works on every
   // product, in any shop, with no catalogue coverage needed — a barcode only
   // resolves for the ~851 products the catalogue already has. Seeded from
   // `lib/scan-mode.ts`, which remembers a mode switch for the session (a
   // cold start always reads Photo); the focus-reset below reads the same
   // module rather than hardcoding either mode.
-  const [mode, setMode] = useState<Mode>(() => rememberedScanMode());
+  const [mode, setMode] = useState<Mode>(() => (photoRequested ? "Photo" : rememberedScanMode()));
+  // A retake returns here by `router.dismissTo` with new params, on the same
+  // scanner: switch to Photo for that barcode. Adjusted while rendering, as
+  // React recommends for state that follows a prop, rather than in an effect.
+  const request = photoRequested ? `photo:${requestedBarcode ?? ""}` : "";
+  const [appliedRequest, setAppliedRequest] = useState(request);
+  if (request !== appliedRequest) {
+    setAppliedRequest(request);
+    if (photoRequested) {
+      setPhotoBarcode(requestedBarcode);
+      setMode("Photo");
+    }
+  }
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   // Off by default, and reset on leaving the scanner (below) rather than left
   // to whatever it was: the camera itself unmounts on blur, so the light goes
@@ -258,6 +260,8 @@ export default function Scan() {
       // have invalidated, permanently dropping every read for the rest of
       // that visit. See issue #191.
       if (next !== mode) reads.invalidate();
+      // Leaving Photo leaves the barcode a retake was for behind with it.
+      if (next === "Barcode") setPhotoBarcode(undefined);
       rememberScanMode(next);
       setMode(next);
     },
@@ -307,9 +311,10 @@ export default function Scan() {
         skipResetOnNextFocus.current = false;
       } else {
         // Falls back to the remembered mode, not a hardcoded default — see
-        // `lib/scan-mode.ts`. A genuine exit (this branch) still resets the
-        // *screen state*, just not to a fixed mode.
-        setMode(rememberedScanMode());
+        // `lib/scan-mode.ts` — unless this scanner was opened for a photo.
+        // A genuine exit (this branch) still resets the *screen state*, just
+        // not to a fixed mode.
+        setMode(photoRequested ? "Photo" : rememberedScanMode());
       }
       return () => {
         lookups.current.invalidate();
@@ -400,7 +405,9 @@ export default function Scan() {
       // anyway.
       track("scan_started", { path: "barcode" });
       if (!canPhotographLabelFor(data)) {
-        recordView({ id: data, known: false, score: null, warnings: 0 });
+        // Not written to history (#204): a QR code's payload is a link or
+        // any text at all, not a product anyone could find again, and it
+        // would sit in Saved as a row with nothing to offer.
         setStatus({ kind: "missed", code: data });
         haptic.warning();
         busy.current = false;
@@ -449,7 +456,7 @@ export default function Scan() {
   // down and brought up again on every switch — the black flash between Barcode
   // and Photo — so it lives here and the same view just changes what it listens
   // for. Most devices only let one CameraView hold the camera at a time: while
-  // another screen is on top (a result, /scan-label) `isFocused` is false and
+  // another screen is on top (a result, the label result) `isFocused` is false and
   // this lets go of it, so that screen's camera is not left waiting for it.
   // Otherwise it stays mounted — a read, a miss or a mode switch never stops and
   // restarts it, which is what showed as a black flash now and then.
@@ -496,7 +503,7 @@ export default function Scan() {
         cameraRef={cameraRef}
         cameraSize={cameraSize}
         windowBox={windowBox}
-        barcode={status.kind === "missed" && canPhotographLabelFor(status.code) ? status.code : undefined}
+        barcode={status.kind === "missed" && canPhotographLabelFor(status.code) ? status.code : photoBarcode}
         preserveMode={preserveMode}
         focusedRef={focusedRef}
         reads={reads}
@@ -521,7 +528,7 @@ export default function Scan() {
             the cream permission screen. */}
         {isFocused && !needsPermission ? <StatusBar style="light" /> : null}
         {cameraLive ? (
-          <ScannerCamera cameraRef={cameraRef} onScanned={onScanned} onLayout={onCameraLayout} enableTorch={torchOn} />
+          <ScanCamera cameraRef={cameraRef} onScanned={onScanned} onLayout={onCameraLayout} enableTorch={torchOn} />
         ) : null}
 
         {/* One frame too: it eases between four corners and a full outline, and the
@@ -532,7 +539,7 @@ export default function Scan() {
             bottomInset={switcherClearance}
             frame={mode === "Barcode" ? "corners" : "full"}
             sweep={mode === "Barcode"}
-            description={mode === "Barcode" ? "Point the camera at a barcode" : null}
+            description={mode === "Barcode" ? (scanStateCopy({ kind: "ready", mode: "barcode" }).line ?? null) : null}
             locked={mode === "Barcode" && status.kind === "looking"}
             target={mode === "Barcode" && status.kind === "looking" ? status.target : undefined}
             onWindow={onWindow}
@@ -747,72 +754,6 @@ const FOUND_PICTURE = 96;
 const FOUND_SHEET_TRAVEL = 420;
 
 /**
- * The camera, with its start-up kept out of sight. A camera that has just
- * started spends a moment finding its exposure, and in front of a plain wall
- * that shows as a burst of white before the picture settles. A dark veil holds
- * the stage until the camera reports ready (or a moment has passed, in case it
- * never says so), then fades. It is mounted fresh each time the camera is, so
- * every start-up gets one.
- */
-function ScannerCamera({
-  cameraRef,
-  onScanned,
-  onLayout,
-  enableTorch,
-}: {
-  cameraRef: React.RefObject<CameraView | null>;
-  onScanned: (result: BarcodeScanningResult) => void;
-  onLayout: (event: LayoutChangeEvent) => void;
-  /** `expo-camera@~57.0.4`'s own prop — no `@platform` restriction, and
-   *  genuinely implemented on web too (see the torch toggle's own comment,
-   *  below, for the verification). A device that can't do it just gets an
-   *  inert button; that's a note, not a defect (#195). */
-  enableTorch: boolean;
-}) {
-  const [ready, setReady] = useState(false);
-  const [veil] = useState(() => new Animated.Value(1));
-
-  useEffect(() => {
-    // Not waiting on a "ready" that may never come.
-    const fallback = setTimeout(() => setReady(true), 1600);
-    return () => clearTimeout(fallback);
-  }, []);
-
-  useEffect(() => {
-    if (!ready) return;
-    // A beat after ready, so the exposure has settled, then fade the veil away.
-    const t = setTimeout(() => {
-      Animated.timing(veil, {
-        toValue: 0,
-        duration: 320,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: Platform.OS !== "web",
-      }).start();
-    }, 350);
-    return () => clearTimeout(t);
-  }, [ready, veil]);
-
-  return (
-    <>
-      <CameraView
-        ref={cameraRef}
-        style={StyleSheet.absoluteFill}
-        facing="back"
-        enableTorch={enableTorch}
-        barcodeScannerSettings={BARCODE_SETTINGS}
-        onBarcodeScanned={onScanned}
-        onLayout={onLayout}
-        onCameraReady={() => setReady(true)}
-      />
-      <Animated.View
-        pointerEvents="none"
-        style={{ ...StyleSheet.absoluteFill, backgroundColor: CAMERA_STAGE, opacity: veil }}
-      />
-    </>
-  );
-}
-
-/**
  * The mode switcher. Barcode sits flush with the scanner window's left edge and
  * Photo with its right edge; the space goes between them.
  *
@@ -939,28 +880,28 @@ function BarcodeStage({
   const insets = useSafeAreaInsets();
 
   // One sentence per state, shared by the spoken announcement and the visible
-  // panel's own label so the two can never drift apart.
-  //
-  // The "looking" line deliberately drops the 13 digits the panel prints.
-  // Those are there so a sighted user can confirm the scan landed on the right
-  // item; read aloud during a state that resolves in a second or two, they are
-  // noise in front of the part that matters.
-  // A QR code or a non-retail barcode reads as a miss too, but there is no
-  // product to add under it.
+  // panel's own label so the two can never drift apart. The words are
+  // `scanStateCopy`'s (#204). A QR code or a non-retail barcode reads as a
+  // miss too, but there is no product to add under it.
   const notProduct = status.kind === "missed" && !canPhotographLabelFor(status.code);
-
-  const announcement =
+  const panelState: ScanState | null =
     status.kind === "looking"
-      ? "Barcode found. Reading the ingredients."
-      : status.kind === "found"
-        ? `Found ${status.product.name}. See full result is below.`
+      ? { kind: "working", step: "lookup" }
       : status.kind === "missed"
         ? notProduct
-          ? "That isn't a product barcode. Tap Scan again to try a different one."
-          : "We don't have this product yet. Photograph its ingredient list to add it."
+          ? { kind: "couldnt-read", why: "not-a-product-code" }
+          : { kind: "not-ours-yet" }
         : status.kind === "unreachable"
-          ? `${failureMessage(status.failure)} Try again, scan something else, or find it in Search.`
-          : "";
+          ? lookupFailureState(status.failure)
+          : null;
+  const copy = panelState ? scanStateCopy(panelState) : null;
+
+  const announcement =
+    status.kind === "found"
+      ? `Found ${status.product.name}. See full result is below.`
+      : copy
+        ? scanStateSpeech(copy)
+        : "";
 
   // `null` is still asking the OS, which is not the same as refused — showing
   // the permission screen for that first moment flashed it at people who had
@@ -974,11 +915,10 @@ function BarcodeStage({
       <ScreenReaderAnnouncer message={announcement} />
 
       {needsPermission && (
-        <CameraPermissionIntro
+        <CameraPermissionScreen
           permission={permission}
           requestPermission={requestPermission}
-          title="Scan a product"
-          body="Point your camera at a barcode and we'll read the ingredients for you. Nothing leaves your phone except the barcode number."
+          mode="barcode"
           bottomInset={switcherClearance}
         />
       )}
@@ -1034,24 +974,11 @@ function BarcodeStage({
               )}
             </View>
             <View className="flex-1">
-              <Text style={{ fontSize: 12.5, fontWeight: "bold", color: INK }}>
-                {status.kind === "looking"
-                  ? `Barcode found · ${status.code}`
-                  : status.kind === "unreachable"
-                    ? "Couldn't check this barcode"
-                    : notProduct
-                      ? "That isn't a product barcode"
-                      : "We don't have this product yet"}
-              </Text>
-              <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
-                {status.kind === "looking"
-                  ? "Reading the ingredients…"
-                  : status.kind === "unreachable"
-                    ? failureMessage(status.failure)
-                    : notProduct
-                      ? "Tap Scan again to try a different barcode"
-                      : "Photograph its ingredient list and we'll add it"}
-              </Text>
+              <Text style={{ fontSize: 12.5, fontWeight: "bold", color: INK }}>{copy?.title}</Text>
+              <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{copy?.line}</Text>
+              {copy?.note ? (
+                <Text style={{ fontSize: TYPE.caption, color: MUTED, marginTop: 2 }}>{copy.note}</Text>
+              ) : null}
             </View>
           </View>
         )}
@@ -1061,16 +988,16 @@ function BarcodeStage({
             back (#192). */}
         {status.kind === "missed" && !notProduct && (
           <>
-            <PrimaryButton label="Photograph the ingredients" onPress={onAdd} size={48} />
+            <PrimaryButton label={copy?.action ?? ""} onPress={onAdd} size={48} />
             <Pressable
               onPress={onDismiss}
               accessibilityRole="button"
-              accessibilityLabel="Scan something else"
+              accessibilityLabel={copy?.link}
               style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
               className="active:opacity-70"
             >
               <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}>
-                Scan something else
+                {copy?.link}
               </Text>
             </Pressable>
           </>
@@ -1082,7 +1009,7 @@ function BarcodeStage({
             dead end reachable only by the hidden, unannounced effect of
             re-tapping the already-selected Barcode pill (#192). */}
         {notProduct && (
-          <PrimaryButton label="Scan again" onPress={onDismiss} size={48} />
+          <PrimaryButton label={copy?.action ?? ""} onPress={onDismiss} size={48} />
         )}
 
         {/* Deliberately not the ingredient photo: that needs the same network
@@ -1093,18 +1020,18 @@ function BarcodeStage({
             the Barcode pill no longer clears this panel (#192, #259 review:
             without it this state trapped the scanner until you left it). */}
         {status.kind === "unreachable" && (
-          <PrimaryButton label="Try again" onPress={() => onBarcode(status.code)} size={48} />
+          <PrimaryButton label={copy?.action ?? ""} onPress={() => onBarcode(status.code)} size={48} />
         )}
         {status.kind === "unreachable" && (
           <Pressable
             onPress={onDismiss}
             accessibilityRole="button"
-            accessibilityLabel="Scan something else"
+            accessibilityLabel={SCAN_SOMETHING_ELSE}
             style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
             className="active:opacity-70"
           >
             <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}>
-              Scan something else
+              {SCAN_SOMETHING_ELSE}
             </Text>
           </Pressable>
         )}
@@ -1132,10 +1059,31 @@ function BarcodeStage({
             <Text
               style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}
             >
-              Or find it in Search instead.
+              {copy?.link}
             </Text>
           </Pressable>
         )}
+
+        {/* The name is on the pack even when the barcode leads nowhere
+            (#323): after a miss or a code that isn't a product, look it up
+            by name. Closes the scanner onto Search with the box empty and
+            focused; `byName` is a one-time request, so each tap is new. */}
+        {copy?.byName ? (
+          <Pressable
+            onPress={() => {
+              preserveMode();
+              router.dismissTo({ pathname: "/browse", params: { byName: String(Date.now()) } });
+            }}
+            accessibilityRole="link"
+            accessibilityLabel={copy.byName}
+            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+            className="active:opacity-70"
+          >
+            <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}>
+              {copy.byName}
+            </Text>
+          </Pressable>
+        ) : null}
 
       </View>
 
@@ -1158,74 +1106,17 @@ function BarcodeStage({
           <Pressable
             onPress={onHint}
             accessibilityRole="button"
-            accessibilityLabel="Not scanning? Photograph the ingredient list instead."
+            accessibilityLabel={READY_BARCODE.link}
             style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }}
             className="active:opacity-70"
           >
             <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.85), textDecorationLine: "underline" }}>
-              Not scanning? Photograph the ingredient list instead.
+              {READY_BARCODE.link}
             </Text>
           </Pressable>
         </View>
       )}
     </View>
-  );
-}
-
-/**
- * The screen asking for camera access, shared by both modes: cream, the
- * watercolor, a serif title, one sentence, one button. Two reasons there is no
- * camera, and it has to say which: access not asked for yet, or refused. A
- * silent black rectangle reads as "the scanner is gone". Refused has no prompt
- * left to show, so its button goes to the system settings instead.
- */
-function CameraPermissionIntro({
-  permission,
-  requestPermission,
-  title,
-  body,
-  bottomInset,
-  extra,
-}: {
-  permission: ReturnType<typeof useCameraPermissions>[0];
-  requestPermission: () => void;
-  title: string;
-  body: string;
-  bottomInset: number;
-  /** An alternative offered under the button when there is one (Photo mode's "choose a photo"). */
-  extra?: ReactNode;
-}) {
-  const blocked = permission?.canAskAgain === false;
-  return (
-    <ScanIntro
-      illustration={ONB2_SCAN}
-      title={blocked ? "Camera access is off" : title}
-      body={
-        blocked
-          ? "Turn the camera back on for this app in your device settings, then come back."
-          : body
-      }
-      actionLabel={blocked ? "Grant permission" : "Open camera"}
-      onAction={blocked ? () => void Linking.openSettings() : requestPermission}
-      bottomInset={bottomInset}
-    >
-      {extra}
-      {/* This fires at the worst moment — camera access just failed — so the one
-          sentence offering a way forward has to actually be the way forward:
-          underlined, standard target height, and it goes to Browse rather than
-          only naming it. */}
-      <Pressable
-        // Closes the scanner onto the Search tab, as above.
-        onPress={() => router.dismissTo("/browse")}
-        accessibilityRole="link"
-        style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 12 }}
-        className="active:opacity-70"
-      >
-        <Text style={{ fontSize: 12.5, color: MUTED, textDecorationLine: "underline" }}>
-          Or find the product in Search instead.
-        </Text>
-      </Pressable>
-    </ScanIntro>
   );
 }
 
@@ -1306,11 +1197,10 @@ function IngredientsStage({
       ) : null}
 
       {needsPermission ? (
-        <CameraPermissionIntro
+        <CameraPermissionScreen
           permission={permission}
           requestPermission={requestPermission}
-          title="Photograph the ingredient list"
-          body="Take a photo of the list on the back and we'll read it. We crop to the frame, send it to Google to read the text, and never store the image."
+          mode="photo"
           bottomInset={clearance}
           extra={<ChoosePhotoInstead barcode={barcode} onRead={openVerdict} isStillWanted={stillWanted} />}
         />
@@ -1339,4 +1229,7 @@ const FRAME_MARGIN_ABOVE_SWITCHER = 24;
 // never brushes it, short enough that someone stuck on a blurry or
 // dark-shelf barcode isn't left guessing.
 const IDLE_HINT_DELAY_MS = 8_000;
+
+const READY_BARCODE = scanStateCopy({ kind: "ready", mode: "barcode" });
+const SCAN_SOMETHING_ELSE = scanStateCopy({ kind: "not-ours-yet" }).link;
 
