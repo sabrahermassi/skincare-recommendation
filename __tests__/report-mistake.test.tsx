@@ -56,7 +56,9 @@ describe("mistakeReportUrl", () => {
 describe("ReportMistakeLink", () => {
   const original = process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
   afterEach(() => {
-    process.env.EXPO_PUBLIC_SUPPORT_EMAIL = original;
+    // Assigning undefined would store the string "undefined", which reads as an address.
+    if (original === undefined) delete process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
+    else process.env.EXPO_PUBLIC_SUPPORT_EMAIL = original;
     jest.restoreAllMocks();
   });
 

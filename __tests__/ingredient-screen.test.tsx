@@ -79,7 +79,9 @@ describe("the ingredient page", () => {
       await open("niacinamide");
       expect(screen.getByText("Report a mistake")).toBeTruthy();
     } finally {
-      process.env.EXPO_PUBLIC_SUPPORT_EMAIL = original;
+      // Assigning undefined would store the string "undefined", which reads as an address.
+      if (original === undefined) delete process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
+      else process.env.EXPO_PUBLIC_SUPPORT_EMAIL = original;
     }
   });
 
