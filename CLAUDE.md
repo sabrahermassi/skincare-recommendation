@@ -226,6 +226,10 @@ with confidence tiers, owns acne fit).
   `unknown`, `exfoliator`, `conditioner`, `hair-mask` and `shampoo` keep harm
   at 1 but discount benefit to 0.5 (0.25 for `unknown`), since each spans
   both a rinse-off and leave-on product. Reasoning in `docs/decisions.md`.
+- **For "very sensitive" only, a fragrance rule's irritation charge keeps at
+  least 0.7 of its weight wherever it sits** (`FRAGRANCE_POSITION_FLOOR_HIGH`,
+  #363) — the position discount otherwise left "very" barely different from
+  "somewhat". No other irritant, level or weight is affected.
 - `hazard` warnings cap the score at 45 and subtract 5 per additional
   hazard. `irritant` warnings go through the graduated irritation penalty
   instead — **do not merge these two tiers.**
