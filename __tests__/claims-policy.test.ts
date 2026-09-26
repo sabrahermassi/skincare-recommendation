@@ -10,6 +10,7 @@ import { PORE_CLOGGERS } from "@/lib/pore-clogging";
 import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import { scoreExplanation, verdictHeadline, type MatchResult } from "@/lib/matching";
 import { INGREDIENT_RULES } from "@/lib/rules";
+import { SCHOOL_CHAT_COPY } from "@/lib/school-chat";
 import { scoreBandLines, scoringSections } from "@/lib/scoring-explainer";
 import { UNSET_SENSITIVITY_REASON, contraindications } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -144,6 +145,12 @@ const SCORING_CLAIMS: OwnedClaim[] = [
   ...scoreBandLines().map((band) => ({ source: `scoreBandLines.${band.label}`, text: `${band.range}: ${band.label}` })),
 ];
 
+// #352: the School chat's own lines — its greeting speaks for the app.
+const SCHOOL_CHAT_CLAIMS: OwnedClaim[] = Object.entries(SCHOOL_CHAT_COPY).map(([key, text]) => ({
+  source: `SCHOOL_CHAT_COPY.${key}`,
+  text,
+}));
+
 const OWNED_CLAIMS: OwnedClaim[] = [
   ...HEADLINE_RESULTS,
   // #183: the restricted-ingredient warning for an unset sensitivity. The
@@ -154,6 +161,7 @@ const OWNED_CLAIMS: OwnedClaim[] = [
   ...NUDGE_RESULTS,
   ...PAIRING_CLAIMS,
   ...SCHOOL_CLAIMS,
+  ...SCHOOL_CHAT_CLAIMS,
   ...SCORING_CLAIMS,
   // Audited directly (#261 review): `WARNINGS` below comes from the sample
   // INGREDIENTS, which hold none of the pregnancy-caution names — so these
