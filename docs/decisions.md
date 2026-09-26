@@ -301,7 +301,7 @@ has refused this project for the opposite reason at times — it shipped
 ahead of the project's SDK. `npx expo-go download android <sdk>` sidesteps
 this in either direction.
 
-## Larger text (#314)
+## Larger text (#314, #334)
 
 **Text grows with the phone's text size, up to a ceiling: 1.3× for the
 display headings, 1.5× for everything else. Decided 26 September 2026, as the
@@ -328,6 +328,51 @@ past 1.2× and grow with their label, and a risk card's title may take three
 lines. Checked at `accessibility-extra-extra-extra-large` on the iPhone 18 Pro
 simulator: Home, Search, the product page, the scanner, the label result and
 the sign-in sheet keep every control reachable.
+
+**Reading screens grow all the way (#334, 26 September 2026 — this replaces
+"one ceiling" above for three screens).** The product page, the ingredient page
+and the label result are the screens people read, so the reading part of each
+(its scroll content, wrapped in `ReadingScale` from `components/Text.tsx`)
+follows the phone's text size to the top of iOS's range. Everywhere else, and
+the controls on those screens (buttons, the score ring, the ingredients sheet,
+the header), keep the 1.3× / 1.5× ceilings.
+
+The 2× attempt failed on two things, and both are answered rather than
+avoided:
+- *A paragraph outgrowing its heading.* Inside a `ReadingScale` every piece of
+  text may grow until it reaches the size body text reaches at the top of the
+  range (`TYPE.body × FONT_SCALE.reading`), and no further — the way iOS's own
+  text styles converge at the accessibility sizes. Headings therefore end level
+  with their paragraphs, never below them, and a 34pt name doesn't grow to
+  120pt. Two exceptions, both from looking at the product page at the largest
+  size: the product's header (brand, name, size and count) keeps its ordinary
+  ceilings, because grown with body text the name filled the first screen and
+  put the verdict two scrolls down, and a capped name under a full-size brand
+  read smaller than it;
+  and the verdict title ("Great match", "Can't tell yet") follows the phone as
+  far as body text does, so it stays a step above the sentence under it. Its
+  words are short enough not to break mid-word at that size.
+- *"Why this score" clipping.* It doesn't: the reasons' container never had a
+  fixed height, and at the larger sizes each reason's explanation now takes the
+  full width under its label instead of a narrow column beside the +/− dot.
+
+Past 1.5× (`useLargeText`) the layouts that can't hold two things side by side
+stack: the score ring goes above its verdict (with the "open your profile"
+arrow level with it, not alone under the words), the two risk cards stack, a
+reason's +/− moves from its dot into the start of its label (in the verdict
+ink, 4.5:1 or better on every panel tint, 4.93:1 at the lowest) so it can't end up on a line of its
+own, and the ingredient page drops its decorative picture so the name has the
+width. The ingredient's function line stops where label text stops, below the
+name. Icons beside reading text grow with it up to `FONT_SCALE.icon` (2×,
+`useIconScale`), enough to stay visible without taking the words' width; the
+score ring grows the same way once text passes 1.5× (`useRingScale`), so the
+score stays the thing that stands out on the verdict panel. Opening "Why this
+score" at those sizes scrolls to the reasons rather than the top of the panel,
+which the score and verdict fill on their own. At the very largest size the
+words "Why this score" are wider than the panel and take two lines whatever the
+chevron's size. Checked at `accessibility-extra-extra-extra-large` on the iPhone
+18 Pro Max simulator; nothing changes at the default size, by construction
+(every rule above only acts past a multiplier of 1).
 
 ## Accounts
 

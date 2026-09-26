@@ -2,7 +2,7 @@ import { Pressable, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
-import { Text } from "@/components/Text";
+import { Text, useLargeText, useIconScale } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import type { MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
@@ -25,6 +25,9 @@ const RISK_TONE = {
   neutral: { box: "border-hairline bg-level-neutral-tint", ink: "text-level-neutral-ink" },
 } as const;
 
+/** The card title's size (`text-[11.5px]`), which the icons beside it follow. */
+const TITLE_SIZE = 11.5;
+
 type Risk = { level: string; note: string; tone: keyof typeof RISK_TONE; hasEntries: boolean };
 
 export function RiskCards({
@@ -44,15 +47,22 @@ export function RiskCards({
 }) {
   const irritation = irritationRisk(product, match);
   const pore = poreRisk(product);
+  // Past the ordinary text ceiling two cards no longer fit side by side, so
+  // they stack (#334).
+  const largeText = useLargeText();
+  // The icons and chevron grow with the card titles beside them.
+  const icon = 16 * useIconScale(TITLE_SIZE);
 
   return (
-    <View style={{ flexDirection: "row", gap: 12, paddingHorizontal: 24 }}>
+    <View style={{ flexDirection: largeText ? "column" : "row", gap: 12, paddingHorizontal: 24 }}>
       <RiskCard
+        stacked={largeText}
+        chevron={icon}
         title="Irritation risk"
         {...irritation}
         onPress={irritation.hasEntries ? onIrritationPress : undefined}
         icon={
-          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+          <Svg width={icon} height={icon} viewBox="0 0 24 24" fill="none">
             <Path
               d="M12 3.2 5 6v5.6c0 4.3 2.9 7.6 7 9.2 4.1-1.6 7-4.9 7-9.2V6l-7-2.8Z"
               stroke={RISK_ICON}
@@ -65,10 +75,12 @@ export function RiskCards({
       />
       <RiskCard
         title="Pore-clogging risk"
+        stacked={largeText}
+        chevron={icon}
         {...pore}
         onPress={pore.hasEntries ? onPorePress : undefined}
         icon={
-          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+          <Svg width={icon} height={icon} viewBox="0 0 24 24" fill="none">
             <Circle cx={8} cy={8} r={1.4} stroke={RISK_ICON} strokeWidth={1.7} />
             <Circle cx={15.6} cy={9.4} r={1.4} stroke={RISK_ICON} strokeWidth={1.7} />
             <Circle cx={10} cy={15.4} r={1.4} stroke={RISK_ICON} strokeWidth={1.7} />
@@ -87,7 +99,9 @@ function RiskCard({
   note,
   tone,
   onPress,
-}: Risk & { title: string; icon: React.ReactNode; onPress?: () => void }) {
+  stacked,
+  chevron,
+}: Risk & { title: string; icon: React.ReactNode; onPress?: () => void; stacked: boolean; chevron: number }) {
   const style = RISK_TONE[tone];
   return (
     <Pressable
@@ -99,7 +113,7 @@ function RiskCard({
       // The title used to be a two-line string with a hard break in it, which
       // put the icon beside line one and the verdict adrift below both.
       // Lifted only when it can be tapped: a card with nothing to show lies flat.
-      style={[{ flex: 1, gap: 8, paddingHorizontal: 15, paddingVertical: 15 }, onPress ? CARD_SHADOW : null]}
+      style={[{ flex: stacked ? undefined : 1, gap: 8, paddingHorizontal: 15, paddingVertical: 15 }, onPress ? CARD_SHADOW : null]}
       className={`justify-center rounded-control border ${style.box} ${
         onPress ? "active:opacity-70" : ""
       }`}
@@ -108,10 +122,12 @@ function RiskCard({
         {icon}
         <Text
           className="text-[11.5px] leading-[15px]"
+          // Kept in step with TITLE_SIZE, which sizes the icons beside it.
           style={{ flex: 1, color: RISK_TITLE }}
           // Three, not two: at the larger text sizes "Pore-clogging risk"
-          // takes three lines beside its icon and chevron (#314).
-          numberOfLines={3}
+          // takes three lines beside its icon and chevron (#314). Stacked,
+          // the card has the whole width and the title is never cut (#334).
+          numberOfLines={stacked ? undefined : 3}
         >
           {title}
         </Text>
@@ -119,12 +135,12 @@ function RiskCard({
             row for detail" affordance — without it, a card reading
             "Elevated" gave no visual sign that tapping it explains why. */}
         {onPress && (
-          <ArrowIcon size={16} color={INK} />
+          <ArrowIcon size={chevron} color={INK} />
         )}
       </View>
       <View style={{ gap: 3 }}>
         <Text className={`font-display text-[21px] leading-[24px] ${style.ink}`}>{level}</Text>
-        <Text className="text-[10.5px] leading-[14px] text-ink-muted" numberOfLines={2}>
+        <Text className="text-[10.5px] leading-[14px] text-ink-muted" numberOfLines={stacked ? undefined : 2}>
           {note}
         </Text>
       </View>
