@@ -350,3 +350,23 @@ describe("scanner history", () => {
     expect(useAppStore.getState().history.map((entry) => entry.id)).toEqual(["8801234567890"]);
   });
 });
+
+// #323: both dead ends offer the name on the pack as a way in.
+describe("Search by name", () => {
+  it.each([
+    ["a barcode we don't have", "8801234567890", "Scan something else"],
+    ["a code that isn't a product", "https://example.com/promo", "Scan again"],
+  ])("is offered after %s, and opens Search", async (_what: string, code: string, alongside: string) => {
+    const { router } = jest.requireMock("expo-router") as { router: { dismissTo: { mock: { calls: unknown[][] } } } };
+    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: null });
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+    await scan(code);
+
+    expect(screen.getAllByText(alongside).length).toBeGreaterThan(0);
+    await fireEvent.press(screen.getByRole("link", { name: "Search by name" }));
+    const [href] = router.dismissTo.mock.calls.at(-1) as [{ pathname: string; params: { byName: string } }];
+    expect(href.pathname).toBe("/browse");
+    expect(href.params.byName).toBeTruthy();
+  });
+});

@@ -11,10 +11,14 @@ jest.setTimeout(30000);
 const mockOpenScanner = jest.fn();
 jest.mock("@/lib/open-scanner", () => ({ openScanner: () => mockOpenScanner() }));
 
+// The Search tab's own params (`byName`, #323).
+let mockParams: Record<string, string> = {};
+
 jest.mock("expo-router", () => {
   const { useEffect } = jest.requireActual<typeof import("react")>("react");
   return {
     router: { push: jest.fn() },
+    useLocalSearchParams: () => mockParams,
     useScrollToTop: () => undefined,
     useFocusEffect: (effect: () => void | (() => void)) => {
       useEffect(() => effect(), []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -42,6 +46,7 @@ const viewed = (id: string, at: number) => ({
 });
 
 beforeEach(() => {
+  mockParams = {};
   jest.clearAllMocks();
   useAppStore.setState({ profile: EMPTY_PROFILE, history: [] });
 });
@@ -96,5 +101,18 @@ describe("typing", () => {
     expect(await screen.findByText("We don't have this product in our library yet.", {}, { timeout: 3000 })).toBeTruthy();
     await act(async () => fireEvent.press(screen.getByText("Go to Scan")));
     expect(mockOpenScanner).toHaveBeenCalledTimes(1);
+  });
+});
+
+// #323: "Search by name" from the scanner lands on an empty, focused box.
+describe("arriving to search by name", () => {
+  it("empties the box, whatever was searched before", async () => {
+    const view = await render(<Search />);
+    await fireEvent.changeText(screen.getByPlaceholderText("Search products or brands"), "serum");
+    expect(screen.getByDisplayValue("serum")).toBeTruthy();
+
+    mockParams = { byName: "1" };
+    await view.rerender(<Search />);
+    expect(screen.queryByDisplayValue("serum")).toBeNull();
   });
 });

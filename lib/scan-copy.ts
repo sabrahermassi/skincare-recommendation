@@ -41,11 +41,14 @@ export type ScanCopy = {
   action?: string;
   /** The quiet underlined way out, when there is one. */
   link?: string;
+  /** A second quiet way out: look the product up by the name on the pack (#323). */
+  byName?: string;
   /** A small line of scope under the rest. */
   note?: string;
 };
 
 const SEARCH_LINK = "Find it in Search";
+const BY_NAME = "Search by name";
 
 export function scanStateCopy(state: ScanState): ScanCopy {
   switch (state.kind) {
@@ -74,6 +77,7 @@ export function scanStateCopy(state: ScanState): ScanCopy {
         line: "Photograph its ingredient list and we'll add it.",
         action: "Photograph the ingredients",
         link: "Scan something else",
+        byName: BY_NAME,
         note: "Only skincare and body care can be added.",
       };
     case "couldnt-read":
@@ -83,6 +87,7 @@ export function scanStateCopy(state: ScanState): ScanCopy {
             title: "That's not a product barcode",
             line: "Look for the striped barcode on the packaging.",
             action: "Scan again",
+            byName: BY_NAME,
           };
         case "photo":
           return {

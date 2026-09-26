@@ -1,4 +1,4 @@
-import { useFocusEffect, useScrollToTop } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useScrollToTop } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, TextInput, View, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -86,6 +86,23 @@ export default function Browse() {
       return () => searchInput.current?.blur();
     }, []),
   );
+
+  // "Search by name" from the scanner (#323) arrives as a one-time `byName`:
+  // the box starts empty, whatever was searched before, and takes the focus.
+  // Cleared while rendering, as React recommends for state that follows a
+  // prop; only the focus, which is not state, waits for an effect.
+  const { byName } = useLocalSearchParams<{ byName?: string }>();
+  const [handledByName, setHandledByName] = useState(byName);
+  if (byName !== handledByName) {
+    setHandledByName(byName);
+    if (byName) setQuery("");
+  }
+  useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+  useEffect(() => {
+    if (byName) searchInput.current?.focus();
+  }, [byName]);
 
   // Recently viewed: the newest catalogue products in the history log, newest
   // first. Unrecognised barcodes are in the log too, but there is nothing to

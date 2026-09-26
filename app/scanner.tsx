@@ -1064,6 +1064,27 @@ function BarcodeStage({
           </Pressable>
         )}
 
+        {/* The name is on the pack even when the barcode leads nowhere
+            (#323): after a miss or a code that isn't a product, look it up
+            by name. Closes the scanner onto Search with the box empty and
+            focused; `byName` is a one-time request, so each tap is new. */}
+        {copy?.byName ? (
+          <Pressable
+            onPress={() => {
+              preserveMode();
+              router.dismissTo({ pathname: "/browse", params: { byName: String(Date.now()) } });
+            }}
+            accessibilityRole="link"
+            accessibilityLabel={copy.byName}
+            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+            className="active:opacity-70"
+          >
+            <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}>
+              {copy.byName}
+            </Text>
+          </Pressable>
+        ) : null}
+
       </View>
 
       {/* A quiet way out when nothing has read for a while (#195) — its own
