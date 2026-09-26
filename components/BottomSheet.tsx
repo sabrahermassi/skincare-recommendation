@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AccessibilityInfo, Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, useWindowDimensions, View } from "react-native";
+import { useEffect, useState, type ReactNode } from "react";
+import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { reduceMotionNow } from "@/lib/reduce-motion";
 import { FLOATING_SHADOW, SCRIM, SURFACE } from "@/lib/tokens";
 
 const IN_MS = 280;
@@ -30,16 +31,6 @@ export function BottomSheet({
   const { height } = useWindowDimensions();
   const [mounted, setMounted] = useState(visible);
   const [progress] = useState(() => new Animated.Value(0));
-  const reduceMotion = useRef(false);
-
-  useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((enabled) => {
-        reduceMotion.current = enabled;
-      })
-      .catch(() => {});
-  }, []);
-
   // Mounted as soon as it is asked for, during render rather than in the
   // effect below; unmounted only once the slide-down has finished.
   if (visible && !mounted) setMounted(true);
@@ -47,7 +38,7 @@ export function BottomSheet({
   useEffect(() => {
     const animation = Animated.timing(progress, {
       toValue: visible ? 1 : 0,
-      duration: reduceMotion.current ? 0 : visible ? IN_MS : OUT_MS,
+      duration: reduceMotionNow() ? 0 : visible ? IN_MS : OUT_MS,
       easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
       useNativeDriver: Platform.OS !== "web",
     });

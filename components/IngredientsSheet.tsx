@@ -11,7 +11,7 @@ import { relativeTime } from "@/lib/format";
 import { rungFor, type MatchResult } from "@/lib/matching";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { CANVAS, INK, MUTED, TYPE } from "@/lib/tokens";
-import { useReduceMotionRef } from "@/lib/reduce-motion";
+import { reduceMotionNow } from "@/lib/reduce-motion";
 
 // How many ingredients show while the sheet is resting, and roughly how tall a
 // row is, which sets how much of the sheet is above the bottom edge.
@@ -81,7 +81,6 @@ export const IngredientsSheet = forwardRef<IngredientsSheetHandle, {
     y.setValue(expandedRef.current ? 0 : collapsedY);
   }, [collapsedY, y]);
 
-  const reduceMotion = useReduceMotionRef();
   const snap = useCallback(
     (open: boolean) => {
       expandedRef.current = open;
@@ -89,12 +88,12 @@ export const IngredientsSheet = forwardRef<IngredientsSheetHandle, {
       Animated.timing(y, {
         toValue: open ? 0 : collapsedRef.current,
         // With Reduce Motion on, the sheet snaps straight to place (#313).
-        duration: reduceMotion.current ? 0 : SNAP_MS,
+        duration: reduceMotionNow() ? 0 : SNAP_MS,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: false,
       }).start();
     },
-    [y, reduceMotion],
+    [y],
   );
 
   // Only `app/label-result.tsx` uses this: RiskCards' irritation/pore taps
