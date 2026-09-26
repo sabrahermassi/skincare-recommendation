@@ -4,9 +4,12 @@ import { buttonBorderShape, buttonStyle, controlSize, labelStyle } from "@expo/u
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import type { ComponentProps } from "react";
 import { Platform, Pressable, View, type StyleProp, type ViewStyle } from "react-native";
-import type { SFSymbol } from "sf-symbols-typescript";
 
 import { CANVAS, INK, TOUCH_TARGET, withAlpha } from "@/lib/tokens";
+
+// The SF Symbol names `@expo/ui` accepts, from its own Button props rather than
+// `sf-symbols-typescript`, which this app only has as a dependency of `@expo/ui`.
+type SFSymbol = NonNullable<ComponentProps<typeof Button>["systemImage"]>;
 
 /**
  * A round glass button: the X that closes something, the scanner's "i" and
