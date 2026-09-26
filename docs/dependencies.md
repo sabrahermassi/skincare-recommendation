@@ -53,6 +53,12 @@ agrees with the new version (Expo Go only runs the versions its SDK ships).
   in `dependabot.yml` in the same PR. Ignoring them may also hold back
   Dependabot's security PRs for them; the CI audit still fails on a high or
   critical advisory in any of them, and the rule below applies.
+- **Developer tools' majors are never taken from Dependabot.** Jest (and
+  `@jest/*`, `babel-jest`, `@types/jest`), Testing Library, `test-renderer`,
+  ESLint, TypeScript and `@types/react`: a major changes how tests, lint or the
+  typecheck run, and one grouped PR (#367) that took three of them at once
+  failed the typecheck. Each is a planned upgrade on its own branch; their
+  minors and patches still come through Dependabot.
 - **An advisory that can't be fixed yet.** Fix it with a patch or minor
   bump, or an `overrides` pin in `package.json` if that fixes it. npm has no
   way to ignore a single advisory. If the only fix is an SDK upgrade, open an
