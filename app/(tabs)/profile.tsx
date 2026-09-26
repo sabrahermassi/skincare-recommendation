@@ -17,7 +17,7 @@ import { haptic } from "@/lib/haptics";
 import { noteProfileErased } from "@/lib/erase-notice";
 
 const AVATAR = 120;
-const AVATAR_ART = require("@/assets/illustrations/avatar-empty.png");
+const AVATAR_ART = require("@/assets/illustrations/avatar-empty.webp");
 
 /**
  * Profile — who you are to the app, and the way to everything about you: your

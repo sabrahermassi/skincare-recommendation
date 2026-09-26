@@ -21,22 +21,16 @@ import type { Verdict } from "./matching";
 // ── Surfaces ────────────────────────────────────────────────────────────────
 
 /**
- * The page ground everywhere — including onboarding and the quiz, whose
- * shells (`components/shell/shared.tsx`) re-export this rather than keeping
- * a second local copy. `#FBF6EE` is the FOR.ME reskin's second, slightly
- * warmer cream — it replaced this file's original `#FDF8F3` and
- * `lib/colors.ts` / `tailwind.config.js`'s older `#FAF7F3` in the same pass,
- * so every screen, old system or new, now shares one background value.
- * Contrast figures below were re-verified against this value.
+ * The page ground on every screen — onboarding, the quiz and Saved included,
+ * with no screen-specific cream or background picture (owner, 26 September
+ * 2026). `#FDF9F0` was given by the owner; it replaced the FOR.ME reskin's
+ * `#FBF6EE` and the intro's own `#FDFAF2`.
+ * Contrast figures below were measured against `#FBF6EE`. `#FDF9F0` is
+ * slightly lighter, so a darker colour's ratio against it is the same or a
+ * little higher, and white's (SURFACE) a little lower (computed, not
+ * re-measured).
  */
-export const CANVAS = "#FBF6EE";
-
-/**
- * The three intro screens' background: a lighter, warmer cream than `CANVAS`,
- * given by the owner (26 September 2026) for the watercolor heroes to sit on.
- * Onboarding only; every other screen keeps `CANVAS`.
- */
-export const ONBOARDING_CANVAS = "#FDFAF2";
+export const CANVAS = "#FDF9F0";
 
 /**
  * Raised card fill. White, not a tint of the canvas — a card has to separate

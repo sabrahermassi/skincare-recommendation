@@ -8,8 +8,8 @@ import { Text } from "@/components/Text";
 import { scanStateCopy } from "@/lib/scan-copy";
 import { MUTED, TOUCH_TARGET } from "@/lib/tokens";
 
-// Watercolor art from the onboarding set.
-const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.webp");
+// A camera with an unlocked padlock (new-watercolor/camera_permission_transparent.png).
+const CAMERA_ART = require("@/assets/illustrations/camera-permission.webp");
 
 /**
  * The one screen asking for camera access (#204), for both scanner modes and
@@ -47,7 +47,7 @@ export function CameraPermissionScreen({
   const copy = scanStateCopy({ kind: "camera-off", mode, refused });
   return (
     <ScanIntro
-      illustration={ONB2_SCAN}
+      illustration={CAMERA_ART}
       title={(!refused && title) || copy.title || ""}
       body={(!refused && line) || copy.line || ""}
       actionLabel={copy.action ?? ""}

@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View, type LayoutChangeEvent } from "react-native";
-import Svg, { Defs, LinearGradient, Mask, Path, Rect, Stop } from "react-native-svg";
+import { BlurView } from "expo-blur";
+import Svg, { Defs, Mask, Path, Rect } from "react-native-svg";
 
 import { TERRACOTTA } from "@/components/shell/shared";
-import { CAMERA_STAGE, SCANNER_FRAME, withAlpha } from "@/lib/tokens";
+import { Text } from "@/components/Text";
+import { CAMERA_STAGE, CANVAS, SCANNER_FRAME, TYPE, withAlpha } from "@/lib/tokens";
 
 /**
- * The live scanner's framing: the camera dimmed outside a rounded window, its
- * four corners drawn in cream, and a slow terracotta line that sweeps the
- * window. The photo camera draws the same window as a full thin outline and
- * without the line, so switching between the two does not move the frame.
+ * The live scanner's framing: the camera blurred and dimmed outside a rounded
+ * window, so only the window is sharp (owner, after OnSkin's scanner). Barcode
+ * is a small window in the middle with its four corners drawn in cream and a
+ * hint under it; the photo camera is a tall window with a full thin outline.
+ * The window grows and shrinks between the two as the mode changes.
  *
  * `locked` is the moment a barcode has been read. With a `target` (where the
  * camera saw the barcode) the window closes in on it — the dimming and the
@@ -32,12 +35,17 @@ const CORNER_RADIUS = 20;
 const CORNER_LENGTH = 40;
 const CORNER_STROKE = 4;
 const OUTLINE_WIDTH = 2.5;
-const LINE_BAND = 56;
-const LINE_INSET = 16;
-const SWEEP_MS = 2200;
 const LOCK_MS = 280;
 const FRAME_MIX_MS = 360;
-const SCRIM_ALPHA = 0.6;
+// Over the blur, a light darkening, so the sharp window stands out.
+const SCRIM_ALPHA = 0.25;
+// How strongly the camera is blurred outside the window (expo-blur, 1-100).
+const BLUR_INTENSITY = 40;
+// The barcode window: this share of the screen's width, and twice as wide as tall.
+const BARCODE_WIDTH_SHARE = 0.63;
+const BARCODE_ASPECT = 2;
+// The hint's gap below the barcode window.
+const HINT_GAP = 28;
 // Room left around the barcode when the window closes in on it, and the least
 // it will close to (a tiny window reads as a glitch, not a lock).
 const TARGET_PAD = 16;
@@ -131,8 +139,8 @@ export function ScanViewfinder({
   locked,
   target,
   frame = "corners",
-  sweep: sweepLine = true,
-  description = "Point the camera at a barcode",
+  description = null,
+  hint = null,
   onWindow,
 }: {
   /** Distance from the top of the stage to leave clear (safe area, banner). */
@@ -142,17 +150,16 @@ export function ScanViewfinder({
   locked: boolean;
   /** Where the barcode was seen, for the window to close in on. */
   target?: Box;
-  /** "corners" (barcode) or "full" (photo): the same window either way. */
+  /** "corners" (barcode, a small window) or "full" (photo, a tall one). */
   frame?: "corners" | "full";
-  /** False for the photo camera: the same window, no sweeping line. */
-  sweep?: boolean;
   /** What a screen reader is told is being looked for; null for none. */
   description?: string | null;
+  /** Shown in a pill under the barcode window; null for none. */
+  hint?: string | null;
   /** Called with the window's rectangle, in this view's coordinates, whenever it is set or changes. */
   onWindow?: (window: Box) => void;
 }) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
-  const [sweep] = useState(() => new Animated.Value(0));
   const [lock] = useState(() => new Animated.Value(0));
   // 0 = the window, 1 = closed in on the barcode. Driven from JS: it moves
   // layout, which the native driver cannot.
@@ -175,7 +182,7 @@ export function ScanViewfinder({
       cornersLocked: Animated.multiply(notFull, lock),
       fullCream: Animated.multiply(frameMix, notLocked),
       fullLocked: Animated.multiply(frameMix, lock),
-      sweep: Animated.multiply(notLocked, notFull),
+      hint: Animated.multiply(notFull, notLocked),
     };
   });
 
@@ -206,22 +213,6 @@ export function ScanViewfinder({
   }, [frame, reduceMotion, frameMix, frameMixJS, useNativeDriver]);
 
   useEffect(() => {
-    if (!sweepLine) return;
-    if (reduceMotion) {
-      sweep.setValue(0.5);
-      return;
-    }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(sweep, { toValue: 1, duration: SWEEP_MS, easing: Easing.inOut(Easing.quad), useNativeDriver }),
-        Animated.timing(sweep, { toValue: 0, duration: SWEEP_MS, easing: Easing.inOut(Easing.quad), useNativeDriver }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [sweepLine, reduceMotion, sweep, useNativeDriver]);
-
-  useEffect(() => {
     const duration = reduceMotion ? 0 : LOCK_MS;
     const easing = Easing.out(Easing.cubic);
     Animated.timing(lock, { toValue: locked ? 1 : 0, duration, easing, useNativeDriver }).start();
@@ -233,14 +224,32 @@ export function ScanViewfinder({
     setSize((prev) => (prev && prev.w === width && prev.h === height ? prev : { w: width, h: height }));
   };
 
-  const windowHeight = size ? size.h - (topInset + TOP_GAP) - bottomInset : 0;
-  const window: Rectangle = {
+  // The photo window fills the room between the top and bottom insets; the
+  // barcode window is a small one in the middle of that room.
+  const photoWindow: Rectangle = {
     x: SIDE,
     y: topInset + TOP_GAP,
     w: size ? size.w - SIDE * 2 : 0,
-    h: windowHeight,
+    h: size ? size.h - (topInset + TOP_GAP) - bottomInset : 0,
   };
-  const ready = size !== null && window.w > 0 && window.h > 120;
+  const barcodeW = size ? size.w * BARCODE_WIDTH_SHARE : 0;
+  const barcodeH = barcodeW / BARCODE_ASPECT;
+  const barcodeWindow: Rectangle = {
+    x: size ? (size.w - barcodeW) / 2 : 0,
+    y: photoWindow.y + (photoWindow.h - barcodeH) / 2,
+    w: barcodeW,
+    h: barcodeH,
+  };
+  // Where the mode is going: what the camera and the photo crop read.
+  const settled = frame === "full" ? photoWindow : barcodeWindow;
+  // Where it is on the way there, as the mode changes.
+  const window: Rectangle = {
+    x: lerp(barcodeWindow.x, photoWindow.x, mixed),
+    y: lerp(barcodeWindow.y, photoWindow.y, mixed),
+    w: lerp(barcodeWindow.w, photoWindow.w, mixed),
+    h: lerp(barcodeWindow.h, photoWindow.h, mixed),
+  };
+  const ready = size !== null && photoWindow.w > 0 && photoWindow.h > 120;
   const goal = goalFor(window, target);
   const rect: Rectangle = {
     x: lerp(window.x, goal.x, closed),
@@ -249,17 +258,19 @@ export function ScanViewfinder({
     h: lerp(window.h, goal.h, closed),
   };
   useEffect(() => {
-    if (ready) onWindow?.({ x: window.x, y: window.y, width: window.w, height: window.h });
-  }, [ready, window.x, window.y, window.w, window.h, onWindow]);
-  const sweepY = useMemo(
-    () => sweep.interpolate({ inputRange: [0, 1], outputRange: [LINE_INSET, windowHeight - LINE_INSET] }),
-    [sweep, windowHeight]
-  );
+    if (ready) onWindow?.({ x: settled.x, y: settled.y, width: settled.w, height: settled.h });
+  }, [ready, settled.x, settled.y, settled.w, settled.h, onWindow]);
   const radius = Math.min(lerp(CORNER_RADIUS, WINDOW_RADIUS, mixed), rect.h / 2, rect.w / 2);
-  const lineWidth = window.w - LINE_INSET * 2;
+  // The blur, as four panes around the window: above, below, left and right.
+  const panes = [
+    { left: 0, top: 0, width: size?.w ?? 0, height: rect.y },
+    { left: 0, top: rect.y + rect.h, width: size?.w ?? 0, height: Math.max(0, (size?.h ?? 0) - rect.y - rect.h) },
+    { left: 0, top: rect.y, width: rect.x, height: rect.h },
+    { left: rect.x + rect.w, top: rect.y, width: Math.max(0, (size?.w ?? 0) - rect.x - rect.w), height: rect.h },
+  ];
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onLayout}>
+    <View testID="scan-viewfinder" style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onLayout}>
       {ready && size ? (
         <>
           {/* What is being looked for, for a screen reader; the layers below are decoration. */}
@@ -277,6 +288,9 @@ export function ScanViewfinder({
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
           >
+            {panes.map((pane, i) => (
+              <BlurView key={i} intensity={BLUR_INTENSITY} tint="dark" style={{ position: "absolute", ...pane }} />
+            ))}
             <Svg width={size.w} height={size.h} style={StyleSheet.absoluteFill}>
               <Defs>
                 <Mask id="scan-window" x={0} y={0} width={size.w} height={size.h}>
@@ -293,35 +307,6 @@ export function ScanViewfinder({
                 mask="url(#scan-window)"
               />
             </Svg>
-
-            {/* The sweeping line, kept inside the window; it fades as the window closes. */}
-            {sweepLine ? (
-            <Animated.View
-              style={{
-                position: "absolute",
-                left: window.x + LINE_INSET,
-                top: window.y - LINE_BAND / 2,
-                opacity: fades.sweep,
-                transform: [
-                  {
-                    translateY: sweepY,
-                  },
-                ],
-              }}
-            >
-              <Svg width={lineWidth} height={LINE_BAND}>
-                <Defs>
-                  <LinearGradient id="scan-glow" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor={TERRACOTTA} stopOpacity={0} />
-                    <Stop offset="0.5" stopColor={TERRACOTTA} stopOpacity={0.32} />
-                    <Stop offset="1" stopColor={TERRACOTTA} stopOpacity={0} />
-                  </LinearGradient>
-                </Defs>
-                <Rect x={0} y={0} width={lineWidth} height={LINE_BAND} fill="url(#scan-glow)" />
-                <Rect x={0} y={LINE_BAND / 2 - 1} width={lineWidth} height={2} rx={1} fill={TERRACOTTA} />
-              </Svg>
-            </Animated.View>
-            ) : null}
 
             {/* Four layers — cream and terracotta, as corners and as a full outline —
                 faded into each other as the mode changes and as a barcode locks. */}
@@ -348,6 +333,17 @@ export function ScanViewfinder({
                 {full ? null : <Corners width={rect.w} height={rect.h} radius={radius} color={color} />}
               </Animated.View>
             ))}
+
+            {/* The barcode hint, under its window; it fades with the corners. */}
+            {hint ? (
+              <Animated.View
+                style={{ position: "absolute", left: 0, right: 0, top: rect.y + rect.h + HINT_GAP, alignItems: "center", opacity: fades.hint }}
+              >
+                <View style={{ paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999, backgroundColor: withAlpha(CAMERA_STAGE, 0.35) }}>
+                  <Text style={{ fontSize: TYPE.body, color: CANVAS }}>{hint}</Text>
+                </View>
+              </Animated.View>
+            ) : null}
           </View>
         </>
       ) : null}

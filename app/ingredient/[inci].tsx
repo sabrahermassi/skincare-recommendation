@@ -405,14 +405,14 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
               <Text className={`text-[12.5px] font-medium ${meta.ink}`}>{meta.label}</Text>
             </View>
           </View>
-          {/* design-watercolor/ingredient image.png — a flask + dropper
+          {/* new-watercolor/ingredient_transparent.png — a flask + dropper
               bottle scene, wider than the old single-flask icon, so the
-              slot is sized to its own aspect ratio (1400x1001, cropped to
+              slot is sized to its own aspect ratio (1400x915, cropped to
               content) rather than the old icon's square. */}
           {largeText ? null : (
             <Image
-              source={require("@/assets/illustrations/flask-with-serum.png")}
-              style={{ width: 168, height: 120 }}
+              source={require("@/assets/illustrations/flask-with-serum.webp")}
+              style={{ width: 168, height: 110 }}
               contentFit="contain"
               transition={120}
               accessibilityLabel=""

@@ -54,7 +54,7 @@ describe("LabelCamera", () => {
     await renderCamera(onRead);
     await chooseAPhoto();
 
-    expect(screen.getAllByText("Reading the ingredients…").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Checking our database…").length).toBeGreaterThan(0);
     await fireEvent.press(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.getByText(TIP)).toBeTruthy();
     // Not held for anyone: the read is told it is no longer wanted.
@@ -63,6 +63,19 @@ describe("LabelCamera", () => {
     await act(async () => mockSettle({ kind: "read" }));
     expect(onRead).not.toHaveBeenCalled();
     expect(screen.getByText(TIP)).toBeTruthy();
+  });
+
+  it("twinkles stars over the photo while it is read, and says it is checking our database", async () => {
+    await render(
+      <LabelCamera camera={{ current: null }} cameraSize={null} window={{ x: 0, y: 0, width: 300, height: 400 }} onRead={jest.fn()} bottomInset={0} />,
+    );
+    expect(screen.queryByTestId("sparkles", { includeHiddenElements: true })).toBeNull();
+    await chooseAPhoto();
+    expect(screen.getByTestId("sparkles", { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getAllByText("Checking our database…").length).toBeGreaterThan(0);
+
+    await fireEvent.press(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByTestId("sparkles", { includeHiddenElements: true })).toBeNull();
   });
 
   it("keeps the framing tip after a failed photo, with a visible Try again", async () => {

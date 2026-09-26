@@ -11,7 +11,7 @@ jest.mock("@/lib/pick-label-photo", () => ({
 // Never settles: the test only needs the moment after a photo was chosen.
 jest.mock("@/lib/read-label-photo", () => ({ readLabelPhoto: () => new Promise(() => {}) }));
 
-// #295: "Reading the ingredients…" appeared the moment the link was
+// #295: "Checking our database…" appeared the moment the link was
 // tapped, behind the photo picker, before anything had been chosen.
 describe("ChoosePhotoInstead", () => {
   it("says it is reading only once a photo has been chosen", async () => {
@@ -19,10 +19,10 @@ describe("ChoosePhotoInstead", () => {
 
     await fireEvent.press(screen.getByLabelText("Choose a photo of the ingredient list from your library"));
     expect(screen.getByText("Choose a photo instead")).toBeTruthy();
-    expect(screen.queryByText("Reading the ingredients…")).toBeNull();
+    expect(screen.queryByText("Checking our database…")).toBeNull();
 
     await act(async () => resolvePick({ base64: "abc", cleanup: () => {} }));
     // Shown, and announced in the same words.
-    expect(screen.getAllByText("Reading the ingredients…").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Checking our database…").length).toBeGreaterThan(0);
   });
 });

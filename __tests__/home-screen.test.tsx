@@ -6,9 +6,8 @@ import Home from "@/app/(tabs)/index";
 /**
  * Home (per #155): the greeting, the two cards side by side ("Scan a product"
  * and "Find skincare"), and the watercolor still life under them. The still
- * life comes after the cards in the page and is drawn behind them (its flowers
- * run up behind the scan card), so it never covers one; its handwriting is
- * read out, even when large text leaves it no room.
+ * life comes after the cards in the page and is drawn behind them, so it never
+ * covers one; it has no words, so screen readers skip it.
  */
 
 jest.setTimeout(30_000);
@@ -47,19 +46,18 @@ it("opens Browse from Find skincare, which has no tab of its own", async () => {
   expect(router.navigate).toHaveBeenCalledWith("/browse");
 });
 
-it("puts the still life after the scan card, with its handwriting read out", async () => {
+it("shows the still life as decoration: nothing for a screen reader to stop on", async () => {
   await render(<Home />);
-  const labels = labelsInOrder(screen.toJSON());
-  const scan = labels.indexOf("Scan a product. Analyze a product by photo or barcode.");
-  const stillLife = labels.indexOf("A little progress every day");
-  expect(scan).toBeGreaterThanOrEqual(0);
-  expect(stillLife).toBeGreaterThan(scan);
+  expect(screen.getByTestId("home-still-life")).toBeTruthy();
+  // Only the greeting and the two cards are read out; the old picture's
+  // handwritten line is gone with it.
+  expect(labelsInOrder(screen.toJSON())).not.toContain("A little progress every day");
 });
 
-it("draws the still life behind the cards, and keeps it reachable when it has no room", async () => {
+it("draws the still life behind the cards, where it takes no touches", async () => {
   await render(<Home />);
-  const style = [screen.getByLabelText("A little progress every day").props.style].flat();
-  const merged = Object.assign({}, ...style);
+  const stillLife = screen.getByTestId("home-still-life");
+  const merged = Object.assign({}, ...[stillLife.props.style].flat());
   expect(merged.zIndex).toBeLessThan(0);
-  expect(merged.minHeight).toBeGreaterThanOrEqual(1);
+  expect(stillLife.props.pointerEvents).toBe("none");
 });

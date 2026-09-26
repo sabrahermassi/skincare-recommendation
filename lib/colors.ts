@@ -5,8 +5,7 @@
  * literal color, not a className. Keep this file in sync with the config.
  */
 export const COLORS = {
-  canvas: "#FBF6EE",
-  canvasOnboarding: "#FDFAF2",
+  canvas: "#FDF9F0",
   surface: "#FFFFFF",
 
   tintPink: "#F7D9DA",

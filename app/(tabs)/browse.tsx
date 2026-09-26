@@ -1,18 +1,19 @@
+import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, TextInput, View, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
 
 import { HEADER_GUTTER } from "@/components/AppHeader";
+import { GlassButton } from "@/components/GlassButton";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
 import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
 import { SkinMatchCard } from "@/components/SkinMatchCard";
-import { openScanner } from "@/lib/open-scanner";
+import { openPhotoScanner } from "@/lib/open-scanner";
 import { Text } from "@/components/Text";
-import { fetchProductsByIds, peekProducts, searchableQuery, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
+import { fetchProductsByIds, longEnoughToSearch, peekProducts, searchableQuery, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized } from "@/lib/profile";
@@ -37,13 +38,25 @@ const RECENT_LIMIT = 8;
 // One empty list, so "nothing recent yet" is the same value every render.
 const NO_PRODUCTS: ProductWithIngredients[] = [];
 
+// Before typing: the watercolor still life with "A little progress every day"
+// (new-watercolor sheets), on a cream within a shade of CANVAS so it has no edge.
+const WELCOME_ART = require("@/assets/illustrations/search-welcome.webp");
+const WELCOME_ASPECT = 1024 / 1536;
+// A search with no match: the open box and magnifier, as the scanner's no-match sheet.
+const NO_MATCH_ART = require("@/assets/illustrations/no-product-found.webp");
+const NO_MATCH_ASPECT = 1164 / 697;
+
+// Under the box while the query is too short to search (`longEnoughToSearch`).
+const KEEP_TYPING = "Type at least three letters to search.";
+
 // How many placeholder rows stand in for results on a cold search — enough to
 // fill a phone screen without pretending to know the real count.
 const SKELETON_ROWS = 6;
 
 // One flat array for the FlatList, which can only virtualize a single list.
 type SearchItem =
-  | { kind: "scan" }
+  | { kind: "keep-typing" }
+  | { kind: "welcome" }
   | { kind: "skin-match" }
   | { kind: "recent-heading" }
   | { kind: "skeleton"; id: string }
@@ -56,13 +69,13 @@ function skeletonRows(): SearchItem[] {
 
 export default function Browse() {
   const insets = useSafeAreaInsets();
-  // `searchResults` is null until a query of at least 2 characters has
+  // `searchResults` is null until a query long enough to search has
   // actually been searched.
   const [query, setQuery] = useState("");
   const searchInput = useRef<TextInput>(null);
   const [searchResults, setSearchResults] = useState<ProductWithIngredients[] | null>(null);
   const [searching, setSearching] = useState(false);
-  const searchActive = query.trim().length >= 2;
+  const searchActive = longEnoughToSearch(query);
 
   const profile = useAppStore((s) => s.profile);
   const personalized = isPersonalized(profile);
@@ -225,9 +238,9 @@ export default function Browse() {
       // Results with no scores yet: the questions that would score them (#346).
       return personalized ? rows : [{ kind: "skin-match" }, ...rows];
     }
-    // Before typing. The scanner first: with the keyboard up, it is the one
-    // thing sure to be above it.
-    const list: SearchItem[] = [{ kind: "scan" }];
+    // Before typing: the watercolor still life (owner), then what was viewed
+    // recently. Typed but too short to search: first say why nothing happens.
+    const list: SearchItem[] = query.trim().length > 0 ? [{ kind: "keep-typing" }, { kind: "welcome" }] : [{ kind: "welcome" }];
     if (recent.length > 0) {
       list.push(
         { kind: "recent-heading" },
@@ -235,15 +248,25 @@ export default function Browse() {
       );
     }
     return list;
-  }, [searchActive, searching, scoredSearch, recent, profile, personalized]);
+  }, [searchActive, searching, scoredSearch, recent, profile, personalized, query]);
 
   const renderItem: ListRenderItem<SearchItem> = ({ item }) => {
     switch (item.kind) {
-      case "scan":
+      case "keep-typing":
         return (
-          <View style={{ paddingHorizontal: HEADER_GUTTER, paddingBottom: SPACE.block }}>
-            <PrimaryButton variant="gray" size={48} label="Scan a product instead" onPress={openScanner} />
-          </View>
+          <Text style={{ paddingHorizontal: HEADER_GUTTER, paddingBottom: SPACE.text, fontSize: TYPE.caption, color: MUTED }}>
+            {KEEP_TYPING}
+          </Text>
+        );
+
+      case "welcome":
+        return (
+          <Image
+            source={WELCOME_ART}
+            contentFit="contain"
+            accessibilityLabel="A little progress every day"
+            style={{ width: "100%", aspectRatio: WELCOME_ASPECT }}
+          />
         );
 
       case "skin-match":
@@ -268,14 +291,12 @@ export default function Browse() {
 
       case "empty-search":
         return (
-          <View style={{ alignItems: "center", gap: 8, paddingHorizontal: 40, paddingTop: 80 }}>
+          <View style={{ alignItems: "center", gap: 12, paddingHorizontal: HEADER_GUTTER, paddingTop: SPACE.block }}>
+            <Image source={NO_MATCH_ART} contentFit="contain" accessibilityLabel="" style={{ width: "88%", aspectRatio: NO_MATCH_ASPECT }} />
             <Text style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: INK }}>
               We don&apos;t have this product in our library yet.
             </Text>
-            <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
-              Try the Scan tab to scan its barcode or ingredients instead.
-            </Text>
-            <PrimaryButton size={52} label="Go to Scan" onPress={openScanner} />
+            <PrimaryButton size={52} label="Scan the list of ingredients instead" onPress={() => openPhotoScanner({})} />
           </View>
         );
 
@@ -341,25 +362,14 @@ export default function Browse() {
                 }}
               />
               {query.length > 0 && (
-                <Pressable
-                  onPress={() => changeQuery("")}
-                  hitSlop={10}
-                  accessibilityRole="button"
+                <GlassButton
+                  symbol="xmark"
+                  icon="close"
                   accessibilityLabel="Clear search"
-                  style={{
-                    position: "absolute",
-                    right: HEADER_GUTTER + 14,
-                    width: 24,
-                    height: 24,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                  className="active:opacity-70"
-                >
-                  <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                    <Path d="M6 6l12 12M18 6 6 18" stroke={MUTED} strokeWidth={2.2} strokeLinecap="round" />
-                  </Svg>
-                </Pressable>
+                  onPress={() => changeQuery("")}
+                  small
+                  style={{ position: "absolute", right: HEADER_GUTTER + 12 }}
+                />
               )}
             </View>
           </View>

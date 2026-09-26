@@ -13,9 +13,8 @@ module.exports = {
         // for.me Screens (Claude Design, project 9c113a1f) — replaces the
         // milky-pastel palette. Values taken directly from the mockup HTML
         // (Result/Scanner/Quiz), not invented, except where noted below.
-        canvas: "#FBF6EE",
-        // The intro screens' background only (`ONBOARDING_CANVAS`), given by the owner.
-        "canvas-onboarding": "#FDFAF2",
+        // Every screen's background, given by the owner (26 September 2026).
+        canvas: "#FDF9F0",
         surface: "#FFFFFF",
 
         // The five Milky pastel colors, untouched. All five sit between
