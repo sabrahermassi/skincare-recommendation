@@ -20,7 +20,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Rect } from "react-native-svg";
 
 import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
-import { GenieShell, type GenieShellHandle } from "@/components/GenieShell";
 import { LabelCamera } from "@/components/LabelCamera";
 import { ScanIntro } from "@/components/ScanIntro";
 import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
@@ -166,7 +165,6 @@ export default function Scan() {
   const dismissQuizAcknowledgement = useAppStore((s) => s.dismissQuizAcknowledgement);
 
   const busy = useRef(false);
-  const shell = useRef<GenieShellHandle>(null);
   const insets = useSafeAreaInsets();
   // One camera and one frame for both modes (see below), so their state lives here.
   const cameraRef = useRef<CameraView>(null);
@@ -503,10 +501,11 @@ export default function Scan() {
     );
 
 
-  // The scanner is full screen: it opens out of the tab bar's scan button and
-  // folds back into it when the X is pressed.
+  // Full screen, presented the standard iOS way: it slides up from the bottom
+  // and back down when closed (`presentation: "fullScreenModal"` in
+  // app/_layout.tsx, #313).
   return (
-    <GenieShell ref={shell}>
+    <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <View
         style={{
           flex: 1,
@@ -572,12 +571,8 @@ export default function Scan() {
       </View>
 
       <Pressable
-        onPress={() =>
-          shell.current?.close(() => {
-            if (router.canGoBack()) router.back();
-            else router.navigate("/browse");
-          })
-        }
+        // Opened from a deep link there is nothing underneath to go back to.
+        onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
         accessibilityRole="button"
         accessibilityLabel="Close scanner"
         style={{
@@ -615,7 +610,7 @@ export default function Scan() {
           <Ionicons name={torchOn ? "flash" : "flash-outline"} size={24} color={CANVAS} />
         </Pressable>
       ) : null}
-    </GenieShell>
+    </View>
   );
 }
 

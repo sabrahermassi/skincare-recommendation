@@ -165,6 +165,9 @@ export default function RootLayout() {
           name="scan-label"
           options={{ title: "Read the label", presentation: "modal", headerShown: false }}
         />
+        {/* Slides up over everything, full screen, and back down when closed —
+            the standard iOS camera presentation (#313). */}
+        <Stack.Screen name="scanner" options={{ headerShown: false, presentation: "fullScreenModal" }} />
         <Stack.Screen name="add-product" options={{ headerShown: false }} />
         <Stack.Screen name="label-result" options={{ headerShown: false }} />
       </Stack>

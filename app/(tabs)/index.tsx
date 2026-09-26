@@ -8,7 +8,7 @@ import { HEADER_GUTTER } from "@/components/AppHeader";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PressableCard } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
-import { openScanner } from "@/lib/genie";
+import { openScanner } from "@/lib/open-scanner";
 import { homeGreetingLayout, SIGNATURE_WIDTH } from "@/lib/home-greeting";
 import { answeredWithoutSignal, isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";

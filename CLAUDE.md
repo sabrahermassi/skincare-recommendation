@@ -142,8 +142,11 @@ the real backend; the invariant keeps the seam clean for the day it isn't.
 native.
 
 - **`/` is `app/(tabs)/index.tsx`** (Home: scan card, search box, skin profile),
-  not a product list. The scanner is `app/(tabs)/scanner.tsx`, full screen, opened
-  from the raised middle tab button (or `openScanner()` in `lib/genie.ts`).
+  not a product list. The scanner is `app/scanner.tsx`, a full-screen modal
+  on the root stack (it slides up, iOS-style), opened by `openScanner()` in
+  `lib/open-scanner.ts` — from the raised middle tab button and every "Scan"
+  card or button. It is not a tab: `app/(tabs)/scan.tsx` only holds that
+  button's place in the bar.
   `initialRouteName` doesn't change what `/` resolves to. A root
   `app/index.tsx` is impossible — it collides with `app/(tabs)/index.tsx`.
 - **Never navigate from a layout file.** Gate with a declarative

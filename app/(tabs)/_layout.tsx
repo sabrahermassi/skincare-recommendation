@@ -1,13 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, View, type GestureResponderEvent } from "react-native";
 
 import { TabBarBackground } from "@/components/TabBarBackground";
 import { TERRACOTTA } from "@/components/shell/shared";
-import { genie } from "@/lib/genie";
+import { openScanner } from "@/lib/open-scanner";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT, SCAN_ICON, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
 import { RAISED_SHADOW, SELECTED, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -89,33 +89,14 @@ function TabButton({
 
 /**
  * The scanner, raised out of the middle of the bar. The ring in the canvas
- * colour cuts it out of the bar's top edge. Pressing it opens the scanner full
- * screen (and the bar goes away): it notes where the button is so the scanner
- * can grow out of that spot, and fold back into it when closed.
+ * colour cuts it out of the bar's top edge. Pressing it opens the scanner as a
+ * full-screen modal that slides up over the tabs (#313) — it is not a tab.
  */
-function ScanTabButton({ onPress }: { onPress?: (event: GestureResponderEvent) => void }) {
-  const button = useRef<View>(null);
-
-  function open(event: GestureResponderEvent) {
-    const go = () => {
-      genie.opening = true;
-      onPress?.(event);
-    };
-    if (!button.current) {
-      go();
-      return;
-    }
-    button.current.measureInWindow((x, y, width, height) => {
-      if (width > 0) genie.origin = { x: x + width / 2, y: y + height / 2 };
-      go();
-    });
-  }
-
+function ScanTabButton() {
   return (
     <View pointerEvents="box-none" style={{ flex: 1, alignItems: "center" }}>
       <Pressable
-        ref={button}
-        onPress={open}
+        onPress={openScanner}
         accessibilityRole="tab"
         accessibilityLabel="Scan"
         style={{
@@ -157,7 +138,6 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      // Back from the scanner's X goes to the tab you came from.
       backBehavior="history"
       screenOptions={{
         /*
@@ -245,21 +225,21 @@ export default function TabsLayout() {
         }}
       />
       {/*
-        The scanner: full screen, opened by the raised middle button (or a scan
-        card on Home). Its place in the bar is that button; the order of the
-        screens here is the order of the bar.
+        The raised middle button. The scanner itself is a full-screen modal on
+        the root stack (app/scanner.tsx), not a tab; this placeholder route
+        only holds the button's place in the bar, which is the order of the
+        screens here. The button opens the modal directly and never selects
+        this tab.
       */}
       <Tabs.Screen
-        name="scanner"
+        name="scan"
         options={{
           title: "Scan a product · for.me",
           tabBarLabel: "Scan",
           // The bar draws icons only, so this is the name a screen reader
           // announces — kept on every tab for the same reason.
           tabBarAccessibilityLabel: "Scan",
-          // The scanner is full screen: no tab bar over it.
-          tabBarStyle: { display: "none" },
-          tabBarButton: (props) => <ScanTabButton onPress={props.onPress ?? undefined} />,
+          tabBarButton: () => <ScanTabButton />,
         }}
       />
       <Tabs.Screen

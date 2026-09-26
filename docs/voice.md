@@ -188,8 +188,8 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 | Scan failure copy (photo/network split) | `lib/read-label-photo.ts` (`failureCopy`) | No — operational copy, not an ingredient/product claim |
 | Save failure copy | `app/add-product.tsx` (`SAVE_FAILURE_COPY`) | No, same reason |
 | Barcode lookup failure | `data/api.ts` (`failureMessage`) | No, same reason |
-| Scanner status panels | `app/(tabs)/scanner.tsx` (`BarcodeStage`, `IngredientsStage`) | No, same reason |
-| Camera/permission intros | `app/(tabs)/scanner.tsx` (`CameraPermissionIntro` usages), `app/add-product.tsx` | No, same reason |
+| Scanner status panels | `app/scanner.tsx` (`BarcodeStage`, `IngredientsStage`) | No, same reason |
+| Camera/permission intros | `app/scanner.tsx` (`CameraPermissionIntro` usages), `app/add-product.tsx` | No, same reason |
 | Empty states | `app/(tabs)/saved.tsx` (`EMPTY_COPY`, and `GUEST_EMPTY_COPY` for a signed-out shelf, #221) | No, same reason |
 | Sign-in sheet and its failures | `app/sign-in.tsx`, `lib/auth.ts` (`signInFailureCopy`) | No — account copy, not an ingredient/product claim. Closing the provider's sheet deliberately has no copy at all (#220) |
 | Account screen | `app/account.tsx` | No, same reason |

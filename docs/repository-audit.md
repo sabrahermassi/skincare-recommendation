@@ -10,7 +10,7 @@
 >
 > - **Navigation was rebuilt.** Step 4 below says returning users land on the
 >   scanner, pointing at `app/(tabs)/index.tsx`. That route is Home now, and
->   the scanner is `app/(tabs)/scanner.tsx`, opened from a raised middle tab
+>   the scanner is `app/scanner.tsx` (a full-screen modal since #313), opened from a raised middle tab
 >   button. The same correction applies anywhere below that treats
 >   `app/(tabs)/index.tsx` as the scan screen.
 > - **Several listed defects are now tracked or fixed.** Findings 1, 3 and 4

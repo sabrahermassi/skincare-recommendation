@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
-import Scan from "@/app/(tabs)/scanner";
+import Scan from "@/app/scanner";
 import { fetchProductByBarcode } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 
@@ -64,10 +64,6 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-jest.mock("@/components/GenieShell", () => {
-  const React = require("react");
-  return { GenieShell: React.forwardRef(({ children }: { children: unknown }, _ref: unknown) => children) };
-});
 jest.mock("@/components/LabelCamera", () => ({ LabelCamera: () => null }));
 jest.mock("@/components/ScanIntro", () => ({ ScanIntro: () => null }));
 jest.mock("@/components/ChoosePhotoInstead", () => ({ ChoosePhotoInstead: () => null }));
