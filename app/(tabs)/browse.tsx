@@ -13,7 +13,6 @@ import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { SaveHeart } from "@/components/SaveHeart";
 import { ScorePill } from "@/components/ScorePill";
-import { SkinMatchCard } from "@/components/SkinMatchCard";
 import { Text } from "@/components/Text";
 import { fetchProductsByIds, longEnoughToSearch, peekProducts, searchableQuery, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -61,7 +60,6 @@ const SKELETON_ROWS = 6;
 type SearchItem =
   | { kind: "keep-typing" }
   | { kind: "welcome" }
-  | { kind: "skin-match" }
   | { kind: "recent-heading" }
   | { kind: "recent"; product: ProductWithIngredients; match: MatchResult }
   | { kind: "skeleton"; id: string }
@@ -239,9 +237,9 @@ export default function Browse() {
     if (searchActive) {
       if (searching) return skeletonRows();
       if (scoredSearch === null || scoredSearch.length === 0) return [{ kind: "empty-search" }];
-      const rows = scoredSearch.map(({ product, match }) => ({ kind: "product", product, match }) as const);
-      // Results with no scores yet: the questions that would score them (#346).
-      return personalized ? rows : [{ kind: "skin-match" }, ...rows];
+      // Just the results: the skin questions live behind Home's "Find a
+      // product" card, not above every search (owner).
+      return scoredSearch.map(({ product, match }) => ({ kind: "product", product, match }) as const);
     }
     // Before typing: the watercolor still life (owner), then what was viewed
     // recently. Typed but too short to search: first say why nothing happens.
@@ -253,7 +251,7 @@ export default function Browse() {
       { kind: "recent-heading" },
       ...recent.map((product) => ({ kind: "recent", product, match: matchProduct(product, profile) }) as const),
     ];
-  }, [searchActive, searching, scoredSearch, recent, profile, personalized, query]);
+  }, [searchActive, searching, scoredSearch, recent, profile, query]);
 
   const renderItem: ListRenderItem<SearchItem> = ({ item }) => {
     switch (item.kind) {
@@ -274,13 +272,6 @@ export default function Browse() {
             title="Search by name or brand"
             line="Look up any product in our library of analysed skincare."
           />
-        );
-
-      case "skin-match":
-        return (
-          <View style={{ paddingHorizontal: HEADER_GUTTER, paddingBottom: SPACE.block }}>
-            <SkinMatchCard />
-          </View>
         );
 
       case "recent-heading":

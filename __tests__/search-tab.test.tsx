@@ -98,6 +98,8 @@ describe("typing", () => {
     await render(<Search />);
     await act(async () => fireEvent.changeText(screen.getByLabelText("Search products or brands"), "ceramide"));
     expect(await screen.findByText("Aqua Barrier Ceramide Moisturizer", {}, { timeout: 3000 })).toBeTruthy();
+    // No skin-questions card above the results: that lives on Home (owner).
+    expect(screen.queryByText("See your skin match")).toBeNull();
     expect(screen.getByText("Barrier Ceramide Body Lotion")).toBeTruthy();
     expect(screen.queryByText("Scan a product instead")).toBeNull();
   });
