@@ -87,7 +87,14 @@ const keychainProfile = () => {
  */
 async function launch(): Promise<typeof AppStore> {
   let store!: typeof AppStore;
+  lifecycle = undefined;
   jest.isolateModules(() => {
+    // This launch's AppState, so a test can bring the app to the front.
+    const { AppState } = require("react-native") as typeof import("react-native");
+    jest.spyOn(AppState, "addEventListener").mockImplementation((_type, handler) => {
+      lifecycle = handler as (status: string) => void;
+      return { remove: jest.fn() };
+    });
     store = (require("@/store/useAppStore") as typeof import("@/store/useAppStore")).useAppStore;
   });
   if (!store.persist.hasHydrated()) {
@@ -95,6 +102,9 @@ async function launch(): Promise<typeof AppStore> {
   }
   return store;
 }
+
+/** The latest launch's app-state listener, when it registered one. */
+let lifecycle: ((status: string) => void) | undefined;
 
 /** Lets a write the store started (and didn't await) land. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -211,6 +221,44 @@ describe("launching", () => {
     expect(store.getState().history.map((h) => h.id)).toEqual(["recent"]);
     await settle();
     expect((file()?.state.history as { id: string }[]).map((h) => h.id)).toEqual(["recent"]);
+  });
+
+  it("keeps an edit out of a Keychain it couldn't read, rather than replace the real profile (#189 review)", async () => {
+    mockFiles.set(KEY, v8File());
+    await launch();
+
+    mockFail.reads = true;
+    const locked = await launch();
+    await locked.getState().setProfile({ pregnancyStatus: "none" });
+    expect(keychainProfile()).toEqual(PROFILE);
+    expect(file()?.state.profile).toEqual({ ...EMPTY_PROFILE, pregnancyStatus: "none" });
+  });
+
+  it("reads the profile again when the app comes to the front, and shows it", async () => {
+    mockFiles.set(KEY, v8File());
+    await launch();
+
+    // iOS started the app before the phone was unlocked.
+    mockFail.reads = true;
+    const store = await launch();
+    expect(store.getState().profile).toEqual(EMPTY_PROFILE);
+    expect(lifecycle).toBeDefined();
+
+    lifecycle!("background");
+    await settle();
+    expect(store.getState().profile).toEqual(EMPTY_PROFILE);
+
+    mockFail.reads = false;
+    lifecycle!("active");
+    await settle();
+    expect(store.getState().profile).toEqual(PROFILE);
+    expect(keychainProfile()).toEqual(PROFILE);
+  });
+
+  it("doesn't listen for the app coming to the front when the profile read worked", async () => {
+    mockFiles.set(KEY, v8File());
+    await launch();
+    expect(lifecycle).toBeUndefined();
   });
 
   it("does not delete the profile when the Keychain couldn't be read this launch", async () => {

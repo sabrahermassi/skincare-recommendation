@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
+import { AppState as AppLifecycle, Platform } from "react-native";
 import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 
@@ -525,11 +525,17 @@ function isEmptyProfile(profile: SkinProfile): boolean {
  *   no file, so a previous install's profile never comes back; the first write
  *   replaces or removes it.
  * - An empty profile removes the Keychain copy — that is how "Delete my
- *   profile" reaches it — except when this launch couldn't read the Keychain,
- *   where an empty profile means "not loaded", not "erased".
+ *   profile" reaches it.
+ * - While this launch hasn't been able to read the Keychain, nothing is
+ *   written to it or deleted from it (#189 review). iOS can start an app in
+ *   the background before the phone is unlocked, when a
+ *   `WHEN_UNLOCKED_THIS_DEVICE_ONLY` item can't be read; the store then shows
+ *   an empty profile, and an edit made on top of it must not replace the real
+ *   one. An edit is kept in the file instead, and `recoverProfile` reads the
+ *   Keychain again once the app is in front.
  * - Writes are queued, so two quick changes land in order.
  */
-export function formeStorageFor(os: typeof Platform.OS): StateStorage {
+export function formeStorageFor(os: typeof Platform.OS): FormeStorage {
   const keychain = os !== "web";
   // What the Keychain holds as far as this launch knows; undefined for "not read".
   let known: string | null | undefined;
@@ -582,8 +588,10 @@ export function formeStorageFor(os: typeof Platform.OS): StateStorage {
     // Written before the store read its file: nothing to go on, so leave the
     // Keychain alone rather than overwrite it with a first-run profile.
     if (!hydrated) return true;
+    // Never replace or delete a value this launch couldn't read.
+    if (unreadable) return isEmptyProfile(profile);
     if (isEmptyProfile(profile)) {
-      if (unreadable || known === null) return true;
+      if (known === null) return true;
       if (!(await removeSecureProfile())) return false;
       known = null;
       return true;
@@ -592,8 +600,21 @@ export function formeStorageFor(os: typeof Platform.OS): StateStorage {
     if (value === known) return true;
     if (!(await writeSecureProfile(value))) return false;
     known = value;
-    unreadable = false;
     return true;
+  }
+
+  /**
+   * After a launch that couldn't read the Keychain (`profileUnread`), tries
+   * again. Returns the profile it holds (null for none), or undefined when it
+   * still can't read it, or never needed to.
+   */
+  async function recoverProfile(): Promise<SkinProfile | null | undefined> {
+    if (!unreadable) return undefined;
+    const read = await readSecureProfile();
+    if (!read.ok) return undefined;
+    unreadable = false;
+    known = read.value;
+    return parseProfile(read.value);
   }
 
   async function write(name: string, value: string): Promise<void> {
@@ -620,10 +641,18 @@ export function formeStorageFor(os: typeof Platform.OS): StateStorage {
       return run;
     },
     removeItem: (name) => AsyncStorage.removeItem(name),
+    profileUnread: () => unreadable,
+    recoverProfile,
   };
 }
 
-export const formeStorage: StateStorage = formeStorageFor(Platform.OS);
+export type FormeStorage = StateStorage & {
+  /** Whether this launch has yet to read the profile from the Keychain. */
+  profileUnread: () => boolean;
+  recoverProfile: () => Promise<SkinProfile | null | undefined>;
+};
+
+export const formeStorage: FormeStorage = formeStorageFor(Platform.OS);
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -939,4 +968,26 @@ connectClaimFlag({
         }),
   isClaimed: () => useAppStore.getState().secureStoreClaimed,
   claim: () => useAppStore.getState().claimSecureStore(),
+});
+
+/**
+ * A launch that couldn't read the profile from the Keychain (see
+ * `formeStorageFor`) reads it again each time the app comes to the front,
+ * until it can. The profile it finds replaces the empty one on screen — unless
+ * the person already started a new one in the meantime, which is theirs to
+ * keep.
+ */
+async function recoverProfile(): Promise<void> {
+  const recovered = await formeStorage.recoverProfile();
+  if (recovered && isEmptyProfile(useAppStore.getState().profile)) useAppStore.setState({ profile: recovered });
+}
+
+useAppStore.persist.onFinishHydration(() => {
+  if (!formeStorage.profileUnread()) return;
+  void recoverProfile();
+  const subscription = AppLifecycle.addEventListener("change", (status) => {
+    if (status !== "active") return;
+    if (!formeStorage.profileUnread()) subscription.remove();
+    else void recoverProfile();
+  });
 });
