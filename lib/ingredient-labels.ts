@@ -1,5 +1,6 @@
 import type { Ingredient } from "@/data/types";
 import { RUNG_META, type MatchResult } from "@/lib/matching";
+import { isWarnedPoreClogging } from "@/lib/pore-clogging";
 import { groupByRisk } from "@/lib/safety";
 
 /**
@@ -13,7 +14,10 @@ import { groupByRisk } from "@/lib/safety";
  *   for this person, or a pregnancy caution, with or without a skin profile.
  * - **Watch**: a caution or irritant for this person — `groupByRisk`'s
  *   `caution`, any warning, or anything the score counted against them
- *   (a negative reason, an irritation or pore-clogging charge).
+ *   (a negative reason, an irritation or pore-clogging charge) — and, for
+ *   anyone, a name on the published pore-clogging lists: the row wears a
+ *   CLOGGING tag, and "Good" beside it, or folding it under "no known
+ *   concerns", contradicts the tag (#290).
  * - **Good**: a benefit the score counted for this person — a positive
  *   reason from a matched rule or a declared CosIng function.
  * - **Unknown**: not in the dictionary, so unassessed.
@@ -21,8 +25,8 @@ import { groupByRisk } from "@/lib/safety";
  *
  * With no skin profile there is no "you" to be good or risky for: only
  * Avoid, Unknown, and Watch for what is restricted for everyone (the EU's
- * caution list) are shown. A pregnancy answer is not a skin profile, but its
- * cautions are still Avoid.
+ * caution list) and the pore-clogging lists are shown. A pregnancy answer is
+ * not a skin profile, but its cautions are still Avoid.
  */
 export type IngredientLabel = "avoid" | "watch" | "good" | "unknown";
 
@@ -41,7 +45,7 @@ export function ingredientLabel(ingredient: Ingredient, match: MatchResult, pers
   const warnings = match.warnings.filter((w) => w.ingredient.id === ingredient.id);
   // A hazard or a pregnancy caution outranks not knowing, and outranks having
   // no profile: pregnancy matching fires on an exact name even when a label
-  // read left the row unverified (the same precedence `rungFor` keeps). A
+  // read left the row unverified. A
   // pregnancy hit is `severity: "irritant"` for the score (see
   // `lib/pregnancy-caution.ts`), so it is named here rather than caught by
   // the severity check. Every warning is read: one ingredient can carry one
@@ -51,6 +55,7 @@ export function ingredientLabel(ingredient: Ingredient, match: MatchResult, pers
   const risk = riskOf(ingredient);
   if (risk === "avoid") return "avoid";
   if (risk === "unknown") return "unknown";
+  if (isWarnedPoreClogging(ingredient)) return "watch";
 
   if (!personalized) return ingredient.safety === "caution" ? "watch" : null;
 

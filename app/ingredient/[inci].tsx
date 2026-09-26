@@ -15,8 +15,9 @@ import { unknownIngredient, type Ingredient, type ProductWithIngredients } from 
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { COLORS } from "@/lib/colors";
 import { comedogenicLabel } from "@/lib/format";
-import { matchProduct, positionNote, ruleFor, rungFor, type Contraindication, type Rung } from "@/lib/matching";
-import { isSensitive, treatAsReactive } from "@/lib/profile";
+import { ingredientLabel, type IngredientLabel } from "@/lib/ingredient-labels";
+import { matchProduct, positionNote, ruleFor, type Contraindication } from "@/lib/matching";
+import { isPersonalized, isSensitive, treatAsReactive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
@@ -54,8 +55,15 @@ import NotFound from "@/app/+not-found";
  * sitting there as a tappable no-op.
  */
 
+/**
+ * The verdict: the ingredient list's own label (`lib/ingredient-labels.ts`,
+ * #324), or "none" for a row the list gives no word — so tapping a row never
+ * opens a page that disagrees with it.
+ */
+type Fit = IngredientLabel | "none";
+
 const RUNG: Record<
-  Rung,
+  Fit,
   {
     pill: string;
     ink: string;
@@ -94,11 +102,22 @@ const RUNG: Record<
     chip: VERDICT.low.tint,
     hero: COLORS.levelAvoid,
   },
-  neutral: {
+  unknown: {
     pill: "bg-level-neutral-tint",
     ink: "text-level-neutral-ink",
     dot: "bg-level-neutral",
     label: "Not recognised",
+    panel: "bg-hairline border-hairline",
+    chip: VERDICT_NEUTRAL.tint,
+    hero: COLORS.levelNeutral,
+  },
+  // The list folds these under "no known concerns"; the same quiet grey as
+  // "Not recognised", since it is not a verdict either way.
+  none: {
+    pill: "bg-level-neutral-tint",
+    ink: "text-level-neutral-ink",
+    dot: "bg-level-neutral",
+    label: "No known concerns",
     panel: "bg-hairline border-hairline",
     chip: VERDICT_NEUTRAL.tint,
     hero: COLORS.levelNeutral,
@@ -212,25 +231,49 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
   // just went back (#296).
   const inList = product !== null && index >= 0;
   const verified = isVerified(ingredient);
-  // `match` is null when this screen is opened without a product context
-  // (e.g. from search) — there's nothing to score against yet, so an
-  // otherwise-recognised ingredient reads as "worth knowing" rather than a
-  // verdict `rungFor` has no way to give it.
-  const rung: Rung = match ? rungFor(ingredient, match) : verified ? "watch" : "neutral";
+  // Opened from a product, the verdict is the label the ingredient list gave
+  // this row (#324). `match` is null when this screen is opened without a
+  // product context (e.g. from search) — there's nothing to score against
+  // yet, so an otherwise-recognised ingredient reads as "worth knowing"
+  // rather than a verdict it has no way to give.
+  const fit: Fit = match
+    ? (ingredientLabel(ingredient, match, isPersonalized(profile)) ?? "none")
+    : verified
+      ? "watch"
+      : "unknown";
   // Threaded into fitHeadline/fitBody/fitPill so they can give a warning
-  // precedence over "unverified", the same way `rungFor` itself already does
-  // — without it, an unverified ingredient flagged by pregnancy matching wore
-  // an "avoid" rung with copy underneath it that denied anything was wrong.
-  const warning = match?.warnings.find((w) => w.ingredient.id === ingredient.id);
-  const meta = RUNG[rung];
+  // precedence over "unverified" and over a rule's general claim — without
+  // it, an unverified ingredient flagged by pregnancy matching wore an
+  // "avoid" rung with copy underneath it that denied anything was wrong. The
+  // warning that made the row Avoid comes first: one ingredient can carry one
+  // per origin.
+  const warnings = match?.warnings.filter((w) => w.ingredient.id === ingredient.id) ?? [];
+  const warning = warnings.find((w) => w.severity === "hazard" || w.origin === "pregnancy") ?? warnings[0];
+  const meta = RUNG[fit];
 
   const rule = ruleFor(ingredient);
   // The rules table takes a boolean; sensitivity has three levels now. Harm
   // reads an unset sensitivity at the middle setting and benefit never
   // credits it — the same split `computeMatch` makes (#183), so this screen
   // and the product's score agree about the same ingredient.
-  const helps = rule ? targetApplies(rule.helps, { ...profile, sensitive: isSensitive(profile) }) : false;
-  const hurts = rule ? targetApplies(rule.hurts, { ...profile, sensitive: treatAsReactive(profile) }) : false;
+  //
+  // With a product, what the score itself counted wins, as it does for the
+  // label: a rule that "hurts sensitive skin" said "Works against your
+  // profile" to someone with no profile, beside a list that gave the row no
+  // word at all.
+  const name = ingredient.name;
+  const helps = match
+    ? fit === "good"
+    : rule
+      ? targetApplies(rule.helps, { ...profile, sensitive: isSensitive(profile) })
+      : false;
+  const hurts = match
+    ? match.reasons.some((r) => r.ingredient === name && r.effect < 0) ||
+      match.irritants.includes(name) ||
+      match.cloggersCharged.includes(name)
+    : rule
+      ? targetApplies(rule.hurts, { ...profile, sensitive: treatAsReactive(profile) })
+      : false;
 
   // The design sets a common name under the INCI name. We don't hold one, but
   // many INCI names carry it in parentheses ("Panthenol (Vitamin B5)"), and
@@ -345,11 +388,11 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             <View className="flex-row items-center gap-2.5">
               <HeartIcon color={meta.hero} />
               <Text className={`font-display text-[18px] leading-[21px] ${meta.ink}`}>
-                {fitHeadline(rung, helps, hurts, verified, warning)}
+                {fitHeadline(fit, helps, hurts, verified, warning)}
               </Text>
             </View>
             <Text style={{ fontSize: 13, lineHeight: 19.5, color: INK }}>
-              {fitBody(rung, helps, hurts, verified, Boolean(rule), warning)}
+              {fitBody(fit, helps, hurts, verified, Boolean(rule), warning)}
             </Text>
             {/* The small qualifier pill the design puts under the verdict. */}
             <View
@@ -357,7 +400,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
               className="self-start rounded-full px-3 py-1.5"
             >
               <Text className={`text-[11.5px] font-medium ${meta.ink}`}>
-                {fitPill(rung, helps, hurts, verified, warning)}
+                {fitPill(fit, helps, hurts, verified, warning)}
               </Text>
             </View>
           </View>
@@ -526,22 +569,25 @@ function whatItDoes(ingredient: Ingredient, ruleReason: string | undefined): str
 }
 
 function fitHeadline(
-  rung: Rung,
+  fit: Fit,
   helps: boolean,
   hurts: boolean,
   verified: boolean,
   warning?: Contraindication
 ): string {
-  if (!verified) return rung === "avoid" && warning ? "Flagged for you" : "We can't judge this one";
+  if (!verified) return fit === "avoid" && warning ? "Flagged for you" : "We can't judge this one";
+  // A caution for this person outranks what a rule says it does: a retinoid
+  // is not a "Great match" while pregnant.
+  if (fit === "avoid" && warning) return "Flagged for you";
   if (hurts) return "Works against your profile";
   if (helps) return "Great match";
-  if (rung === "avoid") return "Flagged for everyone";
-  if (rung === "watch") return "Worth a second look";
+  if (fit === "avoid") return "Flagged for everyone";
+  if (fit === "watch") return "Worth a second look";
   return "Nothing against it";
 }
 
 function fitBody(
-  rung: Rung,
+  fit: Fit,
   helps: boolean,
   hurts: boolean,
   verified: boolean,
@@ -549,16 +595,18 @@ function fitBody(
   warning?: Contraindication
 ): string {
   if (!verified) {
-    return rung === "avoid" && warning
+    return fit === "avoid" && warning
       ? warning.reason
       : "An unrecognised name supports no claim in either direction, so this one neither counts for nor against the product's score.";
   }
+  // The warning's own sentence is the most specific thing we hold.
+  if (warning) return warning.reason;
   if (hurts) return "This is one of the things pulling the score down for the skin you described.";
   if (helps) return "This actively helps with what you told us about your skin.";
-  if (rung === "avoid") {
+  if (fit === "avoid") {
     return "The EU inventory restricts or prohibits this one, which applies to everybody rather than to your profile in particular.";
   }
-  if (rung === "watch") {
+  if (fit === "watch") {
     return "Carries a restriction or a pore rating worth knowing about, though nothing in your profile makes it a specific problem.";
   }
   if (!hasRule) {
@@ -568,17 +616,18 @@ function fitBody(
 }
 
 function fitPill(
-  rung: Rung,
+  fit: Fit,
   helps: boolean,
   hurts: boolean,
   verified: boolean,
   warning?: Contraindication
 ): string {
-  if (!verified) return rung === "avoid" && warning ? "Flagged for you" : "Unassessed";
+  if (!verified) return fit === "avoid" && warning ? "Flagged for you" : "Unassessed";
+  if (fit === "avoid" && warning) return "Flagged for you";
   if (hurts) return "Counts against your goals";
   if (helps) return "Good for your goals";
-  if (rung === "avoid") return "Best avoided generally";
-  if (rung === "watch") return "Worth knowing";
+  if (fit === "avoid") return "Best avoided generally";
+  if (fit === "watch") return "Worth knowing";
   return "Neutral for your goals";
 }
 

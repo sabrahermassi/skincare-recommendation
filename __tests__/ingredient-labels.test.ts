@@ -126,6 +126,28 @@ describe("ingredientLabel, while pregnant or breastfeeding", () => {
   });
 });
 
+describe("ingredientLabel, for a name on the pore-clogging lists", () => {
+  // The row wears a CLOGGING tag whoever you are, so it is never Good and
+  // never folded under "no known concerns" (#290), even when the score didn't
+  // charge it and a declared function counted for this person.
+  const LANOLIN = ingredient("lanolin", { functions: ["emollient", "skin conditioning"] });
+  const DRY = profile({ baseSkinType: "dry", concerns: ["dehydrated"] });
+
+  it("says Watch, not Good, when its benefit counted for this person", () => {
+    const match = matchProduct(product([...PLAIN, LANOLIN]), DRY);
+    expect(match.cloggersCharged).toEqual([]);
+    expect(match.reasons.some((r) => r.ingredient === "lanolin" && r.effect > 0)).toBe(true);
+    expect(ingredientLabel(LANOLIN, match, true)).toBe("watch");
+  });
+
+  it("says Watch with no skin profile, and stays out of the fold", () => {
+    const match = matchProduct(product([...PLAIN, LANOLIN]), EMPTY_PROFILE);
+    expect(ingredientLabel(LANOLIN, match, false)).toBe("watch");
+    const { labelled } = sortForGlance([...PLAIN, LANOLIN], match, false);
+    expect(labelled.map((row) => row.ingredient.name)).toEqual(["lanolin"]);
+  });
+});
+
 describe("sortForGlance", () => {
   const match = matchProduct(product(ALL), WITH_PROFILE);
 

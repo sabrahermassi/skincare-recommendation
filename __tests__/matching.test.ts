@@ -6,13 +6,14 @@ import {
   matchProduct,
   matchTone,
   resetScoreCache,
-  rungFor,
   SCORE_BANDS,
   scoreExplanation,
   verdictHeadline,
   type MatchResult,
 } from "@/lib/matching";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
+import { ingredientLabel } from "@/lib/ingredient-labels";
+import { isPersonalized } from "@/lib/profile";
 
 async function load(id: string): Promise<ProductWithIngredients> {
   const result = await fetchProduct(id);
@@ -688,14 +689,14 @@ describe("verdict engine", () => {
     // Retinol helps fine lines and, for reactive skin, is charged as an irritant.
     // On a full-contact product the two weights are equal, so the net reason
     // effect is zero and the reason line drops out; the ingredient must still not
-    // read as a plain good one.
+    // read as a plain good one. Charged, not warned: Watch (#324).
     const product = synthetic(["water", "retinol", ...FILLER], { type: "serum" });
     const result = matchProduct(product, profile({ concerns: ["fine-lines"], sensitivity: "high" }));
     const retinol = product.ingredients.find((ingredient) => ingredient.name === "retinol");
 
     expect(result.irritants).toContain("retinol");
     expect(result.breakdown.irritationPenalty).toBeGreaterThan(0);
-    expect(rungFor(retinol as Ingredient, result)).toBe("avoid");
+    expect(ingredientLabel(retinol as Ingredient, result, true)).toBe("watch");
   });
 
   it("counts a net-zero active as scoring evidence, so confidence is not understated", () => {
@@ -727,27 +728,28 @@ describe("verdict engine", () => {
   });
 
   // #290: the ingredient list's badge must tell the same story as the score,
-  // the risk cards and the CLOGGING tag on the same row.
-  describe("ingredient rungs agree with the score", () => {
+  // the risk cards and the CLOGGING tag on the same row. The badge is
+  // `ingredientLabel` (#324).
+  describe("ingredient labels agree with the score", () => {
     const FILL = ["glycerin", "propanediol", "carbomer", "xanthan gum", "allantoin", "panthenol", "tocopherol"];
     const withClogger = synthetic(["water", "glyceryl stearate se", ...FILL]);
     const clogger = withClogger.ingredients.find((i) => i.name === "glyceryl stearate se") as Ingredient;
+    const cloggerLabel = (skin: SkinProfile) =>
+      ingredientLabel(clogger, matchProduct(withClogger, skin), isPersonalized(skin));
 
-    it("badges a listed clogger Avoid for an acne-prone profile, whose score it cost", () => {
+    it("labels a listed clogger Watch for an acne-prone profile, whose score it cost", () => {
       const result = matchProduct(withClogger, profile({ concerns: ["acne-prone"] }));
       expect(result.cloggersCharged).toEqual(["glyceryl stearate se"]);
-      expect(rungFor(clogger, result)).toBe("avoid");
+      expect(ingredientLabel(clogger, result, true)).toBe("watch");
     });
 
-    it("badges the same clogger Watch, never Good, when no pore-led concern is set", () => {
-      const result = matchProduct(withClogger, profile({ baseSkinType: "dry" }));
-      expect(result.cloggersCharged).toEqual([]);
-      expect(rungFor(clogger, result)).toBe("watch");
+    it("labels the same clogger Watch, never Good, when no pore-led concern is set", () => {
+      expect(matchProduct(withClogger, profile({ baseSkinType: "dry" })).cloggersCharged).toEqual([]);
+      expect(cloggerLabel(profile({ baseSkinType: "dry" }))).toBe("watch");
     });
 
-    it("badges the same clogger Watch when there is no profile at all", () => {
-      const result = matchProduct(withClogger, EMPTY_PROFILE);
-      expect(rungFor(clogger, result)).toBe("watch");
+    it("labels the same clogger Watch when there is no profile at all", () => {
+      expect(cloggerLabel(EMPTY_PROFILE)).toBe("watch");
     });
 
     it("does not warn about a contested clogger, which charged nothing", () => {
@@ -755,16 +757,17 @@ describe("verdict engine", () => {
       const result = matchProduct(contested, profile({ concerns: ["acne-prone"] }));
       expect(result.cloggersCharged).toEqual([]);
       const steareth = contested.ingredients.find((i) => i.name === "steareth-20") as Ingredient;
-      expect(rungFor(steareth, result)).toBe("good");
+      expect(ingredientLabel(steareth, result, true)).not.toBe("watch");
+      expect(ingredientLabel(steareth, result, true)).not.toBe("avoid");
     });
 
-    it("with no profile, badges an ingredient that works against some skin Watch rather than Good", () => {
+    it("with no profile, gives neither Good nor a Watch that depends on the person", () => {
       const scented = synthetic(["water", "parfum", ...FILL]);
       const result = matchProduct(scented, EMPTY_PROFILE);
       const parfum = scented.ingredients.find((i) => i.name === "parfum") as Ingredient;
       const glycerin = scented.ingredients.find((i) => i.name === "glycerin") as Ingredient;
-      expect(rungFor(parfum, result)).toBe("watch");
-      expect(rungFor(glycerin, result)).toBe("good");
+      expect(ingredientLabel(parfum, result, false)).toBeNull();
+      expect(ingredientLabel(glycerin, result, false)).toBeNull();
     });
 
     it("keeps every reason, so an effect past the sixth still reaches the badge", () => {

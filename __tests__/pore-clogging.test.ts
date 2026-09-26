@@ -79,7 +79,7 @@ describe("a positive in the same category cannot cancel a clogger", () => {
 });
 
 /**
- * The bug: `ingredientTone` reads `MatchResult.reasons`, which is truncated to
+ * The bug: `ingredientTone` (since removed) read `MatchResult.reasons`, which is truncated to
  * six entries, so a seventh flagged ingredient rendered as "good".
  */
 describe("no truncation", () => {

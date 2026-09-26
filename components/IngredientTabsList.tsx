@@ -206,13 +206,12 @@ export function IngredientListRow({
   const rule = ruleFor(ingredient);
   const clogs = isWarnedPoreClogging(ingredient);
 
-  // A warning outranks not knowing, the same precedence `rungFor` itself
+  // A warning outranks not knowing, the same precedence `ingredientLabel`
   // uses: pregnancy matching fires on an exact name even when OCR left the
   // row unverified, so the badge can already read "Avoid" here while this
   // subtitle used to still say "we can't assess this one" underneath it —
-  // the row contradicting its own rung. `warning` can still be absent on an
-  // unverified "avoid" row — `rungFor` also flags a negative match reason
-  // with no `Contraindication` behind it — which is what the fallback covers.
+  // the row contradicting its own label. `warning` can still be absent on an
+  // unverified "avoid" row, which is what the fallback covers.
   //
   // The verified branch is untouched: the most specific thing we hold there,
   // in order, is pore-clogging (the reason someone opened this screen), a
