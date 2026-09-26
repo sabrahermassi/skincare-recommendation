@@ -108,7 +108,11 @@ second table is planned; if that ever changes, it gets its own row.
   once accounts exist. This is where every RLS policy does its work.
 - **Backend ↔ Google Vision.** One image per label scan, in transit only.
   Response text is trusted only as far as `label-ocr`'s existing parsing
-  guards go.
+  guards go, and none of it is sent back to the app when a read fails. The
+  API key travels in the `X-Goog-Api-Key` header, never the URL, and each
+  call has a deadline. On top of the per-caller limits, one ceiling counts
+  every read in a UTC day (`VISION_DAILY_CEILING`, `_shared/vision-ceiling.ts`)
+  so rotating addresses can't run up the bill (#198).
 
   Outbound, this is the boundary the app's most sensitive field crosses, and
   it is the one place where "we never store photos" buys nothing: a camera
@@ -123,7 +127,9 @@ second table is planned; if that ever changes, it gets its own row.
   The token proves the list came out of a (rate-limited) read, was not edited,
   and is under 30 minutes old. It is single-use: the first save records it
   (`used_read_tokens`, migration 0023) and any later save with it is refused, so
-  one read cannot be replayed into many catalogue entries. It is deliberately not
+  one read cannot be replayed into many catalogue entries. The signature is keyed
+  with its own secret, `READ_TOKEN_SECRET` (#198); until that is set, the
+  service-role key signs it and the function logs a warning. It is deliberately not
   bound to a barcode — the barcode is asked for after the photo — so the one save
   it allows can go under any barcode nobody has claimed yet. The list is
   still a real read, and an existing entry is never replaced by a later save:

@@ -188,10 +188,11 @@ export function failureCopy(
         retryable: false,
       };
     case "server_unavailable":
-      // The server answered 503 because its Vision API key is unset — an
-      // ops problem, genuinely temporary and worth retrying later, unlike
-      // `not_configured` above. Kept out of the user-facing copy per #96.
-      console.warn("[scan-label] label-ocr unavailable: server's Vision API key is unset");
+      // The server answered 503: its Vision API key is unset, or the day's
+      // Vision ceiling is reached (#198). Genuinely temporary and worth
+      // retrying later, unlike `not_configured` above. Kept out of the
+      // user-facing copy per #96.
+      console.warn("[scan-label] label-ocr unavailable: Vision key unset or daily ceiling reached");
       return {
         message: "Reading ingredient lists is temporarily unavailable.",
         hint: hasBarcode

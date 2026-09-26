@@ -46,11 +46,19 @@ import {
   storedText,
 } from "../_shared/product-text.ts";
 import { signedInAccount } from "../_shared/rate-limit.ts";
+import { spendVisionRead } from "../_shared/vision-ceiling.ts";
 import { readTokenDeadline, signReadToken, verifyReadToken } from "../_shared/read-token.ts";
 import { logScanBounded, type ScanOutcome } from "../_shared/scan-log.ts";
 import { stripBase64ImageMetadata } from "../_shared/strip-metadata.ts";
 
 const VISION_URL = "https://vision.googleapis.com/v1/images:annotate";
+
+/**
+ * How long a photo read waits on Vision (#198). Well inside the app's own
+ * 45 s (`OCR_TIMEOUT_MS`), so the function answers before the app gives up
+ * rather than carrying on after nobody is waiting.
+ */
+export const VISION_TIMEOUT_MS = 25_000;
 
 /** Generous for a person in a shop, useless for anyone burning the free tier. */
 const RATE_LIMIT: RateLimit = { windowSeconds: 300, maxRequests: 10 };
@@ -92,6 +100,8 @@ export type LabelOcrDeps = {
   visionApiKey: string;
   /** Signs and verifies read tokens (`_shared/read-token.ts`). */
   readTokenSecret: string;
+  /** Vision reads allowed per UTC day across every caller (#198); see `vision-ceiling.ts`. */
+  visionDailyCeiling: number;
 };
 
 export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<Response> {
@@ -279,6 +289,17 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
   }
   imageBase64 = cleaned.base64;
 
+  // Last, just before the paid call, so only a photo that will really reach
+  // Vision counts toward the day. Per-caller limits run above; this is the
+  // ceiling for everyone together, so rotating addresses can't run up the
+  // bill (#198). 503, like a missing key: the app says to try again later.
+  // Logged like the missing key too, as ours: a day of refused reads must
+  // show in `scan_log`, not vanish from it.
+  if (!(await spendVisionRead(db, deps.visionDailyCeiling))) {
+    await logRead("internal_error");
+    return json(req, { error: "daily_limit" }, 503, { "Retry-After": String(secondsUntilUtcMidnight()) });
+  }
+
   const ocr = await runOcr(deps, imageBase64);
   if (!ocr.ok) {
     if (ocr.noText) {
@@ -299,8 +320,9 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
   }
   const text = ocr.text;
 
-  // Aliases are cheap (one small table) and needed on every path, so they are
-  // fetched unconditionally. The dictionary is tens of thousands of rows and
+  // Aliases (~25k synonyms) are needed on every path, so they are fetched
+  // unconditionally; the function instance keeps them for a few minutes
+  // (`_shared/dictionary.ts`). The dictionary is tens of thousands of rows and
   // only needed when the label's own delimiters didn't produce enough tokens
   // on their own; fetching it up front cost every well-punctuated label a full
   // table scan for nothing. This probe is not a second parser to keep in
@@ -346,11 +368,9 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
     // Better to say so than to score a fragment. Four is the same floor the
     // verdict engine uses before it will produce a number at all.
     await logRead("not_enough_text", { namesParsed: parsed.length });
-    return json(
-      req,
-      { error: "not_enough_text", found: parsed.length, rawText: text.slice(0, 400) },
-      422
-    );
+    // The text Vision read is not sent back: nothing in the app uses it, and
+    // it is text from someone's photo (#198).
+    return json(req, { error: "not_enough_text", found: parsed.length }, 422);
   }
 
   let known: Set<string>;
@@ -397,11 +417,7 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
   // Same ratio, same reasoning as MIN_KNOWN_INGREDIENT_RATIO's own comment.
   if (gateRatio(parsed, known) < MIN_KNOWN_INGREDIENT_RATIO) {
     await logRead("quality_gate", { namesParsed: parsed.length, namesResolved: known.size });
-    return json(
-      req,
-      { error: "low_confidence", found: parsed.length, recognised: known.size, rawText: text.slice(0, 400) },
-      422
-    );
+    return json(req, { error: "low_confidence", found: parsed.length, recognised: known.size }, 422);
   }
 
   const readNames = parsed.map((p) => p.inci_name);
@@ -606,9 +622,12 @@ async function runOcr(deps: LabelOcrDeps, imageBase64: string): Promise<OcrResul
   // invisible to the very metric #236 exists to produce.
   let res: Response;
   try {
-    res = await deps.fetch(`${VISION_URL}?key=${deps.visionApiKey}`, {
+    // The key goes in a header, not the URL, so it can't end up in an error
+    // message or a proxy's request log (#198).
+    res = await deps.fetch(VISION_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Goog-Api-Key": deps.visionApiKey },
+      signal: AbortSignal.timeout(VISION_TIMEOUT_MS),
       body: JSON.stringify({
         requests: [
           {
@@ -661,6 +680,12 @@ async function runOcr(deps: LabelOcrDeps, imageBase64: string): Promise<OcrResul
   // tolerance tweak. Until then the flat text scores better.
   if (!annotation.text) return { ok: false, noText: true };
   return { ok: true, text: annotation.text };
+}
+
+/** Until the daily Vision ceiling's window (a UTC day) resets. At least 1. */
+function secondsUntilUtcMidnight(now = Date.now()): number {
+  const day = 86_400_000;
+  return Math.max(1, Math.ceil((day - (now % day)) / 1000));
 }
 
 const PRODUCT_SELECT = `id, barcode, brand, name, type, area, description, image_url, volume,

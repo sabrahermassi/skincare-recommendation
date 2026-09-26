@@ -5,6 +5,11 @@
 // and a second copy of it would be a second definition.
 //
 // Each takes the caller's service-role client rather than making its own.
+//
+// The dictionary and the synonyms are whole-table reads (~36k and ~25k rows),
+// so each function instance keeps what it read for `DICTIONARY_TTL_MS` (#198)
+// instead of paging through them again on every photo. A synonym or entry
+// added in the meantime is picked up when the copy ages out.
 
 import { paginateOrdered } from "./paginate.ts";
 
@@ -27,6 +32,11 @@ export type DictionaryDb = any;
  * (`source = 'obf'`) is trusted to define what an ingredient is.
  */
 export async function fetchDictionary(db: DictionaryDb): Promise<Set<string>> {
+  // A copy each time: `label-ocr` adds the synonyms to the set it is given.
+  return new Set(await cachedRead(db, "dictionary", () => readDictionary(db)));
+}
+
+async function readDictionary(db: DictionaryDb): Promise<Set<string>> {
   const rows = await paginateOrdered<{ inci_name: string }>(db, "ingredients", {
     select: "inci_name",
     cursorColumn: "inci_name",
@@ -42,6 +52,10 @@ export async function fetchDictionary(db: DictionaryDb): Promise<Set<string>> {
  * then rewritten to what the dictionary is keyed on.
  */
 export async function fetchAliases(db: DictionaryDb): Promise<Map<string, string>> {
+  return new Map(await cachedRead(db, "aliases", () => readAliases(db)));
+}
+
+async function readAliases(db: DictionaryDb): Promise<Map<string, string>> {
   const rows = await paginateOrdered<{ synonym: string; inci_name: string }>(
     db,
     "ingredient_synonyms",
@@ -67,4 +81,36 @@ export async function knownIngredients(db: DictionaryDb, names: string[]): Promi
     for (const row of data ?? []) found.add(row.inci_name as string);
   }
   return found;
+}
+
+/** How long a function instance keeps the dictionary and synonyms it read (#198). */
+export const DICTIONARY_TTL_MS = 10 * 60 * 1000;
+
+type CacheEntry = { value: Promise<unknown>; until: number };
+
+/** Per client, so each test's fake database starts empty; a function instance has one client. */
+const cache = new WeakMap<object, Map<string, CacheEntry>>();
+
+/**
+ * `load()` at most once per `db` and `key` every `DICTIONARY_TTL_MS`. Requests
+ * that arrive while a read is in flight share it. A read that fails is dropped
+ * at once, so the next request asks the database again rather than being told
+ * the same failure for ten minutes.
+ */
+export function cachedRead<T>(db: object, key: string, load: () => Promise<T>, now = Date.now()): Promise<T> {
+  let entries = cache.get(db);
+  if (!entries) {
+    entries = new Map();
+    cache.set(db, entries);
+  }
+  const hit = entries.get(key);
+  if (hit && hit.until > now) return hit.value as Promise<T>;
+  const value = load();
+  const entry: CacheEntry = { value, until: now + DICTIONARY_TTL_MS };
+  entries.set(key, entry);
+  const held = entries;
+  value.catch(() => {
+    if (held.get(key) === entry) held.delete(key);
+  });
+  return value;
 }

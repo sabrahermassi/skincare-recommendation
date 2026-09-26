@@ -3,7 +3,7 @@
 // what gets logged and written. The deployed function is checked with curl.
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
-import { handleProductLookup, type ProductLookupDeps } from "../functions/product-lookup/handler.ts";
+import { handleProductLookup, type ProductLookupDeps, SOURCE_TIMEOUT_MS } from "../functions/product-lookup/handler.ts";
 import { resetRateLimits, resetVerifiedTokens } from "../functions/_shared/rate-limit.ts";
 import { allKnown, type DbAnswer, type DbCall, FakeDb, fakeFetch, filterValue, jsonResponse } from "./fakes.ts";
 
@@ -244,6 +244,14 @@ Deno.test("INCI API is asked only when Open Beauty Facts has nothing usable, and
   const expires = Date.parse(body.expires_at);
   assert(expires >= before + 3_600_000 && expires <= Date.now() + 3_600_000);
   assertEquals(db.rpcCalls("replace_product_with_ingredients").length, 1);
+});
+
+Deno.test("each outside source gets a deadline inside the app's 12 s wait (#198)", async () => {
+  const { deps, fetched } = setup(() => undefined, OBF_MISS, "inci-key");
+  await handleProductLookup(post({ barcode: BARCODE }), deps);
+  assertEquals(fetched.length, 2);
+  for (const call of fetched) assert(call.init?.signal instanceof AbortSignal, call.url);
+  assert(2 * SOURCE_TIMEOUT_MS < 12_000);
 });
 
 Deno.test("with no INCI API key, that source is never called", async () => {
