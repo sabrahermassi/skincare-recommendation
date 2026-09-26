@@ -5,7 +5,8 @@ import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from 
 import { Text } from "@/components/Text";
 import { slideDirection } from "@/lib/onboarding-slide";
 import { PrimaryButton } from "@/components/PrimaryButton";
-import { CANVAS, CHARCOAL, FONT, H_PADDING, ProgressDots, ShellBackButton, SkipButton, TERRACOTTA } from "@/components/shell/shared";
+import { CHARCOAL, FONT, H_PADDING, ProgressDots, ShellBackButton, SkipButton, TERRACOTTA } from "@/components/shell/shared";
+import { ONBOARDING_CANVAS } from "@/lib/tokens";
 
 const HEADLINE_SIZE = 44;
 const BODY_SIZE = 17;
@@ -193,7 +194,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
   }, [activeIndex, opacity, translateX, pictureOpacity]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: CANVAS }}>
+    <View style={{ flex: 1, backgroundColor: ONBOARDING_CANVAS }}>
       {/* The pictures: they do not move, they cross-fade. Decorative, so out of
           the way of touches and the accessibility tree alike. */}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
