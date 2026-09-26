@@ -1,3 +1,4 @@
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -8,18 +9,20 @@ import { HEADER_GUTTER } from "@/components/AppHeader";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/open-scanner";
-import { homeGreetingLayout, SIGNATURE_WIDTH } from "@/lib/home-greeting";
+import { homeGreetingWidth } from "@/lib/home-greeting";
 import { tabBarClearance } from "@/lib/tab-bar";
 import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, SPACE } from "@/lib/tokens";
 
-// The two cards' watercolors: a hand holding a tube inside a scanner's frame, and
-// two hands holding a serum and a pump bottle. Square, on cream paper, drawn edge
-// to edge across the top of their cards (brought down to 600px from 1254px).
+// The two cards' watercolors, on transparent ground: a hand holding a tube inside
+// a scanner's frame, and two hands holding a serum and a pump bottle (their empty
+// margins trimmed, and brought down to 500px from 1254px).
 const SCAN_ART = require("@/assets/illustrations/home-scan.png");
 const FIND_ART = require("@/assets/illustrations/home-find.png");
-// The picture's shape on the card: a little wider than tall, so the square art
-// loses a sliver top and bottom and the card stays short enough for the still life.
-const ACTION_ART_ASPECT = 1.15;
+// The gap between the two cards.
+const ACTION_CARD_GAP = 12;
+// The least room the picture keeps. The cards are square, and grow taller rather
+// than squeeze the picture below this when larger text needs the room.
+const ACTION_ART_MIN_HEIGHT = 48;
 // The watercolor still life under the cards: bottles, a vase and a handwritten
 // "A little progress every day", on a transparent ground.
 const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.png");
@@ -33,24 +36,9 @@ const STILL_LIFE_TEXT_TOP = 0.155;
 // No spacing token is that large, so it is named here rather than typed inline.
 const STILL_LIFE_DROP = 63;
 
-// The handwriting on top of the screen, cut from design-watercolor/text.png. The
-// signature is recoloured to the app's terracotta (the same colour as the camera
-// button); the heart is design-watercolor/heart.png.
+// The handwritten "Hi, there!" on top of the screen, cut from design-watercolor/text.png.
 const GREETING_ART = require("@/assets/illustrations/home-greeting.png");
 const GREETING_ASPECT = 640 / 206;
-const SIGNATURE_ART = require("@/assets/illustrations/home-signature.png");
-const SIGNATURE_ASPECT = 520 / 449;
-const HEART_ART = require("@/assets/illustrations/home-heart.png");
-const HEART_ASPECT = 240 / 214;
-const HEART_WIDTH = 24;
-// Where the heart sits inside the signature at its full width (SIGNATURE_WIDTH): under
-// "happier", right of "you". Scaled with the signature when that is drawn smaller.
-const HEART_LEFT = 96;
-const HEART_TOP = 64;
-// The signature's distance from the top of the content column, and from the screen's
-// right edge (4 closer than the text gutter, so its right-hand flourish sits near the edge).
-const SIGNATURE_TOP = 14;
-const SIGNATURE_RIGHT = HEADER_GUTTER - 4;
 
 /**
  * Home — the first screen after the skin quiz.
@@ -63,19 +51,22 @@ const SIGNATURE_RIGHT = HEADER_GUTTER - 4;
  */
 /** How far a card sinks when pressed: it reads as a button though it is a card. */
 const ACTION_CARD_PRESSED = 0.96;
+/**
+ * The cards are Apple's Liquid Glass where the phone has it (iOS 26 and later):
+ * see-through and glossy, the still life's flowers showing through them. Where it
+ * does not, `GlassView` is a plain view, so the cards keep their peach fill and
+ * shade instead of turning invisible.
+ */
+const CARD_GLASS = isLiquidGlassAvailable();
 
 export default function Home() {
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
-  // Both are pictures: the greeting follows the text size, and the signature takes only
-  // the room the greeting leaves (or is left out), so the two never overpaint.
-  const { greetingWidth, signatureWidth } = homeGreetingLayout({
-    screenWidth: width,
-    fontScale,
-    gutter: HEADER_GUTTER,
-    signatureRight: SIGNATURE_RIGHT,
-  });
-  const signatureScale = signatureWidth === null ? 0 : signatureWidth / SIGNATURE_WIDTH;
+  // A picture, so it is made to follow the text size here.
+  const greetingWidth = homeGreetingWidth(fontScale);
+  // Each card's width, which is also its least height: square at the ordinary
+  // text sizes, taller when larger text needs it, never cut off.
+  const cardSide = (width - HEADER_GUTTER * 2 - ACTION_CARD_GAP) / 2;
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
       {/* Scrolls only when the content is taller than the screen: flexGrow keeps a
@@ -89,8 +80,7 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ paddingHorizontal: HEADER_GUTTER, paddingTop: 28, gap: 22 }}>
-          {/* The greeting, in handwriting. The signature is not here: it floats above
-              the screen (below), so it takes no room from the cards. */}
+          {/* The greeting, in handwriting. */}
           <Image
             source={GREETING_ART}
             contentFit="contain"
@@ -100,68 +90,23 @@ export default function Home() {
 
           {/* The two ways in, side by side: scan a product in hand, or find one
               by name. "Find skincare" opens Browse, which has no tab of its own. */}
-          <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flexDirection: "row", gap: ACTION_CARD_GAP }}>
             <ActionCard
               title="Scan a product"
               detail="Analyze a product by photo or barcode."
               art={SCAN_ART}
+              side={cardSide}
               onPress={openScanner}
             />
             <ActionCard
               title="Find skincare"
               detail="Search products or brands."
               art={FIND_ART}
+              side={cardSide}
               onPress={() => router.navigate("/browse")}
             />
           </View>
 
-          {/* The signature: a floating layer, not part of the column, so it takes no
-              space and can cross the top edge of the cards. Last in the
-              column so it is drawn on top, and inside the scroll so it moves with
-              the cards; it ignores touches so the card under it stays tappable. */}
-          {/* The label is there whether or not the picture is: when there is no room
-              for the artwork (large text on a narrow phone) a screen reader still
-              gets the tagline, from an empty one-point view. */}
-          <View
-            pointerEvents="none"
-            accessible
-            accessibilityLabel="Skincare for a happier you"
-            style={
-              signatureWidth !== null
-                ? {
-                    position: "absolute",
-                    top: SIGNATURE_TOP,
-                    right: SIGNATURE_RIGHT,
-                    width: signatureWidth,
-                    zIndex: 10,
-                    elevation: 10,
-                  }
-                : { position: "absolute", top: SIGNATURE_TOP, right: SIGNATURE_RIGHT, width: 1, height: 1 }
-            }
-          >
-            {signatureWidth !== null ? (
-              <>
-                <Image
-                  source={SIGNATURE_ART}
-                  contentFit="contain"
-                  accessibilityLabel=""
-                  style={{ width: signatureWidth, aspectRatio: SIGNATURE_ASPECT }}
-                />
-                <Image
-                  source={HEART_ART}
-                  contentFit="contain"
-                  accessibilityLabel=""
-                  style={{
-                    position: "absolute",
-                    left: HEART_LEFT * signatureScale,
-                    top: HEART_TOP * signatureScale,
-                    width: HEART_WIDTH * signatureScale,
-                    aspectRatio: HEART_ASPECT,
-                  }}
-                />
-              </>
-            ) : null}
-          </View>
         </View>
 
         {/* The still life: full width, its handwriting a little under the cards,
@@ -193,16 +138,37 @@ export default function Home() {
 }
 
 /**
- * One of Home's two cards: a picture across the top, the title with its arrow,
- * and a line under it. The shade sits on an outer view: a view that clips its picture
+ * One of Home's two cards, square at least (`side`): the picture on top, then
+ * the title with its arrow and a line under it. The shade sits on an outer view: a view that clips its picture
  * (overflow hidden) loses its own shade on iOS.
  */
-function ActionCard({ title, detail, art, onPress }: { title: string; detail: string; art: number; onPress: () => void }) {
+function ActionCard({
+  title,
+  detail,
+  art,
+  side,
+  onPress,
+}: {
+  title: string;
+  detail: string;
+  art: number;
+  side: number;
+  onPress: () => void;
+}) {
   const [scale] = useState(() => new Animated.Value(1));
   const press = (to: number) =>
     Animated.spring(scale, { toValue: to, friction: 6, tension: 220, useNativeDriver: Platform.OS !== "web" }).start();
   return (
-    <Animated.View style={{ flex: 1, borderRadius: 22, backgroundColor: SELECTED, ...CARD_SHADOW, transform: [{ scale }] }}>
+    <Animated.View
+      style={{
+        flex: 1,
+        minHeight: side,
+        borderRadius: 22,
+        ...(CARD_GLASS ? null : { backgroundColor: SELECTED, ...CARD_SHADOW }),
+        transform: [{ scale }],
+      }}
+    >
+      <GlassView glassEffectStyle="regular" isInteractive style={{ flexGrow: 1, borderRadius: 22 }}>
       <Pressable
         onPress={onPress}
         onPressIn={() => press(ACTION_CARD_PRESSED)}
@@ -212,16 +178,22 @@ function ActionCard({ title, detail, art, onPress }: { title: string; detail: st
         className="active:opacity-90"
         style={{ flexGrow: 1, borderRadius: 22, overflow: "hidden" }}
       >
-        {/* Edge to edge: the card's rounded corners clip the picture's top corners. */}
-        <Image source={art} contentFit="cover" accessibilityLabel="" style={{ width: "100%", aspectRatio: ACTION_ART_ASPECT }} />
-        <View style={{ gap: 4, padding: 16, paddingTop: 12 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Text style={{ flexShrink: 1, fontFamily: "PlayfairDisplay_500Medium", fontSize: 19, color: INK }}>{title}</Text>
-            <ArrowIcon size={18} color={INK} strokeWidth={2.4} />
+        {/* The picture takes whatever the words leave, whole. */}
+        <Image
+          source={art}
+          contentFit="contain"
+          accessibilityLabel=""
+          style={{ flex: 1, minHeight: ACTION_ART_MIN_HEIGHT, width: "100%", marginTop: 10 }}
+        />
+        <View style={{ gap: 2, paddingHorizontal: 14, paddingTop: 6, paddingBottom: 14 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Text style={{ flexShrink: 1, fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: INK }}>{title}</Text>
+            <ArrowIcon size={15} color={INK} strokeWidth={2.4} />
           </View>
-          <Text style={{ fontSize: 13, lineHeight: 18, color: MUTED }}>{detail}</Text>
+          <Text style={{ fontSize: 11.5, lineHeight: 15, color: MUTED }}>{detail}</Text>
         </View>
       </Pressable>
+      </GlassView>
     </Animated.View>
   );
 }
