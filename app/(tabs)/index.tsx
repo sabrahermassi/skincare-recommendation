@@ -28,6 +28,9 @@ const STILL_LIFE_ASPECT = 1004 / 1187;
 // is placed so the handwriting begins just under the scan card; the flowers above
 // it run up behind the card, and the rest runs on past the bottom of the screen.
 const STILL_LIFE_TEXT_TOP = 0.155;
+// How much lower again it sits, in dp: 1 cm on a phone (160 dp to the inch).
+// No spacing token is that large, so it is named here rather than typed inline.
+const STILL_LIFE_DROP = 63;
 
 // The handwriting on top of the screen, cut from design-watercolor/text.png. The
 // signature is recoloured to the app's terracotta (the same colour as the camera
@@ -160,7 +163,7 @@ export default function Home() {
           </View>
         </View>
 
-        {/* The still life: full width, its handwriting just under the scan card,
+        {/* The still life: full width, its handwriting a little under the cards,
             its foot running on behind the tab bar and past the bottom of the
             screen. Drawn behind the cards (zIndex) and out of the layout, so it
             never adds scrolling. Its handwriting is read out. */}
@@ -177,7 +180,7 @@ export default function Home() {
             style={{
               position: "absolute",
               left: 0,
-              top: SPACE.text - (width / STILL_LIFE_ASPECT) * STILL_LIFE_TEXT_TOP,
+              top: SPACE.text + STILL_LIFE_DROP - (width / STILL_LIFE_ASPECT) * STILL_LIFE_TEXT_TOP,
               width,
               aspectRatio: STILL_LIFE_ASPECT,
             }}
