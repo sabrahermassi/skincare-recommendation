@@ -2,7 +2,7 @@ import { View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 import { Text } from "@/components/Text";
-import { LINE, VERDICT, toneForVerdict } from "@/lib/tokens";
+import { FONT_SCALE, LINE, VERDICT, toneForVerdict } from "@/lib/tokens";
 import type { Verdict } from "@/lib/matching";
 
 /**
@@ -81,17 +81,21 @@ export function ScoreRing({
 
       <View className="items-center justify-center">
         {score === null ? (
-          <Text className="font-bold text-lg text-ink">-</Text>
+          <Text className="font-bold text-lg text-ink" maxFontSizeMultiplier={FONT_SCALE.ui}>-</Text>
         ) : (
           <Text
             className="font-bold tabular-nums text-ink"
             style={{ fontSize: Math.round(size * 0.31), letterSpacing: -0.6 }}
+            // Drawn inside a ring of fixed size: the ordinary ceiling, even
+            // inside a `ReadingScale` (#334).
+            maxFontSizeMultiplier={FONT_SCALE.ui}
           >
             {score}
           </Text>
         )}
         <Text
           className="font-semibold text-ink-muted"
+          maxFontSizeMultiplier={FONT_SCALE.ui}
           style={{
             fontSize: Math.round(size * 0.115),
             // Tracking suits an all-caps word like MATCH; it just looks broken

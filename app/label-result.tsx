@@ -11,7 +11,7 @@ import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
 import { ContextNudgesSection, ExplanationLine, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { Text } from "@/components/Text";
+import { ReadingScale, Text, useLargeText } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
 import type { Ingredient } from "@/data/types";
 import { pairingNotesFor } from "@/lib/active-pairings";
@@ -73,6 +73,9 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
   const profile = useAppStore((s) => s.profile);
   const [ingredients, setIngredients] = useState<Ingredient[] | null>(null);
   const sheetRef = useRef<IngredientsSheetHandle>(null);
+  // Past the ordinary text ceiling the verdict's words no longer fit beside
+  // the score ring, so the ring goes above them (#334).
+  const largeText = useLargeText();
 
   useEffect(() => track("verdict_viewed", { path: "label" }), []);
 
@@ -147,6 +150,10 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
           paddingHorizontal: SPACE.gutter,
         }}
       >
+        {/* The reading part of the screen: its text follows the phone's text
+            size all the way up (#334). The header and the ingredients sheet
+            keep the ordinary ceiling. */}
+        <ReadingScale>
         <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
           {total > 0 ? `${total} ingredients read` : "Nothing was read"}
         </Text>
@@ -160,11 +167,11 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
             onPress={() => router.push({ pathname: "/skin-profile", params: { returnTo: "product" } })}
             accessibilityRole={needsProfile ? "button" : undefined}
             accessibilityLabel={needsProfile ? "Open your skin profile to get your score" : undefined}
-            className="flex-row items-center active:opacity-70"
+            className={`${largeText ? "items-start" : "flex-row items-center"} active:opacity-70`}
             style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
           >
             <ScoreRing score={match.score} size={82} label="/100" tone={match.verdict} />
-            <View className="flex-1 gap-1.5 pr-6">
+            <View className={largeText ? "gap-1.5 self-stretch" : "flex-1 gap-1.5 pr-6"}>
               <Text
                 style={{
                   fontFamily: "PlayfairDisplay_500Medium",
@@ -256,6 +263,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
             />
           </>
         )}
+        </ReadingScale>
       </ScrollView>
 
       {!lowCoverage && total > 0 ? <IngredientsSheet ref={sheetRef} product={product} match={match} /> : null}

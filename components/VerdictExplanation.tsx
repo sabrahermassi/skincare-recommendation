@@ -1,12 +1,12 @@
 import { View } from "react-native";
 
-import { Text } from "@/components/Text";
+import { Text, useTextScale } from "@/components/Text";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import type { PairingNote } from "@/lib/active-pairings";
 import type { ContextNudge } from "@/lib/context-nudges";
 import type { MatchReason, ScoreLine, Verdict } from "@/lib/matching";
 import type { Contraindication } from "@/lib/safety";
-import { BORDER_INACTIVE, INK, MUTED, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
+import { BORDER_INACTIVE, FONT_SCALE, INK, MUTED, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
 
 /**
  * The verdict panel's colours and label — shared by `app/product/[id].tsx`
@@ -146,35 +146,76 @@ export function ExplanationLine({
   const dotColor =
     direction === "up" ? VERDICT.high.tint : direction === "down" ? VERDICT.low.tint : VERDICT_NEUTRAL.tint;
   const glyphColor = direction === "neutral" ? VERDICT_NEUTRAL.deep : INK;
+  // The dot and its glyph grow with the label beside them, so at the largest
+  // text sizes the sign is still readable next to the words (#334).
+  const scale = useTextScale(TYPE.label);
+  const dot = 18 * scale;
+  // Past the ordinary ceiling the detail takes the full width under its label
+  // rather than a column beside the dot, which left a few words per line.
+  const stacked = scale > FONT_SCALE.ui;
+  const sign = (
+    // Inline style, not a Tailwind className: `bg-tint-mint`/`bg-tint-pink`
+    // are also the scanner's unrelated "looking/missed" status icon, so they
+    // can't be repointed at the verdict ramp without recoloring that too. This
+    // reads the same VERDICT tokens the score ring above uses, rather than a
+    // third green/pink pair.
+    <View
+      style={{
+        width: dot,
+        height: dot,
+        borderRadius: dot / 2,
+        marginTop: stacked ? 0 : scale,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: dotColor,
+      }}
+    >
+      {/* Grown exactly as far as its dot, no further. */}
+      <Text
+        maxFontSizeMultiplier={scale}
+        style={{ fontSize: TYPE.caption, fontWeight: "bold", lineHeight: 14, color: glyphColor }}
+      >
+        {glyph}
+      </Text>
+    </View>
+  );
+  // First letter only: a `capitalize` transform also title-cased the score
+  // lines ("Irritation Risk", "Your Concerns") and INCI abbreviations
+  // ("Stearate Se") — #294. Ingredient names arrive already cased by
+  // `displayIngredientName`.
+  const title = (
+    <Text
+      style={
+        stacked
+          ? // Beside the dot if it fits there whole, on its own line under
+            // it if not — a long ingredient name then breaks only if it is
+            // wider than the screen, not mid-word beside the dot.
+            { maxWidth: "100%", fontSize: TYPE.label, fontWeight: "600", color: INK }
+          : { fontSize: TYPE.label, fontWeight: "600", color: INK }
+      }
+    >
+      {label.charAt(0).toUpperCase() + label.slice(1)}
+    </Text>
+  );
+  const body = <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{detail}</Text>;
+
+  if (stacked) {
+    return (
+      <View style={{ gap: 1 }}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 10, alignItems: "center" }}>
+          {sign}
+          {title}
+        </View>
+        {body}
+      </View>
+    );
+  }
   return (
     <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
-      {/* Inline style, not a Tailwind className: `bg-tint-mint`/`bg-tint-pink`
-          are also the scanner's unrelated "looking/missed" status icon, so
-          they can't be repointed at the verdict ramp without recoloring that
-          too. This reads the same VERDICT tokens the score ring above uses,
-          rather than a third green/pink pair. */}
-      <View
-        style={{
-          width: 18,
-          height: 18,
-          borderRadius: 9,
-          marginTop: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: dotColor,
-        }}
-      >
-        <Text style={{ fontSize: TYPE.caption, fontWeight: "bold", lineHeight: 14, color: glyphColor }}>{glyph}</Text>
-      </View>
+      {sign}
       <View style={{ flex: 1, gap: 1 }}>
-        {/* First letter only: a `capitalize` transform also title-cased the
-            score lines ("Irritation Risk", "Your Concerns") and INCI
-            abbreviations ("Stearate Se") — #294. Ingredient names arrive
-            already cased by `displayIngredientName`. */}
-        <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
-          {label.charAt(0).toUpperCase() + label.slice(1)}
-        </Text>
-        <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{detail}</Text>
+        {title}
+        {body}
       </View>
     </View>
   );

@@ -9,7 +9,7 @@ import Svg, { Path } from "react-native-svg";
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { Text } from "@/components/Text";
+import { ReadingScale, Text, useLargeText, useTextScale } from "@/components/Text";
 import { fetchProduct, resolveIngredientNames } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
@@ -105,9 +105,11 @@ const RUNG: Record<
   },
 };
 
+/** Grown with the 18px headline beside it (#334). */
 function HeartIcon({ color }: { color: string }) {
+  const size = 19 * useTextScale(18);
   return (
-    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 20.2s-7.6-4.7-7.6-9.7A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 7.6 2.8c0 5-7.6 9.7-7.6 9.7Z"
         stroke={color}
@@ -115,6 +117,21 @@ function HeartIcon({ color }: { color: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+/** The "Want to learn more?" arrow, grown with its 14.5px title (#334). */
+function LearnMoreArrow() {
+  return <ArrowIcon size={17 * useTextScale(14.5)} color={INK} />;
+}
+
+/** A "Things to know" tick, grown with the 13px note beside it (#334). */
+function CheckIcon({ color }: { color: string }) {
+  const size = 16 * useTextScale(13);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="m5 12.6 4.6 4.6L19 6.8" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -151,6 +168,9 @@ export default function IngredientRoute() {
 
 function IngredientDetail({ inci, productId }: { inci: string; productId?: string }) {
   const insets = useSafeAreaInsets();
+  // Past the ordinary text ceiling the name needs the whole width, so the
+  // decorative picture beside it goes (#334).
+  const largeText = useLargeText();
 
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [resolvedIngredient, setResolvedIngredient] = useState<Ingredient | null>(null);
@@ -284,6 +304,10 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
       />
 
       <ScrollView contentContainerClassName="pb-40">
+        {/* The reading part of the screen: its text follows the phone's text
+            size all the way up (#334). The header and the buttons at the
+            bottom keep the ordinary ceiling. */}
+        <ReadingScale>
         {/* flexWrap: at the image's larger size, a merely-medium-length name
             like "Niacinamide" no longer has room beside it (390pt viewport
             minus the image's own width, gap and horizontal padding) and, with
@@ -328,13 +352,15 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
               bottle scene, wider than the old single-flask icon, so the
               slot is sized to its own aspect ratio (1400x1001, cropped to
               content) rather than the old icon's square. */}
-          <Image
-            source={require("@/assets/illustrations/flask-with-serum.png")}
-            style={{ width: 168, height: 120 }}
-            contentFit="contain"
-            transition={120}
-            accessibilityLabel=""
-          />
+          {largeText ? null : (
+            <Image
+              source={require("@/assets/illustrations/flask-with-serum.png")}
+              style={{ width: 168, height: 120 }}
+              contentFit="contain"
+              transition={120}
+              accessibilityLabel=""
+            />
+          )}
         </View>
 
         <Section title="What it does">
@@ -350,7 +376,8 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
           >
             <View className="flex-row items-center gap-2.5">
               <HeartIcon color={meta.hero} />
-              <Text className={`font-display text-[18px] leading-[21px] ${meta.ink}`}>
+              {/* Shrinks to wrap inside the panel at the larger text sizes. */}
+              <Text style={{ flexShrink: 1 }} className={`font-display text-[18px] leading-[21px] ${meta.ink}`}>
                 {fitHeadline(rung, helps, hurts, verified, warning)}
               </Text>
             </View>
@@ -374,15 +401,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             <View style={{ gap: 23 }}>
               {notes.map((note) => (
                 <View key={note} className="flex-row items-center gap-3">
-                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="m5 12.6 4.6 4.6L19 6.8"
-                      stroke={meta.hero}
-                      strokeWidth={2.2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
+                  <CheckIcon color={meta.hero} />
                   <Text style={{ flex: 1, fontSize: 13, lineHeight: 18, color: INK }}>{note}</Text>
                 </View>
               ))}
@@ -425,17 +444,18 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             }}
             className="active:opacity-80"
           >
-            <View className="gap-0.5">
+            <View className="shrink gap-0.5">
               <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Want to learn more?</Text>
               <Text style={{ fontSize: 12.5, color: MUTED }}>See studies and evidence</Text>
             </View>
-            <ArrowIcon size={17} color={INK} />
+            <LearnMoreArrow />
           </Pressable>
         ) : null}
 
         <Text style={{ paddingHorizontal: 24, paddingTop: 36, fontSize: TYPE.caption, color: MUTED_FAINT }}>
           Reference data from Open Beauty Facts and EU CosIng.
         </Text>
+        </ReadingScale>
       </ScrollView>
 
       {inList ? (
