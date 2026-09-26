@@ -9,12 +9,16 @@
 //   APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_CLIENT_ID, APPLE_PRIVATE_KEY
 // Without them an Apple-linked account cannot be deleted — the reply says so
 // (503 apple_not_configured) instead of deleting without revoking.
+//   POSTHOG_PERSONAL_API_KEY, POSTHOG_PROJECT_ID, optional POSTHOG_API_HOST
+// Without them the account is still deleted, and its analytics person is
+// logged as left behind (see posthog.ts).
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { json, preflight } from "../_shared/http.ts";
 import { appleKeysFrom, revokeAppleGrant } from "./apple.ts";
 import { handleDeleteAccount } from "./handler.ts";
+import { deletePostHogPerson, postHogKeysFrom } from "./posthog.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -24,6 +28,7 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 });
 
 const appleKeys = appleKeysFrom((name) => Deno.env.get(name));
+const postHogKeys = postHogKeysFrom((name) => Deno.env.get(name));
 
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return preflight(req);
@@ -45,6 +50,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const { error } = await admin.auth.admin.deleteUser(id);
       return !error;
     },
+    forgetAnalytics: (id) => deletePostHogPerson(postHogKeys, id),
   });
 
   return json(req, reply.body, reply.status);

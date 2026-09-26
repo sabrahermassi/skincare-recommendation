@@ -7,16 +7,24 @@ import { appleClientSecret, revokeAppleGrant, type AppleKeys } from "../function
 import {
   handleDeleteAccount,
   type AccountUser,
+  type AnalyticsForget,
   type AppleRevocation,
   type DeleteAccountDeps,
 } from "../functions/delete-account/handler.ts";
+import { deletePostHogPerson, postHogKeysFrom } from "../functions/delete-account/posthog.ts";
 
 const JANE: AccountUser = { id: "jane-id", appleLinked: false };
 const APPLE_JANE: AccountUser = { id: "apple-jane-id", appleLinked: true };
 
-function fakes(user: AccountUser | null, revocation: AppleRevocation = "revoked") {
+function fakes(
+  user: AccountUser | null,
+  revocation: AppleRevocation = "revoked",
+  analytics: () => Promise<AnalyticsForget> = () => Promise.resolve("deleted"),
+  deleteSucceeds = true,
+) {
   const deleted: string[] = [];
   const revoked: string[] = [];
+  const forgotten: string[] = [];
   const deps: DeleteAccountDeps = {
     userFromToken: (token) => Promise.resolve(token === "valid-token" ? user : null),
     revokeApple: (code) => {
@@ -25,10 +33,14 @@ function fakes(user: AccountUser | null, revocation: AppleRevocation = "revoked"
     },
     deleteUser: (id) => {
       deleted.push(id);
-      return Promise.resolve(true);
+      return Promise.resolve(deleteSucceeds);
+    },
+    forgetAnalytics: (id) => {
+      forgotten.push(id);
+      return analytics();
     },
   };
-  return { deps, deleted, revoked };
+  return { deps, deleted, revoked, forgotten };
 }
 
 function post(body: unknown, token?: string): Request {
@@ -95,6 +107,80 @@ Deno.test("an Apple account is deleted once its grant is revoked", async () => {
   assertEquals(reply, { status: 200, body: { deleted: true } });
   assertEquals(revoked, ["c0de"]);
   assertEquals(deleted, ["apple-jane-id"]);
+});
+
+// ── Analytics (#24) ─────────────────────────────────────────────────────────
+
+Deno.test("the deleted account's analytics person is deleted too, by the token's user id", async () => {
+  const { deps, forgotten } = fakes(JANE);
+  await handleDeleteAccount(post({ user_id: "someone-else" }, "valid-token"), deps);
+  assertEquals(forgotten, ["jane-id"]);
+});
+
+Deno.test("an analytics failure never fails a deletion that happened", async () => {
+  for (const analytics of [
+    () => Promise.resolve<AnalyticsForget>("failed"),
+    () => Promise.resolve<AnalyticsForget>("not-configured"),
+    () => Promise.reject(new Error("PostHog down")),
+  ]) {
+    const { deps, deleted } = fakes(JANE, "revoked", analytics);
+    const reply = await handleDeleteAccount(post({}, "valid-token"), deps);
+    assertEquals(reply, { status: 200, body: { deleted: true } });
+    assertEquals(deleted, ["jane-id"]);
+  }
+});
+
+Deno.test("analytics are left alone when nothing was deleted", async () => {
+  const unauthorised = fakes(JANE);
+  await handleDeleteAccount(post({}, "forged.token.value"), unauthorised.deps);
+  assertEquals(unauthorised.forgotten, []);
+
+  const failedDelete = fakes(JANE, "revoked", undefined, false);
+  const reply = await handleDeleteAccount(post({}, "valid-token"), failedDelete.deps);
+  assertEquals(reply.status, 500);
+  assertEquals(failedDelete.forgotten, []);
+});
+
+Deno.test("PostHog is asked to delete the person, their events and recordings", async () => {
+  const calls: { url: string; init: RequestInit }[] = [];
+  const fakeFetch = ((url: string, init: RequestInit) => {
+    calls.push({ url, init });
+    return Promise.resolve(new Response("{}", { status: 202 }));
+  }) as typeof fetch;
+  const keys = { apiKey: "phx_key", projectId: "123", host: "https://eu.posthog.com" };
+
+  assertEquals(await deletePostHogPerson(keys, "jane-id", fakeFetch), "deleted");
+  assertEquals(calls[0].url, "https://eu.posthog.com/api/projects/123/persons/bulk_delete/");
+  assertEquals(calls[0].init.method, "POST");
+  assertEquals((calls[0].init.headers as Record<string, string>).authorization, "Bearer phx_key");
+  assertEquals(JSON.parse(calls[0].init.body as string), {
+    distinct_ids: ["jane-id"],
+    delete_events: true,
+    delete_recordings: true,
+  });
+});
+
+Deno.test("PostHog reports a refusal, an outage or missing keys instead of pretending", async () => {
+  const keys = { apiKey: "k", projectId: "1", host: "https://eu.posthog.com" };
+  const refused = (() => Promise.resolve(new Response("{}", { status: 403 }))) as typeof fetch;
+  const down = (() => Promise.reject(new TypeError("network"))) as typeof fetch;
+  assertEquals(await deletePostHogPerson(keys, "jane-id", refused), "failed");
+  assertEquals(await deletePostHogPerson(keys, "jane-id", down), "failed");
+  assertEquals(await deletePostHogPerson(null, "jane-id", refused), "not-configured");
+});
+
+Deno.test("PostHog keys need the key and project, and default to the EU app host", () => {
+  const env = (values: Record<string, string>) => (name: string) => values[name];
+  assertEquals(postHogKeysFrom(env({ POSTHOG_PERSONAL_API_KEY: "k" })), null);
+  assertEquals(postHogKeysFrom(env({ POSTHOG_PERSONAL_API_KEY: "k", POSTHOG_PROJECT_ID: "1" })), {
+    apiKey: "k",
+    projectId: "1",
+    host: "https://eu.posthog.com",
+  });
+  assertEquals(
+    postHogKeysFrom(env({ POSTHOG_PERSONAL_API_KEY: "k", POSTHOG_PROJECT_ID: "1", POSTHOG_API_HOST: "https://us.posthog.com/" }))?.host,
+    "https://us.posthog.com",
+  );
 });
 
 // ── Apple's side ────────────────────────────────────────────────────────────

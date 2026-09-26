@@ -102,7 +102,8 @@ new random id, so the next person on the phone is not linked to the last.
 default. Geo-IP lookup is off in the SDK. The request still carries the
 caller's IP to PostHog; the project setting **"Discard client IP data"**
 should be on, and retention set in the project, before launch — both are
-the operator's to set in PostHog.
+the operator's to set in PostHog. Deleting an account also deletes its
+PostHog person and events (#24, see "Analytics at deletion" below).
 
 **App Store privacy labels** (App Store Connect → App Privacy), for this
 processor: *Usage Data → Product Interaction* and *Identifiers → User ID*
@@ -156,6 +157,37 @@ one-time authorization code the person has just approved. Products someone
 added to the public catalogue are not personal data and stay; the record of
 who added them (`product_authors.user_id`) is set to null by the same
 deletion, so no account id outlives its account.
+
+**Analytics at deletion (#24):** after the account is deleted, the same
+function asks PostHog to delete the person whose distinct id is the account
+id, with its events and recordings (`supabase/functions/delete-account/posthog.ts`).
+The account id is linked to the guest's earlier random id at sign-in, so the
+events from before sign-in go too. PostHog removes the person shortly after
+the request and deletes events in the background. This never blocks or
+undoes the account deletion: if PostHog cannot be reached, or its secrets
+(`POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`) are not set, the account
+is still deleted and the function logs the account id for the operator to
+delete by hand. **Until those secrets are set in both projects, this step
+does nothing** — which is why the in-app Privacy screen does not claim it yet.
+
+**The deletion promise:** everything in our database, immediately, at the
+tap. Analytics in PostHog: requested at the same moment, gone within **30
+days** (the stated SLA, confirmed by the owner on 26 September 2026),
+including a by-hand deletion after a logged failure. Database backups: see
+"Backups" below.
+
+**Backups (confirmed 26 September 2026):** production is on Supabase's
+**Free plan, which takes no project backups**. So a deleted account is gone
+from the database immediately and no backup copy of it exists.
+
+If production moves to the **Pro plan**, Supabase keeps daily backups for
+**7 days**. A deleted account then stays only in the backups taken before
+the deletion, and ages out of them within 7 days — still inside the 30-day
+promise. A backup must only be restored for disaster recovery, and a restore
+must re-run the deletions made since that backup was taken. Point-in-time
+recovery is a separate paid add-on; if it is ever turned on, check that its
+retention window is 30 days or shorter before keeping this promise as
+written.
 
 **Export (#224):** Profile → Account → Download my data. A JSON file of the
 shelf, notes, routine steps, starred ingredients and the products the account
