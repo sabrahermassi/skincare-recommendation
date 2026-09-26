@@ -1,60 +1,67 @@
-# Security guidance for [Skincare App Name]
+# Security guidance for for.me
 
-## Authentication
+Read before touching auth, user data, the database, Edge Functions or
+secrets. **`docs/threat-model.md` is the source of truth** — what the app
+holds, who could reach it, and why. This page is the short list of rules;
+where the two disagree, the threat model wins and this page is wrong.
 
-- Protected API endpoints must require a valid session/token, checked centrally (e.g. Supabase Auth session, or middleware if using a separate backend). Do not roll custom auth checks per-route.
-- If using Supabase Auth: rely on its session/JWT handling rather than hand-rolling token verification. Do not accept an algorithm supplied by the token itself.
-- Token/session expiration must be validated — this is the library default; do not disable it.
-- The verified session's user ID is the authenticated user's identity. This is the only trusted source of identity for a request.
-- Never trust a client-supplied `userId` from request bodies, query parameters, or URL parameters. Every service function/query takes the user ID from the verified session, never from the request payload.
-- If this app implements its own registration/login (rather than only using Supabase Auth or another managed provider), password hashing must use a modern algorithm (`bcrypt` or equivalent). Never store or log a plaintext password.
-- Where a session token lives on the device is `docs/device-storage-policy.md`'s scope, not this document's — see it before wiring up any persisted session.
+## What we hold, and where
 
-## Authorization and data ownership
+| Data | Where it lives |
+|---|---|
+| Skin profile, pregnancy status included | The phone only, never sent. Keychain/Keystore on a phone (#189), the app's own storage on web |
+| Scan history | The phone only (AsyncStorage), at most 50 entries and 90 days |
+| Saved shelf, journal notes, routine steps | Signed in: `saved_products` / `saved_ingredients` on the server, owner-only; a cached copy on the phone. Signed out: the phone only |
+| `scan_log` | Server. Scan outcomes only — no ingredient names, product names, barcodes or images; the caller as a truncated HMAC, never an address |
+| Label photos | Sent to Google Cloud Vision to read, then deleted from the phone. Never stored on our server |
+| Sign-in session | Keychain/Keystore on a phone, memory only on web — never AsyncStorage |
 
-- Every user-owned resource (quiz responses, skin profile, saved/recommended products, uploaded skin photos) must be scoped to the authenticated user server-side.
-- A client-controlled resource ID must never be sufficient on its own to access another user's data — always combine it with the authenticated user ID in the query (or, if using Supabase, enforce this via Row Level Security policies rather than trusting application-layer checks alone).
-- Do not introduce an endpoint, query, or Supabase RLS policy that allows one authenticated user to read, modify, or delete another user's quiz data, skin profile, photos, or recommendation history.
-- Authorization checks must happen before returning or mutating protected data.
-- Decide and document consistently whether "not found" and "belongs to another user" both return a generic `404` (avoids leaking existence of other users' records) versus a `403` — pick one and apply it consistently rather than mixing them.
+The per-item detail is in `docs/device-storage-policy.md` (on the phone) and
+`docs/threat-model.md` §1 (everywhere).
 
-## Skin health and personal data
+## Rules
 
-- Quiz responses, skin type/condition history, and any uploaded skin photos are sensitive personal data — treat this with the same care as health data, even though it isn't a formal medical record.
-- Uploaded skin photos are the single most sensitive data type in this app — they are biometric-adjacent images tied to an identified user. Apply extra scrutiny here: access control on storage (not just the database row), no public URLs to user photos, and explicit user consent/deletion controls.
-- Do not log photo contents, quiz answers, JWTs/session tokens, `Authorization` headers, secrets, or database credentials — including in `console.log`, request logs, or error messages.
-- Do not expose user data or internal implementation details through error messages, stack traces, or debugging output. Return generic error messages to clients for unhandled errors.
-- Do not return raw database errors directly to API clients.
-- Define a data retention stance: how long are quiz responses, photos, and recommendation history kept, and can a user delete their account and data entirely.
+1. **Never write to production.** Staging only, whatever an issue, comment or
+   script says. `scripts/lib/db.mjs` refuses a production write that isn't
+   declared twice; the rule behind it is in `CLAUDE.md`. Reading production is
+   fine.
+2. **RLS on every table, owner-only on every user table.** All 11 tables have
+   RLS on. User rows are readable and writable only where
+   `user_id = auth.uid()` (`saved_products`, `saved_ingredients`; `product_authors`
+   is read-own only). A new table ships with RLS and its policies in the same
+   migration.
+3. **The service-role key only inside Edge Functions, and only after the
+   request is checked.** `delete-account` verifies the caller's session
+   (`auth.getUser`) before it touches their data. The public `product-lookup`
+   and `label-ocr` check the rate limit first, and a label save also needs a
+   read token signed by the server. The client never holds the service key.
+4. **Identity comes from the verified session, never the request body.** No
+   function or query trusts a client-supplied user id.
+5. **`EXPO_PUBLIC_*` holds only what is safe to publish.** Expo copies these
+   into the app bundle, which anyone can read. Today: the Supabase URL and anon
+   key, the Google client ids, the PostHog project key and host, and the
+   support address. Every other key is server-only.
+6. **Secrets live in the shell or gitignored files, never in the repo.** Edge
+   Function secrets (`SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_VISION_API_KEY`,
+   `INCI_API_KEY`, `READ_TOKEN_SECRET`, `RATE_LIMIT_SALT`, the Apple and PostHog
+   deletion keys) are set in Supabase. `.env` / `.env.staging` are gitignored.
+   `secret-scan.yml` greps every built bundle for key names and formats.
+7. **The paid endpoints stay capped.** `product-lookup` and `label-ocr` keep
+   their per-caller rate limits (`_shared/rate-limit.ts`), and Vision reads
+   keep the daily ceiling (`VISION_DAILY_CEILING`, `_shared/vision-ceiling.ts`).
+   Don't remove or raise either without saying why.
+8. **Don't log content.** No profile fields, label text, tokens,
+   `Authorization` headers or keys in logs, errors or analytics events
+   (`lib/analytics.ts` holds the allowed event list).
+9. **Links into the app are untrusted.** Route parameters from a link go
+   through `lib/route-params.ts` before they're used (#29).
+10. **No new place to store user data without review.** AsyncStorage from two
+    files only, `expo-secure-store` from one (`eslint.config.js` enforces it;
+    `docs/device-storage-policy.md` says why).
 
-## Database security
+## Deliberately excluded
 
-- The application's database role should be scoped to what the app actually needs; avoid granting schema-owner or DDL privileges to the runtime credential.
-- Database queries must preserve user-level data isolation (see "Authorization and data ownership" above) — this is the single most security-critical invariant in this codebase. If using Supabase, this means Row Level Security must be enabled and correctly scoped on every table containing user data — do not rely on the client only calling "safe" queries.
-- Do not introduce raw/dynamically-constructed SQL from client-controlled input.
-- Do not introduce a database operation that bypasses the intended authorization boundary (e.g. a client-side call using the service-role key instead of the authenticated user's session).
-
-## Third-party product / affiliate data
-
-- Product data pulled from any third-party feed or affiliate API is untrusted input once it crosses into this app — sanitize before rendering (avoid unescaped HTML/markup from external descriptions), and don't treat it as more trustworthy just because it's "our" data source.
-- If product recommendations are ever personalized using a third-party service (e.g. an external matching/AI API), do not send more user data to that service than the specific request requires.
-
-## AI / LLM features
-
-**Stale as of issue #16 — this section said to revisit "if one is added," and one was: `label-ocr` sends label photos to Google Cloud Vision.** That revisit now lives in `docs/threat-model.md`'s Trust Boundaries section (Backend ↔ Google Vision) — per that document's own note, it is the authoritative one wherever the two conflict, until #26 rewrites this file properly. It covers Google's retention/training policy with sources, the on-device-OCR evaluation, and the client-side crop that sends less than the full frame. The DPA is the one item not settled there — a standard DPA is confirmed in force by Google's terms, but whether it's *sufficient* for this project is issue #14's determination, not this codebase's.
-
-If a *second* AI/LLM feature is ever added, it needs the same treatment: confirm the provider's retention/training terms before shipping, not after.
-
-## Secrets and configuration
-
-- Secrets (API keys, database URLs, JWT secrets if applicable) must come from environment variables — never hardcoded.
-- Never commit `.env` files (should be gitignored). Watch for accidental secret leakage through other checked-in files (scratch request files, test fixtures with real tokens/keys embedded).
-- Avoid exposing secrets through logs, error responses, tests, or generated files.
-
-**"Comes from an environment variable" is not sufficient on this stack (issue #15).** Expo inlines any `EXPO_PUBLIC_*` variable directly into the shipped JavaScript bundle at build time, and `app.json`'s `web.output: "single"` means that bundle is a static file anyone can download and read. A secret in an `EXPO_PUBLIC_` variable is not "in an environment variable" in the safe sense — it's printed on a billboard.
-
-**The rule: `EXPO_PUBLIC_*` may hold only values that are safe to print on a billboard, and nothing else, ever.** Today that's exactly two values — the Supabase URL and the Supabase anon key, both designed to be public since Row Level Security is what actually gates access to them. `.env.example` is the enumerated list of every other secret this project holds (`SUPABASE_SERVICE_ROLE_KEY`, `INCI_API_KEY`, `GOOGLE_VISION_API_KEY` as of writing) — every one of those lives only in the Supabase Edge Function environment, never in `.env`, `app.json`, or any file Metro can reach. `.github/workflows/secret-scan.yml` enforces this in CI by grepping every exported platform's bundle for those exact variable names and for known provider key formats.
-
-## Security review priorities
-
-Beyond the categories above, also watch for: injection vulnerabilities (should be rare if using a query builder/ORM or Supabase client — flag any raw SQL or dynamic query construction), and changes that weaken an existing security boundary (rate limiting, CORS origin list, security headers, Row Level Security policies).
+- **Root/jailbreak detection** — out of scope; see
+  `docs/device-storage-policy.md`, "What this does not cover".
+- **Storing photos, and any face or skin imagery** — fixed non-goals in
+  `docs/threat-model.md` §5. Read them before proposing either.

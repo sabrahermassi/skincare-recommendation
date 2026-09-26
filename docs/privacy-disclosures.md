@@ -69,7 +69,7 @@ in the capture screen and a fuller sentence on the permission-request
 screen, so a user is told where the photo goes independent of which build
 they're running.
 
-### Open Beauty Facts, the INCI API, UPCitemdb
+### Open Beauty Facts, the INCI API
 
 Product catalogue lookups by barcode. No user-identifying or user-supplied
 content is sent to these — only the scanned barcode number. See
