@@ -3,9 +3,10 @@ import { useState } from "react";
 import { View } from "react-native";
 
 import { QuizOptionCard } from "@/components/QuizOptionCard";
+import { useQuizFrame } from "@/components/QuizFrame";
 import { QuizScreen } from "@/components/QuizScreen";
 import type { Sensitivity } from "@/data/types";
-import { nextQuizRoute, POST_ONBOARDING_ROUTE, quizStepNumber } from "@/lib/profile";
+import { nextQuizRoute, quizStepNumber } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -30,6 +31,7 @@ const OPTIONS: { value: Sensitivity; label: string; icon: number }[] = [
 const UNSURE_ICON = require("@/assets/illustrations/quiz/unsure.png");
 
 export default function SensitivityStep() {
+  const { close } = useQuizFrame();
   const sensitivity = useAppStore((s) => s.profile.sensitivity);
   const setProfile = useAppStore((s) => s.setProfile);
   // `null` is both "unanswered" and "I don't know" — see baseSkinType's
@@ -38,17 +40,17 @@ export default function SensitivityStep() {
   const [picked, setPicked] = useState(sensitivity !== null);
 
   function next() {
-    const route = nextQuizRoute("/onboarding/sensitivity");
+    const route = nextQuizRoute("/quiz/sensitivity");
     if (route) {
       router.push(route);
       return;
     }
-    router.replace(POST_ONBOARDING_ROUTE);
+    close();
   }
 
   return (
     <QuizScreen
-      step={quizStepNumber("/onboarding/sensitivity")}
+      step={quizStepNumber("/quiz/sensitivity")}
       title="How sensitive is your skin?"
       subtitle="This sets how cautious we are about irritants."
       onNext={next}

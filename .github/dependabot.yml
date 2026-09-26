@@ -37,6 +37,21 @@ updates:
       # NativeWind's runtime needs Tailwind 3; v4 breaks styling silently.
       - dependency-name: "tailwindcss"
         update-types: ["version-update:semver-major"]
+      # The native libraries Expo pins to one version per SDK
+      # (node_modules/expo/bundledNativeModules.json). Expo Go only runs the
+      # versions its SDK ships, and one of these in the grouped weekly PR would
+      # fail `npx expo install --check` and hold back every other update in it.
+      # They move with a hand-made SDK upgrade (`npx expo install --fix`).
+      - dependency-name: "@react-native-async-storage/async-storage"
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "react-native-gesture-handler"
+      - dependency-name: "react-native-reanimated"
+      - dependency-name: "react-native-safe-area-context"
+      - dependency-name: "react-native-screens"
+      - dependency-name: "react-native-svg"
+      - dependency-name: "react-native-web"
+      - dependency-name: "react-native-worklets"
 
   - package-ecosystem: github-actions
     directory: /

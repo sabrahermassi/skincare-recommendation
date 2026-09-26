@@ -32,6 +32,13 @@ import type { Verdict } from "./matching";
 export const CANVAS = "#FBF6EE";
 
 /**
+ * The three intro screens' background: a lighter, warmer cream than `CANVAS`,
+ * given by the owner (26 September 2026) for the watercolor heroes to sit on.
+ * Onboarding only; every other screen keeps `CANVAS`.
+ */
+export const ONBOARDING_CANVAS = "#FDFAF2";
+
+/**
  * Raised card fill. White, not a tint of the canvas — a card has to separate
  * from the ground by its own value, and canvas-on-canvas needed a border to
  * do the job the fill should have been doing.
