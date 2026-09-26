@@ -43,7 +43,7 @@ import { reduceMotionNow } from "@/lib/reduce-motion";
 import { matchProduct } from "@/lib/matching";
 import { track } from "@/lib/analytics";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SELECTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -595,7 +595,7 @@ export default function Scan() {
         onDark={!needsPermission}
         // Opened from a deep link there is nothing underneath to go back to.
         onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
-        style={{ position: "absolute", left: 16, top: insets.top + 8 }}
+        style={{ position: "absolute", left: SPACE.block, top: insets.top + SPACE.text }}
       />
 
       {/* Visible in both modes, not just Barcode (#195): the camera is one
@@ -605,7 +605,7 @@ export default function Scan() {
           Centred across the full width; box-none so the row itself never
           takes a tap meant for the buttons at either end. */}
       {cameraLive ? (
-        <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, top: insets.top + 8, alignItems: "center" }}>
+        <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, top: insets.top + SPACE.text, alignItems: "center" }}>
           <GlassButton
             symbol={torchOn ? "bolt.fill" : "bolt"}
             icon={torchOn ? "flash" : "flash-outline"}
@@ -622,7 +622,7 @@ export default function Scan() {
         icon="information-circle-outline"
         accessibilityLabel="How we score products"
         onDark={!needsPermission}
-        style={{ position: "absolute", right: 16, top: insets.top + 8 }}
+        style={{ position: "absolute", right: SPACE.block, top: insets.top + SPACE.text }}
       />
     </View>
   );
@@ -680,8 +680,8 @@ function NoMatchSheet({
             backgroundColor: CANVAS,
             borderRadius: NO_MATCH_RADIUS,
             paddingTop: 22,
-            paddingHorizontal: 24,
-            paddingBottom: 24,
+            paddingHorizontal: SPACE.gutter,
+            paddingBottom: SPACE.gutter,
             alignItems: "center",
             gap: 10,
             ...FLOATING_SHADOW,
@@ -703,7 +703,7 @@ function NoMatchSheet({
             {copy.title}
           </Text>
           <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>{copy.line}</Text>
-          <View style={{ alignSelf: "stretch", gap: 10, marginTop: 8 }}>
+          <View style={{ alignSelf: "stretch", gap: 10, marginTop: SPACE.text }}>
             <PrimaryButton label={scanLabel} onPress={onScanAgain} size={48} />
             {copy.byName ? <PrimaryButton label={copy.byName} onPress={onSearch} size={48} variant="gray" /> : null}
           </View>

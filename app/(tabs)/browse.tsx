@@ -13,7 +13,7 @@ import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
 import { SkinMatchCard } from "@/components/SkinMatchCard";
 import { openPhotoScanner } from "@/lib/open-scanner";
 import { Text } from "@/components/Text";
-import { fetchProductsByIds, peekProducts, searchableQuery, searchProducts, SEARCH_MIN_LETTERS, SEARCH_RESULT_LIMIT } from "@/data/api";
+import { fetchProductsByIds, longEnoughToSearch, peekProducts, searchableQuery, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized } from "@/lib/profile";
@@ -46,12 +46,16 @@ const WELCOME_ASPECT = 1024 / 1536;
 const NO_MATCH_ART = require("@/assets/illustrations/no-product-found.webp");
 const NO_MATCH_ASPECT = 1164 / 697;
 
+// Under the box while the query is too short to search (`longEnoughToSearch`).
+const KEEP_TYPING = "Type at least three letters to search.";
+
 // How many placeholder rows stand in for results on a cold search — enough to
 // fill a phone screen without pretending to know the real count.
 const SKELETON_ROWS = 6;
 
 // One flat array for the FlatList, which can only virtualize a single list.
 type SearchItem =
+  | { kind: "keep-typing" }
   | { kind: "welcome" }
   | { kind: "skin-match" }
   | { kind: "recent-heading" }
@@ -65,13 +69,13 @@ function skeletonRows(): SearchItem[] {
 
 export default function Browse() {
   const insets = useSafeAreaInsets();
-  // `searchResults` is null until a query of at least SEARCH_MIN_LETTERS has
+  // `searchResults` is null until a query long enough to search has
   // actually been searched.
   const [query, setQuery] = useState("");
   const searchInput = useRef<TextInput>(null);
   const [searchResults, setSearchResults] = useState<ProductWithIngredients[] | null>(null);
   const [searching, setSearching] = useState(false);
-  const searchActive = query.trim().length >= SEARCH_MIN_LETTERS;
+  const searchActive = longEnoughToSearch(query);
 
   const profile = useAppStore((s) => s.profile);
   const personalized = isPersonalized(profile);
@@ -234,8 +238,9 @@ export default function Browse() {
       // Results with no scores yet: the questions that would score them (#346).
       return personalized ? rows : [{ kind: "skin-match" }, ...rows];
     }
-    // Before typing: the watercolor still life (owner), then what was viewed recently.
-    const list: SearchItem[] = [{ kind: "welcome" }];
+    // Before typing: the watercolor still life (owner), then what was viewed
+    // recently. Typed but too short to search: first say why nothing happens.
+    const list: SearchItem[] = query.trim().length > 0 ? [{ kind: "keep-typing" }, { kind: "welcome" }] : [{ kind: "welcome" }];
     if (recent.length > 0) {
       list.push(
         { kind: "recent-heading" },
@@ -243,10 +248,17 @@ export default function Browse() {
       );
     }
     return list;
-  }, [searchActive, searching, scoredSearch, recent, profile, personalized]);
+  }, [searchActive, searching, scoredSearch, recent, profile, personalized, query]);
 
   const renderItem: ListRenderItem<SearchItem> = ({ item }) => {
     switch (item.kind) {
+      case "keep-typing":
+        return (
+          <Text style={{ paddingHorizontal: HEADER_GUTTER, paddingBottom: SPACE.text, fontSize: TYPE.caption, color: MUTED }}>
+            {KEEP_TYPING}
+          </Text>
+        );
+
       case "welcome":
         return (
           <Image

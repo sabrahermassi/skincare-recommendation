@@ -114,12 +114,15 @@ describe("typing", () => {
   it("waits for three letters before it searches", async () => {
     await render(<Search />);
     await act(async () => fireEvent.changeText(screen.getByLabelText("Search products or brands"), "ce"));
-    // Two letters: still the still life, no results and no "not found".
+    // Two letters: still the still life, no results and no "not found", and a
+    // line saying why nothing happened yet.
     expect(screen.getByLabelText("A little progress every day")).toBeTruthy();
+    expect(screen.getByText("Type at least three letters to search.")).toBeTruthy();
     expect(screen.queryByText("We don't have this product in our library yet.")).toBeNull();
 
     await act(async () => fireEvent.changeText(screen.getByLabelText("Search products or brands"), "cer"));
     expect(screen.queryByLabelText("A little progress every day")).toBeNull();
+    expect(screen.queryByText("Type at least three letters to search.")).toBeNull();
   });
 });
 

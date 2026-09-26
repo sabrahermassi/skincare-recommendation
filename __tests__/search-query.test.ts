@@ -1,4 +1,4 @@
-import { searchableQuery, searchProducts } from "@/data/api";
+import { longEnoughToSearch, searchableQuery, searchProducts } from "@/data/api";
 
 // #297: "%%" returned two unrelated products whose names held a double space.
 describe("searchableQuery", () => {
@@ -23,5 +23,19 @@ describe("searchProducts", () => {
   it("returns nothing for a punctuation-only query", async () => {
     expect(await searchProducts("%%")).toEqual([]);
     expect(await searchProducts("--")).toEqual([]);
+  });
+});
+
+// Three letters before a search (owner); a Korean, Chinese or Japanese character counts as two.
+describe("longEnoughToSearch", () => {
+  it("waits for three Latin letters", () => {
+    expect(longEnoughToSearch("ro")).toBe(false);
+    expect(longEnoughToSearch("  ro  ")).toBe(false);
+    expect(longEnoughToSearch("ros")).toBe(true);
+  });
+
+  it("searches a two-syllable Korean brand name, but not one syllable", () => {
+    expect(longEnoughToSearch("미샤")).toBe(true);
+    expect(longEnoughToSearch("미")).toBe(false);
   });
 });
