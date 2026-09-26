@@ -1,4 +1,6 @@
-import { Text as RNText, type TextProps } from "react-native";
+import { StyleSheet, Text as RNText, type TextProps } from "react-native";
+
+import { FONT_SCALE } from "@/lib/tokens";
 
 /**
  * Matches our display-family utilities. Kept as a named export because it is
@@ -30,11 +32,31 @@ export function namesOwnFontFamily(className: string | undefined): boolean {
  * The wrapper stays because every screen imports it, and because it is the
  * one place to reach if a body face is ever loaded again.
  */
-export function Text({ className, ...props }: TextProps) {
+export function Text({ className, maxFontSizeMultiplier, ...props }: TextProps) {
   // `className` is named as a literal JSX attribute rather than left inside a
   // spread. NativeWind's transform reads it off the call site, and passing it
   // through `{...props}` is the shape it is least able to see — every style on
   // every piece of text in the app hangs off this one line, so it stays
-  // explicit even though the wrapper no longer adds anything of its own.
-  return <RNText className={className} {...props} />;
+  // explicit.
+  //
+  // The one thing the wrapper adds: a ceiling on how far the phone's text
+  // size may grow this text (#314, `FONT_SCALE`). A caller that passes its
+  // own `maxFontSizeMultiplier` keeps it.
+  return (
+    <RNText
+      className={className}
+      maxFontSizeMultiplier={maxFontSizeMultiplier ?? defaultFontScale(className, props.style)}
+      {...props}
+    />
+  );
 }
+
+/** Display headings grow least; everything else gets the UI ceiling. */
+export function defaultFontScale(className: string | undefined, style: TextProps["style"]): number {
+  if (namesOwnFontFamily(className)) return FONT_SCALE.display;
+  const family = StyleSheet.flatten(style)?.fontFamily;
+  return typeof family === "string" && DISPLAY_FAMILY.test(family) ? FONT_SCALE.display : FONT_SCALE.ui;
+}
+
+/** The loaded display faces (`app/_layout.tsx`); body text is the system font. */
+const DISPLAY_FAMILY = /^(PlayfairDisplay|CormorantGaramond)_/;

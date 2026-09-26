@@ -277,22 +277,30 @@ export default function Home() {
   );
 }
 
+/** Past this text scale a profile chip takes its own row (#314). */
+const FULL_WIDTH_CHIP_SCALE = 1.2;
+
 /**
  * One answer of the skin profile, in the same peach and terracotta as a selected
  * chip, softened: a filled pill with no outline and room around the word, like
  * the skin-type tag in the reference profile. All the same height and width, two
  * to a row, so the card reads as a grid; an odd one out stretches across its row.
+ * At the larger text sizes (#314) a half-width chip can't hold "Combination"
+ * on one line, so each takes a whole row, and the height is a minimum so a
+ * label that still wraps grows its chip instead of being cut off.
  */
 function Chip({ label }: { label: string }) {
+  const { fontScale } = useWindowDimensions();
   return (
     <View
       style={{
         flexGrow: 1,
-        flexBasis: "42%",
-        height: 46,
+        flexBasis: fontScale > FULL_WIDTH_CHIP_SCALE ? "100%" : "42%",
+        minHeight: 46,
+        paddingVertical: 8,
         alignItems: "center",
         justifyContent: "center",
-        paddingHorizontal: 20,
+        paddingHorizontal: 14,
         borderRadius: 23,
         backgroundColor: SELECTED,
         ...CHIP_SHADOW,
