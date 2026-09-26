@@ -7,9 +7,9 @@ import { SCORING_PRODUCTS } from "../test-fixtures/scoring-products";
 /**
  * What "very sensitive" does to a fragranced product. #301 measured the gap
  * and compared options (docs/scoring-validation-gaps.md); #363 built option
- * A: for "very sensitive" only, a fragrance rule's irritation charge keeps at
- * least 0.7 of its weight wherever it sits. If a scoring change moves these
- * numbers on purpose, update them in the same PR.
+ * A: for "very sensitive" only, a product's heaviest fragrance ingredient keeps
+ * at least 0.7 of its weight wherever it sits (once per product). If a
+ * scoring change moves these numbers on purpose, update them in the same PR.
  */
 
 type Sensitivity = SkinProfile["sensitivity"];
@@ -92,6 +92,19 @@ describe("'very sensitive' and a fragranced product (#301, #363)", () => {
     // Second in the list its position factor (0.917) is already above the floor.
     const early = [plainCream[0], plainCream[19], ...plainCream.slice(1, 19)];
     expect(scoreAt(early, "high")).toBeCloseTo(9 * positionWeights(early.map((i) => i.name))[1] * 1.6, 5);
+  });
+
+  it("floors one fragrance per product: parfum and the allergens after it are one scent", () => {
+    // Like "Mains à Croquer" on staging: parfum, then limonene, linalool, coumarin.
+    const tail = ["parfum", "limonene", "linalool", "coumarin"];
+    const list = [...plainCream.slice(0, 19), ...tail.map((name) => ({ ...plainCream[19], id: name, name }))];
+    const factors = positionWeights(list.map((i) => i.name));
+    resetScoreCache();
+    const match = matchProduct({ type: "moisturizer", ingredients: list }, at("high"));
+    // Parfum (the heaviest, 9) gets the floor; each allergen (6) keeps its position weight.
+    const expected = (9 * 0.7 + 6 * factors[20] + 6 * factors[21] + 6 * factors[22]) * 1.6;
+    expect(match.breakdown.irritationPenalty).toBeCloseTo(expected, 5);
+    expect(match.reasons.find((reason) => reason.ingredient === "linalool")?.effect).toBeCloseTo(-6 * factors[21], 5);
   });
 
   it("leaves a non-fragrance irritant at 'very' exactly as it was", () => {

@@ -245,12 +245,39 @@ const SENSITIVITY_MULTIPLIER: Record<NonNullable<SkinProfile["sensitivity"]> | "
 };
 
 /**
- * For "very sensitive" only, a fragrance rule's irritation charge counts at
- * least this share of its weight, wherever it sits in the list (#301, #363):
- * fragrance is usually near the end, where the position discount left
- * "very" barely different from "somewhat".
+ * For "very sensitive" only, a product's fragrance counts at least this share
+ * of its weight, wherever it sits in the list (#301, #363): fragrance is
+ * usually near the end, where the position discount left "very" barely
+ * different from "somewhat".
+ *
+ * Once per product, not per fragrance ingredient. Parfum and the EU
+ * allergens listed after it are usually one scent — the allergens are named
+ * because they are in the parfum — so flooring each of them charged one
+ * fragrance four or five times (up to 16 points on staging). The floor goes to
+ * the heaviest fragrance ingredient (`flooredFragrance`); the rest keep their
+ * position weight.
  */
 const FRAGRANCE_POSITION_FLOOR_HIGH = 0.7;
+
+/**
+ * The position of the one fragrance ingredient the floor applies to: the one
+ * whose floored charge is largest (the earlier on a tie), or -1 for none.
+ */
+function flooredFragrance(ingredients: Ingredient[], positionFactors: number[]): number {
+  let best = -1;
+  let bestCharge = 0;
+  ingredients.forEach((ingredient, position) => {
+    if (!isVerified(ingredient)) return;
+    const rule = findRule(ingredient);
+    if (rule?.category !== "fragrance") return;
+    const charge = rule.weight * Math.max(positionFactors[position], FRAGRANCE_POSITION_FLOOR_HIGH);
+    if (charge > bestCharge) {
+      best = position;
+      bestCharge = charge;
+    }
+  });
+  return best;
+}
 
 /** Confidence-tier weight for a pore-clogging hit. Contested ones count zero. */
 export const CLOGGER_WEIGHT: Record<CloggerHit["confidence"], number> = {
@@ -438,6 +465,7 @@ function computeMatch(
   // Computed once: an alphabetical tail (an OTC drug label) is read as
   // unordered rather than as a concentration ranking. See `positionWeights`.
   const positionFactors = positionWeights(product.ingredients.map((i) => i.name));
+  const floored = profile.sensitivity === "high" ? flooredFragrance(product.ingredients, positionFactors) : -1;
 
   product.ingredients.forEach((ingredient, position) => {
     // An unrecognised name supports no claim in either direction.
@@ -448,11 +476,12 @@ function computeMatch(
     if (rule) {
       const benefitWeight = rule.weight * positionFactor * contact.benefit;
       const harmWeight = rule.weight * positionFactor * contact.harm;
-      // What an irritant charges: the same, except fragrance for "very
-      // sensitive", which keeps at least `FRAGRANCE_POSITION_FLOOR_HIGH` of
-      // its weight (#363). Concern and skin-type evidence keep `harmWeight`.
+      // What an irritant charges: the same, except the product's heaviest
+      // fragrance for "very sensitive", which keeps at least
+      // `FRAGRANCE_POSITION_FLOOR_HIGH` of its weight (#363). Concern and
+      // skin-type evidence keep `harmWeight`.
       const irritationWeight =
-        rule.category === "fragrance" && profile.sensitivity === "high"
+        position === floored
           ? rule.weight * Math.max(positionFactor, FRAGRANCE_POSITION_FLOOR_HIGH) * contact.harm
           : harmWeight;
       const helps = targetApplies(rule.helps, benefitTarget);
