@@ -5,8 +5,8 @@ import type { ProductType } from "@/data/types";
  * replaces the flat-vector `BottleIcon` set anywhere a product appears in a
  * list, per the container-shape reference the illustration set was drawn
  * against. That set is gone now — deleted as dead code once nothing else in
- * the tree still rendered it (hygiene audit); `components/BottleIcon.tsx`
- * keeps only `defaultPackagingType`, which is unrelated to this module.
+ * the tree still rendered it (hygiene audit); its one surviving mapping,
+ * `defaultPackagingType` in `data/packaging.ts`, is unrelated to this module.
  *
  * ## The mapping
  *

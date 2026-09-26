@@ -1,4 +1,3 @@
-import { defaultPackagingType } from "@/components/BottleIcon";
 import type { Shelf, ShelfPush } from "@/lib/shelf";
 import { DELETE_ACCOUNT_FUNCTION, isSupabaseConfigured, LOOKUP_FUNCTION, OCR_FUNCTION, supabase } from "@/lib/supabase";
 import {
@@ -21,19 +20,20 @@ import {
   readExpiredCatalogue,
   readScanned,
   touchCatalogue,
-  typesFrom,
   watermarksMatch,
   type CatalogueWatermark,
 } from "./catalogue-cache";
 import { INGREDIENTS } from "./ingredients";
 import { PRODUCTS } from "./products";
-import type {
-  Ingredient,
-  Product,
-  ProductType,
-  ProductWithIngredients,
-  SafetyLevel,
+import {
+  unknownIngredient,
+  type Ingredient,
+  type Product,
+  type ProductType,
+  type ProductWithIngredients,
+  type SafetyLevel,
 } from "./types";
+import { defaultPackagingType } from "./packaging";
 
 /**
  * THE SWAP POINT.
@@ -74,16 +74,12 @@ const usingSupabase = () => isSupabaseConfigured && supabase !== null;
 const SHOW_SOURCE_PHOTOS = false;
 
 /**
- * Whether a row can be matched back to a physical product by anyone other than
- * the person who created it.
+ * Whether a row can be told apart in a list by the person scrolling it.
  *
- * A label scanned without a barcode is written to the catalogue anyway
- * (`supabase/functions/label-ocr`, which mints `ocr-<uuid>` when no barcode was
- * supplied) with the placeholder brand "Unknown" and name "Scanned product".
- * That row answers the person holding the bottle perfectly — scoring reads the
- * formula, not the name — but it has no key anyone can reach it by and no words
- * anyone can recognise it from. In a browsable list it is noise that accrues
- * with every user and never leaves.
+ * A name that is just digits is the barcode wearing the name's clothes —
+ * imported rows where the source had no title. It renders in Search as a
+ * product called "3606000537750", which no one can recognise as the bottle in
+ * their hand, so it is left out of lists.
  *
  * Filtered at the read boundary rather than only at write, for the same reason
  * `SHOW_SOURCE_PHOTOS` is: rows written before this existed are already in the
@@ -94,51 +90,29 @@ const SHOW_SOURCE_PHOTOS = false;
  * and `fetchProductsByIds` still resolve them, because the scanner navigates
  * straight to the result it just created, and a saved or logged product must
  * still open.
+ *
+ * It used to hide label-photo rows saved without a barcode too, in this form
+ * and as a PostgREST filter on the list and watermark reads. A product can no
+ * longer be saved without a barcode (migration 0022), and none are left, so
+ * that half went (#206).
  */
-function isIdentifiable(row: Pick<CatalogueRow, "name" | "source" | "barcode">): boolean {
-  // A name that is just digits is the barcode wearing the name's clothes —
-  // imported rows where the source had no title. It renders in Browse and
-  // search as a product called "3606000537750", which no one can recognise
-  // as the bottle in their hand. Same rule as the OCR case below and for the
-  // same reason: findable by id, not offered in a list.
-  if (isBarcodeShapedName(row.name)) return false;
-
-  // An absent `source` means the row came from a producer that does not select
-  // the column (see `CatalogueRow.source`), not that it is an OCR row. Treating
-  // unknown as identifiable is the safe default: the alternative hides real
-  // products because of a missing column.
-  if (row.source === undefined) return true;
-  return !(row.source === "ocr" && row.barcode === null);
+function isIdentifiable(row: Pick<CatalogueRow, "name">): boolean {
+  return !isBarcodeShapedName(row.name);
 }
 
 /**
  * A "name" that is only digits (and separators), long enough to be a barcode
  * rather than a product genuinely called "24" or "100".
  *
- * Deliberately not expressed in `IDENTIFIABLE_SQL`: that form exists to keep
- * `fetchWatermark`'s *count* describing the cached population, and a name
- * predicate there would make the two forms harder to keep in step for a rule
- * that is about presentation, not about what the cache holds. The count may
- * therefore include a few rows the list does not show, which moves the
- * watermark no more often than it already moves.
+ * Checked here, not in the list query: it is about presentation, not about
+ * what the cache holds, so `fetchWatermark`'s count includes these rows. That
+ * moves the watermark no more often than it already moves.
  */
 function isBarcodeShapedName(name: string | null): boolean {
   if (!name) return false;
   const bare = name.replace(/[\s-]/g, "");
   return bare.length >= 6 && /^\d+$/.test(bare);
 }
-
-/**
- * The same rule as {@link isIdentifiable}, expressed for PostgREST.
- *
- * Both forms exist on purpose and must move together. The SQL form keeps the
- * *count* in `fetchWatermark` describing the same population the cache holds —
- * without it, one person photographing a label with no barcode changes the
- * global row count, and every other install then sees a moved watermark and
- * pulls a full catalogue to render an identical list. The TypeScript form is
- * what the tests can actually exercise, and it still guards `searchProducts`.
- */
-const IDENTIFIABLE_SQL = "source.neq.ocr,barcode.not.is.null";
 
 /**
  * Simulated latency for the sample catalog, so loading states are exercised
@@ -183,8 +157,8 @@ export const NETWORK_TIMEOUT_MS = 12_000;
  * no way out but backing out of the screen and losing the photo anyway — so
  * the user loses the work *and* learns nothing. Forty-five seconds is well
  * past what a slow upload on shop wifi needs and still finite, and
- * `scan-label` already renders a failure with a retry, so the timeout lands
- * somewhere real.
+ * the label camera already renders a failure with a retry, so the timeout
+ * lands somewhere real.
  */
 export const OCR_TIMEOUT_MS = 45_000;
 
@@ -296,7 +270,7 @@ export type FetchFailure =
  * "is this specific product there?", and for them a missing row and an
  * unreachable server look identical to a caller that only sees a throw.
  *
- * The list fetchers — `fetchProducts`, `searchProducts`, `fetchProductTypes` —
+ * The list fetchers — `fetchProducts` and `searchProducts` —
  * keep throwing on purpose. They answer "what is there?", where an empty result
  * means an empty catalogue rather than a specific absence, and their call sites
  * already turn a throw into "couldn't load, try again". Adding a second idiom
@@ -394,14 +368,7 @@ function resolveIngredients(product: Product): ProductWithIngredients {
   return {
     ...product,
     ingredients: product.ingredientIds.map(
-      (id): Ingredient =>
-        INGREDIENTS[id] ?? {
-          id,
-          name: id,
-          comedogenic: 0,
-          safety: "caution",
-          note: "No data for this ingredient yet.",
-        }
+      (id): Ingredient => INGREDIENTS[id] ?? unknownIngredient(id, "No data for this ingredient yet.")
     ),
   };
 }
@@ -423,7 +390,6 @@ type CatalogueRow = {
    * `source` column, and `fetchProductByBarcode` casts that response to this
    * type. Declaring it required would be a type that lies — and the lie would
    * surface as `undefined === "ocr"` quietly evaluating false somewhere.
-   * `isIdentifiable` handles the absent case explicitly.
    */
   source?: string;
   brand: string;
@@ -519,18 +485,6 @@ function toIngredient(source: {
   };
 }
 
-/**
- * A name the dictionary did not carry.
- *
- * Reachable in one narrow race: a product written between the dictionary read
- * and the product read references a name the dictionary snapshot predates.
- * Shown as unverified rather than dropped, for the same reason
- * `resolveIngredientNames` keeps its unknowns — a shortened list would be a
- * quieter, worse lie than an unrecognised name.
- */
-function stubIngredient(inciName: string): Ingredient {
-  return { id: inciName, name: inciName, comedogenic: 0, safety: "safe", verified: false };
-}
 
 function rowToProduct(row: CatalogueRow): ProductWithIngredients {
   const ingredients = row.product_ingredients
@@ -560,7 +514,14 @@ function listRowToProduct(
 ): ProductWithIngredients {
   const ingredients = [...row.product_ingredients]
     .sort((a, b) => a.position - b.position)
-    .map((join) => dictionary.get(join.inci_name) ?? stubIngredient(join.inci_name));
+    // A name the dictionary did not carry.
+    //
+    // Reachable in one narrow race: a product written between the dictionary read
+    // and the product read references a name the dictionary snapshot predates.
+    // Shown as unverified rather than dropped, for the same reason
+    // `resolveIngredientNames` keeps its unknowns — a shortened list would be a
+    // quieter, worse lie than an unrecognised name.
+    .map((join) => dictionary.get(join.inci_name) ?? unknownIngredient(join.inci_name));
 
   return buildProduct(row, ingredients);
 }
@@ -793,7 +754,6 @@ async function fetchWatermark(): Promise<CatalogueWatermark> {
         supabase!
           .from("products")
           .select("fetched_at", { count: "exact" })
-          .or(IDENTIFIABLE_SQL)
           .order("fetched_at", { ascending: false, nullsFirst: false })
           .limit(1)
           .abortSignal(signal),
@@ -927,7 +887,6 @@ async function fetchAllListRows(): Promise<CatalogueListRow[]> {
         supabase!
           .from("products")
           .select(LIST_SELECT)
-          .or(IDENTIFIABLE_SQL)
           .order("id")
           .range(from, from + CATALOGUE_PAGE_SIZE - 1)
           .abortSignal(signal),
@@ -1113,27 +1072,6 @@ export async function fetchProductsByIds(
     .filter((p): p is Product => Boolean(p))
     .map(resolveIngredients);
   return delay({ ok: true, value: results });
-}
-
-/** Distinct product types present in the catalog, for the filter bar. */
-export async function fetchProductTypes(): Promise<ProductType[]> {
-  if (usingSupabase()) {
-    // The filter bar's types are derivable from the list it filters, so once
-    // the catalogue is cached this stops being a request at all.
-    const cached = await readCatalogue();
-    if (cached) return typesFrom(cached);
-
-    const { data, error } = await withTimeout(
-      (signal) => supabase!.from("products").select("type").abortSignal(signal),
-      "fetchProductTypes",
-    );
-    if (error) throw new Error(`fetchProductTypes: ${error.message}`);
-    return [
-      ...new Set((data as { type: string }[]).map((r) => r.type)),
-    ] as ProductType[];
-  }
-
-  return delay([...new Set(PRODUCTS.map((p) => p.type))]);
 }
 
 /**
@@ -1555,7 +1493,8 @@ export async function saveScannedProduct(input: {
 /**
  * Look up already-parsed INCI names in the dictionary, preserving label order.
  *
- * For the paste-a-list flow, which has names but no product. A plain table
+ * For names with no product behind them — Saved's starred ingredients, and
+ * an ingredient opened on its own. A plain table
  * read — `ingredients` is public-SELECT under RLS — so it needs no edge
  * function and no service-role key.
  *
@@ -1583,13 +1522,7 @@ export async function resolveIngredientNames(
   names: string[],
   opts?: { strict?: boolean }
 ): Promise<Ingredient[]> {
-  const stub = (name: string): Ingredient => ({
-    id: name,
-    name,
-    comedogenic: 0,
-    safety: "caution",
-    verified: false,
-  });
+  const stub = (name: string): Ingredient => unknownIngredient(name);
 
   if (names.length === 0) return [];
 
@@ -1608,7 +1541,7 @@ export async function resolveIngredientNames(
   try {
     // Bounded like the catalogue reads, and the catch below is why: a
     // timeout here degrades to the unverified stubs this function already
-    // promises, instead of leaving the paste-list screen waiting forever.
+    // promises, instead of leaving the screen waiting forever.
     const { data, error } = await withTimeout(
       (signal) =>
         supabase!

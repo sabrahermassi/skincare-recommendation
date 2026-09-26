@@ -14,8 +14,8 @@ import { CANVAS } from "@/lib/tokens";
  * square, rounded corners, the art centred with margin around it so it
  * reads as a thumbnail rather than a crop) — this replaced what that tile
  * drew. `BottleIcon` itself is gone now (deleted as dead code, hygiene
- * audit); `components/BottleIcon.tsx` keeps only `defaultPackagingType`,
- * which this file's caller still needs.
+ * audit); its one surviving mapping, `defaultPackagingType`, lives in
+ * `data/packaging.ts`.
  */
 export function ProductThumbnail({
   product,

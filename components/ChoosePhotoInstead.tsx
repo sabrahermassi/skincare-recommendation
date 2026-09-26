@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { pickLabelPhoto } from "@/lib/pick-label-photo";
-import { readLabelPhoto } from "@/lib/read-label-photo";
+import { failureFromState, readLabelPhoto } from "@/lib/read-label-photo";
+import { scanStateCopy } from "@/lib/scan-copy";
 import { INK, MUTED, TOUCH_TARGET } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
@@ -15,7 +16,10 @@ type State =
   // that hadn't started (#295).
   | { kind: "picking" }
   | { kind: "reading" }
-  | { kind: "failed"; message: string; hint?: string; retryable: boolean };
+  | { kind: "failed"; message: string; hint?: string; action?: string; retryable: boolean };
+
+const READING = scanStateCopy({ kind: "working", step: "photo" });
+const CHOOSE_A_PHOTO = scanStateCopy({ kind: "couldnt-read", why: "photo" }).link;
 
 /**
  * "Choose a photo instead" — for the permission screens. Someone who turned the
@@ -38,12 +42,16 @@ export function ChoosePhotoInstead({
   isStillWanted?: () => boolean;
 }) {
   const [state, setState] = useState<State>({ kind: "idle" });
+  // Cancel (#204) moves this on, so a read that lands afterwards is dropped.
+  const attempt = useRef(0);
   const reading = state.kind === "reading";
   const busy = reading || state.kind === "picking";
   const cannotRetry = state.kind === "failed" && !state.retryable;
 
   async function choose() {
     if (busy || cannotRetry) return;
+    const mine = ++attempt.current;
+    const cancelled = () => attempt.current !== mine;
     setState({ kind: "picking" });
     let picked: Awaited<ReturnType<typeof pickLabelPhoto>> = null;
     try {
@@ -53,30 +61,21 @@ export function ChoosePhotoInstead({
         return;
       }
       if (!picked.base64) {
-        setState({
-          kind: "failed",
-          message: "We couldn't read that image.",
-          hint: "Try again with a different photo.",
-          retryable: true,
-        });
+        setState({ kind: "failed", ...failureFromState({ kind: "couldnt-read", why: "photo" }) });
         return;
       }
       setState({ kind: "reading" });
-      const outcome = await readLabelPhoto(picked.base64, barcode, isStillWanted);
+      const outcome = await readLabelPhoto(picked.base64, barcode, () => !cancelled() && (isStillWanted?.() ?? true));
+      if (cancelled()) return;
       if (outcome.kind === "read") {
         haptic.success();
         setState({ kind: "idle" });
         onRead();
         return;
       }
-      setState({ kind: "failed", message: outcome.message, hint: outcome.hint, retryable: outcome.retryable });
+      setState({ kind: "failed", message: outcome.message, hint: outcome.hint, action: outcome.action, retryable: outcome.retryable });
     } catch {
-      setState({
-        kind: "failed",
-        message: "Something went wrong reading that.",
-        hint: "Try again - and check you have a connection.",
-        retryable: true,
-      });
+      if (!cancelled()) setState({ kind: "failed", ...failureFromState({ kind: "couldnt-reach", why: "default" }) });
     } finally {
       picked?.cleanup();
     }
@@ -88,7 +87,7 @@ export function ChoosePhotoInstead({
         ? `${state.message} ${state.hint}`
         : state.message
       : reading
-        ? "Reading the ingredient list."
+        ? READING.title ?? ""
         : "";
 
   return (
@@ -116,9 +115,23 @@ export function ChoosePhotoInstead({
             opacity: busy || cannotRetry ? 0.5 : 1,
           }}
         >
-          {reading ? "Reading the ingredient list…" : "Or choose a photo instead."}
+          {reading ? READING.title : CHOOSE_A_PHOTO}
         </Text>
       </Pressable>
+      {reading ? (
+        <Pressable
+          onPress={() => {
+            attempt.current++;
+            setState({ kind: "idle" });
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={READING.link}
+          style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 12 }}
+          className="active:opacity-70"
+        >
+          <Text style={{ fontSize: 12.5, color: MUTED, textDecorationLine: "underline" }}>{READING.link}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

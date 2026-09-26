@@ -272,7 +272,8 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS }}>
-        <ActivityIndicator color={INK} />
+        {/* Named, so a screen reader says what it is waiting on. */}
+        <ActivityIndicator color={INK} accessibilityLabel="Loading the product" />
       </View>
     );
   }

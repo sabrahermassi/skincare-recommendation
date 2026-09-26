@@ -47,8 +47,8 @@ export const IngredientsSheet = forwardRef<IngredientsSheetHandle, {
   /** Only `.id`, `.ingredients` and `.fetchedAt` are read — narrowed so
    *  `app/label-result.tsx` (#214) can pass a bare list with no product row.
    *  An empty `.id` degrades `openIngredient` below to the same
-   *  no-product-context lookup `app/ingredient/[inci].tsx` already offers a
-   *  pasted-list check. */
+   *  no-product-context lookup `app/ingredient/[inci].tsx` does for a name
+   *  opened on its own. */
   product: Pick<ProductWithIngredients, "id" | "ingredients" | "fetchedAt">;
   match: MatchResult;
 }>(function IngredientsSheet({ product, match }, openRef) {

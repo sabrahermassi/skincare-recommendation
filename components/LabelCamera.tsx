@@ -1,20 +1,21 @@
 import { Ionicons } from "@expo/vector-icons";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import type { CameraView } from "expo-camera";
+import { router } from "expo-router";
 import { Image } from "expo-image";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
-import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, StyleSheet, View, type LayoutChangeEvent, type ViewStyle } from "react-native";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, View, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
-import { SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, WINDOW_RADIUS, type Box } from "@/components/ScanViewfinder";
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { SCAN_SIDE_INSET, SCAN_TOP_GAP, WINDOW_RADIUS, type Box } from "@/components/ScanViewfinder";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
-import { coverFitCropRect, shrinkWidth, type Rect, type Size } from "@/lib/crop-to-guide";
+import { coverFitCropRect, shrinkWidth, type Size } from "@/lib/crop-to-guide";
 import { fitUpload } from "@/lib/fit-upload";
 import { deleteTempFile, LIBRARY_MAX_WIDTH, pickLabelPhoto } from "@/lib/pick-label-photo";
-import { readLabelPhoto } from "@/lib/read-label-photo";
+import { failureFromState, readLabelPhoto } from "@/lib/read-label-photo";
+import { scanStateCopy, scanStateSpeech } from "@/lib/scan-copy";
 import { track } from "@/lib/analytics";
 import { CAMERA_STAGE, CANVAS, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -43,18 +44,11 @@ type Status =
   // decided defaults to "retryable" by accident, which is exactly the bug
   // Codex caught on #121 — every reason but one genuinely is retryable, and
   // the one that isn't (`not_configured`) needs its caller to say so.
-  | { kind: "failed"; message: string; hint?: string; retryable: boolean };
+  | { kind: "failed"; message: string; hint?: string; action?: string; link?: string; retryable: boolean };
 
 type Props = {
   /** Handed over by whoever sent the user here after a miss; the list read is added under it. */
   barcode?: string;
-  /**
-   * Whether to hold the camera. False while another screen covers this one —
-   * most devices give the camera to one view at a time.
-   */
-  active?: boolean;
-  /** Shows an X at the top-left when given. */
-  onClose?: () => void;
   /** Called once a photo has been read and its list is being held for the add-product screen. */
   onRead: () => void;
   /**
@@ -71,36 +65,34 @@ type Props = {
   /** How far below the safe area the frame starts, to clear whatever sits across the top. */
   frameTopOffset?: number;
   /**
-   * When the scanner screen owns the camera and the frame (so Barcode and Photo
-   * share them and a switch is seamless), it hands them in: this then draws only
+   * The scanner screen owns the camera and the frame (so Barcode and Photo
+   * share them and a switch is seamless), and hands them in: this draws only
    * the instruction, the shutter and the reading, and crops to `window` using
-   * `cameraSize`. Without them this is a screen of its own (the /scan-label
-   * route) and draws its own.
+   * `cameraSize`. It used to be a screen of its own too (the /scan-label
+   * route), which #204 removed; the scanner's Photo mode is the one camera.
    */
-  camera?: RefObject<CameraView | null>;
-  cameraSize?: Size | null;
-  window?: Box | null;
+  camera: RefObject<CameraView | null>;
+  cameraSize: Size | null;
+  window: Box | null;
 };
 
 export function LabelCamera({
   barcode,
-  active = true,
-  onClose,
   onRead,
   isStillWanted,
   bottomInset,
   frameTopOffset,
-  camera: externalCamera,
-  cameraSize: externalCameraSize,
-  window: externalWindow,
+  camera,
+  cameraSize,
+  window: guideRect,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const [permission, requestPermission] = useCameraPermissions();
   const [status, setStatus] = useState<Status>({ kind: "framing" });
   // The picture chosen from the library, shown in the frame while it is read.
   const [preview, setPreview] = useState<string | null>(null);
-  const ownCamera = useRef<CameraView>(null);
-  const camera = externalCamera ?? ownCamera;
+  // One number per capture. Cancel (#204) moves it on, so a read that lands
+  // afterwards is recognised as abandoned: not held, and not opened.
+  const attempt = useRef(0);
 
   // Reaching this screen at all — from "Label photo" mode, a barcode miss, a
   // formula-less product, or Saved's recorded miss — is a scan starting the
@@ -115,29 +107,10 @@ export function LabelCamera({
     dismissQuizAcknowledgement();
   }, [dismissQuizAcknowledgement]);
 
-  // Measured via onLayout rather than `Dimensions.get('window')`: this route
-  // is presented as a modal (`app/_layout.tsx`) and whether that costs any
-  // vertical space to a header is not something worth depending on. Both are
-  // populated well before `capture()` can run (the shutter button doesn't
-  // exist until this view has already rendered once), so a missing
-  // measurement here only ever means "layout hasn't happened yet" and is
-  // handled by falling back to the uncropped photo, never by guessing.
-  const [ownCameraSize, setCameraSize] = useState<Size | null>(null);
-  const [ownGuideRect, setGuideRect] = useState<Rect | null>(null);
-  const cameraSize = externalCameraSize ?? ownCameraSize;
-  const guideRect = externalWindow ?? ownGuideRect;
-  // What gets cropped and sent is exactly the frame that is drawn (issue #16).
-  // Declared up here, before the permission screens return early, so the hooks
-  // run in the same order on every render.
-  const onWindow = useCallback((box: Box) => setGuideRect(box), []);
-
-  function onCameraLayout(event: LayoutChangeEvent) {
-    const { width, height } = event.nativeEvent.layout;
-    setCameraSize({ width, height });
-  }
-
   async function capture(source: "camera" | "library" = "camera") {
     if (status.kind === "reading") return;
+    const mine = ++attempt.current;
+    const cancelled = () => attempt.current !== mine;
     setStatus({ kind: "reading" });
 
     // Both files, once they exist, are deleted in `finally` below regardless
@@ -163,8 +136,9 @@ export function LabelCamera({
       let photo: { uri: string; base64?: string; width?: number; height?: number } | undefined;
       if (source === "library") {
         const picked = await pickLabelPhoto();
-        if (!picked) {
-          setStatus({ kind: "framing" });
+        if (!picked || cancelled()) {
+          if (!cancelled()) setStatus({ kind: "framing" });
+          picked?.cleanup();
           return;
         }
         releasePick = picked.cleanup;
@@ -181,7 +155,7 @@ export function LabelCamera({
       }
 
       if (!photo?.base64) {
-        setStatus({ kind: "failed", message: "The camera didn't return an image.", retryable: true });
+        setStatus({ kind: "failed", ...failureFromState({ kind: "couldnt-read", why: "photo" }) });
         return;
       }
       capturedUri = photo.uri;
@@ -270,8 +244,15 @@ export function LabelCamera({
         imageBase64 = fitted.base64;
       }
 
+      if (cancelled()) return;
       track("scan_started", { path: "label" });
-      const outcome = await readLabelPhoto(imageBase64, barcode, isStillWanted);
+      const outcome = await readLabelPhoto(
+        imageBase64,
+        barcode,
+        () => !cancelled() && (isStillWanted?.() ?? true),
+      );
+      // Cancelled while it was being read: the camera is already back.
+      if (cancelled()) return;
       if (outcome.kind === "read") {
         haptic.success();
         // Back to the ready camera before leaving: this screen stays mounted under
@@ -280,16 +261,11 @@ export function LabelCamera({
         onRead();
         return;
       }
-      setStatus({ kind: "failed", message: outcome.message, hint: outcome.hint, retryable: outcome.retryable });
+      setStatus({ ...outcome, kind: "failed" });
     } catch {
-      setStatus({
-        kind: "failed",
-        message: "Something went wrong reading that.",
-        hint: "Try again - and check you have a connection.",
-        retryable: true,
-      });
+      if (!cancelled()) setStatus({ kind: "failed", ...failureFromState({ kind: "couldnt-reach", why: "default" }) });
     } finally {
-      setPreview(null);
+      if (!cancelled()) setPreview(null);
       releasePick?.();
       deleteTempFile(capturedUri);
       deleteTempFile(croppedUri);
@@ -298,57 +274,21 @@ export function LabelCamera({
     }
   }
 
-  if (!permission) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS }}>
-        <Text style={{ color: MUTED }}>Checking camera permission…</Text>
-      </View>
-    );
-  }
-
-  if (!permission.granted) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 16,
-          paddingHorizontal: 24,
-          backgroundColor: CANVAS,
-        }}
-      >
-        <Text style={{ textAlign: "center", fontSize: 16, color: MUTED }}>
-          We need camera access to read the ingredient list. To do that we
-          send the photo to Google Cloud Vision — we crop to the frame first,
-          strip location data, and never store the image.
-        </Text>
-        <PrimaryButton
-          size={52}
-          label="Grant permission"
-          // Once the system will not ask again, asking does nothing: send them to
-          // settings, where the camera can be turned back on.
-          onPress={permission.canAskAgain === false ? () => void Linking.openSettings() : requestPermission}
-        />
-        {/* Reading a chosen picture needs no camera, so this is not a dead end. */}
-        <ChoosePhotoInstead barcode={barcode} onRead={onRead} isStillWanted={isStillWanted} />
-      </View>
-    );
-  }
-
   // What a screen reader is told, per state. The failure case is the one that
   // matters: the button below re-labels itself to "Try again", so focus
   // sitting on it may re-announce that much, but the *reason* was never
   // spoken — and the reason is the value here, since the hints say what to do
   // differently ("the ingredient panel alone is enough"). Without it the
   // retry is a guess that fails the same way.
+  const readingCopy = scanStateCopy({ kind: "working", step: "photo" });
+  const readyCopy = scanStateCopy({ kind: "ready", mode: "photo" });
   const failureSpeech =
     status.kind === "failed"
       ? status.hint
         ? `${status.message} ${status.hint}`
         : status.message
       : status.kind === "reading"
-        ? "Reading the ingredient list."
+        ? scanStateSpeech(readingCopy)
         : "";
 
   // A `failed` status whose reason isn't retryable (`not_configured` — see
@@ -358,38 +298,25 @@ export function LabelCamera({
   // time. Found in review on #121.
   const cannotRetry = status.kind === "failed" && !status.retryable;
 
+  /** Stops waiting on a read (up to 45 s): back to the live camera, and the read, when it lands, is dropped. */
+  function cancel() {
+    attempt.current++;
+    setPreview(null);
+    setStatus({ kind: "framing" });
+  }
+
+  /** A failure's quiet link: another photo from the library, or Search when we couldn't be reached. */
+  function followLink(link: string) {
+    if (link === SEARCH_LINK) router.dismissTo("/browse");
+    else void capture("library");
+  }
+
   const clearance = bottomInset ?? Math.max(24, insets.bottom + 12);
-  // With an X across the top the frame sits a little lower to clear it.
-  const frameTopInset = insets.top + (frameTopOffset ?? (onClose ? 32 : 0));
+  const frameTopInset = insets.top + (frameTopOffset ?? 0);
 
   return (
-    <View style={{ flex: 1, backgroundColor: externalCamera ? "transparent" : CAMERA_STAGE }}>
+    <View style={{ flex: 1, backgroundColor: "transparent" }}>
       <ScreenReaderAnnouncer message={failureSpeech} />
-      {!externalCamera && active ? (
-        <CameraView
-          ref={camera}
-          style={StyleSheet.absoluteFill}
-          facing="back"
-          onLayout={onCameraLayout}
-        />
-      ) : null}
-
-      {/* The same window the barcode scanner draws, so switching modes does not
-          move it. "Fill this box with the ingredients" is the single
-          instruction that most improves what the OCR gets back, and the box is
-          what actually gets cropped and sent: see onWindow and coverFitCropRect
-          above. */}
-      {externalCamera ? null : (
-        <ScanViewfinder
-          topInset={frameTopInset}
-          bottomInset={clearance}
-          locked={false}
-          frame="full"
-          sweep={false}
-          description={null}
-          onWindow={onWindow}
-        />
-      )}
 
       {/* The captured or picked photo, frozen in the frame while it is read —
           otherwise the live camera view keeps moving under a photo that has
@@ -415,28 +342,9 @@ export function LabelCamera({
         </View>
       ) : null}
 
-      {onClose ? (
-        <Pressable
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-          style={{
-            position: "absolute",
-            left: 16,
-            top: insets.top + 8,
-            width: TOUCH_TARGET,
-            height: TOUCH_TARGET,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          className="active:opacity-70"
-        >
-          <Ionicons name="close" size={26} color={CANVAS} />
-        </Pressable>
-      ) : null}
-
-      {/* The instruction, inside the frame at its top. */}
-      {status.kind === "framing" ? (
+      {/* The instruction, inside the frame at its top. It stays after a failed
+          read (#204): how to frame the list is exactly what a retake needs. */}
+      {status.kind !== "reading" ? (
         <FadeIn
           style={{
             position: "absolute",
@@ -456,12 +364,8 @@ export function LabelCamera({
               backgroundColor: withAlpha(CANVAS, 0.95),
             }}
           >
-            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>
-              Fill the frame with the ingredient list
-            </Text>
-            <Text style={{ textAlign: "center", fontSize: 11, color: MUTED }}>
-              Hold steady. The photo is sent to Google to read the text, then discarded.
-            </Text>
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>{readyCopy.title}</Text>
+            <Text style={{ textAlign: "center", fontSize: 11, color: MUTED }}>{readyCopy.line}</Text>
           </View>
         </FadeIn>
       ) : null}
@@ -479,79 +383,112 @@ export function LabelCamera({
         }}
       >
         {status.kind === "failed" ? (
-          // Grouped so the message and its hint read as one sentence rather
-          // than two fragments. The announcement itself is made by
-          // `ScreenReaderAnnouncer` above — a live region on this
-          // conditionally-rendered block would be silent on iOS and web.
-          <View accessible accessibilityLabel={failureSpeech} style={{ alignItems: "center", gap: 2 }}>
-            <Text style={{ textAlign: "center", fontSize: 15, fontWeight: "600", color: SELECTED }}>
-              {status.message}
-            </Text>
-            {status.hint ? (
-              <Text style={{ textAlign: "center", fontSize: TYPE.label - 1, color: withAlpha(CANVAS, 0.8) }}>
-                {status.hint}
+          <View style={{ width: "100%", alignItems: "center", gap: 8 }}>
+            {/* Grouped so the message and its hint read as one sentence rather
+                than two fragments. The announcement itself is made by
+                `ScreenReaderAnnouncer` above — a live region on this
+                conditionally-rendered block would be silent on iOS and web. */}
+            <View accessible accessibilityLabel={failureSpeech} style={{ alignItems: "center", gap: 2 }}>
+              <Text style={{ textAlign: "center", fontSize: 15, fontWeight: "600", color: SELECTED }}>
+                {status.message}
               </Text>
+              {status.hint ? (
+                <Text style={{ textAlign: "center", fontSize: TYPE.label - 1, color: withAlpha(CANVAS, 0.8) }}>
+                  {status.hint}
+                </Text>
+              ) : null}
+            </View>
+            {/* A visible way to try again (#204): it used to be only the
+                shutter's screen-reader label. */}
+            {!cannotRetry && status.action ? (
+              <PrimaryButton size={48} label={status.action} onPress={() => setStatus({ kind: "framing" })} />
+            ) : null}
+            {!cannotRetry && status.link ? (
+              <QuietLink label={status.link} onPress={() => followLink(status.link as string)} />
             ) : null}
           </View>
         ) : status.kind === "reading" ? (
-          <Text style={{ fontSize: 15, fontWeight: "600", color: CANVAS }}>Reading the ingredient list…</Text>
+          <View style={{ alignItems: "center", gap: 2 }}>
+            <Text style={{ fontSize: 15, fontWeight: "600", color: CANVAS }}>{readingCopy.title}</Text>
+            <Text style={{ fontSize: TYPE.label - 1, color: withAlpha(CANVAS, 0.8) }}>{readingCopy.line}</Text>
+            <QuietLink label={readingCopy.link ?? ""} onPress={cancel} />
+          </View>
         ) : null}
 
-        <View style={{ width: "100%", alignItems: "center", justifyContent: "center" }}>
-        <Pressable
-          onPress={() => capture("library")}
-          disabled={status.kind === "reading" || cannotRetry}
-          accessibilityRole="button"
-          accessibilityLabel="Choose a photo of the ingredient list from your library"
-          style={{
-            position: "absolute",
-            left: 8,
-            width: TOUCH_TARGET,
-            height: TOUCH_TARGET,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          className="active:opacity-80"
-        >
-          <Ionicons name="images-outline" size={26} color={status.kind === "reading" || cannotRetry ? withAlpha(CANVAS, 0.4) : CANVAS} />
-        </Pressable>
-        <Pressable
-          onPress={() => {
-            haptic.tap();
-            void capture();
-          }}
-          disabled={status.kind === "reading" || cannotRetry}
-          accessibilityRole="button"
-          accessibilityLabel={status.kind === "failed" ? "Try again" : "Take a photo of the ingredient list"}
-          style={{
-            width: 76,
-            height: 76,
-            borderRadius: 38,
-            borderWidth: 4,
-            borderColor: cannotRetry ? withAlpha(CANVAS, 0.4) : CANVAS,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          className="active:opacity-80"
-        >
-          <View
-            style={{
-              width: 60,
-              height: 60,
-              borderRadius: 30,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: cannotRetry ? withAlpha(CANVAS, 0.4) : CANVAS,
-            }}
-          >
-            {status.kind === "reading" ? <ActivityIndicator color={INK} /> : null}
+        {status.kind !== "failed" ? (
+          <View style={{ width: "100%", alignItems: "center", justifyContent: "center" }}>
+            <Pressable
+              onPress={() => void capture("library")}
+              disabled={status.kind === "reading"}
+              accessibilityRole="button"
+              accessibilityLabel="Choose a photo of the ingredient list from your library"
+              style={{
+                position: "absolute",
+                left: 8,
+                width: TOUCH_TARGET,
+                height: TOUCH_TARGET,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              className="active:opacity-80"
+            >
+              <Ionicons name="images-outline" size={26} color={status.kind === "reading" ? withAlpha(CANVAS, 0.4) : CANVAS} />
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                haptic.tap();
+                void capture();
+              }}
+              disabled={status.kind === "reading"}
+              accessibilityRole="button"
+              accessibilityLabel="Take a photo of the ingredient list"
+              style={{
+                width: 76,
+                height: 76,
+                borderRadius: 38,
+                borderWidth: 4,
+                borderColor: CANVAS,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              className="active:opacity-80"
+            >
+              <View
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: CANVAS,
+                }}
+              >
+                {status.kind === "reading" ? <ActivityIndicator color={INK} /> : null}
+              </View>
+            </Pressable>
           </View>
-        </Pressable>
-        </View>
+        ) : null}
       </FadeIn>
     </View>
   );
 }
+
+/** An underlined text action on the dark camera stage. */
+function QuietLink({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }}
+      className="active:opacity-70"
+    >
+      <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.85), textDecorationLine: "underline" }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+const SEARCH_LINK = scanStateCopy({ kind: "couldnt-reach", why: "default" }).link;
 
 /** Eases its children in when it mounts, so switching to Photo does not pop. */
 function FadeIn({ style, children }: { style?: ViewStyle; children: ReactNode }) {

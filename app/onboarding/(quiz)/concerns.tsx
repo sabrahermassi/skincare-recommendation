@@ -7,7 +7,7 @@ import { QuizScreen } from "@/components/QuizScreen";
 import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import { CONCERN_TITLE, nextQuizRoute, POST_ONBOARDING_ROUTE, quizStepNumber } from "@/lib/profile";
-import { useAppStore } from "@/store/useAppStore";
+import { MAX_CONCERNS, useAppStore } from "@/store/useAppStore";
 import { MUTED } from "@/lib/tokens";
 
 /**
@@ -59,14 +59,12 @@ const OPTIONS: { value: Concern; label: string; icon: number }[] = [
 
 const NONE_ICON = require("@/assets/illustrations/quiz/concern-none.png");
 
-const MAX = 3;
-
 // What OPTIONS actually offers — used to count only concerns a user can see
 // and toggle here, not the raw profile array. A profile can carry `atopic`
 // (dropped as a selectable option per this session's design decision, but
 // its scoring stays intact — see OPTIONS' own comment), and counting it
-// toward MAX would show "3 of 3" and disable every card for someone who has
-// only picked 2 things they can actually see. store/useAppStore.ts's
+// toward MAX_CONCERNS would show "3 of 3" and disable every card for someone
+// who has only picked 2 things they can actually see. store/useAppStore.ts's
 // toggleConcern has the matching fix on the write side.
 const OPTION_VALUES = new Set(OPTIONS.map((o) => o.value));
 
@@ -81,7 +79,7 @@ export default function ConcernsStep() {
   const [noneChosen, setNoneChosen] = useState(false);
 
   const visibleCount = concerns.filter((c) => OPTION_VALUES.has(c)).length;
-  const atLimit = visibleCount >= MAX;
+  const atLimit = visibleCount >= MAX_CONCERNS;
 
   function pickConcern(value: Concern) {
     setNoneChosen(false);
@@ -111,7 +109,7 @@ export default function ConcernsStep() {
     <QuizScreen
       step={quizStepNumber("/onboarding/concerns")}
       title="What are your main skin concerns?"
-      subtitle={`Pick up to ${MAX}. You can change these later.`}
+      subtitle={`Pick up to ${MAX_CONCERNS}. You can change these later.`}
       onNext={next}
       nextDisabled={concerns.length === 0 && !noneChosen}
       // This is the quiz's first step. Onboarding replaces into it rather
@@ -144,8 +142,8 @@ export default function ConcernsStep() {
         {noneChosen
           ? "No concerns selected."
           : atLimit
-            ? `${MAX} chosen – deselect one to swap.`
-            : `${visibleCount} of ${MAX} chosen.`}
+            ? `${MAX_CONCERNS} chosen – deselect one to swap.`
+            : `${visibleCount} of ${MAX_CONCERNS} chosen.`}
       </Text>
     </QuizScreen>
   );

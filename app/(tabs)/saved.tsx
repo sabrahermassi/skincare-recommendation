@@ -16,11 +16,11 @@ import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { TypeChip } from "@/components/TypeChip";
 import { canPhotographLabelFor, fetchProductsByIds, resolveIngredientNames } from "@/data/api";
-import type { Ingredient, ProductWithIngredients } from "@/data/types";
+import { unknownIngredient, type Ingredient, type ProductWithIngredients } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime } from "@/lib/format";
-import { openScanner } from "@/lib/open-scanner";
+import { openPhotoScanner, openScanner } from "@/lib/open-scanner";
 import { matchProduct, matchTone } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, TYPE_STEP, stepOf, type RoutineStep, type StepGroup } from "@/lib/routine-step";
 import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
@@ -786,8 +786,7 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
 
         {/*
           The way out of this row. The scanner already offers it at the moment
-          of the miss — "Photograph the label and we'll add it", pushing
-          /scan-label with the barcode attached — but that offer expired the
+          of the miss — "Photograph the ingredients" — but that offer expired the
           moment the miss became history, leaving a bare 13-digit number whose
           only action was Remove. Someone who scans four misses in a shop and
           opens this screen at home could delete them and nothing else.
@@ -803,7 +802,8 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
         */}
         {canPhotographLabel && (
           <Pressable
-            onPress={() => router.push({ pathname: "/scan-label", params: { barcode: entry.id } })}
+            // The scanner in Photo mode, with this barcode (#204).
+            onPress={() => openPhotoScanner({ barcode: entry.id })}
             accessibilityRole="button"
             accessibilityLabel={`Photograph the ingredients list for barcode ${entry.id}`}
             hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }}
@@ -1083,8 +1083,7 @@ function IngredientsTab({
   return (
     <ScrollView ref={scrollRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
       {names.map((name) => {
-        const ingredient: Ingredient =
-          byName[name] ?? { id: name, name, comedogenic: 0, safety: "safe", verified: false };
+        const ingredient: Ingredient = byName[name] ?? unknownIngredient(name);
         const verdict = isVerified(ingredient)
           ? ingredient.safety === "avoid"
             ? VERDICT.low
