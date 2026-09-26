@@ -12,21 +12,23 @@ import type { Concern, SkinProfile } from "@/data/types";
 import { haptic } from "@/lib/haptics";
 import { isPersonalized } from "@/lib/profile";
 import { CANVAS, CARD_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
-import { EMPTY_PROFILE, MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
+import { useFinderChoices } from "@/lib/finder-choices";
+import { EMPTY_PROFILE, MAX_CONCERNS, visibleConcernCount } from "@/store/useAppStore";
 
 type Question = "concerns" | "skinType" | "sensitivity" | "pregnancy";
 
 /**
  * Skincare finder (owner, after OnSkin's): the four skin questions on one page
  * that scrolls, every option a chip, and "Show products" once at least one is
- * answered — no question is required. The answers are the skin profile: showing
- * products saves them, so every score in the app agrees with the list. Opened
+ * answered — no question is required. The answers are the finder's own
+ * (`lib/finder-choices`): they rank its results and never change the skin
+ * profile the quiz and the routine use, nor are changed by it (owner). Opened
  * from Home's "Find a product" card, and again from the results' Filter.
  */
 export default function Finder() {
   const insets = useSafeAreaInsets();
-  const stored = useAppStore((s) => s.profile);
-  const setProfile = useAppStore((s) => s.setProfile);
+  const stored = useFinderChoices((s) => s.choices);
+  const setChoices = useFinderChoices((s) => s.setChoices);
   const [draft, setDraft] = useState<SkinProfile>(stored);
   // Which questions were answered on this page. "I don't know" and "I don't
   // have any concerns" store the same value as an unanswered question, so
@@ -47,7 +49,7 @@ export default function Finder() {
     answered.size > 0 || isPersonalized(draft) || draft.sensitivity !== null || draft.pregnancyStatus !== null;
 
   const show = () => {
-    setProfile(draft);
+    setChoices(draft);
     haptic.success();
     router.push("/finder-results");
   };

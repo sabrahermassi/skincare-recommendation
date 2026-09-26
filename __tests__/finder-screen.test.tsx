@@ -1,11 +1,12 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 import Finder from "@/app/finder";
+import { useFinderChoices } from "@/lib/finder-choices";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
  * The skincare finder: the four questions on one page, "Show products" once
- * any one is answered, and the answers saved as the skin profile.
+ * any one is answered, and the answers kept apart from the skin profile.
  */
 
 jest.setTimeout(30000);
@@ -19,6 +20,7 @@ jest.mock("react-native-safe-area-context", () => ({
 beforeEach(() => {
   mockPush.mockClear();
   useAppStore.setState({ profile: EMPTY_PROFILE });
+  useFinderChoices.setState({ choices: EMPTY_PROFILE });
 });
 
 it("shows all four questions at once, and waits for one answer before showing products", async () => {
@@ -30,11 +32,12 @@ it("shows all four questions at once, and waits for one answer before showing pr
   expect(mockPush).not.toHaveBeenCalled();
 });
 
-it("shows products from a single answer, saving it as the skin profile", async () => {
+it("shows products from a single answer, without touching the skin profile", async () => {
   await render(<Finder />);
   await act(async () => fireEvent.press(screen.getByRole("radio", { name: "Oily" })));
   await act(async () => fireEvent.press(screen.getByRole("button", { name: "Show products" })));
-  expect(useAppStore.getState().profile.baseSkinType).toBe("oily");
+  expect(useFinderChoices.getState().choices.baseSkinType).toBe("oily");
+  expect(useAppStore.getState().profile).toEqual(EMPTY_PROFILE);
   expect(mockPush).toHaveBeenCalledWith("/finder-results");
 });
 
@@ -44,4 +47,10 @@ it("counts an \"I don't know\" as an answer", async () => {
   await act(async () => fireEvent.press(skinTypeUnknown));
   await act(async () => fireEvent.press(screen.getByRole("button", { name: "Show products" })));
   expect(mockPush).toHaveBeenCalledWith("/finder-results");
+});
+
+it("starts from its own last choices, not the skin profile", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "dry" } });
+  await render(<Finder />);
+  expect(screen.getByRole("radio", { name: "Dry" }).props.accessibilityState.checked).toBe(false);
 });

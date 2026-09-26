@@ -12,17 +12,18 @@ import type { ProductWithIngredients } from "@/data/types";
 import { matchProduct } from "@/lib/matching";
 import { profileHeadline } from "@/lib/profile";
 import { BUTTON, CANVAS, CHOSEN, INK, MUTED, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
-import { useAppStore } from "@/store/useAppStore";
+import { useFinderChoices } from "@/lib/finder-choices";
 
 /**
  * The finder's results: every product in the catalogue, best match first for
- * the answers just given (they are the skin profile now, so the scores here
- * are the same ones shown everywhere else). "Filter" goes back to the finder
- * with the answers still chosen, to change them and show again.
+ * the finder's answers. "Filter" goes back to the finder with the answers
+ * still chosen, to change them and show again.
  */
 export default function FinderResults() {
   const insets = useSafeAreaInsets();
-  const profile = useAppStore((s) => s.profile);
+  // The finder's own answers, not the skin profile (owner): the scores here are
+  // for what was chosen in the finder.
+  const profile = useFinderChoices((s) => s.choices);
   const [products, setProducts] = useState<ProductWithIngredients[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [retryKey, setRetryKey] = useState(0);

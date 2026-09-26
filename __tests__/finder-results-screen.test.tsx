@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 
 import FinderResults from "@/app/finder-results";
-import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
+import { useFinderChoices } from "@/lib/finder-choices";
+import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 /** The finder's results: the catalogue best match first, the answers as chips, and Filter back to the finder. */
 
@@ -16,7 +17,7 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-beforeEach(() => useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily", concerns: ["dullness"] } }));
+beforeEach(() => useFinderChoices.setState({ choices: { ...EMPTY_PROFILE, baseSkinType: "oily", concerns: ["dullness"] } }));
 
 it("ranks the catalogue for the answers, best score first", async () => {
   await render(<FinderResults />);
