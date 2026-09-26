@@ -8,37 +8,35 @@ import { Text } from "@/components/Text";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { clearProfileErasedNotice, profileErasedNoticePending } from "@/lib/erase-notice";
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
-import { CANVAS, FLOATING_SHADOW, INK } from "@/lib/tokens";
+import { FLOATING_SHADOW, INK, ONBOARDING_CANVAS } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
-// Extracted from correctly-proportioned source art (real iPhone aspect, not
-// the old 1:2.55 mockup phone) — full compositions with generous margin on
-// every side, not tight cutouts. Downsized to ~1400px on the long edge from
-// ~3400px originals before bundling; full-resolution source lives in
-// design-watercolor/.
-const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.webp");
-const ONB2_INGREDIENTS = require("@/assets/illustrations/onboarding/onb2-ingredients.png");
-const ONB2_CONFIDENCE = require("@/assets/illustrations/onboarding/onb2-confidence.png");
+// Watercolor heroes, one per screen, each with its own handwritten line
+// ("let's take a look", "what's really in here?", "this one's for me") and
+// transparent margins, so they sit on the canvas without a box.
+const HERO_SCAN = require("@/assets/illustrations/onboarding/hero-scan.webp");
+const HERO_INGREDIENTS = require("@/assets/illustrations/onboarding/hero-ingredients.webp");
+const HERO_FOR_ME = require("@/assets/illustrations/onboarding/hero-for-me.webp");
 
 const SCREENS: OnboardingScreenContent[] = [
   {
     headline: ["Scan any", "skincare product"],
     supportingCopy: ["Point your camera at a barcode", "or ingredient list."],
     buttonLabel: "Continue",
-    illustrationSource: ONB2_SCAN,
+    illustrationSource: HERO_SCAN,
   },
   {
     headline: ["Ingredients,", "made simple"],
     supportingCopy: ["See what the ingredients", "mean for your skin."],
     buttonLabel: "Continue",
-    illustrationSource: ONB2_INGREDIENTS,
+    illustrationSource: HERO_INGREDIENTS,
   },
   {
     headline: ["Choose with", "confidence"],
     supportingCopy: ["Discover products that fit", "your skin, goals and lifestyle."],
     // Lands on Home now, not the quiz (#346), so it no longer promises one.
     buttonLabel: "Get started",
-    illustrationSource: ONB2_CONFIDENCE,
+    illustrationSource: HERO_FOR_ME,
   },
 ];
 
@@ -146,7 +144,8 @@ export default function Onboarding() {
             borderRadius: 14,
             paddingHorizontal: 16,
             paddingVertical: 12,
-            backgroundColor: CANVAS,
+            // The intro's own cream, so the box sits flush on the page behind it.
+            backgroundColor: ONBOARDING_CANVAS,
             borderWidth: 1,
             borderColor: TERRACOTTA,
             ...FLOATING_SHADOW,
@@ -163,7 +162,7 @@ export default function Onboarding() {
               backgroundColor: TERRACOTTA,
             }}
           >
-            <Text style={{ fontSize: 11, fontWeight: "700", color: CANVAS }}>✓</Text>
+            <Text style={{ fontSize: 11, fontWeight: "700", color: ONBOARDING_CANVAS }}>✓</Text>
           </View>
           <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>Your profile is erased</Text>
         </View>
