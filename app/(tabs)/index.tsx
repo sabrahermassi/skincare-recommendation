@@ -18,9 +18,9 @@ import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, TYPE } from "@/lib/tokens";
 // margins trimmed, and brought down to 500px from 1254px).
 const SCAN_ART = require("@/assets/illustrations/home-scan.webp");
 const FIND_ART = require("@/assets/illustrations/home-find.webp");
-// Find a product: a stand-in from the watercolor set (a line of products) until
-// its own art arrives.
-const MATCH_ART = require("@/assets/illustrations/history-empty.webp");
+// Find a product: a woman weighing up a serum (new-watercolor/skincare finder.png,
+// cropped to what's drawn).
+const MATCH_ART = require("@/assets/illustrations/home-match.webp");
 // Skincare routine: a routine notepad among products (new-watercolor/My skincare routine.png).
 const ROUTINE_ART = require("@/assets/illustrations/home-routine.webp");
 // The gap between the two cards.
