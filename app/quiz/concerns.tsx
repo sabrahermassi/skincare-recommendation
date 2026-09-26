@@ -115,8 +115,8 @@ export default function ConcernsStep() {
       onNext={next}
       nextDisabled={concerns.length === 0 && !noneChosen}
       // This is the quiz's first step: the modal opens on it (#346), so
-      // there is no earlier step for router.back() to return to. Skip, or a
-      // swipe down, closes the quiz. Every later step is reached by push and
+      // there is no earlier step for router.back() to return to. A swipe
+      // down closes the quiz. Every later step is reached by push and
       // keeps its arrow.
       showBack={false}
     >

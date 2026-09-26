@@ -151,29 +151,28 @@ describe("the quiz, as a modal", () => {
     expect(useAppStore.getState().profile.pregnancyStatus).toBe("neither");
   });
 
-  it("keeps what was answered when closed early", async () => {
+  it("has no Skip, and saves each answer as it's tapped, so a quiz swiped away keeps it", async () => {
     await render(
       <QuizFrame>
         <SkinTypeStep />
       </QuizFrame>,
     );
+    expect(screen.queryByText("Skip")).toBeNull();
     await fireEvent.press(screen.getByText("Oily"));
-    await fireEvent.press(screen.getByText("Skip"));
-    expect(mockGoBack).toHaveBeenCalledTimes(1);
-    expect(mockRouter.replace).not.toHaveBeenCalled();
     expect(useAppStore.getState().profile.baseSkinType).toBe("oily");
   });
 });
 
 describe("the quiz opened from a link, with nothing behind it", () => {
-  it("goes Home when closed", async () => {
+  it("goes Home when finished", async () => {
     mockCanGoBack = false;
     await render(
       <QuizFrame>
-        <SkinTypeStep />
+        <PregnancyStep />
       </QuizFrame>,
     );
-    await fireEvent.press(screen.getByText("Skip"));
+    await fireEvent.press(screen.getByText("Neither"));
+    await fireEvent.press(screen.getByText("Finish"));
     expect(mockGoBack).not.toHaveBeenCalled();
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
   });
