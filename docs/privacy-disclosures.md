@@ -172,16 +172,22 @@ does nothing** — which is why the in-app Privacy screen does not claim it yet.
 
 **The deletion promise:** everything in our database, immediately, at the
 tap. Analytics in PostHog: requested at the same moment, gone within **30
-days** (the stated SLA, the operator's to confirm), including a by-hand
-deletion after a logged failure. Database backups: see "Backups" below.
+days** (the stated SLA, confirmed by the owner on 26 September 2026),
+including a by-hand deletion after a logged failure. Database backups: see
+"Backups" below.
 
-**Backups:** Supabase takes daily backups of the database, kept for a
-window set by the project's plan. A deleted account stays in the backups
-taken before the deletion until they expire. A backup must only be restored
-for disaster recovery, and a restore must re-run the deletions made since
-that backup was taken. The exact window for this project's plan is not
-recorded here yet; it is the operator's to confirm (#24), and the 30-day
-promise above only holds for backups if that window is 30 days or shorter.
+**Backups (confirmed 26 September 2026):** production is on Supabase's
+**Free plan, which takes no project backups**. So a deleted account is gone
+from the database immediately and no backup copy of it exists.
+
+If production moves to the **Pro plan**, Supabase keeps daily backups for
+**7 days**. A deleted account then stays only in the backups taken before
+the deletion, and ages out of them within 7 days — still inside the 30-day
+promise. A backup must only be restored for disaster recovery, and a restore
+must re-run the deletions made since that backup was taken. Point-in-time
+recovery is a separate paid add-on; if it is ever turned on, check that its
+retention window is 30 days or shorter before keeping this promise as
+written.
 
 **Export (#224):** Profile → Account → Download my data. A JSON file of the
 shelf, notes, routine steps, starred ingredients and the products the account

@@ -67,9 +67,10 @@ with it by cascade every row the account owns, immediately; an Apple-linked
 account's grant is revoked first. It then asks PostHog to delete the
 account's analytics person and events, which can fail without undoing the
 deletion (it is logged for the operator). Stated SLA: everything gone within
-30 days, analytics included. Database backups keep a deleted account until
-they age out, on the plan's retention window, which is recorded in
-`docs/privacy-disclosures.md` ("Backups") once the operator confirms it.
+30 days, analytics included. Production is on Supabase's Free plan, which
+takes no backups, so no backup copy of a deleted account exists; on the Pro
+plan, daily backups would keep it for up to 7 days, still inside the promise.
+Details in `docs/privacy-disclosures.md` ("Backups").
 The full wording of the promise is there.
 
 `Scan history` above is also this app's recommendation history — every
