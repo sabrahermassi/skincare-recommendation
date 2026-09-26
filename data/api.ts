@@ -1336,8 +1336,8 @@ export type LabelRead =
        * `not_configured` means this install has no Supabase credentials at all —
        * no request left the device, and the condition is permanent for this
        * build, not something a retry fixes. `server_unavailable` is the 503 the
-       * server itself returns when *its* Vision API key is unset, which is a
-       * temporary, ops-fixable condition. See `failureCopy` in
+       * server itself returns when *its* Vision API key is unset, or when the
+       * day's Vision ceiling is reached (#198) — temporary either way. See `failureCopy` in
        * `lib/read-label-photo.ts`.
        *
        * `too_little_text` and `unrecognised_names` are also not the same
@@ -1364,7 +1364,6 @@ export type LabelRead =
          * in `failureCopy`, so one reason is enough.
          */
         | "network_error";
-      rawText?: string;
     };
 
 /**
@@ -1412,11 +1411,9 @@ export async function readLabel(imageBase64: string): Promise<LabelRead> {
       // always returned, not throw.
       const body = (
         typeof context?.json === "function" ? await context.json().catch(() => null) : null
-      ) as { error?: string; rawText?: string } | null;
-      if (body?.error === "low_confidence") {
-        return { ok: false, reason: "unrecognised_names", rawText: body?.rawText };
-      }
-      return { ok: false, reason: "too_little_text", rawText: body?.rawText };
+      ) as { error?: string } | null;
+      if (body?.error === "low_confidence") return { ok: false, reason: "unrecognised_names" };
+      return { ok: false, reason: "too_little_text" };
     }
     if (status === 503) return { ok: false, reason: "server_unavailable" };
     // 413/415 are the only other statuses that are genuinely about this

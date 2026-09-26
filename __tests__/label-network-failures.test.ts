@@ -71,10 +71,10 @@ describe("readLabel", () => {
 
   it("still tells apart the two 422 cases (#185), unaffected by the network split", async () => {
     mockInvoke.mockResolvedValue({ data: null, error: errorWithStatus(422, { error: "not_enough_text" }) });
-    expect(await readLabel("x")).toEqual({ ok: false, reason: "too_little_text", rawText: undefined });
+    expect(await readLabel("x")).toEqual({ ok: false, reason: "too_little_text" });
 
     mockInvoke.mockResolvedValue({ data: null, error: errorWithStatus(422, { error: "low_confidence" }) });
-    expect(await readLabel("x")).toEqual({ ok: false, reason: "unrecognised_names", rawText: undefined });
+    expect(await readLabel("x")).toEqual({ ok: false, reason: "unrecognised_names" });
   });
 });
 

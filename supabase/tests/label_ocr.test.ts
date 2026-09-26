@@ -4,7 +4,7 @@
 // function is checked with curl.
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
-import { handleLabelOcr, type LabelOcrDeps } from "../functions/label-ocr/handler.ts";
+import { handleLabelOcr, type LabelOcrDeps, VISION_TIMEOUT_MS } from "../functions/label-ocr/handler.ts";
 import { MAX_IMAGE_CHARS } from "../functions/_shared/image-limits.ts";
 import { READ_TOKEN_TTL_MS, signReadToken, verifyReadToken } from "../functions/_shared/read-token.ts";
 import { resetRateLimits, resetVerifiedTokens } from "../functions/_shared/rate-limit.ts";
@@ -40,12 +40,17 @@ function visionReads(text: string | null): Vision {
   return () => jsonResponse({ responses: [text === null ? {} : { fullTextAnnotation: { text } }] });
 }
 
-function setup(answer: DbAnswer = () => undefined, vision: Vision = visionReads(LABEL), visionApiKey = "vision-key") {
+function setup(
+  answer: DbAnswer = () => undefined,
+  vision: Vision = visionReads(LABEL),
+  visionApiKey = "vision-key",
+  visionDailyCeiling = 1000,
+) {
   resetRateLimits();
   resetVerifiedTokens();
   const db = new FakeDb(answer);
   const { fetch, calls: fetched } = fakeFetch(vision);
-  const deps: LabelOcrDeps = { db, fetch, visionApiKey, readTokenSecret: SECRET };
+  const deps: LabelOcrDeps = { db, fetch, visionApiKey, readTokenSecret: SECRET, visionDailyCeiling };
   return { db, deps, fetched };
 }
 
@@ -187,6 +192,95 @@ Deno.test("a photo with no text is 422 not_enough_text", async () => {
   assertEquals(reply.status, 422);
   assertEquals((await reply.json()).error, "not_enough_text");
   assertEquals(outcomes(db), ["not_enough_text"]);
+});
+
+Deno.test("Vision gets the key in a header, never the URL, and a deadline (#198)", async () => {
+  const { deps, fetched } = setup(allKnown);
+  await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
+  const [call] = fetched;
+  assert(!call.url.includes("key="), call.url);
+  assertEquals((call.init?.headers as Record<string, string>)["X-Goog-Api-Key"], "vision-key");
+  assert(call.init?.signal instanceof AbortSignal);
+  assert(VISION_TIMEOUT_MS < 45_000, "inside the app's own wait");
+});
+
+Deno.test("a failed read never sends back the text Vision found (#198)", async () => {
+  for (const text of ["Water, Glycerin", "Qzx, Wvb, Plk, Mnr, Ytr"]) {
+    const { deps } = setup(allKnown, visionReads(text));
+    const body = await (await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps)).json();
+    assertEquals("rawText" in body, false, JSON.stringify(body));
+  }
+});
+
+// ── The daily Vision ceiling (#198) ─────────────────────────────────────────
+
+const VISION_DAY = "label-ocr-vision-daily";
+
+function visionDayAt(count: number | null, error: unknown = null): DbAnswer {
+  return (call) =>
+    call.kind === "rpc" && call.fn === "consume_rate_limit" && call.args.p_bucket === VISION_DAY
+      ? { data: count, error }
+      : undefined;
+}
+
+Deno.test("past the day's ceiling a read is 503 daily_limit, with Retry-After, and Vision isn't called", async () => {
+  const { db, deps, fetched } = setup(visionDayAt(11), visionReads(LABEL), "vision-key", 10);
+  const reply = await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
+  assertEquals(reply.status, 503);
+  assertEquals((await reply.json()).error, "daily_limit");
+  const retry = Number(reply.headers.get("retry-after"));
+  assert(retry >= 1 && retry <= 86_400);
+  assertEquals(fetched, []);
+  const [counted] = db.rpcCalls("consume_rate_limit").filter((args) => args.p_bucket === VISION_DAY);
+  assertEquals(counted.p_window_seconds, 86_400);
+  assertEquals(counted.p_max_requests, 10);
+});
+
+Deno.test("at the ceiling exactly, the read still goes ahead", async () => {
+  const { deps, fetched } = setup((call) => visionDayAt(10)(call) ?? allKnown(call), visionReads(LABEL), "vision-key", 10);
+  const reply = await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
+  assertEquals(reply.status, 200);
+  assertEquals(fetched.length, 1);
+});
+
+Deno.test("a day counter that can't be reached lets the read through", async () => {
+  const { deps } = setup((call) => visionDayAt(null, { message: "down" })(call) ?? allKnown(call));
+  const reply = await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
+  assertEquals(reply.status, 200);
+});
+
+Deno.test("only a photo about to reach Vision counts toward the day", async () => {
+  for (const imageBase64 of ["not base64!", btoa("just some text, not a picture")]) {
+    const { db, deps } = setup();
+    await handleLabelOcr(post({ imageBase64 }), deps);
+    assertEquals(limiterBuckets(db).includes(VISION_DAY), false);
+  }
+  const { db, deps } = setup(overTheLimit);
+  await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
+  assertEquals(limiterBuckets(db), ["label-ocr"]);
+});
+
+// ── The dictionary, kept between reads (#198) ───────────────────────────────
+
+Deno.test("a second read reuses the synonyms the first one paged through", async () => {
+  const { db, deps } = setup(allKnown);
+  await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
+  await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
+  assertEquals(db.selects("ingredient_synonyms").length, 1);
+});
+
+Deno.test("a synonyms read that failed is asked again on the next photo", async () => {
+  let failing = true;
+  const { db, deps } = setup((call) => {
+    if (call.kind === "select" && call.table === "ingredient_synonyms" && failing) {
+      return { data: null, error: { message: "down" } };
+    }
+    return allKnown(call);
+  });
+  assertEquals((await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps)).status, 502);
+  failing = false;
+  assertEquals((await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps)).status, 200);
+  assertEquals(db.selects("ingredient_synonyms").length, 2);
 });
 
 Deno.test("too few ingredients is 422 not_enough_text", async () => {

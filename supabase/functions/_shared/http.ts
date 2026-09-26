@@ -204,5 +204,15 @@ export { type RateLimit, type RateLimitDb };
  * that use this set the environment per-case.
  */
 export function callerSalt(): string {
-  return Deno.env.get("RATE_LIMIT_SALT") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const salt = Deno.env.get("RATE_LIMIT_SALT");
+  if (salt !== undefined) return salt;
+  // Loudly, once per function instance (#198): the fallback works, but it
+  // ties rotating this key to rotating the database credential.
+  if (!warnedSaltFallback) {
+    warnedSaltFallback = true;
+    console.warn("[config] RATE_LIMIT_SALT is unset: fingerprinting callers with the service-role key instead");
+  }
+  return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 }
+
+let warnedSaltFallback = false;

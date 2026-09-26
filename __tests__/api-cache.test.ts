@@ -910,7 +910,7 @@ describe("a label read", () => {
       },
     });
 
-    expect(await readLabel("base64")).toEqual({ ok: false, reason: "unrecognised_names", rawText: undefined });
+    expect(await readLabel("base64")).toEqual({ ok: false, reason: "unrecognised_names" });
   });
 
   it("still reports too_little_text when the 422 body says not_enough_text", async () => {
@@ -924,7 +924,7 @@ describe("a label read", () => {
       },
     });
 
-    expect(await readLabel("base64")).toEqual({ ok: false, reason: "too_little_text", rawText: undefined });
+    expect(await readLabel("base64")).toEqual({ ok: false, reason: "too_little_text" });
   });
 });
 

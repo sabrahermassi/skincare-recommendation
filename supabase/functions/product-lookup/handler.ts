@@ -32,6 +32,14 @@ import { logScanBounded } from "../_shared/scan-log.ts";
 const OBF_BASE = "https://world.openbeautyfacts.org/api/v2";
 const INCI_BASE = "https://inciapi.com/v1";
 
+/**
+ * How long each outside source gets (#198). Both can be asked in one lookup,
+ * so two of these plus our own queries stay inside the app's 12 s wait: a
+ * source that hangs is treated as down, and the lookup answers while someone
+ * is still waiting instead of writing after they've given up.
+ */
+export const SOURCE_TIMEOUT_MS = 4_000;
+
 /** Open Beauty Facts asks that clients identify themselves. */
 const USER_AGENT = "for.me/1.0 (https://github.com/sabrahermassi/skincare-recommendation)";
 
@@ -265,7 +273,7 @@ async function lookupOpenBeautyFacts(
 ): Promise<Lookup> {
   const res = await deps.fetch(
     `${OBF_BASE}/product/${barcode}.json?fields=code,product_name,brands,image_url,ingredients_text,quantity,categories_tags`,
-    { headers: { "User-Agent": USER_AGENT } }
+    { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS) }
   );
   // A 404 is OBF's genuine answer for a barcode it has never heard of — a
   // real miss. Anything else non-OK (429, 5xx) is OBF itself being
@@ -342,6 +350,7 @@ async function lookupInciApi(
 ): Promise<Lookup> {
   const res = await deps.fetch(`${INCI_BASE}/products/${barcode}`, {
     headers: { "X-API-Key": deps.inciApiKey, Accept: "application/json" },
+    signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
   });
   // Same split as the OBF branch above: 404 (product_not_found /
   // invalid_barcode) is a real answer, anything else non-OK is INCI API
