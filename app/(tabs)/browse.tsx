@@ -214,11 +214,16 @@ export default function Browse() {
       if (cached) setProducts(cached);
       const all = peekProducts("all");
       if (all) setAllProducts(all);
-      // Leaving with the search box focused brought the keyboard back up on
-      // return — iOS restores the focus — covering the tab bar (#296). Blur
-      // on the way out; the query itself stays.
-      return () => searchInput.current?.blur();
     }, [typeFilter]),
+  );
+
+  // Leaving with the search box focused brought the keyboard back up on
+  // return — iOS restores the focus — covering the tab bar (#296). Blur on the
+  // way out; the query itself stays. Its own effect with no dependencies: in
+  // the one above, a type-filter change re-runs the cleanup while the screen
+  // is still focused, which closed the keyboard mid-typing (#309 review).
+  useFocusEffect(
+    useCallback(() => () => searchInput.current?.blur(), []),
   );
 
   // Narrow the cached catalogue on every keystroke, with no network and no
