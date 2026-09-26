@@ -405,7 +405,9 @@ export default function Scan() {
       // anyway.
       track("scan_started", { path: "barcode" });
       if (!canPhotographLabelFor(data)) {
-        recordView({ id: data, known: false, score: null, warnings: 0 });
+        // Not written to history (#204): a QR code's payload is a link or
+        // any text at all, not a product anyone could find again, and it
+        // would sit in Saved as a row with nothing to offer.
         setStatus({ kind: "missed", code: data });
         haptic.warning();
         busy.current = false;

@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import Scan from "@/app/scanner";
 import { fetchProductByBarcode } from "@/data/api";
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
+import { useAppStore } from "@/store/useAppStore";
 
 /**
  * The scanner's status panels (#192, #259 review): every panel that stops the
@@ -330,5 +331,22 @@ describe("scanner opened for a photo", () => {
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
     await fireEvent.press(screen.getByRole("tab", { name: "Photo" }));
     expect(mockLabelCameraBarcode).toBeUndefined();
+  });
+});
+
+// #204: history is for products someone could find again.
+describe("scanner history", () => {
+  it("keeps a QR code out of history, and still records an unknown product barcode", async () => {
+    useAppStore.setState({ history: [] });
+    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: null });
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+
+    await scan("https://example.com/promo");
+    expect(useAppStore.getState().history).toEqual([]);
+
+    await fireEvent.press(screen.getByRole("button", { name: "Scan again" }));
+    await scan("8801234567890");
+    expect(useAppStore.getState().history.map((entry) => entry.id)).toEqual(["8801234567890"]);
   });
 });
