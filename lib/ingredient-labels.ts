@@ -1,7 +1,9 @@
 import type { Ingredient } from "@/data/types";
-import { RUNG_META, type MatchResult } from "@/lib/matching";
+import { isLowCoverage, matchProduct, ruleFor, RUNG_META, type MatchResult } from "@/lib/matching";
 import { isWarnedPoreClogging } from "@/lib/pore-clogging";
+import type { RuleCategory } from "@/lib/rules";
 import { groupByRisk } from "@/lib/safety";
+import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 /**
  * The word on each row of a product's ingredient list (#324), so the few that
@@ -15,18 +17,20 @@ import { groupByRisk } from "@/lib/safety";
  * - **Watch**: a caution or irritant for this person — `groupByRisk`'s
  *   `caution`, any warning, or anything the score counted against them
  *   (a negative reason, an irritation or pore-clogging charge) — and, for
- *   anyone, a name on the published pore-clogging lists: the row wears a
+ *   anyone, a name on the published pore-clogging lists (the row wears a
  *   CLOGGING tag, and "Good" beside it, or folding it under "no known
- *   concerns", contradicts the tag (#290).
+ *   concerns", contradicts the tag, #290) or a common irritant
+ *   (`isCommonIrritant`, #345).
  * - **Good**: a benefit the score counted for this person — a positive
  *   reason from a matched rule or a declared CosIng function.
  * - **Unknown**: not in the dictionary, so unassessed.
  * - no label: nothing known against it and no benefit for this person.
  *
  * With no skin profile there is no "you" to be good or risky for: only
- * Avoid, Unknown, and Watch for what is restricted for everyone (the EU's
- * caution list) and the pore-clogging lists are shown. A pregnancy answer is
- * not a skin profile, but its cautions are still Avoid.
+ * Avoid, Unknown, and Watch for what is flagged for everyone (the EU's
+ * caution list, the pore-clogging lists and the common irritants) are shown.
+ * A pregnancy answer is not a skin profile, but its cautions are still Avoid.
+ * Those profile-free labels are also the Ingredient check (#345).
  */
 export type IngredientLabel = "avoid" | "watch" | "good" | "unknown";
 
@@ -59,11 +63,26 @@ export function ingredientLabel(ingredient: Ingredient, match: MatchResult, pers
   if (countedAgainst(ingredient, match) || isWarnedPoreClogging(ingredient)) return "watch";
   if (risk === "unknown") return "unknown";
 
-  if (!personalized) return ingredient.safety === "caution" ? "watch" : null;
+  if (!personalized) return ingredient.safety === "caution" || isCommonIrritant(ingredient) ? "watch" : null;
 
-  if (warnings.length > 0 || risk === "caution") return "watch";
+  if (warnings.length > 0 || risk === "caution" || isCommonIrritant(ingredient)) return "watch";
   if (match.reasons.some((r) => r.ingredient === ingredient.name && r.effect > 0)) return "good";
   return null;
+}
+
+/**
+ * The rule categories flagged for everyone, profile or not (#345): fragrance
+ * (EU-labelled allergens and essential oils included), drying alcohol and
+ * the known irritants. Actives that can also sting — acids, retinoids,
+ * benzoyl peroxide — are left out: they are in a formula on purpose, and
+ * whether they suit someone is the personal score's call.
+ */
+const FLAGGED_FOR_EVERYONE: ReadonlySet<RuleCategory> = new Set(["fragrance", "alcohol", "irritants"]);
+
+/** A recognised ingredient whose rule puts it in one of those categories. */
+export function isCommonIrritant(ingredient: Ingredient): boolean {
+  const rule = ruleFor(ingredient);
+  return rule !== undefined && FLAGGED_FOR_EVERYONE.has(rule.category);
 }
 
 /**
@@ -102,4 +121,51 @@ export function sortForGlance(
   const labelled = LABEL_ORDER.flatMap((label) => rows.filter((row) => row.label === label));
   const unlabelled = rows.filter((row) => row.label === null);
   return { labelled, unlabelled };
+}
+
+/**
+ * The Ingredient check at the top of every result (#345): how many
+ * ingredients to avoid, to watch, and not recognised, the same for everyone
+ * who scans the product. It is the ingredient list's own labels with no
+ * profile, so the check and the rows can't disagree; with a profile the rows
+ * can only add to it, since everything the check counts is Watch or Avoid
+ * for every profile too.
+ */
+export type IngredientCheck =
+  | { kind: "unreadable" }
+  | { kind: "checked"; avoid: number; watch: number; unrecognised: number };
+
+export function ingredientCheck(ingredients: Ingredient[]): IngredientCheck {
+  // The score's own refusal rule: too little recognised to say anything.
+  if (isLowCoverage(ingredients)) return { kind: "unreadable" };
+  // What the score works out with no profile. A new object, not the product,
+  // so this never replaces the person's own cached score for it; with no
+  // profile the product type isn't read.
+  const match = matchProduct({ type: "unknown", ingredients }, EMPTY_PROFILE);
+  const labels = ingredients.map((ingredient) => ingredientLabel(ingredient, match, false));
+  const count = (label: IngredientLabel) => labels.filter((l) => l === label).length;
+  return { kind: "checked", avoid: count("avoid"), watch: count("watch"), unrecognised: count("unknown") };
+}
+
+const ingredientCount = (n: number) => (n === 1 ? "1 ingredient" : `${n} ingredients`);
+
+/** The check in words. Never "safe" or "clean": only what was found. */
+export function ingredientCheckLine(check: IngredientCheck): string {
+  if (check.kind === "unreadable") return "Not enough ingredients recognised to check";
+  const { avoid, watch, unrecognised } = check;
+  const found =
+    avoid > 0 && watch > 0
+      ? `${avoid} to avoid · ${watch} to watch`
+      : avoid > 0
+        ? `${ingredientCount(avoid)} to avoid`
+        : watch > 0
+          ? `${ingredientCount(watch)} to watch`
+          : "No ingredients of concern found";
+  return unrecognised > 0 ? `${found} · ${unrecognised} not recognised` : found;
+}
+
+/** The rung colour that echoes the words: the worst thing found. */
+export function ingredientCheckTone(check: IngredientCheck): keyof typeof RUNG_META {
+  if (check.kind === "unreadable") return "neutral";
+  return check.avoid > 0 ? "avoid" : check.watch > 0 ? "watch" : "good";
 }

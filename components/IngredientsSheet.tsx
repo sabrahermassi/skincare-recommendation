@@ -100,10 +100,10 @@ export const IngredientsSheet = forwardRef<IngredientsSheetHandle, {
     [y],
   );
 
-  // Only `app/label-result.tsx` uses this: RiskCards' irritation/pore taps
-  // there have nowhere else to send someone (no product id for
-  // `/ingredients/[id]`), so they open this same sheet instead. Every other
-  // caller passes no ref and is unaffected.
+  // For a tap elsewhere on the screen that means "show me the list": the
+  // Ingredient check on both result screens (#345), and on
+  // `app/label-result.tsx` RiskCards' irritation/pore taps too, which have
+  // nowhere else to send someone (no product id for `/ingredients/[id]`).
   useImperativeHandle(openRef, () => ({ open: () => snap(true) }), [snap]);
 
   useEffect(() => {

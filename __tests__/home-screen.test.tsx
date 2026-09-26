@@ -39,7 +39,7 @@ beforeEach(() => {
 it("shows the greeting, the skin profile card and the scan card", async () => {
   await render(<Home />);
   expect(screen.getByLabelText("Hi there!")).toBeTruthy();
-  expect(screen.getByLabelText("Your skin profile is not set up yet. Open it to answer the skin questions.")).toBeTruthy();
+  expect(screen.getByLabelText("Your skin profile is not set up yet. Open the skin questions.")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Scan a product. Analyze a product by photo or barcode." })).toBeTruthy();
 });
 

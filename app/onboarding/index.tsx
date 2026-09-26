@@ -7,7 +7,7 @@ import { OnboardingShell, type OnboardingScreenContent } from "@/components/shel
 import { Text } from "@/components/Text";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { clearProfileErasedNotice, profileErasedNoticePending } from "@/lib/erase-notice";
-import { quizRoutes } from "@/lib/profile";
+import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
 import { CANVAS, FLOATING_SHADOW, INK } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -34,7 +34,8 @@ const SCREENS: OnboardingScreenContent[] = [
   {
     headline: ["Choose with", "confidence"],
     supportingCopy: ["Discover products that fit", "your skin, goals and lifestyle."],
-    buttonLabel: "Start skin quiz",
+    // Lands on Home now, not the quiz (#346), so it no longer promises one.
+    buttonLabel: "Get started",
     illustrationSource: HERO_FOR_ME,
   },
 ];
@@ -74,23 +75,21 @@ export default function Onboarding() {
     return () => clearTimeout(timer);
   }, [showErasedToast]);
 
-  // Skipping the intro and finishing it both mean the same thing now: mark
-  // onboarding seen, go to the quiz's first step. Skip used to jump straight
-  // to the scanner, bypassing the quiz the user was never offered a choice
-  // about — it now only skips the 3 intro screens it's attached to.
+  // Skipping the intro and finishing it mean the same thing: mark onboarding
+  // seen and go Home. Scan first, quiz later (#346): the skin questions are
+  // asked when someone taps for a personal match, not before they have seen
+  // anything.
   //
   // replace, not push: onboarding is finished either way this is called, so
-  // it has no business staying on the back stack. With push, Back from the
-  // first quiz step returned to a completed onboarding screen with nothing
-  // left to do on it.
-  function goToQuiz() {
+  // it has no business staying on the back stack.
+  function finishIntro() {
     completeOnboarding();
-    router.replace(quizRoutes()[0]);
+    router.replace(POST_ONBOARDING_ROUTE);
   }
 
   function onNext() {
     if (index === SCREENS.length - 1) {
-      goToQuiz();
+      finishIntro();
       return;
     }
     setIndex(index + 1);
@@ -115,7 +114,7 @@ export default function Onboarding() {
         screens={SCREENS}
         activeIndex={index}
         onNext={onNext}
-        onSkip={goToQuiz}
+        onSkip={finishIntro}
         onBack={index > 0 ? () => setIndex(index - 1) : undefined}
       />
 

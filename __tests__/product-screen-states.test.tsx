@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import ProductRoute from "@/app/product/[id]";
 import ResultRoute from "@/app/result/[id]";
 import { fetchProduct } from "@/data/api";
+import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
  * #155: the product screen's states before there is a product to show —
@@ -132,5 +133,83 @@ describe("the product screen's Report a mistake link", () => {
     await open();
     expect(screen.getAllByText("Toner").length).toBeGreaterThan(0);
     expect(screen.queryByText("Report a mistake")).toBeNull();
+  });
+});
+
+// #345: the Ingredient check at the top of every loaded product, the same
+// with or without a skin profile, opening the ingredient list.
+describe("the product screen's Ingredient check", () => {
+  const ingredient = (name: string, overrides: object = {}) => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true, ...overrides });
+  const PRODUCT = {
+    id: "obf-8801234567890",
+    barcode: "8801234567890",
+    brand: "Brand",
+    name: "Serum",
+    type: "serum",
+    productType: "serum",
+    price: 0,
+    volume: "",
+    suitableFor: [],
+    targets: [],
+    description: "",
+    benefits: [],
+    imageUrl: null,
+    attribution: null,
+    fetchedAt: "2026-09-26T00:00:00Z",
+    ingredientIds: [],
+    inStock: true,
+    ingredients: [
+      ...["water", "glycerin", "xanthan gum", "butylene glycol"].map((name) => ingredient(name)),
+      ingredient("parfum"),
+      ingredient("some banned dye", { safety: "avoid" }),
+    ],
+  };
+
+  afterEach(() => useAppStore.setState({ profile: EMPTY_PROFILE }));
+
+  async function open() {
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+  }
+
+  it("shows the same check without a profile and with two different ones", async () => {
+    const profiles = [
+      EMPTY_PROFILE,
+      { concerns: ["dehydrated" as const], baseSkinType: "dry" as const, sensitivity: "high" as const, pregnancyStatus: null },
+      { concerns: ["acne-prone" as const], baseSkinType: "oily" as const, sensitivity: "none" as const, pregnancyStatus: "pregnant" as const },
+    ];
+    for (const profile of profiles) {
+      useAppStore.setState({ profile });
+      await open();
+      expect(screen.getByLabelText("Ingredient check: 1 to avoid · 1 to watch")).toBeTruthy();
+      await act(async () => screen.unmount());
+    }
+  });
+
+  it("opens the ingredient list when tapped", async () => {
+    await open();
+    expect(screen.queryByText("Close")).toBeNull();
+    await fireEvent.press(screen.getByLabelText("Ingredient check: 1 to avoid · 1 to watch"));
+    expect(screen.getByText("Close")).toBeTruthy();
+  });
+
+  // #346: no profile, no empty score — the quiz, until the answers score.
+  it("offers See your skin match with no profile, and hides it once the answers score", async () => {
+    await open();
+    expect(screen.getByText("See your skin match")).toBeTruthy();
+    expect(screen.queryByText("Why this score")).toBeNull();
+    await act(async () => screen.unmount());
+
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["dehydrated"] } });
+    await open();
+    expect(screen.queryByText("See your skin match")).toBeNull();
+    expect(screen.getByText("Why this score")).toBeTruthy();
+  });
+
+  it("keeps the card while the answers given don't score yet", async () => {
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, sensitivity: "some" } });
+    await open();
+    expect(screen.getByText("See your skin match")).toBeTruthy();
   });
 });

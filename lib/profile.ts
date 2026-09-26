@@ -131,10 +131,10 @@ function capitalize(s: string): string {
  * in `store/useAppStore.ts`.
  */
 const STEPS = [
-  "/onboarding/concerns",
-  "/onboarding/skin-type",
-  "/onboarding/sensitivity",
-  "/onboarding/pregnancy",
+  "/quiz/concerns",
+  "/quiz/skin-type",
+  "/quiz/sensitivity",
+  "/quiz/pregnancy",
 ] as const;
 
 export type QuizRoute = (typeof STEPS)[number];
@@ -171,7 +171,9 @@ export function quizStepNumber(route: QuizRoute): number {
 }
 
 /**
- * Where finishing (or skipping) the quiz lands you.
+ * Where finishing (or skipping) the intro screens lands you, and saving the
+ * skin profile editor. The quiz itself closes back onto whatever opened it
+ * (#346), and comes here only when nothing did.
  *
  * Defined once because it was wrong four times: every exit called
  * `router.replace("/")`, and `/` used to resolve to the browse grid — so the
