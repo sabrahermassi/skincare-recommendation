@@ -226,7 +226,8 @@ with confidence tiers, owns acne fit).
   `unknown`, `exfoliator`, `conditioner`, `hair-mask` and `shampoo` keep harm
   at 1 but discount benefit to 0.5 (0.25 for `unknown`), since each spans
   both a rinse-off and leave-on product. Reasoning in `docs/decisions.md`.
-- **For "very sensitive" only, a product's heaviest fragrance ingredient
+- **For "very sensitive" only, a product's main fragrance ingredient
+  (the heaviest rule: parfum/fragrance, then essential oils, then allergens)
   keeps at least 0.7 of its weight wherever it sits** — once per product, not
   per allergen (`FRAGRANCE_POSITION_FLOOR_HIGH`, #363). The position discount
   otherwise left "very" barely different from "somewhat". No other irritant,

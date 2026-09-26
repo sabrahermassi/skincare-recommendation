@@ -269,8 +269,9 @@ fragranced cream from 55 to 54. Confirmed, and pinned in
   from "somewhat" further.
 
 **Decision: A, built in #363** (`FRAGRANCE_POSITION_FLOOR_HIGH = 0.7` in
-`lib/matching.ts`), **applied once per product**: the heaviest fragrance
-ingredient gets the floor, and the rest keep their position weight.
+`lib/matching.ts`), **applied once per product**: the main fragrance
+ingredient (the one whose rule weighs most — parfum/fragrance, then essential
+oils, then allergens) gets the floor, and the rest keep their position weight.
 Flooring every fragrance ingredient charged one scent several times (parfum
 plus the allergens named because they are in it), which on staging cut
 "very sensitive" scores by up to 16 points; once per product it is at most 6.
@@ -278,6 +279,6 @@ plus the allergens named because they are in it), which on staging cut
 - Fixture: the same 8 scores moved as predicted, 3–5 points each, and 0 of the
   110 for the other five profiles. The plain cream reads 81 / 74.
 - Staging (1,114 products, `main` vs `main` + #363): only "very sensitive"
-  moved, 554 scores, mean −3.5, from −1 to −6; 36 fair → poor, 3 good → fair.
+  moved, 561 scores, mean −3.5, from −1 to −6; 36 fair → poor, 3 good → fair.
 
 The cap question above stays open.
