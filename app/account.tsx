@@ -8,6 +8,7 @@ import { Text } from "@/components/Text";
 import { deleteMyAccount, exportMyData, type DeleteOutcome, type ExportOutcome } from "@/lib/account";
 import { ACCOUNT_PITCH, accountSummary, signOut, signOutEverywhere, useAuth } from "@/lib/auth";
 import { CANVAS, CARD_SHADOW, DANGER, FLOATING_SHADOW, GRAY_FILL, INK, MUTED, SCRIM, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { haptic } from "@/lib/haptics";
 
 /**
  * Account (#220, #224): who is signed in, and the ways out — sign out of
@@ -126,7 +127,10 @@ export default function Account() {
             <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>{DELETE_WARNING}</Text>
             <View style={{ gap: 10 }}>
               <Pressable
-                onPress={() => void remove()}
+                onPress={() => {
+                  haptic.warning();
+                  void remove();
+                }}
                 disabled={working}
                 accessibilityRole="button"
                 style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: DANGER }}

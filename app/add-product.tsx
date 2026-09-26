@@ -29,6 +29,7 @@ import {
   TYPE,
   withAlpha,
 } from "@/lib/tokens";
+import { haptic } from "@/lib/haptics";
 
 /**
  * Adding a product we don't have.
@@ -318,6 +319,7 @@ function NameStep({
     setFailure(null);
     const result = await saveScannedProduct({ barcode, name: trimmed, ingredients, readToken, type: type ?? undefined });
     if (result.ok) {
+      haptic.success();
       clearLabelRead();
       // `dismissTo`, not `replace` — see the same note on `onKnown` above.
       router.dismissTo({ pathname: "/result/[id]", params: { id: result.product.id, from: "label" } });

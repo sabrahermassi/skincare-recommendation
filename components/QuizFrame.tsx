@@ -9,6 +9,7 @@ import { SkipButton } from "@/components/shell/shared";
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
 import { CANVAS, INK } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { haptic } from "@/lib/haptics";
 
 // design-watercolor/skin quiz/screens/skin quiz background.png, resized to
 // 1440px wide — enough for the densest phone screens, where the 3412px
@@ -75,6 +76,7 @@ export function QuizFrame({ children }: { children: ReactNode }) {
   function pressFooter() {
     if (navigatingRef.current) return;
     navigatingRef.current = true;
+    haptic.tap();
     onPressRef.current();
   }
 

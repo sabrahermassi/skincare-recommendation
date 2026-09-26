@@ -32,6 +32,7 @@ import { track } from "@/lib/analytics";
 import { historyWarningCount, isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
+import { haptic } from "@/lib/haptics";
 
 // The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
 // are the shared `PrimaryButton` — one component so this screen, browse and
@@ -400,11 +401,11 @@ export default function ProductScreen() {
             <Pressable
               // Removing never asks; adding asks a guest to sign in first,
               // and the save completes itself once they have (#221).
-              onPress={() =>
-                saved
-                  ? toggleSaved(product.id)
-                  : saveOrAskToSignIn(() => saveProduct(product.id, product.fetchedAt), "product")
-              }
+              onPress={() => {
+                haptic.tap();
+                if (saved) toggleSaved(product.id);
+                else saveOrAskToSignIn(() => saveProduct(product.id, product.fetchedAt), "product");
+              }}
               hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel={saved ? "Remove from saved" : "Save"}

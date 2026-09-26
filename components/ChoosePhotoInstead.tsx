@@ -6,6 +6,7 @@ import { Text } from "@/components/Text";
 import { pickLabelPhoto } from "@/lib/pick-label-photo";
 import { readLabelPhoto } from "@/lib/read-label-photo";
 import { INK, MUTED, TOUCH_TARGET } from "@/lib/tokens";
+import { haptic } from "@/lib/haptics";
 
 type State =
   | { kind: "idle" }
@@ -63,6 +64,7 @@ export function ChoosePhotoInstead({
       setState({ kind: "reading" });
       const outcome = await readLabelPhoto(picked.base64, barcode, isStillWanted);
       if (outcome.kind === "read") {
+        haptic.success();
         setState({ kind: "idle" });
         onRead();
         return;

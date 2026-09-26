@@ -28,6 +28,7 @@ import {
 } from "@/lib/profile";
 import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
 import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { haptic } from "@/lib/haptics";
 
 // The design system (design/DESIGN_SYSTEM.md), restyled per
 // design-watercolor/reference.png's "My profile" screen.
@@ -144,6 +145,7 @@ export default function ProfileScreen() {
 
   function save() {
     setProfile(draft);
+    haptic.success();
     // Go straight to the screen that shows the effect of the save: the product
     // the questions were opened from, else Home.
     if (returnTo === "product" && router.canGoBack()) router.back();

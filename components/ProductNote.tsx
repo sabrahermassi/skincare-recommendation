@@ -21,6 +21,7 @@ import {
   TYPE,
   WARN,
 } from "@/lib/tokens";
+import { haptic } from "@/lib/haptics";
 
 /**
  * The journal note on a saved product (#228): the note when there is one,
@@ -142,7 +143,10 @@ export function NoteEditor({
         size={50}
         label={NOTE_COPY.save}
         disabled={over}
-        onPress={() => onSave(cleanNote(text))}
+        onPress={() => {
+          haptic.success();
+          onSave(cleanNote(text));
+        }}
       />
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
         {initial ? (

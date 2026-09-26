@@ -11,6 +11,7 @@ import { openScanner } from "@/lib/open-scanner";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT, SCAN_ICON, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
 import { RAISED_SHADOW, SELECTED, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { haptic } from "@/lib/haptics";
 
 // Outline when unselected, filled when selected — the shape changes as well as
 // the colour, so the current tab does not rest on a contrast difference alone.
@@ -97,7 +98,10 @@ function ScanTabButton() {
   return (
     <View pointerEvents="box-none" style={{ flex: 1, alignItems: "center" }}>
       <Pressable
-        onPress={openScanner}
+        onPress={() => {
+          haptic.tap();
+          openScanner();
+        }}
         // A button, not a tab: it opens the scanner over the tabs (#313).
         accessibilityRole="button"
         accessibilityLabel="Scan"

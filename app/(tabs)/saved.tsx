@@ -30,6 +30,7 @@ import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
+import { haptic } from "@/lib/haptics";
 
 type Tab = SavedTab;
 
@@ -596,7 +597,10 @@ function RemoveButton({ onPress }: { onPress: () => void }) {
   // isn't something this pass can generate.
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        haptic.tap();
+        onPress();
+      }}
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel="Remove"

@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
-import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
@@ -35,6 +34,7 @@ import type { Size } from "@/lib/crop-to-guide";
 import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
 import { rememberScanMode, rememberedScanMode, type ScanMode } from "@/lib/scan-mode";
 import { createStaleGuard } from "@/lib/stale-guard";
+import { haptic } from "@/lib/haptics";
 import { useReduceMotionRef } from "@/lib/reduce-motion";
 import { matchProduct } from "@/lib/matching";
 import { track } from "@/lib/analytics";
@@ -388,9 +388,8 @@ export default function Scan() {
       // read passes through. See issue #95.
       dismissQuizAcknowledgement();
       setStatus({ kind: "looking", code: data, target });
-      // A short tap to say the read landed. Not every device or browser has a
-      // motor, and a missing one must never affect the scan.
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      // No haptic yet: it waits for the answer, so a "found" feel never
+      // precedes "we don't have this" (#313).
 
       // `product-lookup` rejects anything outside 8-14 digits with a 400
       // before it consults a source, but this scanner also decodes qr and
@@ -403,6 +402,7 @@ export default function Scan() {
       if (!canPhotographLabelFor(data)) {
         recordView({ id: data, known: false, score: null, warnings: 0 });
         setStatus({ kind: "missed", code: data });
+        haptic.warning();
         busy.current = false;
         return;
       }
@@ -418,6 +418,7 @@ export default function Scan() {
       // to tell from a real one, and it outlives the outage.
       if (!result.ok) {
         setStatus({ kind: "unreachable", code: data, failure: result.failure });
+        haptic.warning();
         busy.current = false;
         return;
       }
@@ -434,11 +435,13 @@ export default function Scan() {
         // The product slides up over the camera; its button opens the full
         // result. `busy` stays set until the sheet is closed or left.
         setStatus({ kind: "found", product });
+        haptic.success();
         return;
       }
 
       recordView({ id: data, known: false, score: null, warnings: 0 });
       setStatus({ kind: "missed", code: data });
+      haptic.warning();
       busy.current = false;
     },
     [recordView, dismissQuizAcknowledgement]
