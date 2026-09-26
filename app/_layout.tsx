@@ -154,10 +154,12 @@ export default function RootLayout() {
             the person exactly there (#220). */}
         <Stack.Screen
           name="sign-in"
-          // Sized to what it holds: a full-height modal left a few lines of
-          // text on an empty sheet (#296). `fitToContents` is supported by
-          // this SDK's expo-router (`sheetAllowedDetents`, formSheet only).
-          options={{ headerShown: false, presentation: "formSheet", sheetAllowedDetents: "fitToContents", sheetGrabberVisible: true }}
+          // Half height, draggable to full: a full-height modal left a few
+          // lines of text on an empty sheet (#296). Not `fitToContents`: a
+          // sheet sized to its content has nowhere to grow, so a tall one
+          // (both providers, large text) could hide "Not now" (#309 review).
+          // `sheetAllowedDetents` is formSheet-only in this SDK's expo-router.
+          options={{ headerShown: false, presentation: "formSheet", sheetAllowedDetents: [0.5, 1], sheetGrabberVisible: true }}
         />
         <Stack.Screen
           name="scan-label"
