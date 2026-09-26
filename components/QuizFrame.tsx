@@ -39,7 +39,7 @@ export function useQuizFrame(): QuizFrameValue {
 
 /**
  * Everything on the quiz screens that must not move between steps: the
- * background, Skip, and the Continue / Start scanning button. Rendered once
+ * background, Skip, and the Continue / Finish button. Rendered once
  * by app/onboarding/(quiz)/_layout.tsx around the step navigator, so tapping
  * Continue only changes the see-through step page inside it.
  */

@@ -9,6 +9,10 @@ import { INK, MUTED, TOUCH_TARGET } from "@/lib/tokens";
 
 type State =
   | { kind: "idle" }
+  // The photo library is open. Not "reading" yet: nothing has been chosen,
+  // and saying "Reading the ingredient list…" behind the picker claimed work
+  // that hadn't started (#295).
+  | { kind: "picking" }
   | { kind: "reading" }
   | { kind: "failed"; message: string; hint?: string; retryable: boolean };
 
@@ -34,11 +38,12 @@ export function ChoosePhotoInstead({
 }) {
   const [state, setState] = useState<State>({ kind: "idle" });
   const reading = state.kind === "reading";
+  const busy = reading || state.kind === "picking";
   const cannotRetry = state.kind === "failed" && !state.retryable;
 
   async function choose() {
-    if (reading || cannotRetry) return;
-    setState({ kind: "reading" });
+    if (busy || cannotRetry) return;
+    setState({ kind: "picking" });
     let picked: Awaited<ReturnType<typeof pickLabelPhoto>> = null;
     try {
       picked = await pickLabelPhoto();
@@ -55,6 +60,7 @@ export function ChoosePhotoInstead({
         });
         return;
       }
+      setState({ kind: "reading" });
       const outcome = await readLabelPhoto(picked.base64, barcode, isStillWanted);
       if (outcome.kind === "read") {
         setState({ kind: "idle" });
@@ -94,7 +100,7 @@ export function ChoosePhotoInstead({
       ) : null}
       <Pressable
         onPress={() => void choose()}
-        disabled={reading || cannotRetry}
+        disabled={busy || cannotRetry}
         accessibilityRole="button"
         accessibilityLabel="Choose a photo of the ingredient list from your library"
         style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 12 }}
@@ -105,7 +111,7 @@ export function ChoosePhotoInstead({
             fontSize: 12.5,
             color: MUTED,
             textDecorationLine: "underline",
-            opacity: reading || cannotRetry ? 0.5 : 1,
+            opacity: busy || cannotRetry ? 0.5 : 1,
           }}
         >
           {reading ? "Reading the ingredient list…" : "Or choose a photo instead."}

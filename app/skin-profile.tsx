@@ -385,7 +385,7 @@ export default function ProfileScreen() {
             paddingTop: 14,
           }}
         >
-          <PrimaryButton tone="cta" size={52} label="Find my matches" onPress={save} />
+          <PrimaryButton tone="cta" size={52} label="Save" onPress={save} />
         </View>
       )}
     </View>
