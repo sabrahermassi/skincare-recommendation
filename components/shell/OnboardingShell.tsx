@@ -311,9 +311,11 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
             justifyContent: "center",
           }}
         >
-          {/* One sentence, wrapped by the screen rather than by hand. */}
+          {/* One sentence, wrapped by the screen rather than by hand. iOS's own
+              line-breaking keeps a last word from sitting alone on line two. */}
           <Text
             maxFontSizeMultiplier={copyScale}
+            lineBreakStrategyIOS="standard"
             style={{ fontSize: BODY_SIZE, lineHeight: BODY_SIZE * BODY_LINE_HEIGHT, fontWeight: "400", color: INTRO.muted, textAlign: "center" }}
           >
             {screen.supportingCopy}
