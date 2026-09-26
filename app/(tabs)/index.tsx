@@ -22,9 +22,10 @@ const SCAN_ART = require("@/assets/illustrations/scan-a-product.png");
 const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.png");
 // Its own proportions, so it is never stretched.
 const STILL_LIFE_ASPECT = 1004 / 1187;
-// The least room it is given. On a short screen or with large text the page
-// scrolls rather than shrinking the picture below this.
-const STILL_LIFE_MIN_HEIGHT = 200;
+// Where its handwriting starts, as a share of the picture's height. The picture
+// is placed so the handwriting begins just under the scan card; the flowers above
+// it run up behind the card, and the rest runs on past the bottom of the screen.
+const STILL_LIFE_TEXT_TOP = 0.155;
 
 // The handwriting on top of the screen, cut from design-watercolor/text.png. The
 // signature is recoloured to the app's terracotta (the same colour as the camera
@@ -51,7 +52,7 @@ const SIGNATURE_RIGHT = HEADER_GUTTER - 4;
  * A greeting, the skin profile the quiz produced as a card of chips (every score
  * on the other tabs is judged against it; it is edited under Profile), then the
  * scan card, which opens the full-screen scanner, and a watercolor still life
- * filling the rest of the screen down to the tab bar. The layout is fixed while it fits; on a
+ * under them, running on past the bottom edge of the screen. The layout is fixed while it fits; on a
  * short screen or with large text it scrolls, so the scan card is always reachable.
  */
 /** How far the scan card sinks when pressed: it reads as a button though it is a card. */
@@ -244,20 +245,27 @@ export default function Home() {
           </View>
         </View>
 
-        {/* The still life takes whatever room the cards leave, whole and resting on
-            the tab bar, so it fits every phone without running behind a card. Its
-            handwriting is read out, like the signature's. */}
+        {/* The still life: full width, its handwriting just under the scan card,
+            its foot running on behind the tab bar and past the bottom of the
+            screen. Drawn behind the cards (zIndex) and out of the layout, so it
+            never adds scrolling. Its handwriting is read out. */}
         <View
           pointerEvents="none"
           accessible
           accessibilityLabel="A little progress every day"
-          style={{ flexGrow: 1, minHeight: STILL_LIFE_MIN_HEIGHT, paddingTop: SPACE.block, alignItems: "center" }}
+          style={{ flexGrow: 1, zIndex: -1 }}
         >
           <Image
             source={STILL_LIFE_ART}
             contentFit="contain"
             accessibilityLabel=""
-            style={{ flex: 1, aspectRatio: STILL_LIFE_ASPECT }}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: SPACE.text - (width / STILL_LIFE_ASPECT) * STILL_LIFE_TEXT_TOP,
+              width,
+              aspectRatio: STILL_LIFE_ASPECT,
+            }}
           />
         </View>
       </ScrollView>
