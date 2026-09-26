@@ -5,7 +5,6 @@ import {
   isSensitive,
   nextQuizRoute,
   profileHeadline,
-  profileSummary,
   quizRoutes,
   quizStepCount,
   sensitivityLabel,
@@ -55,37 +54,6 @@ describe("answeredWithoutSignal", () => {
 
   it("is false once there is something to score with", () => {
     expect(answeredWithoutSignal(profile({ baseSkinType: "dry", pregnancyStatus: "neither" }))).toBe(false);
-  });
-});
-
-describe("profileSummary", () => {
-  it("is empty for an unanswered profile", () => {
-    expect(profileSummary(EMPTY_PROFILE)).toBe("");
-  });
-
-  it("includes sensitivity alongside the base type", () => {
-    expect(profileSummary(profile({ baseSkinType: "dry", sensitivity: "some" }))).toBe(
-      "Dry, sensitive"
-    );
-  });
-
-  it("distinguishes very sensitive from somewhat", () => {
-    expect(profileSummary(profile({ baseSkinType: "dry", sensitivity: "high" }))).toBe(
-      "Dry, very sensitive"
-    );
-  });
-
-  // Skin type is optional now ("I don't know"), so sensitivity has to be able
-  // to carry the summary on its own rather than leaving the pill blank.
-  it("falls back to sensitivity when there is no skin type", () => {
-    expect(profileSummary(profile({ sensitivity: "high" }))).toBe("Very sensitive");
-  });
-
-  it("joins skin type and concerns with a separator", () => {
-    const summary = profileSummary(
-      profile({ baseSkinType: "oily", concerns: ["acne-prone", "large-pores"] })
-    );
-    expect(summary).toBe("Oily · acne-prone, large pores");
   });
 });
 

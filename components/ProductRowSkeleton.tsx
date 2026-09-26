@@ -4,7 +4,7 @@ import { LiftedCard } from "@/components/PressableCard";
 import { LINE, SURFACE } from "@/lib/tokens";
 
 /**
- * Placeholder for one `ProductRow` while Browse's list is still loading.
+ * Placeholder for one `ProductRow` while search results are still loading.
  * Same outer shape (leading bar, thumbnail box, text lines, score-pill
  * column) so the swap-in when real rows arrive causes no layout shift —
  * no shimmer animation, matching this codebase's otherwise-plain loading

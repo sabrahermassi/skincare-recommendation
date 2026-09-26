@@ -1,6 +1,6 @@
-import { router, useFocusEffect, useScrollToTop } from "expo-router";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, ScrollView, TextInput, View, type ListRenderItem } from "react-native";
+import { useFocusEffect, useScrollToTop } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FlatList, Pressable, TextInput, View, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -8,152 +8,58 @@ import { AppHeader, HEADER_GUTTER } from "@/components/AppHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
 import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
-import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
-import { TypeChip } from "@/components/TypeChip";
 import { openScanner } from "@/lib/open-scanner";
 import { Text } from "@/components/Text";
-import { fetchProducts, peekProducts, searchableQuery, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
-import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients, type SkinProfile } from "@/data/types";
-import { activeTypeFilter, visibleTypeChips } from "@/lib/browse-chips";
+import { fetchProductsByIds, peekProducts, searchableQuery, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
+import type { ProductWithIngredients } from "@/data/types";
 import { matchProduct, type MatchResult } from "@/lib/matching";
-import { answeredWithoutSignal, isPersonalized, profileSummary } from "@/lib/profile";
+import { isPersonalized } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TYPE } from "@/lib/tokens";
 
-// The design system (design/DESIGN_SYSTEM.md).
+/**
+ * The Search tab (#317): search first, no catalogue list. Someone in a shop is
+ * holding one product and wants to know about that one, so the tab opens on
+ * the search box with the keyboard up, the products they looked at last, and
+ * the scanner. Results appear only once they type, ranked for their skin.
+ *
+ * It used to open on the whole catalogue, scored and ranked, which made a
+ * mostly Western catalogue look empty to someone shopping in Korea and made
+ * this the slowest screen in the app.
+ */
 
-// One list, every product type together. This used to split into a
-// face-only set and a body-only set, chosen by the profile's `area` field —
-// removed along with `area` itself: the app's whole premise is judging a
-// formula against a skin profile, not filtering products out by which part
-// of the body they're for before that judgement even happens.
-// The chips are built from what the catalogue actually holds — see
-// `lib/browse-chips.ts` for the order and the hide-when-empty rule — so a type
-// gets a chip the moment it has a product (an import, or a scan or label read
-// added to the cache) and has none while it is empty.
+// Enough to find the one they just put down, without turning into a list.
+const RECENT_LIMIT = 8;
 
-// "unknown" never gets a chip — it's not a category to browse by — but the
-// Record still needs the key, and PRODUCT_TYPE_LABEL is the one
-// place that label is defined.
-const TYPE_LABEL: Record<ProductType | "all", string> = {
-  all: "All",
-  ...PRODUCT_TYPE_LABEL,
-};
+// One empty list, so "nothing recent yet" is the same value every render.
+const NO_PRODUCTS: ProductWithIngredients[] = [];
 
-// Which chip the screen opens on. Named because two pieces of state read it —
-// the filter itself and the cache peek that seeds the first frame — and they
-// have to agree or the list paints one filter's rows under another's chip.
-const INITIAL_TYPE_FILTER: ProductType | "all" = "all";
-
-// How many placeholder rows stand in for the real list while it loads —
-// enough to fill a phone screen without pretending to know the real count.
+// How many placeholder rows stand in for results on a cold search — enough to
+// fill a phone screen without pretending to know the real count.
 const SKELETON_ROWS = 6;
 
-/**
- * How many scored rows are revealed at once, and how many more each time the
- * list reaches its end.
- *
- * `FlatList` already virtualizes what it *draws*, so this is not about draw
- * cost — it bounds the `BrowseItem` array this screen builds and re-builds on
- * every filter change and every profile edit. At 5,000 products that array was
- * rebuilt whole to show the forty rows a phone can scroll to.
- */
-const BROWSE_PAGE_SIZE = 40;
-
-/**
- * How many products are scored before yielding back to the UI thread.
- *
- * Ranking is global — the header promises "Ranked for…", and that is only true
- * if every product was scored before sorting — so the pass cannot be shortened,
- * only broken up. Measured cost of one pass, on a dev machine and so optimistic
- * for a phone:
- *
- *     153 products    85ms      1,000 products    520ms
- *     647 products   218ms      5,000 products  1,572ms
- *
- * Run synchronously in a `useMemo`, that is a frozen screen for a second and a
- * half at the size step 7 is aiming for. Chunked, each hop is ~120ms and the
- * thread stays live between them.
- *
- * The second pass is ~1ms at every size, because `matchProduct` caches (6b-2),
- * so this only ever costs anything the first time a profile meets a catalogue.
- */
-const SCORE_CHUNK = 400;
-
-type ScoredProduct = { product: ProductWithIngredients; match: MatchResult };
-
-// The FlatList's `data` is one of these per row, rather than always being a
-// scored product — the type-filter chips, the personalize banner, loading
-// placeholders and the empty/error states all need to scroll (and, for the
-// chips, stick) the same way a product row does, and a `FlatList` can only
-// virtualize a single flat array.
-type BrowseItem =
-  | { kind: "filters" }
-  | { kind: "banner" }
+// One flat array for the FlatList, which can only virtualize a single list.
+type SearchItem =
+  | { kind: "scan" }
+  | { kind: "recent-heading" }
   | { kind: "skeleton"; id: string }
-  | { kind: "error" }
-  | { kind: "empty-catalog" }
   | { kind: "empty-search" }
   | { kind: "product"; product: ProductWithIngredients; match: MatchResult };
 
-function skeletonRows(): BrowseItem[] {
+function skeletonRows(): SearchItem[] {
   return Array.from({ length: SKELETON_ROWS }, (_, i) => ({ kind: "skeleton", id: `skeleton-${i}` }));
 }
 
 export default function Browse() {
   const insets = useSafeAreaInsets();
-  // Tapping the Browse tab while it is already showing scrolls the list back to
-  // the top — the standard tab-bar behaviour on iOS and Android.
-  const listRef = useRef<FlatList<BrowseItem>>(null);
+  // Tapping the tab while it is already showing scrolls back to the top — the
+  // standard tab-bar behaviour on iOS and Android.
+  const listRef = useRef<FlatList<SearchItem>>(null);
   useScrollToTop(listRef);
-  // Seeded from the catalogue cache so a warm start paints rows on the first
-  // frame instead of a skeleton. Null on a cold start, exactly as before.
-  const [products, setProducts] = useState<ProductWithIngredients[] | null>(() =>
-    peekProducts(INITIAL_TYPE_FILTER),
-  );
-  // The whole catalogue, whatever the selected chip — only its types are read,
-  // to decide which chips exist.
-  const [allProducts, setAllProducts] = useState<ProductWithIngredients[] | null>(() =>
-    peekProducts("all"),
-  );
-  const [error, setError] = useState(false);
-  const [retryKey, setRetryKey] = useState(0);
-  const [selectedType, setSelectedType] = useState<ProductType | "all">(INITIAL_TYPE_FILTER);
-  const typeChips = useMemo(() => visibleTypeChips(allProducts ?? []), [allProducts]);
-  // The chip the list really filters by: the selected one, or All when that
-  // type has run out of products — derived, not synced with an effect, so there
-  // is never a render showing an empty list under a chip that no longer exists.
-  const typeFilter = activeTypeFilter(selectedType, allProducts ? typeChips : null);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
-  /**
-   * How far down the ranked list the user has scrolled, tied to the exact rows
-   * it counts into.
-   *
-   * Paired with the products and profile it was counted against, rather than
-   * reset by an effect: those two are what a ranking is made of, so comparing
-   * identity means the count falls back to the first page on its own. An effect
-   * would do the same thing a render later — and would be a `setState` inside
-   * an effect, which is the cascade this screen's other effects already get
-   * warned about.
-   *
-   * It holds those two rather than the scored rows for a reason worth keeping:
-   * the catalogue and the store already own them, so nothing is kept alive that
-   * would otherwise be collected. Holding the rows array meant the *previous*
-   * filter's fully scored list — every product plus every verdict — stayed
-   * reachable from here until the next scroll, which is precisely the kind of
-   * retention step 6b-4 exists to remove.
-   */
-  const [page, setPage] = useState<{
-    source: ProductWithIngredients[] | null;
-    profile: SkinProfile | null;
-    count: number;
-  }>({ source: null, profile: null, count: BROWSE_PAGE_SIZE });
 
-  // Search overrides the type-filtered browse list entirely while active,
-  // the same way Search is its own mode on the Scan tab rather than a
-  // filter layered on top of Barcode. `searchResults` is null until a query
-  // of at least 2 characters has actually been searched.
+  // `searchResults` is null until a query of at least 2 characters has
+  // actually been searched.
   const [query, setQuery] = useState("");
   const searchInput = useRef<TextInput>(null);
   const [searchResults, setSearchResults] = useState<ProductWithIngredients[] | null>(null);
@@ -161,70 +67,51 @@ export default function Browse() {
   const searchActive = query.trim().length >= 2;
 
   const profile = useAppStore((s) => s.profile);
-
   const personalized = isPersonalized(profile);
+  const history = useAppStore((s) => s.history);
 
+  // The box is focused, keyboard up, each time the tab opens on an empty
+  // search. Not when coming back to results: the keyboard would cover them.
+  // Leaving blurs it, or iOS restores the focus on return and the keyboard
+  // covers the tab bar (#296). Its own effect with no dependencies, so typing
+  // never re-runs the cleanup and closes the keyboard (#309 review).
+  const queryRef = useRef(query);
+  const changeQuery = (next: string) => {
+    queryRef.current = next;
+    setQuery(next);
+  };
+  useFocusEffect(
+    useCallback(() => {
+      if (queryRef.current === "") searchInput.current?.focus();
+      return () => searchInput.current?.blur();
+    }, []),
+  );
+
+  // Recently viewed: the newest catalogue products in the history log, newest
+  // first. Unrecognised barcodes are in the log too, but there is nothing to
+  // open for them here.
+  const recentIds = useMemo(
+    () => history.filter((entry) => entry.known).slice(0, RECENT_LIMIT).map((entry) => entry.id),
+    [history],
+  );
+  // Paired with the ids it was read for, so a changed history never shows the
+  // previous list under it — detected here rather than cleared by an effect.
+  const [recentState, setRecentState] = useState<{ ids: string[]; products: ProductWithIngredients[] } | null>(null);
   useEffect(() => {
     let cancelled = false;
-    // Cached: swap to the new filter's rows immediately. Cold: clear, so the
-    // previous filter's products don't sit under the new chip while the
-    // network answers — which is what the unconditional reset here used to be
-    // for, back when every chip tap was a round trip.
-    setProducts(peekProducts(typeFilter));
-    setError(false);
-    fetchProducts({ type: typeFilter })
-      .then((result) => {
-        if (cancelled) return;
-        setProducts(result);
-        // Whatever type was asked for, the whole catalogue is in the cache now,
-        // so the chips can be built from it without a second request.
-        const all = peekProducts("all");
-        if (all) setAllProducts(all);
-        // Without Supabase (the bundled sample catalogue) nothing is cached, so the
-        // unfiltered read is the whole catalogue and builds the chips itself.
-        else if (typeFilter === "all") setAllProducts(result);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.warn("fetchProducts failed:", err);
-        setError(true);
+    void fetchProductsByIds(recentIds).then((result) => {
+      if (cancelled || !result.ok) return;
+      const byId = new Map(result.value.map((product) => [product.id, product]));
+      setRecentState({
+        ids: recentIds,
+        products: recentIds.flatMap((id) => byId.get(id) ?? []),
       });
+    });
     return () => {
       cancelled = true;
     };
-  }, [typeFilter, retryKey]);
-
-  // Re-read the cache whenever this tab comes back.
-  //
-  // The catalogue lives in a module, and this screen keeps its own copy in
-  // state. A product contributed mid-session — a scan, a label read — replaces
-  // the module's entry, and an already-mounted Browse has no way to hear about
-  // it: the effect above only runs again on a filter change or a retry. So the
-  // product the user just added was missing from the list until they touched a
-  // chip or reloaded.
-  //
-  // `peekProducts` is synchronous, hits no network, and hands back the *same
-  // array instance* when nothing has changed, so an ordinary tab switch sets
-  // state to the value it already holds and React renders nothing. Null means
-  // there is no cache to read, which is not the same as an empty catalogue —
-  // leave what is on screen and let the effect above do the fetching.
-  useFocusEffect(
-    useCallback(() => {
-      const cached = peekProducts(typeFilter);
-      if (cached) setProducts(cached);
-      const all = peekProducts("all");
-      if (all) setAllProducts(all);
-    }, [typeFilter]),
-  );
-
-  // Leaving with the search box focused brought the keyboard back up on
-  // return — iOS restores the focus — covering the tab bar (#296). Blur on the
-  // way out; the query itself stays. Its own effect with no dependencies: in
-  // the one above, a type-filter change re-runs the cleanup while the screen
-  // is still focused, which closed the keyboard mid-typing (#309 review).
-  useFocusEffect(
-    useCallback(() => () => searchInput.current?.blur(), []),
-  );
+  }, [recentIds]);
+  const recent = recentState?.ids === recentIds ? recentState.products : NO_PRODUCTS;
 
   // Narrow the cached catalogue on every keystroke, with no network and no
   // wait. `peekProducts` is synchronous and already holds the whole
@@ -258,8 +145,7 @@ export default function Browse() {
     return hits;
   }, [query, searchActive]);
 
-  // Debounced the same way the Scan tab's Search pane is: a query per
-  // keystroke would hammer the backend for nothing.
+  // Debounced: a query per keystroke would hammer the backend for nothing.
   useEffect(() => {
     if (!searchActive) {
       setSearchResults(null);
@@ -301,96 +187,6 @@ export default function Browse() {
     };
   }, [query, searchActive, localMatches]);
 
-  /**
-   * The scored list, and the exact products array it was built from.
-   *
-   * Carrying the source array is what lets a stale result be *detected* rather
-   * than guarded against by clearing state up front. Clearing would flash
-   * skeletons on every filter tap even when the scores are already cached and
-   * the pass takes a millisecond; keeping the old rows on screen would show
-   * one filter's products under another's chip. Comparing identity does
-   * neither: a tab switch hands back the same array (the catalogue cache
-   * returns stable references, which is the whole reason it does) and nothing
-   * re-renders, while a filter change is a different array and the skeletons
-   * are correct for exactly as long as the scoring takes.
-   */
-  const [scoredState, setScoredState] = useState<{
-    source: ProductWithIngredients[];
-    /**
-     * The profile these scores were computed against, and not a formality.
-     * Editing the profile leaves `source` untouched — it is the same catalogue
-     * — so without this the stale check would pass and Browse would keep
-     * showing rows scored against the *previous* answers until the new pass
-     * finished. A stale ranking is the one kind of wrong this screen cannot
-     * afford to show silently, since a wrong number looks exactly like a right
-     * one.
-     */
-    profile: SkinProfile;
-    rows: ScoredProduct[];
-  } | null>(null);
-
-  // A layout effect, not a passive one: a passive effect only runs after the
-  // render it belongs to has already committed and painted, so the first
-  // chunk being computed "synchronously" inside it still meant a commit with
-  // `scoredState` still null landed on screen first — a skeleton flash on
-  // every mount and filter change, cached scores or not. A layout effect
-  // runs before that paint, which is what actually makes the first chunk
-  // synchronous from the screen's point of view, and is what lets a
-  // catalogue at or below `SCORE_CHUNK` — every catalogue this app has
-  // shipped with so far — settle in the same frame the `useMemo` this
-  // replaced did. Only the first chunk is inside that synchronous window;
-  // `setTimeout` still defers everything after it to its own macrotask, so a
-  // catalogue larger than one chunk still paints skeletons and fills in.
-  useLayoutEffect(() => {
-    if (!products) return;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const rows: ScoredProduct[] = [];
-    let i = 0;
-
-    const step = () => {
-      if (cancelled) return;
-      const end = Math.min(i + SCORE_CHUNK, products.length);
-      for (; i < end; i += 1) {
-        rows.push({ product: products[i], match: matchProduct(products[i], profile) });
-      }
-      if (i < products.length) {
-        timer = setTimeout(step, 0);
-        return;
-      }
-      // Sorting by score only makes sense once there's a score to sort by —
-      // otherwise it silently reorders the catalogue for no reason. It also
-      // has to happen here, after every product is scored: sorting a partial
-      // list would put the best of the first chunk above a better match that
-      // had not been reached yet, which is the one thing ranking must not do.
-      setScoredState({
-        source: products,
-        profile,
-        rows: personalized
-          ? [...rows].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0))
-          : rows,
-      });
-    };
-
-    step();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [products, profile, personalized]);
-
-  const scored =
-    scoredState && scoredState.source === products && scoredState.profile === profile
-      ? scoredState.rows
-      : null;
-  const visibleCount =
-    page.source === products && page.profile === profile ? page.count : BROWSE_PAGE_SIZE;
-
-  // The list is being ranked right now: there are products to score and no
-  // finished ranking for them yet. Distinct from having no products at all,
-  // which is the cold-fetch skeleton, and from `error`.
-  const ranking = products !== null && scored === null && !error;
-
   // Server results win once they land; until then the local narrowing is
   // what the list shows, so each keystroke visibly shrinks the results
   // instead of clearing them.
@@ -406,158 +202,45 @@ export default function Browse() {
     return [...withScores].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0));
   }, [effectiveResults, profile, personalized]);
 
-  // Everything the list scrolls, as one flat array — see `BrowseItem`. The
-  // type-filter chips are index 0 here and land at index 1 once
-  // `ListHeaderComponent` (index 0) is counted in, which is what
-  // `stickyHeaderIndices={[1]}` below targets — same position `[1]` held on
-  // the plain `ScrollView` this replaced.
-  const items = useMemo<BrowseItem[]>(() => {
+  const items = useMemo<SearchItem[]>(() => {
     if (searchActive) {
       if (searching) return skeletonRows();
       if (scoredSearch === null || scoredSearch.length === 0) return [{ kind: "empty-search" }];
       return scoredSearch.map(({ product, match }) => ({ kind: "product", product, match }) as const);
     }
-
-    const list: BrowseItem[] = [{ kind: "filters" }];
-    if (!personalized && !bannerDismissed) list.push({ kind: "banner" });
-
-    if (error) {
-      list.push({ kind: "error" });
-    } else if (scored === null) {
-      list.push(...skeletonRows());
-    } else if (scored.length === 0) {
-      list.push({ kind: "empty-catalog" });
-    } else {
-      // Sliced, not filtered: `scored` is already in final rank order, so the
-      // first `visibleCount` really are the best matches rather than the first
-      // ones to be scored.
+    // Before typing. The scanner first: with the keyboard up, it is the one
+    // thing sure to be above it.
+    const list: SearchItem[] = [{ kind: "scan" }];
+    if (recent.length > 0) {
       list.push(
-        ...scored
-          .slice(0, visibleCount)
-          .map(({ product, match }) => ({ kind: "product", product, match }) as const),
+        { kind: "recent-heading" },
+        ...recent.map((product) => ({ kind: "product", product, match: matchProduct(product, profile) }) as const),
       );
     }
     return list;
-  }, [searchActive, searching, scoredSearch, error, scored, personalized, bannerDismissed, visibleCount]);
+  }, [searchActive, searching, scoredSearch, recent, profile]);
 
-  // Search results are capped at `SEARCH_RESULT_LIMIT`, well under one page,
-  // so paging applies to the browse list only.
-  const canLoadMore = !searchActive && scored !== null && visibleCount < scored.length;
-
-  /**
-   * What a screen reader hears when the list changes state.
-   *
-   * Sighted users get the skeletons, then rows. Before this, a screen reader
-   * got nothing at all: ranking is now asynchronous, so editing the profile or
-   * tapping a filter chip left a blind user with silence and no way to tell
-   * whether the list was rebuilding, empty, or broken. The component is already
-   * used by the scanner for exactly this reason, and carries the notes on why
-   * `accessibilityLiveRegion` alone does not cover all three platforms.
-   *
-   * Search is excluded: that list has its own flow and announcing both would
-   * talk over the results as the user types.
-   */
-  const announcement = searchActive
-    ? ""
-    : error
-      ? "Couldn't load products."
-      : ranking
-        ? personalized
-          ? "Ranking products for your skin."
-          : "Loading products."
-        : scored
-          ? `${scored.length} ${scored.length === 1 ? "product" : "products"}${
-              personalized ? ", ranked for your skin" : ""
-            }.`
-          : "";
-
-  const renderItem: ListRenderItem<BrowseItem> = ({ item }) => {
+  const renderItem: ListRenderItem<SearchItem> = ({ item }) => {
     switch (item.kind) {
-      case "filters":
+      case "scan":
         return (
-          <View style={{ paddingBottom: 6, backgroundColor: CANVAS }}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              // Room under the chips for their shade: a scroll view clips what
-              // falls outside it.
-              contentContainerStyle={{ gap: 8, paddingHorizontal: HEADER_GUTTER, paddingTop: 10, paddingBottom: 10 }}
-            >
-              {(["all", ...typeChips] as const).map((type) => (
-                <TypeChip
-                  key={type}
-                  label={TYPE_LABEL[type]}
-                  selected={typeFilter === type}
-                  onPress={() => setSelectedType(type)}
-                />
-              ))}
-              {/* Until the catalogue loads only "All" is known; these hold the
-                  row's shape so the real chips do not pop in from nothing. */}
-              {allProducts === null && [0, 1, 2].map((i) => <ChipPlaceholder key={i} />)}
-            </ScrollView>
+          <View style={{ paddingHorizontal: HEADER_GUTTER, paddingBottom: SPACE.block }}>
+            <PrimaryButton variant="gray" size={48} label="Scan a product instead" onPress={openScanner} />
           </View>
         );
 
-      case "banner":
+      case "recent-heading":
         return (
-          <View
-            style={{
-              marginHorizontal: 20,
-              marginTop: 12,
-              marginBottom: 12,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: BORDER_INACTIVE,
-              backgroundColor: CANVAS,
-              paddingHorizontal: 16,
-              paddingVertical: 13,
-            }}
+          <Text
+            accessibilityRole="header"
+            style={{ paddingHorizontal: HEADER_GUTTER, paddingTop: SPACE.text, paddingBottom: SPACE.text, fontSize: TYPE.label, fontWeight: "600", color: MUTED }}
           >
-            <Pressable onPress={() => router.push("/skin-profile")} accessibilityRole="button" style={{ flex: 1 }} className="active:opacity-70">
-              <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>
-                {answeredWithoutSignal(profile)
-                  ? "Add your skin type or a concern to see how each product suits your skin ->"
-                  : "Answer four quick questions to see how each product suits your skin ->"}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setBannerDismissed(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Dismiss"
-              style={{ minWidth: TOUCH_TARGET, minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
-              className="active:opacity-70"
-            >
-              <Text style={{ fontSize: 14, fontWeight: "600", color: MUTED }}>&#x2715;</Text>
-            </Pressable>
-          </View>
+            Recently viewed
+          </Text>
         );
 
       case "skeleton":
         return <ProductRowSkeleton />;
-
-      case "error":
-        return (
-          <View style={{ alignItems: "center", gap: 12, paddingHorizontal: 32, paddingVertical: 96 }}>
-            <Text style={{ textAlign: "center", fontSize: 13, color: MUTED }}>
-              Couldn&apos;t load products. Check your connection and try again.
-            </Text>
-            <Pressable onPress={() => setRetryKey((k) => k + 1)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
-              <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-                Try again
-              </Text>
-            </Pressable>
-          </View>
-        );
-
-      case "empty-catalog":
-        return (
-          <Text style={{ marginTop: 48, textAlign: "center", fontSize: 13, color: MUTED_FAINT }}>
-            No products of this type yet.
-          </Text>
-        );
 
       case "empty-search":
         return (
@@ -579,7 +262,6 @@ export default function Browse() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
-      <ScreenReaderAnnouncer message={announcement} />
       <FlatList
         ref={listRef}
         data={items}
@@ -594,113 +276,59 @@ export default function Browse() {
         // element (a row's Pressable) fire immediately; a tap on genuinely
         // empty list space still dismisses the keyboard as before.
         keyboardShouldPersistTaps="handled"
-        // Infinite scroll rather than a "Load more" button: the next page is
-        // already scored and in memory, so there is nothing to wait for and a
-        // button would only add a tap between the user and rows that are
-        // ready. No footer spinner for the same reason — it would flash for a
-        // frame and say nothing.
-        onEndReachedThreshold={0.6}
-        onEndReached={() => {
-          if (!canLoadMore) return;
-          setPage({ source: products, profile, count: visibleCount + BROWSE_PAGE_SIZE });
-        }}
-        // The type-filter row (index 1, once ListHeaderComponent claims index
-        // 0) sticks while browsing; a search replaces the whole list below
-        // the search box, so there's nothing of this screen's own to stick.
-        stickyHeaderIndices={searchActive ? [] : [1]}
+        // The tab opens with the keyboard up; scrolling the list puts it away.
+        keyboardDismissMode="on-drag"
         ListHeaderComponent={
-          <View style={{ gap: 18, paddingBottom: 8, backgroundColor: CANVAS }}>
+          <View style={{ gap: 18, paddingBottom: SPACE.block, backgroundColor: CANVAS }}>
             <AppHeader />
-
-            {/* Scan, Saved and Profile used to repeat here as quick-action
-                tiles — redundant once the tab bar already puts all three one
-                tap away. The profile pill that used to sit in the header above
-                is gone too (same reason: the Profile tab already covers "who
-                am I browsing as"), so that's carried by the "Ranked for..." line
-                below instead. */}
-            <View style={{ paddingHorizontal: HEADER_GUTTER, gap: 10 }}>
-              <View style={{ position: "relative", justifyContent: "center" }}>
-                <TextInput
-                  ref={searchInput}
-                  value={query}
-                  onChangeText={setQuery}
-                  placeholder="Search products or brands"
-                  placeholderTextColor={MUTED_FAINT}
-                  autoCorrect={false}
+            <View style={{ paddingHorizontal: HEADER_GUTTER, position: "relative", justifyContent: "center" }}>
+              <TextInput
+                ref={searchInput}
+                value={query}
+                onChangeText={changeQuery}
+                placeholder="Search products or brands"
+                placeholderTextColor={MUTED_FAINT}
+                autoCorrect={false}
+                returnKeyType="search"
+                accessibilityLabel="Search products or brands"
+                style={{
+                  height: 48,
+                  borderRadius: 24,
+                  borderWidth: 1,
+                  borderColor: BORDER_INACTIVE,
+                  backgroundColor: CANVAS,
+                  paddingHorizontal: 18,
+                  // Room for the clear button once there's something to clear.
+                  paddingRight: query.length > 0 ? 42 : 18,
+                  fontSize: 13.5,
+                  color: INK,
+                }}
+              />
+              {query.length > 0 && (
+                <Pressable
+                  onPress={() => changeQuery("")}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
                   style={{
-                    height: 48,
-                    borderRadius: 24,
-                    borderWidth: 1,
-                    borderColor: BORDER_INACTIVE,
-                    backgroundColor: CANVAS,
-                    paddingHorizontal: 18,
-                    // Room for the clear button once there's something to clear.
-                    paddingRight: query.length > 0 ? 42 : 18,
-                    fontSize: 13.5,
-                    color: INK,
+                    position: "absolute",
+                    right: HEADER_GUTTER + 14,
+                    width: 24,
+                    height: 24,
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
-                />
-                {query.length > 0 && (
-                  <Pressable
-                    onPress={() => setQuery("")}
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityLabel="Clear search"
-                    style={{
-                      position: "absolute",
-                      right: 14,
-                      width: 24,
-                      height: 24,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                    className="active:opacity-70"
-                  >
-                    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                      <Path d="M6 6l12 12M18 6 6 18" stroke={MUTED} strokeWidth={2.2} strokeLinecap="round" />
-                    </Svg>
-                  </Pressable>
-                )}
-              </View>
-              {!searchActive && (
-                <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
-                  {/* Past tense only once it is true. Editing the profile
-                      re-ranks the whole catalogue, and this line used to claim
-                      the new ranking immediately while the list underneath was
-                      still skeletons — promising an order that did not exist
-                      yet, for as long as the scoring took. */}
-                  {personalized
-                    ? ranking
-                      ? `Ranking for ${profileSummary(profile).toLowerCase()}…`
-                      : `Ranked for ${profileSummary(profile).toLowerCase()}`
-                    : answeredWithoutSignal(profile)
-                      ? "No skin type or concern yet - showing unsorted results"
-                      : "No profile yet - showing unsorted results"}
-                </Text>
+                  className="active:opacity-70"
+                >
+                  <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+                    <Path d="M6 6l12 12M18 6 6 18" stroke={MUTED} strokeWidth={2.2} strokeLinecap="round" />
+                  </Svg>
+                </Pressable>
               )}
             </View>
           </View>
         }
       />
     </View>
-  );
-}
-
-/** An empty pill standing in for a type chip while the catalogue loads. */
-function ChipPlaceholder() {
-  return (
-    <View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      style={{
-        width: 84,
-        height: TOUCH_TARGET,
-        borderRadius: RADIUS_SELECTOR,
-        borderWidth: 1,
-        borderColor: BORDER_INACTIVE,
-        backgroundColor: CANVAS,
-        ...CHIP_SHADOW,
-      }}
-    />
   );
 }

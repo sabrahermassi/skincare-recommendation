@@ -1380,12 +1380,12 @@ async function persistMeta(meta: CatalogueMeta): Promise<void> {
 /**
  * The cached list for one type filter, as a stable array.
  *
- * This is the part that has to be exactly right. `app/(tabs)/browse.tsx`
- * memoises its scoring on the *identity* of the products array. Returning a
- * freshly built array on every cache hit would remove the network cost and
- * keep the CPU cost — every tab return would re-score the whole catalogue
- * while looking, from the outside, like the cache was working. So each filter
- * is built once and the same instance is handed out from then on.
+ * This is the part that has to be exactly right. Screens memoise on the
+ * *identity* of the products array (Search narrows it on every keystroke).
+ * Returning a freshly built array on every cache hit would remove the network
+ * cost and keep the CPU cost, while looking, from the outside, like the cache
+ * was working. So each filter is built once and the same instance is handed
+ * out from then on.
  */
 export function productsForType(
   entry: MemoryEntry,

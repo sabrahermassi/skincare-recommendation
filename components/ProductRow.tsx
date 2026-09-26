@@ -27,9 +27,9 @@ import { ProductThumbnail } from "./ProductThumbnail";
  * `VERDICT` in lib/tokens — neither is written here.
  */
 /**
- * Memoized: Browse renders this inside a `FlatList` over the full catalogue
- * (150+ rows), and neither `product` nor `match` change identity on a
- * re-render that isn't actually about this row.
+ * Memoized: Search and Saved render it inside lists that re-render on every
+ * keystroke or store change, and neither `product` nor `match` change
+ * identity on a re-render that isn't actually about this row.
  */
 export const ProductRow = memo(function ProductRow({
   product,

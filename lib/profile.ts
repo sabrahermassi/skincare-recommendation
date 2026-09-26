@@ -65,24 +65,11 @@ export function sensitivityLabel(sensitivity: Sensitivity): string {
   return SENSITIVITY_LABEL[sensitivity];
 }
 
-const CONCERN_LABEL: Record<Concern, string> = {
-  dehydrated: "dehydrated",
-  "acne-prone": "acne-prone",
-  redness: "redness",
-  dullness: "dullness",
-  "large-pores": "large pores",
-  "fine-lines": "fine lines",
-  hyperpigmentation: "dark spots",
-  atopic: "eczema-prone",
-  "post-acne-marks": "post-acne marks",
-};
-
 /**
  * Each concern in the quiz's own words — the option labels on the concerns
  * step and the Skin profile editor, and the chips that echo them back on Home
  * and Profile. One list, so a chip can't say "large pores" about an answer
- * the quiz called "Enlarged pores" (#294). `CONCERN_LABEL` above stays for
- * lower-case use mid-sentence ("Ranked for dry · large pores").
+ * the quiz called "Enlarged pores" (#294).
  */
 export const CONCERN_TITLE: Record<Concern, string> = {
   dehydrated: "Dry / Dehydrated",
@@ -124,31 +111,6 @@ export function profileHeadline(profile: SkinProfile): { title: string; tags: st
   if (profile.sensitivity && isSensitive(profile)) tags.push(sensitivityLabel(profile.sensitivity));
   tags.push(...profile.concerns.map((c) => CONCERN_TITLE[c]));
   return { title, tags };
-}
-
-/** The short summary shown in the browse header, e.g. "Combination, sensitive · dehydrated, redness". */
-export function profileSummary(profile: SkinProfile): string {
-  const parts: string[] = [];
-
-  if (profile.baseSkinType) {
-    parts.push(
-      isSensitive(profile)
-        ? `${capitalize(profile.baseSkinType)}, ${
-            profile.sensitivity === "high" ? "very sensitive" : "sensitive"
-          }`
-        : capitalize(profile.baseSkinType)
-    );
-  } else if (profile.sensitivity !== null && profile.sensitivity !== "none") {
-    // Skin type can be "I don't know" now, and a sensitivity answer on its own
-    // is still worth showing rather than leaving the pill blank.
-    parts.push(sensitivityLabel(profile.sensitivity));
-  }
-
-  if (profile.concerns.length > 0) {
-    parts.push(profile.concerns.map((c) => CONCERN_LABEL[c]).join(", "));
-  }
-
-  return parts.join(" · ");
 }
 
 function capitalize(s: string): string {

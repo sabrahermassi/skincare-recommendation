@@ -63,6 +63,11 @@ the focus re-read starts being wrong rather than merely late. Until then
 the subscription is machinery for a problem one line of `useFocusEffect`
 already answers.
 
+*Update, 26 September 2026 (#317):* Browse no longer holds a catalogue list
+at all. It became a search-first tab, with results only once you type, read
+from the cache on each keystroke. So the focus re-read went with it, and
+the reason to revisit this got weaker, not stronger.
+
 ## Scoring
 
 **Why exposure is graded per product type rather than a rinse-off flag:**

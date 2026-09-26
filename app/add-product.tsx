@@ -12,7 +12,6 @@ import { Text } from "@/components/Text";
 import { TypeChip } from "@/components/TypeChip";
 import { failureMessage, fetchProductByBarcode, forgetScanned, saveScannedProduct } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/data/types";
-import { LEADING_TYPES } from "@/lib/browse-chips";
 import { clearLabelRead, heldLabelRead } from "@/lib/pending-label";
 import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
 import {
@@ -93,6 +92,26 @@ function NothingToAdd() {
  * The barcode, when the ingredients were photographed first. A single-purpose
  * camera: retail barcodes only, because anything else can never be saved.
  */
+/**
+ * The types the product form offers, the catalogue's most common first — as
+ * counted from the live catalogue on 2026-09-19. Fixed on purpose: a rough
+ * guide set once, not re-sorted on every import.
+ */
+const LEADING_TYPES: ProductType[] = [
+  "sunscreen",
+  "moisturizer",
+  "cleanser",
+  "serum",
+  "lip-balm",
+  "hand-cream",
+  "exfoliator",
+  "body-wash",
+  "sheet-mask",
+  "toner",
+  "body-lotion",
+  "essence",
+];
+
 const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e"] as const;
 const BARCODE_SETTINGS = { barcodeTypes: [...BARCODE_TYPES] };
 
@@ -493,8 +512,8 @@ function NameStep({
         {/*
           Optional. A photographed list gives no basis for guessing a type, so
           without a pick the product is saved as "unknown" — which scores its
-          benefits at a quarter (`contactWeight`). Same order as Browse's
-          leading chips, largest first; the rarer types aren't offered here.
+          benefits at a quarter (`contactWeight`). The catalogue's most
+          common types, largest first; the rarer types aren't offered here.
         */}
         <View style={{ gap: SPACE.text }}>
           <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>What kind of product is it?</Text>
