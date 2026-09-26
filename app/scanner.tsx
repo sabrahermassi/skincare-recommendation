@@ -35,6 +35,7 @@ import type { Size } from "@/lib/crop-to-guide";
 import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
 import { rememberScanMode, rememberedScanMode, type ScanMode } from "@/lib/scan-mode";
 import { createStaleGuard } from "@/lib/stale-guard";
+import { useReduceMotionRef } from "@/lib/reduce-motion";
 import { matchProduct } from "@/lib/matching";
 import { track } from "@/lib/analytics";
 import { useAppStore } from "@/store/useAppStore";
@@ -635,14 +636,20 @@ function FoundSheet({
   const match = matchProduct(product, profile);
   const [rise] = useState(() => new Animated.Value(0));
   const [lift] = useState(() => rise.interpolate({ inputRange: [0, 1], outputRange: [FOUND_SHEET_TRAVEL, 0] }));
+  const reduceMotion = useReduceMotionRef();
   useEffect(() => {
+    // With Reduce Motion on, the sheet is just there (#313).
+    if (reduceMotion.current) {
+      rise.setValue(1);
+      return;
+    }
     Animated.spring(rise, {
       toValue: 1,
       friction: 9,
       tension: 60,
       useNativeDriver: Platform.OS !== "web",
     }).start();
-  }, [rise]);
+  }, [rise, reduceMotion]);
 
   const line = match.score === null ? VERDICT_LABEL[match.verdict] : `${match.score}/100 · ${VERDICT_LABEL[match.verdict]}`;
   const meta = [product.type === "unknown" ? null : PRODUCT_TYPE_LABEL[product.type], product.volume].filter(Boolean).join("  ·  ");

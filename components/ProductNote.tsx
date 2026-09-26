@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, TextInput, View } from "react-native";
+import { Pressable, TextInput, View } from "react-native";
 
+import { BottomSheet } from "@/components/BottomSheet";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 import { MAX_NOTE_CHARS, NOTE_COPY, cleanNote, tooLongCopy } from "@/lib/journal";
@@ -10,12 +11,10 @@ import {
   CANVAS,
   CARD_SHADOW,
   DANGER,
-  FLOATING_SHADOW,
   INK,
   MUTED,
   MUTED_FAINT,
   RADIUS_SELECTOR,
-  SCRIM,
   SPACE,
   SURFACE,
   TOUCH_TARGET,
@@ -112,62 +111,50 @@ export function NoteEditor({
   const over = text.length > MAX_NOTE_CHARS;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <Pressable
-          onPress={onClose}
-          style={{ flex: 1, backgroundColor: SCRIM, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}
-        >
-          <Pressable
-            onPress={(e) => e.stopPropagation()}
-            style={{ width: "100%", maxWidth: 420, borderRadius: 20, backgroundColor: SURFACE, padding: 24, gap: 14, ...FLOATING_SHADOW }}
-          >
-            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 19, color: INK }}>{NOTE_COPY.prompt}</Text>
-            <TextInput
-              value={text}
-              onChangeText={setText}
-              placeholder={NOTE_COPY.placeholder}
-              placeholderTextColor={MUTED_FAINT}
-              accessibilityLabel={NOTE_COPY.heading}
-              multiline
-              autoFocus
-              textAlignVertical="top"
-              style={{
-                minHeight: 120,
-                borderRadius: RADIUS_SELECTOR,
-                borderWidth: 1,
-                borderColor: over ? WARN : BORDER_INACTIVE,
-                backgroundColor: CANVAS,
-                padding: SPACE.block,
-                fontSize: TYPE.body,
-                lineHeight: 22,
-                color: INK,
-              }}
-            />
-            <Text accessibilityLiveRegion="polite" style={{ fontSize: TYPE.caption, color: over ? WARN : MUTED, fontWeight: over ? "600" : "400" }}>
-              {over ? tooLongCopy(text.length) : `${text.length}/${MAX_NOTE_CHARS}`}
-            </Text>
-            <PrimaryButton
-              size={50}
-              label={NOTE_COPY.save}
-              disabled={over}
-              onPress={() => onSave(cleanNote(text))}
-            />
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              {initial ? (
-                <Pressable onPress={() => onSave(null)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}>
-                  <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: DANGER }}>{NOTE_COPY.delete}</Text>
-                </Pressable>
-              ) : (
-                <View />
-              )}
-              <Pressable onPress={onClose} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}>
-                <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{NOTE_COPY.cancel}</Text>
-              </Pressable>
-            </View>
+    <BottomSheet visible={visible} onClose={onClose}>
+        <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 19, color: INK }}>{NOTE_COPY.prompt}</Text>
+        <TextInput
+          value={text}
+          onChangeText={setText}
+          placeholder={NOTE_COPY.placeholder}
+          placeholderTextColor={MUTED_FAINT}
+          accessibilityLabel={NOTE_COPY.heading}
+          multiline
+          autoFocus
+          textAlignVertical="top"
+          style={{
+            minHeight: 120,
+            borderRadius: RADIUS_SELECTOR,
+            borderWidth: 1,
+            borderColor: over ? WARN : BORDER_INACTIVE,
+            backgroundColor: CANVAS,
+            padding: SPACE.block,
+            fontSize: TYPE.body,
+            lineHeight: 22,
+            color: INK,
+          }}
+        />
+        <Text accessibilityLiveRegion="polite" style={{ fontSize: TYPE.caption, color: over ? WARN : MUTED, fontWeight: over ? "600" : "400" }}>
+          {over ? tooLongCopy(text.length) : `${text.length}/${MAX_NOTE_CHARS}`}
+        </Text>
+        <PrimaryButton
+          size={50}
+          label={NOTE_COPY.save}
+          disabled={over}
+          onPress={() => onSave(cleanNote(text))}
+        />
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          {initial ? (
+            <Pressable onPress={() => onSave(null)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}>
+              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: DANGER }}>{NOTE_COPY.delete}</Text>
+            </Pressable>
+          ) : (
+            <View />
+          )}
+          <Pressable onPress={onClose} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}>
+            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{NOTE_COPY.cancel}</Text>
           </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+        </View>
+    </BottomSheet>
   );
 }
