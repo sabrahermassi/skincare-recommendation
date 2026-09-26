@@ -811,7 +811,10 @@ Everything above, plus:
 - **Hand-written UV and context nudges** — static content, no live API
   (#234).
 - **Skincare School** — 15–20 curated beginner questions with pre-written
-  answers, grouped by category; static, no AI (#235).
+  answers; static, no AI (#235). Laid out as a chat (#352): tap a suggested
+  question, or search the curated ones, and its pre-written answer appears
+  as a reply. The search box never writes an answer; with no match it says
+  so and offers questions it can answer.
 - Product search, and the existing detailed result breakdown.
 
 ## Journal identity
