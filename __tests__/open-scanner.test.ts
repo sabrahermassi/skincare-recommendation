@@ -3,8 +3,7 @@ import { openScannerAt } from "@/lib/open-scanner";
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ router: { push: (...args: unknown[]) => mockPush(...args) } }));
 
-// #315 review: a double tap pushed two scanners; `navigate` fixed that but
-// slid back to an older scanner lower in the stack.
+// #315 review: a double tap pushed two scanners.
 describe("openScanner", () => {
   beforeEach(() => mockPush.mockClear());
 
