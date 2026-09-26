@@ -17,10 +17,16 @@ export type DbResult = { data: unknown; error: unknown };
 /** Returns the reply for `call`, or undefined for the default one. */
 export type DbAnswer = (call: DbCall) => DbResult | undefined;
 
+/** Supabase Auth's `getUser`, answered from a token → user id table. */
+export type FakeAuth = {
+  getUser(jwt: string): Promise<{ data: { user: { id: string } | null }; error: unknown }>;
+};
+
 export class FakeDb {
   readonly calls: DbCall[] = [];
 
-  constructor(private readonly answer: DbAnswer = () => undefined) {}
+  /** Absent: nobody is signed in, and every caller is charged as a guest. */
+  constructor(private readonly answer: DbAnswer = () => undefined, readonly auth?: FakeAuth) {}
 
   from(table: string): FakeQuery {
     return new FakeQuery(this, table);
@@ -161,4 +167,21 @@ export function allKnown(call: DbCall): DbResult | undefined {
     return { data: names.map((inci_name) => ({ inci_name })), error: null };
   }
   return undefined;
+}
+
+/**
+ * A signed-in caller: a bearer token shaped like a Supabase session (the
+ * claims the limiter reads before asking Auth) and an Auth that confirms it.
+ */
+export function signedIn(userId: string): { auth: FakeAuth; token: string } {
+  const encode = (value: unknown) => btoa(JSON.stringify(value)).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const token = [
+    encode({ alg: "HS256", typ: "JWT" }),
+    encode({ role: "authenticated", sub: userId, exp: Math.floor(Date.now() / 1000) + 3600 }),
+    "signature",
+  ].join(".");
+  const auth: FakeAuth = {
+    getUser: (jwt) => Promise.resolve({ data: { user: jwt === token ? { id: userId } : null }, error: null }),
+  };
+  return { auth, token };
 }

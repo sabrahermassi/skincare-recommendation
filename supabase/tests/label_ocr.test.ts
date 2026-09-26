@@ -8,7 +8,16 @@ import { handleLabelOcr, type LabelOcrDeps } from "../functions/label-ocr/handle
 import { MAX_IMAGE_CHARS } from "../functions/_shared/image-limits.ts";
 import { READ_TOKEN_TTL_MS, signReadToken, verifyReadToken } from "../functions/_shared/read-token.ts";
 import { resetRateLimits, resetVerifiedTokens } from "../functions/_shared/rate-limit.ts";
-import { allKnown, type DbAnswer, FakeDb, fakeFetch, filterValue, jsonResponse } from "./fakes.ts";
+import {
+  allKnown,
+  type DbAnswer,
+  type FakeAuth,
+  FakeDb,
+  fakeFetch,
+  filterValue,
+  jsonResponse,
+  signedIn,
+} from "./fakes.ts";
 
 // The limiter fingerprints callers with this; without it every request throws.
 Deno.env.set("RATE_LIMIT_SALT", "test-salt");
@@ -40,10 +49,15 @@ function visionReads(text: string | null): Vision {
   return () => jsonResponse({ responses: [text === null ? {} : { fullTextAnnotation: { text } }] });
 }
 
-function setup(answer: DbAnswer = () => undefined, vision: Vision = visionReads(LABEL), visionApiKey = "vision-key") {
+function setup(
+  answer: DbAnswer = () => undefined,
+  vision: Vision = visionReads(LABEL),
+  visionApiKey = "vision-key",
+  auth?: FakeAuth,
+) {
   resetRateLimits();
   resetVerifiedTokens();
-  const db = new FakeDb(answer);
+  const db = new FakeDb(answer, auth);
   const { fetch, calls: fetched } = fakeFetch(vision);
   const deps: LabelOcrDeps = { db, fetch, visionApiKey, readTokenSecret: SECRET };
   return { db, deps, fetched };
@@ -362,9 +376,19 @@ Deno.test("a barcode someone already saved keeps their product, and the token is
   assertEquals(db.rpcCalls("replace_product_with_ingredients"), []);
 });
 
-Deno.test("two saves racing: the one the database kept is returned, and no author is claimed for it", async () => {
+Deno.test("a signed-in person who saves a new product is recorded as its author (#241)", async () => {
+  const { auth, token } = signedIn("jane-id");
+  const { db, deps } = setup(savesCleanly(), visionReads(LABEL), "vision-key", auth);
+  const reply = await handleLabelOcr(post(await saveBody(), { authorization: `Bearer ${token}` }), deps);
+  assertEquals(reply.status, 200);
+  assertEquals(db.inserts("product_authors"), [{ product_id: `ocr-${BARCODE}`, user_id: "jane-id" }]);
+});
+
+Deno.test("two saves racing: the one the database kept is returned, and the loser claims no author for it", async () => {
   // The first check sees no product; by the write, another save has landed. The
-  // insert-only write leaves theirs, and the read-back by barcode finds it.
+  // insert-only write leaves theirs, and the read-back by barcode finds it. The
+  // person saving is signed in, so only the id check stops them being recorded
+  // as the author of someone else's product.
   const theirs = { id: "ocr-theirs-race", barcode: BARCODE, name: "Their Toner", product_ingredients: NAMES };
   let lookups = 0;
   const racing = savesCleanly((call) => {
@@ -374,8 +398,9 @@ Deno.test("two saves racing: the one the database kept is returned, and no autho
     }
     return undefined;
   });
-  const { db, deps } = setup(racing);
-  const reply = await handleLabelOcr(post(await saveBody()), deps);
+  const { auth, token } = signedIn("jane-id");
+  const { db, deps } = setup(racing, visionReads(LABEL), "vision-key", auth);
+  const reply = await handleLabelOcr(post(await saveBody(), { authorization: `Bearer ${token}` }), deps);
   assertEquals(reply.status, 200);
   assertEquals((await reply.json()).product.id, "ocr-theirs-race");
   assertEquals(db.rpcCalls("replace_product_with_ingredients")[0].p_insert_only, true);
