@@ -3,12 +3,12 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { Image } from "expo-image";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, StyleSheet, View, type LayoutChangeEvent, type ViewStyle } from "react-native";
+import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, View, type LayoutChangeEvent, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { CameraPermissionScreen } from "@/components/CameraPermissionScreen";
 import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
 import { SCAN_SIDE_INSET, SCAN_TOP_GAP, ScanViewfinder, WINDOW_RADIUS, type Box } from "@/components/ScanViewfinder";
-import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { coverFitCropRect, shrinkWidth, type Rect, type Size } from "@/lib/crop-to-guide";
@@ -303,30 +303,15 @@ export function LabelCamera({
 
   if (!permission.granted) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 16,
-          paddingHorizontal: 24,
-          backgroundColor: CANVAS,
-        }}
-      >
-        <Text style={{ textAlign: "center", fontSize: 16, color: MUTED }}>
-          We need camera access to read the ingredient list. To do that we
-          send the photo to Google Cloud Vision — we crop to the frame first,
-          strip location data, and never store the image.
-        </Text>
-        <PrimaryButton
-          size={52}
-          label="Grant permission"
-          // Once the system will not ask again, asking does nothing: send them to
-          // settings, where the camera can be turned back on.
-          onPress={permission.canAskAgain === false ? () => void Linking.openSettings() : requestPermission}
+      <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
+        <CameraPermissionScreen
+          permission={permission}
+          requestPermission={requestPermission}
+          mode="photo"
+          bottomInset={Math.max(24, insets.bottom + 12)}
+          // Reading a chosen picture needs no camera, so this is not a dead end.
+          extra={<ChoosePhotoInstead barcode={barcode} onRead={onRead} isStillWanted={isStillWanted} />}
         />
-        {/* Reading a chosen picture needs no camera, so this is not a dead end. */}
-        <ChoosePhotoInstead barcode={barcode} onRead={onRead} isStillWanted={isStillWanted} />
       </View>
     );
   }

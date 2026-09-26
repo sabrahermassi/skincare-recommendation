@@ -1,9 +1,10 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { CameraPermissionScreen } from "@/components/CameraPermissionScreen";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -118,6 +119,9 @@ const LEADING_TYPES: ProductType[] = [
 const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e"] as const;
 const BARCODE_SETTINGS = { barcodeTypes: [...BARCODE_TYPES] };
 
+/** What the barcode step asks for, and why. */
+const ADD_BARCODE = { title: "Now scan its barcode", line: "So the next person who scans it finds it." };
+
 type BarcodeStatus =
   | { kind: "idle" }
   | { kind: "checking" }
@@ -156,18 +160,14 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
     return (
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.block, paddingHorizontal: SPACE.gutter }}>
-          <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>
-            We need camera access to scan the barcode.
-          </Text>
-          <PrimaryButton
-            size={56}
-            label="Grant permission"
-            // Once the system will not ask again, asking does nothing: send them to
-            // settings, where the camera can be turned back on.
-            onPress={permission.canAskAgain === false ? () => void Linking.openSettings() : requestPermission}
-          />
-        </View>
+        <CameraPermissionScreen
+          permission={permission}
+          requestPermission={requestPermission}
+          mode="barcode"
+          bottomInset={Math.max(SPACE.gutter, insets.bottom + SPACE.block)}
+          title={ADD_BARCODE.title}
+          line={`${ADD_BARCODE.line} Nothing leaves your phone except the barcode number.`}
+        />
       </View>
     );
   }
@@ -192,10 +192,10 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
         style={{ position: "absolute", left: SPACE.gutter, right: SPACE.gutter, top: insets.top + SPACE.block, gap: SPACE.text / 2 }}
       >
         <Text style={{ textAlign: "center", fontSize: TYPE.body, fontWeight: "600", color: CANVAS }}>
-          Now scan its barcode
+          {ADD_BARCODE.title}
         </Text>
         <Text style={{ textAlign: "center", fontSize: TYPE.label, color: withAlpha(CANVAS, 0.75) }}>
-          So the next person who scans it finds it.
+          {ADD_BARCODE.line}
         </Text>
       </View>
 

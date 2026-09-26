@@ -2,13 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
   Animated,
   AppState,
   Easing,
-  Linking,
   type LayoutChangeEvent,
   Platform,
   Pressable,
@@ -20,7 +19,7 @@ import Svg, { Rect } from "react-native-svg";
 
 import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
 import { LabelCamera } from "@/components/LabelCamera";
-import { ScanIntro } from "@/components/ScanIntro";
+import { CameraPermissionScreen } from "@/components/CameraPermissionScreen";
 import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
 import { SHEET_INSET, SHEET_OUTLINE, SHEET_RADIUS } from "@/components/IngredientsSheet";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
@@ -41,10 +40,6 @@ import { matchProduct } from "@/lib/matching";
 import { track } from "@/lib/analytics";
 import { useAppStore } from "@/store/useAppStore";
 import { CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
-
-// Watercolor art from the onboarding set, reused on the two light screens that
-// sit in front of the camera (see components/ScanIntro.tsx).
-const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.webp");
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -975,7 +970,7 @@ function BarcodeStage({
       <ScreenReaderAnnouncer message={announcement} />
 
       {needsPermission && (
-        <CameraPermissionIntro
+        <CameraPermissionScreen
           permission={permission}
           requestPermission={requestPermission}
           mode="barcode"
@@ -1160,56 +1155,6 @@ function BarcodeStage({
 }
 
 /**
- * The screen asking for camera access, shared by both modes: cream, the
- * watercolor, a serif title, one sentence, one button. Two reasons there is no
- * camera, and it has to say which: access not asked for yet, or refused. A
- * silent black rectangle reads as "the scanner is gone". Refused has no prompt
- * left to show, so its button goes to the system settings instead.
- */
-function CameraPermissionIntro({
-  permission,
-  requestPermission,
-  mode,
-  bottomInset,
-  extra,
-}: {
-  permission: ReturnType<typeof useCameraPermissions>[0];
-  requestPermission: () => void;
-  mode: "barcode" | "photo";
-  bottomInset: number;
-  /** An alternative offered under the button when there is one (Photo mode's "choose a photo"). */
-  extra?: ReactNode;
-}) {
-  const refused = permission?.canAskAgain === false;
-  const copy = scanStateCopy({ kind: "camera-off", mode, refused });
-  return (
-    <ScanIntro
-      illustration={ONB2_SCAN}
-      title={copy.title ?? ""}
-      body={copy.line ?? ""}
-      actionLabel={copy.action ?? ""}
-      onAction={refused ? () => void Linking.openSettings() : requestPermission}
-      bottomInset={bottomInset}
-    >
-      {extra}
-      {/* This fires at the worst moment — camera access just failed — so the one
-          sentence offering a way forward has to actually be the way forward:
-          underlined, standard target height, and it goes to Search rather than
-          only naming it. */}
-      <Pressable
-        // Closes the scanner onto the Search tab, as above.
-        onPress={() => router.dismissTo("/browse")}
-        accessibilityRole="link"
-        style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 12 }}
-        className="active:opacity-70"
-      >
-        <Text style={{ fontSize: 12.5, color: MUTED, textDecorationLine: "underline" }}>{copy.link}</Text>
-      </Pressable>
-    </ScanIntro>
-  );
-}
-
-/**
  * Photo mode's own overlays: the instruction, the shutter and the reading of
  * what was photographed. The camera, the frame and the mode switcher are Scan's,
  * shared with Barcode, so the picture is live the moment the mode opens.
@@ -1286,7 +1231,7 @@ function IngredientsStage({
       ) : null}
 
       {needsPermission ? (
-        <CameraPermissionIntro
+        <CameraPermissionScreen
           permission={permission}
           requestPermission={requestPermission}
           mode="photo"
