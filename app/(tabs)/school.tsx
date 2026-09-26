@@ -159,7 +159,7 @@ export default function SkincareSchool() {
                   {/* Not one accessible block: the cards inside have to stay buttons. */}
                   <AppBubble>
                     <Text style={{ fontSize: TYPE.label, lineHeight: 20, color: INK }}>{SCHOOL_CHAT_COPY.noAnswer}</Text>
-                    <View style={{ gap: 8, marginTop: 10 }}>
+                    <View style={{ gap: SPACE.text, marginTop: 10 }}>
                       {message.suggestions.map((item) => (
                         <QuestionCard key={item.id} item={item} onPress={() => ask(item)} />
                       ))}
@@ -237,7 +237,7 @@ function useKeyboardUp(): boolean {
 /** The School's side of the conversation: on the left, beside its avatar. */
 function AppBubble({ label, children }: { label?: string; children: React.ReactNode }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, maxWidth: "92%" }}>
+    <View style={{ flexDirection: "row", alignItems: "flex-end", gap: SPACE.text, maxWidth: "92%" }}>
       <View
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
@@ -257,7 +257,7 @@ function AppBubble({ label, children }: { label?: string; children: React.ReactN
         accessibilityLabel={label}
         style={{
           flexShrink: 1,
-          paddingHorizontal: 16,
+          paddingHorizontal: SPACE.block,
           paddingVertical: 12,
           borderWidth: 1,
           borderColor: BORDER_INACTIVE,
@@ -281,7 +281,7 @@ function UserBubble({ text }: { text: string }) {
       style={{
         alignSelf: "flex-end",
         maxWidth: "85%",
-        paddingHorizontal: 16,
+        paddingHorizontal: SPACE.block,
         paddingVertical: 12,
         backgroundColor: SELECTED,
         borderRadius: 18,
@@ -296,7 +296,7 @@ function UserBubble({ text }: { text: string }) {
 /** "What would you like to know?" and a card for each question not asked yet. */
 function Suggestions({ unasked, onAsk }: { unasked: readonly SchoolQuestion[]; onAsk: (item: SchoolQuestion) => void }) {
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: SPACE.text }}>
       <Text style={{ paddingHorizontal: SPACE.gutter, fontSize: TYPE.label, fontWeight: "600", color: INK }}>
         {unasked.length > 0 ? SCHOOL_CHAT_COPY.prompt : SCHOOL_CHAT_COPY.allAsked}
       </Text>
@@ -330,7 +330,7 @@ function Matches({ matches, onAsk }: { matches: readonly SchoolQuestion[]; onAsk
     <ScrollView
       style={{ maxHeight: 220 }}
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={{ gap: 8, paddingHorizontal: SPACE.gutter, paddingBottom: 6 }}
+      contentContainerStyle={{ gap: SPACE.text, paddingHorizontal: SPACE.gutter, paddingBottom: 6 }}
     >
       {matches.map((item) => (
         <QuestionCard key={item.id} item={item} onPress={() => onAsk(item)} />
