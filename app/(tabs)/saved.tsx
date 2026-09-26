@@ -6,6 +6,7 @@ import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Platform, Press
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
+import { ArtOnLine } from "@/components/ArtOnLine";
 import { BottomSheet } from "@/components/BottomSheet";
 import { GlassButton } from "@/components/GlassButton";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -808,16 +809,13 @@ const EMPTY_COPY: Record<Tab, EmptyCopy> = {
 
 // Wider than the text block under it (which has 40 either side): these are wide pictures.
 const EMPTY_ART_WIDTH = 340;
-// The picture's box is as tall as the tallest of them, and each is centred in it, so
-// the text under the picture starts at the same place on every tab.
+// The picture's box is as tall as the tallest of them, and each starts at its top,
+// so the text under the picture starts at the same place on every tab.
 const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).map((art) => art.aspect));
 
 // How long the pictures cross-fade when the tab changes.
 const EMPTY_FADE_MS = 300;
 const EMPTY_TABS = Object.keys(EMPTY_ART) as Tab[];
-// How the room left over on an empty tab is split above and below its content.
-const EMPTY_SPACE_ABOVE = 0.4;
-const EMPTY_SPACE_BELOW = 0.6;
 
 /**
  * Whether the person has asked their phone for less motion. `null` until the phone has
@@ -869,37 +867,25 @@ function EmptyState({ tab }: { tab: Tab }) {
   const { title, body, actionLabel, actionHref } = EMPTY_COPY[tab];
 
   return (
-    // Asymmetric flex spacers (0.4/0.6), not `justifyContent: "center"" —
-    // a true center split the leftover room evenly above and below, which
-    // read as too much empty air above the art specifically. This keeps
-    // the block off-center toward the top by a fixed ratio instead, so it
-    // scales the same way on any screen height.
-    // Scrolls only when the art, copy and button do not fit (a short phone, large
-    // text): flexGrow keeps the spacers working on a screen that does fit, and the
-    // bottom room keeps the button clear of the floating tab bar.
+    // The picture sits on the line every empty state shares (`ArtOnLine`), so
+    // it doesn't jump between Saved, History, Ingredients and Search. Scrolls
+    // only when the art, copy and button do not fit (a short phone, large
+    // text); the bottom room keeps the button clear of the floating tab bar.
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{
-        flexGrow: 1,
-        alignItems: "center",
-        paddingHorizontal: 40,
-        // Room for the tab bar below, and the matching share above, so that on a screen
-        // where everything fits the art sits exactly where it did before the clearance.
-        paddingTop: (tabBarClearance(insets.bottom) * EMPTY_SPACE_ABOVE) / EMPTY_SPACE_BELOW,
-        paddingBottom: tabBarClearance(insets.bottom),
-      }}
+      contentContainerStyle={{ paddingHorizontal: 40, paddingBottom: tabBarClearance(insets.bottom) }}
       alwaysBounceVertical={false}
       overScrollMode="never"
       showsVerticalScrollIndicator={false}
     >
-      <View style={{ flex: EMPTY_SPACE_ABOVE }} />
+      <ArtOnLine remeasureOn={tab}>
       <View style={{ alignItems: "center", gap: 10 }}>
         <View style={{ width: EMPTY_ART_WIDTH, height: EMPTY_ART_HEIGHT }}>
           {EMPTY_TABS.map((t) => (
             <Animated.View
               key={t}
               pointerEvents="none"
-              style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center", opacity: artOpacity[t] }]}
+              style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "flex-start", opacity: artOpacity[t] }]}
             >
               {/* Aspect ratio is the source art's own (cropped to content), so
                   `contain` does not letterbox it. */}
@@ -935,7 +921,7 @@ function EmptyState({ tab }: { tab: Tab }) {
           />
         </View>
       </View>
-      <View style={{ flex: EMPTY_SPACE_BELOW }} />
+      </ArtOnLine>
     </ScrollView>
   );
 }

@@ -1,10 +1,11 @@
 import { Image } from "expo-image";
 import { Link, router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, StyleSheet, TextInput, View, type ListRenderItem } from "react-native";
+import { FlatList, Pressable, StyleSheet, TextInput, View, type DimensionValue, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HEADER_GUTTER } from "@/components/AppHeader";
+import { ArtOnLine } from "@/components/ArtOnLine";
 import { GlassButton } from "@/components/GlassButton";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { ProductRow } from "@/components/ProductRow";
@@ -39,10 +40,12 @@ const RECENT_LIMIT = 8;
 // One empty list, so "nothing recent yet" is the same value every render.
 const NO_PRODUCTS: ProductWithIngredients[] = [];
 
-// Before typing: the watercolor still life with "A little progress every day"
-// (new-watercolor sheets), on a cream within a shade of CANVAS so it has no edge.
+// Before typing: the for.me line-up with "A little progress every day"
+// (new-watercolor/forme_lineup_transparent.png, cropped to what's drawn). Drawn
+// wider than the other empty-state pictures so its handwriting and labels read.
 const WELCOME_ART = require("@/assets/illustrations/search-welcome.webp");
-const WELCOME_ASPECT = 1024 / 1536;
+const WELCOME_ASPECT = 1000 / 1184;
+const WELCOME_ART_WIDTH = "90%";
 // A search with no match: the open box and magnifier, as the scanner's no-match sheet.
 const NO_MATCH_ART = require("@/assets/illustrations/no-product-found.webp");
 const NO_MATCH_ASPECT = 1164 / 697;
@@ -266,6 +269,7 @@ export default function Browse() {
           <EmptyState
             art={WELCOME_ART}
             aspect={WELCOME_ASPECT}
+            width={WELCOME_ART_WIDTH}
             artLabel="A little progress every day"
             title="Search by name or brand"
             line="Look up any product in our library of analysed skincare."
@@ -440,15 +444,33 @@ function RecentRow({ product, match }: { product: ProductWithIngredients; match:
 // The round picture on a Recently viewed row.
 const RECENT_THUMB = 56;
 
-function EmptyState({ art, aspect, artLabel, title, line }: { art: number; aspect: number; artLabel: string; title: string; line: string }) {
+function EmptyState({
+  art,
+  aspect,
+  width = EMPTY_ART_WIDTH,
+  artLabel,
+  title,
+  line,
+}: {
+  art: number;
+  aspect: number;
+  width?: DimensionValue;
+  artLabel: string;
+  title: string;
+  line: string;
+}) {
   return (
-    <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: HEADER_GUTTER, paddingTop: SPACE.block }}>
-      <Image source={art} contentFit="contain" accessibilityLabel={artLabel} style={{ width: EMPTY_ART_WIDTH, aspectRatio: aspect }} />
-      <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
-        {title}
-      </Text>
-      <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: TYPE.body * 1.4, color: MUTED }}>{line}</Text>
-    </View>
+    // On the line every empty state's picture shares, so it sits level with
+    // Saved's, History's and Ingredients' (`ArtOnLine`).
+    <ArtOnLine>
+      <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: HEADER_GUTTER }}>
+        <Image source={art} contentFit="contain" accessibilityLabel={artLabel} style={{ width, aspectRatio: aspect }} />
+        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
+          {title}
+        </Text>
+        <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: TYPE.body * 1.4, color: MUTED }}>{line}</Text>
+      </View>
+    </ArtOnLine>
   );
 }
 

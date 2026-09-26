@@ -21,7 +21,7 @@ const FIND_ART = require("@/assets/illustrations/home-find.webp");
 // Find a product: a stand-in from the watercolor set (a line of products) until
 // its own art arrives.
 const MATCH_ART = require("@/assets/illustrations/history-empty.webp");
-// Skincare routine: a notepad (new-watercolor/skincare_routine_notepad_transparent.png).
+// Skincare routine: a routine notepad among products (new-watercolor/My skincare routine.png).
 const ROUTINE_ART = require("@/assets/illustrations/home-routine.webp");
 // The gap between the two cards.
 const ACTION_CARD_GAP = 12;
