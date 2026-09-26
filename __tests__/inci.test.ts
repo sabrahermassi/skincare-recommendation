@@ -661,6 +661,93 @@ describe("parseIngredientBlock", () => {
     expect(parsed.map((p) => p.inci_name)).toEqual(["aqua", "glycerin", "niacinamide"]);
   });
 
+  // #255: the shape of a real Korean label, read on a phone. The list ends at
+  // 사용방법, not 사용법, so the last ingredient and the directions used to
+  // fuse into "다이소듐이디티에이 사용방법 적당량을 취해 …" and the ingredient
+  // was lost with them.
+  it("ends a Korean list at the directions, keeping its last ingredient (#255)", () => {
+    const dictionary = new Set(["water", "glycerin", "panthenol", "disodium edta"]);
+    const aliases = new Map([
+      ["정제수", "water"],
+      ["글리세린", "glycerin"],
+      ["판테놀", "panthenol"],
+      ["다이소듐이디티에이", "disodium edta"],
+    ]);
+    const label =
+      "[전성분] 정제수, 글리세린, 판테놀, 다이소듐이디티에이\n" +
+      "[사용방법] 적당량을 취해 얼굴에 펴 바릅니다.\n" +
+      "[사용 시의 주의사항] 1) 상처가 있는 부위, 습진 및 피부염 등의 이상이 있는 부위에는 사용을 자제할 것";
+    expect(parseIngredientBlock(label, dictionary, aliases).map((p) => p.inci_name)).toEqual([
+      "water",
+      "glycerin",
+      "panthenol",
+      "disodium edta",
+    ]);
+  });
+
+  // #255, found on a real label after the list above shipped: the marketing
+  // line said "나이아신아마이드 성분이 고함량", the bare 성분 was taken as the
+  // heading, and the [사용방법] right after it ended the "list" at eight words
+  // of copy, so the photo was refused.
+  it("reads a Korean list from 전성분, not from 성분 in the copy above it (#255)", () => {
+    const label =
+      "트라넥사믹애씨드와 나이아신아마이드 성분이 고함량 함유되어 깨끗한 피부로 연출하는 데 도움을 주는 세럼\n" +
+      "[사용방법] 토너 다음 단계에 적당량을 덜어 얼굴 전체에 부드럽게 흡수시켜 줍니다.\n" +
+      "[전성분] 정제수, 부틸렌글라이콜, 나이아신아마이드, 글리세린\n" +
+      "[사용할 때의 주의사항] 1. 화장품 사용 시 또는 사용 후 직사광선에 의하여";
+    expect(parseIngredientBlock(label).map((p) => p.inci_name)).toEqual(["정제수", "부틸렌글라이콜", "나이아신아마이드", "글리세린"]);
+  });
+
+  it("still takes a bare 성분 as the heading when the label prints no full one (#255)", () => {
+    expect(parseIngredientBlock("수분 크림 성분: 정제수, 글리세린, 판테놀").map((p) => p.inci_name)).toEqual(["정제수", "글리세린", "판테놀"]);
+  });
+
+  // #255: the dictionary a read repairs against holds the synonyms too, so a
+  // Korean name wrapped across two lines ("알란\n토인") squashed back to the
+  // synonym 알란토인 and stayed there: a correctly printed name counted as
+  // unknown because only the canonical name is recognised.
+  it("a repaired Korean name comes back as the ingredient it names (#255)", () => {
+    const aliases = new Map([
+      ["정제수", "water"],
+      ["알란토인", "allantoin"],
+      ["글리세린", "glycerin"],
+      ["판테놀", "panthenol"],
+    ]);
+    const dictionary = new Set(["water", "allantoin", "glycerin", "panthenol", ...aliases.keys()]);
+    const parsed = parseIngredientBlock("전성분: 정제수, 글리세린, 알란\n토인, 판테놀", dictionary, aliases);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["water", "glycerin", "allantoin", "panthenol"]);
+  });
+
+  it.each([
+    ["사용방법 적당량을 취해, 얼굴에 펴 바릅니다"],
+    ["사용할 때의 주의사항 상처가 있는 부위, 습진 부위"],
+    ["사용 방법 적당량을 취해, 얼굴에 펴 바릅니다"],
+    ["주의사항 상처가 있는 부위, 습진 부위에는 사용하지 말 것"],
+    ["사용 시의 주의 상처가 있는 부위, 습진 부위"],
+    ["제조업자 한국콜마, 세종"],
+    ["제조판매업자 코스메틱, 서울"],
+    ["책임판매업자 코스메틱, 서울"],
+    ["판매원 코스메틱, 서울"],
+    ["사용기한 제조일로부터, 36개월"],
+    ["보관방법 직사광선을 피해, 서늘한 곳에"],
+    ["내용량 50밀리리터, 1개"],
+  ])("ends a Korean list at a label section: %s (#255)", (section: string) => {
+    const parsed = parseIngredientBlock(`전성분: 정제수, 글리세린, 판테놀 ${section}`);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["정제수", "글리세린", "판테놀"]);
+  });
+
+  it.each([
+    ["使用方法 適量を取り、顔になじませます"],
+    ["使用上の注意 傷、はれもの等がある部位"],
+    ["保管方法 直射日光、高温多湿を避けて"],
+    ["製造販売元 コスメティック、東京"],
+    ["販売元 コスメティック、東京"],
+    ["内容量 五十ミリリットル、一個"],
+  ])("ends a Japanese list at a label section: %s (#255)", (section: string) => {
+    const parsed = parseIngredientBlock(`全成分：グリセリン、ナイアシンアミド、香料 ${section}`);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["グリセリン", "ナイアシンアミド", "香料"]);
+  });
+
   it.each([
     ["ingrédients: aqua, glycerin", ["aqua", "glycerin"]],
     ["INGRÉDIENTS : Aqua, Glycerin", ["aqua", "glycerin"]],
