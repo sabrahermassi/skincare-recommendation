@@ -10,7 +10,7 @@ import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/open-scanner";
 import { homeGreetingWidth } from "@/lib/home-greeting";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, SPACE } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, SPACE, TYPE } from "@/lib/tokens";
 
 // The two cards' watercolors, on transparent ground: a hand holding a tube inside
 // a scanner's frame, and two hands holding a serum and a pump bottle (their empty
@@ -39,6 +39,9 @@ const STILL_LIFE_DROP = 94;
 const GREETING_ART = require("@/assets/illustrations/home-greeting.png");
 const GREETING_ASPECT = 640 / 206;
 
+/** How far a card sinks when pressed: it reads as a button though it is a card. */
+const ACTION_CARD_PRESSED = 0.96;
+
 /**
  * Home — the first screen after the intro.
  *
@@ -48,9 +51,6 @@ const GREETING_ASPECT = 640 / 206;
  * fixed while it fits; on a short screen or with large text it scrolls, so both
  * cards are always reachable.
  */
-/** How far a card sinks when pressed: it reads as a button though it is a card. */
-const ACTION_CARD_PRESSED = 0.96;
-
 export default function Home() {
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
@@ -179,7 +179,7 @@ function ActionCard({
         />
         <View style={{ gap: 2, paddingHorizontal: 14, paddingTop: 6, paddingBottom: 14 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Text style={{ flexShrink: 1, fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: INK }}>{title}</Text>
+            <Text style={{ flexShrink: 1, fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.body, color: INK }}>{title}</Text>
             <ArrowIcon size={15} color={INK} strokeWidth={2.4} />
           </View>
           <Text style={{ fontSize: 11.5, lineHeight: 15, color: MUTED }}>{detail}</Text>

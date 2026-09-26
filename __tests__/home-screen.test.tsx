@@ -6,8 +6,8 @@ import Home from "@/app/(tabs)/index";
 /**
  * Home (per #155): the greeting, the two cards side by side ("Scan a product"
  * and "Find skincare"), and the watercolor still life
- * under them. The still life sits in the page after the cards, not behind
- * them, so it can never cover a card; its handwriting is read out.
+ * under them. The still life comes after the cards in reading order and is
+ * drawn behind them, so it can never cover a card; its handwriting is read out.
  */
 
 jest.setTimeout(30_000);

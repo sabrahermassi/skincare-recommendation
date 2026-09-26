@@ -9,7 +9,7 @@ import { SCHOOL } from "@/data/school";
  * answer appears only once it's opened.
  */
 
-jest.mock("expo-router", () => ({ router: { back: jest.fn() }, useScrollToTop: () => undefined }));
+jest.mock("expo-router", () => ({ useScrollToTop: () => undefined }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
