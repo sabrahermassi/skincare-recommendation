@@ -1,17 +1,37 @@
-import { render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 import Routine from "@/app/routine";
+import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
-/** The Skincare routine screen, opened from Home: not built yet, and it says so. */
+/**
+ * The Skincare routine screen: with no skin profile it asks for one, and the
+ * button opens the skin quiz; with one, morning and evening steps.
+ */
 
-jest.mock("expo-router", () => ({ router: { back: jest.fn(), canGoBack: () => true } }));
+jest.setTimeout(30000);
+
+const mockOpenQuiz = jest.fn();
+jest.mock("@/lib/open-quiz", () => ({ openQuiz: () => mockOpenQuiz() }));
+jest.mock("expo-router", () => ({ router: { back: jest.fn(), push: jest.fn(), canGoBack: () => true } }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-it("says the routine is coming soon, under its title", async () => {
+beforeEach(() => useAppStore.setState({ profile: EMPTY_PROFILE }));
+
+it("asks for a skin profile first, and opens the quiz from Complete it now", async () => {
   await render(<Routine />);
-  expect(screen.getByText("Skincare routine")).toBeTruthy();
-  expect(screen.getByRole("header", { name: "Coming soon" })).toBeTruthy();
-  expect(screen.getByText("Your morning and evening routine will live here.")).toBeTruthy();
+  expect(screen.getByRole("header", { name: "Your skin profile is empty" })).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Complete it now" }));
+  expect(mockOpenQuiz).toHaveBeenCalledTimes(1);
+});
+
+it("lays out the morning steps, and the evening's from the switch", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
+  await render(<Routine />);
+  expect(screen.getByText("Steps for today")).toBeTruthy();
+  expect(screen.getByText("Sun protection")).toBeTruthy();
+  await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
+  expect(screen.getByText("Serum")).toBeTruthy();
+  expect(screen.queryByText("Sun protection")).toBeNull();
 });

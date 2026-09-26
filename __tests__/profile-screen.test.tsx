@@ -34,13 +34,7 @@ beforeEach(() => {
 
 describe("ProfileScreen", () => {
   // #346: the skin questions until the answers score, then the editor.
-  it("opens the quiz from Skin profile while nothing scores, and the editor once it does", async () => {
-    await render(<ProfileScreen />);
-    await fireEvent.press(screen.getByText("Skin profile"));
-    expect(mockPush).toHaveBeenLastCalledWith("/quiz/concerns");
-    await act(async () => screen.unmount());
-
-    useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["dullness"] } }, false);
+  it("opens the skin profile list from Skin profile, answered or not", async () => {
     await render(<ProfileScreen />);
     await fireEvent.press(screen.getByText("Skin profile"));
     expect(mockPush).toHaveBeenLastCalledWith("/skin-profile");

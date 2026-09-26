@@ -14,8 +14,6 @@ import Home from "@/app/(tabs)/index";
 jest.setTimeout(30_000);
 
 jest.mock("expo-router", () => ({ router: { push: jest.fn(), navigate: jest.fn() } }));
-const mockOpenQuiz = jest.fn();
-jest.mock("@/lib/open-quiz", () => ({ openQuiz: () => mockOpenQuiz() }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -40,7 +38,7 @@ it("shows the greeting and the four cards, and no skin profile card", async () =
   expect(screen.getByLabelText("Hi there!")).toBeTruthy();
   expect(screen.queryByText("Your skin profile")).toBeNull();
   expect(screen.getByRole("button", { name: "Scan a product. Analyze a product by photo or barcode." })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Find a product. Take the skin quiz to see what fits you." })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Find a product. Pick your skin needs and see what fits." })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Search. Search products or brands." })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Skincare routine. Coming soon." })).toBeTruthy();
 });
@@ -57,10 +55,10 @@ it("opens Browse from Search, which has no tab of its own", async () => {
   expect(router.navigate).toHaveBeenCalledWith("/browse");
 });
 
-it("opens the skin quiz from Find a product", async () => {
+it("opens the skincare finder from Find a product", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "Find a product. Take the skin quiz to see what fits you." }));
-  expect(mockOpenQuiz).toHaveBeenCalledTimes(1);
+  await fireEvent.press(screen.getByRole("button", { name: "Find a product. Pick your skin needs and see what fits." }));
+  expect(router.push).toHaveBeenCalledWith("/finder");
 });
 
 it("shows the still life as decoration: nothing for a screen reader to stop on", async () => {

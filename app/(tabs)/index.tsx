@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HEADER_GUTTER } from "@/components/AppHeader";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text } from "@/components/Text";
-import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { homeGreetingWidth } from "@/lib/home-greeting";
 import { tabBarClearance } from "@/lib/tab-bar";
@@ -50,7 +49,7 @@ const ACTION_CARD_PRESSED = 0.96;
  * Home — the first screen after the intro.
  *
  * A greeting, then four cards two by two — "Scan a product" (the full-screen
- * scanner), "Find a product" (the skin quiz), "Skincare routine" (a
+ * scanner), "Find a product" (the skincare finder), "Skincare routine" (a
  * coming-soon screen for now) and "Search" (Browse) — and a watercolor still life under them, running
  * on past the bottom edge of the screen. The layout is fixed while it fits; on
  * a short screen or with large text it scrolls, so every card is reachable.
@@ -85,7 +84,7 @@ export default function Home() {
           />
 
           {/* The four ways in, two by two (owner): scan a product in hand; find
-              one that fits, starting with the skin quiz; the skincare routine,
+              one that fits, in the skincare finder; the skincare routine,
               whose screen says it's coming soon; and search by name, which opens Browse (it has no
               tab of its own). */}
           <View style={{ gap: ACTION_CARD_GAP }}>
@@ -99,10 +98,10 @@ export default function Home() {
               />
               <ActionCard
                 title="Find a product"
-                detail="Take the skin quiz to see what fits you."
+                detail="Pick your skin needs and see what fits."
                 art={MATCH_ART}
                 side={cardSide}
-                onPress={openQuiz}
+                onPress={() => router.push("/finder")}
               />
             </View>
             <View style={{ flexDirection: "row", gap: ACTION_CARD_GAP }}>

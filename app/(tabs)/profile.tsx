@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MenuGroup, MenuRow } from "@/components/MenuRows";
 import { TabTitle } from "@/components/TabTitle";
 import { Text } from "@/components/Text";
-import { openQuiz } from "@/lib/open-quiz";
 import { answeredWithoutSignal, isPersonalized, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
 import { CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
@@ -71,12 +70,12 @@ export default function Profile() {
         {/* The menu, in blocks: your skin, your account, and the reference pages. */}
         <View style={{ paddingHorizontal: 20, gap: 14 }}>
           <MenuGroup>
-            {/* Edits the answers once they score; until then, asks the questions (#346). */}
+            {/* The answers, one row each, to change at any time. */}
             <MenuRow
               icon="water"
               label="Skin profile"
               badge={isPersonalized(profile) ? undefined : "Tap to fill in"}
-              onPress={() => (isPersonalized(profile) ? router.push("/skin-profile") : openQuiz())}
+              onPress={() => router.push("/skin-profile")}
             />
             <MenuRow icon="sparkles" label="Skincare routine" onPress={() => router.push("/routine")} />
           </MenuGroup>
