@@ -10,7 +10,7 @@ import { IngredientsSheet, ingredientsSheetPeek, type IngredientsSheetHandle } f
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
-import { ContextNudgesSection, ExplanationLine, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
+import { ContextNudgesSection, ExplanationLine, PairingSection, PregnancySection, ProfileArrow, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ReadingScale, Text, useLargeText, useRingScale } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
@@ -21,8 +21,7 @@ import { confidenceLabel, isLowCoverage, matchProduct, scoreExplanation, verdict
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
-import { ArrowIcon } from "@/components/icons/ArrowIcon";
-import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { CANVAS, FONT_SCALE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 import { barcodeParam as barcodeParamOf } from "@/lib/route-params";
 
 /**
@@ -143,6 +142,8 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
   const needsProfile = !lowCoverage && match.unknownReason === "not_personalized";
   const sheetPeek = total > 0 ? ingredientsSheetPeek(insets.bottom) : 0;
 
+  const scoreRing = <ScoreRing score={match.score} size={82 * ringScale} label="/100" tone={match.verdict} />;
+
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader title="Your match" />
@@ -174,9 +175,21 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
             className={`${largeText ? "items-start" : "flex-row items-center"} active:opacity-70`}
             style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
           >
-            <ScoreRing score={match.score} size={82 * ringScale} label="/100" tone={match.verdict} />
+            {/* Stacked, the arrow sits level with the ring rather than on a line of
+                its own under the words (#334). */}
+            {largeText && needsProfile ? (
+              <View className="flex-row items-center justify-between self-stretch">
+                {scoreRing}
+                <ProfileArrow />
+              </View>
+            ) : (
+              scoreRing
+            )}
             <View className={largeText ? "gap-1.5 self-stretch" : "flex-1 gap-1.5 pr-6"}>
               <Text
+                // Follows the phone as far as body text does, so at the largest sizes
+                // the verdict still stands a step above the sentence under it (#334).
+                maxFontSizeMultiplier={FONT_SCALE.reading}
                 style={{
                   fontFamily: "PlayfairDisplay_500Medium",
                   fontSize: TYPE.title,
@@ -193,7 +206,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
                   : verdictHeadline(match)}
               </Text>
             </View>
-            {needsProfile ? <ArrowIcon size={22} color={INK} /> : null}
+            {needsProfile && !largeText ? <ProfileArrow /> : null}
           </Pressable>
 
           {/* Unlike `product/[id].tsx`, this is not behind a "Why this

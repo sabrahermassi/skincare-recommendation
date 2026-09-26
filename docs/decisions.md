@@ -344,13 +344,21 @@ avoided:
   range (`TYPE.body × FONT_SCALE.reading`), and no further — the way iOS's own
   text styles converge at the accessibility sizes. Headings therefore end level
   with their paragraphs, never below them, and a 34pt name doesn't grow to
-  120pt.
+  120pt. Two exceptions, both from looking at the product page at the largest
+  size: the product's header (brand, name, size and count) keeps its ordinary
+  ceilings, because grown with body text the name filled the first screen and
+  put the verdict two scrolls down, and a capped name under a full-size brand
+  read smaller than it;
+  and the verdict title ("Great match", "Can't tell yet") follows the phone as
+  far as body text does, so it stays a step above the sentence under it. Its
+  words are short enough not to break mid-word at that size.
 - *"Why this score" clipping.* It doesn't: the reasons' container never had a
   fixed height, and at the larger sizes each reason's explanation now takes the
   full width under its label instead of a narrow column beside the +/− dot.
 
 Past 1.5× (`useLargeText`) the layouts that can't hold two things side by side
-stack: the score ring goes above its verdict, the two risk cards stack, a
+stack: the score ring goes above its verdict (with the "open your profile"
+arrow level with it, not alone under the words), the two risk cards stack, a
 reason's +/− moves from its dot into the start of its label (in the verdict
 ink, 4.5:1 or better on every panel tint, 4.93:1 at the lowest) so it can't end up on a line of its
 own, and the ingredient page drops its decorative picture so the name has the

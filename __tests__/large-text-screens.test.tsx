@@ -1,17 +1,19 @@
-import { act, render, screen } from "@testing-library/react-native";
+import { act, render, screen, within } from "@testing-library/react-native";
 
 import IngredientRoute from "@/app/ingredient/[inci]";
 import LabelResult from "@/app/label-result";
 import ProductRoute from "@/app/product/[id]";
 import { holdLabelRead } from "@/lib/pending-label";
-import { FONT_SCALE } from "@/lib/tokens";
-import { useAppStore } from "@/store/useAppStore";
+import { FONT_SCALE, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
  * #334, per #155: the product, ingredient and label-result screens at the
  * phone's largest text size. Past the ordinary ceiling the score ring grows
  * and goes above the verdict instead of beside it, and the ingredient page
- * drops its picture so the name has the whole width. The sample catalogue
+ * drops its picture so the name has the whole width. The product name keeps
+ * its ordinary ceiling and the verdict title keeps growing, so the answer
+ * stays near the top and still stands out. The sample catalogue
  * stands in for the backend (no Supabase env in tests).
  */
 
@@ -93,6 +95,30 @@ describe.each([
     await renderSettled(screenFor());
     expect(ring()).toEqual({ size: 82 * FONT_SCALE.icon, beside: false });
   });
+
+  it("with no profile yet, keeps the arrow level with the ring at the largest size, not under the words", async () => {
+    useAppStore.setState({ profile: EMPTY_PROFILE });
+    mockFontScale = LARGEST;
+    await renderSettled(screenFor());
+    const row = screen.getByTestId("score-ring").parent;
+    expect(screen.getByTestId("profile-arrow").parent).toBe(row);
+    expect(within(row!).queryByText(VERDICT_NEUTRAL.label)).toBeNull();
+  });
+
+  it("lets the verdict title follow the phone as far as body text, so it stays a step above it", async () => {
+    useAppStore.setState({ profile: EMPTY_PROFILE });
+    await renderSettled(screenFor());
+    expect(screen.getByText(VERDICT_NEUTRAL.label).props.maxFontSizeMultiplier).toBe(FONT_SCALE.reading);
+  });
+});
+
+it("keeps the product's header at its ordinary ceilings, so the verdict isn't pushed off the first screen", async () => {
+  mockParams = { id: PRODUCT };
+  mockFontScale = LARGEST;
+  await renderSettled(<ProductRoute />);
+  expect(screen.getByText("Sooyun").props.maxFontSizeMultiplier).toBe(FONT_SCALE.ui);
+  expect(screen.getByText("Hanbang Rice Ferment Hydrating Serum").props.maxFontSizeMultiplier).toBe(FONT_SCALE.display);
+  expect(screen.getByText(/^50 ml/).props.maxFontSizeMultiplier).toBe(FONT_SCALE.ui);
 });
 
 describe("the ingredient screen", () => {
