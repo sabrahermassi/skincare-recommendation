@@ -697,7 +697,11 @@ export function parseIngredientBlock(
 ): ParsedIngredient[] {
   const flat = text.replace(/\r/g, "").replace(/\n+/g, " ").replace(/\s+/g, " ").replace(/\b(?:inactive ingredients?|may contain|peu(?:t|vent) contenir|puede contener|kann enthalten)\s*[:：]?\s*/gi, ", ");
 
-  const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:\bingredients?\b|전성분|성분|全成分)\s*[:：]?\s*/i.exec(flat);
+  // A bare 성분 ("ingredient") is a heading only when the label prints no full
+  // one. Korean marketing copy uses the word too ("나이아신아마이드 성분이
+  // 고함량…"), and read first it started the list inside that sentence, so a
+  // [사용방법] right after cut the read down to eight words of copy (#255).
+  const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:\bingredients?\b|전성분|全成分)\s*[:：]?\s*/i.exec(flat) ?? /성분\s*[:：]?\s*/.exec(flat);
   let block = heading ? flat.slice(heading.index + heading[0].length) : flat;
 
   // With a dictionary the heading's language stops mattering: the list is
@@ -722,7 +726,7 @@ export function parseIngredientBlock(
   // long fake name. None is anchored with \b: in JavaScript it only sees
   // ASCII letters, so it never matches between two Hangul or kanji.
   const stop =
-    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용\s?방법|사용법|주의\s?사항|사용\s?시의?\s?주의|제조\s?판매\s?업자|제조\s?업자|책임\s?판매\s?업자|판매원|사용\s?기한|보관\s?방법|내용량|使用方法|使用上の注意|保管方法|製造販売元|販売元|内容量|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b|\bstorage\b)/i.exec(
+    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용\s?방법|사용법|주의\s?사항|사용\s?시의?\s?주의|사용할\s?때의?\s?주의|제조\s?판매\s?업자|제조\s?업자|책임\s?판매\s?업자|판매원|사용\s?기한|보관\s?방법|내용량|使用方法|使用上の注意|保管方法|製造販売元|販売元|内容量|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b|\bstorage\b)/i.exec(
       block
     );
   if (stop) block = block.slice(0, stop.index);
@@ -752,7 +756,12 @@ export function parseIngredientBlock(
       const pieces = splitRunTogether(known, dictionary);
       return pieces.length > 1 ? pieces : [fuzzyKnownName(known, dictionary, fuzzyAttempts)];
     })
-    .map((inci_name, position) => ({ inci_name, position }));
+    // The dictionary holds the synonyms too, so a repair can land on one: a
+    // Korean name wrapped across two lines ("알란 토인") squashes back to
+    // 알란토인, not to allantoin. Resolved once more on the way out, as the
+    // reconstruction path below already does, or a name the label printed
+    // correctly counts as unknown (#255).
+    .map((inci_name, position) => ({ inci_name: canonical(inci_name), position }));
 
   if (delimited.length >= MIN_DELIMITED_TOKENS || !dictionary) return dedupe(delimited);
 
