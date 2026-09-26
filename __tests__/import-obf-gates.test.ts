@@ -76,6 +76,14 @@ describe("the import rejects what it cannot believe", () => {
   // dry-run output. Every name here is plausible-looking text that is not an
   // ingredient — which is exactly what an OCR smear or a marketing paragraph
   // looks like coming out of the parser.
+  // #299: `en:cleansers` also holds nail polish removers and household cleaners.
+  it("rejects a product that isn't skincare, by category or by name", () => {
+    expect(toRow(obfProduct({ categories_tags: ["en:cleansers", "en:nail-polish-removers"] }), KNOWN, [])).toBe(
+      "not skincare"
+    );
+    expect(toRow(obfProduct({ product_name: "Dissolvant pour les ongles" }), KNOWN, [])).toBe("not skincare");
+  });
+
   it("rejects a deliberately mangled ingredient list", () => {
     const mangled = toRow(
       obfProduct({
