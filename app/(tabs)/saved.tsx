@@ -982,7 +982,6 @@ function EmptyState({ tab, guest }: { tab: Tab; guest: boolean }) {
               Saved/History tab (the near-certain first visit to either) was a
               dead end you had to know to escape yourself, via the tab bar. */}
           <PrimaryButton
-            tone="cta"
             size={50}
             label={actionLabel}
             onPress={() =>

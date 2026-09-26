@@ -25,10 +25,8 @@ import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, INK, MUTED, MUTED_FAINT, TYPE, VE
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG's `hero`/pill/panel colors
 // (below) are semantic — the per-ingredient verdict, the point of this
-// screen — and stay untouched. The footer's "Next ingredient" CTA draws from
-// `PrimaryButton`'s `tone="cta"`, same as app/product/[id].tsx — see that
-// file's own note on why the shared component gained that tone rather than
-// this screen keeping its own hand-rolled copy.
+// screen — and stay untouched. The footer's "Next ingredient" CTA is the
+// shared `PrimaryButton`, same as app/product/[id].tsx.
 
 /**
  * Ingredient detail — screen 5 of the for.me Screens design.
@@ -445,26 +443,8 @@ export default function IngredientDetail() {
             paddingTop: 12,
           }}
         >
-          <Pressable
-            onPress={() => router.back()}
-            style={{
-              flex: 1,
-              height: 56,
-              alignItems: "center",
-              justifyContent: "center",
-              // True-pill radius (height / 2), matching the CTA beside it —
-              // was RADIUS_SELECTOR (14), the same drifted radius the CTA used
-              // to carry before it moved onto PrimaryButton's shared cta tone.
-              borderRadius: 28,
-              borderWidth: 1,
-              borderColor: BORDER_INACTIVE,
-              backgroundColor: CANVAS,
-            }}
-          >
-            <Text style={{ fontSize: 15.5, fontWeight: "600", color: INK }}>Back to list</Text>
-          </Pressable>
+          <PrimaryButton variant="gray" size={56} style={{ flex: 1 }} label="Back to list" onPress={() => router.back()} />
           <PrimaryButton
-            tone="cta"
             size={56}
             style={{ flex: 1 }}
             label="Next ingredient"

@@ -562,7 +562,7 @@ export default function Browse() {
             <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
               Try the Scan tab to scan its barcode or ingredients instead.
             </Text>
-            <PrimaryButton tone="cta" size={52} label="Go to Scan" onPress={openScanner} />
+            <PrimaryButton size={52} label="Go to Scan" onPress={openScanner} />
           </View>
         );
 

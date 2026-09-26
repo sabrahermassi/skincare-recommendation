@@ -50,7 +50,7 @@ function NothingToShow() {
         <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>
           There&apos;s no ingredient list to show. Scan a product and photograph its ingredients to start.
         </Text>
-        <PrimaryButton tone="cta" size={56} label="Back to the scanner" onPress={() => router.back()} />
+        <PrimaryButton size={56} label="Back to the scanner" onPress={() => router.back()} />
       </View>
     </View>
   );
@@ -233,7 +233,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
         </View>
 
         {lowCoverage ? (
-          <PrimaryButton tone="cta" size={52} label="Retake the photo" onPress={() => retake(barcode)} />
+          <PrimaryButton size={52} label="Retake the photo" onPress={() => retake(barcode)} />
         ) : (
           <>
             {/* RiskCards brings its own gutter, as on the product page; inside
@@ -248,7 +248,6 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
               />
             </View>
             <PrimaryButton
-              tone="cta"
               size={56}
               label="Name and add this product"
               onPress={() => router.push({ pathname: "/add-product", params: barcode ? { barcode } : {} })}

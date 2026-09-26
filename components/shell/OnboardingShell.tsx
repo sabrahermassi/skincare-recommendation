@@ -4,7 +4,8 @@ import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from 
 
 import { Text } from "@/components/Text";
 import { slideDirection } from "@/lib/onboarding-slide";
-import { CANVAS, CHARCOAL, FONT, H_PADDING, PrimaryButton, ProgressDots, SkipButton, TERRACOTTA } from "@/components/shell/shared";
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { CANVAS, CHARCOAL, FONT, H_PADDING, ProgressDots, SkipButton, TERRACOTTA } from "@/components/shell/shared";
 
 const HEADLINE_SIZE = 44;
 const BODY_SIZE = 17;
@@ -333,7 +334,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip }: Onboar
           justifyContent: "center",
         }}
       >
-        <PrimaryButton label={buttonLabel} onPress={onNext} size="large" />
+        <PrimaryButton label={buttonLabel} onPress={onNext} size={56} />
       </View>
     </View>
   );

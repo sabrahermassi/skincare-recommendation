@@ -26,7 +26,8 @@ import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/compone
 import { SHEET_INSET, SHEET_OUTLINE, SHEET_RADIUS } from "@/components/IngredientsSheet";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
-import { CTA_TEXT, TERRACOTTA } from "@/components/shell/shared";
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { canPhotographLabelFor, failureMessage, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
@@ -37,7 +38,7 @@ import { createStaleGuard } from "@/lib/stale-guard";
 import { matchProduct } from "@/lib/matching";
 import { track } from "@/lib/analytics";
 import { useAppStore } from "@/store/useAppStore";
-import { BUTTON_SHADOW, CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
 
 // Watercolor art from the onboarding set, reused on the two light screens that
 // sit in front of the camera (see components/ScanIntro.tsx).
@@ -706,24 +707,13 @@ function FoundSheet({
         {meta ? <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{meta}</Text> : null}
         <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{line}</Text>
 
-        <Pressable
-          onPress={onOpen}
-          accessibilityRole="button"
+        <PrimaryButton
+          label="See full result"
           accessibilityLabel="See the full result"
-          style={{
-            alignSelf: "stretch",
-            minHeight: 48,
-            marginTop: 8,
-            borderRadius: 24,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: TERRACOTTA,
-            ...BUTTON_SHADOW,
-          }}
-          className="active:opacity-90"
-        >
-          <Text style={{ fontSize: 16, fontWeight: "500", color: CTA_TEXT }}>See full result</Text>
-        </Pressable>
+          onPress={onOpen}
+          size={48}
+          style={{ alignSelf: "stretch", marginTop: 8 }}
+        />
       </View>
 
       {/* The picture rides the card's top edge. */}
@@ -870,9 +860,9 @@ function ModePill({
       useNativeDriver: Platform.OS !== "web",
     }).start();
   }, [selected, fill]);
-  // The selected pill is the onboarding Continue button's terracotta, with white
-  // text and icon on it.
-  const color = selected ? CTA_TEXT : light ? MUTED : withAlpha(CANVAS, 0.75);
+  // The selected pill is tinted, not filled, like an iOS segmented control
+  // (#313): the screen's one filled button is the call to action below it.
+  const color = selected ? INK : light ? MUTED : withAlpha(CANVAS, 0.75);
 
   return (
     <Pressable
@@ -890,7 +880,7 @@ function ModePill({
     >
       <Animated.View
         pointerEvents="none"
-        style={{ ...StyleSheet.absoluteFill, borderRadius: SWITCHER_HEIGHT / 2, backgroundColor: TERRACOTTA, opacity: fill }}
+        style={{ ...StyleSheet.absoluteFill, borderRadius: SWITCHER_HEIGHT / 2, backgroundColor: SELECTED, opacity: fill }}
       />
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <Icon color={color} size={20} />
@@ -1060,20 +1050,7 @@ function BarcodeStage({
             back (#192). */}
         {status.kind === "missed" && !notProduct && (
           <>
-            <Pressable
-              onPress={onAdd}
-              accessibilityRole="button"
-              style={{
-                height: TOUCH_TARGET,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 999,
-                backgroundColor: TERRACOTTA,
-              }}
-              className="active:opacity-90"
-            >
-              <Text style={{ fontSize: 13, fontWeight: "600", color: CTA_TEXT }}>Photograph the ingredients</Text>
-            </Pressable>
+            <PrimaryButton label="Photograph the ingredients" onPress={onAdd} size={48} />
             <Pressable
               onPress={onDismiss}
               accessibilityRole="button"
@@ -1094,20 +1071,7 @@ function BarcodeStage({
             dead end reachable only by the hidden, unannounced effect of
             re-tapping the already-selected Barcode pill (#192). */}
         {notProduct && (
-          <Pressable
-            onPress={onDismiss}
-            accessibilityRole="button"
-            style={{
-              height: TOUCH_TARGET,
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 999,
-              backgroundColor: TERRACOTTA,
-            }}
-            className="active:opacity-90"
-          >
-            <Text style={{ fontSize: 13, fontWeight: "600", color: CTA_TEXT }}>Scan again</Text>
-          </Pressable>
+          <PrimaryButton label="Scan again" onPress={onDismiss} size={48} />
         )}
 
         {/* Deliberately not the ingredient photo: that needs the same network
@@ -1118,23 +1082,7 @@ function BarcodeStage({
             the Barcode pill no longer clears this panel (#192, #259 review:
             without it this state trapped the scanner until you left it). */}
         {status.kind === "unreachable" && (
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Pressable
-              onPress={() => onBarcode(status.code)}
-              accessibilityRole="button"
-              style={{
-                flex: 1,
-                height: TOUCH_TARGET,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 999,
-                backgroundColor: TERRACOTTA,
-              }}
-              className="active:opacity-90"
-            >
-              <Text style={{ fontSize: 13, fontWeight: "600", color: CTA_TEXT }}>Try again</Text>
-            </Pressable>
-          </View>
+          <PrimaryButton label="Try again" onPress={() => onBarcode(status.code)} size={48} />
         )}
         {status.kind === "unreachable" && (
           <Pressable

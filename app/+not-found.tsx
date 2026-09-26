@@ -25,7 +25,7 @@ export default function NotFound() {
         <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
           This link doesn&apos;t lead anywhere in the app.
         </Text>
-        <PrimaryButton tone="cta" size={52} label="Go to Home" onPress={() => router.replace("/")} />
+        <PrimaryButton size={52} label="Go to Home" onPress={() => router.replace("/")} />
         <Pressable
           onPress={() => router.replace("/browse")}
           accessibilityRole="link"

@@ -82,7 +82,7 @@ function NothingToAdd() {
         <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>
           There&apos;s no ingredient list to add. Scan a product and photograph its ingredients to start.
         </Text>
-        <PrimaryButton tone="cta" size={56} label="Back to the scanner" onPress={() => router.back()} />
+        <PrimaryButton size={56} label="Back to the scanner" onPress={() => router.back()} />
       </View>
     </View>
   );
@@ -138,7 +138,6 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
             We need camera access to scan the barcode.
           </Text>
           <PrimaryButton
-            tone="cta"
             size={56}
             label="Grant permission"
             // Once the system will not ask again, asking does nothing: send them to
@@ -518,10 +517,9 @@ function NameStep({
         ) : null}
 
         {expired ? (
-          <PrimaryButton tone="cta" size={56} label="Scan it again" onPress={() => retakePhoto(barcode)} />
+          <PrimaryButton size={56} label="Scan it again" onPress={() => retakePhoto(barcode)} />
         ) : alreadySaved ? (
           <PrimaryButton
-            tone="cta"
             size={56}
             label={saving ? "Opening…" : "Show me that product"}
             disabled={saving}
@@ -529,7 +527,6 @@ function NameStep({
           />
         ) : (
           <PrimaryButton
-            tone="cta"
             size={56}
             label={saving ? "Saving…" : "Save and see my match"}
             disabled={!trimmed || saving}

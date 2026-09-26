@@ -121,7 +121,7 @@ export default function IngredientList() {
         <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
           {failureMessage(failure)}
         </Text>
-        <PrimaryButton tone="cta" size={52} label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
+        <PrimaryButton size={52} label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
       </View>
     );
   }

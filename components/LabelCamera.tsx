@@ -322,7 +322,6 @@ export function LabelCamera({
           strip location data, and never store the image.
         </Text>
         <PrimaryButton
-          tone="cta"
           size={52}
           label="Grant permission"
           // Once the system will not ask again, asking does nothing: send them to

@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/Text";
 import { answeredWithoutSignal, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, SCRIM, SELECTED, SURFACE } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, GRAY_FILL, INK, MUTED, SCRIM, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 const AVATAR = 120;
@@ -115,6 +115,7 @@ export default function Profile() {
                   resetApp();
                   router.replace({ pathname: "/onboarding", params: { erased: "1" } });
                 }}
+                accessibilityRole="button"
                 style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: DANGER }}
                 className="active:opacity-90"
               >
@@ -122,7 +123,9 @@ export default function Profile() {
               </Pressable>
               <Pressable
                 onPress={() => setConfirmingErase(false)}
-                style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, borderWidth: 1, borderColor: BORDER_INACTIVE }}
+                accessibilityRole="button"
+                style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: GRAY_FILL }}
+                className="active:opacity-70"
               >
                 <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Cancel</Text>
               </Pressable>

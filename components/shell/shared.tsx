@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Pressable, useWindowDimensions, View, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/Text";
 import { COLORS } from "@/lib/colors";
-import { BUTTON_SHADOW, CANVAS } from "@/lib/tokens";
+import { CANVAS } from "@/lib/tokens";
 
 /**
  * FOR.ME shell tokens — shared by `OnboardingShell` and `QuizShell` only.
@@ -43,77 +43,6 @@ export const FONT = {
 /** Fixed pt values shared by both shells — spec §5/§17: nothing here scales
  *  per screen size except the hero/question regions each shell owns itself. */
 export const H_PADDING = 24;
-
-type PrimaryButtonSize = "large" | "default";
-
-/** large = onboarding's 56pt CTA. default = the quiz's 48pt Continue. */
-const BUTTON_HEIGHT: Record<PrimaryButtonSize, number> = {
-  large: 56,
-  default: 48,
-};
-
-type PrimaryButtonProps = {
-  label: string;
-  onPress: () => void;
-  /** @default "large" */
-  size?: PrimaryButtonSize;
-  disabled?: boolean;
-  accessibilityLabel?: string;
-  style?: StyleProp<ViewStyle>;
-};
-
-/**
- * The one CTA both shells render. Colour, corner radius (always a true
- * pill — radius = height/2) and label styling live here once; only height
- * varies, via `size`, so onboarding and the quiz can never drift onto two
- * different button designs the way the rest of the app's buttons did before
- * `components/PrimaryButton.tsx` was unified (see that file's own comment).
- *
- * This is a distinct component from `components/PrimaryButton.tsx` — that
- * one is the app's main button (accent/cta tone, sizes 50/52/56) and
- * still backs every screen outside onboarding/quiz. Same name, different
- * module, imported nowhere in common: not a collision.
- */
-export function PrimaryButton({
-  label,
-  onPress,
-  size = "large",
-  disabled = false,
-  accessibilityLabel,
-  style,
-}: PrimaryButtonProps) {
-  const [pressed, setPressed] = useState(false);
-  const height = BUTTON_HEIGHT[size];
-
-  return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={() => setPressed(true)}
-      onPressOut={() => setPressed(false)}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={{ disabled }}
-      style={[
-        {
-          height,
-          borderRadius: height / 2,
-          backgroundColor: disabled ? SAND : TERRACOTTA,
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: pressed ? 0.85 : 1,
-          // A button you can press is lifted off the page; a disabled one lies flat.
-          ...(disabled ? null : BUTTON_SHADOW),
-        },
-        style,
-      ]}
-    >
-      <Text style={{ fontFamily: FONT.bodyRegular, fontSize: size === "large" ? 18 : 16, color: CTA_TEXT }}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
 
 /** Three-dot progress indicator, shared by both shells' fixed regions. */
 export function ProgressDots({ count, activeIndex }: { count: number; activeIndex: number }) {

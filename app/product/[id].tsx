@@ -34,13 +34,9 @@ import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
-// draw from the shared `PrimaryButton` component's `tone="cta"` — added
-// specifically so this screen (and browse, the pasted-list empty state, and
-// ingredient detail) stop hand-rolling the same button and drifting apart,
-// which they already had by the time this was written (three different
-// corner radii across the four files). `PrimaryButton`'s *default* tone is
-// still the old purple/lilac fill every screen not yet restyled to for.me
-// uses — `tone="cta"` opts a call site in, it never changes the default.
+// are the shared `PrimaryButton` — one component so this screen, browse and
+// ingredient detail stop hand-rolling the same button and drifting apart
+// (three different corner radii once, across four files).
 
 /**
  * The product screen — one screen, however you arrive at it.
@@ -274,7 +270,7 @@ export default function ProductScreen() {
           <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
             {failureMessage(failure)}
           </Text>
-          <PrimaryButton tone="cta" size={52} label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
+          <PrimaryButton size={52} label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
           <Pressable
             onPress={() => router.push("/browse")}
             accessibilityRole="link"
@@ -297,7 +293,7 @@ export default function ProductScreen() {
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, color: INK }}>
             Product not found
           </Text>
-          <PrimaryButton tone="cta" size={52} label="Scan another" onPress={openScanner} />
+          <PrimaryButton size={52} label="Scan another" onPress={openScanner} />
           {/* "Scan another" assumes a physical bottle in hand, which isn't
               true for everyone who lands here — a stale link, a bookmark to
               a removed product. Same escape hatch the missed-barcode panel

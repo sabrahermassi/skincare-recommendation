@@ -122,6 +122,17 @@ export const CTA = "#E09070";
 export const SELECTED = "#F9E7DC";
 
 /**
+ * The gray button — a secondary action beside the one peach call to action
+ * ("Sign out", "Back to list", a dialog's Cancel), Apple's "gray" button
+ * style in the palette's own warm neutral (#313, owner decision 26 Sep 2026).
+ *
+ * Computed, not read off a mockup: INK on it is 13.0:1, and it sits at
+ * 1.17:1 against the canvas — enough to read as a button without competing
+ * with the CTA, the same restraint as iOS's own light gray fill.
+ */
+export const GRAY_FILL = "#ECE4DD";
+
+/**
  * One shape for every selectable control in the app — chips, option cards,
  * filter pills, segmented tabs. Size varies with the job (a 2-per-row quiz
  * chip is not a filter pill), the corner never does: a screen mixing 999-px

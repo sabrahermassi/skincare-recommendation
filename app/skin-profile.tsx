@@ -385,7 +385,7 @@ export default function ProfileScreen() {
             paddingTop: 14,
           }}
         >
-          <PrimaryButton tone="cta" size={52} label="Save" onPress={save} />
+          <PrimaryButton size={52} label="Save" onPress={save} />
         </View>
       )}
     </View>

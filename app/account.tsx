@@ -7,19 +7,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { deleteMyAccount, exportMyData, type DeleteOutcome, type ExportOutcome } from "@/lib/account";
 import { ACCOUNT_PITCH, accountSummary, signOut, signOutEverywhere, useAuth } from "@/lib/auth";
-import {
-  BORDER_INACTIVE,
-  CANVAS,
-  CARD_SHADOW,
-  DANGER,
-  FLOATING_SHADOW,
-  INK,
-  MUTED,
-  SCRIM,
-  SURFACE,
-  TOUCH_TARGET,
-  TYPE,
-} from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, DANGER, FLOATING_SHADOW, GRAY_FILL, INK, MUTED, SCRIM, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 /**
  * Account (#220, #224): who is signed in, and the ways out — sign out of
@@ -103,7 +91,6 @@ export default function Account() {
               {ACCOUNT_PITCH}
             </Text>
             <PrimaryButton
-              tone="cta"
               size={52}
               label="Sign in"
               onPress={() => {
@@ -150,7 +137,8 @@ export default function Account() {
               <Pressable
                 onPress={() => setConfirmingDelete(false)}
                 accessibilityRole="button"
-                style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, borderWidth: 1, borderColor: BORDER_INACTIVE }}
+                style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: GRAY_FILL }}
+                className="active:opacity-70"
               >
                 <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Cancel</Text>
               </Pressable>
@@ -187,7 +175,7 @@ function SignedIn({
         ) : null}
       </View>
 
-      <PrimaryButton variant="outline" size={52} label="Sign out" disabled={working} onPress={() => onLeave(false)} />
+      <PrimaryButton variant="gray" size={52} label="Sign out" disabled={working} onPress={() => onLeave(false)} />
 
       <View style={{ gap: 6 }}>
         <Pressable

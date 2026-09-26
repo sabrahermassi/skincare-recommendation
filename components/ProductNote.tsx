@@ -148,7 +148,6 @@ export function NoteEditor({
               {over ? tooLongCopy(text.length) : `${text.length}/${MAX_NOTE_CHARS}`}
             </Text>
             <PrimaryButton
-              tone="cta"
               size={50}
               label={NOTE_COPY.save}
               disabled={over}
