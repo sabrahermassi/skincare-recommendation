@@ -136,6 +136,14 @@ export const SELECTED = "#F9E7DC";
 export const GRAY_FILL = "#ECE4DD";
 
 /**
+ * The rounded blocks of a menu (Profile, Account): a softer peach than
+ * SELECTED, so the blocks sit close to the page rather than stand off it
+ * (owner, 27 September 2026). Computed, not read off a mockup: the midpoint of
+ * SELECTED (#F9E7DC) and the canvas (#FDF9F0), channel by channel.
+ */
+export const MENU_FILL = "#FBF0E6";
+
+/**
  * The button colours, one set per variant (owner, 27 September 2026): primary
  * for the one main action on a screen, secondary for a less critical one,
  * tertiary as an outline for low-emphasis actions, and one disabled look for

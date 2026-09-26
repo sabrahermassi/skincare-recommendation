@@ -4,7 +4,7 @@ import { Pressable, View } from "react-native";
 
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
-import { CTA, INK, MUTED, SELECTED, TYPE } from "@/lib/tokens";
+import { CTA, INK, MENU_FILL, MUTED, TYPE } from "@/lib/tokens";
 
 // A block's corners, and each row's height.
 const GROUP_RADIUS = 26;
@@ -15,7 +15,7 @@ const ROW_HEIGHT = 60;
  * share a rounded fill, with no line between them.
  */
 export function MenuGroup({ children }: { children: ReactNode }) {
-  return <View style={{ borderRadius: GROUP_RADIUS, backgroundColor: SELECTED, paddingVertical: 4, overflow: "hidden" }}>{children}</View>;
+  return <View style={{ borderRadius: GROUP_RADIUS, backgroundColor: MENU_FILL, paddingVertical: 4, overflow: "hidden" }}>{children}</View>;
 }
 
 /**
