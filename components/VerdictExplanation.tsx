@@ -154,7 +154,8 @@ export function ExplanationLine({
   const stacked = scale > FONT_SCALE.ui;
   if (stacked) {
     // The verdict inks, not the dots' tints: text needs the contrast. Each
-    // clears 5.5:1 on every panel tint (computed).
+    // clears 4.5:1 on every panel tint; the lowest is the neutral sign on the
+    // poor-match tint, 4.93:1 (computed).
     const signColor =
       direction === "up" ? VERDICT.high.deep : direction === "down" ? VERDICT.low.deep : VERDICT_NEUTRAL.deep;
     return (

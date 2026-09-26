@@ -352,7 +352,7 @@ avoided:
 Past 1.5× (`useLargeText`) the layouts that can't hold two things side by side
 stack: the score ring goes above its verdict, the two risk cards stack, a
 reason's +/− moves from its dot into the start of its label (in the verdict
-ink, 5.5:1 or better on every panel tint) so it can't end up on a line of its
+ink, 4.5:1 or better on every panel tint, 4.93:1 at the lowest) so it can't end up on a line of its
 own, and the ingredient page drops its decorative picture so the name has the
 width. The ingredient's function line stops where label text stops, below the
 name. Icons beside reading text grow with it up to `FONT_SCALE.icon` (2×,
