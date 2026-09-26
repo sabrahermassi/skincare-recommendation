@@ -605,7 +605,7 @@ export default function Scan() {
           Centred across the full width; box-none so the row itself never
           takes a tap meant for the buttons at either end. */}
       {cameraLive ? (
-        <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, top: insets.top + 8, alignItems: "center" }}>
+        <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, top: insets.top + SPACE.text, alignItems: "center" }}>
           <GlassButton
             symbol={torchOn ? "bolt.fill" : "bolt"}
             icon={torchOn ? "flash" : "flash-outline"}

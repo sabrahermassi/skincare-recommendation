@@ -13,7 +13,7 @@ import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
 import { SkinMatchCard } from "@/components/SkinMatchCard";
 import { openPhotoScanner } from "@/lib/open-scanner";
 import { Text } from "@/components/Text";
-import { fetchProductsByIds, peekProducts, searchableQuery, searchProducts, SEARCH_MIN_LETTERS, SEARCH_RESULT_LIMIT } from "@/data/api";
+import { fetchProductsByIds, longEnoughToSearch, peekProducts, searchableQuery, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized } from "@/lib/profile";
@@ -65,13 +65,13 @@ function skeletonRows(): SearchItem[] {
 
 export default function Browse() {
   const insets = useSafeAreaInsets();
-  // `searchResults` is null until a query of at least SEARCH_MIN_LETTERS has
+  // `searchResults` is null until a query long enough to search has
   // actually been searched.
   const [query, setQuery] = useState("");
   const searchInput = useRef<TextInput>(null);
   const [searchResults, setSearchResults] = useState<ProductWithIngredients[] | null>(null);
   const [searching, setSearching] = useState(false);
-  const searchActive = query.trim().length >= SEARCH_MIN_LETTERS;
+  const searchActive = longEnoughToSearch(query);
 
   const profile = useAppStore((s) => s.profile);
   const personalized = isPersonalized(profile);

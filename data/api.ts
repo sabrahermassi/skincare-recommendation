@@ -1605,8 +1605,22 @@ export function searchableQuery(query: string): string | null {
 /** How many letters a search needs before it looks anything up (owner). */
 export const SEARCH_MIN_LETTERS = 3;
 
+/**
+ * Whether `query` is long enough to search. A Korean, Chinese or Japanese
+ * character counts as two letters: one Hangul syllable is a whole sound, so
+ * a two-syllable brand name like 미샤 (Missha) is as specific as three Latin
+ * letters and still searches.
+ */
+export function longEnoughToSearch(query: string): boolean {
+  let letters = 0;
+  for (const char of query.trim()) {
+    letters += /[\p{Script=Hangul}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(char) ? 2 : 1;
+  }
+  return letters >= SEARCH_MIN_LETTERS;
+}
+
 export async function searchProducts(query: string): Promise<ProductWithIngredients[]> {
-  if (query.trim().length < SEARCH_MIN_LETTERS) return [];
+  if (!longEnoughToSearch(query)) return [];
   const escaped = searchableQuery(query);
   if (escaped === null) return [];
 
