@@ -274,6 +274,8 @@ with confidence tiers, owns acne fit).
 - **Check Expo Go's current App Store SDK before upgrading this project's
   SDK** — an upgrade can put device testing ahead of what Expo Go ships;
   see `docs/decisions.md`.
+- **Dependency updates and advisories** (CI audit, Dependabot, triage times):
+  `docs/dependencies.md`.
 
 ## Running on a device
 
