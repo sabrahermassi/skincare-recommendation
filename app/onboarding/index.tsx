@@ -8,15 +8,15 @@ import { Text } from "@/components/Text";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { clearProfileErasedNotice, profileErasedNoticePending } from "@/lib/erase-notice";
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
-import { CANVAS, FLOATING_SHADOW, INK } from "@/lib/tokens";
+import { FLOATING_SHADOW, INK, ONBOARDING_CANVAS } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // Watercolor heroes, one per screen, each with its own handwritten line
 // ("let's take a look", "what's really in here?", "this one's for me") and
 // transparent margins, so they sit on the canvas without a box.
-const HERO_SCAN = require("@/assets/illustrations/onboarding/hero-scan.png");
-const HERO_INGREDIENTS = require("@/assets/illustrations/onboarding/hero-ingredients.png");
-const HERO_FOR_ME = require("@/assets/illustrations/onboarding/hero-for-me.png");
+const HERO_SCAN = require("@/assets/illustrations/onboarding/hero-scan.webp");
+const HERO_INGREDIENTS = require("@/assets/illustrations/onboarding/hero-ingredients.webp");
+const HERO_FOR_ME = require("@/assets/illustrations/onboarding/hero-for-me.webp");
 
 const SCREENS: OnboardingScreenContent[] = [
   {
@@ -144,7 +144,8 @@ export default function Onboarding() {
             borderRadius: 14,
             paddingHorizontal: 16,
             paddingVertical: 12,
-            backgroundColor: CANVAS,
+            // The intro's own cream, so the box sits flush on the page behind it.
+            backgroundColor: ONBOARDING_CANVAS,
             borderWidth: 1,
             borderColor: TERRACOTTA,
             ...FLOATING_SHADOW,
@@ -161,7 +162,7 @@ export default function Onboarding() {
               backgroundColor: TERRACOTTA,
             }}
           >
-            <Text style={{ fontSize: 11, fontWeight: "700", color: CANVAS }}>✓</Text>
+            <Text style={{ fontSize: 11, fontWeight: "700", color: ONBOARDING_CANVAS }}>✓</Text>
           </View>
           <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>Your profile is erased</Text>
         </View>

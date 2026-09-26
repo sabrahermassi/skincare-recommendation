@@ -14,6 +14,7 @@ import { COLORS } from "@/lib/colors";
  * design-watercolor/FOR_ME_Onboarding_Design_Spec.md §2), used verbatim, not
  * sampled from a screenshot.
  */
+
 /**
  * One color for the wordmark, the heart, the CTA button, and the active
  * progress dot — explicit unification request, superseding the earlier
