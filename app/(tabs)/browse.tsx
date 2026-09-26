@@ -323,7 +323,7 @@ export default function Browse() {
         ListHeaderComponent={
           <View style={{ gap: 18, paddingBottom: SPACE.block, backgroundColor: CANVAS }}>
             {/* Back to Home. Browse has no tab of its own (it opens from Home's
-                "Find skincare" card), so this always leads home rather than
+                "Search" card), so this always leads home rather than
                 back through wherever the search was opened from. */}
             <View style={{ flexDirection: "row", paddingHorizontal: HEADER_GUTTER, paddingTop: 12, paddingBottom: 14 }}>
               <Pressable

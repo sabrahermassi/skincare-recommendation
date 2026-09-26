@@ -4,8 +4,9 @@ import { router } from "expo-router";
 import Home from "@/app/(tabs)/index";
 
 /**
- * Home (per #155): the greeting, the two cards side by side ("Scan a product"
- * and "Find skincare"), and the watercolor still life under them. The still
+ * Home (per #155): the greeting, four cards two by two ("Scan a product",
+ * "Find a product", "Skincare routine" and "Search"), and the watercolor still
+ * life under them. The still
  * life comes after the cards in the page and is drawn behind them, so it never
  * covers one; it has no words, so screen readers skip it.
  */
@@ -13,6 +14,8 @@ import Home from "@/app/(tabs)/index";
 jest.setTimeout(30_000);
 
 jest.mock("expo-router", () => ({ router: { push: jest.fn(), navigate: jest.fn() } }));
+const mockOpenQuiz = jest.fn();
+jest.mock("@/lib/open-quiz", () => ({ openQuiz: () => mockOpenQuiz() }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -32,18 +35,28 @@ function labelsInOrder(tree: unknown): string[] {
   return out;
 }
 
-it("shows the greeting and both cards, and no skin profile card", async () => {
+it("shows the greeting and the four cards, and no skin profile card", async () => {
   await render(<Home />);
   expect(screen.getByLabelText("Hi there!")).toBeTruthy();
   expect(screen.queryByText("Your skin profile")).toBeNull();
   expect(screen.getByRole("button", { name: "Scan a product. Analyze a product by photo or barcode." })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Find skincare. Search products or brands." })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Find a product. Take the skin quiz to see what fits you." })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Search. Search products or brands." })).toBeTruthy();
+  // Not built yet: there, but not a button.
+  expect(screen.getByLabelText("Skincare routine. Coming soon.")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Skincare routine. Coming soon." })).toBeNull();
 });
 
-it("opens Browse from Find skincare, which has no tab of its own", async () => {
+it("opens Browse from Search, which has no tab of its own", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "Find skincare. Search products or brands." }));
+  await fireEvent.press(screen.getByRole("button", { name: "Search. Search products or brands." }));
   expect(router.navigate).toHaveBeenCalledWith("/browse");
+});
+
+it("opens the skin quiz from Find a product", async () => {
+  await render(<Home />);
+  await fireEvent.press(screen.getByRole("button", { name: "Find a product. Take the skin quiz to see what fits you." }));
+  expect(mockOpenQuiz).toHaveBeenCalledTimes(1);
 });
 
 it("shows the still life as decoration: nothing for a screen reader to stop on", async () => {
