@@ -1,10 +1,10 @@
-import { act, render, screen, within } from "@testing-library/react-native";
+import { act, render, screen } from "@testing-library/react-native";
 
 import IngredientRoute from "@/app/ingredient/[inci]";
 import LabelResult from "@/app/label-result";
 import ProductRoute from "@/app/product/[id]";
 import { holdLabelRead } from "@/lib/pending-label";
-import { FONT_SCALE, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { FONT_SCALE } from "@/lib/tokens";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
@@ -96,20 +96,26 @@ describe.each([
     expect(ring()).toEqual({ size: 82 * FONT_SCALE.icon, beside: false });
   });
 
-  it("with no profile yet, keeps the arrow level with the ring at the largest size, not under the words", async () => {
+  // #346: no profile yet shows See your skin match, not an empty verdict panel.
+  it("with no profile yet, grows See your skin match's arrow with its words", async () => {
     useAppStore.setState({ profile: EMPTY_PROFILE });
     mockFontScale = LARGEST;
     await renderSettled(screenFor());
-    const row = screen.getByTestId("score-ring").parent;
-    expect(screen.getByTestId("profile-arrow").parent).toBe(row);
-    expect(within(row!).queryByText(VERDICT_NEUTRAL.label)).toBeNull();
+    expect(screen.queryByTestId("score-ring")).toBeNull();
+    expect(screen.getByTestId("skin-match-arrow").props.style).toMatchObject({ width: 22 * FONT_SCALE.icon });
   });
 
   it("lets the verdict title follow the phone as far as body text, so it stays a step above it", async () => {
-    useAppStore.setState({ profile: EMPTY_PROFILE });
     await renderSettled(screenFor());
-    expect(screen.getByText(VERDICT_NEUTRAL.label).props.maxFontSizeMultiplier).toBe(FONT_SCALE.reading);
+    expect(screen.getByText(/^(Excellent|Good|Fair|Poor) match$/).props.maxFontSizeMultiplier).toBe(FONT_SCALE.reading);
   });
+});
+
+it("keeps the Ingredient check at the ordinary ceiling, so it doesn't push the verdict off the first screen (#345)", async () => {
+  mockParams = { id: PRODUCT };
+  mockFontScale = LARGEST;
+  await renderSettled(<ProductRoute />);
+  expect(screen.getByText("Ingredient check").props.maxFontSizeMultiplier).toBe(FONT_SCALE.ui);
 });
 
 it("keeps the product's header at its ordinary ceilings, so the verdict isn't pushed off the first screen", async () => {

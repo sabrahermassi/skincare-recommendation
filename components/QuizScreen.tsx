@@ -24,13 +24,11 @@ type Props = {
   onNext: () => void;
   nextLabel?: string;
   nextDisabled?: boolean;
-  /** False only on the quiz's first step. Onboarding's Skip/Continue lands
-   *  here via router.replace (see app/onboarding/index.tsx and QuizFrame's
-   *  skipQuiz), not push, specifically so a finished onboarding screen never
-   *  sits on the back stack — which means the first quiz step has nothing
-   *  behind it. router.back() there threw, since there was nothing to pop.
-   *  Every later step is reached by push (see nextQuizRoute), so it does
-   *  have a real previous step to return to and keeps the arrow. */
+  /** False only on the quiz's first step, which the quiz's modal opens on
+   *  (`lib/open-quiz.ts`, #346): there is no earlier step behind it, and
+   *  Skip closes the quiz. Every later step is reached by push (see
+   *  nextQuizRoute), so it has a real previous step to return to and keeps
+   *  the arrow. */
   showBack?: boolean;
   children: ReactNode;
 };

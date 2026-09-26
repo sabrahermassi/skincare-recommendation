@@ -129,10 +129,10 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
 
   /*
-    First run goes to onboarding. This gate used to live in the browse screen,
-    which worked only while browse was the landing tab. Scanning is the front
-    door now, so the gate has to sit above the whole group or a first-time user
-    would open straight into a camera with no profile to judge against.
+    First run goes to the intro screens, which hand off to Home (the skin
+    quiz waits until someone asks for a personal match, #346). This gate used
+    to live in the browse screen, which worked only while browse was the
+    landing tab; it sits above the whole group so no tab opens first.
 
     Declarative rather than an effect: it cannot fire before the navigator
     mounts, and it cannot ping-pong. The root layout already waits for the
@@ -191,7 +191,7 @@ export default function TabsLayout() {
     >
       {/*
         Home is the index route, so `/` lands on it — and so does finishing the
-        quiz: the first screen after it is Home, with the scan card, the search
+        intro: the first screen after it is Home, with the scan card, the search
         box and the skin profile. Setting `initialRouteName` alone would not do
         it: that anchors the back stack, it does not change which screen `/`
         resolves to.
