@@ -193,4 +193,18 @@ describe("the product screen's Ingredient check", () => {
     await fireEvent.press(screen.getByLabelText("Ingredient check: 1 to avoid · 1 to watch"));
     expect(screen.getByText("Close")).toBeTruthy();
   });
+
+  it("doesn't say 'Nothing restricted' on the irritation card beside a fragrance to watch", async () => {
+    const scented = { ...PRODUCT, ingredients: PRODUCT.ingredients.filter((i) => i.safety === "safe") };
+    useAppStore.setState({
+      profile: { concerns: ["dehydrated"], baseSkinType: "normal", sensitivity: "none", pregnancyStatus: null },
+    });
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: scented }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+
+    expect(screen.getByLabelText("Ingredient check: 1 ingredient to watch")).toBeTruthy();
+    expect(screen.getByText("1 common irritant")).toBeTruthy();
+    expect(screen.queryByText("Nothing restricted")).toBeNull();
+  });
 });
