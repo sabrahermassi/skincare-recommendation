@@ -1,14 +1,31 @@
 import { readLabel } from "@/data/api";
 import { stripBase64ImageMetadata } from "@/lib/image-metadata";
 import { clearLabelRead, heldLabelRead, holdLabelRead } from "@/lib/pending-label";
+import {
+  labelFailureState,
+  NOT_CONFIGURED_COPY,
+  scanStateCopy,
+  type LabelFailureReason,
+  type ScanState,
+} from "@/lib/scan-copy";
 
 /** Why a photo did not become a result, and what the person can do about it. */
 export type LabelReadFailure = {
   message: string;
   hint?: string;
+  /** The button that fixes it (`scanStateCopy`'s action), when there is one. */
+  action?: string;
+  /** A quieter way forward (`scanStateCopy`'s link): another photo, or Search. */
+  link?: string;
   /** Required, not optional: a failure whose retryability nobody decided defaults to "retryable" by accident. */
   retryable: boolean;
 };
+
+/** A scan state's words as a failure to show under the shutter (#204). */
+export function failureFromState(state: ScanState): LabelReadFailure {
+  const copy = scanStateCopy(state);
+  return { message: copy.title ?? "", hint: copy.line, action: copy.action, link: copy.link, retryable: true };
+}
 
 /** `read`: the list is held for the add-product screen, which the caller now opens. */
 export type LabelReadOutcome = { kind: "read" } | ({ kind: "failed" } & LabelReadFailure);
@@ -34,8 +51,7 @@ export type LabelReadOutcome = { kind: "read" } | ({ kind: "failed" } & LabelRea
  * the only place that knows a hold is about to happen, so it is the only
  * place that can keep a dropped read from leaving a stale list and a live,
  * single-use read token sitting in `lib/pending-label` for nobody to use.
- * Omitted, every read is always wanted — the existing behaviour for every
- * caller that has no such staleness concept (`app/scan-label.tsx`).
+ * Omitted, every read is always wanted.
  */
 export async function readLabelPhoto(
   imageBase64: string,
@@ -62,15 +78,7 @@ export async function readLabelPhoto(
 
   const clean = stripBase64ImageMetadata(imageBase64);
   if (!clean.ok) {
-    return {
-      kind: "failed",
-      message: clean.reason === "too_large" ? "That photo is too large to read." : "We couldn't read that image.",
-      hint:
-        clean.reason === "too_large"
-          ? "Try again — the ingredient panel alone is enough, it doesn't need the whole box."
-          : "Try again with steadier hands or better light.",
-      retryable: true,
-    };
+    return { kind: "failed", ...failureFromState(labelFailureState(clean.reason === "too_large" ? "too_large" : "unreadable")) };
   }
 
   const result = await readLabel(clean.base64);
@@ -85,12 +93,7 @@ export async function readLabelPhoto(
   // deserves the same message as one, not a page that looks like a scan
   // succeeded.
   if (result.ok && (result.total === 0 || result.recognised === 0)) {
-    return {
-      kind: "failed",
-      message: "That doesn't look like an ingredient list.",
-      hint: "Make sure the ingredient panel fills the frame, then try again.",
-      retryable: true,
-    };
+    return { kind: "failed", ...failureFromState(labelFailureState("not_a_list")) };
   }
 
   if (result.ok) {
@@ -117,94 +120,29 @@ export async function readLabelPhoto(
 }
 
 /**
- * Each failure gets a different next action, because they have different
- * fixes.
+ * The words for a failed read: `scanStateCopy`'s, through `labelFailureState`
+ * (#204), except `not_configured` — a build with no backend, which a real
+ * person never meets. It alone can't be retried: retaking the photo would run
+ * the same check and fail the same way (#121).
  *
- * `hasBarcode` is whoever navigated here having already handed one over —
- * from a catalogue miss (`(tabs)/index.tsx`), a recorded miss in Saved, or a
- * recognised product with no formula yet (`product/[id].tsx`). In all three,
- * the barcode already ran and either missed or led here; telling that user
- * to "try the barcode" sends them straight back through the same loop. Only
- * the bare "photograph a label" entry point (no barcode in hand at all) can
- * usefully be pointed at it. Found in review on #121.
+ * `hasBarcode` is whoever navigated here having already handed one over — a
+ * catalogue miss, a recorded miss in Saved, or a recognised product with no
+ * formula yet. Telling that person to "try the barcode" sends them straight
+ * back through the same loop, so only the bare entry point is pointed at it.
  */
-export function failureCopy(
-  reason:
-    | "not_configured"
-    | "server_unavailable"
-    | "unreadable"
-    | "too_little_text"
-    | "unrecognised_names"
-    | "rate_limited"
-    | "network_error",
-  hasBarcode: boolean
-): LabelReadFailure {
-  switch (reason) {
-    case "network_error":
-      // Offline, timed out, or a 5xx we don't special-case (#188) — us or
-      // the connection, never the photo. The barcode and Browse both need
-      // the same network that just failed, so neither belongs in the hint
-      // (same reasoning as the scanner's own unreachable panel).
-      return {
-        message: "We couldn't reach our servers.",
-        hint: "Check your connection and try again.",
-        retryable: true,
-      };
-    case "too_little_text":
-      return {
-        message: "We couldn't find an ingredient list in that photo.",
-        hint: "Get closer so the small print fills the frame, and avoid glare.",
-        retryable: true,
-      };
-    // The photo was good enough — the names were read (#185 keeps a
-    // Korean/Japanese name instead of discarding it) — but too few matched
-    // what we know to score. "Get closer" would be a lie here: a better
-    // photo of the same label reads the same names. Retaking only helps if
-    // the label genuinely has more Latin/English text further down.
-    case "unrecognised_names":
-      return {
-        message: "We read this list, but don't recognise enough of these ingredient names yet.",
-        hint: "This can happen with formulas we don't have full translations for yet.",
-        retryable: true,
-      };
-    case "rate_limited":
-      return {
-        message: "That's a lot of ingredient photos in a short time.",
-        hint: "Give it a few minutes and try again.",
-        retryable: true,
-      };
-    case "not_configured":
-      // This install has no Supabase credentials at all — see
-      // `LabelRead`'s comment in `data/api.ts`. Permanent for this
-      // build, so no "temporarily", no "try again", and — per Codex's next
-      // finding on #121 — no retry button either: retaking the photo would
-      // run the exact same check and fail the exact same way.
-      console.warn("[scan-label] label-ocr not available: this app has no Supabase credentials configured");
-      return {
-        message: "Reading ingredient lists isn't available in this build.",
-        hint: hasBarcode
-          ? "Look the product up in Search instead."
-          : "Try the barcode instead, or look the product up in Search.",
-        retryable: false,
-      };
-    case "server_unavailable":
-      // The server answered 503: its Vision API key is unset, or the day's
-      // Vision ceiling is reached (#198). Genuinely temporary and worth
-      // retrying later, unlike `not_configured` above. Kept out of the
-      // user-facing copy per #96.
-      console.warn("[scan-label] label-ocr unavailable: Vision key unset or daily ceiling reached");
-      return {
-        message: "Reading ingredient lists is temporarily unavailable.",
-        hint: hasBarcode
-          ? "Look the product up in Search, or try again later."
-          : "Try the barcode instead, or look the product up in Search.",
-        retryable: true,
-      };
-    case "unreadable":
-      return {
-        message: "We couldn't read that image.",
-        hint: "Try again with steadier hands or better light.",
-        retryable: true,
-      };
+export function failureCopy(reason: LabelFailureReason | "not_configured", hasBarcode: boolean): LabelReadFailure {
+  if (reason === "not_configured") {
+    console.warn("[label-read] label-ocr not available: this app has no Supabase credentials configured");
+    return {
+      message: NOT_CONFIGURED_COPY,
+      hint: hasBarcode ? "Look the product up in Search instead." : "Try the barcode instead, or look the product up in Search.",
+      retryable: false,
+    };
   }
+  if (reason === "server_unavailable") {
+    // Kept out of the words on screen per #96, which are the ordinary
+    // "couldn't reach us" ones.
+    console.warn("[label-read] label-ocr unavailable: Vision key unset or daily ceiling reached");
+  }
+  return failureFromState(labelFailureState(reason));
 }

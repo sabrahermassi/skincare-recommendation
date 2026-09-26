@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 
 import { track } from "@/lib/analytics";
+import { photoScannerHref } from "@/lib/open-scanner";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -61,11 +62,13 @@ function NothingToShow() {
 /**
  * Photographing a label again after a refusal or an unrecognised read
  * (`clearLabelRead` first, same as `app/add-product.tsx`'s own retake) — the
- * only way forward when the formula couldn't be scored at all.
+ * only way forward when the formula couldn't be scored at all. Back to the
+ * scanner in Photo mode for the same barcode (#204): `dismissTo` closes this
+ * screen onto the scanner underneath, or opens one if there isn't.
  */
 function retake(barcode?: string) {
   clearLabelRead();
-  router.replace({ pathname: "/scan-label", params: barcode ? { barcode } : {} });
+  router.dismissTo(photoScannerHref({ barcode }));
 }
 
 function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {

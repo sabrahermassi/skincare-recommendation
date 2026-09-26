@@ -1,10 +1,11 @@
+import { unknownIngredient } from "@/data/types";
+import { isVerified } from "@/lib/safety";
 import {
   canPhotographLabelFor,
   fetchProduct,
   fetchProductByBarcode,
   fetchProducts,
   fetchProductsByIds,
-  fetchProductTypes,
 } from "@/data/api";
 
 /**
@@ -101,13 +102,6 @@ describe("fetchProductsByIds", () => {
   });
 });
 
-describe("fetchProductTypes", () => {
-  it("returns distinct types", async () => {
-    const types = await fetchProductTypes();
-    expect(new Set(types).size).toBe(types.length);
-  });
-});
-
 describe("ingredient resolution", () => {
   it("falls back to 'caution' for unknown ingredients rather than 'safe'", async () => {
     // Every id in the fixture catalog resolves today; this asserts the
@@ -117,6 +111,15 @@ describe("ingredient resolution", () => {
       .flatMap((p) => p.ingredients)
       .filter((i) => i.note === "No data for this ingredient yet.");
     for (const i of unknown) expect(i.safety).toBe("caution");
+  });
+
+  // #206: the stubs used to disagree ("safe" in some places, "caution" in
+  // others). One helper makes them all, conservative, and never verified.
+  it("makes every unknown-ingredient stub the same way", () => {
+    const stub = unknownIngredient("mystery extract");
+    expect(stub).toEqual({ id: "mystery extract", name: "mystery extract", comedogenic: 0, safety: "caution", verified: false });
+    expect(isVerified(stub)).toBe(false);
+    expect(unknownIngredient("x", "No data").note).toBe("No data");
   });
 });
 

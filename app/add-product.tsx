@@ -1,24 +1,26 @@
-import { CameraView, useCameraPermissions } from "expo-camera";
+import { useCameraPermissions } from "expo-camera";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { CameraPermissionScreen } from "@/components/CameraPermissionScreen";
+import { ScanCamera } from "@/components/ScanCamera";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { TypeChip } from "@/components/TypeChip";
-import { failureMessage, fetchProductByBarcode, forgetScanned, saveScannedProduct } from "@/data/api";
+import { fetchProductByBarcode, forgetScanned, saveScannedProduct } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/data/types";
 import { clearLabelRead, heldLabelRead } from "@/lib/pending-label";
+import { lookupFailureState, saveFailureState, scanStateCopy, scanStateSpeech, type SaveFailureReason, type ScanState } from "@/lib/scan-copy";
 import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
 import {
   BORDER_INACTIVE,
   CAMERA_STAGE,
   CANVAS,
-  CTA,
   INK,
   MUTED,
   MUTED_FAINT,
@@ -29,6 +31,7 @@ import {
   withAlpha,
 } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
+import { photoScannerHref } from "@/lib/open-scanner";
 import { barcodeParam as barcodeParamOf } from "@/lib/route-params";
 
 /**
@@ -91,10 +94,6 @@ function NothingToAdd() {
 }
 
 /**
- * The barcode, when the ingredients were photographed first. A single-purpose
- * camera: retail barcodes only, because anything else can never be saved.
- */
-/**
  * The types the product form offers, the catalogue's most common first — as
  * counted from the live catalogue on 2026-09-19. Fixed on purpose: a rough
  * guide set once, not re-sorted on every import.
@@ -114,95 +113,93 @@ const LEADING_TYPES: ProductType[] = [
   "essence",
 ];
 
-const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e"] as const;
-const BARCODE_SETTINGS = { barcodeTypes: [...BARCODE_TYPES] };
+/** What the barcode step asks for, and why. */
+const ADD_BARCODE = { title: "Now scan its barcode", line: "So the next person who scans it finds it." };
 
 type BarcodeStatus =
   | { kind: "idle" }
   | { kind: "checking" }
-  | { kind: "failed"; message: string };
+  | { kind: "failed"; state: ScanState };
 
+/**
+ * The barcode, when the ingredients were photographed first. The scanner's own
+ * camera (`ScanCamera`, #204), reading retail barcodes only — anything else
+ * could never be saved — and the scanner's words for each state.
+ */
 function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; onUnknown: (barcode: string) => void }) {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [status, setStatus] = useState<BarcodeStatus>({ kind: "idle" });
   const busy = useRef(false);
+  const lastCode = useRef<string | null>(null);
 
   async function onBarcode(code: string) {
     if (busy.current) return;
     busy.current = true;
+    lastCode.current = code;
     setStatus({ kind: "checking" });
 
     const result = await fetchProductByBarcode(code);
     if (!result.ok) {
-      busy.current = false;
-      setStatus({ kind: "failed", message: failureMessage(result.failure) });
+      setStatus({ kind: "failed", state: lookupFailureState(result.failure) });
       return;
     }
     if (result.value) onKnown(result.value.id);
     else onUnknown(code);
   }
 
+  function tryAgain() {
+    const code = lastCode.current;
+    busy.current = false;
+    setStatus({ kind: "idle" });
+    if (code) void onBarcode(code);
+  }
+
   if (!permission) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS }}>
-        <Text style={{ color: MUTED }}>Checking camera permission…</Text>
-      </View>
-    );
+    return <View style={{ flex: 1, backgroundColor: CANVAS }} />;
   }
 
   if (!permission.granted) {
     return (
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.block, paddingHorizontal: SPACE.gutter }}>
-          <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>
-            We need camera access to scan the barcode.
-          </Text>
-          <PrimaryButton
-            size={56}
-            label="Grant permission"
-            // Once the system will not ask again, asking does nothing: send them to
-            // settings, where the camera can be turned back on.
-            onPress={permission.canAskAgain === false ? () => void Linking.openSettings() : requestPermission}
-          />
-        </View>
+        <CameraPermissionScreen
+          permission={permission}
+          requestPermission={requestPermission}
+          mode="barcode"
+          bottomInset={Math.max(SPACE.gutter, insets.bottom + SPACE.block)}
+          title={ADD_BARCODE.title}
+          line={`${ADD_BARCODE.line} Nothing leaves your phone except the barcode number.`}
+        />
       </View>
     );
   }
 
-  const announcement =
-    status.kind === "checking" ? "Barcode found. Checking it." : status.kind === "failed" ? status.message : "";
+  const copy =
+    status.kind === "checking"
+      ? scanStateCopy({ kind: "working", step: "lookup" })
+      : status.kind === "failed"
+        ? scanStateCopy(status.state)
+        : null;
+  const announcement = copy ? scanStateSpeech(copy) : "";
 
   return (
     <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>
       <ScreenReaderAnnouncer message={announcement} />
-      {status.kind === "idle" ? (
-        <CameraView
-          style={StyleSheet.absoluteFill}
-          facing="back"
-          barcodeScannerSettings={BARCODE_SETTINGS}
-          onBarcodeScanned={({ data }) => void onBarcode(data)}
-        />
-      ) : null}
+      {/* Stays up while a code is checked; reads are ignored while busy. */}
+      <ScanCamera retailOnly onScanned={({ data }) => void onBarcode(data)} />
 
       <View
         pointerEvents="none"
         style={{ position: "absolute", left: SPACE.gutter, right: SPACE.gutter, top: insets.top + SPACE.block, gap: SPACE.text / 2 }}
       >
         <Text style={{ textAlign: "center", fontSize: TYPE.body, fontWeight: "600", color: CANVAS }}>
-          Now scan its barcode
+          {ADD_BARCODE.title}
         </Text>
         <Text style={{ textAlign: "center", fontSize: TYPE.label, color: withAlpha(CANVAS, 0.75) }}>
-          So the next person who scans it finds it.
+          {ADD_BARCODE.line}
         </Text>
       </View>
-
-      {status.kind === "checking" ? (
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]}>
-          <ActivityIndicator color={CANVAS} />
-        </View>
-      ) : null}
 
       <View
         style={{
@@ -217,24 +214,21 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
           backgroundColor: withAlpha(CAMERA_STAGE, 0.75),
         }}
       >
-        {status.kind === "failed" ? (
-          <View accessible accessibilityLabel={announcement} style={{ gap: SPACE.text }}>
-            <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: CTA }}>{status.message}</Text>
-            <Pressable
-              onPress={() => {
-                busy.current = false;
-                setStatus({ kind: "idle" });
-              }}
-              accessibilityRole="button"
-              style={{ alignSelf: "flex-start", minHeight: TOUCH_TARGET, justifyContent: "center" }}
-              className="active:opacity-70"
-            >
-              <Text style={{ fontSize: TYPE.label, fontWeight: "500", color: withAlpha(CANVAS, 0.8), textDecorationLine: "underline" }}>
-                Try again
-              </Text>
-            </Pressable>
+        {copy ? (
+          <View
+            accessible
+            accessibilityLabel={announcement}
+            style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, padding: 12, backgroundColor: withAlpha(CANVAS, 0.95) }}
+          >
+            {status.kind === "checking" ? <ActivityIndicator color={INK} /> : null}
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 12.5, fontWeight: "bold", color: INK }}>{copy.title}</Text>
+              <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{copy.line}</Text>
+            </View>
           </View>
         ) : null}
+
+        {status.kind === "failed" ? <PrimaryButton size={48} label={copy?.action ?? ""} onPress={tryAgain} /> : null}
 
         {status.kind !== "checking" ? (
           <Pressable onPress={() => router.back()} accessibilityRole="button" style={{ alignItems: "center", minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
@@ -260,13 +254,19 @@ type SaveFailure =
   | "name_unreadable"
   | "name_repeats";
 
+/**
+ * What each save failure says. The scan-flow ones (a stale or refused read, a
+ * rate limit, the network) are `scanStateCopy`'s words (#204); the rest are
+ * about the name typed here, or the one case where the save did happen.
+ */
 const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
-  unreadable_list: "That ingredient list didn't look right. Go back and photograph it again.",
-  expired: "That photo is too old to save now. Scan it again.",
-  rate_limited: "That's a lot of products in a short time. Give it a few minutes and try again.",
-  failed: "Couldn't save that just now. Check your connection and try again.",
+  unreadable_list: saveFailureSpeech("unreadable_list"),
+  expired: saveFailureSpeech("expired"),
+  rate_limited: saveFailureSpeech("rate_limited"),
+  failed: saveFailureSpeech("failed"),
+  // A build with no backend: a developer's message, never a real person's.
   not_configured: "Adding products isn't available in this build.",
-  network_error: "Couldn't reach our servers. Check your connection and try again.",
+  network_error: saveFailureSpeech("network_error"),
   // It did save — the write already committed server-side before the parse
   // that hit this failed (#188). "Show me that product" below looks it up
   // by the barcode just submitted, rather than re-saving with a read token
@@ -279,20 +279,27 @@ const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
   name_repeats: "That name repeats itself a lot. Type it as it's printed on the pack.",
 };
 
+const RETAKE_ACTION = scanStateCopy({ kind: "couldnt-read", why: "retake" }).action ?? "";
+const SAVING = scanStateCopy({ kind: "working", step: "save" }).title ?? "";
+
+function saveFailureSpeech(reason: SaveFailureReason): string {
+  return scanStateSpeech(scanStateCopy(saveFailureState(reason)));
+}
+
 // Shown under `already_saved` when the recovery lookup itself fails too.
 // The product is still saved, so the ask is only to try the lookup again.
 const LOOKUP_FAILED_COPY = "Still couldn't open it — check your connection and tap Show me that product again.";
 
 /**
- * `expired` (unlike the other failures) has no useful retry: the read token is
- * gone and the held list can no longer be saved under it. Save is not just
- * disabled here — swapped for the one action that can actually fix it,
- * retracing the same `clearLabelRead` + `/scan-label` path as the review
- * section's own "Retake the photo" below. See issue #193.
+ * `expired` and `unreadable_list` (unlike the other failures) have no useful
+ * retry: the read token is gone, or the server refused the list, so the held
+ * list can't be saved. Save is not just disabled — swapped for the one action
+ * that can fix it, the same as the review section's own "Retake the photo"
+ * below (#193, #204): back to the scanner in Photo mode for this barcode.
  */
 function retakePhoto(barcode: string) {
   clearLabelRead();
-  router.replace({ pathname: "/scan-label", params: { barcode } });
+  router.dismissTo(photoScannerHref({ barcode }));
 }
 
 /** The last step: review the read, then a name, then everything is saved together. */
@@ -331,8 +338,12 @@ function NameStep({
   // survives: see `findSavedProduct`.
   const [lookupFailed, setLookupFailed] = useState(false);
   const trimmed = name.trim();
-  const expired = failure === "expired";
+  // Needs a new photo (#204): the read is too old, or the server refused its list.
+  const expired = failure === "expired" || failure === "unreadable_list";
   const alreadySaved = failure === "already_saved";
+  // A build with no backend can never save: Save stays off rather than
+  // failing the same way on every tap (#204).
+  const cannotSave = failure === "not_configured";
 
   async function save() {
     if (saving || !trimmed) return;
@@ -541,7 +552,7 @@ function NameStep({
         ) : null}
 
         {expired ? (
-          <PrimaryButton size={56} label="Scan it again" onPress={() => retakePhoto(barcode)} />
+          <PrimaryButton size={56} label={RETAKE_ACTION} onPress={() => retakePhoto(barcode)} />
         ) : alreadySaved ? (
           <PrimaryButton
             size={56}
@@ -552,8 +563,8 @@ function NameStep({
         ) : (
           <PrimaryButton
             size={56}
-            label={saving ? "Saving…" : "Save and see my match"}
-            disabled={!trimmed || saving}
+            label={saving ? SAVING : "Save and see my match"}
+            disabled={!trimmed || saving || cannotSave}
             onPress={() => void save()}
           />
         )}

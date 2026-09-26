@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState, Platform } from "react-native";
 
-import type { Ingredient, ProductType, ProductWithIngredients } from "./types";
+import { unknownIngredient, type Ingredient, type ProductType, type ProductWithIngredients } from "./types";
 
 /** A product as it is written to disk: the formula lives in the dictionary. */
 type PersistedProduct = Omit<ProductWithIngredients, "ingredients">;
@@ -207,6 +207,14 @@ export const DISK_TTL_MS = 24 * 60 * 60 * 1000;
 export const SCANNED_TTL_MS = 60 * 60 * 1000;
 
 /**
+ * How long "not in any source" is kept (#204) — much shorter than a hit. A
+ * miss is the answer most likely to change soon: someone may add that very
+ * product from its label minutes later, in this shop, and a person scanning
+ * it again should see it rather than a stale "we don't have this yet".
+ */
+export const SCANNED_MISS_TTL_MS = 10 * 60 * 1000;
+
+/**
  * "Has anything changed?", cheaply.
  *
  * The whole point of the freshness check is that it costs 51 bytes instead of
@@ -248,7 +256,6 @@ type MemoryEntry = {
   byId: Map<string, ProductWithIngredients>;
   /** One product per barcode, chosen by `barcodeWinner`. Rows with no barcode are left out. */
   byBarcode: Map<string, ProductWithIngredients>;
-  types: ProductType[] | null;
 };
 
 let memory: MemoryEntry | null = null;
@@ -363,7 +370,7 @@ function buildEntry(
   const byType = new Map<ProductType | "all", ProductWithIngredients[]>();
   byType.set("all", products);
 
-  return { products, watermark, storedAt, byType, byId, byBarcode, types: null };
+  return { products, watermark, storedAt, byType, byId, byBarcode };
 }
 
 /**
@@ -482,17 +489,6 @@ function isUsableIngredient(value: unknown): value is Ingredient {
   return typeof i.id === "string" && typeof i.name === "string";
 }
 
-/**
- * A name the stored dictionary did not carry.
- *
- * Twin of `stubIngredient` in `data/api.ts`, duplicated rather than imported
- * because this module is below that one — `data/api.ts` imports this file, and
- * the other direction would close the loop. Three fields and a comment is a
- * cheaper price than a cycle.
- */
-function stubIngredient(inciName: string): Ingredient {
-  return { id: inciName, name: inciName, comedogenic: 0, safety: "safe", verified: false };
-}
 
 /**
  * Rebuild each product's formula from the shared dictionary.
@@ -507,7 +503,7 @@ function rehydrate(stored: PersistedCatalogue): ProductWithIngredients[] {
   const dictionary = new Map(stored.dictionary.map((i) => [i.id, i]));
   return stored.products.map((product) => ({
     ...product,
-    ingredients: product.ingredientIds.map((name) => dictionary.get(name) ?? stubIngredient(name)),
+    ingredients: product.ingredientIds.map((name) => dictionary.get(name) ?? unknownIngredient(name)),
   }));
 }
 
@@ -1435,17 +1431,9 @@ export function productByBarcode(
   return entry.byBarcode.get(barcode);
 }
 
-/** Distinct types present, cached so the filter bar stops issuing its own query. */
-export function typesFrom(entry: MemoryEntry): ProductType[] {
-  if (entry.types) return entry.types;
-  entry.types = [
-    ...new Set(entry.products.map((p) => p.type)),
-  ] as ProductType[];
-  return entry.types;
-}
-
 /**
- * A barcode lookup from this session, if it is still inside its hour.
+ * A barcode lookup from this session, if it is still inside its window: an
+ * hour for a product, ten minutes for a miss.
  *
  * Memory only, and deliberately not written to disk. Which barcodes a person
  * has scanned is derived from that person — persisting it would put a
@@ -1463,7 +1451,7 @@ export function readScanned(
 ): ProductWithIngredients | null | undefined {
   const hit = scanned.get(barcode);
   if (!hit) return undefined;
-  if (Date.now() - hit.at > SCANNED_TTL_MS) {
+  if (Date.now() - hit.at > (hit.product ? SCANNED_TTL_MS : SCANNED_MISS_TTL_MS)) {
     scanned.delete(barcode);
     return undefined;
   }

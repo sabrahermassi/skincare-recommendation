@@ -11,7 +11,7 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { fetchProduct, resolveIngredientNames } from "@/data/api";
-import type { Ingredient, ProductWithIngredients } from "@/data/types";
+import { unknownIngredient, type Ingredient, type ProductWithIngredients } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { COLORS } from "@/lib/colors";
 import { comedogenicLabel } from "@/lib/format";
@@ -175,8 +175,8 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
           setLoading(false);
         });
     } else {
-      // No product context — opened from a pasted-list check, for example.
-      // Resolve against the dictionary directly rather than assuming
+      // No product context — opened from a label result or a link, for
+      // example. Resolve against the dictionary directly rather than assuming
       // "not recognised" for an ingredient that may well be verified.
       resolveIngredientNames([inci])
         .then((resolved) => {
@@ -204,17 +204,11 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
   const ingredient: Ingredient =
     index >= 0 && product
       ? product.ingredients[index]
-      : (resolvedIngredient ?? {
-          id: inci,
-          name: inci,
-          comedogenic: 0,
-          safety: "safe",
-          verified: false,
-        });
+      : (resolvedIngredient ?? unknownIngredient(inci));
 
   const match = product ? matchProduct(product, profile) : null;
   // "Back to list" and "Next ingredient" only mean something with a list
-  // behind them. Opened on its own — from a pasted list or a link — "Next"
+  // behind them. Opened on its own — from a label result or a link — "Next"
   // just went back (#296).
   const inList = product !== null && index >= 0;
   const verified = isVerified(ingredient);

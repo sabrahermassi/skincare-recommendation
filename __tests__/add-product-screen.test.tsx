@@ -29,8 +29,14 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
 }));
 
+// The camera's props, so a test can hand it a barcode as if it had read one.
+let mockCameraProps: { onBarcodeScanned?: (result: { data: string }) => void } | null = null;
+
 jest.mock("expo-camera", () => ({
-  CameraView: () => null,
+  CameraView: (props: { onBarcodeScanned?: (result: { data: string }) => void }) => {
+    mockCameraProps = props;
+    return null;
+  },
   useCameraPermissions: () => [{ granted: true, canAskAgain: true }, jest.fn()],
 }));
 
@@ -88,7 +94,8 @@ describe("AddProduct — review section", () => {
     await fireEvent.press(screen.getByText("Not right? Retake the photo"));
 
     expect(heldLabelRead()).toBeNull();
-    expect(mockReplace).toHaveBeenCalledWith({ pathname: "/scan-label", params: { barcode: "1234567890123" } });
+    // Back to the scanner's Photo mode for the same barcode (#204).
+    expect(mockDismissTo).toHaveBeenCalledWith({ pathname: "/scanner", params: { mode: "photo", barcode: "1234567890123" } });
   });
 
   it("retake is disabled while a save is in flight, so it can't clobber the save's own clear-and-navigate", async () => {
@@ -113,7 +120,7 @@ describe("AddProduct — review section", () => {
     // Retake did nothing: the held read from before the save is untouched,
     // and nothing navigated to the camera.
     expect(heldLabelRead()).not.toBeNull();
-    expect(mockReplace).not.toHaveBeenCalledWith(expect.objectContaining({ pathname: "/scan-label" }));
+    expect(mockDismissTo).not.toHaveBeenCalledWith(expect.objectContaining({ pathname: "/scanner" }));
 
     await act(async () => {
       resolveSave({ ok: false, reason: "failed" });
@@ -122,7 +129,7 @@ describe("AddProduct — review section", () => {
 });
 
 describe("AddProduct — expired read token", () => {
-  it("shows Scan it again instead of a Save button, and does not let the name field be edited", async () => {
+  it("shows Retake the photo instead of a Save button, and does not let the name field be edited", async () => {
     holdLabelRead({
       barcode: "1234567890123",
       ingredients: INGREDIENTS,
@@ -132,11 +139,11 @@ describe("AddProduct — expired read token", () => {
     await render(<AddProduct />);
 
     expect(screen.queryByText("Save and see my match")).toBeNull();
-    expect(screen.getByText("Scan it again")).toBeTruthy();
-    expect(screen.getAllByText("That photo is too old to save now. Scan it again.").length).toBeGreaterThan(0);
+    expect(screen.getByText("Retake the photo")).toBeTruthy();
+    expect(screen.getAllByText("Let's take that photo again. We need a fresh photo of the ingredient list to save this product.").length).toBeGreaterThan(0);
   });
 
-  it("Scan it again clears the held read and returns to the camera", async () => {
+  it("Retake the photo clears the held read and returns to the camera", async () => {
     holdLabelRead({
       barcode: "1234567890123",
       ingredients: INGREDIENTS,
@@ -145,10 +152,11 @@ describe("AddProduct — expired read token", () => {
     });
     await render(<AddProduct />);
 
-    await fireEvent.press(screen.getByText("Scan it again"));
+    await fireEvent.press(screen.getByText("Retake the photo"));
 
     expect(heldLabelRead()).toBeNull();
-    expect(mockReplace).toHaveBeenCalledWith({ pathname: "/scan-label", params: { barcode: "1234567890123" } });
+    // Back to the scanner's Photo mode for the same barcode (#204).
+    expect(mockDismissTo).toHaveBeenCalledWith({ pathname: "/scanner", params: { mode: "photo", barcode: "1234567890123" } });
   });
 
   it("a not-yet-expired token still offers Save", async () => {
@@ -156,7 +164,7 @@ describe("AddProduct — expired read token", () => {
     await render(<AddProduct />);
 
     expect(screen.getByText("Save and see my match")).toBeTruthy();
-    expect(screen.queryByText("Scan it again")).toBeNull();
+    expect(screen.queryByText("Retake the photo")).toBeNull();
   });
 
   it("a token just received still offers Save even if the device clock reads past the token's own deadline", async () => {
@@ -175,7 +183,7 @@ describe("AddProduct — expired read token", () => {
     await render(<AddProduct />);
 
     expect(screen.getByText("Save and see my match")).toBeTruthy();
-    expect(screen.queryByText("Scan it again")).toBeNull();
+    expect(screen.queryByText("Retake the photo")).toBeNull();
   });
 });
 
@@ -299,5 +307,60 @@ describe("AddProduct — barcode from a link", () => {
     holdLabelRead({ ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
     await render(<AddProduct />);
     expect(screen.getByText("Barcode 8801234567890")).toBeTruthy();
+  });
+});
+
+// #204: add-product's barcode step is the scanner's camera and the scanner's words.
+describe("AddProduct — barcode step", () => {
+  type LookupMock = { mockResolvedValueOnce(value: unknown): LookupMock; mock: { calls: unknown[][] } };
+  const lookup = fetchProductByBarcode as unknown as LookupMock;
+
+  it("keeps the camera up while checking, and offers Try again for the same code when it can't reach us", async () => {
+    holdLabelRead({ ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    let settle: (value: unknown) => void = () => {};
+    (fetchProductByBarcode as unknown as { mockImplementationOnce(fn: () => Promise<unknown>): void }).mockImplementationOnce(
+      () => new Promise((resolve) => (settle = resolve)),
+    );
+    await render(<AddProduct />);
+
+    await act(async () => mockCameraProps?.onBarcodeScanned?.({ data: "8801234567890" }));
+    expect(screen.getAllByText("Got it").length).toBeGreaterThan(0);
+    // Still mounted: no black screen while checking.
+    expect(mockCameraProps).not.toBeNull();
+
+    await act(async () => settle({ ok: false, failure: { kind: "offline" } }));
+    expect(screen.getAllByText("We couldn't check that just now").length).toBeGreaterThan(0);
+
+    lookup.mockResolvedValueOnce({ ok: true, value: null });
+    await fireEvent.press(screen.getByText("Try again"));
+    expect(lookup.mock.calls.at(-1)).toEqual(["8801234567890"]);
+  });
+});
+
+// #204: the dead ends after a failed save.
+describe("AddProduct — after a save that can't be retried as it is", () => {
+  it("offers Retake the photo when the server refused the list", async () => {
+    (saveScannedProduct as unknown as MockFn).mockReturnValue(Promise.resolve({ ok: false, reason: "unreadable_list" }));
+    holdLabelRead({ barcode: "1234567890123", ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    await render(<AddProduct />);
+
+    await fireEvent.changeText(screen.getByLabelText("Product name"), "Test Toner");
+    await fireEvent.press(screen.getByText("Save and see my match"));
+    expect(screen.queryByText("Save and see my match")).toBeNull();
+
+    await fireEvent.press(screen.getByText("Retake the photo"));
+    expect(mockDismissTo).toHaveBeenCalledWith({ pathname: "/scanner", params: { mode: "photo", barcode: "1234567890123" } });
+  });
+
+  it("turns Save off in a build that can never save", async () => {
+    (saveScannedProduct as unknown as MockFn).mockReturnValue(Promise.resolve({ ok: false, reason: "not_configured" }));
+    holdLabelRead({ barcode: "1234567890123", ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    await render(<AddProduct />);
+
+    await fireEvent.changeText(screen.getByLabelText("Product name"), "Test Toner");
+    await fireEvent.press(screen.getByText("Save and see my match"));
+    (saveScannedProduct as unknown as MockFn).mockClear();
+    await fireEvent.press(screen.getByText("Save and see my match"));
+    expect(saveScannedProduct).not.toHaveBeenCalled();
   });
 });

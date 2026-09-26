@@ -47,14 +47,14 @@ describe("readLabelPhoto", () => {
     strip.mockReturnValue({ ok: false, reason: "too_large" });
     expect(await readLabelPhoto("ORIGINAL")).toMatchObject({
       kind: "failed",
-      message: "That photo is too large to read.",
+      message: "We couldn't read the ingredients",
       retryable: true,
     });
 
     strip.mockReturnValue({ ok: false, reason: "unparseable" });
     expect(await readLabelPhoto("ORIGINAL")).toMatchObject({
       kind: "failed",
-      message: "We couldn't read that image.",
+      message: "We couldn't read the ingredients",
       retryable: true,
     });
     expect(analyse).not.toHaveBeenCalled();
@@ -62,7 +62,7 @@ describe("readLabelPhoto", () => {
 
   it("treats a read that recognised nothing as a photo of something else", async () => {
     analyse.mockResolvedValue(readOk({ recognised: 0 }));
-    expect(await readLabelPhoto("x")).toMatchObject({ kind: "failed", message: "That doesn't look like an ingredient list." });
+    expect(await readLabelPhoto("x")).toMatchObject({ kind: "failed", message: "That doesn't look like an ingredient list" });
 
     analyse.mockResolvedValue(readOk({ total: 0, recognised: 0 }));
     expect(await readLabelPhoto("x")).toMatchObject({ kind: "failed", retryable: true });
@@ -144,7 +144,8 @@ describe("readLabelPhoto", () => {
     analyse.mockResolvedValue({ ok: false, reason: "network_error" });
     expect(await readLabelPhoto("x")).toMatchObject({
       kind: "failed",
-      message: "We couldn't reach our servers.",
+      message: "We couldn't check that just now",
+      hint: "It's us or the connection, not your scan.",
       retryable: true,
     });
   });
@@ -168,17 +169,25 @@ describe("failureCopy", () => {
   });
 
   it("does not send someone with a barcode in hand back to the barcode", () => {
-    expect(failureCopy("server_unavailable", true).hint).toBe("Look the product up in Search, or try again later.");
-    expect(failureCopy("server_unavailable", false).hint).toBe("Try the barcode instead, or look the product up in Search.");
     expect(failureCopy("not_configured", true).hint).toBe("Look the product up in Search instead.");
+    expect(failureCopy("not_configured", false).hint).toBe("Try the barcode instead, or look the product up in Search.");
+  });
+
+  // #204: a 503 is ours (Vision's key or the day's ceiling), so it says so in
+  // the same words as any other "couldn't reach us" — never blaming the photo.
+  it("words a server that can't read labels as ours, not the photo's", () => {
+    expect(failureCopy("server_unavailable", true)).toMatchObject({
+      message: "We couldn't check that just now",
+      hint: "It's us or the connection, not your scan.",
+    });
   });
 
   // #188: unlike the other network-adjacent branches, a genuine connection
   // failure makes both suggestions dead — they need the same network that
   // just failed — so neither should appear, with or without a barcode.
   it("never points a network failure at the barcode or Search", () => {
-    expect(failureCopy("network_error", false).hint).toBe("Check your connection and try again.");
-    expect(failureCopy("network_error", true).hint).toBe("Check your connection and try again.");
+    expect(failureCopy("network_error", false).hint).toBe("It's us or the connection, not your scan.");
+    expect(failureCopy("network_error", true).hint).toBe("It's us or the connection, not your scan.");
     expect(failureCopy("network_error", false).hint).not.toMatch(/barcode|Browse|Search/);
   });
 

@@ -121,7 +121,6 @@ import {
   fetchProductByBarcode,
   fetchProducts,
   fetchProductsByIds,
-  fetchProductTypes,
   FOREGROUND_RECHECK_MS,
   NETWORK_TIMEOUT_MS,
   OCR_TIMEOUT_MS,
@@ -275,14 +274,6 @@ describe("cache hits", () => {
       await fetchProducts({ type: "serum" }),
     );
   });
-
-  it("serves the filter bar's types from the cache instead of querying", async () => {
-    await fetchProducts();
-    mockCalls.length = 0;
-
-    expect((await fetchProductTypes()).sort()).toEqual(["cleanser", "serum"]);
-    expect(mockCalls).toEqual([]);
-  });
 });
 
 describe("freshness checking", () => {
@@ -372,12 +363,6 @@ describe("the 24h ceiling", () => {
         await fetchProductsByIds(["a"]);
       },
     ],
-    [
-      "the type list",
-      async () => {
-        await fetchProductTypes();
-      },
-    ],
   ] as const)(
     "does not serve %s from a copy past the window",
     async (_label: string, read: () => Promise<void>) => {
@@ -414,62 +399,37 @@ describe("the 24h ceiling", () => {
 
 describe("rows nobody can identify", () => {
   /**
-   * A label photographed without a barcode is still written to the catalogue,
-   * with a random id and the placeholders "Unknown" / "Scanned product". It
-   * answers the person who scanned it, and it is unreachable for everyone
-   * else — so it must not accumulate in a browsable list.
+   * An import whose source had no title stored the barcode as the name. Search
+   * would show a product called "3606000537750", which nobody can recognise.
    */
-  it("keeps barcode-less OCR rows out of Browse and search", async () => {
-    mockProductRows = [
-      row("a"),
-      {
-        ...row("ghost"),
-        source: "ocr",
-        barcode: null,
-        brand: "Unknown",
-        name: "Scanned product",
-      },
-    ];
+  it("keeps a product named only by its barcode out of lists", async () => {
+    mockProductRows = [row("a"), { ...row("digits"), name: "3606000537750" }];
     mockRowCount = 2;
 
     expect((await fetchProducts()).map((p) => p.id)).toEqual(["a"]);
     // The stand-in does no text matching — it returns whatever rows are set —
-    // so what this pins is the filter, not the search: the ghost row is gone
-    // and the identifiable one survives.
-    expect((await searchProducts("Scanned")).map((p) => p.id)).toEqual(["a"]);
+    // so what this pins is the filter, not the search.
+    expect((await searchProducts("3606")).map((p) => p.id)).toEqual(["a"]);
   });
 
-  /** An OCR row that *does* carry a barcode is a real contribution — keep it. */
-  it("keeps OCR rows that carry a barcode", async () => {
-    mockProductRows = [row("a"), { ...row("real"), source: "ocr" }];
+  /** A product genuinely called by a short number is a real name — keep it. */
+  it("keeps a short number as a name", async () => {
+    mockProductRows = [row("a"), { ...row("serum-24"), name: "24" }];
     mockRowCount = 2;
 
-    expect((await fetchProducts()).map((p) => p.id).sort()).toEqual([
-      "a",
-      "real",
-    ]);
+    expect((await fetchProducts()).map((p) => p.id).sort()).toEqual(["a", "serum-24"]);
   });
 
   /**
    * The filter is for lists only. The scanner navigates straight to the result
-   * it just created, and a saved or logged product must still open.
+   * it just found, and a saved or logged product must still open.
    */
-  it("still resolves one by id, so a just-scanned result opens", async () => {
-    mockProductRows = [
-      {
-        ...row("ghost"),
-        source: "ocr",
-        barcode: null,
-        brand: "Unknown",
-        name: "Scanned product",
-      },
-    ];
+  it("still resolves one by id, so a scanned result opens", async () => {
+    mockProductRows = [{ ...row("digits"), name: "3606000537750" }];
     mockRowCount = 1;
 
-    expect(unwrap(await fetchProduct("ghost"))?.id).toBe("ghost");
-    expect(unwrap(await fetchProductsByIds(["ghost"])).map((p) => p.id)).toEqual([
-      "ghost",
-    ]);
+    expect(unwrap(await fetchProduct("digits"))?.id).toBe("digits");
+    expect(unwrap(await fetchProductsByIds(["digits"])).map((p) => p.id)).toEqual(["digits"]);
     // And the stand-in really is keyed on the id, so the assertion above means
     // what it says. `unwrap` matters here: a null *value* is the catalogue
     // answering, which is what this asserts — a failed read would throw.

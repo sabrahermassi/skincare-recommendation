@@ -15,7 +15,7 @@ class, per platform, and what enforces it.
 | UI-only state (onboarding flag, future filter state; the account ids that have seen the first-page welcome, #230 — its record is the account's `user_metadata`) | AsyncStorage | AsyncStorage | AsyncStorage |
 | Analytics id and queued funnel events (#225) — PostHog's random id, and events waiting to send | PostHog SDK's own file in the app's document directory (`persistence: "file"`, via `expo-file-system`) — **not** AsyncStorage | same | **Memory only** (`persistence: "memory"`): the SDK's web store is `localStorage` |
 | Cached catalogue data (product rows, ingredient dictionary, freshness watermark) | AsyncStorage | AsyncStorage | AsyncStorage (`localStorage`-backed by `react-native-web`) |
-| Session-scoped state (compare tray, pasted ingredient list) | not persisted | not persisted | not persisted |
+| Session-scoped state (the list a label photo just read, `lib/pending-label.ts`) | not persisted | not persisted | not persisted |
 
 **Row 1 exists as of #218.** Sign in with Apple and Sign in with Google put
 a Supabase session on the device, and `lib/secure-storage.ts` is where it
