@@ -4,7 +4,7 @@ import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text, useIconScale } from "@/components/Text";
 import { openQuiz } from "@/lib/open-quiz";
 import { quizStepCount } from "@/lib/profile";
-import { BORDER_INACTIVE, CARD_SHADOW, INK, MUTED, SURFACE, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CARD_SHADOW, INK, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 
 /**
  * "See your skin match" (#346): what a result shows in place of a score when
@@ -23,7 +23,7 @@ export function SkinMatchCard() {
       style={{
         flexDirection: "row",
         alignItems: "center",
-        gap: 16,
+        gap: SPACE.block,
         paddingHorizontal: 20,
         paddingVertical: 22,
         borderWidth: 1,

@@ -68,6 +68,9 @@ export function QuizFrame({ children }: { children: ReactNode }) {
 
   const value = useMemo<QuizFrameValue>(
     () => ({
+      // Skip, and Finish on the last step. It skips the rest, not what's
+      // answered: every answer is saved as it's tapped, so closing early
+      // keeps them (#346).
       close() {
         // Opened from a link, the quiz can be the only screen there is.
         if (navigation.canGoBack()) navigation.goBack();
@@ -91,9 +94,6 @@ export function QuizFrame({ children }: { children: ReactNode }) {
     haptic.tap();
     onPressRef.current();
   }
-
-  // Skip the rest, not what's answered: every answer is saved as it's
-  // tapped, so closing early keeps them (#346).
 
   return (
     <QuizFrameContext.Provider value={value}>

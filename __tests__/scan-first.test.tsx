@@ -78,8 +78,15 @@ jest.mock("@/data/api", () => ({
   fetchProductsByIds: () => Promise.resolve({ ok: true, value: [] }),
 }));
 
+// Each test is a separate tap, well past openQuiz's double-tap guard. The
+// clock still runs, so waitFor can time out.
+const realNow = Date.now;
+let clockOffset = 0;
+
 beforeEach(() => {
   jest.clearAllMocks();
+  clockOffset += 10_000;
+  jest.spyOn(Date, "now").mockImplementation(() => realNow() + clockOffset);
   mockCanGoBack = true;
   useAppStore.setState({ hasSeenOnboarding: false, profile: EMPTY_PROFILE });
 });

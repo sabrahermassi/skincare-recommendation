@@ -191,7 +191,7 @@ export default function TabsLayout() {
     >
       {/*
         Home is the index route, so `/` lands on it — and so does finishing the
-        quiz: the first screen after it is Home, with the scan card, the search
+        intro: the first screen after it is Home, with the scan card, the search
         box and the skin profile. Setting `initialRouteName` alone would not do
         it: that anchors the back stack, it does not change which screen `/`
         resolves to.
