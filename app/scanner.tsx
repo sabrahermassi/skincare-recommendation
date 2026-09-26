@@ -1291,11 +1291,11 @@ function IngredientsStage({
 // full-bleed now), so a fixed bottom inset put the frame's bottom edge, and
 // its instruction text, underneath the switcher rather than clear of it.
 const SWITCHER_HEIGHT = 53;
-// The no-match sheet (after OnSkin): its picture (new-watercolor sheets, "no
-// product found", on a cream within a shade of CANVAS so it has no edge), its
-// corners, and how far below it starts.
+// The no-match sheet (after OnSkin): its picture (new-watercolor/
+// no_product_match_v1_transparent.png, trimmed), its corners, and how far
+// below it starts.
 const NO_MATCH_ART = require("@/assets/illustrations/no-product-found.webp");
-const NO_MATCH_ASPECT = 1200 / 800;
+const NO_MATCH_ASPECT = 1164 / 697;
 const NO_MATCH_RADIUS = 32;
 const NO_MATCH_TRAVEL = 700;
 // Apple's spring for a sheet presenting: critically damped (fraction 1) at

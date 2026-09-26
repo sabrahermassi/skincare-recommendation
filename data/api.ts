@@ -1602,8 +1602,11 @@ export function searchableQuery(query: string): string | null {
   return /[\p{L}\p{N}]/u.test(cleaned) ? cleaned : null;
 }
 
+/** How many letters a search needs before it looks anything up (owner). */
+export const SEARCH_MIN_LETTERS = 3;
+
 export async function searchProducts(query: string): Promise<ProductWithIngredients[]> {
-  if (query.trim().length < 2) return [];
+  if (query.trim().length < SEARCH_MIN_LETTERS) return [];
   const escaped = searchableQuery(query);
   if (escaped === null) return [];
 
