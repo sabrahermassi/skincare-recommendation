@@ -1,10 +1,11 @@
-import { CameraView, useCameraPermissions } from "expo-camera";
+import { useCameraPermissions } from "expo-camera";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CameraPermissionScreen } from "@/components/CameraPermissionScreen";
+import { ScanCamera } from "@/components/ScanCamera";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -14,13 +15,12 @@ import { TypeChip } from "@/components/TypeChip";
 import { fetchProductByBarcode, forgetScanned, saveScannedProduct } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/data/types";
 import { clearLabelRead, heldLabelRead } from "@/lib/pending-label";
-import { lookupFailureState, saveFailureState, scanStateCopy, scanStateSpeech, type SaveFailureReason } from "@/lib/scan-copy";
+import { lookupFailureState, saveFailureState, scanStateCopy, scanStateSpeech, type SaveFailureReason, type ScanState } from "@/lib/scan-copy";
 import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
 import {
   BORDER_INACTIVE,
   CAMERA_STAGE,
   CANVAS,
-  CTA,
   INK,
   MUTED,
   MUTED_FAINT,
@@ -93,10 +93,6 @@ function NothingToAdd() {
 }
 
 /**
- * The barcode, when the ingredients were photographed first. A single-purpose
- * camera: retail barcodes only, because anything else can never be saved.
- */
-/**
  * The types the product form offers, the catalogue's most common first — as
  * counted from the live catalogue on 2026-09-19. Fixed on purpose: a rough
  * guide set once, not re-sorted on every import.
@@ -116,44 +112,50 @@ const LEADING_TYPES: ProductType[] = [
   "essence",
 ];
 
-const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e"] as const;
-const BARCODE_SETTINGS = { barcodeTypes: [...BARCODE_TYPES] };
-
 /** What the barcode step asks for, and why. */
 const ADD_BARCODE = { title: "Now scan its barcode", line: "So the next person who scans it finds it." };
 
 type BarcodeStatus =
   | { kind: "idle" }
   | { kind: "checking" }
-  | { kind: "failed"; message: string };
+  | { kind: "failed"; state: ScanState };
 
+/**
+ * The barcode, when the ingredients were photographed first. The scanner's own
+ * camera (`ScanCamera`, #204), reading retail barcodes only — anything else
+ * could never be saved — and the scanner's words for each state.
+ */
 function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; onUnknown: (barcode: string) => void }) {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [status, setStatus] = useState<BarcodeStatus>({ kind: "idle" });
   const busy = useRef(false);
+  const lastCode = useRef<string | null>(null);
 
   async function onBarcode(code: string) {
     if (busy.current) return;
     busy.current = true;
+    lastCode.current = code;
     setStatus({ kind: "checking" });
 
     const result = await fetchProductByBarcode(code);
     if (!result.ok) {
-      busy.current = false;
-      setStatus({ kind: "failed", message: scanStateSpeech(scanStateCopy(lookupFailureState(result.failure))) });
+      setStatus({ kind: "failed", state: lookupFailureState(result.failure) });
       return;
     }
     if (result.value) onKnown(result.value.id);
     else onUnknown(code);
   }
 
+  function tryAgain() {
+    const code = lastCode.current;
+    busy.current = false;
+    setStatus({ kind: "idle" });
+    if (code) void onBarcode(code);
+  }
+
   if (!permission) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS }}>
-        <Text style={{ color: MUTED }}>Checking camera permission…</Text>
-      </View>
-    );
+    return <View style={{ flex: 1, backgroundColor: CANVAS }} />;
   }
 
   if (!permission.granted) {
@@ -172,20 +174,19 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
     );
   }
 
-  const announcement =
-    status.kind === "checking" ? "Barcode found. Checking it." : status.kind === "failed" ? status.message : "";
+  const copy =
+    status.kind === "checking"
+      ? scanStateCopy({ kind: "working", step: "lookup" })
+      : status.kind === "failed"
+        ? scanStateCopy(status.state)
+        : null;
+  const announcement = copy ? scanStateSpeech(copy) : "";
 
   return (
     <View style={{ flex: 1, backgroundColor: CAMERA_STAGE }}>
       <ScreenReaderAnnouncer message={announcement} />
-      {status.kind === "idle" ? (
-        <CameraView
-          style={StyleSheet.absoluteFill}
-          facing="back"
-          barcodeScannerSettings={BARCODE_SETTINGS}
-          onBarcodeScanned={({ data }) => void onBarcode(data)}
-        />
-      ) : null}
+      {/* Stays up while a code is checked; reads are ignored while busy. */}
+      <ScanCamera retailOnly onScanned={({ data }) => void onBarcode(data)} />
 
       <View
         pointerEvents="none"
@@ -198,12 +199,6 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
           {ADD_BARCODE.line}
         </Text>
       </View>
-
-      {status.kind === "checking" ? (
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]}>
-          <ActivityIndicator color={CANVAS} />
-        </View>
-      ) : null}
 
       <View
         style={{
@@ -218,24 +213,21 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
           backgroundColor: withAlpha(CAMERA_STAGE, 0.75),
         }}
       >
-        {status.kind === "failed" ? (
-          <View accessible accessibilityLabel={announcement} style={{ gap: SPACE.text }}>
-            <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: CTA }}>{status.message}</Text>
-            <Pressable
-              onPress={() => {
-                busy.current = false;
-                setStatus({ kind: "idle" });
-              }}
-              accessibilityRole="button"
-              style={{ alignSelf: "flex-start", minHeight: TOUCH_TARGET, justifyContent: "center" }}
-              className="active:opacity-70"
-            >
-              <Text style={{ fontSize: TYPE.label, fontWeight: "500", color: withAlpha(CANVAS, 0.8), textDecorationLine: "underline" }}>
-                Try again
-              </Text>
-            </Pressable>
+        {copy ? (
+          <View
+            accessible
+            accessibilityLabel={announcement}
+            style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, padding: 12, backgroundColor: withAlpha(CANVAS, 0.95) }}
+          >
+            {status.kind === "checking" ? <ActivityIndicator color={INK} /> : null}
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 12.5, fontWeight: "bold", color: INK }}>{copy.title}</Text>
+              <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{copy.line}</Text>
+            </View>
           </View>
         ) : null}
+
+        {status.kind === "failed" ? <PrimaryButton size={48} label={copy?.action ?? ""} onPress={tryAgain} /> : null}
 
         {status.kind !== "checking" ? (
           <Pressable onPress={() => router.back()} accessibilityRole="button" style={{ alignItems: "center", minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">

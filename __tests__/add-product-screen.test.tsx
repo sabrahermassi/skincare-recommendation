@@ -29,8 +29,14 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
 }));
 
+// The camera's props, so a test can hand it a barcode as if it had read one.
+let mockCameraProps: { onBarcodeScanned?: (result: { data: string }) => void } | null = null;
+
 jest.mock("expo-camera", () => ({
-  CameraView: () => null,
+  CameraView: (props: { onBarcodeScanned?: (result: { data: string }) => void }) => {
+    mockCameraProps = props;
+    return null;
+  },
   useCameraPermissions: () => [{ granted: true, canAskAgain: true }, jest.fn()],
 }));
 
@@ -299,5 +305,32 @@ describe("AddProduct — barcode from a link", () => {
     holdLabelRead({ ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
     await render(<AddProduct />);
     expect(screen.getByText("Barcode 8801234567890")).toBeTruthy();
+  });
+});
+
+// #204: add-product's barcode step is the scanner's camera and the scanner's words.
+describe("AddProduct — barcode step", () => {
+  type LookupMock = { mockResolvedValueOnce(value: unknown): LookupMock; mock: { calls: unknown[][] } };
+  const lookup = fetchProductByBarcode as unknown as LookupMock;
+
+  it("keeps the camera up while checking, and offers Try again for the same code when it can't reach us", async () => {
+    holdLabelRead({ ingredients: INGREDIENTS, readToken: freshToken(Date.now() + 60_000) });
+    let settle: (value: unknown) => void = () => {};
+    (fetchProductByBarcode as unknown as { mockImplementationOnce(fn: () => Promise<unknown>): void }).mockImplementationOnce(
+      () => new Promise((resolve) => (settle = resolve)),
+    );
+    await render(<AddProduct />);
+
+    await act(async () => mockCameraProps?.onBarcodeScanned?.({ data: "8801234567890" }));
+    expect(screen.getAllByText("Got it").length).toBeGreaterThan(0);
+    // Still mounted: no black screen while checking.
+    expect(mockCameraProps).not.toBeNull();
+
+    await act(async () => settle({ ok: false, failure: { kind: "offline" } }));
+    expect(screen.getAllByText("We couldn't check that just now").length).toBeGreaterThan(0);
+
+    lookup.mockResolvedValueOnce({ ok: true, value: null });
+    await fireEvent.press(screen.getByText("Try again"));
+    expect(lookup.mock.calls.at(-1)).toEqual(["8801234567890"]);
   });
 });

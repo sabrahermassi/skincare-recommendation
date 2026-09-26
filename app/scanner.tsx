@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Rect } from "react-native-svg";
 
 import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
+import { ScanCamera } from "@/components/ScanCamera";
 import { LabelCamera } from "@/components/LabelCamera";
 import { CameraPermissionScreen } from "@/components/CameraPermissionScreen";
 import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
@@ -54,22 +55,6 @@ import { CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SELECTED, SURFACE, T
  * prompt is not the first thing that happens after three quiz questions.
  */
 
-/**
- * One list on every platform, as of SDK 57 (issue #11).
- *
- * This used to narrow web to `["qr"]`, because expo-camera decoded QR codes
- * only in the browser at SDK 54 — it used jsQR. That is no longer true:
- * `expo-camera@57.0.4` uses the browser's own `BarcodeDetector` where it
- * exists and falls back to the `barcode-detector` ponyfill it now depends on,
- * and both handle the EAN-13 / UPC-A printed on packaging. See
- * `node_modules/expo-camera/build/web/WebBarcodeScanner.js`, whose format map
- * covers ean_13, ean_8, upc_a, upc_e and code_128.
- */
-const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as const;
-
-// One object for the life of the app. Built inline it was a new value every
-// render, and the camera reads a changed setting as a reason to reconfigure.
-const BARCODE_SETTINGS = { barcodeTypes: [...BARCODE_TYPES] };
 
 type Mode = ScanMode;
 /**
@@ -517,7 +502,7 @@ export default function Scan() {
             the cream permission screen. */}
         {isFocused && !needsPermission ? <StatusBar style="light" /> : null}
         {cameraLive ? (
-          <ScannerCamera cameraRef={cameraRef} onScanned={onScanned} onLayout={onCameraLayout} enableTorch={torchOn} />
+          <ScanCamera cameraRef={cameraRef} onScanned={onScanned} onLayout={onCameraLayout} enableTorch={torchOn} />
         ) : null}
 
         {/* One frame too: it eases between four corners and a full outline, and the
@@ -741,72 +726,6 @@ function FoundSheet({
 /** The picture on the found-product card, and how far the card travels up from below. */
 const FOUND_PICTURE = 96;
 const FOUND_SHEET_TRAVEL = 420;
-
-/**
- * The camera, with its start-up kept out of sight. A camera that has just
- * started spends a moment finding its exposure, and in front of a plain wall
- * that shows as a burst of white before the picture settles. A dark veil holds
- * the stage until the camera reports ready (or a moment has passed, in case it
- * never says so), then fades. It is mounted fresh each time the camera is, so
- * every start-up gets one.
- */
-function ScannerCamera({
-  cameraRef,
-  onScanned,
-  onLayout,
-  enableTorch,
-}: {
-  cameraRef: React.RefObject<CameraView | null>;
-  onScanned: (result: BarcodeScanningResult) => void;
-  onLayout: (event: LayoutChangeEvent) => void;
-  /** `expo-camera@~57.0.4`'s own prop — no `@platform` restriction, and
-   *  genuinely implemented on web too (see the torch toggle's own comment,
-   *  below, for the verification). A device that can't do it just gets an
-   *  inert button; that's a note, not a defect (#195). */
-  enableTorch: boolean;
-}) {
-  const [ready, setReady] = useState(false);
-  const [veil] = useState(() => new Animated.Value(1));
-
-  useEffect(() => {
-    // Not waiting on a "ready" that may never come.
-    const fallback = setTimeout(() => setReady(true), 1600);
-    return () => clearTimeout(fallback);
-  }, []);
-
-  useEffect(() => {
-    if (!ready) return;
-    // A beat after ready, so the exposure has settled, then fade the veil away.
-    const t = setTimeout(() => {
-      Animated.timing(veil, {
-        toValue: 0,
-        duration: 320,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: Platform.OS !== "web",
-      }).start();
-    }, 350);
-    return () => clearTimeout(t);
-  }, [ready, veil]);
-
-  return (
-    <>
-      <CameraView
-        ref={cameraRef}
-        style={StyleSheet.absoluteFill}
-        facing="back"
-        enableTorch={enableTorch}
-        barcodeScannerSettings={BARCODE_SETTINGS}
-        onBarcodeScanned={onScanned}
-        onLayout={onLayout}
-        onCameraReady={() => setReady(true)}
-      />
-      <Animated.View
-        pointerEvents="none"
-        style={{ ...StyleSheet.absoluteFill, backgroundColor: CAMERA_STAGE, opacity: veil }}
-      />
-    </>
-  );
-}
 
 /**
  * The mode switcher. Barcode sits flush with the scanner window's left edge and
