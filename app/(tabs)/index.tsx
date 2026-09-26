@@ -18,10 +18,11 @@ import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, TYPE } from "@/lib/tokens";
 // margins trimmed, and brought down to 500px from 1254px).
 const SCAN_ART = require("@/assets/illustrations/home-scan.webp");
 const FIND_ART = require("@/assets/illustrations/home-find.webp");
-// Stand-ins from the watercolor set until the owner's own art for these two
-// cards arrives: a line of products for Find a product, a shelf for the routine.
+// Find a product: a stand-in from the watercolor set (a line of products) until
+// its own art arrives.
 const MATCH_ART = require("@/assets/illustrations/history-empty.webp");
-const ROUTINE_ART = require("@/assets/illustrations/saved-empty-shelf.webp");
+// Skincare routine: a notepad (new-watercolor/skincare_routine_notepad_transparent.png).
+const ROUTINE_ART = require("@/assets/illustrations/home-routine.webp");
 // The gap between the two cards.
 const ACTION_CARD_GAP = 12;
 // The least room the picture keeps. The cards are square, and grow taller rather
