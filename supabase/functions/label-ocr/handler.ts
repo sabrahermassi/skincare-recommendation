@@ -389,7 +389,13 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
   // the dictionary and read the label again; a label that is already recognised
   // never pays for the table scan. The second read is kept only if it recognises
   // at least as much of the label as the first.
-  if (!readWithDictionary && gateRatio(parsed, known) < MIN_KNOWN_INGREDIENT_RATIO) {
+  //
+  // A name the label broke across two lines is the other moment: "niacin-" at
+  // the end of one line and "amide" at the start of the next come back as
+  // "niacin- amide", and the rest of the list can clear the gate without it.
+  // Only the dictionary can tell that one from "beta-" / "glucan".
+  const brokenName = parsed.some((p) => !known.has(p.inci_name) && brokenAcrossLines(text, p.inci_name));
+  if (!readWithDictionary && (brokenName || gateRatio(parsed, known) < MIN_KNOWN_INGREDIENT_RATIO)) {
     const probeParsed = parsed;
     const probeKnown = known;
     const failed = await parseWithDictionary();
@@ -680,6 +686,20 @@ async function runOcr(deps: LabelOcrDeps, imageBase64: string): Promise<OcrResul
   // tolerance tweak. Until then the flat text scores better.
   if (!annotation.text) return { ok: false, noText: true };
   return { ok: true, text: annotation.text };
+}
+
+/**
+ * Whether the label printed `name` across a line break, at one of its spaces.
+ * The parser joins lines with a space before it splits, so a wrapped name
+ * ("알란\n토인", "niacin-\namide") reaches here with that space inside it.
+ */
+function brokenAcrossLines(text: string, name: string): boolean {
+  const lines = text.normalize("NFKC").toLowerCase().replace(/\r/g, "").replace(/[ \t]*\n\s*/g, "\n").replace(/[ \t]+/g, " ");
+  const words = name.split(" ");
+  for (let i = 1; i < words.length; i++) {
+    if (lines.includes(`${words.slice(0, i).join(" ")}\n${words.slice(i).join(" ")}`)) return true;
+  }
+  return false;
 }
 
 /** Until the daily Vision ceiling's window (a UTC day) resets. At least 1. */

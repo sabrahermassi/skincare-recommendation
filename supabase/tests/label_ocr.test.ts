@@ -295,6 +295,46 @@ Deno.test("a synonyms read that failed is asked again on the next photo", async 
   assertEquals(db.selects("ingredient_synonyms").length, 2);
 });
 
+/** A verified dictionary holding exactly `entries`, paged the way `paginateOrdered` asks for it. */
+function dictionaryOf(entries: string[]): DbAnswer {
+  const sorted = [...entries].sort();
+  return (call) => {
+    if (call.kind !== "select" || call.table !== "ingredients" || filterValue(call, "eq", "verified") !== true) return undefined;
+    const asked = filterValue(call, "in", "inci_name") as string[] | undefined;
+    if (asked) return { data: asked.filter((n) => sorted.includes(n)).map((inci_name) => ({ inci_name })), error: null };
+    const after = filterValue(call, "gt", "inci_name") as string | undefined;
+    const rows = sorted.filter((n) => after === undefined || n > after).map((inci_name) => ({ inci_name }));
+    return { data: rows, error: null };
+  };
+}
+
+/** Whether the read paged through the whole dictionary, rather than only asking about its own names. */
+function readWholeDictionary(db: FakeDb): boolean {
+  return db.selects("ingredients").some((call) => filterValue(call, "in", "inci_name") === undefined);
+}
+
+Deno.test("a name the label broke across two lines is read whole, even when the rest clears the gate", async () => {
+  const { db, deps } = setup(
+    dictionaryOf(NAMES),
+    visionReads("Ingredients: Water, Glycerin, Niacin-\namide, Butylene Glycol, Panthenol"),
+  );
+  const reply = await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
+  assertEquals(reply.status, 200);
+  const body = await reply.json();
+  assertEquals(body.ingredients.map((i: { inci_name: string }) => i.inci_name), NAMES);
+  assertEquals(body.recognised, 5);
+  assert(readWholeDictionary(db));
+});
+
+Deno.test("an unknown name on one line doesn't cost a label that clears the gate the dictionary", async () => {
+  const { db, deps } = setup(
+    dictionaryOf(NAMES),
+    visionReads("Ingredients: Water, Glycerin, Qzxw Plk,\nButylene Glycol, Panthenol"),
+  );
+  assertEquals((await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps)).status, 200);
+  assert(!readWholeDictionary(db));
+});
+
 Deno.test("too few ingredients is 422 not_enough_text", async () => {
   const { db, deps } = setup(allKnown, visionReads("Water, Glycerin"));
   const reply = await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
