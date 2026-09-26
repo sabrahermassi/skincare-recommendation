@@ -1158,7 +1158,9 @@ function BarcodeStage({
           <Pressable
             onPress={() => {
               preserveMode();
-              router.push("/browse");
+              // Closes the scanner onto the Search tab. The scanner is a
+              // modal (#313): a push would open the tabs inside it.
+              router.dismissTo("/browse");
             }}
             accessibilityRole="link"
             style={{
@@ -1254,7 +1256,8 @@ function CameraPermissionIntro({
           underlined, standard target height, and it goes to Browse rather than
           only naming it. */}
       <Pressable
-        onPress={() => router.push("/browse")}
+        // Closes the scanner onto the Search tab, as above.
+        onPress={() => router.dismissTo("/browse")}
         accessibilityRole="link"
         style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 12 }}
         className="active:opacity-70"
