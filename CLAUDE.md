@@ -26,8 +26,8 @@ Supabase is the live backend (Edge Functions `product-lookup`, `label-ocr`,
 `delete-account` deployed). `data/api.ts` falls back to 8 sample products only when
 `EXPO_PUBLIC_SUPABASE_URL`/`_ANON_KEY` are absent — keeps checkouts and
 tests hermetic. Live catalogue: 851 products (grows when someone runs the
-operator script `import:obf`, or when a user photographs a list and names a
-product — a product exists only with a name, a barcode and an ingredient list,
+operator script `import:obf` only; users can no longer add products from the
+app — a product exists only with a name, a barcode and an ingredient list,
 enforced in `replace_product_with_ingredients`; `import:dailymed` is retired
 because DailyMed has no barcodes. The one scheduled catalogue job,
 `reconcile-obf.yml`, re-checks existing rows for reformulation, it doesn't add

@@ -46,7 +46,7 @@ jest.mock("@/data/api", () => ({
 }));
 
 async function open(names: string[]) {
-  holdLabelRead({ ingredients: names, readToken: "token" });
+  holdLabelRead({ ingredients: names });
   await render(<LabelResult />);
   await act(async () => {});
 }

@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 
 import { track } from "@/lib/analytics";
 import { photoScannerHref } from "@/lib/open-scanner";
@@ -24,26 +24,20 @@ import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-lab
 import { isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, FONT_SCALE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
-import { barcodeParam as barcodeParamOf } from "@/lib/route-params";
-
 /**
  * The verdict from a photographed label alone — score, reasons, confidence,
  * the parsed list — with no product name or barcode required first (issue
- * #214). Naming and adding the product to the shared catalogue is offered
- * here as a follow-up, never a gate in front of the answer.
+ * #214). This screen is where every successful label read lands.
  *
- * Reads the same held list `app/add-product.tsx` does (`lib/pending-label`):
- * this screen is where every successful label read lands now, and
- * add-product is reached from the button below, not the other way round.
+ * Reads the held list (`lib/pending-label`): this screen is where every
+ * successful label read lands.
  */
 export default function LabelResult() {
-  // From a link, so only a real barcode is kept (#29).
-  const barcodeParam = barcodeParamOf(useLocalSearchParams<{ barcode?: string }>().barcode);
   const [read] = useState(heldLabelRead);
 
   if (!read) return <NothingToShow />;
 
-  return <Verdict read={read} barcode={barcodeParam ?? read.barcode} />;
+  return <Verdict read={read} />;
 }
 
 function NothingToShow() {
@@ -62,17 +56,16 @@ function NothingToShow() {
 
 /**
  * Photographing a label again after a refusal or an unrecognised read
- * (`clearLabelRead` first, same as `app/add-product.tsx`'s own retake) — the
- * only way forward when the formula couldn't be scored at all. Back to the
- * scanner in Photo mode for the same barcode (#204): `dismissTo` closes this
- * screen onto the scanner underneath, or opens one if there isn't.
+ * (`clearLabelRead` first) — the only way forward when the formula couldn't
+ * be scored at all. Back to the scanner in Photo mode (#204): `dismissTo`
+ * closes this screen onto the scanner underneath, or opens one if there isn't.
  */
-function retake(barcode?: string) {
+function retake() {
   clearLabelRead();
-  router.dismissTo(photoScannerHref({ barcode }));
+  router.dismissTo(photoScannerHref());
 }
 
-function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
+function Verdict({ read }: { read: HeldLabel }) {
   const insets = useSafeAreaInsets();
   const profile = useAppStore((s) => s.profile);
   const [ingredients, setIngredients] = useState<Ingredient[] | null>(null);
@@ -261,7 +254,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
         </View>
 
         {lowCoverage ? (
-          <PrimaryButton size={52} label="Retake the photo" onPress={() => retake(barcode)} />
+          <PrimaryButton size={52} label="Retake the photo" onPress={() => retake()} />
         ) : (
           <>
             {/* RiskCards brings its own gutter, as on the product page; inside
@@ -275,11 +268,6 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
                 onPorePress={() => sheetRef.current?.open()}
               />
             </View>
-            <PrimaryButton
-              size={56}
-              label="Name and add this product"
-              onPress={() => router.push({ pathname: "/add-product", params: barcode ? { barcode } : {} })}
-            />
           </>
         )}
         </ReadingScale>

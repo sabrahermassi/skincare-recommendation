@@ -8,7 +8,6 @@ import { fetchProduct, resolveIngredientNames } from "@/data/api";
 import {
   MAX_INGREDIENT_NAME_LENGTH,
   MAX_PRODUCT_ID_LENGTH,
-  barcodeParam,
   ingredientNameParam,
   productIdParam,
 } from "@/lib/route-params";
@@ -90,16 +89,6 @@ describe("ingredientNameParam", () => {
       expect(ingredientNameParam(name)).toBeNull();
     }
     expect(ingredientNameParam(["water", "glycerin"])).toBeNull();
-  });
-});
-
-describe("barcodeParam", () => {
-  it("keeps a barcode the label functions accept, and drops anything else", () => {
-    expect(barcodeParam("8801234567890")).toBe("8801234567890");
-    for (const barcode of ["abc", "1234567", "123456789012345", "88012345678ab", "", undefined]) {
-      expect(barcodeParam(barcode)).toBeUndefined();
-    }
-    expect(barcodeParam(["8801234567890"])).toBeUndefined();
   });
 });
 

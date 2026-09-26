@@ -19,12 +19,8 @@ import { CAMERA_STAGE } from "@/lib/tokens";
  */
 const ALL_CODES = { barcodeTypes: [...(["ean13", "ean8", "upc_a", "upc_e", "qr", "code128"] as const)] };
 
-/** Retail barcodes only, for a step where nothing else could ever be saved (add-product). */
-const RETAIL_CODES = { barcodeTypes: [...(["ean13", "ean8", "upc_a", "upc_e"] as const)] };
-
 /**
- * The one barcode camera (#204), used by the scanner and by add-product's
- * barcode step, which had a second camera of its own with its own states.
+ * The one barcode camera (#204), used by the scanner.
  *
  * Its start-up is kept out of sight. A camera that has just started spends a
  * moment finding its exposure, and in front of a plain wall that shows as a
@@ -42,7 +38,6 @@ export function ScanCamera({
   onScanned,
   onLayout,
   enableTorch = false,
-  retailOnly = false,
 }: {
   /** Handed in when the caller also takes photos with this camera (the scanner's Photo mode). */
   cameraRef?: RefObject<CameraView | null>;
@@ -52,8 +47,6 @@ export function ScanCamera({
    *  genuinely implemented on web too. A device that can't do it just gets
    *  an inert button; that's a note, not a defect (#195). */
   enableTorch?: boolean;
-  /** Reads only retail barcodes (EAN / UPC). */
-  retailOnly?: boolean;
 }) {
   const [ready, setReady] = useState(false);
   const [veil] = useState(() => new Animated.Value(1));
@@ -88,7 +81,7 @@ export function ScanCamera({
         // One object for the life of the app. Built inline it was a new value
         // every render, and the camera reads a changed setting as a reason to
         // reconfigure.
-        barcodeScannerSettings={retailOnly ? RETAIL_CODES : ALL_CODES}
+        barcodeScannerSettings={ALL_CODES}
         onBarcodeScanned={onScanned}
         onLayout={onLayout}
         onCameraReady={() => setReady(true)}

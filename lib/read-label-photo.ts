@@ -27,7 +27,7 @@ export function failureFromState(state: ScanState): LabelReadFailure {
   return { message: copy.title ?? "", hint: copy.line, action: copy.action, link: copy.link, retryable: true };
 }
 
-/** `read`: the list is held for the add-product screen, which the caller now opens. */
+/** `read`: the list is held for the label-result screen to display. */
 export type LabelReadOutcome = { kind: "read" } | ({ kind: "failed" } & LabelReadFailure);
 
 /**
@@ -35,13 +35,11 @@ export type LabelReadOutcome = { kind: "read" } | ({ kind: "failed" } & LabelRea
  * what should happen next. The one place this is decided, so the label camera
  * and the permission screens that offer a chosen photo cannot give different
  * answers for the same picture. Reading stores nothing: a good read is held in
- * memory (`lib/pending-label.ts`) for the add-product screen to save with a
- * barcode and a name.
+ * memory (`lib/pending-label.ts`) for the label-result screen to display.
  *
  * `imageBase64` is whatever is about to be sent — already cropped to the frame
- * for a camera photo, scaled down for a chosen one. `barcode` is the one handed
- * over by whoever sent the user here after a miss; the product is saved under it. A rejected request throws: the caller owns the generic
- * "something went wrong" message.
+ * for a camera photo, scaled down for a chosen one. A rejected request throws:
+ * the caller owns the generic "something went wrong" message.
  *
  * `isStillWanted`, checked only once the read has actually succeeded: a read
  * takes seconds, and the caller may no longer want it by the time it lands
@@ -55,7 +53,6 @@ export type LabelReadOutcome = { kind: "read" } | ({ kind: "failed" } & LabelRea
  */
 export async function readLabelPhoto(
   imageBase64: string,
-  barcode?: string,
   isStillWanted?: () => boolean
 ): Promise<LabelReadOutcome> {
   // A phone photo carries GPS coordinates, a device identifier and a
@@ -106,17 +103,17 @@ export async function readLabelPhoto(
       // its own result while this one is still in flight (switch away, then
       // back, then a second, faster photo — see issue #191's PR review),
       // and this being unwanted must not reach across and clear *that* one
-      // out from under the add-product screen. This call never held its
-      // own result in the first place, so there is nothing of its own to
-      // protect — only someone else's to avoid touching.
+      // out from under the label result. This call never held its own result
+      // in the first place, so there is nothing of its own to protect —
+      // only someone else's to avoid touching.
       if (heldLabelRead() === heldBeforeSend) clearLabelRead();
       return { kind: "read" };
     }
-    holdLabelRead({ ingredients: result.ingredients, barcode, readToken: result.readToken });
+    holdLabelRead({ ingredients: result.ingredients });
     return { kind: "read" };
   }
 
-  return { kind: "failed", ...failureCopy(result.reason, !!barcode) };
+  return { kind: "failed", ...failureCopy(result.reason) };
 }
 
 /**
@@ -124,18 +121,13 @@ export async function readLabelPhoto(
  * (#204), except `not_configured` — a build with no backend, which a real
  * person never meets. It alone can't be retried: retaking the photo would run
  * the same check and fail the same way (#121).
- *
- * `hasBarcode` is whoever navigated here having already handed one over — a
- * catalogue miss, a recorded miss in Saved, or a recognised product with no
- * formula yet. Telling that person to "try the barcode" sends them straight
- * back through the same loop, so only the bare entry point is pointed at it.
  */
-export function failureCopy(reason: LabelFailureReason | "not_configured", hasBarcode: boolean): LabelReadFailure {
+export function failureCopy(reason: LabelFailureReason | "not_configured"): LabelReadFailure {
   if (reason === "not_configured") {
     console.warn("[label-read] label-ocr not available: this app has no Supabase credentials configured");
     return {
       message: NOT_CONFIGURED_COPY,
-      hint: hasBarcode ? "Look the product up in Search instead." : "Try the barcode instead, or look the product up in Search.",
+      hint: "Look the product up in Search instead.",
       retryable: false,
     };
   }

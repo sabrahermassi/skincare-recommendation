@@ -46,8 +46,7 @@ something didn't happen.
 
 A generic retry message is honest about nothing. This app tells the
 photo-side problem and the connection-side problem apart on purpose — the
-status mapping in `data/api.ts`'s `readLabel` and `saveScannedProduct`
-decides which it is, and `lib/read-label-photo.ts`'s `failureCopy` words
+status mapping in `data/api.ts`'s `readLabel` decides which it is, and `lib/read-label-photo.ts`'s `failureCopy` words
 it — because the fix is different (retake vs. check your signal), and
 #188 exists specifically because that distinction had gone missing in two
 places. (`classifyFailure` is the barcode lookup's equivalent; the photo
@@ -187,10 +186,9 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 | Skin quiz steps | `app/quiz/*.tsx` (title/subtitle) | No, same reason |
 | Skin profile screen | `app/skin-profile.tsx` | No, same reason |
 | Scan failure copy (photo/network split) | `lib/read-label-photo.ts` (`failureCopy`) | No — operational copy, not an ingredient/product claim |
-| Save failure copy | `app/add-product.tsx` (`SAVE_FAILURE_COPY`) | No, same reason |
 | Barcode lookup failure | `data/api.ts` (`failureMessage`) | No, same reason |
 | Scanner status panels | `app/scanner.tsx` (`BarcodeStage`, `IngredientsStage`) | No, same reason |
-| Camera/permission intros | `app/scanner.tsx` (`CameraPermissionIntro` usages), `app/add-product.tsx` | No, same reason |
+| Camera/permission intros | `app/scanner.tsx` (`CameraPermissionScreen` usages) | No, same reason |
 | Empty states, and the guest line | `app/(tabs)/saved.tsx` (`EMPTY_COPY`, `GUEST_SHELF_LINE`, #300) | No, same reason |
 | Sign-in sheet and its failures | `app/sign-in.tsx`, `lib/auth.ts` (`signInFailureCopy`) | No — account copy, not an ingredient/product claim. Closing the provider's sheet deliberately has no copy at all (#220) |
 | Account screen | `app/account.tsx` | No, same reason |

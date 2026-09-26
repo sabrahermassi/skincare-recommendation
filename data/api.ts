@@ -6,7 +6,6 @@ import {
   dropLegacyBlobs,
   hasCheckedThisLaunch,
   markCheckedThisLaunch,
-  forgetScanned,
   lastRechecked,
   msSinceLastCheck,
   noteRechecked,
@@ -1075,14 +1074,6 @@ export async function fetchProductsByIds(
 }
 
 /**
- * Evicts a barcode's cached lookup result, in or out of `fetchProductByBarcode`'s
- * own control. Re-exported (not just used internally) because a caller can
- * know a cached miss is stale in a way `fetchProductByBarcode` itself can't —
- * see `app/add-product.tsx`'s recovery lookup for the case this exists for.
- */
-export { forgetScanned };
-
-/**
  * Barcode lookup for the scanner. A miss is an ordinary outcome here (an
  * unrecognised bottle), not a bad request.
  *
@@ -1252,10 +1243,8 @@ export async function fetchProductByBarcode(
  * The tier that makes a scan-first app viable. Barcode lookup misses almost
  * everything in this market — Open Beauty Facts holds 37 products tagged South
  * Korea against a market of 10,000+ SKUs — but the formula is printed on the
- * box in the user's hand. Reading it stores nothing: the list comes back to the
- * app, the user names the product, and `saveScannedProduct` then stores the
- * barcode, the name and the list together so the next person to scan the same
- * product gets an instant hit.
+ * box in the user's hand. Reading stores nothing: the list comes back to the
+ * app to be shown on the label result screen.
  */
 export type LabelRead =
   | {
@@ -1264,8 +1253,6 @@ export type LabelRead =
       ingredients: string[];
       recognised: number;
       total: number;
-      /** Proof the list came from a read; `saveScannedProduct` must present it. */
-      readToken: string;
     }
   | {
       ok: false;
@@ -1363,7 +1350,7 @@ export async function readLabel(imageBase64: string): Promise<LabelRead> {
   }
 
   const read = data?.ingredients;
-  if (!Array.isArray(read) || typeof data?.readToken !== "string") return { ok: false, reason: "unreadable" };
+  if (!Array.isArray(read)) return { ok: false, reason: "unreadable" };
 
   return {
     ok: true,
@@ -1373,116 +1360,7 @@ export async function readLabel(imageBase64: string): Promise<LabelRead> {
     ),
     recognised: Number(data.recognised ?? 0),
     total: Number(data.total ?? 0),
-    readToken: data.readToken,
   };
-}
-
-/**
- * Store a product the user has just read and named: barcode, name and ingredient
- * list together, because a product exists only with all three. The server checks
- * the list again rather than trusting it.
- */
-export type SaveProductResult =
-  | { ok: true; product: ProductWithIngredients }
-  | {
-      ok: false;
-      reason:
-        | "not_configured"
-        | "unreadable_list"
-        | "expired"
-        | "rate_limited"
-        | "failed"
-        /** Offline, timed out, or an unclassified 5xx — see `LabelRead`'s same reason (#188). */
-        | "network_error"
-        /**
-         * The write already succeeded server-side — `data.product` came
-         * back non-null — but the client couldn't turn it into a product.
-         * Retrying `saveScannedProduct` would resubmit an already-consumed
-         * read token and land on `expired`; recovery is a barcode lookup
-         * for the barcode just submitted, not a re-save (#188).
-         */
-        | "already_saved"
-        /**
-         * label-ocr refused the name before saving anything (#200) — the read
-         * token is untouched, so fixing the name and saving again works.
-         */
-        | "name_has_url"
-        | "name_unreadable"
-        | "name_repeats";
-    };
-
-export async function saveScannedProduct(input: {
-  barcode: string;
-  name: string;
-  brand?: string;
-  ingredients: string[];
-  /** From the read that produced `ingredients`. */
-  readToken: string;
-  /** The person's pick; omitted when they didn't choose, which the server stores as "unknown". */
-  type?: ProductType;
-}): Promise<SaveProductResult> {
-  if (!usingSupabase()) return { ok: false, reason: "not_configured" };
-
-  const { data, error } = await supabase!.functions.invoke(OCR_FUNCTION, {
-    body: input,
-    timeout: NETWORK_TIMEOUT_MS,
-  });
-
-  if (error) {
-    const context = (error as { context?: { status?: number; json?: () => Promise<unknown> } }).context;
-    const status = context?.status;
-    if (status === 429) return { ok: false, reason: "rate_limited" };
-    if (status === 422) {
-      // A refused name and a refused list are both 422s; only the body tells
-      // them apart (#200). Guarded like `readLabel`'s 422 branch.
-      const body = (
-        typeof context?.json === "function" ? await context.json().catch(() => null) : null
-      ) as { error?: string; problem?: string } | null;
-      if (body?.error === "bad_product_text") {
-        if (body.problem === "url") return { ok: false, reason: "name_has_url" };
-        if (body.problem === "repetition") return { ok: false, reason: "name_repeats" };
-        return { ok: false, reason: "name_unreadable" };
-      }
-      return { ok: false, reason: "unreadable_list" };
-    }
-    if (status === 403) return { ok: false, reason: "expired" };
-    // Offline, timed out, or an unclassified 5xx — us or the connection,
-    // not the photo or the list (#188).
-    return { ok: false, reason: "network_error" };
-  }
-  if (!data?.product) return { ok: false, reason: "failed" };
-
-  // A saved product is the other way one enters the catalogue mid-session, and
-  // the one the user most expects to find afterwards — they just did the work of
-  // adding it. See `addScannedToCatalogue` for why this is an insert rather than
-  // something a freshness check should have to discover.
-  //
-  // Guarded, unlike before (#188): `data.product` is truthy here, meaning the
-  // write already committed server-side and the read token is already spent.
-  // If this throws — a response shape `rowToProduct` doesn't expect — the row
-  // is still saved, so the caller must not offer a plain retry (it would
-  // resubmit a consumed token and land on `expired`); it recovers via a
-  // barcode lookup instead.
-  let product: ProductWithIngredients;
-  try {
-    product = rowToProduct(data.product as CatalogueRow);
-  } catch {
-    // The barcode-first flow that sent the user here already cached a miss
-    // for this exact barcode (`fetchProductByBarcode`, below) before the
-    // photo was even taken, and that miss is still fresh. Without evicting
-    // it, the recovery lookup this failure sends the caller to would read
-    // the stale miss straight back and never reach the network at all.
-    forgetScanned(input.barcode);
-    return { ok: false, reason: "already_saved" };
-  }
-  addScannedToCatalogue(product);
-
-  // The barcode lookup that sent the user here cached a miss for this barcode,
-  // and that entry outlives the save by up to an hour. Without this, scanning
-  // the product again would return the remembered `null`.
-  putScanned(input.barcode, product);
-
-  return { ok: true, product };
 }
 
 /**
