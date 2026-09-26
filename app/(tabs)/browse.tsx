@@ -2,9 +2,9 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, TextInput, View, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
 
 import { HEADER_GUTTER } from "@/components/AppHeader";
+import { GLASS_BUTTON_SMALL, GlassButton } from "@/components/GlassButton";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
@@ -341,25 +341,13 @@ export default function Browse() {
                 }}
               />
               {query.length > 0 && (
-                <Pressable
-                  onPress={() => changeQuery("")}
-                  hitSlop={10}
-                  accessibilityRole="button"
+                <GlassButton
+                  icon="close"
                   accessibilityLabel="Clear search"
-                  style={{
-                    position: "absolute",
-                    right: HEADER_GUTTER + 14,
-                    width: 24,
-                    height: 24,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                  className="active:opacity-70"
-                >
-                  <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                    <Path d="M6 6l12 12M18 6 6 18" stroke={MUTED} strokeWidth={2.2} strokeLinecap="round" />
-                  </Svg>
-                </Pressable>
+                  onPress={() => changeQuery("")}
+                  size={GLASS_BUTTON_SMALL}
+                  style={{ position: "absolute", right: HEADER_GUTTER + 12 }}
+                />
               )}
             </View>
           </View>

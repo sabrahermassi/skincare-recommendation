@@ -1,18 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
   Animated,
   AppState,
-  Easing,
   type LayoutChangeEvent,
   Platform,
   Pressable,
-  StyleSheet,
   View,
+  type ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Rect } from "react-native-svg";
@@ -25,6 +25,7 @@ import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/compone
 import { SHEET_INSET, SHEET_OUTLINE, SHEET_RADIUS } from "@/components/IngredientsSheet";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
+import { GLASS_BUTTON_SMALL, GlassButton } from "@/components/GlassButton";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
@@ -580,48 +581,33 @@ export default function Scan() {
         ) : null}
       </View>
 
-      <Pressable
+      {/* Glass buttons across the top, as in the iOS camera: close on the left,
+          the torch and "i" on the right. */}
+      <GlassButton
+        icon="close"
+        accessibilityLabel="Close scanner"
+        onDark={!needsPermission}
         // Opened from a deep link there is nothing underneath to go back to.
         onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
-        accessibilityRole="button"
-        accessibilityLabel="Close scanner"
-        style={{
-          position: "absolute",
-          left: 16,
-          top: insets.top + 8,
-          width: TOUCH_TARGET,
-          height: TOUCH_TARGET,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-        className="active:opacity-70"
-      >
-        <Ionicons name="close" size={26} color={needsPermission ? INK : CANVAS} />
-      </Pressable>
+        style={{ position: "absolute", left: 16, top: insets.top + 8 }}
+      />
 
-      {/* Visible in both modes, not just Barcode (#195): the camera is one
-          shared instance (see ScannerCamera's own comment), so a torch
-          turned on here stays on across a mode switch — and someone
-          photographing a label on the same dark shelf needs the light too. */}
-      {cameraLive ? (
-        <Pressable
-          onPress={() => setTorchOn((on) => !on)}
-          accessibilityRole="button"
-          accessibilityLabel={torchOn ? "Turn off the torch" : "Turn on the torch"}
-          style={{
-            position: "absolute",
-            right: 16,
-            top: insets.top + 8,
-            width: TOUCH_TARGET,
-            height: TOUCH_TARGET,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          className="active:opacity-70"
-        >
-          <Ionicons name={torchOn ? "flash" : "flash-outline"} size={24} color={CANVAS} />
-        </Pressable>
-      ) : null}
+      <View style={{ position: "absolute", right: 16, top: insets.top + 8, flexDirection: "row", gap: 10 }}>
+        {/* Visible in both modes, not just Barcode (#195): the camera is one
+            shared instance (see ScannerCamera's own comment), so a torch
+            turned on here stays on across a mode switch — and someone
+            photographing a label on the same dark shelf needs the light too. */}
+        {cameraLive ? (
+          <GlassButton
+            icon={torchOn ? "flash" : "flash-outline"}
+            accessibilityLabel={torchOn ? "Turn off the torch" : "Turn on the torch"}
+            onDark
+            onPress={() => setTorchOn((on) => !on)}
+          />
+        ) : null}
+        {/* How we score products. Not linked yet: the owner adds where it goes. */}
+        <GlassButton icon="information" accessibilityLabel="How we score products" onDark={!needsPermission} />
+      </View>
     </View>
   );
 }
@@ -691,26 +677,13 @@ function FoundSheet({
           ...FLOATING_SHADOW,
         }}
       >
-        <Pressable
-          onPress={onClose}
-          accessibilityRole="button"
+        <GlassButton
+          icon="close"
           accessibilityLabel="Close"
-          hitSlop={8}
-          style={{
-            position: "absolute",
-            top: 14,
-            right: 14,
-            width: 28,
-            height: 28,
-            borderRadius: 14,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: withAlpha(INK, 0.08),
-          }}
-          className="active:opacity-70"
-        >
-          <Ionicons name="close" size={18} color={MUTED} />
-        </Pressable>
+          onPress={onClose}
+          size={GLASS_BUTTON_SMALL}
+          style={{ position: "absolute", top: 14, right: 14 }}
+        />
 
         <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.9, color: MUTED }}>
           {product.brand}
@@ -754,14 +727,15 @@ const FOUND_PICTURE = 96;
 const FOUND_SHEET_TRAVEL = 420;
 
 /**
- * The mode switcher. Barcode sits flush with the scanner window's left edge and
- * Photo with its right edge; the space goes between them.
+ * The mode switcher: both modes in one glass pill, and a thumb that slides
+ * between them when the mode changes, like an iOS segmented control or
+ * Instagram's camera modes (owner, after OnSkin's scanner). The pill spans
+ * the scanner window's width; each mode takes half of it.
  *
- * Unselected, each is just its icon and name — no fill, no edge, as if it were
- * not in a button at all. Selected is filled with the app's own button colour,
- * and the fill eases from one to the other rather than jumping.
+ * The selected mode's thumb is tinted, not filled with the call-to-action
+ * colour (#313): the screen's one filled button is the one below it.
  *
- * `light` draws them for the cream screens (asking for camera access) instead
+ * `light` draws it for the cream screens (asking for camera access) instead
  * of over the dark camera.
  */
 function ModeSwitcher({
@@ -773,18 +747,58 @@ function ModeSwitcher({
   setMode: (m: Mode) => void;
   light?: boolean;
 }) {
+  const index = MODES.findIndex((m) => m.label === mode);
+  const [width, setWidth] = useState(0);
+  const [slide] = useState(() => new Animated.Value(index));
+  useEffect(() => {
+    if (reduceMotionNow()) {
+      slide.setValue(index);
+      return;
+    }
+    Animated.spring(slide, {
+      toValue: index,
+      // Quick, with a hint of settle, as the iOS control moves.
+      damping: 18,
+      stiffness: 220,
+      mass: 0.8,
+      useNativeDriver: Platform.OS !== "web",
+    }).start();
+  }, [index, slide]);
+
+  const segment = width > 0 ? (width - 2 * SWITCHER_PADDING) / MODES.length : 0;
+  const track: ViewStyle = { height: SWITCHER_HEIGHT, borderRadius: SWITCHER_HEIGHT / 2, padding: SWITCHER_PADDING, flexDirection: "row" };
+  const glass = isLiquidGlassAvailable();
+  const Track = glass ? GlassView : View;
+
   return (
     <View
       accessibilityRole="tablist"
-      style={{
-        marginHorizontal: SCAN_SIDE_INSET - STAGE_INSET,
-        flexDirection: "row",
-        justifyContent: "space-between",
-      }}
+      style={{ marginHorizontal: SCAN_SIDE_INSET - STAGE_INSET }}
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
     >
-      {MODES.map(({ label, Icon }) => (
-        <ModePill key={label} label={label} Icon={Icon} selected={mode === label} light={light} onPress={() => setMode(label)} />
-      ))}
+      <Track
+        {...(glass ? { glassEffectStyle: "regular" as const, colorScheme: light ? ("light" as const) : ("dark" as const) } : {})}
+        style={[track, glass ? null : { backgroundColor: light ? withAlpha(INK, 0.06) : withAlpha(INK, 0.55) }]}
+      >
+        {segment > 0 ? (
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: SWITCHER_PADDING,
+              bottom: SWITCHER_PADDING,
+              left: SWITCHER_PADDING,
+              width: segment,
+              borderRadius: (SWITCHER_HEIGHT - 2 * SWITCHER_PADDING) / 2,
+              backgroundColor: SELECTED,
+              transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [0, segment] }) }],
+            }}
+          />
+        ) : null}
+        {MODES.map(({ label, Icon }) => (
+          <ModePill key={label} label={label} Icon={Icon} selected={mode === label} light={light} onPress={() => setMode(label)} />
+        ))}
+      </Track>
     </View>
   );
 }
@@ -802,18 +816,7 @@ function ModePill({
   light: boolean;
   onPress: () => void;
 }) {
-  const [fill] = useState(() => new Animated.Value(selected ? 1 : 0));
-  useEffect(() => {
-    Animated.timing(fill, {
-      toValue: selected ? 1 : 0,
-      duration: 240,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: Platform.OS !== "web",
-    }).start();
-  }, [selected, fill]);
-  // The selected pill is tinted, not filled, like an iOS segmented control
-  // (#313): the screen's one filled button is the call to action below it.
-  const color = selected ? INK : light ? MUTED : withAlpha(CANVAS, 0.75);
+  const color = selected ? INK : light ? MUTED : withAlpha(CANVAS, 0.85);
 
   return (
     <Pressable
@@ -821,19 +824,9 @@ function ModePill({
       accessibilityRole="tab"
       accessibilityLabel={label}
       accessibilityState={{ selected }}
-      style={{
-        width: MODE_PILL_WIDTH,
-        height: SWITCHER_HEIGHT,
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: SWITCHER_HEIGHT / 2,
-      }}
+      style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
       className="active:opacity-70"
     >
-      <Animated.View
-        pointerEvents="none"
-        style={{ ...StyleSheet.absoluteFill, borderRadius: SWITCHER_HEIGHT / 2, backgroundColor: SELECTED, opacity: fill }}
-      />
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <Icon color={color} size={20} />
         <Text style={{ fontSize: 13.5, fontWeight: "600", color }} numberOfLines={1}>
@@ -1215,8 +1208,8 @@ function IngredientsStage({
 // full-bleed now), so a fixed bottom inset put the frame's bottom edge, and
 // its instruction text, underneath the switcher rather than clear of it.
 const SWITCHER_HEIGHT = 53;
-// The mode pills: 20% narrower and 10% taller than the segments they replace.
-const MODE_PILL_WIDTH = 126;
+// The gap between the mode switcher's glass pill and the thumb that slides in it.
+const SWITCHER_PADDING = 4;
 // How far in the bottom wrapper (mode pills, status panel) sits from each edge.
 const STAGE_INSET = 20;
 // The scanner's close button sits across the top-left; the frame starts below it.
