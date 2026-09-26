@@ -1,4 +1,4 @@
-import { safetyFrom } from "../scripts/import-inci-dictionary.mjs";
+import { safetyFor, safetyFrom } from "../scripts/import-inci-dictionary.mjs";
 import { annexCited, checkSafetyLabels } from "../scripts/audit-safety-labels.mjs";
 
 const row = (inci_name: string, safety: string, note: string | null = null, source = "obf") => ({
@@ -68,6 +68,16 @@ describe("checkSafetyLabels", () => {
       ["hardened", "avoid", "caution"],
       ["softened", "caution", "avoid"],
     ]);
+  });
+
+  // #361: petrolatum as the import writes it — safe, with a note that isn't a citation.
+  it("reports petrolatum's refined-grade row as none of its problems", () => {
+    const { safety, note } = safetyFor("petrolatum", { en: "II/904" });
+    const result = checkSafetyLabels([row("petrolatum", safety, note)]);
+    expect(result.bySafety).toEqual({ safe: 1 });
+    expect(result.defaultSafe).toEqual({});
+    expect(result.mismatches).toEqual([]);
+    expect(result.unexplained).toEqual([]);
   });
 
   it("lists an avoid or caution label that has no note, but not a safe one", () => {

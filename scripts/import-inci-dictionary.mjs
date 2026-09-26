@@ -182,13 +182,19 @@ function safetyFrom(restriction) {
  * Annex II entries that ban only an unrefined grade. Petrolatum's entry
  * prohibits it "except if the full refining history is known and it can be
  * shown that the substance from which it is produced is not a carcinogen", so
- * reading it as a flat ban put "avoid" on every balm that lists it (#354). It
- * is `caution` instead, with a note that says why. The note deliberately
- * doesn't take one of `safetyFrom`'s shapes, so the safety-label audit
- * doesn't report it as disagreeing with its own citation.
+ * reading it as a flat ban put "avoid" on every balm that lists it (#354).
  *
- * Mirrored by supabase/migrations/0028_petrolatum_caution.sql, which fixes
- * the rows already written: keep the note's wording the same in both.
+ * It is `safe`, with a note that says why (#361). `caution` was tried first,
+ * but the app reads every `caution` as an EU-restricted irritant: a warning
+ * for sensitive skin, an irritation charge on the score and a "to watch"
+ * count. Petrolatum is none of those — it is one of the least irritating
+ * ingredients there is, and it is not on the restricted list (Annex III). The
+ * note deliberately doesn't take one of `safetyFrom`'s shapes, so the
+ * safety-label audit doesn't report it as disagreeing with its own citation.
+ *
+ * Mirrored by supabase/migrations/0028_petrolatum_caution.sql and
+ * 0029_petrolatum_safe.sql, which fix the row already written: keep the
+ * note's wording the same in all three.
  */
 const REFINED_GRADE_EXEMPT = new Set(["petrolatum"]);
 const REFINED_GRADE_NOTE =
@@ -198,7 +204,7 @@ const REFINED_GRADE_NOTE =
 function safetyFor(canonical, restriction) {
   const rating = safetyFrom(restriction);
   if (rating.safety !== "avoid" || !REFINED_GRADE_EXEMPT.has(canonical)) return rating;
-  return { safety: "caution", note: `${REFINED_GRADE_NOTE} (EU Annex ${String(pickEn(restriction)).trim()})` };
+  return { safety: "safe", note: `${REFINED_GRADE_NOTE} (EU Annex ${String(pickEn(restriction)).trim()})` };
 }
 
 /**

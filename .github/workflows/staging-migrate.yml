@@ -27,10 +27,13 @@ jobs:
     runs-on: ubuntu-latest
     # Absent on a fork PR, and a run with no connection string would otherwise
     # spend a minute to fail on the first psql.
-    if: github.repository == 'sabrahermassi/skincare-recommendation'
+    # Nor on Dependabot's branches: GitHub doesn't give them the repository's
+    # secrets, so the job could only fail, and an update PR carries no
+    # migration or function change to try on staging anyway.
+    if: github.repository == 'sabrahermassi/skincare-recommendation' && github.actor != 'dependabot[bot]'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install psql
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client

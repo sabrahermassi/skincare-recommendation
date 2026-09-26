@@ -52,6 +52,28 @@ updates:
       - dependency-name: "react-native-svg"
       - dependency-name: "react-native-web"
       - dependency-name: "react-native-worklets"
+      # Developer tools whose major version changes how tests, lint or the
+      # typecheck run. #367 took Jest 29 -> 30, ESLint 9 -> 10 and TypeScript
+      # 6 -> 7 in one grouped PR and the typecheck failed. A major here is a
+      # planned upgrade on its own branch; minors and patches still come.
+      - dependency-name: "jest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@jest/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "babel-jest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/jest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@testing-library/react-native"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "test-renderer"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
