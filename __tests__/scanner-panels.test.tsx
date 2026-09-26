@@ -48,7 +48,7 @@ jest.mock("react-native/Libraries/AppState/AppState", () => ({
 jest.mock("expo-router", () => {
   const React = require("react");
   return {
-    router: { push: jest.fn(), back: jest.fn(), navigate: jest.fn(), canGoBack: () => true },
+    router: { push: jest.fn(), back: jest.fn(), navigate: jest.fn(), dismissTo: jest.fn(), canGoBack: () => true },
     useFocusEffect: (effect: () => void | (() => void)) => React.useEffect(effect, []),
   };
 });
@@ -183,6 +183,21 @@ describe("scanner status panels", () => {
 
     await scan("8809999999999");
     expect(fetchProductByBarcode).toHaveBeenLastCalledWith("8809999999999");
+  });
+
+  it("closes the scanner to reach Search, rather than stacking Search inside it", async () => {
+    // The scanner is a full-screen modal (#313): a push put a second copy of
+    // the tabs inside it, with the scanner still underneath (#315 review).
+    const { router } = jest.requireMock("expo-router") as { router: { push: MockFn; dismissTo: MockFn } };
+    router.push.mockClear();
+    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: false, failure: { kind: "offline" } });
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+    await scan("8801234567890");
+
+    await fireEvent.press(screen.getByText("Or find it in Search instead."));
+    expect(router.dismissTo).toHaveBeenCalledWith("/browse");
+    expect(router.push).not.toHaveBeenCalled();
   });
 
   it("lets you leave a plain miss the same way", async () => {
