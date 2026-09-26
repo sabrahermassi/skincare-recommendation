@@ -9,7 +9,8 @@ import { ReadingScale, Text, useIconScale, useLargeText, useRingScale } from "@/
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
-import { IngredientsSheet, ingredientsSheetPeek } from "@/components/IngredientsSheet";
+import { IngredientCheck } from "@/components/IngredientCheck";
+import { IngredientsSheet, ingredientsSheetPeek, type IngredientsSheetHandle } from "@/components/IngredientsSheet";
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
@@ -128,6 +129,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
   // underneath the fixed ingredients sheet and the risk cards dropped out of
   // view behind it (#296).
   const scrollRef = useRef<ScrollView>(null);
+  const sheetRef = useRef<IngredientsSheetHandle>(null);
   const restY = useRef(0);
   const panelY = useRef(0);
   // Where "Why this score" sits inside the panel. At the largest text sizes the
@@ -543,7 +545,13 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
           )}
         </View>
 
-        {/* The verdict, before anything else. Never colour alone — the panel
+        {/* What's in it, for everyone, profile or not (#345) — beside the
+            personal verdict below, never instead of it. Opens the list. */}
+        <View style={{ paddingHorizontal: SPACE.gutter }}>
+          <IngredientCheck ingredients={product.ingredients} onPress={total > 0 ? () => sheetRef.current?.open() : undefined} />
+        </View>
+
+        {/* The personal verdict. Never colour alone — the panel
             carries a word too. Its reasoning ("Why this score") opens inside
             the same box: the answer and the reasons belong on the same surface
             when someone is holding the bottle in a shop. */}
@@ -760,7 +768,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
         </ReadingScale>
       </ScrollView>
 
-      {total > 0 ? <IngredientsSheet product={product} match={match} /> : null}
+      {total > 0 ? <IngredientsSheet ref={sheetRef} product={product} match={match} /> : null}
     </View>
   );
 }

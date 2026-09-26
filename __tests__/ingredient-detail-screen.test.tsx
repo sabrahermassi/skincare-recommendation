@@ -40,6 +40,7 @@ const INGREDIENTS = [
   ingredient("some restricted preservative", { safety: "caution" }),
   ingredient("retinol"),
   ingredient("isopropyl myristate", { verified: false }),
+  ingredient("parfum"),
 ];
 
 const PRODUCT: ProductWithIngredients = {
@@ -109,5 +110,17 @@ describe("the ingredient page, opened from a product", () => {
     await open("retinol", { pregnancyStatus: "pregnant" });
     expect(screen.getAllByText("Flagged for you").length).toBeGreaterThan(0);
     expect(screen.queryByText("Great match")).toBeNull();
+  });
+
+  it("gives fragrance the list's Watch for everyone, and says why (#345)", async () => {
+    for (const profile of [{}, { baseSkinType: "oily" as const, sensitivity: "none" as const }]) {
+      await open("parfum", profile);
+      expect(screen.getByText("Worth a second look")).toBeTruthy();
+      expect(
+        screen.getByText("A fragrance or common irritant, flagged for everyone rather than for your profile in particular."),
+      ).toBeTruthy();
+      expect(screen.queryByText(/Carries a restriction or a pore rating/)).toBeNull();
+      await act(async () => screen.unmount());
+    }
   });
 });
