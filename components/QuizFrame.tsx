@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { router, useNavigation } from "expo-router";
 import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,7 +8,6 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { SkipButton } from "@/components/shell/shared";
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
 import { CANVAS, INK } from "@/lib/tokens";
-import { useAppStore } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 
 // design-watercolor/skin quiz/screens/skin quiz background.png, resized to
@@ -28,6 +27,8 @@ type QuizFrameValue = {
   setFooter: (label: string, disabled: boolean, onPress: () => void) => void;
   /** Re-arms the footer button after a step change — see `navigatingRef`. */
   releaseFooter: () => void;
+  /** Closes the whole quiz, back to the screen that opened it (#346). */
+  close: () => void;
 };
 
 const QuizFrameContext = createContext<QuizFrameValue | null>(null);
@@ -41,12 +42,18 @@ export function useQuizFrame(): QuizFrameValue {
 /**
  * Everything on the quiz screens that must not move between steps: the
  * background, Skip, and the Continue / Finish button. Rendered once
- * by app/onboarding/(quiz)/_layout.tsx around the step navigator, so tapping
+ * by app/quiz/_layout.tsx around the step navigator, so tapping
  * Continue only changes the see-through step page inside it.
+ *
+ * The quiz is a modal over the screen that opened it (#346). The frame sits
+ * in the layout, outside the step navigator, so its navigation is the
+ * modal's own screen on the root stack: going back from there closes the
+ * whole quiz from any step, where a step's own `router.back()` would only
+ * return to the step before.
  */
 export function QuizFrame({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
-  const completeOnboarding = useAppStore((s) => s.completeOnboarding);
+  const navigation = useNavigation();
   const [label, setLabel] = useState("Continue");
   const [disabled, setDisabled] = useState(true);
   // A ref, not state: steps pass a new function on every render, and storing
@@ -61,6 +68,14 @@ export function QuizFrame({ children }: { children: ReactNode }) {
 
   const value = useMemo<QuizFrameValue>(
     () => ({
+      // Skip, and Finish on the last step. It skips the rest, not what's
+      // answered: every answer is saved as it's tapped, so closing early
+      // keeps them (#346).
+      close() {
+        // Opened from a link, the quiz can be the only screen there is.
+        if (navigation.canGoBack()) navigation.goBack();
+        else router.replace(POST_ONBOARDING_ROUTE);
+      },
       setFooter(nextLabel, nextDisabled, onPress) {
         setLabel(nextLabel);
         setDisabled(nextDisabled);
@@ -70,7 +85,7 @@ export function QuizFrame({ children }: { children: ReactNode }) {
         navigatingRef.current = false;
       },
     }),
-    [],
+    [navigation],
   );
 
   function pressFooter() {
@@ -78,13 +93,6 @@ export function QuizFrame({ children }: { children: ReactNode }) {
     navigatingRef.current = true;
     haptic.tap();
     onPressRef.current();
-  }
-
-  // Skip the quiz, not the app: lands on the scanner exactly like finishing
-  // the quiz would, just without the remaining answers.
-  function skipQuiz() {
-    completeOnboarding();
-    router.replace(POST_ONBOARDING_ROUTE);
   }
 
   return (
@@ -107,7 +115,7 @@ export function QuizFrame({ children }: { children: ReactNode }) {
         </View>
 
         {/* After the step navigator, so it's drawn (and tappable) above it. */}
-        <SkipButton onPress={skipQuiz} color={INK} />
+        <SkipButton onPress={value.close} color={INK} />
       </View>
     </QuizFrameContext.Provider>
   );

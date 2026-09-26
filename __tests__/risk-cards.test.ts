@@ -92,6 +92,7 @@ describe("irritationCounts", () => {
     expect(irritationCounts(clean, matchProduct(clean, profile({ sensitivity: "high", baseSkinType: "dry" })))).toEqual({
       personal: 0,
       restricted: 0,
+      common: 0,
     });
   });
 
@@ -101,6 +102,47 @@ describe("irritationCounts", () => {
       ingredients: [{ ...ingredient("mystery extract"), safety: "caution", verified: false }, ...FILLER.map(ingredient)],
     } as unknown as ProductWithIngredients;
     expect(irritationCounts(unread, matchProduct(unread, EMPTY_PROFILE)).restricted).toBe(0);
+  });
+});
+
+// #345: the Ingredient check puts fragrance and the common irritants "to
+// watch" for everyone, so the card beside it can't say "Nothing restricted".
+describe("irritationRisk beside the Ingredient check", () => {
+  const scented = product(["water", "parfum", ...FILLER]);
+  const tolerant = profile({ baseSkinType: "normal", sensitivity: "none" });
+
+  it("names a common irritant the person isn't warned about, instead of 'Nothing restricted'", () => {
+    const match = matchProduct(scented, tolerant);
+    expect(irritationCounts(scented, match)).toEqual({ personal: 0, restricted: 0, common: 1 });
+    expect(irritationRisk(scented, match)).toMatchObject({
+      level: "Low",
+      note: "1 common irritant",
+      tone: "watch",
+      hasEntries: true,
+    });
+  });
+
+  it("says the same with no skin profile", () => {
+    expect(irritationRisk(scented, matchProduct(scented, EMPTY_PROFILE)).note).toBe("1 common irritant");
+  });
+
+  it("counts several", () => {
+    const both = product(["water", "parfum", "alcohol denat", ...FILLER]);
+    expect(irritationRisk(both, matchProduct(both, tolerant)).note).toBe("2 common irritants");
+  });
+
+  it("leaves a restricted fragrance to the restricted count, not both", () => {
+    const restrictedScent = {
+      type: "serum",
+      ingredients: [{ ...ingredient("parfum"), safety: "caution" }, ...FILLER.map(ingredient)],
+    } as unknown as ProductWithIngredients;
+    const counts = irritationCounts(restrictedScent, matchProduct(restrictedScent, tolerant));
+    expect(counts).toMatchObject({ restricted: 1, common: 0 });
+  });
+
+  it("no longer counts sodium hydroxide, a pH adjuster", () => {
+    const adjusted = product(["water", "sodium hydroxide", ...FILLER]);
+    expect(irritationRisk(adjusted, matchProduct(adjusted, tolerant)).note).toBe("Nothing restricted");
   });
 });
 
