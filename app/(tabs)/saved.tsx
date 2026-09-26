@@ -34,9 +34,6 @@ import { haptic } from "@/lib/haptics";
 
 type Tab = SavedTab;
 
-// design-watercolor/saved screen background.png, brought down to 1170px wide.
-const BACKGROUND_ART = require("@/assets/illustrations/saved-background.jpg");
-
 /**
  * The shelf and the log, on one screen.
  *
@@ -231,15 +228,6 @@ export default function Saved() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      {/* The watercolor behind all three tabs (Saved, History, Ingredients). Fills
-          the screen and cover-crops to it; decorative, so it takes no touches. */}
-      <Image
-        source={BACKGROUND_ART}
-        contentFit="cover"
-        pointerEvents="none"
-        accessibilityLabel=""
-        style={StyleSheet.absoluteFill}
-      />
       <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 10 }}>
         <Text style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>
           Saved
@@ -833,9 +821,9 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
 // One picture for each tab's empty state, with its own proportions (width / height)
 // so `contain` never letterboxes it.
 const EMPTY_ART = {
-  saved: { source: require("@/assets/illustrations/saved-empty-shelf.png"), aspect: 1400 / 810 },
-  history: { source: require("@/assets/illustrations/history-empty.png"), aspect: 1400 / 927 },
-  ingredients: { source: require("@/assets/illustrations/ingredients-empty.png"), aspect: 1400 / 855 },
+  saved: { source: require("@/assets/illustrations/saved-empty-shelf.webp"), aspect: 1400 / 779 },
+  history: { source: require("@/assets/illustrations/history-empty.webp"), aspect: 1400 / 891 },
+  ingredients: { source: require("@/assets/illustrations/ingredients-empty.webp"), aspect: 1400 / 884 },
 } as const;
 
 type EmptyCopy = { title: string; body: string; actionLabel: string; actionHref: "/scanner" | "/browse" };

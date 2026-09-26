@@ -55,7 +55,7 @@ export function scanStateCopy(state: ScanState): ScanCopy {
     case "ready":
       return state.mode === "barcode"
         ? {
-            line: "Point the camera at a barcode",
+            line: "Point your camera at the barcode",
             // Shown after about eight seconds with nothing read.
             link: "Barcode not scanning? Photograph the ingredients instead.",
           }
@@ -67,7 +67,7 @@ export function scanStateCopy(state: ScanState): ScanCopy {
       return state.step === "lookup"
         ? { title: "Got it", line: "Looking this one up…" }
         : state.step === "photo"
-          ? { title: "Reading the ingredients…", line: "This takes a few seconds.", link: "Cancel" }
+          ? { title: "Checking our database…", line: "Hang on, this takes a few seconds.", link: "Cancel" }
           : { title: "Saving…" };
     case "found":
       return { action: "See full result" };

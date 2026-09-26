@@ -1,4 +1,3 @@
-import { Image } from "expo-image";
 import { router, useNavigation } from "expo-router";
 import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import { View } from "react-native";
@@ -10,11 +9,6 @@ import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
 import { CANVAS, INK } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
-// design-watercolor/skin quiz/screens/skin quiz background.png, resized to
-// 1440px wide — enough for the densest phone screens, where the 3412px
-// original would only add weight to the download. No lettering on it, by
-// explicit request: the quiz screens carry no text but their own.
-export const QUIZ_BACKGROUND = require("@/assets/illustrations/onboarding/quiz-background.webp");
 
 /** Top padding of the quiz's first row. Shared so QuizScreen's dots and back
  *  arrow line up with Skip here. */
@@ -98,15 +92,6 @@ export function QuizFrame({ children }: { children: ReactNode }) {
   return (
     <QuizFrameContext.Provider value={value}>
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
-        {/* "cover" fills the screen without distorting the art; the image is
-            already phone-shaped, so almost nothing is cropped. */}
-        <Image
-          source={QUIZ_BACKGROUND}
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-          contentFit="cover"
-          accessibilityLabel=""
-        />
-
         <View style={{ flex: 1 }}>{children}</View>
 
         <View style={{ paddingHorizontal: 24, paddingBottom: Math.max(28, insets.bottom + 14) }}>

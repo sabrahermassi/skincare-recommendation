@@ -370,3 +370,26 @@ describe("Search by name", () => {
     expect(href.params.byName).toBeTruthy();
   });
 });
+
+// OnSkin-style controls: glass buttons across the top, and both modes in one
+// pill with a thumb that slides between them.
+describe("scanner controls", () => {
+  it("has a glass close button that goes back, and an 'i' for how products are scored", async () => {
+    const { router } = jest.requireMock("expo-router") as { router: { back: MockFn } };
+    router.back.mockClear();
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("button", { name: "Close scanner" }));
+    expect(router.back).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "How we score products" })).toBeTruthy();
+  });
+
+  it("offers both modes as tabs, and moves the selection when a mode is tapped", async () => {
+    await render(<Scan />);
+    expect(screen.getAllByRole("tab").map((tab) => tab.props.accessibilityLabel)).toEqual(["Barcode", "Photo"]);
+    await fireEvent.press(screen.getByRole("tab", { name: "Photo" }));
+    expect(screen.getByRole("tab", { name: "Photo" }).props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByRole("tab", { name: "Barcode" }).props.accessibilityState).toMatchObject({ selected: false });
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+    expect(screen.getByRole("tab", { name: "Barcode" }).props.accessibilityState).toMatchObject({ selected: true });
+  });
+});
