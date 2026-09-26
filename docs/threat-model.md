@@ -3,20 +3,29 @@
 Written against GitHub issue #13. This is the document that has to exist
 before any migration creates a user-owned table — it is the input to #14
 (regulatory determination), #12 (token storage) and the account-lifecycle
-work (#19, #20), and it is what `.claude/claude-security-guidance.md` should
-be rewritten against (#26) once it lands.
+work (#19, #20). `.claude/claude-security-guidance.md` was rewritten against
+it (#202, which absorbed #26): that page is the short list of rules, and
+this document is the source of truth behind it.
 
 ## Where this stands today
 
 When this was first written, the backend held a database but no user data (the account work since — #218 onward — is noted inline):
 
-- Four tables — `ingredients`, `products`, `product_ingredients`,
-  `ingredient_synonyms` — all shared catalogue data. RLS is enabled with a
-  public-read policy for `anon`/`authenticated` on `ingredients`, `products`,
-  and `product_ingredients`. `ingredient_synonyms` has neither yet — a gap in
-  the migration, not a deliberate decision, and worth its own follow-up.
-  No table has write policies; every write goes through the service-role
-  key, server-side only, never from the client.
+- Eleven tables today (counted from `supabase/migrations/`, 26 September
+  2026), every one with RLS enabled:
+  - **Catalogue, public read** (`anon`/`authenticated` select, no write
+    policy): `ingredients`, `products`, `product_ingredients` (migration
+    0001) and `ingredient_synonyms` (0006, which enables RLS and adds the same
+    public-read policy).
+  - **User rows, owner-only** (`user_id = auth.uid()`): `saved_products` and
+    `saved_ingredients` (0025) — select, insert, update and delete, each
+    only on the caller's own rows; `product_authors` (0026) — the caller may
+    read only their own rows, and only the service role writes.
+  - **Server only** (RLS on, no policy, so only the service role reaches
+    them): `sync_bookmarks` (0012), `rate_limits` (0016), `used_read_tokens`
+    (0023), `scan_log` (0024). `scan_tokens` (0015) was dropped in 0022.
+  Apart from the owner-only shelf tables, every write goes through the
+  service-role key, server-side only, never from the client.
 - *Superseded by #218:* there was no authentication anywhere in the app.
   Sign in with Apple and Google now put a Supabase session on the device —
   no email, no password. The session lives in the Keychain/Keystore on a
@@ -246,8 +255,7 @@ second table is planned; if that ever changes, it gets its own row.
   **Revisit if a development build is ever adopted for some other reason**
   — at that point the calculus changes and on-device OCR is worth measuring
   for real, not just ruling out on architectural grounds.
-- **Backend ↔ third-party product sources** (Open Beauty Facts, UPCitemdb,
-  INCI API). Untrusted data in, already treated as such by the existing
+- **Backend ↔ third-party product sources** (Open Beauty Facts, INCI API). Untrusted data in, already treated as such by the existing
   cascade and `source`/`verified` columns. Not a user-data boundary.
 - **Backend ↔ object storage.** None exists. No bucket is provisioned, and
   none is planned while the no-photo-storage non-goal (§5) holds — confirmed
@@ -459,9 +467,8 @@ other reason, revisit: the calculus only holds while we never open the file.
   is in the Keychain on a phone; the history is still unencrypted in
   AsyncStorage, capped at 50 entries and 90 days. See
   `docs/device-storage-policy.md`.
-- `.claude/claude-security-guidance.md` describes an app with sessions and
-  per-user rows. Until #26 rewrites it, treat this document as the accurate
-  one where they conflict.
+- `.claude/claude-security-guidance.md` was rewritten for the app as it is
+  (#202). Where it and this document disagree, this document wins.
 
 ## Verification
 
