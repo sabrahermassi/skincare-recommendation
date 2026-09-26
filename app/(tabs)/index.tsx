@@ -19,7 +19,7 @@ import { useAppStore } from "@/store/useAppStore";
 const SCAN_ART = require("@/assets/illustrations/scan-a-product.png");
 // The watercolor still life under the cards: bottles, a vase and a handwritten
 // "A little progress every day", on a transparent ground.
-const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.png");
+const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.webp");
 // Its own proportions, so it is never stretched.
 const STILL_LIFE_ASPECT = 1004 / 1187;
 // Where its handwriting starts, as a share of the picture's height. The picture
@@ -248,12 +248,14 @@ export default function Home() {
         {/* The still life: full width, its handwriting just under the scan card,
             its foot running on behind the tab bar and past the bottom of the
             screen. Drawn behind the cards (zIndex) and out of the layout, so it
-            never adds scrolling. Its handwriting is read out. */}
+            never adds scrolling. Its handwriting is read out: at least one point
+            tall, so when large text leaves it no room VoiceOver still reaches it,
+            as with the signature above. */}
         <View
           pointerEvents="none"
           accessible
           accessibilityLabel="A little progress every day"
-          style={{ flexGrow: 1, zIndex: -1 }}
+          style={{ flexGrow: 1, minHeight: 1, zIndex: -1 }}
         >
           <Image
             source={STILL_LIFE_ART}
