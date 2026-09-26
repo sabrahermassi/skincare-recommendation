@@ -433,8 +433,12 @@ export default function ProductScreen() {
 
       <FirstPageMoment />
 
+      {/* "handled": the note editor's sheet renders inside this scroll view, and
+          touches follow the React tree, not the Modal's window. Without it, the
+          first tap on "Save note" while typing only closed the keyboard. */}
       <ScrollView
         ref={scrollRef}
+        keyboardShouldPersistTaps="handled"
         onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}
         contentContainerStyle={{
           gap: SPACE.block,

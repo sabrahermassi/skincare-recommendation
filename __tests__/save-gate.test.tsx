@@ -123,6 +123,23 @@ describe("the heart on a product", () => {
   });
 });
 
+// Not the save gate, but this file already renders the product screen.
+describe("the note on a saved product", () => {
+  const ProductScreen = (require("@/app/product/[id]") as { default: () => React.JSX.Element }).default;
+
+  it("sits in a scroll view that lets a tap through while the keyboard is up (#313)", async () => {
+    // The note sheet is a Modal, but touches follow the React tree, so the
+    // product page's scroll view sees them first. Left at its default, it
+    // spent the first tap on "Save note" closing the keyboard.
+    useAppStore.setState({ savedProducts: [{ id: "hanbang-rice-serum", savedAt: 1 }] });
+    await render(<ProductScreen />);
+    type Node = { props: Record<string, unknown>; parent: unknown } | null;
+    let node: Node = await screen.findByText(/Add a note/);
+    while (node && node.props.keyboardShouldPersistTaps === undefined) node = node.parent as Node;
+    expect(node?.props.keyboardShouldPersistTaps).toBe("handled");
+  });
+});
+
 describe("the sign-in sheet", () => {
   it("completes the held save and closes when a session arrives", async () => {
     const SignIn = (require("@/app/sign-in") as { default: () => React.JSX.Element }).default;
