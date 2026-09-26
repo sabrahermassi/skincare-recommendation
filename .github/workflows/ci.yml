@@ -187,6 +187,14 @@ jobs:
       - name: Account deletion
         run: deno test --node-modules-dir=none supabase/tests/delete_account.test.ts
 
+      # The two scan functions' request-to-response paths (#203): a status
+      # code for every outcome, the order of the checks (method, body, fields,
+      # then the limiter), read tokens and a save racing another. Fake
+      # database and fake upstreams, so no network. `--allow-env`: the
+      # limiter's salt and the CORS allowlist are read from the environment.
+      - name: Scan function handlers
+        run: deno test --node-modules-dir=none --allow-env supabase/tests/product_lookup.test.ts supabase/tests/label_ocr.test.ts
+
       - name: The limiter, end to end
         run: deno test --allow-net --allow-env supabase/tests/rate_limit_e2e.test.ts
 

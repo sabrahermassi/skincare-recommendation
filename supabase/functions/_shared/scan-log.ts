@@ -125,13 +125,16 @@ export function logScanBounded(
   entry: ScanLogEntry,
 ): Promise<void> {
   const controller = new AbortController();
+  // Cleared once the insert settles, so a fast insert leaves no timer behind
+  // for the rest of `TIMEOUT_MS` (and Deno's handler tests see no leaked op).
+  let timer: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([
     logScan(req, db, salt, entry, controller.signal),
-    new Promise<void>((resolve) =>
-      setTimeout(() => {
+    new Promise<void>((resolve) => {
+      timer = setTimeout(() => {
         controller.abort();
         resolve();
-      }, TIMEOUT_MS)
-    ),
-  ]);
+      }, TIMEOUT_MS);
+    }),
+  ]).finally(() => clearTimeout(timer));
 }

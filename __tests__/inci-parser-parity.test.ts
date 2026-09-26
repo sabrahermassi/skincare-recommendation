@@ -273,8 +273,11 @@ describe("the import scripts stay in step with lib/inci.ts", () => {
  * fail if a local copy grows back in either.
  */
 describe("the Deno functions read through the shared parser", () => {
+  // Both files: `index.ts` wires the function up, `handler.ts` holds its logic (#203).
   const read = (name: string) =>
-    fs.readFileSync(path.join(__dirname, "..", "supabase", "functions", name, "index.ts"), "utf8");
+    ["index.ts", "handler.ts"]
+      .map((file) => fs.readFileSync(path.join(__dirname, "..", "supabase", "functions", name, file), "utf8"))
+      .join("\n");
 
   it.each(["label-ocr", "product-lookup"])("%s holds no parser copy of its own", (name: string) => {
     expect(read(name)).not.toMatch(
