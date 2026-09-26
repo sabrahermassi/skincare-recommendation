@@ -107,6 +107,15 @@ describe("'very sensitive' and a fragranced product (#301, #363)", () => {
     expect(match.reasons.find((reason) => reason.ingredient === "linalool")?.effect).toBeCloseTo(-6 * factors[21], 5);
   });
 
+  it("gives the floor to a trailing parfum, not to an essential oil near the top (#368 review)", () => {
+    const list = [plainCream[0], { ...plainCream[19], id: "peppermint oil", name: "peppermint oil" }, ...plainCream.slice(1)];
+    const factors = positionWeights(list.map((i) => i.name));
+    resetScoreCache();
+    const match = matchProduct({ type: "moisturizer", ingredients: list }, at("high"));
+    // Peppermint oil (7) keeps its own, higher factor; parfum (9), last, is floored.
+    expect(match.breakdown.irritationPenalty).toBeCloseTo((7 * factors[1] + 9 * 0.7) * 1.6, 5);
+  });
+
   it("leaves a non-fragrance irritant at 'very' exactly as it was", () => {
     for (const irritant of ["alcohol denat", "glycolic acid"]) {
       const list = [...plainCream.slice(0, 19), { ...plainCream[19], id: irritant, name: irritant }];

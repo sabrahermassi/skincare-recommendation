@@ -254,26 +254,29 @@ const SENSITIVITY_MULTIPLIER: Record<NonNullable<SkinProfile["sensitivity"]> | "
  * allergens listed after it are usually one scent — the allergens are named
  * because they are in the parfum — so flooring each of them charged one
  * fragrance four or five times (up to 16 points on staging). The floor goes to
- * the heaviest fragrance ingredient (`flooredFragrance`); the rest keep their
- * position weight.
+ * the product's main fragrance ingredient (`flooredFragrance`); the rest keep
+ * their position weight.
  */
 const FRAGRANCE_POSITION_FLOOR_HIGH = 0.7;
 
 /**
- * The position of the one fragrance ingredient the floor applies to: the one
- * whose floored charge is largest (the earlier on a tie), or -1 for none.
+ * The position of the one fragrance ingredient the floor applies to, or -1
+ * for none: the one whose rule weighs most (parfum/fragrance, then essential
+ * oils, then the EU allergens), and on a tie the one furthest down the list,
+ * where the floor changes something. Chosen by weight rather than by charge
+ * (#368 review): by charge, an essential oil near the top — already above the
+ * floor — could take it from a parfum at the end.
  */
 function flooredFragrance(ingredients: Ingredient[], positionFactors: number[]): number {
   let best = -1;
-  let bestCharge = 0;
+  let bestWeight = 0;
   ingredients.forEach((ingredient, position) => {
     if (!isVerified(ingredient)) return;
     const rule = findRule(ingredient);
     if (rule?.category !== "fragrance") return;
-    const charge = rule.weight * Math.max(positionFactors[position], FRAGRANCE_POSITION_FLOOR_HIGH);
-    if (charge > bestCharge) {
+    if (rule.weight > bestWeight || (rule.weight === bestWeight && positionFactors[position] <= positionFactors[best])) {
       best = position;
-      bestCharge = charge;
+      bestWeight = rule.weight;
     }
   });
   return best;
