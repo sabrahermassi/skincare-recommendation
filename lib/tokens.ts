@@ -334,6 +334,14 @@ export const CAMERA_STAGE = "#17161B";
  */
 export const TOUCH_TARGET = Platform.select({ ios: 44, android: 48, default: 44 }) as number;
 
+/**
+ * Every filter pill (owner: slimmer than a button, the same everywhere) — the
+ * results' Filter and its answer chips, Saved's step filters. `FILTER_HIT_SLOP`
+ * keeps the tap area at TOUCH_TARGET around the thinner pill.
+ */
+export const FILTER_PILL = { height: 32, radius: 16, fontSize: 13.5 } as const;
+export const FILTER_HIT_SLOP = Math.ceil((TOUCH_TARGET - FILTER_PILL.height) / 2);
+
 export const TYPE = {
   caption: 12,
   label: 14,

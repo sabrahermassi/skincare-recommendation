@@ -173,8 +173,7 @@ function IngredientList({ id, initialTab }: { id: string; initialTab?: string })
 
       {/* INCI order is regulated information, and it is the single fact that
           makes this list readable rather than just long. Said of the pack,
-          not this list, which puts what matters first until "As printed"
-          is tapped (#324). */}
+          not this list, which puts what matters first (#324). */}
       <View
         style={{
           flexDirection: "row",

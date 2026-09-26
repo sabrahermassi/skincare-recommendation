@@ -11,7 +11,7 @@ import { fetchProducts } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { matchProduct } from "@/lib/matching";
 import { profileHeadline } from "@/lib/profile";
-import { BUTTON, CANVAS, CHOSEN, INK, MUTED, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { BUTTON, CANVAS, CHOSEN, FILTER_HIT_SLOP, FILTER_PILL, INK, MUTED, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 import { useFinderChoices } from "@/lib/finder-choices";
 
 /**
@@ -65,17 +65,18 @@ export default function FinderResults() {
           accessibilityRole="button"
           accessibilityLabel="Filter"
           className="active:opacity-80"
-          style={{ flexDirection: "row", alignItems: "center", gap: 8, minHeight: TOUCH_TARGET, paddingHorizontal: 18, borderRadius: 999, backgroundColor: BUTTON.primary.fill }}
+          hitSlop={FILTER_HIT_SLOP}
+          style={{ flexDirection: "row", alignItems: "center", gap: 6, height: FILTER_PILL.height, paddingHorizontal: 14, borderRadius: FILTER_PILL.radius, backgroundColor: BUTTON.primary.fill }}
         >
-          <Ionicons name="options-outline" size={20} color={BUTTON.primary.label} />
-          <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: BUTTON.primary.label }}>Filter</Text>
+          <Ionicons name="options-outline" size={16} color={BUTTON.primary.label} />
+          <Text style={{ fontSize: FILTER_PILL.fontSize, fontWeight: "600", color: BUTTON.primary.label }}>Filter</Text>
         </Pressable>
       </View>
       {chosen.length > 0 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           {chosen.map((label) => (
-            <View key={label} style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: CHOSEN.fill }}>
-              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: CHOSEN.label }}>{label}</Text>
+            <View key={label} style={{ height: FILTER_PILL.height, justifyContent: "center", borderRadius: FILTER_PILL.radius, paddingHorizontal: 14, backgroundColor: CHOSEN.fill }}>
+              <Text style={{ fontSize: FILTER_PILL.fontSize, fontWeight: "600", color: CHOSEN.label }}>{label}</Text>
             </View>
           ))}
         </ScrollView>
@@ -111,7 +112,7 @@ export default function FinderResults() {
         <FlatList
           data={ranked}
           keyExtractor={({ product }) => product.id}
-          renderItem={({ item }) => <ProductRow product={item.product} match={item.match} />}
+          renderItem={({ item }) => <ProductRow product={item.product} match={item.match} saveable />}
           ListHeaderComponent={header}
           ListEmptyComponent={
             <Text style={{ textAlign: "center", paddingHorizontal: 40, paddingTop: 48, fontSize: TYPE.body, color: MUTED }}>

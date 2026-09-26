@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 
 // One selected-outline color app-wide — see profile.tsx's own note on why
@@ -13,7 +14,7 @@ import { ruleFor, type Contraindication, type MatchResult } from "@/lib/matching
 import { isPersonalized } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 import { isPoreClogging, isWarnedPoreClogging } from "@/lib/pore-clogging";
-import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CHOSEN, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CHOSEN, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG_META's good/watch/avoid
 // colors are semantic (the per-ingredient verdict, the whole point of this
@@ -26,8 +27,8 @@ import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CHOSEN, CLOG_BADGE_INK, CLOG_BADG
  * each row labelled against `match` (`lib/ingredient-labels.ts`, #324).
  *
  * "All" reads at a glance: the labelled rows first (Avoid, Watch, Good,
- * Unknown), and the rest folded under one line until tapped. "As printed"
- * shows the pack's own order instead — position is concentration.
+ * Unknown), and the rest folded under one line until tapped. The four groups
+ * are one "Filter" dropdown rather than a row of chips (owner).
  *
  * `metaLine`/`subMetaLine` are the two lines above the divider — an
  * ingredient count and when the label was last read.
@@ -52,7 +53,7 @@ export function IngredientTabsList({
   onIngredientPress: (ingredient: Ingredient) => void;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [asPrinted, setAsPrinted] = useState(false);
+  const [choosing, setChoosing] = useState(false);
   const [unfolded, setUnfolded] = useState(false);
   const personalized = isPersonalized(useAppStore((s) => s.profile));
   const labelOf = (i: Ingredient) => ingredientLabel(i, match, personalized);
@@ -67,7 +68,7 @@ export function IngredientTabsList({
     return true;
   });
   // Only "All" is sorted and folded: the other tabs are already the short list.
-  const glance = tab === "All" && !asPrinted ? sortForGlance(filtered, match, personalized) : null;
+  const glance = tab === "All" ? sortForGlance(filtered, match, personalized) : null;
   const rows = glance
     ? [...glance.labelled, ...(unfolded ? glance.unlabelled : [])]
     : filtered.map((ingredient) => ({ ingredient, label: labelOf(ingredient) }));
@@ -75,43 +76,53 @@ export function IngredientTabsList({
 
   return (
     <ScrollView contentContainerClassName="pb-4">
-      {/* Scrolls rather than dividing the width four ways: at flex-1 the
-          fourth pill squeezed the labels below legibility. Pills keep their
-          44pt height and the app's own option-label size. */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        // Room under the pills for their shade: a scroll view clips what falls outside it.
-        contentContainerStyle={{ gap: 10, paddingHorizontal: 24, paddingTop: 20, paddingBottom: 10 }}
-      >
-        {TABS.map((label) => {
-          const active = tab === label;
-          return (
-            <Pressable
-              key={label}
-              onPress={() => setTab(label)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-              style={{
-                height: TOUCH_TARGET,
-                paddingHorizontal: 18,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: RADIUS_SELECTOR,
-                borderWidth: active ? 1.5 : 1,
-                borderColor: active ? CHOSEN.border : BORDER_INACTIVE,
-                backgroundColor: active ? CHOSEN.fill : CANVAS,
-                ...CHIP_SHADOW,
-              }}
-              className="active:opacity-70"
-            >
-              <Text style={{ fontSize: 14.5, fontWeight: "600", color: active ? CHOSEN.label : MUTED }}>
-                {label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      {/* "Filter: All" and its four choices, opening in place (owner's
+          reference): what the chips did, without a row of them. */}
+      <View style={{ paddingHorizontal: 24, paddingTop: 12 }}>
+        <Pressable
+          onPress={() => setChoosing((c) => !c)}
+          accessibilityRole="button"
+          accessibilityLabel={`Filter: ${tab}`}
+          accessibilityState={{ expanded: choosing }}
+          style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 6 }}
+          className="active:opacity-70"
+        >
+          <Text style={{ fontSize: TYPE.body, color: INK }}>Filter:</Text>
+          <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: CHOSEN.fill }}>{tab}</Text>
+          <Ionicons name={choosing ? "chevron-up" : "chevron-down"} size={18} color={CHOSEN.fill} />
+        </Pressable>
+        {choosing ? (
+          <View accessibilityRole="radiogroup" style={{ borderRadius: RADIUS_SELECTOR, borderWidth: 1, borderColor: BORDER_INACTIVE, overflow: "hidden", marginBottom: 8 }}>
+            {TABS.map((label, i) => {
+              const active = tab === label;
+              return (
+                <Pressable
+                  key={label}
+                  onPress={() => {
+                    setTab(label);
+                    setChoosing(false);
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: active }}
+                  style={{
+                    minHeight: TOUCH_TARGET,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingHorizontal: 16,
+                    borderTopWidth: i === 0 ? 0 : 1,
+                    borderTopColor: BORDER_INACTIVE,
+                  }}
+                  className="active:opacity-70"
+                >
+                  <Text style={{ fontSize: TYPE.body, fontWeight: active ? "600" : "400", color: INK }}>{label}</Text>
+                  {active ? <Ionicons name="checkmark" size={20} color={CHOSEN.fill} /> : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+      </View>
 
       {/* Formulas change. Saying when we last read the label is the
           difference between data and a claim — it was on this screen before
@@ -133,20 +144,6 @@ export function IngredientTabsList({
         <Text style={{ paddingHorizontal: 24, paddingTop: 12, fontSize: TYPE.caption, color: MUTED }}>
           Set up your skin profile to see what&apos;s good or worth watching for you.
         </Text>
-      ) : null}
-
-      {tab === "All" ? (
-        <Pressable
-          onPress={() => setAsPrinted((printed) => !printed)}
-          accessibilityRole="button"
-          accessibilityState={{ selected: asPrinted }}
-          style={{ minHeight: TOUCH_TARGET, alignSelf: "flex-end", justifyContent: "center", paddingHorizontal: 24 }}
-          className="active:opacity-70"
-        >
-          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-            {asPrinted ? "What matters first" : "As printed"}
-          </Text>
-        </Pressable>
       ) : null}
 
       {filtered.length === 0 ? (

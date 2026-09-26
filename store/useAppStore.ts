@@ -56,6 +56,13 @@ export type HistoryEntry = {
   scoreAtView: number | null;
   /** Contraindication count as it stood at `lastSeenAt`. */
   warningsAtView: number;
+  /**
+   * The ingredient names read off a label photo, for an entry that is one
+   * (its id is `label-<time>`), so History can open that same result again
+   * (owner). Optional: older entries and every product or barcode entry have
+   * none, so it needs no migration.
+   */
+  label?: string[];
 };
 
 export const MAX_CONCERNS = 3;
@@ -246,6 +253,8 @@ type AppState = {
     known: boolean;
     score: number | null;
     warnings: number;
+    /** A label photo's ingredient names — see `HistoryEntry.label`. */
+    label?: string[];
   }) => void;
   /**
    * Fills in the score on an entry that was logged without one.
@@ -754,7 +763,7 @@ export const useAppStore = create<AppState>()(
               }
         ),
 
-      recordView: ({ id, known, score, warnings }) =>
+      recordView: ({ id, known, score, warnings, label }) =>
         set((state) => {
           const now = Date.now();
           const previous = state.history.find((h) => h.id === id);
@@ -766,6 +775,7 @@ export const useAppStore = create<AppState>()(
             seenCount: (previous?.seenCount ?? 0) + 1,
             scoreAtView: score,
             warningsAtView: warnings,
+            ...(label ? { label } : {}),
           };
           return {
             history: keptHistory([entry, ...state.history.filter((h) => h.id !== id)], now),

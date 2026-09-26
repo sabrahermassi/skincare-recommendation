@@ -3,7 +3,7 @@ import { Pressable } from "react-native";
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
 import { Text } from "@/components/Text";
-import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CHOSEN, MUTED, RADIUS_SELECTOR, TOUCH_TARGET } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CHOSEN, FILTER_HIT_SLOP, FILTER_PILL, MUTED } from "@/lib/tokens";
 
 /** A single-choice pill for a product type — Saved's step filter. */
 export function TypeChip({
@@ -23,12 +23,13 @@ export function TypeChip({
       disabled={disabled}
       accessibilityRole="radio"
       accessibilityState={{ checked: selected, disabled }}
+      hitSlop={FILTER_HIT_SLOP}
       style={{
-        height: TOUCH_TARGET,
-        paddingHorizontal: 16,
+        height: FILTER_PILL.height,
+        paddingHorizontal: 14,
         alignItems: "center",
         justifyContent: "center",
-        borderRadius: RADIUS_SELECTOR,
+        borderRadius: FILTER_PILL.radius,
         borderWidth: selected ? 1.5 : 1,
         borderColor: selected ? CHOSEN.border : BORDER_INACTIVE,
         backgroundColor: selected ? CHOSEN.fill : CANVAS,
@@ -36,7 +37,7 @@ export function TypeChip({
       }}
       className="active:opacity-70"
     >
-      <Text style={{ fontSize: 13.5, fontWeight: "600", color: selected ? CHOSEN.label : MUTED }}>{label}</Text>
+      <Text style={{ fontSize: FILTER_PILL.fontSize, fontWeight: "600", color: selected ? CHOSEN.label : MUTED }}>{label}</Text>
     </Pressable>
   );
 }

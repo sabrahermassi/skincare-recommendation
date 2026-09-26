@@ -13,9 +13,10 @@ import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 // The first render loads the screen's whole module graph.
 jest.setTimeout(30_000);
 
+let mockParams: Record<string, string> = {};
 jest.mock("expo-router", () => ({
   router: { back: jest.fn(), push: jest.fn(), dismissTo: jest.fn() },
-  useLocalSearchParams: () => ({}),
+  useLocalSearchParams: () => mockParams,
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -53,7 +54,8 @@ async function open(names: string[]) {
 
 afterEach(() => {
   clearLabelRead();
-  useAppStore.setState({ profile: EMPTY_PROFILE });
+  mockParams = {};
+  useAppStore.setState({ profile: EMPTY_PROFILE, history: [] });
 });
 
 const LIST = ["water", "glycerin", "xanthan gum", "butylene glycol", "parfum", "linalool", "mystery extract"];
@@ -99,5 +101,34 @@ describe("the label result's Ingredient check", () => {
     await open(["water", "mystery extract", "another unknown"]);
     expect(screen.queryByText("See your skin match")).toBeNull();
     expect(screen.getByText("Retake the photo")).toBeTruthy();
+  });
+});
+
+// A label photo goes into History with the list it read, so History can open
+// the same result again (owner).
+describe("History", () => {
+  it("logs a new label read once, with its ingredient list", async () => {
+    await open(LIST);
+    const log = useAppStore.getState().history;
+    expect(log).toHaveLength(1);
+    expect(log[0]).toMatchObject({ known: false, label: LIST });
+    expect(log[0].id).toMatch(/^label-/);
+  });
+
+  it("opens a logged read again from its entry, without logging it twice", async () => {
+    useAppStore.setState({
+      history: [{ id: "label-1", known: false, firstSeenAt: 1, lastSeenAt: 1, seenCount: 1, scoreAtView: null, warningsAtView: 0, label: LIST }],
+    });
+    mockParams = { entry: "label-1" };
+    await render(<LabelResult />);
+    await act(async () => {});
+    expect(screen.getByLabelText(LINE)).toBeTruthy();
+    expect(useAppStore.getState().history).toHaveLength(1);
+  });
+
+  it("shows nothing to show for an entry that isn't on this phone", async () => {
+    mockParams = { entry: "label-nope" };
+    await render(<LabelResult />);
+    expect(screen.getByText(/no ingredient list to show/)).toBeTruthy();
   });
 });

@@ -8,10 +8,11 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 jest.setTimeout(30000);
 
+const mockPush = jest.fn();
 jest.mock("expo-router", () => {
   const { useEffect } = jest.requireActual<typeof import("react")>("react");
   return {
-    router: { push: jest.fn(), navigate: jest.fn() },
+    router: { push: (...a: unknown[]) => mockPush(...a), navigate: jest.fn() },
     useScrollToTop: () => undefined,
     useFocusEffect: (effect: () => void | (() => void)) => {
       useEffect(() => effect(), []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -98,4 +99,16 @@ it("shows an empty tab as just its picture and words, with no button", async () 
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" })));
   expect(await screen.findByText("No starred ingredients yet")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Search products" })).toBeNull();
+});
+
+it("shows a label photo in History and opens that same result", async () => {
+  useAppStore.setState({
+    history: [{ id: "label-7", known: false, firstSeenAt: 1, lastSeenAt: Date.now(), seenCount: 1, scoreAtView: 64, warningsAtView: 0, label: ["water", "glycerin"] }],
+  });
+  await render(<Saved />);
+  await act(async () => fireEvent.press(screen.getByRole("tab", { name: "History" })));
+  const card = await screen.findByRole("button", { name: /^Label photo, 2 ingredients/ });
+  expect(screen.getByText("64/100")).toBeTruthy();
+  await act(async () => fireEvent.press(card));
+  expect(mockPush).toHaveBeenCalledWith({ pathname: "/label-result", params: { entry: "label-7" } });
 });

@@ -34,3 +34,12 @@ it("goes back to the finder from Filter", async () => {
   await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
   expect(mockBack).toHaveBeenCalled();
 });
+
+it("saves a product from its heart, without opening it", async () => {
+  const { useAppStore } = require("@/store/useAppStore") as typeof import("@/store/useAppStore");
+  useAppStore.setState({ savedProducts: [] });
+  await render(<FinderResults />);
+  await screen.findByText("Results");
+  await fireEvent.press(screen.getAllByRole("button", { name: "Save" })[0]);
+  expect(useAppStore.getState().savedProducts).toHaveLength(1);
+});

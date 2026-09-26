@@ -98,11 +98,15 @@ describe("the ingredient list", () => {
     expect(screen.queryByText(/more ingredients? with no known concerns/)).toBeNull();
   });
 
-  it("shows the pack's own order As printed", async () => {
+  // One Filter dropdown instead of a row of chips, and no "As printed" (owner).
+  it("filters from one dropdown, and has no As printed", async () => {
     await open();
-    await fireEvent.press(screen.getByText("As printed"));
-    expect(namesShown()).toEqual(INGREDIENTS.map((i) => i.name));
-    expect(screen.getByText("What matters first")).toBeTruthy();
+    expect(screen.queryByText("As printed")).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter: All" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Watch-outs" }));
+    expect(screen.getByRole("button", { name: "Filter: Watch-outs" })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "Actives" })).toBeNull();
+    expect(namesShown()).toContain("some banned dye");
   });
 
   it("labels a misread name on the pore-clogging lists Watch, with the lists as its reason", async () => {

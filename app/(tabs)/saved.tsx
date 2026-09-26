@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { Link, useFocusEffect, useScrollToTop } from "expo-router";
+import { Link, router, useFocusEffect, useScrollToTop } from "expo-router";
 import type { ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -379,8 +379,10 @@ export default function Saved() {
               {history.map((entry) => {
                 const product = entry.known ? byId[entry.id] : undefined;
                 return (
-                  <SwipeToDelete key={entry.id} label={product?.name ?? entry.id} onDelete={() => setDeleting(entry)}>
-                    {product ? (
+                  <SwipeToDelete key={entry.id} label={product?.name ?? (entry.label ? "Label photo" : entry.id)} onDelete={() => setDeleting(entry)}>
+                    {entry.label ? (
+                      <LabelRow entry={entry} ingredients={entry.label} />
+                    ) : product ? (
                       <Row product={product} corner={<SaveHeart productId={product.id} fetchedAt={product.fetchedAt} />}>
                         {/* The score it had when it was looked at, not a fresh one:
                             re-scoring the log is exactly what this screen refuses to do. */}
@@ -642,6 +644,37 @@ function HistoryMeta({ entry }: { entry: HistoryEntry }) {
         </Text>
       )}
     </View>
+  );
+}
+
+/**
+ * A label photo in History: what was read off the pack, its score then, and a
+ * tap that opens the same result again (owner). The list is kept on the entry.
+ */
+function LabelRow({ entry, ingredients }: { entry: HistoryEntry; ingredients: string[] }) {
+  const [scale, press] = usePressScale();
+  return (
+    <LiftedCard radius={CARD_RADIUS} scale={scale} backgroundColor={SURFACE}>
+      <Pressable
+        onPress={() => router.push({ pathname: "/label-result", params: { entry: entry.id } })}
+        accessibilityRole="button"
+        accessibilityLabel={`Label photo, ${ingredients.length} ingredients, ${relativeTime(entry.lastSeenAt)}`}
+        style={{ flexDirection: "row", alignItems: "center", gap: 16, padding: 18, borderRadius: CARD_RADIUS }}
+        {...press}
+      >
+        <View style={{ width: CARD_THUMB, height: CARD_THUMB, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: CANVAS }}>
+          <Ionicons name="document-text-outline" size={30} color={MUTED} />
+        </View>
+        <View style={{ flex: 1, gap: 6 }}>
+          <View style={{ gap: 2 }}>
+            <Text style={{ fontSize: TYPE.label, color: MUTED_FAINT }}>{ingredients.length} ingredients</Text>
+            <Text style={{ fontSize: 17, fontWeight: "500", lineHeight: 22, color: INK }}>Label photo</Text>
+          </View>
+          <ScorePill score={entry.scoreAtView} />
+          <HistoryMeta entry={entry} />
+        </View>
+      </Pressable>
+    </LiftedCard>
   );
 }
 
