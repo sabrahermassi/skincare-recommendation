@@ -27,6 +27,10 @@ const ACTION_ART_MIN_HEIGHT = 48;
 const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.webp");
 // Its own proportions, so it is never stretched.
 const STILL_LIFE_ASPECT = 1400 / 911;
+// How far below the tab bar's top it reaches, in dp: 1.5 cm on a phone (160 dp
+// to the inch), so its water runs on behind the bar. No spacing token is that
+// large, so it is named here rather than typed inline.
+const STILL_LIFE_DROP = 94;
 
 // The handwritten "Hi, there!" on top of the screen, cut from design-watercolor/text.png.
 const GREETING_ART = require("@/assets/illustrations/home-greeting.png");
@@ -94,8 +98,8 @@ export default function Home() {
 
         </View>
 
-        {/* The still life: full width, standing on the bottom of the room the
-            cards leave, so its water sits just above the tab bar. Drawn behind
+        {/* The still life: full width, standing 1.5 cm below the bottom of the
+            room the cards leave, so its water runs on behind the tab bar. Drawn behind
             the cards (zIndex) and out of the layout, so it never adds scrolling;
             when large text leaves no room it slides up behind the cards rather
             than push them. Decorative: it has no words, so screen readers skip it. */}
@@ -104,7 +108,7 @@ export default function Home() {
             source={STILL_LIFE_ART}
             contentFit="contain"
             accessibilityLabel=""
-            style={{ position: "absolute", left: 0, bottom: 0, width, aspectRatio: STILL_LIFE_ASPECT }}
+            style={{ position: "absolute", left: 0, bottom: -STILL_LIFE_DROP, width, aspectRatio: STILL_LIFE_ASPECT }}
           />
         </View>
       </ScrollView>
