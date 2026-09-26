@@ -14,9 +14,9 @@ import { useAppStore } from "@/store/useAppStore";
 // Watercolor heroes, one per screen, each with its own handwritten line
 // ("let's take a look", "what's really in here?", "this one's for me") and
 // transparent margins, so they sit on the canvas without a box.
-const HERO_SCAN = require("@/assets/illustrations/onboarding/hero-scan.png");
-const HERO_INGREDIENTS = require("@/assets/illustrations/onboarding/hero-ingredients.png");
-const HERO_FOR_ME = require("@/assets/illustrations/onboarding/hero-for-me.png");
+const HERO_SCAN = require("@/assets/illustrations/onboarding/hero-scan.webp");
+const HERO_INGREDIENTS = require("@/assets/illustrations/onboarding/hero-ingredients.webp");
+const HERO_FOR_ME = require("@/assets/illustrations/onboarding/hero-for-me.webp");
 
 const SCREENS: OnboardingScreenContent[] = [
   {
