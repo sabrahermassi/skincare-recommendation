@@ -1432,7 +1432,10 @@ export async function readLabel(imageBase64: string): Promise<LabelRead> {
 
   return {
     ok: true,
-    ingredients: read.map((entry: { inci_name: string }) => entry.inci_name),
+    // A malformed entry is skipped rather than thrown on (#152).
+    ingredients: read.flatMap((entry: { inci_name?: unknown } | null) =>
+      typeof entry?.inci_name === "string" ? [entry.inci_name] : [],
+    ),
     recognised: Number(data.recognised ?? 0),
     total: Number(data.total ?? 0),
     readToken: data.readToken,

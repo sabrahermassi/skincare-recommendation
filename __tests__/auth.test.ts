@@ -46,6 +46,7 @@ const {
   classifySignInError,
   signInFailureCopy,
   signInWithApple,
+  forgetDeletedAccount,
   signOut,
   signOutEverywhere,
   startAuth,
@@ -208,5 +209,14 @@ describe("signing out", () => {
     expect(mockAuth.signOut).toHaveBeenCalledWith({ scope: "global" });
     mockAuth.signOut.mockResolvedValueOnce({ error: { message: "offline" } } as never);
     await expect(signOutEverywhere()).resolves.toBe(false);
+  });
+});
+
+describe("after the account is deleted (#152)", () => {
+  it("counts the phone as signed out even when its stored session can't be removed", async () => {
+    useAuth.setState({ status: "signed-in", session });
+    mockAuth.signOut.mockRejectedValueOnce(new Error("Keychain refused"));
+    await expect(forgetDeletedAccount()).resolves.toBeUndefined();
+    expect(useAuth.getState().status).toBe("signed-out");
   });
 });

@@ -33,6 +33,14 @@ beforeEach(() => {
 });
 
 describe("readLabel", () => {
+  it("skips a malformed entry in the server's reply instead of throwing (#152)", async () => {
+    mockInvoke.mockResolvedValue({
+      data: { ingredients: [{ inci_name: "AQUA" }, null, { inci_name: 7 }, { inci_name: "GLYCERIN" }], readToken: "t", recognised: 2, total: 2 },
+      error: null,
+    });
+    expect(await readLabel("x")).toEqual({ ok: true, ingredients: ["AQUA", "GLYCERIN"], recognised: 2, total: 2, readToken: "t" });
+  });
+
   it("reports a genuine connection failure as network_error, not unreadable", async () => {
     mockInvoke.mockResolvedValue({ data: null, error: offlineError() });
     expect(await readLabel("x")).toEqual({ ok: false, reason: "network_error" });
