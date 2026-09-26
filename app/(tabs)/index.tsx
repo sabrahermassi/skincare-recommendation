@@ -1,4 +1,3 @@
-import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -32,9 +31,9 @@ const STILL_LIFE_ASPECT = 1004 / 1187;
 // is placed so the handwriting begins just under the scan card; the flowers above
 // it run up behind the card, and the rest runs on past the bottom of the screen.
 const STILL_LIFE_TEXT_TOP = 0.155;
-// How much lower again it sits, in dp: 1 cm on a phone (160 dp to the inch).
+// How much lower again it sits, in dp: 1.5 cm on a phone (160 dp to the inch).
 // No spacing token is that large, so it is named here rather than typed inline.
-const STILL_LIFE_DROP = 63;
+const STILL_LIFE_DROP = 94;
 
 // The handwritten "Hi, there!" on top of the screen, cut from design-watercolor/text.png.
 const GREETING_ART = require("@/assets/illustrations/home-greeting.png");
@@ -51,13 +50,6 @@ const GREETING_ASPECT = 640 / 206;
  */
 /** How far a card sinks when pressed: it reads as a button though it is a card. */
 const ACTION_CARD_PRESSED = 0.96;
-/**
- * The cards are Apple's Liquid Glass where the phone has it (iOS 26 and later):
- * see-through and glossy, the still life's flowers showing through them. Where it
- * does not, `GlassView` is a plain view, so the cards keep their peach fill and
- * shade instead of turning invisible.
- */
-const CARD_GLASS = isLiquidGlassAvailable();
 
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -164,11 +156,11 @@ function ActionCard({
         flex: 1,
         minHeight: side,
         borderRadius: 22,
-        ...(CARD_GLASS ? null : { backgroundColor: SELECTED, ...CARD_SHADOW }),
+        backgroundColor: SELECTED,
+        ...CARD_SHADOW,
         transform: [{ scale }],
       }}
     >
-      <GlassView glassEffectStyle="regular" isInteractive style={{ flexGrow: 1, borderRadius: 22 }}>
       <Pressable
         onPress={onPress}
         onPressIn={() => press(ACTION_CARD_PRESSED)}
@@ -193,7 +185,6 @@ function ActionCard({
           <Text style={{ fontSize: 11.5, lineHeight: 15, color: MUTED }}>{detail}</Text>
         </View>
       </Pressable>
-      </GlassView>
     </Animated.View>
   );
 }
