@@ -9,7 +9,10 @@ import { Text } from "@/components/Text";
 import type { Ingredient } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { isVerified } from "@/lib/safety";
-import { ruleFor, RUNG_META, rungFor, type Contraindication, type MatchResult, type Rung } from "@/lib/matching";
+import { ingredientLabel, LABEL_META, sortForGlance, type IngredientLabel } from "@/lib/ingredient-labels";
+import { ruleFor, type Contraindication, type MatchResult } from "@/lib/matching";
+import { isPersonalized } from "@/lib/profile";
+import { useAppStore } from "@/store/useAppStore";
 import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
 import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
@@ -21,7 +24,11 @@ import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CLOG_BADGE_INK, CLOG_BADGE_TINT, 
 /**
  * The tabbed ingredient list for a scanned product's ingredient screen
  * (`app/ingredients/[id].tsx`): All / Actives / Watch-outs / Pore clogging,
- * each row judged against `match`.
+ * each row labelled against `match` (`lib/ingredient-labels.ts`, #324).
+ *
+ * "All" reads at a glance: the labelled rows first (Avoid, Watch, Good,
+ * Unknown), and the rest folded under one line until tapped. "As printed"
+ * shows the pack's own order instead — position is concentration.
  *
  * `metaLine`/`subMetaLine` are the two lines above the divider — an
  * ingredient count and when the label was last read.
@@ -46,13 +53,26 @@ export function IngredientTabsList({
   onIngredientPress: (ingredient: Ingredient) => void;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
+  const [asPrinted, setAsPrinted] = useState(false);
+  const [unfolded, setUnfolded] = useState(false);
+  const personalized = isPersonalized(useAppStore((s) => s.profile));
+  const labelOf = (i: Ingredient) => ingredientLabel(i, match, personalized);
 
-  const visible = ingredients.filter((i) => {
+  const filtered = ingredients.filter((i) => {
     if (tab === "Actives") return ruleFor(i) !== undefined;
-    if (tab === "Watch-outs") return rungFor(i, match) !== "good";
+    if (tab === "Watch-outs") {
+      const label = labelOf(i);
+      return label === "avoid" || label === "watch" || label === "unknown";
+    }
     if (tab === "Pore clogging") return isPoreClogging(i);
     return true;
   });
+  // Only "All" is sorted and folded: the other tabs are already the short list.
+  const glance = tab === "All" && !asPrinted ? sortForGlance(filtered, match, personalized) : null;
+  const rows = glance
+    ? [...glance.labelled, ...(unfolded ? glance.unlabelled : [])]
+    : filtered.map((ingredient) => ({ ingredient, label: labelOf(ingredient) }));
+  const folded = glance && !unfolded ? glance.unlabelled.length : 0;
 
   const cloggerCount = poreCloggingHits(ingredients).length;
 
@@ -115,39 +135,74 @@ export function IngredientTabsList({
       )}
       <View style={{ height: 1, backgroundColor: BORDER_INACTIVE }} />
 
-      {visible.length === 0 ? (
+      {/* Without a profile nothing can be good or risky *for you* (#324). */}
+      {!personalized ? (
+        <Text style={{ paddingHorizontal: 24, paddingTop: 12, fontSize: TYPE.caption, color: MUTED }}>
+          Set up your skin profile to see what&apos;s good or worth watching for you.
+        </Text>
+      ) : null}
+
+      {tab === "All" ? (
+        <Pressable
+          onPress={() => setAsPrinted((printed) => !printed)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: asPrinted }}
+          style={{ minHeight: TOUCH_TARGET, alignSelf: "flex-end", justifyContent: "center", paddingHorizontal: 24 }}
+          className="active:opacity-70"
+        >
+          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+            {asPrinted ? "What matters first" : "As printed"}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {filtered.length === 0 ? (
         <Text style={{ backgroundColor: CANVAS, paddingVertical: 40, textAlign: "center", fontSize: 14, color: MUTED }}>
           Nothing in this group - which is good news.
         </Text>
       ) : (
-        visible.map((ingredient) => (
+        rows.map(({ ingredient, label }) => (
           <IngredientListRow
             key={ingredient.id}
             ingredient={ingredient}
-            rung={rungFor(ingredient, match)}
-            // The one thing that outranks not knowing — see `rungFor` and the
-            // subtitle logic below, which both read this the same way.
+            label={label}
+            // The one thing that outranks not knowing — see `ingredientLabel`
+            // and the subtitle logic below, which both read this the same way.
             warning={match.warnings.find((w) => w.ingredient.id === ingredient.id)}
             onPress={() => onIngredientPress(ingredient)}
           />
         ))
       )}
+
+      {folded > 0 ? (
+        <Pressable
+          onPress={() => setUnfolded(true)}
+          accessibilityRole="button"
+          style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 12 }}
+          className="active:opacity-70"
+        >
+          <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK }}>
+            {folded === 1 ? "1 more ingredient with no known concerns" : `${folded} more ingredients with no known concerns`}
+          </Text>
+        </Pressable>
+      ) : null}
     </ScrollView>
   );
 }
 
 export function IngredientListRow({
   ingredient,
-  rung,
+  label,
   warning,
   onPress,
 }: {
   ingredient: Ingredient;
-  rung: Rung;
+  /** `ingredientLabel`'s word, or null for a row with nothing to say (#324). */
+  label: IngredientLabel | null;
   warning?: Contraindication;
   onPress: () => void;
 }) {
-  const meta = RUNG_META[rung];
+  const meta = label ? LABEL_META[label] : null;
   const rule = ruleFor(ingredient);
   const clogs = isWarnedPoreClogging(ingredient);
 
@@ -164,7 +219,7 @@ export function IngredientListRow({
   // curated rule, the row's own note, then the regulator's declared function
   // list.
   const subtitle = !isVerified(ingredient)
-    ? rung === "avoid" && warning
+    ? label === "avoid" && warning
       ? warning.reason
       : "Not recognised - we can't assess this one"
     : clogs
@@ -189,7 +244,12 @@ export function IngredientListRow({
       }}
       className="active:opacity-70"
     >
-      <View style={{ width: 9, height: 9, marginTop: 6 }} className={`rounded-full ${meta.dot}`} />
+      {/* The word says it; the dot only echoes it, and a row with nothing to
+          say keeps a plain one so the names still line up. */}
+      <View
+        style={{ width: 9, height: 9, marginTop: 6, ...(meta ? null : { backgroundColor: BORDER_INACTIVE }) }}
+        className={`rounded-full ${meta?.dot ?? ""}`}
+      />
 
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -222,9 +282,11 @@ export function IngredientListRow({
         <Text style={{ fontSize: TYPE.caption, lineHeight: 16, color: MUTED }}>{subtitle}</Text>
       </View>
 
-      <View className={`mt-px rounded-full px-3 py-1 ${meta.pill}`}>
-        <Text className={`text-[11px] font-medium ${meta.ink}`}>{meta.label}</Text>
-      </View>
+      {meta ? (
+        <View className={`mt-px rounded-full px-3 py-1 ${meta.pill}`}>
+          <Text className={`text-[11px] font-medium ${meta.ink}`}>{meta.label}</Text>
+        </View>
+      ) : null}
 
       <ArrowIcon size={16} color={INK} style={{ marginTop: 3 }} />
     </Pressable>

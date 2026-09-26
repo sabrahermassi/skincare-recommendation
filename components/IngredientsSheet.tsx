@@ -8,7 +8,10 @@ import { IngredientListRow, IngredientTabsList } from "@/components/IngredientTa
 import { Text } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import { relativeTime } from "@/lib/format";
-import { rungFor, type MatchResult } from "@/lib/matching";
+import { ingredientLabel } from "@/lib/ingredient-labels";
+import type { MatchResult } from "@/lib/matching";
+import { isPersonalized } from "@/lib/profile";
+import { useAppStore } from "@/store/useAppStore";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { CANVAS, INK, MUTED, TYPE } from "@/lib/tokens";
 import { reduceMotionNow } from "@/lib/reduce-motion";
@@ -54,6 +57,7 @@ export const IngredientsSheet = forwardRef<IngredientsSheetHandle, {
 }>(function IngredientsSheet({ product, match }, openRef) {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const personalized = isPersonalized(useAppStore((s) => s.profile));
   const total = product.ingredients.length;
 
   const full = Math.round(height * 0.88);
@@ -210,7 +214,7 @@ export const IngredientsSheet = forwardRef<IngredientsSheetHandle, {
                 <IngredientListRow
                   key={ingredient.id}
                   ingredient={ingredient}
-                  rung={rungFor(ingredient, match)}
+                  label={ingredientLabel(ingredient, match, personalized)}
                   warning={match.warnings.find((w) => w.ingredient.id === ingredient.id)}
                   onPress={() => openIngredient(ingredient.name)}
                 />
