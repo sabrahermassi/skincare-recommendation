@@ -293,7 +293,10 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
   // Vision counts toward the day. Per-caller limits run above; this is the
   // ceiling for everyone together, so rotating addresses can't run up the
   // bill (#198). 503, like a missing key: the app says to try again later.
+  // Logged like the missing key too, as ours: a day of refused reads must
+  // show in `scan_log`, not vanish from it.
   if (!(await spendVisionRead(db, deps.visionDailyCeiling))) {
+    await logRead("internal_error");
     return json(req, { error: "daily_limit" }, 503, { "Retry-After": String(secondsUntilUtcMidnight()) });
   }
 

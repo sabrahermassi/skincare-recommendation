@@ -241,6 +241,8 @@ Deno.test("past the day's ceiling a read is 503 daily_limit, with Retry-After, a
   const retry = Number(reply.headers.get("retry-after"));
   assert(retry >= 1 && retry <= 86_400);
   assertEquals(fetched, []);
+  // A day of refused reads still shows in the scan metric.
+  assertEquals(outcomes(db), ["internal_error"]);
   const [counted] = db.rpcCalls("consume_rate_limit").filter((args) => args.p_bucket === VISION_DAY);
   assertEquals(counted.p_window_seconds, 86_400);
   assertEquals(counted.p_max_requests, 10);
