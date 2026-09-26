@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BottomSheet } from "@/components/BottomSheet";
 import { ConfirmSheet } from "@/components/ConfirmSheet";
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { FilterDropdown } from "@/components/FilterDropdown";
 import { StarIcon } from "@/components/icons/StarIcon";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { NotePreview } from "@/components/ProductNote";
@@ -25,6 +27,7 @@ import { unknownIngredient, type Ingredient, type ProductWithIngredients } from 
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime, SAFETY_LABEL } from "@/lib/format";
+import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, TYPE_STEP, stepOf, type RoutineStep, type StepGroup } from "@/lib/routine-step";
 import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
@@ -32,7 +35,7 @@ import { isVerified } from "@/lib/safety";
 import { useCanJournal } from "@/lib/saving";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
@@ -749,6 +752,9 @@ const EMPTY_ART_WIDTH = 340;
 // so the text under the picture starts at the same place on every tab.
 const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).map((art) => art.aspect));
 
+// The empty state's scan button, and the room it keeps on Ingredients.
+const EMPTY_BUTTON_HEIGHT = 52;
+
 // How long a tab change cross-fades: the pictures between two empty tabs, or
 // the whole of one tab into the next.
 const EMPTY_FADE_MS = 300;
@@ -845,6 +851,15 @@ function EmptyState({ tab }: { tab: Tab }) {
           <View style={{ minHeight: 57, justifyContent: "flex-start" }}>
             <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
           </View>
+          {/* Saved and History start with a scan (owner's reference); a
+              starred ingredient comes from a product page, so Ingredients has
+              no button — only the room one takes, so the picture above stays
+              put when the tab changes. */}
+          {tab === "ingredients" ? (
+            <View style={{ height: EMPTY_BUTTON_HEIGHT, marginTop: SPACE.text }} />
+          ) : (
+            <PrimaryButton size={EMPTY_BUTTON_HEIGHT} label="Scan your first product" onPress={openScanner} style={{ marginTop: SPACE.text }} />
+          )}
         </View>
       </View>
     </ScrollView>
@@ -1014,9 +1029,9 @@ function IngredientRow({ ingredient, onUnstar }: { ingredient: Ingredient; onUns
 const INGREDIENT_DISC = 56;
 
 /**
- * The shelf's filter pills (#227): All, then each group that has something
- * in it, in the fixed order of `STEP_ORDER`. Hidden until there are two
- * groups to choose between.
+ * The shelf's filter (#227), as one dropdown: All, then each group that has
+ * something in it, in the fixed order of `STEP_ORDER`. Hidden until there
+ * are two groups to choose between.
  */
 function StepFilter({
   groups,
@@ -1029,12 +1044,11 @@ function StepFilter({
 }) {
   if (groups.length < 2) return null;
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-      <TypeChip label="All" selected={selected === "all"} onPress={() => onSelect("all")} />
-      {groups.map((group) => (
-        <TypeChip key={String(group)} label={STEP_LABEL[group]} selected={selected === group} onPress={() => onSelect(group)} />
-      ))}
-    </ScrollView>
+    <FilterDropdown
+      options={[{ value: "all", label: "All" }, ...groups.map((group) => ({ value: String(group), label: STEP_LABEL[group] }))]}
+      selected={String(selected)}
+      onSelect={(value) => onSelect(value === "all" ? "all" : (groups.find((g) => String(g) === value) ?? "all"))}
+    />
   );
 }
 

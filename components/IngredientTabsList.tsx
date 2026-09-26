@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
+import { FilterDropdown } from "@/components/FilterDropdown";
 import { Text } from "@/components/Text";
 import type { Ingredient } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
@@ -14,7 +14,7 @@ import { ruleFor, type Contraindication, type MatchResult } from "@/lib/matching
 import { isPersonalized } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 import { isPoreClogging, isWarnedPoreClogging } from "@/lib/pore-clogging";
-import { BORDER_INACTIVE, CANVAS, CHOSEN, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG_META's good/watch/avoid
 // colors are semantic (the per-ingredient verdict, the whole point of this
@@ -53,7 +53,6 @@ export function IngredientTabsList({
   onIngredientPress: (ingredient: Ingredient) => void;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [choosing, setChoosing] = useState(false);
   const [unfolded, setUnfolded] = useState(false);
   const personalized = isPersonalized(useAppStore((s) => s.profile));
   const labelOf = (i: Ingredient) => ingredientLabel(i, match, personalized);
@@ -76,53 +75,14 @@ export function IngredientTabsList({
 
   return (
     <ScrollView contentContainerClassName="pb-4">
-      {/* "Filter: All" and its four choices, opening in place (owner's
+      {/* "Filter: All" and its four choices on a floating card (owner's
           reference): what the chips did, without a row of them. */}
-      <View style={{ paddingHorizontal: 24, paddingTop: 12 }}>
-        <Pressable
-          onPress={() => setChoosing((c) => !c)}
-          accessibilityRole="button"
-          accessibilityLabel={`Filter: ${tab}`}
-          accessibilityState={{ expanded: choosing }}
-          style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 6 }}
-          className="active:opacity-70"
-        >
-          <Text style={{ fontSize: TYPE.body, color: INK }}>Filter:</Text>
-          <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: CHOSEN.fill }}>{tab}</Text>
-          <Ionicons name={choosing ? "chevron-up" : "chevron-down"} size={18} color={CHOSEN.fill} />
-        </Pressable>
-        {choosing ? (
-          <View accessibilityRole="radiogroup" style={{ borderRadius: RADIUS_SELECTOR, borderWidth: 1, borderColor: BORDER_INACTIVE, overflow: "hidden", marginBottom: 8 }}>
-            {TABS.map((label, i) => {
-              const active = tab === label;
-              return (
-                <Pressable
-                  key={label}
-                  onPress={() => {
-                    setTab(label);
-                    setChoosing(false);
-                  }}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: active }}
-                  style={{
-                    minHeight: TOUCH_TARGET,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingHorizontal: 16,
-                    borderTopWidth: i === 0 ? 0 : 1,
-                    borderTopColor: BORDER_INACTIVE,
-                  }}
-                  className="active:opacity-70"
-                >
-                  <Text style={{ fontSize: TYPE.body, fontWeight: active ? "600" : "400", color: INK }}>{label}</Text>
-                  {active ? <Ionicons name="checkmark" size={20} color={CHOSEN.fill} /> : null}
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
-      </View>
+      <FilterDropdown
+        options={TABS.map((label) => ({ value: label, label }))}
+        selected={tab}
+        onSelect={setTab}
+        style={{ paddingHorizontal: 24, paddingTop: 12 }}
+      />
 
       {/* Formulas change. Saying when we last read the label is the
           difference between data and a claim — it was on this screen before

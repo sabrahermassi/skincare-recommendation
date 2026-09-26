@@ -92,13 +92,13 @@ describe("History", () => {
   });
 });
 
-it("shows an empty tab as just its picture and words, with no button", async () => {
+it("offers the first scan on an empty Saved, and no button on an empty Ingredients", async () => {
   await render(<Saved />);
   expect(await screen.findByText("No products saved yet")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Scan a product" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Scan your first product" })).toBeTruthy();
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" })));
   expect(await screen.findByText("No starred ingredients yet")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Search products" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Scan your first product" })).toBeNull();
 });
 
 it("shows a label photo in History and opens that same result", async () => {
