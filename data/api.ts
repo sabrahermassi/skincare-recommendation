@@ -654,14 +654,41 @@ export function revalidateOnForeground(): void {
   if (!usingSupabase()) return;
   if (msSinceLastCheck() < FOREGROUND_RECHECK_MS) return;
 
-  // Only meaningful against a catalogue we hold. With nothing cached there is
-  // no watermark to compare and nothing on screen to correct — the next read
-  // goes to the network on its own.
+  // With nothing cached there is no watermark to compare, so this is the
+  // launch download instead, again: nothing else asks for the catalogue since
+  // Search stopped listing it (#317), so a first launch with no signal would
+  // otherwise leave the phone without one until the next cold start.
   const entry = peekCatalogue();
-  if (!entry) return;
+  if (!entry) {
+    prefetchCatalogue();
+    return;
+  }
 
   markCheckedThisLaunch();
   revalidateCatalogue(entry.watermark);
+}
+
+let prefetching: Promise<unknown> | null = null;
+
+/**
+ * Downloads the catalogue in the background, with no screen waiting on it.
+ *
+ * Search used to fill the cache by listing the catalogue; since it became
+ * search-first (#317) nothing reads the whole list, so without this a fresh
+ * install never has one — and the instant answers built on it (a barcode
+ * scanned offline or before the network answers (#196), search as you type,
+ * a product page with no spinner) quietly stop being instant. A warm cache
+ * makes this a memory read; a cold one costs the same download Search used
+ * to make on first open. One at a time, and silent on failure: the next
+ * return to the app tries again (`revalidateOnForeground`).
+ */
+export function prefetchCatalogue(): void {
+  if (!usingSupabase() || prefetching) return;
+  prefetching = fetchProducts()
+    .catch(() => undefined)
+    .finally(() => {
+      prefetching = null;
+    });
 }
 
 export async function warmCatalogue(): Promise<void> {
