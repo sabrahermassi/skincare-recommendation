@@ -713,8 +713,16 @@ export function parseIngredientBlock(
   // degrade to junk fragments that dilute the recognised-ingredient ratio
   // enough to sink the verdict below "unknown" even when the OCR read was
   // otherwise clean.
+  //
+  // Korean and Japanese labels print the same sections under their own
+  // headings (#255): how to use (사용방법, 使用方法), precautions (주의사항,
+  // 使用上の注意), maker and seller (제조업자, 책임판매업자, 製造販売元),
+  // expiry, storage and net contents. With only 사용법 here, a Korean label
+  // ending in 사용방법 fused its last ingredient with the directions into one
+  // long fake name. None is anchored with \b: in JavaScript it only sees
+  // ASCII letters, so it never matches between two Hangul or kanji.
   const stop =
-    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b|\bstorage\b)/i.exec(
+    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용\s?방법|사용법|주의\s?사항|사용\s?시의?\s?주의|제조\s?판매\s?업자|제조\s?업자|책임\s?판매\s?업자|판매원|사용\s?기한|보관\s?방법|내용량|使用方法|使用上の注意|保管方法|製造販売元|販売元|内容量|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b|\bstorage\b)/i.exec(
       block
     );
   if (stop) block = block.slice(0, stop.index);

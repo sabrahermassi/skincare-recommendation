@@ -555,7 +555,7 @@ export function parseInci(text, dictionary, rejected, aliases) {
   // 2 ── ...and truncate at whatever shares the back of the label. Legal
   // boilerplate and net-quantity marks reliably follow the formula.
   const stop =
-    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용법|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b|\bstorage\b)/i.exec(
+    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용\s?방법|사용법|주의\s?사항|사용\s?시의?\s?주의|제조\s?판매\s?업자|제조\s?업자|책임\s?판매\s?업자|판매원|사용\s?기한|보관\s?방법|내용량|使用方法|使用上の注意|保管方法|製造販売元|販売元|内容量|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b|\bstorage\b)/i.exec(
       block
     );
   if (stop) block = block.slice(0, stop.index);
