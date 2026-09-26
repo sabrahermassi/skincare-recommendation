@@ -13,7 +13,6 @@ import { Text } from "@/components/Text";
 // TERRACOTTA is otherwise a FOR.ME shell-only token (see shared.tsx's own
 // header comment) — reused here specifically because "match the quiz's
 // selected-chip color" was an explicit request, not a guess at a value.
-import { TERRACOTTA } from "@/components/shell/shared";
 import type {
   BaseSkinType,
   Concern,
@@ -29,7 +28,7 @@ import {
   sensitivityLabel,
 } from "@/lib/profile";
 import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, RADIUS_SELECTOR, SELECTED, SURFACE, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, CHOSEN, INK, MUTED, RADIUS_SELECTOR, SURFACE, TYPE } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
 // The design system (design/DESIGN_SYSTEM.md), restyled per
@@ -409,14 +408,14 @@ function ProfileChip({
         justifyContent: "center",
         borderRadius: RADIUS_SELECTOR,
         borderWidth: selected ? 1.5 : 1,
-        borderColor: selected ? TERRACOTTA : BORDER_INACTIVE,
-        backgroundColor: selected ? SELECTED : CANVAS,
+        borderColor: selected ? CHOSEN.border : BORDER_INACTIVE,
+        backgroundColor: selected ? CHOSEN.fill : CANVAS,
         ...CHIP_SHADOW,
         opacity: disabled ? 0.4 : 1,
       }}
       className="active:opacity-70"
     >
-      <Text style={{ fontSize: 13.5, fontWeight: "600", color: selected ? INK : MUTED }}>
+      <Text style={{ fontSize: 13.5, fontWeight: "600", color: selected ? CHOSEN.label : MUTED }}>
         {label}
       </Text>
     </Pressable>

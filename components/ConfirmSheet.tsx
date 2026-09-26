@@ -14,6 +14,9 @@ import { CARD_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/l
  * plain words under it — so the easy tap is the one that keeps things. The X,
  * a tap on the dimmed screen, and the keep button all close it untouched.
  */
+// The keep button's share of the card (owner's OnSkin reference: 43–47%).
+const KEEP_WIDTH = "55%";
+
 export function ConfirmSheet({
   visible,
   title,
@@ -37,7 +40,7 @@ export function ConfirmSheet({
   busy?: boolean;
 }) {
   return (
-    <BottomSheet visible={visible} onClose={onClose}>
+    <BottomSheet visible={visible} onClose={onClose} floating>
       {/* A plain disc, not the glass X: the sheet is a separate native window,
           and Apple's glass button in one never received a tap. */}
       <Pressable
@@ -65,7 +68,8 @@ export function ConfirmSheet({
         <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: TYPE.body * 1.4, color: MUTED }}>{line}</Text>
       </View>
       <View style={{ alignItems: "center", gap: SPACE.text, marginTop: SPACE.text }}>
-        <PrimaryButton label={keepLabel} onPress={onClose} style={{ alignSelf: "stretch", marginHorizontal: SPACE.gutter }} />
+        {/* About half the card's width, centred, as in the reference. */}
+        <PrimaryButton label={keepLabel} onPress={onClose} style={{ width: KEEP_WIDTH }} />
         <Pressable
           onPress={() => {
             haptic.warning();

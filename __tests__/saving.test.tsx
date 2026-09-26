@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 /**
  * Saving is open to everyone (#300): a guest's save happens at the tap and
- * stays on the phone, sign-in is offered on the Saved tab and never at the
+ * stays on the phone, sign-in is offered in Account and never at the
  * tap, and notes and routine steps stay signed-in only.
  */
 
@@ -36,7 +36,6 @@ const { useAuth } = require("@/lib/auth") as typeof import("@/lib/auth");
 const { useAppStore } = require("@/store/useAppStore") as typeof import("@/store/useAppStore");
 const ProductScreen = (require("@/app/product/[id]") as { default: () => React.JSX.Element }).default;
 const Saved = (require("@/app/(tabs)/saved") as { default: () => React.JSX.Element }).default;
-const { GUEST_SHELF_LINE } = require("@/app/(tabs)/saved") as typeof import("@/app/(tabs)/saved");
 
 const SERUM = { id: "hanbang-rice-serum", savedAt: 1 };
 
@@ -109,19 +108,13 @@ describe("the sign-in sheet", () => {
 });
 
 describe("the Saved tab", () => {
-  it("tells a guest where saves go and offers the account, on an empty shelf too", async () => {
-    await render(<Saved />);
-    expect(await screen.findByText("No products saved yet")).toBeTruthy();
-    expect(screen.getByText(GUEST_SHELF_LINE)).toBeTruthy();
-    fireEvent.press(screen.getByText("Sign in to keep them on every phone"));
-    expect(mockPush).toHaveBeenCalledWith({ pathname: "/sign-in", params: { from: "shelf" } });
-  });
-
-  it("says nothing about accounts to someone signed in", async () => {
-    signIn("u1");
+  // The guest line and its sign-in link are gone (owner): sign-ups are to be
+  // asked for another way.
+  it("says nothing about accounts on the shelf, to a guest or anyone", async () => {
     await render(<Saved />);
     await screen.findByText("No products saved yet");
-    expect(screen.queryByText(GUEST_SHELF_LINE)).toBeNull();
+    expect(screen.queryByText(/Saves stay on this phone/)).toBeNull();
+    expect(screen.queryByText(/Sign in to keep them/)).toBeNull();
   });
 
   it("shows a guest the routine step but offers no change", async () => {

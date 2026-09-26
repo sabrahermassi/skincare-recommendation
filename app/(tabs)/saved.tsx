@@ -1,14 +1,15 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Link, router, useFocusEffect, useScrollToTop } from "expo-router";
 import type { ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
 
 import { ArtOnLine } from "@/components/ArtOnLine";
 import { BottomSheet } from "@/components/BottomSheet";
 import { ConfirmSheet } from "@/components/ConfirmSheet";
+import { StarIcon } from "@/components/icons/StarIcon";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { NotePreview } from "@/components/ProductNote";
@@ -18,7 +19,6 @@ import { ScorePill } from "@/components/ScorePill";
 import { SwipeToDelete } from "@/components/SwipeToDelete";
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
-import { TERRACOTTA } from "@/components/shell/shared";
 import { TabTitle } from "@/components/TabTitle";
 import { Text } from "@/components/Text";
 import { TypeChip } from "@/components/TypeChip";
@@ -26,16 +26,16 @@ import { fetchProductsByIds, resolveIngredientNames } from "@/data/api";
 import { unknownIngredient, type Ingredient, type ProductWithIngredients } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
-import { relativeTime } from "@/lib/format";
+import { relativeTime, SAFETY_LABEL } from "@/lib/format";
 import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, TYPE_STEP, stepOf, type RoutineStep, type StepGroup } from "@/lib/routine-step";
 import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
 import { isVerified } from "@/lib/safety";
-import { useCanJournal, useGuestShelf } from "@/lib/saving";
+import { useCanJournal } from "@/lib/saving";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
@@ -79,7 +79,6 @@ export default function Saved() {
   const clearSavedIngredients = useAppStore((s) => s.clearSavedIngredients);
   const removeHistoryEntry = useAppStore((s) => s.removeHistoryEntry);
   const shelfOwner = useAppStore((s) => s.shelfOwner);
-  const guest = useGuestShelf();
   const canJournal = useCanJournal();
 
   // A removed row's own data, held just long enough to put it back — nothing
@@ -261,8 +260,6 @@ export default function Saved() {
     const empty = isTabEmpty(t, counts, undo?.kind);
     return (
       <>
-          {guest && t !== "history" ? <GuestShelfLine /> : null}
-
           {empty ? (
             <EmptyState tab={t} />
           ) : t === "ingredients" ? (
@@ -438,12 +435,12 @@ export default function Saved() {
         <TabTitle>Saved</TabTitle>
       </View>
 
-      {/* The three lists in one light capsule (owner's reference). Ingredients
-          carries no count: three segments leave each about a third of the row. */}
+      {/* The three lists in one light capsule (owner's reference), words only:
+          no counts on a select button, anywhere (owner). */}
       <SegmentedSwitch
         options={[
-          { value: "saved", label: savedProducts.length ? `Saved (${savedProducts.length})` : "Saved" },
-          { value: "history", label: history.length ? `History (${history.length})` : "History" },
+          { value: "saved", label: "Saved" },
+          { value: "history", label: "History" },
           { value: "ingredients", label: "Ingredients" },
         ]}
         selected={tab}
@@ -566,51 +563,6 @@ function Row({
 const CARD_RADIUS = 24;
 const CARD_THUMB = 72;
 const CORNER_CLEARANCE = 52;
-
-/** The "x" in the top-right corner of every Saved/History card — unsaves a
- *  shelf row, or drops one entry from the log (see the two different store
- *  actions each call site passes in). Rendered as a sibling of `Row`'s
- *  `Link`, never nested inside it — see that component's own comment for
- *  why. */
-function RemoveButton({ onPress }: { onPress: () => void }) {
-  // A soft terracotta badge with a rounded, slightly-imperfect hand-drawn
-  // stroke — as close to the onboarding/quiz's warm watercolor language as
-  // a vector icon can get. It's still a drawn line, not painted artwork —
-  // see the note on this in chat; that needs an actual image asset, which
-  // isn't something this pass can generate.
-  return (
-    <Pressable
-      onPress={() => {
-        haptic.tap();
-        onPress();
-      }}
-      hitSlop={8}
-      accessibilityRole="button"
-      accessibilityLabel="Remove"
-      style={{
-        position: "absolute",
-        top: 6,
-        right: 6,
-        width: 30,
-        height: 30,
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 15,
-        backgroundColor: SELECTED,
-      }}
-      className="active:opacity-70"
-    >
-      <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-        <Path
-          d="M6.5 6.5c3 3.2 8 8.2 11 11M17.5 6.5c-3 3.2-8 8.2-11 11"
-          stroke={TERRACOTTA}
-          strokeWidth={2.4}
-          strokeLinecap="round"
-        />
-      </Svg>
-    </Pressable>
-  );
-}
 
 /**
  * "Worth knowing about your shelf" — saved products whose actives tend to add
@@ -977,47 +929,77 @@ function IngredientsTab({
     <ScrollView ref={scrollRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
       {names.map((name) => {
         const ingredient: Ingredient = byName[name] ?? unknownIngredient(name);
-        const verdict = isVerified(ingredient)
-          ? ingredient.safety === "avoid"
-            ? VERDICT.low
-            : ingredient.safety === "caution"
-              ? VERDICT.medium
-              : VERDICT.high
-          : VERDICT_NEUTRAL;
-        return (
-          <IngredientRow key={name} name={name} bar={verdict.solid} onRemove={() => toggleSavedIngredient(name)} />
-        );
+        return <IngredientRow key={name} ingredient={ingredient} onUnstar={() => toggleSavedIngredient(name)} />;
       })}
       {footer}
     </ScrollView>
   );
 }
 
-/** One starred-ingredient row. Same shape as `Row` above it: the card is a
- *  `Link`, the unstar control is a sibling `Pressable` rather than nested
- *  inside it — see `Row`'s own comment for why nesting breaks the link on
- *  web. */
-function IngredientRow({ name, bar, onRemove }: { name: string; bar: string; onRemove: () => void }) {
+/**
+ * One starred ingredient, the same white card as a Saved or History product
+ * (owner): a tinted disc where the product picture would be, the name, what it
+ * does, its safety as a pill, and the filled star in the corner — untap it to
+ * unstar. The card is a `Link`; the star is its sibling, not inside it (see
+ * `Row`).
+ */
+function IngredientRow({ ingredient, onUnstar }: { ingredient: Ingredient; onUnstar: () => void }) {
   const [scale, press] = usePressScale();
+  const known = isVerified(ingredient);
+  const verdict = !known
+    ? VERDICT_NEUTRAL
+    : ingredient.safety === "avoid"
+      ? VERDICT.low
+      : ingredient.safety === "caution"
+        ? VERDICT.medium
+        : VERDICT.high;
+  const role = ingredient.functions && ingredient.functions.length > 0 ? ingredient.functions.slice(0, 2).join(" · ") : null;
   return (
-    <LiftedCard scale={scale} backgroundColor={SURFACE}>
-    <View style={{ borderRadius: 16, borderWidth: 1, borderColor: BORDER_INACTIVE, overflow: "hidden" }}>
-      <Link href={{ pathname: "/ingredient/[inci]", params: { inci: name } }} asChild>
-        <Pressable style={{ flexDirection: "row" }} {...press}>
-          <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
-          <View style={{ flex: 1, justifyContent: "center", padding: 16, paddingRight: 40 }}>
-            <Text style={{ fontSize: 14, color: INK }} numberOfLines={2}>
-              {displayIngredientName(name)}
-            </Text>
-          </View>
+    <LiftedCard radius={CARD_RADIUS} scale={scale} backgroundColor={SURFACE}>
+      <View style={{ borderRadius: CARD_RADIUS, overflow: "hidden" }}>
+        <Link href={{ pathname: "/ingredient/[inci]", params: { inci: ingredient.name } }} asChild>
+          <Pressable style={{ flexDirection: "row", alignItems: "center", gap: 16, padding: 18, paddingRight: CORNER_CLEARANCE }} {...press}>
+            <View style={{ width: INGREDIENT_DISC, height: INGREDIENT_DISC, borderRadius: INGREDIENT_DISC / 2, alignItems: "center", justifyContent: "center", backgroundColor: verdict.tint }}>
+              <Ionicons name="water" size={24} color={verdict.deep} />
+            </View>
+            <View style={{ flex: 1, gap: 6 }}>
+              <View style={{ gap: 2 }}>
+                <Text numberOfLines={2} style={{ fontSize: 17, fontWeight: "500", lineHeight: 22, color: INK }}>
+                  {displayIngredientName(ingredient.name)}
+                </Text>
+                {role ? (
+                  <Text numberOfLines={1} style={{ fontSize: TYPE.label, color: MUTED_FAINT }}>
+                    {role}
+                  </Text>
+                ) : null}
+              </View>
+              <View style={{ alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: verdict.tint }}>
+                <Text style={{ fontSize: TYPE.label, fontWeight: "700", color: verdict.deep }}>{known ? SAFETY_LABEL[ingredient.safety] : "Not recognised"}</Text>
+              </View>
+            </View>
+          </Pressable>
+        </Link>
+        <Pressable
+          onPress={() => {
+            haptic.tap();
+            onUnstar();
+          }}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Remove from starred ingredients"
+          accessibilityState={{ selected: true }}
+          style={{ position: "absolute", top: 6, right: 6, width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+          className="active:opacity-70"
+        >
+          <StarIcon filled size={24} />
         </Pressable>
-      </Link>
-
-      <RemoveButton onPress={onRemove} />
-    </View>
+      </View>
     </LiftedCard>
   );
 }
+
+// The disc where a starred ingredient's picture would be, as wide as a product's.
+const INGREDIENT_DISC = 56;
 
 /**
  * The shelf's filter pills (#227): All, then each group that has something
@@ -1048,32 +1030,6 @@ function StepFilter({
  * One line under a saved card: which step it is in, and a way to change it.
  * "Not sorted" asks to be sorted; "Body & hair" is simply where it belongs.
  */
-/** What the guest line says (#300). Exported for the tests. */
-export const GUEST_SHELF_LINE = "Saves stay on this phone.";
-
-/**
- * Signed out, under the Saved and Ingredients tabs: saving works, and this
- * says where it goes and offers the account that keeps it on every phone.
- * Quiet, one line, never in the way of the shelf itself.
- */
-function GuestShelfLine() {
-  return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 6, paddingHorizontal: 20, marginTop: -6 }}>
-      <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{GUEST_SHELF_LINE}</Text>
-      <Pressable
-        onPress={() => router.push({ pathname: "/sign-in", params: { from: "shelf" } })}
-        accessibilityRole="link"
-        style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
-        className="active:opacity-70"
-      >
-        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-          Sign in to keep them on every phone
-        </Text>
-      </Pressable>
-    </View>
-  );
-}
-
 function StepLine({ group, chosen, onChange }: { group: StepGroup | null; chosen: boolean; onChange?: () => void }) {
   if (group === null) return null;
   const label = (

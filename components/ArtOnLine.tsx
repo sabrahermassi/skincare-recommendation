@@ -5,10 +5,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 /**
  * How far below the top of the safe area an empty state's picture starts, on
  * every screen that has one: Saved, History, Ingredients, and Search before
- * typing and when nothing matches (owner). Set by the lowest of them: Saved
- * and Ingredients show "Saves stay on this phone" and a sign-in link above
- * the picture to a guest, which end about 175 below the safe area, so the
- * line sits just under them and every other screen pads down to it.
+ * typing and when nothing matches (owner). Set by the lowest of them, which
+ * was Saved with its guest line; the line stays where it was so the pictures
+ * didn't move when that line went.
  */
 const ART_LINE = 184;
 

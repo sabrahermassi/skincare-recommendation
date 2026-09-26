@@ -4,7 +4,6 @@ import { ArrowIcon } from "@/components/icons/ArrowIcon";
 
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
-import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import type { Ingredient } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
@@ -13,8 +12,8 @@ import { ingredientLabel, LABEL_META, sortForGlance, type IngredientLabel } from
 import { ruleFor, type Contraindication, type MatchResult } from "@/lib/matching";
 import { isPersonalized } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
-import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { isPoreClogging, isWarnedPoreClogging } from "@/lib/pore-clogging";
+import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CHOSEN, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG_META's good/watch/avoid
 // colors are semantic (the per-ingredient verdict, the whole point of this
@@ -74,8 +73,6 @@ export function IngredientTabsList({
     : filtered.map((ingredient) => ({ ingredient, label: labelOf(ingredient) }));
   const folded = glance && !unfolded ? glance.unlabelled.length : 0;
 
-  const cloggerCount = poreCloggingHits(ingredients).length;
-
   return (
     <ScrollView contentContainerClassName="pb-4">
       {/* Scrolls rather than dividing the width four ways: at flex-1 the
@@ -89,9 +86,6 @@ export function IngredientTabsList({
       >
         {TABS.map((label) => {
           const active = tab === label;
-          // The count earns the tab its place: "Pore clogging 3" answers the
-          // question before you have tapped anything.
-          const suffix = label === "Pore clogging" && cloggerCount > 0 ? ` ${cloggerCount}` : "";
           return (
             <Pressable
               key={label}
@@ -105,15 +99,14 @@ export function IngredientTabsList({
                 justifyContent: "center",
                 borderRadius: RADIUS_SELECTOR,
                 borderWidth: active ? 1.5 : 1,
-                borderColor: active ? TERRACOTTA : BORDER_INACTIVE,
-                backgroundColor: active ? SELECTED : CANVAS,
+                borderColor: active ? CHOSEN.border : BORDER_INACTIVE,
+                backgroundColor: active ? CHOSEN.fill : CANVAS,
                 ...CHIP_SHADOW,
               }}
               className="active:opacity-70"
             >
-              <Text style={{ fontSize: 14.5, fontWeight: "600", color: active ? INK : MUTED }}>
+              <Text style={{ fontSize: 14.5, fontWeight: "600", color: active ? CHOSEN.label : MUTED }}>
                 {label}
-                {suffix}
               </Text>
             </Pressable>
           );

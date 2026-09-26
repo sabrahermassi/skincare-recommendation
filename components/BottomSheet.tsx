@@ -1,5 +1,6 @@
+import { BlurView } from "expo-blur";
 import { useEffect, useState, type ReactNode } from "react";
-import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, useWindowDimensions, View } from "react-native";
+import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { reduceMotionNow } from "@/lib/reduce-motion";
@@ -7,6 +8,12 @@ import { FLOATING_SHADOW, SCRIM, SURFACE } from "@/lib/tokens";
 
 const IN_MS = 280;
 const OUT_MS = 220;
+// The floating card (owner's OnSkin reference, measured off its screenshot):
+// how far it stands off the screen's sides and bottom, its corners, which
+// follow the phone's own, and how much the screen behind it blurs.
+const FLOAT_INSET = 7;
+const FLOAT_RADIUS = 44;
+const FLOAT_BLUR = 12;
 
 /**
  * A card that slides up from the bottom over a dimmed screen, and back down —
@@ -21,10 +28,16 @@ const OUT_MS = 220;
 export function BottomSheet({
   visible,
   onClose,
+  floating = false,
   children,
 }: {
   visible: boolean;
   onClose: () => void;
+  /**
+   * A card that floats clear of the screen's edges, rounded on every corner,
+   * over a blurred screen: the confirmation look (owner's OnSkin reference).
+   */
+  floating?: boolean;
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
@@ -54,19 +67,33 @@ export function BottomSheet({
     <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>
         <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: progress }}>
+          {floating ? <BlurView intensity={FLOAT_BLUR} tint="default" style={StyleSheet.absoluteFill} /> : null}
           <Pressable onPress={onClose} accessibilityLabel="Close" style={{ flex: 1, backgroundColor: SCRIM }} />
         </Animated.View>
         <Animated.View style={{ transform: [{ translateY }] }}>
           <View
-            style={{
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              backgroundColor: SURFACE,
-              padding: 24,
-              paddingBottom: Math.max(24, insets.bottom + 12),
-              gap: 14,
-              ...FLOATING_SHADOW,
-            }}
+            style={
+              floating
+                ? {
+                    marginHorizontal: FLOAT_INSET,
+                    marginBottom: FLOAT_INSET,
+                    borderRadius: FLOAT_RADIUS,
+                    backgroundColor: SURFACE,
+                    padding: 24,
+                    paddingBottom: Math.max(24, insets.bottom),
+                    gap: 14,
+                    ...FLOATING_SHADOW,
+                  }
+                : {
+                    borderTopLeftRadius: 20,
+                    borderTopRightRadius: 20,
+                    backgroundColor: SURFACE,
+                    padding: 24,
+                    paddingBottom: Math.max(24, insets.bottom + 12),
+                    gap: 14,
+                    ...FLOATING_SHADOW,
+                  }
+            }
           >
             {children}
           </View>

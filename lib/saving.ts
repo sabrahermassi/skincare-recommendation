@@ -8,7 +8,7 @@ import { useAppStore } from "@/store/useAppStore";
  * Saving is open to everyone (#300, superseding #221's signed-in-only rule).
  * Signed out, a save stays on this phone; signing in carries it into the
  * account (`adoptShelf` in store/useAppStore.ts). Nothing here asks anyone to
- * sign in: that is offered on the Saved tab and in Account, never at the tap.
+ * sign in: that is offered in Account, never at the tap.
  */
 
 /** A Save or star tap: saves at once, for anyone. */

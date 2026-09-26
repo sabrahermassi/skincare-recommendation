@@ -158,6 +158,15 @@ export const BUTTON = {
 } as const;
 
 /**
+ * A chosen option in any selectable control — quiz cards, skin-profile chips,
+ * filter chips, tabs of a list: the primary button's own fill and label, so
+ * every "this one" in the app reads in the same colour as the main action
+ * (owner, 27 September 2026). White on it is 3.6:1 (computed), AA for large
+ * text only.
+ */
+export const CHOSEN = { fill: BUTTON.primary.fill, border: BUTTON.primary.fill, label: BUTTON.primary.label } as const;
+
+/**
  * One shape for every selectable control in the app — chips, option cards,
  * filter pills, segmented tabs. Size varies with the job (a 2-per-row quiz
  * chip is not a filter pill), the corner never does: a screen mixing 999-px
