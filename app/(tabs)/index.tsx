@@ -6,14 +6,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HEADER_GUTTER } from "@/components/AppHeader";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
-import { PressableCard } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/open-scanner";
 import { homeGreetingLayout, SIGNATURE_WIDTH } from "@/lib/home-greeting";
-import { answeredWithoutSignal, isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, SELECTED, SPACE, SURFACE } from "@/lib/tokens";
-import { useAppStore } from "@/store/useAppStore";
+import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, SPACE } from "@/lib/tokens";
 
 // The watercolor from onboarding's second screen: a bottle and its ingredient list.
 const SCAN_ART = require("@/assets/illustrations/scan-a-product.png");
@@ -54,11 +51,9 @@ const SIGNATURE_RIGHT = HEADER_GUTTER - 4;
 /**
  * Home — the first screen after the skin quiz.
  *
- * A greeting, the skin profile the quiz produced as a card of chips (every score
- * on the other tabs is judged against it; it is edited under Profile), then the
- * two cards side by side — "Scan a product", which opens the full-screen
- * scanner, and "Find skincare", which opens Browse — and a watercolor still
- * life under them, running on past the bottom edge of the screen. The layout is
+ * A greeting, then two cards side by side — "Scan a product", which opens the
+ * full-screen scanner, and "Find skincare", which opens Browse — and a
+ * watercolor still life under them, running on past the bottom edge of the screen. The layout is
  * fixed while it fits; on a short screen or with large text it scrolls, so both
  * cards are always reachable.
  */
@@ -77,22 +72,6 @@ export default function Home() {
     signatureRight: SIGNATURE_RIGHT,
   });
   const signatureScale = signatureWidth === null ? 0 : signatureWidth / SIGNATURE_WIDTH;
-  const profile = useAppStore((s) => s.profile);
-  const personalized = isPersonalized(profile);
-  // Answered the quiz, but nothing in it can drive a score (#291): the card
-  // must not tell them to answer the questions they just answered.
-  const answered = answeredWithoutSignal(profile);
-
-  const { title, tags } = profileHeadline(profile);
-  const chips = [
-    ...(profile.baseSkinType ? [title] : []),
-    ...tags,
-    // Only when it changes what is shown as safe; "neither" and "prefer not to say" add nothing.
-    ...(profile.pregnancyStatus === "pregnant" || profile.pregnancyStatus === "breastfeeding"
-      ? [pregnancyLabel(profile.pregnancyStatus)]
-      : []),
-  ];
-
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
       {/* Scrolls only when the content is taller than the screen: flexGrow keeps a
@@ -115,55 +94,6 @@ export default function Home() {
             style={{ width: greetingWidth, aspectRatio: GREETING_ASPECT }}
           />
 
-          {/* The skin profile, each answer in its own chip. Only shown here: it is
-              edited under Profile. */}
-          {personalized ? (
-            <View
-              accessible
-              accessibilityLabel={`Your skin profile: ${chips.join(", ")}`}
-              style={{
-                gap: 18,
-                padding: 24,
-                borderRadius: 22,
-                borderWidth: 1,
-                borderColor: BORDER_INACTIVE,
-                backgroundColor: SURFACE,
-                ...CARD_SHADOW,
-              }}
-            >
-              <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>Your skin profile</Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14 }}>
-                {chips.map((chip) => (
-                  <Chip key={chip} label={chip} />
-                ))}
-              </View>
-            </View>
-          ) : (
-            // Nothing answered yet: the whole card leads to the skin profile, its
-            // arrow at the far right, centred on the card.
-            <PressableCard
-              onPress={() => router.push("/skin-profile")}
-              accessibilityLabel={
-                answered
-                  ? "Your scores aren't personal yet. Open your skin profile to add your skin type or a concern."
-                  : "Your skin profile is not set up yet. Open it to answer the skin questions."
-              }
-              radius={22}
-              backgroundColor={SURFACE}
-              style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 24, borderWidth: 1, borderColor: BORDER_INACTIVE }}
-            >
-              <View style={{ flex: 1, gap: 18 }}>
-                <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>Your skin profile</Text>
-                <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>
-                  {answered
-                    ? "Scores aren't personal yet. Add your skin type or a concern when you know it, and every score will be made for your skin."
-                    : "Not set up yet. Answer the skin questions and every score will be made for your skin."}
-                </Text>
-              </View>
-              <ArrowIcon size={22} color={INK} />
-            </PressableCard>
-          )}
-
           {/* The two ways in, side by side: scan a product in hand, or find one
               by name. "Find skincare" opens Browse, which has no tab of its own. */}
           <View style={{ flexDirection: "row", gap: 12 }}>
@@ -182,7 +112,7 @@ export default function Home() {
           </View>
 
           {/* The signature: a floating layer, not part of the column, so it takes no
-              space and can cross the top edge of the skin profile card. Last in the
+              space and can cross the top edge of the cards. Last in the
               column so it is drawn on top, and inside the scroll so it moves with
               the cards; it ignores touches so the card under it stays tappable. */}
           {/* The label is there whether or not the picture is: when there is no room
@@ -288,51 +218,5 @@ function ActionCard({ title, detail, art, onPress }: { title: string; detail: st
         </View>
       </Pressable>
     </Animated.View>
-  );
-}
-
-/** Past this text scale a profile chip takes its own row (#314). */
-const FULL_WIDTH_CHIP_SCALE = 1.2;
-
-/**
- * One answer of the skin profile, in the same peach and terracotta as a selected
- * chip, softened: a filled pill with no outline and room around the word, like
- * the skin-type tag in the reference profile. All the same height and width, two
- * to a row, so the card reads as a grid; an odd one out stretches across its row.
- * At the larger text sizes (#314) a half-width chip can't hold "Combination"
- * on one line, so each takes a whole row, and the height is a minimum so a
- * label that still wraps grows its chip instead of being cut off.
- */
-function Chip({ label }: { label: string }) {
-  const { fontScale } = useWindowDimensions();
-  return (
-    <View
-      style={{
-        flexGrow: 1,
-        flexBasis: fontScale > FULL_WIDTH_CHIP_SCALE ? "100%" : "42%",
-        minHeight: 46,
-        paddingVertical: 8,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 14,
-        borderRadius: 23,
-        backgroundColor: SELECTED,
-        ...CHIP_SHADOW,
-      }}
-    >
-      <Text
-        style={{
-          fontSize: 14,
-          fontWeight: "500",
-          letterSpacing: 0.2,
-          color: INK,
-          textAlign: "center",
-          textAlignVertical: "center",
-          includeFontPadding: false,
-        }}
-      >
-        {label}
-      </Text>
-    </View>
   );
 }

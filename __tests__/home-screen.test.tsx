@@ -2,11 +2,10 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { router } from "expo-router";
 
 import Home from "@/app/(tabs)/index";
-import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
- * Home (per #155): the greeting, the skin profile card, the two cards side by
- * side ("Scan a product" and "Find skincare"), and the watercolor still life
+ * Home (per #155): the greeting, the two cards side by side ("Scan a product"
+ * and "Find skincare"), and the watercolor still life
  * under them. The still life sits in the page after the cards, not behind
  * them, so it can never cover a card; its handwriting is read out.
  */
@@ -33,14 +32,10 @@ function labelsInOrder(tree: unknown): string[] {
   return out;
 }
 
-beforeEach(() => {
-  useAppStore.setState({ profile: EMPTY_PROFILE });
-});
-
-it("shows the greeting, the skin profile card and both cards", async () => {
+it("shows the greeting and both cards, and no skin profile card", async () => {
   await render(<Home />);
   expect(screen.getByLabelText("Hi there!")).toBeTruthy();
-  expect(screen.getByLabelText("Your skin profile is not set up yet. Open it to answer the skin questions.")).toBeTruthy();
+  expect(screen.queryByText("Your skin profile")).toBeNull();
   expect(screen.getByRole("button", { name: "Scan a product. Analyze a product by photo or barcode." })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Find skincare. Search products or brands." })).toBeTruthy();
 });
