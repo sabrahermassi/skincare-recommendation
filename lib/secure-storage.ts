@@ -1,12 +1,10 @@
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-import { useAppStore } from "@/store/useAppStore";
-
 /**
- * Where the sign-in session lives (#218). The only file allowed to import
- * `expo-secure-store` — see docs/device-storage-policy.md, row 1, and the
- * allowlist in eslint.config.js.
+ * Where the sign-in session lives (#218), and on a phone the skin profile
+ * (#189). The only file allowed to import `expo-secure-store` — see
+ * docs/device-storage-policy.md and the allowlist in eslint.config.js.
  *
  * iOS: Keychain, `WHEN_UNLOCKED_THIS_DEVICE_ONLY`, so a token never rides out
  * in an iCloud backup or onto a restored phone. Android: Keystore, with the
@@ -164,25 +162,38 @@ let claimed: Promise<void> | null = null;
 let distrustLeftovers = false;
 const writtenThisLaunch = new Set<string>();
 
-function whenStoreHydrated(): Promise<void> {
-  if (useAppStore.persist.hasHydrated()) return Promise.resolve();
-  return new Promise((resolve) => {
-    const unsubscribe = useAppStore.persist.onFinishHydration(() => {
-      unsubscribe();
-      resolve();
-    });
-  });
+/**
+ * How this file reaches the store's `secureStoreClaimed` flag. The store hands
+ * it over at start-up (`connectClaimFlag`, called from store/useAppStore.ts)
+ * rather than this file importing the store: the store routes the profile
+ * through this file (#189), and an import each way would be a require cycle.
+ */
+export type ClaimFlag = {
+  /** Resolves once the store has read its file, where the flag lives. */
+  hydrated: () => Promise<void>;
+  isClaimed: () => boolean;
+  claim: () => void;
+};
+
+let provideClaimFlag!: (flag: ClaimFlag) => void;
+const claimFlag = new Promise<ClaimFlag>((resolve) => {
+  provideClaimFlag = resolve;
+});
+
+export function connectClaimFlag(flag: ClaimFlag): void {
+  provideClaimFlag(flag);
 }
 
 function claimOnce(): Promise<void> {
   claimed ??= (async () => {
-    await whenStoreHydrated();
-    if (useAppStore.getState().secureStoreClaimed) return;
+    const flag = await claimFlag;
+    await flag.hydrated();
+    if (flag.isClaimed()) return;
     const manifest = await readManifest();
     let ok = manifest !== null;
     for (const [key, chunks] of Object.entries(manifest ?? {})) ok = (await removeChunked(key, chunks)) && ok;
     if (ok) ok = await deleteRaw(MANIFEST_KEY);
-    if (ok) useAppStore.getState().claimSecureStore();
+    if (ok) flag.claim();
     else distrustLeftovers = true;
   })();
   return claimed;
@@ -271,6 +282,54 @@ async function removeItem(key: string): Promise<void> {
   writtenThisLaunch.add(key);
   if (await removeChunked(key, manifest[key] ?? 0)) return;
   await SecureStore.setItemAsync(key, REMOVED, OPTIONS);
+}
+
+/**
+ * The skin profile on a phone (#189): concerns, skin type, sensitivity and
+ * pregnancy status, which is health data. It sits in the Keychain with the
+ * session's setting (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`), so it never rides out
+ * in a backup, rather than in AsyncStorage's plain-text file. A profile is a
+ * couple of hundred bytes, so it is one item, not chunks.
+ *
+ * It skips `claimOnce` and the manifest on purpose. The store reads it while it
+ * hydrates, and `claimOnce` waits for that hydration, so going through it would
+ * deadlock; and a reinstall purge that ran after the store had already moved a
+ * profile here on an upgrade would delete it. The store covers the reinstall
+ * case itself: it reads this item only when its own file exists, which it never
+ * does on a fresh install, and its first write replaces or removes a leftover.
+ * `formeStorageFor` in store/useAppStore.ts is the only caller.
+ */
+export const PROFILE_KEY = "forme.profile";
+
+/** `ok: false` when the Keychain refused the read (e.g. a locked phone). */
+export type SecureProfileRead = { ok: true; value: string | null } | { ok: false };
+
+export async function readSecureProfile(): Promise<SecureProfileRead> {
+  try {
+    return { ok: true, value: await SecureStore.getItemAsync(PROFILE_KEY, OPTIONS) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** Whether the Keychain now holds `value`. */
+export async function writeSecureProfile(value: string): Promise<boolean> {
+  try {
+    await SecureStore.setItemAsync(PROFILE_KEY, value, OPTIONS);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether no profile can be read back afterwards. A delete that fails falls
+ * back to overwriting it with a value that isn't a profile, as sign-out does
+ * for the session.
+ */
+export async function removeSecureProfile(): Promise<boolean> {
+  if (await deleteRaw(PROFILE_KEY)) return true;
+  return writeSecureProfile(REMOVED);
 }
 
 const nativeStorage: SessionStorage = {

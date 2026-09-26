@@ -29,9 +29,10 @@ When this was first written, the backend held a database but no user data (the a
 
 Personal data also exists on the device: the Zustand store
 (`store/useAppStore.ts`) persists the skin profile — concerns, skin type,
-sensitivity, pregnancy status — plus a 50-entry scan history, to
-AsyncStorage, unencrypted, on-device, and never sends either anywhere.
-That is health-adjacent data, held the same way with or without an account.
+sensitivity, pregnancy status — in the Keychain/Keystore on a phone (#189),
+and a scan history of at most 50 entries and 90 days in AsyncStorage,
+unencrypted, on-device. It never sends either anywhere. That is
+health-adjacent data, held the same way with or without an account.
 
 The product direction (confirmed while planning this doc): accounts with
 cross-device sync are the destination for this data. Photos are never stored
@@ -43,9 +44,9 @@ constraints below, not defaults that might slide.
 
 | Data | What it is | Sensitivity | Lives today | After accounts | Retention |
 |---|---|---|---|---|---|
-| Skin profile | concerns, base skin type, sensitivity, pregnancy status (gender, age group and body area were collected once and have been removed) | Health-adjacent; pregnancy status may be GDPR Art. 9 data (#14) | AsyncStorage, unencrypted, on-device | **No change: never leaves the device, signed in or not** (#219 — no `skin_profiles` table, no opt-in) | Until the person changes it or taps Delete my profile |
+| Skin profile | concerns, base skin type, sensitivity, pregnancy status (gender, age group and body area were collected once and have been removed) | Health-adjacent; pregnancy status may be GDPR Art. 9 data (#14) | On a phone, the Keychain/Keystore through `lib/secure-storage.ts` (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`, not in backups) since #189; on web, AsyncStorage | **No change: never leaves the device, signed in or not** (#219 — no `skin_profiles` table, no opt-in) | Until the person changes it or taps Delete my profile |
 | Quiz answers | the same fields, as collected during onboarding | Health-adjacent | Folded into skin profile above | Same as skin profile — device only | Same as skin profile |
-| Scan history | last 50 scans: product id, score, warning count, timestamp | Health-adjacent (reveals concerns by inference — a run of "avoid" verdicts on acne products implies acne-prone skin) | AsyncStorage, on-device | **No change: never leaves the device** (#219, `FOR_ME_MVP.md`) | The newest 50 (`HISTORY_LIMIT`); the person can remove entries or clear it |
+| Scan history | last 50 scans: product id, score, warning count, timestamp | Health-adjacent (reveals concerns by inference — a run of "avoid" verdicts on acne products implies acne-prone skin) | AsyncStorage, on-device | **No change: never leaves the device** (#219, `FOR_ME_MVP.md`) | The newest 50 (`HISTORY_LIMIT`), and nothing last seen more than 90 days ago (`HISTORY_MAX_AGE_DAYS`, #189); the person can remove entries or clear it |
 | Saved products | product id (or raw barcode), when it was saved, and which formula version was on screen | Low sensitivity alone, but joins with scan history to reveal the same inferences | AsyncStorage, on-device | `saved_products` (migration 0025), one row per product, owner-only under RLS; the device keeps a cached copy (#223) | Until removed, or until account deletion — `on delete cascade` from `auth.users` |
 | Saved ingredients | starred ingredient names | Low sensitivity alone; a run of starred actives hints at concerns | AsyncStorage, on-device | `saved_ingredients` (migration 0025), owner-only under RLS | Same as saved products |
 | Journal note | up to 500 characters the user wrote about a saved product (#228) | Potentially health-adjacent — the prompt asks about the product, but people may write anything, and it is theirs | On a signed-in phone, inside the cached shelf (AsyncStorage), queued until it syncs (#228) | `saved_products.note`, owner-only under RLS; never shared, never in analytics | Same as saved products |
@@ -454,9 +455,9 @@ other reason, revisit: the calculus only holds while we never open the file.
 
 ## What this changes right now, before accounts exist
 
-- Skin profile and scan history are already health-adjacent and already
-  live, unencrypted, in AsyncStorage. That's a real gap this document
-  surfaces but doesn't fix — that issue is #12; see
+- Skin profile and scan history are health-adjacent. Since #189 the profile
+  is in the Keychain on a phone; the history is still unencrypted in
+  AsyncStorage, capped at 50 entries and 90 days. See
   `docs/device-storage-policy.md`.
 - `.claude/claude-security-guidance.md` describes an app with sessions and
   per-user rows. Until #26 rewrites it, treat this document as the accurate

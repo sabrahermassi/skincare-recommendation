@@ -9,7 +9,8 @@ class, per platform, and what enforces it.
 | Data class | iOS | Android | Web |
 |---|---|---|---|
 | Auth / session material (access token, refresh token, PKCE verifier, any credential-equivalent) | `expo-secure-store` (Keychain), `WHEN_UNLOCKED_THIS_DEVICE_ONLY` | `expo-secure-store` (Keystore), backup-excluded | **Memory only.** Never `localStorage`, `sessionStorage`, IndexedDB, or a non-`HttpOnly` cookie |
-| Skin profile, quiz answers, scan history — device only, for everyone; never sent anywhere | AsyncStorage | AsyncStorage | AsyncStorage (`localStorage`-backed by `react-native-web`) |
+| Skin profile and quiz answers, pregnancy status included — device only, for everyone; never sent anywhere | `expo-secure-store` (Keychain), `WHEN_UNLOCKED_THIS_DEVICE_ONLY` (#189) | `expo-secure-store` (Keystore) | AsyncStorage (`localStorage`-backed by `react-native-web`): web has no Keychain and is not a release target |
+| Scan history — device only, for everyone; never sent anywhere | AsyncStorage, at most 50 entries and 90 days (#189) | same | same |
 | Saved products and saved ingredients — signed in, a cache of the account's shelf plus its queue of unsynced changes (#223); a pre-accounts shelf on a device never signed in | AsyncStorage (in `useAppStore`), cleared at sign-out | same | same |
 | Journal note (#228) — free text the user wrote about a saved product | AsyncStorage, as part of the cached shelf; source of truth is `saved_products.note` on the server | same | same |
 | UI-only state (onboarding flag, future filter state; the account ids that have seen the first-page welcome, #230 — its record is the account's `user_metadata`) | AsyncStorage | AsyncStorage | AsyncStorage |
@@ -64,20 +65,42 @@ this file.
   characters.
 
 
-## Why the profile and scan history stay on AsyncStorage
+## Why the profile moved to the Keychain, and the history didn't (#189)
 
-The tempting alternative is moving all of it into `expo-secure-store`. Two
-things rule that out as stated, not as a matter of taste:
+The profile holds pregnancy status, which may be special-category health
+data (#14), so on a phone it now sits in the Keychain beside the session,
+where a backup or a copy of the app's files can't read it. What had kept it
+out:
 
 - **Size.** `expo-secure-store` has a practical per-value ceiling around 2KB
-  on iOS. The persisted payload today — profile, onboarding flag, saved
-  products and ingredients, and up to `HISTORY_LIMIT` (50) scan-history
-  entries — runs to roughly 7-8KB. It does not fit.
+  on iOS, and the whole persisted store — shelf, up to 50 history entries —
+  runs to roughly 7-8KB. The profile alone is a couple of hundred bytes, so
+  it moved alone; the rest of the store stays in AsyncStorage.
 - **Hydration.** `app/_layout.tsx` gates its render on one store's
-  `useAppStore.persist.hasHydrated()`. Splitting the profile into a second,
-  differently-backed store means gating on two hydration completions instead
-  of one, which is exactly the kind of machinery that reintroduces the
-  onboarding-flash bug #2 already fixed once.
+  `useAppStore.persist.hasHydrated()`, and a second, differently-backed store
+  would mean gating on two. The profile is still part of the one store:
+  `formeStorageFor` in `store/useAppStore.ts` takes it out of each write and
+  puts it back on each read, so `persist` sees one file and hydrates once.
+- **Reinstalls.** Keychain items outlive the app. The store reads the
+  profile only when its own AsyncStorage file exists, which never happens on
+  a fresh install, so a previous install's profile never comes back; the
+  first write replaces or removes it. It doesn't go through `claimOnce`,
+  which waits for the store to hydrate — see `lib/secure-storage.ts`.
+
+An existing profile moved on the first launch after the update (store v9),
+and the plain-text copy was deleted then; `__tests__/profile-keychain.test.ts`
+covers the move, a missing or corrupt Keychain value, a fresh install, and
+"Delete my profile" reaching the Keychain copy.
+
+**The consequence, accepted:** a profile never comes across to a new phone
+through a backup or a phone-to-phone transfer — the Keychain item is
+this-device-only. The person answers the four questions again. Recorded in
+`docs/decisions.md`, "State".
+
+The scan history stays in AsyncStorage: it is the larger part of the file,
+and the ticket kept it there on purpose. It is capped at 50 entries and 90
+days instead (`HISTORY_LIMIT`, `HISTORY_MAX_AGE_DAYS`), dropped when the app
+starts and whenever the log is written.
 
 The residual risk this leaves is real and worth naming rather than leaving
 implicit: `docs/threat-model.md` §2 already establishes that on a running,
@@ -85,12 +108,12 @@ unlocked device this data sits behind the same platform-default file
 protection as everything else in the app sandbox — iOS
 `NSFileProtectionCompleteUntilFirstUserAuthentication`, Android File-Based
 Encryption since API 29. What that baseline does **not** cover is backups:
-**Android's `allowBackup` defaults to true**, so the skin profile and scan
-history are being copied into the user's Google Drive backup today, and iOS
-includes AsyncStorage's on-disk file in device/iCloud backups. That is a
-live exposure on health-adjacent data, introduced the moment #2 shipped
-persistence, and this document is where it gets written down rather than
-left to be rediscovered.
+**Android's `allowBackup` defaults to true**, and iOS includes AsyncStorage's
+on-disk file in device/iCloud backups. Since #189 the profile is no longer in
+that file on a phone, but the scan history (health-adjacent by inference),
+the cached shelf and journal notes still are. That is the live exposure, and
+this document is where it gets written down rather than left to be
+rediscovered.
 
 **Revisit trigger:** the first time this project moves off Expo Go onto a
 development build (`android:dataExtractionRules` / `allowBackup`, iOS
@@ -102,6 +125,27 @@ question for #14/#24 rather than a future one. The actual
 control belongs to issue #14 (regulatory determination) and #24 (retention),
 which are where "health-adjacent data in a consumer cloud backup" gets
 adjudicated; this document only names the gap and the trigger.
+
+## Every item on the phone
+
+What the app itself stores on a phone, where, for how long, and whether a
+backup carries it. "Backed up" means iOS device/iCloud backups (and Android's
+default `allowBackup`); a Keychain item marked `THIS_DEVICE_ONLY` never is.
+
+| Item | What's in it | Where | Kept | Backed up |
+|---|---|---|---|---|
+| `forme.profile` | Skin profile: concerns, skin type, sensitivity, **pregnancy status** | Keychain, `WHEN_UNLOCKED_THIS_DEVICE_ONLY` (web: inside `forme-store`) | Until the person changes it or taps Delete my profile, which deletes it | No |
+| `sb-<project>-auth-token` (and `.0`, `.1`, … chunks) | The sign-in session: access and refresh tokens, user record | Keychain, `WHEN_UNLOCKED_THIS_DEVICE_ONLY` (web: memory only) | Until sign-out or a refused refresh; wiped on a fresh install | No |
+| `forme.secure.keys` | The list of session keys written, so a reinstall can delete them | Keychain, same setting | Until the next reinstall purge | No |
+| `forme-store` → `history` | Scan history: product id or barcode, score and warning count at the time, when seen | AsyncStorage | At most 50 entries and 90 days since last seen; the person can remove entries or clear it | Yes |
+| `forme-store` → `savedProducts`, `savedIngredients` | The saved shelf: product ids, when saved, formula version, routine step, journal note | AsyncStorage | Until removed; signed in, cleared at sign-out (the account keeps it) | Yes |
+| `forme-store` → `shelfOwner`, `shelfQueue`, `parkedShelf` | Which account owns the shelf; shelf changes not yet synced | AsyncStorage | Until synced, or dropped at sign-out / account deletion | Yes |
+| `forme-store` → `hasSeenOnboarding`, `secureStoreClaimed`, `journalStarted` | Flags: intro seen, this install cleared the Keychain, accounts that saw the first-page welcome | AsyncStorage | Until Delete my profile (the Keychain flag is kept) | Yes |
+| `skintel-store` | The store's pre-rebrand name | AsyncStorage | Copied to `forme-store` and deleted on first read | Yes, until then |
+| `forme-catalogue-v3`, `forme-catalogue-meta-v3`, `forme-catalogue-manifest-v3`, `forme-catalogue-chunk-…` | Public catalogue rows, the ingredient dictionary, freshness watermarks — nothing from the user | AsyncStorage (`data/catalogue-cache.ts`) | Replaced as the catalogue refreshes | Yes (public data) |
+| PostHog's file | The analytics id and events waiting to send (#225) | The app's document directory (web: memory) | Until sent; a new id after sign-out | Yes |
+| `for.me-account-export.json` | The account export, while it is being shared | The app's cache directory | Overwritten by the next export; the OS may clear it | No (cache) |
+| Label photos | A picked or taken label photo and its resized copies | The app's cache directory | Deleted once read (`lib/pick-label-photo.ts`) | No (cache) |
 
 ## Why cached catalogue data is its own class, in its own file
 
@@ -264,7 +308,9 @@ Two layers, because the rule is really two different failure modes:
    `expo-secure-store` ban only; its own block keeps it off AsyncStorage and
    `localStorage`.
 2. **`__tests__/store.test.ts`** pins the exact key set `PERSISTED_KEYS`
-   writes to AsyncStorage, and asserts none of them look credential-shaped.
+   writes (to AsyncStorage, except the profile, which goes to the Keychain on
+   a phone — `__tests__/profile-keychain.test.ts`), and asserts none of them
+   look credential-shaped.
    This catches someone adding a new field to the *already-allowlisted*
    store that shouldn't be there — the lint rule can't see inside a file
    it's allowed to touch.
