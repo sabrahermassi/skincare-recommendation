@@ -72,6 +72,19 @@ describe("the ingredient page", () => {
     expect(screen.queryByText(/^Source:/)).toBeNull();
   });
 
+  it("ends with Report a mistake when a support address is set (#327)", async () => {
+    const original = process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
+    process.env.EXPO_PUBLIC_SUPPORT_EMAIL = "help@example.com";
+    try {
+      await open("niacinamide");
+      expect(screen.getByText("Report a mistake")).toBeTruthy();
+    } finally {
+      // Assigning undefined would store the string "undefined", which reads as an address.
+      if (original === undefined) delete process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
+      else process.env.EXPO_PUBLIC_SUPPORT_EMAIL = original;
+    }
+  });
+
   it("shows neither for a rule still waiting for a source", async () => {
     await open("tea tree oil");
     expect(screen.queryByText(/^Source:/)).toBeNull();
