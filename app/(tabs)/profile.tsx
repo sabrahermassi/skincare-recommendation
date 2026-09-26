@@ -197,7 +197,7 @@ function MenuRow({
       <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: SPACE.text }}>
         <Text style={{ fontSize: TYPE.body, fontWeight: "500", color: danger ? DANGER : INK }}>{label}</Text>
         {badge ? (
-          <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: CTA }}>
+          <View style={{ paddingHorizontal: SPACE.text, paddingVertical: 3, borderRadius: 8, backgroundColor: CTA }}>
             <Text style={{ fontSize: 12.5, fontWeight: "600", color: INK }}>{badge}</Text>
           </View>
         ) : null}
