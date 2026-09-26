@@ -109,7 +109,9 @@ function RiskCard({
         <Text
           className="text-[11.5px] leading-[15px]"
           style={{ flex: 1, color: RISK_TITLE }}
-          numberOfLines={2}
+          // Three, not two: at the larger text sizes "Pore-clogging risk"
+          // takes three lines beside its icon and chevron (#314).
+          numberOfLines={3}
         >
           {title}
         </Text>

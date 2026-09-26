@@ -1,4 +1,5 @@
-import { namesOwnFontFamily } from "@/components/Text";
+import { defaultFontScale, namesOwnFontFamily } from "@/components/Text";
+import { FONT_SCALE } from "@/lib/tokens";
 
 /**
  * Regression guard for a font bug that has now bitten twice, in opposite
@@ -52,5 +53,22 @@ describe("namesOwnFontFamily", () => {
   it("is not fooled by a partial word match", () => {
     expect(namesOwnFontFamily("notfont-display")).toBe(false);
     expect(namesOwnFontFamily("font-displayish")).toBe(false);
+  });
+});
+
+// #314: how far the phone's text size may grow each piece of text.
+describe("defaultFontScale", () => {
+  it("lets display headings grow least, by class or by the loaded face", () => {
+    expect(defaultFontScale("font-display text-2xl", undefined)).toBe(FONT_SCALE.display);
+    expect(defaultFontScale(undefined, { fontFamily: "PlayfairDisplay_500Medium" })).toBe(FONT_SCALE.display);
+    expect(defaultFontScale(undefined, [{ fontSize: 20 }, { fontFamily: "CormorantGaramond_500Medium" }])).toBe(
+      FONT_SCALE.display,
+    );
+  });
+
+  it("gives everything else the UI ceiling", () => {
+    expect(defaultFontScale(undefined, undefined)).toBe(FONT_SCALE.ui);
+    expect(defaultFontScale("text-sm", { fontSize: 14 })).toBe(FONT_SCALE.ui);
+    expect(defaultFontScale(undefined, { fontFamily: "Caveat_500Medium" })).toBe(FONT_SCALE.ui);
   });
 });

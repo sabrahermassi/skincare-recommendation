@@ -310,6 +310,20 @@ export const TYPE = {
 } as const;
 
 /**
+ * How far iOS Larger Text / Android font size may grow text (#314). The
+ * accessibility sizes scale text about 3×, which no fixed layout here
+ * survives, so text grows up to these multiples and stops:
+ * - `display`: the Playfair / Cormorant headings, already the largest text.
+ * - `ui`: everything else — reading text, labels, chips, buttons, badges.
+ *   One ceiling for both keeps a paragraph from outgrowing its own heading.
+ * Applied in `components/Text.tsx`; see `docs/decisions.md`.
+ */
+export const FONT_SCALE = {
+  display: 1.3,
+  ui: 1.5,
+} as const;
+
+/**
  * The handwritten face for a journal note (#229), and nothing else — the
  * mirror of `tailwind.config.js`'s `fontFamily.note`. Whether a given note
  * actually gets it is `lib/note-font.ts`'s call, never a component's.

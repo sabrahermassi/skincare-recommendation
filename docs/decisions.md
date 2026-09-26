@@ -301,6 +301,34 @@ has refused this project for the opposite reason at times — it shipped
 ahead of the project's SDK. `npx expo-go download android <sdk>` sidesteps
 this in either direction.
 
+## Larger text (#314)
+
+**Text grows with the phone's text size, up to a ceiling: 1.3× for the
+display headings, 1.5× for everything else. Decided 26 September 2026, as the
+default in #314's queue comment; the owner can overrule it.** At iOS's
+accessibility sizes (Settings › Accessibility › Larger Text, up to about 3×)
+nothing in this app survived: profile chips cut to "Com", product titles
+broken mid-word, a search result filling the screen, and the sign-in sheet's
+"Not now" pushed out of reach even at full height.
+
+Three options were weighed: reflow everything to 3×, cap everything, or a mix.
+The mix was the call — cap the text, and make the layouts that still break at
+the cap wrap and grow. The ceilings live in `FONT_SCALE` (`lib/tokens.ts`) and
+are applied once, in `components/Text.tsx`, so no screen has to remember them;
+a component that needs something else passes its own `maxFontSizeMultiplier`
+(the onboarding shell and the Home greeting already did).
+
+**One ceiling for reading text and labels, not a higher one for paragraphs.**
+Letting "Why this score" reasons grow to 2× was tried: the reasons came out
+larger than their own headings, and the expanding panel clipped them to one
+line. A paragraph outgrowing its heading reads as a bug, so both stop at 1.5×.
+
+**What changed besides the cap:** Home's profile chips take a whole row each
+past 1.2× and grow with their label, and a risk card's title may take three
+lines. Checked at `accessibility-extra-extra-extra-large` on the iPhone 18 Pro
+simulator: Home, Search, the product page, the scanner, the label result and
+the sign-in sheet keep every control reachable.
+
 ## Accounts
 
 **Sign-in is Sign in with Apple and Sign in with Google, both native (#217,
