@@ -58,6 +58,14 @@ export default function SkincareSchool() {
   // Scrolled to once its bubble has laid out.
   const [latestKey, setLatestKey] = useState<string | null>(null);
   const nextKey = useRef(0);
+  const announceFrame = useRef<number | null>(null);
+  // Nothing is spoken for a screen that has gone.
+  useEffect(
+    () => () => {
+      if (announceFrame.current !== null) cancelAnimationFrame(announceFrame.current);
+    },
+    [],
+  );
   const keyboardUp = useKeyboardUp();
 
   const askedIds = useMemo(
@@ -74,11 +82,23 @@ export default function SkincareSchool() {
     setLatestKey(key);
   }
 
+  // The announcer speaks when its text changes, so it's cleared first:
+  // asking the same question again, or a second search with no answer, is
+  // still spoken rather than skipped as a repeat.
+  function announce(text: string) {
+    setAnnouncement("");
+    if (announceFrame.current !== null) cancelAnimationFrame(announceFrame.current);
+    announceFrame.current = requestAnimationFrame(() => {
+      announceFrame.current = null;
+      setAnnouncement(text);
+    });
+  }
+
   function ask(item: SchoolQuestion) {
     add({ kind: "asked", item });
     setQuery("");
     // Focus stays on the card that was tapped; the answer is read out.
-    setAnnouncement(`Answer: ${item.answer}`);
+    announce(`Answer: ${item.answer}`);
   }
 
   // The keyboard's Search key: the best match, or the honest no-answer reply.
@@ -91,7 +111,7 @@ export default function SkincareSchool() {
     }
     add({ kind: "unanswered", text, suggestions: fallbackSuggestions(askedIds) });
     setQuery("");
-    setAnnouncement(SCHOOL_CHAT_COPY.noAnswer);
+    announce(SCHOOL_CHAT_COPY.noAnswer);
   }
 
   function scrollTo(y: number) {

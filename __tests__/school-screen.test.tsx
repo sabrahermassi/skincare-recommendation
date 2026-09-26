@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { AccessibilityInfo } from "react-native";
 
 import SkincareSchool from "@/app/(tabs)/school";
 import { SCHOOL_CHAT_COPY, SCHOOL_QUESTIONS } from "@/lib/school-chat";
@@ -76,5 +77,29 @@ describe("Skincare School screen", () => {
 
     await fireEvent.press(screen.getAllByRole("button", { name: `Ask: ${first.question}` })[0]);
     expect(screen.getByLabelText(`Answer: ${first.answer}`)).toBeTruthy();
+  });
+
+  it("speaks a second no-answer reply, and a question asked again, instead of skipping the repeat", async () => {
+    const spoken = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => undefined);
+    const nextFrame = () => act(async () => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined))));
+    await render(<SkincareSchool />);
+    // jest-expo's announcer is one shared mock: count this test's calls only.
+    spoken.mockClear();
+    const box = screen.getByLabelText(SCHOOL_CHAT_COPY.searchPlaceholder);
+
+    for (const query of ["cure eczema overnight", "make wrinkles vanish"]) {
+      await fireEvent.changeText(box, query);
+      await fireEvent(box, "submitEditing");
+      await nextFrame();
+    }
+    expect(spoken.mock.calls.filter(([text]: unknown[]) => text === SCHOOL_CHAT_COPY.noAnswer)).toHaveLength(2);
+
+    for (let i = 0; i < 2; i++) {
+      await fireEvent.changeText(box, "niacinamide");
+      await fireEvent(box, "submitEditing");
+      await nextFrame();
+    }
+    expect(spoken.mock.calls.filter(([text]: unknown[]) => text === `Answer: ${niacinamide.answer}`)).toHaveLength(2);
+    spoken.mockRestore();
   });
 });
