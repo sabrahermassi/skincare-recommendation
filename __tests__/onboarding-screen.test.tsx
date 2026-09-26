@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { StyleSheet } from "react-native";
+import { StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 
 import Onboarding from "@/app/onboarding";
 import { noteProfileErased } from "@/lib/erase-notice";
@@ -29,16 +29,16 @@ const HEROES = [
   require("@/assets/illustrations/onboarding/hero-for-me.webp"),
 ];
 
-const background = (node: { props: { style?: unknown } }) => StyleSheet.flatten(node.props.style)?.backgroundColor;
+const background = (node: { props: { style?: StyleProp<ViewStyle> } }) => StyleSheet.flatten(node.props.style)?.backgroundColor;
 
-type Node = { props?: { style?: unknown }; children?: (Node | string)[] | null };
+type Node = { props?: { style?: StyleProp<ViewStyle> }; children?: (Node | string)[] | null };
 
 /** Every background colour painted on screen. */
 function backgrounds(tree: unknown): unknown[] {
   const out: unknown[] = [];
   const walk = (node: Node | string | null | undefined) => {
     if (!node || typeof node === "string") return;
-    const color = StyleSheet.flatten(node.props?.style as never)?.backgroundColor;
+    const color = StyleSheet.flatten(node.props?.style)?.backgroundColor;
     if (color) out.push(color);
     node.children?.forEach(walk);
   };
