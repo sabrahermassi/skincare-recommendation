@@ -31,7 +31,11 @@ const NAME = [
   /\bnagellack/i, // German: nail polish
   /\bquitaesmalte\b/i, // Spanish: nail polish remover
   /\bsmalto\b/i, // Italian: nail polish
-  /\b(wood|floor|kitchen|dish|laundry|surface|glass|oven|toilet|bathroom)\b.*\bclean/i,
+  // The household word right before "cleaner"/"cleaning", which is how
+  // household products are named; skincare says "cleanser"/"cleansing". A
+  // looser match would delete "Glass Skin Cleansing Oil" (K-beauty "glass skin")
+  // and "Cedar Wood Face Cleanser" (#312 review).
+  /\b(wood|floor|kitchen|dish|laundry|surface|glass|oven|toilet|bathroom)\s+clean(er|ers|ing)\b/i,
   /\bdish(washing)? (soap|liquid)\b/i,
   /\blaundry\b/i,
   /\btoothpaste\b/i,
