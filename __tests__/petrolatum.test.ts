@@ -2,7 +2,7 @@ import { irritationCounts } from "@/components/RiskCards";
 import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
 import { ingredientCheck, ingredientLabel } from "@/lib/ingredient-labels";
 import { matchProduct, resetScoreCache } from "@/lib/matching";
-import { contraindications } from "@/lib/safety";
+import { contraindications, REFINED_GRADE_NOTE_START, regulatoryStatus } from "@/lib/safety";
 import { safetyFor } from "../scripts/import-inci-dictionary.mjs";
 
 /**
@@ -70,5 +70,16 @@ describe("petrolatum (#361)", () => {
     const petrolatum = row("safe");
     expect(ingredientLabel(petrolatum, match(petrolatum, SENSITIVE), true)).not.toBe("watch");
     expect(ingredientLabel(petrolatum, match(petrolatum, SENSITIVE), false)).toBeNull();
+  });
+});
+
+describe("its EU status on the ingredient page (#362)", () => {
+  it("reads 'Allowed when refined', not 'No restriction' under a note about a ban", () => {
+    expect(written.note?.startsWith(REFINED_GRADE_NOTE_START)).toBe(true);
+    expect(regulatoryStatus(row("safe"))).toBe("Allowed when refined");
+  });
+
+  it("leaves every other safe ingredient at 'No restriction'", () => {
+    expect(regulatoryStatus(OTHERS[1])).toBe("No restriction");
   });
 });
