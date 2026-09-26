@@ -42,7 +42,7 @@ jobs:
     if: github.repository == 'sabrahermassi/skincare-recommendation' && github.actor != 'dependabot[bot]'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check secrets are configured
         env:
