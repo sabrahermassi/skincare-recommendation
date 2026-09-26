@@ -4,7 +4,7 @@ import { useMemo } from "react";
 
 import { QuizFrame } from "@/components/QuizFrame";
 
-// Skip and the Continue button live in QuizFrame and never move; the step
+// The Continue button lives in QuizFrame and never moves; the step
 // pages slide in from the right inside it, like any iOS push (#313). Each
 // page draws its own copy of the background (QuizScreen), so a sliding page
 // never shows the question underneath.
