@@ -1,5 +1,4 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
 import { useState } from "react";
 import { Animated, Platform, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,6 +7,7 @@ import { HEADER_GUTTER } from "@/components/AppHeader";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PressableCard } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
+import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { homeGreetingLayout, SIGNATURE_WIDTH } from "@/lib/home-greeting";
 import { answeredWithoutSignal, isPersonalized, pregnancyLabel, profileHeadline } from "@/lib/profile";
@@ -163,14 +163,14 @@ export default function Home() {
               </View>
             </View>
           ) : (
-            // Nothing answered yet: the whole card leads to the skin profile, its
-            // arrow at the far right, centred on the card.
+            // Nothing that scores yet: the whole card opens the skin questions
+            // (#346), its arrow at the far right, centred on the card.
             <PressableCard
-              onPress={() => router.push("/skin-profile")}
+              onPress={openQuiz}
               accessibilityLabel={
                 answered
-                  ? "Your scores aren't personal yet. Open your skin profile to add your skin type or a concern."
-                  : "Your skin profile is not set up yet. Open it to answer the skin questions."
+                  ? "Your scores aren't personal yet. Open the skin questions to add your skin type or a concern."
+                  : "Your skin profile is not set up yet. Open the skin questions."
               }
               radius={22}
               backgroundColor={SURFACE}

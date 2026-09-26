@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { Pressable, View } from "react-native";
 
-import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { SourceLink } from "@/components/SourceLink";
 import { Text, useIconScale } from "@/components/Text";
 import { displayIngredientName } from "@/lib/ingredient-name";
@@ -140,19 +139,6 @@ export function NotesSection({
 type ExplanationDirection = ScoreLine["direction"] | "neutral";
 
 /** A verdict-level explanation, rendered before its ingredient-level evidence. */
-/**
- * The "this opens your skin profile" arrow on a verdict panel that has no
- * score yet, grown with the sentence it follows (#334). The panel itself is
- * the button and carries the label; the arrow only says it goes further.
- */
-export function ProfileArrow() {
-  return (
-    <View testID="profile-arrow">
-      <ArrowIcon size={22 * useIconScale(TYPE.body)} color={INK} />
-    </View>
-  );
-}
-
 export function ExplanationLine({
   label,
   detail,
