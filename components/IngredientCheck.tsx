@@ -6,7 +6,7 @@ import { Text, useIconScale } from "@/components/Text";
 import type { Ingredient } from "@/data/types";
 import { ingredientCheck, ingredientCheckLine, ingredientCheckTone } from "@/lib/ingredient-labels";
 import { RUNG_META } from "@/lib/matching";
-import { BORDER_INACTIVE, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, FONT_SCALE, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 /**
  * The Ingredient check (#345): one line at the top of every result, the same
@@ -17,8 +17,11 @@ import { BORDER_INACTIVE, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/
 export function IngredientCheck({ ingredients, onPress }: { ingredients: Ingredient[]; onPress?: () => void }) {
   const check = useMemo(() => ingredientCheck(ingredients), [ingredients]);
   const line = ingredientCheckLine(check);
-  // The dot and chevron grow with the line beside them (#334).
-  const icon = useIconScale(TYPE.label);
+  // Held at the ordinary ceiling, like the product's header (#334): on a
+  // reading screen it sits above the verdict, and grown with it to the
+  // largest size it pushed the verdict off the first screen. The dot and
+  // chevron grow with the words, as far as they do.
+  const icon = Math.min(useIconScale(TYPE.label), FONT_SCALE.ui);
 
   return (
     <Pressable
@@ -42,8 +45,12 @@ export function IngredientCheck({ ingredients, onPress }: { ingredients: Ingredi
     >
       <View style={{ width: 9 * icon, height: 9 * icon }} className={`rounded-full ${RUNG_META[ingredientCheckTone(check)].dot}`} />
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Ingredient check</Text>
-        <Text style={{ fontSize: TYPE.label, lineHeight: 19, fontWeight: "600", color: INK }}>{line}</Text>
+        <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.caption, color: MUTED }}>
+          Ingredient check
+        </Text>
+        <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.label, lineHeight: 19, fontWeight: "600", color: INK }}>
+          {line}
+        </Text>
       </View>
       {onPress ? <ArrowIcon size={16 * icon} color={INK} /> : null}
     </Pressable>
