@@ -43,6 +43,7 @@
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-google-signin/google-signin": "^16.1.5",
+    "@react-native-masked-view/masked-view": "0.3.2",
     "@supabase/supabase-js": "^2.112.4",
     "expo": "57.0.24",
     "expo-apple-authentication": "~57.0.2",
