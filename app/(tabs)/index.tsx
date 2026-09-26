@@ -23,10 +23,10 @@ const ACTION_CARD_GAP = 12;
 // than squeeze the picture below this when larger text needs the room.
 const ACTION_ART_MIN_HEIGHT = 48;
 // The watercolor still life under the cards: bottles and jars standing in water,
-// on a transparent ground (new-watercolor/home_screen_transparent.png).
+// on a transparent ground (new-watercolor/home_transparent.png).
 const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.webp");
 // Its own proportions, so it is never stretched.
-const STILL_LIFE_ASPECT = 1400 / 911;
+const STILL_LIFE_ASPECT = 1400 / 922;
 // How far below the tab bar's top it reaches, in dp: 1.5 cm on a phone (160 dp
 // to the inch), so its water runs on behind the bar. No spacing token is that
 // large, so it is named here rather than typed inline.
