@@ -3,6 +3,7 @@ import type { SkinProfile } from "@/data/types";
 import type { Ingredient } from "@/data/types";
 import {
   contraindications,
+  EU_PROHIBITED_SOURCE,
   groupByRisk,
   historyWarningCount,
   irritationWarnings,
@@ -31,6 +32,17 @@ describe("contraindications", () => {
     const result = contraindications([severeComedogenic], EMPTY_PROFILE);
     expect(result).toHaveLength(1);
     expect(result[0].ingredient.id).toBe("isopropyl-myristate");
+  });
+
+  // #347: the EU Annex II prohibition is the source of "best avoided"; Annex
+  // III says "allowed within limits", not "common irritant", so a restricted
+  // warning carries none.
+  it("sources an 'avoid' warning to the EU prohibition, and a restricted one to nothing", () => {
+    const [avoid] = contraindications([severeComedogenic], EMPTY_PROFILE);
+    expect(avoid.source).toBe(EU_PROHIBITED_SOURCE);
+    const [restricted] = contraindications([cautionIrritant], profile({ sensitivity: "high" }));
+    expect(restricted.origin).toBe("restricted");
+    expect(restricted.source).toBeUndefined();
   });
 
   it("flags highly comedogenic ingredients for acne-prone users", () => {

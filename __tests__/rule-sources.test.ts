@@ -16,11 +16,17 @@ const ruleKey = (rule: IngredientRule) => String(rule.names[0]);
 
 /** Rules still waiting for a checked source. Never add to this list. */
 const UNSOURCED_RULES = [
+  // Searched for #347; the sources disagree with the claim as worded:
+  // - alcohol denat: a 2025 randomised pilot found 12% ethanol harmless to
+  //   atopic skin's barrier (PMID 40954169), and a 2008 review reports
+  //   conflicting barrier findings (PMC2596158).
+  // - menthol: the JAAD review (PMID 17498839) says it cools by activating the
+  //   cold receptor TRPM8, not by irritating nerve endings.
+  "alcohol denat",
+  "menthol",
   // Irritants and pore-clogging: a source was found for part of the claim
   // only, or disagreed with it — see the PR for #326.
-  "alcohol denat",
   "tea tree oil",
-  "menthol",
   "sodium bicarbonate",
   "/hamamelis/",
   "benzoyl peroxide",

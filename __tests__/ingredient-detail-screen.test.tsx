@@ -3,6 +3,8 @@ import { act, render, screen } from "@testing-library/react-native";
 import IngredientRoute from "@/app/ingredient/[inci]";
 import { fetchProduct } from "@/data/api";
 import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
+import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
+import { EU_PROHIBITED_SOURCE } from "@/lib/safety";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
@@ -19,6 +21,12 @@ jest.mock("expo-router", () => ({
   router: { back: jest.fn(), canGoBack: () => true, push: jest.fn(), replace: jest.fn() },
   Stack: { Screen: () => null },
   useLocalSearchParams: () => mockParams,
+}));
+// The phone's text size; iOS's largest accessibility size is about 3.57×.
+let mockFontScale = 1;
+jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
+  __esModule: true,
+  default: () => ({ width: 402, height: 874, scale: 3, fontScale: mockFontScale }),
 }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -41,6 +49,10 @@ const INGREDIENTS = [
   ingredient("retinol"),
   ingredient("isopropyl myristate", { verified: false }),
   ingredient("parfum"),
+  // Banned in EU cosmetics outside nail products, and a pregnancy caution: the
+  // real dictionary marks it `avoid` (scripts/import-inci-dictionary.mjs).
+  ingredient("hydroquinone", { safety: "avoid" }),
+  ingredient("some prohibited substance", { safety: "avoid" }),
 ];
 
 const PRODUCT: ProductWithIngredients = {
@@ -122,5 +134,39 @@ describe("the ingredient page, opened from a product", () => {
       expect(screen.queryByText(/Carries a restriction or a pore rating/)).toBeNull();
       await act(async () => screen.unmount());
     }
+  });
+});
+
+// #347: a warning's own sentence carries its source here too, as on the product page.
+describe.each([
+  ["default text", 1],
+  ["the largest text size", 3.57],
+] as const)("a warning's source on the ingredient page, at %s", (_size: string, fontScale: number) => {
+  beforeEach(() => {
+    mockFontScale = fontScale;
+  });
+  afterAll(() => {
+    mockFontScale = 1;
+  });
+
+  it("shows both of hydroquinone's warnings, each under its own source", async () => {
+    const hydroquinone = PREGNANCY_CAUTION.find((entry) => entry.category === "hydroquinone")!;
+    await open("hydroquinone", { pregnancyStatus: "pregnant" });
+    expect(screen.getByText("Flagged as best avoided")).toBeTruthy();
+    expect(screen.getByLabelText(`Source: ${EU_PROHIBITED_SOURCE.label}`)).toBeTruthy();
+    expect(screen.getByText(hydroquinone.reason)).toBeTruthy();
+    expect(screen.getByLabelText(`Source: ${hydroquinone.source!.label}`)).toBeTruthy();
+  });
+
+  it("shows the EU prohibition under a best-avoided warning", async () => {
+    await open("some prohibited substance", {});
+    expect(screen.getByText("Flagged as best avoided")).toBeTruthy();
+    expect(screen.getByLabelText(`Source: ${EU_PROHIBITED_SOURCE.label}`)).toBeTruthy();
+  });
+
+  it("shows no source under a restricted ingredient's warning", async () => {
+    await open("some restricted preservative", { baseSkinType: "dry", sensitivity: "high" });
+    expect(screen.getByText("Common irritant for sensitive skin")).toBeTruthy();
+    expect(screen.queryByLabelText(/^Source:/)).toBeNull();
   });
 });

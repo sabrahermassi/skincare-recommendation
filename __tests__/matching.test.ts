@@ -14,6 +14,7 @@ import {
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 import { ingredientLabel } from "@/lib/ingredient-labels";
 import { isPersonalized } from "@/lib/profile";
+import { EU_PROHIBITED_SOURCE, type Contraindication } from "@/lib/safety";
 
 async function load(id: string): Promise<ProductWithIngredients> {
   const result = await fetchProduct(id);
@@ -498,6 +499,29 @@ describe("verdict engine", () => {
       const detail = scoreExplanation(result)[0].detail;
       expect(detail).toContain(product.ingredients[1].name);
       expect(detail).toContain(product.ingredients[2].name);
+    });
+
+    // #347: the EU prohibition behind an "avoid" hazard is linked under the line.
+    it("links the EU source under a hazard line only when it backs every name in it", () => {
+      const product = synthetic(["water", "isopropyl myristate", "glycerin"]);
+      const avoid = (i: number): Contraindication => ({
+        ingredient: product.ingredients[i],
+        reason: "Flagged as best avoided",
+        severity: "hazard",
+        origin: "avoid",
+        source: EU_PROHIBITED_SOURCE,
+      });
+      const result = resultAt(40, { concernFit: 90 });
+      result.warnings = [avoid(1), avoid(2)];
+      expect(scoreExplanation(result)[0]).toMatchObject({ label: "Safety warning", source: EU_PROHIBITED_SOURCE });
+
+      result.warnings = [
+        avoid(1),
+        { ingredient: product.ingredients[2], reason: "Pore-clogging (4/5)", severity: "hazard", origin: "comedogenic" },
+      ];
+      const [line] = scoreExplanation(result);
+      expect(line.label).toBe("Safety warning");
+      expect(line).not.toHaveProperty("source");
     });
 
     it("does not present neutral concern evidence as positive", () => {

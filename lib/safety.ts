@@ -73,6 +73,22 @@ export type Contraindication = {
 };
 
 /**
+ * Where an "avoid" warning comes from (#347): the importers mark an ingredient
+ * `avoid` only when the EU lists it in Annex II of the Cosmetics Regulation,
+ * and Article 14 says a cosmetic product must not contain one. Read through
+ * the EU Publications Office's copy of the same text (CELEX 32009R1223), since
+ * EUR-Lex shows automated fetches a bot check.
+ *
+ * Annex III ("restricted") has no source here on purpose: the regulation says
+ * those ingredients are allowed only within set limits, not that they are
+ * common irritants, which is what that warning tells the user.
+ */
+export const EU_PROHIBITED_SOURCE: RuleSource = {
+  label: "EU Cosmetics Regulation, Annex II",
+  url: "https://eur-lex.europa.eu/eli/reg/2009/1223/oj",
+};
+
+/**
  * A restricted ingredient's warning when sensitivity isn't set (#183). Says
  * what the app did, never what the person said — most unset profiles simply
  * stopped the quiz before that question.
@@ -113,7 +129,7 @@ export function contraindications(
 
     // "avoid" applies to everyone — it is not profile-dependent.
     if (ingredient.safety === "avoid") {
-      found.push({ ingredient, reason: "Flagged as best avoided", severity: "hazard", origin: "avoid" });
+      found.push({ ingredient, reason: "Flagged as best avoided", severity: "hazard", origin: "avoid", source: EU_PROHIBITED_SOURCE });
       continue;
     }
 

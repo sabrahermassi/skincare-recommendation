@@ -280,6 +280,14 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
   // per origin.
   const warnings = match?.warnings.filter((w) => w.ingredient.id === ingredient.id) ?? [];
   const warning = warnings.find((w) => w.severity === "hazard" || w.origin === "pregnancy") ?? warnings[0];
+  // Every warning's own sentence is said, each under its own source (#347 review):
+  // hydroquinone is both EU-banned and a pregnancy caution, and showing one
+  // hid the other's source. The one that made the row Avoid goes first.
+  const warningLines = warning
+    ? [warning, ...warnings.filter((w) => w !== warning)].filter(
+        (w, i, all) => all.findIndex((other) => other.reason === w.reason) === i
+      )
+    : [];
   const meta = RUNG[fit];
 
   const rule = ruleFor(ingredient);
@@ -431,9 +439,22 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
                 {fitHeadline(fit, helps, hurts, warning)}
               </Text>
             </View>
-            <Text style={{ fontSize: 13, lineHeight: 19.5, color: INK }}>
-              {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), warning)}
-            </Text>
+            {/* A warning's own sentence is the most specific thing we hold, so
+                it outranks the general copy, with its source under it (#347) —
+                a pregnancy caution's or an EU prohibition's, as on the product
+                page. */}
+            {fit !== "unknown" && warningLines.length > 0 ? (
+              warningLines.map((w) => (
+                <View key={w.origin} style={{ gap: 4 }}>
+                  <Text style={{ fontSize: 13, lineHeight: 19.5, color: INK }}>{w.reason}</Text>
+                  {w.source ? <SourceLink source={w.source} /> : null}
+                </View>
+              ))
+            ) : (
+              <Text style={{ fontSize: 13, lineHeight: 19.5, color: INK }}>
+                {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient))}
+              </Text>
+            )}
             {/* The small qualifier pill the design puts under the verdict. */}
             <View
               style={{ backgroundColor: meta.chip }}
@@ -636,14 +657,11 @@ function fitBody(
   hurts: boolean,
   verified: boolean,
   hasRule: boolean,
-  commonIrritant: boolean,
-  warning?: Contraindication
+  commonIrritant: boolean
 ): string {
   if (fit === "unknown") {
     return "An unrecognised name supports no claim in either direction, so this one neither counts for nor against the product's score.";
   }
-  // The warning's own sentence is the most specific thing we hold.
-  if (warning) return warning.reason;
   if (hurts) return "This is one of the things pulling the score down for the skin you described.";
   if (!verified) {
     return "This name didn't match our ingredient dictionary, but it is on the published pore-clogging lists.";

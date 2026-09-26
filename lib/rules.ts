@@ -28,8 +28,10 @@ import {
  * It covers the few dozen ingredients where the direction of effect is
  * uncontroversial. It is not a comedogenicity database: those published
  * 0–5 scales come from mid-century rabbit-ear assays, correlate poorly with
- * human breakouts, and are contested — the handful included here are the ones
- * with reasonably consistent human evidence, and they are weighted gently.
+ * human breakouts, and are contested. The handful of pore-cloggers included
+ * here are the ones those lists name most often, and the evidence behind them
+ * is still mostly animal (rabbit-ear) testing — which is why they are weighted
+ * gently (#347).
  * An ingredient absent from this table contributes nothing rather than being
  * scored as neutral-good.
  *
@@ -505,7 +507,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: ["cocos nucifera oil", "coconut oil", "isopropyl myristate", "isopropyl palmitate", "myristyl myristate"],
     category: "pore-clogging",
     hurts: { concerns: ["acne-prone"], skinTypes: ["oily"] },
-    reason: "Among the few ingredients with consistent human evidence for clogging pores",
+    reason: "Often listed as pore-clogging, mainly from older animal tests",
     weight: 7,
   },
   {
