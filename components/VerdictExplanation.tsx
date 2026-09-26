@@ -2,11 +2,13 @@ import { router } from "expo-router";
 import { Pressable, View } from "react-native";
 
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
+import { SourceLink } from "@/components/SourceLink";
 import { Text, useIconScale } from "@/components/Text";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import type { PairingNote } from "@/lib/active-pairings";
 import type { ContextNudge } from "@/lib/context-nudges";
 import type { MatchReason, ScoreLine, Verdict } from "@/lib/matching";
+import type { RuleSource } from "@/lib/rules";
 import type { Contraindication } from "@/lib/safety";
 import { BORDER_INACTIVE, FONT_SCALE, INK, MUTED, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
 
@@ -29,7 +31,8 @@ export function panelFor(verdict: Verdict): { bg: string; border: string; label:
  *
  * The sentence comes from `lib/rules.ts`, where every claim the app makes is
  * written next to the rule that makes it — so anything on screen here can be
- * traced to a line of code and argued with.
+ * traced to a line of code and argued with — and, where the rule has one,
+ * to the source it was checked against (#326).
  */
 export function ReasonLine({ reason }: { reason: MatchReason }) {
   return (
@@ -37,6 +40,7 @@ export function ReasonLine({ reason }: { reason: MatchReason }) {
       label={displayIngredientName(reason.ingredient ?? "")}
       detail={reason.reason}
       direction={reason.effect > 0 ? "up" : "down"}
+      source={reason.source}
     />
   );
 }
@@ -69,6 +73,7 @@ export function PregnancySection({ warnings }: { warnings: Contraindication[] })
           label={displayIngredientName(hit.ingredient.name)}
           detail={hit.reason}
           direction="down"
+          source={hit.source}
         />
       ))}
     </View>
@@ -152,10 +157,12 @@ export function ExplanationLine({
   label,
   detail,
   direction,
+  source,
 }: {
   label: string;
   detail: string;
   direction: ExplanationDirection;
+  source?: RuleSource;
 }) {
   const glyph = direction === "up" ? "+" : direction === "down" ? "−" : "•";
   const dotColor =
@@ -180,6 +187,7 @@ export function ExplanationLine({
           {capitalised(label)}
         </Text>
         <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{detail}</Text>
+        {source ? <SourceLink source={source} /> : null}
       </View>
     );
   }
@@ -213,6 +221,7 @@ export function ExplanationLine({
       <View style={{ flex: 1, gap: 1 }}>
         <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{capitalised(label)}</Text>
         <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{detail}</Text>
+        {source ? <SourceLink source={source} /> : null}
       </View>
     </View>
   );

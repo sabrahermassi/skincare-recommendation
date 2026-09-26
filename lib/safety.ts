@@ -1,6 +1,7 @@
 import type { Ingredient, SkinProfile } from "@/data/types";
 import { pregnancyCautionHits } from "./pregnancy-caution";
 import { isSensitive, treatAsReactive } from "./profile";
+import type { RuleSource } from "./rules";
 
 /**
  * Single source of truth for ingredient risk. Previously this predicate was
@@ -67,6 +68,8 @@ export type Contraindication = {
    * separate from the sensitivity/comedogenic count.
    */
   origin: "avoid" | "comedogenic" | "restricted" | "pregnancy";
+  /** Where the caution comes from, when we hold a checked source (#326). */
+  source?: RuleSource;
 };
 
 /**
@@ -150,7 +153,7 @@ export function contraindications(
   // this as "reports an ingredient once per origin".
   if (profile.pregnancyStatus === "pregnant" || profile.pregnancyStatus === "breastfeeding") {
     for (const hit of pregnancyCautionHits(ingredients)) {
-      found.push({ ingredient: hit.ingredient, reason: hit.reason, severity: "irritant", origin: "pregnancy" });
+      found.push({ ingredient: hit.ingredient, reason: hit.reason, severity: "irritant", origin: "pregnancy", source: hit.source });
     }
   }
 

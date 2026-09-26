@@ -90,6 +90,22 @@ describe("ExplanationLine's sign", () => {
     expect(within(screen.getByText("+ Your concerns")).getByText("+")).toBeTruthy();
   });
 
+  it("keeps a claim's source under it at the largest size (#326)", async () => {
+    mockFontScale = LARGEST;
+    await render(
+      <ReadingScale>
+        <ExplanationLine
+          label="niacinamide"
+          detail="Moderates oil"
+          direction="up"
+          source={{ label: "DermNet: nicotinamide", url: "https://dermnetnz.org/topics/nicotinamide" }}
+        />
+      </ReadingScale>,
+    );
+    expect(screen.getByText("+ Niacinamide")).toBeTruthy();
+    expect(screen.getByLabelText("Source: DermNet: nicotinamide")).toBeTruthy();
+  });
+
   it("stays in its dot, grown with the words, up to the ordinary ceiling", async () => {
     mockFontScale = FONT_SCALE.ui;
     await render(<ReadingScale>{line}</ReadingScale>);
