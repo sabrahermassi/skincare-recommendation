@@ -45,7 +45,7 @@ agrees with the new version (Expo Go only runs the versions its SDK ships).
 - **Tailwind stays on v3.** NativeWind's runtime needs it; v4 breaks styling
   without an error.
 - **Native libraries Expo pins are never taken from Dependabot either.**
-  React, React DOM, React Native Web, AsyncStorage, Gesture Handler,
+  React, React DOM, React Native Web, AsyncStorage, Masked View, Gesture Handler,
   Reanimated, Worklets, Safe Area Context, Screens and SVG: Expo sets one
   version of each per SDK, and Expo Go only runs that one. They move in the
   SDK upgrade, with `npx expo install --fix`. A new dependency on that list
