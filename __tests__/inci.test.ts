@@ -685,8 +685,42 @@ describe("parseIngredientBlock", () => {
     ]);
   });
 
+  // #255, found on a real label after the list above shipped: the marketing
+  // line said "나이아신아마이드 성분이 고함량", the bare 성분 was taken as the
+  // heading, and the [사용방법] right after it ended the "list" at eight words
+  // of copy, so the photo was refused.
+  it("reads a Korean list from 전성분, not from 성분 in the copy above it (#255)", () => {
+    const label =
+      "트라넥사믹애씨드와 나이아신아마이드 성분이 고함량 함유되어 깨끗한 피부로 연출하는 데 도움을 주는 세럼\n" +
+      "[사용방법] 토너 다음 단계에 적당량을 덜어 얼굴 전체에 부드럽게 흡수시켜 줍니다.\n" +
+      "[전성분] 정제수, 부틸렌글라이콜, 나이아신아마이드, 글리세린\n" +
+      "[사용할 때의 주의사항] 1. 화장품 사용 시 또는 사용 후 직사광선에 의하여";
+    expect(parseIngredientBlock(label).map((p) => p.inci_name)).toEqual(["정제수", "부틸렌글라이콜", "나이아신아마이드", "글리세린"]);
+  });
+
+  it("still takes a bare 성분 as the heading when the label prints no full one (#255)", () => {
+    expect(parseIngredientBlock("수분 크림 성분: 정제수, 글리세린, 판테놀").map((p) => p.inci_name)).toEqual(["정제수", "글리세린", "판테놀"]);
+  });
+
+  // #255: the dictionary a read repairs against holds the synonyms too, so a
+  // Korean name wrapped across two lines ("알란\n토인") squashed back to the
+  // synonym 알란토인 and stayed there: a correctly printed name counted as
+  // unknown because only the canonical name is recognised.
+  it("a repaired Korean name comes back as the ingredient it names (#255)", () => {
+    const aliases = new Map([
+      ["정제수", "water"],
+      ["알란토인", "allantoin"],
+      ["글리세린", "glycerin"],
+      ["판테놀", "panthenol"],
+    ]);
+    const dictionary = new Set(["water", "allantoin", "glycerin", "panthenol", ...aliases.keys()]);
+    const parsed = parseIngredientBlock("전성분: 정제수, 글리세린, 알란\n토인, 판테놀", dictionary, aliases);
+    expect(parsed.map((p) => p.inci_name)).toEqual(["water", "glycerin", "allantoin", "panthenol"]);
+  });
+
   it.each([
     ["사용방법 적당량을 취해, 얼굴에 펴 바릅니다"],
+    ["사용할 때의 주의사항 상처가 있는 부위, 습진 부위"],
     ["사용 방법 적당량을 취해, 얼굴에 펴 바릅니다"],
     ["주의사항 상처가 있는 부위, 습진 부위에는 사용하지 말 것"],
     ["사용 시의 주의 상처가 있는 부위, 습진 부위"],

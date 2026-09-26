@@ -466,7 +466,7 @@ export function parseIngredientBlock(
 ): ParsedIngredient[] {
   const flat = text.replace(/\r/g, "").replace(/\n+/g, " ").replace(/\s+/g, " ").replace(/\b(?:inactive ingredients?|may contain|peu(?:t|vent) contenir|puede contener|kann enthalten)\s*[:：]?\s*/gi, ", ");
 
-  const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:\bingredients?\b|전성분|성분|全成分)\s*[:：]?\s*/i.exec(flat);
+  const heading = /(?:ingr[eé]dient(?:s|es|e|i)?|sastojci|composition|composição|zutaten|inhaltsstoffe)\s*[:：]\s*|(?:\bingredients?\b|전성분|全成分)\s*[:：]?\s*/i.exec(flat) ?? /성분\s*[:：]?\s*/.exec(flat);
   let block = heading ? flat.slice(heading.index + heading[0].length) : flat;
 
   // With a dictionary the heading's language stops mattering: the list is
@@ -483,7 +483,7 @@ export function parseIngredientBlock(
   // enough to sink the verdict below "unknown" even when the OCR read was
   // otherwise clean.
   const stop =
-    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용\s?방법|사용법|주의\s?사항|사용\s?시의?\s?주의|제조\s?판매\s?업자|제조\s?업자|책임\s?판매\s?업자|판매원|사용\s?기한|보관\s?방법|내용량|使用方法|使用上の注意|保管方法|製造販売元|販売元|内容量|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b|\bstorage\b)/i.exec(
+    /(?:\bdirections?\b|\bhow to use\b|\bcaution\b|\bwarning\b|사용\s?방법|사용법|주의\s?사항|사용\s?시의?\s?주의|사용할\s?때의?\s?주의|제조\s?판매\s?업자|제조\s?업자|책임\s?판매\s?업자|판매원|사용\s?기한|보관\s?방법|내용량|使用方法|使用上の注意|保管方法|製造販売元|販売元|内容量|\b(?:e\s*)?\d{2,4}\s*(?:ml|fl\.?\s?oz|kg|g)\b|\bdistribut(?:ed|ion)\b|\bmanufactured\b|\bfabriqu[ée]\b|\bmade in\b|\bréserv[ée]e\b|\bdépositaires\b|\bstorage\b)/i.exec(
       block
     );
   if (stop) block = block.slice(0, stop.index);
@@ -513,7 +513,7 @@ export function parseIngredientBlock(
       const pieces = splitRunTogether(known, dictionary);
       return pieces.length > 1 ? pieces : [fuzzyKnownName(known, dictionary, fuzzyAttempts)];
     })
-    .map((inci_name, position) => ({ inci_name, position }));
+    .map((inci_name, position) => ({ inci_name: canonical(inci_name), position }));
 
   if (delimited.length >= MIN_DELIMITED_TOKENS || !dictionary) return dedupe(delimited);
 
