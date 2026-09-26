@@ -314,7 +314,15 @@ export async function confirmWithApple(): Promise<string | null> {
  */
 export async function forgetDeletedAccount(): Promise<void> {
   if (!supabase) return;
-  await supabase.auth.signOut({ scope: "local" });
+  try {
+    await supabase.auth.signOut({ scope: "local" });
+  } catch {
+    // The phone's secure storage refused to let go of the session. The
+    // account is already gone and that token can never refresh again, so the
+    // app treats itself as signed out rather than fail a deletion that
+    // happened, with nothing to catch it (#152).
+    applySession(null);
+  }
   if (!isGoogleSignInConfigured) return;
   try {
     const google = await import("@react-native-google-signin/google-signin");

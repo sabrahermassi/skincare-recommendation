@@ -24,6 +24,9 @@ import { useAppStore } from "@/store/useAppStore";
 
 SplashScreen.preventAutoHideAsync();
 
+// A render crash in any screen shows a way out instead of a blank screen (#152).
+export { RouteErrorScreen as ErrorBoundary } from "@/components/RouteErrorScreen";
+
 export default function RootLayout() {
   // Body text no longer loads a custom font — it renders in the OS system
   // font (see tailwind.config.js's `sans` family), so only the display
