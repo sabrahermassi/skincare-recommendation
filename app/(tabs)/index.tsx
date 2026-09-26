@@ -10,7 +10,7 @@ import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/open-scanner";
 import { homeGreetingWidth } from "@/lib/home-greeting";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, SPACE } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, SPACE, TYPE } from "@/lib/tokens";
 
 // The two cards' watercolors, on transparent ground: a hand holding a tube inside
 // a scanner's frame, and two hands holding a serum and a pump bottle (their empty
@@ -24,7 +24,7 @@ const ACTION_CARD_GAP = 12;
 const ACTION_ART_MIN_HEIGHT = 48;
 // The watercolor still life under the cards: bottles, a vase and a handwritten
 // "A little progress every day", on a transparent ground.
-const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.png");
+const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.webp");
 // Its own proportions, so it is never stretched.
 const STILL_LIFE_ASPECT = 1004 / 1187;
 // Where its handwriting starts, as a share of the picture's height. The picture
@@ -39,8 +39,11 @@ const STILL_LIFE_DROP = 94;
 const GREETING_ART = require("@/assets/illustrations/home-greeting.png");
 const GREETING_ASPECT = 640 / 206;
 
+/** How far a card sinks when pressed: it reads as a button though it is a card. */
+const ACTION_CARD_PRESSED = 0.96;
+
 /**
- * Home — the first screen after the skin quiz.
+ * Home — the first screen after the intro.
  *
  * A greeting, then two cards side by side — "Scan a product", which opens the
  * full-screen scanner, and "Find skincare", which opens Browse — and a
@@ -48,9 +51,6 @@ const GREETING_ASPECT = 640 / 206;
  * fixed while it fits; on a short screen or with large text it scrolls, so both
  * cards are always reachable.
  */
-/** How far a card sinks when pressed: it reads as a button though it is a card. */
-const ACTION_CARD_PRESSED = 0.96;
-
 export default function Home() {
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
@@ -104,12 +104,13 @@ export default function Home() {
         {/* The still life: full width, its handwriting a little under the cards,
             its foot running on behind the tab bar and past the bottom of the
             screen. Drawn behind the cards (zIndex) and out of the layout, so it
-            never adds scrolling. Its handwriting is read out. */}
+            never adds scrolling. Its handwriting is read out: at least one point
+            tall, so when large text leaves it no room VoiceOver still reaches it. */}
         <View
           pointerEvents="none"
           accessible
           accessibilityLabel="A little progress every day"
-          style={{ flexGrow: 1, zIndex: -1 }}
+          style={{ flexGrow: 1, minHeight: 1, zIndex: -1 }}
         >
           <Image
             source={STILL_LIFE_ART}
@@ -179,7 +180,7 @@ function ActionCard({
         />
         <View style={{ gap: 2, paddingHorizontal: 14, paddingTop: 6, paddingBottom: 14 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Text style={{ flexShrink: 1, fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: INK }}>{title}</Text>
+            <Text style={{ flexShrink: 1, fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.body, color: INK }}>{title}</Text>
             <ArrowIcon size={15} color={INK} strokeWidth={2.4} />
           </View>
           <Text style={{ fontSize: 11.5, lineHeight: 15, color: MUTED }}>{detail}</Text>

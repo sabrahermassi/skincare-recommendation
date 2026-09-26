@@ -2,6 +2,7 @@ import { INGREDIENTS } from "@/data/ingredients";
 import { PRODUCTS } from "@/data/products";
 import { SCHOOL } from "@/data/school";
 import { FIRST_PAGE_COPY } from "@/lib/first-page";
+import { ingredientCheckLine, type IngredientCheck } from "@/lib/ingredient-labels";
 import { NOTE_COPY, tooLongCopy } from "@/lib/journal";
 import { pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
 import { claimPolicyViolations } from "@/lib/claims-policy";
@@ -151,6 +152,19 @@ const SCHOOL_CHAT_CLAIMS: OwnedClaim[] = Object.entries(SCHOOL_CHAT_COPY).map(([
   text,
 }));
 
+// #345: every shape the Ingredient check's line takes.
+const CHECK_CLAIMS: OwnedClaim[] = (
+  [
+    { kind: "unreadable" },
+    { kind: "checked", avoid: 0, watch: 0, unrecognised: 0 },
+    { kind: "checked", avoid: 1, watch: 0, unrecognised: 0 },
+    { kind: "checked", avoid: 2, watch: 0, unrecognised: 0 },
+    { kind: "checked", avoid: 0, watch: 1, unrecognised: 0 },
+    { kind: "checked", avoid: 0, watch: 2, unrecognised: 0 },
+    { kind: "checked", avoid: 1, watch: 2, unrecognised: 3 },
+  ] satisfies IngredientCheck[]
+).map((check) => ({ source: `ingredientCheckLine(${JSON.stringify(check)})`, text: ingredientCheckLine(check) }));
+
 const OWNED_CLAIMS: OwnedClaim[] = [
   ...HEADLINE_RESULTS,
   // #183: the restricted-ingredient warning for an unset sensitivity. The
@@ -163,6 +177,7 @@ const OWNED_CLAIMS: OwnedClaim[] = [
   ...SCHOOL_CLAIMS,
   ...SCHOOL_CHAT_CLAIMS,
   ...SCORING_CLAIMS,
+  ...CHECK_CLAIMS,
   // Audited directly (#261 review): `WARNINGS` below comes from the sample
   // INGREDIENTS, which hold none of the pregnancy-caution names — so these
   // reasons were never actually reaching the audit, despite

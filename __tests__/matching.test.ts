@@ -762,12 +762,13 @@ describe("verdict engine", () => {
     });
 
     it("with no profile, gives neither Good nor a Watch that depends on the person", () => {
-      const scented = synthetic(["water", "parfum", ...FILL]);
+      // Tea tree only stings reactive skin; fragrance is flagged for everyone (#345).
+      const scented = synthetic(["water", "tea tree oil", "parfum", ...FILL]);
       const result = matchProduct(scented, EMPTY_PROFILE);
-      const parfum = scented.ingredients.find((i) => i.name === "parfum") as Ingredient;
-      const glycerin = scented.ingredients.find((i) => i.name === "glycerin") as Ingredient;
-      expect(ingredientLabel(parfum, result, false)).toBeNull();
-      expect(ingredientLabel(glycerin, result, false)).toBeNull();
+      const find = (name: string) => scented.ingredients.find((i) => i.name === name) as Ingredient;
+      expect(ingredientLabel(find("tea tree oil"), result, false)).toBeNull();
+      expect(ingredientLabel(find("glycerin"), result, false)).toBeNull();
+      expect(ingredientLabel(find("parfum"), result, false)).toBe("watch");
     });
 
     it("keeps every reason, so an effect past the sixth still reaches the badge", () => {

@@ -5,9 +5,10 @@ import Home from "@/app/(tabs)/index";
 
 /**
  * Home (per #155): the greeting, the two cards side by side ("Scan a product"
- * and "Find skincare"), and the watercolor still life
- * under them. The still life sits in the page after the cards, not behind
- * them, so it can never cover a card; its handwriting is read out.
+ * and "Find skincare"), and the watercolor still life under them. The still
+ * life comes after the cards in the page and is drawn behind them (its flowers
+ * run up behind the scan card), so it never covers one; its handwriting is
+ * read out, even when large text leaves it no room.
  */
 
 jest.setTimeout(30_000);
@@ -53,4 +54,12 @@ it("puts the still life after the scan card, with its handwriting read out", asy
   const stillLife = labels.indexOf("A little progress every day");
   expect(scan).toBeGreaterThanOrEqual(0);
   expect(stillLife).toBeGreaterThan(scan);
+});
+
+it("draws the still life behind the cards, and keeps it reachable when it has no room", async () => {
+  await render(<Home />);
+  const style = [screen.getByLabelText("A little progress every day").props.style].flat();
+  const merged = Object.assign({}, ...style);
+  expect(merged.zIndex).toBeLessThan(0);
+  expect(merged.minHeight).toBeGreaterThanOrEqual(1);
 });

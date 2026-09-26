@@ -184,7 +184,7 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 | Sample ingredient notes | `data/ingredients.ts` (`.note`) | Yes — `INGREDIENTS.*.note` |
 | Sample product copy | `data/products.ts` (`.description`, `.benefits`) | Yes — `PRODUCTS.*` |
 | Onboarding carousel | `app/onboarding/index.tsx` (`SCREENS`) | No — not a claim surface (headline/supporting copy naming what the app does, not an ingredient/product claim) |
-| Onboarding quiz steps | `app/onboarding/(quiz)/*.tsx` (title/subtitle) | No, same reason |
+| Skin quiz steps | `app/quiz/*.tsx` (title/subtitle) | No, same reason |
 | Skin profile screen | `app/skin-profile.tsx` | No, same reason |
 | Scan failure copy (photo/network split) | `lib/read-label-photo.ts` (`failureCopy`) | No — operational copy, not an ingredient/product claim |
 | Save failure copy | `app/add-product.tsx` (`SAVE_FAILURE_COPY`) | No, same reason |

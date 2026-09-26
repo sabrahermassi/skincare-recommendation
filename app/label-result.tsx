@@ -3,15 +3,17 @@ import { router, useLocalSearchParams } from "expo-router";
 import { track } from "@/lib/analytics";
 import { photoScannerHref } from "@/lib/open-scanner";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { IngredientCheck } from "@/components/IngredientCheck";
 import { IngredientsSheet, ingredientsSheetPeek, type IngredientsSheetHandle } from "@/components/IngredientsSheet";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
-import { ContextNudgesSection, ExplanationLine, HowScoringLink, PairingSection, PregnancySection, ProfileArrow, ReasonLine, panelFor } from "@/components/VerdictExplanation";
+import { ContextNudgesSection, ExplanationLine, HowScoringLink, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { SkinMatchCard } from "@/components/SkinMatchCard";
 import { ReadingScale, Text, useLargeText, useRingScale } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
 import type { Ingredient } from "@/data/types";
@@ -163,28 +165,27 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
           {total > 0 ? `${total} ingredients read` : "Nothing was read"}
         </Text>
 
+        {/* The same for everyone, profile or not (#345). The list it opens
+            isn't there for an unreadable read. */}
+        <IngredientCheck
+          ingredients={product.ingredients}
+          onPress={!lowCoverage && total > 0 ? () => sheetRef.current?.open() : undefined}
+        />
+
+        {/* No profile yet: the quiz, not an empty score (#346). */}
+        {needsProfile ? (
+          <SkinMatchCard />
+        ) : (
         <View
           className="rounded-card border"
           style={{ backgroundColor: panel.bg, borderColor: panel.border, overflow: "hidden" }}
         >
-          <Pressable
-            disabled={!needsProfile}
-            onPress={() => router.push({ pathname: "/skin-profile", params: { returnTo: "product" } })}
-            accessibilityRole={needsProfile ? "button" : undefined}
-            accessibilityLabel={needsProfile ? "Open your skin profile to get your score" : undefined}
-            className={`${largeText ? "items-start" : "flex-row items-center"} active:opacity-70`}
+          <View
+            accessible
+            className={largeText ? "items-start" : "flex-row items-center"}
             style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
           >
-            {/* Stacked, the arrow sits level with the ring rather than on a line of
-                its own under the words (#334). */}
-            {largeText && needsProfile ? (
-              <View className="flex-row items-center justify-between self-stretch">
-                {scoreRing}
-                <ProfileArrow />
-              </View>
-            ) : (
-              scoreRing
-            )}
+            {scoreRing}
             <View className={largeText ? "gap-1.5 self-stretch" : "flex-1 gap-1.5 pr-6"}>
               <Text
                 // Follows the phone as far as body text does, so at the largest sizes
@@ -206,8 +207,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
                   : verdictHeadline(match)}
               </Text>
             </View>
-            {needsProfile && !largeText ? <ProfileArrow /> : null}
-          </Pressable>
+          </View>
 
           {/* Unlike `product/[id].tsx`, this is not behind a "Why this
               score" toggle: the whole point of this screen is the full
@@ -242,6 +242,7 @@ function Verdict({ read, barcode }: { read: HeldLabel; barcode?: string }) {
             </View>
           ) : null}
         </View>
+        )}
 
         {/* Renders regardless of lowCoverage: contraindications runs before
             the low-coverage refusal (#187), so a pregnant user photographing

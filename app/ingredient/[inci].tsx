@@ -17,7 +17,7 @@ import { unknownIngredient, type Ingredient, type ProductWithIngredients } from 
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { COLORS } from "@/lib/colors";
 import { comedogenicLabel } from "@/lib/format";
-import { countedAgainst, ingredientLabel, type IngredientLabel } from "@/lib/ingredient-labels";
+import { countedAgainst, ingredientLabel, isCommonIrritant, type IngredientLabel } from "@/lib/ingredient-labels";
 import { matchProduct, positionNote, ruleFor, type Contraindication } from "@/lib/matching";
 import { isPersonalized, isSensitive, treatAsReactive } from "@/lib/profile";
 import { targetApplies } from "@/lib/rules";
@@ -432,7 +432,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
               </Text>
             </View>
             <Text style={{ fontSize: 13, lineHeight: 19.5, color: INK }}>
-              {fitBody(fit, helps, hurts, verified, Boolean(rule), warning)}
+              {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), warning)}
             </Text>
             {/* The small qualifier pill the design puts under the verdict. */}
             <View
@@ -636,6 +636,7 @@ function fitBody(
   hurts: boolean,
   verified: boolean,
   hasRule: boolean,
+  commonIrritant: boolean,
   warning?: Contraindication
 ): string {
   if (fit === "unknown") {
@@ -650,6 +651,10 @@ function fitBody(
   if (helps) return "This actively helps with what you told us about your skin.";
   if (fit === "avoid") {
     return "The EU inventory restricts or prohibits this one, which applies to everybody rather than to your profile in particular.";
+  }
+  // Watch for everyone (#345): a restriction or pore rating doesn't explain it.
+  if (fit === "watch" && commonIrritant) {
+    return "A fragrance or common irritant, flagged for everyone rather than for your profile in particular.";
   }
   if (fit === "watch") {
     return "Carries a restriction or a pore rating worth knowing about, though nothing in your profile makes it a specific problem.";

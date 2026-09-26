@@ -9,19 +9,21 @@ import { ReadingScale, Text, useIconScale, useLargeText, useRingScale } from "@/
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
-import { IngredientsSheet, ingredientsSheetPeek } from "@/components/IngredientsSheet";
+import { IngredientCheck } from "@/components/IngredientCheck";
+import { IngredientsSheet, ingredientsSheetPeek, type IngredientsSheetHandle } from "@/components/IngredientsSheet";
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { RiskCards } from "@/components/RiskCards";
 import { ScoreRing } from "@/components/ScoreRing";
+import { SkinMatchCard } from "@/components/SkinMatchCard";
 import { ReportMistakeLink } from "@/components/ReportMistakeLink";
-import { ContextNudgesSection, ExplanationLine, HowScoringLink, PairingSection, PregnancySection, ProfileArrow, ReasonLine, panelFor } from "@/components/VerdictExplanation";
+import { ContextNudgesSection, ExplanationLine, HowScoringLink, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
 import { HeartIcon } from "@/components/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import { pairingNotesFor } from "@/lib/active-pairings";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
-import { confidenceLabel, matchProduct, scoreExplanation, verdictHeadline } from "@/lib/matching";
+import { confidenceLabel, isLowCoverage, matchProduct, scoreExplanation, verdictHeadline } from "@/lib/matching";
 import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/open-scanner";
 import { productPictureSize } from "@/lib/product-layout";
@@ -128,6 +130,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
   // underneath the fixed ingredients sheet and the risk cards dropped out of
   // view behind it (#296).
   const scrollRef = useRef<ScrollView>(null);
+  const sheetRef = useRef<IngredientsSheetHandle>(null);
   const restY = useRef(0);
   const panelY = useRef(0);
   // Where "Why this score" sits inside the panel. At the largest text sizes the
@@ -401,7 +404,12 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
     }
   }
 
-  const needsProfile = !isPersonalized(profile);
+  // With no profile, a formula we can read gets the quiz instead of an empty
+  // score; one we can't still says so, with or without a profile — answering
+  // the questions wouldn't score it.
+  const lowCoverage = isLowCoverage(product.ingredients);
+  const showMatchCard = !isPersonalized(profile) && !lowCoverage;
+  const headline = lowCoverage ? verdictHeadline({ ...match, unknownReason: "low_coverage" }) : verdictHeadline(match);
   const sheetPeek = total > 0 ? ingredientsSheetPeek(insets.bottom) : 0;
   const pictureSize =
     total > 0
@@ -543,10 +551,22 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
           )}
         </View>
 
-        {/* The verdict, before anything else. Never colour alone — the panel
+        {/* What's in it, for everyone, profile or not (#345) — beside the
+            personal verdict below, never instead of it. Opens the list. */}
+        <View style={{ paddingHorizontal: SPACE.gutter }}>
+          <IngredientCheck ingredients={product.ingredients} onPress={total > 0 ? () => sheetRef.current?.open() : undefined} />
+        </View>
+
+        {/* The personal verdict. Never colour alone — the panel
             carries a word too. Its reasoning ("Why this score") opens inside
             the same box: the answer and the reasons belong on the same surface
             when someone is holding the bottle in a shop. */}
+        {/* No profile yet: the quiz, not an empty score (#346). */}
+        {showMatchCard ? (
+          <View style={{ paddingHorizontal: SPACE.gutter }}>
+            <SkinMatchCard />
+          </View>
+        ) : (
         <View
           className="rounded-card border"
           onLayout={(e) => {
@@ -559,24 +579,12 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
             overflow: "hidden",
           }}
         >
-        <Pressable
-          disabled={!needsProfile}
-          onPress={() => router.push({ pathname: "/skin-profile", params: { returnTo: "product" } })}
-          accessibilityRole={needsProfile ? "button" : undefined}
-          accessibilityLabel={needsProfile ? "Open your skin profile to get your score" : undefined}
-          className={`${largeText ? "items-start" : "flex-row items-center"} active:opacity-70`}
+        <View
+          accessible
+          className={largeText ? "items-start" : "flex-row items-center"}
           style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
         >
-          {/* Stacked, the arrow sits level with the ring rather than on a line of
-              its own under the words (#334). */}
-          {largeText && needsProfile ? (
-            <View className="flex-row items-center justify-between self-stretch">
-              {scoreRing}
-              <ProfileArrow />
-            </View>
-          ) : (
-            scoreRing
-          )}
+          {scoreRing}
           <View className={largeText ? "gap-1.5 self-stretch" : "flex-1 gap-1.5 pr-6"}>
             <Text
               // Follows the phone as far as body text does, so at the largest sizes
@@ -593,11 +601,10 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
               {panel.label}
             </Text>
             <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
-              {verdictHeadline(match)}
+              {headline}
             </Text>
           </View>
-          {needsProfile && !largeText ? <ProfileArrow /> : null}
-        </Pressable>
+        </View>
 
         {/*
           "Why this score", inside the box, closed until it is tapped. The
@@ -661,6 +668,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
           </>
         ) : null}
         </View>
+        )}
 
         <View style={{ paddingHorizontal: SPACE.gutter, gap: SPACE.block }}>
           {/* The person's own note (#228), only for a product on their shelf. */}
@@ -760,7 +768,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
         </ReadingScale>
       </ScrollView>
 
-      {total > 0 ? <IngredientsSheet product={product} match={match} /> : null}
+      {total > 0 ? <IngredientsSheet ref={sheetRef} product={product} match={match} /> : null}
     </View>
   );
 }

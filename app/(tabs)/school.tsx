@@ -124,7 +124,7 @@ export default function SkincareSchool() {
       <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 10 }}>
         <Text
           accessibilityRole="header"
-          style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}
+          style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.title, color: INK }}
         >
           Skincare School
         </Text>
