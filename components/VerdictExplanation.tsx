@@ -1,13 +1,14 @@
 import { router } from "expo-router";
 import { Pressable, View } from "react-native";
 
-import { Text } from "@/components/Text";
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
+import { Text, useIconScale } from "@/components/Text";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import type { PairingNote } from "@/lib/active-pairings";
 import type { ContextNudge } from "@/lib/context-nudges";
 import type { MatchReason, ScoreLine, Verdict } from "@/lib/matching";
 import type { Contraindication } from "@/lib/safety";
-import { BORDER_INACTIVE, INK, MUTED, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
+import { BORDER_INACTIVE, FONT_SCALE, INK, MUTED, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, toneForVerdict } from "@/lib/tokens";
 
 /**
  * The verdict panel's colours and label — shared by `app/product/[id].tsx`
@@ -134,6 +135,19 @@ export function NotesSection({
 type ExplanationDirection = ScoreLine["direction"] | "neutral";
 
 /** A verdict-level explanation, rendered before its ingredient-level evidence. */
+/**
+ * The "this opens your skin profile" arrow on a verdict panel that has no
+ * score yet, grown with the sentence it follows (#334). The panel itself is
+ * the button and carries the label; the arrow only says it goes further.
+ */
+export function ProfileArrow() {
+  return (
+    <View testID="profile-arrow">
+      <ArrowIcon size={22 * useIconScale(TYPE.body)} color={INK} />
+    </View>
+  );
+}
+
 export function ExplanationLine({
   label,
   detail,
@@ -147,6 +161,29 @@ export function ExplanationLine({
   const dotColor =
     direction === "up" ? VERDICT.high.tint : direction === "down" ? VERDICT.low.tint : VERDICT_NEUTRAL.tint;
   const glyphColor = direction === "neutral" ? VERDICT_NEUTRAL.deep : INK;
+  const scale = useIconScale(TYPE.label);
+  // Past the ordinary ceiling (#334) the sign moves into the label itself and
+  // the detail takes the full width under it. A dot beside the words left a
+  // few words per line, and a dot big enough to read pushed the label onto a
+  // line of its own, cut off from its sign.
+  const stacked = scale > FONT_SCALE.ui;
+  if (stacked) {
+    // The verdict inks, not the dots' tints: text needs the contrast. Each
+    // clears 4.5:1 on every panel tint; the lowest is the neutral sign on the
+    // poor-match tint, 4.93:1 (computed).
+    const signColor =
+      direction === "up" ? VERDICT.high.deep : direction === "down" ? VERDICT.low.deep : VERDICT_NEUTRAL.deep;
+    return (
+      <View style={{ gap: 1 }}>
+        <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
+          <Text style={{ fontSize: TYPE.label, fontWeight: "bold", color: signColor }}>{`${glyph} `}</Text>
+          {capitalised(label)}
+        </Text>
+        <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{detail}</Text>
+      </View>
+    );
+  }
+  const dot = 18 * scale;
   return (
     <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
       {/* Inline style, not a Tailwind className: `bg-tint-mint`/`bg-tint-pink`
@@ -156,29 +193,39 @@ export function ExplanationLine({
           rather than a third green/pink pair. */}
       <View
         style={{
-          width: 18,
-          height: 18,
-          borderRadius: 9,
-          marginTop: 1,
+          width: dot,
+          height: dot,
+          borderRadius: dot / 2,
+          marginTop: scale,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: dotColor,
         }}
       >
-        <Text style={{ fontSize: TYPE.caption, fontWeight: "bold", lineHeight: 14, color: glyphColor }}>{glyph}</Text>
+        {/* Grown exactly as far as its dot, no further. */}
+        <Text
+          maxFontSizeMultiplier={scale}
+          style={{ fontSize: TYPE.caption, fontWeight: "bold", lineHeight: 14, color: glyphColor }}
+        >
+          {glyph}
+        </Text>
       </View>
       <View style={{ flex: 1, gap: 1 }}>
-        {/* First letter only: a `capitalize` transform also title-cased the
-            score lines ("Irritation Risk", "Your Concerns") and INCI
-            abbreviations ("Stearate Se") — #294. Ingredient names arrive
-            already cased by `displayIngredientName`. */}
-        <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
-          {label.charAt(0).toUpperCase() + label.slice(1)}
-        </Text>
+        <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{capitalised(label)}</Text>
         <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{detail}</Text>
       </View>
     </View>
   );
+}
+
+/**
+ * First letter only: a `capitalize` transform also title-cased the score
+ * lines ("Irritation Risk", "Your Concerns") and INCI abbreviations
+ * ("Stearate Se") — #294. Ingredient names arrive already cased by
+ * `displayIngredientName`.
+ */
+function capitalised(label: string): string {
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 /**

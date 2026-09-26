@@ -4,7 +4,7 @@ import { Animated, Pressable, type StyleProp, type ViewStyle } from "react-nativ
 import { usePressScale } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
 import { WatercolorFill } from "@/components/WatercolorFill";
-import { BUTTON_SHADOW, CTA, GRAY_FILL, INK, MUTED_FAINT } from "@/lib/tokens";
+import { BUTTON_SHADOW, CTA, FONT_SCALE, GRAY_FILL, INK, MUTED_FAINT } from "@/lib/tokens";
 
 /**
  * Every full-width button in the app, in Apple's two styles that the app
@@ -109,6 +109,9 @@ export function PrimaryButton({
             color: disabled ? MUTED_FAINT : INK,
           }}
           numberOfLines={1}
+          // A fixed-height pill: its label keeps the ordinary ceiling even
+          // inside a `ReadingScale` (#334).
+          maxFontSizeMultiplier={FONT_SCALE.display}
         >
           {label}
         </Text>
