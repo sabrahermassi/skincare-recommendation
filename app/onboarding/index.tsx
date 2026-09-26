@@ -11,33 +11,31 @@ import { quizRoutes } from "@/lib/profile";
 import { CANVAS, FLOATING_SHADOW, INK } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
-// Extracted from correctly-proportioned source art (real iPhone aspect, not
-// the old 1:2.55 mockup phone) — full compositions with generous margin on
-// every side, not tight cutouts. Downsized to ~1400px on the long edge from
-// ~3400px originals before bundling; full-resolution source lives in
-// design-watercolor/.
-const ONB2_SCAN = require("@/assets/illustrations/onboarding/onb2-scan.webp");
-const ONB2_INGREDIENTS = require("@/assets/illustrations/onboarding/onb2-ingredients.png");
-const ONB2_CONFIDENCE = require("@/assets/illustrations/onboarding/onb2-confidence.png");
+// Watercolor heroes, one per screen, each with its own handwritten line
+// ("let's take a look", "what's really in here?", "this one's for me") and
+// transparent margins, so they sit on the canvas without a box.
+const HERO_SCAN = require("@/assets/illustrations/onboarding/hero-scan.png");
+const HERO_INGREDIENTS = require("@/assets/illustrations/onboarding/hero-ingredients.png");
+const HERO_FOR_ME = require("@/assets/illustrations/onboarding/hero-for-me.png");
 
 const SCREENS: OnboardingScreenContent[] = [
   {
     headline: ["Scan any", "skincare product"],
     supportingCopy: ["Point your camera at a barcode", "or ingredient list."],
     buttonLabel: "Continue",
-    illustrationSource: ONB2_SCAN,
+    illustrationSource: HERO_SCAN,
   },
   {
     headline: ["Ingredients,", "made simple"],
     supportingCopy: ["See what the ingredients", "mean for your skin."],
     buttonLabel: "Continue",
-    illustrationSource: ONB2_INGREDIENTS,
+    illustrationSource: HERO_INGREDIENTS,
   },
   {
     headline: ["Choose with", "confidence"],
     supportingCopy: ["Discover products that fit", "your skin, goals and lifestyle."],
     buttonLabel: "Start skin quiz",
-    illustrationSource: ONB2_CONFIDENCE,
+    illustrationSource: HERO_FOR_ME,
   },
 ];
 
