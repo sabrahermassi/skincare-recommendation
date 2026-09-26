@@ -1,10 +1,11 @@
-import { useFocusEffect, useLocalSearchParams, useScrollToTop } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams, useScrollToTop } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, TextInput, View, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
-import { AppHeader, HEADER_GUTTER } from "@/components/AppHeader";
+import { HEADER_GUTTER } from "@/components/AppHeader";
+import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
 import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
@@ -297,7 +298,20 @@ export default function Browse() {
         keyboardDismissMode="on-drag"
         ListHeaderComponent={
           <View style={{ gap: 18, paddingBottom: SPACE.block, backgroundColor: CANVAS }}>
-            <AppHeader />
+            {/* Back to Home. Browse has no tab of its own (it opens from Home's
+                "Find skincare" card), so this always leads home rather than
+                back through wherever the search was opened from. */}
+            <View style={{ flexDirection: "row", paddingHorizontal: HEADER_GUTTER, paddingTop: 12, paddingBottom: 14 }}>
+              <Pressable
+                onPress={() => router.navigate("/")}
+                hitSlop={14}
+                accessibilityRole="button"
+                accessibilityLabel="Back to Home"
+                className="active:opacity-70"
+              >
+                <ArrowIcon direction="left" size={24} color={INK} />
+              </Pressable>
+            </View>
             <View style={{ paddingHorizontal: HEADER_GUTTER, position: "relative", justifyContent: "center" }}>
               <TextInput
                 ref={searchInput}

@@ -17,7 +17,7 @@ let mockParams: Record<string, string> = {};
 jest.mock("expo-router", () => {
   const { useEffect } = jest.requireActual<typeof import("react")>("react");
   return {
-    router: { push: jest.fn() },
+    router: { push: jest.fn(), navigate: jest.fn() },
     useLocalSearchParams: () => mockParams,
     useScrollToTop: () => undefined,
     useFocusEffect: (effect: () => void | (() => void)) => {
@@ -49,6 +49,13 @@ beforeEach(() => {
   mockParams = {};
   jest.clearAllMocks();
   useAppStore.setState({ profile: EMPTY_PROFILE, history: [] });
+});
+
+it("goes back to Home from its back arrow, having no tab of its own", async () => {
+  const { router } = require("expo-router") as { router: { navigate: (href: string) => void } };
+  await render(<Search />);
+  await act(async () => fireEvent.press(screen.getByRole("button", { name: "Back to Home" })));
+  expect(router.navigate).toHaveBeenCalledWith("/");
 });
 
 describe("before typing", () => {
