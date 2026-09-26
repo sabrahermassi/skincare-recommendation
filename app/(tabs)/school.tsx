@@ -12,8 +12,7 @@ import { CANVAS, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 /**
  * Skincare School (#235) — reference content, a tab of its own in the bar
  * (where Browse was; Browse is now reached from Home's "Find skincare" card).
- * Its address is still `/school`, so Profile's menu row still lands here. One
- * screen, categories with
+ * Its address is still `/school`. One screen, categories with
  * expandable questions, rather than a list plus a `school/[id]` detail
  * route: at under twenty items an accordion is the whole job, and a
  * dynamic segment would add a deep-link surface (#29) for nothing.
