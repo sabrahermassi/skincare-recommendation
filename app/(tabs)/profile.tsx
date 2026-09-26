@@ -1,9 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useFocusEffect, useScrollToTop } from "expo-router";
-import { ArrowIcon } from "@/components/icons/ArrowIcon";
-import { PressableCard } from "@/components/PressableCard";
-import { useCallback, useRef, useState } from "react";
+import { TERRACOTTA } from "@/components/shell/shared";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { Modal, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -11,13 +10,16 @@ import { Text } from "@/components/Text";
 import { openQuiz } from "@/lib/open-quiz";
 import { answeredWithoutSignal, isPersonalized, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { CANVAS, CARD_SHADOW, CHIP_SHADOW, DANGER, FLOATING_SHADOW, GRAY_FILL, INK, MUTED, SCRIM, SELECTED, SURFACE } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, CHIP_SHADOW, CTA, DANGER, FLOATING_SHADOW, GRAY_FILL, INK, MUTED, SCRIM, SELECTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { noteProfileErased } from "@/lib/erase-notice";
 
 const AVATAR = 120;
 const AVATAR_ART = require("@/assets/illustrations/avatar-empty.webp");
+// The menu's blocks: rounded, filled a shade off the page, with no line between rows.
+const GROUP_RADIUS = 26;
+const ROW_HEIGHT = 60;
 
 /**
  * Profile — who you are to the app, and the way to everything about you: your
@@ -86,17 +88,29 @@ export default function Profile() {
           )}
         </View>
 
+        {/* The menu, in blocks: your skin, your account, the reference pages, and
+            deleting it all on its own at the end. */}
         <View style={{ paddingHorizontal: 20, gap: 14 }}>
-          {/* Edits the answers once they score; until then, asks the questions (#346). */}
-          <MenuRow
-            icon="water-outline"
-            label="Skin profile"
-            onPress={() => (isPersonalized(profile) ? router.push("/skin-profile") : openQuiz())}
-          />
-          <MenuRow icon="person-circle-outline" label="Account" onPress={() => router.push("/account")} />
-          <MenuRow icon="chatbubble-ellipses-outline" label="Support" onPress={() => router.push("/support")} />
-          <MenuRow icon="shield-checkmark-outline" label="Privacy policy" onPress={() => router.push("/privacy")} />
-          <MenuRow icon="trash-outline" label="Delete my profile" danger onPress={() => setConfirmingErase(true)} />
+          <MenuGroup>
+            {/* Edits the answers once they score; until then, asks the questions (#346). */}
+            <MenuRow
+              icon="water"
+              label="Skin profile"
+              badge={isPersonalized(profile) ? undefined : "Tap to fill in"}
+              onPress={() => (isPersonalized(profile) ? router.push("/skin-profile") : openQuiz())}
+            />
+            <MenuRow icon="sparkles" label="Skincare routine" onPress={() => router.push("/routine")} />
+          </MenuGroup>
+          <MenuGroup>
+            <MenuRow icon="person-circle" label="Account" onPress={() => router.push("/account")} />
+          </MenuGroup>
+          <MenuGroup>
+            <MenuRow icon="shield-checkmark" label="Privacy policy" onPress={() => router.push("/privacy")} />
+            <MenuRow icon="chatbubbles" label="Support" onPress={() => router.push("/support")} />
+          </MenuGroup>
+          <MenuGroup>
+            <MenuRow icon="trash" label="Delete my profile" danger onPress={() => setConfirmingErase(true)} />
+          </MenuGroup>
         </View>
       </ScrollView>
 
@@ -146,32 +160,49 @@ export default function Profile() {
   );
 }
 
+/** One block of the menu: its rows share a rounded fill, with no line between them. */
+function MenuGroup({ children }: { children: ReactNode }) {
+  return <View style={{ borderRadius: GROUP_RADIUS, backgroundColor: SELECTED, paddingVertical: 4, overflow: "hidden" }}>{children}</View>;
+}
+
 /**
- * One row of the menu: an icon, its name, and an arrow — except on a
- * destructive row, which opens a confirmation rather than a screen (#313).
+ * One row of the menu: an icon, its name, an optional badge, and an arrow —
+ * except on a destructive row, which opens a confirmation rather than a screen
+ * (#313).
  */
 function MenuRow({
   icon,
   label,
+  badge,
   onPress,
   danger = false,
 }: {
   icon: React.ComponentProps<typeof Ionicons>["name"];
   label: string;
+  /** A short call to action beside the name, e.g. on a profile not filled in yet. */
+  badge?: string;
   onPress: () => void;
   danger?: boolean;
 }) {
-  const color = danger ? DANGER : INK;
+  const color = danger ? DANGER : TERRACOTTA;
   return (
-    <PressableCard
+    <Pressable
       onPress={onPress}
-      accessibilityLabel={label}
-      backgroundColor={SURFACE}
-      style={{ minHeight: 64, flexDirection: "row", alignItems: "center", gap: 16, paddingHorizontal: 20 }}
+      accessibilityRole="button"
+      accessibilityLabel={badge ? `${label}. ${badge}` : label}
+      className="active:opacity-60"
+      style={{ minHeight: ROW_HEIGHT, flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20 }}
     >
-      <Ionicons name={icon} size={22} color={danger ? DANGER : MUTED} />
-      <Text style={{ flex: 1, fontSize: 16, fontWeight: "500", color }}>{label}</Text>
-      {danger ? null : <ArrowIcon size={20} color={INK} />}
-    </PressableCard>
+      <Ionicons name={icon} size={22} color={color} />
+      <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+        <Text style={{ fontSize: 16, fontWeight: "500", color: danger ? DANGER : INK }}>{label}</Text>
+        {badge ? (
+          <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: CTA }}>
+            <Text style={{ fontSize: 12.5, fontWeight: "600", color: INK }}>{badge}</Text>
+          </View>
+        ) : null}
+      </View>
+      {danger ? null : <Ionicons name="arrow-forward" size={22} color={color} />}
+    </Pressable>
   );
 }
