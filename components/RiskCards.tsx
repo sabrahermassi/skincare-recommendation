@@ -4,6 +4,7 @@ import Svg, { Circle, Path } from "react-native-svg";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text, useLargeText, useIconScale } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
+import { isCommonIrritant } from "@/lib/ingredient-labels";
 import type { MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
 import { irritationWarnings, isVerified } from "@/lib/safety";
@@ -157,7 +158,7 @@ function RiskCard({
  * Not a hazard score — a count of entries, said in words.
  */
 export function irritationRisk(product: Pick<ProductWithIngredients, "ingredients">, match: MatchResult): Risk {
-  const { personal, restricted } = irritationCounts(product, match);
+  const { personal, restricted, common } = irritationCounts(product, match);
   const hasPregnancyOnlyHit = personal === 0 && match.warnings.some((w) => w.origin === "pregnancy");
 
   if (product.ingredients.length === 0) {
@@ -168,6 +169,17 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
       level: "Elevated",
       note: `${personal} flagged for your skin`,
       tone: "avoid",
+      hasEntries: true,
+    };
+  }
+  if (restricted === 0 && common > 0) {
+    // Fragrance or a common irritant is "to watch" for everyone in the
+    // Ingredient check above (#345). "Nothing restricted" is true of it, but
+    // read beside "1 ingredient to watch" it sounds like a contradiction.
+    return {
+      level: "Low",
+      note: `${common} common ${common === 1 ? "irritant" : "irritants"}`,
+      tone: "watch",
       hasEntries: true,
     };
   }
@@ -200,20 +212,23 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
  * flagged for your skin" on its own page (#290).
  *
  * `personal` is what this profile is warned about or was charged for;
- * `restricted` is what carries an EU restriction whoever you are.
+ * `restricted` is what carries an EU restriction whoever you are; `common` is
+ * the unrestricted fragrance and common irritants the Ingredient check puts
+ * "to watch" for everyone (#345).
  */
 export function irritationCounts(
   product: Pick<ProductWithIngredients, "ingredients">,
   match: MatchResult
-): { personal: number; restricted: number } {
+): { personal: number; restricted: number; common: number } {
   const restricted = product.ingredients.filter((i) => isVerified(i) && i.safety !== "safe").length;
+  const common = product.ingredients.filter((i) => isVerified(i) && i.safety === "safe" && isCommonIrritant(i)).length;
   // Pregnancy hits get their own section on the result (#187) — they are not
   // an irritation risk, so they must not inflate this count.
   const nonPregnancyWarnings = irritationWarnings(match.warnings);
   // An ingredient can be both warned about and charged as an irritant: count it once.
   const warned = new Set(nonPregnancyWarnings.map((w) => w.ingredient.name));
   const charged = new Set(match.irritants.filter((name) => !warned.has(name)));
-  return { personal: nonPregnancyWarnings.length + charged.size, restricted };
+  return { personal: nonPregnancyWarnings.length + charged.size, restricted, common };
 }
 
 /**

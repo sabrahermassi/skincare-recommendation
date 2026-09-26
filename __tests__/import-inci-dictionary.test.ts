@@ -1,4 +1,5 @@
-import { fetchTaxonomy, normaliseDictionaryName, planWrites, safetyFrom, sharedLabelForms, toRows } from "../scripts/import-inci-dictionary.mjs";
+import { fetchTaxonomy, normaliseDictionaryName, planWrites, safetyFor, safetyFrom, sharedLabelForms, toRows } from "../scripts/import-inci-dictionary.mjs";
+import { annexCited } from "../scripts/audit-safety-labels.mjs";
 import { applyPrune, planPrune } from "../scripts/lib/prune-stale.mjs";
 
 describe("safetyFrom", () => {
@@ -27,6 +28,26 @@ describe("safetyFrom", () => {
 
   it("does not invent a restriction when the source has none", () => {
     expect(safetyFrom(undefined)).toEqual({ safety: "safe", note: null });
+  });
+});
+
+// #354: petrolatum's Annex II entry bans only petrolatum of unknown refining.
+describe("safetyFor", () => {
+  it("makes petrolatum a caution that says why, keeping the citation", () => {
+    const rating = safetyFor("petrolatum", { en: "II/904" });
+    expect(rating.safety).toBe("caution");
+    expect(rating.note).toBe("Allowed when fully refined. The EU bans it only when its refining history isn't known (EU Annex II/904)");
+    // Not one of safetyFrom's shapes, so the safety-label audit doesn't call it a mismatch.
+    expect(annexCited(rating.note)).toBeNull();
+  });
+
+  it("leaves every other Annex II ban as it is", () => {
+    expect(safetyFor("hydroquinone", { en: "II/1339 III/14" }).safety).toBe("avoid");
+  });
+
+  it("carries the exemption into the rows the import writes", () => {
+    const rows = toRows({ "en:petrolatum": { name: { en: "Petrolatum" }, inci_restriction: { en: "II/904" } } });
+    expect(rows.find((row) => row.inci_name === "petrolatum")).toMatchObject({ safety: "caution" });
   });
 });
 
