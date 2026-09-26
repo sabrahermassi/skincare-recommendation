@@ -9,8 +9,8 @@ import { groupByRisk } from "@/lib/safety";
  * Nothing here decides anything new. Every label comes from what the score
  * itself already worked out, so a row can never say "Good" while "Why this
  * score" counts it against the person:
- * - **Avoid**: a hazard — `groupByRisk`'s `avoid`, or a hazard-level warning
- *   for this person (a pregnancy caution, say).
+ * - **Avoid**: a hazard — `groupByRisk`'s `avoid`, a hazard-level warning
+ *   for this person, or a pregnancy caution, with or without a skin profile.
  * - **Watch**: a caution or irritant for this person — `groupByRisk`'s
  *   `caution`, any warning, or anything the score counted against them
  *   (a negative reason, an irritation or pore-clogging charge).
@@ -21,7 +21,8 @@ import { groupByRisk } from "@/lib/safety";
  *
  * With no skin profile there is no "you" to be good or risky for: only
  * Avoid, Unknown, and Watch for what is restricted for everyone (the EU's
- * caution list) are shown.
+ * caution list) are shown. A pregnancy answer is not a skin profile, but its
+ * cautions are still Avoid.
  */
 export type IngredientLabel = "avoid" | "watch" | "good" | "unknown";
 
@@ -37,11 +38,15 @@ export const LABEL_META: Record<IngredientLabel, (typeof RUNG_META)["good"]> = {
 };
 
 export function ingredientLabel(ingredient: Ingredient, match: MatchResult, personalized: boolean): IngredientLabel | null {
-  const warning = match.warnings.find((w) => w.ingredient.id === ingredient.id);
-  // A hazard outranks not knowing: pregnancy matching fires on an exact name
-  // even when a label read left the row unverified (the same precedence
-  // `rungFor` keeps).
-  if (warning?.severity === "hazard") return "avoid";
+  const warnings = match.warnings.filter((w) => w.ingredient.id === ingredient.id);
+  // A hazard or a pregnancy caution outranks not knowing, and outranks having
+  // no profile: pregnancy matching fires on an exact name even when a label
+  // read left the row unverified (the same precedence `rungFor` keeps). A
+  // pregnancy hit is `severity: "irritant"` for the score (see
+  // `lib/pregnancy-caution.ts`), so it is named here rather than caught by
+  // the severity check. Every warning is read: one ingredient can carry one
+  // per origin.
+  if (warnings.some((w) => w.severity === "hazard" || w.origin === "pregnancy")) return "avoid";
 
   const risk = riskOf(ingredient);
   if (risk === "avoid") return "avoid";
@@ -54,7 +59,7 @@ export function ingredientLabel(ingredient: Ingredient, match: MatchResult, pers
     match.reasons.some((r) => r.ingredient === name && r.effect < 0) ||
     match.irritants.includes(name) ||
     match.cloggersCharged.includes(name);
-  if (warning || risk === "caution" || countedAgainst) return "watch";
+  if (warnings.length > 0 || risk === "caution" || countedAgainst) return "watch";
   if (match.reasons.some((r) => r.ingredient === name && r.effect > 0)) return "good";
   return null;
 }
