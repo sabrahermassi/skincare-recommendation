@@ -97,10 +97,11 @@ export default function SignIn() {
   const anyProvider = appleAvailable || isGoogleSignInConfigured;
 
   return (
-    // Sized to its content (a form sheet, `app/_layout.tsx`), so no `flex: 1`
-    // and no scroll view — both stretched the sheet to full height around a
-    // few lines of text (#296).
-    <View style={{ backgroundColor: CANVAS }}>
+    // A half-height form sheet that drags to full height (`app/_layout.tsx`,
+    // #296). No scroll view: inside a form sheet one rendered nothing at all.
+    // Content taller than half the screen — both sign-in buttons at a large
+    // text size — is reached by dragging the sheet up (#309 review).
+    <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <View style={{ padding: 24, paddingTop: 28, paddingBottom: insets.bottom + 32, gap: 18 }}>
         <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 26, color: INK }}>Keep your shelf</Text>
         <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>
