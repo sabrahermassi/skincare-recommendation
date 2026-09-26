@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
+import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import {
@@ -34,7 +35,7 @@ import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
 import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
 import { barcodeParam } from "@/lib/route-params";
-import { lookupFailureState, scanStateCopy, scanStateSpeech, type ScanState } from "@/lib/scan-copy";
+import { lookupFailureState, scanStateCopy, scanStateSpeech, type ScanCopy, type ScanState } from "@/lib/scan-copy";
 import { rememberScanMode, rememberedScanMode, type ScanMode } from "@/lib/scan-mode";
 import { createStaleGuard } from "@/lib/stale-guard";
 import { haptic } from "@/lib/haptics";
@@ -549,17 +550,21 @@ export default function Scan() {
 
         {stage}
 
-        {/* And one switcher, so the pills do not remount and jump on a switch. */}
-        <View
-          style={{
-            position: "absolute",
-            left: STAGE_INSET,
-            right: STAGE_INSET,
-            bottom: Math.max(STAGE_BOTTOM, insets.bottom + 12),
-          }}
-        >
-          <ModeSwitcher mode={mode} setMode={selectMode} light={needsPermission} />
-        </View>
+        {/* And one switcher, so the pills do not remount and jump on a switch.
+            Put away while the no-match sheet is up: the sheet takes the bottom
+            of the screen, as in OnSkin's. */}
+        {mode === "Barcode" && status.kind === "missed" ? null : (
+          <View
+            style={{
+              position: "absolute",
+              left: STAGE_INSET,
+              right: STAGE_INSET,
+              bottom: Math.max(STAGE_BOTTOM, insets.bottom + 12),
+            }}
+          >
+            <ModeSwitcher mode={mode} setMode={selectMode} light={needsPermission} />
+          </View>
+        )}
 
         {status.kind === "found" ? (
           <FoundSheet
@@ -620,6 +625,103 @@ export default function Scan() {
         style={{ position: "absolute", right: 16, top: insets.top + 8 }}
       />
     </View>
+  );
+}
+
+/**
+ * No product for that code (after OnSkin): a sheet rises from the bottom, at
+ * the pace of an iOS sheet opening, over a dimmed camera. A picture, what
+ * happened, and two ways forward — scan again, or search by name — with the
+ * X to close it. Under a plain miss, a quiet link still offers to photograph
+ * the ingredients, which is how a new product joins the catalogue.
+ */
+function NoMatchSheet({
+  copy,
+  scanLabel,
+  bottomInset,
+  onScanAgain,
+  onSearch,
+  onAdd,
+}: {
+  copy: ScanCopy;
+  scanLabel: string;
+  bottomInset: number;
+  onScanAgain: () => void;
+  onSearch: () => void;
+  onAdd?: () => void;
+}) {
+  const [rise] = useState(() => new Animated.Value(0));
+  const [lift] = useState(() => rise.interpolate({ inputRange: [0, 1], outputRange: [NO_MATCH_TRAVEL, 0] }));
+  useEffect(() => {
+    if (reduceMotionNow()) {
+      rise.setValue(1);
+      return;
+    }
+    Animated.spring(rise, { toValue: 1, ...SHEET_SPRING, useNativeDriver: Platform.OS !== "web" }).start();
+  }, [rise]);
+
+  return (
+    <>
+      <Animated.View
+        pointerEvents="none"
+        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: withAlpha(CAMERA_STAGE, 0.45), opacity: rise }}
+      />
+      <Animated.View
+        style={{
+          position: "absolute",
+          left: SHEET_INSET,
+          right: SHEET_INSET,
+          bottom: Math.max(STAGE_BOTTOM, bottomInset + 12),
+          transform: [{ translateY: lift }],
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: CANVAS,
+            borderRadius: NO_MATCH_RADIUS,
+            paddingTop: 22,
+            paddingHorizontal: 24,
+            paddingBottom: 24,
+            alignItems: "center",
+            gap: 10,
+            ...FLOATING_SHADOW,
+          }}
+        >
+          <GlassButton
+            symbol="xmark"
+            icon="close"
+            accessibilityLabel="Close"
+            onPress={onScanAgain}
+            small
+            style={{ position: "absolute", top: 14, right: 14 }}
+          />
+          <Image source={NO_MATCH_ART} contentFit="contain" accessibilityLabel="" style={{ width: "72%", aspectRatio: NO_MATCH_ASPECT }} />
+          <Text
+            accessibilityRole="header"
+            style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, lineHeight: 28, color: INK }}
+          >
+            {copy.title}
+          </Text>
+          <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>{copy.line}</Text>
+          <View style={{ alignSelf: "stretch", gap: 10, marginTop: 8 }}>
+            <PrimaryButton label={scanLabel} onPress={onScanAgain} size={48} />
+            {copy.byName ? <PrimaryButton label={copy.byName} onPress={onSearch} size={48} variant="gray" /> : null}
+          </View>
+          {onAdd && copy.action ? (
+            <Pressable
+              onPress={onAdd}
+              accessibilityRole="button"
+              accessibilityLabel={copy.action}
+              style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
+              className="active:opacity-70"
+            >
+              <Text style={{ fontSize: TYPE.caption, color: MUTED, textDecorationLine: "underline" }}>{copy.action}</Text>
+            </Pressable>
+          ) : null}
+          {onAdd && copy.note ? <Text style={{ textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>{copy.note}</Text> : null}
+        </View>
+      </Animated.View>
+    </>
   );
 }
 
@@ -935,7 +1037,7 @@ function BarcodeStage({
           gap: 12,
         }}
       >
-        {status.kind !== "idle" && status.kind !== "found" && (
+        {status.kind !== "idle" && status.kind !== "found" && status.kind !== "missed" && (
           <View
             // Grouped into one node so a screen reader reaching this panel
             // reads one sentence rather than the icon, a headline and a
@@ -983,35 +1085,6 @@ function BarcodeStage({
               ) : null}
             </View>
           </View>
-        )}
-
-        {/* After a plain miss: the primary way forward, plus a secondary
-            escape to a different barcode without switching to Photo and
-            back (#192). */}
-        {status.kind === "missed" && !notProduct && (
-          <>
-            <PrimaryButton label={copy?.action ?? ""} onPress={onAdd} size={48} />
-            <Pressable
-              onPress={onDismiss}
-              accessibilityRole="button"
-              accessibilityLabel={copy?.link}
-              style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
-              className="active:opacity-70"
-            >
-              <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}>
-                {copy?.link}
-              </Text>
-            </Pressable>
-          </>
-        )}
-
-        {/* The non-product state (a QR code, a non-retail barcode) has no
-            ingredient photo to offer, and the camera will not read another
-            code while this panel is up — so without this, the state was a
-            dead end reachable only by the hidden, unannounced effect of
-            re-tapping the already-selected Barcode pill (#192). */}
-        {notProduct && (
-          <PrimaryButton label={copy?.action ?? ""} onPress={onDismiss} size={48} />
         )}
 
         {/* Deliberately not the ingredient photo: that needs the same network
@@ -1066,28 +1139,29 @@ function BarcodeStage({
           </Pressable>
         )}
 
-        {/* The name is on the pack even when the barcode leads nowhere
-            (#323): after a miss or a code that isn't a product, look it up
-            by name. Closes the scanner onto Search with the box empty and
-            focused; `byName` is a one-time request, so each tap is new. */}
-        {copy?.byName ? (
-          <Pressable
-            onPress={() => {
-              preserveMode();
-              router.dismissTo({ pathname: "/browse", params: { byName: String(Date.now()) } });
-            }}
-            accessibilityRole="link"
-            accessibilityLabel={copy.byName}
-            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
-            className="active:opacity-70"
-          >
-            <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}>
-              {copy.byName}
-            </Text>
-          </Pressable>
-        ) : null}
+
 
       </View>
+
+      {/* A barcode we don't have, or a code that isn't a product: the sheet
+          rises from the bottom with the ways forward. */}
+      {status.kind === "missed" && copy ? (
+        <NoMatchSheet
+          key={status.code}
+          copy={copy}
+          scanLabel={(notProduct ? copy.action : copy.link) ?? ""}
+          bottomInset={insets.bottom}
+          onScanAgain={onDismiss}
+          onSearch={() => {
+            preserveMode();
+            // Closes the scanner onto Search, with the box empty and focused
+            // (#323); `byName` is a one-time request, so each tap is new.
+            router.dismissTo({ pathname: "/browse", params: { byName: String(Date.now()) } });
+          }}
+          // Only a real product barcode can be added under.
+          onAdd={notProduct ? undefined : onAdd}
+        />
+      ) : null}
 
       {/* A quiet way out when nothing has read for a while (#195) — its own
           wrapper, clear of the switcher via `switcherClearance` rather than
@@ -1217,6 +1291,17 @@ function IngredientsStage({
 // full-bleed now), so a fixed bottom inset put the frame's bottom edge, and
 // its instruction text, underneath the switcher rather than clear of it.
 const SWITCHER_HEIGHT = 53;
+// The no-match sheet (after OnSkin): its picture (new-watercolor sheets, "no
+// product found", on a cream within a shade of CANVAS so it has no edge), its
+// corners, and how far below it starts.
+const NO_MATCH_ART = require("@/assets/illustrations/no-product-found.webp");
+const NO_MATCH_ASPECT = 1200 / 800;
+const NO_MATCH_RADIUS = 32;
+const NO_MATCH_TRAVEL = 700;
+// Apple's spring for a sheet presenting: critically damped (fraction 1) at
+// response 0.5 s, as a system sheet rises — stiffness = (2π / response)²,
+// damping = 4π × fraction / response, for a mass of 1.
+const SHEET_SPRING = { mass: 1, stiffness: 158, damping: 25 };
 // The gap between the mode switcher's glass pill and the thumb that slides in it.
 const SWITCHER_PADDING = 4;
 // Apple's own spring for a control like this: SwiftUI's default `.spring`
