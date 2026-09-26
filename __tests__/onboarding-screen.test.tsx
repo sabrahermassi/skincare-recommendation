@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 
 import Onboarding from "@/app/onboarding";
+import { scaleThatFits } from "@/components/shell/OnboardingShell";
 import { noteProfileErased } from "@/lib/erase-notice";
 import { COLORS } from "@/lib/colors";
 import { CANVAS } from "@/lib/tokens";
@@ -111,4 +112,23 @@ it("draws the button as a flat pill in the intro's colours, and Skip in the mute
   expect(textStyle(button).backgroundColor).toBe(COLORS.introButton);
   expect(textStyle(screen.getByText("Continue")).color).toBe(COLORS.introButtonText);
   expect(textStyle(screen.getByText("Skip")).color).toBe(COLORS.introMuted);
+});
+
+// A larger text setting grows the headline only as far as its band holds it.
+describe("scaleThatFits", () => {
+  const band = { top: 64.5, bottom: 76.5 };
+  it("allows the full 1.3 when the band has room", () => {
+    expect(scaleThatFits(2000, band, 79)).toBe(1.3);
+  });
+
+  it("stops where the band is full on a short phone", () => {
+    const scale = scaleThatFits(667, band, 79);
+    expect(scale).toBeGreaterThanOrEqual(1);
+    expect(scale).toBeLessThan(1.3);
+    expect(79 * scale).toBeLessThanOrEqual((667 * 12) / 100 + 0.001);
+  });
+
+  it("never goes below the base size", () => {
+    expect(scaleThatFits(300, band, 79)).toBe(1);
+  });
 });

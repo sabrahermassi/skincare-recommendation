@@ -128,15 +128,16 @@ No personalization questionnaire is required before scanning.
 
 The skin quiz (Concerns → Skin Type → Sensitivity → Pregnancy, `app/quiz/`)
 opens as a modal over whatever asked for it: a result's "See your skin
-match", Profile's "Skin profile" row, or the top of Search results
-(`lib/open-quiz.ts`).
+match", Home's "Find a product" card, Profile's "Skin profile" row, or the top
+of Search results (`lib/open-quiz.ts`).
 
 Flow:
 
 **Result → See your skin match → Quiz → back to the same result, now scored**
 
-Finishing the last step closes the quiz back onto that same screen. Skip, or
-swiping it down, closes it early and keeps every answer given so far; if
+Finishing the last step closes the quiz back onto that same screen. Swiping
+it down (or VoiceOver's escape gesture) closes it early and keeps every answer
+given so far; if
 they are enough to score, the score appears, otherwise the card stays.
 
 There is:

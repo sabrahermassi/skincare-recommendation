@@ -90,7 +90,9 @@ export function QuizFrame({ children }: { children: ReactNode }) {
 
   return (
     <QuizFrameContext.Provider value={value}>
-      <View style={{ flex: 1, backgroundColor: CANVAS }}>
+      {/* No Skip on screen (owner), so VoiceOver's escape gesture (a two-finger
+          Z) closes the quiz too, the way a swipe down does. */}
+      <View style={{ flex: 1, backgroundColor: CANVAS }} onAccessibilityEscape={value.close}>
         <View style={{ flex: 1 }}>{children}</View>
 
         <View style={{ paddingHorizontal: 24, paddingBottom: Math.max(28, insets.bottom + 14) }}>

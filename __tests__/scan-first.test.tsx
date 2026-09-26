@@ -161,6 +161,24 @@ describe("the quiz, as a modal", () => {
     await fireEvent.press(screen.getByText("Oily"));
     expect(useAppStore.getState().profile.baseSkinType).toBe("oily");
   });
+
+  it("closes on VoiceOver's escape gesture, since there is no Skip to tap", async () => {
+    await render(
+      <QuizFrame>
+        <SkinTypeStep />
+      </QuizFrame>,
+    );
+    type Node = { props?: { onAccessibilityEscape?: () => void }; children?: (Node | string)[] | null };
+    const find = (node: Node | string | null | undefined): (() => void) | undefined => {
+      if (!node || typeof node === "string") return undefined;
+      return node.props?.onAccessibilityEscape ?? node.children?.map(find).find(Boolean);
+    };
+    const tree = screen.toJSON() as Node | Node[] | null;
+    const escape = (Array.isArray(tree) ? tree : [tree]).map(find).find(Boolean);
+    expect(escape).toBeDefined();
+    await act(async () => escape?.());
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("the quiz opened from a link, with nothing behind it", () => {
