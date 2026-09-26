@@ -158,7 +158,8 @@ native.
 
 **State** — `store/useAppStore.ts`, one Zustand store: skin profile,
 onboarding flag, wishlist. Persisted via `persist` + AsyncStorage, gated on
-`useAppStore.persist.hasHydrated()` in `app/_layout.tsx`.
+`useAppStore.persist.hasHydrated()` in `app/_layout.tsx` — except the profile,
+which `formeStorageFor` keeps in the Keychain on a phone (#189).
 **Two files may import AsyncStorage, and no third without review:**
 `store/useAppStore.ts` (the user's own state) and `data/catalogue-cache.ts`
 (public catalogue rows, the dictionary and freshness watermarks — and
@@ -273,6 +274,8 @@ with confidence tiers, owns acne fit).
 - **Check Expo Go's current App Store SDK before upgrading this project's
   SDK** — an upgrade can put device testing ahead of what Expo Go ships;
   see `docs/decisions.md`.
+- **Dependency updates and advisories** (CI audit, Dependabot, triage times):
+  `docs/dependencies.md`.
 
 ## Running on a device
 

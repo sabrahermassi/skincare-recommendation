@@ -234,3 +234,43 @@ flattens that active together with the inactives. In the 2026-09-19 snapshot,
 The boundary cannot be recovered from the ingredient list: it has to come from
 the label's Drug Facts box, which no live source records (see the irritation
 section above). Resolve it together with stated strength.
+
+## Open 2026-09-26: "very sensitive" barely moves a trailing fragrance (#301)
+
+Reported from the simulator: switching "somewhat" to "very sensitive" moved a
+fragranced cream from 55 to 54. Confirmed, and pinned in
+`__tests__/sensitivity-fragrance.test.ts`.
+
+- **The cause.** Parfum's rule weighs 9, but `positionWeight` cuts it by its
+  place in the list before `SENSITIVITY_MULTIPLIER` sees it. Last on a
+  20-ingredient list it is `9 × 0.369 = 3.32` of irritation, so "somewhat"
+  (×1) charges 3.3 and "very" (×1.6) 5.3: two points apart. Applying the
+  multiplier before the position discount would change nothing (it is a
+  product), so that suggestion is not an option.
+- **It is not the general case.** A real fragranced cream with other
+  irritants (Nivea Rose Care: alcohol denat plus four EU fragrance allergens)
+  goes 45 → 36, until the 34-point irritation cap stops it. And the big step
+  is "not sensitive" → "somewhat" (65 → 45), because below "somewhat" the
+  fragrance rules don't apply at all.
+- **Options, measured on the 21 fixture products plus the plain cream, across
+  the six baseline profiles and "dry, dehydrated, very sensitive"** (154
+  scores; every scoring-validation invariant still passes under each):
+  - **A. Fragrance floor, "very sensitive" only:** a fragrance rule's
+    irritation charge uses `max(position, 0.7)`. 8 scores move, all
+    fragranced products for very-sensitive profiles, 3–5 points each (plain
+    cream 79 → 74). Nothing else moves.
+  - **B. The same floor for everyone judged reactive** ("somewhat", "very"
+    and unset): 26 move, up to 10 points (Nivea Rose Care for "somewhat" 42
+    → 32). Widens the gap from "not sensitive", not the one reported.
+  - **C. "Very" multiplier 1.6 → 2.5:** 24 move, every irritant for
+    very-sensitive profiles, up to 11 points (The Ordinary Lactic Acid 46 →
+    35, COSRX BHA 60 → 49) — larger than the fragrance change it was meant
+    for (plain cream 79 → 76).
+- **Recommended: A.** It fixes the reported case and nothing else, and
+  changes nothing for non-sensitive or "somewhat" users. The cap is a
+  separate question: once a product is at 34, no option separates "very"
+  from "somewhat" further.
+
+The owner picks an option; that is its own ticket. Re-run
+`SCORE_BASELINE=1 npx jest score-baseline` against staging with the chosen
+option before merging it.

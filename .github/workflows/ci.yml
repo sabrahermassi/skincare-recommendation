@@ -37,6 +37,17 @@ jobs:
 
       - run: npm ci
 
+      # Issue #33 (policy: docs/dependencies.md). A high or critical advisory
+      # in a runtime dependency — what ships inside the app — fails the build.
+      # Don't lower the threshold to get past one: fix it, or follow the
+      # policy's exception rule.
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      # Everything, dev tooling included: printed so it's seen, never fails.
+      - name: Audit all dependencies (report only)
+        run: npm audit || true
+
       - name: Typecheck
         run: npm run typecheck
 

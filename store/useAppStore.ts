@@ -1,10 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppState as AppLifecycle, Platform } from "react-native";
 import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 
 import { forgetScannedBarcodes } from "@/data/catalogue-cache";
 import { resetScoreCache } from "@/lib/matching";
 import type { RoutineStep } from "@/lib/routine-step";
+import { connectClaimFlag, readSecureProfile, removeSecureProfile, writeSecureProfile } from "@/lib/secure-storage";
 import { applyOps, shelfAsSaves, type Shelf, type ShelfOp } from "@/lib/shelf";
 
 import type { Concern, SkinProfile } from "@/data/types";
@@ -76,6 +78,21 @@ export function visibleConcernCount(concerns: Concern[]): number {
 
 /** Oldest entries fall off the end. Long enough to cover months of casual use. */
 export const HISTORY_LIMIT = 50;
+
+/**
+ * An entry last seen longer ago than this is dropped (#189): the log is
+ * health-adjacent (a run of acne products implies acne-prone skin), so it is
+ * kept for as long as it is useful and no longer. Checked when the app starts
+ * and whenever the log is written.
+ */
+export const HISTORY_MAX_AGE_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The log as it may be kept: nothing older than `HISTORY_MAX_AGE_DAYS`, at most `HISTORY_LIMIT` entries. */
+export function keptHistory(history: HistoryEntry[], now: number): HistoryEntry[] {
+  const cutoff = now - HISTORY_MAX_AGE_DAYS * DAY_MS;
+  return history.filter((h) => h.lastSeenAt >= cutoff).slice(0, HISTORY_LIMIT);
+}
 
 export const EMPTY_PROFILE: SkinProfile = {
   concerns: [],
@@ -248,6 +265,8 @@ type AppState = {
    * same visit, better informed.
    */
   fillInViewScore: (id: string, view: { score: number | null; warnings: number }) => void;
+  /** Drops entries past `HISTORY_MAX_AGE_DAYS` — run when the app starts. Writes nothing if none are. */
+  expireHistory: () => void;
   clearHistory: () => void;
   /** Removes one entry from the log — the per-row "x" on the History tab,
    *  as opposed to `clearHistory`'s wipe-everything action. */
@@ -386,6 +405,14 @@ function queued(state: { shelfOwner: string | null; shelfQueue: ShelfOp[] }, ...
  * since signed out, and sign-out empties the shelf, so anything still on it
  * is leftover no one saved as a guest. It is cleared here, before the new
  * rule would carry it into the next account to sign in.
+ *
+ * v8 -> v9 (#189) changes where the profile is kept, not its shape, so there
+ * is nothing to rewrite here. On a phone `formeStorageFor` keeps the profile
+ * in the Keychain and out of the AsyncStorage file. The bump is what moves an
+ * existing one: persist writes the state back straight after migrating it, and
+ * that write puts the profile in the Keychain and drops the plain-text copy,
+ * on the first launch after the update rather than whenever something next
+ * changes.
  */
 export function migratePersisted(persisted: unknown, version: number): PersistedState | undefined {
   const migrated = migrateProfile(persisted, version);
@@ -447,18 +474,75 @@ function migrateProfile(persisted: unknown, version: number): PersistedState | u
 const OLD_STORAGE_KEY = "skintel-store";
 const NEW_STORAGE_KEY = "forme-store";
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** A profile read back from the Keychain, or null for anything that isn't one. */
+function parseProfile(raw: string | null): SkinProfile | null {
+  if (raw === null) return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    return isRecord(value) && Array.isArray(value.concerns) ? { ...EMPTY_PROFILE, ...value } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Nothing answered: what a first run, a skipped quiz and "Delete my profile" all leave. */
+function isEmptyProfile(profile: SkinProfile): boolean {
+  return (
+    profile.concerns.length === 0 &&
+    profile.baseSkinType == null &&
+    profile.sensitivity == null &&
+    profile.pregnancyStatus == null
+  );
+}
+
 /**
+ * The store's storage, per platform. Exported so both branches are testable;
+ * the app uses `formeStorage` below.
+ *
  * A rebrand renamed the persisted key from `skintel-store` to `forme-store`.
  * AsyncStorage has no notion of "the same store under a new name" — without
- * this, `persist` would just find nothing under the new key and every
- * existing install's profile, saved shelf and history would reset to
- * `INITIAL_STATE`, the same class of silent data loss `migratePersisted`
- * above exists to prevent. This runs the one-time copy on first read, then
- * gets out of the way; `migratePersisted` still runs on whatever comes back,
- * new install or migrated one alike.
+ * the one-time copy in `readFile`, `persist` would just find nothing under the
+ * new key and every existing install's profile, saved shelf and history would
+ * reset to `INITIAL_STATE`, the same class of silent data loss
+ * `migratePersisted` above exists to prevent.
+ *
+ * On a phone, the profile — pregnancy status included — lives in the Keychain
+ * (#189, `lib/secure-storage.ts`), not in the AsyncStorage file. Reads put it
+ * back into the state, writes take it out, so `persist` and everything above
+ * it see one store and one hydration. Web has no Keychain, so the profile
+ * stays in the file there, as the session falls back to memory.
+ *
+ * What keeps a profile from being lost on the way:
+ * - A plain copy still in the file wins over the Keychain's. It is either one
+ *   not moved yet (a v8 file) or a newer edit whose Keychain write failed, and
+ *   the next write moves it.
+ * - A failed Keychain write leaves the profile in the file.
+ * - The Keychain is only read when the file exists. On a fresh install there is
+ *   no file, so a previous install's profile never comes back; the first write
+ *   replaces or removes it.
+ * - An empty profile removes the Keychain copy — that is how "Delete my
+ *   profile" reaches it.
+ * - While this launch hasn't been able to read the Keychain, nothing is
+ *   written to it or deleted from it (#189 review). iOS can start an app in
+ *   the background before the phone is unlocked, when a
+ *   `WHEN_UNLOCKED_THIS_DEVICE_ONLY` item can't be read; the store then shows
+ *   an empty profile, and an edit made on top of it must not replace the real
+ *   one. An edit is kept in the file instead, and `recoverProfile` reads the
+ *   Keychain again once the app is in front.
+ * - Writes are queued, so two quick changes land in order.
  */
-export const formeStorage: StateStorage = {
-  getItem: async (name) => {
+export function formeStorageFor(os: typeof Platform.OS): FormeStorage {
+  const keychain = os !== "web";
+  // What the Keychain holds as far as this launch knows; undefined for "not read".
+  let known: string | null | undefined;
+  let hydrated = false;
+  let unreadable = false;
+  let writes: Promise<unknown> = Promise.resolve();
+
+  async function readFile(name: string): Promise<string | null> {
     const [current, legacy] = await Promise.all([
       AsyncStorage.getItem(name),
       AsyncStorage.getItem(OLD_STORAGE_KEY),
@@ -469,14 +553,109 @@ export const formeStorage: StateStorage = {
       return legacy;
     }
     return current;
-  },
-  setItem: (name, value) => AsyncStorage.setItem(name, value),
-  removeItem: (name) => AsyncStorage.removeItem(name),
+  }
+
+  async function getItem(name: string): Promise<string | null> {
+    known = undefined;
+    unreadable = false;
+    try {
+      const raw = await readFile(name);
+      if (!keychain || raw === null) return raw;
+      let file: unknown;
+      try {
+        file = JSON.parse(raw);
+      } catch {
+        return raw;
+      }
+      if (!isRecord(file) || !isRecord(file.state)) return raw;
+      const read = await readSecureProfile();
+      if (!read.ok) {
+        unreadable = true;
+        return raw;
+      }
+      known = read.value;
+      if ("profile" in file.state) return raw;
+      const profile = parseProfile(read.value);
+      return profile ? JSON.stringify({ ...file, state: { ...file.state, profile } }) : raw;
+    } finally {
+      hydrated = true;
+    }
+  }
+
+  /** Puts the profile where it belongs; false means keep it in the file. */
+  async function keepInKeychain(profile: SkinProfile): Promise<boolean> {
+    // Written before the store read its file: nothing to go on, so leave the
+    // Keychain alone rather than overwrite it with a first-run profile.
+    if (!hydrated) return true;
+    // Never replace or delete a value this launch couldn't read.
+    if (unreadable) return isEmptyProfile(profile);
+    if (isEmptyProfile(profile)) {
+      if (known === null) return true;
+      if (!(await removeSecureProfile())) return false;
+      known = null;
+      return true;
+    }
+    const value = JSON.stringify(profile);
+    if (value === known) return true;
+    if (!(await writeSecureProfile(value))) return false;
+    known = value;
+    return true;
+  }
+
+  /**
+   * After a launch that couldn't read the Keychain (`profileUnread`), tries
+   * again. Returns the profile it holds (null for none), or undefined when it
+   * still can't read it, or never needed to.
+   */
+  async function recoverProfile(): Promise<SkinProfile | null | undefined> {
+    if (!unreadable) return undefined;
+    const read = await readSecureProfile();
+    if (!read.ok) return undefined;
+    unreadable = false;
+    known = read.value;
+    return parseProfile(read.value);
+  }
+
+  async function write(name: string, value: string): Promise<void> {
+    if (!keychain) return AsyncStorage.setItem(name, value);
+    let file: unknown;
+    try {
+      file = JSON.parse(value);
+    } catch {
+      return AsyncStorage.setItem(name, value);
+    }
+    if (!isRecord(file) || !isRecord(file.state) || !isRecord(file.state.profile)) {
+      return AsyncStorage.setItem(name, value);
+    }
+    const { profile, ...rest } = file.state;
+    const moved = await keepInKeychain(profile as SkinProfile);
+    await AsyncStorage.setItem(name, moved ? JSON.stringify({ ...file, state: rest }) : value);
+  }
+
+  return {
+    getItem,
+    setItem: (name, value) => {
+      const run = writes.then(() => write(name, value));
+      writes = run.catch(() => undefined);
+      return run;
+    },
+    removeItem: (name) => AsyncStorage.removeItem(name),
+    profileUnread: () => unreadable,
+    recoverProfile,
+  };
+}
+
+export type FormeStorage = StateStorage & {
+  /** Whether this launch has yet to read the profile from the Keychain. */
+  profileUnread: () => boolean;
+  recoverProfile: () => Promise<SkinProfile | null | undefined>;
 };
+
+export const formeStorage: FormeStorage = formeStorageFor(Platform.OS);
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...INITIAL_STATE,
 
       setProfile: (patch) =>
@@ -598,10 +777,7 @@ export const useAppStore = create<AppState>()(
             warningsAtView: warnings,
           };
           return {
-            history: [entry, ...state.history.filter((h) => h.id !== id)].slice(
-              0,
-              HISTORY_LIMIT
-            ),
+            history: keptHistory([entry, ...state.history.filter((h) => h.id !== id)], now),
           };
         }),
 
@@ -622,6 +798,12 @@ export const useAppStore = create<AppState>()(
           };
         }),
 
+      expireHistory: () => {
+        const { history } = get();
+        const kept = keptHistory(history, Date.now());
+        if (kept.length !== history.length) set({ history: kept });
+      },
+
       clearHistory: () => set({ history: [] }),
       clearSavedProducts: () =>
         set((state) => ({
@@ -640,9 +822,10 @@ export const useAppStore = create<AppState>()(
           state.history.some((h) => h.id === entry.id)
             ? state
             : {
-                history: [...state.history, entry]
-                  .sort((a, b) => b.lastSeenAt - a.lastSeenAt)
-                  .slice(0, HISTORY_LIMIT),
+                history: keptHistory(
+                  [...state.history, entry].sort((a, b) => b.lastSeenAt - a.lastSeenAt),
+                  Date.now()
+                ),
               }
         ),
 
@@ -760,10 +943,50 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: NEW_STORAGE_KEY,
-      version: 8,
+      version: 9,
       storage: createJSONStorage(() => formeStorage),
       partialize: partializeState,
       migrate: migratePersisted,
+      // The history age cap, on app start (#189).
+      onRehydrateStorage: () => (state) => state?.expireHistory(),
     }
   )
 );
+
+// The reinstall check in lib/secure-storage.ts reads `secureStoreClaimed`
+// through this, not through an import of this file (see `connectClaimFlag`).
+connectClaimFlag({
+  hydrated: () =>
+    useAppStore.persist.hasHydrated()
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => {
+          const unsubscribe = useAppStore.persist.onFinishHydration(() => {
+            unsubscribe();
+            resolve();
+          });
+        }),
+  isClaimed: () => useAppStore.getState().secureStoreClaimed,
+  claim: () => useAppStore.getState().claimSecureStore(),
+});
+
+/**
+ * A launch that couldn't read the profile from the Keychain (see
+ * `formeStorageFor`) reads it again each time the app comes to the front,
+ * until it can. The profile it finds replaces the empty one on screen — unless
+ * the person already started a new one in the meantime, which is theirs to
+ * keep.
+ */
+async function recoverProfile(): Promise<void> {
+  const recovered = await formeStorage.recoverProfile();
+  if (recovered && isEmptyProfile(useAppStore.getState().profile)) useAppStore.setState({ profile: recovered });
+}
+
+useAppStore.persist.onFinishHydration(() => {
+  if (!formeStorage.profileUnread()) return;
+  void recoverProfile();
+  const subscription = AppLifecycle.addEventListener("change", (status) => {
+    if (status !== "active") return;
+    if (!formeStorage.profileUnread()) subscription.remove();
+    else void recoverProfile();
+  });
+});

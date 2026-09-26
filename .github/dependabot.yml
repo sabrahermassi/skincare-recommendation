@@ -1,0 +1,59 @@
+# Dependency update PRs (#33). The policy — who reviews them, how fast, and
+# why the ignores below exist — is docs/dependencies.md.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Two PRs a week at most: the Expo SDK's own packages together, and
+    # everything else together. A package goes to the first group it matches.
+    groups:
+      expo:
+        patterns:
+          - "expo"
+          - "expo-*"
+          - "@expo/*"
+          - "*-expo"
+      everything-else:
+        patterns:
+          - "*"
+    ignore:
+      # An Expo SDK upgrade is done by hand, after checking which SDK Expo Go
+      # ships (CLAUDE.md, "Constraints"). These packages' major version is the
+      # SDK number, so a major bump is an SDK upgrade.
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "expo-*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@expo/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "*-expo"
+        update-types: ["version-update:semver-major"]
+      # React Native moves with the SDK; its minor is its breaking release.
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # NativeWind's runtime needs Tailwind 3; v4 breaks styling silently.
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      # The native libraries Expo pins to one version per SDK
+      # (node_modules/expo/bundledNativeModules.json). Expo Go only runs the
+      # versions its SDK ships, and one of these in the grouped weekly PR would
+      # fail `npx expo install --check` and hold back every other update in it.
+      # They move with a hand-made SDK upgrade (`npx expo install --fix`).
+      - dependency-name: "@react-native-async-storage/async-storage"
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "react-native-gesture-handler"
+      - dependency-name: "react-native-reanimated"
+      - dependency-name: "react-native-safe-area-context"
+      - dependency-name: "react-native-screens"
+      - dependency-name: "react-native-svg"
+      - dependency-name: "react-native-web"
+      - dependency-name: "react-native-worklets"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

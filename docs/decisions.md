@@ -38,6 +38,22 @@ it's gone now, not just hidden from the quiz.
 stored, and read by nothing. Classic dead data — nothing scored against
 them, nothing displayed them.
 
+**The skin profile lives in the Keychain on a phone (#189, 26 September
+2026).** Pregnancy status may be special-category health data (#14), and
+AsyncStorage is a plain-text file that backups copy. The profile moved; the
+rest of the store (history, shelf, flags) stayed, since it is too large for
+a Keychain item and the ticket scoped it out. `formeStorageFor` splits the
+profile out at the storage layer, so there is still one store and one
+hydration. Web keeps it in the file: no Keychain, not a release target.
+
+*Consequence, accepted:* the Keychain item is this-device-only, so **a
+profile does not come across to a new phone through a backup or transfer**.
+The person answers the four quiz questions again. The shelf still comes back
+with the account; the history, as before, does not leave the phone.
+
+*Same ticket:* scan history is also capped at 90 days since last seen, on top
+of the 50-entry limit.
+
 **Open question: should the catalogue cache notify screens instead of being
 re-read?** The catalogue lives in a module (`data/catalogue-cache.ts`) and
 each screen keeps its own copy in component state, so nothing hears about a

@@ -69,7 +69,7 @@ in the capture screen and a fuller sentence on the permission-request
 screen, so a user is told where the photo goes independent of which build
 they're running.
 
-### Open Beauty Facts, the INCI API, UPCitemdb
+### Open Beauty Facts, the INCI API
 
 Product catalogue lookups by barcode. No user-identifying or user-supplied
 content is sent to these — only the scanned barcode number. See
@@ -145,9 +145,10 @@ holds per account, owner-only under row-level security (migration 0025):
 | Which catalogue products the account added from a label photo (#241) — `product_authors`, readable only by that account and the service role, never public | Until the account is deleted, when the link is cleared and the product stays. In the export |
 | When the account first saved a product (#230) — one date in the account's metadata, so the "first page of your journal" welcome shows once, on any phone | Until the account is deleted. In the export |
 
-**On the phone:** the session token in the Keychain/Keystore (memory only
-on web), and a cached copy of the shelf in the app's own storage, cleared
-at sign-out (docs/device-storage-policy.md).
+**On the phone:** the session token and the skin profile in the
+Keychain/Keystore (memory only and the app's own storage, respectively, on
+web), and a cached copy of the shelf in the app's own storage, cleared at
+sign-out (docs/device-storage-policy.md).
 
 **Deletion (#224):** Profile → Account → Delete my account. The
 `delete-account` function deletes the account and, by cascade, every saved
@@ -203,10 +204,13 @@ left the phone.
   status may be special-category data under GDPR Art. 9, and #14 has not
   decided it).
 - **Scan history** never leaves the phone either.
-- Both live in `AsyncStorage`, unencrypted (a separate, already-tracked gap;
-  see `docs/device-storage-policy.md`), and are swept into Android's default
-  `allowBackup` and iOS device/iCloud backups — a disclosable processing fact
-  for whatever becomes the real privacy policy.
+- On a phone the profile is in the Keychain (#189): encrypted by the
+  system, readable only while the phone is unlocked, and **not in backups**,
+  so it doesn't move to a new phone; the person answers the four questions
+  again. Scan history lives in `AsyncStorage`, unencrypted, kept for at most
+  50 entries and 90 days, and is swept into Android's default `allowBackup`
+  and iOS device/iCloud backups — a disclosable processing fact for whatever
+  becomes the real privacy policy. See `docs/device-storage-policy.md`.
 - A **signed-out** phone keeps its own shelf, on the phone only (#300): the
   products and ingredients saved while signed out, in `AsyncStorage` like the
   profile. Signing in carries it into the account, to the server; signing out
