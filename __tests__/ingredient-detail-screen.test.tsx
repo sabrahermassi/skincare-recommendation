@@ -49,7 +49,9 @@ const INGREDIENTS = [
   ingredient("retinol"),
   ingredient("isopropyl myristate", { verified: false }),
   ingredient("parfum"),
-  ingredient("hydroquinone"),
+  // Banned in EU cosmetics outside nail products, and a pregnancy caution: the
+  // real dictionary marks it `avoid` (scripts/import-inci-dictionary.mjs).
+  ingredient("hydroquinone", { safety: "avoid" }),
   ingredient("some prohibited substance", { safety: "avoid" }),
 ];
 
@@ -147,9 +149,11 @@ describe.each([
     mockFontScale = 1;
   });
 
-  it("shows hydroquinone's pregnancy source under its caution", async () => {
+  it("shows both of hydroquinone's warnings, each under its own source", async () => {
     const hydroquinone = PREGNANCY_CAUTION.find((entry) => entry.category === "hydroquinone")!;
     await open("hydroquinone", { pregnancyStatus: "pregnant" });
+    expect(screen.getByText("Flagged as best avoided")).toBeTruthy();
+    expect(screen.getByLabelText(`Source: ${EU_PROHIBITED_SOURCE.label}`)).toBeTruthy();
     expect(screen.getByText(hydroquinone.reason)).toBeTruthy();
     expect(screen.getByLabelText(`Source: ${hydroquinone.source!.label}`)).toBeTruthy();
   });
