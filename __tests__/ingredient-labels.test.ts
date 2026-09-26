@@ -98,6 +98,34 @@ describe("ingredientLabel, with no skin profile", () => {
   });
 });
 
+describe("ingredientLabel, while pregnant or breastfeeding", () => {
+  // A pregnancy hit is an "irritant" warning to the score, never a hazard, and
+  // a pregnancy answer alone is not a skin profile.
+  const RETINOL = ingredient("retinol");
+  const UNREAD_RETINOL = ingredient("retinol", { id: "retinol-unread", verified: false });
+
+  it("says Avoid with no skin profile, where nothing else person-specific is shown", () => {
+    const match = matchProduct(product([...PLAIN, RETINOL]), profile({ pregnancyStatus: "pregnant" }));
+    expect(match.warnings.some((w) => w.origin === "pregnancy" && w.severity === "irritant")).toBe(true);
+    expect(ingredientLabel(RETINOL, match, false)).toBe("avoid");
+  });
+
+  it("says Avoid, not Watch, with a skin profile", () => {
+    const match = matchProduct(product([...PLAIN, RETINOL]), profile({ ...WITH_PROFILE, pregnancyStatus: "breastfeeding" }));
+    expect(ingredientLabel(RETINOL, match, true)).toBe("avoid");
+  });
+
+  it("says Avoid even when the label read left the name unrecognised", () => {
+    const match = matchProduct(product([...PLAIN, UNREAD_RETINOL]), profile({ pregnancyStatus: "pregnant" }));
+    expect(ingredientLabel(UNREAD_RETINOL, match, false)).toBe("avoid");
+  });
+
+  it("leaves the same ingredient alone for someone who isn't pregnant", () => {
+    const match = matchProduct(product([...PLAIN, RETINOL]), EMPTY_PROFILE);
+    expect(ingredientLabel(RETINOL, match, false)).not.toBe("avoid");
+  });
+});
+
 describe("sortForGlance", () => {
   const match = matchProduct(product(ALL), WITH_PROFILE);
 
