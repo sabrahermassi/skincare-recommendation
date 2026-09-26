@@ -105,10 +105,9 @@ beforeEach(async () => {
 
 describe("reference stability", () => {
   /**
-   * The whole point. `app/(tabs)/browse.tsx` memoises scoring on the identity
-   * of this array — a cache that rebuilds it per hit would remove the network
-   * cost and keep the CPU cost, which looks like a working cache from the
-   * outside.
+   * The whole point. Screens memoise on the identity of this array — a cache
+   * that rebuilds it per hit would remove the network cost and keep the CPU
+   * cost, which looks like a working cache from the outside.
    */
   it("returns the identical array instance on repeated reads", async () => {
     putCatalogue(CATALOGUE, WATERMARK);

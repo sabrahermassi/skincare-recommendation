@@ -19,7 +19,7 @@ import { COLORS } from "@/lib/colors";
 import { startFirstPage } from "@/lib/first-page";
 import { NOTE_FONT_SOURCE } from "@/lib/note-font";
 import { startShelfSync } from "@/lib/shelf-sync";
-import { revalidateOnForeground, warmCatalogue } from "@/data/api";
+import { prefetchCatalogue, revalidateOnForeground, warmCatalogue } from "@/data/api";
 import { useAppStore } from "@/store/useAppStore";
 
 SplashScreen.preventAutoHideAsync();
@@ -98,6 +98,13 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();
+  }, [ready]);
+
+  // Downloads the catalogue once the first screen is up, when this phone has
+  // none (a fresh install, or a copy past its 24h ceiling). Data only — it
+  // never navigates. See `prefetchCatalogue`.
+  useEffect(() => {
+    if (ready) prefetchCatalogue();
   }, [ready]);
 
   // A journal note's handwriting (#229) starts loading once the app is up,

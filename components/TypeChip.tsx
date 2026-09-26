@@ -6,7 +6,7 @@ import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
 import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, INK, MUTED, RADIUS_SELECTOR, SELECTED, TOUCH_TARGET } from "@/lib/tokens";
 
-/** A single-choice pill for a product type — Browse's filter row and add-product's type picker. */
+/** A single-choice pill for a product type — add-product's type picker and Saved's step filter. */
 export function TypeChip({
   label,
   selected,
