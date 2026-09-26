@@ -27,7 +27,7 @@ import { GlassButton } from "@/components/GlassButton";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
-import { canPhotographLabelFor, fetchProductByBarcode, type FetchFailure } from "@/data/api";
+import { isProductBarcode, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
 import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
@@ -365,7 +365,7 @@ export default function Scan() {
       // doomed round trip, which is the answer the network call would give
       // anyway.
       track("scan_started", { path: "barcode" });
-      if (!canPhotographLabelFor(data)) {
+      if (!isProductBarcode(data)) {
         // Not written to history (#204): a QR code's payload is a link or
         // any text at all, not a product anyone could find again, and it
         // would sit in Saved as a row with nothing to offer.
@@ -449,7 +449,7 @@ export default function Scan() {
         requestPermission={requestPermission}
         status={status}
         onBarcode={handleBarcode}
-        onAdd={() => selectMode("Photo")}
+        onPhotograph={() => selectMode("Photo")}
         onDismiss={dismissStatus}
         showHint={showScanHint}
         onHint={() => selectMode("Photo")}
@@ -820,7 +820,7 @@ function BarcodeStage({
   requestPermission,
   status,
   onBarcode,
-  onAdd,
+  onPhotograph,
   onDismiss,
   showHint,
   onHint,
@@ -831,8 +831,8 @@ function BarcodeStage({
   status: Status;
   /** Looks a barcode up again ("Try again" after a failed lookup). */
   onBarcode: (data: string) => void;
-  /** Starts adding the product we don't have: the ingredient photo. */
-  onAdd: () => void;
+  /** Switches to Photo mode, to read the ingredient list of a product we don't have. */
+  onPhotograph: () => void;
   /** Clears a "missed" or "unreachable" panel and returns the scanner to
    *  Ready — "Scan again" / "Scan something else" below (#192). */
   onDismiss: () => void;
@@ -849,8 +849,8 @@ function BarcodeStage({
   // One sentence per state, shared by the spoken announcement and the visible
   // panel's own label so the two can never drift apart. The words are
   // `scanStateCopy`'s (#204). A QR code or a non-retail barcode reads as a
-  // miss too, but there is no product to add under it.
-  const notProduct = status.kind === "missed" && !canPhotographLabelFor(status.code);
+  // miss too, but there is no product behind it to photograph.
+  const notProduct = status.kind === "missed" && !isProductBarcode(status.code);
   const panelState: ScanState | null =
     status.kind === "looking"
       ? { kind: "working", step: "lookup" }
@@ -1016,7 +1016,7 @@ function BarcodeStage({
           secondaryLabel={copy.byName ?? ""}
           bottomInset={insets.bottom}
           onDismiss={onDismiss}
-          onPrimary={notProduct ? onDismiss : onAdd}
+          onPrimary={notProduct ? onDismiss : onPhotograph}
           onSecondary={() => {
             preserveMode();
             // Closes the scanner onto Search, with the box empty and focused

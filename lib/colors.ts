@@ -63,7 +63,9 @@ export const COLORS = {
   // keep the shell colours above.
   introAccent: "#9B614E", // the headline's first phrase, the active dot, Back
   introInk: "#240904", // the rest of the headline
-  introMuted: "#8F8275", // subtext, Skip, the inactive dots
+  // The owner's #8F8275 darkened 13.5%, the least that reaches 4.5:1 on CANVAS
+  // (computed); at 3.56:1 the original was too faint for text this size (#373).
+  introMuted: "#7C7065", // subtext, Skip, the inactive dots
 
   // Buttons (owner, 27 September 2026), matched to the intro illustrations.
   // Contrast computed, not read off a mockup (WCAG relative luminance):

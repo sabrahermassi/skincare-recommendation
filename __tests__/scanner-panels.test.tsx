@@ -88,7 +88,7 @@ jest.mock("@/components/ScanViewfinder", () => ({
 jest.mock("@/components/IngredientsSheet", () => ({ SHEET_INSET: 0, SHEET_OUTLINE: "#000", SHEET_RADIUS: 0 }));
 
 jest.mock("@/data/api", () => ({
-  canPhotographLabelFor: (id: string) => /^\d{8,14}$/.test(id),
+  isProductBarcode: (id: string) => /^\d{8,14}$/.test(id),
   failureMessage: () => "Couldn't reach our catalogue. Check your connection.",
   fetchProductByBarcode: jest.fn(),
 }));

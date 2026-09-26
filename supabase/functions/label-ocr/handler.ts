@@ -1,17 +1,13 @@
-// Read an ingredient list off a photographed label, and — once the user has
-// named the product — write it back against its barcode so the next person who
-// scans that barcode gets it instantly.
-//
-// Two calls: a photo is read and the list handed back (nothing is stored); the
-// list, the barcode and a name are then saved together. A product exists only
-// with all three.
+// Read an ingredient list off a photographed label and hand it back; nothing
+// is stored. It used to have a second call that saved the list under a barcode
+// and a name, so the catalogue grew from use; that is switched off (#374), since
+// the app no longer adds products, and what only it used goes in #377.
 //
 // This is the tier that makes a scan-first app viable. Open Beauty Facts holds
 // 37 products tagged South Korea; Olive Young alone lists over 10,000 SKUs. No
 // barcode database will close that gap — but the formula is printed on the box
 // in the user's hand, and reading it works on any product, any brand, any
-// country. Every result is stored against the barcode, so the catalogue grows
-// from real use instead of from a bulk import that does not exist.
+// country.
 //
 // The decisions live here, kept free of `Deno.env` and of a real database
 // client so they can be tested with fakes (supabase/tests/label_ocr.test.ts,
@@ -34,20 +30,10 @@ import {
 } from "../_shared/http.ts";
 import { fetchAliases, fetchDictionary, knownIngredients } from "../_shared/dictionary.ts";
 import { MIN_KNOWN_INGREDIENT_RATIO, gateRatio } from "../_shared/gate-ratio.ts";
-import { dedupe, normalise, parseIngredientBlock } from "../_shared/inci-parse.ts";
+import { parseIngredientBlock } from "../_shared/inci-parse.ts";
 import { MAX_IMAGE_CHARS } from "../_shared/image-limits.ts";
-import { paginateOrdered } from "../_shared/paginate.ts";
-import {
-  MAX_NEW_STUBS_PER_SAVE,
-  acceptedProductType,
-  exactIlikePattern,
-  mostCommonSpelling,
-  savedTextProblem,
-  storedText,
-} from "../_shared/product-text.ts";
-import { signedInAccount } from "../_shared/rate-limit.ts";
 import { spendVisionRead } from "../_shared/vision-ceiling.ts";
-import { readTokenDeadline, signReadToken, verifyReadToken } from "../_shared/read-token.ts";
+import { signReadToken } from "../_shared/read-token.ts";
 import { logScanBounded, type ScanOutcome } from "../_shared/scan-log.ts";
 import { stripBase64ImageMetadata } from "../_shared/strip-metadata.ts";
 
@@ -63,19 +49,10 @@ export const VISION_TIMEOUT_MS = 25_000;
 /** Generous for a person in a shop, useless for anyone burning the free tier. */
 const RATE_LIMIT: RateLimit = { windowSeconds: 300, maxRequests: 10 };
 
-/**
- * Saving a read list is a cheap database write, unlike a photo read (a paid Vision
- * call), so it has its own bucket: one add is a read plus a save, and sharing the
- * read bucket would cap a person at five adds per window, fewer with retries.
- */
-const SAVE_RATE_LIMIT: RateLimit = { windowSeconds: 300, maxRequests: 20 };
 
 
 /** Four is the floor the verdict engine itself needs before it will produce a number. */
 const MIN_INGREDIENTS = 4;
-
-/** No ingredient list runs anywhere near this long; it only bounds what a client can send to be saved. */
-const MAX_SAVED_INGREDIENTS = 400;
 
 /**
  * Ceiling on the raw request body, checked against Content-Length before the
@@ -155,10 +132,7 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
     return json(req, { error: "Body must be JSON" }, 400);
   }
 
-  // Two steps, one endpoint. Reading a photo writes nothing: the user has not
-  // yet said what the product is called, and a product is stored only once it
-  // has a name, a barcode and an ingredient list. Saving takes the list that the
-  // read returned (no image) along with the barcode and the name.
+  // A request carrying a list rather than a photo is the old save call (#374).
   const saving = ingredients !== undefined;
 
   // `typeof` first, deliberately. `/regex/.test(x)` coerces its argument, so
@@ -174,34 +148,11 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
     return json(req, { error: "brand must be a string" }, 400);
   }
 
-  if (saving) {
-    if (!barcode) return json(req, { error: "barcode is required" }, 400);
-    if (!name || name.trim().length === 0) return json(req, { error: "name is required" }, 400);
-    // Before the rate limiter and the token, so a refused name spends neither:
-    // the person fixes the name and saves the same read again (#200).
-    for (const [field, value] of [["name", name], ["brand", brand]] as const) {
-      if (value === undefined || value.trim() === "") continue;
-      const problem = savedTextProblem(field, value);
-      if (problem) return json(req, { error: "bad_product_text", field, problem }, 422);
-    }
-    if (
-      !Array.isArray(ingredients) ||
-      ingredients.length > MAX_SAVED_INGREDIENTS ||
-      !ingredients.every((entry) => typeof entry === "string")
-    ) {
-      return json(req, { error: "ingredients must be a list of names" }, 400);
-    }
-    if (typeof readToken !== "string") return json(req, { error: "readToken is required" }, 400);
-    const refusal = await enforceRateLimit(req, db, "label-ocr-save", SAVE_RATE_LIMIT);
-    if (refusal) return refusal;
-    // The list has to be one a read returned, unedited and recent: this
-    // endpoint is unauthenticated, and without the proof anyone could save a
-    // made-up list of real ingredient names under any unclaimed barcode.
-    if (!(await verifyReadToken(readToken, ingredients as string[], deps.readTokenSecret))) {
-      return json(req, { error: "read_expired" }, 403);
-    }
-    return saveProduct(req, db, barcode, name, brand, acceptedProductType(type), ingredients as string[], readToken);
-  }
+  // Saving a product from a read is switched off (#374). The app no longer
+  // adds products, so nothing legitimate calls it, and left open it let anyone
+  // with the public key write to the catalogue. What only it used on the
+  // server (the read token and its tables) goes in #377.
+  if (saving) return json(req, { error: "saving_disabled" }, 410);
 
   if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
     return json(req, { error: "imageBase64 is required" }, 400);
@@ -440,174 +391,6 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
   );
 }
 
-/**
- * Store a product the user has just read and named. Runs only once there is a
- * barcode, a name and an ingredient list — the three a product needs to exist.
- *
- * The list comes from the client, so it is checked again here rather than
- * trusted: normalised the same way, held to the same floor, and held to the same
- * recognised-in-the-dictionary ratio as a read.
- */
-async function saveProduct(
-  req: Request,
-  db: LabelOcrDb,
-  barcode: string,
-  name: string,
-  brand: string | undefined,
-  type: string,
-  names: string[],
-  readToken: string
-): Promise<Response> {
-  const parsed = dedupe(
-    names
-      .map(normalise)
-      .filter((n) => n.length > 1 && n.length < 120 && /[a-z]|\p{Script=Hangul}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Han}/u.test(n))
-      .map((inci_name, position) => ({ inci_name, position }))
-  );
-  if (parsed.length < MIN_INGREDIENTS) {
-    return json(req, { error: "not_enough_text", found: parsed.length }, 422);
-  }
-
-  // Someone may have saved this barcode between this user's failed lookup and
-  // now. Theirs stays: it is the same product, and this endpoint is
-  // unauthenticated, so an existing entry must not be replaced by whoever
-  // arrives next.
-  const existing = await productForBarcode(db, barcode);
-  if (existing && existing.product_ingredients.length > 0) {
-    return json(
-      req,
-      {
-        product: existing,
-        recognised: existing.product_ingredients.length,
-        total: existing.product_ingredients.length,
-      },
-      200
-    );
-  }
-
-  let known: Set<string>;
-  try {
-    known = await knownIngredients(db, parsed.map((p) => p.inci_name));
-  } catch (err) {
-    console.error("knownIngredients failed:", err);
-    return json(req, { error: "Could not read the ingredient dictionary" }, 502);
-  }
-  if (gateRatio(parsed, known) < MIN_KNOWN_INGREDIENT_RATIO) {
-    return json(
-      req,
-      { error: "low_confidence", found: parsed.length, recognised: known.size },
-      422
-    );
-  }
-
-  // Every name the dictionary lacks becomes a permanent stub row, so one save
-  // may only add so many (#200). `known` is verified names only; a name that
-  // is already an unverified stub costs nothing new, so it isn't counted.
-  let newStubs: number;
-  let canonicalBrand: string;
-  try {
-    const unmatched = parsed.map((p) => p.inci_name).filter((n) => !known.has(n));
-    const existing = await existingIngredientNames(db, unmatched);
-    newStubs = unmatched.filter((n) => !existing.has(n)).length;
-    canonicalBrand = await brandAsStored(db, brand);
-  } catch (err) {
-    console.error("save pre-checks failed:", err);
-    return json(req, { error: "Could not save the product" }, 502);
-  }
-  if (newStubs > MAX_NEW_STUBS_PER_SAVE) {
-    return json(req, { error: "too_many_new_ingredients", found: parsed.length, newIngredients: newStubs }, 422);
-  }
-
-  const product = {
-    id: existing?.id ?? `ocr-${barcode}`,
-    barcode,
-    brand: canonicalBrand,
-    name: storedText("name", name),
-    // The person's own pick, when they made one (#200). A photographed
-    // ingredient list gives no basis for guessing a category, so without a
-    // pick it says "unknown" rather than defaulting to "serum" — the bug that
-    // had a photographed foot cream displayed as one.
-    type,
-    area: "face",
-    description: null,
-    image_url: null,
-    volume: null,
-    in_stock: true,
-    suitable_for: [],
-    targets: [],
-    source: "ocr",
-    attribution: "Ingredients read from the product label.",
-    expires_at: null,
-  };
-
-  // A read can be saved once. The signature says the list came from a read, not
-  // that it is unused, so the token is recorded here, atomically: the first save
-  // with it wins and any later one (a replay under another barcode, or two saves
-  // racing) is refused. Just before the write, not earlier, so a save refused above
-  // for its list or its barcode does not spend the token.
-  const { data: consumed, error: consumeError } = await db.rpc("consume_read_token", {
-    p_token: readToken,
-    p_expires_at: new Date(readTokenDeadline(readToken)).toISOString(),
-  });
-  if (consumeError) {
-    console.error("consume_read_token failed:", consumeError);
-    return json(req, { error: "Could not save the product" }, 502);
-  }
-  if (consumed !== true) return json(req, { error: "read_expired" }, 403);
-
-  // One RPC, one transaction: the stub ingredient rows, the product, and the
-  // replacement of its formula either all commit or none do (migration 0008).
-  // Every parsed name is sent, not just the ones missing from `known`: the RPC
-  // inserts stubs ON CONFLICT DO NOTHING, so a name already in the dictionary
-  // is left exactly as it was, and the full list is what has to drive
-  // `product_ingredients` regardless.
-  const { error: persistError } = await db.rpc("replace_product_with_ingredients", {
-    p_product: product,
-    p_ingredients: parsed,
-    p_stub_note: "Read from a label, not matched to the ingredient dictionary.",
-    // Leave a product that already has ingredients as it is: another person may have
-    // saved this barcode since the check above, and the database serialises that race.
-    p_insert_only: true,
-  });
-  if (persistError) {
-    console.error("replace_product_with_ingredients failed:", persistError);
-    // Nothing was saved, so the read is still good: give the token back so the
-    // person can try again without photographing the list a second time.
-    await db.rpc("release_read_token", { p_token: readToken });
-    return json(req, { error: "Could not save the product" }, 502);
-  }
-
-  const { data, error: readbackError } = await db
-    .from("products")
-    .select(PRODUCT_SELECT)
-    // By barcode, not id: when a save was refused because the barcode already had a
-    // product, that product may not carry this id.
-    .eq("barcode", barcode)
-    .maybeSingle();
-  if (readbackError || !data) {
-    console.error("post-write readback failed:", readbackError);
-    return json(req, { error: "Could not save the product" }, 502);
-  }
-
-  // Who added it (#241), when a signed-in person did — confirmed with Auth,
-  // never read off the token on trust. Kept out of `products` itself, which
-  // is public (migration 0026). First author wins: if another save of this
-  // barcode landed between the check above and the write, theirs is the row
-  // read back, and a guest's leaves no author row for this one to take over
-  // — a narrow race, and the wrong attribution it could cause is ours to
-  // see, never shown to anyone. A failed write costs the record, not the
-  // save the person just made.
-  const author = await signedInAccount(req, db.auth);
-  if (author && data.id === product.id) {
-    const { error: authorError } = await db
-      .from("product_authors")
-      .upsert({ product_id: data.id, user_id: author }, { onConflict: "product_id", ignoreDuplicates: true });
-    if (authorError) console.error("product_authors write failed:", authorError);
-  }
-
-  return json(req, { product: data, recognised: known.size, total: parsed.length }, 200);
-}
-
 // ── OCR ─────────────────────────────────────────────────────────────────────
 
 type OcrResult =
@@ -706,68 +489,4 @@ function brokenAcrossLines(text: string, name: string): boolean {
 function secondsUntilUtcMidnight(now = Date.now()): number {
   const day = 86_400_000;
   return Math.max(1, Math.ceil((day - (now % day)) / 1000));
-}
-
-const PRODUCT_SELECT = `id, barcode, brand, name, type, area, description, image_url, volume,
-   price_krw, in_stock, suitable_for, targets, source, attribution, fetched_at,
-   formula_changed_at,
-   product_ingredients ( position, ingredients ( inci_name, comedogenic, safety, note, verified, functions ) )`;
-
-type ExistingProduct = {
-  id: string;
-  brand: string;
-  name: string;
-  type: string;
-  area: string;
-  volume: string | null;
-  source: string;
-  attribution: string | null;
-  fetched_at: string | null;
-  formula_changed_at: string | null;
-  product_ingredients: unknown[];
-};
-
-/** The catalogue row already holding this barcode, if any. `barcode` is UNIQUE, so at most one. */
-async function productForBarcode(db: LabelOcrDb, barcode: string): Promise<ExistingProduct | null> {
-  const { data } = await db
-    .from("products")
-    .select(PRODUCT_SELECT)
-    .eq("barcode", barcode)
-    .maybeSingle();
-  return (data as ExistingProduct | null) ?? null;
-}
-
-/**
- * Which of `names` already have an `ingredients` row, verified or not — the
- * ones a save would not add as new stubs. Thrown on error for the same reason
- * as `knownIngredients` in `_shared/dictionary.ts`.
- */
-async function existingIngredientNames(db: LabelOcrDb, names: string[]): Promise<Set<string>> {
-  const found = new Set<string>();
-  for (let i = 0; i < names.length; i += 200) {
-    const { data, error } = await db.from("ingredients").select("inci_name").in("inci_name", names.slice(i, i + 200));
-    if (error) throw new Error(`existingIngredientNames: ${error.message}`);
-    for (const row of data ?? []) found.add(row.inci_name as string);
-  }
-  return found;
-}
-
-/**
- * The brand as the catalogue already spells it, so "cerave" and "CeraVe"
- * don't split one brand across Browse and search (#200). Spacing is tidied
- * first; then, among existing products whose brand matches ignoring case, the
- * most common spelling wins (imports themselves carry both "Cerave" and
- * "CeraVe"). A brand nobody has used yet is stored as typed.
- */
-async function brandAsStored(db: LabelOcrDb, brand: string | undefined): Promise<string> {
-  const tidied = storedText("brand", brand ?? "");
-  if (!tidied) return "Unknown";
-  // Every matching row, not the first page: once a brand runs past one page,
-  // an unordered subset could crown a minority spelling (#266 review).
-  const rows = await paginateOrdered<{ id: string; brand: string }>(db, "products", {
-    select: "id, brand",
-    cursorColumn: "id",
-    filter: (q) => q.ilike("brand", exactIlikePattern(tidied)),
-  });
-  return mostCommonSpelling(rows.map((row) => row.brand)) ?? tidied;
 }
