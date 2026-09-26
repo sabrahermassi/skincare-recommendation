@@ -7,9 +7,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
 import { BottomSheet } from "@/components/BottomSheet";
+import { GlassButton } from "@/components/GlassButton";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { NotePreview } from "@/components/ProductNote";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
+import { SaveHeart } from "@/components/SaveHeart";
+import { ScorePill } from "@/components/ScorePill";
+import { SwipeToDelete } from "@/components/SwipeToDelete";
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
 import { TERRACOTTA } from "@/components/shell/shared";
@@ -21,14 +25,14 @@ import { displayIngredientName } from "@/lib/ingredient-name";
 import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime } from "@/lib/format";
 import { openScanner } from "@/lib/open-scanner";
-import { matchProduct, matchTone } from "@/lib/matching";
+import { matchProduct } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, TYPE_STEP, stepOf, type RoutineStep, type StepGroup } from "@/lib/routine-step";
 import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
 import { isVerified } from "@/lib/safety";
 import { useCanJournal, useGuestShelf } from "@/lib/saving";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, SPACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 
@@ -43,9 +47,11 @@ type Tab = SavedTab;
  * when you looked - a log that rewrites its own past entries is worse than no
  * log.
  *
- * That distinction survives the verdict colours: a saved row carries both the
- * leading bar and the badge, a history row carries only the bar, tinted by the
- * score it had at the time. The bar is a colour, not a claim about now.
+ * Both are the same white card (owner's reference): picture, brand, name, the
+ * score as a pill and a heart in the corner. On a saved card the pill is
+ * today's score and untapping the heart takes the product off the shelf; on a
+ * history card the pill is the score it had when you looked, the heart saves
+ * or unsaves it, and a swipe left shows a bin that asks before deleting.
  */
 export default function Saved() {
   const insets = useSafeAreaInsets();
@@ -68,7 +74,6 @@ export default function Saved() {
   const clearSavedProducts = useAppStore((s) => s.clearSavedProducts);
   const clearSavedIngredients = useAppStore((s) => s.clearSavedIngredients);
   const removeHistoryEntry = useAppStore((s) => s.removeHistoryEntry);
-  const restoreHistoryEntry = useAppStore((s) => s.restoreHistoryEntry);
   const shelfOwner = useAppStore((s) => s.shelfOwner);
   const guest = useGuestShelf();
   const canJournal = useCanJournal();
@@ -79,8 +84,10 @@ export default function Saved() {
   // re-deriving it from whatever the list looks like by the time it's
   // tapped.
   const [pendingUndo, setUndo] = useState<
-    { kind: "saved"; product: SavedProduct; owner: string | null } | { kind: "history"; entry: HistoryEntry } | null
+    { kind: "saved"; product: SavedProduct; owner: string | null } | null
   >(null);
+  // The history entry whose bin was tapped, waiting on the confirmation sheet.
+  const [deleting, setDeleting] = useState<HistoryEntry | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     return () => {
@@ -315,14 +322,21 @@ export default function Saved() {
             if (!product) return null;
             if (activeFilter !== "all" && groupOf(id) !== activeFilter) return null;
             const match = matchProduct(product, profile);
-            const score = match.score;
-            const tone = score === null ? null : matchTone(score);
-            const verdict = tone ? VERDICT[tone] : VERDICT_NEUTRAL;
             return (
               <Row
                 key={id}
                 product={product}
-                bar={verdict.solid}
+                corner={
+                  // Untapping the heart takes it off the shelf, with a moment to undo.
+                  <SaveHeart
+                    productId={id}
+                    onUnsave={() => {
+                      const saved = savedProducts.find((p) => p.id === id);
+                      toggleSaved(id);
+                      if (saved) showUndo({ kind: "saved", product: saved, owner: shelfOwner });
+                    }}
+                  />
+                }
                 footer={
                   <StepLine
                     group={groupOf(id)}
@@ -331,38 +345,12 @@ export default function Saved() {
                     onChange={canJournal ? () => setPickingStepFor(id) : undefined}
                   />
                 }
-                onRemove={() => {
-                  const saved = savedProducts.find((p) => p.id === id);
-                  toggleSaved(id);
-                  if (saved) showUndo({ kind: "saved", product: saved, owner: shelfOwner });
-                }}
               >
                 {savedProducts.find((p) => p.id === id)?.note ? (
                   // The person's own words, exactly as written (#228).
                   <NotePreview note={savedProducts.find((p) => p.id === id)!.note!} />
                 ) : null}
-                {tone && score !== null && (
-                  <View
-                    style={{
-                      marginTop: 7,
-                      alignSelf: "flex-start",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 5,
-                      borderRadius: 999,
-                      paddingHorizontal: 10,
-                      paddingVertical: 4,
-                      backgroundColor: verdict.tint,
-                    }}
-                  >
-                    <Text style={{ fontSize: TYPE.caption, fontWeight: "700", color: verdict.deep }}>
-                      {score}%
-                    </Text>
-                    <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: verdict.deep }}>
-                      · {VERDICT_LABEL[match.verdict]}
-                    </Text>
-                  </View>
-                )}
+                <ScorePill score={match.score} />
               </Row>
             );
           })}
@@ -406,26 +394,30 @@ export default function Saved() {
         <ScrollView key="history" ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
           {history.map((entry) => {
             const product = entry.known ? byId[entry.id] : undefined;
-            // The bar reflects the score this entry carried when it was
-            // logged, not a fresh one - re-scoring the log is exactly what
-            // this screen refuses to do.
-            const snapshotTone = entry.scoreAtView === null ? null : matchTone(entry.scoreAtView);
-            const bar = snapshotTone ? VERDICT[snapshotTone].solid : VERDICT_NEUTRAL.solid;
-            const removeEntry = () => {
-              removeHistoryEntry(entry.id);
-              showUndo({ kind: "history", entry });
-            };
-            return product ? (
-              <Row key={entry.id} product={product} bar={bar} onRemove={removeEntry}>
-                <HistoryMeta entry={entry} action />
-              </Row>
-            ) : (
-              <UnknownRow key={entry.id} entry={entry} bar={bar} onRemove={removeEntry} />
+            return (
+              <SwipeToDelete key={entry.id} label={product?.name ?? entry.id} onDelete={() => setDeleting(entry)}>
+                {product ? (
+                  <Row product={product} corner={<SaveHeart productId={product.id} fetchedAt={product.fetchedAt} />}>
+                    {/* The score it had when it was looked at, not a fresh one:
+                        re-scoring the log is exactly what this screen refuses to do. */}
+                    <ScorePill score={entry.scoreAtView} />
+                    <HistoryMeta entry={entry} />
+                  </Row>
+                ) : (
+                  <UnknownRow entry={entry} />
+                )}
+              </SwipeToDelete>
             );
           })}
-          {undo?.kind === "history" && (
-            <UndoBar label="Removed" onUndo={() => { restoreHistoryEntry(undo.entry); dismissUndo(); }} />
-          )}
+
+          <DeleteSheet
+            visible={deleting !== null}
+            onClose={() => setDeleting(null)}
+            onDelete={() => {
+              if (deleting) removeHistoryEntry(deleting.id);
+              setDeleting(null);
+            }}
+          />
 
           <ClearAll
             label="Clear history"
@@ -535,14 +527,13 @@ function SegmentButton({
  *  relied on. */
 function Row({
   product,
-  bar,
-  onRemove,
+  corner,
   children,
   footer,
 }: {
   product: ProductWithIngredients;
-  bar: string;
-  onRemove: () => void;
+  /** The heart in the top-right corner. */
+  corner: ReactNode;
   children: ReactNode;
   /** Controls under the card's link, outside it — see the note below on why. */
   footer?: ReactNode;
@@ -552,37 +543,66 @@ function Row({
     // The card's chrome lives on a plain View, not the Link/Pressable
     // itself — `Link asChild` renders an actual `<a>` on web, and a click
     // anywhere inside an anchor triggers its navigation, `stopPropagation`
-    // on a nested Pressable notwithstanding (confirmed: it doesn't stop the
-    // anchor's own default action). Keeping `RemoveButton` as a sibling
-    // outside the anchor, not a descendant of it, is the only fix that
-    // actually holds on web.
-    <LiftedCard scale={scale} backgroundColor={SURFACE}>
-    <View style={{ borderRadius: 16, borderWidth: 1, borderColor: BORDER_INACTIVE, overflow: "hidden" }}>
-      <Link href={`/product/${product.id}`} asChild>
-        <Pressable style={{ flexDirection: "row" }} {...press}>
-          <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
-          <View style={{ flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 13, padding: 13 }}>
-            <ProductThumbnail product={product} size={56} radius={14} />
-            <View style={{ flex: 1, paddingRight: 28 }}>
-              <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
-                {product.brand}
-              </Text>
-              <Text
-                style={{ marginTop: 2, fontSize: 13.5, fontWeight: "500", lineHeight: 18, color: INK }}
-                numberOfLines={2}
-              >
-                {product.name}
-              </Text>
+    // on a nested Pressable notwithstanding. Keeping the heart a sibling
+    // outside the anchor, not a descendant of it, is the only fix that holds.
+    <LiftedCard radius={CARD_RADIUS} scale={scale} backgroundColor={SURFACE}>
+      <View style={{ borderRadius: CARD_RADIUS, overflow: "hidden" }}>
+        <Link href={`/product/${product.id}`} asChild>
+          <Pressable style={{ flexDirection: "row", alignItems: "center", gap: 16, padding: 18, paddingRight: CORNER_CLEARANCE }} {...press}>
+            <ProductThumbnail product={product} size={CARD_THUMB} radius={16} backgroundColor={SURFACE} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <View style={{ gap: 2 }}>
+                <Text numberOfLines={1} style={{ fontSize: TYPE.label, color: MUTED_FAINT }}>
+                  {product.brand}
+                </Text>
+                <Text numberOfLines={2} style={{ fontSize: 17, fontWeight: "500", lineHeight: 22, color: INK }}>
+                  {product.name}
+                </Text>
+              </View>
               {children}
             </View>
-          </View>
-        </Pressable>
-      </Link>
-      {footer}
-
-      <RemoveButton onPress={onRemove} />
-    </View>
+          </Pressable>
+        </Link>
+        {footer}
+        <View style={{ position: "absolute", top: 6, right: 6 }}>{corner}</View>
+      </View>
     </LiftedCard>
+  );
+}
+
+// A Saved or History card: its corners, its picture, and the room its name
+// leaves for the heart in the corner.
+const CARD_RADIUS = 24;
+const CARD_THUMB = 72;
+const CORNER_CLEARANCE = 52;
+
+/**
+ * "Delete product?" — the second step after a history card's bin, so one
+ * stray swipe and tap can't lose an entry. The X, or a tap on the dimmed
+ * screen, keeps it.
+ */
+function DeleteSheet({ visible, onClose, onDelete }: { visible: boolean; onClose: () => void; onDelete: () => void }) {
+  return (
+    <BottomSheet visible={visible} onClose={onClose}>
+      <GlassButton symbol="xmark" icon="close" accessibilityLabel="Keep it" onPress={onClose} small style={{ alignSelf: "flex-end" }} />
+      <View style={{ alignItems: "center", gap: SPACE.text }}>
+        <Text accessibilityRole="header" style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
+          Delete product?
+        </Text>
+        <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>It will disappear from your history.</Text>
+      </View>
+      <Pressable
+        onPress={() => {
+          haptic.warning();
+          onDelete();
+        }}
+        accessibilityRole="button"
+        className="active:opacity-90"
+        style={{ alignSelf: "center", width: "70%", minHeight: 52, marginTop: SPACE.text, alignItems: "center", justifyContent: "center", borderRadius: 26, backgroundColor: DANGER }}
+      >
+        <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: SURFACE }}>Delete</Text>
+      </Pressable>
+    </BottomSheet>
   );
 }
 
@@ -696,36 +716,21 @@ function UndoBar({ label, onUndo }: { label: string; onUndo: () => void }) {
   );
 }
 
-/**
- * The snapshot verdict, set deliberately quieter than the saved badge so it
- * never reads as the product's current score.
- */
-function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: boolean }) {
+/** When it was looked at, how often, and what was flagged then. */
+function HistoryMeta({ entry }: { entry: HistoryEntry }) {
   return (
-    <View style={{ marginTop: 6, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 10 }}>
-      <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 8, rowGap: 4 }}>
-        <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{relativeTime(entry.lastSeenAt)}</Text>
-        {entry.seenCount > 1 && (
-          <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>
-            · checked {entry.seenCount} times
-          </Text>
-        )}
-        {entry.scoreAtView !== null && (
-          <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>
-            · {entry.scoreAtView}% then
-          </Text>
-        )}
-        {entry.warningsAtView > 0 && (
-          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WARN }}>
-            · {entry.warningsAtView} flagged
-          </Text>
-        )}
-      </View>
-      {/* The row is already a link; this is the affordance that says so, and
-          the design puts one on every history row. */}
-      {action ? (
-        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>View</Text>
-      ) : null}
+    <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 8, rowGap: 4 }}>
+      <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{relativeTime(entry.lastSeenAt)}</Text>
+      {entry.seenCount > 1 && (
+        <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>
+          · checked {entry.seenCount} times
+        </Text>
+      )}
+      {entry.warningsAtView > 0 && (
+        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WARN }}>
+          · {entry.warningsAtView} flagged
+        </Text>
+      )}
     </View>
   );
 }
@@ -747,12 +752,10 @@ function HistoryMeta({ entry, action = false }: { entry: HistoryEntry; action?: 
  * whole tab into its error state), so "no longer" is established rather than
  * guessed.
  */
-function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string; onRemove: () => void }) {
+function UnknownRow({ entry }: { entry: HistoryEntry }) {
   return (
-    <LiftedCard backgroundColor={SURFACE}>
-    <View style={{ flexDirection: "row", borderRadius: 16, borderWidth: 1, borderColor: BORDER_INACTIVE, overflow: "hidden" }}>
-      <View style={{ width: 4, alignSelf: "stretch", backgroundColor: bar }} />
-      <View style={{ flex: 1, padding: 13, paddingRight: 36 }}>
+    <LiftedCard radius={CARD_RADIUS} backgroundColor={SURFACE}>
+      <View style={{ gap: 6, padding: 18 }}>
         <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7, color: MUTED_FAINT }}>
           {entry.known ? "Opened earlier · no longer in our catalogue" : "Scanned · we don't have this product"}
         </Text>
@@ -768,9 +771,6 @@ function UnknownRow({ entry, bar, onRemove }: { entry: HistoryEntry; bar: string
         )}
         <HistoryMeta entry={entry} />
       </View>
-
-      <RemoveButton onPress={onRemove} />
-    </View>
     </LiftedCard>
   );
 }

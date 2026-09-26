@@ -23,15 +23,17 @@ export function TabBarBackground() {
   const d =
     width > 0
       ? [
+          // True arcs at the corners: a quadratic curve only approximates a
+          // quarter circle, and at a capsule's full radius the ends looked pinched.
           `M ${x0 + r} 0`,
           `L ${x1 - r} 0`,
-          `Q ${x1} 0 ${x1} ${r}`,
+          `A ${r} ${r} 0 0 1 ${x1} ${r}`,
           `L ${x1} ${h - r}`,
-          `Q ${x1} ${h} ${x1 - r} ${h}`,
+          `A ${r} ${r} 0 0 1 ${x1 - r} ${h}`,
           `L ${x0 + r} ${h}`,
-          `Q ${x0} ${h} ${x0} ${h - r}`,
+          `A ${r} ${r} 0 0 1 ${x0} ${h - r}`,
           `L ${x0} ${r}`,
-          `Q ${x0} 0 ${x0 + r} 0`,
+          `A ${r} ${r} 0 0 1 ${x0 + r} 0`,
           "Z",
         ].join(" ")
       : "";

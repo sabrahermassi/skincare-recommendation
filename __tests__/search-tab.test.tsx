@@ -78,6 +78,18 @@ describe("before typing", () => {
     expect(await screen.findByText("Recently viewed")).toBeTruthy();
     const names = screen.getAllByText(/Aqua Barrier Ceramide Moisturizer|Hanbang Rice Ferment Hydrating Serum/).map((node) => node.props.children);
     expect(names).toEqual(["Aqua Barrier Ceramide Moisturizer", "Hanbang Rice Ferment Hydrating Serum"]);
+    // The list takes the picture's place.
+    expect(screen.queryByText("Search by name or brand")).toBeNull();
+  });
+
+  it("clears the whole list at once from Clear all, with no second tap", async () => {
+    useAppStore.setState({ history: [viewed("aqua-ceramide-cream", 2), viewed("hanbang-rice-serum", 1)] });
+    await render(<Search />);
+    await screen.findByText("Recently viewed");
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Clear all recently viewed" })));
+    expect(useAppStore.getState().history).toEqual([]);
+    expect(screen.queryByText("Recently viewed")).toBeNull();
+    expect(screen.queryByText("Aqua Barrier Ceramide Moisturizer")).toBeNull();
   });
 });
 

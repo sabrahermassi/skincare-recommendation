@@ -273,12 +273,6 @@ describe("history log", () => {
       expect(s().history).toBe(before);
     });
 
-    it("when an entry is put back with Undo", () => {
-      useAppStore.setState({ history: [entry("old", HISTORY_MAX_AGE_DAYS + 1)] });
-      s().restoreHistoryEntry(entry("recent", 2));
-      expect(s().history.map((h) => h.id)).toEqual(["recent"]);
-    });
-
     it("keeps the 50-entry limit too", () => {
       const many = Array.from({ length: HISTORY_LIMIT + 5 }, (_, i) => entry(`p${i}`, 1));
       expect(keptHistory(many, Date.now())).toHaveLength(HISTORY_LIMIT);

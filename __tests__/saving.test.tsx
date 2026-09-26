@@ -145,7 +145,7 @@ describe("the Saved tab", () => {
     useAppStore.setState({ savedProducts: [SERUM] });
     await render(<Saved />);
     await screen.findByText("Hanbang Rice Ferment Hydrating Serum");
-    await act(async () => fireEvent.press(screen.getByLabelText("Remove")));
+    await act(async () => fireEvent.press(screen.getByLabelText("Remove from saved")));
     expect(screen.getByText("Undo")).toBeTruthy();
     await act(async () => useAppStore.getState().leaveShelf()); // signed out
     expect(screen.queryByText("Undo")).toBeNull();
