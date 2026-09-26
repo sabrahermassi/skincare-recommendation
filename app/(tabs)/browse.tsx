@@ -7,11 +7,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HEADER_GUTTER } from "@/components/AppHeader";
 import { GlassButton } from "@/components/GlassButton";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
-import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProductRow } from "@/components/ProductRow";
 import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
 import { SkinMatchCard } from "@/components/SkinMatchCard";
-import { openPhotoScanner } from "@/lib/open-scanner";
 import { Text } from "@/components/Text";
 import { fetchProductsByIds, longEnoughToSearch, peekProducts, searchableQuery, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -81,11 +79,11 @@ export default function Browse() {
   const personalized = isPersonalized(profile);
   const history = useAppStore((s) => s.history);
 
-  // The box is focused, keyboard up, each time the tab opens on an empty
-  // search. Not when coming back to results: the keyboard would cover them.
-  // Leaving blurs it, or iOS restores the focus on return and the keyboard
-  // covers the tab bar (#296). Its own effect with no dependencies, so typing
-  // never re-runs the cleanup and closes the keyboard (#309 review).
+  // Search opens with the keyboard down, on its picture and what it is for
+  // (owner, after OnSkin); a tap on the box brings the keyboard up. Leaving
+  // blurs it, or iOS restores the focus on return and the keyboard covers the
+  // tab bar (#296). Its own effect with no dependencies, so typing never
+  // re-runs the cleanup and closes the keyboard (#309 review).
   const queryRef = useRef(query);
   const changeQuery = (next: string) => {
     queryRef.current = next;
@@ -93,7 +91,6 @@ export default function Browse() {
   };
   useFocusEffect(
     useCallback(() => {
-      if (queryRef.current === "") searchInput.current?.focus();
       return () => searchInput.current?.blur();
     }, []),
   );
@@ -261,11 +258,12 @@ export default function Browse() {
 
       case "welcome":
         return (
-          <Image
-            source={WELCOME_ART}
-            contentFit="contain"
-            accessibilityLabel="A little progress every day"
-            style={{ width: "100%", aspectRatio: WELCOME_ASPECT }}
+          <EmptyState
+            art={WELCOME_ART}
+            aspect={WELCOME_ASPECT}
+            artLabel="A little progress every day"
+            title="Search by name or brand"
+            line="Look up any product in our library of analysed skincare."
           />
         );
 
@@ -291,13 +289,13 @@ export default function Browse() {
 
       case "empty-search":
         return (
-          <View style={{ alignItems: "center", gap: 12, paddingHorizontal: HEADER_GUTTER, paddingTop: SPACE.block }}>
-            <Image source={NO_MATCH_ART} contentFit="contain" accessibilityLabel="" style={{ width: "88%", aspectRatio: NO_MATCH_ASPECT }} />
-            <Text style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: INK }}>
-              We don&apos;t have this product in our library yet.
-            </Text>
-            <PrimaryButton size={52} label="Scan the list of ingredients instead" onPress={() => openPhotoScanner({})} />
-          </View>
+          <EmptyState
+            art={NO_MATCH_ART}
+            aspect={NO_MATCH_ASPECT}
+            artLabel=""
+            title="We looked everywhere"
+            line="This product isn't in our library yet. Try searching for another one."
+          />
         );
 
       case "product":
@@ -378,3 +376,23 @@ export default function Browse() {
     </View>
   );
 }
+
+/**
+ * What Search shows instead of results (owner, after OnSkin): a picture, a
+ * heading and one line — before typing, and when nothing matched. No button:
+ * the box above is the way forward.
+ */
+function EmptyState({ art, aspect, artLabel, title, line }: { art: number; aspect: number; artLabel: string; title: string; line: string }) {
+  return (
+    <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: HEADER_GUTTER, paddingTop: SPACE.block }}>
+      <Image source={art} contentFit="contain" accessibilityLabel={artLabel} style={{ width: EMPTY_ART_WIDTH, aspectRatio: aspect }} />
+      <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
+        {title}
+      </Text>
+      <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: TYPE.body * 1.4, color: MUTED }}>{line}</Text>
+    </View>
+  );
+}
+
+// How wide the empty-state picture is drawn: most of the screen, not all of it.
+const EMPTY_ART_WIDTH = "72%";
