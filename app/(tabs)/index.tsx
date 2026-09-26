@@ -21,7 +21,7 @@ const SCAN_ART = require("@/assets/illustrations/scan-a-product.png");
 // "A little progress every day", on a transparent ground.
 const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.png");
 // Its own proportions, so it is never stretched.
-const STILL_LIFE_ASPECT = 785 / 885;
+const STILL_LIFE_ASPECT = 1004 / 1187;
 // The least room it is given. On a short screen or with large text the page
 // scrolls rather than shrinking the picture below this.
 const STILL_LIFE_MIN_HEIGHT = 200;
