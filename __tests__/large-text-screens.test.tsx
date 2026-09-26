@@ -80,7 +80,7 @@ describe.each([
     return <ProductRoute />;
   }],
   ["the label result", () => {
-    holdLabelRead({ ingredients: ["water", "glycerin", "niacinamide", "panthenol", "butylene glycol"], readToken: "token" });
+    holdLabelRead({ ingredients: ["water", "glycerin", "niacinamide", "panthenol", "butylene glycol"] });
     return <LabelResult />;
   }],
 ])("%s", (_name: string, screenFor: () => React.JSX.Element) => {

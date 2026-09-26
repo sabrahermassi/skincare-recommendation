@@ -5,7 +5,7 @@ import type { FetchFailure } from "@/data/api";
  *
  * Before this, the same failures were described in four places with four
  * vocabularies: `failureMessage` in `data/api.ts`, `failureCopy` in
- * `lib/read-label-photo.ts`, add-product's save table and a catch-all in the
+ * `lib/read-label-photo.ts`, a save-failure table and a catch-all in the
  * label camera. A rate limit was worded three ways, and "our catalogue" was
  * named in some failures and not others. Now there are seven states and one
  * table.
@@ -49,6 +49,8 @@ export type ScanCopy = {
 
 const SEARCH_LINK = "Find it in Search";
 const BY_NAME = "Search by name";
+/** Clears a panel and puts the camera back to scanning. */
+export const SCAN_SOMETHING_ELSE = "Scan something else";
 
 export function scanStateCopy(state: ScanState): ScanCopy {
   switch (state.kind) {
@@ -74,11 +76,9 @@ export function scanStateCopy(state: ScanState): ScanCopy {
     case "not-ours-yet":
       return {
         title: "We don't have this product yet",
-        line: "Photograph its ingredient list and we'll add it.",
-        action: "Photograph the ingredients",
-        link: "Scan something else",
+        line: "Scan its ingredient list to see what's in it, or search for it by name.",
+        action: "Scan the ingredient list",
         byName: BY_NAME,
-        note: "Only skincare and body care can be added.",
       };
     case "couldnt-read":
       switch (state.why) {

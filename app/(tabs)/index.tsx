@@ -49,8 +49,8 @@ const ACTION_CARD_PRESSED = 0.96;
  * Home — the first screen after the intro.
  *
  * A greeting, then four cards two by two — "Scan a product" (the full-screen
- * scanner), "Find a product" (the skin quiz), "Skincare routine" (not built
- * yet) and "Search" (Browse) — and a watercolor still life under them, running
+ * scanner), "Find a product" (the skin quiz), "Skincare routine" (a
+ * coming-soon screen for now) and "Search" (Browse) — and a watercolor still life under them, running
  * on past the bottom edge of the screen. The layout is fixed while it fits; on
  * a short screen or with large text it scrolls, so every card is reachable.
  */
@@ -85,7 +85,7 @@ export default function Home() {
 
           {/* The four ways in, two by two (owner): scan a product in hand; find
               one that fits, starting with the skin quiz; the skincare routine,
-              still to come; and search by name, which opens Browse (it has no
+              whose screen says it's coming soon; and search by name, which opens Browse (it has no
               tab of its own). */}
           <View style={{ gap: ACTION_CARD_GAP }}>
             <View style={{ flexDirection: "row", gap: ACTION_CARD_GAP }}>
@@ -105,7 +105,13 @@ export default function Home() {
               />
             </View>
             <View style={{ flexDirection: "row", gap: ACTION_CARD_GAP }}>
-              <ActionCard title="Skincare routine" detail="Coming soon." art={ROUTINE_ART} side={cardSide} />
+              <ActionCard
+                title="Skincare routine"
+                detail="Coming soon."
+                art={ROUTINE_ART}
+                side={cardSide}
+                onPress={() => router.push("/routine")}
+              />
               <ActionCard
                 title="Search"
                 detail="Search products or brands."
@@ -138,8 +144,7 @@ export default function Home() {
 
 /**
  * One of Home's four cards, square at least (`side`): the picture on top, then
- * the title with its arrow and a line under it. With no `onPress` (the routine,
- * not built yet) it is a plain card: no arrow, not a button. The shade sits on an outer view: a view that clips its picture
+ * the title with its arrow and a line under it. The shade sits on an outer view: a view that clips its picture
  * (overflow hidden) loses its own shade on iOS.
  */
 function ActionCard({
@@ -153,7 +158,7 @@ function ActionCard({
   detail: string;
   art: number;
   side: number;
-  onPress?: () => void;
+  onPress: () => void;
 }) {
   const [scale] = useState(() => new Animated.Value(1));
   const press = (to: number) =>
@@ -171,11 +176,9 @@ function ActionCard({
     >
       <Pressable
         onPress={onPress}
-        onPressIn={onPress ? () => press(ACTION_CARD_PRESSED) : undefined}
-        onPressOut={onPress ? () => press(1) : undefined}
-        disabled={!onPress}
-        accessibilityRole={onPress ? "button" : undefined}
-        accessible
+        onPressIn={() => press(ACTION_CARD_PRESSED)}
+        onPressOut={() => press(1)}
+        accessibilityRole="button"
         accessibilityLabel={`${title}. ${detail}`}
         className="active:opacity-90"
         style={{ flexGrow: 1, borderRadius: 22, overflow: "hidden" }}
@@ -190,7 +193,7 @@ function ActionCard({
         <View style={{ gap: 2, paddingHorizontal: 14, paddingTop: 6, paddingBottom: 14 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
             <Text style={{ flexShrink: 1, fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.body, color: INK }}>{title}</Text>
-            {onPress ? <ArrowIcon size={15} color={INK} strokeWidth={2.4} /> : null}
+            <ArrowIcon size={15} color={INK} strokeWidth={2.4} />
           </View>
           <Text style={{ fontSize: 11.5, lineHeight: 15, color: MUTED }}>{detail}</Text>
         </View>

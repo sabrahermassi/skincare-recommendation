@@ -12,9 +12,8 @@ import { MUTED, TOUCH_TARGET } from "@/lib/tokens";
 const CAMERA_ART = require("@/assets/illustrations/camera-permission.webp");
 
 /**
- * The one screen asking for camera access (#204), for both scanner modes and
- * add-product's barcode step: cream, the watercolor, a serif title, one
- * sentence, one button. There were three, which said "Open camera" and "Grant
+ * The one screen asking for camera access (#204), for both scanner modes:
+ * cream, the watercolor, a serif title, one sentence, one button. There were three, which said "Open camera" and "Grant
  * permission" for the same action.
  *
  * Two reasons there is no camera, and it says which: access not asked for yet
@@ -28,8 +27,6 @@ export function CameraPermissionScreen({
   requestPermission,
   mode,
   bottomInset,
-  title,
-  line,
   extra,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
@@ -37,9 +34,6 @@ export function CameraPermissionScreen({
   mode: "barcode" | "photo";
   /** Room to leave at the bottom, e.g. for the scanner's mode switcher. */
   bottomInset: number;
-  /** Replaces the not-yet-asked title and sentence, for a screen whose purpose differs (add-product). */
-  title?: string;
-  line?: string;
   /** An alternative offered under the button when there is one (Photo mode's "choose a photo"). */
   extra?: ReactNode;
 }) {
@@ -48,8 +42,8 @@ export function CameraPermissionScreen({
   return (
     <ScanIntro
       illustration={CAMERA_ART}
-      title={(!refused && title) || copy.title || ""}
-      body={(!refused && line) || copy.line || ""}
+      title={copy.title ?? ""}
+      body={copy.line ?? ""}
       actionLabel={copy.action ?? ""}
       onAction={refused ? () => void Linking.openSettings() : requestPermission}
       bottomInset={bottomInset}

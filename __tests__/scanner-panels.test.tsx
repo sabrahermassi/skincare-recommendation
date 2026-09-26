@@ -69,11 +69,11 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-// Photo mode's camera, down to the barcode it was handed.
-let mockLabelCameraBarcode: string | undefined | null = null;
+// Photo mode's camera: whether it is showing.
+let mockLabelCameraShown = false;
 jest.mock("@/components/LabelCamera", () => ({
-  LabelCamera: (props: { barcode?: string }) => {
-    mockLabelCameraBarcode = props.barcode;
+  LabelCamera: () => {
+    mockLabelCameraShown = true;
     return null;
   },
 }));
@@ -88,7 +88,7 @@ jest.mock("@/components/ScanViewfinder", () => ({
 jest.mock("@/components/IngredientsSheet", () => ({ SHEET_INSET: 0, SHEET_OUTLINE: "#000", SHEET_RADIUS: 0 }));
 
 jest.mock("@/data/api", () => ({
-  canPhotographLabelFor: (id: string) => /^\d{8,14}$/.test(id),
+  isProductBarcode: (id: string) => /^\d{8,14}$/.test(id),
   failureMessage: () => "Couldn't reach our catalogue. Check your connection.",
   fetchProductByBarcode: jest.fn(),
 }));
@@ -103,7 +103,7 @@ function scan(code: string) {
 
 beforeEach(() => {
   mockParams = {};
-  mockLabelCameraBarcode = null;
+  mockLabelCameraShown = false;
   (fetchProductByBarcode as unknown as MockFn).mockClear();
   mockPermission.granted = true;
   mockAppStateHandler = undefined;
@@ -222,7 +222,8 @@ describe("scanner status panels", () => {
     await scan("8801234567890");
     expect(screen.getByText("We don't have this product yet")).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole("button", { name: "Scan something else" }));
+    // The sheet's X puts the camera back to scanning.
+    await fireEvent.press(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByText("We don't have this product yet")).toBeNull();
   });
 
@@ -242,12 +243,11 @@ describe("scanner status panels", () => {
     expect(screen.queryByText("Photograph its ingredient list and we'll add it")).toBeNull();
   });
 
-  // Found in review on #259 (Codex): "Add via Photo" on a plain miss keeps
-  // `status` as `missed` after switching to Photo mode, so `IngredientsStage`
-  // can still read the barcode. If the user backs out of that by tapping
-  // Barcode instead, the stale panel used to reappear immediately and block
-  // scanning until "Scan something else" was also pressed.
-  it("clears a stale miss when backing out of Add via Photo to Barcode", async () => {
+  // Found in review on #259 (Codex): "Scan the ingredient list" on a plain miss
+  // keeps `status` as `missed` after switching to Photo mode. If the user backs
+  // out of that by tapping Barcode instead, the stale sheet used to reappear
+  // immediately and block scanning.
+  it("clears a stale miss when backing out of the ingredient photo to Barcode", async () => {
     (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: null });
     await render(<Scan />);
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
@@ -255,7 +255,7 @@ describe("scanner status panels", () => {
     await scan("8801234567890");
     expect(screen.getByText("We don't have this product yet")).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole("button", { name: "Photograph the ingredients" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Scan the ingredient list" }));
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
     expect(screen.queryByText("We don't have this product yet")).toBeNull();
 
@@ -298,39 +298,25 @@ describe("scanner torch", () => {
   });
 });
 
-// #204: Saved's recorded miss and every "Retake the photo" open the scanner in
-// Photo mode for a barcode, instead of a second camera screen.
+// #204: every "Retake the photo" opens the scanner in Photo mode, instead of a
+// second camera screen. No barcode rides along: a read is only shown, never
+// saved under one.
 describe("scanner opened for a photo", () => {
-  it("opens in Photo mode and saves the read under the barcode it was given", async () => {
-    mockParams = { mode: "photo", barcode: "8801234567890" };
+  it("opens in Photo mode", async () => {
+    mockParams = { mode: "photo" };
     await render(<Scan />);
     expect(screen.getByRole("tab", { name: "Photo" }).props.accessibilityState).toMatchObject({ selected: true });
-    expect(mockLabelCameraBarcode).toBe("8801234567890");
+    expect(mockLabelCameraShown).toBe(true);
   });
 
-  it("drops a barcode that isn't one, and still opens the camera", async () => {
-    mockParams = { mode: "photo", barcode: "../../account" };
-    await render(<Scan />);
-    expect(mockLabelCameraBarcode).toBeUndefined();
-  });
-
-  it("switches an open scanner to Photo when a retake comes back with a barcode", async () => {
+  it("switches an open scanner to Photo when a retake comes back", async () => {
     const view = await render(<Scan />);
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
     expect(screen.getByRole("tab", { name: "Barcode" }).props.accessibilityState).toMatchObject({ selected: true });
 
-    mockParams = { mode: "photo", barcode: "8801234567890" };
+    mockParams = { mode: "photo" };
     await view.rerender(<Scan />);
     expect(screen.getByRole("tab", { name: "Photo" }).props.accessibilityState).toMatchObject({ selected: true });
-    expect(mockLabelCameraBarcode).toBe("8801234567890");
-  });
-
-  it("leaves the barcode behind when switched to Barcode mode", async () => {
-    mockParams = { mode: "photo", barcode: "8801234567890" };
-    await render(<Scan />);
-    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
-    await fireEvent.press(screen.getByRole("tab", { name: "Photo" }));
-    expect(mockLabelCameraBarcode).toBeUndefined();
   });
 });
 
@@ -354,7 +340,7 @@ describe("scanner history", () => {
 // #323: both dead ends offer the name on the pack as a way in.
 describe("Search by name", () => {
   it.each([
-    ["a barcode we don't have", "8801234567890", "Scan something else"],
+    ["a barcode we don't have", "8801234567890", "Scan the ingredient list"],
     ["a code that isn't a product", "https://example.com/promo", "Scan again"],
   ])("is offered after %s, and opens Search", async (_what: string, code: string, alongside: string) => {
     const { router } = jest.requireMock("expo-router") as { router: { dismissTo: { mock: { calls: unknown[][] } } } };
@@ -383,16 +369,18 @@ describe("scanner controls", () => {
     expect(screen.getByRole("button", { name: "How we score products" })).toBeTruthy();
   });
 
-  it("raises a no-match sheet for a barcode we don't have, with scan, search and add, and closes it with the X", async () => {
+  it("raises a no-match sheet for a barcode we don't have, with the ingredient photo and search side by side, and closes it with the X", async () => {
     (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: null });
     await render(<Scan />);
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
     await scan("8801234567890");
 
     expect(screen.getByText("We don't have this product yet")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Scan something else" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Scan the ingredient list" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Search by name" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Photograph the ingredients" })).toBeTruthy();
+    // Half the sheet's width can't hold "Scan the ingredient list" on one line,
+    // so the label wraps rather than being cut off.
+    expect(screen.getByText("Scan the ingredient list").props.numberOfLines).toBe(2);
     // The sheet takes the bottom of the screen; the mode pill steps aside.
     expect(screen.queryByRole("tab", { name: "Barcode" })).toBeNull();
 
@@ -401,14 +389,15 @@ describe("scanner controls", () => {
     expect(screen.getByRole("tab", { name: "Barcode" })).toBeTruthy();
   });
 
-  it("offers no add for a code that isn't a product", async () => {
+  it("offers scanning again and search for a code that isn't a product, and never adding it", async () => {
     await render(<Scan />);
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
     await scan("https://example.com/promo");
 
     expect(screen.getByText("That's not a product barcode")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Scan again" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Photograph the ingredients" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Search by name" })).toBeTruthy();
+    expect(screen.queryByText(/add/i)).toBeNull();
   });
 
   it("offers both modes as tabs, and moves the selection when a mode is tapped", async () => {

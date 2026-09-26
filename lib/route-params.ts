@@ -1,4 +1,3 @@
-import { canPhotographLabelFor } from "@/data/api";
 
 /**
  * Route parameters as they arrive from a link (#29).
@@ -50,10 +49,4 @@ export function ingredientNameParam(raw: Raw): string | null {
   const value = single(raw);
   if (!value || value.trim().length === 0 || value.length > MAX_INGREDIENT_NAME_LENGTH) return null;
   return /[\p{Cc}\p{Cf}]/u.test(value) ? null : value;
-}
-
-/** A barcode the label functions will accept (`canPhotographLabelFor`), or undefined. */
-export function barcodeParam(raw: Raw): string | undefined {
-  const value = single(raw);
-  return value !== null && canPhotographLabelFor(value) ? value : undefined;
 }

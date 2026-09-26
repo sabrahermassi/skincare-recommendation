@@ -161,6 +161,7 @@ export default function RootLayout() {
         <Stack.Screen name="support" options={{ headerShown: false }} />
         <Stack.Screen name="school" options={{ headerShown: false }} />
         <Stack.Screen name="scoring" options={{ headerShown: false }} />
+        <Stack.Screen name="routine" options={{ headerShown: false }} />
         <Stack.Screen name="privacy" options={{ headerShown: false }} />
         <Stack.Screen name="account" options={{ headerShown: false }} />
         {/* A sheet over wherever sign-in was asked for, so closing it returns
@@ -180,7 +181,6 @@ export default function RootLayout() {
         {/* Slides up over everything, full screen, and back down when closed —
             the standard iOS camera presentation (#313). */}
         <Stack.Screen name="scanner" options={{ headerShown: false, presentation: "fullScreenModal" }} />
-        <Stack.Screen name="add-product" options={{ headerShown: false }} />
         <Stack.Screen name="label-result" options={{ headerShown: false }} />
       </Stack>
     </>

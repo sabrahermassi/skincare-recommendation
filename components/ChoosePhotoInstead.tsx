@@ -30,13 +30,10 @@ const CHOOSE_A_PHOTO = scanStateCopy({ kind: "couldnt-read", why: "photo" }).lin
  * words when it fails.
  */
 export function ChoosePhotoInstead({
-  barcode,
   onRead,
   isStillWanted,
 }: {
-  /** Handed over by whoever sent the user here after a miss; the product read is saved under it. */
-  barcode?: string;
-  /** Called once the photo has been read and its list is held for the add-product screen. */
+  /** Called once the photo has been read and its list is held. */
   onRead: () => void;
   /** Same as `LabelCamera`'s own prop of the same name — see its comment (issue #191). */
   isStillWanted?: () => boolean;
@@ -65,7 +62,7 @@ export function ChoosePhotoInstead({
         return;
       }
       setState({ kind: "reading" });
-      const outcome = await readLabelPhoto(picked.base64, barcode, () => !cancelled() && (isStillWanted?.() ?? true));
+      const outcome = await readLabelPhoto(picked.base64, () => !cancelled() && (isStillWanted?.() ?? true));
       if (cancelled()) return;
       if (outcome.kind === "read") {
         haptic.success();

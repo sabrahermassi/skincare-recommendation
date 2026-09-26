@@ -42,9 +42,13 @@ it("shows the greeting and the four cards, and no skin profile card", async () =
   expect(screen.getByRole("button", { name: "Scan a product. Analyze a product by photo or barcode." })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Find a product. Take the skin quiz to see what fits you." })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Search. Search products or brands." })).toBeTruthy();
-  // Not built yet: there, but not a button.
-  expect(screen.getByLabelText("Skincare routine. Coming soon.")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Skincare routine. Coming soon." })).toBeNull();
+  expect(screen.getByRole("button", { name: "Skincare routine. Coming soon." })).toBeTruthy();
+});
+
+it("opens the skincare routine screen from its card", async () => {
+  await render(<Home />);
+  await fireEvent.press(screen.getByRole("button", { name: "Skincare routine. Coming soon." }));
+  expect(router.push).toHaveBeenCalledWith("/routine");
 });
 
 it("opens Browse from Search, which has no tab of its own", async () => {

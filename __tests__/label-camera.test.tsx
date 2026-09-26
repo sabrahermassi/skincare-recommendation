@@ -28,7 +28,7 @@ let mockSettle: (outcome: LabelReadOutcome) => void = () => {};
 let mockStillWanted: (() => boolean) | undefined;
 jest.mock("@/lib/read-label-photo", () => ({
   ...jest.requireActual("@/lib/read-label-photo"),
-  readLabelPhoto: (_image: string, _barcode: string | undefined, isStillWanted?: () => boolean) => {
+  readLabelPhoto: (_image: string, isStillWanted?: () => boolean) => {
     mockStillWanted = isStillWanted;
     return new Promise((resolve) => (mockSettle = resolve));
   },

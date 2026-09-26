@@ -33,9 +33,8 @@ import { haptic } from "@/lib/haptics";
  * This is the tier that makes scanning viable at all. Open Beauty Facts holds
  * 37 products tagged South Korea against a market of 10,000+ SKUs, so a
  * barcode alone misses nearly everything — but the formula is printed on the
- * box the user is already holding. Reading stores nothing: the list is handed
- * on to the add-product screen, which saves it with the barcode and a name so
- * nobody has to do it for that product again.
+ * box the user is already holding. Reading stores nothing: the list is shown
+ * on the label result screen.
  */
 
 type Status =
@@ -48,9 +47,7 @@ type Status =
   | { kind: "failed"; message: string; hint?: string; action?: string; link?: string; retryable: boolean };
 
 type Props = {
-  /** Handed over by whoever sent the user here after a miss; the list read is added under it. */
-  barcode?: string;
-  /** Called once a photo has been read and its list is being held for the add-product screen. */
+  /** Called once a photo has been read and its list is held. */
   onRead: () => void;
   /**
    * Threaded straight through to `readLabelPhoto`, so a read the caller no
@@ -78,7 +75,6 @@ type Props = {
 };
 
 export function LabelCamera({
-  barcode,
   onRead,
   isStillWanted,
   bottomInset,
@@ -249,7 +245,6 @@ export function LabelCamera({
       track("scan_started", { path: "label" });
       const outcome = await readLabelPhoto(
         imageBase64,
-        barcode,
         () => !cancelled() && (isStillWanted?.() ?? true),
       );
       // Cancelled while it was being read: the camera is already back.

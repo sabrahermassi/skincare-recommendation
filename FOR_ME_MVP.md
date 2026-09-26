@@ -357,12 +357,12 @@ control switches to barcode rather than away from it.
 Target flow:
 
 **Camera (already in photo mode) → Take One Photo → Tap Scan → OCR → Confirm
-the list → Ingredient Analysis → Results → optionally name the product**
+the list → Ingredient Analysis → Results**
 
-The result comes before any contribution step. A user who only photographs a
-label gets a full verdict and is never pushed through a naming or barcode
-step to see it; adding the product to the shared catalogue is offered
-afterwards as a choice. See "Confirming the list" below for the step between
+A user who photographs a label gets a full verdict and is never pushed
+through a naming or barcode step to see it. Users can't add products to the
+shared catalogue (owner, 26 September 2026: user-entered names and barcodes
+risk junk data); it grows only through the operator's imports. See "Confirming the list" below for the step between
 OCR and analysis.
 
 For MVP:
@@ -676,11 +676,11 @@ Message:
 
 **We don't have this product yet**
 
-Photograph its ingredient list and we'll add it.
+Scan its ingredient list to see what's in it, or search for it by name.
 
-Action:
+Actions (side by side):
 
-**Photograph the ingredients**
+**Scan the ingredient list** · **Search by name**
 
 ## Ingredient photo unreadable
 

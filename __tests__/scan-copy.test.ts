@@ -40,8 +40,8 @@ describe("scanStateCopy", () => {
   it("says the three messages FOR_ME_MVP.md §22 fixes, word for word", () => {
     expect(scanStateCopy({ kind: "not-ours-yet" })).toMatchObject({
       title: "We don't have this product yet",
-      line: "Photograph its ingredient list and we'll add it.",
-      action: "Photograph the ingredients",
+      line: "Scan its ingredient list to see what's in it, or search for it by name.",
+      action: "Scan the ingredient list",
     });
     expect(scanStateCopy({ kind: "couldnt-read", why: "photo" })).toMatchObject({
       title: "We couldn't read the ingredients",
@@ -70,9 +70,6 @@ describe("scanStateCopy", () => {
     }
   });
 
-  it("tells people what to add, so they don't photograph food packaging", () => {
-    expect(scanStateCopy({ kind: "not-ours-yet" }).note).toBe("Only skincare and body care can be added.");
-  });
 });
 
 describe("couldn't read it, and couldn't reach us, stay apart", () => {

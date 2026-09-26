@@ -20,7 +20,6 @@ const readOk = (over: Record<string, unknown> = {}) => ({
   ingredients: ["water", "glycerin"],
   recognised: 5,
   total: 6,
-  readToken: "tok",
   ...over,
 });
 
@@ -39,7 +38,7 @@ beforeEach(() => {
 describe("readLabelPhoto", () => {
   it("sends the cleaned image, never the original", async () => {
     analyse.mockResolvedValue(readOk());
-    await readLabelPhoto("ORIGINAL", "8801234567890");
+    await readLabelPhoto("ORIGINAL");
     expect(analyse).toHaveBeenCalledWith("CLEAN");
   });
 
@@ -68,25 +67,20 @@ describe("readLabelPhoto", () => {
     expect(await readLabelPhoto("x")).toMatchObject({ kind: "failed", retryable: true });
   });
 
-  it("holds a good read, with its barcode and proof, for the add-product screen", async () => {
+  it("holds a good read for the label result screen", async () => {
     analyse.mockResolvedValue(readOk());
-    expect(await readLabelPhoto("x", "8801234567890")).toEqual({ kind: "read" });
-    expect(heldLabelRead()).toEqual({
-      ingredients: ["water", "glycerin"],
-      readToken: "tok",
-      barcode: "8801234567890",
-      receivedAt: expect.any(Number),
-    });
+    expect(await readLabelPhoto("x")).toEqual({ kind: "read" });
+    expect(heldLabelRead()).toEqual({ ingredients: ["water", "glycerin"] });
   });
 
   // #191: a read takes seconds, and by the time it lands the caller may no
   // longer want it (switched mode and back, or left the scanner). Nothing
   // navigates for it either way — that decision is the caller's own guard —
-  // but without this, the list and its single-use read token would sit in
-  // lib/pending-label until the next read overwrites them.
+  // but without this, the list would sit in lib/pending-label until the next
+  // read overwrites it.
   it("holds nothing when the caller no longer wants the read, even though it succeeded", async () => {
     analyse.mockResolvedValue(readOk());
-    expect(await readLabelPhoto("x", "8801234567890", () => false)).toEqual({ kind: "read" });
+    expect(await readLabelPhoto("x", () => false)).toEqual({ kind: "read" });
     expect(heldLabelRead()).toBeNull();
   });
 
@@ -97,29 +91,24 @@ describe("readLabelPhoto", () => {
   it("does not clear a different, newer read that was held while this one was still in flight", async () => {
     let resolveAnalyse!: (value: unknown) => void;
     analyse.mockReturnValue(new Promise((resolve) => (resolveAnalyse = resolve)));
-    const pending = readLabelPhoto("x", "8801234567890", () => false);
+    const pending = readLabelPhoto("x", () => false);
     // Simulated race: a different, faster read lands and is held while the
     // one above is still awaiting its own (slower) result.
-    holdLabelRead({ ingredients: ["niacinamide"], readToken: "newer-tok", barcode: "8809999999999" });
+    holdLabelRead({ ingredients: ["niacinamide"] });
     resolveAnalyse(readOk());
     expect(await pending).toEqual({ kind: "read" });
-    expect(heldLabelRead()).toEqual({
-      ingredients: ["niacinamide"],
-      readToken: "newer-tok",
-      barcode: "8809999999999",
-      receivedAt: expect.any(Number),
-    });
+    expect(heldLabelRead()).toEqual({ ingredients: ["niacinamide"] });
   });
 
   it("still holds a good read when the caller says it's still wanted", async () => {
     analyse.mockResolvedValue(readOk());
-    expect(await readLabelPhoto("x", "8801234567890", () => true)).toEqual({ kind: "read" });
+    expect(await readLabelPhoto("x", () => true)).toEqual({ kind: "read" });
     expect(heldLabelRead()).not.toBeNull();
   });
 
   it("omitting isStillWanted holds the read normally — every existing caller is unaffected", async () => {
     analyse.mockResolvedValue(readOk());
-    expect(await readLabelPhoto("x", "8801234567890")).toEqual({ kind: "read" });
+    expect(await readLabelPhoto("x")).toEqual({ kind: "read" });
     expect(heldLabelRead()).not.toBeNull();
   });
 
@@ -160,23 +149,22 @@ describe("failureCopy", () => {
   it.each(["too_little_text", "rate_limited", "server_unavailable", "unreadable"] as const)(
     "%s can be retried",
     (reason: "too_little_text" | "rate_limited" | "server_unavailable" | "unreadable") => {
-      expect(failureCopy(reason, false).retryable).toBe(true);
+      expect(failureCopy(reason).retryable).toBe(true);
     }
   );
 
   it("does not offer a retry for a build with no credentials, which would fail the same way every time", () => {
-    expect(failureCopy("not_configured", false).retryable).toBe(false);
+    expect(failureCopy("not_configured").retryable).toBe(false);
   });
 
-  it("does not send someone with a barcode in hand back to the barcode", () => {
-    expect(failureCopy("not_configured", true).hint).toBe("Look the product up in Search instead.");
-    expect(failureCopy("not_configured", false).hint).toBe("Try the barcode instead, or look the product up in Search.");
+  it("points a build with no credentials at Search", () => {
+    expect(failureCopy("not_configured").hint).toBe("Look the product up in Search instead.");
   });
 
   // #204: a 503 is ours (Vision's key or the day's ceiling), so it says so in
   // the same words as any other "couldn't reach us" — never blaming the photo.
   it("words a server that can't read labels as ours, not the photo's", () => {
-    expect(failureCopy("server_unavailable", true)).toMatchObject({
+    expect(failureCopy("server_unavailable")).toMatchObject({
       message: "We couldn't check that just now",
       hint: "It's us or the connection, not your scan.",
     });
@@ -184,14 +172,13 @@ describe("failureCopy", () => {
 
   // #188: unlike the other network-adjacent branches, a genuine connection
   // failure makes both suggestions dead — they need the same network that
-  // just failed — so neither should appear, with or without a barcode.
+  // just failed — so neither should appear.
   it("never points a network failure at the barcode or Search", () => {
-    expect(failureCopy("network_error", false).hint).toBe("It's us or the connection, not your scan.");
-    expect(failureCopy("network_error", true).hint).toBe("It's us or the connection, not your scan.");
-    expect(failureCopy("network_error", false).hint).not.toMatch(/barcode|Browse|Search/);
+    expect(failureCopy("network_error").hint).toBe("It's us or the connection, not your scan.");
+    expect(failureCopy("network_error").hint).not.toMatch(/barcode|Browse|Search/);
   });
 
   it("can be retried after a network failure — a retry genuinely can succeed", () => {
-    expect(failureCopy("network_error", false).retryable).toBe(true);
+    expect(failureCopy("network_error").retryable).toBe(true);
   });
 });

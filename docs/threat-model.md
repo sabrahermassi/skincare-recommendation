@@ -60,7 +60,7 @@ constraints below, not defaults that might slide.
 | Saved ingredients | starred ingredient names | Low sensitivity alone; a run of starred actives hints at concerns | AsyncStorage, on-device | `saved_ingredients` (migration 0025), owner-only under RLS | Same as saved products |
 | Journal note | up to 500 characters the user wrote about a saved product (#228) | Potentially health-adjacent — the prompt asks about the product, but people may write anything, and it is theirs | On a signed-in phone, inside the cached shelf (AsyncStorage), queued until it syncs (#228) | `saved_products.note`, owner-only under RLS; never shared, never in analytics | Same as saved products |
 | Routine step | the user's own step 1/2/3 for a saved product (#227) | Low | On a signed-in phone, inside the cached shelf (AsyncStorage) | `saved_products.routine_step` | Same as saved products |
-| Product author | which account added a catalogue product from a label photo (#241) — the first column tying a public catalogue row to a person | Low alone, but it links everything one person scanned and named; it must not be public | Does not exist before accounts: every existing and imported row has no author | `product_authors` (migration 0026), a table of its own because `products` is publicly readable. Written only by `label-ocr` with the service role, after the caller's token is confirmed with Auth; readable only by the author (for the export) and the service role. Guests' saves leave no row | Until account deletion, when `user_id` is set to null and the product stays; the row goes with its product |
+| Product author | which account added a catalogue product from a label photo (#241) — the first column tying a public catalogue row to a person | Low alone, but it links everything one person scanned and named; it must not be public | Does not exist before accounts: every existing and imported row has no author | `product_authors` (migration 0026), a table of its own because `products` is publicly readable. No new rows since saving was switched off (#374); existing ones were written only by `label-ocr` with the service role, after the caller's token was confirmed with Auth; readable only by the author (for the export) and the service role. Guests' saves leave no row | Until account deletion, when `user_id` is set to null and the product stays; the row goes with its product |
 | First-page flag | the date an account first saved a product, so the welcome shows once (#230) | Low. The person can edit their own `user_metadata`, so it is a nicety and must never gate anything | The account ids that have seen it on this phone, in `useAppStore` (`journalStarted`) | `auth.users` `user_metadata.journal_started_at`, written by the signed-in client | Until account deletion; in the export |
 | Account identifier | email and the Apple or Google subject id, from Sign in with Apple / Sign in with Google (#217, #218). Apple's email may be a Hide My Email relay address. No name is requested from Apple; Google's sign-in always includes the account's name and profile-picture URL, which Supabase keeps in the user's metadata (unused by the app) | PII | Supabase Auth `auth.users` and `auth.identities`, created on first sign-in (#218). Identities that share a verified email are linked into one user | Same, referenced by every owner column | Until account deletion |
 | Usage events (#225) | five funnel events with fixed-value properties, PostHog's lifecycle events and device facts; never content or profile fields | Low alone; **linked to the account id after sign-in**, which makes a guest's earlier events attributable to that account | PostHog SDK file on the phone; PostHog (EU region) once sent | Same, joined to the account id | PostHog project retention (operator-set). A new random id after sign-out. On account deletion the person and its events are deleted in PostHog too (#24), within the 30-day deletion SLA |
@@ -135,12 +135,12 @@ second table is planned; if that ever changes, it gets its own row.
   |---|---|---|
   | `/`, `/browse`, `/saved`, `/profile` (tabs), `/school`, `/support`, `/privacy`, `/scoring`, `/skin-profile` | none | — |
   | `/quiz/concerns`, `/quiz/skin-type`, `/quiz/sensitivity`, `/quiz/pregnancy` | none | opened with nothing behind it, closing goes Home (#346) |
-  | `/scanner` | `mode`; `barcode` | only `"photo"` does anything (opens Photo mode); `barcodeParam`, else dropped (#204) |
+  | `/scanner` | `mode` | only `"photo"` does anything (opens Photo mode, #204) |
   | `/product/<id>`, `/result/<id>` | `id`; `from` (analytics only) | `productIdParam`: letters, digits, `-`, `_`, ≤128; else Page not found. `from` is matched against fixed values |
   | `/ingredients/<id>` | `id`; `tab` | `productIdParam`; `tab` must be one of the list's tabs, else "All" |
   | `/ingredient/<name>` | `name`; `product` | `ingredientNameParam`: non-empty, ≤2,048, no control or invisible formatting characters, else Page not found. A malformed `product` is dropped |
-  | `/scan-label` | `barcode` | redirects to `/scanner?mode=photo`, carrying the barcode through `barcodeParam` (#204) |
-  | `/label-result`, `/add-product` | `barcode` | `barcodeParam`: 8–14 digits, else dropped. The ingredient list itself is never taken from a link: it is held in memory from the photo just read |
+  | `/scan-label` | none | redirects to `/scanner?mode=photo` (#204); a barcode on the link is ignored |
+  | `/label-result` | none | the ingredient list is never taken from a link: it is held in memory from the photo just read. Nothing is saved from it: users can't add products |
   | `/sign-in` | `from` (analytics only) | fixed values |
   | `/onboarding` | none | "Your profile is erased" comes from the erase itself, held in memory (`lib/erase-notice.ts`), never from the URL |
   | `/account` | none | shows account details only for this phone's own session |
@@ -164,8 +164,13 @@ second table is planned; if that ever changes, it gets its own row.
   client strips before the upload — see the non-goals below for why the
   server pass is the control and the client pass is not.
 
-  **Saving a read list.** `label-ocr` answers a photo with the parsed list and
-  a signed `readToken`; saving takes that list back with a barcode and a name.
+  **Saving a read list — switched off (#374).** The app no longer adds
+  products, so `label-ocr` answers any save with 410 `saving_disabled` before
+  the limiter, so `label-ocr` never calls `replace_product_with_ingredients`
+  (the imports and `product-lookup` still do). It still signs a `readToken` on
+  each read, which nothing checks; that and the token tables go in #377. What follows is how saving
+  worked, kept until then. `label-ocr` answered a photo with the parsed list and
+  a signed `readToken`; saving took that list back with a barcode and a name.
   The token proves the list came out of a (rate-limited) read, was not edited,
   and is under 30 minutes old. It is single-use: the first save records it
   (`used_read_tokens`, migration 0023) and any later save with it is refused, so

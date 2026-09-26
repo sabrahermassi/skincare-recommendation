@@ -127,7 +127,6 @@ import {
   prefetchCatalogue,
   readLabel,
   revalidateOnForeground,
-  saveScannedProduct,
   searchProducts,
   warmCatalogue,
   type Fetched,
@@ -135,7 +134,6 @@ import {
 import {
   DISK_TTL_MS,
   peekCatalogue,
-  putScanned,
   readScanned,
   resetCatalogueCache,
 } from "@/data/catalogue-cache";
@@ -810,7 +808,7 @@ describe("a label read", () => {
    */
   it("bounds the read with the OCR timeout, not the network one", async () => {
     invokeMock().mockResolvedValue({
-      data: { ingredients: [{ inci_name: "aqua", position: 0 }], recognised: 12, total: 14, readToken: "token-1" },
+      data: { ingredients: [{ inci_name: "aqua", position: 0 }], recognised: 12, total: 14 },
       error: null,
     });
 
@@ -829,7 +827,6 @@ describe("a label read", () => {
         ],
         recognised: 2,
         total: 2,
-        readToken: "token-1",
       },
       error: null,
     });
@@ -839,7 +836,6 @@ describe("a label read", () => {
       ingredients: ["aqua", "glycerin"],
       recognised: 2,
       total: 2,
-      readToken: "token-1",
     });
   });
 
@@ -888,66 +884,6 @@ describe("a label read", () => {
   });
 });
 
-describe("saving a product", () => {
-  const input = {
-    barcode: "barcode-scanned",
-    name: "Scanned product",
-    ingredients: ["aqua", "glycerin", "niacinamide", "panthenol"],
-    readToken: "token-1",
-  };
-
-  /**
-   * The barcode cascade caches its misses for an hour, and adding a product is
-   * what the user does *because* of one — so the miss is always already there
-   * when the save lands. Leaving it means scanning the bottle they just added
-   * returns the remembered `null` and offers to add it again.
-   */
-  it("overwrites the cached miss for the barcode that sent the user there", async () => {
-    invokeMock().mockResolvedValue({
-      data: { product: inlinedRow("scanned"), recognised: 12, total: 14 },
-      error: null,
-    });
-    putScanned("barcode-scanned", null);
-    expect(readScanned("barcode-scanned")).toBeNull();
-
-    const result = await saveScannedProduct(input);
-
-    expect(result.ok).toBe(true);
-    expect(readScanned("barcode-scanned")?.id).toBe("scanned");
-  });
-
-  it("sends the barcode, the name and the list together", async () => {
-    invokeMock().mockResolvedValue({
-      data: { product: inlinedRow("scanned"), recognised: 4, total: 4 },
-      error: null,
-    });
-
-    await saveScannedProduct(input);
-
-    expect(lastInvokeOptions()).toMatchObject({ body: input });
-  });
-
-  it("says so when the read has gone stale", async () => {
-    invokeMock().mockResolvedValue({
-      data: null,
-      error: { context: { status: 403 } },
-    });
-
-    expect(await saveScannedProduct({ ...input, barcode: "barcode-stale" })).toEqual({ ok: false, reason: "expired" });
-  });
-
-  it("leaves the cache alone when the save fails", async () => {
-    invokeMock().mockResolvedValue({
-      data: null,
-      error: { context: { status: 422 } },
-    });
-
-    const result = await saveScannedProduct({ ...input, barcode: "barcode-refused" });
-
-    expect(result).toEqual({ ok: false, reason: "unreadable_list" });
-    expect(readScanned("barcode-refused")).toBeUndefined();
-  });
-});
 
 /**
  * The `functions.invoke` stand-in from the module mock, narrowed to the two

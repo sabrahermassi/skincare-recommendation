@@ -30,12 +30,11 @@ import { GlassButton } from "@/components/GlassButton";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
-import { canPhotographLabelFor, fetchProductByBarcode, type FetchFailure } from "@/data/api";
+import { isProductBarcode, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
 import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
-import { barcodeParam } from "@/lib/route-params";
-import { lookupFailureState, scanStateCopy, scanStateSpeech, type ScanCopy, type ScanState } from "@/lib/scan-copy";
+import { lookupFailureState, scanStateCopy, scanStateSpeech, type ScanCopy, type ScanState, SCAN_SOMETHING_ELSE } from "@/lib/scan-copy";
 import { rememberScanMode, rememberedScanMode, type ScanMode } from "@/lib/scan-mode";
 import { createStaleGuard } from "@/lib/stale-guard";
 import { haptic } from "@/lib/haptics";
@@ -120,14 +119,11 @@ const MODES: {
 
 export default function Scan() {
   const [permission, requestPermission] = useCameraPermissions();
-  // `?mode=photo&barcode=…` opens straight into Photo mode, with the barcode a
-  // read there is saved under (#204): Saved's recorded miss, and "Retake the
-  // photo" from the label result or add-product. The barcode comes from a
-  // route, so a link can set it too, and only a real one is kept (#29).
-  const params = useLocalSearchParams<{ mode?: string; barcode?: string }>();
+  // `?mode=photo` opens straight into Photo mode (#204): "Retake the photo"
+  // from the label result. Nothing else is taken from the link (#29): a read
+  // is only shown, never saved under a barcode.
+  const params = useLocalSearchParams<{ mode?: string }>();
   const photoRequested = params.mode === "photo";
-  const requestedBarcode = photoRequested ? barcodeParam(params.barcode) : undefined;
-  const [photoBarcode, setPhotoBarcode] = useState<string | undefined>(requestedBarcode);
   // Photo is the default now (issue #214): reading a label works on every
   // product, in any shop, with no catalogue coverage needed — a barcode only
   // resolves for the ~851 products the catalogue already has. Seeded from
@@ -136,16 +132,12 @@ export default function Scan() {
   // module rather than hardcoding either mode.
   const [mode, setMode] = useState<Mode>(() => (photoRequested ? "Photo" : rememberedScanMode()));
   // A retake returns here by `router.dismissTo` with new params, on the same
-  // scanner: switch to Photo for that barcode. Adjusted while rendering, as
-  // React recommends for state that follows a prop, rather than in an effect.
-  const request = photoRequested ? `photo:${requestedBarcode ?? ""}` : "";
-  const [appliedRequest, setAppliedRequest] = useState(request);
-  if (request !== appliedRequest) {
-    setAppliedRequest(request);
-    if (photoRequested) {
-      setPhotoBarcode(requestedBarcode);
-      setMode("Photo");
-    }
+  // scanner: switch to Photo. Adjusted while rendering, as React recommends
+  // for state that follows a prop, rather than in an effect.
+  const [appliedRequest, setAppliedRequest] = useState(photoRequested);
+  if (photoRequested !== appliedRequest) {
+    setAppliedRequest(photoRequested);
+    if (photoRequested) setMode("Photo");
   }
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   // Off by default, and reset on leaving the scanner (below) rather than left
@@ -233,15 +225,13 @@ export default function Scan() {
         mode === "Photo" &&
         next === "Barcode"
       ) {
-        // Except when abandoning the one flow that deliberately keeps a
-        // missed status alive across a mode switch: "Add via Photo" on a
+        // Except when abandoning the one flow that keeps a missed status
+        // alive across a mode switch: "Scan the ingredient list" on a
         // barcode miss calls `selectMode("Photo")` while leaving `status`
-        // as `missed`, so `IngredientsStage` can still read the barcode
-        // (below). If the user backs out of that by tapping Barcode
-        // instead of finishing it, this is a genuine Photo-to-Barcode
-        // switch, not a re-tap — without clearing here, the stale miss
-        // panel reappears immediately and blocks scanning until "Scan
-        // something else" is also pressed (#259 review).
+        // as `missed`. If the user backs out of that by tapping Barcode,
+        // this is a genuine Photo-to-Barcode switch, not a re-tap — without
+        // clearing here, the stale no-match sheet reappears immediately and
+        // blocks scanning (#259 review).
         //
         // The barcode can still be sitting in frame the moment Barcode mode
         // remounts, so this needs the same dismiss-guard note `dismissStatus`
@@ -262,8 +252,6 @@ export default function Scan() {
       // have invalidated, permanently dropping every read for the rest of
       // that visit. See issue #191.
       if (next !== mode) reads.invalidate();
-      // Leaving Photo leaves the barcode a retake was for behind with it.
-      if (next === "Barcode") setPhotoBarcode(undefined);
       rememberScanMode(next);
       setMode(next);
     },
@@ -406,7 +394,7 @@ export default function Scan() {
       // doomed round trip, which is the answer the network call would give
       // anyway.
       track("scan_started", { path: "barcode" });
-      if (!canPhotographLabelFor(data)) {
+      if (!isProductBarcode(data)) {
         // Not written to history (#204): a QR code's payload is a link or
         // any text at all, not a product anyone could find again, and it
         // would sit in Saved as a row with nothing to offer.
@@ -490,7 +478,7 @@ export default function Scan() {
         requestPermission={requestPermission}
         status={status}
         onBarcode={handleBarcode}
-        onAdd={() => selectMode("Photo")}
+        onPhotograph={() => selectMode("Photo")}
         onDismiss={dismissStatus}
         showHint={showScanHint}
         onHint={() => selectMode("Photo")}
@@ -505,7 +493,6 @@ export default function Scan() {
         cameraRef={cameraRef}
         cameraSize={cameraSize}
         windowBox={windowBox}
-        barcode={status.kind === "missed" && canPhotographLabelFor(status.code) ? status.code : photoBarcode}
         preserveMode={preserveMode}
         focusedRef={focusedRef}
         reads={reads}
@@ -637,18 +624,20 @@ export default function Scan() {
  */
 function NoMatchSheet({
   copy,
-  scanLabel,
+  primaryLabel,
+  secondaryLabel,
   bottomInset,
-  onScanAgain,
-  onSearch,
-  onAdd,
+  onDismiss,
+  onPrimary,
+  onSecondary,
 }: {
   copy: ScanCopy;
-  scanLabel: string;
+  primaryLabel: string;
+  secondaryLabel: string;
   bottomInset: number;
-  onScanAgain: () => void;
-  onSearch: () => void;
-  onAdd?: () => void;
+  onDismiss: () => void;
+  onPrimary: () => void;
+  onSecondary: () => void;
 }) {
   const [rise] = useState(() => new Animated.Value(0));
   const [lift] = useState(() => rise.interpolate({ inputRange: [0, 1], outputRange: [NO_MATCH_TRAVEL, 0] }));
@@ -691,9 +680,11 @@ function NoMatchSheet({
             symbol="xmark"
             icon="close"
             accessibilityLabel="Close"
-            onPress={onScanAgain}
+            onPress={onDismiss}
             small
-            style={{ position: "absolute", top: 14, right: 14 }}
+            // In from the corner by the same margin on both sides, so it sits
+            // clear of the card's rounded edge rather than in it.
+            style={{ position: "absolute", top: SPACE.block, right: SPACE.block }}
           />
           <Image source={NO_MATCH_ART} contentFit="contain" accessibilityLabel="" style={{ width: "72%", aspectRatio: NO_MATCH_ASPECT }} />
           <Text
@@ -703,22 +694,14 @@ function NoMatchSheet({
             {copy.title}
           </Text>
           <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>{copy.line}</Text>
-          <View style={{ alignSelf: "stretch", gap: 10, marginTop: SPACE.text }}>
-            <PrimaryButton label={scanLabel} onPress={onScanAgain} size={48} />
-            {copy.byName ? <PrimaryButton label={copy.byName} onPress={onSearch} size={48} variant="gray" /> : null}
+          <View style={{ alignSelf: "stretch", gap: 10, marginTop: SPACE.text, flexDirection: "row" }}>
+            <View style={{ flex: 1 }}>
+              <PrimaryButton label={primaryLabel} onPress={onPrimary} size={56} twoLines />
+            </View>
+            <View style={{ flex: 1 }}>
+              <PrimaryButton label={secondaryLabel} onPress={onSecondary} size={56} variant="gray" twoLines />
+            </View>
           </View>
-          {onAdd && copy.action ? (
-            <Pressable
-              onPress={onAdd}
-              accessibilityRole="button"
-              accessibilityLabel={copy.action}
-              style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
-              className="active:opacity-70"
-            >
-              <Text style={{ fontSize: TYPE.caption, color: MUTED, textDecorationLine: "underline" }}>{copy.action}</Text>
-            </Pressable>
-          ) : null}
-          {onAdd && copy.note ? <Text style={{ textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>{copy.note}</Text> : null}
         </View>
       </Animated.View>
     </>
@@ -957,7 +940,7 @@ function BarcodeStage({
   requestPermission,
   status,
   onBarcode,
-  onAdd,
+  onPhotograph,
   onDismiss,
   showHint,
   onHint,
@@ -968,8 +951,8 @@ function BarcodeStage({
   status: Status;
   /** Looks a barcode up again ("Try again" after a failed lookup). */
   onBarcode: (data: string) => void;
-  /** Starts adding the product we don't have: the ingredient photo. */
-  onAdd: () => void;
+  /** Switches to Photo mode, to read the ingredient list of a product we don't have. */
+  onPhotograph: () => void;
   /** Clears a "missed" or "unreachable" panel and returns the scanner to
    *  Ready — "Scan again" / "Scan something else" below (#192). */
   onDismiss: () => void;
@@ -986,8 +969,8 @@ function BarcodeStage({
   // One sentence per state, shared by the spoken announcement and the visible
   // panel's own label so the two can never drift apart. The words are
   // `scanStateCopy`'s (#204). A QR code or a non-retail barcode reads as a
-  // miss too, but there is no product to add under it.
-  const notProduct = status.kind === "missed" && !canPhotographLabelFor(status.code);
+  // miss too, but there is no product behind it to photograph.
+  const notProduct = status.kind === "missed" && !isProductBarcode(status.code);
   const panelState: ScanState | null =
     status.kind === "looking"
       ? { kind: "working", step: "lookup" }
@@ -1149,17 +1132,17 @@ function BarcodeStage({
         <NoMatchSheet
           key={status.code}
           copy={copy}
-          scanLabel={(notProduct ? copy.action : copy.link) ?? ""}
+          primaryLabel={copy.action ?? ""}
+          secondaryLabel={copy.byName ?? ""}
           bottomInset={insets.bottom}
-          onScanAgain={onDismiss}
-          onSearch={() => {
+          onDismiss={onDismiss}
+          onPrimary={notProduct ? onDismiss : onPhotograph}
+          onSecondary={() => {
             preserveMode();
             // Closes the scanner onto Search, with the box empty and focused
             // (#323); `byName` is a one-time request, so each tap is new.
             router.dismissTo({ pathname: "/browse", params: { byName: String(Date.now()) } });
           }}
-          // Only a real product barcode can be added under.
-          onAdd={notProduct ? undefined : onAdd}
         />
       ) : null}
 
@@ -1200,7 +1183,6 @@ function BarcodeStage({
  * Photo mode's own overlays: the instruction, the shutter and the reading of
  * what was photographed. The camera, the frame and the mode switcher are Scan's,
  * shared with Barcode, so the picture is live the moment the mode opens.
- * `barcode` is the one from a miss, so what gets photographed is saved under it.
  */
 function IngredientsStage({
   permission,
@@ -1208,7 +1190,6 @@ function IngredientsStage({
   cameraRef,
   cameraSize,
   windowBox,
-  barcode,
   preserveMode,
   focusedRef,
   reads,
@@ -1218,7 +1199,6 @@ function IngredientsStage({
   cameraRef: React.RefObject<CameraView | null>;
   cameraSize: Size | null;
   windowBox: Box | null;
-  barcode?: string;
   /** Call before any navigation away from this stage that isn't a tab switch. */
   preserveMode: () => void;
   /** True while the scanner is the focused screen; a read that finishes after it is left is dropped. */
@@ -1246,15 +1226,14 @@ function IngredientsStage({
     [focusedRef, reads, myGeneration]
   );
   // Where a finished read goes, whether it came from the camera or a chosen
-  // photo: straight to the verdict, no name or barcode required first
-  // (issue #214) — naming and adding the product is a follow-up offered from
-  // that screen, not a gate in front of it.
+  // photo: straight to the verdict (issue #214). The verdict is only shown;
+  // users can't add products to the catalogue (owner).
   const openVerdict = () => {
     // The X (or a tab switch), or a mode switch away and back, can land
     // while a read is still pending.
     if (!stillWanted()) return;
     preserveMode();
-    router.push({ pathname: "/label-result", params: barcode ? { barcode } : {} });
+    router.push("/label-result");
   };
 
   return (
@@ -1264,7 +1243,6 @@ function IngredientsStage({
           camera={cameraRef}
           cameraSize={cameraSize}
           window={windowBox}
-          barcode={barcode}
           frameTopOffset={CLOSE_CLEARANCE}
           bottomInset={clearance}
           onRead={openVerdict}
@@ -1278,7 +1256,7 @@ function IngredientsStage({
           requestPermission={requestPermission}
           mode="photo"
           bottomInset={clearance}
-          extra={<ChoosePhotoInstead barcode={barcode} onRead={openVerdict} isStillWanted={stillWanted} />}
+          extra={<ChoosePhotoInstead onRead={openVerdict} isStillWanted={stillWanted} />}
         />
       ) : null}
     </View>
@@ -1324,5 +1302,4 @@ const FRAME_MARGIN_ABOVE_SWITCHER = 24;
 const IDLE_HINT_DELAY_MS = 8_000;
 
 const READY_BARCODE = scanStateCopy({ kind: "ready", mode: "barcode" });
-const SCAN_SOMETHING_ELSE = scanStateCopy({ kind: "not-ours-yet" }).link;
 

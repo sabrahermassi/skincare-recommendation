@@ -15,10 +15,9 @@ const SUPPORT_EMAIL = supportEmail();
 const HELP: { title: string; body: string }[] = [
   {
     title: "A product isn't in our catalogue",
-    // A photo alone gives a result, never a catalogue entry: a product is only
-    // added with a name, a barcode and an ingredient list, enforced in
-    // `replace_product_with_ingredients` (#293).
-    body: "Open the scanner, choose Photo and photograph its ingredient list: you get a result straight away. To add it to the catalogue so the next scan finds it, tap “Name and add this product” — we need its name, its barcode and the ingredient list.",
+    // A photo gives a result, never a catalogue entry: users can't add
+    // products (owner), so the catalogue only holds products we imported.
+    body: "Open the scanner, choose Photo and photograph its ingredient list: you get a result straight away, even for a product our catalogue doesn't have.",
   },
   {
     title: "The ingredients look wrong",

@@ -42,6 +42,9 @@ const LABEL_LIFT = 2;
 /** Room for Playfair's tall ascenders and its descenders ("p") at the label's 15dp. */
 const LABEL_LINE_HEIGHT = 22;
 
+/** Tighter lines for a label allowed onto two, so both fit a 56dp pill. */
+const TWO_LINE_HEIGHT = 18;
+
 type Props = {
   label: string;
   onPress: () => void;
@@ -54,6 +57,11 @@ type Props = {
   className?: string;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  /**
+   * Lets a long label take two lines instead of being cut off: for a button that
+   * shares its row with another, where half the width can't hold it on one line.
+   */
+  twoLines?: boolean;
 };
 
 export function PrimaryButton({
@@ -66,6 +74,7 @@ export function PrimaryButton({
   className = "",
   style,
   accessibilityLabel,
+  twoLines = false,
 }: Props) {
   const [scale, press] = usePressScale();
   const filled = variant === "filled" && !disabled;
@@ -103,12 +112,15 @@ export function PrimaryButton({
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 15,
-            lineHeight: LABEL_LINE_HEIGHT,
+            lineHeight: twoLines ? TWO_LINE_HEIGHT : LABEL_LINE_HEIGHT,
+            textAlign: "center",
             includeFontPadding: false,
             transform: [{ translateY: -LABEL_LIFT }],
             color: disabled ? MUTED_FAINT : INK,
           }}
-          numberOfLines={1}
+          numberOfLines={twoLines ? 2 : 1}
+          // Breaks so no word is left alone on the second line.
+          lineBreakStrategyIOS="standard"
           // A fixed-height pill: its label keeps the ordinary ceiling even
           // inside a `ReadingScale` (#334).
           maxFontSizeMultiplier={FONT_SCALE.display}
