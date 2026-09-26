@@ -40,7 +40,7 @@ const GREETING_ART = require("@/assets/illustrations/home-greeting.png");
 const GREETING_ASPECT = 640 / 206;
 
 /**
- * Home — the first screen after the skin quiz.
+ * Home — the first screen after the intro.
  *
  * A greeting, then two cards side by side — "Scan a product", which opens the
  * full-screen scanner, and "Find skincare", which opens Browse — and a

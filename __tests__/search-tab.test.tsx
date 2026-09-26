@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 /**
- * The Search tab (#317): search first, no catalogue list. Before typing it
+ * Search (#317): search first, no catalogue list. Before typing it
  * shows the box, the scanner and what was viewed last; typing shows ranked
  * matches, and a search with none offers the scanner.
  */
@@ -11,7 +11,7 @@ jest.setTimeout(30000);
 const mockOpenScanner = jest.fn();
 jest.mock("@/lib/open-scanner", () => ({ openScanner: () => mockOpenScanner() }));
 
-// The Search tab's own params (`byName`, #323).
+// Search's own params (`byName`, #323).
 let mockParams: Record<string, string> = {};
 
 jest.mock("expo-router", () => {
@@ -19,7 +19,6 @@ jest.mock("expo-router", () => {
   return {
     router: { push: jest.fn(), navigate: jest.fn() },
     useLocalSearchParams: () => mockParams,
-    useScrollToTop: () => undefined,
     useFocusEffect: (effect: () => void | (() => void)) => {
       useEffect(() => effect(), []); // eslint-disable-line react-hooks/exhaustive-deps
     },

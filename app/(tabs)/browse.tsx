@@ -1,4 +1,4 @@
-import { router, useFocusEffect, useLocalSearchParams, useScrollToTop } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, TextInput, View, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,8 +21,8 @@ import { tabBarClearance } from "@/lib/tab-bar";
 import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TYPE } from "@/lib/tokens";
 
 /**
- * The Search tab (#317): search first, no catalogue list. Someone in a shop is
- * holding one product and wants to know about that one, so the tab opens on
+ * Search (#317): search first, no catalogue list. Someone in a shop is
+ * holding one product and wants to know about that one, so the screen opens on
  * the search box with the keyboard up, the products they looked at last, and
  * the scanner. Results appear only once they type, ranked for their skin.
  *
@@ -56,11 +56,6 @@ function skeletonRows(): SearchItem[] {
 
 export default function Browse() {
   const insets = useSafeAreaInsets();
-  // Tapping the tab while it is already showing scrolls back to the top — the
-  // standard tab-bar behaviour on iOS and Android.
-  const listRef = useRef<FlatList<SearchItem>>(null);
-  useScrollToTop(listRef);
-
   // `searchResults` is null until a query of at least 2 characters has
   // actually been searched.
   const [query, setQuery] = useState("");
@@ -292,7 +287,6 @@ export default function Browse() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
       <FlatList
-        ref={listRef}
         data={items}
         keyExtractor={(item) => (item.kind === "skeleton" ? item.id : item.kind === "product" ? item.product.id : item.kind)}
         renderItem={renderItem}

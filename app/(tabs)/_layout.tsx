@@ -216,7 +216,7 @@ export default function TabsLayout() {
           title: "Skincare School · for.me",
           tabBarLabel: "Skincare School",
           tabBarAccessibilityLabel: "Skincare School",
-          // A mortarboard, the same one Profile's "Skincare School" row uses.
+          // A mortarboard.
           tabBarButton: (props) => <TabButton tab="school" {...props} />,
         }}
       />

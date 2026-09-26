@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text } from "@/components/Text";
 import { COLORS } from "@/lib/colors";
-import { CANVAS } from "@/lib/tokens";
 
 /**
  * FOR.ME shell tokens — shared by `OnboardingShell` and `QuizShell` only.
@@ -13,11 +12,8 @@ import { CANVAS } from "@/lib/tokens";
  * Not `lib/tokens.ts`: that file is the app's single source of
  * colour, and these are a different, unrelated palette (per
  * design-watercolor/FOR_ME_Onboarding_Design_Spec.md §2), used verbatim, not
- * sampled from a screenshot. `CANVAS` is the one exception — the FOR.ME
- * cream was adopted as the app-wide background, so it's re-exported from
- * `lib/tokens.ts` here rather than kept as a second copy of the same value.
+ * sampled from a screenshot.
  */
-export { CANVAS };
 /**
  * One color for the wordmark, the heart, the CTA button, and the active
  * progress dot — explicit unification request, superseding the earlier
