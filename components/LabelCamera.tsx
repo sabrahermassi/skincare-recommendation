@@ -14,7 +14,7 @@ import { Text } from "@/components/Text";
 import { coverFitCropRect, shrinkWidth, type Rect, type Size } from "@/lib/crop-to-guide";
 import { fitUpload } from "@/lib/fit-upload";
 import { deleteTempFile, LIBRARY_MAX_WIDTH, pickLabelPhoto } from "@/lib/pick-label-photo";
-import { readLabelPhoto } from "@/lib/read-label-photo";
+import { failureFromState, readLabelPhoto } from "@/lib/read-label-photo";
 import { track } from "@/lib/analytics";
 import { CAMERA_STAGE, CANVAS, INK, MUTED, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -43,7 +43,7 @@ type Status =
   // decided defaults to "retryable" by accident, which is exactly the bug
   // Codex caught on #121 — every reason but one genuinely is retryable, and
   // the one that isn't (`not_configured`) needs its caller to say so.
-  | { kind: "failed"; message: string; hint?: string; retryable: boolean };
+  | { kind: "failed"; message: string; hint?: string; action?: string; retryable: boolean };
 
 type Props = {
   /** Handed over by whoever sent the user here after a miss; the list read is added under it. */
@@ -181,7 +181,7 @@ export function LabelCamera({
       }
 
       if (!photo?.base64) {
-        setStatus({ kind: "failed", message: "The camera didn't return an image.", retryable: true });
+        setStatus({ kind: "failed", ...failureFromState({ kind: "couldnt-read", why: "photo" }) });
         return;
       }
       capturedUri = photo.uri;
@@ -280,14 +280,9 @@ export function LabelCamera({
         onRead();
         return;
       }
-      setStatus({ kind: "failed", message: outcome.message, hint: outcome.hint, retryable: outcome.retryable });
+      setStatus({ kind: "failed", message: outcome.message, hint: outcome.hint, action: outcome.action, retryable: outcome.retryable });
     } catch {
-      setStatus({
-        kind: "failed",
-        message: "Something went wrong reading that.",
-        hint: "Try again - and check you have a connection.",
-        retryable: true,
-      });
+      setStatus({ kind: "failed", ...failureFromState({ kind: "couldnt-reach", why: "default" }) });
     } finally {
       setPreview(null);
       releasePick?.();

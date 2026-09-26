@@ -10,9 +10,10 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { TypeChip } from "@/components/TypeChip";
-import { failureMessage, fetchProductByBarcode, forgetScanned, saveScannedProduct } from "@/data/api";
+import { fetchProductByBarcode, forgetScanned, saveScannedProduct } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/data/types";
 import { clearLabelRead, heldLabelRead } from "@/lib/pending-label";
+import { lookupFailureState, saveFailureState, scanStateCopy, scanStateSpeech, type SaveFailureReason } from "@/lib/scan-copy";
 import { READ_TOKEN_TTL_MS } from "@/supabase/functions/_shared/read-token";
 import {
   BORDER_INACTIVE,
@@ -136,7 +137,7 @@ function BarcodeStep({ onKnown, onUnknown }: { onKnown: (id: string) => void; on
     const result = await fetchProductByBarcode(code);
     if (!result.ok) {
       busy.current = false;
-      setStatus({ kind: "failed", message: failureMessage(result.failure) });
+      setStatus({ kind: "failed", message: scanStateSpeech(scanStateCopy(lookupFailureState(result.failure))) });
       return;
     }
     if (result.value) onKnown(result.value.id);
@@ -260,13 +261,19 @@ type SaveFailure =
   | "name_unreadable"
   | "name_repeats";
 
+/**
+ * What each save failure says. The scan-flow ones (a stale or refused read, a
+ * rate limit, the network) are `scanStateCopy`'s words (#204); the rest are
+ * about the name typed here, or the one case where the save did happen.
+ */
 const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
-  unreadable_list: "That ingredient list didn't look right. Go back and photograph it again.",
-  expired: "That photo is too old to save now. Scan it again.",
-  rate_limited: "That's a lot of products in a short time. Give it a few minutes and try again.",
-  failed: "Couldn't save that just now. Check your connection and try again.",
+  unreadable_list: saveFailureSpeech("unreadable_list"),
+  expired: saveFailureSpeech("expired"),
+  rate_limited: saveFailureSpeech("rate_limited"),
+  failed: saveFailureSpeech("failed"),
+  // A build with no backend: a developer's message, never a real person's.
   not_configured: "Adding products isn't available in this build.",
-  network_error: "Couldn't reach our servers. Check your connection and try again.",
+  network_error: saveFailureSpeech("network_error"),
   // It did save — the write already committed server-side before the parse
   // that hit this failed (#188). "Show me that product" below looks it up
   // by the barcode just submitted, rather than re-saving with a read token
@@ -278,6 +285,10 @@ const SAVE_FAILURE_COPY: Record<SaveFailure, string> = {
   name_unreadable: "That name needs some letters or numbers. Type it as it's printed on the pack.",
   name_repeats: "That name repeats itself a lot. Type it as it's printed on the pack.",
 };
+
+function saveFailureSpeech(reason: SaveFailureReason): string {
+  return scanStateSpeech(scanStateCopy(saveFailureState(reason)));
+}
 
 // Shown under `already_saved` when the recovery lookup itself fails too.
 // The product is still saved, so the ask is only to try the lookup again.

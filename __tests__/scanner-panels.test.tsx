@@ -95,7 +95,7 @@ beforeEach(() => {
   mockAppStateHandler = undefined;
 });
 
-const HINT = "Not scanning? Photograph the ingredient list instead.";
+const HINT = "Barcode not scanning? Photograph the ingredients instead.";
 
 function ingredient(name: string): Ingredient {
   return { id: name, name, comedogenic: 0, safety: "safe", verified: true };
@@ -165,14 +165,14 @@ describe("scanner status panels", () => {
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
 
     await scan("8801234567890");
-    expect(screen.getByText("Couldn't check this barcode")).toBeTruthy();
+    expect(screen.getByText("We couldn't check that just now")).toBeTruthy();
 
     // The camera refuses every read while the panel is up.
     await scan("8809999999999");
     expect(fetchProductByBarcode).toHaveBeenCalledTimes(1);
 
     await fireEvent.press(screen.getByRole("button", { name: "Scan something else" }));
-    expect(screen.queryByText("Couldn't check this barcode")).toBeNull();
+    expect(screen.queryByText("We couldn't check that just now")).toBeNull();
 
     // Rescanning the same code the panel was just dismissed for must not
     // reopen it — dismissGuard suppresses it (#190). Found in review on
@@ -195,7 +195,7 @@ describe("scanner status panels", () => {
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
     await scan("8801234567890");
 
-    await fireEvent.press(screen.getByText("Or find it in Search instead."));
+    await fireEvent.press(screen.getByText("Find it in Search"));
     expect(router.dismissTo).toHaveBeenCalledWith("/browse");
     expect(router.push).not.toHaveBeenCalled();
   });
@@ -259,10 +259,10 @@ describe("scanner status panels", () => {
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
 
     await scan("https://example.com/not-a-barcode");
-    expect(screen.getByText("That isn't a product barcode")).toBeTruthy();
+    expect(screen.getByText("That's not a product barcode")).toBeTruthy();
 
     await fireEvent.press(screen.getByRole("button", { name: "Scan again" }));
-    expect(screen.queryByText("That isn't a product barcode")).toBeNull();
+    expect(screen.queryByText("That's not a product barcode")).toBeNull();
   });
 });
 

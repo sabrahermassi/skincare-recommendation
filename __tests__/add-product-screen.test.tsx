@@ -133,7 +133,7 @@ describe("AddProduct — expired read token", () => {
 
     expect(screen.queryByText("Save and see my match")).toBeNull();
     expect(screen.getByText("Scan it again")).toBeTruthy();
-    expect(screen.getAllByText("That photo is too old to save now. Scan it again.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Let's take that photo again. We need a fresh photo of the ingredient list to save this product.").length).toBeGreaterThan(0);
   });
 
   it("Scan it again clears the held read and returns to the camera", async () => {
