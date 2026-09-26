@@ -10,6 +10,7 @@ import { ArtOnLine } from "@/components/ArtOnLine";
 import { BottomSheet } from "@/components/BottomSheet";
 import { GlassButton } from "@/components/GlassButton";
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { NotePreview } from "@/components/ProductNote";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { SaveHeart } from "@/components/SaveHeart";
@@ -33,9 +34,10 @@ import { isVerified } from "@/lib/safety";
 import { useCanJournal, useGuestShelf } from "@/lib/saving";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, SURFACE, SPACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, DANGER, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, SELECTED, SURFACE, SPACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
+import { reduceMotionNow } from "@/lib/reduce-motion";
 
 type Tab = SavedTab;
 
@@ -228,11 +230,199 @@ export default function Saved() {
   // chance to show. A pending undo of that kind keeps the list view (now
   // rendering nothing but the bar) on screen instead of jumping straight to
   // the empty state.
-  const isEmpty = isTabEmpty(
-    tab,
-    { saved: savedIds.length, history: history.length, ingredients: savedIngredients.length },
-    undo?.kind,
-  );
+  const counts = { saved: savedIds.length, history: history.length, ingredients: savedIngredients.length };
+
+  // The tab being left, while it fades out under the one arriving (owner: no
+  // cut between them). Two empty tabs share one empty state instead, whose
+  // own picture cross-fade covers the change.
+  const [leaving, setLeaving] = useState<Tab | null>(null);
+  const [crossfade] = useState(() => new Animated.Value(1));
+  const fading = leaving !== null && !(isTabEmpty(leaving, counts, undo?.kind) && isTabEmpty(tab, counts, undo?.kind));
+  const selectTab = (next: Tab) => {
+    setConfirmingClear(false);
+    if (next === tab) return;
+    setLeaving(tab);
+    setTab(next);
+    crossfade.setValue(0);
+    Animated.timing(crossfade, {
+      toValue: 1,
+      duration: reduceMotionNow() ? 0 : EMPTY_FADE_MS,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: Platform.OS !== "web",
+    }).start(({ finished }) => {
+      if (finished) setLeaving(null);
+    });
+  };
+
+  /** What one tab shows: its list, or its empty state. `live` is the tab being
+   *  shown, as opposed to the one fading out, and only it takes the scroll ref. */
+  const content = (t: Tab, live: boolean) => {
+    const empty = isTabEmpty(t, counts, undo?.kind);
+    return (
+      <>
+          {guest && t !== "history" ? <GuestShelfLine /> : null}
+
+          {empty ? (
+            <EmptyState tab={t} />
+          ) : t === "ingredients" ? (
+            <IngredientsTab
+              key="ingredients"
+              scrollRef={live ? listRef : undefined}
+              names={savedIngredients}
+              footer={
+                <ClearAll
+                  label="Clear ingredients"
+                  question="Clear all your starred ingredients?"
+                  confirming={confirmingClear}
+                  onAsk={() => setConfirmingClear(true)}
+                  onCancel={() => setConfirmingClear(false)}
+                  onConfirm={() => {
+                    setConfirmingClear(false);
+                    clearSavedIngredients();
+                  }}
+                />
+              }
+            />
+          ) : error ? (
+            <View style={{ alignItems: "center", gap: 12, paddingHorizontal: 40, paddingTop: 96 }}>
+              <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
+                Couldn&apos;t load your saved products. Check your connection and try again.
+              </Text>
+              <Pressable onPress={() => setRetryKey((k) => k + 1)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
+                <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
+                  Try again
+                </Text>
+              </Pressable>
+            </View>
+          ) : byId === null ? (
+            <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 96 }}>
+              <ActivityIndicator color={INK} />
+            </View>
+          ) : t === "saved" ? (
+            // `key` on each list: Saved and History are the same kind of element in the
+            // same spot, so without it React reuses one scroll view for both and the
+            // scroll position carries over when switching tabs.
+            <ScrollView key="saved" ref={live ? listRef : undefined} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
+              <StepFilter groups={presentGroups} selected={activeFilter} onSelect={setStepFilter} />
+              {savedIds.map((id) => {
+                const product = byId[id];
+                if (!product) return null;
+                if (activeFilter !== "all" && groupOf(id) !== activeFilter) return null;
+                const match = matchProduct(product, profile);
+                return (
+                  <Row
+                    key={id}
+                    product={product}
+                    corner={
+                      // Untapping the heart takes it off the shelf, with a moment to undo.
+                      <SaveHeart
+                        productId={id}
+                        onUnsave={() => {
+                          const saved = savedProducts.find((p) => p.id === id);
+                          toggleSaved(id);
+                          if (saved) showUndo({ kind: "saved", product: saved, owner: shelfOwner });
+                        }}
+                      />
+                    }
+                    footer={
+                      <StepLine
+                        group={groupOf(id)}
+                        chosen={savedProducts.find((p) => p.id === id)?.routineStep !== undefined}
+                        // Steps, like notes, are signed-in only (#300).
+                        onChange={canJournal ? () => setPickingStepFor(id) : undefined}
+                      />
+                    }
+                  >
+                    {savedProducts.find((p) => p.id === id)?.note ? (
+                      // The person's own words, exactly as written (#228).
+                      <NotePreview note={savedProducts.find((p) => p.id === id)!.note!} />
+                    ) : null}
+                    <ScorePill score={match.score} />
+                  </Row>
+                );
+              })}
+              {undo?.kind === "saved" && (
+                <UndoBar
+                  label="Removed"
+                  onUndo={() => {
+                    if (useAppStore.getState().shelfOwner === undo.owner) restoreSavedProduct(undo.product);
+                    dismissUndo();
+                  }}
+                />
+              )}
+
+              <ShelfPairings notes={shelfNotes} />
+
+              <StepPicker
+                productId={pickingStepFor}
+                guess={pickingStepFor && byId[pickingStepFor] ? TYPE_STEP[byId[pickingStepFor].type] : null}
+                chosen={savedProducts.find((p) => p.id === pickingStepFor)?.routineStep ?? null}
+                onPick={(step) => {
+                  if (pickingStepFor) setRoutineStep(pickingStepFor, step);
+                  setPickingStepFor(null);
+                }}
+                onClose={() => setPickingStepFor(null)}
+              />
+
+              <ClearAll
+                label="Clear saved products"
+                question="Clear all your saved products?"
+                confirming={confirmingClear}
+                onAsk={() => setConfirmingClear(true)}
+                onCancel={() => setConfirmingClear(false)}
+                onConfirm={() => {
+                  setConfirmingClear(false);
+                  dismissUndo();
+                  clearSavedProducts();
+                }}
+              />
+            </ScrollView>
+          ) : (
+            <ScrollView key="history" ref={live ? listRef : undefined} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
+              {history.map((entry) => {
+                const product = entry.known ? byId[entry.id] : undefined;
+                return (
+                  <SwipeToDelete key={entry.id} label={product?.name ?? entry.id} onDelete={() => setDeleting(entry)}>
+                    {product ? (
+                      <Row product={product} corner={<SaveHeart productId={product.id} fetchedAt={product.fetchedAt} />}>
+                        {/* The score it had when it was looked at, not a fresh one:
+                            re-scoring the log is exactly what this screen refuses to do. */}
+                        <ScorePill score={entry.scoreAtView} />
+                        <HistoryMeta entry={entry} />
+                      </Row>
+                    ) : (
+                      <UnknownRow entry={entry} />
+                    )}
+                  </SwipeToDelete>
+                );
+              })}
+
+              <DeleteSheet
+                visible={deleting !== null}
+                onClose={() => setDeleting(null)}
+                onDelete={() => {
+                  if (deleting) removeHistoryEntry(deleting.id);
+                  setDeleting(null);
+                }}
+              />
+
+              <ClearAll
+                label="Clear history"
+                question="Clear your whole history?"
+                confirming={confirmingClear}
+                onAsk={() => setConfirmingClear(true)}
+                onCancel={() => setConfirmingClear(false)}
+                onConfirm={() => {
+                  setConfirmingClear(false);
+                  dismissUndo();
+                  clearHistory();
+                }}
+              />
+            </ScrollView>
+          )}
+      </>
+    );
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
@@ -242,198 +432,36 @@ export default function Saved() {
         </Text>
       </View>
 
-      <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingVertical: 14 }}>
-        <SegmentButton
-          label={savedProducts.length ? `Saved (${savedProducts.length})` : "Saved"}
-          active={tab === "saved"}
-          onPress={() => {
-            setTab("saved");
-            setConfirmingClear(false);
-          }}
-        />
-        <SegmentButton
-          label={history.length ? `History (${history.length})` : "History"}
-          active={tab === "history"}
-          onPress={() => {
-            setTab("history");
-            setConfirmingClear(false);
-          }}
-        />
-        {/* No count in parens here, unlike the two siblings — three segments
-            leaves each about a third of the row, and "Ingredients (12)" is
-            long enough at that width to risk wrapping inside the pill's
-            fixed 48pt height (Code-inferred, not visually verified in this
-            environment — kept deliberately short rather than risk it). */}
-        <SegmentButton
-          label="Ingredients"
-          active={tab === "ingredients"}
-          onPress={() => {
-            setTab("ingredients");
-            setConfirmingClear(false);
-          }}
-        />
+      {/* The three lists in one capsule, like the scanner's Barcode / Photo
+          (owner). Ingredients carries no count: three segments leave each
+          about a third of the row. */}
+      <SegmentedSwitch
+        options={[
+          { value: "saved", label: savedProducts.length ? `Saved (${savedProducts.length})` : "Saved" },
+          { value: "history", label: history.length ? `History (${history.length})` : "History" },
+          { value: "ingredients", label: "Ingredients" },
+        ]}
+        selected={tab}
+        onSelect={selectTab}
+        style={{ paddingHorizontal: 16, paddingVertical: 14 }}
+      />
+
+      <View style={{ flex: 1 }}>
+        {/* The tab that was showing fades out over the one arriving, which fades
+            in: nothing cuts from one to the other (owner). Hidden from screen
+            readers, which only ever hear the arriving tab. */}
+        {fading ? (
+          <Animated.View
+            pointerEvents="none"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={[StyleSheet.absoluteFill, { opacity: crossfade.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}
+          >
+            {content(leaving, false)}
+          </Animated.View>
+        ) : null}
+        <Animated.View style={{ flex: 1, opacity: fading ? crossfade : 1 }}>{content(tab, true)}</Animated.View>
       </View>
-
-      {guest && tab !== "history" ? <GuestShelfLine /> : null}
-
-      {isEmpty ? (
-        <EmptyState tab={tab} />
-      ) : tab === "ingredients" ? (
-        <IngredientsTab
-          key="ingredients"
-          scrollRef={listRef}
-          names={savedIngredients}
-          footer={
-            <ClearAll
-              label="Clear ingredients"
-              question="Clear all your starred ingredients?"
-              confirming={confirmingClear}
-              onAsk={() => setConfirmingClear(true)}
-              onCancel={() => setConfirmingClear(false)}
-              onConfirm={() => {
-                setConfirmingClear(false);
-                clearSavedIngredients();
-              }}
-            />
-          }
-        />
-      ) : error ? (
-        <View style={{ alignItems: "center", gap: 12, paddingHorizontal: 40, paddingTop: 96 }}>
-          <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
-            Couldn&apos;t load your saved products. Check your connection and try again.
-          </Text>
-          <Pressable onPress={() => setRetryKey((k) => k + 1)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
-            <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-              Try again
-            </Text>
-          </Pressable>
-        </View>
-      ) : byId === null ? (
-        <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 96 }}>
-          <ActivityIndicator color={INK} />
-        </View>
-      ) : tab === "saved" ? (
-        // `key` on each list: Saved and History are the same kind of element in the
-        // same spot, so without it React reuses one scroll view for both and the
-        // scroll position carries over when switching tabs.
-        <ScrollView key="saved" ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
-          <StepFilter groups={presentGroups} selected={activeFilter} onSelect={setStepFilter} />
-          {savedIds.map((id) => {
-            const product = byId[id];
-            if (!product) return null;
-            if (activeFilter !== "all" && groupOf(id) !== activeFilter) return null;
-            const match = matchProduct(product, profile);
-            return (
-              <Row
-                key={id}
-                product={product}
-                corner={
-                  // Untapping the heart takes it off the shelf, with a moment to undo.
-                  <SaveHeart
-                    productId={id}
-                    onUnsave={() => {
-                      const saved = savedProducts.find((p) => p.id === id);
-                      toggleSaved(id);
-                      if (saved) showUndo({ kind: "saved", product: saved, owner: shelfOwner });
-                    }}
-                  />
-                }
-                footer={
-                  <StepLine
-                    group={groupOf(id)}
-                    chosen={savedProducts.find((p) => p.id === id)?.routineStep !== undefined}
-                    // Steps, like notes, are signed-in only (#300).
-                    onChange={canJournal ? () => setPickingStepFor(id) : undefined}
-                  />
-                }
-              >
-                {savedProducts.find((p) => p.id === id)?.note ? (
-                  // The person's own words, exactly as written (#228).
-                  <NotePreview note={savedProducts.find((p) => p.id === id)!.note!} />
-                ) : null}
-                <ScorePill score={match.score} />
-              </Row>
-            );
-          })}
-          {undo?.kind === "saved" && (
-            <UndoBar
-              label="Removed"
-              onUndo={() => {
-                if (useAppStore.getState().shelfOwner === undo.owner) restoreSavedProduct(undo.product);
-                dismissUndo();
-              }}
-            />
-          )}
-
-          <ShelfPairings notes={shelfNotes} />
-
-          <StepPicker
-            productId={pickingStepFor}
-            guess={pickingStepFor && byId[pickingStepFor] ? TYPE_STEP[byId[pickingStepFor].type] : null}
-            chosen={savedProducts.find((p) => p.id === pickingStepFor)?.routineStep ?? null}
-            onPick={(step) => {
-              if (pickingStepFor) setRoutineStep(pickingStepFor, step);
-              setPickingStepFor(null);
-            }}
-            onClose={() => setPickingStepFor(null)}
-          />
-
-          <ClearAll
-            label="Clear saved products"
-            question="Clear all your saved products?"
-            confirming={confirmingClear}
-            onAsk={() => setConfirmingClear(true)}
-            onCancel={() => setConfirmingClear(false)}
-            onConfirm={() => {
-              setConfirmingClear(false);
-              dismissUndo();
-              clearSavedProducts();
-            }}
-          />
-        </ScrollView>
-      ) : (
-        <ScrollView key="history" ref={listRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
-          {history.map((entry) => {
-            const product = entry.known ? byId[entry.id] : undefined;
-            return (
-              <SwipeToDelete key={entry.id} label={product?.name ?? entry.id} onDelete={() => setDeleting(entry)}>
-                {product ? (
-                  <Row product={product} corner={<SaveHeart productId={product.id} fetchedAt={product.fetchedAt} />}>
-                    {/* The score it had when it was looked at, not a fresh one:
-                        re-scoring the log is exactly what this screen refuses to do. */}
-                    <ScorePill score={entry.scoreAtView} />
-                    <HistoryMeta entry={entry} />
-                  </Row>
-                ) : (
-                  <UnknownRow entry={entry} />
-                )}
-              </SwipeToDelete>
-            );
-          })}
-
-          <DeleteSheet
-            visible={deleting !== null}
-            onClose={() => setDeleting(null)}
-            onDelete={() => {
-              if (deleting) removeHistoryEntry(deleting.id);
-              setDeleting(null);
-            }}
-          />
-
-          <ClearAll
-            label="Clear history"
-            question="Clear your whole history?"
-            confirming={confirmingClear}
-            onAsk={() => setConfirmingClear(true)}
-            onCancel={() => setConfirmingClear(false)}
-            onConfirm={() => {
-              setConfirmingClear(false);
-              dismissUndo();
-              clearHistory();
-            }}
-          />
-        </ScrollView>
-      )}
     </View>
   );
 }
@@ -479,43 +507,6 @@ function ClearAll({
   ) : (
     <Pressable onPress={onAsk} accessibilityRole="button" style={[CLEAR_TARGET, { alignSelf: "center" }]} className="active:opacity-70">
       <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>{label}</Text>
-    </Pressable>
-  );
-}
-
-function SegmentButton({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="tab"
-      accessibilityState={{ selected: active }}
-      // 48pt inline. It was padding-derived, which put it at roughly 34 -
-      // shorter than everything else on the screen and the first thing you
-      // touch on it.
-      style={{
-        flex: 1,
-        height: 48,
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: RADIUS_SELECTOR,
-        borderWidth: active ? 1.5 : 1,
-        borderColor: active ? TERRACOTTA : BORDER_INACTIVE,
-        backgroundColor: active ? SELECTED : CANVAS,
-        ...CHIP_SHADOW,
-      }}
-      className="active:opacity-70"
-    >
-      <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: "600", color: active ? INK : MUTED }}>
-        {label}
-      </Text>
     </Pressable>
   );
 }
@@ -813,7 +804,8 @@ const EMPTY_ART_WIDTH = 340;
 // so the text under the picture starts at the same place on every tab.
 const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).map((art) => art.aspect));
 
-// How long the pictures cross-fade when the tab changes.
+// How long a tab change cross-fades: the pictures between two empty tabs, or
+// the whole of one tab into the next.
 const EMPTY_FADE_MS = 300;
 const EMPTY_TABS = Object.keys(EMPTY_ART) as Tab[];
 
@@ -943,7 +935,8 @@ function IngredientsTab({
 }: {
   names: string[];
   footer: ReactNode;
-  scrollRef: RefObject<ScrollView | null>;
+  /** Only on the tab being shown, not the one fading out. */
+  scrollRef?: RefObject<ScrollView | null>;
 }) {
   const insets = useSafeAreaInsets();
   const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);

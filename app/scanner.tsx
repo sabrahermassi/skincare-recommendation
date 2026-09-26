@@ -22,6 +22,7 @@ import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/compone
 import { SHEET_INSET, SHEET_OUTLINE, SHEET_RADIUS } from "@/components/IngredientsSheet";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
+import { SegmentedSwitch, SWITCH_HEIGHT } from "@/components/SegmentedSwitch";
 import { GlassButton } from "@/components/GlassButton";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { TERRACOTTA } from "@/components/shell/shared";
@@ -38,7 +39,7 @@ import { reduceMotionNow } from "@/lib/reduce-motion";
 import { matchProduct } from "@/lib/matching";
 import { track } from "@/lib/analytics";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, CTA, FLOATING_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -519,7 +520,12 @@ export default function Scan() {
               bottom: Math.max(STAGE_BOTTOM, insets.bottom + 12),
             }}
           >
-            <ModeSwitcher mode={mode} setMode={selectMode} />
+            <SegmentedSwitch
+              options={MODES.map((m) => ({ value: m, label: m }))}
+              selected={mode}
+              onSelect={selectMode}
+              style={{ marginHorizontal: SCAN_SIDE_INSET - STAGE_INSET }}
+            />
           </View>
         )}
 
@@ -805,74 +811,6 @@ const FOUND_SHEET_TRAVEL = 420;
  * `light` draws it for the cream screens (asking for camera access) instead
  * of over the dark camera.
  */
-function ModeSwitcher({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }) {
-  const index = MODES.indexOf(mode);
-  const [width, setWidth] = useState(0);
-  const [slide] = useState(() => new Animated.Value(index));
-  useEffect(() => {
-    if (reduceMotionNow()) {
-      slide.setValue(index);
-      return;
-    }
-    Animated.spring(slide, {
-      toValue: index,
-      ...IOS_SPRING,
-      useNativeDriver: Platform.OS !== "web",
-    }).start();
-  }, [index, slide]);
-
-  const segment = width > 0 ? (width - 2 * SWITCHER_PADDING) / MODES.length : 0;
-
-  // After the owner's reference: an opaque dark capsule, the same over the
-  // camera and over the light permission screen, with the chosen mode on a
-  // solid peach thumb. Words only, no icons.
-  return (
-    <View
-      accessibilityRole="tablist"
-      style={{ marginHorizontal: SCAN_SIDE_INSET - STAGE_INSET }}
-      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-    >
-      <View style={{ height: SWITCHER_HEIGHT, borderRadius: SWITCHER_HEIGHT / 2, padding: SWITCHER_PADDING, flexDirection: "row", backgroundColor: INK }}>
-        {segment > 0 ? (
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              top: SWITCHER_PADDING,
-              bottom: SWITCHER_PADDING,
-              left: SWITCHER_PADDING,
-              width: segment,
-              borderRadius: (SWITCHER_HEIGHT - 2 * SWITCHER_PADDING) / 2,
-              backgroundColor: CTA,
-              transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [0, segment] }) }],
-            }}
-          />
-        ) : null}
-        {MODES.map((label) => (
-          <ModePill key={label} label={label} selected={mode === label} onPress={() => setMode(label)} />
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function ModePill({ label, selected, onPress }: { label: Mode; selected: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="tab"
-      accessibilityLabel={label}
-      accessibilityState={{ selected }}
-      style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
-      className="active:opacity-70"
-    >
-      <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: selected ? INK : CANVAS }} numberOfLines={1}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 /**
  * Barcode mode's own overlays: what a read finds, and the way forward from it.
  * The camera, the frame and the mode switcher are Scan's, shared with Photo.
@@ -1210,8 +1148,8 @@ function IngredientsStage({
 // used to be measured off a 293pt card that no longer exists (the stage is
 // full-bleed now), so a fixed bottom inset put the frame's bottom edge, and
 // its instruction text, underneath the switcher rather than clear of it.
-// 56 is the owner's reference switcher, measured off its screenshot.
-const SWITCHER_HEIGHT = 56;
+// The mode switcher's height, from the switch itself.
+const SWITCHER_HEIGHT = SWITCH_HEIGHT;
 // The no-match sheet (after OnSkin): its picture (new-watercolor/
 // no_product_match_v1_transparent.png, trimmed), its corners, and how far
 // below it starts.
@@ -1223,13 +1161,6 @@ const NO_MATCH_TRAVEL = 700;
 // response 0.5 s, as a system sheet rises — stiffness = (2π / response)²,
 // damping = 4π × fraction / response, for a mass of 1.
 const SHEET_SPRING = { mass: 1, stiffness: 158, damping: 25 };
-// The gap between the mode switcher's capsule and the thumb that slides in it.
-const SWITCHER_PADDING = 4;
-// Apple's own spring for a control like this: SwiftUI's default `.spring`
-// shape (damping fraction 0.85) at a segmented control's pace (response
-// 0.35 s), converted to stiffness and damping for a mass of 1:
-// stiffness = (2π / response)², damping = 4π × fraction / response.
-const IOS_SPRING = { mass: 1, stiffness: 322, damping: 30.5 };
 // How far in the bottom wrapper (mode pills, status panel) sits from each edge.
 const STAGE_INSET = 20;
 // The glass buttons across the top (a whole touch target, 8 below the safe
