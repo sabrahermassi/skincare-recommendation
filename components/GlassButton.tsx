@@ -68,6 +68,6 @@ export function GlassButton({
 }
 
 /** The full-size disc: a whole touch target, like the iOS camera's own buttons. */
-export const GLASS_BUTTON_SIZE = TOUCH_TARGET;
+const GLASS_BUTTON_SIZE = TOUCH_TARGET;
 /** The small disc, inside a card or a field. */
 export const GLASS_BUTTON_SMALL = 28;

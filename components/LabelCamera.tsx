@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SCAN_SIDE_INSET, SCAN_TOP_GAP, WINDOW_RADIUS, type Box } from "@/components/ScanViewfinder";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
+import { Sparkles } from "@/components/Sparkles";
 import { Text } from "@/components/Text";
 import { coverFitCropRect, shrinkWidth, type Size } from "@/lib/crop-to-guide";
 import { fitUpload } from "@/lib/fit-upload";
@@ -339,6 +340,8 @@ export function LabelCamera({
         >
           <Image source={{ uri: preview }} contentFit="contain" accessibilityLabel="" style={{ flex: 1 }} />
           <View style={{ ...StyleSheet.absoluteFill, backgroundColor: withAlpha(CAMERA_STAGE, 0.4) }} />
+          {/* Stars over the photo while it is read, so the wait looks like work. */}
+          {status.kind === "reading" ? <Sparkles style={StyleSheet.absoluteFill} /> : null}
         </View>
       ) : null}
 

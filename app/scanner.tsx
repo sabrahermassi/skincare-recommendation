@@ -532,15 +532,15 @@ export default function Scan() {
           <ScanCamera cameraRef={cameraRef} onScanned={onScanned} onLayout={onCameraLayout} enableTorch={torchOn} />
         ) : null}
 
-        {/* One frame too: it eases between four corners and a full outline, and the
-            sweeping line fades, as the mode changes. */}
+        {/* One frame too: it eases between the small barcode window and the tall
+            photo one as the mode changes. */}
         {granted && scanning ? (
           <ScanViewfinder
             topInset={insets.top + CLOSE_CLEARANCE}
             bottomInset={switcherClearance}
             frame={mode === "Barcode" ? "corners" : "full"}
-            sweep={mode === "Barcode"}
             description={mode === "Barcode" ? (scanStateCopy({ kind: "ready", mode: "barcode" }).line ?? null) : null}
+            hint={mode === "Barcode" ? (scanStateCopy({ kind: "ready", mode: "barcode" }).line ?? null) : null}
             locked={mode === "Barcode" && status.kind === "looking"}
             target={mode === "Barcode" && status.kind === "looking" ? status.target : undefined}
             onWindow={onWindow}
@@ -582,7 +582,7 @@ export default function Scan() {
       </View>
 
       {/* Glass buttons across the top, as in the iOS camera: close on the left,
-          the torch and "i" on the right. */}
+          the torch in the middle, "i" on the right. */}
       <GlassButton
         icon="close"
         accessibilityLabel="Close scanner"
@@ -592,22 +592,30 @@ export default function Scan() {
         style={{ position: "absolute", left: 16, top: insets.top + 8 }}
       />
 
-      <View style={{ position: "absolute", right: 16, top: insets.top + 8, flexDirection: "row", gap: 10 }}>
-        {/* Visible in both modes, not just Barcode (#195): the camera is one
-            shared instance (see ScannerCamera's own comment), so a torch
-            turned on here stays on across a mode switch — and someone
-            photographing a label on the same dark shelf needs the light too. */}
-        {cameraLive ? (
+      {/* Visible in both modes, not just Barcode (#195): the camera is one
+          shared instance (see ScannerCamera's own comment), so a torch
+          turned on here stays on across a mode switch — and someone
+          photographing a label on the same dark shelf needs the light too.
+          Centred across the full width; box-none so the row itself never
+          takes a tap meant for the buttons at either end. */}
+      {cameraLive ? (
+        <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, top: insets.top + 8, alignItems: "center" }}>
           <GlassButton
             icon={torchOn ? "flash" : "flash-outline"}
             accessibilityLabel={torchOn ? "Turn off the torch" : "Turn on the torch"}
             onDark
             onPress={() => setTorchOn((on) => !on)}
           />
-        ) : null}
-        {/* How we score products. Not linked yet: the owner adds where it goes. */}
-        <GlassButton icon="information" accessibilityLabel="How we score products" onDark={!needsPermission} />
-      </View>
+        </View>
+      ) : null}
+
+      {/* How we score products. Not linked yet: the owner adds where it goes. */}
+      <GlassButton
+        icon="information"
+        accessibilityLabel="How we score products"
+        onDark={!needsPermission}
+        style={{ position: "absolute", right: 16, top: insets.top + 8 }}
+      />
     </View>
   );
 }
@@ -757,10 +765,7 @@ function ModeSwitcher({
     }
     Animated.spring(slide, {
       toValue: index,
-      // Quick, with a hint of settle, as the iOS control moves.
-      damping: 18,
-      stiffness: 220,
-      mass: 0.8,
+      ...IOS_SPRING,
       useNativeDriver: Platform.OS !== "web",
     }).start();
   }, [index, slide]);
@@ -1210,10 +1215,16 @@ function IngredientsStage({
 const SWITCHER_HEIGHT = 53;
 // The gap between the mode switcher's glass pill and the thumb that slides in it.
 const SWITCHER_PADDING = 4;
+// Apple's own spring for a control like this: SwiftUI's default `.spring`
+// shape (damping fraction 0.85) at a segmented control's pace (response
+// 0.35 s), converted to stiffness and damping for a mass of 1:
+// stiffness = (2π / response)², damping = 4π × fraction / response.
+const IOS_SPRING = { mass: 1, stiffness: 322, damping: 30.5 };
 // How far in the bottom wrapper (mode pills, status panel) sits from each edge.
 const STAGE_INSET = 20;
-// The scanner's close button sits across the top-left; the frame starts below it.
-const CLOSE_CLEARANCE = 32;
+// The glass buttons across the top (a whole touch target, 8 below the safe
+// area); the frame starts clear of them.
+const CLOSE_CLEARANCE = 44;
 // Clear of the bottom edge and the home indicator.
 const STAGE_BOTTOM = 20;
 const FRAME_MARGIN_ABOVE_SWITCHER = 24;
