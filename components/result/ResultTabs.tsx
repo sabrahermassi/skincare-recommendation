@@ -276,7 +276,10 @@ function MatchTab({
             style={{ position: "absolute", top: 12, right: 12, width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: SURFACE, ...FLOATING_SHADOW }}
             className="active:opacity-70"
           >
-            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontStyle: "italic", fontSize: 16, color: INK }}>i</Text>
+            {/* Drawn to fit its 32pt disc: large text would clip it. */}
+            <Text maxFontSizeMultiplier={1} style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontStyle: "italic", fontSize: 16, color: INK }}>
+              i
+            </Text>
           </Pressable>
         )}
       </View>
@@ -445,16 +448,22 @@ function WhySheet({
       : verdictHeadline(match);
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} floating>
-      <Pressable
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Close"
-        style={{ position: "absolute", top: 16, right: 16, width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: SURFACE, zIndex: 1, ...FLOATING_SHADOW }}
-        className="active:opacity-70"
-      >
-        <Ionicons name="close" size={20} color={INK} />
-      </Pressable>
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      floating
+      corner={
+        <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: SURFACE, ...FLOATING_SHADOW }}
+          className="active:opacity-70"
+        >
+          <Ionicons name="close" size={20} color={INK} />
+        </Pressable>
+      }
+    >
       <View style={{ alignItems: "center", gap: 14, paddingTop: 12 }}>
         <View style={{ width: 96, height: 88, alignItems: "center", justifyContent: "center" }}>
           <View style={{ position: "absolute", width: 96, height: 84, borderTopLeftRadius: 50, borderTopRightRadius: 40, borderBottomRightRadius: 46, borderBottomLeftRadius: 38, backgroundColor: tone.tint }} />
