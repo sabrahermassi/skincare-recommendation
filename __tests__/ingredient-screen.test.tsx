@@ -53,7 +53,7 @@ describe("the ingredient page", () => {
     await open("niacinamide");
     expect(NIACINAMIDE_SOURCE).toBeDefined();
     expect(screen.getByText(NIACINAMIDE_SOURCE!.label)).toBeTruthy();
-    expect(screen.queryByText("Look it up on PubChem")).toBeNull();
+    expect(screen.queryByText("Read more on PubChem")).toBeNull();
   });
 
   it("opens the source when it's tapped", async () => {
@@ -66,7 +66,7 @@ describe("the ingredient page", () => {
 
   it("keeps PubChem as the fallback for a name no rule covers", async () => {
     await open("xanthan gum");
-    expect(screen.getByText("Look it up on PubChem")).toBeTruthy();
+    expect(screen.getByText("Read more on PubChem")).toBeTruthy();
     expect(screen.queryByText(/^Source:/)).toBeNull();
   });
 
@@ -86,6 +86,6 @@ describe("the ingredient page", () => {
   it("shows neither for a rule still waiting for a source", async () => {
     await open("tea tree oil");
     expect(screen.queryByText(/^Source:/)).toBeNull();
-    expect(screen.queryByText("Look it up on PubChem")).toBeNull();
+    expect(screen.queryByText("Read more on PubChem")).toBeNull();
   });
 });

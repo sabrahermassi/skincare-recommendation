@@ -1,4 +1,5 @@
-import { act, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { router } from "expo-router";
 
 import IngredientRoute from "@/app/ingredient/[inci]";
 import { fetchProduct } from "@/data/api";
@@ -57,6 +58,7 @@ const INGREDIENTS = [
   ingredient("petrolatum", {
     note: "Allowed when fully refined. The EU bans it only when its refining history isn't known (EU Annex II/904)",
   }),
+  ingredient("niacinamide", { functions: ["skin conditioning"] }),
 ];
 
 const PRODUCT: ProductWithIngredients = {
@@ -90,20 +92,25 @@ async function open(inci: string, profile: Partial<SkinProfile>) {
 describe("the ingredient page, opened from a product", () => {
   it("gives petrolatum's EU status as allowed when refined, not 'No restriction' (#362)", async () => {
     await open("petrolatum", {});
-    expect(screen.getByText("EU regulatory status: Allowed when refined")).toBeTruthy();
-    expect(screen.queryByText("EU regulatory status: No restriction")).toBeNull();
+    // "Good to know": the fact's key, then its value.
+    expect(screen.getByText("EU status")).toBeTruthy();
+    expect(screen.getByText("Allowed when refined")).toBeTruthy();
+    expect(screen.queryByText("No restriction")).toBeNull();
   });
 
   it("with no skin profile, doesn't call a plain ingredient Good, as the list gives it no word", async () => {
     await open("glycerin", {});
     expect(screen.getByText("No known concerns")).toBeTruthy();
-    expect(screen.queryByText("Good for you")).toBeNull();
+    expect(screen.queryByText("Good")).toBeNull();
+    // Nothing to say about it for everyone, and no profile: a way to set one up.
+    expect(screen.getByText("Set up your skin profile to see how this fits you")).toBeTruthy();
   });
 
   it("gives a pore-clogger the list's Watch, never Good, whatever it does for this skin", async () => {
     await open("lanolin", { baseSkinType: "dry", concerns: ["dehydrated"] });
     expect(screen.getAllByText("Worth knowing").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Good for you")).toBeNull();
+    expect(screen.getByText("Watch")).toBeTruthy();
+    expect(screen.queryByText("Good")).toBeNull();
   });
 
   it("gives a restricted ingredient for reactive skin the list's Watch, with the warning's own reason", async () => {
@@ -115,9 +122,10 @@ describe("the ingredient page, opened from a product", () => {
 
   it("says a misread pore-clogger the score charged counts against the person, not that it can't be judged", async () => {
     await open("isopropyl myristate", { concerns: ["acne-prone"] });
-    expect(screen.getByText("Works against your profile")).toBeTruthy();
+    expect(screen.getByText("Flagged for your skin")).toBeTruthy();
     expect(screen.getByText("This is one of the things pulling the score down for the skin you described.")).toBeTruthy();
-    expect(screen.queryByText("We can't judge this one")).toBeNull();
+    expect(screen.getByText("Lowers your score")).toBeTruthy();
+    expect(screen.queryByText("Not enough to go on")).toBeNull();
   });
 
   it("says a misread pore-clogger is on the lists when the score didn't charge it", async () => {
@@ -131,7 +139,8 @@ describe("the ingredient page, opened from a product", () => {
   it("flags a pregnancy caution for this person, even with no skin profile", async () => {
     await open("retinol", { pregnancyStatus: "pregnant" });
     expect(screen.getAllByText("Flagged for you").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Great match")).toBeNull();
+    expect(screen.queryByText("Suits your skin")).toBeNull();
+    expect(screen.queryByText(/^Helps with your/)).toBeNull();
   });
 
   it("gives fragrance the list's Watch for everyone, and says why (#345)", async () => {
@@ -178,5 +187,40 @@ describe.each([
     await open("some restricted preservative", { baseSkinType: "dry", sensitivity: "high" });
     expect(screen.getByText("Common irritant for sensitive skin")).toBeTruthy();
     expect(screen.queryByLabelText(/^Source:/)).toBeNull();
+  });
+});
+
+// The handoff's layout (design_handoff_ingredient_detail): where it came from,
+// where it sits on the label, and Previous / Next along it.
+describe("the ingredient page's layout", () => {
+  it("names the product it was opened from", async () => {
+    await open("glycerin", {});
+    expect(screen.getByText("In Cream")).toBeTruthy();
+  });
+
+  it("says where it sits on the label", async () => {
+    await open("glycerin", {});
+    expect(screen.getByText("On this label")).toBeTruthy();
+    expect(screen.getByText(/^#2 of 12/)).toBeTruthy();
+  });
+
+  it("steps to the next ingredient on the label, and has no previous on the first", async () => {
+    await open("aqua", {});
+    expect(screen.getByRole("button", { name: "Previous ingredient" }).props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.press(screen.getByRole("button", { name: "Next ingredient: Glycerin" }));
+    expect(router.replace).toHaveBeenLastCalledWith({ pathname: "/ingredient/[inci]", params: { inci: "glycerin", product: "p" } });
+  });
+
+  it("steps back to the previous one, and has no next on the last", async () => {
+    await open("niacinamide", {});
+    expect(screen.queryByRole("button", { name: /^Next ingredient/ })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Previous ingredient" }));
+    expect(router.replace).toHaveBeenLastCalledWith({ pathname: "/ingredient/[inci]", params: { inci: "petrolatum", product: "p" } });
+  });
+
+  it("names the concern a helping ingredient works on", async () => {
+    await open("niacinamide", { concerns: ["hyperpigmentation"] });
+    expect(screen.getByText("Helps with your dark spots")).toBeTruthy();
+    expect(screen.getByText("Adds to your score")).toBeTruthy();
   });
 });

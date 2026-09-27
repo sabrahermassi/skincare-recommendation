@@ -9,7 +9,6 @@ export const COLORS = {
   surface: "#FFFFFF",
 
   tintPink: "#F7D9DA",
-  tintPeach: "#FBE4D8",
   tintMint: "#D9EDE3",
   tintLilac: "#EDE9F6",
 
@@ -22,7 +21,6 @@ export const COLORS = {
   inkMuted: "#8C8592",
   inkFaint: "#9E98A3",
 
-  hairline: "#EFEAE4",
   hairlineSoft: "#F2EDE7",
 
   // Per-profile fit (design legend), distinct from the status ramp.
@@ -43,8 +41,6 @@ export const COLORS = {
   levelNeutral: "#6B5A54",
   levelAvoid: "#B23A32",
 
-  panelSuccess: "#EAF3EC",
-  panelSuccessLine: "#DCEBE0",
   panelWash: "#F3EFEA",
 
   // The FOR.ME shell palette — onboarding, the quiz and the selected-outline
