@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 
 import TabsLayout from "@/app/(tabs)/_layout";
 import SearchScreen from "@/app/(tabs)/browse";
@@ -151,6 +151,21 @@ describe("the quiz, as a modal", () => {
     expect(useAppStore.getState().profile.pregnancyStatus).toBe("neither");
   });
 
+  // #378 review: an old "prefer not to say" is neither of the two options, so
+  // neither shows as chosen and Finish waits for a Yes or No.
+  it("asks again for an old prefer-not-to-say answer instead of showing nothing chosen with Finish on", async () => {
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, pregnancyStatus: "prefer-not-to-say" } });
+    await render(
+      <QuizFrame>
+        <PregnancyStep />
+      </QuizFrame>,
+    );
+    for (const radio of screen.getAllByRole("radio")) expect(radio.props.accessibilityState?.checked).toBe(false);
+    expect(screen.getByRole("button", { name: "Finish" }).props.accessibilityState?.disabled).toBe(true);
+    await fireEvent.press(screen.getByText("No"));
+    expect(screen.getByRole("button", { name: "Finish" }).props.accessibilityState?.disabled).toBe(false);
+  });
+
   it("has no Skip, and saves each answer as it's tapped, so a quiz swiped away keeps it", async () => {
     await render(
       <QuizFrame>
@@ -160,6 +175,24 @@ describe("the quiz, as a modal", () => {
     expect(screen.queryByText("Skip")).toBeNull();
     await fireEvent.press(screen.getByText("Oily"));
     expect(useAppStore.getState().profile.baseSkinType).toBe("oily");
+  });
+
+  it("closes on VoiceOver's escape gesture, since there is no Skip to tap", async () => {
+    await render(
+      <QuizFrame>
+        <SkinTypeStep />
+      </QuizFrame>,
+    );
+    type Node = { props?: { onAccessibilityEscape?: () => void }; children?: (Node | string)[] | null };
+    const find = (node: Node | string | null | undefined): (() => void) | undefined => {
+      if (!node || typeof node === "string") return undefined;
+      return node.props?.onAccessibilityEscape ?? node.children?.map(find).find(Boolean);
+    };
+    const tree = screen.toJSON() as Node | Node[] | null;
+    const escape = (Array.isArray(tree) ? tree : [tree]).map(find).find(Boolean);
+    expect(escape).toBeDefined();
+    await act(async () => escape?.());
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
   });
 });
 

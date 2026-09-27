@@ -1,7 +1,7 @@
 import { unknownIngredient } from "@/data/types";
 import { isVerified } from "@/lib/safety";
 import {
-  canPhotographLabelFor,
+  isProductBarcode,
   fetchProduct,
   fetchProductByBarcode,
   fetchProducts,
@@ -159,35 +159,33 @@ describe("fetchProductByBarcode", () => {
   });
 });
 
-describe("canPhotographLabelFor", () => {
+describe("isProductBarcode", () => {
   /**
-   * Mirrors `label-ocr`'s own `\d{8,14}` check, so screens can skip the
-   * camera flow instead of letting the server 400 after a photo was taken.
-   * Pinned here rather than trusted, since the two are only kept in sync by
-   * convention.
+   * A retail barcode is 8 to 14 digits (EAN-8 to GTIN-14); anything else the
+   * scanner reads, like a QR code, is "not a product barcode" (#374).
    */
-  it("accepts barcode lengths label-ocr accepts", () => {
-    expect(canPhotographLabelFor("12345678")).toBe(true); // 8 digits, the floor
-    expect(canPhotographLabelFor("1234567890123")).toBe(true); // EAN-13
-    expect(canPhotographLabelFor("12345678901234")).toBe(true); // 14 digits, the ceiling
+  it("accepts retail barcode lengths", () => {
+    expect(isProductBarcode("12345678")).toBe(true); // 8 digits, the floor
+    expect(isProductBarcode("1234567890123")).toBe(true); // EAN-13
+    expect(isProductBarcode("12345678901234")).toBe(true); // 14 digits, the ceiling
   });
 
-  it("rejects lengths label-ocr rejects", () => {
-    expect(canPhotographLabelFor("1234567")).toBe(false); // 7 digits
-    expect(canPhotographLabelFor("123456789012345")).toBe(false); // 15 digits
+  it("rejects other lengths", () => {
+    expect(isProductBarcode("1234567")).toBe(false); // 7 digits
+    expect(isProductBarcode("123456789012345")).toBe(false); // 15 digits
   });
 
   it("rejects a non-numeric identifier", () => {
     // Two real shapes this reaches: a catalogue product id for a row that
     // failed to resolve, and the raw payload of a missed QR/Code 128 scan.
-    expect(canPhotographLabelFor("obf-8801234567890")).toBe(false);
-    expect(canPhotographLabelFor("hanbang-rice-serum")).toBe(false);
-    expect(canPhotographLabelFor("https://example.com")).toBe(false);
+    expect(isProductBarcode("obf-8801234567890")).toBe(false);
+    expect(isProductBarcode("hanbang-rice-serum")).toBe(false);
+    expect(isProductBarcode("https://example.com")).toBe(false);
   });
 
   it("rejects null, undefined, and empty string", () => {
-    expect(canPhotographLabelFor(null)).toBe(false);
-    expect(canPhotographLabelFor(undefined)).toBe(false);
-    expect(canPhotographLabelFor("")).toBe(false);
+    expect(isProductBarcode(null)).toBe(false);
+    expect(isProductBarcode(undefined)).toBe(false);
+    expect(isProductBarcode("")).toBe(false);
   });
 });

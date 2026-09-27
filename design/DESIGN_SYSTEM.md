@@ -87,11 +87,14 @@ against the two onboarding handoffs named in Provenance. What actually shipped d
 two points, both later, deliberate decisions rather than drift to silently paper over:
 
 - **The onboarding carousel's type and colours follow the owner's spec of 26 September
-  2026** (`components/shell/OnboardingShell.tsx`): a Playfair Display 500 headline at 29pt,
+  2026** (`components/shell/OnboardingShell.tsx`): a Playfair Display 500 headline at 36pt,
   its first line in `introAccent` (#9B614E) and the rest in `introInk` (#240904); system-font
-  subtext at 16pt in `introMuted` (#8F8275); Skip at 15pt in the same muted colour; dots
-  `introAccent` / `introMuted` at low opacity; and a flat pill button in `introButton`
-  (#BA765F) with a 17pt semibold `introButtonText` (#FCF7F3) label — all in `lib/colors.ts`.
+  subtext at 18pt in `introMuted` (#7C7065); Skip at 18pt in the same muted colour; dots
+  `introAccent` / `introMuted` at low opacity; and a flat pill button in `buttonPrimary`
+  (#9C6350) with a 17pt semibold white label — all in `lib/colors.ts`. Muted and the button
+  colour are the owner's #8F8275 and #BA765F darkened just enough to reach 4.5:1 contrast
+  (computed; the notes are in `lib/colors.ts`), and the same primary colour is every main
+  button, selected chip and filter pill in the app.
   It briefly used Cormorant Garamond (`design-watercolor/FOR_ME_Onboarding_Design_Spec.md`);
   that font is no longer loaded.
 - **The "Onboarding wordmark" row no longer applies.** A later redesign removed the
@@ -102,7 +105,7 @@ two points, both later, deliberate decisions rather than drift to silently paper
 
 | Role | Size | Weight | Line-height | Tracking |
 |---|---|---|---|---|
-| Screen headline (carousel) — **Playfair Display 500 at 29, see correction above** | 30 | 500 | 1.08 | −.018em |
+| Screen headline (carousel) — **Playfair Display 500, see correction above** | 36 | 500 | 1.1 | 0 |
 | Tagline / supporting copy | 15 (single-screen) / 14.5 (carousel) | 400 | 1.5 | — |
 | Icon label | 12 | 600 | normal | −.004em |
 | Button label | 15 | 500 | normal | — |
@@ -337,7 +340,7 @@ All of these read `VERDICT` from `lib/tokens.ts`; none carries its own copy:
 | Surface | Treatment |
 |---|---|
 | `app/product/[id].tsx` | verdict panel — `tint` background, `solid` border, `deep` text |
-| `components/ScoreRing.tsx` | ring track is `tint`, fill is `solid` |
+| `components/result/ResultTabs.tsx` (`Ring`) | ring track is `tint`, fill is `solid` |
 
 **The five score bands collapse onto three tones.** `Verdict` has five values because the
 MVP's `SCORE_BANDS` do; there are three colours because that is how many a person can tell

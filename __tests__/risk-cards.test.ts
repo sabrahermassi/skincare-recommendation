@@ -64,7 +64,7 @@ describe("irritationRisk", () => {
     expect(risk.note).not.toBe("Nothing restricted");
     // Both result screens render the pregnancy section *before* this card,
     // so the pointer says "above" (#257 review — it used to say "below").
-    expect(risk.note).toBe("See the pregnancy note above");
+    expect(risk.note).toBe("See the pregnancy note below");
   });
 
   it("still reads 'Nothing restricted' when there is truly nothing to report", () => {
@@ -72,6 +72,18 @@ describe("irritationRisk", () => {
     const pregnant = profile({ concerns: ["fine-lines"], pregnancyStatus: "pregnant" });
     const risk = irritationRisk(clean, matchProduct(clean, pregnant));
     expect(risk.note).toBe("Nothing restricted");
+  });
+});
+
+// #379 review (Codex): a read that recognised too little can't be called Low.
+describe("irritationRisk on a list too little of which was recognised", () => {
+  it("says Unknown, not 'Nothing restricted'", () => {
+    const read = {
+      type: "serum",
+      ingredients: [ingredient("glycerin"), ...["mystery one", "mystery two", "mystery three"].map((name) => ({ ...ingredient(name), verified: false }))],
+    } as unknown as ProductWithIngredients;
+    const risk = irritationRisk(read, matchProduct(read, EMPTY_PROFILE));
+    expect(risk).toMatchObject({ level: "Unknown", note: "Too little recognised" });
   });
 });
 
