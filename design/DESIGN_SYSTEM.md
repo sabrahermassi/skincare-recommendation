@@ -89,10 +89,12 @@ two points, both later, deliberate decisions rather than drift to silently paper
 - **The onboarding carousel's type and colours follow the owner's spec of 26 September
   2026** (`components/shell/OnboardingShell.tsx`): a Playfair Display 500 headline at 36pt,
   its first line in `introAccent` (#9B614E) and the rest in `introInk` (#240904); system-font
-  subtext at 18pt in `introMuted` (#7C7065); Skip at 17pt in the same muted colour; dots
-  `introAccent` / `introMuted` at low opacity; and a flat pill button in `introButton`
-  (#9C6350) with an 18pt semibold `introButtonText` (#FCF7F3) label — all in `lib/colors.ts`. Muted and the button are the owner's #8F8275 and #BA765F
-  darkened just enough to reach 4.5:1 contrast (computed; the note is in `lib/colors.ts`).
+  subtext at 18pt in `introMuted` (#7C7065); Skip at 18pt in the same muted colour; dots
+  `introAccent` / `introMuted` at low opacity; and a flat pill button in `buttonPrimary`
+  (#9C6350) with a 17pt semibold white label — all in `lib/colors.ts`. Muted and the button
+  colour are the owner's #8F8275 and #BA765F darkened just enough to reach 4.5:1 contrast
+  (computed; the notes are in `lib/colors.ts`), and the same primary colour is every main
+  button, selected chip and filter pill in the app.
   It briefly used Cormorant Garamond (`design-watercolor/FOR_ME_Onboarding_Design_Spec.md`);
   that font is no longer loaded.
 - **The "Onboarding wordmark" row no longer applies.** A later redesign removed the

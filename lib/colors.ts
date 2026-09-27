@@ -67,13 +67,15 @@ export const COLORS = {
   introMuted: "#7C7065", // subtext, Skip, the inactive dots
 
   // Buttons (owner, 27 September 2026), matched to the intro illustrations.
-  // Contrast computed, not read off a mockup (WCAG relative luminance):
-  // white on buttonPrimary is 3.6:1 (AA for large text only); white on
-  // buttonSecondary is 2.1:1, so its label is ink instead (7.6:1);
-  // buttonPrimary as outline text on the canvas is 3.4:1.
-  buttonPrimary: "#BA765F", // the one main action on a screen
+  // Contrast computed, not read off a mockup (WCAG relative luminance).
+  // Primary and tertiary are the owner's #BA765F darkened to #9C6350 (owner's
+  // choice, 27 September): white on #BA765F was 3.6:1 and #BA765F text on the
+  // canvas 3.4:1, both short of 4.5:1 for labels this size. Now white on
+  // buttonPrimary is 4.9:1 and buttonTertiary text on the canvas 4.6:1.
+  // White on buttonSecondary is 2.1:1, so its label is ink instead (7.6:1).
+  buttonPrimary: "#9C6350", // the one main action on a screen
   buttonPrimaryText: "#FFFFFF",
   buttonSecondary: "#D4A88F", // a less critical action
-  buttonTertiary: "#BA765F", // outline and label of a low-emphasis action
+  buttonTertiary: "#9C6350", // outline and label of a low-emphasis action
   buttonDisabled: "#E8D9CE", // any variant, disabled
 } as const;

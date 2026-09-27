@@ -20,10 +20,10 @@ module.exports = {
         // Buttons (owner, 27 September 2026) — mirrored in lib/colors.ts.
         // Contrast and label choices are explained there.
         button: {
-          primary: "#BA765F",
+          primary: "#9C6350",
           "primary-text": "#FFFFFF",
           secondary: "#D4A88F",
-          tertiary: "#BA765F",
+          tertiary: "#9C6350",
           disabled: "#E8D9CE",
         },
 
