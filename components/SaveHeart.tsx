@@ -9,9 +9,10 @@ import { useAppStore } from "@/store/useAppStore";
 
 /**
  * The heart on a product in a list: filled when the product is saved, and a
- * tap saves or unsaves it at once, for anyone (#300).
+ * tap saves or unsaves it at once, for anyone (#300). `onUnsave` replaces the
+ * plain unsave where the caller asks first — Saved, for a product with a note.
  */
-export function SaveHeart({ productId, fetchedAt }: { productId: string; fetchedAt?: string }) {
+export function SaveHeart({ productId, fetchedAt, onUnsave }: { productId: string; fetchedAt?: string; onUnsave?: () => void }) {
   const saved = useAppStore((s) => s.savedProducts.some((p) => p.id === productId));
   const saveProduct = useAppStore((s) => s.saveProduct);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
@@ -20,6 +21,7 @@ export function SaveHeart({ productId, fetchedAt }: { productId: string; fetched
       onPress={() => {
         haptic.tap();
         if (!saved) saveFromTap(() => saveProduct(productId, fetchedAt), "product");
+        else if (onUnsave) onUnsave();
         else toggleSaved(productId);
       }}
       hitSlop={8}

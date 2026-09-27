@@ -56,6 +56,29 @@ it("takes a saved product off the shelf at once when its heart is untapped, with
   expect(screen.getByText("No products saved yet")).toBeTruthy();
 });
 
+// Unsaving deletes the person's note with it, so a product with one asks first.
+describe("unsaving a product with a note", () => {
+  async function untap() {
+    useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 1, note: "Stings a bit" }] });
+    await render(<Saved />);
+    expect(await screen.findByText(NAME)).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove from saved" })));
+  }
+
+  it("asks, and keeps the product and its note on Keep it", async () => {
+    await untap();
+    expect(screen.getByText("Remove from saved?")).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Keep it" })));
+    expect(useAppStore.getState().savedProducts).toEqual([{ id: "aqua-ceramide-cream", savedAt: 1, note: "Stings a bit" }]);
+  });
+
+  it("removes it on Remove", async () => {
+    await untap();
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove" })));
+    expect(useAppStore.getState().savedProducts).toEqual([]);
+  });
+});
+
 describe("History", () => {
   async function openHistory() {
     await render(<Saved />);

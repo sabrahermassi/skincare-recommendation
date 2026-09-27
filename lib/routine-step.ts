@@ -16,7 +16,7 @@ export type RoutineStep = 1 | 2 | 3;
  * - `body` — typed correctly, just not part of a face routine: a hand cream,
  *   a shampoo. Nothing to sort, so nothing to invite.
  * - `unsorted` — we couldn't tell what the product is (`unknown`). That is a
- *   gap, and its group invites the person to pick a step.
+ *   gap, kept apart until the routine screen lets the person pick a step.
  */
 export type StepGroup = RoutineStep | "body" | "unsorted";
 

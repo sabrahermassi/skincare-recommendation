@@ -72,9 +72,13 @@ export default function Saved() {
   const clearSavedProducts = useAppStore((s) => s.clearSavedProducts);
   const clearSavedIngredients = useAppStore((s) => s.clearSavedIngredients);
   const removeHistoryEntry = useAppStore((s) => s.removeHistoryEntry);
+  const toggleSaved = useAppStore((s) => s.toggleSaved);
 
   // The history entry whose bin was tapped, waiting on the confirmation sheet.
   const [deleting, setDeleting] = useState<HistoryEntry | null>(null);
+  // A saved product with a note, whose heart was untapped: unsaving deletes
+  // the note too, so it asks first. One without a note goes at once (owner).
+  const [unsaving, setUnsaving] = useState<string | null>(null);
 
   // The one irreversible action on this screen (see `clearHistory` below) —
   // gated behind a second tap the same way `profile.tsx`'s erase/discard
@@ -264,16 +268,18 @@ export default function Saved() {
                 if (!product) return null;
                 if (activeFilter !== "all" && groupOf(id) !== activeFilter) return null;
                 const match = matchProduct(product, profile);
+                const note = savedProducts.find((p) => p.id === id)?.note;
                 return (
                   <Row
                     key={id}
                     product={product}
-                    // Untapping the heart takes it off the shelf at once (owner).
-                    corner={<SaveHeart productId={id} />}
+                    // Untapping the heart takes it off the shelf at once
+                    // (owner), unless that would delete the person's note.
+                    corner={<SaveHeart productId={id} onUnsave={note ? () => setUnsaving(id) : undefined} />}
                   >
-                    {savedProducts.find((p) => p.id === id)?.note ? (
+                    {note ? (
                       // The person's own words, exactly as written (#228).
-                      <NotePreview note={savedProducts.find((p) => p.id === id)!.note!} />
+                      <NotePreview note={note} />
                     ) : null}
                     <ScorePill score={match.score} />
                   </Row>
@@ -281,6 +287,19 @@ export default function Saved() {
               })}
 
               <ShelfPairings notes={shelfNotes} />
+
+              <ConfirmSheet
+                visible={unsaving !== null}
+                title="Remove from saved?"
+                line="Your note on it will be deleted too."
+                keepLabel="Keep it"
+                confirmLabel="Remove"
+                onClose={() => setUnsaving(null)}
+                onConfirm={() => {
+                  if (unsaving && savedProducts.some((p) => p.id === unsaving)) toggleSaved(unsaving);
+                  setUnsaving(null);
+                }}
+              />
 
               <ClearAll
                 label="Clear saved products"
