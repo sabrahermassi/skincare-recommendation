@@ -26,5 +26,15 @@ export const FROM_FINDER = "finder";
 export function useScoringProfile(from: string | undefined): SkinProfile {
   const own = useAppStore((s) => s.profile);
   const finder = useFinderChoices((s) => s.choices);
-  return from === FROM_FINDER ? finder : own;
+  return from === FROM_FINDER ? withOwnPregnancy(finder, own) : own;
+}
+
+/**
+ * The finder's answers, keeping the person's own pregnancy answer where the
+ * finder left that question unanswered: a pregnancy caution is a safety note
+ * for the person holding the phone, and it never changes a score, so the
+ * number still matches the row tapped.
+ */
+function withOwnPregnancy(finder: SkinProfile, own: SkinProfile): SkinProfile {
+  return finder.pregnancyStatus === null && own.pregnancyStatus !== null ? { ...finder, pregnancyStatus: own.pregnancyStatus } : finder;
 }

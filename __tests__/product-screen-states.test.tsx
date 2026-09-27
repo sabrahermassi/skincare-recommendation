@@ -360,6 +360,22 @@ describe("the product screen opened from the finder", () => {
     expect(useAppStore.getState().history[0]?.scoreAtView).toBe(matchProduct(PRODUCT, OWN).score);
   });
 
+  // A safety note for the person holding the phone: not lost because the
+  // finder didn't ask, and the number still matches the row (#384 review).
+  it("keeps the skin profile's pregnancy caution when the finder left it unanswered", async () => {
+    const pregnant = { ...OWN, pregnancyStatus: "pregnant" as const };
+    const retinoid = { ...PRODUCT, ingredients: [...PRODUCT.ingredients, ingredient("retinol")] };
+    useAppStore.setState({ profile: pregnant, history: [] });
+    useFinderChoices.setState({ choices: FINDER });
+    mockParams = { id: PRODUCT.id, from: "finder" };
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: retinoid }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+    expect(screen.getByText(String(matchProduct(retinoid, FINDER).score))).toBeTruthy();
+    await fireEvent.press(screen.getByRole("tab", { name: "Safety" }));
+    expect(screen.getByText("While pregnant or breastfeeding")).toBeTruthy();
+  });
+
   it("opens an ingredient with the same answers", async () => {
     await open("finder");
     await fireEvent.press(screen.getByRole("tab", { name: "Safety" }));
