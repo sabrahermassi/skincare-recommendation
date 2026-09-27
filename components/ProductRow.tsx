@@ -7,7 +7,7 @@ import { SaveHeart } from "@/components/SaveHeart";
 import { Text } from "@/components/Text";
 
 import type { ProductWithIngredients } from "@/data/types";
-import { irritationCounts } from "@/components/RiskCards";
+import { irritationCounts } from "@/lib/risk";
 import { matchTone, type MatchResult } from "@/lib/matching";
 import { INK, LINE, MUTED, MUTED_FAINT, SURFACE, TYPE, VERDICT, VERDICT_LABEL, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { ProductThumbnail } from "./ProductThumbnail";

@@ -1,153 +1,16 @@
-import { Pressable, View } from "react-native";
-import Svg, { Circle, Path } from "react-native-svg";
-
-import { ArrowIcon } from "@/components/icons/ArrowIcon";
-import { Text, useLargeText, useIconScale } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import { isCommonIrritant } from "@/lib/ingredient-labels";
 import type { MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
 import { irritationWarnings, isVerified } from "@/lib/safety";
-import { CARD_SHADOW, INK, RISK_ICON, RISK_TITLE } from "@/lib/tokens";
 
 /**
- * The two risks people actually ask about, side by side, both computed from
- * the formula rather than quoted from a hazard database.
- *
- * The mockup only ever draws the reassuring state, so an earlier version was
- * hard-coded to it — a formula with three restricted entries announced
- * "Elevated" in the same calm green as "Low". Each verdict carries its own
- * tone now, on the same four-rung ramp as the ingredient list.
+ * The two risks people actually ask about — irritation and pore clogging —
+ * both computed from the formula rather than quoted from a hazard database,
+ * each said in words with its own tone on the four-rung ramp. The Safety tab
+ * draws them as its two risk cards (`components/result/ResultTabs.tsx`).
  */
-const RISK_TONE = {
-  good: { box: "border-panel-risk-line bg-panel-risk", ink: "text-level-good-ink" },
-  watch: { box: "border-level-watch-tint bg-level-watch-tint", ink: "text-level-watch-ink" },
-  avoid: { box: "border-level-avoid-tint bg-level-avoid-tint", ink: "text-level-avoid-ink" },
-  neutral: { box: "border-hairline bg-level-neutral-tint", ink: "text-level-neutral-ink" },
-} as const;
-
-/** The card title's size (`text-[11.5px]`), which the icons beside it follow. */
-const TITLE_SIZE = 11.5;
-
-type Risk = { level: string; note: string; tone: keyof typeof RISK_TONE; hasEntries: boolean };
-
-export function RiskCards({
-  product,
-  match,
-  onIrritationPress,
-  onPorePress,
-}: {
-  /** Only `.ingredients` is read — narrowed so `app/label-result.tsx` (#214) can pass a
-   *  bare list with no product row, not the full catalogue shape. */
-  product: Pick<ProductWithIngredients, "ingredients">;
-  match: MatchResult;
-  /** Opens the ingredient list filtered to what's driving irritation risk. */
-  onIrritationPress?: () => void;
-  /** Opens the ingredient list filtered to the pore-clogging ingredients. */
-  onPorePress?: () => void;
-}) {
-  const irritation = irritationRisk(product, match);
-  const pore = poreRisk(product);
-  // Past the ordinary text ceiling two cards no longer fit side by side, so
-  // they stack (#334).
-  const largeText = useLargeText();
-  // The icons and chevron grow with the card titles beside them.
-  const icon = 16 * useIconScale(TITLE_SIZE);
-
-  return (
-    <View style={{ flexDirection: largeText ? "column" : "row", gap: 12, paddingHorizontal: 24 }}>
-      <RiskCard
-        stacked={largeText}
-        chevron={icon}
-        title="Irritation risk"
-        {...irritation}
-        onPress={irritation.hasEntries ? onIrritationPress : undefined}
-        icon={
-          <Svg width={icon} height={icon} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M12 3.2 5 6v5.6c0 4.3 2.9 7.6 7 9.2 4.1-1.6 7-4.9 7-9.2V6l-7-2.8Z"
-              stroke={RISK_ICON}
-              strokeWidth={1.7}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        }
-      />
-      <RiskCard
-        title="Pore-clogging risk"
-        stacked={largeText}
-        chevron={icon}
-        {...pore}
-        onPress={pore.hasEntries ? onPorePress : undefined}
-        icon={
-          <Svg width={icon} height={icon} viewBox="0 0 24 24" fill="none">
-            <Circle cx={8} cy={8} r={1.4} stroke={RISK_ICON} strokeWidth={1.7} />
-            <Circle cx={15.6} cy={9.4} r={1.4} stroke={RISK_ICON} strokeWidth={1.7} />
-            <Circle cx={10} cy={15.4} r={1.4} stroke={RISK_ICON} strokeWidth={1.7} />
-            <Circle cx={16.4} cy={16} r={1.4} stroke={RISK_ICON} strokeWidth={1.7} />
-          </Svg>
-        }
-      />
-    </View>
-  );
-}
-
-function RiskCard({
-  title,
-  icon,
-  level,
-  note,
-  tone,
-  onPress,
-  stacked,
-  chevron,
-}: Risk & { title: string; icon: React.ReactNode; onPress?: () => void; stacked: boolean; chevron: number }) {
-  const style = RISK_TONE[tone];
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      accessibilityRole={onPress ? "button" : undefined}
-      accessibilityLabel={onPress ? `${title}: ${level}. See the ingredients.` : undefined}
-      // Everything left-aligned on one axis and vertically centred as a block.
-      // The title used to be a two-line string with a hard break in it, which
-      // put the icon beside line one and the verdict adrift below both.
-      // Lifted only when it can be tapped: a card with nothing to show lies flat.
-      style={[{ flex: stacked ? undefined : 1, gap: 8, paddingHorizontal: 15, paddingVertical: 15 }, onPress ? CARD_SHADOW : null]}
-      className={`justify-center rounded-control border ${style.box} ${
-        onPress ? "active:opacity-70" : ""
-      }`}
-    >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        {icon}
-        <Text
-          className="text-[11.5px] leading-[15px]"
-          // Kept in step with TITLE_SIZE, which sizes the icons beside it.
-          style={{ flex: 1, color: RISK_TITLE }}
-          // Three, not two: at the larger text sizes "Pore-clogging risk"
-          // takes three lines beside its icon and chevron (#314). Stacked,
-          // the card has the whole width and the title is never cut (#334).
-          numberOfLines={stacked ? undefined : 3}
-        >
-          {title}
-        </Text>
-        {/* Same chevron IngredientTabsList uses for the identical "tap this
-            row for detail" affordance — without it, a card reading
-            "Elevated" gave no visual sign that tapping it explains why. */}
-        {onPress && (
-          <ArrowIcon size={chevron} color={INK} />
-        )}
-      </View>
-      <View style={{ gap: 3 }}>
-        <Text className={`font-display text-[21px] leading-[24px] ${style.ink}`}>{level}</Text>
-        <Text className="text-[10.5px] leading-[14px] text-ink-muted" numberOfLines={stacked ? undefined : 2}>
-          {note}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
+export type Risk = { level: string; note: string; tone: "good" | "watch" | "avoid" | "neutral"; hasEntries: boolean };
 
 /**
  * Irritation risk, from the EU regulatory status of what is actually in the
@@ -267,7 +130,7 @@ export function poreRisk(product: Pick<ProductWithIngredients, "ingredients">): 
     // screen gives its own middle rung.
     return {
       level: "Contested",
-      note: `${hits.length} sources disagree`,
+      note: `${hits.length} ${hits.length === 1 ? "ingredient" : "ingredients"}, mixed evidence`,
       tone: "watch",
       hasEntries: true,
     };

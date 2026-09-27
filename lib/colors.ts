@@ -45,8 +45,6 @@ export const COLORS = {
 
   panelSuccess: "#EAF3EC",
   panelSuccessLine: "#DCEBE0",
-  panelRisk: "#EDF4EF",
-  panelRiskLine: "#DFEBE3",
   panelWash: "#F3EFEA",
 
   // The FOR.ME shell palette — onboarding, the quiz and the selected-outline

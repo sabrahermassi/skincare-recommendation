@@ -1,13 +1,15 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
+import { router } from "expo-router";
+
 import LabelResult from "@/app/label-result";
 import { clearLabelRead, holdLabelRead } from "@/lib/pending-label";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
- * #345: a photographed label's result opens with the Ingredient check — the
- * same with or without a skin profile — and it opens the ingredient list,
- * except for a read too thin to check.
+ * A photographed label's result: the same Safety / Skin match tabs as a
+ * catalogue product, the Safety tab the same with or without a skin profile,
+ * and a retake in place of the quiz for a read too thin to score.
  */
 
 // The first render loads the screen's whole module graph.
@@ -59,48 +61,47 @@ afterEach(() => {
 });
 
 const LIST = ["water", "glycerin", "xanthan gum", "butylene glycol", "parfum", "linalool", "mystery extract"];
-const LINE = "Ingredient check: 2 ingredients to watch · 1 not recognised";
+const COUNT = "7 ingredients · 1 not recognised";
 
-describe("the label result's Ingredient check", () => {
-  it("shows the same check without a profile and with one", async () => {
+describe("the label result", () => {
+  it("shows the same Safety tab without a profile and with one", async () => {
     await open(LIST);
-    expect(screen.getByLabelText(LINE)).toBeTruthy();
+    expect(screen.getByText(COUNT)).toBeTruthy();
+    expect(screen.getByLabelText(/^Irritation risk:/)).toBeTruthy();
     await act(async () => screen.unmount());
 
     useAppStore.setState({
       profile: { concerns: ["redness"], baseSkinType: "combination", sensitivity: "some", pregnancyStatus: null },
     });
     await open(LIST);
-    expect(screen.getByLabelText(LINE)).toBeTruthy();
+    expect(screen.getByText(COUNT)).toBeTruthy();
   });
 
-  it("opens the ingredient list when tapped", async () => {
+  it("opens an ingredient from the list", async () => {
     await open(LIST);
-    await fireEvent.press(screen.getByLabelText(LINE));
-    expect(screen.getByText("Close")).toBeTruthy();
-  });
-
-  it("says a thin read can't be checked, and doesn't offer a list that isn't there", async () => {
-    await open(["water", "mystery extract", "another unknown"]);
-    const check = screen.getByLabelText("Ingredient check: Not enough ingredients recognised to check");
-    expect(check.props.accessibilityRole).toBeUndefined();
+    await fireEvent.press(screen.getByLabelText(/^Linalool,/));
+    expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ pathname: "/ingredient/[inci]" }));
   });
 
   // #346: the quiz in place of an empty score, gone once the answers score.
-  it("offers See your skin match with no profile, and not once the answers score", async () => {
+  it("asks for the skin profile on Skin match, and not once the answers score", async () => {
     await open(LIST);
+    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
     expect(screen.getByText("See your skin match")).toBeTruthy();
     await act(async () => screen.unmount());
 
     useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "dry" } });
     await open(LIST);
+    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
     expect(screen.queryByText("See your skin match")).toBeNull();
   });
 
-  it("asks for a retake, not the quiz, when the read can't be scored", async () => {
+  it("says a thin read can't be scored, and asks for a retake, not the quiz", async () => {
     await open(["water", "mystery extract", "another unknown"]);
-    expect(screen.queryByText("See your skin match")).toBeNull();
     expect(screen.getByText("Retake the photo")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
+    expect(screen.getByText("Couldn't score this one")).toBeTruthy();
+    expect(screen.queryByText("See your skin match")).toBeNull();
   });
 });
 
@@ -122,7 +123,7 @@ describe("History", () => {
     mockParams = { entry: "label-1" };
     await render(<LabelResult />);
     await act(async () => {});
-    expect(screen.getByLabelText(LINE)).toBeTruthy();
+    expect(screen.getByText(COUNT)).toBeTruthy();
     expect(useAppStore.getState().history).toHaveLength(1);
   });
 

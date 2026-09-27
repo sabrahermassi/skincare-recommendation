@@ -19,7 +19,6 @@ import { ScanCamera } from "@/components/ScanCamera";
 import { LabelCamera } from "@/components/LabelCamera";
 import { CameraPermissionScreen } from "@/components/CameraPermissionScreen";
 import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
-import { SHEET_INSET, SHEET_OUTLINE, SHEET_RADIUS } from "@/components/IngredientsSheet";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { SegmentedSwitch, SWITCH_HEIGHT } from "@/components/SegmentedSwitch";
@@ -795,6 +794,11 @@ function FoundSheet({
   );
 }
 
+// The found-product sheet: a card with a coloured outline, a little in from
+// each side of the screen.
+const SHEET_RADIUS = 28;
+const SHEET_OUTLINE = 3;
+const SHEET_INSET = 10;
 /** The picture on the found-product card, and how far the card travels up from below. */
 const FOUND_PICTURE = 96;
 const FOUND_SHEET_TRAVEL = 420;

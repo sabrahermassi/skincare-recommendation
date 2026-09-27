@@ -56,7 +56,7 @@ import { contraindications, formulaCoverage, isVerified, type Contraindication }
  */
 export type Verdict = "excellent" | "good" | "fair" | "poor" | "unknown";
 
-export type MatchReason = {
+type MatchReason = {
   ingredient: string;
   reason: string;
   category: RuleCategory;

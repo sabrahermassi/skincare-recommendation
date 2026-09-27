@@ -144,6 +144,14 @@ export const GRAY_FILL = "#ECE4DD";
 export const MENU_FILL = "#FBF0E6";
 
 /**
+ * The product result's list rows (design_handoff_skincare_cards, read off its
+ * README): the inset divider between rows and the soft disclosure chevron at
+ * a row's end.
+ */
+export const ROW_DIVIDER = "#F3ECE6";
+export const ROW_CHEVRON = "#B9A79E";
+
+/**
  * The button colours, one set per variant (owner, 27 September 2026): primary
  * for the one main action on a screen, secondary for a less critical one,
  * tertiary as an outline for low-emphasis actions, and one disabled look for
@@ -272,13 +280,6 @@ export const DANGER = VERDICT.low.deep;
  *  (`app/(tabs)/index.tsx`) — a hair warmer than white, read off the mockup
  *  at its own stated measurements. */
 export const SCANNER_FRAME = "#FDFCFA";
-
-/** The result screen's two risk-card icon strokes (`components/RiskCards.tsx`) —
- *  a muted sage, independent of each card's own good/watch/avoid tone. */
-export const RISK_ICON = "#6D9A7E";
-
-/** The result screen's risk-card titles (`components/RiskCards.tsx`). */
-export const RISK_TITLE = "#4C574F";
 
 /** The "Clogging" badge on a pore-clogging ingredient row
  *  (`components/IngredientTabsList.tsx`) — fill and ink. */

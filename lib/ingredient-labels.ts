@@ -1,9 +1,8 @@
 import type { Ingredient } from "@/data/types";
-import { isLowCoverage, matchProduct, ruleFor, RUNG_META, type MatchResult } from "@/lib/matching";
+import { ruleFor, RUNG_META, type MatchResult } from "@/lib/matching";
 import { isWarnedPoreClogging } from "@/lib/pore-clogging";
 import type { RuleCategory } from "@/lib/rules";
 import { groupByRisk } from "@/lib/safety";
-import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 /**
  * The word on each row of a product's ingredient list (#324), so the few that
@@ -121,51 +120,4 @@ export function sortForGlance(
   const labelled = LABEL_ORDER.flatMap((label) => rows.filter((row) => row.label === label));
   const unlabelled = rows.filter((row) => row.label === null);
   return { labelled, unlabelled };
-}
-
-/**
- * The Ingredient check at the top of every result (#345): how many
- * ingredients to avoid, to watch, and not recognised, the same for everyone
- * who scans the product. It is the ingredient list's own labels with no
- * profile, so the check and the rows can't disagree; with a profile the rows
- * can only add to it, since everything the check counts is Watch or Avoid
- * for every profile too.
- */
-export type IngredientCheck =
-  | { kind: "unreadable" }
-  | { kind: "checked"; avoid: number; watch: number; unrecognised: number };
-
-export function ingredientCheck(ingredients: Ingredient[]): IngredientCheck {
-  // The score's own refusal rule: too little recognised to say anything.
-  if (isLowCoverage(ingredients)) return { kind: "unreadable" };
-  // What the score works out with no profile. A new object, not the product,
-  // so this never replaces the person's own cached score for it; with no
-  // profile the product type isn't read.
-  const match = matchProduct({ type: "unknown", ingredients }, EMPTY_PROFILE);
-  const labels = ingredients.map((ingredient) => ingredientLabel(ingredient, match, false));
-  const count = (label: IngredientLabel) => labels.filter((l) => l === label).length;
-  return { kind: "checked", avoid: count("avoid"), watch: count("watch"), unrecognised: count("unknown") };
-}
-
-const ingredientCount = (n: number) => (n === 1 ? "1 ingredient" : `${n} ingredients`);
-
-/** The check in words. Never "safe" or "clean": only what was found. */
-export function ingredientCheckLine(check: IngredientCheck): string {
-  if (check.kind === "unreadable") return "Not enough ingredients recognised to check";
-  const { avoid, watch, unrecognised } = check;
-  const found =
-    avoid > 0 && watch > 0
-      ? `${avoid} to avoid · ${watch} to watch`
-      : avoid > 0
-        ? `${ingredientCount(avoid)} to avoid`
-        : watch > 0
-          ? `${ingredientCount(watch)} to watch`
-          : "No ingredients of concern found";
-  return unrecognised > 0 ? `${found} · ${unrecognised} not recognised` : found;
-}
-
-/** The rung colour that echoes the words: the worst thing found. */
-export function ingredientCheckTone(check: IngredientCheck): keyof typeof RUNG_META {
-  if (check.kind === "unreadable") return "neutral";
-  return check.avoid > 0 ? "avoid" : check.watch > 0 ? "watch" : "good";
 }

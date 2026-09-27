@@ -141,7 +141,7 @@ export function IngredientTabsList({
   );
 }
 
-export function IngredientListRow({
+function IngredientListRow({
   ingredient,
   label,
   warning,
@@ -154,33 +154,9 @@ export function IngredientListRow({
   onPress: () => void;
 }) {
   const meta = label ? LABEL_META[label] : null;
-  const rule = ruleFor(ingredient);
   const clogs = isWarnedPoreClogging(ingredient);
 
-  // A warning outranks not knowing, the same precedence `ingredientLabel`
-  // uses: pregnancy matching fires on an exact name even when OCR left the
-  // row unverified, so the badge can already read "Avoid" here while this
-  // subtitle used to still say "we can't assess this one" underneath it —
-  // the row contradicting its own label. `warning` can still be absent on an
-  // unverified "avoid" row, which is what the fallback covers.
-  //
-  // The verified branch is untouched: the most specific thing we hold there,
-  // in order, is pore-clogging (the reason someone opened this screen), a
-  // curated rule, the row's own note, then the regulator's declared function
-  // list.
-  const subtitle = !isVerified(ingredient)
-    ? label === "avoid" && warning
-      ? warning.reason
-      : clogs
-        ? // Pore-clogging matching fires on an unrecognised name too, and the
-          // row is Watch for it, not Unknown.
-          "On the published pore-clogging lists"
-        : "Not recognised - we can't assess this one"
-    : clogs
-      ? "On the published pore-clogging lists"
-      : rule
-        ? rule.reason.split(" - ")[0].trim()
-        : (ingredient.note ?? functionLabel(ingredient));
+  const subtitle = ingredientSubtitle(ingredient, label, warning);
 
   return (
     <Pressable
@@ -252,4 +228,37 @@ function functionLabel(ingredient: Ingredient): string {
   return ingredient.functions && ingredient.functions.length > 0
     ? ingredient.functions.slice(0, 2).join(" · ")
     : "No concerns for your profile";
+}
+
+/**
+ * The line under an ingredient's name in any list: what it does, or why it's
+ * flagged. Shared by this list and the product result's ingredient card.
+ */
+export function ingredientSubtitle(ingredient: Ingredient, label: IngredientLabel | null, warning?: Contraindication): string {
+  const rule = ruleFor(ingredient);
+  const clogs = isWarnedPoreClogging(ingredient);
+  // A warning outranks not knowing, the same precedence `ingredientLabel`
+  // uses: pregnancy matching fires on an exact name even when OCR left the
+  // row unverified, so the badge can already read "Avoid" here while this
+  // subtitle used to still say "we can't assess this one" underneath it —
+  // the row contradicting its own label. `warning` can still be absent on an
+  // unverified "avoid" row, which is what the fallback covers.
+  //
+  // The verified branch is untouched: the most specific thing we hold there,
+  // in order, is pore-clogging (the reason someone opened this screen), a
+  // curated rule, the row's own note, then the regulator's declared function
+  // list.
+  return !isVerified(ingredient)
+    ? label === "avoid" && warning
+      ? warning.reason
+      : clogs
+        ? // Pore-clogging matching fires on an unrecognised name too, and the
+          // row is Watch for it, not Unknown.
+          "On the published pore-clogging lists"
+        : "Not recognised - we can't assess this one"
+    : clogs
+      ? "On the published pore-clogging lists"
+      : rule
+        ? rule.reason.split(" - ")[0].trim()
+        : (ingredient.note ?? functionLabel(ingredient));
 }

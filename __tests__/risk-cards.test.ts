@@ -1,4 +1,4 @@
-import { irritationCounts, irritationRisk, poreRisk } from "@/components/RiskCards";
+import { irritationCounts, irritationRisk, poreRisk } from "@/lib/risk";
 import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { EMPTY_PROFILE } from "@/store/useAppStore";

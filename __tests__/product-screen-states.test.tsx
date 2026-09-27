@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { router } from "expo-router";
 
 import ProductRoute from "@/app/product/[id]";
 import ResultRoute from "@/app/result/[id]";
@@ -136,9 +137,10 @@ describe("the product screen's Report a mistake link", () => {
   });
 });
 
-// #345: the Ingredient check at the top of every loaded product, the same
-// with or without a skin profile, opening the ingredient list.
-describe("the product screen's Ingredient check", () => {
+// The result under the product's header (design_handoff_skincare_cards): a
+// Safety tab the same for everyone, and a Skin match tab that needs the
+// skin profile.
+describe("the product screen's result tabs", () => {
   const ingredient = (name: string, overrides: object = {}) => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true, ...overrides });
   const PRODUCT = {
     id: "obf-8801234567890",
@@ -164,16 +166,17 @@ describe("the product screen's Ingredient check", () => {
       ingredient("some banned dye", { safety: "avoid" }),
     ],
   };
+  const row = (name: string) => screen.queryByLabelText(new RegExp(`^${name},`, "i"));
 
   afterEach(() => useAppStore.setState({ profile: EMPTY_PROFILE }));
 
-  async function open() {
-    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
+  async function open(product: object = PRODUCT) {
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: product }));
     await render(<ProductRoute />);
     await act(async () => {});
   }
 
-  it("shows the same check without a profile and with two different ones", async () => {
+  it("opens on the Safety tab, the same without a profile and with two different ones", async () => {
     const profiles = [
       EMPTY_PROFILE,
       { concerns: ["dehydrated" as const], baseSkinType: "dry" as const, sensitivity: "high" as const, pregnancyStatus: null },
@@ -182,16 +185,38 @@ describe("the product screen's Ingredient check", () => {
     for (const profile of profiles) {
       useAppStore.setState({ profile });
       await open();
-      expect(screen.getByLabelText("Ingredient check: 1 to avoid · 1 to watch")).toBeTruthy();
+      expect(screen.getByRole("tab", { name: "Safety" }).props.accessibilityState).toMatchObject({ selected: true });
+      expect(screen.getByText("6 ingredients")).toBeTruthy();
+      expect(screen.getByLabelText(/^Irritation risk:/)).toBeTruthy();
+      expect(screen.getByLabelText(/^Pore-clogging risk:/)).toBeTruthy();
       await act(async () => screen.unmount());
     }
   });
 
-  it("opens the ingredient list when tapped", async () => {
+  it("puts what to avoid first, and opens an ingredient when tapped", async () => {
     await open();
-    expect(screen.queryByText("Close")).toBeNull();
-    await fireEvent.press(screen.getByLabelText("Ingredient check: 1 to avoid · 1 to watch"));
-    expect(screen.getByText("Close")).toBeTruthy();
+    const labels = screen.getAllByRole("button").map((b) => String(b.props.accessibilityLabel ?? ""));
+    const rows = labels.filter((l) => /^(some banned dye|water|parfum),/i.test(l));
+    expect(rows[0]).toMatch(/^some banned dye,/i);
+    await fireEvent.press(row("parfum")!);
+    expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ pathname: "/ingredient/[inci]" }));
+  });
+
+  it("filters the list to the watch-outs", async () => {
+    await open();
+    await fireEvent.press(screen.getByLabelText("Filter: All"));
+    await fireEvent.press(screen.getByRole("radio", { name: "Watch-outs, 2" }));
+    expect(screen.getByLabelText("Filter: Watch-outs")).toBeTruthy();
+    expect(row("parfum")).toBeTruthy();
+    expect(row("water")).toBeNull();
+  });
+
+  it("shows the first eight rows of a long list, then all of them", async () => {
+    const long = { ...PRODUCT, ingredients: Array.from({ length: 10 }, (_, i) => ingredient(`plain ${i}`)) };
+    await open(long);
+    expect(row("plain 8")).toBeNull();
+    await fireEvent.press(screen.getByText("Show all 10 ingredients"));
+    expect(row("plain 9")).toBeTruthy();
   });
 
   it("doesn't say 'Nothing restricted' on the irritation card beside a fragrance to watch", async () => {
@@ -199,31 +224,51 @@ describe("the product screen's Ingredient check", () => {
     useAppStore.setState({
       profile: { concerns: ["dehydrated"], baseSkinType: "normal", sensitivity: "none", pregnancyStatus: null },
     });
-    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: scented }));
-    await render(<ProductRoute />);
-    await act(async () => {});
-
-    expect(screen.getByLabelText("Ingredient check: 1 ingredient to watch")).toBeTruthy();
+    await open(scented);
     expect(screen.getByText("1 common irritant")).toBeTruthy();
     expect(screen.queryByText("Nothing restricted")).toBeNull();
   });
 
+  it("warns about what to avoid while pregnant, only for someone who is", async () => {
+    const retinoid = { ...PRODUCT, ingredients: [...PRODUCT.ingredients, ingredient("retinol")] };
+    await open(retinoid);
+    expect(screen.queryByText("While pregnant or breastfeeding")).toBeNull();
+    await act(async () => screen.unmount());
+
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, pregnancyStatus: "pregnant" } });
+    await open(retinoid);
+    expect(screen.getByText("While pregnant or breastfeeding")).toBeTruthy();
+  });
+
   // #346: no profile, no empty score — the quiz, until the answers score.
-  it("offers See your skin match with no profile, and hides it once the answers score", async () => {
+  it("asks for the skin profile on Skin match, and shows the score once the answers score", async () => {
     await open();
+    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
     expect(screen.getByText("See your skin match")).toBeTruthy();
-    expect(screen.queryByText("Why this score")).toBeNull();
+    expect(screen.queryByLabelText("Why this score")).toBeNull();
     await act(async () => screen.unmount());
 
     useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["dehydrated"] } });
     await open();
+    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
     expect(screen.queryByText("See your skin match")).toBeNull();
-    expect(screen.getByText("Why this score")).toBeTruthy();
+    expect(screen.getByText("For your concerns")).toBeTruthy();
+    expect(screen.getByText("Flagged for your skin")).toBeTruthy();
   });
 
-  it("keeps the card while the answers given don't score yet", async () => {
+  it("explains the score in a sheet from its i button", async () => {
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["dehydrated"] } });
+    await open();
+    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
+    expect(screen.queryByText("How scoring works")).toBeNull();
+    await fireEvent.press(screen.getByLabelText("Why this score"));
+    expect(screen.getByText("How scoring works")).toBeTruthy();
+  });
+
+  it("keeps asking while the answers given don't score yet", async () => {
     useAppStore.setState({ profile: { ...EMPTY_PROFILE, sensitivity: "some" } });
     await open();
+    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
     expect(screen.getByText("See your skin match")).toBeTruthy();
   });
 });

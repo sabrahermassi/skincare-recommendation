@@ -177,12 +177,6 @@ module.exports = {
         panel: {
           success: "#EAF3EC",
           "success-line": "#DCEBE0",
-          // The result screen's two risk cards. A hair cooler and lighter than
-          // the match panel above them, which is what keeps the panel reading
-          // as the verdict and these as its footnotes. Both pairs are in the
-          // mockup; they are not a duplicate of each other.
-          risk: "#EDF4EF",
-          "risk-line": "#DFEBE3",
           // The flat warm wash under the two disclaimer strips.
           wash: "#F3EFEA",
         },
