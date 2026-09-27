@@ -18,6 +18,7 @@ import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import { track } from "@/lib/analytics";
 import { relativeTime } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
+import { FROM_FINDER, useScoringProfile } from "@/lib/finder-choices";
 import { matchProduct } from "@/lib/matching";
 import { openScanner } from "@/lib/open-scanner";
 import { productIdParam } from "@/lib/route-params";
@@ -112,7 +113,12 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
   // `react-hooks/purity` flags `Date.now()` during render.
   const [renderedAt] = useState(() => Date.now());
 
-  const profile = useAppStore((s) => s.profile);
+  // The answers this page scores with: the finder's when opened from its
+  // results, so the number matches the row tapped; the skin profile otherwise.
+  const profile = useScoringProfile(from);
+  // History is the person's own record, so it logs the skin profile's score
+  // whichever answers the page is showing.
+  const ownProfile = useAppStore((s) => s.profile);
   const savedProducts = useAppStore((s) => s.savedProducts);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
   const saveProduct = useAppStore((s) => s.saveProduct);
@@ -209,9 +215,9 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
   // is a property the store tests hold directly.
   useEffect(() => {
     if (!product || loggedId.current !== product.id) return;
-    const { score, warnings } = matchProduct(product, profile);
+    const { score, warnings } = matchProduct(product, ownProfile);
     fillInViewScore(product.id, { score, warnings: historyWarningCount(warnings) });
-  }, [product, profile, fillInViewScore]);
+  }, [product, ownProfile, fillInViewScore]);
 
   if (loading) {
     return (
@@ -391,7 +397,11 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
             match={match}
             profile={profile}
             onIngredientPress={(ingredient) =>
-              router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, product: product.id } })
+              router.push({
+                pathname: "/ingredient/[inci]",
+                // The ingredient page scores with the same answers as this one.
+                params: from === FROM_FINDER ? { inci: ingredient.name, product: product.id, from } : { inci: ingredient.name, product: product.id },
+              })
             }
             footer={
               <>

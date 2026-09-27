@@ -37,6 +37,7 @@ export const ProductRow = memo(function ProductRow({
   match,
   last = false,
   saveable = false,
+  from,
 }: {
   product: ProductWithIngredients;
   match: MatchResult;
@@ -44,6 +45,8 @@ export const ProductRow = memo(function ProductRow({
   last?: boolean;
   /** A heart at the end of the row that saves or unsaves the product (the finder's results). */
   saveable?: boolean;
+  /** Where the row was opened from, passed on so the product scores the same way (the finder's results). */
+  from?: string;
 }) {
   const total = product.ingredients.length;
   // The same numbers the product page's irritation card reads, so the row
@@ -73,7 +76,7 @@ export const ProductRow = memo(function ProductRow({
         }`;
 
   return (
-    <Link href={`/product/${product.id}`} asChild>
+    <Link href={{ pathname: "/product/[id]", params: from ? { id: product.id, from } : { id: product.id } }} asChild>
       {/* Lifted off the page with a shade, and sinks when pressed. The card
           clips its contents, so the leading bar ends where the card does. */}
       <PressableCard
