@@ -24,9 +24,11 @@ const TAB_ICONS = {
   profile: { on: "person", off: "person-outline" },
 } as const;
 
-// The pill behind the current tab's icon.
-const PILL_WIDTH = 58;
-const PILL_HEIGHT = 44;
+// The pill behind the current tab's icon, and the icon: 20% smaller with the
+// bar (was 58×44 and 29), so the pill still sits inside it.
+const PILL_WIDTH = 46;
+const PILL_HEIGHT = 35;
+const TAB_ICON = 24;
 // A capsule, like the bar it sits in.
 const PILL_RADIUS = PILL_HEIGHT / 2;
 const PILL_MS = 200;
@@ -84,7 +86,7 @@ function TabButton({
             pillStyle,
           ]}
         />
-        <Ionicons name={focused ? TAB_ICONS[tab].on : TAB_ICONS[tab].off} size={29} color={color} />
+        <Ionicons name={focused ? TAB_ICONS[tab].on : TAB_ICONS[tab].off} size={TAB_ICON} color={color} />
       </View>
     </Pressable>
   );
