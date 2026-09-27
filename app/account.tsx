@@ -1,14 +1,18 @@
-import { router } from "expo-router";
-import { useRef, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 
+import { ConfirmSheet } from "@/components/ConfirmSheet";
+import { MenuGroup, MenuRow } from "@/components/MenuRows";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { deleteMyAccount, exportMyData, type DeleteOutcome, type ExportOutcome } from "@/lib/account";
 import { ACCOUNT_PITCH, accountSummary, signOut, signOutEverywhere, useAuth } from "@/lib/auth";
-import { CANVAS, CARD_SHADOW, DANGER, FLOATING_SHADOW, GRAY_FILL, INK, MUTED, SCRIM, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
-import { haptic } from "@/lib/haptics";
+import { noteProfileErased } from "@/lib/erase-notice";
+import { CANVAS, INK, MUTED, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { useAppStore } from "@/store/useAppStore";
 
 /**
  * Account (#220, #224): who is signed in, and the ways out — sign out of
@@ -16,6 +20,11 @@ import { haptic } from "@/lib/haptics";
  * delete the account. Reached from the Profile menu, so deletion is easy to
  * find (App Store Guideline 5.1.1(v)). Signed out, it explains what an
  * account is for and offers the sign-in sheet; it never blocks anything else.
+ *
+ * Laid out after the owner's reference: the rows in rounded blocks, and the
+ * delete on its own at the foot of the screen. Signed out, that delete is the
+ * one Profile used to carry — erasing the skin profile, shelf and history on
+ * this phone.
  */
 export default function Account() {
   const status = useAuth((s) => s.status);
@@ -23,6 +32,28 @@ export default function Account() {
   const [working, setWorking] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingErase, setConfirmingErase] = useState(false);
+  const resetApp = useAppStore((s) => s.resetApp);
+  // Leaving the screen with a confirmation open must not bring it back the next time.
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        setConfirmingDelete(false);
+        setConfirmingErase(false);
+      },
+      [],
+    ),
+  );
+
+  // Signed out, the one irreversible action here: it wipes the profile, the
+  // saved shelf and the whole history, then clears AsyncStorage so the wipe
+  // survives a relaunch.
+  const erase = () => {
+    setConfirmingErase(false);
+    resetApp();
+    noteProfileErased();
+    router.replace("/onboarding");
+  };
 
   const download = async () => {
     setWorking(true);
@@ -75,7 +106,7 @@ export default function Account() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader title="Account" />
-      <ScrollView contentContainerStyle={{ padding: 24, gap: 18, paddingBottom: 60 }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, gap: 14, paddingBottom: 40 }}>
         {status === "loading" ? (
           <ActivityIndicator color={MUTED} accessibilityLabel="Loading" />
         ) : status === "signed-in" && session ? (
@@ -84,7 +115,6 @@ export default function Account() {
             working={working}
             onLeave={leave}
             onDownload={download}
-            onDelete={() => setConfirmingDelete(true)}
           />
         ) : (
           <>
@@ -111,45 +141,46 @@ export default function Account() {
             {notice}
           </Text>
         ) : null}
+
+        {/* The delete, on its own at the foot of the screen. */}
+        {status === "loading" ? null : (
+          <View style={{ flex: 1, justifyContent: "flex-end", alignItems: "center", paddingTop: SPACE.gutter }}>
+            <Pressable
+              onPress={() => (status === "signed-in" && session ? setConfirmingDelete(true) : setConfirmingErase(true))}
+              disabled={working}
+              accessibilityRole="button"
+              accessibilityLabel={status === "signed-in" && session ? "Delete account" : "Delete my profile"}
+              style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: SPACE.text, paddingHorizontal: SPACE.block }}
+              className="active:opacity-70"
+            >
+              <Ionicons name="trash-outline" size={20} color={MUTED} />
+              <Text style={{ fontSize: TYPE.body, fontWeight: "500", color: MUTED }}>
+                {status === "signed-in" && session ? "Delete account" : "Delete my profile"}
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
 
-      <Modal visible={confirmingDelete} transparent animationType="fade" onRequestClose={() => setConfirmingDelete(false)}>
-        <Pressable
-          onPress={() => setConfirmingDelete(false)}
-          style={{ flex: 1, backgroundColor: SCRIM, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}
-        >
-          {/* Swallows its own tap so the card doesn't dismiss itself. */}
-          <Pressable
-            onPress={(e) => e.stopPropagation()}
-            style={{ width: "100%", maxWidth: 340, borderRadius: 20, backgroundColor: SURFACE, padding: 24, gap: 16, ...FLOATING_SHADOW }}
-          >
-            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 19, color: INK }}>Delete your account?</Text>
-            <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>{DELETE_WARNING}</Text>
-            <View style={{ gap: 10 }}>
-              <Pressable
-                onPress={() => {
-                  haptic.warning();
-                  void remove();
-                }}
-                disabled={working}
-                accessibilityRole="button"
-                style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: DANGER }}
-                className="active:opacity-90"
-              >
-                <Text style={{ fontSize: 14.5, fontWeight: "600", color: SURFACE }}>Delete my account</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setConfirmingDelete(false)}
-                accessibilityRole="button"
-                style={{ minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: GRAY_FILL }}
-                className="active:opacity-70"
-              >
-                <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Cancel</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <ConfirmSheet
+        visible={confirmingDelete}
+        title="Are you sure?"
+        line={DELETE_WARNING}
+        keepLabel="Keep my account"
+        confirmLabel="Delete my account"
+        busy={working}
+        onClose={() => setConfirmingDelete(false)}
+        onConfirm={() => void remove()}
+      />
+      <ConfirmSheet
+        visible={confirmingErase}
+        title="Are you sure?"
+        line={ERASE_WARNING}
+        keepLabel="Keep my profile"
+        confirmLabel="Yes, delete my profile"
+        onClose={() => setConfirmingErase(false)}
+        onConfirm={erase}
+      />
     </View>
   );
 }
@@ -159,19 +190,20 @@ function SignedIn({
   working,
   onLeave,
   onDownload,
-  onDelete,
 }: {
   summary: ReturnType<typeof accountSummary>;
   working: boolean;
   onLeave: (everywhere: boolean) => void;
   onDownload: () => void;
-  onDelete: () => void;
 }) {
   return (
     <>
-      <View style={{ borderRadius: 20, backgroundColor: SURFACE, padding: 20, gap: 6, ...CARD_SHADOW }}>
-        <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>Signed in with {summary.providers}</Text>
-        {summary.email ? <Text style={{ fontSize: 14, color: INK }}>{summary.email}</Text> : null}
+      <MenuGroup>
+        {summary.email ? <MenuRow icon="mail" label="Email" value={summary.email} /> : null}
+        <MenuRow icon="log-out" label="Sign out" disabled={working} onPress={() => onLeave(false)} />
+      </MenuGroup>
+      <View style={{ gap: 4, paddingHorizontal: SPACE.text }}>
+        <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>Signed in with {summary.providers}</Text>
         {summary.isHiddenEmail ? (
           // A relay address looks like a typo to anyone who didn't set it up
           // knowingly; saying what it is keeps it from reading as an error.
@@ -179,45 +211,14 @@ function SignedIn({
         ) : null}
       </View>
 
-      <PrimaryButton variant="gray" size={52} label="Sign out" disabled={working} onPress={() => onLeave(false)} />
-
-      <View style={{ gap: 6 }}>
-        <Pressable
-          onPress={() => onLeave(true)}
-          disabled={working}
-          accessibilityRole="button"
-          style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
-          className="active:opacity-70"
-        >
-          <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Sign out on every device</Text>
-        </Pressable>
-        <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>
-          For a lost or stolen phone. Every phone and tablet on this account will need to sign in again.
-        </Text>
-      </View>
-
-      <View style={{ gap: 6 }}>
-        <Pressable
-          onPress={onDownload}
-          disabled={working}
-          accessibilityRole="button"
-          style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
-          className="active:opacity-70"
-        >
-          <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Download my data</Text>
-        </Pressable>
+      <MenuGroup>
+        <MenuRow icon="phone-portrait" label="Sign out on every device" disabled={working} onPress={() => onLeave(true)} />
+        <MenuRow icon="download" label="Download my data" disabled={working} onPress={onDownload} />
+      </MenuGroup>
+      <View style={{ gap: SPACE.text, paddingHorizontal: SPACE.text }}>
+        <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>{EVERY_DEVICE_NOTE}</Text>
         <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>{EXPORT_EXPLAINER}</Text>
       </View>
-
-      <Pressable
-        onPress={onDelete}
-        disabled={working}
-        accessibilityRole="button"
-        style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
-        className="active:opacity-70"
-      >
-        <Text style={{ fontSize: 14.5, fontWeight: "600", color: DANGER }}>Delete my account</Text>
-      </Pressable>
     </>
   );
 }
@@ -234,6 +235,12 @@ export const EXPORT_EXPLAINER =
 /** The confirmation says exactly what goes, and what stays. */
 export const DELETE_WARNING =
   "This deletes your account and everything saved to it: your shelf, notes, routine steps and starred ingredients, on every phone. Products you added to the catalogue stay there for everyone, no longer linked to you. Your scan history and skin profile stay on this phone. It can't be undone.";
+
+/** Signed out, what "Delete my profile" erases (it used to live on Profile). */
+export const ERASE_WARNING = "This erases your profile, shelf and history on this phone. It can't be undone.";
+
+const EVERY_DEVICE_NOTE =
+  "Sign out on every device is for a lost or stolen phone: every phone and tablet on this account will need to sign in again.";
 
 export const ACCOUNT_DELETED = "Your account and everything saved to it are deleted.";
 

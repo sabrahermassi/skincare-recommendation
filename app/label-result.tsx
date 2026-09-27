@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
 import { track } from "@/lib/analytics";
 import { photoScannerHref } from "@/lib/open-scanner";
@@ -21,7 +21,7 @@ import { pairingNotesFor } from "@/lib/active-pairings";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { confidenceLabel, isLowCoverage, matchProduct, scoreExplanation, verdictHeadline } from "@/lib/matching";
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
-import { isVerified } from "@/lib/safety";
+import { historyWarningCount, isVerified } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, FONT_SCALE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 /**
@@ -29,15 +29,20 @@ import { CANVAS, FONT_SCALE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
  * the parsed list — with no product name or barcode required first (issue
  * #214). This screen is where every successful label read lands.
  *
- * Reads the held list (`lib/pending-label`): this screen is where every
- * successful label read lands.
+ * Reads the held list (`lib/pending-label`) for a photo just taken, and logs
+ * it in History once. Opened from History instead (`?entry=<id>`), it reads
+ * that entry's saved list and logs nothing new. A link can only name an
+ * entry already on this phone: nothing in the address becomes the list (#29).
  */
 export default function LabelResult() {
-  const [read] = useState(heldLabelRead);
+  const { entry } = useLocalSearchParams<{ entry?: string }>();
+  const saved = useAppStore((s) => (entry ? s.history.find((h) => h.id === entry)?.label : undefined));
+  const [held] = useState(heldLabelRead);
+  const read: HeldLabel | null = entry ? (saved ? { ingredients: saved } : null) : held;
 
   if (!read) return <NothingToShow />;
 
-  return <Verdict read={read} />;
+  return <Verdict read={read} fromHistory={Boolean(entry)} />;
 }
 
 function NothingToShow() {
@@ -65,7 +70,7 @@ function retake() {
   router.dismissTo(photoScannerHref());
 }
 
-function Verdict({ read }: { read: HeldLabel }) {
+function Verdict({ read, fromHistory }: { read: HeldLabel; fromHistory: boolean }) {
   const insets = useSafeAreaInsets();
   const profile = useAppStore((s) => s.profile);
   const [ingredients, setIngredients] = useState<Ingredient[] | null>(null);
@@ -84,7 +89,15 @@ function Verdict({ read }: { read: HeldLabel }) {
     // which reads as low confidence rather than an error screen for
     // something the user can't fix by retrying — no retry button needed.
     resolveIngredientNames(read.ingredients).then((resolved) => {
-      if (!cancelled) setIngredients(resolved);
+      if (cancelled) return;
+      setIngredients(resolved);
+      // A new photo goes into History once, with the list it read, so the
+      // same result can be opened from there later (owner). An empty read has
+      // nothing to reopen; one opened from History is already there.
+      if (fromHistory || resolved.length === 0) return;
+      const { profile: now, recordView } = useAppStore.getState();
+      const seen = matchProduct({ type: "unknown", ingredients: resolved }, now);
+      recordView({ id: `label-${Date.now()}`, known: false, score: seen.score, warnings: historyWarningCount(seen.warnings), label: read.ingredients });
     });
     return () => {
       cancelled = true;

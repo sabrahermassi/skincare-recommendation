@@ -8,7 +8,7 @@ import { useAppStore } from "@/store/useAppStore";
  * Saving is open to everyone (#300, superseding #221's signed-in-only rule).
  * Signed out, a save stays on this phone; signing in carries it into the
  * account (`adoptShelf` in store/useAppStore.ts). Nothing here asks anyone to
- * sign in: that is offered on the Saved tab and in Account, never at the tap.
+ * sign in: that is offered in Account, never at the tap.
  */
 
 /** A Save or star tap: saves at once, for anyone. */
@@ -28,7 +28,7 @@ export function saveFromTap(save: () => void, target: "product" | "ingredient"):
  * False with no backend configured (a fresh checkout, the tests), where there
  * are no accounts to speak of.
  */
-export function useGuestShelf(): boolean {
+function useGuestShelf(): boolean {
   const owner = useAppStore((s) => s.shelfOwner);
   return isSupabaseConfigured && owner === null;
 }

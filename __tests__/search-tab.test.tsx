@@ -78,6 +78,18 @@ describe("before typing", () => {
     expect(await screen.findByText("Recently viewed")).toBeTruthy();
     const names = screen.getAllByText(/Aqua Barrier Ceramide Moisturizer|Hanbang Rice Ferment Hydrating Serum/).map((node) => node.props.children);
     expect(names).toEqual(["Aqua Barrier Ceramide Moisturizer", "Hanbang Rice Ferment Hydrating Serum"]);
+    // The list takes the picture's place.
+    expect(screen.queryByText("Search by name or brand")).toBeNull();
+  });
+
+  it("clears the whole list at once from Clear all, with no second tap", async () => {
+    useAppStore.setState({ history: [viewed("aqua-ceramide-cream", 2), viewed("hanbang-rice-serum", 1)] });
+    await render(<Search />);
+    await screen.findByText("Recently viewed");
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Clear all recently viewed" })));
+    expect(useAppStore.getState().history).toEqual([]);
+    expect(screen.queryByText("Recently viewed")).toBeNull();
+    expect(screen.queryByText("Aqua Barrier Ceramide Moisturizer")).toBeNull();
   });
 });
 
@@ -86,6 +98,8 @@ describe("typing", () => {
     await render(<Search />);
     await act(async () => fireEvent.changeText(screen.getByLabelText("Search products or brands"), "ceramide"));
     expect(await screen.findByText("Aqua Barrier Ceramide Moisturizer", {}, { timeout: 3000 })).toBeTruthy();
+    // No skin-questions card above the results: that lives on Home (owner).
+    expect(screen.queryByText("See your skin match")).toBeNull();
     expect(screen.getByText("Barrier Ceramide Body Lotion")).toBeTruthy();
     expect(screen.queryByText("Scan a product instead")).toBeNull();
   });

@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { Link, router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, TextInput, View, type ListRenderItem } from "react-native";
+import { FlatList, Pressable, StyleSheet, TextInput, View, type DimensionValue, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HEADER_GUTTER } from "@/components/AppHeader";
@@ -9,7 +9,9 @@ import { GlassButton } from "@/components/GlassButton";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { ProductRow } from "@/components/ProductRow";
 import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
-import { SkinMatchCard } from "@/components/SkinMatchCard";
+import { ProductThumbnail } from "@/components/ProductThumbnail";
+import { SaveHeart } from "@/components/SaveHeart";
+import { ScorePill } from "@/components/ScorePill";
 import { Text } from "@/components/Text";
 import { fetchProductsByIds, longEnoughToSearch, peekProducts, searchableQuery, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
@@ -17,7 +19,7 @@ import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TYPE } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 /**
  * Search (#317): search first, no catalogue list. Someone in a shop is
@@ -36,10 +38,12 @@ const RECENT_LIMIT = 8;
 // One empty list, so "nothing recent yet" is the same value every render.
 const NO_PRODUCTS: ProductWithIngredients[] = [];
 
-// Before typing: the watercolor still life with "A little progress every day"
-// (new-watercolor sheets), on a cream within a shade of CANVAS so it has no edge.
+// Before typing: the for.me line-up with "A little progress every day"
+// (new-watercolor/forme_lineup_transparent.png, cropped to what's drawn). Drawn
+// wider than the other empty-state pictures so its handwriting and labels read.
 const WELCOME_ART = require("@/assets/illustrations/search-welcome.webp");
-const WELCOME_ASPECT = 1024 / 1536;
+const WELCOME_ASPECT = 1000 / 1184;
+const WELCOME_ART_WIDTH = "90%";
 // A search with no match: the open box and magnifier, as the scanner's no-match sheet.
 const NO_MATCH_ART = require("@/assets/illustrations/no-product-found.webp");
 const NO_MATCH_ASPECT = 1164 / 697;
@@ -52,13 +56,13 @@ const KEEP_TYPING = "Type at least three letters to search.";
 const SKELETON_ROWS = 6;
 
 // One flat array for the FlatList, which can only virtualize a single list.
+// The two empty states aren't rows: they're the list's empty component, so
+// they can fill the room under the search box and sit centred in it.
 type SearchItem =
   | { kind: "keep-typing" }
-  | { kind: "welcome" }
-  | { kind: "skin-match" }
   | { kind: "recent-heading" }
+  | { kind: "recent"; product: ProductWithIngredients; match: MatchResult }
   | { kind: "skeleton"; id: string }
-  | { kind: "empty-search" }
   | { kind: "product"; product: ProductWithIngredients; match: MatchResult };
 
 function skeletonRows(): SearchItem[] {
@@ -78,6 +82,7 @@ export default function Browse() {
   const profile = useAppStore((s) => s.profile);
   const personalized = isPersonalized(profile);
   const history = useAppStore((s) => s.history);
+  const clearHistory = useAppStore((s) => s.clearHistory);
 
   // Search opens with the keyboard down, on its picture and what it is for
   // (owner, after OnSkin); a tap on the box brings the keyboard up. Leaving
@@ -230,22 +235,21 @@ export default function Browse() {
   const items = useMemo<SearchItem[]>(() => {
     if (searchActive) {
       if (searching) return skeletonRows();
-      if (scoredSearch === null || scoredSearch.length === 0) return [{ kind: "empty-search" }];
-      const rows = scoredSearch.map(({ product, match }) => ({ kind: "product", product, match }) as const);
-      // Results with no scores yet: the questions that would score them (#346).
-      return personalized ? rows : [{ kind: "skin-match" }, ...rows];
+      if (scoredSearch === null || scoredSearch.length === 0) return [];
+      // Just the results: the skin questions live behind Home's "Find a
+      // product" card, not above every search (owner).
+      return scoredSearch.map(({ product, match }) => ({ kind: "product", product, match }) as const);
     }
     // Before typing: the watercolor still life (owner), then what was viewed
     // recently. Typed but too short to search: first say why nothing happens.
-    const list: SearchItem[] = query.trim().length > 0 ? [{ kind: "keep-typing" }, { kind: "welcome" }] : [{ kind: "welcome" }];
-    if (recent.length > 0) {
-      list.push(
-        { kind: "recent-heading" },
-        ...recent.map((product) => ({ kind: "product", product, match: matchProduct(product, profile) }) as const),
-      );
-    }
-    return list;
-  }, [searchActive, searching, scoredSearch, recent, profile, personalized, query]);
+    // Once something has been viewed, the list takes the picture's place (owner).
+    if (recent.length === 0) return [];
+    return [
+      ...(query.trim().length > 0 ? [{ kind: "keep-typing" } as const] : []),
+      { kind: "recent-heading" },
+      ...recent.map((product) => ({ kind: "recent", product, match: matchProduct(product, profile) }) as const),
+    ];
+  }, [searchActive, searching, scoredSearch, recent, profile, query]);
 
   const renderItem: ListRenderItem<SearchItem> = ({ item }) => {
     switch (item.kind) {
@@ -256,50 +260,36 @@ export default function Browse() {
           </Text>
         );
 
-      case "welcome":
-        return (
-          <EmptyState
-            art={WELCOME_ART}
-            aspect={WELCOME_ASPECT}
-            artLabel="A little progress every day"
-            title="Search by name or brand"
-            line="Look up any product in our library of analysed skincare."
-          />
-        );
-
-      case "skin-match":
-        return (
-          <View style={{ paddingHorizontal: HEADER_GUTTER, paddingBottom: SPACE.block }}>
-            <SkinMatchCard />
-          </View>
-        );
-
       case "recent-heading":
+        // "Clear all" empties the list at once, with no second tap (owner). It
+        // clears the viewing history — the same log Saved's History shows —
+        // and never the saved shelf.
         return (
-          <Text
-            accessibilityRole="header"
-            style={{ paddingHorizontal: HEADER_GUTTER, paddingTop: SPACE.text, paddingBottom: SPACE.text, fontSize: TYPE.label, fontWeight: "600", color: MUTED }}
-          >
-            Recently viewed
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: HEADER_GUTTER, paddingTop: SPACE.text }}>
+            <Text accessibilityRole="header" style={{ fontSize: TYPE.title, fontWeight: "700", color: INK }}>
+              Recently viewed
+            </Text>
+            <Pressable
+              onPress={clearHistory}
+              accessibilityRole="button"
+              accessibilityLabel="Clear all recently viewed"
+              hitSlop={SPACE.text}
+              style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
+              className="active:opacity-70"
+            >
+              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: MUTED }}>Clear all</Text>
+            </Pressable>
+          </View>
         );
 
       case "skeleton":
         return <ProductRowSkeleton />;
 
-      case "empty-search":
-        return (
-          <EmptyState
-            art={NO_MATCH_ART}
-            aspect={NO_MATCH_ASPECT}
-            artLabel=""
-            title="We looked everywhere"
-            line="This product isn't in our library yet. Try searching for another one."
-          />
-        );
-
       case "product":
         return <ProductRow product={item.product} match={item.match} />;
+
+      case "recent":
+        return <RecentRow product={item.product} match={item.match} />;
     }
   };
 
@@ -307,9 +297,41 @@ export default function Browse() {
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
       <FlatList
         data={items}
-        keyExtractor={(item) => (item.kind === "skeleton" ? item.id : item.kind === "product" ? item.product.id : item.kind)}
+        keyExtractor={(item) =>
+          item.kind === "skeleton" ? item.id : item.kind === "product" || item.kind === "recent" ? `${item.kind}-${item.product.id}` : item.kind
+        }
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarClearance(insets.bottom) }}
+        // Before typing with nothing viewed, or a search with no match: the
+        // picture and its words, centred in the room under the search box
+        // (owner). Typed but too short to search, it first says why.
+        ListEmptyComponent={
+          <View style={{ flex: 1 }}>
+            {searchActive ? null : query.trim().length > 0 ? (
+              <Text style={{ paddingHorizontal: HEADER_GUTTER, paddingBottom: SPACE.text, fontSize: TYPE.caption, color: MUTED }}>{KEEP_TYPING}</Text>
+            ) : null}
+            <View style={{ flex: 1, justifyContent: "center" }}>
+              {searchActive ? (
+                <EmptyState
+                  art={NO_MATCH_ART}
+                  aspect={NO_MATCH_ASPECT}
+                  artLabel=""
+                  title="We looked everywhere"
+                  line="This product isn't in our library yet. Try searching for another one."
+                />
+              ) : (
+                <EmptyState
+                  art={WELCOME_ART}
+                  aspect={WELCOME_ASPECT}
+                  width={WELCOME_ART_WIDTH}
+                  artLabel="A little progress every day"
+                  title="Search by name or brand"
+                  line="Look up any product in our library of analysed skincare."
+                />
+              )}
+            </View>
+          </View>
+        }
         // The search box lives in this same list's header, so with the
         // keyboard up, the default "never" meant a row's first tap only
         // dismissed the keyboard — the tap was consumed as "outside the
@@ -382,10 +404,60 @@ export default function Browse() {
  * heading and one line — before typing, and when nothing matched. No button:
  * the box above is the way forward.
  */
-function EmptyState({ art, aspect, artLabel, title, line }: { art: number; aspect: number; artLabel: string; title: string; line: string }) {
+/**
+ * One product under Recently viewed: its picture in a circle, name and brand,
+ * the score and a heart to save it, with a hairline under each row. The heart
+ * sits beside the link rather than inside it, so a tap on it never opens the
+ * product.
+ */
+function RecentRow({ product, match }: { product: ProductWithIngredients; match: MatchResult }) {
   return (
-    <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: HEADER_GUTTER, paddingTop: SPACE.block }}>
-      <Image source={art} contentFit="contain" accessibilityLabel={artLabel} style={{ width: EMPTY_ART_WIDTH, aspectRatio: aspect }} />
+    <View style={{ flexDirection: "row", alignItems: "center", marginHorizontal: HEADER_GUTTER, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER_INACTIVE }}>
+      <Link href={`/product/${product.id}`} asChild>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${product.name}, ${product.brand}`}
+          className="active:opacity-70"
+          style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14 }}
+        >
+          <ProductThumbnail product={product} size={RECENT_THUMB} radius={RECENT_THUMB / 2} backgroundColor={SURFACE} />
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text numberOfLines={2} style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>
+              {product.name}
+            </Text>
+            <Text numberOfLines={1} style={{ fontSize: TYPE.label, color: MUTED }}>
+              {product.brand}
+            </Text>
+          </View>
+          <ScorePill score={match.score} />
+        </Pressable>
+      </Link>
+      <SaveHeart productId={product.id} fetchedAt={product.fetchedAt} />
+    </View>
+  );
+}
+
+// The round picture on a Recently viewed row.
+const RECENT_THUMB = 56;
+
+function EmptyState({
+  art,
+  aspect,
+  width = EMPTY_ART_WIDTH,
+  artLabel,
+  title,
+  line,
+}: {
+  art: number;
+  aspect: number;
+  width?: DimensionValue;
+  artLabel: string;
+  title: string;
+  line: string;
+}) {
+  return (
+    <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: HEADER_GUTTER }}>
+      <Image source={art} contentFit="contain" accessibilityLabel={artLabel} style={{ width, aspectRatio: aspect }} />
       <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
         {title}
       </Text>

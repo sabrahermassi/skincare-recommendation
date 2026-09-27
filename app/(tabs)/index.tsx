@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HEADER_GUTTER } from "@/components/AppHeader";
 import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { Text } from "@/components/Text";
-import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { homeGreetingWidth } from "@/lib/home-greeting";
 import { tabBarClearance } from "@/lib/tab-bar";
@@ -18,10 +17,10 @@ import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, TYPE } from "@/lib/tokens";
 // margins trimmed, and brought down to 500px from 1254px).
 const SCAN_ART = require("@/assets/illustrations/home-scan.webp");
 const FIND_ART = require("@/assets/illustrations/home-find.webp");
-// Find a product: a stand-in from the watercolor set (a line of products) until
-// its own art arrives.
-const MATCH_ART = require("@/assets/illustrations/history-empty.webp");
-// Skincare routine: a notepad (new-watercolor/skincare_routine_notepad_transparent.png).
+// Find a product: a woman weighing up a serum (new-watercolor/skincare finder.png,
+// cropped to what's drawn).
+const MATCH_ART = require("@/assets/illustrations/home-match.webp");
+// Skincare routine: a routine notepad among products (new-watercolor/My skincare routine.png).
 const ROUTINE_ART = require("@/assets/illustrations/home-routine.webp");
 // The gap between the two cards.
 const ACTION_CARD_GAP = 12;
@@ -29,14 +28,15 @@ const ACTION_CARD_GAP = 12;
 // than squeeze the picture below this when larger text needs the room.
 const ACTION_ART_MIN_HEIGHT = 48;
 // The watercolor still life under the cards: bottles and jars standing in water,
-// on a transparent ground (new-watercolor/home_transparent.png).
+// on a transparent ground (new-watercolor/home_colormatched_transparent.png).
 const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.webp");
 // Its own proportions, so it is never stretched.
-const STILL_LIFE_ASPECT = 1400 / 922;
+const STILL_LIFE_ASPECT = 1400 / 849;
 // How far below the tab bar's top it reaches, in dp: 1.5 cm on a phone (160 dp
-// to the inch), so its water runs on behind the bar. No spacing token is that
-// large, so it is named here rather than typed inline.
-const STILL_LIFE_DROP = 94;
+// to the inch), less the 1.5 mm the owner raised it by (9 dp), so its water
+// runs on behind the bar. No spacing token is that large, so it is named here
+// rather than typed inline.
+const STILL_LIFE_DROP = 85;
 
 // The handwritten "Hi, there!" on top of the screen, cut from design-watercolor/text.png.
 const GREETING_ART = require("@/assets/illustrations/home-greeting.png");
@@ -49,7 +49,7 @@ const ACTION_CARD_PRESSED = 0.96;
  * Home — the first screen after the intro.
  *
  * A greeting, then four cards two by two — "Scan a product" (the full-screen
- * scanner), "Find a product" (the skin quiz), "Skincare routine" (a
+ * scanner), "Find a product" (the skincare finder), "Skincare routine" (a
  * coming-soon screen for now) and "Search" (Browse) — and a watercolor still life under them, running
  * on past the bottom edge of the screen. The layout is fixed while it fits; on
  * a short screen or with large text it scrolls, so every card is reachable.
@@ -84,7 +84,7 @@ export default function Home() {
           />
 
           {/* The four ways in, two by two (owner): scan a product in hand; find
-              one that fits, starting with the skin quiz; the skincare routine,
+              one that fits, in the skincare finder; the skincare routine,
               whose screen says it's coming soon; and search by name, which opens Browse (it has no
               tab of its own). */}
           <View style={{ gap: ACTION_CARD_GAP }}>
@@ -98,10 +98,10 @@ export default function Home() {
               />
               <ActionCard
                 title="Find a product"
-                detail="Take the skin quiz to see what fits you."
+                detail="Pick your skin needs and see what fits."
                 art={MATCH_ART}
                 side={cardSide}
-                onPress={openQuiz}
+                onPress={() => router.push("/finder")}
               />
             </View>
             <View style={{ flexDirection: "row", gap: ACTION_CARD_GAP }}>
@@ -124,7 +124,7 @@ export default function Home() {
 
         </View>
 
-        {/* The still life: full width, standing 1.5 cm below the bottom of the
+        {/* The still life: full width, standing about 1.35 cm below the bottom of the
             room the cards leave, so its water runs on behind the tab bar. Drawn behind
             the cards (zIndex) and out of the layout, so it never adds scrolling;
             when large text leaves no room it slides up behind the cards rather

@@ -3,6 +3,7 @@ import { memo } from "react";
 import { View } from "react-native";
 
 import { PressableCard } from "@/components/PressableCard";
+import { SaveHeart } from "@/components/SaveHeart";
 import { Text } from "@/components/Text";
 
 import type { ProductWithIngredients } from "@/data/types";
@@ -35,11 +36,14 @@ export const ProductRow = memo(function ProductRow({
   product,
   match,
   last = false,
+  saveable = false,
 }: {
   product: ProductWithIngredients;
   match: MatchResult;
   /** Drops the trailing gap — for the final card in a list. */
   last?: boolean;
+  /** A heart at the end of the row that saves or unsaves the product (the finder's results). */
+  saveable?: boolean;
 }) {
   const total = product.ingredients.length;
   // The same numbers the product page's irritation card reads, so the row
@@ -148,6 +152,8 @@ export const ProductRow = memo(function ProductRow({
               </View>
             </View>
           ) : null}
+          {/* Its own tap: saving never opens the product. */}
+          {saveable ? <SaveHeart productId={product.id} fetchedAt={product.fetchedAt} /> : null}
         </View>
       </PressableCard>
     </Link>

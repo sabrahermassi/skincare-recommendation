@@ -16,6 +16,7 @@ import { fetchProduct, resolveIngredientNames } from "@/data/api";
 import { unknownIngredient, type Ingredient, type ProductWithIngredients } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { COLORS } from "@/lib/colors";
+import { StarIcon } from "@/components/icons/StarIcon";
 import { comedogenicLabel } from "@/lib/format";
 import { countedAgainst, ingredientLabel, isCommonIrritant, type IngredientLabel } from "@/lib/ingredient-labels";
 import { matchProduct, positionNote, ruleFor, type Contraindication } from "@/lib/matching";
@@ -162,24 +163,6 @@ function CheckIcon({ color }: { color: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m5 12.6 4.6 4.6L19 6.8" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-// The palette has no true yellow; the amber of its "watch" tone is the nearest.
-function StarIcon({ filled }: { filled: boolean }) {
-  const d =
-    "M12 3.4l2.53 5.4 5.87.72-4.34 4.06 1.16 5.83L12 16.4l-5.22 2.99 1.16-5.83-4.34-4.06 5.87-.72Z";
-  const color = filled ? COLORS.toneWatch : COLORS.ink;
-  return (
-    <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
-      <Path
-        d={d}
-        fill={filled ? color : "none"}
-        stroke={color}
-        strokeWidth={1.6}
-        strokeLinejoin="round"
-      />
     </Svg>
   );
 }
@@ -555,7 +538,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             paddingTop: 12,
           }}
         >
-          <PrimaryButton variant="gray" size={56} style={{ flex: 1 }} label="Back to list" onPress={() => router.back()} />
+          <PrimaryButton variant="secondary" size={56} style={{ flex: 1 }} label="Back to list" onPress={() => router.back()} />
           <PrimaryButton
             size={56}
             style={{ flex: 1 }}

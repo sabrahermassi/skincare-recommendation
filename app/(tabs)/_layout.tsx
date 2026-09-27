@@ -25,9 +25,10 @@ const TAB_ICONS = {
 } as const;
 
 // The pill behind the current tab's icon.
-const PILL_WIDTH = 44;
+const PILL_WIDTH = 58;
 const PILL_HEIGHT = 44;
-const PILL_RADIUS = 12;
+// A capsule, like the bar it sits in.
+const PILL_RADIUS = PILL_HEIGHT / 2;
 const PILL_MS = 200;
 const PILL_FROM_SCALE = 0.85;
 

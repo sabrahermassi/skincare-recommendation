@@ -29,14 +29,11 @@ import { COLORS } from "@/lib/colors";
 // import them from this path.
 export const TERRACOTTA = COLORS.shellTerracotta;
 const SAND = COLORS.shellSand;
-export const CTA_TEXT = COLORS.shellCtaText;
 /** The intro screens' own colours (owner): see `lib/colors.ts`. */
 export const INTRO = {
   accent: COLORS.introAccent,
   ink: COLORS.introInk,
   muted: COLORS.introMuted,
-  button: COLORS.introButton,
-  buttonText: COLORS.introButtonText,
 } as const;
 /** How faint the intro's inactive dots are. */
 export const INTRO_INACTIVE_DOT_OPACITY = 0.35;

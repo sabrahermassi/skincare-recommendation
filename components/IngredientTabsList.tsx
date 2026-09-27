@@ -4,7 +4,7 @@ import { ArrowIcon } from "@/components/icons/ArrowIcon";
 
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
-import { TERRACOTTA } from "@/components/shell/shared";
+import { FilterDropdown } from "@/components/FilterDropdown";
 import { Text } from "@/components/Text";
 import type { Ingredient } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
@@ -13,8 +13,8 @@ import { ingredientLabel, LABEL_META, sortForGlance, type IngredientLabel } from
 import { ruleFor, type Contraindication, type MatchResult } from "@/lib/matching";
 import { isPersonalized } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { isPoreClogging, isWarnedPoreClogging, poreCloggingHits } from "@/lib/pore-clogging";
-import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, RADIUS_SELECTOR, SELECTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { isPoreClogging, isWarnedPoreClogging } from "@/lib/pore-clogging";
+import { BORDER_INACTIVE, CANVAS, CLOG_BADGE_INK, CLOG_BADGE_TINT, INK, MUTED, MUTED_FAINT, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md). RUNG_META's good/watch/avoid
 // colors are semantic (the per-ingredient verdict, the whole point of this
@@ -27,8 +27,8 @@ import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CLOG_BADGE_INK, CLOG_BADGE_TINT, 
  * each row labelled against `match` (`lib/ingredient-labels.ts`, #324).
  *
  * "All" reads at a glance: the labelled rows first (Avoid, Watch, Good,
- * Unknown), and the rest folded under one line until tapped. "As printed"
- * shows the pack's own order instead — position is concentration.
+ * Unknown), and the rest folded under one line until tapped. The four groups
+ * are one "Filter" dropdown rather than a row of chips (owner).
  *
  * `metaLine`/`subMetaLine` are the two lines above the divider — an
  * ingredient count and when the label was last read.
@@ -53,7 +53,6 @@ export function IngredientTabsList({
   onIngredientPress: (ingredient: Ingredient) => void;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [asPrinted, setAsPrinted] = useState(false);
   const [unfolded, setUnfolded] = useState(false);
   const personalized = isPersonalized(useAppStore((s) => s.profile));
   const labelOf = (i: Ingredient) => ingredientLabel(i, match, personalized);
@@ -68,57 +67,22 @@ export function IngredientTabsList({
     return true;
   });
   // Only "All" is sorted and folded: the other tabs are already the short list.
-  const glance = tab === "All" && !asPrinted ? sortForGlance(filtered, match, personalized) : null;
+  const glance = tab === "All" ? sortForGlance(filtered, match, personalized) : null;
   const rows = glance
     ? [...glance.labelled, ...(unfolded ? glance.unlabelled : [])]
     : filtered.map((ingredient) => ({ ingredient, label: labelOf(ingredient) }));
   const folded = glance && !unfolded ? glance.unlabelled.length : 0;
 
-  const cloggerCount = poreCloggingHits(ingredients).length;
-
   return (
     <ScrollView contentContainerClassName="pb-4">
-      {/* Scrolls rather than dividing the width four ways: at flex-1 the
-          fourth pill squeezed the labels below legibility. Pills keep their
-          44pt height and the app's own option-label size. */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        // Room under the pills for their shade: a scroll view clips what falls outside it.
-        contentContainerStyle={{ gap: 10, paddingHorizontal: 24, paddingTop: 20, paddingBottom: 10 }}
-      >
-        {TABS.map((label) => {
-          const active = tab === label;
-          // The count earns the tab its place: "Pore clogging 3" answers the
-          // question before you have tapped anything.
-          const suffix = label === "Pore clogging" && cloggerCount > 0 ? ` ${cloggerCount}` : "";
-          return (
-            <Pressable
-              key={label}
-              onPress={() => setTab(label)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-              style={{
-                height: TOUCH_TARGET,
-                paddingHorizontal: 18,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: RADIUS_SELECTOR,
-                borderWidth: active ? 1.5 : 1,
-                borderColor: active ? TERRACOTTA : BORDER_INACTIVE,
-                backgroundColor: active ? SELECTED : CANVAS,
-                ...CHIP_SHADOW,
-              }}
-              className="active:opacity-70"
-            >
-              <Text style={{ fontSize: 14.5, fontWeight: "600", color: active ? INK : MUTED }}>
-                {label}
-                {suffix}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      {/* "Filter: All" and its four choices on a floating card (owner's
+          reference): what the chips did, without a row of them. */}
+      <FilterDropdown
+        options={TABS.map((label) => ({ value: label, label }))}
+        selected={tab}
+        onSelect={setTab}
+        style={{ paddingHorizontal: 24, paddingTop: 12 }}
+      />
 
       {/* Formulas change. Saying when we last read the label is the
           difference between data and a claim — it was on this screen before
@@ -140,20 +104,6 @@ export function IngredientTabsList({
         <Text style={{ paddingHorizontal: 24, paddingTop: 12, fontSize: TYPE.caption, color: MUTED }}>
           Set up your skin profile to see what&apos;s good or worth watching for you.
         </Text>
-      ) : null}
-
-      {tab === "All" ? (
-        <Pressable
-          onPress={() => setAsPrinted((printed) => !printed)}
-          accessibilityRole="button"
-          accessibilityState={{ selected: asPrinted }}
-          style={{ minHeight: TOUCH_TARGET, alignSelf: "flex-end", justifyContent: "center", paddingHorizontal: 24 }}
-          className="active:opacity-70"
-        >
-          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-            {asPrinted ? "What matters first" : "As printed"}
-          </Text>
-        </Pressable>
       ) : null}
 
       {filtered.length === 0 ? (

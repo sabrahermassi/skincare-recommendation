@@ -57,17 +57,25 @@ export const COLORS = {
   // names so its ten importers are unaffected.
   shellTerracotta: "#C4654F",
   shellSand: "#E8DDD1",
-  shellCtaText: "#FFFFFF",
   // The intro screens' own type and button colours, given by the owner
   // (26 September 2026). Intro only: the quiz, the tab bar and the scanner
   // keep the shell colours above.
   introAccent: "#9B614E", // the headline's first phrase, the active dot, Back
   introInk: "#240904", // the rest of the headline
-  // Muted and button are the owner's #8F8275 and #BA765F darkened by 13.5% and
-  // 16%, the least that reaches 4.5:1 (computed): muted on CANVAS, and the
-  // button under its label. At 3.56:1 and 3.38:1 the originals were too faint
-  // for text this size.
+  // The owner's #8F8275 darkened 13.5%, the least that reaches 4.5:1 on CANVAS
+  // (computed); at 3.56:1 the original was too faint for text this size (#373).
   introMuted: "#7C7065", // subtext, Skip, the inactive dots
-  introButton: "#9C6350", // the pill button
-  introButtonText: "#FCF7F3", // its label
+
+  // Buttons (owner, 27 September 2026), matched to the intro illustrations.
+  // Contrast computed, not read off a mockup (WCAG relative luminance).
+  // Primary and tertiary are the owner's #BA765F darkened to #9C6350 (owner's
+  // choice, 27 September): white on #BA765F was 3.6:1 and #BA765F text on the
+  // canvas 3.4:1, both short of 4.5:1 for labels this size. Now white on
+  // buttonPrimary is 4.9:1 and buttonTertiary text on the canvas 4.6:1.
+  // White on buttonSecondary is 2.1:1, so its label is ink instead (7.6:1).
+  buttonPrimary: "#9C6350", // the one main action on a screen
+  buttonPrimaryText: "#FFFFFF",
+  buttonSecondary: "#D4A88F", // a less critical action
+  buttonTertiary: "#9C6350", // outline and label of a low-emphasis action
+  buttonDisabled: "#E8D9CE", // any variant, disabled
 } as const;

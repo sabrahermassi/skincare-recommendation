@@ -21,10 +21,13 @@ export function ProductThumbnail({
   product,
   size = 46,
   radius = 12,
+  backgroundColor = CANVAS,
 }: {
   product: { id: string; type: ProductType; imageUrl?: string | null };
   size?: number;
   radius?: number;
+  /** The tile's fill: the page colour by default, white where it sits on the page itself. */
+  backgroundColor?: string;
 }) {
   return (
     <View
@@ -32,7 +35,7 @@ export function ProductThumbnail({
         width: size,
         height: size,
         borderRadius: radius,
-        backgroundColor: CANVAS,
+        backgroundColor,
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",

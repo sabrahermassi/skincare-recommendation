@@ -129,20 +129,21 @@ describe("the shelf", () => {
     });
   });
 
-  it("filters by step with pills, one per group on the shelf", async () => {
+  it("filters by step from one dropdown, one choice per group on the shelf", async () => {
     await render(<Saved />);
     await screen.findByText("Hanbang Rice Ferment", { exact: false });
-    expect(screen.getByText("All")).toBeTruthy();
-    await act(async () => fireEvent.press(screen.getAllByText("Cleanse")[0]));
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Filter: All" })));
+    await act(async () => fireEvent.press(screen.getByRole("radio", { name: "Cleanse" })));
     expect(screen.queryByText("Hanbang Rice Ferment", { exact: false })).toBeNull();
   });
 
   // #278 review: filtering to a group and then emptying it left a blank shelf
-  // with the pills gone.
+  // with the filter gone.
   it("shows the whole shelf again when the filtered group empties", async () => {
     await render(<Saved />);
     await screen.findByText("Hanbang Rice Ferment", { exact: false });
-    await act(async () => fireEvent.press(screen.getAllByText("Cleanse")[0]));
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Filter: All" })));
+    await act(async () => fireEvent.press(screen.getByRole("radio", { name: "Cleanse" })));
     await act(async () => useAppStore.getState().toggleSaved("mugwort-gel-cleanser"));
     expect(screen.getByText("Hanbang Rice Ferment", { exact: false })).toBeTruthy();
   });

@@ -4,8 +4,7 @@ import Svg, { Path } from "react-native-svg";
 
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
-import { CTA_TEXT, TERRACOTTA } from "@/components/shell/shared";
-import { CANVAS, INK, LINE, RADIUS_SELECTOR, SELECTED } from "@/lib/tokens";
+import { CANVAS, CHOSEN, INK, LINE, RADIUS_SELECTOR } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
 /** Shared minimum height for every answer button on all four screens — the
@@ -57,7 +56,7 @@ export function QuizOptionCard({
     // border and layout stay on the Pressable inside.
     <LiftedCard
       radius={RADIUS_SELECTOR}
-      backgroundColor={selected ? SELECTED : CANVAS}
+      backgroundColor={selected ? CHOSEN.fill : CANVAS}
       scale={scale}
       style={{ width: grid ? "48%" : undefined, marginBottom: 10, opacity: disabled ? 0.5 : 1 }}
     >
@@ -89,7 +88,7 @@ export function QuizOptionCard({
         borderRadius: RADIUS_SELECTOR,
         // Constant width so choosing an option never nudges the layout.
         borderWidth: 1.5,
-        borderColor: selected ? TERRACOTTA : LINE,
+        borderColor: selected ? CHOSEN.border : LINE,
       }}
     >
       <Image
@@ -105,7 +104,7 @@ export function QuizOptionCard({
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: grid ? 14 : 18.5,
             lineHeight: (grid ? 14 : 18.5) * 1.2,
-            color: INK,
+            color: selected ? CHOSEN.label : INK,
           }}
         >
           {label}
@@ -121,7 +120,9 @@ export function QuizOptionCard({
             width: tickSize,
             height: tickSize,
             borderRadius: tickSize / 2,
-            backgroundColor: TERRACOTTA,
+            // A white disc with the tick in the card's own colour: on the
+            // chosen fill a filled disc of that colour would vanish.
+            backgroundColor: CHOSEN.label,
             alignItems: "center",
             justifyContent: "center",
           }}
@@ -134,7 +135,7 @@ export function QuizOptionCard({
           <Svg width={tickSize * 0.55} height={tickSize * 0.55} viewBox="0 0 24 24" fill="none">
             <Path
               d="m5 12.6 4.6 4.6L19 6.8"
-              stroke={CTA_TEXT}
+              stroke={CHOSEN.fill}
               strokeWidth={2.6}
               strokeLinecap="round"
               strokeLinejoin="round"

@@ -133,14 +133,14 @@ second table is planned; if that ever changes, it gets its own row.
 
   | Route | Parameters from a link | Check |
   |---|---|---|
-  | `/`, `/browse`, `/saved`, `/profile` (tabs), `/school`, `/support`, `/privacy`, `/scoring`, `/skin-profile` | none | — |
+  | `/`, `/browse`, `/saved`, `/profile` (tabs), `/school`, `/support`, `/privacy`, `/scoring`, `/skin-profile`, `/routine`, `/finder`, `/finder-results` | none | — |
   | `/quiz/concerns`, `/quiz/skin-type`, `/quiz/sensitivity`, `/quiz/pregnancy` | none | opened with nothing behind it, closing goes Home (#346) |
   | `/scanner` | `mode` | only `"photo"` does anything (opens Photo mode, #204) |
   | `/product/<id>`, `/result/<id>` | `id`; `from` (analytics only) | `productIdParam`: letters, digits, `-`, `_`, ≤128; else Page not found. `from` is matched against fixed values |
   | `/ingredients/<id>` | `id`; `tab` | `productIdParam`; `tab` must be one of the list's tabs, else "All" |
   | `/ingredient/<name>` | `name`; `product` | `ingredientNameParam`: non-empty, ≤2,048, no control or invisible formatting characters, else Page not found. A malformed `product` is dropped |
   | `/scan-label` | none | redirects to `/scanner?mode=photo` (#204); a barcode on the link is ignored |
-  | `/label-result` | none | the ingredient list is never taken from a link: it is held in memory from the photo just read. Nothing is saved from it: users can't add products |
+  | `/label-result` | `entry` | only looked up among this phone's own History entries (#376); an unknown id shows nothing. The ingredient list is never taken from a link: it is held in memory from the photo just read, or read from that History entry. Nothing is saved to the catalogue from it: users can't add products |
   | `/sign-in` | `from` (analytics only) | fixed values |
   | `/onboarding` | none | "Your profile is erased" comes from the erase itself, held in memory (`lib/erase-notice.ts`), never from the URL |
   | `/account` | none | shows account details only for this phone's own session |

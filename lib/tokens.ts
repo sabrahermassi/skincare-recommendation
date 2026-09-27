@@ -1,5 +1,7 @@
 import { Platform } from "react-native";
 
+import { COLORS } from "./colors";
+
 import type { Verdict } from "./matching";
 
 /**
@@ -132,6 +134,37 @@ export const SELECTED = "#F9E7DC";
  * with the CTA, the same restraint as iOS's own light gray fill.
  */
 export const GRAY_FILL = "#ECE4DD";
+
+/**
+ * The rounded blocks of a menu (Profile, Account): a softer peach than
+ * SELECTED, so the blocks sit close to the page rather than stand off it
+ * (owner, 27 September 2026). Computed, not read off a mockup: the midpoint of
+ * SELECTED (#F9E7DC) and the canvas (#FDF9F0), channel by channel.
+ */
+export const MENU_FILL = "#FBF0E6";
+
+/**
+ * The button colours, one set per variant (owner, 27 September 2026): primary
+ * for the one main action on a screen, secondary for a less critical one,
+ * tertiary as an outline for low-emphasis actions, and one disabled look for
+ * all three. Secondary's label is INK, not white: white on its fill is 2.1:1,
+ * INK 7.6:1 (computed). The raw values live in `lib/colors.ts`.
+ */
+export const BUTTON = {
+  primary: { fill: COLORS.buttonPrimary, label: COLORS.buttonPrimaryText },
+  secondary: { fill: COLORS.buttonSecondary, label: INK },
+  tertiary: { border: COLORS.buttonTertiary, label: COLORS.buttonTertiary, borderWidth: 1.5 },
+  disabled: { fill: COLORS.buttonDisabled, label: MUTED_FAINT },
+} as const;
+
+/**
+ * A chosen option in any selectable control — quiz cards, skin-profile chips,
+ * filter chips, tabs of a list: the primary button's own fill and label, so
+ * every "this one" in the app reads in the same colour as the main action
+ * (owner, 27 September 2026). White on it is 3.6:1 (computed), AA for large
+ * text only.
+ */
+export const CHOSEN = { fill: BUTTON.primary.fill, border: BUTTON.primary.fill, label: BUTTON.primary.label } as const;
 
 /**
  * One shape for every selectable control in the app — chips, option cards,
@@ -300,6 +333,14 @@ export const CAMERA_STAGE = "#17161B";
  * matches what a phone-shaped layout wants anyway.
  */
 export const TOUCH_TARGET = Platform.select({ ios: 44, android: 48, default: 44 }) as number;
+
+/**
+ * Every filter pill (owner: slimmer than a button, the same everywhere) — the
+ * results' Filter and its answer chips, Saved's step filters. `FILTER_HIT_SLOP`
+ * keeps the tap area at TOUCH_TARGET around the thinner pill.
+ */
+export const FILTER_PILL = { height: 32, radius: 16, fontSize: 13.5 } as const;
+export const FILTER_HIT_SLOP = Math.ceil((TOUCH_TARGET - FILTER_PILL.height) / 2);
 
 export const TYPE = {
   caption: 12,

@@ -17,6 +17,16 @@ module.exports = {
         canvas: "#FDF9F0",
         surface: "#FFFFFF",
 
+        // Buttons (owner, 27 September 2026) — mirrored in lib/colors.ts.
+        // Contrast and label choices are explained there.
+        button: {
+          primary: "#9C6350",
+          "primary-text": "#FFFFFF",
+          secondary: "#D4A88F",
+          tertiary: "#9C6350",
+          disabled: "#E8D9CE",
+        },
+
         // The five Milky pastel colors, untouched. All five sit between
         // 1.22:1 and 1.33:1 against white, so they are surfaces only —
         // never text, never a button fill, never behind white text.

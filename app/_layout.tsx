@@ -162,6 +162,10 @@ export default function RootLayout() {
         <Stack.Screen name="school" options={{ headerShown: false }} />
         <Stack.Screen name="scoring" options={{ headerShown: false }} />
         <Stack.Screen name="routine" options={{ headerShown: false }} />
+        {/* The skincare finder slides in from the right, as a pushed page, and
+            its results after it (owner). */}
+        <Stack.Screen name="finder" options={{ headerShown: false }} />
+        <Stack.Screen name="finder-results" options={{ headerShown: false }} />
         <Stack.Screen name="privacy" options={{ headerShown: false }} />
         <Stack.Screen name="account" options={{ headerShown: false }} />
         {/* A sheet over wherever sign-in was asked for, so closing it returns

@@ -56,6 +56,13 @@ export type HistoryEntry = {
   scoreAtView: number | null;
   /** Contraindication count as it stood at `lastSeenAt`. */
   warningsAtView: number;
+  /**
+   * The ingredient names read off a label photo, for an entry that is one
+   * (its id is `label-<time>`), so History can open that same result again
+   * (owner). Optional: older entries and every product or barcode entry have
+   * none, so it needs no migration.
+   */
+  label?: string[];
 };
 
 export const MAX_CONCERNS = 3;
@@ -246,6 +253,8 @@ type AppState = {
     known: boolean;
     score: number | null;
     warnings: number;
+    /** A label photo's ingredient names — see `HistoryEntry.label`. */
+    label?: string[];
   }) => void;
   /**
    * Fills in the score on an entry that was logged without one.
@@ -268,18 +277,9 @@ type AppState = {
   /** Drops entries past `HISTORY_MAX_AGE_DAYS` — run when the app starts. Writes nothing if none are. */
   expireHistory: () => void;
   clearHistory: () => void;
-  /** Removes one entry from the log — the per-row "x" on the History tab,
+  /** Removes one entry from the log — a History card's bin, once confirmed,
    *  as opposed to `clearHistory`'s wipe-everything action. */
   removeHistoryEntry: (id: string) => void;
-  /**
-   * Puts back a removed history entry for the same remove-then-undo
-   * affordance `restoreSavedProduct` gives the shelf. Re-sorted by
-   * `lastSeenAt` rather than reinserted at a remembered index — the log is
-   * always kept newest-first, so sorting is what actually restores its
-   * original position rather than assuming nothing else changed in
-   * between. A no-op if the id is already present.
-   */
-  restoreHistoryEntry: (entry: HistoryEntry) => void;
 
   /**
    * Back to a first-run state: empty profile, closed onboarding gate, empty
@@ -763,7 +763,7 @@ export const useAppStore = create<AppState>()(
               }
         ),
 
-      recordView: ({ id, known, score, warnings }) =>
+      recordView: ({ id, known, score, warnings, label }) =>
         set((state) => {
           const now = Date.now();
           const previous = state.history.find((h) => h.id === id);
@@ -775,6 +775,7 @@ export const useAppStore = create<AppState>()(
             seenCount: (previous?.seenCount ?? 0) + 1,
             scoreAtView: score,
             warningsAtView: warnings,
+            ...(label ? { label } : {}),
           };
           return {
             history: keptHistory([entry, ...state.history.filter((h) => h.id !== id)], now),
@@ -817,17 +818,6 @@ export const useAppStore = create<AppState>()(
         })),
       removeHistoryEntry: (id) =>
         set((state) => ({ history: state.history.filter((h) => h.id !== id) })),
-      restoreHistoryEntry: (entry) =>
-        set((state) =>
-          state.history.some((h) => h.id === entry.id)
-            ? state
-            : {
-                history: keptHistory(
-                  [...state.history, entry].sort((a, b) => b.lastSeenAt - a.lastSeenAt),
-                  Date.now()
-                ),
-              }
-        ),
 
       claimSecureStore: () => set({ secureStoreClaimed: true }),
 

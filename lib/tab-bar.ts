@@ -8,10 +8,14 @@ export const SCAN_BUTTON = 75;
 export const SCAN_BUTTON_LIFT = 25;
 export const SCAN_ICON = 34;
 
-/** The floating tab bar: its height, its gap from the screen's sides, and its gap above the bottom edge. */
-export const TAB_BAR_HEIGHT = 65;
-/** Less rounded than a pill: a soft rectangle. */
-export const TAB_BAR_RADIUS = 22;
+/**
+ * The floating tab bar: its height, its gap from the screen's sides, and its gap
+ * above the bottom edge. 56 is the owner's reference bar, measured off its
+ * screenshot.
+ */
+export const TAB_BAR_HEIGHT = 56;
+/** A full capsule, round at both ends (owner's reference). */
+export const TAB_BAR_RADIUS = TAB_BAR_HEIGHT / 2;
 export const TAB_BAR_SIDE_MARGIN = 20;
 const TAB_BAR_BOTTOM_GAP = 12;
 /** On a phone with a home-indicator strip the bar dips this far into it. */
