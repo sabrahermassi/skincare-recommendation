@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -29,6 +29,15 @@ export default function FinderResults() {
   const [failed, setFailed] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [type, setType] = useState<ProductType | "all">("all");
+  const listRef = useRef<FlatList<{ product: ProductWithIngredients; match: ReturnType<typeof matchProduct> }>>(null);
+  // Choosing a type rebuilds a long list. As a transition, the dropdown closes
+  // at once and the list follows, instead of the dropdown hanging open until
+  // the rows are built (owner: switching felt slow). Back to the top, too: the
+  // new list starts at its best match.
+  const chooseType = (next: ProductType | "all") => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    startTransition(() => setType(next));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -82,7 +91,7 @@ export default function FinderResults() {
               ...types.map(([t, count]) => ({ value: t, label: PRODUCT_TYPE_LABEL[t], count })),
             ]}
             selected={activeType}
-            onSelect={setType}
+            onSelect={chooseType}
           />
         ) : null}
       </View>
@@ -135,7 +144,13 @@ export default function FinderResults() {
         </View>
       ) : (
         <FlatList
+          ref={listRef}
           data={shown}
+          // Only a few screens of rows are built ahead of the one showing, so
+          // a new filter has little to build before it appears.
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={5}
           keyExtractor={({ product }) => product.id}
           renderItem={({ item }) => <ProductRow product={item.product} match={item.match} saveable />}
           ListHeaderComponent={header}
