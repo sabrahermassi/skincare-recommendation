@@ -29,7 +29,8 @@ import { groupByRisk } from "@/lib/safety";
  * Avoid, Unknown, and Watch for what is flagged for everyone (the EU's
  * caution list, the pore-clogging lists and the common irritants) are shown.
  * A pregnancy answer is not a skin profile, but its cautions are still Avoid.
- * Those profile-free labels are also the Ingredient check (#345).
+ * Those profile-free labels are also what a result's Safety tab shows everyone
+ * (#345, #379).
  */
 export type IngredientLabel = "avoid" | "watch" | "good" | "unknown";
 

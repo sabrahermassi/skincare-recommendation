@@ -15,16 +15,17 @@ import { unknownIngredient, type Concern, type Ingredient, type ProductWithIngre
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { StarIcon } from "@/components/icons/StarIcon";
 import { comedogenicLabel } from "@/lib/format";
+import { isWarnedPoreClogging } from "@/lib/pore-clogging";
 import { countedAgainst, ingredientLabel, isCommonIrritant, LABEL_META, type IngredientLabel } from "@/lib/ingredient-labels";
 import { matchProduct, positionNote, positionWeightLabel, ruleFor, type Contraindication, type MatchResult } from "@/lib/matching";
 import { FROM_FINDER, useScoringProfile } from "@/lib/finder-choices";
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_TITLE, isPersonalized, isSensitive, treatAsReactive } from "@/lib/profile";
 import { targetApplies, type IngredientRule } from "@/lib/rules";
-import { isVerified, regulatoryStatus } from "@/lib/safety";
+import { contraindications, isVerified, regulatoryStatus } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
-import { CANVAS, CARD_SHADOW, CHOSEN, INK, LINE, MUTED, ROW_DIVIDER, SURFACE, TOUCH_TARGET, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, CHOSEN, INK, LINE, MUTED, ROW_DIVIDER, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 import { ingredientNameParam, productIdParam } from "@/lib/route-params";
 import NotFound from "@/app/+not-found";
@@ -156,15 +157,17 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
   const inList = product !== null && index >= 0;
   const verified = isVerified(ingredient);
   // Opened from a product, the verdict is the label the ingredient list gave
-  // this row (#324). With no product there is nothing to score against, so a
-  // recognised ingredient reads as "worth knowing" rather than a verdict.
-  const labelOf = (i: Ingredient): Fit => (match ? (ingredientLabel(i, match, personalized) ?? "none") : isVerified(i) ? "watch" : "unknown");
+  // this row (#324). With no product there is no score, so the verdict comes
+  // from what we hold about the ingredient itself (`fitWithoutProduct`).
+  const labelOf = (i: Ingredient): Fit => (match ? (ingredientLabel(i, match, personalized) ?? "none") : fitWithoutProduct(i, profile));
   const fit = labelOf(ingredient);
   const tone = TONE[fit];
 
   // The warning that made the row Avoid comes first; one ingredient can carry
   // one per origin, each said with its own source (#347).
-  const warnings = match?.warnings.filter((w) => w.ingredient.id === ingredient.id) ?? [];
+  // Without a product, the same warnings the score would raise for this
+  // ingredient and profile — a pregnancy caution above all.
+  const warnings = match ? match.warnings.filter((w) => w.ingredient.id === ingredient.id) : contraindications([ingredient], profile);
   const warning = warnings.find((w) => w.severity === "hazard" || w.origin === "pregnancy") ?? warnings[0];
   const warningLines = warning
     ? [warning, ...warnings.filter((w) => w !== warning)].filter((w, i, all) => all.findIndex((other) => other.reason === w.reason) === i)
@@ -172,10 +175,9 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
 
   const rule = ruleFor(ingredient);
   // With a product, what the score itself counted wins, as it does for the
-  // label. Without one, the rule's own targets, read the way `computeMatch`
-  // reads sensitivity (#183).
-  const helps = match ? fit === "good" : rule ? targetApplies(rule.helps, { ...profile, sensitive: isSensitive(profile) }) : false;
-  const hurts = match ? countedAgainst(ingredient, match) : rule ? targetApplies(rule.hurts, { ...profile, sensitive: treatAsReactive(profile) }) : false;
+  // label. Without one, the rule's own targets (`ruleTargets`).
+  const helps = match ? fit === "good" : ruleTargets(ingredient, profile).helps;
+  const hurts = match ? countedAgainst(ingredient, match) : ruleTargets(ingredient, profile).hurts;
 
   const { primary, secondary } = splitName(ingredient);
   const starred = savedIngredients.includes(ingredient.name);
@@ -274,9 +276,9 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
 
           <View style={{ paddingHorizontal: 20, gap: 14 }}>
             {/* What it does: not a card. */}
-            <View style={{ gap: 8, paddingHorizontal: 2, paddingBottom: 6 }}>
+            <View style={{ gap: SPACE.text, paddingHorizontal: 2, paddingBottom: 6 }}>
               <SectionLabel>What it does</SectionLabel>
-              <Text style={{ fontSize: 16, lineHeight: 24, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
+              <Text style={{ fontSize: TYPE.body, lineHeight: 24, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
               {rule?.source ? <SourceLink source={rule.source} /> : null}
             </View>
 
@@ -318,7 +320,7 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
                 </Text>
               )}
               <View style={{ alignSelf: "flex-start", marginTop: 2, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: tone.tint }}>
-                <Text style={{ fontSize: 12, fontWeight: "600", color: tone.deep }}>{fitTag(fit, helps, hurts, warning, match)}</Text>
+                <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{fitTag(fit, helps, hurts, warning, match)}</Text>
               </View>
             </Card>
 
@@ -331,7 +333,7 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
                 facts.map((fact, i) => (
                   <View key={fact.key} style={{ paddingHorizontal: 20 }}>
                     <View style={{ flexDirection: "row", gap: 12, paddingVertical: 13, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: ROW_DIVIDER }}>
-                      <Text style={{ width: 120, fontSize: 14, color: MUTED }}>{fact.key}</Text>
+                      <Text style={{ width: 120, fontSize: TYPE.label, color: MUTED }}>{fact.key}</Text>
                       <Text style={{ flex: 1, fontSize: 15, lineHeight: 21, color: INK }}>{fact.value}</Text>
                     </View>
                   </View>
@@ -356,18 +358,18 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
                 accessibilityRole="link"
                 accessibilityLabel="Read more on PubChem"
                 accessibilityHint="Opens in your browser"
-                style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: CARD_RADIUS, backgroundColor: VERDICT_NEUTRAL.tint, paddingVertical: 14, paddingLeft: 20, paddingRight: 16 }}
+                style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: CARD_RADIUS, backgroundColor: VERDICT_NEUTRAL.tint, paddingVertical: 14, paddingLeft: 20, paddingRight: SPACE.block }}
                 className="active:opacity-80"
               >
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={{ fontSize: 16, fontWeight: "600", color: INK }}>Read more on PubChem</Text>
+                  <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>Read more on PubChem</Text>
                   <Text style={{ fontSize: 13, color: MUTED }}>Opens in your browser</Text>
                 </View>
                 <Ionicons name="open-outline" size={18} color={MUTED} />
               </Pressable>
             ) : null}
 
-            <Text style={{ fontSize: 12, color: MUTED, paddingHorizontal: 4 }}>Reference data from Open Beauty Facts and EU CosIng.</Text>
+            <Text style={{ fontSize: TYPE.caption, color: MUTED, paddingHorizontal: 4 }}>Reference data from Open Beauty Facts and EU CosIng.</Text>
 
             {/* A wrong name, reading or claim gets told to us (#327). */}
             <View style={{ paddingHorizontal: 4 }}>
@@ -415,7 +417,7 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
               className="active:opacity-80"
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 12, color: MUTED }}>Next · #{index + 2}</Text>
+                <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Next · #{index + 2}</Text>
                 <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "600", color: INK }}>
                   {displayIngredientName(next.name)}
                 </Text>
@@ -466,7 +468,8 @@ function OnThisLabel({ names, index, colour }: { names: string[]; index: number;
   const total = names.length;
   const ordered = positionNote(names, index) !== null;
   const weight = positionWeightLabel(index);
-  // A long label's dots shrink so they still fit across the card.
+  // A long label's dots shrink so they still fit across the card; past about
+  // a hundred they may shrink further still (`flexShrink`), never overflow it.
   const dot = total > 60 ? 3 : total > 40 ? 4 : 6;
   return (
     <Card style={{ padding: 20, gap: 12 }}>
@@ -479,12 +482,12 @@ function OnThisLabel({ names, index, colour }: { names: string[]; index: number;
       </View>
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 14 }}>
         {names.map((name, i) => (
-          <View key={`${name}-${i}`} style={i === index ? { width: 12, height: 12, borderRadius: 6, backgroundColor: colour } : { width: dot, height: dot, borderRadius: dot / 2, backgroundColor: LINE }} />
+          <View key={`${name}-${i}`} style={i === index ? { width: 12, height: 12, borderRadius: 6, backgroundColor: colour } : { flexShrink: 1, width: dot, height: dot, borderRadius: dot / 2, backgroundColor: LINE }} />
         ))}
       </View>
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 12, color: MUTED }}>More</Text>
-        <Text style={{ fontSize: 12, color: MUTED }}>Less</Text>
+        <Text style={{ fontSize: TYPE.caption, color: MUTED }}>More</Text>
+        <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Less</Text>
       </View>
       <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
         {ordered
@@ -493,6 +496,42 @@ function OnThisLabel({ names, index, colour }: { names: string[]; index: number;
       </Text>
     </Card>
   );
+}
+
+/**
+ * A rule's own targets for this person, read the way `computeMatch` reads
+ * sensitivity (#183): for an ingredient opened without a product, where
+ * there is no score to ask.
+ */
+function ruleTargets(ingredient: Ingredient, profile: SkinProfile): { helps: boolean; hurts: boolean } {
+  const rule = ruleFor(ingredient);
+  if (!rule) return { helps: false, hurts: false };
+  return {
+    helps: targetApplies(rule.helps, { ...profile, sensitive: isSensitive(profile) }),
+    hurts: targetApplies(rule.hurts, { ...profile, sensitive: treatAsReactive(profile) }),
+  };
+}
+
+/**
+ * The verdict for an ingredient opened on its own (a label photo, Saved), with
+ * no product to score: the list's everyone-rules (EU status, fragrance and
+ * common irritants, the pore-clogging lists), then what its rule does for this
+ * person. Nothing against it reads as nothing against it, not "worth a second
+ * look" — which used to be said of every recognised name, water included.
+ */
+function fitWithoutProduct(ingredient: Ingredient, profile: SkinProfile): Fit {
+  // In the list's order (`ingredientLabel`): a hazard or a pregnancy caution
+  // first, even on an unrecognised name, so a retinol is never "Helps with"
+  // for someone pregnant.
+  const warnings = contraindications([ingredient], profile);
+  if (warnings.some((w) => w.severity === "hazard" || w.origin === "pregnancy")) return "avoid";
+  if (!isVerified(ingredient)) return isWarnedPoreClogging(ingredient) ? "watch" : "unknown";
+  if (ingredient.safety === "avoid") return "avoid";
+  if (warnings.length > 0 || ingredient.safety === "caution" || isCommonIrritant(ingredient) || isWarnedPoreClogging(ingredient)) return "watch";
+  const { helps, hurts } = ruleTargets(ingredient, profile);
+  if (hurts) return "watch";
+  if (helps) return "good";
+  return "none";
 }
 
 /** "Panthenol (Vitamin B5)" → the two lines the design draws. */
@@ -579,7 +618,11 @@ function fitBody(
   if (fit === "unknown") {
     return "We don't know enough about this one to say how it fits your skin, so it isn't counted in your score.";
   }
-  if (hurts) return "This is one of the things pulling the score down for the skin you described.";
+  if (hurts) {
+    return inProduct
+      ? "This is one of the things pulling the score down for the skin you described."
+      : "It works against something you told us about your skin.";
+  }
   if (!verified) {
     return "This name didn't match our ingredient dictionary, but it is on the published pore-clogging lists.";
   }
@@ -594,15 +637,21 @@ function fitBody(
   if (fit === "watch") {
     return "Carries a restriction or a pore rating worth knowing about, though nothing in your profile makes it a specific problem.";
   }
-  if (inProduct || !hasRule) return "Nothing in your profile reacts to it, so it doesn't change your score.";
+  if (inProduct) return "Nothing in your profile reacts to it, so it doesn't change your score.";
+  if (!hasRule) return "Nothing in your profile reacts to it.";
   return "Neither helps nor hurts, given the answers you gave.";
 }
 
 /** The pill under the verdict: what it does to this person's score, where there is one. */
 function fitTag(fit: Fit, helps: boolean, hurts: boolean, warning: Contraindication | undefined, match: MatchResult | null): string {
   if (fit === "unknown") return "Not in your score";
-  if (match && (hurts || (fit === "avoid" && warning))) return "Lowers your score";
-  if (match && helps) return "Adds to your score";
+  // Only a score that exists can be lowered or raised: without a skin profile
+  // the match refuses and holds none (#383 review). A pregnancy caution never
+  // changes the score; a hazard caps it.
+  const scored = match !== null && match.score !== null;
+  if (scored && (hurts || (fit === "avoid" && warning?.severity === "hazard"))) return "Lowers your score";
+  if (fit === "avoid" && warning) return "Flagged for you";
+  if (scored && helps) return "Adds to your score";
   if (hurts) return "Counts against your goals";
   if (helps) return "Good for your goals";
   if (fit === "avoid") return "Best avoided generally";

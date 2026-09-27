@@ -139,6 +139,8 @@ describe("the ingredient page, opened from a product", () => {
   it("flags a pregnancy caution for this person, even with no skin profile", async () => {
     await open("retinol", { pregnancyStatus: "pregnant" });
     expect(screen.getAllByText("Flagged for you").length).toBeGreaterThan(0);
+    // No profile means no score, and a pregnancy caution never moves one (#383 review).
+    expect(screen.queryByText("Lowers your score")).toBeNull();
     expect(screen.queryByText("Suits your skin")).toBeNull();
     expect(screen.queryByText(/^Helps with your/)).toBeNull();
   });

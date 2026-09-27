@@ -95,11 +95,15 @@ const PREGNANCY_LABEL: Record<Pregnancy, string> = {
 
 /**
  * Which of the two offered answers an answer counts as: breastfeeding is a
- * Yes, like pregnant (scoring treats them the same). Only a legacy "prefer not
- * to say" matches neither.
+ * Yes, like pregnant (scoring treats them the same). A legacy "prefer not to
+ * say" is neither Yes nor No, so it gives `null`: no option shows as chosen,
+ * and the quiz asks again rather than showing an answer never given (#378
+ * review). Scoring still treats it like No.
  */
-export function pregnancyYesNo(status: Pregnancy): Pregnancy {
-  return status === "breastfeeding" ? "pregnant" : status;
+export function pregnancyYesNo(status: Pregnancy): Pregnancy | null {
+  if (status === "breastfeeding") return "pregnant";
+  if (status === "prefer-not-to-say") return null;
+  return status;
 }
 
 /** The pregnancy question in its own words, and why it's asked. */

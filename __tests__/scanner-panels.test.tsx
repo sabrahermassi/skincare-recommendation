@@ -87,7 +87,7 @@ jest.mock("@/components/ScanViewfinder", () => ({
 }));
 
 jest.mock("@/data/api", () => ({
-  canPhotographLabelFor: (id: string) => /^\d{8,14}$/.test(id),
+  isProductBarcode: (id: string) => /^\d{8,14}$/.test(id),
   failureMessage: () => "Couldn't reach our catalogue. Check your connection.",
   fetchProductByBarcode: jest.fn(),
 }));

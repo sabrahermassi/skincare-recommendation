@@ -235,7 +235,7 @@ The boundary cannot be recovered from the ingredient list: it has to come from
 the label's Drug Facts box, which no live source records (see the irritation
 section above). Resolve it together with stated strength.
 
-## Open 2026-09-26: "very sensitive" barely moves a trailing fragrance (#301)
+## Closed 2026-09-26: "very sensitive" barely moved a trailing fragrance (#301, #363)
 
 Reported from the simulator: switching "somewhat" to "very sensitive" moved a
 fragranced cream from 55 to 54. Confirmed, and pinned in
@@ -271,6 +271,17 @@ fragranced cream from 55 to 54. Confirmed, and pinned in
   separate question: once a product is at 34, no option separates "very"
   from "somewhat" further.
 
-The owner picks an option; that is its own ticket. Re-run
-`SCORE_BASELINE=1 npx jest score-baseline` against staging with the chosen
-option before merging it.
+**Decision: A, built in #363** (`FRAGRANCE_POSITION_FLOOR_HIGH = 0.7` in
+`lib/matching.ts`), **applied once per product**: the main fragrance
+ingredient (the one whose rule weighs most — parfum/fragrance, then essential
+oils, then allergens) gets the floor, and the rest keep their position weight.
+Flooring every fragrance ingredient charged one scent several times (parfum
+plus the allergens named because they are in it), which on staging cut
+"very sensitive" scores by up to 16 points; once per product it is at most 6.
+
+- Fixture: the same 8 scores moved as predicted, 3–5 points each, and 0 of the
+  110 for the other five profiles. The plain cream reads 81 / 74.
+- Staging (1,114 products, `main` vs `main` + #363): only "very sensitive"
+  moved, 561 scores, mean −3.5, from −1 to −6; 36 fair → poor, 3 good → fair.
+
+The cap question above stays open.
