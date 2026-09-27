@@ -9,7 +9,9 @@ const ACTION_WIDTH = 84;
 const ACTION_GAP = 12;
 const OPEN = -(ACTION_WIDTH + ACTION_GAP);
 // A drag counts as a swipe only once it is clearly sideways, so the list still scrolls.
-const SWIPE_START = 10;
+const SWIPE_START = 8;
+// How fast a flick (points per millisecond) opens or closes the card on its own.
+const FLICK = 0.3;
 
 /**
  * A card that slides left to show a bin behind it, like a row in Mail. The bin
@@ -75,10 +77,22 @@ function swipeFor(offset: Animated.Value) {
     resting = to;
     Animated.spring(offset, { toValue: to, useNativeDriver: Platform.OS !== "web", bounciness: 0, speed: 18 }).start();
   };
+  // Clearly sideways: the list keeps vertical drags, the card takes these.
+  const sideways = (dx: number, dy: number) => Math.abs(dx) > SWIPE_START && Math.abs(dx) > Math.abs(dy);
   const responder = PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > SWIPE_START && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+    // Asked on the way down, before the card's own tap handling can keep the
+    // touch: without capturing, the card held it and the swipe bounced back.
+    onMoveShouldSetPanResponderCapture: (_, g) => sideways(g.dx, g.dy),
+    onMoveShouldSetPanResponder: (_, g) => sideways(g.dx, g.dy),
+    // Once swiping, the list can't take the gesture back mid-drag.
+    onPanResponderTerminationRequest: () => false,
     onPanResponderMove: (_, g) => offset.setValue(Math.min(0, Math.max(OPEN * 1.2, resting + g.dx))),
-    onPanResponderRelease: (_, g) => settle(resting + g.dx < OPEN / 2 ? OPEN : 0),
+    // Opens past a third of the bin's width, or on a quick flick left; a flick
+    // right closes. A slow, short drag goes back to where it was.
+    onPanResponderRelease: (_, g) => {
+      const end = resting + g.dx;
+      settle(g.vx < -FLICK ? OPEN : g.vx > FLICK ? 0 : end < OPEN / 3 ? OPEN : 0);
+    },
     onPanResponderTerminate: () => settle(resting),
   });
   return { responder, close: () => settle(0) };
