@@ -129,7 +129,7 @@ function Verdict({ read, fromHistory }: { read: HeldLabel; fromHistory: boolean 
             <Text accessibilityRole="header" style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, color: INK }}>
               Label photo
             </Text>
-            <Text style={{ fontSize: 14, color: MUTED }}>{total > 0 ? `${total} ingredients read` : "Nothing was read"}</Text>
+            <Text style={{ fontSize: TYPE.label, color: MUTED }}>{total > 0 ? `${total} ingredients read` : "Nothing was read"}</Text>
           </View>
           {/* The same two tabs as a catalogue product (design_handoff_skincare_cards). */}
           <ResultTabs

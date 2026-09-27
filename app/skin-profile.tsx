@@ -8,7 +8,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import { haptic } from "@/lib/haptics";
-import { answeredWithoutSignal, CONCERN_TITLE, isPersonalized, PREGNANCY_QUESTION, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
+import { CONCERN_TITLE, PREGNANCY_QUESTION, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
 import { CANVAS, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
 
@@ -34,10 +34,13 @@ export default function SkinProfileScreen() {
   const setProfile = useAppStore((s) => s.setProfile);
   const [open, setOpen] = useState<Question | null>(null);
   // "I don't know" and "no concerns" store the same value as a question never
-  // asked; once any answer is in, those empty values are answers.
-  const answered = isPersonalized(profile) || answeredWithoutSignal(profile);
+  // asked, so the stored profile can't tell them apart. Which questions were
+  // answered here is tracked one by one, as the finder does: answering one
+  // question must not make the others read "I don't know" (#376 review).
+  const [answered, setAnswered] = useState<ReadonlySet<Question>>(() => new Set());
 
   const save = (patch: Parameters<typeof setProfile>[0], close = true) => {
+    if (open) setAnswered((a) => new Set(a).add(open));
     setProfile(patch);
     haptic.select();
     if (close) setOpen(null);
@@ -49,10 +52,14 @@ export default function SkinProfileScreen() {
   };
 
   const values: Record<Question, string> = {
-    skinType: profile.baseSkinType ? titleCase(profile.baseSkinType) : answered ? "I don't know" : "Not set",
+    skinType: profile.baseSkinType ? titleCase(profile.baseSkinType) : answered.has("skinType") ? "I don't know" : "Not set",
     concerns:
-      profile.concerns.length > 0 ? profile.concerns.map((c) => CONCERN_TITLE[c]).join(", ") : answered ? "No concerns" : "Not set",
-    sensitivity: profile.sensitivity ? sensitivityLabel(profile.sensitivity) : answered ? "I don't know" : "Not set",
+      profile.concerns.length > 0
+        ? profile.concerns.map((c) => CONCERN_TITLE[c]).join(", ")
+        : answered.has("concerns")
+          ? "No concerns"
+          : "Not set",
+    sensitivity: profile.sensitivity ? sensitivityLabel(profile.sensitivity) : answered.has("sensitivity") ? "I don't know" : "Not set",
     pregnancy: profile.pregnancyStatus ? pregnancyLabel(profile.pregnancyStatus) : "Not set",
   };
 
@@ -90,11 +97,11 @@ export default function SkinProfileScreen() {
               ) : null}
             </View>
             {open === "skinType" ? (
-              <SkinTypePicker value={profile.baseSkinType} unknownChosen={answered} onChange={(baseSkinType) => save({ baseSkinType })} />
+              <SkinTypePicker value={profile.baseSkinType} unknownChosen={answered.has("skinType")} onChange={(baseSkinType) => save({ baseSkinType })} />
             ) : open === "concerns" ? (
-              <ConcernPicker concerns={profile.concerns} noneChosen={answered} onToggle={toggleConcern} onNone={() => save({ concerns: [] })} />
+              <ConcernPicker concerns={profile.concerns} noneChosen={answered.has("concerns")} onToggle={toggleConcern} onNone={() => save({ concerns: [] })} />
             ) : open === "sensitivity" ? (
-              <SensitivityPicker value={profile.sensitivity} unknownChosen={answered} onChange={(sensitivity) => save({ sensitivity })} />
+              <SensitivityPicker value={profile.sensitivity} unknownChosen={answered.has("sensitivity")} onChange={(sensitivity) => save({ sensitivity })} />
             ) : (
               <PregnancyPicker value={profile.pregnancyStatus} onChange={(pregnancyStatus) => save({ pregnancyStatus })} />
             )}

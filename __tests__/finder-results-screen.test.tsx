@@ -16,6 +16,11 @@ jest.mock("expo-router", () => ({
   router: { back: () => mockBack(), push: jest.fn(), replace: jest.fn(), canGoBack: () => true },
   Link: ({ children }: { children: React.ReactNode }) => children,
 }));
+// test-renderer 1.3 ships its own React reconciler, which throws inside
+// React's `startTransition` (it reads transition types this React doesn't
+// pass). The app renders with React Native's own renderer, where it works; here
+// the filter's transition just runs straight through.
+jest.mock("react", () => ({ ...jest.requireActual("react"), startTransition: (run: () => void) => run() }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));

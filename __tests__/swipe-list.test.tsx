@@ -1,6 +1,10 @@
-import { act, renderHook } from "@testing-library/react-native";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react-native";
+import { Text } from "react-native";
 
-import { useSwipeList } from "@/components/SwipeToDelete";
+import { SwipeListScope, SwipeToDelete, useSwipeList } from "@/components/SwipeToDelete";
+
+let mockReduceMotion = false;
+jest.mock("@/lib/reduce-motion", () => ({ reduceMotionNow: () => mockReduceMotion }));
 
 /**
  * A list of swipe-to-delete cards (History, starred ingredients): the list
@@ -37,4 +41,21 @@ it("closes the open card when another starts to swipe, or the list scrolls", asy
     result.current.onScrollBeginDrag();
   });
   expect(second).toHaveBeenCalledTimes(1);
+});
+
+// With Reduce Motion on, a card still tells its list it has come to rest, or
+// the list would stay unable to scroll.
+it.each([false, true])("tells the list a card has come to rest (Reduce Motion %s)", async (reduce: boolean) => {
+  mockReduceMotion = reduce;
+  const list = { began: jest.fn(), rested: jest.fn(), closeOpen: jest.fn() };
+  await render(
+    <SwipeListScope list={list}>
+      <SwipeToDelete label="Niacinamide" onDelete={jest.fn()}>
+        <Text>Niacinamide</Text>
+      </SwipeToDelete>
+    </SwipeListScope>,
+  );
+  await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete Niacinamide" })));
+  expect(list.rested).toHaveBeenCalledWith(expect.any(Function), false);
+  mockReduceMotion = false;
 });

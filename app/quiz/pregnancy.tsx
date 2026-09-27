@@ -31,7 +31,9 @@ export default function PregnancyStep() {
   const setProfile = useAppStore((s) => s.setProfile);
   const { close } = useQuizFrame();
   const markQuizJustFinished = useAppStore((s) => s.markQuizJustFinished);
-  const [picked, setPicked] = useState(pregnancyStatus !== null);
+  // A legacy "prefer not to say" isn't one of the two options, so it counts as
+  // not picked yet: Finish waits for Yes or No rather than showing neither.
+  const [picked, setPicked] = useState(pregnancyStatus !== null && pregnancyYesNo(pregnancyStatus) !== null);
 
   // Back to the screen the quiz opened over, which now shows the score (#346).
   function finish() {

@@ -41,3 +41,18 @@ it("adds and removes concerns in place, up to the limit", async () => {
   await act(async () => fireEvent.press(screen.getByRole("checkbox", { name: "Dullness" })));
   expect(useAppStore.getState().profile.concerns).toEqual([]);
 });
+
+// #376 review: answering one question used to make every untouched one read
+// "I don't know", since "I don't know" stores the same null as never asked.
+it("leaves the questions not answered at Not set, and says I don't know only where it was chosen", async () => {
+  await render(<SkinProfileScreen />);
+  await act(async () => fireEvent.press(screen.getByRole("button", { name: "Skin concerns: Not set" })));
+  await act(async () => fireEvent.press(screen.getByRole("checkbox", { name: "Dullness" })));
+  expect(screen.getByRole("button", { name: "Skin type: Not set" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Sensitivity: Not set" })).toBeTruthy();
+
+  await act(async () => fireEvent.press(screen.getByRole("button", { name: "Skin type: Not set" })));
+  await act(async () => fireEvent.press(screen.getByRole("radio", { name: "I don't know" })));
+  expect(screen.getByRole("button", { name: "Skin type: I don't know" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Sensitivity: Not set" })).toBeTruthy();
+});

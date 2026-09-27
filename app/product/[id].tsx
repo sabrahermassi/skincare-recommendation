@@ -381,6 +381,11 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
         <ReadingScale>
           <ProductHeader product={product} total={total} />
           <ResultTabs
+            // A new product starts on Skin match with the full list, not the last
+            // one's tab, filter or open sheet (#379 review). The loading spinner
+            // between products already remounts this today; the key keeps that
+            // true if a cached product ever skips the spinner.
+            key={product.id}
             ingredients={product.ingredients}
             type={product.type}
             match={match}
@@ -461,7 +466,7 @@ function ProductHeader({ product, total }: { product: ProductWithIngredients; to
         <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, lineHeight: 26, color: INK }}>
           {product.name}
         </Text>
-        <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: 14, color: MUTED }}>
+        <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.label, color: MUTED }}>
           {[
             product.volume,
             // A genuinely unidentified product doesn't show "Unknown" as if it
