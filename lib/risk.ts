@@ -36,9 +36,9 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
     };
   }
   if (restricted === 0 && common > 0) {
-    // Fragrance or a common irritant is "to watch" for everyone in the
-    // Ingredient check above (#345). "Nothing restricted" is true of it, but
-    // read beside "1 ingredient to watch" it sounds like a contradiction.
+    // Fragrance or a common irritant is "to watch" for everyone in the Safety
+    // tab's ingredient list (#345, #379). "Nothing restricted" is true of it,
+    // but read beside a watched ingredient it sounds like a contradiction.
     return {
       level: "Low",
       note: `${common} common ${common === 1 ? "irritant" : "irritants"}`,
@@ -76,8 +76,8 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
  *
  * `personal` is what this profile is warned about or was charged for;
  * `restricted` is what carries an EU restriction whoever you are; `common` is
- * the unrestricted fragrance and common irritants the Ingredient check puts
- * "to watch" for everyone (#345).
+ * the unrestricted fragrance and common irritants the Safety tab's list puts
+ * "to watch" for everyone (#345, #379).
  */
 export function irritationCounts(
   product: Pick<ProductWithIngredients, "ingredients">,

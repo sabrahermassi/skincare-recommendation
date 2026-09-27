@@ -114,13 +114,14 @@ raised floating button. See §8/§9.
 
 ## Quick Scan
 
-The default. A result without a profile still answers straight away with the
-Ingredient check (#345), the same for everyone, and offers **See your skin
-match** in place of a personal score.
+The default. A result without a profile still answers straight away on its
+**Safety** tab (#379): the irritation and pore-clogging risk cards and the
+ingredient list, the same for everyone. Its **Skin match** tab offers **See your
+skin match** in place of a personal score.
 
 Flow:
 
-**Welcome carousel → Home → Scan → Result (Ingredient check + See your skin match)**
+**Welcome carousel → Home → Scan → Result (Safety tab + Skin match tab)**
 
 No personalization questionnaire is required before scanning.
 
