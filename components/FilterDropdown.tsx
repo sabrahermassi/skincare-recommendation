@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { Pressable, View, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, ScrollView, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { Text } from "@/components/Text";
 import { CHOSEN, FLOATING_SHADOW, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
@@ -10,13 +10,17 @@ const POPOVER_WIDTH = 224;
 const POPOVER_RADIUS = 20;
 const OPTION_HEIGHT = 48;
 const OPTION_RADIUS = 14;
+const POPOVER_PADDING = 6;
+// A long list (the finder's product types) shows this many rows and scrolls
+// the rest; half a row peeks out below, so it reads as scrollable.
+const VISIBLE_OPTIONS = 7.5;
 
 /**
  * "Filter: All ▾" and, tapped, its choices on a white card that floats over
  * what's below — each with its count, the chosen one tinted and ticked
  * (owner's reference, then the result-screen handoff). Every filter in the
  * app: the ingredient lists, Saved's routine steps. Choosing closes it; so
- * does tapping "Filter" again.
+ * does tapping "Filter" again. A long list scrolls inside the card.
  *
  * It floats rather than pushing the list down, so it raises itself with
  * `zIndex` over its parent's later siblings. `align` puts the button (and the
@@ -61,41 +65,48 @@ export function FilterDropdown<T extends string>({
             width: POPOVER_WIDTH,
             borderRadius: POPOVER_RADIUS,
             backgroundColor: SURFACE,
-            padding: 6,
             ...FLOATING_SHADOW,
           }}
         >
-          {options.map(({ value, label, count }) => {
-            const active = value === selected;
-            return (
-              <Pressable
-                key={value}
-                onPress={() => {
-                  onSelect(value);
-                  setOpen(false);
-                }}
-                accessibilityRole="radio"
-                accessibilityLabel={count === undefined ? label : `${label}, ${count}`}
-                accessibilityState={{ checked: active }}
-                style={{
-                  height: OPTION_HEIGHT,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 10,
-                  paddingHorizontal: 14,
-                  borderRadius: OPTION_RADIUS,
-                  backgroundColor: active ? CHOSEN.fill : undefined,
-                }}
-                className="active:opacity-70"
-              >
-                <Text style={{ flex: 1, fontSize: TYPE.body, fontWeight: active ? "600" : "500", color: INK }}>{label}</Text>
-                {count !== undefined ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{count}</Text> : null}
-                <View style={{ width: 20, alignItems: "center" }}>
-                  {active ? <Ionicons name="checkmark" size={20} color={CHOSEN.accent} /> : null}
-                </View>
-              </Pressable>
-            );
-          })}
+          <ScrollView
+            style={{ maxHeight: OPTION_HEIGHT * VISIBLE_OPTIONS + POPOVER_PADDING * 2 }}
+            contentContainerStyle={{ padding: POPOVER_PADDING }}
+            bounces={false}
+            nestedScrollEnabled
+            showsVerticalScrollIndicator={options.length > VISIBLE_OPTIONS}
+          >
+            {options.map(({ value, label, count }) => {
+              const active = value === selected;
+              return (
+                <Pressable
+                  key={value}
+                  onPress={() => {
+                    onSelect(value);
+                    setOpen(false);
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityLabel={count === undefined ? label : `${label}, ${count}`}
+                  accessibilityState={{ checked: active }}
+                  style={{
+                    height: OPTION_HEIGHT,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                    paddingHorizontal: 14,
+                    borderRadius: OPTION_RADIUS,
+                    backgroundColor: active ? CHOSEN.fill : undefined,
+                  }}
+                  className="active:opacity-70"
+                >
+                  <Text style={{ flex: 1, fontSize: TYPE.body, fontWeight: active ? "600" : "500", color: INK }}>{label}</Text>
+                  {count !== undefined ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{count}</Text> : null}
+                  <View style={{ width: 20, alignItems: "center" }}>
+                    {active ? <Ionicons name="checkmark" size={20} color={CHOSEN.accent} /> : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
       ) : null}
     </View>

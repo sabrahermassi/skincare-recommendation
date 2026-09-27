@@ -136,14 +136,20 @@ export const SELECTED = "#F9E7DC";
 export const GRAY_FILL = "#ECE4DD";
 
 /**
- * The rounded blocks of a menu (Profile, Account, the routine screen): a hair
- * darker than the canvas and barely tinted, so the blocks read as quiet
- * panels on the page rather than peach tiles (owner, after OnSkin's profile,
- * 27 September 2026). Computed, not read off a mockup: the canvas (#FDF9F0)
- * darkened 4–5 points per channel, keeping its warmth. Was #FBF0E6, the
- * midpoint of SELECTED and the canvas, which read as too peach.
+ * Home's action cards: SELECTED's peach at 70% intensity (owner, 27 September
+ * 2026: "decrease it by 30%"). Computed, not read off a mockup: SELECTED
+ * (#F9E7DC) moved 30% of the way to the canvas (#FDF9F0), channel by channel.
  */
-export const MENU_FILL = "#F9F4EC";
+export const HOME_CARD_FILL = "#FAECE2";
+
+/**
+ * The rounded blocks of a menu (Profile, Account, the routine screen): the
+ * same peach as Home's cards, very light (owner: "the same color, but a very
+ * lighter version of it, not gray"). Computed: 30% of SELECTED's tint over
+ * the canvas — SELECTED (#F9E7DC) moved 70% of the way to #FDF9F0. Was
+ * #F9F4EC, a near-grey, and before that #FBF0E6.
+ */
+export const MENU_FILL = "#FCF4EA";
 
 /**
  * The product result's list rows (design_handoff_skincare_cards, read off its
@@ -342,8 +348,8 @@ export const TOUCH_TARGET = Platform.select({ ios: 44, android: 48, default: 44 
 
 /**
  * Every filter pill (owner: slimmer than a button, the same everywhere) — the
- * results' Filter and its answer chips, Saved's step filters. `FILTER_HIT_SLOP`
- * keeps the tap area at TOUCH_TARGET around the thinner pill.
+ * finder results' answer chips and their Edit. `FILTER_HIT_SLOP` keeps the tap
+ * area at TOUCH_TARGET around the thinner pill.
  */
 export const FILTER_PILL = { height: 32, radius: 16, fontSize: 13.5 } as const;
 export const FILTER_HIT_SLOP = Math.ceil((TOUCH_TARGET - FILTER_PILL.height) / 2);

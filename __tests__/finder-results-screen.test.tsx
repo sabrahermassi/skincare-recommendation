@@ -4,7 +4,10 @@ import FinderResults from "@/app/finder-results";
 import { useFinderChoices } from "@/lib/finder-choices";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
-/** The finder's results: the catalogue best match first, the answers as chips, and Filter back to the finder. */
+/**
+ * The finder's results: the catalogue best match first, the answers as chips
+ * with Edit back to the finder, and Filter to narrow them to one product type.
+ */
 
 jest.setTimeout(30000);
 
@@ -28,11 +31,27 @@ it("ranks the catalogue for the answers, best score first", async () => {
   expect([...scores].sort((a, b) => b - a)).toEqual(scores);
 });
 
-it("goes back to the finder from Filter", async () => {
+it("goes back to the finder from Edit beside the answers", async () => {
   await render(<FinderResults />);
   await screen.findByText("Results");
-  await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Edit your answers" }));
   expect(mockBack).toHaveBeenCalled();
+});
+
+it("narrows the results to one product type from Filter", async () => {
+  await render(<FinderResults />);
+  await screen.findByText("Results");
+  const all = screen.getAllByText(/^\d+$/).length;
+
+  await fireEvent.press(screen.getByRole("button", { name: "Filter: All" }));
+  // The first type after All, and how many products it holds.
+  const option = screen.getAllByRole("radio")[1];
+  const [label, count] = String(option.props.accessibilityLabel).split(", ");
+  await fireEvent.press(option);
+
+  expect(screen.getByRole("button", { name: `Filter: ${label}` })).toBeTruthy();
+  expect(screen.getAllByText(/^\d+$/)).toHaveLength(Number(count));
+  expect(Number(count)).toBeLessThan(all);
 });
 
 it("saves a product from its heart, without opening it", async () => {
