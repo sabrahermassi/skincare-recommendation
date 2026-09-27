@@ -4,6 +4,7 @@ import {
   isPersonalized,
   isSensitive,
   nextQuizRoute,
+  pregnancyYesNo,
   profileHeadline,
   quizRoutes,
   quizStepCount,
@@ -129,5 +130,19 @@ describe("profileHeadline", () => {
 
   it("does not tag a not-sensitive skin", () => {
     expect(profileHeadline(profile({ baseSkinType: "dry", sensitivity: "none" })).tags).toEqual([]);
+  });
+});
+
+// Asked as yes or no (#378): breastfeeding counts as Yes; an old "prefer not
+// to say" is neither option, so nothing shows as chosen.
+describe("pregnancyYesNo", () => {
+  it("reads breastfeeding as Yes and keeps Yes and No", () => {
+    expect(pregnancyYesNo("breastfeeding")).toBe("pregnant");
+    expect(pregnancyYesNo("pregnant")).toBe("pregnant");
+    expect(pregnancyYesNo("neither")).toBe("neither");
+  });
+
+  it("gives an old prefer-not-to-say no option", () => {
+    expect(pregnancyYesNo("prefer-not-to-say")).toBeNull();
   });
 });
