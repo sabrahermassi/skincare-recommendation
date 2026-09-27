@@ -24,11 +24,10 @@ const TAB_ICONS = {
   profile: { on: "person", off: "person-outline" },
 } as const;
 
-// The pill behind the current tab's icon, and the icon: 20% smaller with the
-// bar (was 58×44 and 29), so the pill still sits inside it.
-const PILL_WIDTH = 46;
-const PILL_HEIGHT = 35;
-const TAB_ICON = 24;
+// The pill behind the current tab's icon, and the icon, sized for the bar.
+const PILL_WIDTH = 58;
+const PILL_HEIGHT = 44;
+const TAB_ICON = 29;
 // A capsule, like the bar it sits in.
 const PILL_RADIUS = PILL_HEIGHT / 2;
 const PILL_MS = 200;

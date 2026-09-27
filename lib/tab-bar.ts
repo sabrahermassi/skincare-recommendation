@@ -1,9 +1,10 @@
+import { CAPSULE_HEIGHT } from "@/lib/tokens";
+
 /**
  * The raised scan button in the middle of the tab bar: its diameter, how far it
  * rises above the bar, and the camera icon on it. 10% smaller than it was (owner,
- * 27 September 2026): 75 to 68, the icon 34 to 31. Its centre stays 12.5pt below
- * the bar's top edge (34 − 22), where it sat before, so it still rises the same
- * way out of the thinner bar.
+ * 27 September 2026): 75 to 68, the icon 34 to 31. Its centre stays about 12pt
+ * below the bar's top edge (34 − 22), where it sat before.
  */
 export const SCAN_BUTTON = 68;
 export const SCAN_BUTTON_LIFT = 22;
@@ -11,10 +12,10 @@ export const SCAN_ICON = 31;
 
 /**
  * The floating tab bar: its height, its gap from the screen's sides, and its gap
- * above the bottom edge. 20% thinner than the owner's reference bar (56, measured
- * off its screenshot), at the owner's ask on 27 September 2026.
+ * above the bottom edge. The same height as the segmented switch (owner, 27
+ * September 2026), after a brief try at 20% thinner.
  */
-export const TAB_BAR_HEIGHT = 45;
+export const TAB_BAR_HEIGHT = CAPSULE_HEIGHT;
 /** A full capsule, round at both ends (owner's reference). */
 export const TAB_BAR_RADIUS = TAB_BAR_HEIGHT / 2;
 export const TAB_BAR_SIDE_MARGIN = 20;
