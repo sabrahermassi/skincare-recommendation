@@ -29,16 +29,16 @@ jest.mock("@/data/api", () => ({
   resolveIngredientNames: jest.fn(),
 }));
 
-function ingredient(name: string): Ingredient {
-  return { id: name, name, comedogenic: 0, safety: "safe", verified: true };
+function ingredient(name: string, overrides: Partial<Ingredient> = {}): Ingredient {
+  return { id: name, name, comedogenic: 0, safety: "safe", verified: true, ...overrides };
 }
 
 const NIACINAMIDE_SOURCE = INGREDIENT_RULES.find((rule) => rule.names.includes("niacinamide"))?.source;
 
-async function open(name: string) {
+async function open(name: string, overrides: Partial<Ingredient> = {}) {
   mockParams = { inci: name };
   (resolveIngredientNames as unknown as { mockResolvedValue(value: unknown): void }).mockResolvedValue([
-    ingredient(name),
+    ingredient(name, overrides),
   ]);
   await render(<IngredientRoute />);
   await act(async () => {});
@@ -87,5 +87,29 @@ describe("the ingredient page", () => {
     await open("tea tree oil");
     expect(screen.queryByText(/^Source:/)).toBeNull();
     expect(screen.queryByText("Read more on PubChem")).toBeNull();
+  });
+
+  // Opened on its own (a label photo, Saved), with no product to score: a
+  // plain ingredient isn't "worth a second look", and nothing claims a score.
+  it("says nothing against a plain ingredient opened without a product", async () => {
+    await open("xanthan gum");
+    expect(screen.getByText("No known concerns")).toBeTruthy();
+    expect(screen.getByText("Nothing against it")).toBeTruthy();
+    expect(screen.queryByText("Worth a second look")).toBeNull();
+  });
+
+  it("still puts a fragrance and a restricted ingredient to watch without a product", async () => {
+    await open("parfum");
+    expect(screen.getByText("Worth a second look")).toBeTruthy();
+    await act(async () => screen.unmount());
+    await open("some restricted preservative", { safety: "caution" });
+    expect(screen.getByText("Worth a second look")).toBeTruthy();
+  });
+
+  it("names the concern a rule works on for this person, without a product", async () => {
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] } });
+    await open("niacinamide");
+    expect(screen.getByText(/^Helps with your/)).toBeTruthy();
+    expect(screen.queryByText("Adds to your score")).toBeNull();
   });
 });

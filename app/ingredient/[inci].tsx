@@ -15,6 +15,7 @@ import { unknownIngredient, type Concern, type Ingredient, type ProductWithIngre
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { StarIcon } from "@/components/icons/StarIcon";
 import { comedogenicLabel } from "@/lib/format";
+import { isWarnedPoreClogging } from "@/lib/pore-clogging";
 import { countedAgainst, ingredientLabel, isCommonIrritant, LABEL_META, type IngredientLabel } from "@/lib/ingredient-labels";
 import { matchProduct, positionNote, positionWeightLabel, ruleFor, type Contraindication, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
@@ -153,9 +154,9 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
   const inList = product !== null && index >= 0;
   const verified = isVerified(ingredient);
   // Opened from a product, the verdict is the label the ingredient list gave
-  // this row (#324). With no product there is nothing to score against, so a
-  // recognised ingredient reads as "worth knowing" rather than a verdict.
-  const labelOf = (i: Ingredient): Fit => (match ? (ingredientLabel(i, match, personalized) ?? "none") : isVerified(i) ? "watch" : "unknown");
+  // this row (#324). With no product there is no score, so the verdict comes
+  // from what we hold about the ingredient itself (`fitWithoutProduct`).
+  const labelOf = (i: Ingredient): Fit => (match ? (ingredientLabel(i, match, personalized) ?? "none") : fitWithoutProduct(i, profile));
   const fit = labelOf(ingredient);
   const tone = TONE[fit];
 
@@ -169,10 +170,9 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
 
   const rule = ruleFor(ingredient);
   // With a product, what the score itself counted wins, as it does for the
-  // label. Without one, the rule's own targets, read the way `computeMatch`
-  // reads sensitivity (#183).
-  const helps = match ? fit === "good" : rule ? targetApplies(rule.helps, { ...profile, sensitive: isSensitive(profile) }) : false;
-  const hurts = match ? countedAgainst(ingredient, match) : rule ? targetApplies(rule.hurts, { ...profile, sensitive: treatAsReactive(profile) }) : false;
+  // label. Without one, the rule's own targets (`ruleTargets`).
+  const helps = match ? fit === "good" : ruleTargets(ingredient, profile).helps;
+  const hurts = match ? countedAgainst(ingredient, match) : ruleTargets(ingredient, profile).hurts;
 
   const { primary, secondary } = splitName(ingredient);
   const starred = savedIngredients.includes(ingredient.name);
@@ -493,6 +493,37 @@ function OnThisLabel({ names, index, colour }: { names: string[]; index: number;
   );
 }
 
+/**
+ * A rule's own targets for this person, read the way `computeMatch` reads
+ * sensitivity (#183): for an ingredient opened without a product, where
+ * there is no score to ask.
+ */
+function ruleTargets(ingredient: Ingredient, profile: SkinProfile): { helps: boolean; hurts: boolean } {
+  const rule = ruleFor(ingredient);
+  if (!rule) return { helps: false, hurts: false };
+  return {
+    helps: targetApplies(rule.helps, { ...profile, sensitive: isSensitive(profile) }),
+    hurts: targetApplies(rule.hurts, { ...profile, sensitive: treatAsReactive(profile) }),
+  };
+}
+
+/**
+ * The verdict for an ingredient opened on its own (a label photo, Saved), with
+ * no product to score: the list's everyone-rules (EU status, fragrance and
+ * common irritants, the pore-clogging lists), then what its rule does for this
+ * person. Nothing against it reads as nothing against it, not "worth a second
+ * look" — which used to be said of every recognised name, water included.
+ */
+function fitWithoutProduct(ingredient: Ingredient, profile: SkinProfile): Fit {
+  if (!isVerified(ingredient)) return isWarnedPoreClogging(ingredient) ? "watch" : "unknown";
+  if (ingredient.safety === "avoid") return "avoid";
+  if (ingredient.safety === "caution" || isCommonIrritant(ingredient) || isWarnedPoreClogging(ingredient)) return "watch";
+  const { helps, hurts } = ruleTargets(ingredient, profile);
+  if (hurts) return "watch";
+  if (helps) return "good";
+  return "none";
+}
+
 /** "Panthenol (Vitamin B5)" → the two lines the design draws. */
 function splitName(ingredient: Ingredient): { primary: string; secondary: string | null } {
   const match = ingredient.name.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
@@ -577,7 +608,11 @@ function fitBody(
   if (fit === "unknown") {
     return "We don't know enough about this one to say how it fits your skin, so it isn't counted in your score.";
   }
-  if (hurts) return "This is one of the things pulling the score down for the skin you described.";
+  if (hurts) {
+    return inProduct
+      ? "This is one of the things pulling the score down for the skin you described."
+      : "It works against something you told us about your skin.";
+  }
   if (!verified) {
     return "This name didn't match our ingredient dictionary, but it is on the published pore-clogging lists.";
   }
@@ -592,15 +627,21 @@ function fitBody(
   if (fit === "watch") {
     return "Carries a restriction or a pore rating worth knowing about, though nothing in your profile makes it a specific problem.";
   }
-  if (inProduct || !hasRule) return "Nothing in your profile reacts to it, so it doesn't change your score.";
+  if (inProduct) return "Nothing in your profile reacts to it, so it doesn't change your score.";
+  if (!hasRule) return "Nothing in your profile reacts to it.";
   return "Neither helps nor hurts, given the answers you gave.";
 }
 
 /** The pill under the verdict: what it does to this person's score, where there is one. */
 function fitTag(fit: Fit, helps: boolean, hurts: boolean, warning: Contraindication | undefined, match: MatchResult | null): string {
   if (fit === "unknown") return "Not in your score";
-  if (match && (hurts || (fit === "avoid" && warning))) return "Lowers your score";
-  if (match && helps) return "Adds to your score";
+  // Only a score that exists can be lowered or raised: without a skin profile
+  // the match refuses and holds none (#383 review). A pregnancy caution never
+  // changes the score; a hazard caps it.
+  const scored = match !== null && match.score !== null;
+  if (scored && (hurts || (fit === "avoid" && warning?.severity === "hazard"))) return "Lowers your score";
+  if (fit === "avoid" && warning) return "Flagged for you";
+  if (scored && helps) return "Adds to your score";
   if (hurts) return "Counts against your goals";
   if (helps) return "Good for your goals";
   if (fit === "avoid") return "Best avoided generally";
