@@ -81,13 +81,15 @@ function swipeFor(offset: Animated.Value, list: SwipeList | null) {
   let resting = 0;
   const settle = (to: number) => {
     resting = to;
+    // Told first, whatever the motion setting: a list left waiting would stay
+    // unable to scroll.
+    list?.rested(close, to !== 0);
     // With Reduce Motion on, the card lands where it rests without springing.
     if (reduceMotionNow()) {
       offset.setValue(to);
       return;
     }
     Animated.spring(offset, { toValue: to, useNativeDriver: Platform.OS !== "web", bounciness: 0, speed: 18 }).start();
-    list?.rested(close, to !== 0);
   };
   const close = () => settle(0);
   // Clearly sideways: the list keeps vertical drags, the card takes these.
