@@ -376,6 +376,19 @@ describe("the product screen opened from the finder", () => {
     expect(screen.getByText("While pregnant or breastfeeding")).toBeTruthy();
   });
 
+  // Finder answers that don't score (sensitivity only) give the row no number;
+  // the page uses the skin profile, which its "Find my match" can change.
+  it("uses the skin profile when the finder's answers don't score", async () => {
+    useAppStore.setState({ profile: OWN, history: [] });
+    useFinderChoices.setState({ choices: { ...EMPTY_PROFILE, sensitivity: "some" } });
+    mockParams = { id: PRODUCT.id, from: "finder" };
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+    expect(screen.queryByText("See your skin match")).toBeNull();
+    expect(screen.getByText(String(matchProduct(PRODUCT, OWN).score))).toBeTruthy();
+  });
+
   it("opens an ingredient with the same answers", async () => {
     await open("finder");
     await fireEvent.press(screen.getByRole("tab", { name: "Safety" }));

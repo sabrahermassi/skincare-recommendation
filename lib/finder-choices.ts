@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import type { SkinProfile } from "@/data/types";
+import { isPersonalized } from "@/lib/profile";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
@@ -26,7 +27,10 @@ export const FROM_FINDER = "finder";
 export function useScoringProfile(from: string | undefined): SkinProfile {
   const own = useAppStore((s) => s.profile);
   const finder = useFinderChoices((s) => s.choices);
-  return from === FROM_FINDER ? withOwnPregnancy(finder, own) : own;
+  // Only answers that score: with neither a concern nor a skin type the row
+  // showed no number, and the page's "Find my match" opens the skin quiz,
+  // which could never change a page held to the finder's answers.
+  return from === FROM_FINDER && isPersonalized(finder) ? withOwnPregnancy(finder, own) : own;
 }
 
 /**
