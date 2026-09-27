@@ -1,6 +1,6 @@
 import type { ProductWithIngredients } from "@/data/types";
 import { isCommonIrritant } from "@/lib/ingredient-labels";
-import type { MatchResult } from "@/lib/matching";
+import { isLowCoverage, type MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
 import { irritationWarnings, isVerified } from "@/lib/safety";
 
@@ -35,10 +35,15 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
       hasEntries: true,
     };
   }
+  // Too little of the list recognised to call it low (#379 review): anything
+  // flagged above still shows, but "Nothing restricted" would be a guess.
+  if (restricted === 0 && isLowCoverage(product.ingredients)) {
+    return { level: "Unknown", note: "Too little recognised", tone: "neutral", hasEntries: false };
+  }
   if (restricted === 0 && common > 0) {
-    // Fragrance or a common irritant is "to watch" for everyone in the
-    // Ingredient check above (#345). "Nothing restricted" is true of it, but
-    // read beside "1 ingredient to watch" it sounds like a contradiction.
+    // Fragrance or a common irritant is "to watch" for everyone in the Safety
+    // tab's ingredient list (#345, #379). "Nothing restricted" is true of it,
+    // but read beside a watched ingredient it sounds like a contradiction.
     return {
       level: "Low",
       note: `${common} common ${common === 1 ? "irritant" : "irritants"}`,
@@ -76,8 +81,8 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
  *
  * `personal` is what this profile is warned about or was charged for;
  * `restricted` is what carries an EU restriction whoever you are; `common` is
- * the unrestricted fragrance and common irritants the Ingredient check puts
- * "to watch" for everyone (#345).
+ * the unrestricted fragrance and common irritants the Safety tab's list puts
+ * "to watch" for everyone (#345, #379).
  */
 export function irritationCounts(
   product: Pick<ProductWithIngredients, "ingredients">,

@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Animated, PanResponder, Platform, Pressable, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
+import { reduceMotionNow } from "@/lib/reduce-motion";
 import { DANGER, VERDICT } from "@/lib/tokens";
 
 // How far the card slides to show the bin, and the gap left between them.
@@ -75,6 +76,11 @@ function swipeFor(offset: Animated.Value) {
   let resting = 0;
   const settle = (to: number) => {
     resting = to;
+    // With Reduce Motion on, the card lands where it rests without springing.
+    if (reduceMotionNow()) {
+      offset.setValue(to);
+      return;
+    }
     Animated.spring(offset, { toValue: to, useNativeDriver: Platform.OS !== "web", bounciness: 0, speed: 18 }).start();
   };
   // Clearly sideways: the list keeps vertical drags, the card takes these.

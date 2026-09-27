@@ -381,6 +381,11 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
         <ReadingScale>
           <ProductHeader product={product} total={total} />
           <ResultTabs
+            // A new product starts on Safety with the full list, not the last
+            // one's tab, filter or open sheet (#379 review). The loading spinner
+            // between products already remounts this today; the key keeps that
+            // true if a cached product ever skips the spinner.
+            key={product.id}
             ingredients={product.ingredients}
             type={product.type}
             match={match}

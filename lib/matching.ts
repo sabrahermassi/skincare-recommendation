@@ -244,6 +244,44 @@ const SENSITIVITY_MULTIPLIER: Record<NonNullable<SkinProfile["sensitivity"]> | "
   high: 1.6,
 };
 
+/**
+ * For "very sensitive" only, a product's fragrance counts at least this share
+ * of its weight, wherever it sits in the list (#301, #363): fragrance is
+ * usually near the end, where the position discount left "very" barely
+ * different from "somewhat".
+ *
+ * Once per product, not per fragrance ingredient. Parfum and the EU
+ * allergens listed after it are usually one scent — the allergens are named
+ * because they are in the parfum — so flooring each of them charged one
+ * fragrance four or five times (up to 16 points on staging). The floor goes to
+ * the product's main fragrance ingredient (`flooredFragrance`); the rest keep
+ * their position weight.
+ */
+const FRAGRANCE_POSITION_FLOOR_HIGH = 0.7;
+
+/**
+ * The position of the one fragrance ingredient the floor applies to, or -1
+ * for none: the one whose rule weighs most (parfum/fragrance, then essential
+ * oils, then the EU allergens), and on a tie the one furthest down the list,
+ * where the floor changes something. Chosen by weight rather than by charge
+ * (#368 review): by charge, an essential oil near the top — already above the
+ * floor — could take it from a parfum at the end.
+ */
+function flooredFragrance(ingredients: Ingredient[], positionFactors: number[]): number {
+  let best = -1;
+  let bestWeight = 0;
+  ingredients.forEach((ingredient, position) => {
+    if (!isVerified(ingredient)) return;
+    const rule = findRule(ingredient);
+    if (rule?.category !== "fragrance") return;
+    if (rule.weight > bestWeight || (rule.weight === bestWeight && positionFactors[position] <= positionFactors[best])) {
+      best = position;
+      bestWeight = rule.weight;
+    }
+  });
+  return best;
+}
+
 /** Confidence-tier weight for a pore-clogging hit. Contested ones count zero. */
 export const CLOGGER_WEIGHT: Record<CloggerHit["confidence"], number> = {
   high: 3,
@@ -430,6 +468,7 @@ function computeMatch(
   // Computed once: an alphabetical tail (an OTC drug label) is read as
   // unordered rather than as a concentration ranking. See `positionWeights`.
   const positionFactors = positionWeights(product.ingredients.map((i) => i.name));
+  const floored = profile.sensitivity === "high" ? flooredFragrance(product.ingredients, positionFactors) : -1;
 
   product.ingredients.forEach((ingredient, position) => {
     // An unrecognised name supports no claim in either direction.
@@ -440,6 +479,14 @@ function computeMatch(
     if (rule) {
       const benefitWeight = rule.weight * positionFactor * contact.benefit;
       const harmWeight = rule.weight * positionFactor * contact.harm;
+      // What an irritant charges: the same, except the product's heaviest
+      // fragrance for "very sensitive", which keeps at least
+      // `FRAGRANCE_POSITION_FLOOR_HIGH` of its weight (#363). Concern and
+      // skin-type evidence keep `harmWeight`.
+      const irritationWeight =
+        position === floored
+          ? rule.weight * Math.max(positionFactor, FRAGRANCE_POSITION_FLOOR_HIGH) * contact.harm
+          : harmWeight;
       const helps = targetApplies(rule.helps, benefitTarget);
       const hurts = targetApplies(rule.hurts, harmTarget);
 
@@ -472,9 +519,11 @@ function computeMatch(
       // A rule can both help and hurt the same person — salicylic acid on
       // oily, sensitive skin. That is a genuine tension, not a bug, so both
       // are recorded and the net effect is what moves the score.
+      // The harm shown is the one charged, so "Why this score" ranks a
+      // floored fragrance where its irritation charge puts it.
       let effect = 0;
       if (helps) effect += benefitWeight;
-      if (harmApplied) effect -= harmWeight;
+      if (harmApplied) effect -= hurtsIrritation ? irritationWeight : harmWeight;
 
       for (const concern of profile.concerns) {
         if (rule.helps?.concerns?.includes(concern)) {
@@ -503,7 +552,7 @@ function computeMatch(
       // ingredient is also in an irritant category; contact and INCI position
       // still determine the size of that single charge.
       if (hurtsIrritation) {
-        irritation += harmWeight;
+        irritation += irritationWeight;
         irritants.push(ingredient.name);
       }
       if (hurtsReactiveSkin && !hurtsIrritantCategory) reactiveCharged.add(position);
@@ -1010,6 +1059,31 @@ export const RUNG_META: Record<Rung, { dot: string; pill: string; ink: string; l
  */
 export function ruleFor(ingredient: Ingredient): IngredientRule | undefined {
   return isVerified(ingredient) ? findRule(ingredient) : undefined;
+}
+
+/**
+ * The ingredient here that works on `concern`, and why, found the way the
+ * score finds it: a curated rule first, else a declared function on an
+ * ingredient no rule claims (the score's second evidence layer). Null when
+ * nothing does. The result's "For your concerns" card reads this, so it can't
+ * say "nothing works on your concerns" while the score counts something that
+ * does (#379 review).
+ */
+export function concernSupport(ingredients: Ingredient[], concern: Concern): { ingredient: string; why: string } | null {
+  for (const ingredient of ingredients) {
+    const rule = ruleFor(ingredient);
+    if (rule?.helps?.concerns?.includes(concern)) return { ingredient: ingredient.name, why: rule.reason.split(" - ")[0].trim() };
+  }
+  for (const ingredient of ingredients) {
+    if (!isVerified(ingredient) || findRule(ingredient)) continue;
+    for (const declared of ingredient.functions ?? []) {
+      const signal = functionSignal(declared);
+      if (signal?.helps.concerns?.includes(concern)) {
+        return { ingredient: ingredient.name, why: FUNCTION_REASON[signal.category] ?? "Declared function relevant to your skin" };
+      }
+    }
+  }
+  return null;
 }
 
 /**

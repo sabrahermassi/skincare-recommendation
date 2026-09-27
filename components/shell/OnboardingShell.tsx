@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { slideDirection } from "@/lib/onboarding-slide";
@@ -15,7 +15,9 @@ import { BUTTON, CANVAS } from "@/lib/tokens";
 // a subtext line about 16pt from cap to descender, "Skip" about 35pt wide.
 const HEADLINE_FONT = "PlayfairDisplay_500Medium";
 const HEADLINE_SIZE = 36;
+const HEADLINE_LINE_HEIGHT = 1.1;
 const BODY_SIZE = 18;
+const BODY_LINE_HEIGHT = 1.4;
 const SKIP_SIZE = 18;
 const BUTTON_LABEL_SIZE = 17;
 const BUTTON_HEIGHT = 56;
@@ -62,6 +64,16 @@ function bandHeight(band: { top: number; bottom: number }) {
 }
 
 /**
+ * The largest text-size multiplier, up to MAX_FONT_SCALE, at which text of
+ * `baseHeight` points still fits its band on a window this tall. Never below
+ * 1: the bands are sized so the base size fits on the shortest phone.
+ */
+export function scaleThatFits(windowHeight: number, band: { top: number; bottom: number }, baseHeight: number): number {
+  const room = (windowHeight * (band.bottom - band.top)) / 100;
+  return Math.max(1, Math.min(MAX_FONT_SCALE, room / baseHeight));
+}
+
+/**
  * Caps how far accessibility text scaling can stretch the headline and
  * supporting-copy regions — not a ban on scaling, a ceiling on it.
  *
@@ -70,8 +82,9 @@ function bandHeight(band: { top: number; bottom: number }) {
  * the reference art today — a genuine reflow (letting the boxes grow) means
  * redesigning that system, not a two-line fix. These three screens are also
  * the one place in the app where that trade-off is reasonable: seen once,
- * always skippable via Skip, with generous base sizes already (44px
- * headline, 17px body) — nothing past this screen (the quiz, the product
+ * always skippable via Skip, with generous base sizes already (36pt
+ * headline, 18pt body), and `scaleThatFits` lowers the ceiling further on a
+ * short phone — nothing past this screen (the quiz, the product
  * detail, ingredient lists) is capped like this.
  *
  * 1.3 was picked as the largest multiplier that still fits two wrapped
@@ -127,10 +140,16 @@ type OnboardingShellProps = {
  * page (button included) across the screen as part of the transition.
  */
 export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }: OnboardingShellProps) {
+  const { height: windowHeight } = useWindowDimensions();
   // `shownIndex` trails `activeIndex` by the slide-out: the content on screen is
   // the old screen's until it has faded away, and only then swaps to the new one.
   const [shownIndex, setShownIndex] = useState(activeIndex);
   const screen = screens[shownIndex];
+  // How far the phone's text size may grow the headline and subtext: up to
+  // MAX_FONT_SCALE, and never past what their bands hold, so a larger text
+  // setting can't push them into each other on a short phone.
+  const headlineScale = scaleThatFits(windowHeight, BANDS.headline, screen.headline.length * HEADLINE_SIZE * HEADLINE_LINE_HEIGHT);
+  const copyScale = scaleThatFits(windowHeight, BANDS.copy, 2 * BODY_SIZE * BODY_LINE_HEIGHT);
   // The button and dots answer the tap at once; only the content transitions.
   const buttonLabel = screens[activeIndex].buttonLabel;
 
@@ -261,11 +280,11 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
             {screen.headline.map((line, i) => (
               <Text
                 key={line}
-                maxFontSizeMultiplier={MAX_FONT_SCALE}
+                maxFontSizeMultiplier={headlineScale}
                 style={{
                   fontFamily: HEADLINE_FONT,
                   fontSize: HEADLINE_SIZE,
-                  lineHeight: HEADLINE_SIZE * 1.2,
+                  lineHeight: HEADLINE_SIZE * HEADLINE_LINE_HEIGHT,
                   color: i === 0 ? INTRO.accent : INTRO.ink,
                   textAlign: "center",
                 }}
@@ -294,12 +313,13 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
             justifyContent: "center",
           }}
         >
-          {/* One sentence, wrapped by the screen rather than by hand. */}
+          {/* One sentence, wrapped by the screen rather than by hand. iOS's own
+              line-breaking keeps a last word from sitting alone on line two. */}
           <Text
-            maxFontSizeMultiplier={MAX_FONT_SCALE}
+            maxFontSizeMultiplier={copyScale}
             // Breaks so no word is left alone on the last line.
             lineBreakStrategyIOS="standard"
-            style={{ fontSize: BODY_SIZE, lineHeight: BODY_SIZE * 1.4, fontWeight: "400", color: INTRO.muted, textAlign: "center" }}
+            style={{ fontSize: BODY_SIZE, lineHeight: BODY_SIZE * BODY_LINE_HEIGHT, fontWeight: "400", color: INTRO.muted, textAlign: "center" }}
           >
             {screen.supportingCopy}
           </Text>

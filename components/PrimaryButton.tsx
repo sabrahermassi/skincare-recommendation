@@ -28,7 +28,7 @@ import { BUTTON, BUTTON_SHADOW, FONT_SCALE } from "@/lib/tokens";
  */
 type ButtonSize = 48 | 50 | 52 | 56;
 
-export type ButtonVariant = "primary" | "secondary" | "tertiary";
+type ButtonVariant = "primary" | "secondary" | "tertiary";
 
 /**
  * Playfair Display sits low in its line box, so a label centred by its box looks
