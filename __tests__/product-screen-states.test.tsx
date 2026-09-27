@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import ProductRoute from "@/app/product/[id]";
 import ResultRoute from "@/app/result/[id]";
 import { fetchProduct } from "@/data/api";
+import type { Ingredient } from "@/data/types";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
@@ -284,7 +285,7 @@ describe("the product screen's result tabs", () => {
 describe("the product screen opened from the finder", () => {
   const { useFinderChoices } = require("@/lib/finder-choices") as typeof import("@/lib/finder-choices");
   const { matchProduct } = require("@/lib/matching") as typeof import("@/lib/matching");
-  const ingredient = (name: string) => ({ id: name, name, comedogenic: 0, safety: "safe" as const, verified: true });
+  const ingredient = (name: string): Ingredient => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true });
   const PRODUCT = {
     id: "obf-8801234567890",
     barcode: "8801234567890",
