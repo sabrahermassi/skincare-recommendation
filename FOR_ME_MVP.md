@@ -121,7 +121,7 @@ skin match** in place of a personal score.
 
 Flow:
 
-**Welcome carousel → Home → Scan → Result (Safety tab + Skin match tab)**
+**Welcome carousel → Home → Scan → Result (Skin match tab + Safety tab)**
 
 No personalization questionnaire is required before scanning.
 

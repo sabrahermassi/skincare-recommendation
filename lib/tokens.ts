@@ -348,6 +348,14 @@ export const CAMERA_STAGE = "#17161B";
 export const TOUCH_TARGET = Platform.select({ ios: 44, android: 48, default: 44 }) as number;
 
 /**
+ * The height of the app's capsules: the segmented switch (scanner, result
+ * tabs, Saved) and the floating tab bar, which match (owner: "the navigation
+ * bar should have the same height as this thing here"). 56 is the owner's
+ * reference switch, measured off its screenshot.
+ */
+export const CAPSULE_HEIGHT = 56;
+
+/**
  * Every filter pill (owner: slimmer than a button, the same everywhere) — the
  * finder results' answer chips and their Edit. `FILTER_HIT_SLOP` keeps the tap
  * area at TOUCH_TARGET around the thinner pill.

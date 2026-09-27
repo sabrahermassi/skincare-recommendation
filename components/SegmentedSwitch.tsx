@@ -3,10 +3,10 @@ import { Animated, Platform, Pressable, View, type StyleProp, type ViewStyle } f
 
 import { Text } from "@/components/Text";
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { CANVAS, CHIP_SHADOW, CTA, GRAY_FILL, INK, SURFACE, TYPE } from "@/lib/tokens";
+import { CANVAS, CAPSULE_HEIGHT, CHIP_SHADOW, CTA, GRAY_FILL, INK, SURFACE, TYPE } from "@/lib/tokens";
 
-/** The switch's height: the owner's reference, measured off its screenshot. */
-export const SWITCH_HEIGHT = 56;
+/** The switch's height: the app's capsule height, which the tab bar shares. */
+export const SWITCH_HEIGHT = CAPSULE_HEIGHT;
 // The gap between the capsule and the thumb that slides in it.
 const SWITCH_PADDING = 4;
 // Apple's spring at a segmented control's pace (response 0.35 s), critically

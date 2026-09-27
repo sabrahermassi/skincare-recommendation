@@ -59,11 +59,12 @@ const MATCH_ART = require("@/assets/illustrations/home-match.webp");
 
 /**
  * The product result, below its header (design_handoff_skincare_cards): a
- * Safety / Skin match switch and the two tabs. Safety is the same for
- * everyone; Skin match needs the skin profile, and asks for one without it.
- * Shared by a catalogue product (`app/product/[id].tsx`) and a label photo
- * (`app/label-result.tsx`). `safetyFooter` is whatever a screen adds at the
- * end of the Safety tab (a note, a stale-formula notice, a retake button).
+ * Skin match / Safety switch and the two tabs. Skin match comes first and is
+ * the one that opens (owner); it needs the skin profile, and asks for one
+ * without it. Safety is the same for everyone. Shared by a catalogue product
+ * (`app/product/[id].tsx`) and a label photo (`app/label-result.tsx`).
+ * `footer` is whatever a screen adds under either tab (a note, a
+ * stale-formula notice, a retake button).
  */
 export function ResultTabs({
   ingredients,
@@ -71,16 +72,16 @@ export function ResultTabs({
   match,
   profile,
   onIngredientPress,
-  safetyFooter,
+  footer,
 }: {
   ingredients: Ingredient[];
   type: ProductType;
   match: MatchResult;
   profile: SkinProfile;
   onIngredientPress: (ingredient: Ingredient) => void;
-  safetyFooter?: ReactNode;
+  footer?: ReactNode;
 }) {
-  const [tab, setTab] = useState<Tab>("safety");
+  const [tab, setTab] = useState<Tab>("match");
   const [filter, setFilter] = useState<IngredientFilter>("all");
   const personalized = isPersonalized(profile);
 
@@ -89,8 +90,8 @@ export function ResultTabs({
       <SegmentedSwitch
         tone="light"
         options={[
-          { value: "safety", label: "Safety" },
           { value: "match", label: "Skin match" },
+          { value: "safety", label: "Safety" },
         ]}
         selected={tab}
         onSelect={setTab}
@@ -110,7 +111,7 @@ export function ResultTabs({
         ) : (
           <MatchTab ingredients={ingredients} type={type} match={match} profile={profile} />
         )}
-        {tab === "safety" ? safetyFooter : null}
+        {footer}
       </View>
     </View>
   );

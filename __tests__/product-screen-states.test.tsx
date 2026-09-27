@@ -175,8 +175,13 @@ describe("the product screen's result tabs", () => {
     await render(<ProductRoute />);
     await act(async () => {});
   }
+  // Skin match opens first (owner); these tests are about the Safety tab.
+  const openSafety = async (product?: object) => {
+    await open(product);
+    await fireEvent.press(screen.getByRole("tab", { name: "Safety" }));
+  };
 
-  it("opens on the Safety tab, the same without a profile and with two different ones", async () => {
+  it("opens on Skin match, with a Safety tab the same without a profile and with two different ones", async () => {
     const profiles = [
       EMPTY_PROFILE,
       { concerns: ["dehydrated" as const], baseSkinType: "dry" as const, sensitivity: "high" as const, pregnancyStatus: null },
@@ -185,7 +190,8 @@ describe("the product screen's result tabs", () => {
     for (const profile of profiles) {
       useAppStore.setState({ profile });
       await open();
-      expect(screen.getByRole("tab", { name: "Safety" }).props.accessibilityState).toMatchObject({ selected: true });
+      expect(screen.getByRole("tab", { name: "Skin match" }).props.accessibilityState).toMatchObject({ selected: true });
+      await fireEvent.press(screen.getByRole("tab", { name: "Safety" }));
       expect(screen.getByText("6 ingredients")).toBeTruthy();
       expect(screen.getByLabelText(/^Irritation risk:/)).toBeTruthy();
       expect(screen.getByLabelText(/^Pore-clogging risk:/)).toBeTruthy();
@@ -193,21 +199,21 @@ describe("the product screen's result tabs", () => {
     }
   });
 
-  // #379 review (Codex): a new product id on the same screen starts on Safety,
-  // not on the last product's tab.
-  it("goes back to the Safety tab when a different product opens on the same screen", async () => {
+  // #379 review (Codex): a new product id on the same screen starts on the
+  // opening tab (Skin match, #382), not on the last product's tab.
+  it("goes back to Skin match when a different product opens on the same screen", async () => {
     await open();
-    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
-    expect(screen.getByRole("tab", { name: "Skin match" }).props.accessibilityState).toMatchObject({ selected: true });
+    await fireEvent.press(screen.getByRole("tab", { name: "Safety" }));
+    expect(screen.getByRole("tab", { name: "Safety" }).props.accessibilityState).toMatchObject({ selected: true });
     mockParams = { id: "obf-8809999999999" };
     fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: { ...PRODUCT, id: "obf-8809999999999", barcode: "8809999999999" } }));
     await screen.rerender(<ProductRoute />);
     await act(async () => {});
-    expect(screen.getByRole("tab", { name: "Safety" }).props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByRole("tab", { name: "Skin match" }).props.accessibilityState).toMatchObject({ selected: true });
   });
 
   it("puts what to avoid first, and opens an ingredient when tapped", async () => {
-    await open();
+    await openSafety();
     const labels = screen.getAllByRole("button").map((b) => String(b.props.accessibilityLabel ?? ""));
     const rows = labels.filter((l) => /^(some banned dye|water|parfum),/i.test(l));
     expect(rows[0]).toMatch(/^some banned dye,/i);
@@ -216,7 +222,7 @@ describe("the product screen's result tabs", () => {
   });
 
   it("filters the list to the watch-outs", async () => {
-    await open();
+    await openSafety();
     await fireEvent.press(screen.getByLabelText("Filter: All"));
     await fireEvent.press(screen.getByRole("radio", { name: "Watch-outs, 2" }));
     expect(screen.getByLabelText("Filter: Watch-outs")).toBeTruthy();
@@ -226,7 +232,7 @@ describe("the product screen's result tabs", () => {
 
   it("shows the first eight rows of a long list, then all of them", async () => {
     const long = { ...PRODUCT, ingredients: Array.from({ length: 10 }, (_, i) => ingredient(`plain ${i}`)) };
-    await open(long);
+    await openSafety(long);
     expect(row("plain 8")).toBeNull();
     await fireEvent.press(screen.getByText("Show all 10 ingredients"));
     expect(row("plain 9")).toBeTruthy();
@@ -237,19 +243,19 @@ describe("the product screen's result tabs", () => {
     useAppStore.setState({
       profile: { concerns: ["dehydrated"], baseSkinType: "normal", sensitivity: "none", pregnancyStatus: null },
     });
-    await open(scented);
+    await openSafety(scented);
     expect(screen.getByText("1 common irritant")).toBeTruthy();
     expect(screen.queryByText("Nothing restricted")).toBeNull();
   });
 
   it("warns about what to avoid while pregnant, only for someone who is", async () => {
     const retinoid = { ...PRODUCT, ingredients: [...PRODUCT.ingredients, ingredient("retinol")] };
-    await open(retinoid);
+    await openSafety(retinoid);
     expect(screen.queryByText("While pregnant or breastfeeding")).toBeNull();
     await act(async () => screen.unmount());
 
     useAppStore.setState({ profile: { ...EMPTY_PROFILE, pregnancyStatus: "pregnant" } });
-    await open(retinoid);
+    await openSafety(retinoid);
     expect(screen.getByText("While pregnant or breastfeeding")).toBeTruthy();
   });
 

@@ -15,7 +15,7 @@ import { NotePreview } from "@/components/ProductNote";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { SaveHeart } from "@/components/SaveHeart";
 import { ScorePill } from "@/components/ScorePill";
-import { SwipeToDelete } from "@/components/SwipeToDelete";
+import { SwipeListScope, SwipeToDelete, useSwipeList } from "@/components/SwipeToDelete";
 // One selected-outline color app-wide — see profile.tsx's own note on why
 // this FOR.ME shell token is reused outside its original scope.
 import { TabTitle } from "@/components/TabTitle";
@@ -76,6 +76,8 @@ export default function Saved() {
 
   // The history entry whose bin was tapped, waiting on the confirmation sheet.
   const [deleting, setDeleting] = useState<HistoryEntry | null>(null);
+  // History's rows swipe to a bin; the list holds still while one does.
+  const historySwipe = useSwipeList();
   // A saved product with a note, whose heart was untapped: unsaving deletes
   // the note too, so it asks first. One without a note goes at once (owner).
   const [unsaving, setUnsaving] = useState<string | null>(null);
@@ -310,26 +312,33 @@ export default function Saved() {
               />
             </ScrollView>
           ) : (
-            <ScrollView ref={live ? listRef : undefined} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
-              {history.map((entry) => {
-                const product = entry.known ? byId[entry.id] : undefined;
-                return (
-                  <SwipeToDelete key={entry.id} label={product?.name ?? (entry.label ? "Label photo" : entry.id)} onDelete={() => setDeleting(entry)}>
-                    {entry.label ? (
-                      <LabelRow entry={entry} ingredients={entry.label} />
-                    ) : product ? (
-                      <Row product={product} corner={<SaveHeart productId={product.id} fetchedAt={product.fetchedAt} />}>
-                        {/* The score it had when it was looked at, not a fresh one:
-                            re-scoring the log is exactly what this screen refuses to do. */}
-                        <ScorePill score={entry.scoreAtView} />
-                        <HistoryMeta entry={entry} />
-                      </Row>
-                    ) : (
-                      <UnknownRow entry={entry} />
-                    )}
-                  </SwipeToDelete>
-                );
-              })}
+            <ScrollView
+              ref={live ? listRef : undefined}
+              scrollEnabled={historySwipe.scrollEnabled}
+              onScrollBeginDrag={historySwipe.onScrollBeginDrag}
+              contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}
+            >
+              <SwipeListScope list={historySwipe.list}>
+                {history.map((entry) => {
+                  const product = entry.known ? byId[entry.id] : undefined;
+                  return (
+                    <SwipeToDelete key={entry.id} label={product?.name ?? (entry.label ? "Label photo" : entry.id)} onDelete={() => setDeleting(entry)}>
+                      {entry.label ? (
+                        <LabelRow entry={entry} ingredients={entry.label} />
+                      ) : product ? (
+                        <Row product={product} corner={<SaveHeart productId={product.id} fetchedAt={product.fetchedAt} />}>
+                          {/* The score it had when it was looked at, not a fresh one:
+                              re-scoring the log is exactly what this screen refuses to do. */}
+                          <ScorePill score={entry.scoreAtView} />
+                          <HistoryMeta entry={entry} />
+                        </Row>
+                      ) : (
+                        <UnknownRow entry={entry} />
+                      )}
+                    </SwipeToDelete>
+                  );
+                })}
+              </SwipeListScope>
 
               <ConfirmSheet
                 visible={deleting !== null}
@@ -734,6 +743,7 @@ function IngredientsTab({
   const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
   // The ingredient a swipe asked to delete, until the question is answered.
   const [deleting, setDeleting] = useState<string | null>(null);
+  const swipe = useSwipeList();
   const [byName, setByName] = useState<Record<string, Ingredient> | null>(null);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -799,15 +809,22 @@ function IngredientsTab({
   }
 
   return (
-    <ScrollView ref={scrollRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
-      {names.map((name) => {
-        const ingredient: Ingredient = byName[name] ?? unknownIngredient(name);
-        return (
-          <SwipeToDelete key={name} label={displayIngredientName(ingredient.name)} onDelete={() => setDeleting(name)}>
-            <IngredientRow ingredient={ingredient} onUnstar={() => toggleSavedIngredient(name)} />
-          </SwipeToDelete>
-        );
-      })}
+    <ScrollView
+      ref={scrollRef}
+      scrollEnabled={swipe.scrollEnabled}
+      onScrollBeginDrag={swipe.onScrollBeginDrag}
+      contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}
+    >
+      <SwipeListScope list={swipe.list}>
+        {names.map((name) => {
+          const ingredient: Ingredient = byName[name] ?? unknownIngredient(name);
+          return (
+            <SwipeToDelete key={name} label={displayIngredientName(ingredient.name)} onDelete={() => setDeleting(name)}>
+              <IngredientRow ingredient={ingredient} onUnstar={() => toggleSavedIngredient(name)} />
+            </SwipeToDelete>
+          );
+        })}
+      </SwipeListScope>
 
       {/* The same swipe, bin and question as a History row (owner). */}
       <ConfirmSheet

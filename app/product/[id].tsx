@@ -381,7 +381,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
         <ReadingScale>
           <ProductHeader product={product} total={total} />
           <ResultTabs
-            // A new product starts on Safety with the full list, not the last
+            // A new product starts on Skin match with the full list, not the last
             // one's tab, filter or open sheet (#379 review). The loading spinner
             // between products already remounts this today; the key keeps that
             // true if a cached product ever skips the spinner.
@@ -393,7 +393,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
             onIngredientPress={(ingredient) =>
               router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, product: product.id } })
             }
-            safetyFooter={
+            footer={
               <>
                 {/* The person's own note (#228), only for a product on their
                     shelf, and signed in only (#300): see useCanJournal. */}

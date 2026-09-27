@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { Animated, PanResponder, Platform, Pressable, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
@@ -23,10 +23,15 @@ const FLICK = 0.3;
  * this app doesn't otherwise load. A swipe is invisible to VoiceOver, but the
  * bin stays in the accessibility tree while the card covers it, so VoiceOver
  * reaches "Delete …" without swiping.
+ *
+ * Inside a `SwipeListScope` (see `useSwipeList`), a swipe holds the list still
+ * while it lasts, and only one card is open at a time (owner: the page moved
+ * up and down under a sideways swipe, which no other app does).
  */
 export function SwipeToDelete({ label, onDelete, children }: { label: string; onDelete: () => void; children: ReactNode }) {
+  const list = useContext(SwipeListContext);
   const [offset] = useState(() => new Animated.Value(0));
-  const [swipe] = useState(() => swipeFor(offset));
+  const [swipe] = useState(() => swipeFor(offset, list));
   const ask = () => {
     swipe.close();
     onDelete();
@@ -72,10 +77,13 @@ export function SwipeToDelete({ label, onDelete, children }: { label: string; on
  * The drag itself, kept outside the component: where the card last came to
  * rest is only read and written by the gesture, never by rendering.
  */
-function swipeFor(offset: Animated.Value) {
+function swipeFor(offset: Animated.Value, list: SwipeList | null) {
   let resting = 0;
   const settle = (to: number) => {
     resting = to;
+    // Told first, whatever the motion setting: a list left waiting would stay
+    // unable to scroll.
+    list?.rested(close, to !== 0);
     // With Reduce Motion on, the card lands where it rests without springing.
     if (reduceMotionNow()) {
       offset.setValue(to);
@@ -83,6 +91,7 @@ function swipeFor(offset: Animated.Value) {
     }
     Animated.spring(offset, { toValue: to, useNativeDriver: Platform.OS !== "web", bounciness: 0, speed: 18 }).start();
   };
+  const close = () => settle(0);
   // Clearly sideways: the list keeps vertical drags, the card takes these.
   const sideways = (dx: number, dy: number) => Math.abs(dx) > SWIPE_START && Math.abs(dx) > Math.abs(dy);
   const responder = PanResponder.create({
@@ -92,6 +101,8 @@ function swipeFor(offset: Animated.Value) {
     onMoveShouldSetPanResponder: (_, g) => sideways(g.dx, g.dy),
     // Once swiping, the list can't take the gesture back mid-drag.
     onPanResponderTerminationRequest: () => false,
+    // The list holds still for the length of the swipe, and closes any other open card.
+    onPanResponderGrant: () => list?.began(close),
     onPanResponderMove: (_, g) => offset.setValue(Math.min(0, Math.max(OPEN * 1.2, resting + g.dx))),
     // Opens past a third of the bin's width, or on a quick flick left; a flick
     // right closes. A slow, short drag goes back to where it was.
@@ -101,5 +112,47 @@ function swipeFor(offset: Animated.Value) {
     },
     onPanResponderTerminate: () => settle(resting),
   });
-  return { responder, close: () => settle(0) };
+  return { responder, close };
+}
+
+/** What a list of swipeable cards shares: its scroll lock, and which card is open. */
+type SwipeList = {
+  began: (close: () => void) => void;
+  rested: (close: () => void, open: boolean) => void;
+  closeOpen: () => void;
+};
+
+const SwipeListContext = createContext<SwipeList | null>(null);
+
+/**
+ * For a scrolling list of `SwipeToDelete` cards: `scrollEnabled` and
+ * `onScrollBeginDrag` go on the ScrollView, and `SwipeListScope` with `list`
+ * wraps the cards.
+ * While a card is being swiped the list can't scroll, so a slightly diagonal
+ * swipe no longer drags the page; starting a swipe on one card, or scrolling
+ * the list, closes the card that was open.
+ */
+export function useSwipeList() {
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+  const [list] = useState<SwipeList>(() => {
+    let open: (() => void) | null = null;
+    return {
+      began: (close) => {
+        if (open && open !== close) open();
+        setScrollEnabled(false);
+      },
+      rested: (close, isOpen) => {
+        setScrollEnabled(true);
+        if (isOpen) open = close;
+        else if (open === close) open = null;
+      },
+      closeOpen: () => open?.(),
+    };
+  });
+  return { scrollEnabled, onScrollBeginDrag: list.closeOpen, list };
+}
+
+/** Wraps a list's `SwipeToDelete` cards so they share its scroll lock (`useSwipeList`). */
+export function SwipeListScope({ list, children }: { list: SwipeList; children: ReactNode }) {
+  return <SwipeListContext.Provider value={list}>{children}</SwipeListContext.Provider>;
 }
