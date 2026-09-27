@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { Link, router, useFocusEffect, useScrollToTop } from "expo-router";
 import type { ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ConfirmSheet } from "@/components/ConfirmSheet";
@@ -87,14 +87,15 @@ export default function Saved() {
   // doesn't strand the confirm mid-air with no reminder of what it was
   // confirming — same reasoning as profile.tsx's own reset, done at the tap
   // that causes it rather than in an effect reacting to it after the fact.
-  const [confirmingClear, setConfirmingClear] = useState(false);
+  // Which tab's "Clear" is asking, since all three tabs stay mounted.
+  const [confirmingClear, setConfirmingClear] = useState<Tab | null>(null);
 
   // Routine steps (#227): which group the shelf is narrowed to.
   const [stepFilter, setStepFilter] = useState<StepGroup | "all">("all");
   // The tab stays mounted while another one is showing, so an armed "Clear it" would
   // still be waiting when the person came back. Leaving the screen disarms all three.
   useFocusEffect(
-    useCallback(() => () => setConfirmingClear(false), [])
+    useCallback(() => () => setConfirmingClear(null), [])
   );
 
   // Newest first in both lists. `history` is already ordered by the store.
@@ -185,37 +186,35 @@ export default function Saved() {
     };
   }, [idsToResolve, retryKey]);
 
-  // One empty screen for all three tabs, rendered from a single spot in the
-  // tree so React keeps the same instance when the tab changes — only the
-  // text (and where the button leads) swaps. Each tab used to render its own,
-  // and Ingredients sat behind a loading spinner first, so switching tabs
-  // remounted the picture and flashed.
+  // How many rows each tab has: none shows its empty state.
   const counts = { saved: savedIds.length, history: history.length, ingredients: savedIngredients.length };
 
-  // The tab being left, while it fades out under the one arriving (owner: no
-  // cut between them). Two empty tabs share one empty state instead, whose
-  // own picture cross-fade covers the change.
-  const [leaving, setLeaving] = useState<Tab | null>(null);
-  const [crossfade] = useState(() => new Animated.Value(1));
-  const fading = leaving !== null && !(counts[leaving] === 0 && counts[tab] === 0);
+  // Every tab stays mounted, each with its own opacity: a change fades the
+  // tab being left out while the one arriving fades in (owner: no cut between
+  // them). Nothing is rebuilt mid-fade, so no picture reloads and no list
+  // flashes a spinner, which is what made the old cross-fade look like a cut.
+  const [opacity] = useState(
+    () => Object.fromEntries(TABS.map((t) => [t, new Animated.Value(t === tab ? 1 : 0)])) as Record<Tab, Animated.Value>
+  );
   const selectTab = (next: Tab) => {
-    setConfirmingClear(false);
+    setConfirmingClear(null);
     if (next === tab) return;
-    setLeaving(tab);
     setTab(next);
-    crossfade.setValue(0);
-    Animated.timing(crossfade, {
-      toValue: 1,
-      duration: reduceMotionNow() ? 0 : EMPTY_FADE_MS,
-      easing: Easing.inOut(Easing.cubic),
-      useNativeDriver: Platform.OS !== "web",
-    }).start(({ finished }) => {
-      if (finished) setLeaving(null);
-    });
+    const duration = reduceMotionNow() ? 0 : TAB_FADE_MS;
+    Animated.parallel(
+      TABS.map((t) =>
+        Animated.timing(opacity[t], {
+          toValue: t === next ? 1 : 0,
+          duration,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver: Platform.OS !== "web",
+        })
+      )
+    ).start();
   };
 
   /** What one tab shows: its list, or its empty state. `live` is the tab being
-   *  shown, as opposed to the one fading out, and only it takes the scroll ref. */
+   *  shown, and only it takes the scroll ref. */
   const content = (t: Tab, live: boolean) => {
     const empty = counts[t] === 0;
     return (
@@ -224,7 +223,6 @@ export default function Saved() {
             <EmptyState tab={t} />
           ) : t === "ingredients" ? (
             <IngredientsTab
-              key="ingredients"
               scrollRef={live ? listRef : undefined}
               names={savedIngredients}
               footer={
@@ -232,11 +230,11 @@ export default function Saved() {
                   label="Clear ingredients"
                   question="Clear all your starred ingredients?"
                   line="Every ingredient you starred leaves this list."
-                  confirming={confirmingClear}
-                  onAsk={() => setConfirmingClear(true)}
-                  onCancel={() => setConfirmingClear(false)}
+                  confirming={confirmingClear === t}
+                  onAsk={() => setConfirmingClear(t)}
+                  onCancel={() => setConfirmingClear(null)}
                   onConfirm={() => {
-                    setConfirmingClear(false);
+                    setConfirmingClear(null);
                     clearSavedIngredients();
                   }}
                 />
@@ -258,10 +256,7 @@ export default function Saved() {
               <ActivityIndicator color={INK} />
             </View>
           ) : t === "saved" ? (
-            // `key` on each list: Saved and History are the same kind of element in the
-            // same spot, so without it React reuses one scroll view for both and the
-            // scroll position carries over when switching tabs.
-            <ScrollView key="saved" ref={live ? listRef : undefined} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
+            <ScrollView ref={live ? listRef : undefined} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
               <StepFilter groups={presentGroups} selected={activeFilter} onSelect={setStepFilter} />
               {savedIds.map((id) => {
                 const product = byId[id];
@@ -305,17 +300,17 @@ export default function Saved() {
                 label="Clear saved products"
                 question="Clear all your saved products?"
                 line="Every product leaves your shelf. It can't be undone."
-                confirming={confirmingClear}
-                onAsk={() => setConfirmingClear(true)}
-                onCancel={() => setConfirmingClear(false)}
+                confirming={confirmingClear === t}
+                onAsk={() => setConfirmingClear(t)}
+                onCancel={() => setConfirmingClear(null)}
                 onConfirm={() => {
-                  setConfirmingClear(false);
+                  setConfirmingClear(null);
                   clearSavedProducts();
                 }}
               />
             </ScrollView>
           ) : (
-            <ScrollView key="history" ref={live ? listRef : undefined} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
+            <ScrollView ref={live ? listRef : undefined} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
               {history.map((entry) => {
                 const product = entry.known ? byId[entry.id] : undefined;
                 return (
@@ -353,11 +348,11 @@ export default function Saved() {
                 label="Clear history"
                 question="Clear your whole history?"
                 line="Every product you opened or scanned leaves your history. It can't be undone."
-                confirming={confirmingClear}
-                onAsk={() => setConfirmingClear(true)}
-                onCancel={() => setConfirmingClear(false)}
+                confirming={confirmingClear === t}
+                onAsk={() => setConfirmingClear(t)}
+                onCancel={() => setConfirmingClear(null)}
                 onConfirm={() => {
-                  setConfirmingClear(false);
+                  setConfirmingClear(null);
                   clearHistory();
                 }}
               />
@@ -388,20 +383,19 @@ export default function Saved() {
       />
 
       <View style={{ flex: 1 }}>
-        {/* The tab that was showing fades out over the one arriving, which fades
-            in: nothing cuts from one to the other (owner). Hidden from screen
-            readers, which only ever hear the arriving tab. */}
-        {fading ? (
+        {/* All three tabs, one over the other; only the one showing takes
+            touches or is heard by a screen reader. */}
+        {TABS.map((t) => (
           <Animated.View
-            pointerEvents="none"
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={[StyleSheet.absoluteFill, { opacity: crossfade.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}
+            key={t}
+            pointerEvents={t === tab ? "auto" : "none"}
+            accessibilityElementsHidden={t !== tab}
+            importantForAccessibility={t === tab ? "auto" : "no-hide-descendants"}
+            style={[StyleSheet.absoluteFill, { opacity: opacity[t] }]}
           >
-            {content(leaving, false)}
+            {content(t, t === tab)}
           </Animated.View>
-        ) : null}
-        <Animated.View style={{ flex: 1, opacity: fading ? crossfade : 1 }}>{content(tab, true)}</Animated.View>
+        ))}
       </View>
     </View>
   );
@@ -656,58 +650,16 @@ const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).
 // The empty state's scan button, and the room it keeps on Ingredients.
 const EMPTY_BUTTON_HEIGHT = 52;
 
-// How long a tab change cross-fades: the pictures between two empty tabs, or
-// the whole of one tab into the next.
-const EMPTY_FADE_MS = 300;
-const EMPTY_TABS = Object.keys(EMPTY_ART) as Tab[];
+// How long a tab change cross-fades, one whole tab into the next.
+const TAB_FADE_MS = 300;
+const TABS: Tab[] = ["saved", "history", "ingredients"];
 
 /**
- * Whether the person has asked their phone for less motion. `null` until the phone has
- * answered: callers treat that as "reduce", so no fade plays on a guess.
- */
-function useReduceMotion(): boolean | null {
-  const [reduce, setReduce] = useState<boolean | null>(null);
-  useEffect(() => {
-    let live = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((enabled) => live && setReduce(enabled))
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, []);
-  return reduce;
-}
-
-/**
- * What an empty tab shows. It stays mounted while the tab changes between the
- * three empty tabs, so the picture can fade rather than swap: the three pictures
- * sit on top of each other and cross-fade over EMPTY_FADE_MS. Only the picture
- * moves: the title, the sentence and the button change in place at once, so they
- * stay solid on the screen.
+ * What an empty tab shows: its picture and words, and on Saved the first scan.
+ * Each tab has its own; the tab change fades one into the next.
  */
 function EmptyState({ tab }: { tab: Tab }) {
   const insets = useSafeAreaInsets();
-  const reduceMotion = useReduceMotion();
-  const [artOpacity] = useState(
-    () => Object.fromEntries(EMPTY_TABS.map((t) => [t, new Animated.Value(t === tab ? 1 : 0)])) as Record<Tab, Animated.Value>
-  );
-  const previous = useRef<Tab>(tab);
-
-  useEffect(() => {
-    if (previous.current === tab) return;
-    previous.current = tab;
-
-    const useNativeDriver = Platform.OS !== "web";
-    const duration = reduceMotion !== false ? 0 : EMPTY_FADE_MS;
-    const timing = (value: Animated.Value, toValue: number, ms: number) =>
-      Animated.timing(value, { toValue, duration: ms, easing: Easing.inOut(Easing.cubic), useNativeDriver });
-
-    const pictures = Animated.parallel(EMPTY_TABS.map((t) => timing(artOpacity[t], t === tab ? 1 : 0, duration)));
-    pictures.start();
-    return () => pictures.stop();
-  }, [tab, artOpacity, reduceMotion]);
-
   const { title, body } = EMPTY_COPY[tab];
 
   return (
@@ -725,22 +677,14 @@ function EmptyState({ tab }: { tab: Tab }) {
     >
       <View style={{ alignItems: "center", gap: 10 }}>
         <View style={{ width: EMPTY_ART_WIDTH, height: EMPTY_ART_HEIGHT }}>
-          {EMPTY_TABS.map((t) => (
-            <Animated.View
-              key={t}
-              pointerEvents="none"
-              style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "flex-start", opacity: artOpacity[t] }]}
-            >
-              {/* Aspect ratio is the source art's own (cropped to content), so
-                  `contain` does not letterbox it. */}
-              <Image
-                source={EMPTY_ART[t].source}
-                style={{ width: EMPTY_ART_WIDTH, aspectRatio: EMPTY_ART[t].aspect }}
-                contentFit="contain"
-                accessibilityLabel=""
-              />
-            </Animated.View>
-          ))}
+          {/* Aspect ratio is the source art's own (cropped to content), so
+              `contain` does not letterbox it. */}
+          <Image
+            source={EMPTY_ART[tab].source}
+            style={{ width: EMPTY_ART_WIDTH, aspectRatio: EMPTY_ART[tab].aspect }}
+            contentFit="contain"
+            accessibilityLabel=""
+          />
         </View>
         <View style={{ alignItems: "center", gap: 10 }}>
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>

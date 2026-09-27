@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useState, type ReactNode } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 import { BottomSheet } from "@/components/BottomSheet";
@@ -18,7 +18,7 @@ import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { concernSupport, confidenceLabel, isLowCoverage, ruleFor, verdictHeadline, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
-import { CONCERN_TITLE, isPersonalized, profileHeadline } from "@/lib/profile";
+import { CONCERN_TITLE, isPersonalized } from "@/lib/profile";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
 import { irritationWarnings, isVerified } from "@/lib/safety";
 import {
@@ -28,7 +28,6 @@ import {
   CHOSEN,
   FLOATING_SHADOW,
   INK,
-  LINE,
   MUTED,
   SPACE,
   SURFACE,
@@ -250,27 +249,9 @@ function MatchTab({
   if (!isPersonalized(profile) && !lowCoverage) return <NoProfile />;
 
   const tone = toneOf(match);
-  const { tags } = profileHeadline(profile);
-  const chips = [...(profile.baseSkinType ? [titleCase(profile.baseSkinType)] : []), ...tags];
 
   return (
     <>
-      {chips.length > 0 ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
-          <Text style={{ fontSize: 13, color: MUTED }}>For</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 6 }}>
-            {chips.map((chip) => (
-              <View key={chip} style={{ borderRadius: 999, borderWidth: 1.5, borderColor: LINE, backgroundColor: CANVAS, paddingHorizontal: 12, paddingVertical: 5 }}>
-                <Text style={{ fontSize: 13, fontWeight: "600", color: MUTED }}>{chip}</Text>
-              </View>
-            ))}
-          </ScrollView>
-          <Pressable onPress={() => router.push("/skin-profile")} accessibilityRole="link" hitSlop={10} className="active:opacity-70">
-            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: CHOSEN.accent }}>Edit</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
       {/* The score, and an "i" that opens why. */}
       <View testID="score-card" style={{ flexDirection: largeText ? "column" : "row", alignItems: largeText ? "flex-start" : "center", gap: 20, borderRadius: 24, backgroundColor: SURFACE, paddingVertical: 22, paddingHorizontal: 20, ...CARD_SHADOW }}>
         <Ring score={match.score} tone={tone} />
@@ -295,7 +276,10 @@ function MatchTab({
             style={{ position: "absolute", top: 12, right: 12, width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: SURFACE, ...FLOATING_SHADOW }}
             className="active:opacity-70"
           >
-            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontStyle: "italic", fontSize: TYPE.body, color: INK }}>i</Text>
+            {/* Drawn to fit its 32pt disc: large text would clip it. */}
+            <Text maxFontSizeMultiplier={1} style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontStyle: "italic", fontSize: TYPE.body, color: INK }}>
+              i
+            </Text>
           </Pressable>
         )}
       </View>
@@ -466,16 +450,22 @@ function WhySheet({
       : verdictHeadline(match);
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} floating>
-      <Pressable
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Close"
-        style={{ position: "absolute", top: 16, right: 16, width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: SURFACE, zIndex: 1, ...FLOATING_SHADOW }}
-        className="active:opacity-70"
-      >
-        <Ionicons name="close" size={20} color={INK} />
-      </Pressable>
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      floating
+      corner={
+        <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: SURFACE, ...FLOATING_SHADOW }}
+          className="active:opacity-70"
+        >
+          <Ionicons name="close" size={20} color={INK} />
+        </Pressable>
+      }
+    >
       <View style={{ alignItems: "center", gap: 14, paddingTop: 12 }}>
         <View style={{ width: 96, height: 88, alignItems: "center", justifyContent: "center" }}>
           <View style={{ position: "absolute", width: 96, height: 84, borderTopLeftRadius: 50, borderTopRightRadius: 40, borderBottomRightRadius: 46, borderBottomLeftRadius: 38, backgroundColor: tone.tint }} />
@@ -563,10 +553,6 @@ function NoProfile() {
 function toneOf(match: MatchResult): Tone {
   const tone = toneForVerdict(match.verdict);
   return tone ? VERDICT[tone] : RISK_TONES.neutral;
-}
-
-function titleCase(word: string): string {
-  return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
 /** "A", "A and B", "A, B and C". */

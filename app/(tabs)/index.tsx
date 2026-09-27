@@ -10,7 +10,7 @@ import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/open-scanner";
 import { homeGreetingWidth } from "@/lib/home-greeting";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { CANVAS, CARD_SHADOW, INK, MUTED, SELECTED, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, HOME_CARD_FILL, INK, MUTED, TYPE } from "@/lib/tokens";
 
 // The two cards' watercolors, on transparent ground: a hand holding a tube inside
 // a scanner's frame, and two hands holding a serum and a pump bottle (their empty
@@ -169,7 +169,7 @@ function ActionCard({
         flex: 1,
         minHeight: side,
         borderRadius: 22,
-        backgroundColor: SELECTED,
+        backgroundColor: HOME_CARD_FILL,
         ...CARD_SHADOW,
         transform: [{ scale }],
       }}

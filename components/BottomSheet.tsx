@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
 import { useEffect, useState, type ReactNode } from "react";
-import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { reduceMotionNow } from "@/lib/reduce-motion";
@@ -14,6 +14,10 @@ const OUT_MS = 220;
 const FLOAT_INSET = 10;
 const FLOAT_RADIUS = 44;
 const FLOAT_BLUR = 12;
+// The room a sheet always leaves above itself, under the status bar, so a
+// long one stops short of the top and scrolls instead (its corner stays
+// reachable).
+const TOP_GAP = 12;
 
 /**
  * A card that slides up from the bottom over a dimmed screen, and back down —
@@ -24,11 +28,16 @@ const FLOAT_BLUR = 12;
  * The dim fades while the card moves: a plain `Modal animationType="slide"`
  * would slide the dim up with it. With Reduce Motion on, nothing moves; the
  * sheet just appears and goes.
+ *
+ * A sheet never grows past the top of the screen: longer content scrolls
+ * inside it, and `corner` (a close button) stays pinned to its top-right
+ * rather than scrolling away with the content.
  */
 export function BottomSheet({
   visible,
   onClose,
   floating = false,
+  corner,
   children,
 }: {
   visible: boolean;
@@ -38,6 +47,8 @@ export function BottomSheet({
    * over a blurred screen: the confirmation look (owner's OnSkin reference).
    */
   floating?: boolean;
+  /** Pinned to the card's top-right corner, outside the scroll: its X. */
+  corner?: ReactNode;
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
@@ -62,6 +73,8 @@ export function BottomSheet({
   }, [visible, progress]);
 
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [height, 0] });
+  const maxHeight = height - insets.top - TOP_GAP - (floating ? FLOAT_INSET : 0);
+  const padding = { padding: 24, paddingBottom: floating ? Math.max(24, insets.bottom) : Math.max(24, insets.bottom + 12), gap: 14 };
 
   return (
     <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
@@ -72,30 +85,35 @@ export function BottomSheet({
         </Animated.View>
         <Animated.View style={{ transform: [{ translateY }] }}>
           <View
-            style={
+            testID="sheet-card"
+            style={[
               floating
-                ? {
-                    marginHorizontal: FLOAT_INSET,
-                    marginBottom: FLOAT_INSET,
-                    borderRadius: FLOAT_RADIUS,
-                    backgroundColor: SURFACE,
-                    padding: 24,
-                    paddingBottom: Math.max(24, insets.bottom),
-                    gap: 14,
-                    ...FLOATING_SHADOW,
-                  }
-                : {
-                    borderTopLeftRadius: 20,
-                    borderTopRightRadius: 20,
-                    backgroundColor: SURFACE,
-                    padding: 24,
-                    paddingBottom: Math.max(24, insets.bottom + 12),
-                    gap: 14,
-                    ...FLOATING_SHADOW,
-                  }
-            }
+                ? { marginHorizontal: FLOAT_INSET, marginBottom: FLOAT_INSET, borderRadius: FLOAT_RADIUS }
+                : { borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+              { maxHeight, backgroundColor: SURFACE, ...FLOATING_SHADOW },
+            ]}
           >
-            {children}
+            {/* Rounded clipping lives on this inner view, so the shadow above
+                isn't clipped with it. */}
+            <View
+              style={
+                floating
+                  ? { borderRadius: FLOAT_RADIUS, overflow: "hidden", flexShrink: 1 }
+                  : { borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: "hidden", flexShrink: 1 }
+              }
+            >
+              <ScrollView
+                testID="sheet-scroll"
+                style={{ flexGrow: 0 }}
+                contentContainerStyle={padding}
+                alwaysBounceVertical={false}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                {children}
+              </ScrollView>
+            </View>
+            {corner ? <View style={{ position: "absolute", top: 16, right: 16 }}>{corner}</View> : null}
           </View>
         </Animated.View>
       </KeyboardAvoidingView>

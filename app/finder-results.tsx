@@ -1,23 +1,24 @@
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FilterDropdown } from "@/components/FilterDropdown";
 import { ProductRow } from "@/components/ProductRow";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { fetchProducts } from "@/data/api";
-import type { ProductWithIngredients } from "@/data/types";
+import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients } from "@/data/types";
 import { matchProduct } from "@/lib/matching";
 import { profileHeadline } from "@/lib/profile";
-import { BUTTON, CANVAS, CHOSEN, FILTER_HIT_SLOP, FILTER_PILL, INK, MUTED, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { CANVAS, CHOSEN, FILTER_HIT_SLOP, FILTER_PILL, INK, MUTED, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 import { useFinderChoices } from "@/lib/finder-choices";
 
 /**
  * The finder's results: every product in the catalogue, best match first for
- * the finder's answers. "Filter" goes back to the finder with the answers
- * still chosen, to change them and show again.
+ * the finder's answers. "Filter" narrows them to one product type (cleanser,
+ * sunscreen…); "Edit" beside the answers goes back to the finder with them
+ * still chosen, to change them and show again (owner).
  */
 export default function FinderResults() {
   const insets = useSafeAreaInsets();
@@ -27,6 +28,7 @@ export default function FinderResults() {
   const [products, setProducts] = useState<ProductWithIngredients[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const [type, setType] = useState<ProductType | "all">("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +53,18 @@ export default function FinderResults() {
     [products, profile],
   );
 
+  // The types the results hold, most products first, each with its count.
+  const types = useMemo(() => {
+    const counts = new Map<ProductType, number>();
+    for (const { product } of ranked) {
+      if (product.type !== "unknown") counts.set(product.type, (counts.get(product.type) ?? 0) + 1);
+    }
+    return [...counts].sort((a, b) => b[1] - a[1]);
+  }, [ranked]);
+  // A type the results no longer hold falls back to All rather than an empty list.
+  const activeType = type !== "all" && types.some(([t]) => t === type) ? type : "all";
+  const shown = activeType === "all" ? ranked : ranked.filter(({ product }) => product.type === activeType);
+
   const { title, tags } = profileHeadline(profile);
   const chosen = [...(profile.baseSkinType ? [title] : []), ...tags];
 
@@ -60,27 +74,38 @@ export default function FinderResults() {
         <Text accessibilityRole="header" style={{ fontSize: TYPE.heading, fontWeight: "700", color: INK }}>
           Results
         </Text>
-        <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/finder"))}
-          accessibilityRole="button"
-          accessibilityLabel="Filter"
-          className="active:opacity-80"
-          hitSlop={FILTER_HIT_SLOP}
-          style={{ flexDirection: "row", alignItems: "center", gap: 6, height: FILTER_PILL.height, paddingHorizontal: 14, borderRadius: FILTER_PILL.radius, backgroundColor: BUTTON.primary.fill }}
-        >
-          <Ionicons name="options-outline" size={16} color={BUTTON.primary.label} />
-          <Text style={{ fontSize: FILTER_PILL.fontSize, fontWeight: "600", color: BUTTON.primary.label }}>Filter</Text>
-        </Pressable>
+        {types.length > 1 ? (
+          <FilterDropdown
+            align="end"
+            options={[
+              { value: "all", label: "All", count: ranked.length },
+              ...types.map(([t, count]) => ({ value: t, label: PRODUCT_TYPE_LABEL[t], count })),
+            ]}
+            selected={activeType}
+            onSelect={setType}
+          />
+        ) : null}
       </View>
-      {chosen.length > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+      {/* The finder's answers, and Edit to change them on the finder. */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 8 }}>
           {chosen.map((label) => (
             <View key={label} style={{ height: FILTER_PILL.height, justifyContent: "center", borderRadius: FILTER_PILL.radius, paddingHorizontal: 14, borderWidth: 1.5, borderColor: CHOSEN.border, backgroundColor: CHOSEN.fill }}>
               <Text style={{ fontSize: FILTER_PILL.fontSize, fontWeight: "600", color: CHOSEN.label }}>{label}</Text>
             </View>
           ))}
         </ScrollView>
-      ) : null}
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/finder"))}
+          accessibilityRole="button"
+          accessibilityLabel="Edit your answers"
+          hitSlop={FILTER_HIT_SLOP}
+          style={{ minHeight: FILTER_PILL.height, justifyContent: "center" }}
+          className="active:opacity-70"
+        >
+          <Text style={{ fontSize: FILTER_PILL.fontSize, fontWeight: "600", color: CHOSEN.accent }}>Edit</Text>
+        </Pressable>
+      </View>
     </View>
   );
 
@@ -110,13 +135,15 @@ export default function FinderResults() {
         </View>
       ) : (
         <FlatList
-          data={ranked}
+          data={shown}
           keyExtractor={({ product }) => product.id}
           renderItem={({ item }) => <ProductRow product={item.product} match={item.match} saveable />}
           ListHeaderComponent={header}
+          // The Filter's card floats over the rows below the header.
+          ListHeaderComponentStyle={{ zIndex: 10 }}
           ListEmptyComponent={
             <Text style={{ textAlign: "center", paddingHorizontal: 40, paddingTop: 48, fontSize: TYPE.body, color: MUTED }}>
-              Nothing to rank yet. Add your skin type or a concern with Filter.
+              Nothing to rank yet. Add your skin type or a concern with Edit.
             </Text>
           }
           contentContainerStyle={{ paddingBottom: insets.bottom + SPACE.gutter }}

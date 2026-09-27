@@ -23,7 +23,7 @@ type Question = "concerns" | "skinType" | "sensitivity" | "pregnancy";
  * answered — no question is required. The answers are the finder's own
  * (`lib/finder-choices`): they rank its results and never change the skin
  * profile the quiz and the routine use, nor are changed by it (owner). Opened
- * from Home's "Find a product" card, and again from the results' Filter.
+ * from Home's "Find a product" card, and again from the results' Edit.
  */
 export default function Finder() {
   const insets = useSafeAreaInsets();

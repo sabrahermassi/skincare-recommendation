@@ -65,6 +65,16 @@ it("gives the dark-spots SPF note on Skin match, not on the Safety tab everyone 
   expect(screen.getByText(/working on dark spots/)).toBeTruthy();
 });
 
+// Just the match (owner): no row of the person's answers or Edit above it.
+it("opens Skin match on the score, with no row of the answers above it", async () => {
+  await show(["niacinamide"], { concerns: ["hyperpigmentation"], baseSkinType: "combination", sensitivity: "some", pregnancyStatus: null });
+  await openMatch();
+  expect(screen.getByLabelText("Why this score")).toBeTruthy();
+  expect(screen.queryByText("Combination")).toBeNull();
+  expect(screen.queryByText("Somewhat sensitive")).toBeNull();
+  expect(screen.queryByText("Edit")).toBeNull();
+});
+
 // #379 review (Codex): a sourced warning keeps its source in "Flagged for your
 // skin", and a concern met only by a declared function still shows under "For
 // your concerns", as the score counts it.

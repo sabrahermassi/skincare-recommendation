@@ -145,6 +145,19 @@ describe("Ingredients", () => {
   });
 });
 
+// Every tab stays mounted so a change only fades (owner: no hard cut), but
+// only the tab showing is heard by a screen reader.
+it("keeps the other tabs mounted but hidden when switching", async () => {
+  useAppStore.setState({ history: [viewed("aqua-ceramide-cream")] });
+  await render(<Saved />);
+  await act(async () => fireEvent.press(screen.getByRole("tab", { name: /History/ })));
+  expect(await screen.findByRole("button", { name: `Delete ${NAME}` })).toBeTruthy();
+
+  await act(async () => fireEvent.press(screen.getByRole("tab", { name: /Saved/ })));
+  expect(screen.queryByRole("button", { name: `Delete ${NAME}` })).toBeNull();
+  expect(screen.getByRole("button", { name: `Delete ${NAME}`, includeHiddenElements: true })).toBeTruthy();
+});
+
 it("offers the first scan on an empty Saved, and no button on an empty History or Ingredients", async () => {
   await render(<Saved />);
   expect(await screen.findByText("No products saved yet")).toBeTruthy();
