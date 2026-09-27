@@ -27,12 +27,12 @@ module.exports = {
           disabled: "#E8D9CE",
         },
 
-        // The five Milky pastel colors, untouched. All five sit between
+        // The Milky pastel colors, untouched. They all sit between
         // 1.22:1 and 1.33:1 against white, so they are surfaces only —
         // never text, never a button fill, never behind white text.
         // Assigned per product family so the tint carries meaning.
         //
-        // pink/peach/mint not yet re-sourced from the new design — the three
+        // pink/mint not yet re-sourced from the new design — the three
         // mockups read so far don't demonstrate them (ProductIllustration /
         // ProductCard are Phase 2). `lilac` IS touched here: it's the panel/
         // chip tint the two Phase-1 screens use (profile-summary chip,
@@ -40,7 +40,6 @@ module.exports = {
         // profile-chip background.
         tint: {
           pink: "#F7D9DA", // Baby pink — cleansers
-          peach: "#FBE4D8", // Soft peach — moisturizers
           mint: "#D9EDE3", // Mint whisper — serums, treatments
           lilac: "#EDE9F6", // Lilac milk — SPF, masks, app panels
         },
@@ -96,12 +95,10 @@ module.exports = {
           faint: "#9E98A3", // ~2.61:1 on canvas — computed, decorative / large text only
         },
 
-        // `DEFAULT` is the card/control border. `soft` is the list-row
-        // separator: the design draws rows a shade lighter than the boxes
-        // they sit in, so a long list reads as one surface rather than a
-        // stack of ruled boxes.
+        // The list-row separator: the design draws rows a shade lighter than
+        // the boxes they sit in, so a long list reads as one surface rather
+        // than a stack of ruled boxes.
         hairline: {
-          DEFAULT: "#EFEAE4",
           soft: "#F2EDE7",
         },
 
@@ -170,13 +167,7 @@ module.exports = {
           avoid: { DEFAULT: "#B23A32", tint: "#F7D9D5", ink: "#8C2A24" },
         },
 
-        // A calm affirmative panel, distinct from `tint-mint`: it carries a
-        // border as well as a fill, which is what lets it hold a whole block
-        // of text (the "how it fits your skin" verdict, the product match
-        // band) rather than acting as a plain tinted tile.
         panel: {
-          success: "#EAF3EC",
-          "success-line": "#DCEBE0",
           // The flat warm wash under the two disclaimer strips.
           wash: "#F3EFEA",
         },

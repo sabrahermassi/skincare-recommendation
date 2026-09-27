@@ -5,7 +5,7 @@ import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/Text";
-import { INK } from "@/lib/tokens";
+import { INK, MUTED } from "@/lib/tokens";
 
 /**
  * The top row every pushed screen in the design carries: a back chevron on the
@@ -18,10 +18,13 @@ import { INK } from "@/lib/tokens";
  */
 export function ScreenHeader({
   title,
+  quietTitle = false,
   right,
   onBack,
 }: {
   title?: string;
+  /** A small grey context line instead of a title ("In Clear Days Gel Cleanser"). */
+  quietTitle?: boolean;
   right?: ReactNode;
   onBack?: () => void;
 }) {
@@ -45,8 +48,8 @@ export function ScreenHeader({
 
       {title ? (
         <Text
-          style={{ color: INK }}
-          className="flex-1 text-center text-base font-medium tracking-tight"
+          style={quietTitle ? { flex: 1, textAlign: "center", fontSize: 13, color: MUTED } : { color: INK }}
+          className={quietTitle ? undefined : "flex-1 text-center text-base font-medium tracking-tight"}
           numberOfLines={1}
         >
           {title}

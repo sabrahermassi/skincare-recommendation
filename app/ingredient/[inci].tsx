@@ -1,63 +1,46 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
 
 import { PopOnToggle } from "@/components/PopOnToggle";
-import { PrimaryButton } from "@/components/PrimaryButton";
 import { ReportMistakeLink } from "@/components/ReportMistakeLink";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SourceLink } from "@/components/SourceLink";
-import { ReadingScale, Text, useLargeText, useIconScale } from "@/components/Text";
+import { ReadingScale, Text, useLargeText } from "@/components/Text";
 import { fetchProduct, resolveIngredientNames } from "@/data/api";
-import { unknownIngredient, type Ingredient, type ProductWithIngredients } from "@/data/types";
+import { unknownIngredient, type Concern, type Ingredient, type ProductWithIngredients, type SkinProfile } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
-import { COLORS } from "@/lib/colors";
 import { StarIcon } from "@/components/icons/StarIcon";
 import { comedogenicLabel } from "@/lib/format";
-import { countedAgainst, ingredientLabel, isCommonIrritant, type IngredientLabel } from "@/lib/ingredient-labels";
-import { matchProduct, positionNote, ruleFor, type Contraindication } from "@/lib/matching";
-import { isPersonalized, isSensitive, treatAsReactive } from "@/lib/profile";
-import { targetApplies } from "@/lib/rules";
-import { isVerified, regulatoryStatus } from "@/lib/safety";
+import { isWarnedPoreClogging } from "@/lib/pore-clogging";
+import { countedAgainst, ingredientLabel, isCommonIrritant, LABEL_META, type IngredientLabel } from "@/lib/ingredient-labels";
+import { matchProduct, positionNote, positionWeightLabel, ruleFor, type Contraindication, type MatchResult } from "@/lib/matching";
+import { openQuiz } from "@/lib/open-quiz";
+import { CONCERN_TITLE, isPersonalized, isSensitive, treatAsReactive } from "@/lib/profile";
+import { targetApplies, type IngredientRule } from "@/lib/rules";
+import { contraindications, isVerified, regulatoryStatus } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
-import { BORDER_INACTIVE, CANVAS, CARD_SHADOW, FONT_SCALE, INK, MUTED, MUTED_FAINT, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, CHOSEN, INK, LINE, MUTED, ROW_DIVIDER, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 import { ingredientNameParam, productIdParam } from "@/lib/route-params";
 import NotFound from "@/app/+not-found";
 
-// The design system (design/DESIGN_SYSTEM.md). RUNG's `hero`/pill/panel colors
-// (below) are semantic — the per-ingredient verdict, the point of this
-// screen — and stay untouched. The footer's "Next ingredient" CTA is the
-// shared `PrimaryButton`, same as app/product/[id].tsx.
-
 /**
- * Ingredient detail — screen 5 of the for.me Screens design.
+ * Ingredient detail (design_handoff_ingredient_detail): what it does, how it
+ * fits this person's skin and their score, where it sits on this label, and
+ * the facts we hold about it — with Previous / Next to step along the label
+ * without going back to the list.
  *
- * The design fills this screen with encyclopaedia copy: a written definition,
- * a personalised verdict, and a list of things to know. We hold none of that
- * as prose. What we do hold is the curated rule, the ingredient's own note,
- * the CosIng function list, the EU regulatory status, the pore rating and the
- * position in the formula — so the sections keep the design's shape and are
- * filled from those.
- *
- * Every section renders every time. An earlier pass gated all three on a
- * curated rule existing, which is true for a few dozen ingredients out of
- * ~31k — so for almost everything real the screen was a name and a pill above
- * a blank page. Where a fact is genuinely missing, the section says so in a
- * sentence rather than disappearing.
- *
- * A claim from a curated rule carries its checked source underneath
- * ("Source: …", #326). The design's closing card is only the fallback for a
- * name no rule covers: a "Look it up" link to PubChem's search for this exact
- * name — a real, working search rather than the plausible-but-fake citation
- * the mockup implies, and never passed off as backing a claim we make. Same
- * reasoning for the header's star: it toggles `savedIngredients` in the store
- * rather than sitting there as a tappable no-op.
+ * The handoff sets the look only. Every word here still comes from what we
+ * hold — the curated rule, the ingredient's note, CosIng's function list, the
+ * EU status, the pore rating, the label position — never written per
+ * ingredient. A claim from a curated rule carries its checked source (#326).
+ * The star stays in the corner: Saved's Ingredients tab is built on it, though
+ * the mockup has none.
  */
 
 /**
@@ -67,105 +50,30 @@ import NotFound from "@/app/+not-found";
  */
 type Fit = IngredientLabel | "none";
 
-const RUNG: Record<
-  Fit,
-  {
-    pill: string;
-    ink: string;
-    dot: string;
-    label: string;
-    panel: string;
-    /** The solid fill of the qualifier pill inside the verdict panel. */
-    chip: string;
-    hero: string;
-  }
-> = {
-  good: {
-    pill: "bg-level-good-tint",
-    ink: "text-level-good-ink",
-    dot: "bg-level-good",
-    label: "Good for you",
-    panel: "bg-panel-success border-panel-success-line",
-    chip: VERDICT.high.tint,
-    hero: COLORS.levelGood,
-  },
-  watch: {
-    pill: "bg-level-watch-tint",
-    ink: "text-level-watch-ink",
-    dot: "bg-level-watch",
-    label: "Worth knowing",
-    panel: "bg-tint-peach border-tint-peach",
-    chip: VERDICT.medium.tint,
-    hero: COLORS.levelWatch,
-  },
-  avoid: {
-    pill: "bg-level-avoid-tint",
-    ink: "text-level-avoid-ink",
-    dot: "bg-level-avoid",
-    label: "Flagged for you",
-    panel: "bg-tint-pink border-tint-pink",
-    chip: VERDICT.low.tint,
-    hero: COLORS.levelAvoid,
-  },
-  unknown: {
-    pill: "bg-level-neutral-tint",
-    ink: "text-level-neutral-ink",
-    dot: "bg-level-neutral",
-    label: "Not recognised",
-    panel: "bg-hairline border-hairline",
-    chip: VERDICT_NEUTRAL.tint,
-    hero: COLORS.levelNeutral,
-  },
-  // The list folds these under "no known concerns"; the same quiet grey as
-  // "Not recognised", since it is not a verdict either way.
-  none: {
-    pill: "bg-level-neutral-tint",
-    ink: "text-level-neutral-ink",
-    dot: "bg-level-neutral",
-    label: "No known concerns",
-    panel: "bg-hairline border-hairline",
-    chip: VERDICT_NEUTRAL.tint,
-    hero: COLORS.levelNeutral,
-  },
+type Tone = { solid: string; tint: string; deep: string };
+const NEUTRAL: Tone = { solid: MUTED, tint: VERDICT_NEUTRAL.tint, deep: MUTED };
+const TONE: Record<Fit, Tone> = {
+  good: VERDICT.high,
+  watch: VERDICT.medium,
+  avoid: VERDICT.low,
+  unknown: NEUTRAL,
+  none: NEUTRAL,
+};
+// The status pill: the list's own words for the row, so the two agree.
+const STATUS_LABEL: Record<Fit, string> = {
+  good: LABEL_META.good.label,
+  watch: LABEL_META.watch.label,
+  avoid: LABEL_META.avoid.label,
+  unknown: "Not recognised",
+  none: "No known concerns",
 };
 
-/** Grown with the 18px headline beside it (#334). */
-function HeartIcon({ color }: { color: string }) {
-  const size = 19 * useIconScale(18);
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 20.2s-7.6-4.7-7.6-9.7A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 7.6 2.8c0 5-7.6 9.7-7.6 9.7Z"
-        stroke={color}
-        strokeWidth={1.7}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-/** The size of the function line under the name ("Skin-Conditioning"). */
-const FUNCTION_LINE_SIZE = 19;
-/** The "Want to learn more?" title's size, which its arrow follows. */
-const LEARN_MORE_SIZE = 14.5;
-/** A "Things to know" note's size, which its tick follows. */
-const NOTE_SIZE = 13;
-
-/** The "Want to learn more?" arrow, grown with its title (#334). */
-function LearnMoreArrow() {
-  return <ArrowIcon size={17 * useIconScale(LEARN_MORE_SIZE)} color={INK} />;
-}
-
-/** A "Things to know" tick, grown with the note beside it (#334). */
-function CheckIcon({ color }: { color: string }) {
-  const size = 16 * useIconScale(NOTE_SIZE);
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="m5 12.6 4.6 4.6L19 6.8" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
+// The picture beside the name, on a soft blob in the status tint.
+const ART = require("@/assets/illustrations/flask-with-serum.webp");
+const ART_BOX = { width: 132, height: 120 };
+const ART_CIRCLE = 104;
+const CARD_RADIUS = 24;
+const PAGER_BUTTON = 52;
 
 /**
  * The route. A link can put anything in the name: one that can't be an
@@ -240,286 +148,236 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
       : (resolvedIngredient ?? unknownIngredient(inci));
 
   const match = product ? matchProduct(product, profile) : null;
-  // "Back to list" and "Next ingredient" only mean something with a list
-  // behind them. Opened on its own — from a label result or a link — "Next"
-  // just went back (#296).
+  const personalized = isPersonalized(profile);
+  // Previous / Next only mean something with a list behind them. Opened on its
+  // own — from a label result or a link — there is nowhere to step (#296).
   const inList = product !== null && index >= 0;
   const verified = isVerified(ingredient);
   // Opened from a product, the verdict is the label the ingredient list gave
-  // this row (#324). `match` is null when this screen is opened without a
-  // product context (e.g. from search) — there's nothing to score against
-  // yet, so an otherwise-recognised ingredient reads as "worth knowing"
-  // rather than a verdict it has no way to give.
-  const fit: Fit = match
-    ? (ingredientLabel(ingredient, match, isPersonalized(profile)) ?? "none")
-    : verified
-      ? "watch"
-      : "unknown";
-  // Threaded into fitHeadline/fitBody/fitPill so they can give a warning
-  // precedence over "unverified" and over a rule's general claim — without
-  // it, an unverified ingredient flagged by pregnancy matching wore an
-  // "avoid" rung with copy underneath it that denied anything was wrong. The
-  // warning that made the row Avoid comes first: one ingredient can carry one
-  // per origin.
-  const warnings = match?.warnings.filter((w) => w.ingredient.id === ingredient.id) ?? [];
+  // this row (#324). With no product there is no score, so the verdict comes
+  // from what we hold about the ingredient itself (`fitWithoutProduct`).
+  const labelOf = (i: Ingredient): Fit => (match ? (ingredientLabel(i, match, personalized) ?? "none") : fitWithoutProduct(i, profile));
+  const fit = labelOf(ingredient);
+  const tone = TONE[fit];
+
+  // The warning that made the row Avoid comes first; one ingredient can carry
+  // one per origin, each said with its own source (#347).
+  // Without a product, the same warnings the score would raise for this
+  // ingredient and profile — a pregnancy caution above all.
+  const warnings = match ? match.warnings.filter((w) => w.ingredient.id === ingredient.id) : contraindications([ingredient], profile);
   const warning = warnings.find((w) => w.severity === "hazard" || w.origin === "pregnancy") ?? warnings[0];
-  // Every warning's own sentence is said, each under its own source (#347 review):
-  // hydroquinone is both EU-banned and a pregnancy caution, and showing one
-  // hid the other's source. The one that made the row Avoid goes first.
   const warningLines = warning
-    ? [warning, ...warnings.filter((w) => w !== warning)].filter(
-        (w, i, all) => all.findIndex((other) => other.reason === w.reason) === i
-      )
+    ? [warning, ...warnings.filter((w) => w !== warning)].filter((w, i, all) => all.findIndex((other) => other.reason === w.reason) === i)
     : [];
-  const meta = RUNG[fit];
 
   const rule = ruleFor(ingredient);
-  // The rules table takes a boolean; sensitivity has three levels now. Harm
-  // reads an unset sensitivity at the middle setting and benefit never
-  // credits it — the same split `computeMatch` makes (#183), so this screen
-  // and the product's score agree about the same ingredient.
-  //
   // With a product, what the score itself counted wins, as it does for the
-  // label: a rule that "hurts sensitive skin" said "Works against your
-  // profile" to someone with no profile, beside a list that gave the row no
-  // word at all.
-  const helps = match
-    ? fit === "good"
-    : rule
-      ? targetApplies(rule.helps, { ...profile, sensitive: isSensitive(profile) })
-      : false;
-  const hurts = match
-    ? countedAgainst(ingredient, match)
-    : rule
-      ? targetApplies(rule.hurts, { ...profile, sensitive: treatAsReactive(profile) })
-      : false;
+  // label. Without one, the rule's own targets (`ruleTargets`).
+  const helps = match ? fit === "good" : ruleTargets(ingredient, profile).helps;
+  const hurts = match ? countedAgainst(ingredient, match) : ruleTargets(ingredient, profile).hurts;
 
-  // The design sets a common name under the INCI name. We don't hold one, but
-  // many INCI names carry it in parentheses ("Panthenol (Vitamin B5)"), and
-  // where they don't the declared role is the honest second line.
   const { primary, secondary } = splitName(ingredient);
   const starred = savedIngredients.includes(ingredient.name);
+  const kind = kindLine(ingredient, rule, secondary);
 
-  // Everything under "Things to know" is sourced, never written.
-  const notes = [
-    verified ? `EU regulatory status: ${regulatoryStatus(ingredient)}` : null,
-    ingredient.functions && ingredient.functions.length > 0
-      ? `Declared function: ${ingredient.functions.slice(0, 3).join(", ")}`
-      : null,
-    verified && ingredient.comedogenic > 0 ? comedogenicLabel(ingredient.comedogenic) : null,
-    product ? positionNote(product.ingredients.map((i) => i.name), index) : null,
-    rule?.hurts?.sensitive ? "Our rules flag this as a common irritant for sensitive skin" : null,
-  ].filter((n): n is string => n !== null);
+  // "Good to know": facts we hold, each one or left out — never "Unknown".
+  const facts = [
+    secondary?.startsWith("(") ? { key: "Also called", value: secondary.slice(1, -1) } : null,
+    verified ? { key: "EU status", value: regulatoryStatus(ingredient) } : null,
+    ingredient.functions && ingredient.functions.length > 0 ? { key: "Declared as", value: sentenceCase(ingredient.functions.slice(0, 3).join(", ")) } : null,
+    verified && ingredient.comedogenic > 0 ? { key: "Pores", value: comedogenicLabel(ingredient.comedogenic) } : null,
+    rule?.hurts?.sensitive ? { key: "Sensitive skin", value: "A common irritant for sensitive skin" } : null,
+  ].filter((f): f is { key: string; value: string } => f !== null);
+
+  const previous = inList && index > 0 ? product.ingredients[index - 1] : null;
+  const next = inList && index < product.ingredients.length - 1 ? product.ingredients[index + 1] : null;
+  const step = (to: Ingredient) => {
+    if (!product) return;
+    haptic.tap();
+    router.replace({ pathname: "/ingredient/[inci]", params: { inci: to.name, product: product.id } });
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader
+        // The product the person came from, as a quiet line (handoff).
+        title={product ? `In ${product.name}` : undefined}
+        quietTitle
         right={
           // Nothing to keep: starring an unrecognised name would save a string
           // we can say nothing about (#296).
           !verified ? undefined : (
-          <Pressable
-            // Stars for anyone, signed in or not (#300).
-            onPress={() => {
-              haptic.tap();
-              if (starred) toggleSavedIngredient(ingredient.name);
-              else saveFromTap(() => saveIngredient(ingredient.name), "ingredient");
-            }}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel={starred ? "Remove from starred ingredients" : "Star this ingredient"}
-            accessibilityState={{ selected: starred }}
-            className="active:opacity-70"
-          >
-            <PopOnToggle active={starred}>
-              <StarIcon filled={starred} />
-            </PopOnToggle>
-          </Pressable>
+            <Pressable
+              // Stars for anyone, signed in or not (#300).
+              onPress={() => {
+                haptic.tap();
+                if (starred) toggleSavedIngredient(ingredient.name);
+                else saveFromTap(() => saveIngredient(ingredient.name), "ingredient");
+              }}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={starred ? "Remove from starred ingredients" : "Star this ingredient"}
+              accessibilityState={{ selected: starred }}
+              className="active:opacity-70"
+            >
+              <PopOnToggle active={starred}>
+                <StarIcon filled={starred} />
+              </PopOnToggle>
+            </Pressable>
           )
         }
       />
 
-      <ScrollView contentContainerClassName="pb-40">
+      <ScrollView contentContainerStyle={{ paddingBottom: inList ? 140 : insets.bottom + 32 }}>
         {/* The reading part of the screen: its text follows the phone's text
-            size all the way up (#334). The header and the buttons at the
-            bottom keep the ordinary ceiling. */}
+            size all the way up (#334). */}
         <ReadingScale>
-        {/* flexWrap: at the image's larger size, a merely-medium-length name
-            like "Niacinamide" no longer has room beside it (390pt viewport
-            minus the image's own width, gap and horizontal padding) and, with
-            no minWidth reservation, the text column would shrink to fit
-            instead of wrapping — breaking the word itself mid-letter rather
-            than at a word boundary. Reserving 170 forces a wrap instead:
-            short names still sit beside the image, longer ones drop it to
-            its own line below rather than mangling the headline. */}
-        <View style={{ gap: 18, paddingTop: 30, flexWrap: "wrap" }} className="flex-row items-start px-6">
-          <View style={{ flex: 1, minWidth: 170, gap: 9 }}>
-            <Text
-              style={{
-                fontFamily: "PlayfairDisplay_500Medium",
-                fontSize: 34,
-                lineHeight: 36,
-                letterSpacing: -0.61,
-                color: INK,
-              }}
-            >
-              {displayIngredientName(primary)}
-            </Text>
-            {secondary ? (
-              <Text
-                // Stops where label text stops, below the name (which stops
-                // where body text does), so at the largest sizes the two
-                // don't end up the same size (#334).
-                maxFontSizeMultiplier={(TYPE.label * FONT_SCALE.reading) / FUNCTION_LINE_SIZE}
-                style={{
-                  fontFamily: "PlayfairDisplay_500Medium",
-                  fontSize: FUNCTION_LINE_SIZE,
-                  lineHeight: 19,
-                  color: MUTED,
-                }}
+          {/* The name, what kind of thing it is, and its status; the picture
+              beside it, dropped at large text so the name has the width (#334). */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 6, paddingHorizontal: 20, paddingBottom: 20 }}>
+            <View style={{ flex: 1, alignItems: "flex-start", gap: 6 }}>
+              <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 32, lineHeight: 36, color: INK }}>
+                {displayIngredientName(primary)}
+              </Text>
+              {kind ? <Text style={{ fontSize: 15, color: MUTED }}>{kind}</Text> : null}
+              <View
+                style={{ marginTop: 6, flexDirection: "row", alignItems: "center", gap: 7, borderRadius: 999, paddingTop: 6, paddingRight: 12, paddingBottom: 6, paddingLeft: 10, backgroundColor: tone.tint }}
               >
-                {displayIngredientName(secondary)}
-              </Text>
-            ) : null}
-            <View
-              className={`mt-1 flex-row items-center gap-2 self-start rounded-full px-3.5 py-2 ${meta.pill}`}
-            >
-              <View className={`h-2 w-2 rounded-full ${meta.dot}`} />
-              <Text className={`text-[12.5px] font-medium ${meta.ink}`}>{meta.label}</Text>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tone.solid }} />
+                <Text style={{ fontSize: 13, fontWeight: "600", color: tone.deep }}>{STATUS_LABEL[fit]}</Text>
+              </View>
             </View>
-          </View>
-          {/* new-watercolor/ingredient_transparent.png — a flask + dropper
-              bottle scene, wider than the old single-flask icon, so the
-              slot is sized to its own aspect ratio (1400x915, cropped to
-              content) rather than the old icon's square. */}
-          {largeText ? null : (
-            <Image
-              source={require("@/assets/illustrations/flask-with-serum.webp")}
-              style={{ width: 168, height: 110 }}
-              contentFit="contain"
-              transition={120}
-              accessibilityLabel=""
-            />
-          )}
-        </View>
-
-        <Section title="What it does">
-          <Text style={{ fontSize: 13.5, lineHeight: 21, color: INK }}>
-            {whatItDoes(ingredient, rule?.reason)}
-          </Text>
-          {rule?.source ? <SourceLink source={rule.source} /> : null}
-        </Section>
-
-        <Section title="How it fits your skin" gap={14} top={36}>
-          <View
-            style={{ gap: 13, paddingHorizontal: 18, paddingVertical: 22 }}
-            className={`rounded-tile border ${meta.panel}`}
-          >
-            <View className="flex-row items-center gap-2.5">
-              <HeartIcon color={meta.hero} />
-              {/* Shrinks to wrap inside the panel at the larger text sizes. */}
-              <Text style={{ flexShrink: 1 }} className={`font-display text-[18px] leading-[21px] ${meta.ink}`}>
-                {fitHeadline(fit, helps, hurts, warning)}
-              </Text>
-            </View>
-            {/* A warning's own sentence is the most specific thing we hold, so
-                it outranks the general copy, with its source under it (#347) —
-                a pregnancy caution's or an EU prohibition's, as on the product
-                page. */}
-            {fit !== "unknown" && warningLines.length > 0 ? (
-              warningLines.map((w) => (
-                <View key={w.origin} style={{ gap: 4 }}>
-                  <Text style={{ fontSize: 13, lineHeight: 19.5, color: INK }}>{w.reason}</Text>
-                  {w.source ? <SourceLink source={w.source} /> : null}
+            {largeText ? null : (
+              <View style={{ ...ART_BOX, alignItems: "center", justifyContent: "center" }}>
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    left: 6,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: tone.tint,
+                    opacity: 0.7,
+                    borderTopLeftRadius: 70,
+                    borderTopRightRadius: 56,
+                    borderBottomRightRadius: 64,
+                    borderBottomLeftRadius: 60,
+                  }}
+                />
+                <View style={{ width: ART_CIRCLE, height: ART_CIRCLE, borderRadius: ART_CIRCLE / 2, overflow: "hidden", backgroundColor: SURFACE, alignItems: "center", justifyContent: "center" }}>
+                  <Image source={ART} style={{ width: ART_CIRCLE - 8, height: ART_CIRCLE - 8 }} contentFit="contain" accessibilityLabel="" />
                 </View>
-              ))
-            ) : (
-              <Text style={{ fontSize: 13, lineHeight: 19.5, color: INK }}>
-                {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient))}
-              </Text>
+              </View>
             )}
-            {/* The small qualifier pill the design puts under the verdict. */}
-            <View
-              style={{ backgroundColor: meta.chip }}
-              className="self-start rounded-full px-3 py-1.5"
-            >
-              <Text className={`text-[11.5px] font-medium ${meta.ink}`}>
-                {fitPill(fit, helps, hurts, warning)}
-              </Text>
+          </View>
+
+          <View style={{ paddingHorizontal: 20, gap: 14 }}>
+            {/* What it does: not a card. */}
+            <View style={{ gap: SPACE.text, paddingHorizontal: 2, paddingBottom: 6 }}>
+              <SectionLabel>What it does</SectionLabel>
+              <Text style={{ fontSize: TYPE.body, lineHeight: 24, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
+              {rule?.source ? <SourceLink source={rule.source} /> : null}
+            </View>
+
+            {/* For your skin. */}
+            <Card style={{ padding: 20, gap: 10 }}>
+              <View style={{ width: 28, height: 4, borderRadius: 2, backgroundColor: tone.solid }} />
+              <SectionLabel>For your skin</SectionLabel>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: tone.tint }}
+                >
+                  <Ionicons name={FIT_ICON[fit]} size={20} color={tone.solid} />
+                </View>
+                <Text style={{ flex: 1, fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, lineHeight: 26, color: INK }}>
+                  {fitHeadline(fit, helps, hurts, warning, rule, profile)}
+                </Text>
+              </View>
+              {/* A warning's own sentence is the most specific thing we hold,
+                  with its source under it (#347). */}
+              {fit !== "unknown" && warningLines.length > 0 ? (
+                warningLines.map((w) => (
+                  <View key={w.origin} style={{ gap: 4 }}>
+                    <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>{w.reason}</Text>
+                    {w.source ? <SourceLink source={w.source} /> : null}
+                  </View>
+                ))
+              ) : fit === "none" && !personalized ? (
+                // No skin profile, and nothing about it for everyone: a quiet
+                // way to set one up, not a button (handoff). A fragrance or a
+                // listed pore-clogger still says why, profile or not.
+                <Pressable onPress={openQuiz} accessibilityRole="link" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
+                  <Text style={{ fontSize: 15, lineHeight: 22, fontWeight: "600", color: CHOSEN.accent }}>Set up your skin profile to see how this fits you</Text>
+                </Pressable>
+              ) : (
+                <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
+                  {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null)}
+                </Text>
+              )}
+              <View style={{ alignSelf: "flex-start", marginTop: 2, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: tone.tint }}>
+                <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{fitTag(fit, helps, hurts, warning, match)}</Text>
+              </View>
+            </Card>
+
+            {inList ? <OnThisLabel names={product.ingredients.map((i) => i.name)} index={index} colour={tone.solid} /> : null}
+
+            {/* Good to know: neutral facts, no ticks (handoff). */}
+            <Card style={{ paddingTop: 20, paddingBottom: 6 }}>
+              <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 21, color: INK, paddingHorizontal: 20, paddingBottom: 6 }}>Good to know</Text>
+              {facts.length > 0 ? (
+                facts.map((fact, i) => (
+                  <View key={fact.key} style={{ paddingHorizontal: 20 }}>
+                    <View style={{ flexDirection: "row", gap: 12, paddingVertical: 13, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: ROW_DIVIDER }}>
+                      <Text style={{ width: 120, fontSize: TYPE.label, color: MUTED }}>{fact.key}</Text>
+                      <Text style={{ flex: 1, fontSize: 15, lineHeight: 21, color: INK }}>{fact.value}</Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={{ paddingHorizontal: 20, paddingVertical: 13, fontSize: 15, lineHeight: 21, color: INK }}>
+                  We hold no regulatory record, declared function or pore rating for this name.
+                </Text>
+              )}
+            </Card>
+
+            {/* Only for a recognised name no rule covers (#326): a rule's claim
+                links its own source above, and a general search beside it
+                would read as backing the claim. */}
+            {verified && !rule ? (
+              <Pressable
+                onPress={() =>
+                  void Linking.openURL(`https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(ingredient.name)}`).catch((err) =>
+                    console.warn("openURL failed:", err)
+                  )
+                }
+                accessibilityRole="link"
+                accessibilityLabel="Read more on PubChem"
+                accessibilityHint="Opens in your browser"
+                style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: CARD_RADIUS, backgroundColor: VERDICT_NEUTRAL.tint, paddingVertical: 14, paddingLeft: 20, paddingRight: SPACE.block }}
+                className="active:opacity-80"
+              >
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>Read more on PubChem</Text>
+                  <Text style={{ fontSize: 13, color: MUTED }}>Opens in your browser</Text>
+                </View>
+                <Ionicons name="open-outline" size={18} color={MUTED} />
+              </Pressable>
+            ) : null}
+
+            <Text style={{ fontSize: TYPE.caption, color: MUTED, paddingHorizontal: 4 }}>Reference data from Open Beauty Facts and EU CosIng.</Text>
+
+            {/* A wrong name, reading or claim gets told to us (#327). */}
+            <View style={{ paddingHorizontal: 4 }}>
+              <ReportMistakeLink subject={{ kind: "ingredient", name: ingredient.name }} />
             </View>
           </View>
-        </Section>
-
-        <Section title="Things to know" gap={23} top={44}>
-          {notes.length > 0 ? (
-            <View style={{ gap: 23 }}>
-              {notes.map((note) => (
-                <View key={note} className="flex-row items-center gap-3">
-                  <CheckIcon color={meta.hero} />
-                  <Text style={{ flex: 1, fontSize: NOTE_SIZE, lineHeight: 18, color: INK }}>{note}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <Text style={{ fontSize: 13, lineHeight: 19, color: INK }}>
-              We hold no regulatory record, declared function or pore rating for
-              this name — which is itself the thing worth knowing about it.
-            </Text>
-          )}
-        </Section>
-
-        {/* Plain bordered card, not a tinted lilac panel — the design
-            system keeps no tinted panels (design/DESIGN_SYSTEM.md's Colour
-            section): an earlier onboarding revision tried them and the
-            illustrations' own colour shapes competed with the panel. Hidden
-            for a name we couldn't recognise: a search for it finds nothing
-            useful (#296). And only for a name no rule covers (#326): a rule's
-            claim links its own source above, and a general search beside it
-            would read as backing the claim. */}
-        {verified && !rule ? (
-          <Pressable
-            onPress={() =>
-              void Linking.openURL(
-                `https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(ingredient.name)}`
-              ).catch((err) => console.warn("openURL failed:", err))
-            }
-            accessibilityRole="link"
-            style={{
-              marginTop: 28,
-              marginHorizontal: 24,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: BORDER_INACTIVE,
-              backgroundColor: CANVAS,
-              ...CARD_SHADOW,
-              paddingHorizontal: 20,
-              paddingVertical: 16,
-            }}
-            className="active:opacity-80"
-          >
-            <View className="shrink gap-0.5">
-              <Text style={{ fontSize: LEARN_MORE_SIZE, fontWeight: "600", color: INK }}>Want to learn more?</Text>
-              <Text style={{ fontSize: 12.5, color: MUTED }}>Look it up on PubChem</Text>
-            </View>
-            <LearnMoreArrow />
-          </Pressable>
-        ) : null}
-
-        <Text style={{ paddingHorizontal: 24, paddingTop: 36, fontSize: TYPE.caption, color: MUTED_FAINT }}>
-          Reference data from Open Beauty Facts and EU CosIng.
-        </Text>
-
-        {/* A wrong name, reading or claim gets told to us (#327). */}
-        <View style={{ paddingHorizontal: 24, paddingTop: 8 }}>
-          <ReportMistakeLink subject={{ kind: "ingredient", name: ingredient.name }} />
-        </View>
         </ReadingScale>
       </ScrollView>
 
       {inList ? (
+        // Previous and Next along the label, pinned to the bottom (handoff).
         <View
           style={{
             position: "absolute",
@@ -527,58 +385,150 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             right: 0,
             bottom: 0,
             flexDirection: "row",
-            gap: 12,
+            gap: 10,
             borderTopWidth: 1,
-            borderTopColor: BORDER_INACTIVE,
+            borderTopColor: VERDICT_NEUTRAL.tint,
             backgroundColor: CANVAS,
-            paddingHorizontal: 24,
-            // Was a bare 32 — see app/product/[id].tsx's own note on why that's
-            // not guaranteed to clear Android's nav/gesture bar.
-            paddingBottom: Math.max(32, insets.bottom + 12),
+            paddingHorizontal: 20,
             paddingTop: 12,
+            paddingBottom: Math.max(20, insets.bottom),
           }}
         >
-          <PrimaryButton variant="secondary" size={56} style={{ flex: 1 }} label="Back to list" onPress={() => router.back()} />
-          <PrimaryButton
-            size={56}
-            style={{ flex: 1 }}
-            label="Next ingredient"
-            onPress={() => {
-              // Only rendered `inList`, so the product and position are there.
-              if (!product) return;
-              const next = product.ingredients[(index + 1) % product.ingredients.length];
-              router.replace({
-                pathname: "/ingredient/[inci]",
-                params: { inci: next.name, product: product.id },
-              });
-            }}
-          />
+          <Pressable
+            onPress={previous ? () => step(previous) : undefined}
+            disabled={!previous}
+            accessibilityRole="button"
+            accessibilityLabel="Previous ingredient"
+            accessibilityState={{ disabled: !previous }}
+            style={{ width: PAGER_BUTTON, height: PAGER_BUTTON, borderRadius: PAGER_BUTTON / 2, borderWidth: 1.5, borderColor: LINE, backgroundColor: SURFACE, alignItems: "center", justifyContent: "center", opacity: previous ? 1 : 0.4 }}
+            className="active:opacity-70"
+          >
+            <Ionicons name="chevron-back" size={22} color={INK} />
+          </Pressable>
+          {next ? (
+            <Pressable
+              onPress={() => step(next)}
+              accessibilityRole="button"
+              accessibilityLabel={`Next ingredient: ${displayIngredientName(next.name)}`}
+              style={{ flex: 1, height: PAGER_BUTTON, borderRadius: PAGER_BUTTON / 2, borderWidth: 1.5, borderColor: LINE, backgroundColor: SURFACE, flexDirection: "row", alignItems: "center", gap: 10, paddingLeft: 20, paddingRight: 14 }}
+              className="active:opacity-80"
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Next · #{index + 2}</Text>
+                <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "600", color: INK }}>
+                  {displayIngredientName(next.name)}
+                </Text>
+              </View>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: TONE[labelOf(next)].solid }} />
+              <Ionicons name="chevron-forward" size={20} color={MUTED} />
+            </Pressable>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
         </View>
       ) : null}
     </View>
   );
 }
 
-function Section({
-  title,
-  gap = 12,
-  top = 38,
-  children,
-}: {
-  title: string;
-  /** The mockup gives each section its own rhythm; these are its values. */
-  gap?: number;
-  top?: number;
-  children: React.ReactNode;
-}) {
+const FIT_ICON: Record<Fit, keyof typeof Ionicons.glyphMap> = {
+  good: "heart",
+  watch: "warning-outline",
+  avoid: "warning-outline",
+  unknown: "help-circle-outline",
+  none: "heart-outline",
+};
+
+function Card({ style, children }: { style?: object; children: React.ReactNode }) {
+  return <View style={[{ borderRadius: CARD_RADIUS, backgroundColor: SURFACE, ...CARD_SHADOW }, style]}>{children}</View>;
+}
+
+function SectionLabel({ children }: { children: string }) {
+  return <Text style={{ fontSize: 13, fontWeight: "600", color: MUTED }}>{children}</Text>;
+}
+
+// How much a position means, in words. Only for positions before the label's
+// alphabetical tail, where order still says something (`positionNote`).
+const AMOUNT: Record<string, string> = {
+  "high concentration": "Ingredients are listed from most to least, so this is one of the main ones.",
+  significant: "Ingredients are listed from most to least, so there's a fair amount of this.",
+  moderate: "Listed from most to least: a moderate amount.",
+  low: "Listed from most to least: only a small amount.",
+  trace: "Listed from most to least: a trace amount.",
+};
+
+/**
+ * Where it sits on this label: a dot for every ingredient, this one larger in
+ * its status colour, and what the position says about how much there is.
+ */
+function OnThisLabel({ names, index, colour }: { names: string[]; index: number; colour: string }) {
+  const total = names.length;
+  const ordered = positionNote(names, index) !== null;
+  const weight = positionWeightLabel(index);
+  // A long label's dots shrink so they still fit across the card; past about
+  // a hundred they may shrink further still (`flexShrink`), never overflow it.
+  const dot = total > 60 ? 3 : total > 40 ? 4 : 6;
   return (
-    <View style={{ paddingTop: top, gap, paddingHorizontal: 24 }}>
-      <Text style={{ fontSize: 15.5, fontWeight: "600", letterSpacing: -0.12, color: INK }}>
-        {title}
+    <Card style={{ padding: 20, gap: 12 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+        <SectionLabel>On this label</SectionLabel>
+        <Text style={{ fontSize: 13, color: MUTED }}>
+          #{index + 1} of {total}
+          {ordered ? ` · ${weight}` : ""}
+        </Text>
+      </View>
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 14 }}>
+        {names.map((name, i) => (
+          <View key={`${name}-${i}`} style={i === index ? { width: 12, height: 12, borderRadius: 6, backgroundColor: colour } : { flexShrink: 1, width: dot, height: dot, borderRadius: dot / 2, backgroundColor: LINE }} />
+        ))}
+      </View>
+      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+        <Text style={{ fontSize: TYPE.caption, color: MUTED }}>More</Text>
+        <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Less</Text>
+      </View>
+      <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
+        {ordered
+          ? AMOUNT[weight]
+          : "This part of the label is in alphabetical order, so its place doesn't say how much there is."}
       </Text>
-      {children}
-    </View>
+    </Card>
   );
+}
+
+/**
+ * A rule's own targets for this person, read the way `computeMatch` reads
+ * sensitivity (#183): for an ingredient opened without a product, where
+ * there is no score to ask.
+ */
+function ruleTargets(ingredient: Ingredient, profile: SkinProfile): { helps: boolean; hurts: boolean } {
+  const rule = ruleFor(ingredient);
+  if (!rule) return { helps: false, hurts: false };
+  return {
+    helps: targetApplies(rule.helps, { ...profile, sensitive: isSensitive(profile) }),
+    hurts: targetApplies(rule.hurts, { ...profile, sensitive: treatAsReactive(profile) }),
+  };
+}
+
+/**
+ * The verdict for an ingredient opened on its own (a label photo, Saved), with
+ * no product to score: the list's everyone-rules (EU status, fragrance and
+ * common irritants, the pore-clogging lists), then what its rule does for this
+ * person. Nothing against it reads as nothing against it, not "worth a second
+ * look" — which used to be said of every recognised name, water included.
+ */
+function fitWithoutProduct(ingredient: Ingredient, profile: SkinProfile): Fit {
+  // In the list's order (`ingredientLabel`): a hazard or a pregnancy caution
+  // first, even on an unrecognised name, so a retinol is never "Helps with"
+  // for someone pregnant.
+  const warnings = contraindications([ingredient], profile);
+  if (warnings.some((w) => w.severity === "hazard" || w.origin === "pregnancy")) return "avoid";
+  if (!isVerified(ingredient)) return isWarnedPoreClogging(ingredient) ? "watch" : "unknown";
+  if (ingredient.safety === "avoid") return "avoid";
+  if (warnings.length > 0 || ingredient.safety === "caution" || isCommonIrritant(ingredient) || isWarnedPoreClogging(ingredient)) return "watch";
+  const { helps, hurts } = ruleTargets(ingredient, profile);
+  if (hurts) return "watch";
+  if (helps) return "good";
+  return "none";
 }
 
 /** "Panthenol (Vitamin B5)" → the two lines the design draws. */
@@ -588,6 +538,19 @@ function splitName(ingredient: Ingredient): { primary: string; secondary: string
 
   const role = ingredient.functions?.[0];
   return { primary: ingredient.name, secondary: role ? role.toLowerCase() : null };
+}
+
+/** The kind line under the name: the common name, or the role it's declared for. */
+function kindLine(ingredient: Ingredient, rule: IngredientRule | undefined, secondary: string | null): string | null {
+  const role = ingredient.functions?.[0];
+  const parts = [secondary?.startsWith("(") ? secondary.slice(1, -1) : null, role ? sentenceCase(role) : null, rule?.helps ? "Active" : null];
+  const line = parts.filter(Boolean).join(" · ");
+  return line.length > 0 ? line : null;
+}
+
+function sentenceCase(text: string): string {
+  const lower = text.toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
 /**
@@ -621,14 +584,20 @@ function fitHeadline(
   fit: Fit,
   helps: boolean,
   hurts: boolean,
-  warning?: Contraindication
+  warning: Contraindication | undefined,
+  rule: IngredientRule | undefined,
+  profile: SkinProfile
 ): string {
-  if (fit === "unknown") return "We can't judge this one";
+  if (fit === "unknown") return "Not enough to go on";
   // A caution for this person outranks what a rule says it does: a retinoid
-  // is not a "Great match" while pregnant.
+  // is not a good fit while pregnant.
   if (fit === "avoid" && warning) return "Flagged for you";
-  if (hurts) return "Works against your profile";
-  if (helps) return "Great match";
+  if (hurts) return "Flagged for your skin";
+  if (helps) {
+    // Named after the concern it works on, where it works on one of theirs.
+    const concern = profile.concerns.find((c: Concern) => rule?.helps?.concerns?.includes(c));
+    return concern ? `Helps with your ${CONCERN_TITLE[concern].toLowerCase()}` : "Suits your skin";
+  }
   if (fit === "avoid") return "Flagged for everyone";
   if (fit === "watch") return "Worth a second look";
   return "Nothing against it";
@@ -640,12 +609,17 @@ function fitBody(
   hurts: boolean,
   verified: boolean,
   hasRule: boolean,
-  commonIrritant: boolean
+  commonIrritant: boolean,
+  inProduct: boolean
 ): string {
   if (fit === "unknown") {
-    return "An unrecognised name supports no claim in either direction, so this one neither counts for nor against the product's score.";
+    return "We don't know enough about this one to say how it fits your skin, so it isn't counted in your score.";
   }
-  if (hurts) return "This is one of the things pulling the score down for the skin you described.";
+  if (hurts) {
+    return inProduct
+      ? "This is one of the things pulling the score down for the skin you described."
+      : "It works against something you told us about your skin.";
+  }
   if (!verified) {
     return "This name didn't match our ingredient dictionary, but it is on the published pore-clogging lists.";
   }
@@ -660,24 +634,24 @@ function fitBody(
   if (fit === "watch") {
     return "Carries a restriction or a pore rating worth knowing about, though nothing in your profile makes it a specific problem.";
   }
-  if (!hasRule) {
-    return "No rule in our table applies to this ingredient, and nothing in your profile flags it — so it neither helps nor hurts your score.";
-  }
+  if (inProduct) return "Nothing in your profile reacts to it, so it doesn't change your score.";
+  if (!hasRule) return "Nothing in your profile reacts to it.";
   return "Neither helps nor hurts, given the answers you gave.";
 }
 
-function fitPill(
-  fit: Fit,
-  helps: boolean,
-  hurts: boolean,
-  warning?: Contraindication
-): string {
-  if (fit === "unknown") return "Unassessed";
+/** The pill under the verdict: what it does to this person's score, where there is one. */
+function fitTag(fit: Fit, helps: boolean, hurts: boolean, warning: Contraindication | undefined, match: MatchResult | null): string {
+  if (fit === "unknown") return "Not in your score";
+  // Only a score that exists can be lowered or raised: without a skin profile
+  // the match refuses and holds none (#383 review). A pregnancy caution never
+  // changes the score; a hazard caps it.
+  const scored = match !== null && match.score !== null;
+  if (scored && (hurts || (fit === "avoid" && warning?.severity === "hazard"))) return "Lowers your score";
   if (fit === "avoid" && warning) return "Flagged for you";
+  if (scored && helps) return "Adds to your score";
   if (hurts) return "Counts against your goals";
   if (helps) return "Good for your goals";
   if (fit === "avoid") return "Best avoided generally";
   if (fit === "watch") return "Worth knowing";
-  return "Neutral for your goals";
+  return "Neutral for you";
 }
-
