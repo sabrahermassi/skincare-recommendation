@@ -203,7 +203,7 @@ function RiskCard({ title, risk, onPress }: { title: string; risk: Risk; onPress
     >
       <AccentBar colour={tone.solid} />
       <Text style={{ marginTop: 2, fontSize: 13, fontWeight: "500", color: MUTED }}>{title}</Text>
-      <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, color: tone.solid }}>{risk.level}</Text>
+      <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, color: tone.deep }}>{risk.level}</Text>
       <Text numberOfLines={2} style={{ fontSize: 13, lineHeight: 17, color: MUTED }}>
         {risk.note}
       </Text>
