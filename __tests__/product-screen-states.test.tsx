@@ -193,6 +193,19 @@ describe("the product screen's result tabs", () => {
     }
   });
 
+  // #379 review (Codex): a new product id on the same screen starts on Safety,
+  // not on the last product's tab.
+  it("goes back to the Safety tab when a different product opens on the same screen", async () => {
+    await open();
+    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
+    expect(screen.getByRole("tab", { name: "Skin match" }).props.accessibilityState).toMatchObject({ selected: true });
+    mockParams = { id: "obf-8809999999999" };
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: { ...PRODUCT, id: "obf-8809999999999", barcode: "8809999999999" } }));
+    await screen.rerender(<ProductRoute />);
+    await act(async () => {});
+    expect(screen.getByRole("tab", { name: "Safety" }).props.accessibilityState).toMatchObject({ selected: true });
+  });
+
   it("puts what to avoid first, and opens an ingredient when tapped", async () => {
     await open();
     const labels = screen.getAllByRole("button").map((b) => String(b.props.accessibilityLabel ?? ""));

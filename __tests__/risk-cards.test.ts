@@ -75,6 +75,18 @@ describe("irritationRisk", () => {
   });
 });
 
+// #379 review (Codex): a read that recognised too little can't be called Low.
+describe("irritationRisk on a list too little of which was recognised", () => {
+  it("says Unknown, not 'Nothing restricted'", () => {
+    const read = {
+      type: "serum",
+      ingredients: [ingredient("glycerin"), ...["mystery one", "mystery two", "mystery three"].map((name) => ({ ...ingredient(name), verified: false }))],
+    } as unknown as ProductWithIngredients;
+    const risk = irritationRisk(read, matchProduct(read, EMPTY_PROFILE));
+    expect(risk).toMatchObject({ level: "Unknown", note: "Too little recognised" });
+  });
+});
+
 // #290: the browse row reads these same counts, so it can't say "1 flagged"
 // above a product page that says "3 flagged for your skin".
 describe("irritationCounts", () => {

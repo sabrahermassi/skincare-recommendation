@@ -1,6 +1,6 @@
 import type { ProductWithIngredients } from "@/data/types";
 import { isCommonIrritant } from "@/lib/ingredient-labels";
-import type { MatchResult } from "@/lib/matching";
+import { isLowCoverage, type MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
 import { irritationWarnings, isVerified } from "@/lib/safety";
 
@@ -34,6 +34,11 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
       tone: "avoid",
       hasEntries: true,
     };
+  }
+  // Too little of the list recognised to call it low (#379 review): anything
+  // flagged above still shows, but "Nothing restricted" would be a guess.
+  if (restricted === 0 && isLowCoverage(product.ingredients)) {
+    return { level: "Unknown", note: "Too little recognised", tone: "neutral", hasEntries: false };
   }
   if (restricted === 0 && common > 0) {
     // Fragrance or a common irritant is "to watch" for everyone in the Safety

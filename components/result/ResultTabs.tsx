@@ -16,7 +16,7 @@ import type { Ingredient, ProductType, SkinProfile } from "@/data/types";
 import { pairingNotesFor } from "@/lib/active-pairings";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { displayIngredientName } from "@/lib/ingredient-name";
-import { confidenceLabel, isLowCoverage, ruleFor, verdictHeadline, type MatchResult } from "@/lib/matching";
+import { concernSupport, confidenceLabel, isLowCoverage, ruleFor, verdictHeadline, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_TITLE, isPersonalized, profileHeadline } from "@/lib/profile";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
@@ -360,10 +360,10 @@ function Ring({ score, tone }: { score: number | null; tone: Tone }) {
 /** Each of the person's concerns, and the ingredient here that works on it. */
 function ConcernsCard({ ingredients, profile }: { ingredients: Ingredient[]; profile: SkinProfile }) {
   if (profile.concerns.length === 0) return null;
+  // Found the way the score finds it: a curated rule, else a declared function.
   const rows = profile.concerns.flatMap((concern) => {
-    const helper = ingredients.find((i) => ruleFor(i)?.helps?.concerns?.includes(concern));
-    const rule = helper ? ruleFor(helper) : undefined;
-    return helper && rule ? [{ concern, ingredient: displayIngredientName(helper.name), why: rule.reason.split(" - ")[0].trim() }] : [];
+    const support = concernSupport(ingredients, concern);
+    return support ? [{ concern, ingredient: displayIngredientName(support.ingredient), why: support.why }] : [];
   });
   return (
     <ListCard title="For your concerns">
@@ -391,16 +391,17 @@ function FlaggedCard({ ingredients, match }: { ingredients: Ingredient[]; match:
   const warned = irritationWarnings(match.warnings);
   const seen = new Set(warned.map((w) => w.ingredient.name));
   const rows = [
-    ...warned.map((w) => ({ name: w.ingredient.name, why: w.reason, avoid: w.severity === "hazard" })),
+    // Each warning keeps its source (#326), as the old score explanation did.
+    ...warned.map((w) => ({ name: w.ingredient.name, why: w.reason, avoid: w.severity === "hazard", source: w.source })),
     ...match.irritants
       .filter((name) => !seen.has(name))
       .map((name) => {
         const ingredient = ingredients.find((i) => i.name === name);
         const rule = ingredient ? ruleFor(ingredient) : undefined;
         seen.add(name);
-        return { name, why: rule ? rule.reason.split(" - ")[0].trim() : "Can irritate your skin", avoid: false };
+        return { name, why: rule ? rule.reason.split(" - ")[0].trim() : "Can irritate your skin", avoid: false, source: rule?.source };
       }),
-    ...match.cloggersCharged.filter((name) => !seen.has(name)).map((name) => ({ name, why: "Can clog pores", avoid: false })),
+    ...match.cloggersCharged.filter((name) => !seen.has(name)).map((name) => ({ name, why: "Can clog pores", avoid: false, source: undefined })),
   ];
   return (
     <ListCard title="Flagged for your skin">
@@ -415,6 +416,7 @@ function FlaggedCard({ ingredients, match }: { ingredients: Ingredient[]; match:
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={{ fontSize: TYPE.body, fontWeight: "500", color: INK }}>{displayIngredientName(row.name)}</Text>
                 <Text style={{ fontSize: 13, lineHeight: 17, color: MUTED }}>{row.why}</Text>
+                {row.source ? <SourceLink source={row.source} /> : null}
               </View>
               <View style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: tone.tint }}>
                 <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{row.avoid ? "Avoid" : "Watch"}</Text>
