@@ -117,31 +117,16 @@ describe("the Saved tab", () => {
     expect(screen.queryByText(/Sign in to keep them/)).toBeNull();
   });
 
-  it("shows a guest the routine step but offers no change", async () => {
-    useAppStore.setState({ savedProducts: [SERUM] });
-    await render(<Saved />);
-    await screen.findByText("Hanbang Rice Ferment Hydrating Serum");
-    expect(screen.queryByText("Change")).toBeNull();
-    expect(screen.getByText(/our guess/)).toBeTruthy();
-  });
-
-  it("offers the change once signed in", async () => {
-    signIn("u1");
-    useAppStore.setState({ savedProducts: [SERUM] });
-    await render(<Saved />);
-    await screen.findByText("Hanbang Rice Ferment Hydrating Serum");
-    expect(screen.getByText("Change")).toBeTruthy();
-  });
-
-  it("drops Undo when the shelf changes hands, so one account's item can't land on the next shelf", async () => {
-    signIn("u1");
-    useAppStore.setState({ savedProducts: [SERUM] });
-    await render(<Saved />);
-    await screen.findByText("Hanbang Rice Ferment Hydrating Serum");
-    await act(async () => fireEvent.press(screen.getByLabelText("Remove from saved")));
-    expect(screen.getByText("Undo")).toBeTruthy();
-    await act(async () => useAppStore.getState().leaveShelf()); // signed out
-    expect(screen.queryByText("Undo")).toBeNull();
-    expect(useAppStore.getState().savedProducts).toEqual([]);
+  // A saved card is the same as a History one (owner): no routine step under it.
+  it("shows no routine step under a saved card, to a guest or signed in", async () => {
+    for (const owner of [null, "u1"]) {
+      if (owner) signIn(owner);
+      useAppStore.setState({ savedProducts: [SERUM] });
+      await render(<Saved />);
+      await screen.findByText("Hanbang Rice Ferment Hydrating Serum");
+      expect(screen.queryByText(/our guess/)).toBeNull();
+      expect(screen.queryByText("Change")).toBeNull();
+      await act(async () => screen.unmount());
+    }
   });
 });

@@ -2,8 +2,8 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 /**
  * Saved and History (owner's reference): both are white cards with the heart
- * in the corner. Untapping a saved card's heart takes it off the shelf, with
- * an undo; a history card's bin asks "Delete product?" before it deletes, and
+ * in the corner. Untapping a saved card's heart takes it off the shelf at
+ * once; a history card's bin asks "Delete product?" before it deletes, and
  * a starred ingredient's bin asks "Delete ingredient?" the same way.
  */
 
@@ -45,14 +45,15 @@ beforeEach(() => {
   useAppStore.setState({ profile: EMPTY_PROFILE, savedProducts: [], savedIngredients: [], history: [], shelfOwner: null });
 });
 
-it("takes a saved product off the shelf when its heart is untapped, with a way back", async () => {
+it("takes a saved product off the shelf at once when its heart is untapped, with no Undo", async () => {
   useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 1 }] });
   await render(<Saved />);
   expect(await screen.findByText(NAME)).toBeTruthy();
 
   await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove from saved" })));
   expect(useAppStore.getState().savedProducts).toEqual([]);
-  expect(screen.getByRole("button", { name: "Undo" })).toBeTruthy();
+  expect(screen.queryByText("Undo")).toBeNull();
+  expect(screen.getByText("No products saved yet")).toBeTruthy();
 });
 
 describe("History", () => {

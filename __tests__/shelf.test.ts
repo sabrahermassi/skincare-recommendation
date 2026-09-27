@@ -172,16 +172,6 @@ describe("what the store queues", () => {
     expect(s().shelfQueue[0]).toMatchObject({ id: "a", formulaFetchedAt: "2026-09-01" });
   });
 
-  it("puts an undone removal back with its original time", () => {
-    s().adoptShelf("user-a");
-    s().saveProduct("a");
-    const original = s().savedProducts[0];
-    s().toggleSaved("a");
-    s().restoreSavedProduct(original);
-    const push = planPush(s().shelfQueue);
-    expect(push.saveProducts).toEqual([{ ...original, fresh: true }]);
-  });
-
   it("erases the account's shelf too when the app is reset, and stays signed in", () => {
     s().adoptShelf("user-a");
     useAppStore.setState({ savedProducts: [{ id: "a", savedAt: 1 }], savedIngredients: ["x"], shelfQueue: [] });
