@@ -9,7 +9,7 @@ import { TabTitle } from "@/components/TabTitle";
 import { Text } from "@/components/Text";
 import { answeredWithoutSignal, isPersonalized, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { CANVAS, CARD_SHADOW, CHIP_SHADOW, INK, MUTED, SELECTED, SURFACE } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, INK, MUTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 const AVATAR = 120;
@@ -49,22 +49,16 @@ export default function Profile() {
 
           <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 26, color: INK, textAlign: "center" }}>{title}</Text>
 
-          {tags.length > 0 ? (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 14 }}>
-              {tags.map((tag) => (
-                <View key={tag} style={{ paddingHorizontal: 20, paddingVertical: 9, borderRadius: 999, backgroundColor: SELECTED, ...CHIP_SHADOW }}>
-                  <Text style={{ fontSize: 13, fontWeight: "500", letterSpacing: 0.2, color: INK }}>{tag}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
+          {/* No chips of the answers here (owner): the Skin profile row below
+              holds them. A profile that doesn't score yet says how to fix that. */}
+          {tags.length === 0 ? (
             // Tucked up under the title, centred as a block of its own.
             <Text style={{ alignSelf: "center", maxWidth: 280, marginTop: -10, fontSize: 13, lineHeight: 19, color: MUTED, textAlign: "center" }}>
               {answeredWithoutSignal(profile)
                 ? "Scores aren't personal yet. Add your skin type or a concern when you know it."
                 : "Answer a few questions and every score will be made for your skin."}
             </Text>
-          )}
+          ) : null}
         </View>
 
         {/* The menu, in blocks: your skin, your account, and the reference pages. */}

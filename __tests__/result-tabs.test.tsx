@@ -64,3 +64,13 @@ it("gives the dark-spots SPF note on Skin match, not on the Safety tab everyone 
   await openMatch();
   expect(screen.getByText(/working on dark spots/)).toBeTruthy();
 });
+
+// Just the match (owner): no row of the person's answers or Edit above it.
+it("opens Skin match on the score, with no row of the answers above it", async () => {
+  await show(["niacinamide"], { concerns: ["hyperpigmentation"], baseSkinType: "combination", sensitivity: "some", pregnancyStatus: null });
+  await openMatch();
+  expect(screen.getByLabelText("Why this score")).toBeTruthy();
+  expect(screen.queryByText("Combination")).toBeNull();
+  expect(screen.queryByText("Somewhat sensitive")).toBeNull();
+  expect(screen.queryByText("Edit")).toBeNull();
+});

@@ -136,12 +136,14 @@ export const SELECTED = "#F9E7DC";
 export const GRAY_FILL = "#ECE4DD";
 
 /**
- * The rounded blocks of a menu (Profile, Account): a softer peach than
- * SELECTED, so the blocks sit close to the page rather than stand off it
- * (owner, 27 September 2026). Computed, not read off a mockup: the midpoint of
- * SELECTED (#F9E7DC) and the canvas (#FDF9F0), channel by channel.
+ * The rounded blocks of a menu (Profile, Account, the routine screen): a hair
+ * darker than the canvas and barely tinted, so the blocks read as quiet
+ * panels on the page rather than peach tiles (owner, after OnSkin's profile,
+ * 27 September 2026). Computed, not read off a mockup: the canvas (#FDF9F0)
+ * darkened 4–5 points per channel, keeping its warmth. Was #FBF0E6, the
+ * midpoint of SELECTED and the canvas, which read as too peach.
  */
-export const MENU_FILL = "#FBF0E6";
+export const MENU_FILL = "#F9F4EC";
 
 /**
  * The product result's list rows (design_handoff_skincare_cards, read off its

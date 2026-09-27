@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useState, type ReactNode } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 import { BottomSheet } from "@/components/BottomSheet";
@@ -18,7 +18,7 @@ import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { confidenceLabel, isLowCoverage, ruleFor, verdictHeadline, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
-import { CONCERN_TITLE, isPersonalized, profileHeadline } from "@/lib/profile";
+import { CONCERN_TITLE, isPersonalized } from "@/lib/profile";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
 import { irritationWarnings, isVerified } from "@/lib/safety";
 import {
@@ -28,7 +28,6 @@ import {
   CHOSEN,
   FLOATING_SHADOW,
   INK,
-  LINE,
   MUTED,
   SPACE,
   SURFACE,
@@ -250,27 +249,9 @@ function MatchTab({
   if (!isPersonalized(profile) && !lowCoverage) return <NoProfile />;
 
   const tone = toneOf(match);
-  const { tags } = profileHeadline(profile);
-  const chips = [...(profile.baseSkinType ? [titleCase(profile.baseSkinType)] : []), ...tags];
 
   return (
     <>
-      {chips.length > 0 ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Text style={{ fontSize: 13, color: MUTED }}>For</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 6 }}>
-            {chips.map((chip) => (
-              <View key={chip} style={{ borderRadius: 999, borderWidth: 1.5, borderColor: LINE, backgroundColor: CANVAS, paddingHorizontal: 12, paddingVertical: 5 }}>
-                <Text style={{ fontSize: 13, fontWeight: "600", color: MUTED }}>{chip}</Text>
-              </View>
-            ))}
-          </ScrollView>
-          <Pressable onPress={() => router.push("/skin-profile")} accessibilityRole="link" hitSlop={10} className="active:opacity-70">
-            <Text style={{ fontSize: 14, fontWeight: "600", color: CHOSEN.accent }}>Edit</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
       {/* The score, and an "i" that opens why. */}
       <View testID="score-card" style={{ flexDirection: largeText ? "column" : "row", alignItems: largeText ? "flex-start" : "center", gap: 20, borderRadius: 24, backgroundColor: SURFACE, paddingVertical: 22, paddingHorizontal: 20, ...CARD_SHADOW }}>
         <Ring score={match.score} tone={tone} />
@@ -561,10 +542,6 @@ function NoProfile() {
 function toneOf(match: MatchResult): Tone {
   const tone = toneForVerdict(match.verdict);
   return tone ? VERDICT[tone] : RISK_TONES.neutral;
-}
-
-function titleCase(word: string): string {
-  return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
 /** "A", "A and B", "A, B and C". */
