@@ -278,3 +278,81 @@ describe("the product screen's result tabs", () => {
     expect(screen.getByText("See your skin match")).toBeTruthy();
   });
 });
+
+// Opened from the finder's results, a product scores with the finder's answers,
+// so it shows the number its row showed (owner); from anywhere else, the skin profile.
+describe("the product screen opened from the finder", () => {
+  const { useFinderChoices } = require("@/lib/finder-choices") as typeof import("@/lib/finder-choices");
+  const { matchProduct } = require("@/lib/matching") as typeof import("@/lib/matching");
+  const ingredient = (name: string) => ({ id: name, name, comedogenic: 0, safety: "safe" as const, verified: true });
+  const PRODUCT = {
+    id: "obf-8801234567890",
+    barcode: "8801234567890",
+    brand: "Brand",
+    name: "Serum",
+    type: "serum" as const,
+    productType: "serum",
+    price: 0,
+    volume: "",
+    suitableFor: [],
+    targets: [],
+    description: "",
+    benefits: [],
+    imageUrl: null,
+    attribution: null,
+    fetchedAt: "2026-09-26T00:00:00Z",
+    ingredientIds: [],
+    inStock: true,
+    ingredients: ["water", "glycerin", "niacinamide", "butylene glycol", "sodium hyaluronate"].map(ingredient),
+  };
+  const FINDER = { ...EMPTY_PROFILE, concerns: ["hyperpigmentation" as const] };
+  const OWN = { ...EMPTY_PROFILE, baseSkinType: "oily" as const, concerns: ["acne-prone" as const], sensitivity: "high" as const };
+
+  afterEach(() => {
+    useAppStore.setState({ profile: EMPTY_PROFILE, history: [] });
+    useFinderChoices.setState({ choices: EMPTY_PROFILE });
+  });
+
+  async function open(from?: string) {
+    useAppStore.setState({ profile: OWN, history: [] });
+    useFinderChoices.setState({ choices: FINDER });
+    mockParams = from ? { id: PRODUCT.id, from } : { id: PRODUCT.id };
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+  }
+
+  it("shows the finder's score, and the skin profile's anywhere else", async () => {
+    const finderScore = matchProduct(PRODUCT, FINDER).score;
+    const ownScore = matchProduct(PRODUCT, OWN).score;
+    expect(finderScore).not.toBe(ownScore);
+
+    await open("finder");
+    expect(screen.getByText(String(finderScore))).toBeTruthy();
+    await act(async () => screen.unmount());
+
+    await open();
+    expect(screen.getByText(String(ownScore))).toBeTruthy();
+  });
+
+  it("speaks only to the finder's concerns", async () => {
+    await open("finder");
+    expect(screen.getByText("Dark spots")).toBeTruthy();
+    expect(screen.queryByText("Acne or pimples")).toBeNull();
+  });
+
+  it("still logs the skin profile's score in History", async () => {
+    await open("finder");
+    expect(useAppStore.getState().history[0]?.scoreAtView).toBe(matchProduct(PRODUCT, OWN).score);
+  });
+
+  it("opens an ingredient with the same answers", async () => {
+    await open("finder");
+    await fireEvent.press(screen.getByRole("tab", { name: "Safety" }));
+    await fireEvent.press(screen.getByLabelText(/^Niacinamide,/));
+    expect(router.push).toHaveBeenLastCalledWith({
+      pathname: "/ingredient/[inci]",
+      params: { inci: "niacinamide", product: PRODUCT.id, from: "finder" },
+    });
+  });
+});

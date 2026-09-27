@@ -12,7 +12,7 @@ import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients } fro
 import { matchProduct } from "@/lib/matching";
 import { profileHeadline } from "@/lib/profile";
 import { CANVAS, CHOSEN, FILTER_HIT_SLOP, FILTER_PILL, INK, MUTED, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
-import { useFinderChoices } from "@/lib/finder-choices";
+import { FROM_FINDER, useFinderChoices } from "@/lib/finder-choices";
 
 /**
  * The finder's results: every product in the catalogue, best match first for
@@ -152,7 +152,7 @@ export default function FinderResults() {
           maxToRenderPerBatch={6}
           windowSize={5}
           keyExtractor={({ product }) => product.id}
-          renderItem={({ item }) => <ProductRow product={item.product} match={item.match} saveable />}
+          renderItem={({ item }) => <ProductRow product={item.product} match={item.match} saveable from={FROM_FINDER} />}
           ListHeaderComponent={header}
           // The Filter's card floats over the rows below the header.
           ListHeaderComponentStyle={{ zIndex: 10 }}

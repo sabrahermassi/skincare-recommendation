@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import type { SkinProfile } from "@/data/types";
-import { EMPTY_PROFILE } from "@/store/useAppStore";
+import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
  * The skincare finder's own answers, kept apart from the skin profile (owner):
@@ -13,3 +13,18 @@ export const useFinderChoices = create<{ choices: SkinProfile; setChoices: (choi
   choices: EMPTY_PROFILE,
   setChoices: (choices) => set({ choices }),
 }));
+
+/** The `from` a product or ingredient page is opened with from the finder's results. */
+export const FROM_FINDER = "finder";
+
+/**
+ * The answers a page scores with. Opened from the finder's results, the
+ * finder's own answers, so the product shows the number its row showed and
+ * speaks only to what was chosen there (owner: "If it's 55 outside and I tap
+ * it, I should see 55"). Opened from anywhere else, the skin profile.
+ */
+export function useScoringProfile(from: string | undefined): SkinProfile {
+  const own = useAppStore((s) => s.profile);
+  const finder = useFinderChoices((s) => s.choices);
+  return from === FROM_FINDER ? finder : own;
+}
