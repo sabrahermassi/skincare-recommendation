@@ -60,9 +60,14 @@ async function renderSettled(element: React.JSX.Element) {
   await act(async () => {});
 }
 
-/** Opens the Skin match tab, where the score is. */
+/** Opens the Skin match tab, where the score is (it opens first; pressing it again is harmless). */
 async function openMatch() {
   await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
+}
+
+/** Opens the Safety tab, where the risk cards are. */
+async function openSafety() {
+  await fireEvent.press(screen.getByRole("tab", { name: "Safety" }));
 }
 
 /** The score ring's size, and whether the verdict sits beside it. */
@@ -99,11 +104,13 @@ describe.each([
   it("stacks the two risk cards at the largest text size, and keeps them side by side below it", async () => {
     mockFontScale = FONT_SCALE.ui;
     await renderSettled(screenFor());
+    await openSafety();
     expect(StyleSheet.flatten(screen.getByTestId("risk-cards").props.style).flexDirection).toBe("row");
     await act(async () => screen.unmount());
 
     mockFontScale = LARGEST;
     await renderSettled(screenFor());
+    await openSafety();
     expect(StyleSheet.flatten(screen.getByTestId("risk-cards").props.style).flexDirection).toBe("column");
   });
 

@@ -388,7 +388,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
             onIngredientPress={(ingredient) =>
               router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, product: product.id } })
             }
-            safetyFooter={
+            footer={
               <>
                 {/* The person's own note (#228), only for a product on their
                     shelf, and signed in only (#300): see useCanJournal. */}

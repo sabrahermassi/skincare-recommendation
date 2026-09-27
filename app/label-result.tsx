@@ -138,7 +138,7 @@ function Verdict({ read, fromHistory }: { read: HeldLabel; fromHistory: boolean 
             match={match}
             profile={profile}
             onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name } })}
-            safetyFooter={lowCoverage ? <PrimaryButton size={52} label="Retake the photo" onPress={() => retake()} /> : null}
+            footer={lowCoverage ? <PrimaryButton size={52} label="Retake the photo" onPress={() => retake()} /> : null}
           />
         </ReadingScale>
       </ScrollView>

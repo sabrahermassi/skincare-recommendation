@@ -7,7 +7,7 @@ import { clearLabelRead, holdLabelRead } from "@/lib/pending-label";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
- * A photographed label's result: the same Safety / Skin match tabs as a
+ * A photographed label's result: the same Skin match / Safety tabs as a
  * catalogue product, the Safety tab the same with or without a skin profile,
  * and a retake in place of the quiz for a read too thin to score.
  */
@@ -53,6 +53,8 @@ async function open(names: string[]) {
   await render(<LabelResult />);
   await act(async () => {});
 }
+// Skin match opens first (owner).
+const showSafety = () => fireEvent.press(screen.getByRole("tab", { name: "Safety" }));
 
 afterEach(() => {
   clearLabelRead();
@@ -66,6 +68,7 @@ const COUNT = "7 ingredients · 1 not recognised";
 describe("the label result", () => {
   it("shows the same Safety tab without a profile and with one", async () => {
     await open(LIST);
+    await showSafety();
     expect(screen.getByText(COUNT)).toBeTruthy();
     expect(screen.getByLabelText(/^Irritation risk:/)).toBeTruthy();
     await act(async () => screen.unmount());
@@ -74,11 +77,13 @@ describe("the label result", () => {
       profile: { concerns: ["redness"], baseSkinType: "combination", sensitivity: "some", pregnancyStatus: null },
     });
     await open(LIST);
+    await showSafety();
     expect(screen.getByText(COUNT)).toBeTruthy();
   });
 
   it("opens an ingredient from the list", async () => {
     await open(LIST);
+    await showSafety();
     await fireEvent.press(screen.getByLabelText(/^Linalool,/));
     expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ pathname: "/ingredient/[inci]" }));
   });
@@ -123,6 +128,7 @@ describe("History", () => {
     mockParams = { entry: "label-1" };
     await render(<LabelResult />);
     await act(async () => {});
+    await showSafety();
     expect(screen.getByText(COUNT)).toBeTruthy();
     expect(useAppStore.getState().history).toHaveLength(1);
   });
