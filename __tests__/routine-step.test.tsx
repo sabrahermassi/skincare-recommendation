@@ -147,14 +147,4 @@ describe("the shelf", () => {
     await act(async () => useAppStore.getState().toggleSaved("mugwort-gel-cleanser"));
     expect(screen.getByText("Hanbang Rice Ferment", { exact: false })).toBeTruthy();
   });
-
-  it("lets a product be put in a step, and says a guess is a guess", async () => {
-    await render(<Saved />);
-    await screen.findByText("Hanbang Rice Ferment", { exact: false });
-    expect(screen.getAllByText("Treat · our guess").length).toBeGreaterThan(0);
-    await act(async () => fireEvent.press(screen.getAllByText("Change")[0]));
-    await act(async () => fireEvent.press(screen.getAllByText("Moisturize & protect").at(-1)!));
-    const serum = useAppStore.getState().savedProducts.find((p) => p.id === "hanbang-rice-serum");
-    expect(serum?.routineStep).toBe(3);
-  });
 });

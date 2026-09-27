@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BottomSheet } from "@/components/BottomSheet";
 import { ConfirmSheet } from "@/components/ConfirmSheet";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { FilterDropdown } from "@/components/FilterDropdown";
@@ -21,7 +20,6 @@ import { SwipeToDelete } from "@/components/SwipeToDelete";
 // this FOR.ME shell token is reused outside its original scope.
 import { TabTitle } from "@/components/TabTitle";
 import { Text } from "@/components/Text";
-import { TypeChip } from "@/components/TypeChip";
 import { fetchProductsByIds, resolveIngredientNames } from "@/data/api";
 import { unknownIngredient, type Ingredient, type ProductWithIngredients } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
@@ -29,18 +27,16 @@ import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime, SAFETY_LABEL } from "@/lib/format";
 import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
-import { STEP_LABEL, STEP_ORDER, TYPE_STEP, stepOf, type RoutineStep, type StepGroup } from "@/lib/routine-step";
-import { isTabEmpty, type SavedTab } from "@/lib/saved-tabs";
+import { STEP_LABEL, STEP_ORDER, stepOf, type StepGroup } from "@/lib/routine-step";
 import { isVerified } from "@/lib/safety";
-import { useCanJournal } from "@/lib/saving";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, FLOATING_SHADOW, INK, MUTED, MUTED_FAINT, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
-import { useAppStore, type HistoryEntry, type SavedProduct } from "@/store/useAppStore";
+import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 
-type Tab = SavedTab;
+type Tab = "saved" | "history" | "ingredients";
 
 /**
  * The shelf and the log, on one screen.
@@ -55,7 +51,8 @@ type Tab = SavedTab;
  * score as a pill and a heart in the corner. On a saved card the pill is
  * today's score and untapping the heart takes the product off the shelf; on a
  * history card the pill is the score it had when you looked, the heart saves
- * or unsaves it, and a swipe left shows a bin that asks before deleting.
+ * or unsaves it, and a swipe left shows a bin that asks before deleting. A
+ * starred ingredient swipes to the same bin and question.
  */
 export default function Saved() {
   const insets = useSafeAreaInsets();
@@ -71,46 +68,17 @@ export default function Saved() {
   const savedProducts = useAppStore((s) => s.savedProducts);
   const savedIngredients = useAppStore((s) => s.savedIngredients);
   const history = useAppStore((s) => s.history);
-  const toggleSaved = useAppStore((s) => s.toggleSaved);
-  const setRoutineStep = useAppStore((s) => s.setRoutineStep);
-  const restoreSavedProduct = useAppStore((s) => s.restoreSavedProduct);
   const clearHistory = useAppStore((s) => s.clearHistory);
   const clearSavedProducts = useAppStore((s) => s.clearSavedProducts);
   const clearSavedIngredients = useAppStore((s) => s.clearSavedIngredients);
   const removeHistoryEntry = useAppStore((s) => s.removeHistoryEntry);
-  const shelfOwner = useAppStore((s) => s.shelfOwner);
-  const canJournal = useCanJournal();
+  const toggleSaved = useAppStore((s) => s.toggleSaved);
 
-  // A removed row's own data, held just long enough to put it back — nothing
-  // here is written until a timer or a tab switch clears it, so Undo can
-  // always restore exactly what was on screen a moment ago rather than
-  // re-deriving it from whatever the list looks like by the time it's
-  // tapped.
-  const [pendingUndo, setUndo] = useState<
-    { kind: "saved"; product: SavedProduct; owner: string | null } | null
-  >(null);
   // The history entry whose bin was tapped, waiting on the confirmation sheet.
   const [deleting, setDeleting] = useState<HistoryEntry | null>(null);
-  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    return () => {
-      if (undoTimer.current) clearTimeout(undoTimer.current);
-    };
-  }, []);
-  function showUndo(next: NonNullable<typeof pendingUndo>) {
-    if (undoTimer.current) clearTimeout(undoTimer.current);
-    setUndo(next);
-    undoTimer.current = setTimeout(() => setUndo(null), 4000);
-  }
-  function dismissUndo() {
-    if (undoTimer.current) clearTimeout(undoTimer.current);
-    setUndo(null);
-  }
-  // A removed shelf row belongs to whoever owned the shelf then. If the shelf
-  // has changed hands since (signed out, or in), putting it back would hand
-  // one person's item to the next shelf, which is carried into an account at
-  // sign-in (#300). So the offer goes with the owner; its timer clears it.
-  const undo = pendingUndo?.kind === "saved" && pendingUndo.owner !== shelfOwner ? null : pendingUndo;
+  // A saved product with a note, whose heart was untapped: unsaving deletes
+  // the note too, so it asks first. One without a note goes at once (owner).
+  const [unsaving, setUnsaving] = useState<string | null>(null);
 
   // The one irreversible action on this screen (see `clearHistory` below) —
   // gated behind a second tap the same way `profile.tsx`'s erase/discard
@@ -121,10 +89,8 @@ export default function Saved() {
   // that causes it rather than in an effect reacting to it after the fact.
   const [confirmingClear, setConfirmingClear] = useState(false);
 
-  // Routine steps (#227): which group the shelf is narrowed to, and which
-  // product's step is being chosen.
+  // Routine steps (#227): which group the shelf is narrowed to.
   const [stepFilter, setStepFilter] = useState<StepGroup | "all">("all");
-  const [pickingStepFor, setPickingStepFor] = useState<string | null>(null);
   // The tab stays mounted while another one is showing, so an armed "Clear it" would
   // still be waiting when the person came back. Leaving the screen disarms all three.
   useFocusEffect(
@@ -224,12 +190,6 @@ export default function Saved() {
   // text (and where the button leads) swaps. Each tab used to render its own,
   // and Ingredients sat behind a loading spinner first, so switching tabs
   // remounted the picture and flashed.
-  //
-  // Not just `length === 0` for Saved and History — removing the *last* row
-  // makes that true immediately, before the four-second Undo window has any
-  // chance to show. A pending undo of that kind keeps the list view (now
-  // rendering nothing but the bar) on screen instead of jumping straight to
-  // the empty state.
   const counts = { saved: savedIds.length, history: history.length, ingredients: savedIngredients.length };
 
   // The tab being left, while it fades out under the one arriving (owner: no
@@ -237,7 +197,7 @@ export default function Saved() {
   // own picture cross-fade covers the change.
   const [leaving, setLeaving] = useState<Tab | null>(null);
   const [crossfade] = useState(() => new Animated.Value(1));
-  const fading = leaving !== null && !(isTabEmpty(leaving, counts, undo?.kind) && isTabEmpty(tab, counts, undo?.kind));
+  const fading = leaving !== null && !(counts[leaving] === 0 && counts[tab] === 0);
   const selectTab = (next: Tab) => {
     setConfirmingClear(false);
     if (next === tab) return;
@@ -257,7 +217,7 @@ export default function Saved() {
   /** What one tab shows: its list, or its empty state. `live` is the tab being
    *  shown, as opposed to the one fading out, and only it takes the scroll ref. */
   const content = (t: Tab, live: boolean) => {
-    const empty = isTabEmpty(t, counts, undo?.kind);
+    const empty = counts[t] === 0;
     return (
       <>
           {empty ? (
@@ -308,59 +268,37 @@ export default function Saved() {
                 if (!product) return null;
                 if (activeFilter !== "all" && groupOf(id) !== activeFilter) return null;
                 const match = matchProduct(product, profile);
+                const note = savedProducts.find((p) => p.id === id)?.note;
                 return (
                   <Row
                     key={id}
                     product={product}
-                    corner={
-                      // Untapping the heart takes it off the shelf, with a moment to undo.
-                      <SaveHeart
-                        productId={id}
-                        onUnsave={() => {
-                          const saved = savedProducts.find((p) => p.id === id);
-                          toggleSaved(id);
-                          if (saved) showUndo({ kind: "saved", product: saved, owner: shelfOwner });
-                        }}
-                      />
-                    }
-                    footer={
-                      <StepLine
-                        group={groupOf(id)}
-                        chosen={savedProducts.find((p) => p.id === id)?.routineStep !== undefined}
-                        // Steps, like notes, are signed-in only (#300).
-                        onChange={canJournal ? () => setPickingStepFor(id) : undefined}
-                      />
-                    }
+                    // Untapping the heart takes it off the shelf at once
+                    // (owner), unless that would delete the person's note.
+                    corner={<SaveHeart productId={id} onUnsave={note ? () => setUnsaving(id) : undefined} />}
                   >
-                    {savedProducts.find((p) => p.id === id)?.note ? (
+                    {note ? (
                       // The person's own words, exactly as written (#228).
-                      <NotePreview note={savedProducts.find((p) => p.id === id)!.note!} />
+                      <NotePreview note={note} />
                     ) : null}
                     <ScorePill score={match.score} />
                   </Row>
                 );
               })}
-              {undo?.kind === "saved" && (
-                <UndoBar
-                  label="Removed"
-                  onUndo={() => {
-                    if (useAppStore.getState().shelfOwner === undo.owner) restoreSavedProduct(undo.product);
-                    dismissUndo();
-                  }}
-                />
-              )}
 
               <ShelfPairings notes={shelfNotes} />
 
-              <StepPicker
-                productId={pickingStepFor}
-                guess={pickingStepFor && byId[pickingStepFor] ? TYPE_STEP[byId[pickingStepFor].type] : null}
-                chosen={savedProducts.find((p) => p.id === pickingStepFor)?.routineStep ?? null}
-                onPick={(step) => {
-                  if (pickingStepFor) setRoutineStep(pickingStepFor, step);
-                  setPickingStepFor(null);
+              <ConfirmSheet
+                visible={unsaving !== null}
+                title="Remove from saved?"
+                line="Your note on it will be deleted too."
+                keepLabel="Keep it"
+                confirmLabel="Remove"
+                onClose={() => setUnsaving(null)}
+                onConfirm={() => {
+                  if (unsaving && savedProducts.some((p) => p.id === unsaving)) toggleSaved(unsaving);
+                  setUnsaving(null);
                 }}
-                onClose={() => setPickingStepFor(null)}
               />
 
               <ClearAll
@@ -372,7 +310,6 @@ export default function Saved() {
                 onCancel={() => setConfirmingClear(false)}
                 onConfirm={() => {
                   setConfirmingClear(false);
-                  dismissUndo();
                   clearSavedProducts();
                 }}
               />
@@ -421,7 +358,6 @@ export default function Saved() {
                 onCancel={() => setConfirmingClear(false)}
                 onConfirm={() => {
                   setConfirmingClear(false);
-                  dismissUndo();
                   clearHistory();
                 }}
               />
@@ -519,14 +455,11 @@ function Row({
   product,
   corner,
   children,
-  footer,
 }: {
   product: ProductWithIngredients;
   /** The heart in the top-right corner. */
   corner: ReactNode;
   children: ReactNode;
-  /** Controls under the card's link, outside it — see the note below on why. */
-  footer?: ReactNode;
 }) {
   const [scale, press] = usePressScale();
   return (
@@ -553,7 +486,6 @@ function Row({
             </View>
           </Pressable>
         </Link>
-        {footer}
         <View style={{ position: "absolute", top: 6, right: 6 }}>{corner}</View>
       </View>
     </LiftedCard>
@@ -596,37 +528,6 @@ function ShelfPairings({ notes }: { notes: PairingNote[] }) {
           <Text style={{ fontSize: TYPE.label, lineHeight: 19, color: MUTED }}>{note.text}</Text>
         </View>
       ))}
-    </View>
-  );
-}
-
-/** A brief "Removed — Undo" strip after a per-row remove, so a mis-tap or a
- *  change of mind has a way back before the 4s window in `showUndo` closes
- *  it. Sits at the end of whichever list just changed, not a floating
- *  toast — the two lists never show a removal at the same time, so there is
- *  never more than one of these on screen. */
-function UndoBar({ label, onUndo }: { label: string; onUndo: () => void }) {
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: BORDER_INACTIVE,
-        backgroundColor: SURFACE,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        ...FLOATING_SHADOW,
-      }}
-    >
-      <Text style={{ fontSize: 13, color: MUTED }}>{label}</Text>
-      <Pressable onPress={onUndo} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
-        <Text style={{ fontSize: 13, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-          Undo
-        </Text>
-      </Pressable>
     </View>
   );
 }
@@ -887,6 +788,8 @@ function IngredientsTab({
 }) {
   const insets = useSafeAreaInsets();
   const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
+  // The ingredient a swipe asked to delete, until the question is answered.
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [byName, setByName] = useState<Record<string, Ingredient> | null>(null);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -955,8 +858,27 @@ function IngredientsTab({
     <ScrollView ref={scrollRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
       {names.map((name) => {
         const ingredient: Ingredient = byName[name] ?? unknownIngredient(name);
-        return <IngredientRow key={name} ingredient={ingredient} onUnstar={() => toggleSavedIngredient(name)} />;
+        return (
+          <SwipeToDelete key={name} label={displayIngredientName(ingredient.name)} onDelete={() => setDeleting(name)}>
+            <IngredientRow ingredient={ingredient} onUnstar={() => toggleSavedIngredient(name)} />
+          </SwipeToDelete>
+        );
       })}
+
+      {/* The same swipe, bin and question as a History row (owner). */}
+      <ConfirmSheet
+        visible={deleting !== null}
+        title="Delete ingredient?"
+        line="It will disappear from your starred ingredients."
+        keepLabel="Keep it"
+        confirmLabel="Delete"
+        onClose={() => setDeleting(null)}
+        onConfirm={() => {
+          if (deleting && names.includes(deleting)) toggleSavedIngredient(deleting);
+          setDeleting(null);
+        }}
+      />
+
       {footer}
     </ScrollView>
   );
@@ -1051,70 +973,3 @@ function StepFilter({
   );
 }
 
-/**
- * One line under a saved card: which step it is in, and a way to change it.
- * "Not sorted" asks to be sorted; "Body & hair" is simply where it belongs.
- */
-function StepLine({ group, chosen, onChange }: { group: StepGroup | null; chosen: boolean; onChange?: () => void }) {
-  if (group === null) return null;
-  const label = (
-    <Text style={{ flex: 1, fontSize: TYPE.caption, color: MUTED }}>
-      {group === "unsorted" ? "Not sorted yet" : STEP_LABEL[group]}
-      {chosen ? "" : group === "unsorted" ? "" : " · our guess"}
-    </Text>
-  );
-  const lineStyle = { minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 17, borderTopWidth: 1, borderTopColor: BORDER_INACTIVE } as const;
-  // A guest sees the step but can't choose one.
-  if (!onChange) return <View style={lineStyle}>{label}</View>;
-  return (
-    <Pressable
-      onPress={onChange}
-      accessibilityRole="button"
-      accessibilityLabel={`Routine step: ${STEP_LABEL[group]}. Change`}
-      style={lineStyle}
-      className="active:opacity-70"
-    >
-      {label}
-      <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>{group === "unsorted" ? "Pick a step" : "Change"}</Text>
-    </Pressable>
-  );
-}
-
-/**
- * Choosing a step (#227). The three steps a product can be put in, and — once
- * the person has chosen — a way back to the guess from the product's type.
- * Where a product belongs, never when to use it: no morning or evening, no
- * order.
- */
-function StepPicker({
-  productId,
-  guess,
-  chosen,
-  onPick,
-  onClose,
-}: {
-  productId: string | null;
-  guess: StepGroup | null;
-  chosen: RoutineStep | null;
-  onPick: (step: RoutineStep | null) => void;
-  onClose: () => void;
-}) {
-  const current = chosen ?? guess;
-  return (
-    <BottomSheet visible={productId !== null} onClose={onClose}>
-      <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 19, color: INK }}>Which step is it?</Text>
-      <View style={{ gap: 10 }}>
-        {([1, 2, 3] as const).map((step) => (
-          <TypeChip key={step} label={STEP_LABEL[step]} selected={current === step} onPress={() => onPick(step)} />
-        ))}
-      </View>
-      {chosen !== null && guess !== null ? (
-        <Pressable onPress={() => onPick(null)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK }}>
-            {guess === "unsorted" ? "Clear my choice" : `Use our guess: ${STEP_LABEL[guess]}`}
-          </Text>
-        </Pressable>
-      ) : null}
-    </BottomSheet>
-  );
-}

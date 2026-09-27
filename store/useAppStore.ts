@@ -11,7 +11,7 @@ import { applyOps, shelfAsSaves, type Shelf, type ShelfOp } from "@/lib/shelf";
 
 import type { Concern, SkinProfile } from "@/data/types";
 
-export type SavedProduct = {
+type SavedProduct = {
   /** Product id, or a raw barcode for something scanned but not in the catalog. */
   id: string;
   savedAt: number;
@@ -218,15 +218,6 @@ type AppState = {
   saveProduct: (id: string, formulaFetchedAt?: string) => void;
   /** Add/remove. Use for the wishlist control, where toggling is the intent. */
   toggleSaved: (id: string, formulaFetchedAt?: string) => void;
-  /**
-   * Puts back a saved-shelf row exactly as it was — same `savedAt`, not a
-   * fresh one — for the Saved screen's remove-then-undo affordance.
-   * `toggleSaved` would re-add with today's timestamp and jump the row to
-   * the top of the newest-first sort; this restores its original position.
-   * A no-op if the id is already present, so a stale/duplicate Undo tap
-   * can't create a second row.
-   */
-  restoreSavedProduct: (product: SavedProduct) => void;
 
   /** Puts a saved product in a routine step, or back to the guess (`null`) — #227. */
   setRoutineStep: (id: string, step: RoutineStep | null) => void;
@@ -702,19 +693,6 @@ export const useAppStore = create<AppState>()(
             ...queued(state, { kind: "save-product", ...product }),
           };
         }),
-
-      restoreSavedProduct: (product) =>
-        set((state) =>
-          state.savedProducts.some((p) => p.id === product.id)
-            ? state
-            : {
-                savedProducts: [...state.savedProducts, product],
-                // Undo puts the row back with its original time, on the
-                // server as well: the queue then holds a removal and a save
-                // of the same item, which the push turns into that row again.
-                ...queued(state, { kind: "save-product", ...product }),
-              }
-        ),
 
       setRoutineStep: (id, step) =>
         set((state) => {

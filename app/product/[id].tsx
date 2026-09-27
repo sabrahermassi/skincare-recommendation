@@ -466,7 +466,7 @@ function ProductHeader({ product, total }: { product: ProductWithIngredients; to
         <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, lineHeight: 26, color: INK }}>
           {product.name}
         </Text>
-        <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: 14, color: MUTED }}>
+        <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.label, color: MUTED }}>
           {[
             product.volume,
             // A genuinely unidentified product doesn't show "Unknown" as if it

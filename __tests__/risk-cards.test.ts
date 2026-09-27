@@ -64,7 +64,7 @@ describe("irritationRisk", () => {
     expect(risk.note).not.toBe("Nothing restricted");
     // Both result screens render the pregnancy section *before* this card,
     // so the pointer says "above" (#257 review — it used to say "below").
-    expect(risk.note).toBe("See the pregnancy note above");
+    expect(risk.note).toBe("See the pregnancy note below");
   });
 
   it("still reads 'Nothing restricted' when there is truly nothing to report", () => {

@@ -2,8 +2,9 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 /**
  * Saved and History (owner's reference): both are white cards with the heart
- * in the corner. Untapping a saved card's heart takes it off the shelf, with
- * an undo; a history card's bin asks "Delete product?" before it deletes.
+ * in the corner. Untapping a saved card's heart takes it off the shelf at
+ * once; a history card's bin asks "Delete product?" before it deletes, and
+ * a starred ingredient's bin asks "Delete ingredient?" the same way.
  */
 
 jest.setTimeout(30000);
@@ -44,14 +45,38 @@ beforeEach(() => {
   useAppStore.setState({ profile: EMPTY_PROFILE, savedProducts: [], savedIngredients: [], history: [], shelfOwner: null });
 });
 
-it("takes a saved product off the shelf when its heart is untapped, with a way back", async () => {
+it("takes a saved product off the shelf at once when its heart is untapped, with no Undo", async () => {
   useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 1 }] });
   await render(<Saved />);
   expect(await screen.findByText(NAME)).toBeTruthy();
 
   await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove from saved" })));
   expect(useAppStore.getState().savedProducts).toEqual([]);
-  expect(screen.getByRole("button", { name: "Undo" })).toBeTruthy();
+  expect(screen.queryByText("Undo")).toBeNull();
+  expect(screen.getByText("No products saved yet")).toBeTruthy();
+});
+
+// Unsaving deletes the person's note with it, so a product with one asks first.
+describe("unsaving a product with a note", () => {
+  async function untap() {
+    useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 1, note: "Stings a bit" }] });
+    await render(<Saved />);
+    expect(await screen.findByText(NAME)).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove from saved" })));
+  }
+
+  it("asks, and keeps the product and its note on Keep it", async () => {
+    await untap();
+    expect(screen.getByText("Remove from saved?")).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Keep it" })));
+    expect(useAppStore.getState().savedProducts).toEqual([{ id: "aqua-ceramide-cream", savedAt: 1, note: "Stings a bit" }]);
+  });
+
+  it("removes it on Remove", async () => {
+    await untap();
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove" })));
+    expect(useAppStore.getState().savedProducts).toEqual([]);
+  });
 });
 
 describe("History", () => {
@@ -89,6 +114,34 @@ describe("History", () => {
     await act(async () => fireEvent.press(screen.getByRole("button", { name: `Delete ${NAME}` })));
     await act(async () => fireEvent.press(screen.getByRole("button", { name: "Keep it" })));
     expect(useAppStore.getState().history).toHaveLength(1);
+  });
+});
+
+describe("Ingredients", () => {
+  async function openIngredients() {
+    useAppStore.setState({ savedIngredients: ["niacinamide"] });
+    await render(<Saved />);
+    await act(async () => fireEvent.press(screen.getByRole("tab", { name: /Ingredients/ })));
+    await screen.findByText("Niacinamide");
+  }
+
+  it("asks before deleting a starred ingredient from the bin, and deletes only on Delete", async () => {
+    await openIngredients();
+
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete Niacinamide" })));
+    expect(screen.getByText("Delete ingredient?")).toBeTruthy();
+    expect(useAppStore.getState().savedIngredients).toEqual(["niacinamide"]);
+
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete" })));
+    expect(useAppStore.getState().savedIngredients).toEqual([]);
+  });
+
+  it("keeps the ingredient when the question is answered Keep it", async () => {
+    await openIngredients();
+
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete Niacinamide" })));
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Keep it" })));
+    expect(useAppStore.getState().savedIngredients).toEqual(["niacinamide"]);
   });
 });
 
