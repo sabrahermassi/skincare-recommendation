@@ -180,10 +180,11 @@ export const BUTTON = {
  * old peach (owner, 27 September 2026). `accent` is that colour for a word or
  * an icon (the Filter's current choice, the quiz tick's disc).
  *
- * `fill` is computed, not read off a mockup: the primary colour (#BA765F) at
- * 15% over the canvas (#FDF9F0). INK on it is 15:1.
+ * `fill` is computed, not read off a mockup: the primary colour (#9C6350) at
+ * 15% over the canvas (#FDF9F0). INK on it is 12.9:1. The border is 3.85:1
+ * against the fill, clear of the 3:1 a control's outline needs.
  */
-export const CHOSEN = { fill: "#F3E5DA", border: BUTTON.primary.fill, label: INK, accent: BUTTON.primary.fill } as const;
+export const CHOSEN = { fill: "#EEE3D8", border: BUTTON.primary.fill, label: INK, accent: BUTTON.primary.fill } as const;
 
 /**
  * One shape for every selectable control in the app — chips, option cards,

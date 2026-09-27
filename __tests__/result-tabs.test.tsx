@@ -74,3 +74,34 @@ it("opens Skin match on the score, with no row of the answers above it", async (
   expect(screen.queryByText("Somewhat sensitive")).toBeNull();
   expect(screen.queryByText("Edit")).toBeNull();
 });
+
+// #379 review (Codex): a sourced warning keeps its source in "Flagged for your
+// skin", and a concern met only by a declared function still shows under "For
+// your concerns", as the score counts it.
+async function showWith(extra: Ingredient[], profile: SkinProfile) {
+  const ingredients = [...BASE.map(ingredient), ...extra];
+  const match = matchProduct({ type: "serum", ingredients }, profile);
+  await render(<ResultTabs ingredients={ingredients} type="serum" match={match} profile={profile} onIngredientPress={jest.fn()} />);
+  await act(async () => {});
+}
+
+it("puts an EU prohibition's source under it in Flagged for your skin", async () => {
+  await showWith([{ ...ingredient("some prohibited substance"), safety: "avoid" }], { ...EMPTY_PROFILE, concerns: ["dullness"] });
+  await openMatch();
+  expect(screen.getByText("Flagged for your skin")).toBeTruthy();
+  expect(screen.getAllByLabelText("Source: EU Cosmetics Regulation, Annex II").length).toBeGreaterThan(0);
+});
+
+it("credits a concern met only by a declared function, as the score does", async () => {
+  // No curated rule here works on dehydration (unlike glycerin in BASE), so
+  // only the declared function can.
+  const ingredients = [ingredient("water"), ingredient("xanthan gum"), { ...ingredient("some declared humectant"), functions: ["humectant"] }];
+  const profile = { ...EMPTY_PROFILE, concerns: ["dehydrated" as const] };
+  await render(
+    <ResultTabs ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, profile)} profile={profile} onIngredientPress={jest.fn()} />,
+  );
+  await act(async () => {});
+  await openMatch();
+  expect(screen.queryByText("Nothing here works on your concerns in particular.")).toBeNull();
+  expect(screen.getByText(/Declared as a humectant/)).toBeTruthy();
+});

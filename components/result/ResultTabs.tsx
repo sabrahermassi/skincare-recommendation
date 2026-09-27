@@ -16,7 +16,7 @@ import type { Ingredient, ProductType, SkinProfile } from "@/data/types";
 import { pairingNotesFor } from "@/lib/active-pairings";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { displayIngredientName } from "@/lib/ingredient-name";
-import { confidenceLabel, isLowCoverage, ruleFor, verdictHeadline, type MatchResult } from "@/lib/matching";
+import { concernSupport, confidenceLabel, isLowCoverage, ruleFor, verdictHeadline, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_TITLE, isPersonalized } from "@/lib/profile";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
@@ -202,7 +202,7 @@ function RiskCard({ title, risk, onPress }: { title: string; risk: Risk; onPress
     >
       <AccentBar colour={tone.solid} />
       <Text style={{ marginTop: 2, fontSize: 13, fontWeight: "500", color: MUTED }}>{title}</Text>
-      <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, color: tone.solid }}>{risk.level}</Text>
+      <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, color: tone.deep }}>{risk.level}</Text>
       <Text numberOfLines={2} style={{ fontSize: 13, lineHeight: 17, color: MUTED }}>
         {risk.note}
       </Text>
@@ -217,7 +217,7 @@ function RiskCard({ title, risk, onPress }: { title: string; risk: Risk; onPress
  */
 function RoutineNote({ text, caution = false }: { text: string; caution?: boolean }) {
   return (
-    <View style={{ flexDirection: "row", gap: 12, borderRadius: 24, backgroundColor: VERDICT_NEUTRAL.tint, paddingVertical: 16, paddingHorizontal: 20 }}>
+    <View style={{ flexDirection: "row", gap: 12, borderRadius: 24, backgroundColor: VERDICT_NEUTRAL.tint, paddingVertical: SPACE.block, paddingHorizontal: 20 }}>
       <Ionicons testID={caution ? "routine-caution" : undefined} name="layers-outline" size={22} color={caution ? VERDICT.medium.solid : MUTED} />
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontSize: 13, fontWeight: "600", color: MUTED }}>In a routine</Text>
@@ -255,9 +255,9 @@ function MatchTab({
       {/* The score, and an "i" that opens why. */}
       <View testID="score-card" style={{ flexDirection: largeText ? "column" : "row", alignItems: largeText ? "flex-start" : "center", gap: 20, borderRadius: 24, backgroundColor: SURFACE, paddingVertical: 22, paddingHorizontal: 20, ...CARD_SHADOW }}>
         <Ring score={match.score} tone={tone} />
-        <View style={{ flex: 1, gap: 8, paddingRight: 24 }}>
+        <View style={{ flex: 1, gap: SPACE.text, paddingRight: SPACE.gutter }}>
           {lowCoverage ? (
-            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 20, color: INK }}>Couldn&apos;t score this one</Text>
+            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.title, color: INK }}>Couldn&apos;t score this one</Text>
           ) : (
             <View style={{ alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: tone.tint }}>
               <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{VERDICT_LABEL[match.verdict]}</Text>
@@ -277,7 +277,7 @@ function MatchTab({
             className="active:opacity-70"
           >
             {/* Drawn to fit its 32pt disc: large text would clip it. */}
-            <Text maxFontSizeMultiplier={1} style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontStyle: "italic", fontSize: 16, color: INK }}>
+            <Text maxFontSizeMultiplier={1} style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontStyle: "italic", fontSize: TYPE.body, color: INK }}>
               i
             </Text>
           </Pressable>
@@ -344,10 +344,10 @@ function Ring({ score, tone }: { score: number | null; tone: Tone }) {
 /** Each of the person's concerns, and the ingredient here that works on it. */
 function ConcernsCard({ ingredients, profile }: { ingredients: Ingredient[]; profile: SkinProfile }) {
   if (profile.concerns.length === 0) return null;
+  // Found the way the score finds it: a curated rule, else a declared function.
   const rows = profile.concerns.flatMap((concern) => {
-    const helper = ingredients.find((i) => ruleFor(i)?.helps?.concerns?.includes(concern));
-    const rule = helper ? ruleFor(helper) : undefined;
-    return helper && rule ? [{ concern, ingredient: displayIngredientName(helper.name), why: rule.reason.split(" - ")[0].trim() }] : [];
+    const support = concernSupport(ingredients, concern);
+    return support ? [{ concern, ingredient: displayIngredientName(support.ingredient), why: support.why }] : [];
   });
   return (
     <ListCard title="For your concerns">
@@ -359,7 +359,7 @@ function ConcernsCard({ ingredients, profile }: { ingredients: Ingredient[]; pro
             <View style={{ width: 10, height: 10, borderRadius: 5, marginTop: 6, backgroundColor: VERDICT.high.solid }} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={{ fontSize: TYPE.body, fontWeight: "500", color: INK }}>{CONCERN_TITLE[row.concern]}</Text>
-              <Text style={{ fontSize: 14, lineHeight: 20, color: MUTED }}>
+              <Text style={{ fontSize: TYPE.label, lineHeight: 20, color: MUTED }}>
                 <Text style={{ fontWeight: "500", color: INK }}>{row.ingredient}</Text> {row.why}
               </Text>
             </View>
@@ -375,16 +375,17 @@ function FlaggedCard({ ingredients, match }: { ingredients: Ingredient[]; match:
   const warned = irritationWarnings(match.warnings);
   const seen = new Set(warned.map((w) => w.ingredient.name));
   const rows = [
-    ...warned.map((w) => ({ name: w.ingredient.name, why: w.reason, avoid: w.severity === "hazard" })),
+    // Each warning keeps its source (#326), as the old score explanation did.
+    ...warned.map((w) => ({ name: w.ingredient.name, why: w.reason, avoid: w.severity === "hazard", source: w.source })),
     ...match.irritants
       .filter((name) => !seen.has(name))
       .map((name) => {
         const ingredient = ingredients.find((i) => i.name === name);
         const rule = ingredient ? ruleFor(ingredient) : undefined;
         seen.add(name);
-        return { name, why: rule ? rule.reason.split(" - ")[0].trim() : "Can irritate your skin", avoid: false };
+        return { name, why: rule ? rule.reason.split(" - ")[0].trim() : "Can irritate your skin", avoid: false, source: rule?.source };
       }),
-    ...match.cloggersCharged.filter((name) => !seen.has(name)).map((name) => ({ name, why: "Can clog pores", avoid: false })),
+    ...match.cloggersCharged.filter((name) => !seen.has(name)).map((name) => ({ name, why: "Can clog pores", avoid: false, source: undefined })),
   ];
   return (
     <ListCard title="Flagged for your skin">
@@ -399,6 +400,7 @@ function FlaggedCard({ ingredients, match }: { ingredients: Ingredient[]; match:
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={{ fontSize: TYPE.body, fontWeight: "500", color: INK }}>{displayIngredientName(row.name)}</Text>
                 <Text style={{ fontSize: 13, lineHeight: 17, color: MUTED }}>{row.why}</Text>
+                {row.source ? <SourceLink source={row.source} /> : null}
               </View>
               <View style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: tone.tint }}>
                 <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{row.avoid ? "Avoid" : "Watch"}</Text>
@@ -512,7 +514,7 @@ function WhySheet({
           className="active:opacity-70"
         >
           <Ionicons name="information-circle-outline" size={18} color={CHOSEN.accent} />
-          <Text style={{ fontSize: 14, fontWeight: "600", color: CHOSEN.accent }}>How scoring works</Text>
+          <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: CHOSEN.accent }}>How scoring works</Text>
         </Pressable>
       </View>
     </BottomSheet>
@@ -530,7 +532,7 @@ const WHY_TITLE: Record<MatchResult["verdict"], string> = {
 /** No skin profile yet: what the tab would show, and the way to it. */
 function NoProfile() {
   return (
-    <View style={{ alignItems: "center", gap: 12, borderRadius: 24, backgroundColor: SURFACE, paddingTop: 28, paddingHorizontal: 24, paddingBottom: 24, ...CARD_SHADOW }}>
+    <View style={{ alignItems: "center", gap: 12, borderRadius: 24, backgroundColor: SURFACE, paddingTop: 28, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.gutter, ...CARD_SHADOW }}>
       <View style={{ width: 200, height: 170, alignItems: "center", justifyContent: "center" }}>
         <View style={{ position: "absolute", left: 14, top: 10, width: 170, height: 150, borderTopLeftRadius: 90, borderTopRightRadius: 70, borderBottomRightRadius: 86, borderBottomLeftRadius: 74, backgroundColor: CHOSEN.fill }} />
         <View style={{ position: "absolute", right: 6, bottom: 8, width: 110, height: 96, borderTopLeftRadius: 60, borderTopRightRadius: 46, borderBottomRightRadius: 56, borderBottomLeftRadius: 44, backgroundColor: VERDICT.high.tint, opacity: 0.7 }} />

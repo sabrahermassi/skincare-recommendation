@@ -43,6 +43,7 @@ updates:
       # fail `npx expo install --check` and hold back every other update in it.
       # They move with a hand-made SDK upgrade (`npx expo install --fix`).
       - dependency-name: "@react-native-async-storage/async-storage"
+      - dependency-name: "@react-native-masked-view/masked-view"
       - dependency-name: "react"
       - dependency-name: "react-dom"
       - dependency-name: "react-native-gesture-handler"

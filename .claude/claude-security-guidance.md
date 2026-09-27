@@ -33,8 +33,9 @@ The per-item detail is in `docs/device-storage-policy.md` (on the phone) and
 3. **The service-role key only inside Edge Functions, and only after the
    request is checked.** `delete-account` verifies the caller's session
    (`auth.getUser`) before it touches their data. The public `product-lookup`
-   and `label-ocr` check the rate limit first, and a label save also needs a
-   read token signed by the server. The client never holds the service key.
+   and `label-ocr` check the rate limit first. `label-ocr` only reads a photo:
+   its save call answers 410 (#374), and what only saving used goes in #377.
+   The client never holds the service key.
 4. **Identity comes from the verified session, never the request body.** No
    function or query trusts a client-supplied user id.
 5. **`EXPO_PUBLIC_*` holds only what is safe to publish.** Expo copies these

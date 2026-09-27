@@ -7,7 +7,7 @@ import { INK } from "@/lib/tokens";
  * is that reference's size, measured off its screenshot (a 21pt cap height, and
  * Playfair's caps are 0.71 of its size); no type step is that large.
  */
-export const TAB_TITLE_SIZE = 30;
+const TAB_TITLE_SIZE = 30;
 
 export function TabTitle({ children }: { children: string }) {
   return (
