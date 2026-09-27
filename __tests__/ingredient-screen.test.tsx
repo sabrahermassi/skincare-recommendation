@@ -112,4 +112,12 @@ describe("the ingredient page", () => {
     expect(screen.getByText(/^Helps with your/)).toBeTruthy();
     expect(screen.queryByText("Adds to your score")).toBeNull();
   });
+
+  it("flags retinol for someone pregnant without a product, with its reason, never as a help", async () => {
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["fine-lines"], pregnancyStatus: "pregnant" } });
+    await open("retinol");
+    expect(screen.getAllByText("Flagged for you").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/^Helps with your/)).toBeNull();
+    expect(screen.queryByText("Lowers your score")).toBeNull();
+  });
 });

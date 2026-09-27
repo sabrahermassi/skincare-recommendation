@@ -21,7 +21,7 @@ import { matchProduct, positionNote, positionWeightLabel, ruleFor, type Contrain
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_TITLE, isPersonalized, isSensitive, treatAsReactive } from "@/lib/profile";
 import { targetApplies, type IngredientRule } from "@/lib/rules";
-import { isVerified, regulatoryStatus } from "@/lib/safety";
+import { contraindications, isVerified, regulatoryStatus } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
 import { CANVAS, CARD_SHADOW, CHOSEN, INK, LINE, MUTED, ROW_DIVIDER, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
@@ -162,7 +162,9 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
 
   // The warning that made the row Avoid comes first; one ingredient can carry
   // one per origin, each said with its own source (#347).
-  const warnings = match?.warnings.filter((w) => w.ingredient.id === ingredient.id) ?? [];
+  // Without a product, the same warnings the score would raise for this
+  // ingredient and profile — a pregnancy caution above all.
+  const warnings = match ? match.warnings.filter((w) => w.ingredient.id === ingredient.id) : contraindications([ingredient], profile);
   const warning = warnings.find((w) => w.severity === "hazard" || w.origin === "pregnancy") ?? warnings[0];
   const warningLines = warning
     ? [warning, ...warnings.filter((w) => w !== warning)].filter((w, i, all) => all.findIndex((other) => other.reason === w.reason) === i)
@@ -515,9 +517,14 @@ function ruleTargets(ingredient: Ingredient, profile: SkinProfile): { helps: boo
  * look" — which used to be said of every recognised name, water included.
  */
 function fitWithoutProduct(ingredient: Ingredient, profile: SkinProfile): Fit {
+  // In the list's order (`ingredientLabel`): a hazard or a pregnancy caution
+  // first, even on an unrecognised name, so a retinol is never "Helps with"
+  // for someone pregnant.
+  const warnings = contraindications([ingredient], profile);
+  if (warnings.some((w) => w.severity === "hazard" || w.origin === "pregnancy")) return "avoid";
   if (!isVerified(ingredient)) return isWarnedPoreClogging(ingredient) ? "watch" : "unknown";
   if (ingredient.safety === "avoid") return "avoid";
-  if (ingredient.safety === "caution" || isCommonIrritant(ingredient) || isWarnedPoreClogging(ingredient)) return "watch";
+  if (warnings.length > 0 || ingredient.safety === "caution" || isCommonIrritant(ingredient) || isWarnedPoreClogging(ingredient)) return "watch";
   const { helps, hurts } = ruleTargets(ingredient, profile);
   if (hurts) return "watch";
   if (helps) return "good";
