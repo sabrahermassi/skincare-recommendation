@@ -218,7 +218,7 @@ function RiskCard({ title, risk, onPress }: { title: string; risk: Risk; onPress
  */
 function RoutineNote({ text, caution = false }: { text: string; caution?: boolean }) {
   return (
-    <View style={{ flexDirection: "row", gap: 12, borderRadius: 24, backgroundColor: VERDICT_NEUTRAL.tint, paddingVertical: 16, paddingHorizontal: 20 }}>
+    <View style={{ flexDirection: "row", gap: 12, borderRadius: 24, backgroundColor: VERDICT_NEUTRAL.tint, paddingVertical: SPACE.block, paddingHorizontal: 20 }}>
       <Ionicons testID={caution ? "routine-caution" : undefined} name="layers-outline" size={22} color={caution ? VERDICT.medium.solid : MUTED} />
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontSize: 13, fontWeight: "600", color: MUTED }}>In a routine</Text>
@@ -256,7 +256,7 @@ function MatchTab({
   return (
     <>
       {chips.length > 0 ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
           <Text style={{ fontSize: 13, color: MUTED }}>For</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 6 }}>
             {chips.map((chip) => (
@@ -266,7 +266,7 @@ function MatchTab({
             ))}
           </ScrollView>
           <Pressable onPress={() => router.push("/skin-profile")} accessibilityRole="link" hitSlop={10} className="active:opacity-70">
-            <Text style={{ fontSize: 14, fontWeight: "600", color: CHOSEN.accent }}>Edit</Text>
+            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: CHOSEN.accent }}>Edit</Text>
           </Pressable>
         </View>
       ) : null}
@@ -274,9 +274,9 @@ function MatchTab({
       {/* The score, and an "i" that opens why. */}
       <View testID="score-card" style={{ flexDirection: largeText ? "column" : "row", alignItems: largeText ? "flex-start" : "center", gap: 20, borderRadius: 24, backgroundColor: SURFACE, paddingVertical: 22, paddingHorizontal: 20, ...CARD_SHADOW }}>
         <Ring score={match.score} tone={tone} />
-        <View style={{ flex: 1, gap: 8, paddingRight: 24 }}>
+        <View style={{ flex: 1, gap: SPACE.text, paddingRight: SPACE.gutter }}>
           {lowCoverage ? (
-            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 20, color: INK }}>Couldn&apos;t score this one</Text>
+            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.title, color: INK }}>Couldn&apos;t score this one</Text>
           ) : (
             <View style={{ alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: tone.tint }}>
               <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{VERDICT_LABEL[match.verdict]}</Text>
@@ -295,7 +295,7 @@ function MatchTab({
             style={{ position: "absolute", top: 12, right: 12, width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: SURFACE, ...FLOATING_SHADOW }}
             className="active:opacity-70"
           >
-            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontStyle: "italic", fontSize: 16, color: INK }}>i</Text>
+            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontStyle: "italic", fontSize: TYPE.body, color: INK }}>i</Text>
           </Pressable>
         )}
       </View>
@@ -375,7 +375,7 @@ function ConcernsCard({ ingredients, profile }: { ingredients: Ingredient[]; pro
             <View style={{ width: 10, height: 10, borderRadius: 5, marginTop: 6, backgroundColor: VERDICT.high.solid }} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={{ fontSize: TYPE.body, fontWeight: "500", color: INK }}>{CONCERN_TITLE[row.concern]}</Text>
-              <Text style={{ fontSize: 14, lineHeight: 20, color: MUTED }}>
+              <Text style={{ fontSize: TYPE.label, lineHeight: 20, color: MUTED }}>
                 <Text style={{ fontWeight: "500", color: INK }}>{row.ingredient}</Text> {row.why}
               </Text>
             </View>
@@ -524,7 +524,7 @@ function WhySheet({
           className="active:opacity-70"
         >
           <Ionicons name="information-circle-outline" size={18} color={CHOSEN.accent} />
-          <Text style={{ fontSize: 14, fontWeight: "600", color: CHOSEN.accent }}>How scoring works</Text>
+          <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: CHOSEN.accent }}>How scoring works</Text>
         </Pressable>
       </View>
     </BottomSheet>
@@ -542,7 +542,7 @@ const WHY_TITLE: Record<MatchResult["verdict"], string> = {
 /** No skin profile yet: what the tab would show, and the way to it. */
 function NoProfile() {
   return (
-    <View style={{ alignItems: "center", gap: 12, borderRadius: 24, backgroundColor: SURFACE, paddingTop: 28, paddingHorizontal: 24, paddingBottom: 24, ...CARD_SHADOW }}>
+    <View style={{ alignItems: "center", gap: 12, borderRadius: 24, backgroundColor: SURFACE, paddingTop: 28, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.gutter, ...CARD_SHADOW }}>
       <View style={{ width: 200, height: 170, alignItems: "center", justifyContent: "center" }}>
         <View style={{ position: "absolute", left: 14, top: 10, width: 170, height: 150, borderTopLeftRadius: 90, borderTopRightRadius: 70, borderBottomRightRadius: 86, borderBottomLeftRadius: 74, backgroundColor: CHOSEN.fill }} />
         <View style={{ position: "absolute", right: 6, bottom: 8, width: 110, height: 96, borderTopLeftRadius: 60, borderTopRightRadius: 46, borderBottomRightRadius: 56, borderBottomLeftRadius: 44, backgroundColor: VERDICT.high.tint, opacity: 0.7 }} />

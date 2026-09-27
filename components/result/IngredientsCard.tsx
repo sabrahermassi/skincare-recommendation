@@ -11,7 +11,7 @@ import { ingredientLabel, LABEL_META, sortForGlance, type IngredientLabel } from
 import { ruleFor, type MatchResult } from "@/lib/matching";
 import { isPoreClogging } from "@/lib/pore-clogging";
 import { isVerified } from "@/lib/safety";
-import { CANVAS, CARD_SHADOW, INK, LINE, MUTED, ROW_CHEVRON, ROW_DIVIDER, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, INK, LINE, MUTED, ROW_CHEVRON, ROW_DIVIDER, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 export type IngredientFilter = "all" | "actives" | "watch" | "pore";
 
@@ -97,7 +97,7 @@ export function IngredientsCard({
       </View>
 
       {rows.length === 0 ? (
-        <Text style={{ paddingHorizontal: ROW_LEFT, paddingTop: 8, paddingBottom: 22, fontSize: TYPE.body, color: MUTED }}>
+        <Text style={{ paddingHorizontal: ROW_LEFT, paddingTop: SPACE.text, paddingBottom: 22, fontSize: TYPE.body, color: MUTED }}>
           Nothing in this group - which is good news.
         </Text>
       ) : (
