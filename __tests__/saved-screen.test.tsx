@@ -92,10 +92,13 @@ describe("History", () => {
   });
 });
 
-it("offers the first scan on an empty Saved, and no button on an empty Ingredients", async () => {
+it("offers the first scan on an empty Saved, and no button on an empty History or Ingredients", async () => {
   await render(<Saved />);
   expect(await screen.findByText("No products saved yet")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Scan your first product" })).toBeTruthy();
+  await act(async () => fireEvent.press(screen.getByRole("tab", { name: "History" })));
+  expect(await screen.findByText("No history yet")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Scan your first product" })).toBeNull();
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" })));
   expect(await screen.findByText("No starred ingredients yet")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Scan your first product" })).toBeNull();

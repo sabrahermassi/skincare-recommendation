@@ -75,7 +75,7 @@ export default function FinderResults() {
       {chosen.length > 0 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           {chosen.map((label) => (
-            <View key={label} style={{ height: FILTER_PILL.height, justifyContent: "center", borderRadius: FILTER_PILL.radius, paddingHorizontal: 14, backgroundColor: CHOSEN.fill }}>
+            <View key={label} style={{ height: FILTER_PILL.height, justifyContent: "center", borderRadius: FILTER_PILL.radius, paddingHorizontal: 14, borderWidth: 1.5, borderColor: CHOSEN.border, backgroundColor: CHOSEN.fill }}>
               <Text style={{ fontSize: FILTER_PILL.fontSize, fontWeight: "600", color: CHOSEN.label }}>{label}</Text>
             </View>
           ))}

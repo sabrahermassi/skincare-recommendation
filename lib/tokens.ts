@@ -159,12 +159,16 @@ export const BUTTON = {
 
 /**
  * A chosen option in any selectable control — quiz cards, skin-profile chips,
- * filter chips, tabs of a list: the primary button's own fill and label, so
- * every "this one" in the app reads in the same colour as the main action
- * (owner, 27 September 2026). White on it is 3.6:1 (computed), AA for large
- * text only.
+ * filter pills: the same look the app always had, a darker outline around a
+ * pale fill with ink words, in the primary button's colour rather than the
+ * old peach (owner, 27 September 2026). `accent` is that colour for a word or
+ * an icon (the Filter's current choice, the quiz tick's disc).
+ *
+ * `fill` is computed, not read off a mockup: the primary colour (#9C6350) at
+ * 15% over the canvas (#FDF9F0). INK on it is 12.9:1. The border is 3.85:1
+ * against the fill, clear of the 3:1 a control's outline needs.
  */
-export const CHOSEN = { fill: BUTTON.primary.fill, border: BUTTON.primary.fill, label: BUTTON.primary.label } as const;
+export const CHOSEN = { fill: "#EEE3D8", border: BUTTON.primary.fill, label: INK, accent: BUTTON.primary.fill } as const;
 
 /**
  * One shape for every selectable control in the app — chips, option cards,

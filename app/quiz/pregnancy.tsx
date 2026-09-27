@@ -5,7 +5,7 @@ import { QuizOptionCard } from "@/components/QuizOptionCard";
 import { useQuizFrame } from "@/components/QuizFrame";
 import { QuizScreen } from "@/components/QuizScreen";
 import type { Pregnancy } from "@/data/types";
-import { quizStepNumber } from "@/lib/profile";
+import { PREGNANCY_QUESTION, PREGNANCY_WHY, pregnancyYesNo, quizStepNumber } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -15,23 +15,15 @@ import { useAppStore } from "@/store/useAppStore";
  * oils as a caution when the answer is "pregnant" or "breastfeeding"
  * (`lib/pregnancy-caution.ts`).
  *
+ * A yes or no (owner). "Yes" is stored as "pregnant": scoring treats
+ * pregnant and breastfeeding the same, so the answer needs no finer split, and
+ * an older "breastfeeding" answer still reads as Yes (`isYes`).
+ *
  * Icons: design-watercolor/skin quiz/screens/skin quiz screen 4.png.
  */
 const OPTIONS: { value: Pregnancy; label: string; icon: number }[] = [
-  { value: "pregnant", label: "Pregnant", icon: require("@/assets/illustrations/quiz/pregnancy-pregnant.png") },
-  {
-    value: "breastfeeding",
-    label: "Breastfeeding",
-    icon: require("@/assets/illustrations/quiz/pregnancy-breastfeeding.png"),
-  },
-  { value: "neither", label: "Neither", icon: require("@/assets/illustrations/quiz/concern-none.png") },
-  {
-    value: "prefer-not-to-say",
-    label: "Prefer not to say",
-    // Reuses sensitivity.tsx's "I don't know" icon (unsure.png), per
-    // explicit request, rather than pregnancy-prefer-not.png.
-    icon: require("@/assets/illustrations/quiz/unsure.png"),
-  },
+  { value: "pregnant", label: "Yes", icon: require("@/assets/illustrations/quiz/pregnancy-pregnant.png") },
+  { value: "neither", label: "No", icon: require("@/assets/illustrations/quiz/concern-none.png") },
 ];
 
 export default function PregnancyStep() {
@@ -39,7 +31,9 @@ export default function PregnancyStep() {
   const setProfile = useAppStore((s) => s.setProfile);
   const { close } = useQuizFrame();
   const markQuizJustFinished = useAppStore((s) => s.markQuizJustFinished);
-  const [picked, setPicked] = useState(pregnancyStatus !== null);
+  // A legacy "prefer not to say" isn't one of the two options, so it counts as
+  // not picked yet: Finish waits for Yes or No rather than showing neither.
+  const [picked, setPicked] = useState(pregnancyStatus !== null && pregnancyYesNo(pregnancyStatus) !== null);
 
   // Back to the screen the quiz opened over, which now shows the score (#346).
   function finish() {
@@ -52,8 +46,8 @@ export default function PregnancyStep() {
   return (
     <QuizScreen
       step={quizStepNumber("/quiz/pregnancy")}
-      title="Are you pregnant or breastfeeding?"
-      subtitle="This helps us give more relevant recommendations."
+      title={PREGNANCY_QUESTION}
+      subtitle={PREGNANCY_WHY}
       onNext={finish}
       nextDisabled={!picked}
       // Says what it does (#295): the quiz ends here. Not "Done": Skin
@@ -67,7 +61,7 @@ export default function PregnancyStep() {
             key={option.value}
             icon={option.icon}
             label={option.label}
-            selected={picked && pregnancyStatus === option.value}
+            selected={picked && pregnancyStatus !== null && pregnancyYesNo(pregnancyStatus) === option.value}
             onPress={() => {
               setProfile({ pregnancyStatus: option.value });
               setPicked(true);

@@ -10,7 +10,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import type { Concern, SkinProfile } from "@/data/types";
 import { haptic } from "@/lib/haptics";
-import { isPersonalized } from "@/lib/profile";
+import { isPersonalized, PREGNANCY_QUESTION, PREGNANCY_WHY } from "@/lib/profile";
 import { CANVAS, CARD_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 import { useFinderChoices } from "@/lib/finder-choices";
 import { EMPTY_PROFILE, MAX_CONCERNS, visibleConcernCount } from "@/store/useAppStore";
@@ -98,7 +98,7 @@ export default function Finder() {
             onChange={(sensitivity) => answer("sensitivity", { sensitivity })}
           />
         </Card>
-        <Card title="Pregnant or breastfeeding?" note="Some ingredients are best avoided while pregnant or breastfeeding; this lets us flag them.">
+        <Card title={PREGNANCY_QUESTION} note={PREGNANCY_WHY}>
           <PregnancyPicker value={draft.pregnancyStatus} onChange={(pregnancyStatus) => answer("pregnancy", { pregnancyStatus })} />
         </Card>
       </ScrollView>
