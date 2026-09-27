@@ -23,7 +23,7 @@ import { targetApplies, type IngredientRule } from "@/lib/rules";
 import { isVerified, regulatoryStatus } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
-import { CANVAS, CARD_SHADOW, CHOSEN, INK, LINE, MUTED, ROW_DIVIDER, SURFACE, TOUCH_TARGET, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, CHOSEN, INK, LINE, MUTED, ROW_DIVIDER, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 import { ingredientNameParam, productIdParam } from "@/lib/route-params";
 import NotFound from "@/app/+not-found";
@@ -271,9 +271,9 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
 
           <View style={{ paddingHorizontal: 20, gap: 14 }}>
             {/* What it does: not a card. */}
-            <View style={{ gap: 8, paddingHorizontal: 2, paddingBottom: 6 }}>
+            <View style={{ gap: SPACE.text, paddingHorizontal: 2, paddingBottom: 6 }}>
               <SectionLabel>What it does</SectionLabel>
-              <Text style={{ fontSize: 16, lineHeight: 24, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
+              <Text style={{ fontSize: TYPE.body, lineHeight: 24, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
               {rule?.source ? <SourceLink source={rule.source} /> : null}
             </View>
 
@@ -315,7 +315,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
                 </Text>
               )}
               <View style={{ alignSelf: "flex-start", marginTop: 2, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: tone.tint }}>
-                <Text style={{ fontSize: 12, fontWeight: "600", color: tone.deep }}>{fitTag(fit, helps, hurts, warning, match)}</Text>
+                <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{fitTag(fit, helps, hurts, warning, match)}</Text>
               </View>
             </Card>
 
@@ -328,7 +328,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
                 facts.map((fact, i) => (
                   <View key={fact.key} style={{ paddingHorizontal: 20 }}>
                     <View style={{ flexDirection: "row", gap: 12, paddingVertical: 13, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: ROW_DIVIDER }}>
-                      <Text style={{ width: 120, fontSize: 14, color: MUTED }}>{fact.key}</Text>
+                      <Text style={{ width: 120, fontSize: TYPE.label, color: MUTED }}>{fact.key}</Text>
                       <Text style={{ flex: 1, fontSize: 15, lineHeight: 21, color: INK }}>{fact.value}</Text>
                     </View>
                   </View>
@@ -353,18 +353,18 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
                 accessibilityRole="link"
                 accessibilityLabel="Read more on PubChem"
                 accessibilityHint="Opens in your browser"
-                style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: CARD_RADIUS, backgroundColor: VERDICT_NEUTRAL.tint, paddingVertical: 14, paddingLeft: 20, paddingRight: 16 }}
+                style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: CARD_RADIUS, backgroundColor: VERDICT_NEUTRAL.tint, paddingVertical: 14, paddingLeft: 20, paddingRight: SPACE.block }}
                 className="active:opacity-80"
               >
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={{ fontSize: 16, fontWeight: "600", color: INK }}>Read more on PubChem</Text>
+                  <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>Read more on PubChem</Text>
                   <Text style={{ fontSize: 13, color: MUTED }}>Opens in your browser</Text>
                 </View>
                 <Ionicons name="open-outline" size={18} color={MUTED} />
               </Pressable>
             ) : null}
 
-            <Text style={{ fontSize: 12, color: MUTED, paddingHorizontal: 4 }}>Reference data from Open Beauty Facts and EU CosIng.</Text>
+            <Text style={{ fontSize: TYPE.caption, color: MUTED, paddingHorizontal: 4 }}>Reference data from Open Beauty Facts and EU CosIng.</Text>
 
             {/* A wrong name, reading or claim gets told to us (#327). */}
             <View style={{ paddingHorizontal: 4 }}>
@@ -412,7 +412,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
               className="active:opacity-80"
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 12, color: MUTED }}>Next · #{index + 2}</Text>
+                <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Next · #{index + 2}</Text>
                 <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "600", color: INK }}>
                   {displayIngredientName(next.name)}
                 </Text>
@@ -463,7 +463,8 @@ function OnThisLabel({ names, index, colour }: { names: string[]; index: number;
   const total = names.length;
   const ordered = positionNote(names, index) !== null;
   const weight = positionWeightLabel(index);
-  // A long label's dots shrink so they still fit across the card.
+  // A long label's dots shrink so they still fit across the card; past about
+  // a hundred they may shrink further still (`flexShrink`), never overflow it.
   const dot = total > 60 ? 3 : total > 40 ? 4 : 6;
   return (
     <Card style={{ padding: 20, gap: 12 }}>
@@ -476,12 +477,12 @@ function OnThisLabel({ names, index, colour }: { names: string[]; index: number;
       </View>
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 14 }}>
         {names.map((name, i) => (
-          <View key={`${name}-${i}`} style={i === index ? { width: 12, height: 12, borderRadius: 6, backgroundColor: colour } : { width: dot, height: dot, borderRadius: dot / 2, backgroundColor: LINE }} />
+          <View key={`${name}-${i}`} style={i === index ? { width: 12, height: 12, borderRadius: 6, backgroundColor: colour } : { flexShrink: 1, width: dot, height: dot, borderRadius: dot / 2, backgroundColor: LINE }} />
         ))}
       </View>
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 12, color: MUTED }}>More</Text>
-        <Text style={{ fontSize: 12, color: MUTED }}>Less</Text>
+        <Text style={{ fontSize: TYPE.caption, color: MUTED }}>More</Text>
+        <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Less</Text>
       </View>
       <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
         {ordered
