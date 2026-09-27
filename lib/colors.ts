@@ -57,7 +57,6 @@ export const COLORS = {
   // names so its ten importers are unaffected.
   shellTerracotta: "#C4654F",
   shellSand: "#E8DDD1",
-  shellCtaText: "#FFFFFF",
   // The intro screens' own type and button colours, given by the owner
   // (26 September 2026). Intro only: the quiz, the tab bar and the scanner
   // keep the shell colours above.

@@ -4,7 +4,7 @@ import { Pressable, View } from "react-native";
 
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
-import { CTA, INK, MENU_FILL, MUTED, TYPE } from "@/lib/tokens";
+import { CTA, INK, MENU_FILL, MUTED, SPACE, TYPE } from "@/lib/tokens";
 
 // A block's corners, and each row's height.
 const GROUP_RADIUS = 26;
@@ -44,10 +44,10 @@ export function MenuRow({
   const body = (
     <>
       {icon ? <Ionicons name={icon} size={22} color={TERRACOTTA} /> : null}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, flex: value ? 0 : 1 }}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: SPACE.text, flex: value ? 0 : 1 }}>
         <Text style={{ fontSize: TYPE.body, fontWeight: "500", color: value && !onPress ? TERRACOTTA : INK }}>{label}</Text>
         {badge ? (
-          <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: CTA }}>
+          <View style={{ paddingHorizontal: SPACE.text, paddingVertical: 3, borderRadius: 8, backgroundColor: CTA }}>
             <Text style={{ fontSize: 12.5, fontWeight: "600", color: INK }}>{badge}</Text>
           </View>
         ) : null}
