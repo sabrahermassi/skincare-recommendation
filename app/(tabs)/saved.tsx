@@ -851,11 +851,10 @@ function EmptyState({ tab }: { tab: Tab }) {
           <View style={{ minHeight: 57, justifyContent: "flex-start" }}>
             <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
           </View>
-          {/* Saved and History start with a scan (owner's reference); a
-              starred ingredient comes from a product page, so Ingredients has
-              no button — only the room one takes, so the picture above stays
-              put when the tab changes. */}
-          {tab === "ingredients" ? (
+          {/* Only Saved offers the first scan (owner); History and
+              Ingredients keep the room the button takes, so the picture above
+              stays put when the tab changes. */}
+          {tab !== "saved" ? (
             <View style={{ height: EMPTY_BUTTON_HEIGHT, marginTop: SPACE.text }} />
           ) : (
             <PrimaryButton size={EMPTY_BUTTON_HEIGHT} label="Scan your first product" onPress={openScanner} style={{ marginTop: SPACE.text }} />
