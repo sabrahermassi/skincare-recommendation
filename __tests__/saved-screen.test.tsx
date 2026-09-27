@@ -3,7 +3,8 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 /**
  * Saved and History (owner's reference): both are white cards with the heart
  * in the corner. Untapping a saved card's heart takes it off the shelf, with
- * an undo; a history card's bin asks "Delete product?" before it deletes.
+ * an undo; a history card's bin asks "Delete product?" before it deletes, and
+ * a starred ingredient's bin asks "Delete ingredient?" the same way.
  */
 
 jest.setTimeout(30000);
@@ -89,6 +90,34 @@ describe("History", () => {
     await act(async () => fireEvent.press(screen.getByRole("button", { name: `Delete ${NAME}` })));
     await act(async () => fireEvent.press(screen.getByRole("button", { name: "Keep it" })));
     expect(useAppStore.getState().history).toHaveLength(1);
+  });
+});
+
+describe("Ingredients", () => {
+  async function openIngredients() {
+    useAppStore.setState({ savedIngredients: ["niacinamide"] });
+    await render(<Saved />);
+    await act(async () => fireEvent.press(screen.getByRole("tab", { name: /Ingredients/ })));
+    await screen.findByText("Niacinamide");
+  }
+
+  it("asks before deleting a starred ingredient from the bin, and deletes only on Delete", async () => {
+    await openIngredients();
+
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete Niacinamide" })));
+    expect(screen.getByText("Delete ingredient?")).toBeTruthy();
+    expect(useAppStore.getState().savedIngredients).toEqual(["niacinamide"]);
+
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete" })));
+    expect(useAppStore.getState().savedIngredients).toEqual([]);
+  });
+
+  it("keeps the ingredient when the question is answered Keep it", async () => {
+    await openIngredients();
+
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete Niacinamide" })));
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Keep it" })));
+    expect(useAppStore.getState().savedIngredients).toEqual(["niacinamide"]);
   });
 });
 

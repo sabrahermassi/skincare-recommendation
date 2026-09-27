@@ -55,7 +55,8 @@ type Tab = SavedTab;
  * score as a pill and a heart in the corner. On a saved card the pill is
  * today's score and untapping the heart takes the product off the shelf; on a
  * history card the pill is the score it had when you looked, the heart saves
- * or unsaves it, and a swipe left shows a bin that asks before deleting.
+ * or unsaves it, and a swipe left shows a bin that asks before deleting. A
+ * starred ingredient swipes to the same bin and question.
  */
 export default function Saved() {
   const insets = useSafeAreaInsets();
@@ -887,6 +888,8 @@ function IngredientsTab({
 }) {
   const insets = useSafeAreaInsets();
   const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
+  // The ingredient a swipe asked to delete, until the question is answered.
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [byName, setByName] = useState<Record<string, Ingredient> | null>(null);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -955,8 +958,27 @@ function IngredientsTab({
     <ScrollView ref={scrollRef} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: tabBarClearance(insets.bottom) }}>
       {names.map((name) => {
         const ingredient: Ingredient = byName[name] ?? unknownIngredient(name);
-        return <IngredientRow key={name} ingredient={ingredient} onUnstar={() => toggleSavedIngredient(name)} />;
+        return (
+          <SwipeToDelete key={name} label={displayIngredientName(ingredient.name)} onDelete={() => setDeleting(name)}>
+            <IngredientRow ingredient={ingredient} onUnstar={() => toggleSavedIngredient(name)} />
+          </SwipeToDelete>
+        );
       })}
+
+      {/* The same swipe, bin and question as a History row (owner). */}
+      <ConfirmSheet
+        visible={deleting !== null}
+        title="Delete ingredient?"
+        line="It will disappear from your starred ingredients."
+        keepLabel="Keep it"
+        confirmLabel="Delete"
+        onClose={() => setDeleting(null)}
+        onConfirm={() => {
+          if (deleting && names.includes(deleting)) toggleSavedIngredient(deleting);
+          setDeleting(null);
+        }}
+      />
+
       {footer}
     </ScrollView>
   );
