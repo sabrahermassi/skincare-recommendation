@@ -1292,23 +1292,18 @@ export type LabelRead =
     };
 
 /**
- * Whether this identifier is a barcode the label functions will accept.
- *
- * `label-ocr` validates `barcode` against `\d{8,14}` before it does anything
- * else and answers a 400 otherwise, so anything failing this here would fail
- * there — after the user had framed and taken a photo. Every screen offering
- * "photograph the label" has to ask this first.
- *
- * It lives beside `readLabel` because that is what it describes: not "is
- * this a valid GTIN" in the abstract, but "will the function below accept it".
- * If the Edge Function's rule changes, this is the line that changes with it.
+ * Whether this identifier is a retail product barcode (8 to 14 digits), as
+ * opposed to a QR code or other code the scanner also reads. The scanner uses
+ * it to tell "we don't have this product yet" from "that's not a product
+ * barcode". Since no label read carries a barcode any more (#374), it no
+ * longer mirrors a `label-ocr` rule.
  *
  * Two things reach these screens with an id that is not a barcode at all — a
  * catalogue product id (`obf-…`, `hanbang-rice-serum`) for a row we know but
  * could not load, and the raw payload of a missed QR or Code 128 scan, since
  * the scanner reads those formats too and logs whatever they contained.
  */
-export function canPhotographLabelFor(identifier: string | null | undefined): boolean {
+export function isProductBarcode(identifier: string | null | undefined): boolean {
   return typeof identifier === "string" && /^\d{8,14}$/.test(identifier);
 }
 

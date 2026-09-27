@@ -28,7 +28,7 @@ export function saveFromTap(save: () => void, target: "product" | "ingredient"):
  * False with no backend configured (a fresh checkout, the tests), where there
  * are no accounts to speak of.
  */
-export function useGuestShelf(): boolean {
+function useGuestShelf(): boolean {
   const owner = useAppStore((s) => s.shelfOwner);
   return isSupabaseConfigured && owner === null;
 }
