@@ -1,17 +1,19 @@
-import { act, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import IngredientRoute from "@/app/ingredient/[inci]";
 import LabelResult from "@/app/label-result";
 import ProductRoute from "@/app/product/[id]";
+import { RING_SIZE } from "@/components/result/ResultTabs";
 import { holdLabelRead } from "@/lib/pending-label";
-import { FONT_SCALE } from "@/lib/tokens";
+import { FONT_SCALE, TYPE } from "@/lib/tokens";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
  * #334, per #155: the product, ingredient and label-result screens at the
  * phone's largest text size. Past the ordinary ceiling the score ring grows
- * and goes above the verdict instead of beside it, and the ingredient page
- * drops its picture so the name has the whole width. The product name keeps
+ * and goes above the verdict instead of beside it, the two risk cards stack,
+ * and the ingredient page drops its picture so the name has the whole width. The product name keeps
  * its ordinary ceiling and the verdict title keeps growing, so the answer
  * stays near the top and still stands out. The sample catalogue
  * stands in for the backend (no Supabase env in tests).
@@ -44,12 +46,6 @@ jest.mock("expo-image", () => {
   return { Image: (props: object) => <View testID="image" {...props} /> };
 });
 
-// The ring's drawing is not the test; its size and where it sits are.
-jest.mock("@/components/ScoreRing", () => {
-  const { View } = jest.requireActual("react-native");
-  return { ScoreRing: ({ size }: { size: number }) => <View testID="score-ring" accessibilityValue={{ now: size }} /> };
-});
-
 const LARGEST = 3.57;
 const PRODUCT = "hanbang-rice-serum";
 
@@ -64,14 +60,16 @@ async function renderSettled(element: React.JSX.Element) {
   await act(async () => {});
 }
 
-/**
- * The score ring's size, and whether the verdict sits beside it. The row is a
- * NativeWind class, which tests see as the class name rather than a style.
- */
+/** Opens the Skin match tab, where the score is. */
+async function openMatch() {
+  await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
+}
+
+/** The score ring's size, and whether the verdict sits beside it. */
 function ring() {
-  const found = screen.getByTestId("score-ring");
-  const classes = String(found.parent?.props.className ?? "").split(/\s+/);
-  return { size: found.props.accessibilityValue.now as number, beside: classes.includes("flex-row") };
+  const card = StyleSheet.flatten(screen.getByTestId("score-card").props.style);
+  const drawn = StyleSheet.flatten(screen.getByTestId("score-ring").props.style);
+  return { size: drawn.width as number, beside: card.flexDirection === "row" };
 }
 
 describe.each([
@@ -87,33 +85,42 @@ describe.each([
   it("keeps the score ring beside the verdict, at its drawn size, up to the ordinary ceiling", async () => {
     mockFontScale = FONT_SCALE.ui;
     await renderSettled(screenFor());
-    expect(ring()).toEqual({ size: 82, beside: true });
+    await openMatch();
+    expect(ring()).toEqual({ size: RING_SIZE, beside: true });
   });
 
   it("grows the ring and puts it above the verdict at the largest text size", async () => {
     mockFontScale = LARGEST;
     await renderSettled(screenFor());
-    expect(ring()).toEqual({ size: 82 * FONT_SCALE.icon, beside: false });
+    await openMatch();
+    expect(ring()).toEqual({ size: RING_SIZE * FONT_SCALE.icon, beside: false });
   });
 
-  it("keeps the Ingredient check at the ordinary ceiling, so it doesn't push the verdict off the first screen (#345)", async () => {
+  it("stacks the two risk cards at the largest text size, and keeps them side by side below it", async () => {
+    mockFontScale = FONT_SCALE.ui;
+    await renderSettled(screenFor());
+    expect(StyleSheet.flatten(screen.getByTestId("risk-cards").props.style).flexDirection).toBe("row");
+    await act(async () => screen.unmount());
+
     mockFontScale = LARGEST;
     await renderSettled(screenFor());
-    expect(screen.getByText("Ingredient check").props.maxFontSizeMultiplier).toBe(FONT_SCALE.ui);
+    expect(StyleSheet.flatten(screen.getByTestId("risk-cards").props.style).flexDirection).toBe("column");
   });
 
-  // #346: no profile yet shows See your skin match, not an empty verdict panel.
-  it("with no profile yet, grows See your skin match's arrow with its words", async () => {
+  // #346: no profile yet asks for one, not an empty score.
+  it("with no profile yet, asks for one instead of a score", async () => {
     useAppStore.setState({ profile: EMPTY_PROFILE });
     mockFontScale = LARGEST;
     await renderSettled(screenFor());
+    await openMatch();
     expect(screen.queryByTestId("score-ring")).toBeNull();
-    expect(screen.getByTestId("skin-match-arrow").props.style).toMatchObject({ width: 22 * FONT_SCALE.icon });
+    expect(screen.getByText("See your skin match")).toBeTruthy();
   });
 
-  it("lets the verdict title follow the phone as far as body text, so it stays a step above it", async () => {
+  it("lets the verdict follow the phone as far as body text", async () => {
     await renderSettled(screenFor());
-    expect(screen.getByText(/^(Excellent|Good|Fair|Poor) match$/).props.maxFontSizeMultiplier).toBe(FONT_SCALE.reading);
+    await openMatch();
+    expect(screen.getByText(/^(Excellent|Good|Fair|Poor) match$/).props.maxFontSizeMultiplier).toBe((TYPE.body * FONT_SCALE.reading) / TYPE.caption);
   });
 });
 

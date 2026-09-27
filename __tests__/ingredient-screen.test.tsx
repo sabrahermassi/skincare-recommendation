@@ -2,10 +2,8 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { Linking } from "react-native";
 
 import IngredientRoute from "@/app/ingredient/[inci]";
-import { PregnancySection, ReasonLine } from "@/components/VerdictExplanation";
 import { resolveIngredientNames } from "@/data/api";
 import type { Ingredient } from "@/data/types";
-import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import { INGREDIENT_RULES } from "@/lib/rules";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
@@ -89,38 +87,5 @@ describe("the ingredient page", () => {
     await open("tea tree oil");
     expect(screen.queryByText(/^Source:/)).toBeNull();
     expect(screen.queryByText("Look it up on PubChem")).toBeNull();
-  });
-});
-
-describe("Why this score", () => {
-  it("puts a reason's source under it, and nothing under an unsourced one", async () => {
-    await render(
-      <>
-        <ReasonLine
-          reason={{ ingredient: "niacinamide", reason: "Sourced claim", category: "barrier", effect: 5, source: NIACINAMIDE_SOURCE }}
-        />
-        <ReasonLine reason={{ ingredient: "glycerin", reason: "Unsourced claim", category: "hydration", effect: 5 }} />
-      </>,
-    );
-    expect(screen.getAllByLabelText(/^Source:/)).toHaveLength(1);
-    expect(screen.getByText(NIACINAMIDE_SOURCE!.label)).toBeTruthy();
-  });
-
-  it("puts a pregnancy caution's source under it", async () => {
-    const hydroquinone = PREGNANCY_CAUTION.find((entry) => entry.category === "hydroquinone")!;
-    await render(
-      <PregnancySection
-        warnings={[
-          {
-            ingredient: ingredient("hydroquinone"),
-            reason: hydroquinone.reason,
-            severity: "irritant",
-            origin: "pregnancy",
-            source: hydroquinone.source,
-          },
-        ]}
-      />,
-    );
-    expect(screen.getByText(hydroquinone.source!.label)).toBeTruthy();
   });
 });

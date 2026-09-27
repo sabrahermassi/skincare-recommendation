@@ -85,7 +85,6 @@ jest.mock("@/components/ScanViewfinder", () => ({
   barcodeBox: () => undefined,
   SCAN_SIDE_INSET: 20,
 }));
-jest.mock("@/components/IngredientsSheet", () => ({ SHEET_INSET: 0, SHEET_OUTLINE: "#000", SHEET_RADIUS: 0 }));
 
 jest.mock("@/data/api", () => ({
   isProductBarcode: (id: string) => /^\d{8,14}$/.test(id),

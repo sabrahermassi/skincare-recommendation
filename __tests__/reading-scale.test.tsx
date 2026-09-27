@@ -1,13 +1,8 @@
-import { render, screen, within } from "@testing-library/react-native";
-import { StyleSheet, View } from "react-native";
+import { render, screen } from "@testing-library/react-native";
+import { View } from "react-native";
 
-import { RiskCards } from "@/components/RiskCards";
 import { ReadingScale, Text, readingFontScale, useIconScale, useRingScale } from "@/components/Text";
-import { ExplanationLine } from "@/components/VerdictExplanation";
-import type { Ingredient, ProductWithIngredients } from "@/data/types";
-import { matchProduct } from "@/lib/matching";
 import { FONT_SCALE, TYPE } from "@/lib/tokens";
-import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 /**
  * #334: inside a `ReadingScale` — the reading part of the product, ingredient
@@ -80,50 +75,6 @@ describe("Text in and out of a ReadingScale", () => {
   });
 });
 
-describe("ExplanationLine's sign", () => {
-  const line = <ExplanationLine label="Your concerns" detail="This formula works on what you asked about" direction="up" />;
-
-  it("moves into the label past the ordinary ceiling, so it can't be cut off from it", async () => {
-    mockFontScale = LARGEST;
-    await render(<ReadingScale>{line}</ReadingScale>);
-    // The sign is part of the label's own line, not a separate dot.
-    expect(within(screen.getByText("+ Your concerns")).getByText("+")).toBeTruthy();
-  });
-
-  it("keeps a claim's source under it at the largest size (#326)", async () => {
-    mockFontScale = LARGEST;
-    await render(
-      <ReadingScale>
-        <ExplanationLine
-          label="niacinamide"
-          detail="Moderates oil"
-          direction="up"
-          source={{ label: "DermNet: nicotinamide", url: "https://dermnetnz.org/topics/nicotinamide" }}
-        />
-      </ReadingScale>,
-    );
-    expect(screen.getByText("+ Niacinamide")).toBeTruthy();
-    expect(screen.getByLabelText("Source: DermNet: nicotinamide")).toBeTruthy();
-  });
-
-  it("stays in its dot, grown with the words, up to the ordinary ceiling", async () => {
-    mockFontScale = FONT_SCALE.ui;
-    await render(<ReadingScale>{line}</ReadingScale>);
-    expect(screen.getByText("+").props.maxFontSizeMultiplier).toBe(FONT_SCALE.ui);
-    expect(screen.getByText("Your concerns")).toBeTruthy();
-  });
-
-  it("stays in its dot outside a ReadingScale, and never shrinks below its drawn size", async () => {
-    mockFontScale = LARGEST;
-    const { rerender } = await render(line);
-    expect(screen.getByText("+").props.maxFontSizeMultiplier).toBe(FONT_SCALE.ui);
-
-    mockFontScale = 0.8;
-    await rerender(<ReadingScale>{line}</ReadingScale>);
-    expect(screen.getByText("+").props.maxFontSizeMultiplier).toBe(1);
-  });
-});
-
 describe("icon and ring growth", () => {
   function Probe({ fontSize }: { fontSize: number }) {
     return <Text>{`${useIconScale(fontSize)} ${useRingScale()}`}</Text>;
@@ -147,38 +98,5 @@ describe("icon and ring growth", () => {
     mockFontScale = 2.25;
     await rerender(<Probe fontSize={TYPE.label} />);
     expect(screen.getByText(`${FONT_SCALE.ui} ${2.25 / FONT_SCALE.ui}`)).toBeTruthy();
-  });
-});
-
-describe("RiskCards", () => {
-  const ingredient = (name: string): Ingredient => ({
-    id: name,
-    name,
-    comedogenic: 0,
-    safety: "safe",
-    verified: true,
-    functions: [],
-  });
-  const product = {
-    type: "serum",
-    ingredients: ["glycerin", "propanediol", "carbomer", "allantoin"].map(ingredient),
-  } as unknown as ProductWithIngredients;
-  const cards = () => <RiskCards product={product} match={matchProduct(product, EMPTY_PROFILE)} />;
-  // The cards' own container is the root of what RiskCards renders.
-  const direction = () => {
-    const root = screen.toJSON();
-    return root && !Array.isArray(root) ? StyleSheet.flatten(root.props.style)?.flexDirection : undefined;
-  };
-
-  it("sits side by side up to the ordinary ceiling", async () => {
-    mockFontScale = FONT_SCALE.ui;
-    await render(cards());
-    expect(direction()).toBe("row");
-  });
-
-  it("stacks past it", async () => {
-    mockFontScale = LARGEST;
-    await render(cards());
-    expect(direction()).toBe("column");
   });
 });

@@ -1,4 +1,4 @@
-import { irritationCounts, irritationRisk, poreRisk } from "@/components/RiskCards";
+import { irritationCounts, irritationRisk, poreRisk } from "@/lib/risk";
 import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -72,6 +72,18 @@ describe("irritationRisk", () => {
     const pregnant = profile({ concerns: ["fine-lines"], pregnancyStatus: "pregnant" });
     const risk = irritationRisk(clean, matchProduct(clean, pregnant));
     expect(risk.note).toBe("Nothing restricted");
+  });
+});
+
+// #379 review (Codex): a read that recognised too little can't be called Low.
+describe("irritationRisk on a list too little of which was recognised", () => {
+  it("says Unknown, not 'Nothing restricted'", () => {
+    const read = {
+      type: "serum",
+      ingredients: [ingredient("glycerin"), ...["mystery one", "mystery two", "mystery three"].map((name) => ({ ...ingredient(name), verified: false }))],
+    } as unknown as ProductWithIngredients;
+    const risk = irritationRisk(read, matchProduct(read, EMPTY_PROFILE));
+    expect(risk).toMatchObject({ level: "Unknown", note: "Too little recognised" });
   });
 });
 

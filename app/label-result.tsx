@@ -1,29 +1,22 @@
 import { router, useLocalSearchParams } from "expo-router";
-
-import { track } from "@/lib/analytics";
-import { photoScannerHref } from "@/lib/open-scanner";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { IngredientCheck } from "@/components/IngredientCheck";
-import { IngredientsSheet, ingredientsSheetPeek, type IngredientsSheetHandle } from "@/components/IngredientsSheet";
 import { PrimaryButton } from "@/components/PrimaryButton";
-import { RiskCards } from "@/components/RiskCards";
-import { ScoreRing } from "@/components/ScoreRing";
-import { ContextNudgesSection, ExplanationLine, HowScoringLink, PairingSection, PregnancySection, ReasonLine, panelFor } from "@/components/VerdictExplanation";
+import { ResultTabs } from "@/components/result/ResultTabs";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { SkinMatchCard } from "@/components/SkinMatchCard";
-import { ReadingScale, Text, useLargeText, useRingScale } from "@/components/Text";
+import { ReadingScale, Text } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
 import type { Ingredient } from "@/data/types";
-import { pairingNotesFor } from "@/lib/active-pairings";
-import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
-import { confidenceLabel, isLowCoverage, matchProduct, scoreExplanation, verdictHeadline } from "@/lib/matching";
+import { track } from "@/lib/analytics";
+import { isLowCoverage, matchProduct } from "@/lib/matching";
+import { photoScannerHref } from "@/lib/open-scanner";
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
-import { historyWarningCount, isVerified } from "@/lib/safety";
+import { historyWarningCount } from "@/lib/safety";
+import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
-import { CANVAS, FONT_SCALE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+
 /**
  * The verdict from a photographed label alone — score, reasons, confidence,
  * the parsed list — with no product name or barcode required first (issue
@@ -74,11 +67,6 @@ function Verdict({ read, fromHistory }: { read: HeldLabel; fromHistory: boolean 
   const insets = useSafeAreaInsets();
   const profile = useAppStore((s) => s.profile);
   const [ingredients, setIngredients] = useState<Ingredient[] | null>(null);
-  const sheetRef = useRef<IngredientsSheetHandle>(null);
-  // Past the ordinary text ceiling the verdict's words no longer fit beside
-  // the score ring, so the ring goes above them (#334).
-  const largeText = useLargeText();
-  const ringScale = useRingScale();
 
   useEffect(() => track("verdict_viewed", { path: "label" }), []);
 
@@ -126,167 +114,34 @@ function Verdict({ read, fromHistory }: { read: HeldLabel; fromHistory: boolean 
   }
 
   const match = matchProduct(product, profile);
-  const panel = panelFor(match.verdict);
   const total = product.ingredients.length;
-  const recognised = product.ingredients.filter(isVerified).length;
-  const helps = match.reasons.filter((r) => r.effect > 0).slice(0, 3);
-  const against = match.reasons.filter((r) => r.effect < 0).slice(0, 3);
-  const scoreLines = scoreExplanation(match);
-  const confidence = confidenceLabel(match.confidence);
-  // Derived independently of `match.unknownReason`, not read from it:
-  // `computeMatch` checks `isPersonalized` before coverage and refuses
-  // "not_personalized" unconditionally, so with no profile set
-  // `unknownReason` is never "low_coverage" no matter how bad the read was —
-  // found in review on this PR. `isLowCoverage` (`lib/matching.ts`) answers
-  // the coverage question on its own, so an unreadable read is refused
-  // whether or not a profile exists.
-  //
-  // #185/#201: a Korean- or Japanese-only label now reaches this lookup
-  // instead of being discarded, but `ingredient_synonyms` has no Korean names
-  // yet (#201 is not in the queue) — so it parses, resolves nothing, and
-  // lands here exactly like any other unreadable formula. That is the honest
-  // state today; the copy below says so without implying a bad photo.
   const lowCoverage = isLowCoverage(product.ingredients);
-  const needsProfile = !lowCoverage && match.unknownReason === "not_personalized";
-  const sheetPeek = total > 0 ? ingredientsSheetPeek(insets.bottom) : 0;
-
-  const scoreRing = <ScoreRing score={match.score} size={82 * ringScale} label="/100" tone={match.verdict} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenHeader title="Your match" />
-      <ScrollView
-        contentContainerStyle={{
-          gap: SPACE.block,
-          paddingTop: SPACE.text,
-          paddingBottom: total > 0 ? sheetPeek + SPACE.block : 200,
-          paddingHorizontal: SPACE.gutter,
-        }}
-      >
+      <ScreenHeader />
+      <ScrollView contentContainerStyle={{ paddingTop: SPACE.text, paddingBottom: insets.bottom + 60 }}>
         {/* The reading part of the screen: its text follows the phone's text
-            size all the way up (#334). The header and the ingredients sheet
-            keep the ordinary ceiling. */}
+            size all the way up (#334). */}
         <ReadingScale>
-        <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
-          {total > 0 ? `${total} ingredients read` : "Nothing was read"}
-        </Text>
-
-        {/* The same for everyone, profile or not (#345). The list it opens
-            isn't there for an unreadable read. */}
-        <IngredientCheck
-          ingredients={product.ingredients}
-          onPress={!lowCoverage && total > 0 ? () => sheetRef.current?.open() : undefined}
-        />
-
-        {/* No profile yet: the quiz, not an empty score (#346). */}
-        {needsProfile ? (
-          <SkinMatchCard />
-        ) : (
-        <View
-          className="rounded-card border"
-          style={{ backgroundColor: panel.bg, borderColor: panel.border, overflow: "hidden" }}
-        >
-          <View
-            accessible
-            className={largeText ? "items-start" : "flex-row items-center"}
-            style={{ gap: 20, paddingHorizontal: 20, paddingVertical: 22 }}
-          >
-            {scoreRing}
-            <View className={largeText ? "gap-1.5 self-stretch" : "flex-1 gap-1.5 pr-6"}>
-              <Text
-                // Follows the phone as far as body text does, so at the largest sizes
-                // the verdict still stands a step above the sentence under it (#334).
-                maxFontSizeMultiplier={FONT_SCALE.reading}
-                style={{
-                  fontFamily: "PlayfairDisplay_500Medium",
-                  fontSize: TYPE.title,
-                  lineHeight: 23,
-                  letterSpacing: -0.3,
-                  color: panel.ink,
-                }}
-              >
-                {lowCoverage ? "Couldn't score this one" : panel.label}
-              </Text>
-              <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
-                {lowCoverage
-                  ? "We read this list, but don't recognise enough of these ingredient names yet."
-                  : verdictHeadline(match)}
-              </Text>
-            </View>
+          {/* No product to name: what was read, as the header. */}
+          <View style={{ gap: 3, paddingHorizontal: 20, paddingBottom: 18 }}>
+            <Text accessibilityRole="header" style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, color: INK }}>
+              Label photo
+            </Text>
+            <Text style={{ fontSize: 14, color: MUTED }}>{total > 0 ? `${total} ingredients read` : "Nothing was read"}</Text>
           </View>
-
-          {/* Unlike `product/[id].tsx`, this is not behind a "Why this
-              score" toggle: the whole point of this screen is the full
-              verdict on first look, not a teaser someone already trusts. */}
-          {!lowCoverage && (scoreLines.length > 0 || helps.length > 0 || against.length > 0) ? (
-            <View
-              style={{
-                paddingHorizontal: 20,
-                paddingBottom: 18,
-                paddingTop: 14,
-                gap: 14,
-                borderTopWidth: 1,
-                borderTopColor: panel.border,
-              }}
-            >
-              <View style={{ gap: 10 }}>
-                {scoreLines.map((line) => (
-                  <ExplanationLine key={`${line.direction}:${line.label}`} {...line} />
-                ))}
-                {helps.map((reason) => (
-                  <ReasonLine key={`+${reason.ingredient}`} reason={reason} />
-                ))}
-                {against.map((reason) => (
-                  <ReasonLine key={`-${reason.ingredient}`} reason={reason} />
-                ))}
-              </View>
-              <Text style={{ fontSize: TYPE.caption, lineHeight: 16, color: MUTED }}>
-                From {recognised} of {total} ingredients we could identify
-                {confidence === "high" ? "" : ` — ${confidence} confidence`}.
-              </Text>
-              <HowScoringLink />
-            </View>
-          ) : null}
-        </View>
-        )}
-
-        {/* Renders regardless of lowCoverage: contraindications runs before
-            the low-coverage refusal (#187), so a pregnant user photographing
-            an unreadable formula still gets warned — and a context nudge
-            (#234) or pairing note (#233) is still true of whatever names
-            were read. */}
-        <View style={{ paddingHorizontal: SPACE.gutter, gap: SPACE.block }}>
-          <PregnancySection warnings={match.warnings} />
-          <ContextNudgesSection
-            nudges={[
-              ...nudgesFor(product.ingredients, product.type),
-              ...goalNudgesFor(product.ingredients, profile.concerns, product.type),
-            ]}
+          {/* The same two tabs as a catalogue product (design_handoff_skincare_cards). */}
+          <ResultTabs
+            ingredients={product.ingredients}
+            type={product.type}
+            match={match}
+            profile={profile}
+            onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name } })}
+            safetyFooter={lowCoverage ? <PrimaryButton size={52} label="Retake the photo" onPress={() => retake()} /> : null}
           />
-          <PairingSection notes={pairingNotesFor(product.ingredients)} />
-        </View>
-
-        {lowCoverage ? (
-          <PrimaryButton size={52} label="Retake the photo" onPress={() => retake()} />
-        ) : (
-          <>
-            {/* RiskCards brings its own gutter, as on the product page; inside
-                this already-padded scroll view that doubled it, and the
-                narrower cards cut "Pore-clogging risk" off (#294). */}
-            <View style={{ marginHorizontal: -SPACE.gutter }}>
-              <RiskCards
-                product={product}
-                match={match}
-                onIrritationPress={() => sheetRef.current?.open()}
-                onPorePress={() => sheetRef.current?.open()}
-              />
-            </View>
-          </>
-        )}
         </ReadingScale>
       </ScrollView>
-
-      {!lowCoverage && total > 0 ? <IngredientsSheet ref={sheetRef} product={product} match={match} /> : null}
     </View>
   );
 }

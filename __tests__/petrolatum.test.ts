@@ -1,8 +1,9 @@
-import { irritationCounts } from "@/components/RiskCards";
+import { irritationCounts } from "@/lib/risk";
 import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
-import { ingredientCheck, ingredientLabel } from "@/lib/ingredient-labels";
+import { ingredientLabel } from "@/lib/ingredient-labels";
 import { matchProduct, resetScoreCache } from "@/lib/matching";
 import { contraindications, REFINED_GRADE_NOTE_START, regulatoryStatus } from "@/lib/safety";
+import { EMPTY_PROFILE } from "@/store/useAppStore";
 import { safetyFor } from "../scripts/import-inci-dictionary.mjs";
 
 /**
@@ -56,9 +57,16 @@ describe("petrolatum (#361)", () => {
     expect(match(row("caution"), SENSITIVE).breakdown.irritationPenalty).toBeGreaterThan(0);
   });
 
-  it("isn't counted by the Ingredient check or the Irritation risk card", () => {
-    expect(ingredientCheck(balm(row("safe")).ingredients)).toMatchObject({ avoid: 0, watch: 0 });
-    expect(ingredientCheck(balm(row("caution")).ingredients)).toMatchObject({ watch: 1 });
+  it("isn't a watch-out in the ingredient list or counted by the Irritation risk card", () => {
+    // The Safety tab's labels, the same for everyone: no profile.
+    const labels = (safety: Ingredient["safety"]) => {
+      const product = balm(row(safety));
+      const noProfile = matchProduct(product, EMPTY_PROFILE);
+      return product.ingredients.map((i) => ingredientLabel(i, noProfile, false));
+    };
+    expect(labels("safe")).not.toContain("watch");
+    expect(labels("safe")).not.toContain("avoid");
+    expect(labels("caution")).toContain("watch");
 
     const product = balm(row("safe"));
     const counts = irritationCounts(product, match(row("safe"), SENSITIVE));

@@ -340,7 +340,7 @@ All of these read `VERDICT` from `lib/tokens.ts`; none carries its own copy:
 | Surface | Treatment |
 |---|---|
 | `app/product/[id].tsx` | verdict panel — `tint` background, `solid` border, `deep` text |
-| `components/ScoreRing.tsx` | ring track is `tint`, fill is `solid` |
+| `components/result/ResultTabs.tsx` (`Ring`) | ring track is `tint`, fill is `solid` |
 
 **The five score bands collapse onto three tones.** `Verdict` has five values because the
 MVP's `SCORE_BANDS` do; there are three colours because that is how many a person can tell

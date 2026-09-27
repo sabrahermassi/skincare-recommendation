@@ -8,10 +8,10 @@ import { FLOATING_SHADOW, SCRIM, SURFACE } from "@/lib/tokens";
 
 const IN_MS = 280;
 const OUT_MS = 220;
-// The floating card (owner's OnSkin reference, measured off its screenshot):
+// The floating card (owner's OnSkin reference, and the result-screen handoff):
 // how far it stands off the screen's sides and bottom, its corners, which
 // follow the phone's own, and how much the screen behind it blurs.
-const FLOAT_INSET = 7;
+const FLOAT_INSET = 10;
 const FLOAT_RADIUS = 44;
 const FLOAT_BLUR = 12;
 

@@ -56,7 +56,7 @@ import { contraindications, formulaCoverage, isVerified, type Contraindication }
  */
 export type Verdict = "excellent" | "good" | "fair" | "poor" | "unknown";
 
-export type MatchReason = {
+type MatchReason = {
   ingredient: string;
   reason: string;
   category: RuleCategory;
@@ -1059,6 +1059,31 @@ export const RUNG_META: Record<Rung, { dot: string; pill: string; ink: string; l
  */
 export function ruleFor(ingredient: Ingredient): IngredientRule | undefined {
   return isVerified(ingredient) ? findRule(ingredient) : undefined;
+}
+
+/**
+ * The ingredient here that works on `concern`, and why, found the way the
+ * score finds it: a curated rule first, else a declared function on an
+ * ingredient no rule claims (the score's second evidence layer). Null when
+ * nothing does. The result's "For your concerns" card reads this, so it can't
+ * say "nothing works on your concerns" while the score counts something that
+ * does (#379 review).
+ */
+export function concernSupport(ingredients: Ingredient[], concern: Concern): { ingredient: string; why: string } | null {
+  for (const ingredient of ingredients) {
+    const rule = ruleFor(ingredient);
+    if (rule?.helps?.concerns?.includes(concern)) return { ingredient: ingredient.name, why: rule.reason.split(" - ")[0].trim() };
+  }
+  for (const ingredient of ingredients) {
+    if (!isVerified(ingredient) || findRule(ingredient)) continue;
+    for (const declared of ingredient.functions ?? []) {
+      const signal = functionSignal(declared);
+      if (signal?.helps.concerns?.includes(concern)) {
+        return { ingredient: ingredient.name, why: FUNCTION_REASON[signal.category] ?? "Declared function relevant to your skin" };
+      }
+    }
+  }
+  return null;
 }
 
 /**
