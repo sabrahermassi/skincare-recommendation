@@ -221,8 +221,8 @@ permission and not-found states.
 
 ## Screens, in short
 
-- **Product result**: header on the page (bottle, brand 15 `MUTED_FAINT`, then the type in 13 `MUTED` under the name; no stock line; name
-  20 semibold), heart and share circles; the Skin match | Ingredients switch;
+- **Product result**: header on the page (bottle; brand 15 `MUTED_FAINT`,
+  name 20 semibold, type 13 `MUTED`; no stock line), heart and share circles; the Skin match | Ingredients switch;
   a white sheet (radius 32) overlapping it. Skin match: the big ring
   straddling the sheet's edge, the verdict pill, the explainer, reason cards on
   their verdict wash. Ingredients: two risk cards, then the ingredient box
