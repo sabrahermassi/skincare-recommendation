@@ -93,35 +93,35 @@ describe("ingredientNameParam", () => {
 });
 
 describe("a hostile link to a product", () => {
-  it.each(HOSTILE_IDS)("shows Page not found for %j and never asks the catalogue", async (id: string) => {
+  it.each(HOSTILE_IDS)("shows the not-found page for %j and never asks the catalogue", async (id: string) => {
     mockParams = { id };
     await render(<ProductRoute />);
-    expect(screen.getByText("Page not found")).toBeTruthy();
+    expect(screen.getByText("This page wandered off")).toBeTruthy();
     expect(fetched.mock.calls).toEqual([]);
   });
 
   it("does the same for the ingredient list", async () => {
     mockParams = { id: "../../account", tab: "Pore-clogging" };
     await render(<IngredientListRoute />);
-    expect(screen.getByText("Page not found")).toBeTruthy();
+    expect(screen.getByText("This page wandered off")).toBeTruthy();
     expect(fetched.mock.calls).toEqual([]);
   });
 
   it("asks the catalogue for a well-formed id", async () => {
     mockParams = { id: "obf-8801234567890" };
     await render(<ProductRoute />);
-    expect(screen.queryByText("Page not found")).toBeNull();
+    expect(screen.queryByText("This page wandered off")).toBeNull();
     expect(fetched.mock.calls[0][0]).toBe("obf-8801234567890");
   });
 });
 
 describe("a hostile link to an ingredient", () => {
   it.each(["\u202Eretaw", "x".repeat(MAX_INGREDIENT_NAME_LENGTH + 1), ""])(
-    "shows Page not found for a name no ingredient has (case %#), and looks nothing up",
+    "shows the not-found page for a name no ingredient has (case %#), and looks nothing up",
     async (inci: string) => {
       mockParams = { inci };
       await render(<IngredientRoute />);
-      expect(screen.getByText("Page not found")).toBeTruthy();
+      expect(screen.getByText("This page wandered off")).toBeTruthy();
       expect(resolved.mock.calls).toEqual([]);
       expect(fetched.mock.calls).toEqual([]);
     },
