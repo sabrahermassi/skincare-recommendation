@@ -1,17 +1,14 @@
 import { Text } from "@/components/Text";
-import { INK } from "@/lib/tokens";
+import { DISPLAY_FONT, INK, TYPE } from "@/lib/tokens";
 
 /**
- * The title at the top of a tab (Saved, Skincare School, Profile): on the left,
- * in the headline serif, the same size on every tab (owner's reference). 30pt
- * is that reference's size, measured off its screenshot (a 21pt cap height, and
- * Playfair's caps are 0.71 of its size); no type step is that large.
+ * The title at the top of a tab (Home, Saved, Skincare School, Profile): v7's
+ * Large title, Playfair 500 at 30/1.1, on the left.
  */
-const TAB_TITLE_SIZE = 30;
 
 export function TabTitle({ children }: { children: string }) {
   return (
-    <Text accessibilityRole="header" style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TAB_TITLE_SIZE, color: INK }}>
+    <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: 33, letterSpacing: -0.6, color: INK }}>
       {children}
     </Text>
   );

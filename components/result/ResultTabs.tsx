@@ -203,7 +203,7 @@ function RiskCard({ title, risk, onPress }: { title: string; risk: Risk; onPress
     >
       <AccentBar colour={tone.solid} />
       <Text style={{ marginTop: 2, fontSize: 13, fontWeight: "500", color: MUTED }}>{title}</Text>
-      <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, color: tone.deep }}>{risk.level}</Text>
+      <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: tone.deep }}>{risk.level}</Text>
       <Text numberOfLines={2} style={{ fontSize: 13, lineHeight: 17, color: MUTED }}>
         {risk.note}
       </Text>
@@ -258,7 +258,7 @@ function MatchTab({
         <Ring score={match.score} tone={tone} />
         <View style={{ flex: 1, gap: SPACE.text, paddingRight: SPACE.gutter }}>
           {lowCoverage ? (
-            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.title, color: INK }}>Couldn&apos;t score this one</Text>
+            <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.title, color: INK }}>Couldn&apos;t score this one</Text>
           ) : (
             <View style={{ alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: tone.tint }}>
               <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{VERDICT_LABEL[match.verdict]}</Text>
@@ -278,7 +278,7 @@ function MatchTab({
             className="active:opacity-70"
           >
             {/* Drawn to fit its 32pt disc: large text would clip it. */}
-            <Text maxFontSizeMultiplier={1} style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontStyle: "italic", fontSize: TYPE.body, color: INK }}>
+            <Text maxFontSizeMultiplier={1} style={{ fontFamily: "PlayfairDisplay_500Medium", fontStyle: "italic", fontSize: TYPE.body, color: INK }}>
               i
             </Text>
           </Pressable>
@@ -329,11 +329,11 @@ function Ring({ score, tone }: { score: number | null; tone: Tone }) {
         ) : null}
       </Svg>
       <View style={{ flexDirection: "row", alignItems: "baseline" }}>
-        <Text maxFontSizeMultiplier={1} style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 42 * scale, color: INK }}>
+        <Text maxFontSizeMultiplier={1} style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 42 * scale, color: INK }}>
           {score ?? "–"}
         </Text>
         {score !== null ? (
-          <Text maxFontSizeMultiplier={1} style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 15 * scale, color: MUTED }}>
+          <Text maxFontSizeMultiplier={1} style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 15 * scale, color: MUTED }}>
             /100
           </Text>
         ) : null}
@@ -417,7 +417,7 @@ function FlaggedCard({ ingredients, match }: { ingredients: Ingredient[]; match:
 function ListCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <View style={{ gap: 14, borderRadius: 24, backgroundColor: SURFACE, paddingVertical: 18, paddingHorizontal: 20, ...CARD_SHADOW }}>
-      <Text accessibilityRole="header" style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 21, color: INK }}>
+      <Text accessibilityRole="header" style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 21, color: INK }}>
         {title}
       </Text>
       {children}
@@ -474,7 +474,7 @@ function WhySheet({
             <HeartIcon size={32} filled color={BUTTON.primary.label} />
           </View>
         </View>
-        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 28, lineHeight: 34, color: INK }}>
+        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: 28, lineHeight: 34, color: INK }}>
           {WHY_TITLE[match.verdict]}
         </Text>
         <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 24, color: INK }}>{summary}</Text>
@@ -539,7 +539,7 @@ function NoProfile() {
         <View style={{ position: "absolute", right: 6, bottom: 8, width: 110, height: 96, borderTopLeftRadius: 60, borderTopRightRadius: 46, borderBottomRightRadius: 56, borderBottomLeftRadius: 44, backgroundColor: VERDICT.high.tint, opacity: 0.7 }} />
         <Image source={MATCH_ART} contentFit="contain" accessibilityLabel="" style={{ width: 150, height: 150 }} />
       </View>
-      <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 26, lineHeight: 31, color: INK }}>
+      <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: 26, lineHeight: 31, color: INK }}>
         See your skin match
       </Text>
       <Text style={{ maxWidth: 280, textAlign: "center", fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>

@@ -6,10 +6,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, View, type GestureResponderEvent } from "react-native";
 
 import { TabBarBackground } from "@/components/TabBarBackground";
-import { TERRACOTTA } from "@/components/shell/shared";
 import { openScanner } from "@/lib/open-scanner";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT, SCAN_ICON, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
-import { RAISED_SHADOW, SELECTED, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
+import { BUTTON, CHOSEN, LINK, RAISED_SHADOW, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 
@@ -27,7 +26,7 @@ const TAB_ICONS = {
 // The pill behind the current tab's icon, and the icon, sized for the bar.
 const PILL_WIDTH = 58;
 const PILL_HEIGHT = 44;
-const TAB_ICON = 29;
+const TAB_ICON = 25;
 // A capsule, like the bar it sits in.
 const PILL_RADIUS = PILL_HEIGHT / 2;
 const PILL_MS = 200;
@@ -55,7 +54,7 @@ function TabButton({
   testID?: string;
 }) {
   const focused = rest["aria-selected"] === true;
-  const color = focused ? TERRACOTTA : TAB_INACTIVE;
+  const color = focused ? LINK : TAB_INACTIVE;
   const shown = useSharedValue(focused ? 1 : 0);
   useEffect(() => {
     // ReduceMotion.System: no grow with Reduce Motion on (#313).
@@ -81,7 +80,7 @@ function TabButton({
         <Animated.View
           pointerEvents="none"
           style={[
-            { position: "absolute", width: PILL_WIDTH, height: PILL_HEIGHT, borderRadius: PILL_RADIUS, backgroundColor: SELECTED },
+            { position: "absolute", width: PILL_WIDTH, height: PILL_HEIGHT, borderRadius: PILL_RADIUS, backgroundColor: CHOSEN.fill },
             pillStyle,
           ]}
         />
@@ -115,7 +114,7 @@ function ScanTabButton() {
           borderRadius: SCAN_BUTTON / 2,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: TERRACOTTA,
+          backgroundColor: BUTTON.primary.fill,
           ...RAISED_SHADOW,
         }}
         className="active:opacity-90"

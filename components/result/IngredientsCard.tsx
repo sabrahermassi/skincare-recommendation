@@ -76,7 +76,7 @@ export function IngredientsCard({
     <View style={{ borderRadius: 24, backgroundColor: SURFACE, ...CARD_SHADOW }}>
       <View style={{ flexDirection: "row", alignItems: "center", paddingTop: 14, paddingRight: 12, paddingBottom: 10, paddingLeft: 20, zIndex: 10 }}>
         <View style={{ flex: 1, gap: 3 }}>
-          <Text accessibilityRole="header" style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, color: INK }}>
+          <Text accessibilityRole="header" style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: INK }}>
             Ingredients
           </Text>
           <Text style={{ fontSize: TYPE.label, color: MUTED }}>

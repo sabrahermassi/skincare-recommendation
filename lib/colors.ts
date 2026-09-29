@@ -5,7 +5,7 @@
  * literal color, not a className. Keep this file in sync with the config.
  */
 export const COLORS = {
-  canvas: "#FDF9F0",
+  canvas: "#FCFAF7",
   surface: "#FFFFFF",
 
   tintPink: "#F7D9DA",
@@ -36,10 +36,10 @@ export const COLORS = {
   // The soft register of the same four rungs — see `level` in the config.
   // Kept equal to that config's DEFAULT values (which are themselves the
   // VERDICT ramp in lib/tokens.ts) rather than a third copy of the palette.
-  levelGood: "#3E7D5A",
-  levelWatch: "#C2662B",
+  levelGood: "#4A7A54",
+  levelWatch: "#B8672F",
   levelNeutral: "#6B5A54",
-  levelAvoid: "#B23A32",
+  levelAvoid: "#A8453A",
 
   panelWash: "#F3EFEA",
 
@@ -49,7 +49,7 @@ export const COLORS = {
   // `components/shell/shared.tsx`, which made that file a third place raw hex
   // lived. These are the values; `shared.tsx` re-exports them under its own
   // names so its ten importers are unaffected.
-  shellTerracotta: "#C4654F",
+  shellTerracotta: "#BA765F", // v7: the one terracotta (was #C4654F)
   shellSand: "#E8DDD1",
   // The intro screens' own type and button colours, given by the owner
   // (26 September 2026). Intro only: the quiz, the tab bar and the scanner
@@ -60,16 +60,18 @@ export const COLORS = {
   // (computed); at 3.56:1 the original was too faint for text this size (#373).
   introMuted: "#7C7065", // subtext, Skip, the inactive dots
 
-  // Buttons (owner, 27 September 2026), matched to the intro illustrations.
-  // Contrast computed, not read off a mockup (WCAG relative luminance).
-  // Primary and tertiary are the owner's #BA765F darkened to #9C6350 (owner's
-  // choice, 27 September): white on #BA765F was 3.6:1 and #BA765F text on the
-  // canvas 3.4:1, both short of 4.5:1 for labels this size. Now white on
-  // buttonPrimary is 4.9:1 and buttonTertiary text on the canvas 4.6:1.
-  // White on buttonSecondary is 2.1:1, so its label is ink instead (7.6:1).
-  buttonPrimary: "#9C6350", // the one main action on a screen
+  // Buttons (v7 design, 29 September 2026, read off the hand-off). Every
+  // filled button is terracotta #BA765F with a white SF 16 semibold label:
+  // 3.59:1, which clears the 3:1 WCAG asks of large text (16pt bold counts),
+  // though not the 4.5:1 of body text — so a button label is never set
+  // smaller or lighter than that. Pressed #A5654F. The terracotta text link
+  // (buttonTertiary) stays #9C6350, 4.87:1 on white. A destructive action
+  // (Report a mistake) is #A8453A, 5.87:1 with white.
+  buttonPrimary: "#BA765F", // every filled button
+  buttonPrimaryPressed: "#A5654F",
   buttonPrimaryText: "#FFFFFF",
   buttonSecondary: "#D4A88F", // a less critical action
   buttonTertiary: "#9C6350", // outline and label of a low-emphasis action
-  buttonDisabled: "#E8D9CE", // any variant, disabled
+  buttonDisabled: "#D9C9BE", // any variant, disabled
+  buttonDestructive: "#A8453A",
 } as const;

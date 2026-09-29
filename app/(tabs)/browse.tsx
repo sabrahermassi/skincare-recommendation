@@ -458,7 +458,7 @@ function EmptyState({
   return (
     <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: HEADER_GUTTER }}>
       <Image source={art} contentFit="contain" accessibilityLabel={artLabel} style={{ width, aspectRatio: aspect }} />
-      <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
+      <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, color: INK }}>
         {title}
       </Text>
       <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: TYPE.body * 1.4, color: MUTED }}>{line}</Text>

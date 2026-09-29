@@ -671,10 +671,10 @@ function NoMatchSheet({
           <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>{copy.line}</Text>
           <View style={{ alignSelf: "stretch", gap: 10, marginTop: SPACE.text, flexDirection: "row" }}>
             <View style={{ flex: 1 }}>
-              <PrimaryButton label={primaryLabel} onPress={onPrimary} size={56} twoLines />
+              <PrimaryButton label={primaryLabel} onPress={onPrimary} twoLines />
             </View>
             <View style={{ flex: 1 }}>
-              <PrimaryButton label={secondaryLabel} onPress={onSecondary} size={56} variant="secondary" twoLines />
+              <PrimaryButton label={secondaryLabel} onPress={onSecondary} variant="secondary" twoLines />
             </View>
           </View>
         </View>

@@ -657,7 +657,7 @@ const EMPTY_ART_WIDTH = 340;
 const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).map((art) => art.aspect));
 
 // The empty state's scan button, and the room it keeps on Ingredients.
-const EMPTY_BUTTON_HEIGHT = 52;
+const EMPTY_BUTTON_HEIGHT = 48;
 
 // How long a tab change cross-fades, one whole tab into the next.
 const TAB_FADE_MS = 300;
@@ -711,7 +711,7 @@ function EmptyState({ tab }: { tab: Tab }) {
           {tab !== "saved" ? (
             <View style={{ height: EMPTY_BUTTON_HEIGHT, marginTop: SPACE.text }} />
           ) : (
-            <PrimaryButton size={EMPTY_BUTTON_HEIGHT} label="Scan your first product" onPress={openScanner} style={{ marginTop: SPACE.text }} />
+            <PrimaryButton label="Scan your first product" onPress={openScanner} style={{ marginTop: SPACE.text }} />
           )}
         </View>
       </View>

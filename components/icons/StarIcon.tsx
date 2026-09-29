@@ -1,15 +1,15 @@
 import Svg, { Path } from "react-native-svg";
 
-import { COLORS } from "@/lib/colors";
+import { INK, STAR_ON } from "@/lib/tokens";
 
-// The palette has no true yellow; the amber of its "watch" tone is the nearest.
-export function StarIcon({ filled, size = 21 }: { filled: boolean; size?: number }) {
+/** A starred ingredient's star (v7): an ink outline when off, filled ochre when on. */
+export function StarIcon({ filled, size = 20 }: { filled: boolean; size?: number }) {
   const d =
-    "M12 3.4l2.53 5.4 5.87.72-4.34 4.06 1.16 5.83L12 16.4l-5.22 2.99 1.16-5.83-4.34-4.06 5.87-.72Z";
-  const color = filled ? COLORS.toneWatch : COLORS.ink;
+    "M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z";
+  const color = filled ? STAR_ON : INK;
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d={d} fill={filled ? color : "none"} stroke={color} strokeWidth={1.6} strokeLinejoin="round" />
+      <Path d={d} fill={filled ? color : "none"} stroke={color} strokeWidth={1.9} strokeLinejoin="round" />
     </Svg>
   );
 }

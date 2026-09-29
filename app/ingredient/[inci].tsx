@@ -239,7 +239,7 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
               beside it, dropped at large text so the name has the width (#334). */}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 6, paddingHorizontal: 20, paddingBottom: 20 }}>
             <View style={{ flex: 1, alignItems: "flex-start", gap: 6 }}>
-              <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 32, lineHeight: 36, color: INK }}>
+              <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 32, lineHeight: 36, color: INK }}>
                 {displayIngredientName(primary)}
               </Text>
               {kind ? <Text style={{ fontSize: 15, color: MUTED }}>{kind}</Text> : null}
@@ -294,7 +294,7 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
                 >
                   <Ionicons name={FIT_ICON[fit]} size={20} color={tone.solid} />
                 </View>
-                <Text style={{ flex: 1, fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, lineHeight: 26, color: INK }}>
+                <Text style={{ flex: 1, fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, lineHeight: 26, color: INK }}>
                   {fitHeadline(fit, helps, hurts, warning, rule, profile)}
                 </Text>
               </View>
@@ -328,7 +328,7 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
 
             {/* Good to know: neutral facts, no ticks (handoff). */}
             <Card style={{ paddingTop: 20, paddingBottom: 6 }}>
-              <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 21, color: INK, paddingHorizontal: 20, paddingBottom: 6 }}>Good to know</Text>
+              <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 21, color: INK, paddingHorizontal: 20, paddingBottom: 6 }}>Good to know</Text>
               {facts.length > 0 ? (
                 facts.map((fact, i) => (
                   <View key={fact.key} style={{ paddingHorizontal: 20 }}>

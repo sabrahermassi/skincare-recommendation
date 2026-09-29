@@ -31,12 +31,13 @@ describe("the type scale", () => {
   });
 
   /**
-   * The point of the collapse. Adjacent steps a reader cannot tell apart are
-   * what the old 24 sizes were made of — 12 / 12.5 / 13 encoded nothing. Two
-   * points is the smallest gap that still reads as deliberate.
+   * The point of the collapse: v7's seven sizes (13 / 15 / 17 / 20 / 24 / 30 /
+   * 34), each at least 2px from the next. `label` and `body` share 15 on
+   * purpose — v7 sets interface text and prose at the same size — so the
+   * check is on the distinct sizes.
    */
-  it("keeps every step at least 2px from its neighbour", () => {
-    const values = Object.values(TYPE).sort((a, b) => a - b);
+  it("keeps every distinct size at least 2px from its neighbour", () => {
+    const values = [...new Set(Object.values(TYPE))].sort((a, b) => a - b);
     for (let i = 1; i < values.length; i++) {
       expect(values[i] - values[i - 1]).toBeGreaterThanOrEqual(2);
     }
@@ -52,13 +53,9 @@ describe("the type scale", () => {
     }
   });
 
-  /**
-   * `body` is the step running prose uses, and 16px is the floor for that on
-   * mobile. `label` exists precisely so interface text — chips, rows, buttons —
-   * has somewhere smaller to go without dragging paragraphs down with it.
-   */
-  it("keeps running prose at 16px or more, with a smaller step for interface text", () => {
-    expect(TYPE.body).toBeGreaterThanOrEqual(16);
-    expect(TYPE.label).toBeLessThan(TYPE.body);
+  /** v7: running prose is 15px (read off the hand-off), and interface text is never larger than it. */
+  it("keeps running prose at 15px, with interface text no larger", () => {
+    expect(TYPE.body).toBe(15);
+    expect(TYPE.label).toBeLessThanOrEqual(TYPE.body);
   });
 });

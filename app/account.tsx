@@ -122,7 +122,6 @@ export default function Account() {
               {ACCOUNT_PITCH}
             </Text>
             <PrimaryButton
-              size={52}
               label="Sign in"
               onPress={() => {
                 setNotice(null);

@@ -47,7 +47,7 @@ export function RouteErrorScreen({ error, retry }: ErrorBoundaryProps) {
         {ROUTE_ERROR_COPY.heading}
       </Text>
       <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED, textAlign: "center" }}>{ROUTE_ERROR_COPY.body}</Text>
-      <PrimaryButton size={52} label={ROUTE_ERROR_COPY.retry} onPress={() => void retry()} style={{ alignSelf: "stretch" }} />
+      <PrimaryButton label={ROUTE_ERROR_COPY.retry} onPress={() => void retry()} style={{ alignSelf: "stretch" }} />
     </View>
   );
 }

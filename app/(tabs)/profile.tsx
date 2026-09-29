@@ -47,7 +47,7 @@ export default function Profile() {
             <Image source={AVATAR_ART} contentFit="contain" accessibilityLabel="" style={{ width: AVATAR, height: AVATAR }} />
           </View>
 
-          <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 26, color: INK, textAlign: "center" }}>{title}</Text>
+          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 26, color: INK, textAlign: "center" }}>{title}</Text>
 
           {/* No chips of the answers here (owner): the Skin profile row below
               holds them. A profile that doesn't score yet says how to fix that. */}

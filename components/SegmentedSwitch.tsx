@@ -3,24 +3,26 @@ import { Animated, Platform, Pressable, View, type StyleProp, type ViewStyle } f
 
 import { Text } from "@/components/Text";
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { CANVAS, CAPSULE_HEIGHT, CHIP_SHADOW, CTA, GRAY_FILL, INK, SURFACE, TYPE } from "@/lib/tokens";
+import { INK, MUTED, SEGMENT_TRACK, SURFACE, TYPE, withAlpha } from "@/lib/tokens";
 
-/** The switch's height: the app's capsule height, which the tab bar shares. */
-export const SWITCH_HEIGHT = CAPSULE_HEIGHT;
+/** Every segmented control's height in v7 (read off the hand-off). */
+export const SWITCH_HEIGHT = 40;
 // The gap between the capsule and the thumb that slides in it.
-const SWITCH_PADDING = 4;
+const SWITCH_PADDING = 3;
+// The thumb's own soft lift off the track (v7: 0 1 3 at 10%).
+const THUMB_SHADOW = { shadowColor: INK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 1 } as const;
 // Apple's spring at a segmented control's pace (response 0.35 s), critically
 // damped (fraction 1) so the thumb stops at its segment instead of
 // overshooting past the capsule's end: stiffness = (2π / response)²,
 // damping = 4π × fraction / response, for a mass of 1.
 const IOS_SPRING = { mass: 1, stiffness: 322, damping: 35.9 };
 
-// The two looks (owner's references). Dark over the camera: an ink capsule
-// with a peach thumb. Light on the page: a pale warm track with a white thumb
-// and ink words throughout.
+// The two looks (v7). Over the camera: a see-through white track, a white
+// thumb, 13pt words. On the page: a pale warm track, a white thumb, the chosen
+// word in ink and the others in secondary grey.
 const TONES = {
-  dark: { track: INK, thumb: CTA, label: CANVAS, chosenLabel: INK, thumbShadow: null },
-  light: { track: GRAY_FILL, thumb: SURFACE, label: INK, chosenLabel: INK, thumbShadow: CHIP_SHADOW },
+  dark: { track: withAlpha(SURFACE, 0.14), thumb: SURFACE, label: SURFACE, chosenLabel: INK, thumbShadow: null, fontSize: TYPE.caption },
+  light: { track: SEGMENT_TRACK, thumb: SURFACE, label: MUTED, chosenLabel: INK, thumbShadow: THUMB_SHADOW, fontSize: TYPE.label },
 } as const;
 
 /**
@@ -96,7 +98,7 @@ export function SegmentedSwitch<T extends string>({
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.8}
-                style={{ fontSize: TYPE.body, fontWeight: "600", color: on ? look.chosenLabel : look.label }}
+                style={{ fontSize: look.fontSize, fontWeight: "600", color: on ? look.chosenLabel : look.label }}
               >
                 {label}
               </Text>

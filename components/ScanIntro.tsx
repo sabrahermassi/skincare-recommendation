@@ -51,7 +51,7 @@ export function ScanIntro({
         </Text>
         <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
         <View style={{ width: "100%", marginTop: 8 }}>
-          <PrimaryButton size={56} label={actionLabel} onPress={onAction} />
+          <PrimaryButton label={actionLabel} onPress={onAction} />
         </View>
         {children}
       </View>

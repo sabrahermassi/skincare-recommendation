@@ -35,9 +35,9 @@ it("gives secondary its lighter fill and an ink label, since white on it is too 
 });
 
 it("draws tertiary as an outline, inside the same height", async () => {
-  await render(<PrimaryButton label="Edit" variant="tertiary" size={52} onPress={() => {}} />);
+  await render(<PrimaryButton label="Edit" variant="tertiary" onPress={() => {}} />);
   expect(pill("Edit").backgroundColor).toBe("transparent");
-  expect(inner("Edit")).toMatchObject({ height: 52, borderWidth: 1.5, borderColor: COLORS.buttonTertiary });
+  expect(inner("Edit")).toMatchObject({ height: 48, borderWidth: 1.5, borderColor: COLORS.buttonTertiary });
   expect(labelColor("Edit")).toBe(COLORS.buttonTertiary);
 });
 

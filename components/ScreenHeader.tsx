@@ -1,15 +1,17 @@
 import { router } from "expo-router";
 import type { ReactNode } from "react";
-import { ArrowIcon } from "@/components/icons/ArrowIcon";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BackChevron, ICON_CIRCLE, IconCircle } from "@/components/IconCircle";
 import { Text } from "@/components/Text";
-import { INK, MUTED } from "@/lib/tokens";
+import { INK, MUTED, SPACE } from "@/lib/tokens";
 
 /**
- * The top row every pushed screen in the design carries: a back chevron on the
- * canvas, an optional centred title, and an optional action slot on the right.
+ * The top row every pushed screen carries (v7): the back arrow in a white
+ * circle, an optional centred title, and the right-hand circles (heart,
+ * share, star). The row is 44pt tall under the status bar, 16pt in from the
+ * sides.
  *
  * It replaces the React Navigation header on these routes. The design draws no
  * native header anywhere — the screens are full-bleed, and a grey system bar
@@ -32,34 +34,29 @@ export function ScreenHeader({
 
   return (
     <View
-      className="flex-row items-center justify-between gap-3 px-6 pb-1"
-      style={{ paddingTop: insets.top + 10 }}
+      style={{ paddingTop: insets.top + 6, paddingHorizontal: SPACE.gutter, height: insets.top + 50, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}
     >
-      <Pressable
-        onPress={onBack ?? (() => router.back())}
-        hitSlop={14}
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        style={{ width: 21 }}
-        className="active:opacity-70"
-      >
-        <ArrowIcon direction="left" size={24} color={INK} />
-      </Pressable>
+      <IconCircle onPress={onBack ?? (() => router.back())} accessibilityLabel="Back">
+        <BackChevron />
+      </IconCircle>
 
       {title ? (
         <Text
-          style={quietTitle ? { flex: 1, textAlign: "center", fontSize: 13, color: MUTED } : { color: INK }}
-          className={quietTitle ? undefined : "flex-1 text-center text-base font-medium tracking-tight"}
+          style={
+            quietTitle
+              ? { flex: 1, textAlign: "center", fontSize: 13, color: MUTED }
+              : { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "600", color: INK }
+          }
           numberOfLines={1}
         >
           {title}
         </Text>
       ) : (
-        <View className="flex-1" />
+        <View style={{ flex: 1 }} />
       )}
 
-      {/* Mirrors the chevron's width when empty, so a centred title stays centred. */}
-      <View style={{ minWidth: 21, gap: 20 }} className="flex-row items-center justify-end">{right}</View>
+      {/* Mirrors the back circle's width when empty, so a centred title stays centred. */}
+      <View style={{ minWidth: ICON_CIRCLE, gap: 12, flexDirection: "row", alignItems: "center", justifyContent: "flex-end" }}>{right}</View>
     </View>
   );
 }

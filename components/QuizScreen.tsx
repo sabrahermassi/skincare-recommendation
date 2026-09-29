@@ -110,7 +110,7 @@ export function QuizScreen({
         <View style={{ minHeight: 64, justifyContent: "center" }}>
           <Text
             style={{
-              fontFamily: "PlayfairDisplay_600SemiBold",
+              fontFamily: "PlayfairDisplay_500Medium",
               fontSize: 28,
               lineHeight: 28 * 1.12,
               letterSpacing: 28 * -0.015,

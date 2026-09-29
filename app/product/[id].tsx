@@ -243,7 +243,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
           <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
             {failureMessage(failure)}
           </Text>
-          <PrimaryButton size={52} label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
+          <PrimaryButton label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
           <Pressable
             onPress={() => router.push("/browse")}
             accessibilityRole="link"
@@ -267,7 +267,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, color: INK }}>
             Product not found
           </Text>
-          <PrimaryButton size={52} label="Scan another" onPress={openScanner} />
+          <PrimaryButton label="Scan another" onPress={openScanner} />
           {/* "Scan another" assumes a physical bottle in hand, which isn't
               true for everyone who lands here — a stale link, a bookmark to
               a removed product. Same escape hatch the missed-barcode panel
@@ -473,7 +473,7 @@ function ProductHeader({ product, total }: { product: ProductWithIngredients; to
         >
           {product.brand}
         </Text>
-        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, lineHeight: 26, color: INK }}>
+        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, lineHeight: 26, color: INK }}>
           {product.name}
         </Text>
         <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.label, color: MUTED }}>

@@ -3,15 +3,18 @@ import { Animated, Pressable, type StyleProp, type ViewStyle } from "react-nativ
 
 import { usePressScale } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
-import { BUTTON, BUTTON_SHADOW, FONT_SCALE } from "@/lib/tokens";
+import { BUTTON, FONT_SCALE } from "@/lib/tokens";
 
 /**
- * Every full-width button in the app, in three variants (owner, 27 September
- * 2026, colours in `BUTTON`): **primary**, the one main action on a screen;
- * **secondary**, a less critical action, often beside it; and **tertiary**,
- * an outline for low-emphasis actions. Disabled looks the same in all three.
+ * Every button in the app (v7 design, 29 September 2026): a terracotta pill
+ * with a white SF 16 semibold label, 48pt tall whatever its width. Only the
+ * width changes — full width for the main action of a flow, and the fixed
+ * widths in `BUTTON_WIDTH` for a pop-up, a card or a confirm pair. Flat: no
+ * shadow. **tertiary** is the outline, **destructive** the red of "Report a
+ * mistake"; **secondary** is kept for the scanner's second action until that
+ * screen is redesigned. Disabled looks the same in every variant.
  *
- * The height is an inline `style`, not a `h-[56px]` utility, and that is
+ * The height is an inline `style`, not a `h-[48px]` utility, and that is
  * deliberate. A Tailwind class is only as good as the compiled stylesheet
  * behind it: if Metro is serving a cached build, or a class never made it into
  * the output, the class silently does nothing and the button collapses to the
@@ -19,31 +22,20 @@ import { BUTTON, BUTTON_SHADOW, FONT_SCALE } from "@/lib/tokens";
  * "tiny" after three separate passes had set the height correctly. An inline
  * style has no pipeline to go wrong.
  *
- * 56pt is the design's own figure for the quiz and welcome CTAs and is a
- * comfortable target — well above the 44pt minimum. `size` exists for the
- * places the design draws them shorter, not as a free dial.
- *
  * Pressed, it shrinks a little (owner decision, #313) — the same spring as a
  * pressed card. Disabled, it has no pressed state at all.
  */
-type ButtonSize = 48 | 50 | 52 | 56;
+type ButtonSize = 44 | 48;
 
-type ButtonVariant = "primary" | "secondary" | "tertiary";
+export type ButtonVariant = "primary" | "secondary" | "tertiary" | "destructive";
 
-/**
- * Playfair Display sits low in its line box, so a label centred by its box looks
- * about 2dp too low in the pill; the label is moved up by this much.
- *
- * A transform, not padding: padding inside a label that is already squeezed into
- * the button shrinks the room its letters have, which cut the bottom off the "p"
- * on a phone.
- */
-const LABEL_LIFT = 2;
+/** v7's fixed button widths; a main action takes the full width instead. */
+export const BUTTON_WIDTH = { secondary: 220, inCard: 180, pair: 140 } as const;
 
-/** Room for Playfair's tall ascenders and its descenders ("p") at the label's 15dp. */
-const LABEL_LINE_HEIGHT = 22;
+/** Room for the label's line, so a large text size isn't clipped. */
+const LABEL_LINE_HEIGHT = 20;
 
-/** Tighter lines for a label allowed onto two, so both fit a 56dp pill. */
+/** Tighter lines for a label allowed onto two. */
 const TWO_LINE_HEIGHT = 18;
 
 type Props = {
@@ -69,7 +61,7 @@ export function PrimaryButton({
   label,
   onPress,
   variant = "primary",
-  size = 56,
+  size = 48,
   disabled = false,
   icon,
   className = "",
@@ -78,20 +70,17 @@ export function PrimaryButton({
   twoLines = false,
 }: Props) {
   const [scale, press] = usePressScale();
-  const primary = variant === "primary" && !disabled;
   const outline = variant === "tertiary" && !disabled;
   const background = disabled ? BUTTON.disabled.fill : variant === "tertiary" ? "transparent" : BUTTON[variant].fill;
   const labelColor = disabled ? BUTTON.disabled.label : BUTTON[variant].label;
 
-  // The shade and the press scale sit on an outer view: a view that clips loses
-  // its own shade on iOS. Margins and `flex` from the caller go here too, since
-  // it is what sits in the layout.
+  // The press scale sits on an outer view, with the caller's margins, width
+  // and `flex`, since it is what sits in the layout.
   return (
     <Animated.View
       className={className}
       style={[
         { borderRadius: size / 2, backgroundColor: background, transform: [{ scale }] },
-        primary ? BUTTON_SHADOW : null,
         style,
       ]}
     >
@@ -103,10 +92,8 @@ export function PrimaryButton({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
         accessibilityState={{ disabled }}
-        className="flex-row items-center justify-center gap-2.5 px-5"
-        // A fixed height with the label centred, so no vertical padding: 16
-        // either side left a 50dp button only 18dp for a label that needs 22,
-        // and a phone clips what does not fit.
+        className="flex-row items-center justify-center gap-2 px-4"
+        // A fixed height with the label centred, so no vertical padding.
         // The outline is drawn inside the fixed height, so it never makes the
         // button taller.
         style={[
@@ -117,12 +104,12 @@ export function PrimaryButton({
         {icon}
         <Text
           style={{
-            fontFamily: "PlayfairDisplay_500Medium",
-            fontSize: 15,
+            fontSize: 16,
+            fontWeight: "600",
+            letterSpacing: -0.16,
             lineHeight: twoLines ? TWO_LINE_HEIGHT : LABEL_LINE_HEIGHT,
             textAlign: "center",
             includeFontPadding: false,
-            transform: [{ translateY: -LABEL_LIFT }],
             color: labelColor,
           }}
           numberOfLines={twoLines ? 2 : 1}
