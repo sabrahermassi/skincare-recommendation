@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/open-scanner";
-import { tabBarClearance } from "@/lib/tab-bar";
+import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
 import { CANVAS, CARD_RADIUS, DISPLAY_FONT, HOME_CARD_FILL, HOME_TILE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 
 // The scan card's watercolour, and the three tiles' (transparent ground).
@@ -16,7 +16,6 @@ const ROUTINE_ART = require("@/assets/illustrations/home-routine.webp");
 const MATCH_ART = require("@/assets/illustrations/home-match.webp");
 
 // v7 measurements, read off the hand-off.
-const TAB_ROOT_TOP = 62;
 const SCAN_CARD_MIN_HEIGHT = 176;
 const SCAN_CARD_RADIUS = 24;
 const SCAN_ART_SIZE = 150;
@@ -35,7 +34,7 @@ export default function Home() {
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: Math.max(insets.top, TAB_ROOT_TOP - 8) + 8, paddingHorizontal: SPACE.gutter, paddingBottom: tabBarClearance(insets.bottom) }}
+        contentContainerStyle={{ paddingTop: tabRootTop(insets.top), paddingHorizontal: SPACE.gutter, paddingBottom: tabBarClearance(insets.bottom) }}
         alwaysBounceVertical={false}
         showsVerticalScrollIndicator={false}
       >

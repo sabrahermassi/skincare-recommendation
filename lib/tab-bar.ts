@@ -33,3 +33,13 @@ export function tabBarClearance(insetBottom: number): number {
   return tabBarBottom(insetBottom) + TAB_BAR_HEIGHT + 16;
 }
 
+
+/**
+ * Where a tab root's large title starts (v7: 62pt from the top of a phone
+ * with a notch or island, which is 8 below its status bar), so Home, School,
+ * Saved and Profile put their titles in the same place.
+ */
+export function tabRootTop(insetTop: number): number {
+  return Math.max(insetTop, TAB_ROOT_TOP - 8) + 8;
+}
+const TAB_ROOT_TOP = 62;

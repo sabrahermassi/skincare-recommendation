@@ -1,10 +1,10 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 /**
- * Saved and History (owner's reference): both are white cards with the heart
- * in the corner. Untapping a saved card's heart takes it off the shelf at
- * once; a history card's bin asks "Delete product?" before it deletes, and
- * a starred ingredient's bin asks "Delete ingredient?" the same way.
+ * Saved, History and Ingredients (v7): one list layout, white cards under a
+ * caps group label. Untapping a saved card's heart takes it off the shelf at
+ * once; a swipe's bin asks first on every tab ("Remove from saved?", "Delete
+ * product?", "Delete ingredient?").
  */
 
 jest.setTimeout(30000);
@@ -163,7 +163,7 @@ it("offers the first scan on an empty Saved, and no button on an empty History o
   expect(await screen.findByText("No products saved yet")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Scan your first product" })).toBeTruthy();
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "History" })));
-  expect(await screen.findByText("No history yet")).toBeTruthy();
+  expect(await screen.findByText("Nothing checked yet")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Scan your first product" })).toBeNull();
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" })));
   expect(await screen.findByText("No starred ingredients yet")).toBeTruthy();
@@ -180,4 +180,45 @@ it("shows a label photo in History and opens that same result", async () => {
   expect(screen.getByLabelText("64 out of 100")).toBeTruthy();
   await act(async () => fireEvent.press(card));
   expect(mockPush).toHaveBeenCalledWith({ pathname: "/label-result", params: { entry: "label-7" } });
+});
+
+describe("v7 list layout", () => {
+  it("asks before a swipe's bin takes a product off the shelf", async () => {
+    useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 1 }] });
+    await render(<Saved />);
+    expect(await screen.findByText("1 product")).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: `Remove ${NAME}` })));
+    expect(screen.getByText("Remove from saved?")).toBeTruthy();
+    expect(screen.getByText("It stays in your history.")).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove" })));
+    expect(useAppStore.getState().savedProducts).toEqual([]);
+  });
+
+  it("clears the whole shelf from Clear all, after asking", async () => {
+    useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 1 }] });
+    await render(<Saved />);
+    await screen.findByText(NAME);
+    await act(async () => fireEvent.press(screen.getAllByRole("button", { name: "Clear all" })[0]));
+    expect(screen.getByText("Clear all saved?")).toBeTruthy();
+    expect(useAppStore.getState().savedProducts).toHaveLength(1);
+  });
+
+  it("groups History into today and earlier", async () => {
+    const day = 24 * 60 * 60 * 1000;
+    useAppStore.setState({ history: [viewed("aqua-ceramide-cream"), { ...viewed("hanbang-rice-serum"), lastSeenAt: Date.now() - 30 * day }] });
+    await render(<Saved />);
+    await act(async () => fireEvent.press(screen.getByRole("tab", { name: /History/ })));
+    await screen.findByText(NAME);
+    expect(screen.getByText("Today")).toBeTruthy();
+    expect(screen.getByText("Earlier")).toBeTruthy();
+  });
+
+  it("shows a starred ingredient's verdict under its name", async () => {
+    useAppStore.setState({ savedIngredients: ["niacinamide"] });
+    await render(<Saved />);
+    await act(async () => fireEvent.press(screen.getByRole("tab", { name: /Ingredients/ })));
+    await screen.findByText("Niacinamide");
+    expect(screen.getByText("1 starred")).toBeTruthy();
+    expect(screen.getByLabelText(/^Niacinamide, /)).toBeTruthy();
+  });
 });

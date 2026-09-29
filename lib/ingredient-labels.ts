@@ -1,8 +1,9 @@
-import type { Ingredient } from "@/data/types";
+import type { Ingredient, SkinProfile } from "@/data/types";
 import { ruleFor, RUNG_META, type MatchResult } from "@/lib/matching";
 import { isWarnedPoreClogging } from "@/lib/pore-clogging";
-import type { RuleCategory } from "@/lib/rules";
-import { groupByRisk } from "@/lib/safety";
+import { isSensitive, treatAsReactive } from "@/lib/profile";
+import { targetApplies, type RuleCategory } from "@/lib/rules";
+import { contraindications, groupByRisk, isVerified } from "@/lib/safety";
 
 /**
  * The word on each row of a product's ingredient list (#324), so the few that
@@ -121,4 +122,40 @@ export function sortForGlance(
   const labelled = LABEL_ORDER.flatMap((label) => rows.filter((row) => row.label === label));
   const unlabelled = rows.filter((row) => row.label === null);
   return { labelled, unlabelled };
+}
+
+/**
+ * A rule's own targets for this person, read the way `computeMatch` reads
+ * sensitivity (#183): for an ingredient opened without a product, where
+ * there is no score to ask.
+ */
+export function ruleTargets(ingredient: Ingredient, profile: SkinProfile): { helps: boolean; hurts: boolean } {
+  const rule = ruleFor(ingredient);
+  if (!rule) return { helps: false, hurts: false };
+  return {
+    helps: targetApplies(rule.helps, { ...profile, sensitive: isSensitive(profile) }),
+    hurts: targetApplies(rule.hurts, { ...profile, sensitive: treatAsReactive(profile) }),
+  };
+}
+
+/**
+ * The verdict for an ingredient opened on its own (a label photo, Saved), with
+ * no product to score: the list's everyone-rules (EU status, fragrance and
+ * common irritants, the pore-clogging lists), then what its rule does for this
+ * person. Nothing against it reads as nothing against it (null), not "worth a
+ * second look" — which used to be said of every recognised name, water included.
+ */
+export function labelWithoutProduct(ingredient: Ingredient, profile: SkinProfile): IngredientLabel | null {
+  // In the list's order (`ingredientLabel`): a hazard or a pregnancy caution
+  // first, even on an unrecognised name, so a retinol is never "Helps with"
+  // for someone pregnant.
+  const warnings = contraindications([ingredient], profile);
+  if (warnings.some((w) => w.severity === "hazard" || w.origin === "pregnancy")) return "avoid";
+  if (!isVerified(ingredient)) return isWarnedPoreClogging(ingredient) ? "watch" : "unknown";
+  if (ingredient.safety === "avoid") return "avoid";
+  if (warnings.length > 0 || ingredient.safety === "caution" || isCommonIrritant(ingredient) || isWarnedPoreClogging(ingredient)) return "watch";
+  const { helps, hurts } = ruleTargets(ingredient, profile);
+  if (hurts) return "watch";
+  if (helps) return "good";
+  return null;
 }

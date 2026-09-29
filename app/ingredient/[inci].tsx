@@ -16,13 +16,12 @@ import { unknownIngredient, type Concern, type Ingredient, type ProductWithIngre
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { StarIcon } from "@/components/icons/StarIcon";
 import { comedogenicLabel } from "@/lib/format";
-import { isWarnedPoreClogging } from "@/lib/pore-clogging";
-import { countedAgainst, ingredientLabel, isCommonIrritant, type IngredientLabel } from "@/lib/ingredient-labels";
+import { countedAgainst, ingredientLabel, isCommonIrritant, labelWithoutProduct, ruleTargets, type IngredientLabel } from "@/lib/ingredient-labels";
 import { matchProduct, positionNote, positionWeightLabel, ruleFor, type Contraindication, type MatchResult } from "@/lib/matching";
 import { FROM_FINDER, useScoringProfile } from "@/lib/finder-choices";
 import { openQuiz } from "@/lib/open-quiz";
-import { CONCERN_TITLE, isPersonalized, isSensitive, treatAsReactive } from "@/lib/profile";
-import { targetApplies, type IngredientRule } from "@/lib/rules";
+import { CONCERN_TITLE, isPersonalized } from "@/lib/profile";
+import type { IngredientRule } from "@/lib/rules";
 import { contraindications, isVerified, regulatoryStatus } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
@@ -142,8 +141,8 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
   const verified = isVerified(ingredient);
   // Opened from a product, the verdict is the label the ingredient list gave
   // this row (#324). With no product there is no score, so the verdict comes
-  // from what we hold about the ingredient itself (`fitWithoutProduct`).
-  const labelOf = (i: Ingredient): Fit => (match ? (ingredientLabel(i, match, personalized) ?? "none") : fitWithoutProduct(i, profile));
+  // from what we hold about the ingredient itself (`labelWithoutProduct`).
+  const labelOf = (i: Ingredient): Fit => (match ? (ingredientLabel(i, match, personalized) ?? "none") : (labelWithoutProduct(i, profile) ?? "none"));
   const fit = labelOf(ingredient);
   const tone = TONE[fit];
 
@@ -430,42 +429,6 @@ function OnThisLabel({ names, index, colour }: { names: string[]; index: number;
       </Text>
     </Card>
   );
-}
-
-/**
- * A rule's own targets for this person, read the way `computeMatch` reads
- * sensitivity (#183): for an ingredient opened without a product, where
- * there is no score to ask.
- */
-function ruleTargets(ingredient: Ingredient, profile: SkinProfile): { helps: boolean; hurts: boolean } {
-  const rule = ruleFor(ingredient);
-  if (!rule) return { helps: false, hurts: false };
-  return {
-    helps: targetApplies(rule.helps, { ...profile, sensitive: isSensitive(profile) }),
-    hurts: targetApplies(rule.hurts, { ...profile, sensitive: treatAsReactive(profile) }),
-  };
-}
-
-/**
- * The verdict for an ingredient opened on its own (a label photo, Saved), with
- * no product to score: the list's everyone-rules (EU status, fragrance and
- * common irritants, the pore-clogging lists), then what its rule does for this
- * person. Nothing against it reads as nothing against it, not "worth a second
- * look" — which used to be said of every recognised name, water included.
- */
-function fitWithoutProduct(ingredient: Ingredient, profile: SkinProfile): Fit {
-  // In the list's order (`ingredientLabel`): a hazard or a pregnancy caution
-  // first, even on an unrecognised name, so a retinol is never "Helps with"
-  // for someone pregnant.
-  const warnings = contraindications([ingredient], profile);
-  if (warnings.some((w) => w.severity === "hazard" || w.origin === "pregnancy")) return "avoid";
-  if (!isVerified(ingredient)) return isWarnedPoreClogging(ingredient) ? "watch" : "unknown";
-  if (ingredient.safety === "avoid") return "avoid";
-  if (warnings.length > 0 || ingredient.safety === "caution" || isCommonIrritant(ingredient) || isWarnedPoreClogging(ingredient)) return "watch";
-  const { helps, hurts } = ruleTargets(ingredient, profile);
-  if (hurts) return "watch";
-  if (helps) return "good";
-  return "none";
 }
 
 /** "Panthenol (Vitamin B5)" → the two lines the design draws. */
