@@ -78,31 +78,31 @@ export default function Finder() {
       />
       <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: FOOTER_ROOM + insets.bottom }}>
         <PageTitle title="Skincare finder" line="Pick what matters and we'll show products that fit." />
-        <Question title="Skin concerns">
+        <QuestionGroup title="Skin concerns">
           <ConcernPicker
             concerns={draft.concerns}
             noneChosen={answered.has("concerns")}
             onToggle={toggleConcern}
             onNone={() => answer("concerns", { concerns: [] })}
           />
-        </Question>
-        <Question title="Skin type">
+        </QuestionGroup>
+        <QuestionGroup title="Skin type">
           <SkinTypePicker
             value={draft.baseSkinType}
             unknownChosen={answered.has("skinType")}
             onChange={(baseSkinType) => answer("skinType", { baseSkinType })}
           />
-        </Question>
-        <Question title="Sensitivity">
+        </QuestionGroup>
+        <QuestionGroup title="Sensitivity">
           <SensitivityPicker
             value={draft.sensitivity}
             unknownChosen={answered.has("sensitivity")}
             onChange={(sensitivity) => answer("sensitivity", { sensitivity })}
           />
-        </Question>
-        <Question title={PREGNANCY_QUESTION} note={PREGNANCY_WHY}>
+        </QuestionGroup>
+        <QuestionGroup title={PREGNANCY_QUESTION} note={PREGNANCY_WHY}>
           <PregnancyPicker value={draft.pregnancyStatus} onChange={(pregnancyStatus) => answer("pregnancy", { pregnancyStatus })} />
-        </Question>
+        </QuestionGroup>
       </ScrollView>
 
       {/* The button stays at the foot of the screen, on its own bar (v7). */}
@@ -130,7 +130,7 @@ export default function Finder() {
 const FOOTER_ROOM = 96;
 
 /** One question (v7): its caps label over its chips, straight on the page. */
-function Question({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
+function QuestionGroup({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
   return (
     <View>
       <SectionLabel title={title} first />
