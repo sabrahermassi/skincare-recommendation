@@ -9,7 +9,7 @@ import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import { CONCERN_TITLE, nextQuizRoute, quizStepNumber } from "@/lib/profile";
 import { MAX_CONCERNS, useAppStore } from "@/store/useAppStore";
-import { MUTED } from "@/lib/tokens";
+import { MUTED, SPACE, TYPE } from "@/lib/tokens";
 import { CONCERN_ICON, NONE_ICON } from "@/lib/quiz-icons";
 
 /**
@@ -126,7 +126,6 @@ export default function ConcernsStep() {
           return (
             <QuizOptionCard
               key={option.value}
-              layout="grid"
               multiple
               icon={option.icon}
               label={option.label}
@@ -136,11 +135,10 @@ export default function ConcernsStep() {
             />
           );
         })}
+        <QuizOptionCard icon={NONE_ICON} label="I don't have any concerns" selected={noneChosen} onPress={pickNone} />
       </View>
 
-      <QuizOptionCard icon={NONE_ICON} label="I don't have any concerns" selected={noneChosen} onPress={pickNone} />
-
-      <Text style={{ marginTop: 4, fontSize: 12.5, color: MUTED }}>
+      <Text style={{ marginTop: SPACE.block, textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>
         {noneChosen
           ? "No concerns selected."
           : atLimit

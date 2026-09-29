@@ -5,12 +5,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
-import { CANVAS } from "@/lib/tokens";
+import { CANVAS, HAIRLINE, SPACE } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
 
-/** Top padding of the quiz's first row, where QuizScreen's dots and back
- *  arrow start. */
+/** Top padding of the quiz's first row: back, progress bars and close. */
 export function quizTopPadding(insetTop: number) {
   return Math.max(20, insetTop + 10);
 }
@@ -95,9 +94,17 @@ export function QuizFrame({ children }: { children: ReactNode }) {
       <View style={{ flex: 1, backgroundColor: CANVAS }} onAccessibilityEscape={value.close}>
         <View style={{ flex: 1 }}>{children}</View>
 
-        <View style={{ paddingHorizontal: 24, paddingBottom: Math.max(28, insets.bottom + 14) }}>
-          {/* The app's one filled button style (#313): peach, shrinks when pressed. */}
-          <PrimaryButton label={label} onPress={pressFooter} disabled={disabled} size={48} />
+        {/* The button on its own bar at the foot (v7), above a hairline. */}
+        <View
+          style={{
+            paddingTop: SPACE.block,
+            paddingHorizontal: SPACE.gutter,
+            paddingBottom: Math.max(SPACE.section, insets.bottom + SPACE.block),
+            borderTopWidth: 0.5,
+            borderTopColor: HAIRLINE,
+          }}
+        >
+          <PrimaryButton label={label} onPress={pressFooter} disabled={disabled} />
         </View>
       </View>
     </QuizFrameContext.Provider>
