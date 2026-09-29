@@ -6,20 +6,22 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ConcernPicker, PregnancyPicker, SensitivityPicker, SkinTypePicker } from "@/components/ProfilePickers";
+import { PageTitle } from "@/components/PageTitle";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
 import type { Concern, SkinProfile } from "@/data/types";
 import { haptic } from "@/lib/haptics";
 import { isPersonalized, PREGNANCY_QUESTION, PREGNANCY_WHY } from "@/lib/profile";
-import { CANVAS, CARD_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { CANVAS, HAIRLINE, LINK, MUTED, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 import { useFinderChoices } from "@/lib/finder-choices";
 import { EMPTY_PROFILE, MAX_CONCERNS, visibleConcernCount } from "@/store/useAppStore";
 
 type Question = "concerns" | "skinType" | "sensitivity" | "pregnancy";
 
 /**
- * Skincare finder (owner, after OnSkin's): the four skin questions on one page
- * that scrolls, every option a chip, and "Show products" once at least one is
+ * Skincare finder (owner, after OnSkin's; v7 look): the four skin questions on
+ * one page that scrolls, every option a chip, and "Show products" once at least one is
  * answered — no question is required. The answers are the finder's own
  * (`lib/finder-choices`): they rank its results and never change the skin
  * profile the quiz and the routine use, nor are changed by it (owner). Opened
@@ -57,7 +59,6 @@ export default function Finder() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader
-        title="Skincare finder"
         right={
           hasAnswer ? (
             <Pressable
@@ -70,58 +71,71 @@ export default function Finder() {
               style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
               className="active:opacity-70"
             >
-              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: MUTED }}>Reset</Text>
+              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Reset</Text>
             </Pressable>
           ) : null
         }
       />
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: FOOTER_ROOM + insets.bottom }}>
-        <Card title="Skin concerns">
+      <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: FOOTER_ROOM + insets.bottom }}>
+        <PageTitle title="Skincare finder" line="Pick what matters and we'll show products that fit." />
+        <Question title="Skin concerns">
           <ConcernPicker
             concerns={draft.concerns}
             noneChosen={answered.has("concerns")}
             onToggle={toggleConcern}
             onNone={() => answer("concerns", { concerns: [] })}
           />
-        </Card>
-        <Card title="Skin type">
+        </Question>
+        <Question title="Skin type">
           <SkinTypePicker
             value={draft.baseSkinType}
             unknownChosen={answered.has("skinType")}
             onChange={(baseSkinType) => answer("skinType", { baseSkinType })}
           />
-        </Card>
-        <Card title="Sensitivity">
+        </Question>
+        <Question title="Sensitivity">
           <SensitivityPicker
             value={draft.sensitivity}
             unknownChosen={answered.has("sensitivity")}
             onChange={(sensitivity) => answer("sensitivity", { sensitivity })}
           />
-        </Card>
-        <Card title={PREGNANCY_QUESTION} note={PREGNANCY_WHY}>
+        </Question>
+        <Question title={PREGNANCY_QUESTION} note={PREGNANCY_WHY}>
           <PregnancyPicker value={draft.pregnancyStatus} onChange={(pregnancyStatus) => answer("pregnancy", { pregnancyStatus })} />
-        </Card>
+        </Question>
       </ScrollView>
 
-      <View style={{ position: "absolute", left: 20, right: 20, bottom: Math.max(SPACE.block, insets.bottom) }}>
+      {/* The button stays at the foot of the screen, on its own bar (v7). */}
+      <View
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          paddingTop: SPACE.block,
+          paddingHorizontal: SPACE.gutter,
+          paddingBottom: Math.max(SPACE.block, insets.bottom),
+          borderTopWidth: 0.5,
+          borderTopColor: HAIRLINE,
+          backgroundColor: CANVAS,
+        }}
+      >
         <PrimaryButton label="Show products" onPress={show} disabled={!hasAnswer} />
       </View>
     </View>
   );
 }
 
-// Room at the end of the list so its last card clears the fixed button.
+// Room at the end of the list so its last question clears the button bar.
 const FOOTER_ROOM = 96;
 
-/** One question: a white rounded card with its title over its chips. */
-function Card({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
+/** One question (v7): its caps label over its chips, straight on the page. */
+function Question({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
   return (
-    <View style={{ borderRadius: 24, backgroundColor: SURFACE, padding: 18, gap: 12, ...CARD_SHADOW }}>
-      <Text accessibilityRole="header" style={{ fontSize: TYPE.title, fontWeight: "700", color: INK }}>
-        {title}
-      </Text>
+    <View>
+      <SectionLabel title={title} first />
       {children}
-      {note ? <Text style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>{note}</Text> : null}
+      {note ? <Text style={{ marginTop: SPACE.text, paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{note}</Text> : null}
     </View>
   );
 }

@@ -406,14 +406,6 @@ export const TOUCH_TARGET = Platform.select({ ios: 44, android: 48, default: 44 
 export const CAPSULE_HEIGHT = 56;
 
 /**
- * Every filter pill (owner: slimmer than a button, the same everywhere) — the
- * finder results' answer chips and their Edit. `FILTER_HIT_SLOP` keeps the tap
- * area at TOUCH_TARGET around the thinner pill.
- */
-export const FILTER_PILL = { height: 32, radius: 16, fontSize: 13.5 } as const;
-export const FILTER_HIT_SLOP = Math.ceil((TOUCH_TARGET - FILTER_PILL.height) / 2);
-
-/**
  * v7 (29 September 2026, read off the hand-off): SF 13 captions and meta, 15
  * body and list names, 17 labels and card headings, 20 a product name or the
  * ingredient box's header; Playfair only for a screen's one title (24 on a

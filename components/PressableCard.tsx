@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Animated, Platform, Pressable, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
+import { Animated, Platform, type StyleProp, type ViewStyle } from "react-native";
 
 import { CARD_SHADOW } from "@/lib/tokens";
 
@@ -45,48 +45,5 @@ export function LiftedCard({
     >
       {children}
     </Animated.View>
-  );
-}
-
-/**
- * A card that behaves like a button: lifted off the page, and sinking a little
- * while it is pressed. Takes any Pressable prop, so it also works as the child
- * of a `Link asChild`.
- */
-export function PressableCard({
-  radius = 18,
-  backgroundColor,
-  outerStyle,
-  style,
-  children,
-  ...pressable
-}: Omit<PressableProps, "style" | "children"> & {
-  radius?: number;
-  backgroundColor: string;
-  /** Margins and the like, on the shaded outer view. */
-  outerStyle?: StyleProp<ViewStyle>;
-  /** Layout of the card's contents. */
-  style?: StyleProp<ViewStyle>;
-  children: ReactNode;
-}) {
-  const [scale, press] = usePressScale();
-  return (
-    <LiftedCard radius={radius} backgroundColor={backgroundColor} scale={scale} style={outerStyle}>
-      <Pressable
-        accessibilityRole="button"
-        {...pressable}
-        onPressIn={(e) => {
-          press.onPressIn();
-          pressable.onPressIn?.(e);
-        }}
-        onPressOut={(e) => {
-          press.onPressOut();
-          pressable.onPressOut?.(e);
-        }}
-        style={[{ borderRadius: radius, overflow: "hidden" }, style]}
-      >
-        {children}
-      </Pressable>
-    </LiftedCard>
   );
 }

@@ -75,9 +75,8 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
 }
 
 /**
- * The two numbers the irritation card is built from, shared with the browse
- * row (`ProductRow`) so a product never reads "1 flagged" in the list and "3
- * flagged for your skin" on its own page (#290).
+ * The numbers the irritation card is built from, in one place so every
+ * surface that counts flagged ingredients agrees with the product page (#290).
  *
  * `personal` is what this profile is warned about or was charged for;
  * `restricted` is what carries an EU restriction whoever you are; `common` is
