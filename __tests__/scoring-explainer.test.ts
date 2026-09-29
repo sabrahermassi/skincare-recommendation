@@ -1,5 +1,5 @@
 import { HAZARD_EXTRA_PENALTY, HAZARD_SCORE_CAP, MIN_IDENTIFIED, SCORE_BANDS } from "@/lib/matching";
-import { scoreBandLines, scoringSections } from "@/lib/scoring-explainer";
+import { SCORING_DISCLAIMER, scoreBandLines, scoreFactors, scoreNotes } from "@/lib/scoring-explainer";
 import { VERDICT_LABEL } from "@/lib/tokens";
 
 /**
@@ -10,24 +10,23 @@ import { VERDICT_LABEL } from "@/lib/tokens";
 describe("How scoring works", () => {
   it("states each band from SCORE_BANDS, with the verdict it earns", () => {
     const { excellent, good, fair } = SCORE_BANDS;
-    expect(scoreBandLines()).toEqual([
-      { range: `${excellent} and up`, label: VERDICT_LABEL.excellent },
+    expect(scoreBandLines().map(({ range, label }) => ({ range, label }))).toEqual([
+      { range: `${excellent} to 100`, label: VERDICT_LABEL.excellent },
       { range: `${good} to ${excellent - 1}`, label: VERDICT_LABEL.good },
       { range: `${fair} to ${good - 1}`, label: VERDICT_LABEL.fair },
-      { range: `Below ${fair}`, label: VERDICT_LABEL.poor },
+      { range: `0 to ${fair - 1}`, label: VERDICT_LABEL.poor },
     ]);
   });
 
-  it("leaves no gap or overlap between the bands", () => {
-    const [top, second, third, bottom] = scoreBandLines().map((line) => (line.range.match(/\d+/g) ?? []).map(Number));
-    // "90 and up", "75 to 89", "60 to 74", "Below 60".
-    expect(second[1]).toBe(top[0] - 1);
-    expect(third[1]).toBe(second[0] - 1);
-    expect(bottom[0]).toBe(third[0]);
+  it("covers 0 to 100 with no gap or overlap between the bands", () => {
+    const bands = scoreBandLines();
+    expect(bands[0].to).toBe(100);
+    expect(bands[bands.length - 1].from).toBe(0);
+    for (let i = 1; i < bands.length; i++) expect(bands[i].to).toBe(bands[i - 1].from - 1);
   });
 
   it("says the hazard cap and the no-score threshold the score uses", () => {
-    const text = scoringSections().map((s) => s.body).join(" ");
+    const text = [...scoreFactors(), ...scoreNotes()].map((row) => row.body).join(" ");
     expect(text).toContain(`caps the score at ${HAZARD_SCORE_CAP}`);
     expect(text).toContain(`each further one takes ${HAZARD_EXTRA_PENALTY} off`);
     expect(text).toContain(`fewer than ${MIN_IDENTIFIED} of its ingredients`);
@@ -35,9 +34,9 @@ describe("How scoring works", () => {
   });
 
   it("says the score is personal, and what we don't do", () => {
-    const text = scoringSections().map((s) => s.body).join(" ");
+    const text = scoreNotes().map((row) => row.body).join(" ");
     expect(text).toMatch(/score differently for someone else/);
-    expect(text).toContain("No ads, no brand deals, no paid placements.");
-    expect(text).toMatch(/none of this is medical advice/);
+    expect(SCORING_DISCLAIMER).toContain("No ads, no brand deals, no paid placements.");
+    expect(SCORING_DISCLAIMER).toMatch(/Not medical advice/);
   });
 });

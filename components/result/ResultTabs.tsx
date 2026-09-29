@@ -178,7 +178,7 @@ function ScoreHead({ match }: { match: MatchResult }) {
         <Ring score={match.score} colours={colours} />
       </View>
       <Pressable
-        onPress={() => router.push("/scoring")}
+        onPress={() => router.push(match.score === null ? "/scoring" : { pathname: "/scoring", params: { score: String(match.score) } })}
         accessibilityRole="button"
         accessibilityLabel={`${VERDICT_LABEL[match.verdict]}. How scoring works`}
         style={{ marginTop: 12, minWidth: 160, height: 32, borderRadius: 16, paddingLeft: 16, paddingRight: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colours.deep }}
