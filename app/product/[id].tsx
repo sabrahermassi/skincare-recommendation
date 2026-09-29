@@ -15,7 +15,7 @@ import { IconCircle } from "@/components/IconCircle";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ReadingScale, Text } from "@/components/Text";
 import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
-import type { ProductWithIngredients } from "@/data/types";
+import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import { track } from "@/lib/analytics";
 import { relativeTime } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
@@ -425,7 +425,8 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
 
 /**
  * The product, as the result's header (v7): its bottle straight on the page,
- * top-aligned, and beside it only the brand and the name. Out of stock says so.
+ * top-aligned, and beside it the brand, the name and the product's type
+ * (owner, 29 September 2026: no stock line). An unknown type is left out.
  */
 function ProductHeader({ product }: { product: ProductWithIngredients }) {
   return (
@@ -440,7 +441,11 @@ function ProductHeader({ product }: { product: ProductWithIngredients }) {
         <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontSize: TYPE.title, fontWeight: "600", lineHeight: 25, letterSpacing: -0.2, color: INK }}>
           {product.name}
         </Text>
-        {!product.inStock ? <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: VERDICT.low.deep }}>Out of stock</Text> : null}
+        {product.type !== "unknown" ? (
+          <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.caption, color: MUTED }}>
+            {PRODUCT_TYPE_LABEL[product.type]}
+          </Text>
+        ) : null}
       </View>
     </View>
   );
