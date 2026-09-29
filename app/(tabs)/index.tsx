@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
+import { TipCard } from "@/components/TipCard";
 import { openScanner } from "@/lib/open-scanner";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
 import { CANVAS, CARD_RADIUS, DISPLAY_FONT, HOME_CARD_FILL, HOME_TILE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
@@ -25,8 +26,8 @@ const TILE_ART = 64;
 /**
  * Home (v7): the "Hi there" title; the scan card, with its own Scan now
  * button; and three tiles under it — Search, the skincare Routine, and My
- * match, which opens the skincare finder. The only warm tints in the app
- * outside a verdict are these. It scrolls only when large text needs it.
+ * match, which opens the skincare finder — then the Tip of the day. The only
+ * warm tints in the app outside a verdict are these. It scrolls only when large text needs it.
  */
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -73,6 +74,9 @@ export default function Home() {
           <Tile label="Routine" art={ROUTINE_ART} fill={HOME_TILE.butter} onPress={() => router.push("/routine")} />
           <Tile label="My match" art={MATCH_ART} fill={HOME_TILE.blush} onPress={() => router.push("/finder")} />
         </View>
+
+        {/* A short tip, a new one each day (v7). */}
+        <TipCard />
       </ScrollView>
     </View>
   );

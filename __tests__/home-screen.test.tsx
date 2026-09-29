@@ -6,8 +6,8 @@ import { openScanner } from "@/lib/open-scanner";
 
 /**
  * Home (per #155, v7 design): the "Hi there" title, the scan card with its own
- * Scan now button, and three tiles — Search, Routine and My match (the
- * skincare finder).
+ * Scan now button, three tiles — Search, Routine and My match (the
+ * skincare finder) — and the Tip of the day.
  */
 
 jest.setTimeout(30_000);
@@ -48,4 +48,11 @@ it("opens the skincare finder from My match", async () => {
   await render(<Home />);
   await fireEvent.press(screen.getByRole("button", { name: "My match" }));
   expect(router.push).toHaveBeenCalledWith("/finder");
+});
+
+it("shows today's tip under the tiles", async () => {
+  const { tipOfTheDay } = jest.requireActual<typeof import("@/lib/tips")>("@/lib/tips");
+  await render(<Home />);
+  expect(screen.getByText("Tip of the day")).toBeTruthy();
+  expect(screen.getByLabelText(`Tip of the day: ${tipOfTheDay()}`)).toBeTruthy();
 });

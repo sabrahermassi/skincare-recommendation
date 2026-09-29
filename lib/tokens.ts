@@ -465,6 +465,19 @@ export const FONT_SCALE = {
 export const NOTE_FONT = "Caveat_500Medium";
 
 /**
+ * Tip of the day (v7, read off the hand-off): a paper note on Home — the one
+ * place tape is allowed. The handwriting at 22pt, the card's small corners and
+ * light lift, and the strip of tape across its top.
+ */
+export const TIP_NOTE = {
+  fontSize: 22,
+  lineHeight: 27,
+  radius: 6,
+  tape: "rgba(214,196,170,0.6)",
+  shadow: { shadowColor: INK, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 2 },
+} as const;
+
+/**
  * A token color at partial opacity, as an `rgba()` string — for translucent
  * overlays a plain hex can't express (light-on-dark camera chrome, a pressed
  * wash) without hand-typing the same RGB triplet at every call site. Derives
