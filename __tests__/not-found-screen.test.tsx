@@ -20,7 +20,7 @@ describe("NotFound", () => {
 
   it("says the page wasn't found and offers Home", async () => {
     await render(<NotFound />);
-    expect(screen.getByText("Page not found")).toBeTruthy();
+    expect(screen.getByText("This page wandered off")).toBeTruthy();
     await fireEvent.press(screen.getByText("Go to Home"));
     expect(mockReplace).toHaveBeenCalledWith("/");
   });

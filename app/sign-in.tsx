@@ -1,7 +1,7 @@
 import * as AppleAuthentication from "expo-apple-authentication";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
@@ -18,16 +18,17 @@ import {
   type Provider,
   type SignInResult,
 } from "@/lib/auth";
-import { CANVAS, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 
-/** The same height as the app's own detail-screen buttons (`PrimaryButton` size 52). */
-const APPLE_BUTTON_HEIGHT = 52;
+/** The same height as every other button (v7: 48). */
+const APPLE_BUTTON_HEIGHT = 48;
 
 /**
  * The sign-in sheet (#220): Sign in with Apple and Sign in with Google, and
- * nothing else — no form, no password, no email to type (#217). Reached only
- * from the Saved tab and the account screen; there is no sign-in wall
- * anywhere, and saving never asks (#300).
+ * nothing else — no form, no password, no email to type (#217), and no "Not
+ * now" (v7): the sheet swipes away. Reached only from the Saved tab and the
+ * account screen; there is no sign-in wall anywhere, and saving never asks
+ * (#300).
  *
  * Closing the provider's own sheet is someone changing their mind, not an
  * error, so it leaves this screen exactly as it was. A real failure gets one
@@ -39,8 +40,7 @@ export default function SignIn() {
   const [busy, setBusy] = useState<Provider | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
-  // A sign-in can finish after the sheet has already been closed ("Not now",
-  // or a swipe down). Going back then would pop whatever screen is under it
+  // A sign-in can finish after the sheet has already been swiped away. Going back then would pop whatever screen is under it
   // (#272 review), so navigation only happens while the sheet is still up.
   const mounted = useRef(true);
 
@@ -96,13 +96,13 @@ export default function SignIn() {
     // Content taller than half the screen — both sign-in buttons at a large
     // text size — is reached by dragging the sheet up (#309 review).
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <View style={{ padding: 24, paddingTop: 28, paddingBottom: insets.bottom + 32, gap: 18 }}>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 26, color: INK }}>Keep your shelf</Text>
-        <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>
-          {ACCOUNT_PITCH}
+      <View style={{ paddingHorizontal: SPACE.section, paddingTop: 32, paddingBottom: insets.bottom + 32, gap: SPACE.text }}>
+        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+          Keep your shelf
         </Text>
+        <Text style={{ alignSelf: "center", maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{ACCOUNT_PITCH}</Text>
 
-        <View style={{ gap: 12, paddingTop: 8, alignItems: "center" }}>
+        <View style={{ gap: SPACE.block, paddingTop: SPACE.gutter, alignItems: "center" }}>
           {appleAvailable ? (
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
@@ -119,25 +119,14 @@ export default function SignIn() {
         </View>
 
         {failure ? (
-          <Text accessibilityLiveRegion="polite" style={{ fontSize: 13.5, lineHeight: 20, color: INK }}>
+          <Text accessibilityLiveRegion="polite" style={{ textAlign: "center", fontSize: TYPE.label, lineHeight: 21, color: INK }}>
             {failure}
           </Text>
         ) : null}
 
-        {anyProvider ? (
-          <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>{HIDE_MY_EMAIL_NOTE}</Text>
-        ) : (
-          <Text style={{ fontSize: 13.5, lineHeight: 20, color: MUTED }}>{UNAVAILABLE}</Text>
-        )}
-
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          style={{ minHeight: TOUCH_TARGET, alignSelf: "center", justifyContent: "center", paddingHorizontal: 16 }}
-          className="active:opacity-70"
-        >
-          <Text style={{ fontSize: 14.5, fontWeight: "600", color: INK }}>Not now</Text>
-        </Pressable>
+        <Text style={{ paddingTop: SPACE.text, textAlign: "center", fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
+          {anyProvider ? HIDE_MY_EMAIL_NOTE : UNAVAILABLE}
+        </Text>
       </View>
     </View>
   );

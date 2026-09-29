@@ -3,6 +3,7 @@ import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { ScrollView, View } from "react-native";
 
+import { PageTitle } from "@/components/PageTitle";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
@@ -19,7 +20,6 @@ import {
   CANVAS,
   CARD_RADIUS,
   CHOSEN,
-  DISPLAY_FONT,
   HAIRLINE,
   INK,
   LINK,
@@ -51,9 +51,7 @@ export default function HowScoringWorks() {
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader />
       <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
-        <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-          How scoring works
-        </Text>
+        <PageTitle title="How scoring works" />
 
         <SectionLabel title="What the numbers mean" first />
         <View style={{ backgroundColor: SURFACE, borderRadius: CARD_RADIUS, paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: SPACE.text }}>

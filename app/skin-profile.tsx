@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
 import { ConcernPicker, PregnancyPicker, SensitivityPicker, SkinTypePicker } from "@/components/ProfilePickers";
+import { PageTitle } from "@/components/PageTitle";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
@@ -10,7 +11,7 @@ import type { Concern } from "@/data/types";
 import { haptic } from "@/lib/haptics";
 import { CONCERN_TITLE, PREGNANCY_QUESTION, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
 import { concernIcon, NONE_ICON, PREGNANCY_ICON, SENSITIVITY_ICON, SKIN_TYPE_ICON, UNSURE_ICON } from "@/lib/quiz-icons";
-import { CANVAS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, INK, LINK, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
 
 type Question = "skinType" | "concerns" | "sensitivity" | "pregnancy";
@@ -78,12 +79,7 @@ export default function SkinProfileScreen() {
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader />
       <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
-        <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-          Skin profile
-        </Text>
-        <Text style={{ marginTop: SPACE.block, paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
-          Every score is made from these answers. Change one and your scores update.
-        </Text>
+        <PageTitle title="Skin profile" line="Every score is made from these answers. Change one and your scores update." />
 
         {ORDER.map((question) => {
           const isOpen = open === question;

@@ -1,17 +1,18 @@
-import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 
 import { ConfirmSheet } from "@/components/ConfirmSheet";
 import { MenuGroup, MenuRow } from "@/components/MenuRows";
+import { PageTitle } from "@/components/PageTitle";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
 import { deleteMyAccount, exportMyData, type DeleteOutcome, type ExportOutcome } from "@/lib/account";
 import { ACCOUNT_PITCH, accountSummary, signOut, signOutEverywhere, useAuth } from "@/lib/auth";
 import { noteProfileErased } from "@/lib/erase-notice";
-import { CANVAS, INK, MUTED, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -21,10 +22,10 @@ import { useAppStore } from "@/store/useAppStore";
  * find (App Store Guideline 5.1.1(v)). Signed out, it explains what an
  * account is for and offers the sign-in sheet; it never blocks anything else.
  *
- * Laid out after the owner's reference: the rows in rounded blocks, and the
- * delete on its own at the foot of the screen. Signed out, that delete is the
- * one Profile used to carry — erasing the skin profile, shelf and history on
- * this phone.
+ * Laid out in v7's groups — who you're signed in with, your data, delete —
+ * each a white card under a caps label, with its note under it. Signed out,
+ * the delete is the one Profile used to carry — erasing the skin profile,
+ * shelf and history on this phone.
  */
 export default function Account() {
   const status = useAuth((s) => s.status);
@@ -103,24 +104,19 @@ export default function Account() {
     }
   };
 
+  const signedIn = status === "signed-in" && session !== null;
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenHeader title="Account" />
-      <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, gap: 14, paddingBottom: 40 }}>
+      <ScreenHeader />
+      <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
+        <PageTitle title="Account" />
         {status === "loading" ? (
-          <ActivityIndicator color={MUTED} accessibilityLabel="Loading" />
-        ) : status === "signed-in" && session ? (
-          <SignedIn
-            summary={accountSummary(session)}
-            working={working}
-            onLeave={leave}
-            onDownload={download}
-          />
+          <ActivityIndicator color={MUTED} accessibilityLabel="Loading" style={{ marginTop: SPACE.section }} />
+        ) : signedIn && session ? (
+          <SignedIn summary={accountSummary(session)} working={working} onLeave={leave} onDownload={download} />
         ) : (
-          <>
-            <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>
-              {ACCOUNT_PITCH}
-            </Text>
+          <View style={{ gap: SPACE.gutter, marginTop: SPACE.block }}>
+            <Text style={{ paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{ACCOUNT_PITCH}</Text>
             <PrimaryButton
               label="Sign in"
               onPress={() => {
@@ -128,7 +124,7 @@ export default function Account() {
                 router.push({ pathname: "/sign-in", params: { from: "account" } });
               }}
             />
-          </>
+          </View>
         )}
 
         {/* A "you're signed out" line is about the moment it was shown; once
@@ -136,28 +132,26 @@ export default function Account() {
             (#272 review). The one notice that belongs to a signed-in screen
             is the sign-out that failed. */}
         {notice && (status !== "signed-in" || SIGNED_IN_NOTICES.has(notice)) ? (
-          <Text accessibilityLiveRegion="polite" style={{ fontSize: 13.5, lineHeight: 20, color: INK }}>
+          <Text accessibilityLiveRegion="polite" style={{ marginTop: SPACE.gutter, paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
             {notice}
           </Text>
         ) : null}
 
-        {/* The delete, on its own at the foot of the screen. */}
+        {/* The delete, in its own group at the foot (v7). Signed out it is the
+            one Profile used to carry: erasing this phone's profile, shelf and history. */}
         {status === "loading" ? null : (
-          <View style={{ flex: 1, justifyContent: "flex-end", alignItems: "center", paddingTop: SPACE.gutter }}>
-            <Pressable
-              onPress={() => (status === "signed-in" && session ? setConfirmingDelete(true) : setConfirmingErase(true))}
-              disabled={working}
-              accessibilityRole="button"
-              accessibilityLabel={status === "signed-in" && session ? "Delete account" : "Delete my profile"}
-              style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: SPACE.text, paddingHorizontal: SPACE.block }}
-              className="active:opacity-70"
-            >
-              <Ionicons name="trash-outline" size={20} color={MUTED} />
-              <Text style={{ fontSize: TYPE.body, fontWeight: "500", color: MUTED }}>
-                {status === "signed-in" && session ? "Delete account" : "Delete my profile"}
-              </Text>
-            </Pressable>
-          </View>
+          <>
+            <SectionLabel title="Delete" first />
+            <MenuGroup>
+              <MenuRow
+                label={signedIn ? "Delete account" : "Delete my profile"}
+                destructive
+                disabled={working}
+                onPress={() => (signedIn ? setConfirmingDelete(true) : setConfirmingErase(true))}
+              />
+            </MenuGroup>
+            <Note>{signedIn ? "Deleting your account removes everything saved to it. It can't be undone." : "Your profile, shelf and history on this phone. It can't be undone."}</Note>
+          </>
         )}
       </ScrollView>
 
@@ -197,29 +191,27 @@ function SignedIn({
 }) {
   return (
     <>
+      <SectionLabel title={`Signed in with ${summary.providers}`} first />
       <MenuGroup>
-        {summary.email ? <MenuRow icon="mail" label="Email" value={summary.email} /> : null}
-        <MenuRow icon="log-out" label="Sign out" disabled={working} onPress={() => onLeave(false)} />
+        {summary.email ? <MenuRow label="Email" value={summary.email} /> : null}
+        <MenuRow label="Sign out" disabled={working} onPress={() => onLeave(false)} />
+        <MenuRow label="Sign out on every device" disabled={working} onPress={() => onLeave(true)} />
       </MenuGroup>
-      <View style={{ gap: 4, paddingHorizontal: SPACE.text }}>
-        <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>Signed in with {summary.providers}</Text>
-        {summary.isHiddenEmail ? (
-          // A relay address looks like a typo to anyone who didn't set it up
-          // knowingly; saying what it is keeps it from reading as an error.
-          <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>{HIDDEN_EMAIL_NOTE}</Text>
-        ) : null}
-      </View>
+      {summary.isHiddenEmail ? <Note>{HIDDEN_EMAIL_NOTE}</Note> : null}
+      <Note>{EVERY_DEVICE_NOTE}</Note>
 
+      <SectionLabel title="Your data" first />
       <MenuGroup>
-        <MenuRow icon="phone-portrait" label="Sign out on every device" disabled={working} onPress={() => onLeave(true)} />
-        <MenuRow icon="download" label="Download my data" disabled={working} onPress={onDownload} />
+        <MenuRow label="Download my data" disabled={working} onPress={onDownload} />
       </MenuGroup>
-      <View style={{ gap: SPACE.text, paddingHorizontal: SPACE.text }}>
-        <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>{EVERY_DEVICE_NOTE}</Text>
-        <Text style={{ fontSize: 13, lineHeight: 19, color: MUTED }}>{EXPORT_EXPLAINER}</Text>
-      </View>
+      <Note>{EXPORT_EXPLAINER}</Note>
     </>
   );
+}
+
+/** A group's note under its card (v7): 13pt, secondary. */
+function Note({ children }: { children: string }) {
+  return <Text style={{ paddingTop: SPACE.text, paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{children}</Text>;
 }
 
 /** Exported for the tests. */

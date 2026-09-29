@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 
 import Support from "@/app/support";
 
@@ -20,6 +20,9 @@ describe("Support", () => {
   // answer never offers to add the product to the catalogue.
   it("says a photo of the list gives a result, and never offers to add the product", async () => {
     await render(<Support />);
+    // Each answer opens under its question (v7).
+    expect(screen.queryByText(/you get a result straight away/)).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "A product isn't in our catalogue" }));
     expect(screen.getByText(/you get a result straight away/)).toBeTruthy();
     expect(screen.queryByText(/add it to the catalogue|Name and add|add the product/i)).toBeNull();
   });

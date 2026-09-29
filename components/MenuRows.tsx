@@ -4,7 +4,7 @@ import { Pressable, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
-import { CARD_RADIUS, HAIRLINE, INK, LINK, MENU_FILL, MUTED, ROW_CHEVRON, TYPE } from "@/lib/tokens";
+import { BUTTON, CARD_RADIUS, HAIRLINE, INK, LINK, MENU_FILL, MUTED, ROW_CHEVRON, TYPE } from "@/lib/tokens";
 
 // Each row's height (v7).
 const ROW_HEIGHT = 56;
@@ -49,6 +49,7 @@ export function MenuRow({
   value,
   onPress,
   disabled = false,
+  destructive = false,
   divided = false,
 }: {
   /** Left out on a list of settings, where the name alone reads. */
@@ -60,6 +61,8 @@ export function MenuRow({
   value?: string;
   onPress?: () => void;
   disabled?: boolean;
+  /** A red name and no chevron (v7: "Delete my account"). */
+  destructive?: boolean;
   /** Set by `MenuGroup`: every row but the first has a hairline above it. */
   divided?: boolean;
 }) {
@@ -78,14 +81,14 @@ export function MenuRow({
           borderTopColor: HAIRLINE,
         }}
       >
-        <Text style={{ flex: value ? 0 : 1, fontSize: TYPE.card, color: INK }}>{label}</Text>
+        <Text style={{ flex: value ? 0 : 1, fontSize: TYPE.card, color: destructive ? BUTTON.destructive.fill : INK }}>{label}</Text>
         {badge ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{badge}</Text> : null}
         {value ? (
           <Text numberOfLines={1} ellipsizeMode={onPress ? "tail" : "middle"} style={{ flex: 1, textAlign: "right", fontSize: TYPE.label, color: MUTED }}>
             {value}
           </Text>
         ) : null}
-        {onPress ? <RowChevron /> : null}
+        {onPress && !destructive ? <RowChevron /> : null}
       </View>
     </>
   );
