@@ -142,13 +142,8 @@ describe("the ingredient screen", () => {
     mockParams = { inci: "niacinamide", product: PRODUCT };
   });
 
-  it("shows its picture beside the name up to the ordinary ceiling", async () => {
-    mockFontScale = FONT_SCALE.ui;
-    await renderSettled(<IngredientRoute />);
-    expect(screen.queryAllByTestId("image").length).toBeGreaterThan(0);
-  });
-
-  it("drops the picture at the largest text size, so the name has the whole width", async () => {
+  // v7 draws no picture beside the name, so the name has the whole width at every size.
+  it("draws no picture beside the name, at the largest text size or below", async () => {
     mockFontScale = LARGEST;
     await renderSettled(<IngredientRoute />);
     expect(screen.queryAllByTestId("image")).toEqual([]);
