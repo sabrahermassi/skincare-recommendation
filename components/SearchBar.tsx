@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
-import { ICON_MUTED, INK, SURFACE } from "@/lib/tokens";
+import { FONT_SCALE, ICON_MUTED, INK, SURFACE } from "@/lib/tokens";
 
 /** The bar's height (v7). */
 export const SEARCH_BAR_HEIGHT = 44;
@@ -14,8 +14,16 @@ export const SEARCH_BAR_HEIGHT = 44;
  */
 export const SearchBar = forwardRef<
   TextInput,
-  { value: string; onChangeText: (text: string) => void; placeholder: string; accessibilityLabel?: string; autoFocus?: boolean }
->(function SearchBar({ value, onChangeText, placeholder, accessibilityLabel, autoFocus }, ref) {
+  {
+    value: string;
+    onChangeText: (text: string) => void;
+    placeholder: string;
+    accessibilityLabel?: string;
+    autoFocus?: boolean;
+    /** The keyboard's Search key (School asks its best match). */
+    onSubmitEditing?: () => void;
+  }
+>(function SearchBar({ value, onChangeText, placeholder, accessibilityLabel, autoFocus, onSubmitEditing }, ref) {
   return (
     <View
       style={{ flex: 1, height: SEARCH_BAR_HEIGHT, borderRadius: SEARCH_BAR_HEIGHT / 2, backgroundColor: SURFACE, flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingRight: 8 }}
@@ -33,6 +41,8 @@ export const SearchBar = forwardRef<
         autoCorrect={false}
         autoFocus={autoFocus}
         returnKeyType="search"
+        onSubmitEditing={onSubmitEditing}
+        maxFontSizeMultiplier={FONT_SCALE.ui}
         accessibilityLabel={accessibilityLabel ?? placeholder}
         style={{ flex: 1, height: SEARCH_BAR_HEIGHT, fontSize: 17, color: INK }}
       />
