@@ -10,6 +10,8 @@ import { INK, LINK, MENU_CHOSEN, MENU_SHADOW, MUTED, SURFACE, TOUCH_TARGET, TYPE
 const POPOVER_RADIUS = 14;
 const POPOVER_PADDING = 4;
 const POPOVER_MIN_WIDTH = 132;
+// Roughly how wide a 15pt letter is, to size the popover to its longest option.
+const LETTER_WIDTH = 8.4;
 const OPTION_HEIGHT = TOUCH_TARGET;
 const OPTION_RADIUS = 10;
 // A long list (the finder's product types) shows this many rows and scrolls
@@ -46,6 +48,11 @@ export function FilterDropdown<T extends string>({
   const button = useRef<View>(null);
   const window = useWindowDimensions();
   const current = options.find((o) => o.value === selected)?.label ?? "";
+  // Sized to its longest option (v7): its letters, the row's padding and gap,
+  // the tick, and a count where there is one.
+  const longest = Math.max(...options.map((o) => o.label.length));
+  const hasCounts = options.some((o) => o.count !== undefined);
+  const popoverWidth = Math.min(window.width - 32, Math.max(POPOVER_MIN_WIDTH, Math.ceil(longest * LETTER_WIDTH) + 2 * POPOVER_PADDING + 24 + 12 + 14 + (hasCounts ? 44 : 0)));
 
   // Opens at once, and shows once the button has been measured, so it never
   // flashes in the wrong place.
@@ -85,8 +92,7 @@ export function FilterDropdown<T extends string>({
                 top: anchor ? anchor.y + anchor.height + 4 : 0,
                 ...(align === "end" ? { right: anchor ? window.width - (anchor.x + anchor.width) : 0 } : { left: anchor ? anchor.x : 0 }),
                 opacity: anchor ? 1 : 0,
-                minWidth: POPOVER_MIN_WIDTH,
-                maxWidth: window.width - 32,
+                width: popoverWidth,
                 borderRadius: POPOVER_RADIUS,
                 backgroundColor: SURFACE,
                 ...MENU_SHADOW,
@@ -113,7 +119,9 @@ export function FilterDropdown<T extends string>({
                       style={{ height: OPTION_HEIGHT, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12, borderRadius: OPTION_RADIUS, backgroundColor: on ? MENU_CHOSEN : undefined }}
                       className="active:opacity-70"
                     >
-                      <Text style={{ flex: 1, fontSize: TYPE.label, fontWeight: on ? "600" : "400", color: INK }}>{label}</Text>
+                      <Text numberOfLines={1} style={{ flex: 1, fontSize: TYPE.label, fontWeight: on ? "600" : "400", color: INK }}>
+                        {label}
+                      </Text>
                       {count !== undefined ? <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{count}</Text> : null}
                       <View style={{ width: 14, alignItems: "center" }}>
                         {on ? (

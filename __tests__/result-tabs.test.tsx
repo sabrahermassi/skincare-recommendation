@@ -34,36 +34,36 @@ async function show(names: string[], profile: SkinProfile) {
 }
 
 const openMatch = () => fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
-const openSafety = () => fireEvent.press(screen.getByRole("tab", { name: "Safety" }));
+const openIngredients = () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
 
-it("puts a reason's source under it in Why this score (#326)", async () => {
+it("puts a reason's source under it, on its card (#326)", async () => {
   const source = INGREDIENT_RULES.find((rule) => rule.names.includes("niacinamide"))?.source;
   expect(source).toBeDefined();
   await show(["niacinamide"], { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] });
   await openMatch();
-  await fireEvent.press(screen.getByLabelText("Why this score"));
+  expect(screen.getByText(/^Niacinamide helps with dark spots$/)).toBeTruthy();
   expect(screen.getByLabelText(`Source: ${source!.label}`)).toBeTruthy();
 });
 
 it("puts a pregnancy caution's source on the pregnancy card", async () => {
   const hydroquinone = PREGNANCY_CAUTION.find((entry) => entry.category === "hydroquinone")!;
   await show(["hydroquinone"], { ...EMPTY_PROFILE, pregnancyStatus: "pregnant" });
-  await openSafety();
-  expect(screen.getByText("While pregnant or breastfeeding")).toBeTruthy();
+  await openIngredients();
+  expect(screen.getByText("Best avoided while pregnant")).toBeTruthy();
   expect(screen.getByLabelText(`Source: ${hydroquinone.source!.label}`)).toBeTruthy();
 });
 
 it("marks a layering note as a caution and leaves the evening note plain", async () => {
-  await show(["retinol"], EMPTY_PROFILE);
-  await openSafety();
+  await show(["retinol"], { ...EMPTY_PROFILE, baseSkinType: "dry" });
+  await openMatch();
   expect(screen.getByText(/evening routine/)).toBeTruthy();
   expect(screen.getByText(/another product with BHA/)).toBeTruthy();
   expect(screen.getAllByTestId("routine-caution")).toHaveLength(1);
 });
 
-it("gives the dark-spots SPF note on Skin match, not on the Safety tab everyone sees", async () => {
+it("gives the dark-spots SPF note on Skin match, not on the Ingredients tab everyone sees", async () => {
   await show(["niacinamide"], { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] });
-  await openSafety();
+  await openIngredients();
   expect(screen.queryByText(/working on dark spots/)).toBeNull();
   await openMatch();
   expect(screen.getByText(/working on dark spots/)).toBeTruthy();
@@ -73,7 +73,7 @@ it("gives the dark-spots SPF note on Skin match, not on the Safety tab everyone 
 it("opens Skin match on the score, with no row of the answers above it", async () => {
   await show(["niacinamide"], { concerns: ["hyperpigmentation"], baseSkinType: "combination", sensitivity: "some", pregnancyStatus: null });
   await openMatch();
-  expect(screen.getByLabelText("Why this score")).toBeTruthy();
+  expect(screen.getByTestId("score-ring")).toBeTruthy();
   expect(screen.queryByText("Combination")).toBeNull();
   expect(screen.queryByText("Somewhat sensitive")).toBeNull();
   expect(screen.queryByText("Edit")).toBeNull();
@@ -89,10 +89,10 @@ async function showWith(extra: Ingredient[], profile: SkinProfile) {
   await act(async () => {});
 }
 
-it("puts an EU prohibition's source under it in Flagged for your skin", async () => {
+it("puts an EU prohibition's source under it, on its red card", async () => {
   await showWith([{ ...ingredient("some prohibited substance"), safety: "avoid" }], { ...EMPTY_PROFILE, concerns: ["dullness"] });
   await openMatch();
-  expect(screen.getByText("Flagged for your skin")).toBeTruthy();
+  expect(screen.getByText("Some Prohibited Substance")).toBeTruthy();
   expect(screen.getAllByLabelText("Source: EU Cosmetics Regulation, Annex II").length).toBeGreaterThan(0);
 });
 
@@ -106,6 +106,5 @@ it("credits a concern met only by a declared function, as the score does", async
   );
   await act(async () => {});
   await openMatch();
-  expect(screen.queryByText("Nothing here works on your concerns in particular.")).toBeNull();
-  expect(screen.getByText(/Declared as a humectant/)).toBeTruthy();
+  expect(screen.getByText(/Declared as a humectant/i)).toBeTruthy();
 });

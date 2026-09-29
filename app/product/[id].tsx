@@ -11,10 +11,11 @@ import { ProductNote } from "@/components/ProductNote";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { ReportMistakeLink } from "@/components/ReportMistakeLink";
 import { ResultTabs } from "@/components/result/ResultTabs";
+import { IconCircle } from "@/components/IconCircle";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ReadingScale, Text } from "@/components/Text";
 import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
-import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
+import type { ProductWithIngredients } from "@/data/types";
 import { track } from "@/lib/analytics";
 import { relativeTime } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
@@ -24,7 +25,7 @@ import { openScanner } from "@/lib/open-scanner";
 import { productIdParam } from "@/lib/route-params";
 import { historyWarningCount } from "@/lib/safety";
 import { saveFromTap, useCanJournal } from "@/lib/saving";
-import { CANVAS, CHOSEN, FONT_SCALE, GRAY_FILL, INK, MUTED, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
+import { CANVAS, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import NotFound from "@/app/+not-found";
 
@@ -288,7 +289,6 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
   }
 
   const match = matchProduct(product, profile);
-  const total = product.ingredients.length;
 
   // Six months. Long enough that a fresh catalogue never mentions it, short
   // enough to catch a formula that predates a plausible reformulation — brands
@@ -343,36 +343,33 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader
         right={
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 22 }}>
-            <Pressable
+          <>
+            <IconCircle
               // Saves for anyone, signed in or not (#300).
               onPress={() => {
                 haptic.tap();
                 if (saved) toggleSaved(product.id);
                 else saveFromTap(() => saveProduct(product.id, product.fetchedAt), "product");
               }}
-              hitSlop={12}
-              accessibilityRole="button"
               accessibilityLabel={saved ? "Remove from saved" : "Save"}
               accessibilityState={{ selected: saved }}
-              className="active:opacity-70"
             >
               <PopOnToggle active={saved}>
-                <HeartIcon size={21} filled={saved} color={saved ? VERDICT.low.solid : undefined} />
+                <HeartIcon size={20} filled={saved} color={saved ? VERDICT.low.solid : undefined} />
               </PopOnToggle>
-            </Pressable>
-            <Pressable onPress={share} hitSlop={13} accessibilityRole="button" accessibilityLabel="Share this result" className="active:opacity-70">
-              <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+            </IconCircle>
+            <IconCircle onPress={share} accessibilityLabel="Share this result">
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
                 <Path
-                  d="M12 15.5V3.4M7.8 7.6 12 3.4l4.2 4.2M5 13.6V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.4"
+                  d="M12 3v12M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"
                   stroke={INK}
-                  strokeWidth={1.8}
+                  strokeWidth={1.9}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
               </Svg>
-            </Pressable>
-          </View>
+            </IconCircle>
+          </>
         }
       />
 
@@ -381,11 +378,11 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
       {/* "handled": the note editor's sheet renders inside this scroll view, and
           touches follow the React tree, not the Modal's window. Without it, the
           first tap on "Save note" while typing only closed the keyboard. */}
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: SPACE.text, paddingBottom: 60 }}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.text }}>
         {/* The reading part of the screen: its text follows the phone's text
             size all the way up (#334). */}
         <ReadingScale>
-          <ProductHeader product={product} total={total} />
+          <ProductHeader product={product} />
           <ResultTabs
             // A new product starts on Skin match with the full list, not the last
             // one's tab, filter or open sheet (#379 review). The loading spinner
@@ -415,10 +412,10 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
                 {formulaChangedNotice ? (
                   <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>{formulaChangedNotice}</Text>
                 ) : null}
-                {/* Last and quiet: a wrong name or list gets told to us (#327). */}
-                <ReportMistakeLink subject={{ kind: "product", id: product.id, name: product.name, brand: product.brand, barcode: product.barcode }} />
               </>
             }
+            // A wrong name or list gets told to us (#327), under the full list.
+            report={<ReportMistakeLink button subject={{ kind: "product", id: product.id, name: product.name, brand: product.brand, barcode: product.barcode }} />}
           />
         </ReadingScale>
       </ScrollView>
@@ -427,67 +424,23 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
 }
 
 /**
- * The product, as the result's header (design_handoff_skincare_cards): its
- * picture on two soft watercolour blobs, then brand, name and what it is.
+ * The product, as the result's header (v7): its bottle straight on the page,
+ * top-aligned, and beside it only the brand and the name. Out of stock says so.
  */
-function ProductHeader({ product, total }: { product: ProductWithIngredients; total: number }) {
+function ProductHeader({ product }: { product: ProductWithIngredients }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingBottom: 18 }}>
-      <View style={{ width: 92, height: 92, alignItems: "center", justifyContent: "center" }}>
-        <View
-          style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
-            bottom: 0,
-            left: 0,
-            borderTopLeftRadius: 52,
-            borderTopRightRadius: 40,
-            borderBottomRightRadius: 48,
-            borderBottomLeftRadius: 42,
-            backgroundColor: CHOSEN.fill,
-            opacity: 0.85,
-          }}
-        />
-        <View
-          style={{
-            position: "absolute",
-            top: 10,
-            right: 6,
-            bottom: 4,
-            left: 14,
-            borderTopLeftRadius: 38,
-            borderTopRightRadius: 44,
-            borderBottomRightRadius: 34,
-            borderBottomLeftRadius: 46,
-            backgroundColor: GRAY_FILL,
-            opacity: 0.55,
-          }}
-        />
-        <ProductThumbnail product={product} size={72} />
+    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 16, paddingHorizontal: SPACE.gutter }}>
+      <View style={{ width: 80, height: 92, alignItems: "center", justifyContent: "center" }}>
+        <ProductThumbnail product={product} size={88} />
       </View>
-      <View style={{ flex: 1, gap: 3 }}>
-        <Text
-          maxFontSizeMultiplier={FONT_SCALE.ui}
-          style={{ fontSize: 13, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1, color: MUTED }}
-        >
+      <View style={{ flex: 1, gap: 4, paddingTop: 4 }}>
+        <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.label, lineHeight: 20, color: MUTED_FAINT }}>
           {product.brand}
         </Text>
-        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, lineHeight: 26, color: INK }}>
+        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontSize: TYPE.title, fontWeight: "600", lineHeight: 25, letterSpacing: -0.2, color: INK }}>
           {product.name}
         </Text>
-        <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.label, color: MUTED }}>
-          {[
-            product.volume,
-            // A genuinely unidentified product doesn't show "Unknown" as if it
-            // were a category, and neither does an admitted-unknown brand.
-            product.type === "unknown" || product.brand === "Unknown" ? null : PRODUCT_TYPE_LABEL[product.type],
-            total > 0 ? `${total} ingredients` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </Text>
-        {!product.inStock ? <Text className="text-[12.5px] font-semibold text-status-avoid">Out of stock</Text> : null}
+        {!product.inStock ? <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: VERDICT.low.deep }}>Out of stock</Text> : null}
       </View>
     </View>
   );

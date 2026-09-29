@@ -65,16 +65,14 @@ async function openMatch() {
   await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
 }
 
-/** Opens the Safety tab, where the risk cards are. */
+/** Opens the Ingredients tab, where the risk cards are. */
 async function openSafety() {
-  await fireEvent.press(screen.getByRole("tab", { name: "Safety" }));
+  await fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
 }
 
-/** The score ring's size, and whether the verdict sits beside it. */
-function ring() {
-  const card = StyleSheet.flatten(screen.getByTestId("score-card").props.style);
-  const drawn = StyleSheet.flatten(screen.getByTestId("score-ring").props.style);
-  return { size: drawn.width as number, beside: card.flexDirection === "row" };
+/** The score ring's drawn size (v7 centres it above the verdict at every size). */
+function ringSize() {
+  return StyleSheet.flatten(screen.getByTestId("score-ring").props.style).width as number;
 }
 
 describe.each([
@@ -87,18 +85,18 @@ describe.each([
     return <LabelResult />;
   }],
 ])("%s", (_name: string, screenFor: () => React.JSX.Element) => {
-  it("keeps the score ring beside the verdict, at its drawn size, up to the ordinary ceiling", async () => {
+  it("keeps the score ring at its drawn size up to the ordinary ceiling", async () => {
     mockFontScale = FONT_SCALE.ui;
     await renderSettled(screenFor());
     await openMatch();
-    expect(ring()).toEqual({ size: RING_SIZE, beside: true });
+    expect(ringSize()).toBe(RING_SIZE);
   });
 
-  it("grows the ring and puts it above the verdict at the largest text size", async () => {
+  it("grows the ring at the largest text size", async () => {
     mockFontScale = LARGEST;
     await renderSettled(screenFor());
     await openMatch();
-    expect(ring()).toEqual({ size: RING_SIZE * FONT_SCALE.icon, beside: false });
+    expect(ringSize()).toBe(RING_SIZE * FONT_SCALE.icon);
   });
 
   it("stacks the two risk cards at the largest text size, and keeps them side by side below it", async () => {
@@ -121,13 +119,13 @@ describe.each([
     await renderSettled(screenFor());
     await openMatch();
     expect(screen.queryByTestId("score-ring")).toBeNull();
-    expect(screen.getByText("See your skin match")).toBeTruthy();
+    expect(screen.getByText("Is it right for your skin?")).toBeTruthy();
   });
 
   it("lets the verdict follow the phone as far as body text", async () => {
     await renderSettled(screenFor());
     await openMatch();
-    expect(screen.getByText(/^(Excellent|Good|Fair|Poor) match$/).props.maxFontSizeMultiplier).toBe((TYPE.body * FONT_SCALE.reading) / TYPE.caption);
+    expect(screen.getByText(/^(Excellent|Good|Fair|Poor) match$/).props.maxFontSizeMultiplier).toBe((TYPE.body * FONT_SCALE.reading) / TYPE.label);
   });
 });
 
@@ -137,7 +135,6 @@ it("keeps the product's header at its ordinary ceilings, so the verdict isn't pu
   await renderSettled(<ProductRoute />);
   expect(screen.getByText("Sooyun").props.maxFontSizeMultiplier).toBe(FONT_SCALE.ui);
   expect(screen.getByText("Hanbang Rice Ferment Hydrating Serum").props.maxFontSizeMultiplier).toBe(FONT_SCALE.display);
-  expect(screen.getByText(/^50 ml/).props.maxFontSizeMultiplier).toBe(FONT_SCALE.ui);
 });
 
 describe("the ingredient screen", () => {

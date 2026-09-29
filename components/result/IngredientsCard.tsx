@@ -1,38 +1,40 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
 import { FilterDropdown } from "@/components/FilterDropdown";
 import { ingredientSubtitle } from "@/components/IngredientTabsList";
 import { Text } from "@/components/Text";
+import { VerdictMarker } from "@/components/VerdictMarker";
 import type { Ingredient } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { ingredientLabel, LABEL_META, sortForGlance, type IngredientLabel } from "@/lib/ingredient-labels";
-import { ruleFor, type MatchResult } from "@/lib/matching";
-import { isPoreClogging } from "@/lib/pore-clogging";
+import type { MatchResult } from "@/lib/matching";
 import { isVerified } from "@/lib/safety";
-import { CANVAS, CARD_SHADOW, INK, LINE, MUTED, ROW_CHEVRON, ROW_DIVIDER, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { BUTTON, INK, LINK, MUTED, SURFACE, TYPE } from "@/lib/tokens";
 
-export type IngredientFilter = "all" | "actives" | "watch" | "pore";
+export type IngredientFilter = "all" | "watch" | "avoid" | "unknown";
 
-// With the "All" filter the card shows this many rows, then "Show all".
-const FIRST_ROWS = 8;
-// A row's dot, and where the divider starts: under the words, not the dot.
-const DOT = 10;
-const ROW_LEFT = 20;
-const ROW_GAP = 12;
+// v7 (read off the hand-off): the first five rows, then "N more ingredients".
+const FIRST_ROWS = 5;
+const BOX_RADIUS = 28;
+const ROW_MIN_HEIGHT = 60;
 
-/** A label's colours: the verdict ramp (dot, pill fill, pill words). */
-function labelColours(label: IngredientLabel | null) {
-  return label ? LABEL_META[label] : null;
-}
+// What a filter with nothing in it says (v7).
+const EMPTY: Record<Exclude<IngredientFilter, "all">, string> = {
+  watch: "Nothing to watch out for.",
+  avoid: "Nothing to avoid.",
+  unknown: "We recognised every ingredient.",
+};
 
 /**
- * The ingredient list as a card on the result's Safety tab (handoff): its
- * title, how many were read and how many we didn't recognise, a Filter, and
- * the rows. "All" puts what matters first and shows the first eight, then
- * "Show all N ingredients". The filter is the parent's, so a risk card can
- * set it.
+ * The ingredient box on the result's Ingredients tab (v7): a white card with
+ * a terracotta outline, "Ingredients" and a Filter (All / Watch-outs / Avoid /
+ * Not recognised) in its header, then the rows — name, the verdict marker
+ * under it, a terracotta chevron. All puts what matters first and shows five,
+ * then a full-width "N more ingredients" button closes the box; once every
+ * row is showing, `afterAll` (Report a mistake) goes under it. The filter is
+ * the parent's, so a risk card can set it.
  */
 export function IngredientsCard({
   ingredients,
@@ -41,6 +43,7 @@ export function IngredientsCard({
   filter,
   onFilter,
   onIngredientPress,
+  afterAll,
 }: {
   ingredients: Ingredient[];
   match: MatchResult;
@@ -48,130 +51,116 @@ export function IngredientsCard({
   filter: IngredientFilter;
   onFilter: (filter: IngredientFilter) => void;
   onIngredientPress: (ingredient: Ingredient) => void;
+  afterAll?: ReactNode;
 }) {
   const [showAll, setShowAll] = useState(false);
   const labelOf = (i: Ingredient) => ingredientLabel(i, match, personalized);
-  const unrecognised = ingredients.filter((i) => !isVerified(i)).length;
 
-  const watch = ingredients
-    .filter((i) => {
-      const l = labelOf(i);
-      return l === "avoid" || l === "watch";
-    })
-    .sort((a, b) => (labelOf(a) === "avoid" ? 0 : 1) - (labelOf(b) === "avoid" ? 0 : 1));
+  const ordered = (() => {
+    const glance = sortForGlance(ingredients, match, personalized);
+    return [...glance.labelled, ...glance.unlabelled].map((row) => row.ingredient);
+  })();
   const groups: Record<IngredientFilter, Ingredient[]> = {
-    all: (() => {
-      const glance = sortForGlance(ingredients, match, personalized);
-      return [...glance.labelled, ...glance.unlabelled].map((row) => row.ingredient);
-    })(),
-    actives: ingredients.filter((i) => ruleFor(i) !== undefined),
-    watch,
-    pore: ingredients.filter(isPoreClogging),
+    all: ordered,
+    watch: ordered.filter((i) => labelOf(i) === "watch"),
+    avoid: ordered.filter((i) => labelOf(i) === "avoid"),
+    unknown: ordered.filter((i) => labelOf(i) === "unknown" || !isVerified(i)),
   };
   const list = groups[filter];
   const truncated = filter === "all" && !showAll && list.length > FIRST_ROWS;
   const rows = truncated ? list.slice(0, FIRST_ROWS) : list;
 
   return (
-    <View style={{ borderRadius: 24, backgroundColor: SURFACE, ...CARD_SHADOW }}>
-      <View style={{ flexDirection: "row", alignItems: "center", paddingTop: 14, paddingRight: 12, paddingBottom: 10, paddingLeft: 20, zIndex: 10 }}>
-        <View style={{ flex: 1, gap: 3 }}>
-          <Text accessibilityRole="header" style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: INK }}>
+    <>
+      <View style={{ borderRadius: BOX_RADIUS, borderWidth: 1.5, borderColor: BUTTON.primary.fill, backgroundColor: SURFACE, paddingTop: 8, paddingHorizontal: 16, paddingBottom: 16 }}>
+        <View style={{ minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text accessibilityRole="header" style={{ fontSize: TYPE.title, fontWeight: "600", letterSpacing: -0.2, color: INK }}>
             Ingredients
           </Text>
-          <Text style={{ fontSize: TYPE.label, color: MUTED }}>
-            {ingredients.length} ingredients{unrecognised > 0 ? ` · ${unrecognised} not recognised` : ""}
-          </Text>
-        </View>
-        <FilterDropdown
-          align="end"
-          options={[
-            { value: "all", label: "All", count: groups.all.length },
-            { value: "actives", label: "Actives", count: groups.actives.length },
-            { value: "watch", label: "Watch-outs", count: groups.watch.length },
-            { value: "pore", label: "Pore clogging", count: groups.pore.length },
-          ]}
-          selected={filter}
-          onSelect={onFilter}
-        />
-      </View>
-
-      {rows.length === 0 ? (
-        <Text style={{ paddingHorizontal: ROW_LEFT, paddingTop: SPACE.text, paddingBottom: 22, fontSize: TYPE.body, color: MUTED }}>
-          Nothing in this group - which is good news.
-        </Text>
-      ) : (
-        rows.map((ingredient, i) => (
-          <IngredientRow
-            key={ingredient.id}
-            ingredient={ingredient}
-            label={labelOf(ingredient)}
-            subtitle={ingredientSubtitle(ingredient, labelOf(ingredient), match.warnings.find((w) => w.ingredient.id === ingredient.id))}
-            divider={i > 0}
-            onPress={() => onIngredientPress(ingredient)}
+          <FilterDropdown
+            align="end"
+            options={[
+              { value: "all", label: "All" },
+              { value: "watch", label: "Watch-outs" },
+              { value: "avoid", label: "Avoid" },
+              { value: "unknown", label: "Not recognised" },
+            ]}
+            selected={filter}
+            onSelect={(next) => {
+              onFilter(next);
+              setShowAll(false);
+            }}
           />
-        ))
-      )}
+        </View>
 
-      {truncated ? (
-        <View style={{ paddingHorizontal: ROW_LEFT, paddingTop: 6, paddingBottom: 18 }}>
+        {rows.length === 0 && filter !== "all" ? (
+          <Text style={{ paddingTop: 12, paddingBottom: 4, fontSize: TYPE.body, color: MUTED }}>{EMPTY[filter]}</Text>
+        ) : (
+          rows.map((ingredient) => (
+            <IngredientRow
+              key={ingredient.id}
+              ingredient={ingredient}
+              label={labelOf(ingredient)}
+              subtitle={ingredientSubtitle(ingredient, labelOf(ingredient), match.warnings.find((w) => w.ingredient.id === ingredient.id))}
+              onPress={() => onIngredientPress(ingredient)}
+            />
+          ))
+        )}
+
+        {truncated ? (
           <Pressable
             onPress={() => setShowAll(true)}
             accessibilityRole="button"
-            style={{ height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", borderRadius: 999, borderWidth: 1.5, borderColor: LINE, backgroundColor: CANVAS }}
-            className="active:opacity-70"
+            accessibilityLabel={`${list.length - FIRST_ROWS} more ingredients`}
+            style={{ marginTop: 12, height: 48, borderRadius: 24, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+            className="active:opacity-90"
           >
-            <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>Show all {list.length} ingredients</Text>
+            <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: BUTTON.primary.label }}>{list.length - FIRST_ROWS} more ingredients</Text>
+            <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+              <Path d="M12 5v14M6 13l6 6 6-6" stroke={BUTTON.primary.label} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
           </Pressable>
-        </View>
-      ) : (
-        <View style={{ height: 8 }} />
-      )}
-    </View>
+        ) : null}
+      </View>
+      {truncated ? null : afterAll}
+    </>
   );
 }
 
-/** One ingredient: its dot, name and what it does, its label, and a chevron. */
+/** One ingredient: its name, the verdict marker under it (or what it does, with no verdict), and a terracotta chevron. */
 function IngredientRow({
   ingredient,
   label,
   subtitle,
-  divider,
   onPress,
 }: {
   ingredient: Ingredient;
   label: IngredientLabel | null;
   subtitle: string;
-  divider: boolean;
   onPress: () => void;
 }) {
-  const meta = labelColours(label);
+  const name = displayIngredientName(ingredient.name);
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${displayIngredientName(ingredient.name)}, ${subtitle}${meta ? `, ${meta.label}` : ""}`}
-      style={{ minHeight: 64, flexDirection: "row", alignItems: "center", gap: ROW_GAP, paddingLeft: ROW_LEFT, paddingRight: 14 }}
+      accessibilityLabel={`${name}, ${label ? LABEL_META[label].label : subtitle}`}
+      style={{ minHeight: ROW_MIN_HEIGHT, flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 }}
       className="active:opacity-70"
     >
-      {divider ? (
-        <View style={{ position: "absolute", top: 0, left: ROW_LEFT + DOT + ROW_GAP, right: 14, height: 1, backgroundColor: ROW_DIVIDER }} />
-      ) : null}
-      <View style={{ width: DOT, height: DOT, borderRadius: DOT / 2, ...(meta ? null : { backgroundColor: LINE }) }} className={meta?.dot ?? ""} />
-      <View style={{ flex: 1, gap: 2, paddingVertical: 10 }}>
-        <Text style={{ fontSize: TYPE.body, fontWeight: "500", lineHeight: 20, color: INK }}>{displayIngredientName(ingredient.name)}</Text>
-        <Text numberOfLines={2} style={{ fontSize: 13, lineHeight: 17, color: MUTED }}>
-          {subtitle}
-        </Text>
-      </View>
-      {meta ? (
-        <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 }} className={meta.pill}>
-          <Text style={{ fontSize: TYPE.caption, fontWeight: "600" }} className={meta.ink}>
-            {meta.label}
+      <View style={{ flex: 1, gap: 3 }}>
+        <Text style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: 21, color: INK }}>{name}</Text>
+        {label ? (
+          <VerdictMarker label={label} />
+        ) : (
+          <Text numberOfLines={2} style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>
+            {subtitle}
           </Text>
-        </View>
-      ) : null}
-      <Ionicons name="chevron-forward" size={18} color={ROW_CHEVRON} />
+        )}
+      </View>
+      <Svg width={8} height={14} viewBox="0 0 8 14" fill="none">
+        <Path d="m1 1 6 6-6 6" stroke={LINK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
     </Pressable>
   );
 }

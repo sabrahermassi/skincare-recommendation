@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ResultTabs } from "@/components/result/ResultTabs";
@@ -13,8 +12,8 @@ import { track } from "@/lib/analytics";
 import { isLowCoverage, matchProduct } from "@/lib/matching";
 import { photoScannerHref } from "@/lib/open-scanner";
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
-import { historyWarningCount } from "@/lib/safety";
-import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { historyWarningCount, isVerified } from "@/lib/safety";
+import { CANVAS, DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -64,7 +63,6 @@ function retake() {
 }
 
 function Verdict({ read, fromHistory }: { read: HeldLabel; fromHistory: boolean }) {
-  const insets = useSafeAreaInsets();
   const profile = useAppStore((s) => s.profile);
   const [ingredients, setIngredients] = useState<Ingredient[] | null>(null);
 
@@ -115,21 +113,24 @@ function Verdict({ read, fromHistory }: { read: HeldLabel; fromHistory: boolean 
 
   const match = matchProduct(product, profile);
   const total = product.ingredients.length;
+  const recognised = product.ingredients.filter(isVerified).length;
   const lowCoverage = isLowCoverage(product.ingredients);
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader />
-      <ScrollView contentContainerStyle={{ paddingTop: SPACE.text, paddingBottom: insets.bottom + 60 }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.text }}>
         {/* The reading part of the screen: its text follows the phone's text
             size all the way up (#334). */}
         <ReadingScale>
           {/* No product to name: what was read, as the header. */}
-          <View style={{ gap: 3, paddingHorizontal: 20, paddingBottom: 18 }}>
-            <Text accessibilityRole="header" style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: INK }}>
+          <View style={{ gap: 4, paddingHorizontal: SPACE.gutter }}>
+            <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
               Label photo
             </Text>
-            <Text style={{ fontSize: TYPE.label, color: MUTED }}>{total > 0 ? `${total} ingredients read` : "Nothing was read"}</Text>
+            <Text style={{ fontSize: TYPE.label, color: MUTED }}>
+              {total > 0 ? `Read from your photo · ${recognised} of ${total} names recognised` : "Nothing was read"}
+            </Text>
           </View>
           {/* The same two tabs as a catalogue product (design_handoff_skincare_cards). */}
           <ResultTabs

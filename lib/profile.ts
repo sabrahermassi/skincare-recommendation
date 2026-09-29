@@ -84,6 +84,19 @@ export const CONCERN_TITLE: Record<Concern, string> = {
   atopic: "Eczema-prone",
 };
 
+/** A concern inside a sentence ("helps with dark spots", "with acne and enlarged pores"). */
+export const CONCERN_PHRASE: Record<Concern, string> = {
+  dehydrated: "dry, dehydrated skin",
+  dullness: "dullness",
+  "acne-prone": "acne",
+  hyperpigmentation: "dark spots",
+  "large-pores": "enlarged pores",
+  "fine-lines": "fine lines",
+  redness: "redness",
+  "post-acne-marks": "post-acne marks",
+  atopic: "eczema-prone skin",
+};
+
 // Asked as a yes or no (owner). "breastfeeding" and "prefer-not-to-say" are
 // no longer offered, but an older answer can still hold them.
 const PREGNANCY_LABEL: Record<Pregnancy, string> = {
