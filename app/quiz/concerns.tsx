@@ -10,6 +10,7 @@ import type { Concern } from "@/data/types";
 import { CONCERN_TITLE, nextQuizRoute, quizStepNumber } from "@/lib/profile";
 import { MAX_CONCERNS, useAppStore } from "@/store/useAppStore";
 import { MUTED } from "@/lib/tokens";
+import { CONCERN_ICON, NONE_ICON } from "@/lib/quiz-icons";
 
 /**
  * Ordered by how common each concern is reported in skincare-usage surveys
@@ -27,38 +28,37 @@ const OPTIONS: { value: Concern; label: string; icon: number }[] = [
   {
     value: "dehydrated",
     label: CONCERN_TITLE.dehydrated,
-    icon: require("@/assets/illustrations/quiz/concern-dehydrated.png"),
+    icon: CONCERN_ICON.dehydrated,
   },
-  { value: "dullness", label: CONCERN_TITLE.dullness, icon: require("@/assets/illustrations/quiz/concern-dullness.png") },
-  { value: "acne-prone", label: CONCERN_TITLE["acne-prone"], icon: require("@/assets/illustrations/quiz/concern-acne.png") },
+  { value: "dullness", label: CONCERN_TITLE.dullness, icon: CONCERN_ICON.dullness },
+  { value: "acne-prone", label: CONCERN_TITLE["acne-prone"], icon: CONCERN_ICON["acne-prone"] },
   {
     value: "hyperpigmentation",
     label: CONCERN_TITLE.hyperpigmentation,
-    icon: require("@/assets/illustrations/quiz/concern-dark-spots.png"),
+    icon: CONCERN_ICON.hyperpigmentation,
   },
   {
     value: "large-pores",
     label: CONCERN_TITLE["large-pores"],
-    icon: require("@/assets/illustrations/quiz/concern-large-pores.png"),
+    icon: CONCERN_ICON["large-pores"],
   },
   {
     value: "fine-lines",
     label: CONCERN_TITLE["fine-lines"],
-    icon: require("@/assets/illustrations/quiz/concern-fine-lines.png"),
+    icon: CONCERN_ICON["fine-lines"],
   },
   {
     value: "redness",
     label: CONCERN_TITLE.redness,
-    icon: require("@/assets/illustrations/quiz/concern-redness.png"),
+    icon: CONCERN_ICON.redness,
   },
   {
     value: "post-acne-marks",
     label: CONCERN_TITLE["post-acne-marks"],
-    icon: require("@/assets/illustrations/quiz/concern-post-acne.png"),
+    icon: CONCERN_ICON["post-acne-marks"],
   },
 ];
 
-const NONE_ICON = require("@/assets/illustrations/quiz/concern-none.png");
 
 // What OPTIONS actually offers — used to count only concerns a user can see
 // and toggle here, not the raw profile array. A profile can carry `atopic`

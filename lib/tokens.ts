@@ -125,6 +125,9 @@ export const HAIRLINE = "#EFE6DA";
 /** Hairlines, dividers, unselected control borders, inactive progress dots. */
 export const LINE = "#E4D3C8";
 
+/** The empty avatar's disc behind the see-through picture (v7, read off the hand-off). */
+export const AVATAR_FILL = "#F6E1D3";
+
 /** @deprecated Prefer {@link LINE}. Kept because it names the same value in
  *  the control-state code that already reads well as "border, inactive". */
 export const BORDER_INACTIVE = LINE;

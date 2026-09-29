@@ -8,16 +8,16 @@ import { QuizScreen } from "@/components/QuizScreen";
 import type { BaseSkinType } from "@/data/types";
 import { nextQuizRoute, quizStepNumber } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
+import { SKIN_TYPE_ICON, UNSURE_ICON } from "@/lib/quiz-icons";
 
 /** Icons: design-watercolor/skin quiz/screens/skin quiz screen 2.png. */
 const OPTIONS: { value: BaseSkinType; label: string; icon: number }[] = [
-  { value: "dry", label: "Dry", icon: require("@/assets/illustrations/quiz/skin-dry.png") },
-  { value: "oily", label: "Oily", icon: require("@/assets/illustrations/quiz/skin-oily.png") },
-  { value: "combination", label: "Combination", icon: require("@/assets/illustrations/quiz/skin-combination.png") },
-  { value: "normal", label: "Normal", icon: require("@/assets/illustrations/quiz/skin-normal.png") },
+  { value: "dry", label: "Dry", icon: SKIN_TYPE_ICON.dry },
+  { value: "oily", label: "Oily", icon: SKIN_TYPE_ICON.oily },
+  { value: "combination", label: "Combination", icon: SKIN_TYPE_ICON.combination },
+  { value: "normal", label: "Normal", icon: SKIN_TYPE_ICON.normal },
 ];
 
-const UNSURE_ICON = require("@/assets/illustrations/quiz/unsure.png");
 
 export default function SkinTypeStep() {
   const { close } = useQuizFrame();

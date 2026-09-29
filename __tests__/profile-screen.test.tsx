@@ -51,16 +51,18 @@ describe("ProfileScreen", () => {
     expect(screen.getByRole("button", { name: "Skin profile" })).toBeTruthy();
   });
 
-  // The answers live behind the Skin profile row, not as chips under the title (owner).
-  it("titles an answered profile by skin type, with no chips of the answers", async () => {
+  // v7: only the avatar above the menu. The answers live behind the Skin
+  // profile row, with no title or chips of them here.
+  it("shows no title or chips of an answered profile", async () => {
     useAppStore.setState(
       { profile: { concerns: ["large-pores", "hyperpigmentation"], baseSkinType: "combination", sensitivity: "some", pregnancyStatus: null } },
       false
     );
     await render(<ProfileScreen />);
-    expect(screen.getByText("Combination skin")).toBeTruthy();
+    expect(screen.queryByText("Combination skin")).toBeNull();
     expect(screen.queryByText("Somewhat sensitive")).toBeNull();
     expect(screen.queryByText("Dark spots")).toBeNull();
+    expect(screen.getByRole("button", { name: "Skin profile" })).toBeTruthy();
   });
 
   it("no longer offers deleting the profile: that lives on Account now", async () => {

@@ -4,9 +4,8 @@ import SkinProfileScreen from "@/app/skin-profile";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
- * The Skin profile screen (owner's reference, a settings list): each answer on
- * its own row with its value; a row opens that question as a sheet, and a
- * choice saves at once.
+ * The Skin profile screen (v7): each answer on its own card with its value;
+ * Change opens that question in place, and a choice saves at once.
  */
 
 jest.setTimeout(30000);
@@ -55,4 +54,14 @@ it("leaves the questions not answered at Not set, and says I don't know only whe
   await act(async () => fireEvent.press(screen.getByRole("radio", { name: "I don't know" })));
   expect(screen.getByRole("button", { name: "Skin type: I don't know" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Sensitivity: Not set" })).toBeTruthy();
+});
+
+it("opens a question in place with Change, and closes it with Done", async () => {
+  await render(<SkinProfileScreen />);
+  expect(screen.getByText("Pregnant or breastfeeding")).toBeTruthy();
+  await act(async () => fireEvent.press(screen.getByRole("button", { name: "Skin concerns: Not set" })));
+  expect(screen.getByText("Done")).toBeTruthy();
+  expect(screen.getByRole("checkbox", { name: "Dullness" })).toBeTruthy();
+  await act(async () => fireEvent.press(screen.getByRole("button", { name: "Skin concerns: Not set" })));
+  expect(screen.queryByRole("checkbox", { name: "Dullness" })).toBeNull();
 });

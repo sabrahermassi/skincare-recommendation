@@ -7,6 +7,7 @@ import { QuizScreen } from "@/components/QuizScreen";
 import type { Pregnancy } from "@/data/types";
 import { PREGNANCY_QUESTION, PREGNANCY_WHY, pregnancyYesNo, quizStepNumber } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
+import { NONE_ICON, PREGNANCY_ICON } from "@/lib/quiz-icons";
 
 /**
  * The quiz's 4th and final question. Unlike the gender/age fields this app
@@ -22,8 +23,8 @@ import { useAppStore } from "@/store/useAppStore";
  * Icons: design-watercolor/skin quiz/screens/skin quiz screen 4.png.
  */
 const OPTIONS: { value: Pregnancy; label: string; icon: number }[] = [
-  { value: "pregnant", label: "Yes", icon: require("@/assets/illustrations/quiz/pregnancy-pregnant.png") },
-  { value: "neither", label: "No", icon: require("@/assets/illustrations/quiz/concern-none.png") },
+  { value: "pregnant", label: "Yes", icon: PREGNANCY_ICON.pregnant },
+  { value: "neither", label: "No", icon: NONE_ICON },
 ];
 
 export default function PregnancyStep() {
