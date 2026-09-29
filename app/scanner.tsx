@@ -87,17 +87,9 @@ type Status =
   | { kind: "missed"; code: string }
   | { kind: "unreachable"; code: string; failure: FetchFailure };
 
-// The design system (design/DESIGN_SYSTEM.md) — the dark camera stage itself
-// stays (it's deliberate chrome, not part of the light onboarding palette,
-// and now owned by lib/tokens' CAMERA_STAGE rather than hand-typed at five
-// sites), but every light-surface color drawn on top of it moves to this
-// system instead of the app's older canvas/ink tokens. Press feedback on the
-// peach buttons below stays this screen's existing opacity-based convention
-// (`active:opacity-90`, matching every other button already on this stage)
-// rather than the onboarding screens' darken-to-CTA_PRESSED technique - this
-// file doesn't otherwise do per-button darken states, and introducing one
-// convention for two buttons while every other control on the same screen
-// uses opacity would be its own inconsistency.
+// The design system (design/DESIGN_SYSTEM.md): the dark stage is
+// `CAMERA_STAGE`, the only dark surface in the app; the pop-ups over it are
+// the app's light ones.
 
 // The two modes, in the order the switcher shows them.
 const MODES: Mode[] = ["Barcode", "Photo"];
