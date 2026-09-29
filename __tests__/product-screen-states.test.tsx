@@ -282,7 +282,8 @@ describe("the product screen's result tabs", () => {
     useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["dehydrated"] } });
     await open();
     await fireEvent.press(screen.getByLabelText(/How scoring works$/));
-    expect(router.push).toHaveBeenLastCalledWith("/scoring");
+    // With the score, so the page can mark where it sits.
+    expect(router.push).toHaveBeenLastCalledWith({ pathname: "/scoring", params: { score: expect.stringMatching(/^\d+$/) } });
   });
 
   it("keeps asking while the answers given don't score yet", async () => {
