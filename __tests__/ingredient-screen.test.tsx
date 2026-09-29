@@ -24,6 +24,7 @@ jest.mock("expo-router", () => ({
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
+jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn(() => Promise.resolve({ type: "dismiss" })) }));
 jest.mock("@/data/api", () => ({
   ...jest.requireActual("@/data/api"),
   resolveIngredientNames: jest.fn(),
@@ -68,6 +69,13 @@ describe("the ingredient page", () => {
     await open("xanthan gum");
     expect(screen.getByText("Read more on PubChem")).toBeTruthy();
     expect(screen.queryByText(/^Source:/)).toBeNull();
+  });
+
+  it("opens PubChem in the in-app browser (v7)", async () => {
+    const { openBrowserAsync } = jest.requireMock("expo-web-browser") as { openBrowserAsync: { mock: { calls: unknown[][] } } };
+    await open("xanthan gum");
+    await fireEvent.press(screen.getByRole("link", { name: "Read more on PubChem" }));
+    expect(openBrowserAsync.mock.calls.at(-1)?.[0]).toBe("https://pubchem.ncbi.nlm.nih.gov/#query=xanthan%20gum");
   });
 
   it("ends with Report a mistake when a support address is set (#327)", async () => {

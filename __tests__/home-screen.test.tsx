@@ -54,14 +54,15 @@ it("shows today's tip under the tiles", async () => {
   const { tipOfTheDay } = jest.requireActual<typeof import("@/lib/tips")>("@/lib/tips");
   await render(<Home />);
   expect(screen.getByText("Tip of the day")).toBeTruthy();
-  expect(screen.getByLabelText(`Tip of the day: ${tipOfTheDay()}`)).toBeTruthy();
+  expect(screen.getByText(tipOfTheDay())).toBeTruthy();
 });
 
 it("moves to the new day's tip when the app comes back to the front", async () => {
   const { AppState } = jest.requireActual<typeof import("react-native")>("react-native");
   const { TIPS, tipOfTheDay } = jest.requireActual<typeof import("@/lib/tips")>("@/lib/tips");
   const listeners: ((state: string) => void)[] = [];
-  const spy = jest.spyOn(AppState, "addEventListener").mockImplementation((_event: string, handler: unknown) => {
+  // Once, for the one render below; later tests keep the preset's own AppState.
+  const spy = jest.spyOn(AppState, "addEventListener").mockImplementationOnce((_event: string, handler: unknown) => {
     listeners.push(handler as (state: string) => void);
     return { remove: () => undefined } as ReturnType<typeof AppState.addEventListener>;
   });
@@ -74,10 +75,25 @@ it("moves to the new day's tip when the app comes back to the front", async () =
     expect(tomorrow).not.toBe(today);
     const { act } = jest.requireActual<typeof import("@testing-library/react-native")>("@testing-library/react-native");
     await act(async () => listeners.forEach((listener) => listener("active")));
-    expect(screen.getByLabelText(`Tip of the day: ${tomorrow}`)).toBeTruthy();
+    expect(screen.getByText(tomorrow)).toBeTruthy();
     expect(TIPS).toContain(tomorrow);
   } finally {
     jest.useRealTimers();
+    expect(spy).toHaveBeenCalled();
+  }
+});
+
+it("shows another tip when the card is tapped, never the same one (v7)", async () => {
+  const reduceMotion = jest.requireActual<typeof import("@/lib/reduce-motion")>("@/lib/reduce-motion");
+  const spy = jest.spyOn(reduceMotion, "reduceMotionNow").mockReturnValue(true);
+  const { tipOfTheDay } = jest.requireActual<typeof import("@/lib/tips")>("@/lib/tips");
+  try {
+    await render(<Home />);
+    const first = tipOfTheDay();
+    await fireEvent.press(screen.getByRole("button", { name: "Show another tip" }));
+    expect(screen.queryByText(first)).toBeNull();
+    expect(screen.getByText("Tap for another")).toBeTruthy();
+  } finally {
     spy.mockRestore();
   }
 });

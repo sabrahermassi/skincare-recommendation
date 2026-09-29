@@ -16,6 +16,9 @@ module.exports = {
         // Every screen's background, given by the owner (26 September 2026).
         canvas: "#FCFAF7",
         surface: "#FFFFFF",
+        // A white row while it's pressed (v7 update, 29 September 2026) —
+        // mirrored as ROW_PRESSED in lib/tokens.ts.
+        "row-pressed": "#F7F0E6",
 
         // Buttons (owner, 27 September 2026) — mirrored in lib/colors.ts.
         // Contrast and label choices are explained there.

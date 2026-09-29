@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconCircle } from "@/components/IconCircle";
@@ -25,7 +26,7 @@ import type { IngredientRule } from "@/lib/rules";
 import { contraindications, isVerified, regulatoryStatus } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
-import { CANVAS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, INK, LINE, MUTED, ROW_DIVIDER, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { BUTTON, CANVAS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, ICON_MUTED, INK, LINE, MUTED, ROW_DIVIDER, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 import { ingredientNameParam, productIdParam } from "@/lib/route-params";
 import NotFound from "@/app/+not-found";
@@ -257,6 +258,32 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
               <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{fitTag(fit, helps, hurts, warning, match)}</Text>
             </View>
 
+            {/* Right under "For your skin" (v7 update). Only for a recognised
+                name no rule covers (#326): a rule's claim
+                links its own source above, and a general search beside it
+                would read as backing the claim. */}
+            {verified && !rule ? (
+              <Pressable
+                onPress={() =>
+                  void WebBrowser.openBrowserAsync(`https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(ingredient.name)}`).catch((err) =>
+                    console.warn("openBrowserAsync failed:", err)
+                  )
+                }
+                accessibilityRole="link"
+                accessibilityLabel="Read more on PubChem"
+                accessibilityHint="Opens in your browser"
+                style={{ minHeight: 56, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, paddingVertical: SPACE.text, paddingHorizontal: SPACE.gutter }}
+                className="bg-surface active:bg-row-pressed"
+              >
+                <Ionicons name="book-outline" size={20} color={BUTTON.primary.fill} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ fontSize: TYPE.card, color: INK }}>Read more on PubChem</Text>
+                  <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Opens in your browser</Text>
+                </View>
+                <Ionicons name="open-outline" size={17} color={ICON_MUTED} />
+              </Pressable>
+            ) : null}
+
             {inList ? <OnThisLabel names={product.ingredients.map((i) => i.name)} index={index} colour={tone.solid} /> : null}
 
             {/* Good to know: neutral facts, no ticks (handoff). */}
@@ -280,29 +307,6 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
               )}
             </Card>
 
-            {/* Only for a recognised name no rule covers (#326): a rule's claim
-                links its own source above, and a general search beside it
-                would read as backing the claim. */}
-            {verified && !rule ? (
-              <Pressable
-                onPress={() =>
-                  void Linking.openURL(`https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(ingredient.name)}`).catch((err) =>
-                    console.warn("openURL failed:", err)
-                  )
-                }
-                accessibilityRole="link"
-                accessibilityLabel="Read more on PubChem"
-                accessibilityHint="Opens in your browser"
-                style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, paddingVertical: 12, paddingHorizontal: 16 }}
-                className="active:opacity-80"
-              >
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>Read more on PubChem</Text>
-                  <Text style={{ fontSize: 13, color: MUTED }}>Opens in your browser</Text>
-                </View>
-                <Ionicons name="open-outline" size={18} color={MUTED} />
-              </Pressable>
-            ) : null}
 
             <Text style={{ fontSize: TYPE.caption, color: MUTED, paddingHorizontal: 4 }}>Reference data from Open Beauty Facts and EU CosIng.</Text>
 

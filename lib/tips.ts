@@ -1,8 +1,9 @@
 /**
  * Tip of the day (v7): the handwritten note on Home. Written by the owner
- * (29 September 2026), kept word for word. Everyone sees the same tip on the
- * same day, and it changes at local midnight. Held to the claims policy by
- * `__tests__/claims-policy.test.ts`.
+ * (29 September 2026), kept word for word. Home opens on the day's tip —
+ * the same for everyone, changing at local midnight — and a tap shuffles to
+ * another at random, never the same one twice in a row. Held to the claims
+ * policy by `__tests__/claims-policy.test.ts`.
  */
 export const TIPS: readonly string[] = [
   "Double cleanse at night — oil or butter first, then a gentle foaming wash.",
@@ -40,8 +41,19 @@ export const TIPS: readonly string[] = [
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** The local calendar day, as a whole number that goes up by one at each local midnight. */
+export function localDay(now: Date = new Date()): number {
+  return Math.floor((now.getTime() - now.getTimezoneOffset() * 60 * 1000) / DAY_MS);
+}
+
 /** Today's tip, by local calendar day, cycling through the list in order. */
 export function tipOfTheDay(now: Date = new Date()): string {
-  const localDay = Math.floor((now.getTime() - now.getTimezoneOffset() * 60 * 1000) / DAY_MS);
-  return TIPS[((localDay % TIPS.length) + TIPS.length) % TIPS.length];
+  const day = localDay(now);
+  return TIPS[((day % TIPS.length) + TIPS.length) % TIPS.length];
+}
+
+/** A tip at random, never the one showing now (the card's "Tap for another"). */
+export function anotherTip(current: string, random: () => number = Math.random): string {
+  const others = TIPS.filter((tip) => tip !== current);
+  return others[Math.min(others.length - 1, Math.floor(random() * others.length))];
 }

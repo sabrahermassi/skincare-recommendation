@@ -1,6 +1,6 @@
-import { TIPS, tipOfTheDay } from "@/lib/tips";
+import { anotherTip, TIPS, tipOfTheDay } from "@/lib/tips";
 
-/** Tip of the day (v7): one tip per local day, the same for everyone, cycling through the list. */
+/** Tip of the day (v7): the day's tip to start, the same for everyone; a tap shuffles to another. */
 describe("tipOfTheDay", () => {
   it("keeps the same tip all day, and moves to the next one the next day", () => {
     const morning = new Date(2026, 8, 29, 7, 0);
@@ -18,5 +18,16 @@ describe("tipOfTheDay", () => {
 
   it("keeps every tip short enough for the card", () => {
     for (const tip of TIPS) expect(tip.length).toBeLessThanOrEqual(90);
+  });
+});
+
+describe("anotherTip", () => {
+  it("never picks the tip already showing, whatever the draw", () => {
+    const current = TIPS[3];
+    for (const draw of [0, 0.1, 0.5, 0.999999]) {
+      const next = anotherTip(current, () => draw);
+      expect(next).not.toBe(current);
+      expect(TIPS).toContain(next);
+    }
   });
 });

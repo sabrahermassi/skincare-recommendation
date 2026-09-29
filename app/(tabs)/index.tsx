@@ -8,7 +8,7 @@ import { Text } from "@/components/Text";
 import { TipCard } from "@/components/TipCard";
 import { openScanner } from "@/lib/open-scanner";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { CANVAS, CARD_RADIUS, DISPLAY_FONT, HOME_CARD_FILL, HOME_TILE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, DISPLAY_FONT, HOME_SCAN_FILL, HOME_TILE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 
 // The scan card's watercolour, and the three tiles' (transparent ground).
 const SCAN_ART = require("@/assets/illustrations/home-scan.webp");
@@ -49,7 +49,7 @@ export default function Home() {
             marginTop: 16,
             minHeight: SCAN_CARD_MIN_HEIGHT,
             borderRadius: SCAN_CARD_RADIUS,
-            backgroundColor: HOME_CARD_FILL,
+            backgroundColor: HOME_SCAN_FILL,
             paddingVertical: 24,
             paddingHorizontal: 16,
             overflow: "hidden",
