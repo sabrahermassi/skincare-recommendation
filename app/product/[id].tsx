@@ -464,7 +464,7 @@ function ProductHeader({ product, total }: { product: ProductWithIngredients; to
             opacity: 0.55,
           }}
         />
-        <ProductThumbnail product={product} size={72} radius={16} backgroundColor="transparent" />
+        <ProductThumbnail product={product} size={72} />
       </View>
       <View style={{ flex: 1, gap: 3 }}>
         <Text

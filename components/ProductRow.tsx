@@ -100,7 +100,7 @@ export const ProductRow = memo(function ProductRow({
             paddingRight: 14,
           }}
         >
-          <ProductThumbnail product={product} size={46} radius={12} />
+          <ProductThumbnail product={product} size={46} />
 
           <View style={{ flex: 1 }}>
             <Text

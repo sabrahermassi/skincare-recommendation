@@ -475,7 +475,7 @@ function Row({
       <View style={{ borderRadius: CARD_RADIUS, overflow: "hidden" }}>
         <Link href={`/product/${product.id}`} asChild>
           <Pressable style={{ flexDirection: "row", alignItems: "center", gap: 16, padding: 18, paddingRight: CORNER_CLEARANCE }} {...press}>
-            <ProductThumbnail product={product} size={CARD_THUMB} radius={16} backgroundColor={SURFACE} />
+            <ProductThumbnail product={product} size={CARD_THUMB} />
             <View style={{ flex: 1, gap: 6 }}>
               <View style={{ gap: 2 }}>
                 <Text numberOfLines={1} style={{ fontSize: TYPE.label, color: MUTED_FAINT }}>

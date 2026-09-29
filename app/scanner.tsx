@@ -788,7 +788,7 @@ function FoundSheet({
           ...FLOATING_SHADOW,
         }}
       >
-        <ProductThumbnail product={product} size={FOUND_PICTURE} radius={20} />
+        <ProductThumbnail product={product} size={FOUND_PICTURE} />
       </View>
     </Animated.View>
   );

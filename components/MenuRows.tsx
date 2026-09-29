@@ -1,27 +1,46 @@
 import { Ionicons } from "@expo/vector-icons";
-import type { ComponentProps, ReactNode } from "react";
+import { Children, cloneElement, isValidElement, type ComponentProps, type ReactElement, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
-import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
-import { CTA, INK, MENU_FILL, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { CARD_RADIUS, HAIRLINE, INK, LINK, MENU_FILL, MUTED, ROW_CHEVRON, TYPE } from "@/lib/tokens";
 
-// A block's corners, and each row's height.
-const GROUP_RADIUS = 26;
-const ROW_HEIGHT = 60;
+// Each row's height (v7).
+const ROW_HEIGHT = 56;
+const ROW_INSET = 16;
 
 /**
- * One block of a menu (owner's reference, on Profile and Account): its rows
- * share a rounded fill, with no line between them.
+ * One block of a settings-style menu (v7, on Profile and Account): a plain
+ * white card whose rows are split by hairlines. Colour is saved for Home and
+ * the scan moments, so no tinted tiles here.
  */
 export function MenuGroup({ children }: { children: ReactNode }) {
-  return <View style={{ borderRadius: GROUP_RADIUS, backgroundColor: MENU_FILL, paddingVertical: 4, overflow: "hidden" }}>{children}</View>;
+  // Rows only: a condition left false (`{signedIn ? <MenuRow … /> : null}`) is
+  // not a row, so it doesn't count as the first.
+  const rows = Children.toArray(children).filter(isValidElement);
+  return (
+    <View style={{ borderRadius: CARD_RADIUS, backgroundColor: MENU_FILL, overflow: "hidden" }}>
+      {rows.map((row, i) => cloneElement(row as ReactElement<{ divided?: boolean }>, { divided: i > 0 }))}
+    </View>
+  );
+}
+
+/** The grey disclosure chevron at a row's end (v7). */
+export function RowChevron() {
+  return (
+    <Svg width={8} height={14} viewBox="0 0 8 14" fill="none">
+      <Path d="m1 1 6 6-6 6" stroke={ROW_CHEVRON} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
 }
 
 /**
- * One row of a menu: an icon and its name, a value on the right (a setting's
- * current answer, or a fact like the account's email), and an arrow when the
- * row opens something. A short badge can sit beside the name.
+ * One row of a menu: a terracotta line icon, the name, a value on the right
+ * (a setting's current answer, or a fact like the account's email) and a grey
+ * chevron when the row opens something. A short note can sit beside the name.
+ * The hairline above it starts after the icon, and `MenuGroup` leaves it off
+ * the first row.
  */
 export function MenuRow({
   icon,
@@ -30,43 +49,47 @@ export function MenuRow({
   value,
   onPress,
   disabled = false,
+  divided = false,
 }: {
   /** Left out on a list of settings, where the name alone reads. */
   icon?: ComponentProps<typeof Ionicons>["name"];
   label: string;
-  /** A short call to action beside the name, e.g. on a profile not filled in yet. */
+  /** A short note beside the name, e.g. on a profile not filled in yet. */
   badge?: string;
-  /** Shown on the right in place of the arrow, on a row with nothing to open. */
+  /** Shown on the right, before the chevron. */
   value?: string;
   onPress?: () => void;
   disabled?: boolean;
+  /** Set by `MenuGroup`: every row but the first has a hairline above it. */
+  divided?: boolean;
 }) {
   const body = (
     <>
-      {icon ? <Ionicons name={icon} size={22} color={TERRACOTTA} /> : null}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: SPACE.text, flex: value ? 0 : 1 }}>
-        <Text style={{ fontSize: TYPE.body, fontWeight: "500", color: value && !onPress ? TERRACOTTA : INK }}>{label}</Text>
-        {badge ? (
-          <View style={{ paddingHorizontal: SPACE.text, paddingVertical: 3, borderRadius: 8, backgroundColor: CTA }}>
-            <Text style={{ fontSize: 12.5, fontWeight: "600", color: INK }}>{badge}</Text>
-          </View>
+      {icon ? <Ionicons name={icon} size={22} color={LINK} /> : null}
+      <View
+        style={{
+          flex: 1,
+          minHeight: ROW_HEIGHT,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          paddingRight: ROW_INSET,
+          borderTopWidth: divided ? 0.5 : 0,
+          borderTopColor: HAIRLINE,
+        }}
+      >
+        <Text style={{ flex: value ? 0 : 1, fontSize: TYPE.card, color: INK }}>{label}</Text>
+        {badge ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{badge}</Text> : null}
+        {value ? (
+          <Text numberOfLines={1} ellipsizeMode={onPress ? "tail" : "middle"} style={{ flex: 1, textAlign: "right", fontSize: TYPE.label, color: MUTED }}>
+            {value}
+          </Text>
         ) : null}
+        {onPress ? <RowChevron /> : null}
       </View>
-      {value ? (
-        // A setting's current answer reads in the accent; a fact (the
-        // account's email) stays quiet.
-        <Text
-          numberOfLines={1}
-          ellipsizeMode={onPress ? "tail" : "middle"}
-          style={{ flex: 1, textAlign: "right", fontSize: onPress ? TYPE.body : TYPE.label, fontWeight: onPress ? "500" : "400", color: onPress ? TERRACOTTA : MUTED }}
-        >
-          {value}
-        </Text>
-      ) : null}
-      {onPress ? <Ionicons name="arrow-forward" size={22} color={TERRACOTTA} /> : null}
     </>
   );
-  const row = { minHeight: ROW_HEIGHT, flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20 } as const;
+  const row = { flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: ROW_INSET } as const;
   return onPress ? (
     <Pressable
       onPress={onPress}
