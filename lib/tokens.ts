@@ -270,6 +270,34 @@ export const VERDICT: Record<
  */
 export const EXCELLENT = { solid: "#33593F", tint: "#E0EADB", deep: "#33593F", wash: "#F5F8F2" } as const;
 
+/**
+ * The routine's Morning | Evening switch and step badges (v7, read off the
+ * hand-off): a warm honey thumb by day, a dusk plum one at night, with the
+ * sun and moon icons and the dotted connectors between steps in each.
+ */
+export const ROUTINE_TIME = {
+  morning: {
+    track: "#F3EFE9",
+    thumb: "#F1D8A8",
+    thumbShadow: "rgba(190,145,70,0.32)",
+    ink: "#62461D",
+    icon: "#A5712B",
+    iconFill: "#DFAC58",
+    dot: "#CF9F56",
+  },
+  evening: {
+    track: "#ECE7E4",
+    thumb: "#3F3A4A",
+    thumbShadow: "rgba(63,58,74,0.35)",
+    ink: "#F7F1EA",
+    icon: "#EEDCA6",
+    iconFill: "#EEDCA6",
+    dot: "#7C707A",
+  },
+  /** The icon of the time not chosen. */
+  idleIcon: "#9A8880",
+} as const;
+
 /** A score's ring, number and tint: Excellent's deeper green, else its tone's. */
 export function scoreColours(verdict: Verdict): { solid: string; tint: string; deep: string } {
   if (verdict === "excellent") return EXCELLENT;

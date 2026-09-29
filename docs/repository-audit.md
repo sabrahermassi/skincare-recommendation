@@ -97,7 +97,7 @@ One layering leak is that the data layer imports `defaultPackagingType` from a v
 Route screens own fetching and orchestration. Shared UI is split into:
 
 - Catalogue/result components: `ProductRow`, `ProductThumbnail`, `ScoreRing`, `RiskCards`, `IngredientTabsList`.
-- Navigation/chrome: `AppHeader`, `ScreenHeader`, tab layout.
+- Navigation/chrome: `ScreenHeader`, tab layout.
 - Onboarding: `OnboardingShell`, `QuizFrame`, `QuizScreen`, `QuizOptionCard`.
 - Shared primitives: custom `Text`, `PrimaryButton`, icons, bottle illustrations.
 

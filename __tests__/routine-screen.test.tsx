@@ -19,10 +19,10 @@ jest.mock("react-native-safe-area-context", () => ({
 
 beforeEach(() => useAppStore.setState({ profile: EMPTY_PROFILE }));
 
-it("asks for a skin profile first, and opens the quiz from Complete it now", async () => {
+it("asks for a skin profile first, and opens the quiz from Take the skin quiz", async () => {
   await render(<Routine />);
   expect(screen.getByRole("header", { name: "Your skin profile is empty" })).toBeTruthy();
-  await fireEvent.press(screen.getByRole("button", { name: "Complete it now" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Take the skin quiz" }));
   expect(mockOpenQuiz).toHaveBeenCalledTimes(1);
 });
 
