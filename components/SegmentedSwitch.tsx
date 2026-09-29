@@ -6,7 +6,7 @@ import { reduceMotionNow } from "@/lib/reduce-motion";
 import { INK, MUTED, SEGMENT_TRACK, SURFACE, TYPE, withAlpha } from "@/lib/tokens";
 
 /** Every segmented control's height in v7 (read off the hand-off). */
-export const SWITCH_HEIGHT = 40;
+const SWITCH_HEIGHT = 40;
 // The gap between the capsule and the thumb that slides in it.
 const SWITCH_PADDING = 3;
 // The thumb's own soft lift off the track (v7: 0 1 3 at 10%).

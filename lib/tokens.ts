@@ -133,25 +133,12 @@ export const AVATAR_FILL = "#F6E1D3";
 export const BORDER_INACTIVE = LINE;
 export const DOT_INACTIVE = LINE;
 
-// ── Primary action ──────────────────────────────────────────────────────────
-
-/**
- * The one call to action per screen.
- *
- * NOT the peach accent — that distinction is the whole point of this pair.
- * The old fill was the accent peach itself at 1.51:1 against the canvas, so
- * the button dissolved into the page and had to be found rather than seen.
- * This is 2.3:1 against the canvas and 6.5:1 against its own label, which is
- * a button you can see and read. Pill shape, 26px radius, weight 500.
- */
-export const CTA = "#E09070";
-
 /**
  * Selected-control fill — a very light, watery peach.
  *
  * This was ink at 6% alpha, which is a neutral grey wash: correct on paper,
  * and on screen it read as "disabled" rather than "chosen". A warm tint says
- * the same thing in the palette's own voice. Derived from CTA (#E09070) at
+ * the same thing in the palette's own voice. Derived from the old call-to-action peach (#E09070) at
  * roughly 12% over the canvas, so selection and the primary action come from
  * one family without a selected chip ever being mistaken for a button — the
  * chip is a pale tint behind an ink border, the button is a saturated fill.
@@ -160,17 +147,6 @@ export const CTA = "#E09070";
  * on the screen, which is what "chosen" should look like.
  */
 export const SELECTED = "#F9E7DC";
-
-/**
- * The gray button — a secondary action beside the one peach call to action
- * ("Sign out", "Back to list", a dialog's Cancel), Apple's "gray" button
- * style in the palette's own warm neutral (#313, owner decision 26 Sep 2026).
- *
- * Computed, not read off a mockup: INK on it is 13.0:1, and it sits at
- * 1.17:1 against the canvas — enough to read as a button without competing
- * with the CTA, the same restraint as iOS's own light gray fill.
- */
-export const GRAY_FILL = "#ECE4DD";
 
 /**
  * Home's scan card, and the no-profile "Is it right for your skin?" card (v7,
@@ -323,7 +299,7 @@ export const VERDICT_NEUTRAL = {
  * glance. This is the bridge: excellent and good are both a yes, and the
  * number beside the badge is what separates 92 from 78.
  */
-export function toneForVerdict(verdict: Verdict): VerdictTone | null {
+function toneForVerdict(verdict: Verdict): VerdictTone | null {
   if (verdict === "excellent" || verdict === "good") return "high";
   if (verdict === "fair") return "medium";
   if (verdict === "poor") return "low";
@@ -456,9 +432,6 @@ export const DISPLAY_FONT = "PlayfairDisplay_500Medium";
 /** A card's corners (v7). Every card, white or tinted, is its fill alone: no border, no shadow. */
 export const CARD_RADIUS = 20;
 
-/** Every tappable control's corners in v7: a full pill. */
-export const PILL_RADIUS = 999;
-
 /**
  * How far iOS Larger Text / Android font size may grow text (#314). The
  * accessibility sizes scale text about 3×, which no fixed layout here
@@ -558,9 +531,6 @@ export const MENU_SHADOW = {
  * every card still spreads it, and one place decides.
  */
 export const CARD_SHADOW = {} as const;
-
-/** A chip's shade — none in v7: chips are flat, outlined pills. */
-export const CHIP_SHADOW = {} as const;
 
 /** The soft shade drawn under the tab bar: how many layers, how far below it reaches, how dark each is. */
 export const TAB_BAR_SHADE = { layers: 4, reach: 10, opacity: 0.045 } as const;

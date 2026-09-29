@@ -5,7 +5,7 @@ import Svg, { Circle, Path } from "react-native-svg";
 import { FONT_SCALE, ICON_MUTED, INK, SURFACE } from "@/lib/tokens";
 
 /** The bar's height (v7). */
-export const SEARCH_BAR_HEIGHT = 44;
+const SEARCH_BAR_HEIGHT = 44;
 
 /**
  * Every search bar in the app (v7): a 44pt pure white pill, no border or

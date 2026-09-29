@@ -5,7 +5,7 @@ import { LABEL_META, type IngredientLabel } from "@/lib/ingredient-labels";
 import { VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 
 /** A verdict's ring and word colours (v7): green, orange, red, or brown-grey for unknown. */
-export function verdictColours(label: IngredientLabel): { solid: string; deep: string; wash: string } {
+function verdictColours(label: IngredientLabel): { solid: string; deep: string; wash: string } {
   if (label === "good") return VERDICT.high;
   if (label === "watch") return VERDICT.medium;
   if (label === "avoid") return VERDICT.low;
