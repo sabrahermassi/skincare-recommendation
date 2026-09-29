@@ -20,12 +20,12 @@ async function renderFrame(frame: "corners" | "full", onWindow: (box: Box) => vo
   await act(async () => fireEvent(root, "layout", { nativeEvent: { layout: SCREEN } }));
 }
 
-it("frames a barcode in a small window in the middle, twice as wide as tall", async () => {
+it("frames a barcode in a small window in the middle, 280 by 170 on a 402pt phone (v7)", async () => {
   const onWindow = jest.fn();
   await renderFrame("corners", onWindow);
   const box = onWindow.mock.calls.at(-1)?.[0] as Box;
-  expect(box.width).toBeCloseTo(SCREEN.width * 0.63);
-  expect(box.width / box.height).toBeCloseTo(2);
+  expect(box.width).toBeCloseTo((SCREEN.width * 280) / 402);
+  expect(box.width / box.height).toBeCloseTo(280 / 170);
   expect(box.x + box.width / 2).toBeCloseTo(SCREEN.width / 2);
 });
 

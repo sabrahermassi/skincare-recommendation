@@ -4,7 +4,7 @@ import { View } from "react-native";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
-import { INK, MUTED, TYPE } from "@/lib/tokens";
+import { DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 
 /**
  * The scanner's two "before the camera" screens — asking for camera access, and
@@ -13,8 +13,8 @@ import { INK, MUTED, TYPE } from "@/lib/tokens";
  * a new user saw and looked nothing like the rest of the app.
  *
  * Sits on the app's cream canvas (the caller paints it) with the watercolor art
- * from the onboarding set, a serif title, one sentence, and one button.
- * `bottomInset` is how much room to leave for the floating mode switcher.
+ * from the onboarding set, a serif title, one sentence, and the button at the
+ * bottom (v7). `topInset` leaves room for the scanner's top row.
  */
 export function ScanIntro({
   illustration,
@@ -22,6 +22,7 @@ export function ScanIntro({
   body,
   actionLabel,
   onAction,
+  topInset,
   bottomInset,
   children,
 }: {
@@ -30,31 +31,31 @@ export function ScanIntro({
   body: string;
   actionLabel: string;
   onAction: () => void;
+  /** Room to leave at the top, for the scanner's top row. */
+  topInset: number;
   bottomInset: number;
   /** A quiet secondary option under the button. */
   children?: ReactNode;
 }) {
   return (
-    <View style={{ flex: 1, alignItems: "center", paddingHorizontal: 32, paddingBottom: bottomInset }}>
-      <View style={{ flex: 1, width: "100%", alignItems: "center", justifyContent: "center" }}>
-        <Image
-          source={illustration}
-          style={{ width: "100%", maxWidth: 340, aspectRatio: 1 }}
-          contentFit="contain"
-          accessibilityLabel=""
-        />
-      </View>
-
-      <View style={{ width: "100%", alignItems: "center", gap: 10 }}>
-        <Text style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.title, color: INK }}>
+    <View style={{ flex: 1, paddingTop: topInset, paddingBottom: bottomInset }}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+        <Image source={illustration} style={{ width: ART_SIZE, height: ART_SIZE }} contentFit="contain" accessibilityLabel="" />
+        <Text
+          accessibilityRole="header"
+          style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
+        >
           {title}
         </Text>
-        <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>
-        <View style={{ width: "100%", marginTop: 8 }}>
-          <PrimaryButton label={actionLabel} onPress={onAction} />
-        </View>
-        {children}
+        <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{body}</Text>
+        {children ? <View style={{ marginTop: SPACE.block, alignItems: "center" }}>{children}</View> : null}
+      </View>
+      <View style={{ paddingHorizontal: SPACE.gutter }}>
+        <PrimaryButton label={actionLabel} onPress={onAction} />
       </View>
     </View>
   );
 }
+
+// The illustration's box (v7).
+const ART_SIZE = 220;

@@ -6,18 +6,18 @@ import Svg, { Path } from "react-native-svg";
 
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
-import { CAMERA_STAGE, CANVAS, SCANNER_FRAME, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, SCANNER_FRAME, SURFACE, TYPE, withAlpha } from "@/lib/tokens";
 
 /**
  * The live scanner's framing: the camera blurred and dimmed outside a rounded
- * window, so only the window is sharp (owner, after OnSkin's scanner). Barcode
- * is a small window in the middle with its four corners drawn in cream and a
- * hint under it; the photo camera is a tall window with a full thin outline.
- * The window grows and shrinks between the two as the mode changes.
+ * window, so only the window is sharp (owner, after OnSkin's scanner). Both
+ * modes draw the window's four corners in white (v7): Barcode is a small
+ * window in the middle with a hint under it, the photo camera a tall one. The
+ * window grows and shrinks between the two as the mode changes.
  *
  * `locked` is the moment a barcode has been read. With a `target` (where the
  * camera saw the barcode) the window closes in on it — the dimming and the
- * outline follow — and the outline turns terracotta; without one the window
+ * corners follow — and the corners turn terracotta; without one the window
  * just tightens a touch. With Reduce Motion on, the line stays still in the
  * middle and the lock is instant.
  */
@@ -30,12 +30,10 @@ const SIDE = SCAN_SIDE_INSET;
 const TOP_GAP = 24;
 /** Gap between the top inset and the window, for anything placed inside it. */
 export const SCAN_TOP_GAP = TOP_GAP;
-export const WINDOW_RADIUS = 28;
-// The four-corner frame (barcode): each corner's arm and its stroke.
-const CORNER_RADIUS = 20;
-const CORNER_LENGTH = 40;
+// The corner brackets (v7): each corner's curve (the window's too), arm and stroke.
+export const WINDOW_RADIUS = 18;
+const CORNER_LENGTH = 34;
 const CORNER_STROKE = 4;
-const OUTLINE_WIDTH = 2.5;
 const LOCK_MS = 280;
 const FRAME_MIX_MS = 360;
 // Over the blur, a light darkening, so the sharp window stands out.
@@ -46,11 +44,12 @@ const BLUR_INTENSITY = 40;
 // FEATHER_STEPS rings, so the window has a soft rounded edge, not a cut one.
 const FEATHER = 18;
 const FEATHER_STEPS = 9;
-// The barcode window: this share of the screen's width, and twice as wide as tall.
-const BARCODE_WIDTH_SHARE = 0.63;
-const BARCODE_ASPECT = 2;
+// The barcode window (v7, 280 × 170 on a 402pt-wide phone): this share of the
+// screen's width, and this much wider than tall.
+const BARCODE_WIDTH_SHARE = 280 / 402;
+const BARCODE_ASPECT = 280 / 170;
 // The hint's gap below the barcode window.
-const HINT_GAP = 28;
+const HINT_GAP = 16;
 // Room left around the barcode when the window closes in on it, and the least
 // it will close to (a tiny window reads as a glitch, not a lock).
 const TARGET_PAD = 16;
@@ -172,9 +171,9 @@ export function ScanViewfinder({
   const [closed, setClosed] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
   const useNativeDriver = Platform.OS !== "web";
-  // 0 = the corner frame, 1 = the full outline. Eased when the mode changes, so
+  // 0 = the barcode window, 1 = the photo one. Eased when the mode changes, so
   // the frame flows from one to the other. Two copies of the value: one for the
-  // fades (native), one for the radius, which is layout (JS).
+  // hint's fade (native), one for the window's shape, which is layout (JS).
   const [frameMix] = useState(() => new Animated.Value(frame === "full" ? 1 : 0));
   const [frameMixJS] = useState(() => new Animated.Value(frame === "full" ? 1 : 0));
   const [mixed, setMixed] = useState(frame === "full" ? 1 : 0);
@@ -183,10 +182,8 @@ export function ScanViewfinder({
     const notLocked = Animated.subtract(1, lock);
     const notFull = Animated.subtract(1, frameMix);
     return {
-      cornersCream: Animated.multiply(notFull, notLocked),
-      cornersLocked: Animated.multiply(notFull, lock),
-      fullCream: Animated.multiply(frameMix, notLocked),
-      fullLocked: Animated.multiply(frameMix, lock),
+      open: notLocked,
+      locked: lock,
       hint: Animated.multiply(notFull, notLocked),
     };
   });
@@ -265,7 +262,7 @@ export function ScanViewfinder({
   useEffect(() => {
     if (ready) onWindow?.({ x: settled.x, y: settled.y, width: settled.w, height: settled.h });
   }, [ready, settled.x, settled.y, settled.w, settled.h, onWindow]);
-  const radius = Math.min(lerp(CORNER_RADIUS, WINDOW_RADIUS, mixed), rect.h / 2, rect.w / 2);
+  const radius = Math.min(WINDOW_RADIUS, rect.h / 2, rect.w / 2);
   // The blur's mask: opaque everywhere but a rounded hole the window's shape,
   // whose edge fades from clear (at the window) to full (FEATHER out) in rings.
   const screenPath = size ? `M0 0H${size.w}V${size.h}H0Z` : "";
@@ -313,16 +310,13 @@ export function ScanViewfinder({
               <View style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(CAMERA_STAGE, SCRIM_ALPHA) }]} />
             </MaskedView>
 
-            {/* Four layers — cream and terracotta, as corners and as a full outline —
-                faded into each other as the mode changes and as a barcode locks. */}
+            {/* Two layers — white and terracotta — faded into each other as a barcode locks. */}
             {(
               [
-                { key: "corners-cream", color: SCANNER_FRAME, opacity: fades.cornersCream, full: false },
-                { key: "corners-locked", color: TERRACOTTA, opacity: fades.cornersLocked, full: false },
-                { key: "full-cream", color: SCANNER_FRAME, opacity: fades.fullCream, full: true },
-                { key: "full-locked", color: TERRACOTTA, opacity: fades.fullLocked, full: true },
+                { key: "open", color: SCANNER_FRAME, opacity: fades.open },
+                { key: "locked", color: TERRACOTTA, opacity: fades.locked },
               ] as const
-            ).map(({ key, color, opacity, full }) => (
+            ).map(({ key, color, opacity }) => (
               <Animated.View
                 key={key}
                 style={{
@@ -332,10 +326,9 @@ export function ScanViewfinder({
                   width: rect.w,
                   height: rect.h,
                   opacity,
-                  ...(full ? { borderRadius: radius, borderWidth: OUTLINE_WIDTH, borderColor: color } : {}),
                 }}
               >
-                {full ? null : <Corners width={rect.w} height={rect.h} radius={radius} color={color} />}
+                <Corners width={rect.w} height={rect.h} radius={radius} color={color} />
               </Animated.View>
             ))}
 
@@ -344,9 +337,7 @@ export function ScanViewfinder({
               <Animated.View
                 style={{ position: "absolute", left: 0, right: 0, top: rect.y + rect.h + HINT_GAP, alignItems: "center", opacity: fades.hint }}
               >
-                <View style={{ paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999, backgroundColor: withAlpha(CAMERA_STAGE, 0.35) }}>
-                  <Text style={{ fontSize: TYPE.body, color: CANVAS }}>{hint}</Text>
-                </View>
+                <Text style={{ fontSize: TYPE.body, color: withAlpha(SURFACE, 0.85) }}>{hint}</Text>
               </Animated.View>
             ) : null}
           </View>

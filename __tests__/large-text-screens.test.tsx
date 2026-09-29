@@ -4,7 +4,7 @@ import { StyleSheet } from "react-native";
 import IngredientRoute from "@/app/ingredient/[inci]";
 import LabelResult from "@/app/label-result";
 import ProductRoute from "@/app/product/[id]";
-import { RING_SIZE } from "@/components/result/ResultTabs";
+import { RING_SIZE } from "@/components/result/ScoreRing";
 import { holdLabelRead } from "@/lib/pending-label";
 import { FONT_SCALE, TYPE } from "@/lib/tokens";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";

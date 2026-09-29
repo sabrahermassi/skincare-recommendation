@@ -1,13 +1,13 @@
-import { router } from "expo-router";
 import { useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
-import Svg, { Circle, Path } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { IngredientsCard, type IngredientFilter } from "@/components/result/IngredientsCard";
+import { ScoreRing, VerdictPill } from "@/components/result/ScoreRing";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { SourceLink } from "@/components/SourceLink";
-import { Text, useLargeText, useRingScale } from "@/components/Text";
+import { Text, useLargeText } from "@/components/Text";
 import type { Concern, Ingredient, ProductType, SkinProfile } from "@/data/types";
 import { pairingNotesFor } from "@/lib/active-pairings";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
@@ -21,7 +21,6 @@ import { irritationWarnings, isVerified } from "@/lib/safety";
 import {
   CANVAS,
   CARD_RADIUS,
-  DISPLAY_FONT,
   HOME_CARD_FILL,
   INK,
   MUTED,
@@ -29,9 +28,7 @@ import {
   SURFACE,
   TYPE,
   VERDICT,
-  VERDICT_LABEL,
   VERDICT_NEUTRAL,
-  scoreColours,
 } from "@/lib/tokens";
 
 type Tab = "match" | "ingredients";
@@ -40,15 +37,11 @@ type Wash = { solid: string; deep: string; wash: string };
 // The one pairing note that is pure scheduling, not a cost.
 const EVENING_NOTE = "retinoid-evening";
 
-/** The big score ring's drawn size (v7), before it grows with large text. */
-export const RING_SIZE = 96;
 // How far the ring rises above the white sheet's edge: half of it (v7).
 const RING_RISE = 62;
 // The white sheet's top corners, and how far it tucks up under the switch (v7).
 const SHEET_RADIUS = 32;
 const SHEET_TUCK = 12;
-// The info "i" ring on a filled pill (v7).
-const PILL_INFO = "#D9CFC7";
 // The routine note's moon badge (v7).
 const MOON_BADGE = { fill: "#E9E3E3", ink: "#3F3A4A" } as const;
 
@@ -171,67 +164,12 @@ function MatchTab({ ingredients, type, match, profile, ring }: { ingredients: In
 
 /** The big ring, half above the sheet in a white circle, and the verdict pill whose "i" opens How scoring works. */
 function ScoreHead({ match }: { match: MatchResult }) {
-  const colours = scoreColours(match.verdict);
   return (
-    <View style={{ alignItems: "center", marginTop: -RING_RISE - SPACE.gutter + 16 }}>
+    <View style={{ alignItems: "center", gap: 12, marginTop: -RING_RISE - SPACE.gutter + 16 }}>
       <View style={{ borderRadius: 999, backgroundColor: SURFACE, shadowColor: INK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 4 }}>
-        <Ring score={match.score} colours={colours} />
+        <ScoreRing match={match} />
       </View>
-      <Pressable
-        onPress={() => router.push(match.score === null ? "/scoring" : { pathname: "/scoring", params: { score: String(match.score) } })}
-        accessibilityRole="button"
-        accessibilityLabel={`${VERDICT_LABEL[match.verdict]}. How scoring works`}
-        style={{ marginTop: 12, minWidth: 160, height: 32, borderRadius: 16, paddingLeft: 16, paddingRight: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colours.deep }}
-        className="active:opacity-80"
-      >
-        <Text style={{ fontSize: TYPE.label, fontWeight: "600", letterSpacing: -0.15, color: SURFACE }}>{VERDICT_LABEL[match.verdict]}</Text>
-        <InfoDot colour={PILL_INFO} />
-      </Pressable>
-    </View>
-  );
-}
-
-/** A small "i" in a ring (v7): grey on a card, pale on a filled pill. */
-function InfoDot({ colour }: { colour: string }) {
-  return (
-    <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colour, alignItems: "center", justifyContent: "center" }}>
-      <Text maxFontSizeMultiplier={1} style={{ fontSize: 12, fontWeight: "700", color: colour }}>
-        i
-      </Text>
-    </View>
-  );
-}
-
-/** The score in a ring: the band's tint as the track, its colour as the arc from 12 o'clock, the number in the title face. */
-function Ring({ score, colours }: { score: number | null; colours: { solid: string; tint: string; deep: string } }) {
-  // Drawn for the ordinary text sizes; past them it grows with the words (#334).
-  const scale = useRingScale();
-  const size = RING_SIZE * scale;
-  const radius = 38 * scale;
-  const stroke = 6 * scale;
-  const circumference = 2 * Math.PI * radius;
-  const filled = score === null ? 0 : (score / 100) * circumference;
-  return (
-    <View testID="score-ring" style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
-      <Svg width={size} height={size} style={{ position: "absolute" }}>
-        <Circle cx={size / 2} cy={size / 2} r={radius} stroke={colours.tint} strokeWidth={stroke} fill="none" />
-        {score !== null ? (
-          <Circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke={colours.solid}
-            strokeWidth={stroke}
-            strokeLinecap="round"
-            fill="none"
-            strokeDasharray={`${filled} ${circumference - filled}`}
-            transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          />
-        ) : null}
-      </Svg>
-      <Text maxFontSizeMultiplier={1} style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.display * scale, lineHeight: TYPE.display * scale + 4, color: colours.deep }}>
-        {score ?? "–"}
-      </Text>
+      <VerdictPill match={match} />
     </View>
   );
 }

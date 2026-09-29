@@ -221,8 +221,8 @@ describe("scanner status panels", () => {
     await scan("8801234567890");
     expect(screen.getByText("We don't have this product yet")).toBeTruthy();
 
-    // The sheet's X puts the camera back to scanning.
-    await fireEvent.press(screen.getByRole("button", { name: "Close" }));
+    // "Try again" puts the camera back to scanning.
+    await fireEvent.press(screen.getByRole("button", { name: "Try again" }));
     expect(screen.queryByText("We don't have this product yet")).toBeNull();
   });
 
@@ -304,7 +304,7 @@ describe("scanner opened for a photo", () => {
   it("opens in Photo mode", async () => {
     mockParams = { mode: "photo" };
     await render(<Scan />);
-    expect(screen.getByRole("tab", { name: "Photo" }).props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByRole("tab", { name: "Ingredient list" }).props.accessibilityState).toMatchObject({ selected: true });
     expect(mockLabelCameraShown).toBe(true);
   });
 
@@ -315,7 +315,7 @@ describe("scanner opened for a photo", () => {
 
     mockParams = { mode: "photo" };
     await view.rerender(<Scan />);
-    expect(screen.getByRole("tab", { name: "Photo" }).props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByRole("tab", { name: "Ingredient list" }).props.accessibilityState).toMatchObject({ selected: true });
   });
 });
 
@@ -356,19 +356,18 @@ describe("Search by name", () => {
   });
 });
 
-// OnSkin-style controls: glass buttons across the top, and both modes in one
-// pill with a thumb that slides between them.
+// The top row (v7): the glass close button, both modes in one pill with a
+// thumb that slides between them, and the torch.
 describe("scanner controls", () => {
-  it("has a glass close button that goes back, and an 'i' for how products are scored", async () => {
+  it("has a glass close button that goes back", async () => {
     const { router } = jest.requireMock("expo-router") as { router: { back: MockFn } };
     router.back.mockClear();
     await render(<Scan />);
     await fireEvent.press(screen.getByRole("button", { name: "Close scanner" }));
     expect(router.back).toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "How we score products" })).toBeTruthy();
   });
 
-  it("raises a no-match sheet for a barcode we don't have, with the ingredient photo and search side by side, and closes it with the X", async () => {
+  it("raises a no-match pop-up for a barcode we don't have, with the ingredient photo, search and Try again (v7)", async () => {
     (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: null });
     await render(<Scan />);
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
@@ -377,12 +376,8 @@ describe("scanner controls", () => {
     expect(screen.getByText("We don't have this product yet")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Scan the ingredient list" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Search by name" })).toBeTruthy();
-    // Half the sheet's width can't hold "Scan the ingredient list" on one line,
-    // so the label wraps rather than being cut off.
-    expect(screen.getByText("Scan the ingredient list").props.numberOfLines).toBe(2);
-    // The sheet takes the bottom of the screen; the mode pill steps aside.
-    expect(screen.queryByRole("tab", { name: "Barcode" })).toBeNull();
 
+    // Tapping the dimmed camera closes it too.
     await fireEvent.press(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByText("We don't have this product yet")).toBeNull();
     expect(screen.getByRole("tab", { name: "Barcode" })).toBeTruthy();
@@ -401,9 +396,9 @@ describe("scanner controls", () => {
 
   it("offers both modes as tabs, and moves the selection when a mode is tapped", async () => {
     await render(<Scan />);
-    expect(screen.getAllByRole("tab").map((tab) => tab.props.accessibilityLabel)).toEqual(["Barcode", "Photo"]);
-    await fireEvent.press(screen.getByRole("tab", { name: "Photo" }));
-    expect(screen.getByRole("tab", { name: "Photo" }).props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getAllByRole("tab").map((tab) => tab.props.accessibilityLabel)).toEqual(["Barcode", "Ingredient list"]);
+    await fireEvent.press(screen.getByRole("tab", { name: "Ingredient list" }));
+    expect(screen.getByRole("tab", { name: "Ingredient list" }).props.accessibilityState).toMatchObject({ selected: true });
     expect(screen.getByRole("tab", { name: "Barcode" }).props.accessibilityState).toMatchObject({ selected: false });
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
     expect(screen.getByRole("tab", { name: "Barcode" }).props.accessibilityState).toMatchObject({ selected: true });
