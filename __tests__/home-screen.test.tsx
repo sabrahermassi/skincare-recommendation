@@ -56,3 +56,28 @@ it("shows today's tip under the tiles", async () => {
   expect(screen.getByText("Tip of the day")).toBeTruthy();
   expect(screen.getByLabelText(`Tip of the day: ${tipOfTheDay()}`)).toBeTruthy();
 });
+
+it("moves to the new day's tip when the app comes back to the front", async () => {
+  const { AppState } = jest.requireActual<typeof import("react-native")>("react-native");
+  const { TIPS, tipOfTheDay } = jest.requireActual<typeof import("@/lib/tips")>("@/lib/tips");
+  const listeners: ((state: string) => void)[] = [];
+  const spy = jest.spyOn(AppState, "addEventListener").mockImplementation((_event: string, handler: unknown) => {
+    listeners.push(handler as (state: string) => void);
+    return { remove: () => undefined } as ReturnType<typeof AppState.addEventListener>;
+  });
+  jest.useFakeTimers({ now: new Date(2026, 8, 29, 22, 0) });
+  try {
+    await render(<Home />);
+    const today = tipOfTheDay();
+    jest.setSystemTime(new Date(2026, 8, 30, 8, 0));
+    const tomorrow = tipOfTheDay();
+    expect(tomorrow).not.toBe(today);
+    const { act } = jest.requireActual<typeof import("@testing-library/react-native")>("@testing-library/react-native");
+    await act(async () => listeners.forEach((listener) => listener("active")));
+    expect(screen.getByLabelText(`Tip of the day: ${tomorrow}`)).toBeTruthy();
+    expect(TIPS).toContain(tomorrow);
+  } finally {
+    jest.useRealTimers();
+    spy.mockRestore();
+  }
+});
