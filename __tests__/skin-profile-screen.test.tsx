@@ -1,6 +1,7 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, within } from "@testing-library/react-native";
 
 import SkinProfileScreen from "@/app/skin-profile";
+import { CONCERN_ICON } from "@/lib/quiz-icons";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
@@ -11,6 +12,10 @@ import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 jest.setTimeout(30000);
 
 jest.mock("expo-router", () => ({ router: { back: jest.fn(), canGoBack: () => true } }));
+jest.mock("expo-image", () => {
+  const { View } = jest.requireActual("react-native");
+  return { Image: (props: object) => <View testID="image" {...props} /> };
+});
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -64,4 +69,13 @@ it("opens a question in place with Change, and closes it with Done", async () =>
   expect(screen.getByRole("checkbox", { name: "Dullness" })).toBeTruthy();
   await act(async () => fireEvent.press(screen.getByRole("button", { name: "Skin concerns: Not set" })));
   expect(screen.queryByRole("checkbox", { name: "Dullness" })).toBeNull();
+});
+
+// #386 review: `atopic` has no picture (the quiz no longer offers it), and a
+// profile that still leads with it showed the "No concerns" one.
+it("pictures the first concern that has a picture when an old eczema-prone answer leads", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["atopic", "redness"] } });
+  await render(<SkinProfileScreen />);
+  const row = screen.getByRole("button", { name: /^Skin concerns: / });
+  expect(within(row).getByTestId("image").props.source).toBe(CONCERN_ICON.redness);
 });
