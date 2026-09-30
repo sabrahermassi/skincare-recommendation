@@ -69,7 +69,8 @@ export default function SkinProfileScreen() {
   };
 
   const icons: Record<Question, number> = {
-    concerns: (profile.concerns[0] && concernIcon(profile.concerns[0])) ?? (answered.has("concerns") ? NONE_ICON : UNSURE_ICON),
+    // The first concern with a picture: `atopic`, no longer offered, has none.
+    concerns: profile.concerns.map(concernIcon).find((icon) => icon !== undefined) ?? (answered.has("concerns") ? NONE_ICON : UNSURE_ICON),
     skinType: profile.baseSkinType ? SKIN_TYPE_ICON[profile.baseSkinType] : UNSURE_ICON,
     sensitivity: profile.sensitivity ? SENSITIVITY_ICON[profile.sensitivity] : UNSURE_ICON,
     pregnancy: (profile.pregnancyStatus && PREGNANCY_ICON[profile.pregnancyStatus as keyof typeof PREGNANCY_ICON]) || UNSURE_ICON,
@@ -81,11 +82,11 @@ export default function SkinProfileScreen() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
         <PageTitle title="Skin profile" line="Every score is made from these answers. Change one and your scores update." />
 
-        {ORDER.map((question) => {
+        {ORDER.map((question, index) => {
           const isOpen = open === question;
           return (
             <View key={question}>
-              <SectionLabel title={LABELS[question]} first />
+              <SectionLabel title={LABELS[question]} first={index === 0} />
               <View style={{ borderRadius: CARD_RADIUS, backgroundColor: SURFACE, overflow: "hidden" }}>
                 <Pressable
                   onPress={() => setOpen(isOpen ? null : question)}

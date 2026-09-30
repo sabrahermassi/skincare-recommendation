@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
-import { FONT_SCALE, ICON_MUTED, INK, SURFACE } from "@/lib/tokens";
+import { FONT_SCALE, ICON_MUTED, INK, SURFACE, TYPE } from "@/lib/tokens";
 
 /** The bar's height (v7). */
 const SEARCH_BAR_HEIGHT = 44;
@@ -44,7 +44,7 @@ export const SearchBar = forwardRef<
         onSubmitEditing={onSubmitEditing}
         maxFontSizeMultiplier={FONT_SCALE.ui}
         accessibilityLabel={accessibilityLabel ?? placeholder}
-        style={{ flex: 1, height: SEARCH_BAR_HEIGHT, fontSize: 17, color: INK }}
+        style={{ flex: 1, height: SEARCH_BAR_HEIGHT, fontSize: TYPE.card, color: INK }}
       />
       {value.length > 0 ? (
         <Pressable onPress={() => onChangeText("")} accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={8} className="active:opacity-70" style={{ padding: 6 }}>

@@ -4,12 +4,10 @@ import Svg, { Circle } from "react-native-svg";
 
 import { Text, useRingScale } from "@/components/Text";
 import type { MatchResult } from "@/lib/matching";
-import { DISPLAY_FONT, SURFACE, TYPE, VERDICT_LABEL, scoreColours } from "@/lib/tokens";
+import { DISPLAY_FONT, PILL_INFO, SURFACE, TYPE, VERDICT_LABEL, scoreColours } from "@/lib/tokens";
 
 /** The big score ring's drawn size (v7), before it grows with large text. */
 export const RING_SIZE = 96;
-// The info "i" ring on a filled pill (v7).
-const PILL_INFO = "#D9CFC7";
 
 /**
  * The big score (v7): the band's tint as the track, its colour as the arc from
