@@ -1,8 +1,8 @@
+import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -18,16 +18,17 @@ import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
 import { ScanCamera } from "@/components/ScanCamera";
 import { LabelCamera } from "@/components/LabelCamera";
 import { CameraPermissionScreen } from "@/components/CameraPermissionScreen";
-import { barcodeBox, SCAN_SIDE_INSET, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
+import { FLOAT_INSET, FLOAT_RADIUS } from "@/components/BottomSheet";
+import { barcodeBox, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
-import { SegmentedSwitch, SWITCH_HEIGHT } from "@/components/SegmentedSwitch";
+import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { GlassButton } from "@/components/GlassButton";
-import { PrimaryButton } from "@/components/PrimaryButton";
-import { TERRACOTTA } from "@/components/shell/shared";
+import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
+import { RING_SIZE, ScoreRing, VerdictPill } from "@/components/result/ScoreRing";
 import { Text } from "@/components/Text";
 import { isProductBarcode, fetchProductByBarcode, type FetchFailure } from "@/data/api";
-import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
+import type { ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
 import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
 import { lookupFailureState, scanStateCopy, scanStateSpeech, type ScanCopy, type ScanState, SCAN_SOMETHING_ELSE } from "@/lib/scan-copy";
@@ -38,7 +39,21 @@ import { reduceMotionNow } from "@/lib/reduce-motion";
 import { matchProduct } from "@/lib/matching";
 import { track } from "@/lib/analytics";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, DISPLAY_FONT, FLOATING_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
+import {
+  CAMERA_STAGE,
+  CANVAS,
+  CHOSEN,
+  DISPLAY_FONT,
+  INK,
+  LINK,
+  MUTED,
+  SCRIM,
+  SHEET_SHADOW,
+  SPACE,
+  TOUCH_TARGET,
+  TYPE,
+  withAlpha,
+} from "@/lib/tokens";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -439,7 +454,7 @@ export default function Scan() {
   const needsPermission = permission !== null && !permission.granted;
   const scanning = mode === "Photo" || status.kind === "idle" || status.kind === "looking";
   const cameraLive = isFocused && granted;
-  const switcherClearance = Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
+  const shutterClearance = shutterRoom(insets.bottom);
 
   const stage =
     mode === "Barcode" ? (
@@ -495,7 +510,7 @@ export default function Scan() {
         {granted && scanning ? (
           <ScanViewfinder
             topInset={insets.top + CLOSE_CLEARANCE}
-            bottomInset={switcherClearance}
+            bottomInset={shutterClearance}
             frame={mode === "Barcode" ? "corners" : "full"}
             description={mode === "Barcode" ? (scanStateCopy({ kind: "ready", mode: "barcode" }).line ?? null) : null}
             hint={mode === "Barcode" ? (scanStateCopy({ kind: "ready", mode: "barcode" }).line ?? null) : null}
@@ -507,32 +522,11 @@ export default function Scan() {
 
         {stage}
 
-        {/* And one switcher, so the pills do not remount and jump on a switch.
-            Put away while the no-match sheet is up: the sheet takes the bottom
-            of the screen, as in OnSkin's. */}
-        {mode === "Barcode" && status.kind === "missed" ? null : (
-          <View
-            style={{
-              position: "absolute",
-              left: STAGE_INSET,
-              right: STAGE_INSET,
-              bottom: Math.max(STAGE_BOTTOM, insets.bottom + 12),
-            }}
-          >
-            <SegmentedSwitch
-              options={MODES.map((m) => ({ value: m, label: m }))}
-              selected={mode}
-              onSelect={selectMode}
-              style={{ marginHorizontal: SCAN_SIDE_INSET - STAGE_INSET }}
-            />
-          </View>
-        )}
-
         {status.kind === "found" ? (
           <FoundSheet
             key={status.product.id}
             product={status.product}
-            bottomInset={insets.bottom}
+            onLeave={preserveMode}
             onClose={() => {
               // Same reasoning as the missed/unreachable clear in
               // `selectMode` — the barcode is still in frame. See #190.
@@ -548,26 +542,40 @@ export default function Scan() {
         ) : null}
       </View>
 
-      {/* Glass buttons across the top, as in the iOS camera: close on the left,
-          the torch in the middle, "i" on the right. */}
-      <GlassButton
-        symbol="xmark"
-        icon="close"
-        accessibilityLabel="Close scanner"
-        onDark={!needsPermission}
-        // Opened from a deep link there is nothing underneath to go back to.
-        onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
-        style={{ position: "absolute", left: SPACE.block, top: insets.top + SPACE.text }}
-      />
-
-      {/* Visible in both modes, not just Barcode (#195): the camera is one
-          shared instance (see ScannerCamera's own comment), so a torch
-          turned on here stays on across a mode switch — and someone
-          photographing a label on the same dark shelf needs the light too.
-          Centred across the full width; box-none so the row itself never
-          takes a tap meant for the buttons at either end. */}
-      {cameraLive ? (
-        <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, top: insets.top + SPACE.text, alignItems: "center" }}>
+      {/* Across the top (v7): close, the mode switch, the torch. One switch,
+          so the pills do not remount and jump on a mode change. */}
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: "absolute",
+          left: SPACE.block,
+          right: SPACE.block,
+          top: insets.top + SPACE.text,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <GlassButton
+          symbol="xmark"
+          icon="close"
+          accessibilityLabel="Close scanner"
+          onDark={!needsPermission}
+          // Opened from a deep link there is nothing underneath to go back to.
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+        />
+        <SegmentedSwitch
+          tone={needsPermission ? "light" : "dark"}
+          options={MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
+          selected={mode}
+          onSelect={selectMode}
+          style={{ width: SWITCH_WIDTH }}
+        />
+        {/* In both modes, not just Barcode (#195): the camera is one shared
+            instance, so a torch turned on here stays on across a mode switch —
+            and someone photographing a label on the same dark shelf needs the
+            light too. An empty box of the same size keeps the switch centred. */}
+        {cameraLive ? (
           <GlassButton
             symbol={torchOn ? "bolt.fill" : "bolt"}
             icon={torchOn ? "flash" : "flash-outline"}
@@ -575,47 +583,23 @@ export default function Scan() {
             onDark
             onPress={() => setTorchOn((on) => !on)}
           />
-        </View>
-      ) : null}
-
-      {/* How we score products. Not linked yet: the owner adds where it goes. */}
-      <GlassButton
-        symbol="info.circle"
-        icon="information-circle-outline"
-        accessibilityLabel="How we score products"
-        onDark={!needsPermission}
-        style={{ position: "absolute", right: SPACE.block, top: insets.top + SPACE.text }}
-      />
+        ) : (
+          <View style={{ width: TOUCH_TARGET }} />
+        )}
+      </View>
     </View>
   );
 }
 
 /**
- * No product for that code (after OnSkin): a sheet rises from the bottom, at
- * the pace of an iOS sheet opening, over a dimmed camera. A picture, what
- * happened, and two ways forward — scan again, or search by name — with the
- * X to close it. Under a plain miss, a quiet link still offers to photograph
- * the ingredients, which is how a new product joins the catalogue.
+ * A pop-up over the dimmed camera (v7): floating 10pt in from the edges, on the
+ * cream, rising at the pace of an iOS sheet. With Reduce Motion on it is just
+ * there (#313). Tapping the dimmed camera closes it, as its own "Try again" or
+ * "Scan another" does.
  */
-function NoMatchSheet({
-  copy,
-  primaryLabel,
-  secondaryLabel,
-  bottomInset,
-  onDismiss,
-  onPrimary,
-  onSecondary,
-}: {
-  copy: ScanCopy;
-  primaryLabel: string;
-  secondaryLabel: string;
-  bottomInset: number;
-  onDismiss: () => void;
-  onPrimary: () => void;
-  onSecondary: () => void;
-}) {
+function ScanPopup({ onDismiss, children }: { onDismiss: () => void; children: ReactNode }) {
   const [rise] = useState(() => new Animated.Value(0));
-  const [lift] = useState(() => rise.interpolate({ inputRange: [0, 1], outputRange: [NO_MATCH_TRAVEL, 0] }));
+  const [lift] = useState(() => rise.interpolate({ inputRange: [0, 1], outputRange: [POPUP_TRAVEL, 0] }));
   useEffect(() => {
     if (reduceMotionNow()) {
       rise.setValue(1);
@@ -626,182 +610,135 @@ function NoMatchSheet({
 
   return (
     <>
-      <Animated.View
-        pointerEvents="none"
-        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: withAlpha(CAMERA_STAGE, 0.45), opacity: rise }}
-      />
+      <Animated.View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: SCRIM, opacity: rise }}>
+        <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Close" style={{ flex: 1 }} />
+      </Animated.View>
       <Animated.View
         style={{
           position: "absolute",
-          left: SHEET_INSET,
-          right: SHEET_INSET,
-          bottom: Math.max(STAGE_BOTTOM, bottomInset + 12),
+          left: FLOAT_INSET,
+          right: FLOAT_INSET,
+          bottom: FLOAT_INSET,
           transform: [{ translateY: lift }],
+          backgroundColor: CANVAS,
+          borderRadius: FLOAT_RADIUS,
+          paddingTop: SPACE.section,
+          paddingHorizontal: SPACE.gutter,
+          paddingBottom: SPACE.section,
+          alignItems: "center",
+          ...SHEET_SHADOW,
         }}
       >
-        <View
-          style={{
-            backgroundColor: CANVAS,
-            borderRadius: NO_MATCH_RADIUS,
-            paddingTop: 22,
-            paddingHorizontal: SPACE.gutter,
-            paddingBottom: SPACE.gutter,
-            alignItems: "center",
-            gap: 10,
-            ...FLOATING_SHADOW,
-          }}
-        >
-          <GlassButton
-            symbol="xmark"
-            icon="close"
-            accessibilityLabel="Close"
-            onPress={onDismiss}
-            small
-            // In from the corner by the same margin on both sides, so it sits
-            // clear of the card's rounded edge rather than in it.
-            style={{ position: "absolute", top: SPACE.block, right: SPACE.block }}
-          />
-          <Image source={NO_MATCH_ART} contentFit="contain" accessibilityLabel="" style={{ width: "72%", aspectRatio: NO_MATCH_ASPECT }} />
-          <Text
-            accessibilityRole="header"
-            style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, color: INK }}
-          >
-            {copy.title}
-          </Text>
-          <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>{copy.line}</Text>
-          <View style={{ alignSelf: "stretch", gap: 10, marginTop: SPACE.text, flexDirection: "row" }}>
-            <View style={{ flex: 1 }}>
-              <PrimaryButton label={primaryLabel} onPress={onPrimary} twoLines />
-            </View>
-            <View style={{ flex: 1 }}>
-              <PrimaryButton label={secondaryLabel} onPress={onSecondary} variant="secondary" twoLines />
-            </View>
-          </View>
-        </View>
+        {children}
       </Animated.View>
     </>
   );
 }
 
-/**
- * The product a barcode found, sliding up over the camera: its picture rides on
- * the card's top edge, then brand, name, the score, and the button that opens
- * the full result. The X puts the camera back to scanning.
- */
-function FoundSheet({
-  product,
-  bottomInset,
-  onClose,
-  onOpen,
-}: {
-  product: ProductWithIngredients;
-  bottomInset: number;
-  onClose: () => void;
-  onOpen: () => void;
-}) {
-  const profile = useAppStore((s) => s.profile);
-  const match = matchProduct(product, profile);
-  const [rise] = useState(() => new Animated.Value(0));
-  const [lift] = useState(() => rise.interpolate({ inputRange: [0, 1], outputRange: [FOUND_SHEET_TRAVEL, 0] }));
-  useEffect(() => {
-    // With Reduce Motion on, the sheet is just there (#313).
-    if (reduceMotionNow()) {
-      rise.setValue(1);
-      return;
-    }
-    Animated.spring(rise, {
-      toValue: 1,
-      friction: 9,
-      tension: 60,
-      useNativeDriver: Platform.OS !== "web",
-    }).start();
-  }, [rise]);
-
-  const line = match.score === null ? VERDICT_LABEL[match.verdict] : `${match.score}/100 · ${VERDICT_LABEL[match.verdict]}`;
-  const meta = [product.type === "unknown" ? null : PRODUCT_TYPE_LABEL[product.type], product.volume].filter(Boolean).join("  ·  ");
-
+/** A quiet text action under a pop-up's button ("Try again", "Scan another"). */
+function PopupLink({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <Animated.View
-      style={{
-        // Rises from the bottom edge, outlined and inset like the ingredients sheet.
-        position: "absolute",
-        left: SHEET_INSET,
-        right: SHEET_INSET,
-        bottom: 0,
-        opacity: rise,
-        transform: [{ translateY: lift }],
-      }}
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={{ minHeight: TOUCH_TARGET, paddingHorizontal: SPACE.block, alignItems: "center", justifyContent: "center" }}
+      className="active:opacity-70"
     >
-      <View
-        style={{
-          backgroundColor: SURFACE,
-          borderTopLeftRadius: SHEET_RADIUS,
-          borderTopRightRadius: SHEET_RADIUS,
-          borderWidth: SHEET_OUTLINE,
-          borderBottomWidth: 0,
-          borderColor: TERRACOTTA,
-          paddingTop: FOUND_PICTURE / 2 + 14,
-          paddingHorizontal: 22,
-          paddingBottom: Math.max(20, bottomInset + 12),
-          alignItems: "center",
-          gap: 8,
-          ...FLOATING_SHADOW,
-        }}
-      >
-        <GlassButton
-          symbol="xmark"
-          icon="close"
-          accessibilityLabel="Close"
-          onPress={onClose}
-          small
-          style={{ position: "absolute", top: 14, right: 14 }}
-        />
-
-        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.9, color: MUTED }}>
-          {product.brand}
-        </Text>
-        <Text
-          numberOfLines={2}
-          style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, color: INK }}
-        >
-          {product.name}
-        </Text>
-        {meta ? <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{meta}</Text> : null}
-        <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{line}</Text>
-
-        <PrimaryButton
-          label="See full result"
-          accessibilityLabel="See the full result"
-          onPress={onOpen}
-          size={48}
-          style={{ alignSelf: "stretch", marginTop: 8 }}
-        />
-      </View>
-
-      {/* The picture rides the card's top edge. */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          top: -FOUND_PICTURE / 2,
-          alignSelf: "center",
-          ...FLOATING_SHADOW,
-        }}
-      >
-        <ProductThumbnail product={product} size={FOUND_PICTURE} />
-      </View>
-    </Animated.View>
+      <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{label}</Text>
+    </Pressable>
   );
 }
 
-// The found-product sheet: a card with a coloured outline, a little in from
-// each side of the screen.
-const SHEET_RADIUS = 28;
-const SHEET_OUTLINE = 3;
-const SHEET_INSET = 10;
-/** The picture on the found-product card, and how far the card travels up from below. */
-const FOUND_PICTURE = 96;
-const FOUND_SHEET_TRAVEL = 420;
+/**
+ * No product for that code (v7): a search badge, what happened, the way
+ * forward as the button, and search by name and "Try again" under it.
+ */
+function NoMatchSheet({
+  copy,
+  primaryLabel,
+  secondaryLabel,
+  showTryAgain,
+  onDismiss,
+  onPrimary,
+  onSecondary,
+}: {
+  copy: ScanCopy;
+  primaryLabel: string;
+  secondaryLabel: string;
+  /** Off when the button itself already scans again. */
+  showTryAgain: boolean;
+  onDismiss: () => void;
+  onPrimary: () => void;
+  onSecondary: () => void;
+}) {
+  return (
+    <ScanPopup onDismiss={onDismiss}>
+      <View style={{ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: CHOSEN.fill }}>
+        <Ionicons name="search" size={22} color={LINK} />
+      </View>
+      <Text
+        accessibilityRole="header"
+        style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
+      >
+        {copy.title}
+      </Text>
+      <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{copy.line}</Text>
+      <PrimaryButton label={primaryLabel} onPress={onPrimary} style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.section }} />
+      <View style={{ marginTop: SPACE.text, alignItems: "center" }}>
+        <PopupLink label={secondaryLabel} onPress={onSecondary} />
+        {showTryAgain ? <PopupLink label="Try again" onPress={onDismiss} /> : null}
+      </View>
+    </ScanPopup>
+  );
+}
+
+/**
+ * The product a barcode found (v7): brand and name in small capitals, the big
+ * score ring and its verdict pill, "See full result", and "Scan another" to put
+ * the camera back to scanning. With no score to show (no skin profile, or too
+ * little of the label recognised), the product's picture takes the ring's place.
+ */
+function FoundSheet({
+  product,
+  onClose,
+  onOpen,
+  onLeave,
+}: {
+  product: ProductWithIngredients;
+  onClose: () => void;
+  onOpen: () => void;
+  /** Called before How scoring works opens over the scanner. */
+  onLeave: () => void;
+}) {
+  const profile = useAppStore((s) => s.profile);
+  const match = matchProduct(product, profile);
+  return (
+    <ScanPopup onDismiss={onClose}>
+      <Text numberOfLines={2} style={{ textAlign: "center", fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase", color: MUTED }}>
+        {product.brand} · {product.name}
+      </Text>
+      <View style={{ marginTop: SPACE.block }}>
+        {match.score === null ? <ProductThumbnail product={product} size={RING_SIZE} /> : <ScoreRing match={match} />}
+      </View>
+      <View style={{ marginTop: SPACE.block }}>
+        <VerdictPill match={match} onOpen={onLeave} />
+      </View>
+      <PrimaryButton
+        label="See full result"
+        accessibilityLabel="See the full result"
+        onPress={onOpen}
+        style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.section }}
+      />
+      <View style={{ marginTop: SPACE.text }}>
+        <PopupLink label="Scan another" onPress={onClose} />
+      </View>
+    </ScanPopup>
+  );
+}
+
+// How far below the screen a pop-up starts.
+const POPUP_TRAVEL = 700;
 
 /**
  * The mode switcher: both modes in one glass pill, and a thumb that slides
@@ -878,8 +815,7 @@ function BarcodeStage({
   // the permission screen for that first moment flashed it at people who had
   // already said yes.
   const needsPermission = permission !== null && !permission.granted;
-  const switcherClearance =
-    Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
+  const bottom = stageBottom(insets.bottom);
 
   return (
     <View style={{ flex: 1 }}>
@@ -890,17 +826,18 @@ function BarcodeStage({
           permission={permission}
           requestPermission={requestPermission}
           mode="barcode"
-          bottomInset={switcherClearance}
+          topInset={CLOSE_CLEARANCE + SPACE.gutter}
+          bottomInset={bottom}
         />
       )}
 
-      {/* Status, stacked just above the mode switcher. */}
+      {/* Status, at the bottom of the stage. */}
       <View
         style={{
           position: "absolute",
           left: STAGE_INSET,
           right: STAGE_INSET,
-          bottom: Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + 12,
+          bottom,
           gap: 12,
         }}
       >
@@ -945,7 +882,7 @@ function BarcodeStage({
               )}
             </View>
             <View className="flex-1">
-              <Text style={{ fontSize: 12.5, fontWeight: "bold", color: INK }}>{copy?.title}</Text>
+              <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>{copy?.title}</Text>
               <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{copy?.line}</Text>
               {copy?.note ? (
                 <Text style={{ fontSize: TYPE.caption, color: MUTED, marginTop: 2 }}>{copy.note}</Text>
@@ -972,7 +909,7 @@ function BarcodeStage({
             style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
             className="active:opacity-70"
           >
-            <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}>
+            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: withAlpha(CANVAS, 0.85) }}>
               {SCAN_SOMETHING_ELSE}
             </Text>
           </Pressable>
@@ -999,7 +936,7 @@ function BarcodeStage({
             className="active:opacity-70"
           >
             <Text
-              style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.75), textDecorationLine: "underline" }}
+              style={{ fontSize: TYPE.label, fontWeight: "600", color: withAlpha(CANVAS, 0.85) }}
             >
               {copy?.link}
             </Text>
@@ -1018,7 +955,7 @@ function BarcodeStage({
           copy={copy}
           primaryLabel={copy.action ?? ""}
           secondaryLabel={copy.byName ?? ""}
-          bottomInset={insets.bottom}
+          showTryAgain={!notProduct}
           onDismiss={onDismiss}
           onPrimary={notProduct ? onDismiss : onPhotograph}
           onSecondary={() => {
@@ -1030,19 +967,16 @@ function BarcodeStage({
         />
       ) : null}
 
-      {/* A quiet way out when nothing has read for a while (#195) — its own
-          wrapper, clear of the switcher via `switcherClearance` rather than
-          the tighter spacing the panel above uses, per the fixed-inset
-          lesson at `SWITCHER_HEIGHT`'s own comment. Only ever shown while
-          genuinely idle, so it can never sit over the panel or a found
-          sheet. */}
+      {/* A quiet way out when nothing has read for a while (#195), at the
+          bottom of the stage. Only ever shown while genuinely idle, so it can
+          never sit over the panel or a found pop-up. */}
       {showHint && status.kind === "idle" && (
         <View
           style={{
             position: "absolute",
             left: STAGE_INSET,
             right: STAGE_INSET,
-            bottom: switcherClearance,
+            bottom,
             alignItems: "center",
           }}
         >
@@ -1053,7 +987,7 @@ function BarcodeStage({
             style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }}
             className="active:opacity-70"
           >
-            <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.85), textDecorationLine: "underline" }}>
+            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: withAlpha(CANVAS, 0.85) }}>
               {READY_BARCODE.link}
             </Text>
           </Pressable>
@@ -1096,7 +1030,7 @@ function IngredientsStage({
 }) {
   const insets = useSafeAreaInsets();
   const needsPermission = permission !== null && !permission.granted;
-  const clearance = Math.max(STAGE_BOTTOM, insets.bottom + 12) + SWITCHER_HEIGHT + FRAME_MARGIN_ABOVE_SWITCHER;
+  const bottom = stageBottom(insets.bottom);
   // One generation per mount — switching to Barcode and back to Photo
   // remounts this stage, so a read from the earlier mount is stale even if
   // it lands while `mode` reads "Photo" again by the time it resolves. Read
@@ -1128,7 +1062,7 @@ function IngredientsStage({
           cameraSize={cameraSize}
           window={windowBox}
           frameTopOffset={CLOSE_CLEARANCE}
-          bottomInset={clearance}
+          bottomInset={bottom}
           onRead={openVerdict}
           isStillWanted={stillWanted}
         />
@@ -1139,7 +1073,8 @@ function IngredientsStage({
           permission={permission}
           requestPermission={requestPermission}
           mode="photo"
-          bottomInset={clearance}
+          topInset={CLOSE_CLEARANCE + SPACE.gutter}
+          bottomInset={bottom}
           extra={<ChoosePhotoInstead onRead={openVerdict} isStillWanted={stillWanted} />}
         />
       ) : null}
@@ -1147,32 +1082,31 @@ function IngredientsStage({
   );
 }
 
-// The mode switcher's own height plus the same bottom offset its wrapping View uses
-// (`Math.max(STAGE_BOTTOM, insets.bottom + 12)`) and a margin above it — this frame
-// used to be measured off a 293pt card that no longer exists (the stage is
-// full-bleed now), so a fixed bottom inset put the frame's bottom edge, and
-// its instruction text, underneath the switcher rather than clear of it.
-// The mode switcher's height, from the switch itself.
-const SWITCHER_HEIGHT = SWITCH_HEIGHT;
-// The no-match sheet (after OnSkin): its picture (new-watercolor/
-// no_product_match_v1_transparent.png, trimmed), its corners, and how far
-// below it starts.
-const NO_MATCH_ART = require("@/assets/illustrations/no-product-found.webp");
-const NO_MATCH_ASPECT = 1164 / 697;
-const NO_MATCH_RADIUS = 32;
-const NO_MATCH_TRAVEL = 700;
+// The two modes as the switch names them (v7).
+const MODE_LABEL: Record<Mode, string> = { Barcode: "Barcode", Photo: "Ingredient list" };
+// The mode switch's width in the top row (v7).
+const SWITCH_WIDTH = 230;
 // Apple's spring for a sheet presenting: critically damped (fraction 1) at
 // response 0.5 s, as a system sheet rises — stiffness = (2π / response)²,
 // damping = 4π × fraction / response, for a mass of 1.
 const SHEET_SPRING = { mass: 1, stiffness: 158, damping: 25 };
-// How far in the bottom wrapper (mode pills, status panel) sits from each edge.
+// How far in the bottom wrapper (status panel) sits from each edge.
 const STAGE_INSET = 20;
-// The glass buttons across the top (a whole touch target, 8 below the safe
-// area); the frame starts clear of them.
+// The top row (a whole touch target, 8 below the safe area); the frame
+// starts clear of it.
 const CLOSE_CLEARANCE = 44;
-// Clear of the bottom edge and the home indicator.
-const STAGE_BOTTOM = 20;
-const FRAME_MARGIN_ABOVE_SWITCHER = 24;
+// The shutter (v7), and the gap between it and the frame above.
+const SHUTTER = 76;
+
+/** Where the stage's bottom row sits: clear of the edge and the home indicator. */
+function stageBottom(safeBottom: number) {
+  return Math.max(SPACE.section, safeBottom + SPACE.gutter);
+}
+
+/** Room under the frame for the shutter, with a section's gap above it. */
+function shutterRoom(safeBottom: number) {
+  return stageBottom(safeBottom) + SHUTTER + SPACE.section;
+}
 // How long a barcode can sit unread in frame before offering Photo mode as
 // the way out (#195) — long enough that a normal read (under a second)
 // never brushes it, short enough that someone stuck on a blurry or

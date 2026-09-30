@@ -6,7 +6,7 @@ import { Linking, Pressable } from "react-native";
 import { ScanIntro } from "@/components/ScanIntro";
 import { Text } from "@/components/Text";
 import { scanStateCopy } from "@/lib/scan-copy";
-import { MUTED, TOUCH_TARGET } from "@/lib/tokens";
+import { LINK, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // A camera with an unlocked padlock (new-watercolor/camera_permission_transparent.png).
 const CAMERA_ART = require("@/assets/illustrations/camera-permission.webp");
@@ -26,13 +26,16 @@ export function CameraPermissionScreen({
   permission,
   requestPermission,
   mode,
+  topInset,
   bottomInset,
   extra,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
   requestPermission: () => void;
   mode: "barcode" | "photo";
-  /** Room to leave at the bottom, e.g. for the scanner's mode switcher. */
+  /** Room to leave at the top, for the scanner's top row. */
+  topInset: number;
+  /** Room to leave at the bottom, clear of the home indicator. */
   bottomInset: number;
   /** An alternative offered under the button when there is one (Photo mode's "choose a photo"). */
   extra?: ReactNode;
@@ -46,11 +49,12 @@ export function CameraPermissionScreen({
       body={copy.line ?? ""}
       actionLabel={copy.action ?? ""}
       onAction={refused ? () => void Linking.openSettings() : requestPermission}
+      topInset={topInset}
       bottomInset={bottomInset}
     >
       {extra}
       {/* This shows at the worst moment — camera access just failed — so the
-          way forward has to actually be one: underlined, a full-size target,
+          way forward has to actually be one: a full-size target,
           and it goes to Search rather than only naming it. `dismissTo`, since
           the scanner is a modal (#313): a push would open the tabs inside it. */}
       <Pressable
@@ -59,7 +63,7 @@ export function CameraPermissionScreen({
         style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 12 }}
         className="active:opacity-70"
       >
-        <Text style={{ fontSize: 12.5, color: MUTED, textDecorationLine: "underline" }}>{copy.link}</Text>
+        <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{copy.link}</Text>
       </Pressable>
     </ScanIntro>
   );

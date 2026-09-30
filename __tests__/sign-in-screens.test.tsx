@@ -86,7 +86,7 @@ describe("the sign-in sheet", () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  // #272 review: a sign-in that finishes after "Not now" must not pop the
+  // #272 review: a sign-in that finishes after the sheet is swiped away must not pop the
   // screen underneath.
   it("does not go back again when a sign-in finishes after the sheet was closed", async () => {
     let finish: (value: unknown) => void = () => {};
@@ -124,6 +124,8 @@ describe("the sign-in sheet", () => {
   it("warns about Hide My Email before it splits someone into two accounts", async () => {
     await render(<SignIn />);
     expect(await screen.findByText(HIDE_MY_EMAIL_NOTE)).toBeTruthy();
+    // v7: no "Not now"; the sheet swipes away.
+    expect(screen.queryByText("Not now")).toBeNull();
   });
 });
 

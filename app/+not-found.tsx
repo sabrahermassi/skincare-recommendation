@@ -1,10 +1,11 @@
 import { router, Stack } from "expo-router";
 import { Pressable, View } from "react-native";
 
-import { PrimaryButton } from "@/components/PrimaryButton";
+import { EmptyState } from "@/components/EmptyState";
+import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
-import { CANVAS, DISPLAY_FONT, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { CANVAS, LINK, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 /**
  * Any link to a page that doesn't exist — a stale share, a mistyped deep
@@ -18,25 +19,32 @@ export default function NotFound() {
       <Stack.Screen options={{ headerShown: false }} />
       {/* Opened straight from a link there is nothing to go back to. */}
       <ScreenHeader onBack={() => (router.canGoBack() ? router.back() : router.replace("/"))} />
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
-        <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
-          Page not found
-        </Text>
-        <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
-          This link doesn&apos;t lead anywhere in the app.
-        </Text>
-        <PrimaryButton label="Go to Home" onPress={() => router.replace("/")} />
-        <Pressable
-          onPress={() => router.replace("/browse")}
-          accessibilityRole="link"
-          style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
-          className="active:opacity-70"
-        >
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-            Search instead
-          </Text>
-        </Pressable>
+      <View style={{ flex: 1, justifyContent: "center", paddingBottom: 80 }}>
+        <EmptyState
+          art={LOST_ART}
+          aspect={LOST_ASPECT}
+          artWidth={280}
+          title="This page wandered off"
+          line="The link may be old, or the page has moved."
+          action={
+            <>
+              <PrimaryButton label="Go to Home" onPress={() => router.replace("/")} style={{ width: BUTTON_WIDTH.secondary }} />
+              <Pressable
+                onPress={() => router.replace("/browse")}
+                accessibilityRole="link"
+                style={{ minHeight: TOUCH_TARGET, marginTop: SPACE.text, alignItems: "center", justifyContent: "center" }}
+                className="active:opacity-70"
+              >
+                <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Search instead</Text>
+              </Pressable>
+            </>
+          }
+        />
       </View>
     </View>
   );
 }
+
+// The same picture as a barcode we don't have (v7), at its own proportions.
+const LOST_ART = require("@/assets/illustrations/no-product-found.webp");
+const LOST_ASPECT = 1164 / 697;

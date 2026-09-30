@@ -131,6 +131,9 @@ export const HAIRLINE = "#EFE6DA";
 /** Hairlines, dividers, unselected control borders, inactive progress dots. */
 export const LINE = "#E4D3C8";
 
+/** The empty avatar's disc behind the see-through picture (v7, read off the hand-off). */
+export const AVATAR_FILL = "#F6E1D3";
+
 /** @deprecated Prefer {@link LINE}. Kept because it names the same value in
  *  the control-state code that already reads well as "border, inactive". */
 export const BORDER_INACTIVE = LINE;
@@ -330,10 +333,9 @@ export const DANGER = VERDICT.low.deep;
 // each screen already drew; this only gives them a name and a single place
 // to change from.
 
-/** The scanner's corner-bracket frame and its measurement caption
- *  (`app/(tabs)/index.tsx`) — a hair warmer than white, read off the mockup
- *  at its own stated measurements. */
-export const SCANNER_FRAME = "#FDFCFA";
+/** The scanner's corner-bracket frame: plain white in v7 (read off the
+ *  hand-off, 29 September 2026). */
+export const SCANNER_FRAME = "#FFFFFF";
 
 /** The "Clogging" badge on a pore-clogging ingredient row
  *  (`components/IngredientTabsList.tsx`) — fill and ink. */
@@ -347,12 +349,13 @@ export const CLOG_BADGE_INK = "#A4526A";
  *
  * A camera stage cannot sit on CANVAS: the viewfinder has to read as a
  * surface you are *inside*, and cream around a live frame reads as a card.
- * This was hand-typed as `#17161B` at three sites and as
+ * v7's warm near-black, read off the hand-off (29 September 2026). It
+ * was hand-typed as `#17161B` at three sites and as
  * `rgba(23,22,27,0.55)` at two more — the same colour in five places, which
  * is exactly what this file exists to stop. Pair it with {@link withAlpha}
  * for the translucent chrome rather than re-typing the triplet.
  */
-export const CAMERA_STAGE = "#17161B";
+export const CAMERA_STAGE = "#1C1816";
 
 /**
  * The type scale, as raw numbers.

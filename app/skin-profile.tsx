@@ -1,33 +1,38 @@
+import { Image } from "expo-image";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
-import { BottomSheet } from "@/components/BottomSheet";
-import { MenuGroup, MenuRow } from "@/components/MenuRows";
 import { ConcernPicker, PregnancyPicker, SensitivityPicker, SkinTypePicker } from "@/components/ProfilePickers";
+import { PageTitle } from "@/components/PageTitle";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import { haptic } from "@/lib/haptics";
 import { CONCERN_TITLE, PREGNANCY_QUESTION, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
-import { CANVAS, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { concernIcon, NONE_ICON, PREGNANCY_ICON, SENSITIVITY_ICON, SKIN_TYPE_ICON, UNSURE_ICON } from "@/lib/quiz-icons";
+import { CANVAS, CARD_RADIUS, INK, LINK, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
 
 type Question = "skinType" | "concerns" | "sensitivity" | "pregnancy";
 
-// Each row's name, and the question its sheet asks.
+// Each row's name, the label over its card (v7), and the question it asks; in
+// the design's order.
 const TITLES: Record<Question, string> = {
   skinType: "Skin type",
   concerns: "Skin concerns",
   sensitivity: "Sensitivity",
   pregnancy: "Pregnancy",
 };
+const LABELS: Record<Question, string> = { ...TITLES, pregnancy: "Pregnant or breastfeeding" };
 const QUESTIONS: Record<Question, string> = { ...TITLES, pregnancy: PREGNANCY_QUESTION };
+const ORDER: Question[] = ["concerns", "skinType", "sensitivity", "pregnancy"];
 
 /**
- * Skin profile (owner's reference, a settings list): each answer from the skin
- * quiz on its own row, its current value on the right. A row opens that one
- * question as a sheet, and a choice saves at once — there is no draft to keep
- * or lose. Every score in the app follows the change.
+ * Skin profile (v7): each answer from the skin quiz on its own card, under the
+ * question, with its picture and "Change". Change opens that one question in
+ * place, and a choice saves at once — there is no draft to keep or lose.
+ * Every score in the app follows the change.
  */
 export default function SkinProfileScreen() {
   const profile = useAppStore((s) => s.profile);
@@ -63,54 +68,64 @@ export default function SkinProfileScreen() {
     pregnancy: profile.pregnancyStatus ? pregnancyLabel(profile.pregnancyStatus) : "Not set",
   };
 
+  const icons: Record<Question, number> = {
+    // The first concern with a picture: `atopic`, no longer offered, has none.
+    concerns: profile.concerns.map(concernIcon).find((icon) => icon !== undefined) ?? (answered.has("concerns") ? NONE_ICON : UNSURE_ICON),
+    skinType: profile.baseSkinType ? SKIN_TYPE_ICON[profile.baseSkinType] : UNSURE_ICON,
+    sensitivity: profile.sensitivity ? SENSITIVITY_ICON[profile.sensitivity] : UNSURE_ICON,
+    pregnancy: (profile.pregnancyStatus && PREGNANCY_ICON[profile.pregnancyStatus as keyof typeof PREGNANCY_ICON]) || UNSURE_ICON,
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenHeader title="Skin profile" />
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 60 }}>
-        <MenuGroup>
-          {(Object.keys(TITLES) as Question[]).map((question) => (
-            <MenuRow key={question} label={TITLES[question]} value={values[question]} onPress={() => setOpen(question)} />
-          ))}
-        </MenuGroup>
-        <Text style={{ paddingHorizontal: 8, fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>
-          Your answers make every score personal. Change one any time.
-        </Text>
-      </ScrollView>
+      <ScreenHeader />
+      <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
+        <PageTitle title="Skin profile" line="Every score is made from these answers. Change one and your scores update." />
 
-      <BottomSheet visible={open !== null} onClose={() => setOpen(null)}>
-        {open ? (
-          <View style={{ gap: 14 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <Text accessibilityRole="header" style={{ fontSize: TYPE.title, fontWeight: "700", color: INK }}>
-                {QUESTIONS[open]}
-              </Text>
-              {open === "concerns" ? (
+        {ORDER.map((question, index) => {
+          const isOpen = open === question;
+          return (
+            <View key={question}>
+              <SectionLabel title={LABELS[question]} first={index === 0} />
+              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: SURFACE, overflow: "hidden" }}>
                 <Pressable
-                  onPress={() => setOpen(null)}
+                  onPress={() => setOpen(isOpen ? null : question)}
                   accessibilityRole="button"
-                  hitSlop={8}
-                  style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
+                  accessibilityLabel={`${TITLES[question]}: ${values[question]}`}
+                  accessibilityHint={isOpen ? "Done" : "Change"}
+                  accessibilityState={{ expanded: isOpen }}
+                  style={{ minHeight: ROW_HEIGHT, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.block, paddingLeft: SPACE.block, paddingRight: SPACE.gutter }}
                   className="active:opacity-70"
                 >
-                  <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>Done</Text>
+                  <Image source={icons[question]} contentFit="contain" accessibilityLabel="" style={{ width: ICON, height: ICON }} />
+                  <Text style={{ flex: 1, fontSize: TYPE.label, fontWeight: "600", color: INK }}>{values[question]}</Text>
+                  <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{isOpen ? "Done" : "Change"}</Text>
                 </Pressable>
-              ) : null}
+                {isOpen ? (
+                  <View accessibilityLabel={QUESTIONS[question]} style={{ paddingTop: 4, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.gutter }}>
+                    {question === "skinType" ? (
+                      <SkinTypePicker value={profile.baseSkinType} unknownChosen={answered.has("skinType")} onChange={(baseSkinType) => save({ baseSkinType })} />
+                    ) : question === "concerns" ? (
+                      <ConcernPicker concerns={profile.concerns} noneChosen={answered.has("concerns")} onToggle={toggleConcern} onNone={() => save({ concerns: [] })} />
+                    ) : question === "sensitivity" ? (
+                      <SensitivityPicker value={profile.sensitivity} unknownChosen={answered.has("sensitivity")} onChange={(sensitivity) => save({ sensitivity })} />
+                    ) : (
+                      <PregnancyPicker value={profile.pregnancyStatus} onChange={(pregnancyStatus) => save({ pregnancyStatus })} />
+                    )}
+                  </View>
+                ) : null}
+              </View>
             </View>
-            {open === "skinType" ? (
-              <SkinTypePicker value={profile.baseSkinType} unknownChosen={answered.has("skinType")} onChange={(baseSkinType) => save({ baseSkinType })} />
-            ) : open === "concerns" ? (
-              <ConcernPicker concerns={profile.concerns} noneChosen={answered.has("concerns")} onToggle={toggleConcern} onNone={() => save({ concerns: [] })} />
-            ) : open === "sensitivity" ? (
-              <SensitivityPicker value={profile.sensitivity} unknownChosen={answered.has("sensitivity")} onChange={(sensitivity) => save({ sensitivity })} />
-            ) : (
-              <PregnancyPicker value={profile.pregnancyStatus} onChange={(pregnancyStatus) => save({ pregnancyStatus })} />
-            )}
-          </View>
-        ) : null}
-      </BottomSheet>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
+
+// v7: a row's least height, and its answer's picture.
+const ROW_HEIGHT = 64;
+const ICON = 44;
 
 function titleCase(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);

@@ -28,6 +28,7 @@ export function ProductListRow({
   detail,
   chevron = false,
   heart = true,
+  onUnsave,
   children,
 }: {
   product: { id: string; name: string; brand: string; type: ProductType; imageUrl?: string | null; fetchedAt?: string };
@@ -39,6 +40,8 @@ export function ProductListRow({
   /** A grey chevron at the end (the finder's results). */
   chevron?: boolean;
   heart?: boolean;
+  /** Asks before the heart unsaves it (Saved, for a product with a note). */
+  onUnsave?: () => void;
   /** Anything under the second line (History's "checked 3 times"). */
   children?: ReactNode;
 }) {
@@ -67,7 +70,7 @@ export function ProductListRow({
       </Link>
       {heart ? (
         <View style={{ paddingRight: 8, flexDirection: "row", alignItems: "center" }}>
-          <SaveHeart productId={product.id} fetchedAt={product.fetchedAt} />
+          <SaveHeart productId={product.id} fetchedAt={product.fetchedAt} onUnsave={onUnsave} />
           {chevron ? <RowChevron /> : null}
         </View>
       ) : null}

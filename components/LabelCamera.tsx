@@ -468,7 +468,7 @@ export function LabelCamera({
   );
 }
 
-/** An underlined text action on the dark camera stage. */
+/** A quiet text action on the dark camera stage (v7: no underline). */
 function QuietLink({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable
@@ -478,7 +478,7 @@ function QuietLink({ label, onPress }: { label: string; onPress: () => void }) {
       style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }}
       className="active:opacity-70"
     >
-      <Text style={{ fontSize: 12.5, color: withAlpha(CANVAS, 0.85), textDecorationLine: "underline" }}>{label}</Text>
+      <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: withAlpha(CANVAS, 0.85) }}>{label}</Text>
     </Pressable>
   );
 }

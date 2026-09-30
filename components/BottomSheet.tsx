@@ -11,8 +11,8 @@ const OUT_MS = 220;
 // The floating pop-up (v7): 10pt off the screen's sides and bottom, radius 36,
 // over a lightly blurred screen. A bottom sheet's top corners are 38, with a
 // grabber.
-const FLOAT_INSET = 10;
-const FLOAT_RADIUS = 36;
+export const FLOAT_INSET = 10;
+export const FLOAT_RADIUS = 36;
 const FLOAT_BLUR = 6;
 const SHEET_RADIUS = 38;
 // The room a sheet always leaves above itself, under the status bar, so a

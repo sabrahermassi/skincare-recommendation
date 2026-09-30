@@ -3,7 +3,7 @@ import { Pressable, View } from "react-native";
 import { Text } from "@/components/Text";
 import type { BaseSkinType, Concern, Pregnancy, Sensitivity } from "@/data/types";
 import { CONCERN_TITLE, pregnancyLabel, pregnancyYesNo, sensitivityLabel } from "@/lib/profile";
-import { BORDER_INACTIVE, CANVAS, CHIP_SHADOW, CHOSEN, MUTED, RADIUS_SELECTOR, TYPE } from "@/lib/tokens";
+import { CANVAS, CHOSEN, LINE, MUTED, TYPE } from "@/lib/tokens";
 import { MAX_CONCERNS, visibleConcernCount } from "@/store/useAppStore";
 
 /**
@@ -27,6 +27,8 @@ const SENSITIVITY_OPTIONS: Sensitivity[] = ["none", "some", "high"];
 const PREGNANCY_OPTIONS: Pregnancy[] = ["pregnant", "neither"];
 
 const CHIP_ROW = { flexDirection: "row", flexWrap: "wrap", gap: 8 } as const;
+// A chip's height (v7); `hitSlop` takes its target past 44.
+const CHIP_HEIGHT = 38;
 
 /**
  * Concerns: up to `MAX_CONCERNS`, plus "I don't have any concerns", which
@@ -123,9 +125,10 @@ export function PregnancyPicker(props: { value: Pregnancy | null; onChange: (val
 }
 
 /**
- * One chip: auto-width and wrap-flowed, since a section holds a variable
- * number of options (4 skin types, 8 concerns). A chosen chip takes the
- * primary button's colours (`CHOSEN`).
+ * One chip (v7): a 38pt pill, auto-width and wrap-flowed, since a section
+ * holds a variable number of options (4 skin types, 8 concerns). A chosen
+ * chip takes the pale fill and terracotta outline (`CHOSEN`); the rest a
+ * hairline on the page colour.
  */
 function ProfileChip({
   label,
@@ -153,20 +156,19 @@ function ProfileChip({
       accessibilityState={role === "button" ? { disabled } : { checked: selected, disabled }}
       hitSlop={6}
       style={{
-        height: 44,
+        height: CHIP_HEIGHT,
         paddingHorizontal: 16,
         alignItems: "center",
         justifyContent: "center",
-        borderRadius: RADIUS_SELECTOR,
-        borderWidth: selected ? 1.5 : 1,
-        borderColor: selected ? CHOSEN.border : BORDER_INACTIVE,
+        borderRadius: CHIP_HEIGHT / 2,
+        borderWidth: 1.5,
+        borderColor: selected ? CHOSEN.border : LINE,
         backgroundColor: selected ? CHOSEN.fill : CANVAS,
-        ...CHIP_SHADOW,
         opacity: disabled ? 0.4 : 1,
       }}
       className="active:opacity-70"
     >
-      <Text style={{ fontSize: 13.5, fontWeight: "600", color: selected ? CHOSEN.label : MUTED }}>{label}</Text>
+      <Text style={{ fontSize: TYPE.label, color: selected ? CHOSEN.label : MUTED }}>{label}</Text>
     </Pressable>
   );
 }

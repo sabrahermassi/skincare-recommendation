@@ -6,7 +6,7 @@ import { Text } from "@/components/Text";
 import { pickLabelPhoto } from "@/lib/pick-label-photo";
 import { failureFromState, readLabelPhoto } from "@/lib/read-label-photo";
 import { scanStateCopy } from "@/lib/scan-copy";
-import { INK, MUTED, TOUCH_TARGET } from "@/lib/tokens";
+import { INK, LINK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
 type State =
@@ -92,8 +92,8 @@ export function ChoosePhotoInstead({
       <ScreenReaderAnnouncer message={speech} />
       {state.kind === "failed" ? (
         <View accessible accessibilityLabel={speech} style={{ alignItems: "center", gap: 2, paddingHorizontal: 12 }}>
-          <Text style={{ textAlign: "center", fontSize: 13.5, fontWeight: "600", color: INK }}>{state.message}</Text>
-          {state.hint ? <Text style={{ textAlign: "center", fontSize: 12.5, color: MUTED }}>{state.hint}</Text> : null}
+          <Text style={{ textAlign: "center", fontSize: TYPE.label, fontWeight: "600", color: INK }}>{state.message}</Text>
+          {state.hint ? <Text style={{ textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>{state.hint}</Text> : null}
         </View>
       ) : null}
       <Pressable
@@ -106,9 +106,9 @@ export function ChoosePhotoInstead({
       >
         <Text
           style={{
-            fontSize: 12.5,
-            color: MUTED,
-            textDecorationLine: "underline",
+            fontSize: TYPE.label,
+            fontWeight: "600",
+            color: LINK,
             opacity: busy || cannotRetry ? 0.5 : 1,
           }}
         >
@@ -126,7 +126,7 @@ export function ChoosePhotoInstead({
           style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 12 }}
           className="active:opacity-70"
         >
-          <Text style={{ fontSize: 12.5, color: MUTED, textDecorationLine: "underline" }}>{READING.link}</Text>
+          <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{READING.link}</Text>
         </Pressable>
       ) : null}
     </View>

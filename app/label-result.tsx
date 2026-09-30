@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, View } from "react-native";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ResultTabs } from "@/components/result/ResultTabs";
+import { PageTitle } from "@/components/PageTitle";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ReadingScale, Text } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
@@ -13,7 +14,7 @@ import { isLowCoverage, matchProduct } from "@/lib/matching";
 import { photoScannerHref } from "@/lib/open-scanner";
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
 import { historyWarningCount, isVerified } from "@/lib/safety";
-import { CANVAS, DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -124,13 +125,8 @@ function Verdict({ read, fromHistory }: { read: HeldLabel; fromHistory: boolean 
             size all the way up (#334). */}
         <ReadingScale>
           {/* No product to name: what was read, as the header. */}
-          <View style={{ gap: 4, paddingHorizontal: SPACE.gutter }}>
-            <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-              Label photo
-            </Text>
-            <Text style={{ fontSize: TYPE.label, color: MUTED }}>
-              {total > 0 ? `Read from your photo · ${recognised} of ${total} names recognised` : "Nothing was read"}
-            </Text>
+          <View style={{ paddingHorizontal: SPACE.gutter }}>
+            <PageTitle title="Label photo" line={total > 0 ? `Read from your photo · ${recognised} of ${total} names recognised` : "Nothing was read"} />
           </View>
           {/* The same two tabs as a catalogue product (design_handoff_skincare_cards). */}
           <ResultTabs

@@ -173,7 +173,7 @@ export default function RootLayout() {
           // Half height, draggable to full: a full-height modal left a few
           // lines of text on an empty sheet (#296). Not `fitToContents`: a
           // sheet sized to its content has nowhere to grow, so a tall one
-          // (both providers, large text) could hide "Not now" (#309 review).
+          // (both providers, large text) could hide its last line (#309 review).
           // `sheetAllowedDetents` is formSheet-only in this SDK's expo-router.
           options={{ headerShown: false, presentation: "formSheet", sheetAllowedDetents: [0.5, 1], sheetGrabberVisible: true }}
         />
