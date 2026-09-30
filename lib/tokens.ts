@@ -157,17 +157,6 @@ export const DOT_INACTIVE = LINE;
 export const SELECTED = "#F9E7DC";
 
 /**
- * The gray button — a secondary action beside the one peach call to action
- * ("Sign out", "Back to list", a dialog's Cancel), Apple's "gray" button
- * style in the palette's own warm neutral (#313, owner decision 26 Sep 2026).
- *
- * Computed, not read off a mockup: INK on it is 13.0:1, and it sits at
- * 1.17:1 against the canvas — enough to read as a button without competing
- * with the primary button, the same restraint as iOS's own light gray fill.
- */
-export const GRAY_FILL = "#ECE4DD";
-
-/**
  * Home's scan card, and the no-profile "Is it right for your skin?" card (v7,
  * read off the hand-off). The only warm tints outside a verdict are Home's.
  */
@@ -262,6 +251,34 @@ export const VERDICT: Record<
  * best products stand apart, on Good's tint. Read off the hand-off.
  */
 export const EXCELLENT = { solid: "#33593F", tint: "#E0EADB", deep: "#33593F", wash: "#F5F8F2" } as const;
+
+/**
+ * The routine's Morning | Evening switch and step badges (v7, read off the
+ * hand-off): a warm honey thumb by day, a dusk plum one at night, with the
+ * sun and moon icons and the dotted connectors between steps in each.
+ */
+export const ROUTINE_TIME = {
+  morning: {
+    track: "#F3EFE9",
+    thumb: "#F1D8A8",
+    thumbShadow: "rgba(190,145,70,0.32)",
+    ink: "#62461D",
+    icon: "#A5712B",
+    iconFill: "#DFAC58",
+    dot: "#CF9F56",
+  },
+  evening: {
+    track: "#ECE7E4",
+    thumb: "#3F3A4A",
+    thumbShadow: "rgba(63,58,74,0.35)",
+    ink: "#F7F1EA",
+    icon: "#EEDCA6",
+    iconFill: "#EEDCA6",
+    dot: "#7C707A",
+  },
+  /** The icon of the time not chosen. */
+  idleIcon: "#9A8880",
+} as const;
 
 /** A score's ring, number and tint: Excellent's deeper green, else its tone's. */
 export function scoreColours(verdict: Verdict): { solid: string; tint: string; deep: string } {
@@ -399,14 +416,6 @@ export const TOUCH_TARGET = Platform.select({ ios: 44, android: 48, default: 44 
 export const CAPSULE_HEIGHT = 56;
 
 /**
- * Every filter pill (owner: slimmer than a button, the same everywhere) — the
- * finder results' answer chips and their Edit. `FILTER_HIT_SLOP` keeps the tap
- * area at TOUCH_TARGET around the thinner pill.
- */
-export const FILTER_PILL = { height: 32, radius: 16, fontSize: 13.5 } as const;
-export const FILTER_HIT_SLOP = Math.ceil((TOUCH_TARGET - FILTER_PILL.height) / 2);
-
-/**
  * v7 (29 September 2026, read off the hand-off): SF 13 captions and meta, 15
  * body and list names, 17 labels and card headings, 20 a product name or the
  * ingredient box's header; Playfair only for a screen's one title (24 on a
@@ -528,9 +537,6 @@ export const MENU_SHADOW = {
  * every card still spreads it, and one place decides.
  */
 export const CARD_SHADOW = {} as const;
-
-/** A chip's shade — none in v7: chips are flat, outlined pills. */
-export const CHIP_SHADOW = {} as const;
 
 /** The soft shade drawn under the tab bar: how many layers, how far below it reaches, how dark each is. */
 export const TAB_BAR_SHADE = { layers: 4, reach: 10, opacity: 0.045 } as const;

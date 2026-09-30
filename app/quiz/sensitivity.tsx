@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 
-import { QuizOptionCard } from "@/components/QuizOptionCard";
+import { QuizOptionCard, QUIZ_OPTION_GRID } from "@/components/QuizOptionCard";
 import { useQuizFrame } from "@/components/QuizFrame";
 import { QuizScreen } from "@/components/QuizScreen";
 import type { Sensitivity } from "@/data/types";
@@ -56,7 +56,7 @@ export default function SensitivityStep() {
       onNext={next}
       nextDisabled={!picked}
     >
-      <View>
+      <View style={QUIZ_OPTION_GRID}>
         {OPTIONS.map((option) => (
           <QuizOptionCard
             key={option.value}

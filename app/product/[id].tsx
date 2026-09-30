@@ -29,7 +29,7 @@ import { CANVAS, DISPLAY_FONT, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, TOUCH
 import { useAppStore } from "@/store/useAppStore";
 import NotFound from "@/app/+not-found";
 
-// The design system (design/DESIGN_SYSTEM.md). The peach CTAs on this screen
+// The design system (design/DESIGN_SYSTEM.md). The buttons on this screen
 // are the shared `PrimaryButton` — one component so this screen, browse and
 // ingredient detail stop hand-rolling the same button and drifting apart
 // (three different corner radii once, across four files).

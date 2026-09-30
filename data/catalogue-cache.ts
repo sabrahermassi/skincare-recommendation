@@ -468,7 +468,7 @@ function parseMeta(value: unknown): CatalogueMeta | null {
  * The fields a persisted product must actually have for the screens to render
  * it: an id to key and resolve by, a type to filter on, and — the one that
  * throws rather than merely looking wrong — an ingredients array, which
- * `matchProduct` and `ProductRow` both dereference without checking.
+ * `matchProduct` dereferences without checking.
  */
 function isUsableProduct(value: unknown): value is PersistedProduct {
   if (typeof value !== "object" || value === null) return false;
@@ -562,7 +562,7 @@ async function loadDiskCatalogue(
   // The cast this replaces asserted a shape nothing had checked. A blob
   // written by an older build — or half-written, or hand-edited — could
   // put `[{}]` here, and the first thing to touch it is
-  // `matchProduct`/`ProductRow` reading `product.ingredients.length`,
+  // `matchProduct` reading `product.ingredients.length`,
   // which throws while rendering rather than anywhere it can be caught.
   // `isIdentifiable` guards the *network* rows before `rowToProduct`;
   // nothing guarded the persisted ones. A miss is recoverable — the

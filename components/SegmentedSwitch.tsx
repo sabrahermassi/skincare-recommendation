@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Animated, Platform, Pressable, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { Text } from "@/components/Text";
@@ -20,16 +20,26 @@ const IOS_SPRING = { mass: 1, stiffness: 322, damping: 35.9 };
 // The two looks (v7). Over the camera: a see-through white track, a white
 // thumb, 13pt words. On the page: a pale warm track, a white thumb, the chosen
 // word in ink and the others in secondary grey.
-const TONES = {
+export type SwitchLook = {
+  track: string;
+  thumb: string;
+  label: string;
+  chosenLabel: string;
+  thumbShadow: ViewStyle | null;
+  fontSize: number;
+};
+const TONES: Record<"dark" | "light", SwitchLook> = {
   dark: { track: withAlpha(SURFACE, 0.14), thumb: SURFACE, label: SURFACE, chosenLabel: INK, thumbShadow: null, fontSize: TYPE.caption },
   light: { track: SEGMENT_TRACK, thumb: SURFACE, label: MUTED, chosenLabel: INK, thumbShadow: THUMB_SHADOW, fontSize: TYPE.label },
-} as const;
+};
 
 /**
  * A row of choices in one capsule, the chosen one on a thumb that springs
  * across to it: the scanner's Barcode / Photo (dark, over the camera), and
- * Saved's Saved / History / Ingredients (light). Words only. With Reduce
- * Motion on, the thumb just moves.
+ * Saved's Saved / History / Ingredients (light). A screen with its own
+ * colours passes a whole `SwitchLook` (the routine's morning and evening), and
+ * an option can carry an icon before its word. With Reduce Motion on, the
+ * thumb just moves.
  */
 export function SegmentedSwitch<T extends string>({
   options,
@@ -38,10 +48,10 @@ export function SegmentedSwitch<T extends string>({
   tone = "dark",
   style,
 }: {
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; icon?: (on: boolean) => ReactNode }[];
   selected: T;
   onSelect: (value: T) => void;
-  tone?: keyof typeof TONES;
+  tone?: keyof typeof TONES | SwitchLook;
   style?: StyleProp<ViewStyle>;
 }) {
   const index = Math.max(0, options.findIndex((o) => o.value === selected));
@@ -56,7 +66,7 @@ export function SegmentedSwitch<T extends string>({
   }, [index, slide]);
 
   const segment = width > 0 ? (width - 2 * SWITCH_PADDING) / options.length : 0;
-  const look = TONES[tone];
+  const look = typeof tone === "string" ? TONES[tone] : tone;
 
   return (
     <View accessibilityRole="tablist" style={style}>
@@ -82,7 +92,7 @@ export function SegmentedSwitch<T extends string>({
             }}
           />
         ) : null}
-        {options.map(({ value, label }) => {
+        {options.map(({ value, label, icon }) => {
           const on = value === selected;
           return (
             <Pressable
@@ -91,9 +101,10 @@ export function SegmentedSwitch<T extends string>({
               accessibilityRole="tab"
               accessibilityLabel={label}
               accessibilityState={{ selected: on }}
-              style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }}
+              style={{ flex: 1, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }}
               className="active:opacity-70"
             >
+              {icon ? icon(on) : null}
               <Text
                 numberOfLines={1}
                 adjustsFontSizeToFit

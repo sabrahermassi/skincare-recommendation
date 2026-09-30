@@ -29,8 +29,8 @@ beforeEach(() => useFinderChoices.setState({ choices: { ...EMPTY_PROFILE, baseSk
 
 it("ranks the catalogue for the answers, best score first", async () => {
   await render(<FinderResults />);
-  expect(await screen.findByText("Results")).toBeTruthy();
-  expect(screen.getByText("Oily skin")).toBeTruthy();
+  expect(await screen.findByText("Best matches for your skin first.")).toBeTruthy();
+  expect(screen.getByText(/^Oily skin · /)).toBeTruthy();
   const scores = screen.getAllByText(/^\d+$/).map((n) => Number(n.props.children));
   expect(scores.length).toBeGreaterThan(1);
   expect([...scores].sort((a, b) => b - a)).toEqual(scores);
@@ -38,14 +38,14 @@ it("ranks the catalogue for the answers, best score first", async () => {
 
 it("goes back to the finder from Edit beside the answers", async () => {
   await render(<FinderResults />);
-  await screen.findByText("Results");
+  await screen.findByText("Best matches for your skin first.");
   await fireEvent.press(screen.getByRole("button", { name: "Edit your answers" }));
   expect(mockBack).toHaveBeenCalled();
 });
 
 it("narrows the results to one product type from Filter", async () => {
   await render(<FinderResults />);
-  await screen.findByText("Results");
+  await screen.findByText("Best matches for your skin first.");
   const all = screen.getAllByText(/^\d+$/).length;
 
   await fireEvent.press(screen.getByRole("button", { name: "Filter: All" }));
@@ -63,7 +63,7 @@ it("saves a product from its heart, without opening it", async () => {
   const { useAppStore } = require("@/store/useAppStore") as typeof import("@/store/useAppStore");
   useAppStore.setState({ savedProducts: [] });
   await render(<FinderResults />);
-  await screen.findByText("Results");
+  await screen.findByText("Best matches for your skin first.");
   await fireEvent.press(screen.getAllByRole("button", { name: "Save" })[0]);
   expect(useAppStore.getState().savedProducts).toHaveLength(1);
 });

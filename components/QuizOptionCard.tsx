@@ -1,18 +1,14 @@
 import { Image } from "expo-image";
-import { Pressable, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import { Pressable } from "react-native";
 
-import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
-import { BUTTON, CANVAS, CHOSEN, DISPLAY_FONT, INK, LINE, RADIUS_SELECTOR } from "@/lib/tokens";
+import { BUTTON, CARD_RADIUS, CHOSEN, INK, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
-/** Shared minimum height for every answer button on all four screens — the
- *  concerns grid and the single-column steps — so they stay identical at
- *  default text size, whether a name wraps to one line or two. Cards only
- *  grow past this at accessibility font scales large enough to need a 3rd
- *  line; see the minHeight usage below. */
-const CARD_HEIGHT = 76;
+/** v7 tile measurements (read off the hand-off). */
+const TILE_MIN_HEIGHT = 124;
+const ICON = 60;
+const RING = 2;
 
 type Props = {
   /** A require()'d icon from assets/illustrations/quiz. */
@@ -22,133 +18,55 @@ type Props = {
   disabled?: boolean;
   /** Announce as a checkbox where more than one can be on at a time. */
   multiple?: boolean;
-  /** "row" is one option per line (skin type, sensitivity, pregnancy);
-   *  "grid" is the concerns screen's two-per-row layout. */
-  layout?: "row" | "grid";
   onPress: () => void;
 };
 
 /**
- * A quiz answer, per design-watercolor/skin quiz/screens: watercolour icon,
- * the option's name beside it, and a terracotta tick when chosen.
- *
- * One component for both shapes so the four steps can't drift apart — only
- * the sizes differ. The grid's icon and name are smaller because a
- * half-width card has to fit "Fine lines and wrinkles" without truncating.
+ * A quiz answer (v7): a white tile, two to a row, with the watercolour icon
+ * over the answer's name. Chosen, it takes the pale chosen fill and a 2pt
+ * terracotta ring; at the concerns limit the others dim to 45%. One component
+ * for all four steps, so they can't drift apart. The ring is always there
+ * (clear when not chosen), so choosing never nudges the layout.
  */
-export function QuizOptionCard({
-  icon,
-  label,
-  selected = false,
-  disabled = false,
-  multiple = false,
-  layout = "row",
-  onPress,
-}: Props) {
-  const grid = layout === "grid";
-  const iconSize = grid ? 32 : 50;
-  const tickSize = grid ? 22 : 30;
-  const [scale, press] = usePressScale();
-
+export function QuizOptionCard({ icon, label, selected = false, disabled = false, multiple = false, onPress }: Props) {
   return (
-    // Lifted off the page by a shade under its bottom edge, and sinking a little
-    // while it is pressed. The shade and the press live on this outer view; the
-    // border and layout stay on the Pressable inside.
-    <LiftedCard
-      radius={RADIUS_SELECTOR}
-      backgroundColor={selected ? CHOSEN.fill : CANVAS}
-      scale={scale}
-      style={{ width: grid ? "48%" : undefined, marginBottom: 10, opacity: disabled ? 0.5 : 1 }}
-    >
     <Pressable
       onPress={() => {
         haptic.select();
         onPress();
       }}
       disabled={disabled}
-      {...press}
       accessibilityRole={multiple ? "checkbox" : "radio"}
+      accessibilityLabel={label}
       accessibilityState={{ checked: selected, disabled }}
-      hitSlop={4}
       style={{
-        // minHeight, not height: at the default font scale every card still
-        // renders at exactly CARD_HEIGHT (alignItems:"center" does the
-        // rest), so nothing here changes normally. It only grows past 76 for
-        // accessibility font sizes large enough to wrap a label onto a 3rd
-        // line — same fix, same reasoning, as the quiz question box above
-        // these cards (see QuizScreen.tsx).
-        minHeight: CARD_HEIGHT,
-        paddingVertical: 10,
-        flexDirection: "row",
+        flexGrow: 1,
+        flexBasis: "40%",
+        // minHeight, not height: a name that wraps at a large text size grows the tile.
+        minHeight: TILE_MIN_HEIGHT,
         alignItems: "center",
-        gap: grid ? 8 : 12,
-        paddingLeft: grid ? 10 : 14,
-        // Constant, so the tick appearing never reflows the name.
-        paddingRight: grid ? 24 : 14,
-        borderRadius: RADIUS_SELECTOR,
-        // Constant width so choosing an option never nudges the layout.
-        borderWidth: 1.5,
-        borderColor: selected ? CHOSEN.border : LINE,
+        justifyContent: "center",
+        gap: SPACE.text,
+        paddingTop: SPACE.gutter,
+        paddingBottom: SPACE.block,
+        paddingHorizontal: SPACE.block,
+        borderRadius: CARD_RADIUS,
+        borderWidth: RING,
+        borderColor: selected ? BUTTON.primary.fill : "transparent",
+        backgroundColor: selected ? CHOSEN.fill : SURFACE,
+        opacity: disabled ? 0.45 : 1,
       }}
+      className="active:opacity-80"
     >
-      <Image
-        source={icon}
-        style={{ width: iconSize, height: iconSize }}
-        contentFit="contain"
-        accessibilityLabel=""
-      />
-
-      <View style={{ flex: 1 }}>
-        <Text
-          style={{
-            fontFamily: DISPLAY_FONT,
-            fontSize: grid ? 14 : 18.5,
-            lineHeight: (grid ? 14 : 18.5) * 1.2,
-            color: selected ? CHOSEN.label : INK,
-          }}
-        >
-          {label}
-        </Text>
-      </View>
-
-      {selected ? (
-        <View
-          style={{
-            position: "absolute",
-            top: grid ? 6 : undefined,
-            right: grid ? 6 : 14,
-            width: tickSize,
-            height: tickSize,
-            borderRadius: tickSize / 2,
-            backgroundColor: CHOSEN.accent,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {/* A drawn checkmark, not the ✓ character — same shape this app
-              already draws elsewhere (see the "Things to know" bullets on
-              `app/ingredient/[inci].tsx`), so it renders identically on
-              every platform instead of picking up whatever glyph metrics
-              the system font happens to give that character. */}
-          <Svg width={tickSize * 0.55} height={tickSize * 0.55} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="m5 12.6 4.6 4.6L19 6.8"
-              stroke={BUTTON.primary.label}
-              strokeWidth={2.6}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </View>
-      ) : null}
+      <Image source={icon} style={{ width: ICON, height: ICON }} contentFit="contain" accessibilityLabel="" />
+      <Text style={{ textAlign: "center", fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>{label}</Text>
     </Pressable>
-    </LiftedCard>
   );
 }
 
-/** Two-per-row wrapper for the concerns screen. */
+/** The tiles' two-per-row grid (v7: 12pt apart); an odd last tile takes the whole row. */
 export const QUIZ_OPTION_GRID = {
   flexDirection: "row",
   flexWrap: "wrap",
-  justifyContent: "space-between",
+  gap: SPACE.block,
 } as const;

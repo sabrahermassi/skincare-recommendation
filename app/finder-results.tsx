@@ -1,18 +1,36 @@
 import { router } from "expo-router";
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FilterDropdown } from "@/components/FilterDropdown";
-import { ProductRow } from "@/components/ProductRow";
+import { PageTitle } from "@/components/PageTitle";
+import { ProductListRow } from "@/components/ProductListRow";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { fetchProducts } from "@/data/api";
-import { PRODUCT_TYPE_LABEL, type ProductType, type ProductWithIngredients } from "@/data/types";
-import { matchProduct } from "@/lib/matching";
-import { profileHeadline } from "@/lib/profile";
-import { CANVAS, CHOSEN, FILTER_HIT_SLOP, FILTER_PILL, INK, MUTED, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { PRODUCT_TYPE_LABEL, type Concern, type ProductType, type ProductWithIngredients } from "@/data/types";
+import { concernSupport, matchProduct } from "@/lib/matching";
+import { CONCERN_PHRASE, profileHeadline } from "@/lib/profile";
+import { CANVAS, CARD_RADIUS, CHOSEN, INK, LINK, MUTED, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 import { FROM_FINDER, useFinderChoices } from "@/lib/finder-choices";
+
+/** v7: the gap between result cards. */
+function RowGap() {
+  return <View style={{ height: SPACE.block }} />;
+}
+
+/**
+ * "Softwell · Helps your dark spots and acne": the brand, and which of the
+ * finder's concerns an ingredient in it helps — by the same rules the product
+ * page's reasons use (`concernSupport`). Just the brand when none does.
+ */
+function whyLine(product: ProductWithIngredients, concerns: Concern[]): string {
+  const helped = concerns.filter((concern) => concernSupport(product.ingredients, concern) !== null).map((c) => CONCERN_PHRASE[c]);
+  if (helped.length === 0) return product.brand;
+  const list = helped.length === 1 ? helped[0] : `${helped.slice(0, -1).join(", ")} and ${helped[helped.length - 1]}`;
+  return `${product.brand} · Helps your ${list}`;
+}
 
 /**
  * The finder's results: every product in the catalogue, best match first for
@@ -78,10 +96,26 @@ export default function FinderResults() {
   const chosen = [...(profile.baseSkinType ? [title] : []), ...tags];
 
   const header = (
-    <View style={{ gap: SPACE.block, paddingHorizontal: 20, paddingTop: SPACE.text, paddingBottom: SPACE.block }}>
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text accessibilityRole="header" style={{ fontSize: TYPE.heading, fontWeight: "700", color: INK }}>
-          Results
+    <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text }}>
+      <PageTitle title="Skincare finder" line="Best matches for your skin first." />
+      {/* The finder's answers, and Edit to change them on the finder (v7). */}
+      <View style={{ marginTop: SPACE.gutter, minHeight: 56, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, paddingLeft: SPACE.gutter, paddingRight: SPACE.text, backgroundColor: CHOSEN.fill }}>
+        <Text numberOfLines={2} style={{ flex: 1, fontSize: TYPE.body, color: INK }}>
+          {chosen.join(" · ")}
+        </Text>
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/finder"))}
+          accessibilityRole="button"
+          accessibilityLabel="Edit your answers"
+          style={{ minHeight: TOUCH_TARGET, paddingHorizontal: SPACE.block, justifyContent: "center" }}
+          className="active:opacity-70"
+        >
+          <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Edit</Text>
+        </Pressable>
+      </View>
+      <View style={{ paddingTop: SPACE.gutter, paddingBottom: SPACE.text, paddingLeft: 4, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase", color: MUTED }}>
+          {shown.length} {shown.length === 1 ? "product" : "products"}
         </Text>
         {types.length > 1 ? (
           <FilterDropdown
@@ -95,35 +129,15 @@ export default function FinderResults() {
           />
         ) : null}
       </View>
-      {/* The finder's answers, and Edit to change them on the finder. */}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 8 }}>
-          {chosen.map((label) => (
-            <View key={label} style={{ height: FILTER_PILL.height, justifyContent: "center", borderRadius: FILTER_PILL.radius, paddingHorizontal: 14, borderWidth: 1.5, borderColor: CHOSEN.border, backgroundColor: CHOSEN.fill }}>
-              <Text style={{ fontSize: FILTER_PILL.fontSize, fontWeight: "600", color: CHOSEN.label }}>{label}</Text>
-            </View>
-          ))}
-        </ScrollView>
-        <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/finder"))}
-          accessibilityRole="button"
-          accessibilityLabel="Edit your answers"
-          hitSlop={FILTER_HIT_SLOP}
-          style={{ minHeight: FILTER_PILL.height, justifyContent: "center" }}
-          className="active:opacity-70"
-        >
-          <Text style={{ fontSize: FILTER_PILL.fontSize, fontWeight: "600", color: CHOSEN.accent }}>Edit</Text>
-        </Pressable>
-      </View>
     </View>
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenHeader title="Skincare finder" />
+      <ScreenHeader />
       {failed ? (
         <View style={{ alignItems: "center", gap: 12, paddingHorizontal: 40, paddingTop: 96 }}>
-          <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
+          <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
             Couldn&apos;t load the products. Check your connection and try again.
           </Text>
           <Pressable
@@ -135,7 +149,7 @@ export default function FinderResults() {
             style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
             className="active:opacity-70"
           >
-            <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>Try again</Text>
+            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Try again</Text>
           </Pressable>
         </View>
       ) : products === null ? (
@@ -152,7 +166,18 @@ export default function FinderResults() {
           maxToRenderPerBatch={6}
           windowSize={5}
           keyExtractor={({ product }) => product.id}
-          renderItem={({ item }) => <ProductRow product={item.product} match={item.match} saveable from={FROM_FINDER} />}
+          renderItem={({ item }) => (
+            <View style={{ paddingHorizontal: SPACE.gutter }}>
+              <ProductListRow
+                product={item.product}
+                score={item.match.score}
+                href={{ pathname: "/product/[id]", params: { id: item.product.id, from: FROM_FINDER } }}
+                detail={whyLine(item.product, profile.concerns)}
+                chevron
+              />
+            </View>
+          )}
+          ItemSeparatorComponent={RowGap}
           ListHeaderComponent={header}
           // The Filter's card floats over the rows below the header.
           ListHeaderComponentStyle={{ zIndex: 10 }}

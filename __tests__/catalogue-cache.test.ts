@@ -253,7 +253,7 @@ describe("disk layer", () => {
   /**
    * Valid JSON of the wrong shape is the case a `JSON.parse` + cast cannot
    * catch. It reaches `buildEntry` intact and only fails later, inside render,
-   * where `matchProduct` and `ProductRow` dereference `product.ingredients`.
+   * where `matchProduct` and the list rows dereference `product.ingredients`.
    */
   it.each([
     [

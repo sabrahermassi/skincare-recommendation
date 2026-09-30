@@ -1,19 +1,13 @@
 import { router, useFocusEffect } from "expo-router";
-import { ArrowIcon } from "@/components/icons/ArrowIcon";
 import { useCallback, type ReactNode } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BackChevron, CloseCross, ICON_CIRCLE, IconCircle } from "@/components/IconCircle";
+import { PageTitle } from "@/components/PageTitle";
 import { quizTopPadding, useQuizFrame } from "@/components/QuizFrame";
-import { Text } from "@/components/Text";
-import { ProgressDots } from "@/components/shell/shared";
 import { quizStepCount } from "@/lib/profile";
-import { CANVAS, DISPLAY_FONT, INK, MUTED } from "@/lib/tokens";
-
-/** Gaps measured off design-watercolor/skin quiz/screens, at 393pt wide:
- *  the dots sit ~95pt below the first row, then the back arrow, then the
- *  question. */
-const DOTS_TOP = 44;
+import { BUTTON, CANVAS, LINE, SPACE } from "@/lib/tokens";
 
 type Props = {
   /** 1-based index into the quiz. */
@@ -33,8 +27,8 @@ type Props = {
 };
 
 /**
- * One quiz step's content — progress dots, back arrow, question and answers —
- * on its own painted page, so it can slide. The
+ * One quiz step's content (v7) — back, progress bars and close, the
+ * question, and its answers — on its own painted page, so it can slide. The
  * Continue button belongs to QuizFrame and stay put; this step hands its button
  * label, state and action to QuizFrame while it's the step showing.
  */
@@ -49,7 +43,7 @@ export function QuizScreen({
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const { setFooter, releaseFooter } = useQuizFrame();
+  const { setFooter, releaseFooter, close } = useQuizFrame();
 
   // Re-runs whenever the label, state or action changes while this step is
   // showing, and again when it becomes the one showing after Back.
@@ -68,68 +62,39 @@ export function QuizScreen({
   // over another would show both questions at once.
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      {/* The quiz's own dots, one per step. The 3-screen intro before it
-          draws its own 3 (OnboardingShell). */}
-      <View style={{ marginTop: quizTopPadding(insets.top) + DOTS_TOP }}>
-        <ProgressDots count={quizStepCount()} activeIndex={step - 1} />
+      {/* The top row (v7): back, one bar per step (terracotta up to this one),
+          and close. The first step has no step behind it, so an empty box of
+          the same size keeps the bars where they are on every step. */}
+      <View style={{ marginTop: quizTopPadding(insets.top), height: 44, paddingHorizontal: SPACE.gutter, flexDirection: "row", alignItems: "center", gap: SPACE.block }}>
+        {showBack ? (
+          <IconCircle onPress={() => router.back()} accessibilityLabel="Back">
+            <BackChevron />
+          </IconCircle>
+        ) : (
+          <View style={{ width: ICON_CIRCLE }} />
+        )}
+        <View
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityLabel={`Step ${step} of ${quizStepCount()}`}
+          style={{ flex: 1, flexDirection: "row", gap: SPACE.text }}
+        >
+          {Array.from({ length: quizStepCount() }, (_, i) => (
+            <View key={i} style={{ flex: 1, height: 5, borderRadius: 2.5, backgroundColor: i < step ? BUTTON.primary.fill : LINE }} />
+          ))}
+        </View>
+        <IconCircle onPress={close} accessibilityLabel="Close">
+          <CloseCross />
+        </IconCircle>
       </View>
 
-      {showBack ? (
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          style={{
-            marginLeft: 20,
-            minHeight: 44,
-            minWidth: 44,
-            alignItems: "flex-start",
-            justifyContent: "center",
-          }}
-          className="active:opacity-70"
-        >
-          <ArrowIcon direction="left" size={26} color={INK} />
-        </Pressable>
-      ) : (
-        // Same-height empty spacer, not just omitted: dropping the row
-        // entirely would pull this step's question title up ~44pt relative
-        // to the other three screens, which all still show the arrow.
-        <View style={{ minHeight: 44 }} />
-      )}
-
-      <View style={{ paddingHorizontal: 24, paddingTop: 6, gap: 8 }}>
-        {/* Reserved box, not auto-height — see design/DESIGN_SYSTEM.md's
-            fixed-height-text rule. A question can run one or two lines
-            depending on its wording; without this the answers below would
-            land at a different y per screen.
-            minHeight, not height: 64pt holds two lines at 28pt, but a narrow
-            screen (<=375pt) wraps the longest question onto a third, and a
-            hard height clipped it. The reservation still aligns every screen
-            that fits; only a screen that would otherwise be cut grows. */}
-        <View style={{ minHeight: 64, justifyContent: "center" }}>
-          <Text
-            style={{
-              fontFamily: DISPLAY_FONT,
-              fontSize: 28,
-              lineHeight: 28 * 1.12,
-              letterSpacing: 28 * -0.015,
-              color: INK,
-            }}
-          >
-            {title}
-          </Text>
-        </View>
-        {subtitle ? (
-          <View style={{ minHeight: 34, justifyContent: "flex-start" }}>
-            <Text style={{ fontSize: 15, lineHeight: 15 * 1.45, color: MUTED }}>{subtitle}</Text>
-          </View>
-        ) : null}
+      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter }}>
+        <PageTitle title={title} line={subtitle} />
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 14, paddingBottom: 24 }}
+        contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: SPACE.section }}
         keyboardShouldPersistTaps="handled"
       >
         {children}

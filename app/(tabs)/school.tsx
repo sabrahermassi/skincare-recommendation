@@ -1,35 +1,25 @@
 import { useScrollToTop } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HeartMark } from "@/components/icons/HeartMark";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
+import { SearchBar } from "@/components/SearchBar";
 import { TabTitle } from "@/components/TabTitle";
 import { Text } from "@/components/Text";
 import type { SchoolQuestion } from "@/data/school";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { fallbackSuggestions, SCHOOL_CHAT_COPY, SCHOOL_QUESTIONS, searchSchool } from "@/lib/school-chat";
-import { SCAN_BUTTON_LIFT, tabBarClearance } from "@/lib/tab-bar";
-import {
-  BORDER_INACTIVE,
-  CANVAS,
-  CHIP_SHADOW,
-  FONT_SCALE,
-  INK,
-  MUTED,
-  MUTED_FAINT,
-  SELECTED,
-  SPACE,
-  SURFACE,
-  TOUCH_TARGET,
-  TYPE,
-} from "@/lib/tokens";
+import { SCAN_BUTTON_LIFT, tabBarClearance, tabRootTop } from "@/lib/tab-bar";
+import { CANVAS, CHOSEN, INK, LINE, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 
 // The School's face: a plain circle with the app's own heart mark, the one
 // the app icon is drawn from, until there is a mascot of its own (#352).
 const AVATAR = 32;
-const CARD_WIDTH = 220;
+// A suggested question's card (v7).
+const CARD_WIDTH = 200;
+const CARD_MIN_HEIGHT = 56;
 
 /** One turn of the conversation. Kept for this visit only, never saved. */
 type Turn =
@@ -122,7 +112,7 @@ export default function SkincareSchool() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       {/* A tab: its title on the left, as on every tab, and no back chevron. */}
-      <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 14, paddingBottom: 10 }}>
+      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: tabRootTop(insets.top), paddingBottom: SPACE.text }}>
         <TabTitle>Skincare School</TabTitle>
       </View>
 
@@ -130,23 +120,23 @@ export default function SkincareSchool() {
         <ScrollView
           ref={scrollRef}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: SPACE.block, gap: 14 }}
+          contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: SPACE.block, gap: SPACE.block }}
         >
           <AppBubble label={`Skincare School says: ${SCHOOL_CHAT_COPY.greeting}`}>
-            <Text style={{ fontSize: TYPE.label, lineHeight: 20, color: INK }}>{SCHOOL_CHAT_COPY.greeting}</Text>
+            <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>{SCHOOL_CHAT_COPY.greeting}</Text>
           </AppBubble>
 
           {messages.map((message) => (
             <View
               key={message.key}
-              style={{ gap: 14 }}
+              style={{ gap: SPACE.block }}
               onLayout={message.key === latestKey ? (e) => scrollTo(e.nativeEvent.layout.y) : undefined}
             >
               {message.kind === "asked" ? (
                 <>
                   <UserBubble text={message.item.question} />
                   <AppBubble label={`Answer: ${message.item.answer}`}>
-                    <Text style={{ fontSize: TYPE.label, lineHeight: 20, color: INK }}>{message.item.answer}</Text>
+                    <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>{message.item.answer}</Text>
                   </AppBubble>
                 </>
               ) : (
@@ -154,7 +144,7 @@ export default function SkincareSchool() {
                   <UserBubble text={message.text} />
                   {/* Not one accessible block: the cards inside have to stay buttons. */}
                   <AppBubble>
-                    <Text style={{ fontSize: TYPE.label, lineHeight: 20, color: INK }}>{SCHOOL_CHAT_COPY.noAnswer}</Text>
+                    <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>{SCHOOL_CHAT_COPY.noAnswer}</Text>
                     <View style={{ gap: SPACE.text, marginTop: 10 }}>
                       {message.suggestions.map((item) => (
                         <QuestionCard key={item.id} item={item} onPress={() => ask(item)} />
@@ -169,14 +159,14 @@ export default function SkincareSchool() {
 
         <View
           style={{
-            gap: 10,
-            paddingTop: 12,
+            gap: SPACE.block,
+            paddingTop: SPACE.block,
             // Clear of the floating tab bar and the scan button rising out of
             // it: this sits still, so nothing scrolls out from under the
             // button. With the keyboard up, just above the keyboard.
             paddingBottom: keyboardUp ? SPACE.text : tabBarClearance(insets.bottom) + SCAN_BUTTON_LIFT,
-            borderTopWidth: 1,
-            borderTopColor: BORDER_INACTIVE,
+            borderTopWidth: 0.5,
+            borderTopColor: LINE,
             backgroundColor: CANVAS,
           }}
         >
@@ -185,28 +175,8 @@ export default function SkincareSchool() {
           ) : (
             <Suggestions unasked={unasked} onAsk={ask} />
           )}
-          <View style={{ paddingHorizontal: SPACE.gutter }}>
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              onSubmitEditing={submit}
-              placeholder={SCHOOL_CHAT_COPY.searchPlaceholder}
-              placeholderTextColor={MUTED_FAINT}
-              accessibilityLabel={SCHOOL_CHAT_COPY.searchPlaceholder}
-              returnKeyType="search"
-              autoCorrect={false}
-              maxFontSizeMultiplier={FONT_SCALE.ui}
-              style={{
-                minHeight: 48,
-                borderRadius: 24,
-                borderWidth: 1,
-                borderColor: BORDER_INACTIVE,
-                backgroundColor: SURFACE,
-                paddingHorizontal: 18,
-                fontSize: 13.5,
-                color: INK,
-              }}
-            />
+          <View style={{ paddingHorizontal: SPACE.gutter, flexDirection: "row" }}>
+            <SearchBar value={query} onChangeText={setQuery} onSubmitEditing={submit} placeholder={SCHOOL_CHAT_COPY.searchPlaceholder} />
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -243,7 +213,7 @@ function AppBubble({ label, children }: { label?: string; children: React.ReactN
           borderRadius: AVATAR / 2,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: SELECTED,
+          backgroundColor: CHOSEN.fill,
         }}
       >
         <HeartMark size={16} variant="filled" />
@@ -253,10 +223,10 @@ function AppBubble({ label, children }: { label?: string; children: React.ReactN
         accessibilityLabel={label}
         style={{
           flexShrink: 1,
-          paddingHorizontal: SPACE.block,
-          paddingVertical: 12,
+          paddingHorizontal: SPACE.gutter,
+          paddingVertical: SPACE.block,
           borderWidth: 1,
-          borderColor: BORDER_INACTIVE,
+          borderColor: LINE,
           backgroundColor: SURFACE,
           borderRadius: 18,
           borderBottomLeftRadius: 6,
@@ -277,14 +247,14 @@ function UserBubble({ text }: { text: string }) {
       style={{
         alignSelf: "flex-end",
         maxWidth: "85%",
-        paddingHorizontal: SPACE.block,
-        paddingVertical: 12,
-        backgroundColor: SELECTED,
+        paddingHorizontal: SPACE.gutter,
+        paddingVertical: SPACE.block,
+        backgroundColor: CHOSEN.fill,
         borderRadius: 18,
         borderBottomRightRadius: 6,
       }}
     >
-      <Text style={{ fontSize: TYPE.label, lineHeight: 20, color: INK }}>{text}</Text>
+      <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>{text}</Text>
     </View>
   );
 }
@@ -302,7 +272,7 @@ function Suggestions({ unasked, onAsk }: { unasked: readonly SchoolQuestion[]; o
           showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           // Room under the cards for their shade: a scroll view clips what falls outside it.
-          contentContainerStyle={{ gap: 10, paddingHorizontal: SPACE.gutter, paddingBottom: 6 }}
+          contentContainerStyle={{ gap: SPACE.block, paddingHorizontal: SPACE.gutter, paddingBottom: 4 }}
         >
           {unasked.map((item) => (
             <QuestionCard key={item.id} item={item} width={CARD_WIDTH} onPress={() => onAsk(item)} />
@@ -317,7 +287,7 @@ function Suggestions({ unasked, onAsk }: { unasked: readonly SchoolQuestion[]; o
 function Matches({ matches, onAsk }: { matches: readonly SchoolQuestion[]; onAsk: (item: SchoolQuestion) => void }) {
   if (matches.length === 0) {
     return (
-      <Text style={{ paddingHorizontal: SPACE.gutter, fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>
+      <Text style={{ paddingHorizontal: SPACE.gutter, fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
         {SCHOOL_CHAT_COPY.noMatchWhileTyping}
       </Text>
     );
@@ -344,19 +314,18 @@ function QuestionCard({ item, width, onPress }: { item: SchoolQuestion; width?: 
       accessibilityLabel={`Ask: ${item.question}`}
       style={{
         width,
-        minHeight: TOUCH_TARGET,
+        minHeight: CARD_MIN_HEIGHT,
         justifyContent: "center",
-        paddingHorizontal: 14,
-        paddingVertical: 12,
+        paddingHorizontal: SPACE.gutter,
+        paddingVertical: SPACE.block,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: BORDER_INACTIVE,
+        borderColor: LINE,
         backgroundColor: SURFACE,
-        ...CHIP_SHADOW,
       }}
       className="active:opacity-70"
     >
-      <Text style={{ fontSize: 13.5, lineHeight: 19, color: INK }}>{item.question}</Text>
+      <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>{item.question}</Text>
     </Pressable>
   );
 }
