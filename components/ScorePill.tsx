@@ -8,7 +8,7 @@ import { EXCELLENT, VERDICT } from "@/lib/tokens";
 const SIZE = 26;
 
 /** A score's ring and number colours: Excellent's deeper green, else its band's. */
-export function scoreBandColours(score: number): { solid: string; deep: string; tint: string } {
+function scoreBandColours(score: number): { solid: string; deep: string; tint: string } {
   return score >= SCORE_BANDS.excellent ? EXCELLENT : VERDICT[matchTone(score)];
 }
 

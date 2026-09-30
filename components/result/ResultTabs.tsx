@@ -23,6 +23,7 @@ import {
   CARD_RADIUS,
   HOME_CARD_FILL,
   INK,
+  MOON_BADGE,
   MUTED,
   SPACE,
   SURFACE,
@@ -42,8 +43,6 @@ const RING_RISE = 62;
 // The white sheet's top corners, and how far it tucks up under the switch (v7).
 const SHEET_RADIUS = 32;
 const SHEET_TUCK = 12;
-// The routine note's moon badge (v7).
-const MOON_BADGE = { fill: "#E9E3E3", ink: "#3F3A4A" } as const;
 
 const RISK_WASH: Record<Risk["tone"], Wash> = {
   good: VERDICT.high,

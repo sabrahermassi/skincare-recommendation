@@ -2,10 +2,10 @@ import { forwardRef } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
-import { ICON_MUTED, INK, SURFACE } from "@/lib/tokens";
+import { ICON_MUTED, INK, SURFACE, TYPE } from "@/lib/tokens";
 
 /** The bar's height (v7). */
-export const SEARCH_BAR_HEIGHT = 44;
+const SEARCH_BAR_HEIGHT = 44;
 
 /**
  * Every search bar in the app (v7): a 44pt pure white pill, no border or
@@ -34,7 +34,7 @@ export const SearchBar = forwardRef<
         autoFocus={autoFocus}
         returnKeyType="search"
         accessibilityLabel={accessibilityLabel ?? placeholder}
-        style={{ flex: 1, height: SEARCH_BAR_HEIGHT, fontSize: 17, color: INK }}
+        style={{ flex: 1, height: SEARCH_BAR_HEIGHT, fontSize: TYPE.card, color: INK }}
       />
       {value.length > 0 ? (
         <Pressable onPress={() => onChangeText("")} accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={8} className="active:opacity-70" style={{ padding: 6 }}>

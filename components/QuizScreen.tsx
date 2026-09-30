@@ -8,7 +8,7 @@ import { quizTopPadding, useQuizFrame } from "@/components/QuizFrame";
 import { Text } from "@/components/Text";
 import { ProgressDots } from "@/components/shell/shared";
 import { quizStepCount } from "@/lib/profile";
-import { CANVAS, INK, MUTED } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, INK, MUTED } from "@/lib/tokens";
 
 /** Gaps measured off design-watercolor/skin quiz/screens, at 393pt wide:
  *  the dots sit ~95pt below the first row, then the back arrow, then the
@@ -110,7 +110,7 @@ export function QuizScreen({
         <View style={{ minHeight: 64, justifyContent: "center" }}>
           <Text
             style={{
-              fontFamily: "PlayfairDisplay_500Medium",
+              fontFamily: DISPLAY_FONT,
               fontSize: 28,
               lineHeight: 28 * 1.12,
               letterSpacing: 28 * -0.015,

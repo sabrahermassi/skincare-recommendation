@@ -4,7 +4,7 @@ import Svg, { Path } from "react-native-svg";
 
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
-import { BUTTON, CANVAS, CHOSEN, INK, LINE, RADIUS_SELECTOR } from "@/lib/tokens";
+import { BUTTON, CANVAS, CHOSEN, DISPLAY_FONT, INK, LINE, RADIUS_SELECTOR } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
 /** Shared minimum height for every answer button on all four screens — the
@@ -101,7 +101,7 @@ export function QuizOptionCard({
       <View style={{ flex: 1 }}>
         <Text
           style={{
-            fontFamily: "PlayfairDisplay_500Medium",
+            fontFamily: DISPLAY_FONT,
             fontSize: grid ? 14 : 18.5,
             lineHeight: (grid ? 14 : 18.5) * 1.2,
             color: selected ? CHOSEN.label : INK,

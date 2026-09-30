@@ -117,6 +117,12 @@ export const MENU_CHOSEN = "#F7F2EC";
 /** A starred ingredient's star when on (v7, read off the hand-off). */
 export const STAR_ON = "#CF9E3E";
 
+/** The "i" ring on a filled verdict pill (v7). */
+export const PILL_INFO = "#D9CFC7";
+
+/** The routine note's moon badge (v7). */
+export const MOON_BADGE = { fill: "#E9E3E3", ink: "#3F3A4A" } as const;
+
 /** Hairline dividers between rows inside a card (v7). */
 export const HAIRLINE = "#EFE6DA";
 
@@ -133,25 +139,14 @@ export const AVATAR_FILL = "#F6E1D3";
 export const BORDER_INACTIVE = LINE;
 export const DOT_INACTIVE = LINE;
 
-// ── Primary action ──────────────────────────────────────────────────────────
-
-/**
- * The one call to action per screen.
- *
- * NOT the peach accent — that distinction is the whole point of this pair.
- * The old fill was the accent peach itself at 1.51:1 against the canvas, so
- * the button dissolved into the page and had to be found rather than seen.
- * This is 2.3:1 against the canvas and 6.5:1 against its own label, which is
- * a button you can see and read. Pill shape, 26px radius, weight 500.
- */
-export const CTA = "#E09070";
+// ── Controls ────────────────────────────────────────────────────────────────
 
 /**
  * Selected-control fill — a very light, watery peach.
  *
  * This was ink at 6% alpha, which is a neutral grey wash: correct on paper,
  * and on screen it read as "disabled" rather than "chosen". A warm tint says
- * the same thing in the palette's own voice. Derived from CTA (#E09070) at
+ * the same thing in the palette's own voice. Derived from the old call-to-action peach (#E09070) at
  * roughly 12% over the canvas, so selection and the primary action come from
  * one family without a selected chip ever being mistaken for a button — the
  * chip is a pale tint behind an ink border, the button is a saturated fill.
@@ -168,7 +163,7 @@ export const SELECTED = "#F9E7DC";
  *
  * Computed, not read off a mockup: INK on it is 13.0:1, and it sits at
  * 1.17:1 against the canvas — enough to read as a button without competing
- * with the CTA, the same restraint as iOS's own light gray fill.
+ * with the primary button, the same restraint as iOS's own light gray fill.
  */
 export const GRAY_FILL = "#ECE4DD";
 
@@ -190,10 +185,8 @@ export const MENU_FILL = "#FFFFFF";
 
 /**
  * The product result's list rows (design_handoff_skincare_cards, read off its
- * README): the inset divider between rows and the soft disclosure chevron at
- * a row's end.
+ * README): the soft disclosure chevron at a row's end.
  */
-export const ROW_DIVIDER = HAIRLINE;
 export const ROW_CHEVRON = "#B9A79E";
 
 /**
@@ -295,7 +288,7 @@ export const VERDICT_NEUTRAL = {
  * glance. This is the bridge: excellent and good are both a yes, and the
  * number beside the badge is what separates 92 from 78.
  */
-export function toneForVerdict(verdict: Verdict): VerdictTone | null {
+function toneForVerdict(verdict: Verdict): VerdictTone | null {
   if (verdict === "excellent" || verdict === "good") return "high";
   if (verdict === "fair") return "medium";
   if (verdict === "poor") return "low";
@@ -435,9 +428,6 @@ export const DISPLAY_FONT = "PlayfairDisplay_500Medium";
 
 /** A card's corners (v7). Every card, white or tinted, is its fill alone: no border, no shadow. */
 export const CARD_RADIUS = 20;
-
-/** Every tappable control's corners in v7: a full pill. */
-export const PILL_RADIUS = 999;
 
 /**
  * How far iOS Larger Text / Android font size may grow text (#314). The
