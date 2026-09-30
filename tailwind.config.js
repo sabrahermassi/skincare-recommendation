@@ -14,17 +14,19 @@ module.exports = {
         // milky-pastel palette. Values taken directly from the mockup HTML
         // (Result/Scanner/Quiz), not invented, except where noted below.
         // Every screen's background, given by the owner (26 September 2026).
-        canvas: "#FDF9F0",
+        canvas: "#FCFAF7",
         surface: "#FFFFFF",
 
         // Buttons (owner, 27 September 2026) — mirrored in lib/colors.ts.
         // Contrast and label choices are explained there.
         button: {
-          primary: "#9C6350",
+          primary: "#BA765F",
+          "primary-pressed": "#A5654F",
           "primary-text": "#FFFFFF",
           secondary: "#D4A88F",
           tertiary: "#9C6350",
-          disabled: "#E8D9CE",
+          disabled: "#D9C9BE",
+          destructive: "#A8453A",
         },
 
         // The Milky pastel colors, untouched. They all sit between
@@ -161,10 +163,10 @@ module.exports = {
         // token that stays legible there while still reading as "neutral,
         // not a verdict."
         level: {
-          good: { DEFAULT: "#3E7D5A", tint: "#DCEBE0", ink: "#2E5F44" },
-          watch: { DEFAULT: "#C2662B", tint: "#FAE3CE", ink: "#8F4A1C" },
+          good: { DEFAULT: "#4A7A54", tint: "#E0EADB", ink: "#33593F" },
+          watch: { DEFAULT: "#B8672F", tint: "#F6E2CF", ink: "#8A4B22" },
           neutral: { DEFAULT: "#6B5A54", tint: "#F1EAE4", ink: "#6B5A54" },
-          avoid: { DEFAULT: "#B23A32", tint: "#F7D9D5", ink: "#8C2A24" },
+          avoid: { DEFAULT: "#A8453A", tint: "#F4DBD5", ink: "#85322B" },
         },
 
         panel: {
@@ -218,11 +220,14 @@ module.exports = {
       // and the step you reach for is decided by what the text *is* rather than
       // by how big it looked in the mockup.
       fontSize: {
-        caption: "12px", // metadata, uppercase eyebrows, attribution, footnotes
-        label: "14px", // chips, list rows, option labels, buttons — not prose
-        body: "16px", // running text anyone is expected to actually read
+        // v7 (29 September 2026) — mirrored in lib/tokens.ts `TYPE`.
+        caption: "13px", // metadata, uppercase eyebrows, attribution, footnotes
+        label: "15px", // chips, list rows, option labels — not prose
+        body: "15px", // running text anyone is expected to actually read
+        card: "17px", // card headings, labels
         title: "20px", // screen titles, card headings
         heading: "24px", // the one headline on a screen that has one
+        large: "30px", // a tab root's title
         display: "34px", // the score number, and nothing else
       },
 
@@ -232,7 +237,8 @@ module.exports = {
         // values). Set at 500 rather than a heavy weight, matching how the
         // mockups use it: large, once per screen, never at small sizes.
         display: ["PlayfairDisplay_500Medium"],
-        "display-medium": ["PlayfairDisplay_600SemiBold"],
+        // v7 has one display weight, 500; the name stays for existing classes.
+        "display-medium": ["PlayfairDisplay_500Medium"],
         // A journal note's handwriting (#229), and nothing else. Mirrored as
         // `NOTE_FONT` in lib/tokens.ts; lib/note-font.ts decides per note
         // whether it applies (Hangul, emoji, large text all fall back to the

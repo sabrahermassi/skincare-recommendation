@@ -12,7 +12,7 @@ import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { Text } from "@/components/Text";
 import { openQuiz } from "@/lib/open-quiz";
 import { isPersonalized, profileHeadline } from "@/lib/profile";
-import { CANVAS, CARD_SHADOW, GRAY_FILL, INK, MENU_FILL, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, DISPLAY_FONT, GRAY_FILL, INK, MENU_FILL, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // A woman at her dressing table wondering about her products
@@ -53,7 +53,7 @@ function EmptyProfile() {
         contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center", gap: SPACE.text, paddingHorizontal: HEADER_GUTTER, paddingVertical: SPACE.gutter }}
       >
         <Image source={ROUTINE_ART} contentFit="contain" accessibilityLabel="" style={{ width: "100%", aspectRatio: ROUTINE_ASPECT }} />
-        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
+        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
           Your skin profile is empty
         </Text>
         <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: TYPE.body * 1.4, color: MUTED }}>
@@ -74,7 +74,7 @@ function Steps() {
   const { title, tags } = profileHeadline(profile);
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: SPACE.block, paddingBottom: insets.bottom + SPACE.gutter }}>
-      <Text accessibilityRole="header" style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
+      <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
         Steps for today
       </Text>
 

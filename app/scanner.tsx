@@ -38,7 +38,7 @@ import { reduceMotionNow } from "@/lib/reduce-motion";
 import { matchProduct } from "@/lib/matching";
 import { track } from "@/lib/analytics";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, DISPLAY_FONT, FLOATING_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -664,17 +664,17 @@ function NoMatchSheet({
           <Image source={NO_MATCH_ART} contentFit="contain" accessibilityLabel="" style={{ width: "72%", aspectRatio: NO_MATCH_ASPECT }} />
           <Text
             accessibilityRole="header"
-            style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, lineHeight: 28, color: INK }}
+            style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, color: INK }}
           >
             {copy.title}
           </Text>
           <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>{copy.line}</Text>
           <View style={{ alignSelf: "stretch", gap: 10, marginTop: SPACE.text, flexDirection: "row" }}>
             <View style={{ flex: 1 }}>
-              <PrimaryButton label={primaryLabel} onPress={onPrimary} size={56} twoLines />
+              <PrimaryButton label={primaryLabel} onPress={onPrimary} twoLines />
             </View>
             <View style={{ flex: 1 }}>
-              <PrimaryButton label={secondaryLabel} onPress={onSecondary} size={56} variant="secondary" twoLines />
+              <PrimaryButton label={secondaryLabel} onPress={onSecondary} variant="secondary" twoLines />
             </View>
           </View>
         </View>
@@ -762,7 +762,7 @@ function FoundSheet({
         </Text>
         <Text
           numberOfLines={2}
-          style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, lineHeight: 28, color: INK }}
+          style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, color: INK }}
         >
           {product.name}
         </Text>
@@ -788,7 +788,7 @@ function FoundSheet({
           ...FLOATING_SHADOW,
         }}
       >
-        <ProductThumbnail product={product} size={FOUND_PICTURE} radius={20} />
+        <ProductThumbnail product={product} size={FOUND_PICTURE} />
       </View>
     </Animated.View>
   );

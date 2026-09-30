@@ -31,7 +31,7 @@ import { STEP_LABEL, STEP_ORDER, stepOf, type StepGroup } from "@/lib/routine-st
 import { isVerified } from "@/lib/safety";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
@@ -475,7 +475,7 @@ function Row({
       <View style={{ borderRadius: CARD_RADIUS, overflow: "hidden" }}>
         <Link href={`/product/${product.id}`} asChild>
           <Pressable style={{ flexDirection: "row", alignItems: "center", gap: 16, padding: 18, paddingRight: CORNER_CLEARANCE }} {...press}>
-            <ProductThumbnail product={product} size={CARD_THUMB} radius={16} backgroundColor={SURFACE} />
+            <ProductThumbnail product={product} size={CARD_THUMB} />
             <View style={{ flex: 1, gap: 6 }}>
               <View style={{ gap: 2 }}>
                 <Text numberOfLines={1} style={{ fontSize: TYPE.label, color: MUTED_FAINT }}>
@@ -657,7 +657,7 @@ const EMPTY_ART_WIDTH = 340;
 const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).map((art) => art.aspect));
 
 // The empty state's scan button, and the room it keeps on Ingredients.
-const EMPTY_BUTTON_HEIGHT = 52;
+const EMPTY_BUTTON_HEIGHT = 48;
 
 // How long a tab change cross-fades, one whole tab into the next.
 const TAB_FADE_MS = 300;
@@ -696,7 +696,7 @@ function EmptyState({ tab }: { tab: Tab }) {
           />
         </View>
         <View style={{ alignItems: "center", gap: 10 }}>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
+          <Text style={{ fontFamily: DISPLAY_FONT, fontSize: 20, color: INK }}>{title}</Text>
           {/* minHeight reserves room for the longest body (History's wraps to 3
               lines at this width, the others to 2) — without it, a shorter body
               made this whole block a few px shorter, and centering a shorter
@@ -711,7 +711,7 @@ function EmptyState({ tab }: { tab: Tab }) {
           {tab !== "saved" ? (
             <View style={{ height: EMPTY_BUTTON_HEIGHT, marginTop: SPACE.text }} />
           ) : (
-            <PrimaryButton size={EMPTY_BUTTON_HEIGHT} label="Scan your first product" onPress={openScanner} style={{ marginTop: SPACE.text }} />
+            <PrimaryButton label="Scan your first product" onPress={openScanner} style={{ marginTop: SPACE.text }} />
           )}
         </View>
       </View>

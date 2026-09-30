@@ -89,7 +89,7 @@ describe("History", () => {
   it("shows the score it had then as a pill, and saves from the heart", async () => {
     useAppStore.setState({ history: [viewed("aqua-ceramide-cream")] });
     await openHistory();
-    expect(screen.getByText("72/100")).toBeTruthy();
+    expect(screen.getByLabelText("72 out of 100")).toBeTruthy();
 
     await act(async () => fireEvent.press(screen.getByRole("button", { name: "Save" })));
     expect(useAppStore.getState().savedProducts.map((p) => p.id)).toEqual(["aqua-ceramide-cream"]);
@@ -177,7 +177,7 @@ it("shows a label photo in History and opens that same result", async () => {
   await render(<Saved />);
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "History" })));
   const card = await screen.findByRole("button", { name: /^Label photo, 2 ingredients/ });
-  expect(screen.getByText("64/100")).toBeTruthy();
+  expect(screen.getByLabelText("64 out of 100")).toBeTruthy();
   await act(async () => fireEvent.press(card));
   expect(mockPush).toHaveBeenCalledWith({ pathname: "/label-result", params: { entry: "label-7" } });
 });

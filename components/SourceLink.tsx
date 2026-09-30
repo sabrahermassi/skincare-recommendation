@@ -2,7 +2,7 @@ import { Linking, Pressable } from "react-native";
 
 import { Text } from "@/components/Text";
 import type { RuleSource } from "@/lib/rules";
-import { INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { LINK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 /**
  * "Source: <label>" under a claim (#326), opening the page the claim was
@@ -24,7 +24,8 @@ export function SourceLink({ source }: { source: RuleSource }) {
     >
       <Text style={{ fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
         Source:{" "}
-        <Text style={{ fontSize: TYPE.caption, color: INK, textDecorationLine: "underline" }}>{source.label}</Text>
+        {/* v7: no underlined links; the source reads in the link colour. */}
+        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: LINK }}>{source.label}</Text>
       </Text>
     </Pressable>
   );

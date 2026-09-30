@@ -1,22 +1,22 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Pressable, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
 import { BottomSheet } from "@/components/BottomSheet";
-import { PrimaryButton } from "@/components/PrimaryButton";
+import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 import { haptic } from "@/lib/haptics";
-import { CARD_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { DESTRUCTIVE_OUTLINE, DISPLAY_FONT, INK, MUTED, TYPE, VERDICT } from "@/lib/tokens";
+
+/** The badge at the top of the pop-up (v7). */
+const BADGE = 48;
 
 /**
- * Every "are you sure" in the app, one way (owner's reference): a sheet rises
- * from the bottom with a white X disc in its corner, a centred question and what it
- * means, then the safe choice as the one button and the destructive one as
- * plain words under it — so the easy tap is the one that keeps things. The X,
- * a tap on the dimmed screen, and the keep button all close it untouched.
+ * Every "are you sure" in the app, one way (v7): a pop-up floats up with a
+ * trash badge, the question in the title face and one line on what it means,
+ * then a pair of 140pt buttons — the safe choice filled, the destructive one
+ * in a soft red outline. "Keep it" and a tap on the dimmed screen both close
+ * it untouched.
  */
-// The keep button's share of the card (owner's OnSkin reference: 43–47%).
-const KEEP_WIDTH = "55%";
-
 export function ConfirmSheet({
   visible,
   title,
@@ -32,7 +32,7 @@ export function ConfirmSheet({
   line: string;
   /** The button that closes the sheet and changes nothing. */
   keepLabel: string;
-  /** The words under it that go ahead. */
+  /** The button beside it that goes ahead. */
   confirmLabel: string;
   onClose: () => void;
   onConfirm: () => void;
@@ -41,35 +41,32 @@ export function ConfirmSheet({
 }) {
   return (
     <BottomSheet visible={visible} onClose={onClose} floating>
-      {/* A plain disc, not the glass X: the sheet is a separate native window,
-          and Apple's glass button in one never received a tap. */}
-      <Pressable
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Close"
-        className="active:opacity-70"
-        style={{
-          alignSelf: "flex-end",
-          width: TOUCH_TARGET,
-          height: TOUCH_TARGET,
-          borderRadius: TOUCH_TARGET / 2,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: SURFACE,
-          ...CARD_SHADOW,
-        }}
-      >
-        <Ionicons name="close" size={24} color={INK} />
-      </Pressable>
-      <View style={{ alignItems: "center", gap: SPACE.text }}>
-        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
+      <View style={{ alignItems: "center", gap: 8 }}>
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={{ width: BADGE, height: BADGE, borderRadius: BADGE / 2, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT.low.wash }}
+        >
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"
+              stroke={VERDICT.low.deep}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </View>
+        <Text
+          accessibilityRole="header"
+          style={{ marginTop: 4, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
+        >
           {title}
         </Text>
-        <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: TYPE.body * 1.4, color: MUTED }}>{line}</Text>
+        <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{line}</Text>
       </View>
-      <View style={{ alignItems: "center", gap: SPACE.text, marginTop: SPACE.text }}>
-        {/* About half the card's width, centred, as in the reference. */}
-        <PrimaryButton label={keepLabel} onPress={onClose} style={{ width: KEEP_WIDTH }} />
+      <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 16 }}>
+        <PrimaryButton label={keepLabel} onPress={onClose} style={{ width: BUTTON_WIDTH.pair }} />
         <Pressable
           onPress={() => {
             haptic.warning();
@@ -77,11 +74,22 @@ export function ConfirmSheet({
           }}
           disabled={busy}
           accessibilityRole="button"
+          accessibilityLabel={confirmLabel}
           accessibilityState={{ disabled: busy }}
-          style={{ minHeight: TOUCH_TARGET, paddingHorizontal: SPACE.block, justifyContent: "center" }}
-          className="active:opacity-70"
+          style={{
+            width: BUTTON_WIDTH.pair,
+            height: 48,
+            borderRadius: 24,
+            borderWidth: 1.5,
+            borderColor: DESTRUCTIVE_OUTLINE.border,
+            backgroundColor: DESTRUCTIVE_OUTLINE.fill,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: busy ? 0.6 : 1,
+          }}
+          className="active:opacity-80"
         >
-          <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>{confirmLabel}</Text>
+          <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: DESTRUCTIVE_OUTLINE.label }}>{confirmLabel}</Text>
         </Pressable>
       </View>
     </BottomSheet>

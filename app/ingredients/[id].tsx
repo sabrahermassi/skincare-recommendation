@@ -14,7 +14,7 @@ import { productIdParam } from "@/lib/route-params";
 import NotFound from "@/app/+not-found";
 import { matchProduct } from "@/lib/matching";
 import { useAppStore } from "@/store/useAppStore";
-import { CANVAS, INK, MUTED, TYPE } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, INK, MUTED, TYPE } from "@/lib/tokens";
 
 // The design system (design/DESIGN_SYSTEM.md).
 
@@ -126,13 +126,13 @@ function IngredientList({ id, initialTab }: { id: string; initialTab?: string })
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader title="Ingredients" />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 16 }}>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: INK, textAlign: "center" }}>
+          <Text style={{ fontFamily: DISPLAY_FONT, fontSize: 24, color: INK, textAlign: "center" }}>
             Couldn&apos;t load this product
           </Text>
           <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
             {failureMessage(failure)}
           </Text>
-          <PrimaryButton size={52} label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
+          <PrimaryButton label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
         </View>
       </View>
     );
@@ -143,7 +143,7 @@ function IngredientList({ id, initialTab }: { id: string; initialTab?: string })
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader title="Ingredients" />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: INK }}>
+          <Text style={{ fontFamily: DISPLAY_FONT, fontSize: 24, color: INK }}>
             Product not found
           </Text>
         </View>

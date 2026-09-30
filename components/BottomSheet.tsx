@@ -4,16 +4,17 @@ import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, Scr
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { FLOATING_SHADOW, SCRIM, SURFACE } from "@/lib/tokens";
+import { CANVAS, INK, SCRIM, SHEET_SHADOW, withAlpha } from "@/lib/tokens";
 
 const IN_MS = 280;
 const OUT_MS = 220;
-// The floating card (owner's OnSkin reference, and the result-screen handoff):
-// how far it stands off the screen's sides and bottom, its corners, which
-// follow the phone's own, and how much the screen behind it blurs.
+// The floating pop-up (v7): 10pt off the screen's sides and bottom, radius 36,
+// over a lightly blurred screen. A bottom sheet's top corners are 38, with a
+// grabber.
 const FLOAT_INSET = 10;
-const FLOAT_RADIUS = 44;
-const FLOAT_BLUR = 12;
+const FLOAT_RADIUS = 36;
+const FLOAT_BLUR = 6;
+const SHEET_RADIUS = 38;
 // The room a sheet always leaves above itself, under the status bar, so a
 // long one stops short of the top and scrolls instead (its corner stays
 // reachable).
@@ -74,7 +75,10 @@ export function BottomSheet({
 
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [height, 0] });
   const maxHeight = height - insets.top - TOP_GAP - (floating ? FLOAT_INSET : 0);
-  const padding = { padding: 24, paddingBottom: floating ? Math.max(24, insets.bottom) : Math.max(24, insets.bottom + 12), gap: 14 };
+  // v7 pop-up padding: 24 top and bottom, 16 at the sides.
+  const padding = floating
+    ? { paddingTop: 24, paddingHorizontal: 16, paddingBottom: 24, gap: 8 }
+    : { paddingTop: 28, paddingHorizontal: 16, paddingBottom: Math.max(24, insets.bottom + 12), gap: 12 };
 
   return (
     <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
@@ -89,8 +93,8 @@ export function BottomSheet({
             style={[
               floating
                 ? { marginHorizontal: FLOAT_INSET, marginBottom: FLOAT_INSET, borderRadius: FLOAT_RADIUS }
-                : { borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-              { maxHeight, backgroundColor: SURFACE, ...FLOATING_SHADOW },
+                : { borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS },
+              { maxHeight, backgroundColor: CANVAS, ...SHEET_SHADOW },
             ]}
           >
             {/* Rounded clipping lives on this inner view, so the shadow above
@@ -99,7 +103,7 @@ export function BottomSheet({
               style={
                 floating
                   ? { borderRadius: FLOAT_RADIUS, overflow: "hidden", flexShrink: 1 }
-                  : { borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: "hidden", flexShrink: 1 }
+                  : { borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS, overflow: "hidden", flexShrink: 1 }
               }
             >
               <ScrollView
@@ -113,6 +117,13 @@ export function BottomSheet({
                 {children}
               </ScrollView>
             </View>
+            {/* A bottom sheet's grabber (v7): 36 × 5, near the top. */}
+            {floating ? null : (
+              <View
+                pointerEvents="none"
+                style={{ position: "absolute", top: 8, alignSelf: "center", width: 36, height: 5, borderRadius: 3, backgroundColor: withAlpha(INK, 0.18) }}
+              />
+            )}
             {corner ? <View style={{ position: "absolute", top: 16, right: 16 }}>{corner}</View> : null}
           </View>
         </Animated.View>

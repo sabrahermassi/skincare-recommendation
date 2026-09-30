@@ -1,51 +1,19 @@
 import { Image } from "expo-image";
-import { View } from "react-native";
 
 import type { ProductType } from "@/data/types";
 import { productIllustrationSource } from "@/lib/productIllustration";
-import { CANVAS } from "@/lib/tokens";
 
 /**
- * A product's thumbnail wherever one appears in a list — Browse
- * (`ProductRow.tsx`), Saved, History, and eventually the rest of
- * `lib/productIllustration.ts`'s own "Where to apply it" list.
- *
- * Same tile treatment the old `BottleIcon` component used (canvas-fill
- * square, rounded corners, the art centred with margin around it so it
- * reads as a thumbnail rather than a crop) — this replaced what that tile
- * drew. `BottleIcon` itself is gone now (deleted as dead code, hygiene
- * audit); its one surviving mapping, `defaultPackagingType`, lives in
- * `data/packaging.ts`.
+ * A product's picture wherever one appears (v7): the bottle illustration,
+ * a transparent PNG placed straight on whatever it sits on — never a well,
+ * circle, tile or tint behind it.
  */
 export function ProductThumbnail({
   product,
-  size = 46,
-  radius = 12,
-  backgroundColor = CANVAS,
+  size = 52,
 }: {
   product: { id: string; type: ProductType; imageUrl?: string | null };
   size?: number;
-  radius?: number;
-  /** The tile's fill: the page colour by default, white where it sits on the page itself. */
-  backgroundColor?: string;
 }) {
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: radius,
-        backgroundColor,
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-      }}
-    >
-      <Image
-        source={productIllustrationSource(product)}
-        style={{ width: size * 0.74, height: size * 0.74 }}
-        contentFit="contain"
-      />
-    </View>
-  );
+  return <Image source={productIllustrationSource(product)} style={{ width: size, height: size }} contentFit="contain" accessibilityLabel="" />;
 }

@@ -3,7 +3,6 @@ import "../global.css";
 import { Montserrat_300Light, Montserrat_400Regular } from "@expo-google-fonts/montserrat";
 import {
   PlayfairDisplay_500Medium,
-  PlayfairDisplay_600SemiBold,
   useFonts,
 } from "@expo-google-fonts/playfair-display";
 import { loadAsync as loadFonts } from "expo-font";
@@ -37,7 +36,6 @@ export default function RootLayout() {
   // The intro's headline is Playfair (owner, 26 September 2026).
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_500Medium,
-    PlayfairDisplay_600SemiBold,
     Montserrat_300Light,
     Montserrat_400Regular,
   });

@@ -1,203 +1,98 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useState } from "react";
-import { Animated, Platform, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { HEADER_GUTTER } from "@/components/AppHeader";
-import { ArrowIcon } from "@/components/icons/ArrowIcon";
+import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/open-scanner";
-import { homeGreetingWidth } from "@/lib/home-greeting";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { CANVAS, CARD_SHADOW, HOME_CARD_FILL, INK, MUTED, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, DISPLAY_FONT, HOME_CARD_FILL, HOME_TILE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 
-// The two cards' watercolors, on transparent ground: a hand holding a tube inside
-// a scanner's frame, and two hands holding a serum and a pump bottle (their empty
-// margins trimmed, and brought down to 500px from 1254px).
+// The scan card's watercolour, and the three tiles' (transparent ground).
 const SCAN_ART = require("@/assets/illustrations/home-scan.webp");
-const FIND_ART = require("@/assets/illustrations/home-find.webp");
-// Find a product: a woman weighing up a serum (new-watercolor/skincare finder.png,
-// cropped to what's drawn).
-const MATCH_ART = require("@/assets/illustrations/home-match.webp");
-// Skincare routine: a routine notepad among products (new-watercolor/My skincare routine.png).
+const SEARCH_ART = require("@/assets/illustrations/home-find.webp");
 const ROUTINE_ART = require("@/assets/illustrations/home-routine.webp");
-// The gap between the two cards.
-const ACTION_CARD_GAP = 12;
-// The least room the picture keeps. The cards are square, and grow taller rather
-// than squeeze the picture below this when larger text needs the room.
-const ACTION_ART_MIN_HEIGHT = 48;
-// The watercolor still life under the cards: bottles and jars standing in water,
-// on a transparent ground (new-watercolor/home_colormatched_transparent.png).
-const STILL_LIFE_ART = require("@/assets/illustrations/home-still-life.webp");
-// Its own proportions, so it is never stretched.
-const STILL_LIFE_ASPECT = 1400 / 849;
-// How far below the tab bar's top it reaches, in dp: 1.5 cm on a phone (160 dp
-// to the inch), less the 1.5 mm the owner raised it by (9 dp), so its water
-// runs on behind the bar. No spacing token is that large, so it is named here
-// rather than typed inline.
-const STILL_LIFE_DROP = 85;
+const MATCH_ART = require("@/assets/illustrations/home-match.webp");
 
-// The handwritten "Hi, there!" on top of the screen, cut from design-watercolor/text.png.
-const GREETING_ART = require("@/assets/illustrations/home-greeting.png");
-const GREETING_ASPECT = 640 / 206;
-
-/** How far a card sinks when pressed: it reads as a button though it is a card. */
-const ACTION_CARD_PRESSED = 0.96;
+// v7 measurements, read off the hand-off.
+const TAB_ROOT_TOP = 62;
+const SCAN_CARD_MIN_HEIGHT = 176;
+const SCAN_CARD_RADIUS = 24;
+const SCAN_ART_SIZE = 150;
+const SCAN_LINE_WIDTH = 180;
+const TILE_ART = 64;
 
 /**
- * Home — the first screen after the intro.
- *
- * A greeting, then four cards two by two — "Scan a product" (the full-screen
- * scanner), "Find a product" (the skincare finder), "Skincare routine" (a
- * coming-soon screen for now) and "Search" (Browse) — and a watercolor still life under them, running
- * on past the bottom edge of the screen. The layout is fixed while it fits; on
- * a short screen or with large text it scrolls, so every card is reachable.
+ * Home (v7): the "Hi there" title; the scan card, with its own Scan now
+ * button; and three tiles under it — Search, the skincare Routine, and My
+ * match, which opens the skincare finder. The only warm tints in the app
+ * outside a verdict are these. It scrolls only when large text needs it.
  */
 export default function Home() {
   const insets = useSafeAreaInsets();
-  const { width, fontScale } = useWindowDimensions();
-  // A picture, so it is made to follow the text size here.
-  const greetingWidth = homeGreetingWidth(fontScale);
-  // Each card's width, which is also its least height: square at the ordinary
-  // text sizes, taller when larger text needs it, never cut off.
-  const cardSide = (width - HEADER_GUTTER * 2 - ACTION_CARD_GAP) / 2;
   return (
-    <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
-      {/* Scrolls only when the content is taller than the screen: flexGrow keeps a
-          short page filling it, and the bounce and stretch that would make a page
-          that fits look loose are switched off. */}
+    <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarClearance(insets.bottom) }}
+        contentContainerStyle={{ paddingTop: Math.max(insets.top, TAB_ROOT_TOP - 8) + 8, paddingHorizontal: SPACE.gutter, paddingBottom: tabBarClearance(insets.bottom) }}
         alwaysBounceVertical={false}
-        overScrollMode="never"
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ paddingHorizontal: HEADER_GUTTER, paddingTop: 28, gap: 22 }}>
-          {/* The greeting, in handwriting. */}
+        <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: 33, letterSpacing: -0.6, color: INK }}>
+          Hi there
+        </Text>
+
+        {/* The scan card: the one thing most people came to do. */}
+        <View
+          style={{
+            marginTop: 16,
+            minHeight: SCAN_CARD_MIN_HEIGHT,
+            borderRadius: SCAN_CARD_RADIUS,
+            backgroundColor: HOME_CARD_FILL,
+            paddingVertical: 24,
+            paddingHorizontal: 16,
+            overflow: "hidden",
+          }}
+        >
           <Image
-            source={GREETING_ART}
-            contentFit="contain"
-            accessibilityLabel="Hi there!"
-            style={{ width: greetingWidth, aspectRatio: GREETING_ASPECT }}
-          />
-
-          {/* The four ways in, two by two (owner): scan a product in hand; find
-              one that fits, in the skincare finder; the skincare routine,
-              whose screen says it's coming soon; and search by name, which opens Browse (it has no
-              tab of its own). */}
-          <View style={{ gap: ACTION_CARD_GAP }}>
-            <View style={{ flexDirection: "row", gap: ACTION_CARD_GAP }}>
-              <ActionCard
-                title="Scan a product"
-                detail="Analyze a product by photo or barcode."
-                art={SCAN_ART}
-                side={cardSide}
-                onPress={openScanner}
-              />
-              <ActionCard
-                title="Find a product"
-                detail="Pick your skin needs and see what fits."
-                art={MATCH_ART}
-                side={cardSide}
-                onPress={() => router.push("/finder")}
-              />
-            </View>
-            <View style={{ flexDirection: "row", gap: ACTION_CARD_GAP }}>
-              <ActionCard
-                title="Skincare routine"
-                detail="Coming soon."
-                art={ROUTINE_ART}
-                side={cardSide}
-                onPress={() => router.push("/routine")}
-              />
-              <ActionCard
-                title="Search"
-                detail="Search products or brands."
-                art={FIND_ART}
-                side={cardSide}
-                onPress={() => router.navigate("/browse")}
-              />
-            </View>
-          </View>
-
-        </View>
-
-        {/* The still life: full width, standing about 1.35 cm below the bottom of the
-            room the cards leave, so its water runs on behind the tab bar. Drawn behind
-            the cards (zIndex) and out of the layout, so it never adds scrolling;
-            when large text leaves no room it slides up behind the cards rather
-            than push them. Decorative: it has no words, so screen readers skip it. */}
-        <View testID="home-still-life" pointerEvents="none" style={{ flexGrow: 1, zIndex: -1 }}>
-          <Image
-            source={STILL_LIFE_ART}
+            source={SCAN_ART}
             contentFit="contain"
             accessibilityLabel=""
-            style={{ position: "absolute", left: 0, bottom: -STILL_LIFE_DROP, width, aspectRatio: STILL_LIFE_ASPECT }}
+            style={{ position: "absolute", right: -4, bottom: -2, width: SCAN_ART_SIZE, height: SCAN_ART_SIZE }}
           />
+          <Text style={{ fontSize: TYPE.card, fontWeight: "600", color: INK }}>Scan any product</Text>
+          <Text style={{ marginTop: 4, maxWidth: SCAN_LINE_WIDTH, fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+            Point at a barcode or the ingredient list.
+          </Text>
+          <PrimaryButton label="Scan now" onPress={openScanner} style={{ marginTop: 16, width: BUTTON_WIDTH.inCard }} />
+        </View>
+
+        {/* Three ways in, side by side. */}
+        <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
+          <Tile label="Search" art={SEARCH_ART} fill={HOME_TILE.sage} onPress={() => router.navigate("/browse")} />
+          <Tile label="Routine" art={ROUTINE_ART} fill={HOME_TILE.butter} onPress={() => router.push("/routine")} />
+          <Tile label="My match" art={MATCH_ART} fill={HOME_TILE.blush} onPress={() => router.push("/finder")} />
         </View>
       </ScrollView>
     </View>
   );
 }
 
-/**
- * One of Home's four cards, square at least (`side`): the picture on top, then
- * the title with its arrow and a line under it. The shade sits on an outer view: a view that clips its picture
- * (overflow hidden) loses its own shade on iOS.
- */
-function ActionCard({
-  title,
-  detail,
-  art,
-  side,
-  onPress,
-}: {
-  title: string;
-  detail: string;
-  art: number;
-  side: number;
-  onPress: () => void;
-}) {
-  const [scale] = useState(() => new Animated.Value(1));
-  const press = (to: number) =>
-    Animated.spring(scale, { toValue: to, friction: 6, tension: 220, useNativeDriver: Platform.OS !== "web" }).start();
+/** One of Home's three tiles: its picture, then its name. */
+function Tile({ label, art, fill, onPress }: { label: string; art: number; fill: string; onPress: () => void }) {
   return (
-    <Animated.View
-      style={{
-        flex: 1,
-        minHeight: side,
-        borderRadius: 22,
-        backgroundColor: HOME_CARD_FILL,
-        ...CARD_SHADOW,
-        transform: [{ scale }],
-      }}
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={{ flex: 1, alignItems: "center", gap: 8, borderRadius: CARD_RADIUS, backgroundColor: fill, paddingTop: 12, paddingHorizontal: 8, paddingBottom: 16 }}
+      className="active:opacity-80"
     >
-      <Pressable
-        onPress={onPress}
-        onPressIn={() => press(ACTION_CARD_PRESSED)}
-        onPressOut={() => press(1)}
-        accessibilityRole="button"
-        accessibilityLabel={`${title}. ${detail}`}
-        className="active:opacity-90"
-        style={{ flexGrow: 1, borderRadius: 22, overflow: "hidden" }}
-      >
-        {/* The picture takes whatever the words leave, whole. */}
-        <Image
-          source={art}
-          contentFit="contain"
-          accessibilityLabel=""
-          style={{ flex: 1, minHeight: ACTION_ART_MIN_HEIGHT, width: "100%", marginTop: 10 }}
-        />
-        <View style={{ gap: 2, paddingHorizontal: 14, paddingTop: 6, paddingBottom: 14 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Text style={{ flexShrink: 1, fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.body, color: INK }}>{title}</Text>
-            <ArrowIcon size={15} color={INK} strokeWidth={2.4} />
-          </View>
-          <Text style={{ fontSize: 11.5, lineHeight: 15, color: MUTED }}>{detail}</Text>
-        </View>
-      </Pressable>
-    </Animated.View>
+      <Image source={art} contentFit="contain" accessibilityLabel="" style={{ width: TILE_ART, height: TILE_ART }} />
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }

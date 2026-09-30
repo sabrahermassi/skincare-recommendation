@@ -18,7 +18,7 @@ import {
   type Provider,
   type SignInResult,
 } from "@/lib/auth";
-import { CANVAS, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 /** The same height as the app's own detail-screen buttons (`PrimaryButton` size 52). */
 const APPLE_BUTTON_HEIGHT = 52;
@@ -97,7 +97,7 @@ export default function SignIn() {
     // text size — is reached by dragging the sheet up (#309 review).
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <View style={{ padding: 24, paddingTop: 28, paddingBottom: insets.bottom + 32, gap: 18 }}>
-        <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 26, color: INK }}>Keep your shelf</Text>
+        <Text style={{ fontFamily: DISPLAY_FONT, fontSize: 26, color: INK }}>Keep your shelf</Text>
         <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>
           {ACCOUNT_PITCH}
         </Text>

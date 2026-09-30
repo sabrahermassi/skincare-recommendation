@@ -5,6 +5,7 @@ import {
   MIN_IDENTIFIED,
   SCORE_BANDS,
 } from "@/lib/matching";
+import type { Verdict } from "@/lib/matching";
 import { VERDICT_LABEL } from "@/lib/tokens";
 
 /**
@@ -15,47 +16,70 @@ import { VERDICT_LABEL } from "@/lib/tokens";
  * claims policy: nothing here promises a result.
  */
 
-export type ScoreBandLine = { range: string; label: string };
+export type ScoreBandLine = {
+  verdict: Exclude<Verdict, "unknown">;
+  /** Lowest and highest score in the band, both included. */
+  from: number;
+  to: number;
+  range: string;
+  label: string;
+  meaning: string;
+};
 
-/** "90 and up · Excellent match", down to "Below 60 · Poor match". */
+/** "90 to 100 · Excellent match", down to "0 to 59 · Poor match". */
 export function scoreBandLines(): ScoreBandLine[] {
   const { excellent, good, fair } = SCORE_BANDS;
+  const band = (verdict: ScoreBandLine["verdict"], from: number, to: number, meaning: string): ScoreBandLine => ({
+    verdict,
+    from,
+    to,
+    range: `${from} to ${to}`,
+    label: VERDICT_LABEL[verdict],
+    meaning,
+  });
   return [
-    { range: `${excellent} and up`, label: VERDICT_LABEL.excellent },
-    { range: `${good} to ${excellent - 1}`, label: VERDICT_LABEL.good },
-    { range: `${fair} to ${good - 1}`, label: VERDICT_LABEL.fair },
-    { range: `Below ${fair}`, label: VERDICT_LABEL.poor },
+    band("excellent", excellent, 100, "One of the better matches for your skin"),
+    band("good", good, excellent - 1, "Looks like a good fit for your skin"),
+    band("fair", fair, good - 1, "Could work, with a caveat or two"),
+    band("poor", 0, fair - 1, "Probably not the right pick for you"),
   ];
 }
 
-export type ScoringSection = { title: string; body: string };
+export type ScoreFactor = { sign: "+" | "−" | "?"; title: string; body: string };
 
-export function scoringSections(): ScoringSection[] {
+/** "What goes into it": what raises the score, what lowers it, what doesn't count. */
+export function scoreFactors(): ScoreFactor[] {
+  return [
+    { sign: "+", title: "Raises it", body: "Ingredients that help your concerns or suit your skin type." },
+    {
+      sign: "−",
+      title: "Lowers it",
+      body: `Ingredients that may irritate, more so if your skin reacts, or clog pores. A hazard caps the score at ${HAZARD_SCORE_CAP}, and each further one takes ${HAZARD_EXTRA_PENALTY} off.`,
+    },
+    { sign: "?", title: "Doesn't count", body: "Ingredients we don't know yet. We still show them." },
+  ];
+}
+
+export const LABEL_ORDER = "Labels list ingredients from most to least, so the ones near the top count the most.";
+
+export type ScoreNote = { kind: "pregnancy" | "no-score" | "personal"; title: string; body: string };
+
+export function scoreNotes(): ScoreNote[] {
   const quarter = MIN_COVERAGE === 0.25 ? "a quarter" : `${Math.round(MIN_COVERAGE * 100)}%`;
   return [
     {
-      title: "Your score is personal",
-      body: "It compares a product's ingredients with your skin profile, so the same product can score differently for someone else.",
+      kind: "pregnancy",
+      title: "Pregnancy warnings",
+      body: "If you said you're pregnant or trying, they're shown apart from the score and never hidden. They don't change it.",
     },
     {
-      title: "What raises it",
-      body: "Ingredients that help your concerns and your skin type. The higher one sits on the list, the more it counts.",
+      kind: "no-score",
+      title: "Sometimes there is no score",
+      body: `When we recognise fewer than ${MIN_IDENTIFIED} of its ingredients, or under ${quarter} of them, or you haven't set up a skin profile yet. We still show what's in it.`,
     },
-    {
-      title: "What lowers it",
-      body: `Ingredients that commonly irritate, more so if you said your skin reacts. Pore-clogging ones, if you're acne-prone or care about pores. A hazard caps the score at ${HAZARD_SCORE_CAP}, and each further one takes ${HAZARD_EXTRA_PENALTY} off.`,
-    },
-    {
-      title: "Pregnancy",
-      body: "If you said you're pregnant or trying, cautions are shown on their own and never hidden. They don't change the score.",
-    },
-    {
-      title: "When there's no score",
-      body: `When we recognise fewer than ${MIN_IDENTIFIED} of its ingredients, or under ${quarter} of them, or when you haven't set up a skin profile yet. We still show what's in it.`,
-    },
-    {
-      title: "What we don't do",
-      body: "No ads, no brand deals, no paid placements. And none of this is medical advice: for a skin condition, see a dermatologist.",
-    },
+    { kind: "personal", title: "It's about you", body: "The same product can score differently for someone else." },
   ];
 }
+
+export const SCORING_DISCLAIMER =
+  "No ads, no brand deals, no paid placements. Not medical advice: for a skin condition, see a dermatologist.";

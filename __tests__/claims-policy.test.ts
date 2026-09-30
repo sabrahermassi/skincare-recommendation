@@ -11,7 +11,7 @@ import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import { scoreExplanation, verdictHeadline, type MatchResult } from "@/lib/matching";
 import { INGREDIENT_RULES } from "@/lib/rules";
 import { SCHOOL_CHAT_COPY } from "@/lib/school-chat";
-import { scoreBandLines, scoringSections } from "@/lib/scoring-explainer";
+import { LABEL_ORDER, SCORING_DISCLAIMER, scoreBandLines, scoreFactors, scoreNotes } from "@/lib/scoring-explainer";
 import { UNSET_SENSITIVITY_REASON, contraindications } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
@@ -136,13 +136,15 @@ const FIRST_PAGE_CLAIMS: OwnedClaim[] = Object.entries(FIRST_PAGE_COPY).map(([ke
   text,
 }));
 
-// #325: "How scoring works" — every section and band line on the page.
+// #325: "How scoring works" — every line on the page.
 const SCORING_CLAIMS: OwnedClaim[] = [
-  ...scoringSections().flatMap((section) => [
-    { source: `scoringSections.${section.title}.title`, text: section.title },
-    { source: `scoringSections.${section.title}.body`, text: section.body },
+  ...[...scoreFactors(), ...scoreNotes()].flatMap((row) => [
+    { source: `scoring.${row.title}.title`, text: row.title },
+    { source: `scoring.${row.title}.body`, text: row.body },
   ]),
-  ...scoreBandLines().map((band) => ({ source: `scoreBandLines.${band.label}`, text: `${band.range}: ${band.label}` })),
+  ...scoreBandLines().map((band) => ({ source: `scoreBandLines.${band.label}`, text: `${band.range}: ${band.label}. ${band.meaning}` })),
+  { source: "LABEL_ORDER", text: LABEL_ORDER },
+  { source: "SCORING_DISCLAIMER", text: SCORING_DISCLAIMER },
 ];
 
 // #352: the School chat's own lines — its greeting speaks for the app.

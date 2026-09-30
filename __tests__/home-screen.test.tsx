@@ -2,77 +2,50 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { router } from "expo-router";
 
 import Home from "@/app/(tabs)/index";
+import { openScanner } from "@/lib/open-scanner";
 
 /**
- * Home (per #155): the greeting, four cards two by two ("Scan a product",
- * "Find a product", "Skincare routine" and "Search"), and the watercolor still
- * life under them. The still
- * life comes after the cards in the page and is drawn behind them, so it never
- * covers one; it has no words, so screen readers skip it.
+ * Home (per #155, v7 design): the "Hi there" title, the scan card with its own
+ * Scan now button, and three tiles — Search, Routine and My match (the
+ * skincare finder).
  */
 
 jest.setTimeout(30_000);
 
 jest.mock("expo-router", () => ({ router: { push: jest.fn(), navigate: jest.fn() } }));
+jest.mock("@/lib/open-scanner", () => ({ openScanner: jest.fn() }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-type Node = { props?: Record<string, unknown>; children?: (Node | string)[] | null };
-
-/** Every accessibility label on screen, in the order a screen reader reaches them. */
-function labelsInOrder(tree: unknown): string[] {
-  const out: string[] = [];
-  const walk = (node: Node | string | null | undefined) => {
-    if (!node || typeof node === "string") return;
-    const label = node.props?.accessibilityLabel;
-    if (typeof label === "string" && label) out.push(label);
-    node.children?.forEach(walk);
-  };
-  (Array.isArray(tree) ? tree : [tree]).forEach((n) => walk(n as Node));
-  return out;
-}
-
-it("shows the greeting and the four cards, and no skin profile card", async () => {
+it("shows the title, the scan card and the three tiles, and no skin profile card", async () => {
   await render(<Home />);
-  expect(screen.getByLabelText("Hi there!")).toBeTruthy();
+  expect(screen.getByRole("header", { name: "Hi there" })).toBeTruthy();
+  expect(screen.getByText("Scan any product")).toBeTruthy();
   expect(screen.queryByText("Your skin profile")).toBeNull();
-  expect(screen.getByRole("button", { name: "Scan a product. Analyze a product by photo or barcode." })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Find a product. Pick your skin needs and see what fits." })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Search. Search products or brands." })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Skincare routine. Coming soon." })).toBeTruthy();
+  for (const tile of ["Search", "Routine", "My match"]) expect(screen.getByRole("button", { name: tile })).toBeTruthy();
 });
 
-it("opens the skincare routine screen from its card", async () => {
+it("opens the scanner from Scan now", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "Skincare routine. Coming soon." }));
+  await fireEvent.press(screen.getByRole("button", { name: "Scan now" }));
+  expect(openScanner).toHaveBeenCalled();
+});
+
+it("opens the skincare routine from Routine", async () => {
+  await render(<Home />);
+  await fireEvent.press(screen.getByRole("button", { name: "Routine" }));
   expect(router.push).toHaveBeenCalledWith("/routine");
 });
 
-it("opens Browse from Search, which has no tab of its own", async () => {
+it("opens Search from its tile, which has no tab of its own", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "Search. Search products or brands." }));
+  await fireEvent.press(screen.getByRole("button", { name: "Search" }));
   expect(router.navigate).toHaveBeenCalledWith("/browse");
 });
 
-it("opens the skincare finder from Find a product", async () => {
+it("opens the skincare finder from My match", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "Find a product. Pick your skin needs and see what fits." }));
+  await fireEvent.press(screen.getByRole("button", { name: "My match" }));
   expect(router.push).toHaveBeenCalledWith("/finder");
-});
-
-it("shows the still life as decoration: nothing for a screen reader to stop on", async () => {
-  await render(<Home />);
-  expect(screen.getByTestId("home-still-life")).toBeTruthy();
-  // Only the greeting and the two cards are read out; the old picture's
-  // handwritten line is gone with it.
-  expect(labelsInOrder(screen.toJSON())).not.toContain("A little progress every day");
-});
-
-it("draws the still life behind the cards, where it takes no touches", async () => {
-  await render(<Home />);
-  const stillLife = screen.getByTestId("home-still-life");
-  const merged = Object.assign({}, ...[stillLife.props.style].flat());
-  expect(merged.zIndex).toBeLessThan(0);
-  expect(stillLife.props.pointerEvents).toBe("none");
 });

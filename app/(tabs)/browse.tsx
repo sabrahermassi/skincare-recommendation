@@ -1,25 +1,23 @@
-import { Image } from "expo-image";
-import { Link, router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, StyleSheet, TextInput, View, type DimensionValue, type ListRenderItem } from "react-native";
+import { FlatList, Pressable, TextInput, View, type ListRenderItem } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { HEADER_GUTTER } from "@/components/AppHeader";
-import { GlassButton } from "@/components/GlassButton";
-import { ArrowIcon } from "@/components/icons/ArrowIcon";
-import { ProductRow } from "@/components/ProductRow";
+import { EmptyState } from "@/components/EmptyState";
+import { BackChevron, IconCircle } from "@/components/IconCircle";
+import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
+import { ProductListRow } from "@/components/ProductListRow";
 import { ProductRowSkeleton } from "@/components/ProductRowSkeleton";
-import { ProductThumbnail } from "@/components/ProductThumbnail";
-import { SaveHeart } from "@/components/SaveHeart";
-import { ScorePill } from "@/components/ScorePill";
+import { SearchBar } from "@/components/SearchBar";
 import { Text } from "@/components/Text";
 import { fetchProductsByIds, longEnoughToSearch, peekProducts, searchableQuery, searchProducts, SEARCH_RESULT_LIMIT } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import { matchProduct, type MatchResult } from "@/lib/matching";
 import { isPersonalized } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
+import { photoScannerHref } from "@/lib/open-scanner";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { CANVAS, INK, LINK, MUTED, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 /**
  * Search (#317): search first, no catalogue list. Someone in a shop is
@@ -38,13 +36,10 @@ const RECENT_LIMIT = 8;
 // One empty list, so "nothing recent yet" is the same value every render.
 const NO_PRODUCTS: ProductWithIngredients[] = [];
 
-// Before typing: the for.me line-up with "A little progress every day"
-// (new-watercolor/forme_lineup_transparent.png, cropped to what's drawn). Drawn
-// wider than the other empty-state pictures so its handwriting and labels read.
+// Before typing: the for.me line-up; a search with no match: the open box and
+// magnifier (v7's empty-state pictures).
 const WELCOME_ART = require("@/assets/illustrations/search-welcome.webp");
 const WELCOME_ASPECT = 1000 / 1184;
-const WELCOME_ART_WIDTH = "90%";
-// A search with no match: the open box and magnifier, as the scanner's no-match sheet.
 const NO_MATCH_ART = require("@/assets/illustrations/no-product-found.webp");
 const NO_MATCH_ASPECT = 1164 / 697;
 
@@ -254,47 +249,55 @@ export default function Browse() {
   const renderItem: ListRenderItem<SearchItem> = ({ item }) => {
     switch (item.kind) {
       case "keep-typing":
-        return (
-          <Text style={{ paddingHorizontal: HEADER_GUTTER, paddingBottom: SPACE.text, fontSize: TYPE.caption, color: MUTED }}>
-            {KEEP_TYPING}
-          </Text>
-        );
+        return <Text style={{ paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.text, fontSize: TYPE.caption, color: MUTED }}>{KEEP_TYPING}</Text>;
 
       case "recent-heading":
         // "Clear all" empties the list at once, with no second tap (owner). It
         // clears the viewing history — the same log Saved's History shows —
         // and never the saved shelf.
         return (
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: HEADER_GUTTER, paddingTop: SPACE.text }}>
-            <Text accessibilityRole="header" style={{ fontSize: TYPE.title, fontWeight: "700", color: INK }}>
-              Recently viewed
-            </Text>
-            <Pressable
-              onPress={clearHistory}
-              accessibilityRole="button"
-              accessibilityLabel="Clear all recently viewed"
-              hitSlop={SPACE.text}
-              style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
-              className="active:opacity-70"
-            >
-              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: MUTED }}>Clear all</Text>
-            </Pressable>
-          </View>
+          <GroupHeading
+            title="Recently viewed"
+            action={
+              <Pressable
+                onPress={clearHistory}
+                accessibilityRole="button"
+                accessibilityLabel="Clear all recently viewed"
+                style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
+                className="active:opacity-70"
+              >
+                <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Clear all</Text>
+              </Pressable>
+            }
+          />
         );
 
       case "skeleton":
         return <ProductRowSkeleton />;
 
       case "product":
-        return <ProductRow product={item.product} match={item.match} />;
-
       case "recent":
-        return <RecentRow product={item.product} match={item.match} />;
+        return (
+          <View style={{ paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.block }}>
+            <ProductListRow product={item.product} score={item.match.score} />
+          </View>
+        );
     }
   };
 
+  // Results under a "Products" heading, as the design groups them.
+  const resultItems = searchActive && items.length > 0 && items[0].kind === "product";
+
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
+      {/* The back circle and the search bar on one row (v7). Back always
+          leads Home: Search has no tab of its own. */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: SPACE.gutter, paddingTop: 8, paddingBottom: 12 }}>
+        <IconCircle onPress={() => router.navigate("/")} accessibilityLabel="Back to Home">
+          <BackChevron />
+        </IconCircle>
+        <SearchBar ref={searchInput} value={query} onChangeText={changeQuery} placeholder="Search products or brands" />
+      </View>
       <FlatList
         data={items}
         keyExtractor={(item) =>
@@ -308,163 +311,51 @@ export default function Browse() {
         ListEmptyComponent={
           <View style={{ flex: 1 }}>
             {searchActive ? null : query.trim().length > 0 ? (
-              <Text style={{ paddingHorizontal: HEADER_GUTTER, paddingBottom: SPACE.text, fontSize: TYPE.caption, color: MUTED }}>{KEEP_TYPING}</Text>
+              <Text style={{ paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.text, fontSize: TYPE.caption, color: MUTED }}>{KEEP_TYPING}</Text>
             ) : null}
             <View style={{ flex: 1, justifyContent: "center" }}>
               {searchActive ? (
+                // Search by name lives only here; anywhere else a missing
+                // product only offers the ingredient-list scan (v7).
                 <EmptyState
                   art={NO_MATCH_ART}
                   aspect={NO_MATCH_ASPECT}
-                  artLabel=""
-                  title="We looked everywhere"
-                  line="This product isn't in our library yet. Try searching for another one."
+                  title="Nothing found yet"
+                  line="Our product library is still small. Scan the ingredient list and we'll read it for you."
+                  action={
+                    <PrimaryButton
+                      label="Scan the ingredient list"
+                      onPress={() => router.push(photoScannerHref())}
+                      style={{ width: BUTTON_WIDTH.secondary }}
+                    />
+                  }
                 />
               ) : (
-                <EmptyState
-                  art={WELCOME_ART}
-                  aspect={WELCOME_ASPECT}
-                  width={WELCOME_ART_WIDTH}
-                  artLabel="A little progress every day"
-                  title="Search by name or brand"
-                  line="Look up any product in our library of analysed skincare."
-                />
+                <EmptyState art={WELCOME_ART} aspect={WELCOME_ASPECT} line="Search by product or brand name. Products you open will show up here." />
               )}
             </View>
           </View>
         }
-        // The search box lives in this same list's header, so with the
-        // keyboard up, the default "never" meant a row's first tap only
-        // dismissed the keyboard — the tap was consumed as "outside the
-        // input" rather than reaching the row, so opening a result took two
-        // taps. "handled" lets a tap that lands on an actual interactive
-        // element (a row's Pressable) fire immediately; a tap on genuinely
-        // empty list space still dismisses the keyboard as before.
+        // The search box sits above the list, so with the keyboard up a
+        // row's first tap would only dismiss the keyboard. "handled" lets a
+        // tap on a row fire at once; a tap on empty space still dismisses it.
         keyboardShouldPersistTaps="handled"
-        // The tab opens with the keyboard up; scrolling the list puts it away.
+        // Scrolling the list puts the keyboard away.
         keyboardDismissMode="on-drag"
-        ListHeaderComponent={
-          <View style={{ gap: 18, paddingBottom: SPACE.block, backgroundColor: CANVAS }}>
-            {/* Back to Home. Browse has no tab of its own (it opens from Home's
-                "Search" card), so this always leads home rather than
-                back through wherever the search was opened from. */}
-            <View style={{ flexDirection: "row", paddingHorizontal: HEADER_GUTTER, paddingTop: 12, paddingBottom: 14 }}>
-              <Pressable
-                onPress={() => router.navigate("/")}
-                hitSlop={14}
-                accessibilityRole="button"
-                accessibilityLabel="Back to Home"
-                className="active:opacity-70"
-              >
-                <ArrowIcon direction="left" size={24} color={INK} />
-              </Pressable>
-            </View>
-            <View style={{ paddingHorizontal: HEADER_GUTTER, position: "relative", justifyContent: "center" }}>
-              <TextInput
-                ref={searchInput}
-                value={query}
-                onChangeText={changeQuery}
-                placeholder="Search products or brands"
-                placeholderTextColor={MUTED_FAINT}
-                autoCorrect={false}
-                returnKeyType="search"
-                accessibilityLabel="Search products or brands"
-                style={{
-                  height: 48,
-                  borderRadius: 24,
-                  borderWidth: 1,
-                  borderColor: BORDER_INACTIVE,
-                  backgroundColor: CANVAS,
-                  paddingHorizontal: 18,
-                  // Room for the clear button once there's something to clear.
-                  paddingRight: query.length > 0 ? 42 : 18,
-                  fontSize: 13.5,
-                  color: INK,
-                }}
-              />
-              {query.length > 0 && (
-                <GlassButton
-                  symbol="xmark"
-                  icon="close"
-                  accessibilityLabel="Clear search"
-                  onPress={() => changeQuery("")}
-                  small
-                  style={{ position: "absolute", right: HEADER_GUTTER + 12 }}
-                />
-              )}
-            </View>
-          </View>
-        }
+        ListHeaderComponent={resultItems ? <GroupHeading title="Products" /> : null}
       />
     </View>
   );
 }
 
-/**
- * What Search shows instead of results (owner, after OnSkin): a picture, a
- * heading and one line — before typing, and when nothing matched. No button:
- * the box above is the way forward.
- */
-/**
- * One product under Recently viewed: its picture in a circle, name and brand,
- * the score and a heart to save it, with a hairline under each row. The heart
- * sits beside the link rather than inside it, so a tap on it never opens the
- * product.
- */
-function RecentRow({ product, match }: { product: ProductWithIngredients; match: MatchResult }) {
+/** A group's heading: 17pt semibold, with an optional action on the right ("Clear all"). */
+function GroupHeading({ title, action }: { title: string; action?: React.ReactNode }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", marginHorizontal: HEADER_GUTTER, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER_INACTIVE }}>
-      <Link href={`/product/${product.id}`} asChild>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${product.name}, ${product.brand}`}
-          className="active:opacity-70"
-          style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14 }}
-        >
-          <ProductThumbnail product={product} size={RECENT_THUMB} radius={RECENT_THUMB / 2} backgroundColor={SURFACE} />
-          <View style={{ flex: 1, gap: 3 }}>
-            <Text numberOfLines={2} style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>
-              {product.name}
-            </Text>
-            <Text numberOfLines={1} style={{ fontSize: TYPE.label, color: MUTED }}>
-              {product.brand}
-            </Text>
-          </View>
-          <ScorePill score={match.score} />
-        </Pressable>
-      </Link>
-      <SaveHeart productId={product.id} fetchedAt={product.fetchedAt} />
-    </View>
-  );
-}
-
-// The round picture on a Recently viewed row.
-const RECENT_THUMB = 56;
-
-function EmptyState({
-  art,
-  aspect,
-  width = EMPTY_ART_WIDTH,
-  artLabel,
-  title,
-  line,
-}: {
-  art: number;
-  aspect: number;
-  width?: DimensionValue;
-  artLabel: string;
-  title: string;
-  line: string;
-}) {
-  return (
-    <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: HEADER_GUTTER }}>
-      <Image source={art} contentFit="contain" accessibilityLabel={artLabel} style={{ width, aspectRatio: aspect }} />
-      <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: TYPE.heading, color: INK }}>
+    <View style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: SPACE.gutter, paddingTop: SPACE.block, paddingBottom: SPACE.text }}>
+      <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: INK }}>
         {title}
       </Text>
-      <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: TYPE.body * 1.4, color: MUTED }}>{line}</Text>
+      {action}
     </View>
   );
 }
-
-// How wide the empty-state picture is drawn: most of the screen, not all of it.
-const EMPTY_ART_WIDTH = "72%";

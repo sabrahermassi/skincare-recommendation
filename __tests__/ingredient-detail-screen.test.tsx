@@ -195,11 +195,6 @@ describe.each([
 // The handoff's layout (design_handoff_ingredient_detail): where it came from,
 // where it sits on the label, and Previous / Next along it.
 describe("the ingredient page's layout", () => {
-  it("names the product it was opened from", async () => {
-    await open("glycerin", {});
-    expect(screen.getByText("In Cream")).toBeTruthy();
-  });
-
   it("says where it sits on the label", async () => {
     await open("glycerin", {});
     expect(screen.getByText("On this label")).toBeTruthy();

@@ -12,8 +12,8 @@ export const SCAN_ICON = 31;
 
 /**
  * The floating tab bar: its height, its gap from the screen's sides, and its gap
- * above the bottom edge. The same height as the segmented switch (owner, 27
- * September 2026), after a brief try at 20% thinner.
+ * above the bottom edge: 56pt tall, 20pt from the sides, 22pt from the bottom
+ * on a phone with a home indicator (v7).
  */
 export const TAB_BAR_HEIGHT = CAPSULE_HEIGHT;
 /** A full capsule, round at both ends (owner's reference). */

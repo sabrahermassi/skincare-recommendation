@@ -1,22 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { IconCircle } from "@/components/IconCircle";
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { ReportMistakeLink } from "@/components/ReportMistakeLink";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SourceLink } from "@/components/SourceLink";
-import { ReadingScale, Text, useLargeText } from "@/components/Text";
+import { ReadingScale, Text } from "@/components/Text";
+import { VerdictMarker } from "@/components/VerdictMarker";
 import { fetchProduct, resolveIngredientNames } from "@/data/api";
 import { unknownIngredient, type Concern, type Ingredient, type ProductWithIngredients, type SkinProfile } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { StarIcon } from "@/components/icons/StarIcon";
 import { comedogenicLabel } from "@/lib/format";
 import { isWarnedPoreClogging } from "@/lib/pore-clogging";
-import { countedAgainst, ingredientLabel, isCommonIrritant, LABEL_META, type IngredientLabel } from "@/lib/ingredient-labels";
+import { countedAgainst, ingredientLabel, isCommonIrritant, type IngredientLabel } from "@/lib/ingredient-labels";
 import { matchProduct, positionNote, positionWeightLabel, ruleFor, type Contraindication, type MatchResult } from "@/lib/matching";
 import { FROM_FINDER, useScoringProfile } from "@/lib/finder-choices";
 import { openQuiz } from "@/lib/open-quiz";
@@ -25,7 +26,7 @@ import { targetApplies, type IngredientRule } from "@/lib/rules";
 import { contraindications, isVerified, regulatoryStatus } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
-import { CANVAS, CARD_SHADOW, CHOSEN, INK, LINE, MUTED, ROW_DIVIDER, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINE, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 import { ingredientNameParam, productIdParam } from "@/lib/route-params";
 import NotFound from "@/app/+not-found";
@@ -51,29 +52,15 @@ import NotFound from "@/app/+not-found";
  */
 type Fit = IngredientLabel | "none";
 
-type Tone = { solid: string; tint: string; deep: string };
-const NEUTRAL: Tone = { solid: MUTED, tint: VERDICT_NEUTRAL.tint, deep: MUTED };
+type Tone = { solid: string; tint: string; deep: string; wash: string };
 const TONE: Record<Fit, Tone> = {
   good: VERDICT.high,
   watch: VERDICT.medium,
   avoid: VERDICT.low,
-  unknown: NEUTRAL,
-  none: NEUTRAL,
-};
-// The status pill: the list's own words for the row, so the two agree.
-const STATUS_LABEL: Record<Fit, string> = {
-  good: LABEL_META.good.label,
-  watch: LABEL_META.watch.label,
-  avoid: LABEL_META.avoid.label,
-  unknown: "Not recognised",
-  none: "No known concerns",
+  unknown: VERDICT_NEUTRAL,
+  none: VERDICT_NEUTRAL,
 };
 
-// The picture beside the name, on a soft blob in the status tint.
-const ART = require("@/assets/illustrations/flask-with-serum.webp");
-const ART_BOX = { width: 132, height: 120 };
-const ART_CIRCLE = 104;
-const CARD_RADIUS = 24;
 const PAGER_BUTTON = 52;
 
 /**
@@ -92,9 +79,6 @@ export default function IngredientRoute() {
 
 function IngredientDetail({ inci, productId, from }: { inci: string; productId?: string; from?: string }) {
   const insets = useSafeAreaInsets();
-  // Past the ordinary text ceiling the name needs the whole width, so the
-  // decorative picture beside it goes (#334).
-  const largeText = useLargeText();
 
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [resolvedIngredient, setResolvedIngredient] = useState<Ingredient | null>(null);
@@ -203,30 +187,24 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader
-        // The product the person came from, as a quiet line (handoff).
-        title={product ? `In ${product.name}` : undefined}
-        quietTitle
         right={
           // Nothing to keep: starring an unrecognised name would save a string
           // we can say nothing about (#296).
           !verified ? undefined : (
-            <Pressable
+            <IconCircle
               // Stars for anyone, signed in or not (#300).
               onPress={() => {
                 haptic.tap();
                 if (starred) toggleSavedIngredient(ingredient.name);
                 else saveFromTap(() => saveIngredient(ingredient.name), "ingredient");
               }}
-              hitSlop={12}
-              accessibilityRole="button"
               accessibilityLabel={starred ? "Remove from starred ingredients" : "Star this ingredient"}
               accessibilityState={{ selected: starred }}
-              className="active:opacity-70"
             >
               <PopOnToggle active={starred}>
                 <StarIcon filled={starred} />
               </PopOnToggle>
-            </Pressable>
+            </IconCircle>
           )
         }
       />
@@ -235,69 +213,27 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
         {/* The reading part of the screen: its text follows the phone's text
             size all the way up (#334). */}
         <ReadingScale>
-          {/* The name, what kind of thing it is, and its status; the picture
-              beside it, dropped at large text so the name has the width (#334). */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 6, paddingHorizontal: 20, paddingBottom: 20 }}>
-            <View style={{ flex: 1, alignItems: "flex-start", gap: 6 }}>
-              <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 32, lineHeight: 36, color: INK }}>
-                {displayIngredientName(primary)}
-              </Text>
-              {kind ? <Text style={{ fontSize: 15, color: MUTED }}>{kind}</Text> : null}
-              <View
-                style={{ marginTop: 6, flexDirection: "row", alignItems: "center", gap: 7, borderRadius: 999, paddingTop: 6, paddingRight: 12, paddingBottom: 6, paddingLeft: 10, backgroundColor: tone.tint }}
-              >
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tone.solid }} />
-                <Text style={{ fontSize: 13, fontWeight: "600", color: tone.deep }}>{STATUS_LABEL[fit]}</Text>
-              </View>
-            </View>
-            {largeText ? null : (
-              <View style={{ ...ART_BOX, alignItems: "center", justifyContent: "center" }}>
-                <View
-                  style={{
-                    position: "absolute",
-                    top: 4,
-                    left: 6,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: tone.tint,
-                    opacity: 0.7,
-                    borderTopLeftRadius: 70,
-                    borderTopRightRadius: 56,
-                    borderBottomRightRadius: 64,
-                    borderBottomLeftRadius: 60,
-                  }}
-                />
-                <View style={{ width: ART_CIRCLE, height: ART_CIRCLE, borderRadius: ART_CIRCLE / 2, overflow: "hidden", backgroundColor: SURFACE, alignItems: "center", justifyContent: "center" }}>
-                  <Image source={ART} style={{ width: ART_CIRCLE - 8, height: ART_CIRCLE - 8 }} contentFit="contain" accessibilityLabel="" />
-                </View>
-              </View>
-            )}
+          {/* The name in the page face, what kind of thing it is, and the
+              verdict marker under it (v7). */}
+          <View style={{ alignItems: "flex-start", gap: 8, paddingTop: SPACE.text, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.block }}>
+            <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+              {displayIngredientName(primary)}
+            </Text>
+            {kind ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{kind}</Text> : null}
+            {fit === "none" ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>No known concerns</Text> : <VerdictMarker label={fit} />}
           </View>
 
-          <View style={{ paddingHorizontal: 20, gap: 14 }}>
-            {/* What it does: not a card. */}
-            <View style={{ gap: SPACE.text, paddingHorizontal: 2, paddingBottom: 6 }}>
-              <SectionLabel>What it does</SectionLabel>
-              <Text style={{ fontSize: TYPE.body, lineHeight: 24, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
+          <View style={{ paddingHorizontal: SPACE.gutter, gap: SPACE.block }}>
+            <Card style={{ padding: 16, gap: 4 }}>
+              <CardHeading>What it does</CardHeading>
+              <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
               {rule?.source ? <SourceLink source={rule.source} /> : null}
-            </View>
+            </Card>
 
-            {/* For your skin. */}
-            <Card style={{ padding: 20, gap: 10 }}>
-              <View style={{ width: 28, height: 4, borderRadius: 2, backgroundColor: tone.solid }} />
-              <SectionLabel>For your skin</SectionLabel>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                <View
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                  style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: tone.tint }}
-                >
-                  <Ionicons name={FIT_ICON[fit]} size={20} color={tone.solid} />
-                </View>
-                <Text style={{ flex: 1, fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, lineHeight: 26, color: INK }}>
-                  {fitHeadline(fit, helps, hurts, warning, rule, profile)}
-                </Text>
-              </View>
+            {/* For your skin, on the verdict's light wash (v7). */}
+            <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: 16, gap: 4 }}>
+              <CardHeading>For your skin</CardHeading>
+              <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
               {/* A warning's own sentence is the most specific thing we hold,
                   with its source under it (#347). */}
               {fit !== "unknown" && warningLines.length > 0 ? (
@@ -319,27 +255,27 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
                   {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null)}
                 </Text>
               )}
-              <View style={{ alignSelf: "flex-start", marginTop: 2, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: tone.tint }}>
-                <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{fitTag(fit, helps, hurts, warning, match)}</Text>
-              </View>
-            </Card>
+              <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{fitTag(fit, helps, hurts, warning, match)}</Text>
+            </View>
 
             {inList ? <OnThisLabel names={product.ingredients.map((i) => i.name)} index={index} colour={tone.solid} /> : null}
 
             {/* Good to know: neutral facts, no ticks (handoff). */}
-            <Card style={{ paddingTop: 20, paddingBottom: 6 }}>
-              <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 21, color: INK, paddingHorizontal: 20, paddingBottom: 6 }}>Good to know</Text>
+            <Card style={{ paddingTop: 16, paddingBottom: 4 }}>
+              <View style={{ paddingHorizontal: 16, paddingBottom: 4 }}>
+                <CardHeading>Good to know</CardHeading>
+              </View>
               {facts.length > 0 ? (
                 facts.map((fact, i) => (
-                  <View key={fact.key} style={{ paddingHorizontal: 20 }}>
-                    <View style={{ flexDirection: "row", gap: 12, paddingVertical: 13, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: ROW_DIVIDER }}>
+                  <View key={fact.key} style={{ paddingHorizontal: 16 }}>
+                    <View style={{ flexDirection: "row", gap: 12, paddingVertical: 13, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: HAIRLINE }}>
                       <Text style={{ width: 120, fontSize: TYPE.label, color: MUTED }}>{fact.key}</Text>
                       <Text style={{ flex: 1, fontSize: 15, lineHeight: 21, color: INK }}>{fact.value}</Text>
                     </View>
                   </View>
                 ))
               ) : (
-                <Text style={{ paddingHorizontal: 20, paddingVertical: 13, fontSize: 15, lineHeight: 21, color: INK }}>
+                <Text style={{ paddingHorizontal: 16, paddingVertical: 12, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
                   We hold no regulatory record, declared function or pore rating for this name.
                 </Text>
               )}
@@ -358,7 +294,7 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
                 accessibilityRole="link"
                 accessibilityLabel="Read more on PubChem"
                 accessibilityHint="Opens in your browser"
-                style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: CARD_RADIUS, backgroundColor: VERDICT_NEUTRAL.tint, paddingVertical: 14, paddingLeft: 20, paddingRight: SPACE.block }}
+                style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, paddingVertical: 12, paddingHorizontal: 16 }}
                 className="active:opacity-80"
               >
                 <View style={{ flex: 1, gap: 2 }}>
@@ -434,20 +370,18 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
   );
 }
 
-const FIT_ICON: Record<Fit, keyof typeof Ionicons.glyphMap> = {
-  good: "heart",
-  watch: "warning-outline",
-  avoid: "warning-outline",
-  unknown: "help-circle-outline",
-  none: "heart-outline",
-};
-
+/** A white card (v7): its fill alone, no border or shadow. */
 function Card({ style, children }: { style?: object; children: React.ReactNode }) {
-  return <View style={[{ borderRadius: CARD_RADIUS, backgroundColor: SURFACE, ...CARD_SHADOW }, style]}>{children}</View>;
+  return <View style={[{ borderRadius: CARD_RADIUS, backgroundColor: SURFACE }, style]}>{children}</View>;
 }
 
-function SectionLabel({ children }: { children: string }) {
-  return <Text style={{ fontSize: 13, fontWeight: "600", color: MUTED }}>{children}</Text>;
+/** A card's heading (v7): SF 17 semibold. */
+function CardHeading({ children }: { children: string }) {
+  return (
+    <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: INK }}>
+      {children}
+    </Text>
+  );
 }
 
 // How much a position means, in words. Only for positions before the label's
@@ -472,9 +406,9 @@ function OnThisLabel({ names, index, colour }: { names: string[]; index: number;
   // a hundred they may shrink further still (`flexShrink`), never overflow it.
   const dot = total > 60 ? 3 : total > 40 ? 4 : 6;
   return (
-    <Card style={{ padding: 20, gap: 12 }}>
+    <Card style={{ padding: 16, gap: 12 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-        <SectionLabel>On this label</SectionLabel>
+        <CardHeading>On this label</CardHeading>
         <Text style={{ fontSize: 13, color: MUTED }}>
           #{index + 1} of {total}
           {ordered ? ` · ${weight}` : ""}

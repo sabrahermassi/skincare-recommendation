@@ -1,30 +1,34 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
-import { Pressable, ScrollView, View, type StyleProp, type ViewStyle } from "react-native";
+import { useRef, useState } from "react";
+import { Modal, Pressable, ScrollView, View, useWindowDimensions, type StyleProp, type ViewStyle } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
-import { CHOSEN, FLOATING_SHADOW, INK, MUTED, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { INK, LINK, MENU_CHOSEN, MENU_SHADOW, MUTED, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
-// The floating card's size and shape (design_handoff_skincare_cards).
-const POPOVER_WIDTH = 224;
-const POPOVER_RADIUS = 20;
-const OPTION_HEIGHT = 48;
-const OPTION_RADIUS = 14;
-const POPOVER_PADDING = 6;
+// The popover (v7, read off the hand-off): white, radius 14, 4pt inside,
+// sized to its longest option; the chosen row tinted and ticked.
+const POPOVER_RADIUS = 14;
+const POPOVER_PADDING = 4;
+const POPOVER_MIN_WIDTH = 132;
+// Roughly how wide a 15pt letter is, to size the popover to its longest option.
+const LETTER_WIDTH = 8.4;
+const OPTION_HEIGHT = TOUCH_TARGET;
+const OPTION_RADIUS = 10;
 // A long list (the finder's product types) shows this many rows and scrolls
 // the rest; half a row peeks out below, so it reads as scrollable.
 const VISIBLE_OPTIONS = 7.5;
 
 /**
- * "Filter: All ▾" and, tapped, its choices on a white card that floats over
- * what's below — each with its count, the chosen one tinted and ticked
- * (owner's reference, then the result-screen handoff). Every filter in the
- * app: the ingredient lists, Saved's routine steps. Choosing closes it; so
- * does tapping "Filter" again. A long list scrolls inside the card.
+ * "Filter: All ⌄" and, tapped, its choices in a small popover that floats
+ * over the screen (v7): the chosen one tinted with a tick, a count after a
+ * label where one is given. Choosing closes it, and so does tapping anywhere
+ * outside it. Every filter in the app: the ingredient box, the finder's
+ * product types, Saved's routine steps. A long list scrolls inside it.
  *
- * It floats rather than pushing the list down, so it raises itself with
- * `zIndex` over its parent's later siblings. `align` puts the button (and the
- * card under it) at the start or the end of its row.
+ * The popover sits in a transparent full-screen modal, placed under the
+ * button: no parent's `zIndex` or clipping can hide it, and the backdrop is
+ * what hears a tap outside. `align` pins its right edge to the button's
+ * instead of its left.
  */
 export function FilterDropdown<T extends string>({
   options,
@@ -40,75 +44,99 @@ export function FilterDropdown<T extends string>({
   style?: StyleProp<ViewStyle>;
 }) {
   const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const button = useRef<View>(null);
+  const window = useWindowDimensions();
   const current = options.find((o) => o.value === selected)?.label ?? "";
+  // Sized to its longest option (v7): its letters, the row's padding and gap,
+  // the tick, and a count where there is one.
+  const longest = Math.max(...options.map((o) => o.label.length));
+  const hasCounts = options.some((o) => o.count !== undefined);
+  const popoverWidth = Math.min(window.width - 32, Math.max(POPOVER_MIN_WIDTH, Math.ceil(longest * LETTER_WIDTH) + 2 * POPOVER_PADDING + 24 + 12 + 14 + (hasCounts ? 44 : 0)));
+
+  // Opens at once, and shows once the button has been measured, so it never
+  // flashes in the wrong place.
+  const show = () => {
+    setOpen(true);
+    button.current?.measureInWindow((x, y, width, height) => setAnchor({ x, y, width, height }));
+  };
+  const close = () => {
+    setOpen(false);
+    setAnchor(null);
+  };
+
   return (
-    <View style={[{ zIndex: 10, alignItems: align === "end" ? "flex-end" : "flex-start" }, style]}>
+    <View style={[{ alignItems: align === "end" ? "flex-end" : "flex-start" }, style]}>
       <Pressable
-        onPress={() => setOpen((o) => !o)}
+        ref={button}
+        onPress={open ? close : show}
         accessibilityRole="button"
         accessibilityLabel={`Filter: ${current}`}
         accessibilityState={{ expanded: open }}
-        style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, borderRadius: 999 }}
+        style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 4 }}
         className="active:opacity-70"
       >
-        <Text style={{ fontSize: TYPE.body, color: MUTED }}>Filter:</Text>
-        <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: CHOSEN.accent }}>{current}</Text>
-        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color={CHOSEN.accent} />
+        <Text style={{ fontSize: TYPE.label, color: MUTED }}>Filter:</Text>
+        <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{current}</Text>
+        <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" style={{ transform: [{ rotate: open ? "180deg" : "0deg" }] }}>
+          <Path d="m6 9 6 6 6-6" stroke={LINK} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
       </Pressable>
-      {open ? (
-        <View
-          accessibilityRole="radiogroup"
-          style={{
-            position: "absolute",
-            top: TOUCH_TARGET + 4,
-            ...(align === "end" ? { right: 0 } : { left: 0 }),
-            width: POPOVER_WIDTH,
-            borderRadius: POPOVER_RADIUS,
-            backgroundColor: SURFACE,
-            ...FLOATING_SHADOW,
-          }}
-        >
-          <ScrollView
-            style={{ maxHeight: OPTION_HEIGHT * VISIBLE_OPTIONS + POPOVER_PADDING * 2 }}
-            contentContainerStyle={{ padding: POPOVER_PADDING }}
-            bounces={false}
-            nestedScrollEnabled
-            showsVerticalScrollIndicator={options.length > VISIBLE_OPTIONS}
-          >
-            {options.map(({ value, label, count }) => {
-              const active = value === selected;
-              return (
-                <Pressable
-                  key={value}
-                  onPress={() => {
-                    onSelect(value);
-                    setOpen(false);
-                  }}
-                  accessibilityRole="radio"
-                  accessibilityLabel={count === undefined ? label : `${label}, ${count}`}
-                  accessibilityState={{ checked: active }}
-                  style={{
-                    height: OPTION_HEIGHT,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 10,
-                    paddingHorizontal: 14,
-                    borderRadius: OPTION_RADIUS,
-                    backgroundColor: active ? CHOSEN.fill : undefined,
-                  }}
-                  className="active:opacity-70"
-                >
-                  <Text style={{ flex: 1, fontSize: TYPE.body, fontWeight: active ? "600" : "500", color: INK }}>{label}</Text>
-                  {count !== undefined ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{count}</Text> : null}
-                  <View style={{ width: 20, alignItems: "center" }}>
-                    {active ? <Ionicons name="checkmark" size={20} color={CHOSEN.accent} /> : null}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-      ) : null}
+      <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
+        <Pressable onPress={close} accessibilityLabel="Close the filter" style={{ flex: 1 }}>
+          <View
+              accessibilityRole="radiogroup"
+              onStartShouldSetResponder={() => true}
+              style={{
+                position: "absolute",
+                top: anchor ? anchor.y + anchor.height + 4 : 0,
+                ...(align === "end" ? { right: anchor ? window.width - (anchor.x + anchor.width) : 0 } : { left: anchor ? anchor.x : 0 }),
+                opacity: anchor ? 1 : 0,
+                width: popoverWidth,
+                borderRadius: POPOVER_RADIUS,
+                backgroundColor: SURFACE,
+                ...MENU_SHADOW,
+              }}
+            >
+              <ScrollView
+                style={{ maxHeight: OPTION_HEIGHT * VISIBLE_OPTIONS + POPOVER_PADDING * 2, borderRadius: POPOVER_RADIUS }}
+                contentContainerStyle={{ padding: POPOVER_PADDING }}
+                bounces={false}
+                showsVerticalScrollIndicator={options.length > VISIBLE_OPTIONS}
+              >
+                {options.map(({ value, label, count }) => {
+                  const on = value === selected;
+                  return (
+                    <Pressable
+                      key={value}
+                      onPress={() => {
+                        onSelect(value);
+                        close();
+                      }}
+                      accessibilityRole="radio"
+                      accessibilityLabel={count === undefined ? label : `${label}, ${count}`}
+                      accessibilityState={{ checked: on }}
+                      style={{ height: OPTION_HEIGHT, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12, borderRadius: OPTION_RADIUS, backgroundColor: on ? MENU_CHOSEN : undefined }}
+                      className="active:opacity-70"
+                    >
+                      <Text numberOfLines={1} style={{ flex: 1, fontSize: TYPE.label, fontWeight: on ? "600" : "400", color: INK }}>
+                        {label}
+                      </Text>
+                      {count !== undefined ? <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{count}</Text> : null}
+                      <View style={{ width: 14, alignItems: "center" }}>
+                        {on ? (
+                          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                            <Path d="M20 6 9 17l-5-5" stroke={LINK} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
+                          </Svg>
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

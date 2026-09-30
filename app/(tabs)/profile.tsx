@@ -9,7 +9,7 @@ import { TabTitle } from "@/components/TabTitle";
 import { Text } from "@/components/Text";
 import { answeredWithoutSignal, isPersonalized, profileHeadline } from "@/lib/profile";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { CANVAS, CARD_SHADOW, INK, MUTED, SURFACE } from "@/lib/tokens";
+import { CANVAS, CARD_SHADOW, DISPLAY_FONT, INK, MUTED, SURFACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 const AVATAR = 120;
@@ -47,7 +47,7 @@ export default function Profile() {
             <Image source={AVATAR_ART} contentFit="contain" accessibilityLabel="" style={{ width: AVATAR, height: AVATAR }} />
           </View>
 
-          <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 26, color: INK, textAlign: "center" }}>{title}</Text>
+          <Text style={{ fontFamily: DISPLAY_FONT, fontSize: 26, color: INK, textAlign: "center" }}>{title}</Text>
 
           {/* No chips of the answers here (owner): the Skin profile row below
               holds them. A profile that doesn't score yet says how to fix that. */}

@@ -4,7 +4,7 @@ import { Pressable, View } from "react-native";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
-import { CANVAS, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 /**
  * Any link to a page that doesn't exist — a stale share, a mistyped deep
@@ -19,13 +19,13 @@ export default function NotFound() {
       {/* Opened straight from a link there is nothing to go back to. */}
       <ScreenHeader onBack={() => (router.canGoBack() ? router.back() : router.replace("/"))} />
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, color: INK }}>
+        <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
           Page not found
         </Text>
         <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
           This link doesn&apos;t lead anywhere in the app.
         </Text>
-        <PrimaryButton size={52} label="Go to Home" onPress={() => router.replace("/")} />
+        <PrimaryButton label="Go to Home" onPress={() => router.replace("/")} />
         <Pressable
           onPress={() => router.replace("/browse")}
           accessibilityRole="link"

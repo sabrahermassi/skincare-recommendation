@@ -24,15 +24,16 @@ import type { Verdict } from "./matching";
 
 /**
  * The page ground on every screen — onboarding, the quiz and Saved included,
- * with no screen-specific cream or background picture (owner, 26 September
- * 2026). `#FDF9F0` was given by the owner; it replaced the FOR.ME reskin's
- * `#FBF6EE` and the intro's own `#FDFAF2`.
+ * with no screen-specific cream or background picture. v7 design (29
+ * September 2026) tones the cream down to a touch: `#FCFAF7`, read off the
+ * hand-off; it replaced the owner's `#FDF9F0`, which replaced the FOR.ME
+ * reskin's `#FBF6EE`.
  * Contrast figures below were measured against `#FBF6EE`. `#FDF9F0` is
  * slightly lighter, so a darker colour's ratio against it is the same or a
  * little higher, and white's (SURFACE) a little lower (computed, not
  * re-measured).
  */
-export const CANVAS = "#FDF9F0";
+export const CANVAS = "#FCFAF7";
 
 /**
  * Raised card fill. White, not a tint of the canvas — a card has to separate
@@ -51,11 +52,19 @@ export const SURFACE = "#FFFFFF";
 export const INK = "#241F1E";
 
 /**
- * The dimmed backdrop behind a confirmation dialog: `INK` at 45%. Named
- * with #224's second dialog — it had been written out by hand in
- * profile.tsx. Same value; not a new colour.
+ * The dimmed backdrop behind a sheet or pop-up: `INK` at 32% (v7, read off
+ * the hand-off), with a light blur behind a pop-up.
  */
-export const SCRIM = "rgba(36,31,30,0.45)";
+export const SCRIM = "rgba(36,31,30,0.32)";
+
+/** A sheet or pop-up's own shade (v7: 0 20 50 at 25%). */
+export const SHEET_SHADOW = {
+  shadowColor: INK,
+  shadowOffset: { width: 0, height: 20 },
+  shadowOpacity: 0.25,
+  shadowRadius: 50,
+  elevation: 20,
+} as const;
 
 /** Secondary text, 6.1:1. The old #96605A was close enough to the accent
  *  browns that a muted line and a peach surface read as the same weight. */
@@ -75,8 +84,12 @@ export const MUTED = "#6B5A54";
  *
  * Still visibly lighter than MUTED (6.07:1), so the three-level hierarchy
  * survives.
+ *
+ * v7 (29 September 2026) makes it the design's brand/meta grey, `#8A7870`,
+ * read off the hand-off: 4.20:1 on SURFACE, 4.03:1 on CANVAS (computed) —
+ * under 4.5:1, so it is for the 13pt brand line and meta, never body text.
  */
-export const MUTED_FAINT = "rgba(107,90,84,0.88)";
+export const MUTED_FAINT = "#8A7870";
 
 /**
  * Unselected tab-bar icons. #9A8880 computes to 3.14:1 on CANVAS (WCAG 2.2
@@ -84,7 +97,34 @@ export const MUTED_FAINT = "rgba(107,90,84,0.88)";
  * tab is INK, and MUTED sat only 2.5:1 from it — two dark browns — which is why
  * the selected tab was hard to pick out. Computed, not read off a mockup.
  */
-export const TAB_INACTIVE = "#9A8880";
+export const TAB_INACTIVE = "#8A7870";
+
+/** The current tab's icon, and every terracotta text link (v7, read off the hand-off). 4.87:1 on SURFACE. */
+export const LINK = "#9C6350";
+
+/** Grey icons and placeholders: the search magnifier, an info "i" outline (v7). Decorative: 2.78:1 on SURFACE. */
+export const ICON_MUTED = "#A89890";
+
+/** The track behind a segmented control's sliding thumb (v7). */
+export const SEGMENT_TRACK = "#EFEBE6";
+
+/** The destructive button in a confirm pair (v7, read off the hand-off): a soft red outline. */
+export const DESTRUCTIVE_OUTLINE = { border: "#E9C2BD", fill: "#FDF5F2", label: "#85322B" } as const;
+
+/** The chosen row in a filter popover (v7, read off the hand-off). */
+export const MENU_CHOSEN = "#F7F2EC";
+
+/** A starred ingredient's star when on (v7, read off the hand-off). */
+export const STAR_ON = "#CF9E3E";
+
+/** The "i" ring on a filled verdict pill (v7). */
+export const PILL_INFO = "#D9CFC7";
+
+/** The routine note's moon badge (v7). */
+export const MOON_BADGE = { fill: "#E9E3E3", ink: "#3F3A4A" } as const;
+
+/** Hairline dividers between rows inside a card (v7). */
+export const HAIRLINE = "#EFE6DA";
 
 // ── Lines ───────────────────────────────────────────────────────────────────
 
@@ -96,25 +136,14 @@ export const LINE = "#E4D3C8";
 export const BORDER_INACTIVE = LINE;
 export const DOT_INACTIVE = LINE;
 
-// ── Primary action ──────────────────────────────────────────────────────────
-
-/**
- * The one call to action per screen.
- *
- * NOT the peach accent — that distinction is the whole point of this pair.
- * The old fill was the accent peach itself at 1.51:1 against the canvas, so
- * the button dissolved into the page and had to be found rather than seen.
- * This is 2.3:1 against the canvas and 6.5:1 against its own label, which is
- * a button you can see and read. Pill shape, 26px radius, weight 500.
- */
-export const CTA = "#E09070";
+// ── Controls ────────────────────────────────────────────────────────────────
 
 /**
  * Selected-control fill — a very light, watery peach.
  *
  * This was ink at 6% alpha, which is a neutral grey wash: correct on paper,
  * and on screen it read as "disabled" rather than "chosen". A warm tint says
- * the same thing in the palette's own voice. Derived from CTA (#E09070) at
+ * the same thing in the palette's own voice. Derived from the old call-to-action peach (#E09070) at
  * roughly 12% over the canvas, so selection and the primary action come from
  * one family without a selected chip ever being mistaken for a button — the
  * chip is a pale tint behind an ink border, the button is a saturated fill.
@@ -131,32 +160,30 @@ export const SELECTED = "#F9E7DC";
  *
  * Computed, not read off a mockup: INK on it is 13.0:1, and it sits at
  * 1.17:1 against the canvas — enough to read as a button without competing
- * with the CTA, the same restraint as iOS's own light gray fill.
+ * with the primary button, the same restraint as iOS's own light gray fill.
  */
 export const GRAY_FILL = "#ECE4DD";
 
 /**
- * Home's action cards: SELECTED's peach at 70% intensity (owner, 27 September
- * 2026: "decrease it by 30%"). Computed, not read off a mockup: SELECTED
- * (#F9E7DC) moved 30% of the way to the canvas (#FDF9F0), channel by channel.
+ * Home's scan card, and the no-profile "Is it right for your skin?" card (v7,
+ * read off the hand-off). The only warm tints outside a verdict are Home's.
  */
-export const HOME_CARD_FILL = "#FAECE2";
+export const HOME_CARD_FILL = "#F8ECE3";
+
+/** Home's three small tiles (v7, read off the hand-off): Search, Routine, My match. */
+export const HOME_TILE = { sage: "#EEF1E7", butter: "#F8F1E1", blush: "#F7EBE7" } as const;
 
 /**
- * The rounded blocks of a menu (Profile, Account, the routine screen): the
- * same peach as Home's cards, very light (owner: "the same color, but a very
- * lighter version of it, not gray"). Computed: 30% of SELECTED's tint over
- * the canvas — SELECTED (#F9E7DC) moved 70% of the way to #FDF9F0. Was
- * #F9F4EC, a near-grey, and before that #FBF0E6.
+ * The rounded blocks of a menu (Profile, Account, the routine screen): plain
+ * white grouped cards with dividers in v7 — no coloured tiles; colour is saved
+ * for Home and the scan moments.
  */
-export const MENU_FILL = "#FCF4EA";
+export const MENU_FILL = "#FFFFFF";
 
 /**
  * The product result's list rows (design_handoff_skincare_cards, read off its
- * README): the inset divider between rows and the soft disclosure chevron at
- * a row's end.
+ * README): the soft disclosure chevron at a row's end.
  */
-export const ROW_DIVIDER = "#F3ECE6";
 export const ROW_CHEVRON = "#B9A79E";
 
 /**
@@ -167,10 +194,11 @@ export const ROW_CHEVRON = "#B9A79E";
  * INK 7.6:1 (computed). The raw values live in `lib/colors.ts`.
  */
 export const BUTTON = {
-  primary: { fill: COLORS.buttonPrimary, label: COLORS.buttonPrimaryText },
+  primary: { fill: COLORS.buttonPrimary, pressed: COLORS.buttonPrimaryPressed, label: COLORS.buttonPrimaryText },
   secondary: { fill: COLORS.buttonSecondary, label: INK },
   tertiary: { border: COLORS.buttonTertiary, label: COLORS.buttonTertiary, borderWidth: 1.5 },
-  disabled: { fill: COLORS.buttonDisabled, label: MUTED_FAINT },
+  destructive: { fill: COLORS.buttonDestructive, label: COLORS.buttonPrimaryText },
+  disabled: { fill: COLORS.buttonDisabled, label: SURFACE },
 } as const;
 
 /**
@@ -180,11 +208,10 @@ export const BUTTON = {
  * old peach (owner, 27 September 2026). `accent` is that colour for a word or
  * an icon (the Filter's current choice, the quiz tick's disc).
  *
- * `fill` is computed, not read off a mockup: the primary colour (#9C6350) at
- * 15% over the canvas (#FDF9F0). INK on it is 12.9:1. The border is 3.85:1
- * against the fill, clear of the 3:1 a control's outline needs.
+ * v7 (read off the hand-off): fill `#F3E5DA` — the tab bar's current pill
+ * too — with a terracotta border, and the terracotta text link for a word.
  */
-export const CHOSEN = { fill: "#EEE3D8", border: BUTTON.primary.fill, label: INK, accent: BUTTON.primary.fill } as const;
+export const CHOSEN = { fill: "#F3E5DA", border: BUTTON.primary.fill, label: INK, accent: LINK } as const;
 
 /**
  * One shape for every selectable control in the app — chips, option cards,
@@ -200,7 +227,11 @@ export type VerdictTone = "high" | "medium" | "low";
 
 /**
  * Green / orange / red, pulled warm and desaturated so they belong to this
- * palette rather than to a browser's default alert colours.
+ * palette rather than to a browser's default alert colours. v7 values (29
+ * September 2026), read off the hand-off: `solid` is a ring or dot, `deep`
+ * its text, `tint` a score's track and a band label's fill, `wash` the light
+ * card behind a reason. Every `deep` clears 5:1 on its tint and wash
+ * (computed), and Good's `solid` 4.0:1 on its tint.
  *
  * Three roles per tone, and they are not interchangeable:
  *
@@ -216,21 +247,35 @@ export type VerdictTone = "high" | "medium" | "low";
  */
 export const VERDICT: Record<
   VerdictTone,
-  { solid: string; tint: string; deep: string; label: string }
+  { solid: string; tint: string; deep: string; wash: string; label: string }
 > = {
-  high: { solid: "#3E7D5A", tint: "#DCEBE0", deep: "#2E5F44", label: "Great match" },
-  medium: { solid: "#C2662B", tint: "#FAE3CE", deep: "#8F4A1C", label: "Fair match" },
-  low: { solid: "#B23A32", tint: "#F7D9D5", deep: "#8C2A24", label: "Poor match" },
+  high: { solid: "#4A7A54", tint: "#E0EADB", deep: "#33593F", wash: "#F5F8F2", label: "Great match" },
+  medium: { solid: "#B8672F", tint: "#F6E2CF", deep: "#8A4B22", wash: "#FDF7F1", label: "Fair match" },
+  low: { solid: "#A8453A", tint: "#F4DBD5", deep: "#85322B", wash: "#FCF4F2", label: "Poor match" },
 };
+
+/**
+ * An Excellent score's ring and number (v7): a deeper green than Good, so the
+ * best products stand apart, on Good's tint. Read off the hand-off.
+ */
+export const EXCELLENT = { solid: "#33593F", tint: "#E0EADB", deep: "#33593F", wash: "#F5F8F2" } as const;
+
+/** A score's ring, number and tint: Excellent's deeper green, else its tone's. */
+export function scoreColours(verdict: Verdict): { solid: string; tint: string; deep: string } {
+  if (verdict === "excellent") return EXCELLENT;
+  const tone = toneForVerdict(verdict);
+  return tone ? VERDICT[tone] : VERDICT_NEUTRAL;
+}
 
 /**
  * The unscored case. A formula we could not read is not a bad match — it is
  * an absent one, and giving it a red bar would say something we don't know.
  */
 export const VERDICT_NEUTRAL = {
-  solid: LINE,
+  solid: MUTED,
   tint: "#F1EAE4",
   deep: MUTED,
+  wash: "#F8F6F4",
   label: "Can't tell yet",
 } as const;
 
@@ -240,7 +285,7 @@ export const VERDICT_NEUTRAL = {
  * glance. This is the bridge: excellent and good are both a yes, and the
  * number beside the badge is what separates 92 from 78.
  */
-export function toneForVerdict(verdict: Verdict): VerdictTone | null {
+function toneForVerdict(verdict: Verdict): VerdictTone | null {
   if (verdict === "excellent" || verdict === "good") return "high";
   if (verdict === "fair") return "medium";
   if (verdict === "poor") return "low";
@@ -347,12 +392,7 @@ export const CAMERA_STAGE = "#17161B";
  */
 export const TOUCH_TARGET = Platform.select({ ios: 44, android: 48, default: 44 }) as number;
 
-/**
- * The height of the app's capsules: the segmented switch (scanner, result
- * tabs, Saved) and the floating tab bar, which match (owner: "the navigation
- * bar should have the same height as this thing here"). 56 is the owner's
- * reference switch, measured off its screenshot.
- */
+/** The floating tab bar's height (v7: 56pt). A segmented control is 40pt (`SWITCH_HEIGHT`). */
 export const CAPSULE_HEIGHT = 56;
 
 /**
@@ -363,14 +403,28 @@ export const CAPSULE_HEIGHT = 56;
 export const FILTER_PILL = { height: 32, radius: 16, fontSize: 13.5 } as const;
 export const FILTER_HIT_SLOP = Math.ceil((TOUCH_TARGET - FILTER_PILL.height) / 2);
 
+/**
+ * v7 (29 September 2026, read off the hand-off): SF 13 captions and meta, 15
+ * body and list names, 17 labels and card headings, 20 a product name or the
+ * ingredient box's header; Playfair only for a screen's one title (24 on a
+ * pushed screen, 30 on a tab root) and the score (34).
+ */
 export const TYPE = {
-  caption: 12,
-  label: 14,
-  body: 16,
+  caption: 13,
+  label: 15,
+  body: 15,
+  card: 17,
   title: 20,
   heading: 24,
+  large: 30,
   display: 34,
 } as const;
+
+/** The one display face in v7: Playfair Display 500, for a screen's title and the score. */
+export const DISPLAY_FONT = "PlayfairDisplay_500Medium";
+
+/** A card's corners (v7). Every card, white or tinted, is its fill alone: no border, no shadow. */
+export const CARD_RADIUS = 20;
 
 /**
  * How far iOS Larger Text / Android font size may grow text (#314). The
@@ -421,11 +475,10 @@ export function withAlpha(hex: string, alpha: number): string {
 
 /**
  * Vertical rhythm for a content screen: `text` between lines of text, `block`
- * between a block and the next (text to card, card to card), `gutter` at the
- * screen's sides. A screen lays its blocks in a column with `gap: SPACE.block`
- * instead of each block carrying its own margin.
+ * between cards in a group, `section` between sections, `gutter` at the
+ * screen's sides. v7 allows only 4, 8, 12, 16, 24 and 32.
  */
-export const SPACE = { text: 8, block: 16, gutter: 24 } as const;
+export const SPACE = { text: 8, block: 12, section: 24, gutter: 16 } as const;
 
 /**
  * The heavy shadow under the camera button, so it reads as sitting on top of the
@@ -435,50 +488,46 @@ export const SPACE = { text: 8, block: 16, gutter: 24 } as const;
 export const RAISED_SHADOW = {
   shadowColor: INK,
   shadowOffset: { width: 0, height: 10 },
-  shadowOpacity: 0.5,
+  shadowOpacity: 0.24,
   shadowRadius: 14,
   elevation: 16,
 } as const;
 
-/** The soft shade under the floating tab bar, so it reads as lying on top of the screen. */
+/** The soft shade under something floating: the tab bar, a sheet, a menu (v7: 0 8 18 at 12%). */
 export const FLOATING_SHADOW = {
   shadowColor: INK,
   shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.16,
+  shadowOpacity: 0.12,
   shadowRadius: 18,
   elevation: 12,
 } as const;
 
-/** A card lifted off the screen: a shade under its bottom edge. */
-export const CARD_SHADOW = {
+/** A 40pt icon circle's shade: back, close, heart, share, star (v7: 0 2 10 at 10%). */
+export const ICON_SHADOW = {
   shadowColor: INK,
-  shadowOffset: { width: 0, height: 6 },
-  shadowOpacity: 0.14,
-  shadowRadius: 12,
-  elevation: 5,
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 10,
+  elevation: 3,
+} as const;
+
+/** A popover menu's shade: the filter (v7: 0 12 32 at 18%). */
+export const MENU_SHADOW = {
+  shadowColor: INK,
+  shadowOffset: { width: 0, height: 12 },
+  shadowOpacity: 0.18,
+  shadowRadius: 32,
+  elevation: 12,
 } as const;
 
 /**
- * A filled button lifted off the page: a touch stronger than {@link CHIP_SHADOW}
- * (a button is the thing to press, so it sits a little higher than a chip) and
- * much softer than {@link CARD_SHADOW}, which would swamp a 50dp pill.
+ * A card's shade — none in v7: a card is its fill alone. Kept as a name so
+ * every card still spreads it, and one place decides.
  */
-export const BUTTON_SHADOW = {
-  shadowColor: INK,
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.18,
-  shadowRadius: 6,
-  elevation: 4,
-} as const;
+export const CARD_SHADOW = {} as const;
 
-/** A small chip lifted off its card: a shorter shade than {@link CARD_SHADOW}. */
-export const CHIP_SHADOW = {
-  shadowColor: INK,
-  shadowOffset: { width: 0, height: 3 },
-  shadowOpacity: 0.14,
-  shadowRadius: 5,
-  elevation: 3,
-} as const;
+/** A chip's shade — none in v7: chips are flat, outlined pills. */
+export const CHIP_SHADOW = {} as const;
 
 /** The soft shade drawn under the tab bar: how many layers, how far below it reaches, how dark each is. */
 export const TAB_BAR_SHADE = { layers: 4, reach: 10, opacity: 0.045 } as const;

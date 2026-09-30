@@ -2,7 +2,7 @@ import { ScrollView, View } from "react-native";
 
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
-import { CANVAS, INK, MUTED, MUTED_FAINT, TYPE } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, TYPE } from "@/lib/tokens";
 
 // The facts behind each line are recorded in docs/privacy-disclosures.md.
 const SECTIONS: { title: string; lines: string[] }[] = [
@@ -70,7 +70,7 @@ export default function Privacy() {
       <ScrollView contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 60 }}>
         {SECTIONS.map((section) => (
           <View key={section.title} style={{ gap: 8 }}>
-            <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.title, color: INK }}>{section.title}</Text>
+            <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.title, color: INK }}>{section.title}</Text>
             {section.lines.map((line) => (
               <Text key={line} style={{ fontSize: 13.5, lineHeight: 20, color: MUTED }}>
                 {line}

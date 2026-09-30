@@ -7,8 +7,8 @@ import { clearLabelRead, holdLabelRead } from "@/lib/pending-label";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
- * A photographed label's result: the same Skin match / Safety tabs as a
- * catalogue product, the Safety tab the same with or without a skin profile,
+ * A photographed label's result: the same Skin match / Ingredients tabs as a
+ * catalogue product, the Ingredients tab the same with or without a skin profile,
  * and a retake in place of the quiz for a read too thin to score.
  */
 
@@ -54,7 +54,7 @@ async function open(names: string[]) {
   await act(async () => {});
 }
 // Skin match opens first (owner).
-const showSafety = () => fireEvent.press(screen.getByRole("tab", { name: "Safety" }));
+const showSafety = () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
 
 afterEach(() => {
   clearLabelRead();
@@ -63,10 +63,10 @@ afterEach(() => {
 });
 
 const LIST = ["water", "glycerin", "xanthan gum", "butylene glycol", "parfum", "linalool", "mystery extract"];
-const COUNT = "7 ingredients · 1 not recognised";
+const COUNT = "Read from your photo · 6 of 7 names recognised";
 
 describe("the label result", () => {
-  it("shows the same Safety tab without a profile and with one", async () => {
+  it("shows the same Ingredients tab without a profile and with one", async () => {
     await open(LIST);
     await showSafety();
     expect(screen.getByText(COUNT)).toBeTruthy();
@@ -92,21 +92,21 @@ describe("the label result", () => {
   it("asks for the skin profile on Skin match, and not once the answers score", async () => {
     await open(LIST);
     await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
-    expect(screen.getByText("See your skin match")).toBeTruthy();
+    expect(screen.getByText("Is it right for your skin?")).toBeTruthy();
     await act(async () => screen.unmount());
 
     useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "dry" } });
     await open(LIST);
     await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
-    expect(screen.queryByText("See your skin match")).toBeNull();
+    expect(screen.queryByText("Is it right for your skin?")).toBeNull();
   });
 
   it("says a thin read can't be scored, and asks for a retake, not the quiz", async () => {
     await open(["water", "mystery extract", "another unknown"]);
     expect(screen.getByText("Retake the photo")).toBeTruthy();
     await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
-    expect(screen.getByText("Couldn't score this one")).toBeTruthy();
-    expect(screen.queryByText("See your skin match")).toBeNull();
+    expect(screen.getByText(/^We only recognised \d+ of \d+ names$/)).toBeTruthy();
+    expect(screen.queryByText("Is it right for your skin?")).toBeNull();
   });
 });
 

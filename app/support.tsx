@@ -66,7 +66,6 @@ export default function Support() {
           <View style={{ gap: 10, paddingTop: 6 }}>
             <Text style={{ fontSize: 13.5, lineHeight: 20, color: MUTED }}>Still stuck? Write to us.</Text>
             <PrimaryButton
-              size={52}
               label="Email support"
               onPress={() => {
                 Linking.openURL(`mailto:${SUPPORT_EMAIL}`)

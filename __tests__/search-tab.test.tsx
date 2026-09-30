@@ -59,8 +59,7 @@ describe("before typing", () => {
   it("shows the search box, a picture and what Search is for, and no product list", async () => {
     await render(<Search />);
     expect(screen.getByLabelText("Search products or brands")).toBeTruthy();
-    expect(screen.getByLabelText("A little progress every day")).toBeTruthy();
-    expect(screen.getByText("Search by name or brand")).toBeTruthy();
+    expect(screen.getByText("Search by product or brand name. Products you open will show up here.")).toBeTruthy();
     expect(screen.queryByText("Scan a product instead")).toBeNull();
     expect(screen.queryByText("Recently viewed")).toBeNull();
     expect(screen.queryByText("Hanbang Rice Ferment Hydrating Serum")).toBeNull();
@@ -79,7 +78,7 @@ describe("before typing", () => {
     const names = screen.getAllByText(/Aqua Barrier Ceramide Moisturizer|Hanbang Rice Ferment Hydrating Serum/).map((node) => node.props.children);
     expect(names).toEqual(["Aqua Barrier Ceramide Moisturizer", "Hanbang Rice Ferment Hydrating Serum"]);
     // The list takes the picture's place.
-    expect(screen.queryByText("Search by name or brand")).toBeNull();
+    expect(screen.queryByText("Search by product or brand name. Products you open will show up here.")).toBeNull();
   });
 
   it("clears the whole list at once from Clear all, with no second tap", async () => {
@@ -114,13 +113,13 @@ describe("typing", () => {
     expect(scores).toEqual([...scores].sort((a, b) => b - a));
   });
 
-  it("says it looked everywhere when nothing matches, with no button", async () => {
+  it("says nothing was found, and offers the ingredient-list scan (v7)", async () => {
     await render(<Search />);
     await act(async () => fireEvent.changeText(screen.getByLabelText("Search products or brands"), "zzzz nothing"));
-    expect(await screen.findByText("We looked everywhere", {}, { timeout: 3000 })).toBeTruthy();
-    expect(screen.getByText("This product isn't in our library yet. Try searching for another one.")).toBeTruthy();
-    expect(screen.queryByLabelText("A little progress every day")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Scan the list of ingredients instead" })).toBeNull();
+    expect(await screen.findByText("Nothing found yet", {}, { timeout: 3000 })).toBeTruthy();
+    expect(screen.getByText("Our product library is still small. Scan the ingredient list and we'll read it for you.")).toBeTruthy();
+    expect(screen.queryByText("Search by product or brand name. Products you open will show up here.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Scan the ingredient list" })).toBeTruthy();
   });
 
   it("waits for three letters before it searches", async () => {
@@ -128,12 +127,12 @@ describe("typing", () => {
     await act(async () => fireEvent.changeText(screen.getByLabelText("Search products or brands"), "ce"));
     // Two letters: still the still life, no results and no "not found", and a
     // line saying why nothing happened yet.
-    expect(screen.getByLabelText("A little progress every day")).toBeTruthy();
+    expect(screen.getByText("Search by product or brand name. Products you open will show up here.")).toBeTruthy();
     expect(screen.getByText("Type at least three letters to search.")).toBeTruthy();
-    expect(screen.queryByText("We looked everywhere")).toBeNull();
+    expect(screen.queryByText("Nothing found yet")).toBeNull();
 
     await act(async () => fireEvent.changeText(screen.getByLabelText("Search products or brands"), "cer"));
-    expect(screen.queryByLabelText("A little progress every day")).toBeNull();
+    expect(screen.queryByText("Search by product or brand name. Products you open will show up here.")).toBeNull();
     expect(screen.queryByText("Type at least three letters to search.")).toBeNull();
   });
 });
