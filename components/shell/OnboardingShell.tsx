@@ -5,7 +5,7 @@ import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, u
 import { Text } from "@/components/Text";
 import { slideDirection } from "@/lib/onboarding-slide";
 import { H_PADDING, INTRO, INTRO_INACTIVE_DOT_OPACITY, ProgressDots, ShellBackButton, SkipButton } from "@/components/shell/shared";
-import { BUTTON, CANVAS } from "@/lib/tokens";
+import { BUTTON, CANVAS, DISPLAY_FONT } from "@/lib/tokens";
 
 // The intro's type (owner, 26 September 2026): a Playfair headline whose first
 // line is in the accent colour and the rest in ink; system-font subtext; a
@@ -13,7 +13,6 @@ import { BUTTON, CANVAS } from "@/lib/tokens";
 // they looked on screen, measured off its screenshots rather than copied as
 // numbers, since its fonts were different: "skincare product" 273pt wide,
 // a subtext line about 16pt from cap to descender, "Skip" about 35pt wide.
-const HEADLINE_FONT = "PlayfairDisplay_500Medium";
 const HEADLINE_SIZE = 36;
 const HEADLINE_LINE_HEIGHT = 1.1;
 const BODY_SIZE = 18;
@@ -282,7 +281,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
                 key={line}
                 maxFontSizeMultiplier={headlineScale}
                 style={{
-                  fontFamily: HEADLINE_FONT,
+                  fontFamily: DISPLAY_FONT,
                   fontSize: HEADLINE_SIZE,
                   lineHeight: HEADLINE_SIZE * HEADLINE_LINE_HEIGHT,
                   color: i === 0 ? INTRO.accent : INTRO.ink,

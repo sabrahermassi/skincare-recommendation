@@ -31,7 +31,7 @@ import { STEP_LABEL, STEP_ORDER, stepOf, type StepGroup } from "@/lib/routine-st
 import { isVerified } from "@/lib/safety";
 import { LiftedCard, usePressScale } from "@/components/PressableCard";
 import { tabBarClearance } from "@/lib/tab-bar";
-import { BORDER_INACTIVE, CANVAS, INK, MUTED, MUTED_FAINT, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { BORDER_INACTIVE, CANVAS, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
@@ -696,7 +696,7 @@ function EmptyState({ tab }: { tab: Tab }) {
           />
         </View>
         <View style={{ alignItems: "center", gap: 10 }}>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: INK }}>{title}</Text>
+          <Text style={{ fontFamily: DISPLAY_FONT, fontSize: 20, color: INK }}>{title}</Text>
           {/* minHeight reserves room for the longest body (History's wraps to 3
               lines at this width, the others to 2) — without it, a shorter body
               made this whole block a few px shorter, and centering a shorter

@@ -4,7 +4,7 @@ import { View } from "react-native";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
-import { INK, MUTED, TYPE } from "@/lib/tokens";
+import { DISPLAY_FONT, INK, MUTED, TYPE } from "@/lib/tokens";
 
 /**
  * The scanner's two "before the camera" screens — asking for camera access, and
@@ -46,7 +46,7 @@ export function ScanIntro({
       </View>
 
       <View style={{ width: "100%", alignItems: "center", gap: 10 }}>
-        <Text style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.title, color: INK }}>
+        <Text style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.title, color: INK }}>
           {title}
         </Text>
         <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>{body}</Text>

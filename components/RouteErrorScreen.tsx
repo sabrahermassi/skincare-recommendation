@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
-import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 
 /** What the screen says. Exported for the tests. */
 export const ROUTE_ERROR_COPY = {
@@ -43,7 +43,7 @@ export function RouteErrorScreen({ error, retry }: ErrorBoundaryProps) {
         paddingBottom: insets.bottom,
       }}
     >
-      <Text accessibilityRole="header" style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, color: INK, textAlign: "center" }}>
+      <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK, textAlign: "center" }}>
         {ROUTE_ERROR_COPY.heading}
       </Text>
       <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED, textAlign: "center" }}>{ROUTE_ERROR_COPY.body}</Text>

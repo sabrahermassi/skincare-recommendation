@@ -27,7 +27,7 @@ import { BUTTON, FONT_SCALE } from "@/lib/tokens";
  */
 type ButtonSize = 44 | 48;
 
-export type ButtonVariant = "primary" | "secondary" | "tertiary" | "destructive";
+type ButtonVariant = "primary" | "secondary" | "tertiary" | "destructive";
 
 /** v7's fixed button widths; a main action takes the full width instead. */
 export const BUTTON_WIDTH = { secondary: 220, inCard: 180, pair: 140 } as const;

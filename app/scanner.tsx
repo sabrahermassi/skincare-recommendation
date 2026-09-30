@@ -38,7 +38,7 @@ import { reduceMotionNow } from "@/lib/reduce-motion";
 import { matchProduct } from "@/lib/matching";
 import { track } from "@/lib/analytics";
 import { useAppStore } from "@/store/useAppStore";
-import { CAMERA_STAGE, CANVAS, FLOATING_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, DISPLAY_FONT, FLOATING_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, withAlpha } from "@/lib/tokens";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -664,7 +664,7 @@ function NoMatchSheet({
           <Image source={NO_MATCH_ART} contentFit="contain" accessibilityLabel="" style={{ width: "72%", aspectRatio: NO_MATCH_ASPECT }} />
           <Text
             accessibilityRole="header"
-            style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, lineHeight: 28, color: INK }}
+            style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, color: INK }}
           >
             {copy.title}
           </Text>
@@ -762,7 +762,7 @@ function FoundSheet({
         </Text>
         <Text
           numberOfLines={2}
-          style={{ textAlign: "center", fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, lineHeight: 28, color: INK }}
+          style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, color: INK }}
         >
           {product.name}
         </Text>

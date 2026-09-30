@@ -26,7 +26,7 @@ import { targetApplies, type IngredientRule } from "@/lib/rules";
 import { contraindications, isVerified, regulatoryStatus } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
-import { CANVAS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, INK, LINE, MUTED, ROW_DIVIDER, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINE, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 import { ingredientNameParam, productIdParam } from "@/lib/route-params";
 import NotFound from "@/app/+not-found";
@@ -268,14 +268,14 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
               {facts.length > 0 ? (
                 facts.map((fact, i) => (
                   <View key={fact.key} style={{ paddingHorizontal: 16 }}>
-                    <View style={{ flexDirection: "row", gap: 12, paddingVertical: 13, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: ROW_DIVIDER }}>
+                    <View style={{ flexDirection: "row", gap: 12, paddingVertical: 13, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: HAIRLINE }}>
                       <Text style={{ width: 120, fontSize: TYPE.label, color: MUTED }}>{fact.key}</Text>
                       <Text style={{ flex: 1, fontSize: 15, lineHeight: 21, color: INK }}>{fact.value}</Text>
                     </View>
                   </View>
                 ))
               ) : (
-                <Text style={{ paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, lineHeight: 21, color: INK }}>
+                <Text style={{ paddingHorizontal: 16, paddingVertical: 12, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
                   We hold no regulatory record, declared function or pore rating for this name.
                 </Text>
               )}
