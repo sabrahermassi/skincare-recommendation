@@ -141,7 +141,7 @@ export default function Account() {
             one Profile used to carry: erasing this phone's profile, shelf and history. */}
         {status === "loading" ? null : (
           <>
-            <SectionLabel title="Delete" first />
+            <SectionLabel title="Delete" />
             <MenuGroup>
               <MenuRow
                 label={signedIn ? "Delete account" : "Delete my profile"}
@@ -200,7 +200,7 @@ function SignedIn({
       {summary.isHiddenEmail ? <Note>{HIDDEN_EMAIL_NOTE}</Note> : null}
       <Note>{EVERY_DEVICE_NOTE}</Note>
 
-      <SectionLabel title="Your data" first />
+      <SectionLabel title="Your data" />
       <MenuGroup>
         <MenuRow label="Download my data" disabled={working} onPress={onDownload} />
       </MenuGroup>

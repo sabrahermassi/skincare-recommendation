@@ -120,6 +120,12 @@ export const ROW_PRESSED = "#F7F0E6";
 /** A starred ingredient's star when on (v7, read off the hand-off). */
 export const STAR_ON = "#CF9E3E";
 
+/** The "i" ring on a filled verdict pill (v7). */
+export const PILL_INFO = "#D9CFC7";
+
+/** The routine note's moon badge (v7). */
+export const MOON_BADGE = { fill: "#E9E3E3", ink: "#3F3A4A" } as const;
+
 /** Hairline dividers between rows inside a card (v7). */
 export const HAIRLINE = "#EFE6DA";
 
@@ -135,6 +141,8 @@ export const AVATAR_FILL = "#F6E1D3";
  *  the control-state code that already reads well as "border, inactive". */
 export const BORDER_INACTIVE = LINE;
 export const DOT_INACTIVE = LINE;
+
+// ── Controls ────────────────────────────────────────────────────────────────
 
 /**
  * Selected-control fill — a very light, watery peach.
@@ -172,10 +180,8 @@ export const MENU_FILL = "#FFFFFF";
 
 /**
  * The product result's list rows (design_handoff_skincare_cards, read off its
- * README): the inset divider between rows and the soft disclosure chevron at
- * a row's end.
+ * README): the soft disclosure chevron at a row's end.
  */
-export const ROW_DIVIDER = HAIRLINE;
 export const ROW_CHEVRON = "#B9A79E";
 
 /**
