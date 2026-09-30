@@ -11,6 +11,7 @@ import {
   CANVAS,
   CARD_SHADOW,
   DANGER,
+  DISPLAY_FONT,
   INK,
   MUTED,
   MUTED_FAINT,
@@ -114,7 +115,7 @@ export function NoteEditor({
 
   return (
     <BottomSheet visible={visible} onClose={onClose}>
-      <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 19, color: INK }}>{NOTE_COPY.prompt}</Text>
+      <Text style={{ fontFamily: DISPLAY_FONT, fontSize: 19, color: INK }}>{NOTE_COPY.prompt}</Text>
       <TextInput
         value={text}
         onChangeText={setText}

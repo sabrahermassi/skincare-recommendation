@@ -20,4 +20,11 @@ describe("Privacy policy", () => {
     expect(screen.getByText(/Label data from DailyMed/)).toBeTruthy();
     expect(screen.queryByText(/UPCitemdb/)).toBeNull();
   });
+
+  // #386 review: the "In short" card's promises are each made in full below it.
+  it("backs the short version's no-selling and no-ads promise with a line of the policy", async () => {
+    await render(<Privacy />);
+    expect(screen.getByText(/no ads, no selling your data/)).toBeTruthy();
+    expect(screen.getByText("We do not sell your data, and there are no ads in the app.")).toBeTruthy();
+  });
 });

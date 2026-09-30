@@ -25,7 +25,7 @@ import { openScanner } from "@/lib/open-scanner";
 import { productIdParam } from "@/lib/route-params";
 import { historyWarningCount } from "@/lib/safety";
 import { saveFromTap, useCanJournal } from "@/lib/saving";
-import { CANVAS, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import NotFound from "@/app/+not-found";
 
@@ -238,7 +238,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, color: INK }}>
+          <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
             Couldn&apos;t load this product
           </Text>
           <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
@@ -265,7 +265,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: TYPE.heading, color: INK }}>
+          <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
             Product not found
           </Text>
           <PrimaryButton label="Scan another" onPress={openScanner} />

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BackChevron, ICON_CIRCLE, IconCircle } from "@/components/IconCircle";
 import { Text } from "@/components/Text";
-import { INK, SPACE } from "@/lib/tokens";
+import { INK, SPACE, TYPE } from "@/lib/tokens";
 
 /**
  * The top row every pushed screen carries (v7): the back arrow in a white
@@ -39,7 +39,7 @@ export function ScreenHeader({
 
       {title ? (
         <Text
-          style={{ flex: 1, textAlign: "center", fontSize: 17, fontWeight: "600", color: INK }}
+          style={{ flex: 1, textAlign: "center", fontSize: TYPE.card, fontWeight: "600", color: INK }}
           numberOfLines={1}
         >
           {title}

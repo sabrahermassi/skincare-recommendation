@@ -60,6 +60,7 @@ const SECTIONS: { title: string; lines: string[] }[] = [
     title: "What we do not do",
     lines: [
       "We do not take photos of your face or skin, and we do not track you across other apps or websites.",
+      "We do not sell your data, and there are no ads in the app.",
     ],
   },
 ];
@@ -77,7 +78,7 @@ export default function Privacy() {
         </View>
         {SECTIONS.map((section) => (
           <View key={section.title}>
-            <SectionLabel title={section.title} first />
+            <SectionLabel title={section.title} />
             <View style={{ gap: SPACE.text, paddingHorizontal: 4 }}>
               {section.lines.map((line) => (
                 <Text key={line} style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>

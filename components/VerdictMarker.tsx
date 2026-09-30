@@ -2,7 +2,7 @@ import { View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { LABEL_META, type IngredientLabel } from "@/lib/ingredient-labels";
-import { VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 
 /** A verdict's ring and word colours (v7): green, orange, red, or brown-grey for unknown. */
 function verdictColours(label: IngredientLabel): { solid: string; deep: string; wash: string } {
@@ -22,7 +22,7 @@ export function VerdictMarker({ label }: { label: IngredientLabel }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
       <View style={{ width: 12, height: 12, borderRadius: 6, borderWidth: 3, borderColor: colours.solid }} />
-      <Text style={{ fontSize: 15, color: colours.deep }}>{LABEL_META[label].label}</Text>
+      <Text style={{ fontSize: TYPE.label, color: colours.deep }}>{LABEL_META[label].label}</Text>
     </View>
   );
 }
