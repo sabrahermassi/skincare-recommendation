@@ -55,7 +55,6 @@ const PRODUCT: ProductWithIngredients = {
   attribution: null,
   fetchedAt: "2026-09-26T00:00:00Z",
   ingredientIds: INGREDIENTS.map((i) => i.id),
-  inStock: true,
   ingredients: INGREDIENTS,
 };
 

@@ -25,7 +25,6 @@ function synthetic(names: string[]): ProductWithIngredients {
     imageUrl: null,
     attribution: null,
     ingredientIds: names,
-    inStock: true,
     ingredients: names.map((name) => ({
       id: name,
       name,

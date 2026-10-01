@@ -302,7 +302,6 @@ export type Product = {
   source?: string;
   /** Ordered INCI list — references `Ingredient.id`. */
   ingredientIds: string[];
-  inStock: boolean;
 };
 
 /** A product with its ingredients resolved, as a detail screen needs it. */

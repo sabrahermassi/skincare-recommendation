@@ -134,7 +134,6 @@ function foundProduct(barcode: string): ProductWithIngredients {
     fetchedAt: "2026-09-23T00:00:00Z",
     source: "obf",
     ingredientIds: ingredients.map((i) => i.id),
-    inStock: true,
     ingredients,
   };
 }

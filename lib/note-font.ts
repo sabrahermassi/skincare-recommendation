@@ -3,10 +3,11 @@ import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
 import { AccessibilityInfo, useWindowDimensions, type TextStyle } from "react-native";
 
-import { NOTE_FONT, TYPE } from "@/lib/tokens";
+import { NOTE_FONT, TIP_NOTE, TYPE } from "@/lib/tokens";
 
 /**
- * Whether a journal note is shown in handwriting (#229), and at what size.
+ * Whether a journal note — or Home's Tip of the day — is shown in handwriting
+ * (#229), and at what size.
  *
  * React Native does not reliably fall back glyph by glyph, so a note is
  * never part handwriting and part something else: the whole note is in the
@@ -71,7 +72,7 @@ export function usesHandwriting(
  * for the UI font: the script face sits small on its body, so it needs a
  * step up to read at the same size as the text around it.
  */
-const NOTE_TEXT: Record<"card" | "preview", { handwritten: TextStyle; plain: TextStyle }> = {
+const NOTE_TEXT: Record<"card" | "preview" | "tip", { handwritten: TextStyle; plain: TextStyle }> = {
   card: {
     handwritten: { fontFamily: NOTE_FONT, fontSize: TYPE.title, lineHeight: 26 },
     plain: { fontSize: TYPE.body, lineHeight: 22 },
@@ -79,6 +80,11 @@ const NOTE_TEXT: Record<"card" | "preview", { handwritten: TextStyle; plain: Tex
   preview: {
     handwritten: { fontFamily: NOTE_FONT, fontSize: TYPE.body, lineHeight: 20 },
     plain: { fontSize: TYPE.caption, lineHeight: 17 },
+  },
+  // Home's Tip of the day (v7).
+  tip: {
+    handwritten: { fontFamily: NOTE_FONT, fontSize: TIP_NOTE.fontSize, lineHeight: TIP_NOTE.lineHeight },
+    plain: { fontSize: TYPE.body, lineHeight: 22 },
   },
 };
 

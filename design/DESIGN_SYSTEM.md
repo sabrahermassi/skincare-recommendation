@@ -42,13 +42,15 @@ no drop shadow. Only things that float get a shade: sheets and pop-ups, menus
 | `DESTRUCTIVE_OUTLINE` | `#E9C2BD` / `#FDF5F2` / `#85322B` | the soft red "Delete" of a confirm pair, the swipe bin |
 | `CHOSEN` | fill `#F3E5DA`, border terracotta | anything chosen: chips, quiz tiles, the finder summary, chat bubbles |
 | `STAR_ON` | `#CF9E3E` | a starred ingredient |
+| `ROW_PRESSED` | `#F7F0E6` | a white row or link card while pressed |
 | `SCRIM` | `rgba(36,31,30,.32)` | behind sheets and pop-ups |
 | `CAMERA_STAGE` | `#1C1816` | the scanner's dark stage (the only dark surface) |
 
 **Colour means something.** Terracotta is for actions and the brand only. Green
 is good, orange is watch or fair, red is avoid or poor, brown-grey is unknown.
-Home is the one place with decorative tints (`HOME_CARD_FILL`, `HOME_TILE`);
-elsewhere a tint is a verdict.
+Home is the one place with decorative tints (`HOME_SCAN_FILL`, `HOME_TILE`),
+plus `HOME_CARD_FILL` on the product result's no-profile card; elsewhere a tint
+is a verdict.
 
 ### Verdicts
 
@@ -220,8 +222,8 @@ permission and not-found states.
 
 ## Screens, in short
 
-- **Product result**: header on the page (bottle, brand 15 `MUTED_FAINT`, name
-  20 semibold), heart and share circles; the Skin match | Ingredients switch;
+- **Product result**: header on the page (bottle; brand 15 `MUTED_FAINT`,
+  name 20 semibold, type 13 `MUTED`; no stock line), heart and share circles; the Skin match | Ingredients switch;
   a white sheet (radius 32) overlapping it. Skin match: the big ring
   straddling the sheet's edge, the verdict pill, the explainer, reason cards on
   their verdict wash. Ingredients: two risk cards, then the ingredient box
@@ -238,6 +240,17 @@ permission and not-found states.
 - **Routine**: skin profile card, the tinted Morning | Evening switch, "Steps
   for today", 72pt step cards with a numbered badge in the time's colours and
   the step's bottle faded on the right, dotted connectors between them.
+
+- **Tip of the day** (`TipCard`): a white paper note (radius 4, a three-layer
+  soft shade, `TIP_NOTE`) under Home's tiles, a zigzag-cut strip of tape on
+  top, "TIP OF THE DAY" and "Tap for another", the tip in Caveat 22. It opens
+  on the day's tip; a tap shuffles to another with a wiggle from the tape, a
+  spin of the shuffle icon, ochre sparkles and the new tip written in from the
+  left. Reduce Motion just swaps the text.
+- **Home's scan card** is a pale apricot, `HOME_SCAN_FILL` (`#F9EFE5`).
+- **Links out** (Read more on PubChem): a white 56pt card with a terracotta
+  line icon, a 17pt name over a 13pt "Opens in your browser" and an
+  external-link icon; it opens in the in-app browser (`expo-web-browser`).
 
 ## Motion
 

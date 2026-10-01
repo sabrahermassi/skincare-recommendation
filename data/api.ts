@@ -398,7 +398,6 @@ type CatalogueRow = {
   image_url: string | null;
   volume: string | null;
   price_krw: number | null;
-  in_stock: boolean;
   suitable_for: string[];
   targets: string[];
   attribution: string | null;
@@ -433,7 +432,7 @@ type IngredientDictionary = Map<string, Ingredient>;
 
 const PRODUCT_COLUMNS = `
   id, barcode, brand, name, type, source, description, image_url, volume,
-  price_krw, in_stock, suitable_for, targets, attribution, fetched_at,
+  price_krw, suitable_for, targets, attribution, fetched_at,
   formula_changed_at`;
 
 /** One product, with its formula inlined. For reads of a single row. */
@@ -551,7 +550,6 @@ function buildProduct(
     formulaChangedAt: row.formula_changed_at ?? undefined,
     source: row.source,
     ingredientIds: ingredients.map((i) => i.id),
-    inStock: row.in_stock,
     ingredients,
   };
 }

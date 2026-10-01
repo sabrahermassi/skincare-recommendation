@@ -11,6 +11,7 @@ import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import { scoreExplanation, verdictHeadline, type MatchResult } from "@/lib/matching";
 import { INGREDIENT_RULES } from "@/lib/rules";
 import { SCHOOL_CHAT_COPY } from "@/lib/school-chat";
+import { TIPS } from "@/lib/tips";
 import { LABEL_ORDER, SCORING_DISCLAIMER, scoreBandLines, scoreFactors, scoreNotes } from "@/lib/scoring-explainer";
 import { UNSET_SENSITIVITY_REASON, contraindications } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -148,6 +149,9 @@ const SCORING_CLAIMS: OwnedClaim[] = [
 ];
 
 // #352: the School chat's own lines — its greeting speaks for the app.
+// Tip of the day (v7): the app says these in its own voice on Home.
+const TIP_CLAIMS: OwnedClaim[] = TIPS.map((text, i) => ({ source: `TIPS[${i}]`, text }));
+
 const SCHOOL_CHAT_CLAIMS: OwnedClaim[] = Object.entries(SCHOOL_CHAT_COPY).map(([key, text]) => ({
   source: `SCHOOL_CHAT_COPY.${key}`,
   text,
@@ -164,6 +168,7 @@ const OWNED_CLAIMS: OwnedClaim[] = [
   ...PAIRING_CLAIMS,
   ...SCHOOL_CLAIMS,
   ...SCHOOL_CHAT_CLAIMS,
+  ...TIP_CLAIMS,
   ...SCORING_CLAIMS,
   // Audited directly (#261 review): `WARNINGS` below comes from the sample
   // INGREDIENTS, which hold none of the pregnancy-caution names — so these

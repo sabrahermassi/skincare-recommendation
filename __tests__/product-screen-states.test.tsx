@@ -113,7 +113,6 @@ describe("the product screen's Report a mistake link", () => {
     attribution: null,
     fetchedAt: "2026-09-26T00:00:00Z",
     ingredientIds: [],
-    inStock: true,
     ingredients: [],
   };
 
@@ -162,7 +161,6 @@ describe("the product screen's result tabs", () => {
     attribution: null,
     fetchedAt: "2026-09-26T00:00:00Z",
     ingredientIds: [],
-    inStock: true,
     ingredients: [
       ...["water", "glycerin", "xanthan gum", "butylene glycol"].map((name) => ingredient(name)),
       ingredient("parfum"),
@@ -317,7 +315,6 @@ describe("the product screen opened from the finder", () => {
     attribution: null,
     fetchedAt: "2026-09-26T00:00:00Z",
     ingredientIds: [],
-    inStock: true,
     ingredients: ["water", "glycerin", "niacinamide", "butylene glycol", "sodium hyaluronate"].map(ingredient),
   };
   const FINDER = { ...EMPTY_PROFILE, concerns: ["hyperpigmentation" as const] };
@@ -399,4 +396,34 @@ describe("the product screen opened from the finder", () => {
       params: { inci: "niacinamide", product: PRODUCT.id, from: "finder" },
     });
   });
+});
+
+// Owner, 29 September 2026: the header is brand, name and type, with no stock line.
+it("heads the product with its brand, name and type, and no Out of stock", async () => {
+  const product = {
+    id: "obf-8801234567890",
+    barcode: "8801234567890",
+    brand: "Sooyun",
+    name: "Rice Serum",
+    type: "serum",
+    productType: "serum",
+    price: 0,
+    volume: "",
+    suitableFor: [],
+    targets: [],
+    description: "",
+    benefits: [],
+    imageUrl: null,
+    attribution: null,
+    fetchedAt: "2026-09-26T00:00:00Z",
+    ingredientIds: [],
+    ingredients: [],
+  };
+  fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: product }));
+  await render(<ProductRoute />);
+  await act(async () => {});
+  expect(screen.getByText("Sooyun")).toBeTruthy();
+  expect(screen.getByText("Rice Serum")).toBeTruthy();
+  expect(screen.getByText("Serum")).toBeTruthy();
+  expect(screen.queryByText("Out of stock")).toBeNull();
 });

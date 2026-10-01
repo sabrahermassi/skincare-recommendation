@@ -114,6 +114,9 @@ export const DESTRUCTIVE_OUTLINE = { border: "#E9C2BD", fill: "#FDF5F2", label: 
 /** The chosen row in a filter popover (v7, read off the hand-off). */
 export const MENU_CHOSEN = "#F7F2EC";
 
+/** A white row or link card while it's pressed (v7 update, read off the hand-off). Mirrored in tailwind.config.js as `row-pressed`. */
+export const ROW_PRESSED = "#F7F0E6";
+
 /** A starred ingredient's star when on (v7, read off the hand-off). */
 export const STAR_ON = "#CF9E3E";
 
@@ -157,13 +160,16 @@ export const DOT_INACTIVE = LINE;
 export const SELECTED = "#F9E7DC";
 
 /**
- * Home's scan card, and the no-profile "Is it right for your skin?" card (v7,
- * read off the hand-off). The only warm tints outside a verdict are Home's.
+ * The product result's no-profile "Is it right for your skin?" card (v7, read
+ * off the hand-off). Home's scan card took `HOME_SCAN_FILL` in the v7 update.
  */
 export const HOME_CARD_FILL = "#F8ECE3";
 
 /** Home's three small tiles (v7, read off the hand-off): Search, Routine, My match. */
 export const HOME_TILE = { sage: "#EEF1E7", butter: "#F8F1E1", blush: "#F7EBE7" } as const;
+
+/** Home's Scan any product card (v7 update, 29 September 2026): a pale apricot, as soft as the tiles. Read off the hand-off. */
+export const HOME_SCAN_FILL = "#F9EFE5";
 
 /**
  * The rounded blocks of a menu (Profile, Account, the routine screen): plain
@@ -469,6 +475,23 @@ export const FONT_SCALE = {
  * actually gets it is `lib/note-font.ts`'s call, never a component's.
  */
 export const NOTE_FONT = "Caveat_500Medium";
+
+/**
+ * Tip of the day (v7 update, 29 September 2026, read off the hand-off): a
+ * white paper note on Home — the one place tape is allowed. Handwriting at
+ * 22/1.25 with room for two lines, small paper corners, a three-layer soft
+ * shade that makes it read as paper, the strip of tape across its top, and
+ * the ochre sparkles of a shuffle.
+ */
+export const TIP_NOTE = {
+  fontSize: 22,
+  lineHeight: 27.5,
+  minHeight: 56,
+  radius: 4,
+  tape: "rgba(214,196,170,0.6)",
+  shadow: "0 1px 1px rgba(36,31,30,0.10), 0 4px 8px rgba(36,31,30,0.08), 0 12px 20px rgba(36,31,30,0.06)",
+  sparkle: STAR_ON,
+} as const;
 
 /**
  * A token color at partial opacity, as an `rgba()` string — for translucent
