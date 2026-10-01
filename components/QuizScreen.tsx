@@ -20,8 +20,8 @@ type Props = {
   nextDisabled?: boolean;
   /**
    * The quiz's closing moment (v9): the questions are done and `children` is
-   * the "building" picture, not answers. The header drops its count, the line
-   * is full, and `onBack` returns to the last question.
+   * the "building" picture, not answers. The header drops its count and its
+   * line, and `onBack` returns to the last question.
    */
   building?: boolean;
   onBack?: () => void;
@@ -74,7 +74,7 @@ export function QuizScreen({
       {/* The top row (v9): back, "Question 2 of 4", and close, over a thin
           line that fills as the quiz goes. On the first step there is no step
           behind it, so back closes the quiz, like the close button. While the
-          profile is "building" the count is gone and the line is full. */}
+          profile is "building" the count and the line are gone. */}
       <View style={{ marginTop: quizTopPadding(insets.top), height: 44, paddingHorizontal: SPACE.gutter, flexDirection: "row", alignItems: "center", gap: SPACE.block }}>
         <IconCircle onPress={onBack ?? (first ? close : goBackOrHome)} accessibilityLabel="Back">
           <BackChevron />
@@ -84,14 +84,17 @@ export function QuizScreen({
           <CloseCross />
         </IconCircle>
       </View>
-      <View
-        accessible
-        accessibilityRole="progressbar"
-        accessibilityLabel={building ? "All questions answered" : `Step ${step} of ${total}`}
-        style={{ marginTop: SPACE.block, height: 2, backgroundColor: DIVIDER }}
-      >
-        <View style={{ height: 2, width: `${building ? 100 : Math.round((step / total) * 100)}%`, backgroundColor: BUTTON.primary.fill }} />
-      </View>
+      {/* No line while the profile is "building": that screen has its own bar (owner). */}
+      {building ? null : (
+        <View
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityLabel={`Step ${step} of ${total}`}
+          style={{ marginTop: SPACE.block, height: 2, backgroundColor: DIVIDER }}
+        >
+          <View style={{ height: 2, width: `${Math.round((step / total) * 100)}%`, backgroundColor: BUTTON.primary.fill }} />
+        </View>
+      )}
 
       {building ? (
         children

@@ -1,11 +1,12 @@
 import { Image } from "expo-image";
-import { useState } from "react";
-import { View } from "react-native";
+import { useEffect, useState } from "react";
+import { Animated, Easing, View } from "react-native";
 
 import { QuizOptionCard, QUIZ_OPTION_GRID } from "@/components/QuizOptionCard";
 import { useQuizFrame } from "@/components/QuizFrame";
 import { QuizScreen } from "@/components/QuizScreen";
 import { Text } from "@/components/Text";
+import { reduceMotionNow } from "@/lib/reduce-motion";
 import { PREGNANCY_OPTIONS, PREGNANCY_QUESTION, PREGNANCY_WHY, pregnancyLabel, pregnancyOption, quizStepNumber } from "@/lib/profile";
 import { BUTTON, DISPLAY_FONT, DIVIDER, INK, MUTED, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -25,6 +26,28 @@ import { useAppStore } from "@/store/useAppStore";
  */
 
 const BUILDING_ART = require("@/assets/illustrations/loading-routine.webp");
+
+/** How long the closing screen's bar takes to fill. */
+const BUILDING_MS = 2400;
+
+/**
+ * The closing screen's short bar (v9), filling from empty to full as the
+ * screen "builds" (owner). With Reduce Motion on it is simply full.
+ */
+function BuildingBar() {
+  const [fill] = useState(() => new Animated.Value(reduceMotionNow() ? 1 : 0));
+  useEffect(() => {
+    // Width is layout, which the native driver can't animate.
+    const run = Animated.timing(fill, { toValue: 1, duration: BUILDING_MS, easing: Easing.inOut(Easing.quad), useNativeDriver: false });
+    run.start();
+    return () => run.stop();
+  }, [fill]);
+  return (
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 160, height: 4, borderRadius: 2, backgroundColor: DIVIDER, overflow: "hidden" }}>
+      <Animated.View style={{ width: fill.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }), height: 4, borderRadius: 2, backgroundColor: BUTTON.primary.fill }} />
+    </View>
+  );
+}
 
 export default function PregnancyStep() {
   const pregnancyStatus = useAppStore((s) => s.profile.pregnancyStatus);
@@ -64,10 +87,7 @@ export default function PregnancyStep() {
           <Text style={{ maxWidth: 280, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
             Putting together your morning and evening steps.
           </Text>
-          {/* The hand-off's short bar under the line: decoration, most of the way along. */}
-          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 160, height: 4, borderRadius: 2, backgroundColor: DIVIDER, overflow: "hidden" }}>
-            <View style={{ width: "70%", height: 4, borderRadius: 2, backgroundColor: BUTTON.primary.fill }} />
-          </View>
+          <BuildingBar />
         </View>
       </QuizScreen>
     );
