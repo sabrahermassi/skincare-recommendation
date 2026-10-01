@@ -227,7 +227,7 @@ function IngredientListRow({
 function functionLabel(ingredient: Ingredient): string {
   return ingredient.functions && ingredient.functions.length > 0
     ? ingredient.functions.slice(0, 2).join(" · ")
-    : "No concerns for your profile";
+    : "No known concerns";
 }
 
 /**

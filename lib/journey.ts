@@ -134,8 +134,8 @@ export function deckFor(concerns: readonly Concern[], profile: Pick<SkinProfile,
 }
 
 export type PlanFit = {
-  /** Deck cards the product has an ingredient for, in deck order. */
-  covered: { card: JourneyCard; role: Role; ingredient: string }[];
+  /** Deck cards the product has an ingredient for, in deck order, with every ingredient that counted. */
+  covered: { card: JourneyCard; role: Role; ingredients: string[] }[];
   total: number;
   /** Chosen concerns none of the covered cards helps. */
   notCovered: Concern[];
@@ -144,8 +144,8 @@ export type PlanFit = {
 /** How a product fits the plan: which cards its ingredients count for. */
 export function planFit(ingredients: readonly Pick<Ingredient, "name">[], deck: readonly DeckCard[], concerns: readonly Concern[]): PlanFit {
   const covered = deck.flatMap(({ card, role }) => {
-    const hit = ingredients.find((ingredient) => card.rules.some((rule) => ruleMatches(rule, ingredient.name)));
-    return hit ? [{ card, role, ingredient: hit.name }] : [];
+    const hits = ingredients.filter((ingredient) => card.rules.some((rule) => ruleMatches(rule, ingredient.name))).map((i) => i.name);
+    return hits.length > 0 ? [{ card, role, ingredients: hits }] : [];
   });
   const helped = new Set(covered.flatMap(({ card }) => [...cardHelps(card)]));
   return { covered, total: deck.length, notCovered: concerns.filter((c) => !helped.has(c)) };

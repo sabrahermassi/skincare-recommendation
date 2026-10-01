@@ -178,13 +178,14 @@ function PlanFitBlock({ ingredients, type, profile, plan }: { ingredients: Ingre
         </Text>
       </View>
       <View style={{ marginTop: 8 }}>
-        {fit.covered.map(({ card, role, ingredient }, i) => (
+        {fit.covered.map(({ card, role, ingredients: hits }, i) => (
           <PlanRow
             key={card.key}
             first={i === 0}
             tone={VERDICT.high}
-            name={card.key === "hydrating" ? displayIngredientName(ingredient) : card.name}
-            text={card.line.charAt(0).toLowerCase() + card.line.slice(1)}
+            // A group card names what it found ("Glycerin + Panthenol"); a single-ingredient card is its name.
+            name={card.key === "hydrating" ? hits.slice(0, 2).map(displayIngredientName).join(" + ") : card.name}
+            text={card.key === "hydrating" ? "put water back in and help keep it there." : card.line.charAt(0).toLowerCase() + card.line.slice(1)}
             tag={ROLE_LABEL[role]}
           />
         ))}

@@ -22,7 +22,7 @@ import {
 } from "@/lib/journey";
 import { openScanner } from "@/lib/open-scanner";
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { BUTTON, CANVAS, DISPLAY_FONT, INK, JOURNEY, LINK, MUTED_FAINT, SURFACE, VERDICT, WHITE, withAlpha } from "@/lib/tokens";
+import { BUTTON, CANVAS, DISPLAY_FONT, INK, JOURNEY, LINK, MUTED_FAINT, SURFACE, TILE_LINE, VERDICT, WHITE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // v9 (read off ConcernDeckSoft in the hand-off).
@@ -119,7 +119,7 @@ function Concerns({ picked, onPick, onNext, bottom }: { picked: Concern[]; onPic
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: on, disabled: !on && full }}
                 accessibilityLabel={label}
-                style={{ width: "48.5%", flexGrow: 1, flexBasis: "45%", height: 64, borderRadius: 12, backgroundColor: WHITE, borderWidth: 1, borderColor: on ? INK : JOURNEY.tileLine, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }}
+                style={{ width: "48.5%", flexGrow: 1, flexBasis: "45%", height: 64, borderRadius: 12, backgroundColor: WHITE, borderWidth: 1, borderColor: on ? INK : TILE_LINE, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }}
                 className="active:opacity-80"
               >
                 <Text style={{ fontSize: 15, lineHeight: 18, textAlign: "center", color: INK }}>{label}</Text>

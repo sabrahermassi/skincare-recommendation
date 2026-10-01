@@ -30,14 +30,14 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
         accessibilityHint="Opens an email to us"
         style={
           button
-            ? // v7: a red 220pt button under the full ingredient list.
-              { alignSelf: "center", width: BUTTON_WIDTH.secondary, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: BUTTON.destructive.fill }
+            ? // v9: a sage 220pt button under the full ingredient list.
+              { alignSelf: "center", width: BUTTON_WIDTH.secondary, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: BUTTON.primary.fill }
             : { minHeight: TOUCH_TARGET, justifyContent: "center", alignSelf: "flex-start" }
         }
         className={button ? "active:opacity-90" : "active:opacity-70"}
       >
         {button ? (
-          <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: BUTTON.destructive.label }}>Report a mistake</Text>
+          <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: BUTTON.primary.label }}>Report a mistake</Text>
         ) : (
           <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Report a mistake</Text>
         )}

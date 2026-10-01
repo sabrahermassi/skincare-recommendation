@@ -1,7 +1,7 @@
 import { Pressable } from "react-native";
 
 import { Text } from "@/components/Text";
-import { BUTTON, CARD_RADIUS, CHOSEN, INK, SPACE, TYPE, WHITE } from "@/lib/tokens";
+import { BUTTON, CARD_RADIUS, CHOSEN, INK, SPACE, TILE_LINE, TYPE, WHITE } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
 /** v9 tile measurements (read off the hand-off). */
@@ -48,7 +48,7 @@ export function QuizOptionCard({ label, selected = false, disabled = false, mult
         paddingHorizontal: SPACE.block,
         borderRadius: CARD_RADIUS,
         borderWidth: RING,
-        borderColor: selected ? BUTTON.primary.fill : "transparent",
+        borderColor: selected ? BUTTON.primary.fill : TILE_LINE,
         backgroundColor: selected ? CHOSEN.fill : WHITE,
         opacity: disabled ? 0.45 : 1,
       }}

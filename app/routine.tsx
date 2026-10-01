@@ -14,7 +14,7 @@ import { Text } from "@/components/Text";
 import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized, profileHeadline } from "@/lib/profile";
-import { CANVAS, CARD_RADIUS, INK, LINK, MUTED, MUTED_FAINT, ROW_CHEVRON, SPACE, TYPE, WHITE } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, INK, LINK, MUTED, MUTED_FAINT, ROW_CHEVRON, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // A woman at her dressing table wondering about her products
@@ -92,9 +92,9 @@ function Steps() {
       <Pressable
         onPress={() => router.push("/skin-profile")}
         accessibilityRole="button"
-        // White on the white page (v9), pressed to the row tint; the fill is a
-        // class so the pressed state can replace it.
-        className="bg-canvas active:bg-row-pressed"
+        // A stone card like the steps below, pressed to the row tint; the fill
+        // is a class so the pressed state can replace it.
+        className="bg-surface active:bg-row-pressed"
         style={{ marginTop: SPACE.block, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}
       >
         <View style={{ flex: 1, gap: 1 }}>
@@ -144,7 +144,7 @@ function Steps() {
  */
 function StepCard({ number, step }: { number: number; step: string }) {
   return (
-    <View style={{ minHeight: 72, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: WHITE, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}>
+    <View style={{ minHeight: 72, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}>
       <Text style={{ width: 12, alignSelf: "flex-start", paddingTop: 1, fontSize: TYPE.caption, fontWeight: "600", lineHeight: 16, color: MUTED_FAINT }}>{number}</Text>
       <View style={{ flex: 1, gap: 2 }}>
         <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED }}>

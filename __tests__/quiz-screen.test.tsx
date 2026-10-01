@@ -74,3 +74,15 @@ it("shows the answers as words alone, with no pictures", async () => {
   // A one-answer step has no counter.
   expect(screen.queryByText(/ of 3 chosen$/)).toBeNull();
 });
+
+// An unchosen tile is white on the white page: without its outline it has
+// no edge and does not read as something to tap (simulator QA).
+it("outlines an unchosen answer and rings a chosen one", async () => {
+  const { StyleSheet } = jest.requireActual<typeof import("react-native")>("react-native");
+  const { BUTTON, TILE_LINE } = jest.requireActual<typeof import("@/lib/tokens")>("@/lib/tokens");
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["acne-prone"] } });
+  await render(<QuizFrame><ConcernsStep /></QuizFrame>);
+  const border = (name: string) => StyleSheet.flatten(screen.getByRole("checkbox", { name }).props.style).borderColor;
+  expect(border("Dullness")).toBe(TILE_LINE);
+  expect(border("Acne or pimples")).toBe(BUTTON.primary.fill);
+});

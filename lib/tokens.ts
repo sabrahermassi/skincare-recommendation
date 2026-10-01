@@ -161,6 +161,13 @@ export const DIVIDER = "#ECE8E3";
 /** A saved toggle's outline once on ("Saved to your plan", v9, read off the hand-off). */
 export const SAVED_OUTLINE = "#DCDDD0";
 
+/**
+ * An unchosen answer tile's outline: the journey's concerns and the quiz's
+ * answers (v9, read off ConcernDeckSoft). Without it, a white tile on the
+ * white page has no edge and does not read as something to tap.
+ */
+export const TILE_LINE = "#E7E1DB";
+
 // ── Lines ───────────────────────────────────────────────────────────────────
 
 /** Hairlines, dividers, unselected control borders, inactive progress dots. */
@@ -587,7 +594,6 @@ export const DOT_OFF = "#E8DDD3";
 export const JOURNEY = {
   front: { azelaic: "#F3EEE9", niacinamide: "#EFF0EA", hydrating: "#F4F0E8", retinoids: "#F4EDEA" },
   back: "#FFFDFB",
-  tileLine: "#E7E1DB",
   track: "#E6E0DA",
   dotOff: "#DDD6D0",
   chipOff: "#B9B2AC",
