@@ -221,19 +221,3 @@ describe("the ingredient page's layout", () => {
     expect(screen.getByText("Adds to your score")).toBeTruthy();
   });
 });
-
-// From a product the finder opened, the ingredient scores with the finder's answers too.
-describe("the ingredient page opened from the finder", () => {
-  const { useFinderChoices } = require("@/lib/finder-choices") as typeof import("@/lib/finder-choices");
-  afterEach(() => useFinderChoices.setState({ choices: EMPTY_PROFILE }));
-
-  it("speaks to the finder's concerns, not the skin profile's", async () => {
-    useFinderChoices.setState({ choices: { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] } });
-    useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
-    mockParams = { inci: "niacinamide", product: "p", from: "finder" };
-    (fetchProduct as unknown as { mockResolvedValue(value: unknown): void }).mockResolvedValue({ ok: true, value: PRODUCT });
-    await render(<IngredientRoute />);
-    await act(async () => {});
-    expect(screen.getByText("Helps with your dark spots")).toBeTruthy();
-  });
-});

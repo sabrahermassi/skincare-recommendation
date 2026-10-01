@@ -4,8 +4,9 @@ import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { Text } from "@/components/Text";
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
-import { CANVAS, HAIRLINE, SPACE } from "@/lib/tokens";
+import { CANVAS, HAIRLINE, MUTED, SPACE, TYPE } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
 
@@ -15,8 +16,12 @@ export function quizTopPadding(insetTop: number) {
 }
 
 type QuizFrameValue = {
-  /** Called by the step that's showing, so the fixed button acts for it. */
-  setFooter: (label: string, disabled: boolean, onPress: () => void) => void;
+  /**
+   * Called by the step that's showing, so the fixed button acts for it. A
+   * step with a count to show (concerns: "2 of 3 chosen") passes it as
+   * `counter`, drawn above the button (v9).
+   */
+  setFooter: (label: string, disabled: boolean, onPress: () => void, counter?: string) => void;
   /** Re-arms the footer button after a step change — see `navigatingRef`. */
   releaseFooter: () => void;
   /** Closes the whole quiz, back to the screen that opened it (#346). */
@@ -33,7 +38,7 @@ export function useQuizFrame(): QuizFrameValue {
 
 /**
  * Everything on the quiz screens that must not move between steps: the
- * background and the Continue / Finish button. No Skip (owner): the quiz is a
+ * background and the Continue / See my match button. No Skip (owner): the quiz is a
  * sheet, so a swipe down closes it like any iOS sheet. Rendered once
  * by app/quiz/_layout.tsx around the step navigator, so tapping
  * Continue only changes the see-through step page inside it.
@@ -49,6 +54,7 @@ export function QuizFrame({ children }: { children: ReactNode }) {
   const navigation = useNavigation();
   const [label, setLabel] = useState("Continue");
   const [disabled, setDisabled] = useState(true);
+  const [counter, setCounter] = useState<string | undefined>(undefined);
   // A ref, not state: steps pass a new function on every render, and storing
   // it as state would re-render the frame (and so the step) every time.
   const onPressRef = useRef<() => void>(() => {});
@@ -61,16 +67,17 @@ export function QuizFrame({ children }: { children: ReactNode }) {
 
   const value = useMemo<QuizFrameValue>(
     () => ({
-      // Finish on the last step. Every answer is saved as it's tapped, so a
+      // "See my match" on the last step. Every answer is saved as it's tapped, so a
       // quiz swiped away early keeps what was answered too (#346).
       close() {
         // Opened from a link, the quiz can be the only screen there is.
         if (navigation.canGoBack()) navigation.goBack();
         else router.replace(POST_ONBOARDING_ROUTE);
       },
-      setFooter(nextLabel, nextDisabled, onPress) {
+      setFooter(nextLabel, nextDisabled, onPress, nextCounter) {
         setLabel(nextLabel);
         setDisabled(nextDisabled);
+        setCounter(nextCounter);
         onPressRef.current = onPress;
       },
       releaseFooter() {
@@ -94,9 +101,11 @@ export function QuizFrame({ children }: { children: ReactNode }) {
       <View style={{ flex: 1, backgroundColor: CANVAS }} onAccessibilityEscape={value.close}>
         <View style={{ flex: 1 }}>{children}</View>
 
-        {/* The button on its own bar at the foot (v7), above a hairline. */}
+        {/* The button on its own bar at the foot (v9), above a hairline, with
+            the concerns counter over it. */}
         <View
           style={{
+            gap: SPACE.text,
             paddingTop: SPACE.block,
             paddingHorizontal: SPACE.gutter,
             paddingBottom: Math.max(SPACE.section, insets.bottom + SPACE.block),
@@ -104,6 +113,11 @@ export function QuizFrame({ children }: { children: ReactNode }) {
             borderTopColor: HAIRLINE,
           }}
         >
+          {counter ? (
+            <Text accessibilityLiveRegion="polite" style={{ textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>
+              {counter}
+            </Text>
+          ) : null}
           <PrimaryButton label={label} onPress={pressFooter} disabled={disabled} />
         </View>
       </View>

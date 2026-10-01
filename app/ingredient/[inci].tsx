@@ -19,7 +19,6 @@ import { StarIcon } from "@/components/icons/StarIcon";
 import { comedogenicLabel } from "@/lib/format";
 import { countedAgainst, ingredientLabel, isCommonIrritant, labelWithoutProduct, ruleTargets, type IngredientLabel } from "@/lib/ingredient-labels";
 import { matchProduct, positionNote, positionWeightLabel, ruleFor, type Contraindication, type MatchResult } from "@/lib/matching";
-import { FROM_FINDER, useScoringProfile } from "@/lib/finder-choices";
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_TITLE, isPersonalized } from "@/lib/profile";
 import type { IngredientRule } from "@/lib/rules";
@@ -69,21 +68,19 @@ const PAGER_BUTTON = 52;
  * dropped, leaving the ingredient on its own (#29).
  */
 export default function IngredientRoute() {
-  const params = useLocalSearchParams<{ inci: string; product?: string; from?: string }>();
+  const params = useLocalSearchParams<{ inci: string; product?: string }>();
   const inci = ingredientNameParam(params.inci);
   if (!inci) return <NotFound />;
-  // Opened from a product that came from the finder's results: score with the finder's answers too.
-  const from = params.from === FROM_FINDER ? FROM_FINDER : undefined;
-  return <IngredientDetail inci={inci} productId={productIdParam(params.product) ?? undefined} from={from} />;
+  return <IngredientDetail inci={inci} productId={productIdParam(params.product) ?? undefined} />;
 }
 
-function IngredientDetail({ inci, productId, from }: { inci: string; productId?: string; from?: string }) {
+function IngredientDetail({ inci, productId }: { inci: string; productId?: string }) {
   const insets = useSafeAreaInsets();
 
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [resolvedIngredient, setResolvedIngredient] = useState<Ingredient | null>(null);
   const [loading, setLoading] = useState(true);
-  const profile = useScoringProfile(from);
+  const profile = useAppStore((s) => s.profile);
   const savedIngredients = useAppStore((s) => s.savedIngredients);
   const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
   const saveIngredient = useAppStore((s) => s.saveIngredient);
@@ -181,7 +178,7 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
   const step = (to: Ingredient) => {
     if (!product) return;
     haptic.tap();
-    router.replace({ pathname: "/ingredient/[inci]", params: from ? { inci: to.name, product: product.id, from } : { inci: to.name, product: product.id } });
+    router.replace({ pathname: "/ingredient/[inci]", params: { inci: to.name, product: product.id } });
   };
 
   return (

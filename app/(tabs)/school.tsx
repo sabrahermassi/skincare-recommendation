@@ -12,7 +12,7 @@ import type { SchoolQuestion } from "@/data/school";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { fallbackSuggestions, SCHOOL_CHAT_COPY, SCHOOL_QUESTIONS, searchSchool } from "@/lib/school-chat";
 import { SCAN_BUTTON_LIFT, tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { CANVAS, CHOSEN, INK, LINE, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { BUTTON, CANVAS, CHOSEN, INK, LINE, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 
 // The School's face: a plain circle with the app's own heart mark, the one
 // the app icon is drawn from, until there is a mascot of its own (#352).
@@ -112,7 +112,7 @@ export default function SkincareSchool() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       {/* A tab: its title on the left, as on every tab, and no back chevron. */}
-      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: tabRootTop(insets.top), paddingBottom: SPACE.text }}>
+      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: tabRootTop(insets.top) }}>
         <TabTitle>Skincare School</TabTitle>
       </View>
 
@@ -216,7 +216,7 @@ function AppBubble({ label, children }: { label?: string; children: React.ReactN
           backgroundColor: CHOSEN.fill,
         }}
       >
-        <HeartMark size={16} variant="filled" />
+        <HeartMark size={16} variant="filled" color={BUTTON.primary.fill} />
       </View>
       <View
         accessible={label !== undefined}
@@ -228,7 +228,9 @@ function AppBubble({ label, children }: { label?: string; children: React.ReactN
           borderWidth: 1,
           borderColor: LINE,
           backgroundColor: SURFACE,
+          // v9: a slightly tighter top-left corner, the tail at bottom left.
           borderRadius: 18,
+          borderTopLeftRadius: 16,
           borderBottomLeftRadius: 6,
         }}
       >
@@ -251,6 +253,7 @@ function UserBubble({ text }: { text: string }) {
         paddingVertical: SPACE.block,
         backgroundColor: CHOSEN.fill,
         borderRadius: 18,
+        borderTopLeftRadius: 16,
         borderBottomRightRadius: 6,
       }}
     >
@@ -262,7 +265,7 @@ function UserBubble({ text }: { text: string }) {
 /** "What would you like to know?" and a card for each question not asked yet. */
 function Suggestions({ unasked, onAsk }: { unasked: readonly SchoolQuestion[]; onAsk: (item: SchoolQuestion) => void }) {
   return (
-    <View style={{ gap: SPACE.text }}>
+    <View style={{ gap: SPACE.block }}>
       <Text style={{ paddingHorizontal: SPACE.gutter, fontSize: TYPE.label, fontWeight: "600", color: INK }}>
         {unasked.length > 0 ? SCHOOL_CHAT_COPY.prompt : SCHOOL_CHAT_COPY.allAsked}
       </Text>
@@ -325,7 +328,7 @@ function QuestionCard({ item, width, onPress }: { item: SchoolQuestion; width?: 
       }}
       className="active:opacity-70"
     >
-      <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>{item.question}</Text>
+      <Text style={{ fontSize: TYPE.body, lineHeight: 20.25, color: INK }}>{item.question}</Text>
     </Pressable>
   );
 }

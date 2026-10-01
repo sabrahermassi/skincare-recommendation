@@ -2,10 +2,14 @@ import { View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { LABEL_META, type IngredientLabel } from "@/lib/ingredient-labels";
-import { TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 
-/** A verdict's ring and word colours (v7): green, orange, red, or brown-grey for unknown. */
-function verdictColours(label: IngredientLabel): { solid: string; deep: string; wash: string } {
+// v9 (read off the hand-off): an 8pt dot with a 4pt soft halo round it.
+const DOT = 8;
+const HALO = 4;
+
+/** A verdict's colours: green, ochre, red, or grey for unknown. */
+function verdictTone(label: IngredientLabel) {
   if (label === "good") return VERDICT.high;
   if (label === "watch") return VERDICT.medium;
   if (label === "avoid") return VERDICT.low;
@@ -13,16 +17,30 @@ function verdictColours(label: IngredientLabel): { solid: string; deep: string; 
 }
 
 /**
- * An ingredient's verdict under its name (v7), everywhere one is shown: a
- * 12pt ring with a 3pt stroke in the verdict colour, then the word in the
- * verdict's text colour. There are no Good / Watch / Avoid pills any more.
+ * The dot on its own: a solid 8pt dot inside a 4pt halo, drawn as two circles
+ * rather than a spread shadow. Its box is the dot plus 2pt each side, as in
+ * the hand-off, so the halo spills 2pt past it.
+ */
+export function VerdictDot({ colour, halo }: { colour: string; halo: string }) {
+  const size = DOT + 2 * HALO;
+  return (
+    <View style={{ width: size, height: size, marginHorizontal: -(HALO - 2), borderRadius: size / 2, backgroundColor: halo, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: colour }} />
+    </View>
+  );
+}
+
+/**
+ * An ingredient's verdict under its name (v9), everywhere one is shown: the
+ * dot with its halo, then the word in the verdict's text colour. There are no
+ * Good / Watch / Avoid pills.
  */
 export function VerdictMarker({ label }: { label: IngredientLabel }) {
-  const colours = verdictColours(label);
+  const tone = verdictTone(label);
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-      <View style={{ width: 12, height: 12, borderRadius: 6, borderWidth: 3, borderColor: colours.solid }} />
-      <Text style={{ fontSize: TYPE.label, color: colours.deep }}>{LABEL_META[label].label}</Text>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+      <VerdictDot colour={tone.solid} halo={tone.halo} />
+      <Text style={{ fontSize: 15, color: tone.deep }}>{LABEL_META[label].label}</Text>
     </View>
   );
 }

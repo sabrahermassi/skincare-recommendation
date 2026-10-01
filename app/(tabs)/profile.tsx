@@ -9,7 +9,7 @@ import { TabTitle } from "@/components/TabTitle";
 import { Text } from "@/components/Text";
 import { answeredWithoutSignal, isPersonalized, profileHeadline } from "@/lib/profile";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { AVATAR_FILL, CANVAS, LINE, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { AVATAR_FILL, CANVAS, LINE, MUTED, SPACE, TYPE, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The avatar (v7): 112pt, in a 4pt white ring.
@@ -44,7 +44,7 @@ export default function Profile() {
 
         <View style={{ alignItems: "center", gap: SPACE.gutter, paddingTop: SPACE.section, paddingHorizontal: SPACE.section }}>
           {/* A placeholder for their own picture: the watercolor empty avatar on
-              its disc, in a white ring with a hairline outside it (v7). */}
+              its disc, in a white ring with a hairline outside it (v7, v9 colours). */}
           <View
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
@@ -56,7 +56,7 @@ export default function Profile() {
               borderColor: LINE,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: SURFACE,
+              backgroundColor: WHITE,
             }}
           >
             <View style={{ width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, overflow: "hidden", backgroundColor: AVATAR_FILL }}>

@@ -11,7 +11,7 @@ import { applyOps, shelfAsSaves, type Shelf, type ShelfOp } from "@/lib/shelf";
 
 import type { Concern, SkinProfile } from "@/data/types";
 
-type SavedProduct = {
+export type SavedProduct = {
   /** Product id, or a raw barcode for something scanned but not in the catalog. */
   id: string;
   savedAt: number;
@@ -63,6 +63,14 @@ export type HistoryEntry = {
    * none, so it needs no migration.
    */
   label?: string[];
+  /**
+   * How it was last reached (v9): "scanned" from the camera (a barcode or a
+   * label photo), "opened" from anywhere else. History shows it in place of
+   * the time ("Softwell · Scanned"). Optional, like `label`: an entry logged
+   * before it existed has none and keeps showing its time, so it needs no
+   * migration.
+   */
+  source?: "scanned" | "opened";
 };
 
 export const MAX_CONCERNS = 3;
@@ -228,8 +236,17 @@ type AppState = {
    */
   setNote: (id: string, note: string | null) => void;
 
+  /**
+   * Puts a product just taken off the shelf back exactly as it was — its date,
+   * step and note — at `index` in the list (Saved's Undo, v9). Queued like any
+   * other shelf change, so the next sync doesn't undo the undo.
+   */
+  restoreSavedProduct: (product: SavedProduct, index: number) => void;
+
   /** Add/remove an ingredient name from the starred list. */
   toggleSavedIngredient: (name: string) => void;
+  /** Stars an ingredient again at `index` (the Ingredients tab's Undo, v9). Queued. */
+  restoreSavedIngredient: (name: string, index: number) => void;
   /** Idempotent add, like `saveProduct`. */
   saveIngredient: (name: string) => void;
   /** Empties the Saved tab's shelf — the wipe-everything action, as opposed to
@@ -246,6 +263,12 @@ type AppState = {
     warnings: number;
     /** A label photo's ingredient names — see `HistoryEntry.label`. */
     label?: string[];
+    /**
+     * How it was reached — see `HistoryEntry.source`. An unknown barcode or a
+     * label photo (`known: false`) can only have been scanned, so it defaults
+     * to that; a catalogue product says.
+     */
+    source?: "scanned" | "opened";
   }) => void;
   /**
    * Fills in the score on an entry that was logged without one.
@@ -718,6 +741,27 @@ export const useAppStore = create<AppState>()(
           };
         }),
 
+      restoreSavedProduct: (product, index) =>
+        set((state) => {
+          if (state.savedProducts.some((p) => p.id === product.id)) return state;
+          const savedProducts = [...state.savedProducts];
+          savedProducts.splice(Math.min(Math.max(index, 0), savedProducts.length), 0, product);
+          const ops: ShelfOp[] = [
+            { kind: "save-product", id: product.id, savedAt: product.savedAt, formulaFetchedAt: product.formulaFetchedAt },
+            ...(product.routineStep ? [{ kind: "set-product-step" as const, id: product.id, step: product.routineStep }] : []),
+            ...(product.note ? [{ kind: "set-product-note" as const, id: product.id, note: product.note }] : []),
+          ];
+          return { savedProducts, ...queued(state, ...ops) };
+        }),
+
+      restoreSavedIngredient: (name, index) =>
+        set((state) => {
+          if (state.savedIngredients.includes(name)) return state;
+          const savedIngredients = [...state.savedIngredients];
+          savedIngredients.splice(Math.min(Math.max(index, 0), savedIngredients.length), 0, name);
+          return { savedIngredients, ...queued(state, { kind: "save-ingredient", name, savedAt: Date.now() }) };
+        }),
+
       saveIngredient: (name) =>
         set((state) =>
           state.savedIngredients.includes(name)
@@ -741,10 +785,11 @@ export const useAppStore = create<AppState>()(
               }
         ),
 
-      recordView: ({ id, known, score, warnings, label }) =>
+      recordView: ({ id, known, score, warnings, label, source }) =>
         set((state) => {
           const now = Date.now();
           const previous = state.history.find((h) => h.id === id);
+          const how = source ?? (known ? undefined : "scanned");
           const entry: HistoryEntry = {
             id,
             known,
@@ -754,6 +799,7 @@ export const useAppStore = create<AppState>()(
             scoreAtView: score,
             warningsAtView: warnings,
             ...(label ? { label } : {}),
+            ...(how ? { source: how } : {}),
           };
           return {
             history: keptHistory([entry, ...state.history.filter((h) => h.id !== id)], now),

@@ -7,7 +7,7 @@ import { Text } from "@/components/Text";
 import { haptic } from "@/lib/haptics";
 import { DESTRUCTIVE_OUTLINE, DISPLAY_FONT, INK, MUTED, TYPE, VERDICT } from "@/lib/tokens";
 
-/** The badge at the top of the pop-up (v7). */
+/** The badge at the top of the pop-up (v7; v9's soft red disc). */
 const BADGE = 48;
 
 /**
@@ -45,7 +45,7 @@ export function ConfirmSheet({
         <View
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
-          style={{ width: BADGE, height: BADGE, borderRadius: BADGE / 2, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT.low.wash }}
+          style={{ width: BADGE, height: BADGE, borderRadius: BADGE / 2, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT.low.tint }}
         >
           <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
             <Path
@@ -59,7 +59,7 @@ export function ConfirmSheet({
         </View>
         <Text
           accessibilityRole="header"
-          style={{ marginTop: 4, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
+          style={{ marginTop: 4, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 27.6, letterSpacing: -0.48, color: INK }}
         >
           {title}
         </Text>

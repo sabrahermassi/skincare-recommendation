@@ -16,6 +16,7 @@ import { NotePreview } from "@/components/ProductNote";
 import { ProductListRow } from "@/components/ProductListRow";
 import { ScorePill } from "@/components/ScorePill";
 import { SwipeListScope, SwipeToDelete, useSwipeList } from "@/components/SwipeToDelete";
+import { UndoToast, type UndoNotice } from "@/components/UndoToast";
 import { TabTitle } from "@/components/TabTitle";
 import { Text } from "@/components/Text";
 import { VerdictMarker } from "@/components/VerdictMarker";
@@ -29,7 +30,7 @@ import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, stepOf, type StepGroup } from "@/lib/routine-step";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { CANVAS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_NEUTRAL, WARN } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_NEUTRAL } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
@@ -45,12 +46,13 @@ type Tab = "saved" | "history" | "ingredients";
  * when you looked - a log that rewrites its own past entries is worse than no
  * log.
  *
- * Both are the same white card (owner's reference): picture, brand, name, the
- * score as a pill and a heart in the corner. On a saved card the pill is
- * today's score and untapping the heart takes the product off the shelf; on a
- * history card the pill is the score it had when you looked, the heart saves
- * or unsaves it, and a swipe left shows a bin that asks before deleting. A
- * starred ingredient swipes to the same bin and question.
+ * Both are the same stone card (v9): picture, name, brand, then the heart,
+ * the score as a small ring and a chevron. On a saved card the ring is
+ * today's score and untapping the heart takes the product off the shelf at
+ * once, with an Undo; on a history card the ring is the score it had when you
+ * looked, the heart only saves or unsaves it, and a swipe left shows a bin
+ * that asks before deleting. Unstarring an ingredient also goes at once, with
+ * an Undo.
  */
 export default function Saved() {
   const insets = useSafeAreaInsets();
@@ -71,15 +73,29 @@ export default function Saved() {
   const clearSavedIngredients = useAppStore((s) => s.clearSavedIngredients);
   const removeHistoryEntry = useAppStore((s) => s.removeHistoryEntry);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
+  const restoreSavedProduct = useAppStore((s) => s.restoreSavedProduct);
 
   // The history entry whose bin was tapped, waiting on the confirmation sheet.
   const [deleting, setDeleting] = useState<HistoryEntry | null>(null);
-  // Saved's and History's rows swipe to a bin; the list holds still while one does.
-  const savedSwipe = useSwipeList();
+  // History's rows swipe to a bin; the list holds still while one does.
   const historySwipe = useSwipeList();
-  // A saved product with a note, whose heart was untapped: unsaving deletes
-  // the note too, so it asks first. One without a note goes at once (owner).
-  const [unsaving, setUnsaving] = useState<string | null>(null);
+  // What was just taken off a list, and how to put it back (v9's Undo toast).
+  const [notice, setNotice] = useState<UndoNotice | null>(null);
+  const clearNotice = useCallback(() => setNotice(null), []);
+  const removed = useCallback((message: string, undo: () => void) => setNotice({ id: Date.now() + Math.random(), message, undo }), []);
+
+  /**
+   * Untapping a saved product's heart (v9): off the shelf at once, and the
+   * toast's Undo puts it back exactly as it was — date, step and note — in
+   * its place. That is why it no longer asks first about a note.
+   */
+  const unsave = (id: string) => {
+    const index = savedProducts.findIndex((p) => p.id === id);
+    if (index < 0) return;
+    const entry = savedProducts[index];
+    toggleSaved(id);
+    removed("Removed from saved", () => restoreSavedProduct(entry, index));
+  };
 
   // The one irreversible action on this screen (see `clearHistory` below) —
   // gated behind a second tap the same way `profile.tsx`'s erase/discard
@@ -233,6 +249,7 @@ export default function Saved() {
         <IngredientsTab
           scrollRef={live ? listRef : undefined}
           names={savedIngredients}
+          onRemoved={removed}
           onClearAll={() => setConfirmingClear(t)}
           clearSheet={
             <ClearSheet
@@ -260,54 +277,26 @@ export default function Saved() {
     if (t === "saved") {
       const shown = savedIds.filter((id) => byId[id] && (activeFilter === "all" || groupOf(id) === activeFilter));
       return (
-        <ScrollView
-          ref={live ? listRef : undefined}
-          scrollEnabled={savedSwipe.scrollEnabled}
-          onScrollBeginDrag={savedSwipe.onScrollBeginDrag}
-          contentContainerStyle={listStyle}
-        >
+        <ScrollView ref={live ? listRef : undefined} contentContainerStyle={listStyle}>
           <StepFilter groups={presentGroups} selected={activeFilter} onSelect={setStepFilter} />
           <GroupLabel title={`${shown.length} ${shown.length === 1 ? "product" : "products"}`} onClearAll={() => setConfirmingClear(t)} />
           <View style={{ gap: ROW_GAP }}>
-            <SwipeListScope list={savedSwipe.list}>
-              {shown.map((id) => {
-                const product = byId[id];
-                const match = matchProduct(product, profile);
-                const note = savedProducts.find((p) => p.id === id)?.note;
-                return (
-                  <SwipeToDelete key={id} label={product.name} action="Remove" onDelete={() => setUnsaving(id)}>
-                    <ProductListRow
-                      product={product}
-                      score={match.score}
-                      detail={productDetail(product)}
-                      // Untapping the heart takes it off the shelf at once
-                      // (owner), unless that would delete the person's note.
-                      onUnsave={note ? () => setUnsaving(id) : undefined}
-                    >
-                      {/* The person's own words, exactly as written (#228). */}
-                      {note ? <NotePreview note={note} /> : null}
-                    </ProductListRow>
-                  </SwipeToDelete>
-                );
-              })}
-            </SwipeListScope>
+            {shown.map((id) => {
+              const product = byId[id];
+              const match = matchProduct(product, profile);
+              const note = savedProducts.find((p) => p.id === id)?.note;
+              return (
+                // Untapping the heart takes it off the shelf at once, with an Undo (v9).
+                <ProductListRow key={id} product={product} score={match.score} detail={productDetail(product)} onUnsave={() => unsave(id)}>
+                  {/* The person's own words, exactly as written (#228). */}
+                  {note ? <NotePreview note={note} /> : null}
+                </ProductListRow>
+              );
+            })}
           </View>
-          <SwipeHint line="Swipe left on a product to remove it" />
 
           <ShelfPairings notes={shelfNotes} />
 
-          <ConfirmSheet
-            visible={unsaving !== null}
-            title="Remove from saved?"
-            line={unsaving && savedProducts.find((p) => p.id === unsaving)?.note ? "Your note on it will be deleted too." : "It stays in your history."}
-            keepLabel="Keep it"
-            confirmLabel="Remove"
-            onClose={() => setUnsaving(null)}
-            onConfirm={() => {
-              if (unsaving && savedProducts.some((p) => p.id === unsaving)) toggleSaved(unsaving);
-              setUnsaving(null);
-            }}
-          />
           <ClearSheet
             title="Clear all saved?"
             line="Your products stay in your history."
@@ -342,9 +331,7 @@ export default function Saved() {
                       ) : product ? (
                         // The score it had when it was looked at, not a fresh one:
                         // re-scoring the log is exactly what this screen refuses to do.
-                        <ProductListRow product={product} score={entry.scoreAtView} detail={`${product.brand} · ${relativeTime(entry.lastSeenAt)}`}>
-                          <HistoryMeta entry={entry} />
-                        </ProductListRow>
+                        <ProductListRow product={product} score={entry.scoreAtView} detail={`${product.brand} · ${howOrWhen(entry)}`} />
                       ) : (
                         <UnknownRow entry={entry} />
                       )}
@@ -418,6 +405,7 @@ export default function Saved() {
           </Animated.View>
         ))}
       </View>
+      <UndoToast notice={notice} onDone={clearNotice} />
     </View>
   );
 }
@@ -459,7 +447,7 @@ function GroupLabel({ title, onClearAll }: { title: string; onClearAll?: () => v
 
 /** The sheet "Clear all" opens; one component so the three tabs wipe the same way. */
 function ClearSheet({ title, line, visible, onCancel, onConfirm }: { title: string; line: string; visible: boolean; onCancel: () => void; onConfirm: () => void }) {
-  return <ConfirmSheet visible={visible} title={title} line={line} keepLabel="Keep them" confirmLabel="Clear all" onClose={onCancel} onConfirm={onConfirm} />;
+  return <ConfirmSheet visible={visible} title={title} line={line} keepLabel="Keep it" confirmLabel="Delete" onClose={onCancel} onConfirm={onConfirm} />;
 }
 
 /** Under a list: how to take something off it, since a swipe can't be seen. */
@@ -508,14 +496,14 @@ function ShelfPairings({ notes }: { notes: PairingNote[] }) {
   );
 }
 
-/** How often it was looked at, and what was flagged then, when either is worth saying. */
-function HistoryMeta({ entry }: { entry: HistoryEntry }) {
-  const parts = [
-    entry.seenCount > 1 ? `Checked ${entry.seenCount} times` : null,
-    entry.warningsAtView > 0 ? `${entry.warningsAtView} flagged` : null,
-  ].filter(Boolean);
-  if (parts.length === 0) return null;
-  return <Text style={{ fontSize: TYPE.caption, color: entry.warningsAtView > 0 ? WARN : MUTED }}>{parts.join(" · ")}</Text>;
+/**
+ * How a History entry was last reached (v9: "Scanned" or "Opened"), or, for
+ * one logged before that was recorded, when.
+ */
+function howOrWhen(entry: HistoryEntry): string {
+  if (entry.source === "scanned") return "Scanned";
+  if (entry.source === "opened") return "Opened";
+  return relativeTime(entry.lastSeenAt);
 }
 
 /**
@@ -546,11 +534,11 @@ function PlainRow({
       style={{ minHeight: ROW_MIN_HEIGHT, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter, borderRadius: CARD_RADIUS, backgroundColor: SURFACE }}
       className="active:opacity-70"
     >
-      <View style={{ width: TILE, height: TILE, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT_NEUTRAL.wash }}>
+      <View style={{ width: TILE, height: TILE, borderRadius: TILE_RADIUS, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT_NEUTRAL.tint }}>
         <Ionicons name="document-text-outline" size={22} color={MUTED} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
+        <Text numberOfLines={1} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
           {title}
         </Text>
         <Text numberOfLines={2} style={{ fontSize: TYPE.caption, color: MUTED }}>
@@ -563,9 +551,10 @@ function PlainRow({
   );
 }
 
-// A row's least height, and the tile where a product's bottle would be (v7).
+// A row's least height, and the tile where a product's bottle would be, with its corners (v9).
 const ROW_MIN_HEIGHT = 76;
 const TILE = 52;
+const TILE_RADIUS = 12;
 
 /**
  * A label photo in History: what was read off the pack, its score then, and a
@@ -575,18 +564,16 @@ function LabelRow({ entry, ingredients }: { entry: HistoryEntry; ingredients: st
   return (
     <PlainRow
       title="Label photo"
-      detail={`${ingredients.length} ingredients · ${relativeTime(entry.lastSeenAt)}`}
+      detail={notOursLine(entry)}
       onPress={() => router.push({ pathname: "/label-result", params: { entry: entry.id } })}
-      accessibilityLabel={`Label photo, ${ingredients.length} ingredients, ${relativeTime(entry.lastSeenAt)}`}
+      accessibilityLabel={`Label photo, ${ingredients.length} ingredients, ${notOursLine(entry)}`}
       end={
         <>
           <ScorePill score={entry.scoreAtView} />
           <RowChevron />
         </>
       }
-    >
-      <HistoryMeta entry={entry} />
-    </PlainRow>
+    />
   );
 }
 
@@ -607,14 +594,15 @@ function LabelRow({ entry, ingredients }: { entry: HistoryEntry; ingredients: st
  */
 function UnknownRow({ entry }: { entry: HistoryEntry }) {
   return entry.known ? (
-    <PlainRow title="No longer in our catalogue" detail={`Opened · ${relativeTime(entry.lastSeenAt)}`}>
-      <HistoryMeta entry={entry} />
-    </PlainRow>
+    <PlainRow title="No longer in our catalogue" detail={`Opened · ${relativeTime(entry.lastSeenAt)}`} />
   ) : (
-    <PlainRow title={entry.id} detail={`Scanned · we don't have this product · ${relativeTime(entry.lastSeenAt)}`}>
-      <HistoryMeta entry={entry} />
-    </PlainRow>
+    <PlainRow title={entry.id} detail={notOursLine(entry)} />
   );
+}
+
+/** A scan of something we don't have (v9): what it was, and when for an entry logged before "how" was. */
+function notOursLine(entry: HistoryEntry): string {
+  return entry.source ? "Scanned · we don't have this product" : `Scanned · we don't have this product · ${relativeTime(entry.lastSeenAt)}`;
 }
 
 // One picture for each tab's empty state, with its own proportions (width / height)
@@ -648,10 +636,6 @@ const EMPTY_ART_WIDTH = 280;
 // so the text under the picture starts at the same place on every tab.
 const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).map((art) => art.aspect));
 
-// The empty state's scan button, and the room it keeps on Ingredients; and the
-// room kept for the longest body (four 21pt lines).
-const EMPTY_BUTTON_HEIGHT = 48;
-const EMPTY_BODY_HEIGHT = 84;
 
 // How long a tab change cross-fades, one whole tab into the next.
 const TAB_FADE_MS = 300;
@@ -666,14 +650,13 @@ function EmptyState({ tab }: { tab: Tab }) {
   const { title, body } = EMPTY_COPY[tab];
 
   return (
-    // Just the picture and its words, centred in the room between the tab
-    // switch and the tab bar (owner): no button. Every tab's block is the same
-    // height (the picture box and the reserved body height below), so the
-    // picture doesn't move when the tab changes. Scrolls only when it doesn't
-    // fit (a short phone, large text).
+    // The picture and its words from the top of the room under the tab switch
+    // (v9), each tab's picture in a box of the same height so the words start
+    // at the same place on every tab. Scrolls only when it doesn't fit (a
+    // short phone, large text).
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ flexGrow: 1, justifyContent: "center", paddingHorizontal: 32, paddingBottom: tabBarClearance(insets.bottom) }}
+      contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.section, paddingHorizontal: 32, paddingBottom: tabBarClearance(insets.bottom) }}
       alwaysBounceVertical={false}
       overScrollMode="never"
       showsVerticalScrollIndicator={false}
@@ -690,25 +673,14 @@ function EmptyState({ tab }: { tab: Tab }) {
           />
         </View>
         <View style={{ alignItems: "center", gap: SPACE.text }}>
-          <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+          <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 27.6, letterSpacing: -0.48, color: INK }}>
             {title}
           </Text>
-          {/* minHeight reserves room for the longest body (History's wraps to 4
-              lines at this width, the others to 2 or 3) — without it, a shorter
-              body made this whole block shorter, and centering a shorter block
-              shifted the art above it. Same reserved height on every tab means
-              the art lands at the exact same position. */}
-          <View style={{ minHeight: EMPTY_BODY_HEIGHT, maxWidth: 300, justifyContent: "flex-start" }}>
-            <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{body}</Text>
-          </View>
-          {/* Only Saved offers the first scan (owner); History and
-              Ingredients keep the room the button takes, so the picture above
-              stays put when the tab changes. */}
-          {tab !== "saved" ? (
-            <View style={{ height: EMPTY_BUTTON_HEIGHT, marginTop: SPACE.gutter }} />
-          ) : (
+          <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{body}</Text>
+          {/* Only Saved offers the first scan (owner). */}
+          {tab === "saved" ? (
             <PrimaryButton label="Scan your first product" onPress={openScanner} style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.gutter }} />
-          )}
+          ) : null}
         </View>
       </View>
     </ScrollView>
@@ -727,11 +699,14 @@ function EmptyState({ tab }: { tab: Tab }) {
  */
 function IngredientsTab({
   names,
+  onRemoved,
   onClearAll,
   clearSheet,
   scrollRef,
 }: {
   names: string[];
+  /** Unstarring went through; the screen shows the Undo. */
+  onRemoved: (message: string, undo: () => void) => void;
   onClearAll: () => void;
   /** The "Clear all" question, which the screen owns. */
   clearSheet: ReactNode;
@@ -741,9 +716,14 @@ function IngredientsTab({
   const insets = useSafeAreaInsets();
   const profile = useAppStore((s) => s.profile);
   const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
-  // The ingredient a swipe asked to delete, until the question is answered.
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const swipe = useSwipeList();
+  const restoreSavedIngredient = useAppStore((s) => s.restoreSavedIngredient);
+  /** Untapping a star (v9): unstarred at once, with an Undo that puts it back in its place. */
+  const unstar = (name: string) => {
+    const index = names.indexOf(name);
+    if (index < 0) return;
+    toggleSavedIngredient(name);
+    onRemoved("Removed from starred", () => restoreSavedIngredient(name, index));
+  };
   const [byName, setByName] = useState<Record<string, Ingredient> | null>(null);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -805,40 +785,14 @@ function IngredientsTab({
   }
 
   return (
-    <ScrollView
-      ref={scrollRef}
-      scrollEnabled={swipe.scrollEnabled}
-      onScrollBeginDrag={swipe.onScrollBeginDrag}
-      contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingBottom: tabBarClearance(insets.bottom) }}
-    >
+    <ScrollView ref={scrollRef} contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingBottom: tabBarClearance(insets.bottom) }}>
       <GroupLabel title={`${names.length} starred`} onClearAll={onClearAll} />
       <View style={{ gap: ROW_GAP }}>
-        <SwipeListScope list={swipe.list}>
-          {names.map((name) => {
-            const ingredient: Ingredient = byName[name] ?? unknownIngredient(name);
-            return (
-              <SwipeToDelete key={name} label={displayIngredientName(ingredient.name)} onDelete={() => setDeleting(name)}>
-                <IngredientRow ingredient={ingredient} label={labelWithoutProduct(ingredient, profile)} onUnstar={() => toggleSavedIngredient(name)} />
-              </SwipeToDelete>
-            );
-          })}
-        </SwipeListScope>
+        {names.map((name) => {
+          const ingredient: Ingredient = byName[name] ?? unknownIngredient(name);
+          return <IngredientRow key={name} ingredient={ingredient} label={labelWithoutProduct(ingredient, profile)} onUnstar={() => unstar(name)} />;
+        })}
       </View>
-      <SwipeHint line="Swipe left on an ingredient to remove it" />
-
-      {/* The same swipe, bin and question as a History row (owner). */}
-      <ConfirmSheet
-        visible={deleting !== null}
-        title="Delete ingredient?"
-        line="It will disappear from your starred ingredients."
-        keepLabel="Keep it"
-        confirmLabel="Delete"
-        onClose={() => setDeleting(null)}
-        onConfirm={() => {
-          if (deleting && names.includes(deleting)) toggleSavedIngredient(deleting);
-          setDeleting(null);
-        }}
-      />
 
       {clearSheet}
     </ScrollView>
@@ -846,8 +800,8 @@ function IngredientsTab({
 }
 
 /**
- * One starred ingredient (v7): its name, the verdict marker under it (or "No
- * known concerns"), the filled star — untap it to unstar — and a chevron. The
+ * One starred ingredient (v9): its name, the verdict marker under it (or "No
+ * known concerns"), the filled star — untap it to unstar, with an Undo — and a chevron. The
  * card is a `Link`; the star is its sibling, not inside it, so a tap on it
  * never opens the ingredient.
  */
@@ -862,7 +816,7 @@ function IngredientRow({ ingredient, label, onUnstar }: { ingredient: Ingredient
           style={{ flex: 1, gap: 3, paddingVertical: SPACE.block, paddingLeft: SPACE.gutter, paddingRight: 4 }}
           className="active:opacity-70"
         >
-          <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
+          <Text numberOfLines={1} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
             {name}
           </Text>
           {label ? <VerdictMarker label={label} /> : <Text style={{ fontSize: TYPE.caption, color: MUTED }}>No known concerns</Text>}

@@ -23,7 +23,8 @@ import { useAppStore } from "@/store/useAppStore";
  * account is for and offers the sign-in sheet; it never blocks anything else.
  *
  * Laid out in v7's groups — who you're signed in with, your data, delete —
- * each a white card under a caps label, with its note under it. Signed out,
+ * each a stone card under a caps label (v9), with its note under it. v9's
+ * rows are actions, not pages, so none carries a chevron. Signed out,
  * the delete is the one Profile used to carry — erasing the skin profile,
  * shelf and history on this phone.
  */
@@ -144,7 +145,7 @@ export default function Account() {
             <SectionLabel title="Delete" />
             <MenuGroup>
               <MenuRow
-                label={signedIn ? "Delete account" : "Delete my profile"}
+                label={signedIn ? "Delete my account" : "Delete my profile"}
                 destructive
                 disabled={working}
                 onPress={() => (signedIn ? setConfirmingDelete(true) : setConfirmingErase(true))}
@@ -194,15 +195,15 @@ function SignedIn({
       <SectionLabel title={`Signed in with ${summary.providers}`} first />
       <MenuGroup>
         {summary.email ? <MenuRow label="Email" value={summary.email} /> : null}
-        <MenuRow label="Sign out" disabled={working} onPress={() => onLeave(false)} />
-        <MenuRow label="Sign out on every device" disabled={working} onPress={() => onLeave(true)} />
+        <MenuRow label="Sign out" chevron={false} disabled={working} onPress={() => onLeave(false)} />
+        <MenuRow label="Sign out on every device" chevron={false} disabled={working} onPress={() => onLeave(true)} />
       </MenuGroup>
       {summary.isHiddenEmail ? <Note>{HIDDEN_EMAIL_NOTE}</Note> : null}
       <Note>{EVERY_DEVICE_NOTE}</Note>
 
       <SectionLabel title="Your data" />
       <MenuGroup>
-        <MenuRow label="Download my data" disabled={working} onPress={onDownload} />
+        <MenuRow label="Download my data" chevron={false} disabled={working} onPress={onDownload} />
       </MenuGroup>
       <Note>{EXPORT_EXPLAINER}</Note>
     </>
@@ -211,7 +212,7 @@ function SignedIn({
 
 /** A group's note under its card (v7): 13pt, secondary. */
 function Note({ children }: { children: string }) {
-  return <Text style={{ paddingTop: SPACE.text, paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{children}</Text>;
+  return <Text style={{ paddingTop: SPACE.text, paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: 18.2, color: MUTED }}>{children}</Text>;
 }
 
 /** Exported for the tests. */

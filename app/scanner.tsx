@@ -25,13 +25,14 @@ import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { GlassButton } from "@/components/GlassButton";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
-import { RING_SIZE, ScoreRing, VerdictPill } from "@/components/result/ScoreRing";
+import { RING_SIZE, ScoreRing } from "@/components/result/ScoreRing";
 import { Text } from "@/components/Text";
 import { isProductBarcode, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
 import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
 import { lookupFailureState, scanStateCopy, scanStateSpeech, type ScanCopy, type ScanState, SCAN_SOMETHING_ELSE } from "@/lib/scan-copy";
+import { useScanContext } from "@/lib/scan-context";
 import { rememberScanMode, rememberedScanMode, type ScanMode } from "@/lib/scan-mode";
 import { createStaleGuard } from "@/lib/stale-guard";
 import { haptic } from "@/lib/haptics";
@@ -52,6 +53,7 @@ import {
   SPACE,
   TOUCH_TARGET,
   TYPE,
+  WHITE,
   withAlpha,
 } from "@/lib/tokens";
 
@@ -100,6 +102,8 @@ export default function Scan() {
   // from the label result. Nothing else is taken from the link (#29): a read
   // is only shown, never saved under a barcode.
   const params = useLocalSearchParams<{ mode?: string }>();
+  // Where this scan started (the journey, a routine step), handed on to the result.
+  const context = useScanContext();
   const photoRequested = params.mode === "photo";
   // Photo is the default now (issue #214): reading a label works on every
   // product, in any shop, with no catalogue coverage needed — a barcode only
@@ -518,7 +522,6 @@ export default function Scan() {
           <FoundSheet
             key={status.product.id}
             product={status.product}
-            onLeave={preserveMode}
             onClose={() => {
               // Same reasoning as the missed/unreachable clear in
               // `selectMode` — the barcode is still in frame. See #190.
@@ -528,7 +531,7 @@ export default function Scan() {
             }}
             onOpen={() => {
               preserveMode();
-              router.push({ pathname: "/result/[id]", params: { id: status.product.id, from: "barcode" } });
+              router.push({ pathname: "/result/[id]", params: { id: status.product.id, from: "barcode", ...context } });
             }}
           />
         ) : null}
@@ -612,7 +615,7 @@ function ScanPopup({ onDismiss, children }: { onDismiss: () => void; children: R
           right: FLOAT_INSET,
           bottom: FLOAT_INSET,
           transform: [{ translateY: lift }],
-          backgroundColor: CANVAS,
+          backgroundColor: WHITE,
           borderRadius: FLOAT_RADIUS,
           paddingTop: SPACE.section,
           paddingHorizontal: SPACE.gutter,
@@ -686,8 +689,8 @@ function NoMatchSheet({
 }
 
 /**
- * The product a barcode found (v7): brand and name in small capitals, the big
- * score ring and its verdict pill, "See full result", and "Scan another" to put
+ * The product a barcode found (v9): brand and name in small capitals, the big
+ * score ring and "See full result". Tapping the dimmed camera behind it puts
  * the camera back to scanning. With no score to show (no skin profile, or too
  * little of the label recognised), the product's picture takes the ring's place.
  */
@@ -695,13 +698,10 @@ function FoundSheet({
   product,
   onClose,
   onOpen,
-  onLeave,
 }: {
   product: ProductWithIngredients;
   onClose: () => void;
   onOpen: () => void;
-  /** Called before How scoring works opens over the scanner. */
-  onLeave: () => void;
 }) {
   const profile = useAppStore((s) => s.profile);
   const match = matchProduct(product, profile);
@@ -713,18 +713,12 @@ function FoundSheet({
       <View style={{ marginTop: SPACE.block }}>
         {match.score === null ? <ProductThumbnail product={product} size={RING_SIZE} /> : <ScoreRing match={match} />}
       </View>
-      <View style={{ marginTop: SPACE.block }}>
-        <VerdictPill match={match} onOpen={onLeave} />
-      </View>
       <PrimaryButton
         label="See full result"
         accessibilityLabel="See the full result"
         onPress={onOpen}
         style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.section }}
       />
-      <View style={{ marginTop: SPACE.text }}>
-        <PopupLink label="Scan another" onPress={onClose} />
-      </View>
     </ScanPopup>
   );
 }
@@ -1038,12 +1032,13 @@ function IngredientsStage({
   // Where a finished read goes, whether it came from the camera or a chosen
   // photo: straight to the verdict (issue #214). The verdict is only shown;
   // users can't add products to the catalogue (owner).
+  const context = useScanContext();
   const openVerdict = () => {
     // The X (or a tab switch), or a mode switch away and back, can land
     // while a read is still pending.
     if (!stillWanted()) return;
     preserveMode();
-    router.push("/label-result");
+    router.push({ pathname: "/label-result", params: context });
   };
 
   return (

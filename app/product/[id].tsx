@@ -19,7 +19,7 @@ import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import { track } from "@/lib/analytics";
 import { relativeTime } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
-import { FROM_FINDER, useScoringProfile } from "@/lib/finder-choices";
+import { decodeConcerns } from "@/lib/journey";
 import { matchProduct } from "@/lib/matching";
 import { openScanner } from "@/lib/open-scanner";
 import { productIdParam } from "@/lib/route-params";
@@ -72,13 +72,13 @@ const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 export default function ProductRoute() {
   // `from` says how the person got here, for the funnel (#225) only: the
   // scanner and the label flow set it, and anything else is browsing.
-  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  const { id, from, concerns } = useLocalSearchParams<{ id: string; from?: string; concerns?: string }>();
   const productId = productIdParam(id);
   if (!productId) return <NotFound />;
-  return <ProductScreen id={productId} from={from} />;
+  return <ProductScreen id={productId} from={from} concerns={concerns} />;
 }
 
-function ProductScreen({ id, from }: { id: string; from?: string }) {
+function ProductScreen({ id, from, concerns }: { id: string; from?: string; concerns?: string }) {
   // Seeded from the catalogue cache so a product already in memory paints on
   // the first frame instead of a spinner — the same `peekProducts` seam
   // `app/(tabs)/browse.tsx` uses for a warm start.
@@ -114,12 +114,10 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
   // `react-hooks/purity` flags `Date.now()` during render.
   const [renderedAt] = useState(() => Date.now());
 
-  // The answers this page scores with: the finder's when opened from its
-  // results, so the number matches the row tapped; the skin profile otherwise.
-  const profile = useScoringProfile(from);
-  // History is the person's own record, so it logs the skin profile's score
-  // whichever answers the page is showing.
+  // Scored with the skin profile; a journey's concerns (`from=journey`) only
+  // shape the plan block, never the score.
   const ownProfile = useAppStore((s) => s.profile);
+  const profile = ownProfile;
   const savedProducts = useAppStore((s) => s.savedProducts);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
   const saveProduct = useAppStore((s) => s.saveProduct);
@@ -201,7 +199,8 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
     const { score, warnings } = matchProduct(product, useAppStore.getState().profile);
     // historyWarningCount, not irritationWarnings (#187 found in review) —
     // see lib/safety.ts for why the two must differ.
-    recordView({ id: product.id, known: true, score, warnings: historyWarningCount(warnings) });
+    // Scanned or opened, for Saved › History's line (v9).
+    recordView({ id: product.id, known: true, score, warnings: historyWarningCount(warnings), source: from === "barcode" || from === "label" ? "scanned" : "opened" });
     track("verdict_viewed", { path: from === "barcode" || from === "label" ? from : "browse" });
   }, [product, confirmedFor, recordView, from]);
 
@@ -393,12 +392,21 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
             type={product.type}
             match={match}
             profile={profile}
-            onIngredientPress={(ingredient) =>
-              router.push({
-                pathname: "/ingredient/[inci]",
-                // The ingredient page scores with the same answers as this one.
-                params: from === FROM_FINDER ? { inci: ingredient.name, product: product.id, from } : { inci: ingredient.name, product: product.id },
-              })
+            onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, product: product.id } })}
+            // Opened from "What my skin needs" (v9): how it fits that plan.
+            // Saving to the plan is the shelf save, the same as the heart.
+            plan={
+              from === "journey"
+                ? {
+                    concerns: decodeConcerns(concerns),
+                    saved,
+                    onSave: () => {
+                      haptic.tap();
+                      if (saved) toggleSaved(product.id);
+                      else saveFromTap(() => saveProduct(product.id, product.fetchedAt), "product");
+                    },
+                  }
+                : undefined
             }
             footer={
               <>

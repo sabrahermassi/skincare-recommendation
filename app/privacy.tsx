@@ -72,7 +72,7 @@ export default function Privacy() {
       <ScreenHeader />
       <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
         <PageTitle title="Privacy policy" />
-        {/* The short version first (v7), on a white card. */}
+        {/* The short version first (v7), on a stone card (v9). */}
         <View style={{ marginTop: SPACE.gutter, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, padding: SPACE.gutter }}>
           <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>In short: no ads, no selling your data, and no account needed to scan.</Text>
         </View>
@@ -81,7 +81,7 @@ export default function Privacy() {
             <SectionLabel title={section.title} />
             <View style={{ gap: SPACE.text, paddingHorizontal: 4 }}>
               {section.lines.map((line) => (
-                <Text key={line} style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
+                <Text key={line} style={{ fontSize: TYPE.body, lineHeight: 22.5, color: INK }}>
                   {line}
                 </Text>
               ))}

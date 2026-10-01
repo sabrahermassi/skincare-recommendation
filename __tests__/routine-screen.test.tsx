@@ -30,8 +30,18 @@ it("lays out the morning steps, and the evening's from the switch", async () => 
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
   await render(<Routine />);
   expect(screen.getByText("Steps for today")).toBeTruthy();
-  expect(screen.getByText("Sun protection")).toBeTruthy();
+  // v9's steps: Cleansing, Serum, Moisturiser, Sunscreen by day.
+  for (const step of ["Cleansing", "Serum", "Moisturiser", "Sunscreen"]) expect(screen.getByText(step)).toBeTruthy();
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
-  expect(screen.getByText("Serum")).toBeTruthy();
-  expect(screen.queryByText("Sun protection")).toBeNull();
+  // Cleansing, Treatment, Moisturiser, Night care by night.
+  for (const step of ["Treatment", "Night care"]) expect(screen.getByText(step)).toBeTruthy();
+  expect(screen.queryByText("Sunscreen")).toBeNull();
+  expect(screen.queryByText("Serum")).toBeNull();
+});
+
+it("numbers each step plainly, with no dotted connectors between them (v9)", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
+  await render(<Routine />);
+  for (const n of ["1", "2", "3", "4"]) expect(screen.getByText(n)).toBeTruthy();
+  expect(screen.getAllByRole("button", { name: /^Scan one to check, for / })).toHaveLength(4);
 });

@@ -2,15 +2,17 @@ import { forwardRef } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
-import { FONT_SCALE, ICON_MUTED, INK, SURFACE, TYPE, WHITE } from "@/lib/tokens";
+import { bodyFamily } from "@/components/Text";
+
+import { FONT_SCALE, ICON_MUTED, INK, PLACEHOLDER, SURFACE, TYPE, WHITE } from "@/lib/tokens";
 
 /** The bar's height (v7). */
 const SEARCH_BAR_HEIGHT = 44;
 
 /**
- * Every search bar in the app (v7): a 44pt pure white pill, no border or
- * shade, a grey magnifier and placeholder, 17pt text, and a small clear cross
- * once there is something to clear.
+ * Every search bar in the app: a 44pt stone pill (v9), no border or shade, a
+ * grey magnifier, a darker grey placeholder, 17pt text, and a small clear
+ * cross once there is something to clear.
  */
 export const SearchBar = forwardRef<
   TextInput,
@@ -37,14 +39,15 @@ export const SearchBar = forwardRef<
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={ICON_MUTED}
+        placeholderTextColor={PLACEHOLDER}
         autoCorrect={false}
         autoFocus={autoFocus}
         returnKeyType="search"
         onSubmitEditing={onSubmitEditing}
         maxFontSizeMultiplier={FONT_SCALE.ui}
         accessibilityLabel={accessibilityLabel ?? placeholder}
-        style={{ flex: 1, height: SEARCH_BAR_HEIGHT, fontSize: TYPE.card, color: INK }}
+        // A TextInput isn't `Text`, so it names the body face itself (v9).
+        style={{ flex: 1, height: SEARCH_BAR_HEIGHT, fontFamily: bodyFamily(400), fontSize: TYPE.card, color: INK }}
       />
       {value.length > 0 ? (
         <Pressable onPress={() => onChangeText("")} accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={8} className="active:opacity-70" style={{ padding: 6 }}>

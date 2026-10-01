@@ -27,7 +27,7 @@ jest.mock("react-native-safe-area-context", () => ({
 jest.mock("expo-apple-authentication", () => {
   const { Pressable, Text } = jest.requireActual<typeof import("react-native")>("react-native");
   return {
-    AppleAuthenticationButtonType: { SIGN_IN: 0 },
+    AppleAuthenticationButtonType: { SIGN_IN: 0, CONTINUE: 1 },
     AppleAuthenticationButtonStyle: { BLACK: 2 },
     AppleAuthenticationButton: ({ onPress }: { onPress: () => void }) => (
       <Pressable onPress={onPress} accessibilityRole="button">

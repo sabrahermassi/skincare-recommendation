@@ -145,15 +145,15 @@ describe("the quiz, as a modal", () => {
       </QuizFrame>,
     );
     await fireEvent.press(screen.getByText("No"));
-    await fireEvent.press(screen.getByText("Finish"));
+    await fireEvent.press(screen.getByText("See my match"));
     expect(mockGoBack).toHaveBeenCalledTimes(1);
     expect(mockRouter.replace).not.toHaveBeenCalled();
     expect(useAppStore.getState().profile.pregnancyStatus).toBe("neither");
   });
 
   // #378 review: an old "prefer not to say" is neither of the two options, so
-  // neither shows as chosen and Finish waits for a Yes or No.
-  it("asks again for an old prefer-not-to-say answer instead of showing nothing chosen with Finish on", async () => {
+  // neither shows as chosen and See my match waits for a Yes or No.
+  it("asks again for an old prefer-not-to-say answer instead of showing nothing chosen with See my match on", async () => {
     useAppStore.setState({ profile: { ...EMPTY_PROFILE, pregnancyStatus: "prefer-not-to-say" } });
     await render(
       <QuizFrame>
@@ -161,9 +161,9 @@ describe("the quiz, as a modal", () => {
       </QuizFrame>,
     );
     for (const radio of screen.getAllByRole("radio")) expect(radio.props.accessibilityState?.checked).toBe(false);
-    expect(screen.getByRole("button", { name: "Finish" }).props.accessibilityState?.disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "See my match" }).props.accessibilityState?.disabled).toBe(true);
     await fireEvent.press(screen.getByText("No"));
-    expect(screen.getByRole("button", { name: "Finish" }).props.accessibilityState?.disabled).toBe(false);
+    expect(screen.getByRole("button", { name: "See my match" }).props.accessibilityState?.disabled).toBe(false);
   });
 
   it("has no Skip, and saves each answer as it's tapped, so a quiz swiped away keeps it", async () => {
@@ -205,7 +205,7 @@ describe("the quiz opened from a link, with nothing behind it", () => {
       </QuizFrame>,
     );
     await fireEvent.press(screen.getByText("No"));
-    await fireEvent.press(screen.getByText("Finish"));
+    await fireEvent.press(screen.getByText("See my match"));
     expect(mockGoBack).not.toHaveBeenCalled();
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
   });

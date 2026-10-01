@@ -108,7 +108,7 @@ describe("typing", () => {
     await render(<Search />);
     await act(async () => fireEvent.changeText(screen.getByLabelText("Search products or brands"), "ceramide"));
     await screen.findByText("Aqua Barrier Ceramide Moisturizer", {}, { timeout: 3000 });
-    const scores = screen.getAllByText(/^\d+$/).map((node) => Number(node.props.children));
+    const scores = screen.getAllByText(/^\d+$/, { includeHiddenElements: true }).map((node) => Number(node.props.children));
     expect(scores.length).toBeGreaterThan(1);
     expect(scores).toEqual([...scores].sort((a, b) => b - a));
   });

@@ -4,7 +4,7 @@ import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, Scr
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { CANVAS, INK, SCRIM, SHEET_SHADOW, withAlpha } from "@/lib/tokens";
+import { INK, SCRIM, SHEET_SHADOW, WHITE, withAlpha } from "@/lib/tokens";
 
 const IN_MS = 280;
 const OUT_MS = 220;
@@ -13,7 +13,7 @@ const OUT_MS = 220;
 // grabber.
 export const FLOAT_INSET = 10;
 export const FLOAT_RADIUS = 36;
-const FLOAT_BLUR = 6;
+const FLOAT_BLUR = 4; // v9
 const SHEET_RADIUS = 38;
 // The room a sheet always leaves above itself, under the status bar, so a
 // long one stops short of the top and scrolls instead (its corner stays
@@ -94,7 +94,7 @@ export function BottomSheet({
               floating
                 ? { marginHorizontal: FLOAT_INSET, marginBottom: FLOAT_INSET, borderRadius: FLOAT_RADIUS }
                 : { borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS },
-              { maxHeight, backgroundColor: CANVAS, ...SHEET_SHADOW },
+              { maxHeight, backgroundColor: WHITE, ...SHEET_SHADOW }, // v9: pure white sheets
             ]}
           >
             {/* Rounded clipping lives on this inner view, so the shadow above

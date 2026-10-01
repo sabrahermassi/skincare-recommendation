@@ -1,26 +1,23 @@
 import type { useCameraPermissions } from "expo-camera";
-import { router } from "expo-router";
 import type { ReactNode } from "react";
-import { Linking, Pressable } from "react-native";
+import { Linking } from "react-native";
 
 import { ScanIntro } from "@/components/ScanIntro";
-import { Text } from "@/components/Text";
 import { scanStateCopy } from "@/lib/scan-copy";
-import { LINK, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 // A camera with an unlocked padlock (new-watercolor/camera_permission_transparent.png).
 const CAMERA_ART = require("@/assets/illustrations/camera-permission.webp");
 
 /**
  * The one screen asking for camera access (#204), for both scanner modes:
- * cream, the watercolor, a serif title, one sentence, one button. There were three, which said "Open camera" and "Grant
+ * white, the watercolor, a serif title, one sentence, one button. There were three, which said "Open camera" and "Grant
  * permission" for the same action.
  *
  * Two reasons there is no camera, and it says which: access not asked for yet
  * ("Turn on the camera"), or refused — there is no prompt left to show then,
- * so the button opens the system settings instead. Either way the Search link
- * is a way forward that needs no camera, and Photo mode adds "Choose a photo
- * instead" (`extra`).
+ * so the button opens the system settings instead. Photo mode adds "Choose a
+ * photo instead" (`extra`), the way forward that needs no camera. v9 has no
+ * Search, so the old Search link is gone.
  */
 export function CameraPermissionScreen({
   permission,
@@ -53,18 +50,6 @@ export function CameraPermissionScreen({
       bottomInset={bottomInset}
     >
       {extra}
-      {/* This shows at the worst moment — camera access just failed — so the
-          way forward has to actually be one: a full-size target,
-          and it goes to Search rather than only naming it. `dismissTo`, since
-          the scanner is a modal (#313): a push would open the tabs inside it. */}
-      <Pressable
-        onPress={() => router.dismissTo("/browse")}
-        accessibilityRole="link"
-        style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 12 }}
-        className="active:opacity-70"
-      >
-        <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{copy.link}</Text>
-      </Pressable>
     </ScanIntro>
   );
 }

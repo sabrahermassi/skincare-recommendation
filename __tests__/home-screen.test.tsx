@@ -5,9 +5,9 @@ import Home from "@/app/(tabs)/index";
 import { openScanner } from "@/lib/open-scanner";
 
 /**
- * Home (per #155, v7 design): the "Hi there" title, the scan card with its own
- * Scan now button, three tiles — Search, Routine and My match (the
- * skincare finder) — and the Tip of the day.
+ * Home (per #155, v9 design): the "Hi there" title, the scan card (one big
+ * button), two tiles — What my skin needs (the journey) and Skincare routine
+ * — and the Tip of the day.
  */
 
 jest.setTimeout(30_000);
@@ -17,37 +17,34 @@ jest.mock("@/lib/open-scanner", () => ({ openScanner: jest.fn() }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
+// Reduce Motion on: a tap acts at once, with no bounce delay to wait out.
+jest.mock("@/lib/reduce-motion", () => ({ reduceMotionNow: () => true }));
 
-it("shows the title, the scan card and the three tiles, and no skin profile card", async () => {
+it("shows the title, the scan card and the two tiles, and no Search or finder", async () => {
   await render(<Home />);
   expect(screen.getByRole("header", { name: "Hi there" })).toBeTruthy();
   expect(screen.getByText("Scan any product")).toBeTruthy();
   expect(screen.queryByText("Your skin profile")).toBeNull();
-  for (const tile of ["Search", "Routine", "My match"]) expect(screen.getByRole("button", { name: tile })).toBeTruthy();
+  for (const tile of ["What my skin needs", "Skincare routine"]) expect(screen.getByRole("button", { name: tile })).toBeTruthy();
+  for (const gone of ["Search", "My match"]) expect(screen.queryByRole("button", { name: gone })).toBeNull();
 });
 
-it("opens the scanner from Scan now", async () => {
+it("opens the scanner from anywhere on the scan card", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "Scan now" }));
-  expect(openScanner).toHaveBeenCalled();
+  await fireEvent.press(screen.getByRole("button", { name: "Scan any product" }));
+  expect(openScanner).toHaveBeenCalledWith();
 });
 
-it("opens the skincare routine from Routine", async () => {
+it("opens the skincare routine from its tile", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "Routine" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Skincare routine" }));
   expect(router.push).toHaveBeenCalledWith("/routine");
 });
 
-it("opens Search from its tile, which has no tab of its own", async () => {
+it("opens What my skin needs from its tile", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "Search" }));
-  expect(router.navigate).toHaveBeenCalledWith("/browse");
-});
-
-it("opens the skincare finder from My match", async () => {
-  await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "My match" }));
-  expect(router.push).toHaveBeenCalledWith("/finder");
+  await fireEvent.press(screen.getByRole("button", { name: "What my skin needs" }));
+  expect(router.push).toHaveBeenCalledWith("/journey");
 });
 
 it("shows today's tip under the tiles", async () => {

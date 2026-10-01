@@ -8,7 +8,7 @@ import { haptic } from "@/lib/haptics";
 import { useNoteTextStyle } from "@/lib/note-font";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { anotherTip, localDay, tipOfTheDay } from "@/lib/tips";
-import { ICON_MUTED, INK, MUTED, SPACE, TIP_NOTE, TYPE, WHITE } from "@/lib/tokens";
+import { HINT, INK, MUTED, SPACE, SURFACE, TIP_NOTE, TYPE } from "@/lib/tokens";
 
 // The tape across the card's top (v7): 80 × 22, 10pt above the edge, a few
 // degrees off straight, its short ends cut in a small zigzag like scissors.
@@ -103,12 +103,12 @@ export function TipCard() {
   ];
 
   return (
-    <View style={{ marginTop: SPACE.section }}>
+    <View style={{ marginTop: 32 }}>
       <Pressable onPress={shuffle} accessibilityRole="button" accessibilityLabel="Show another tip" accessibilityHint={`Tip of the day: ${tip}`}>
         <Animated.View
           style={{
             borderRadius: TIP_NOTE.radius,
-            backgroundColor: WHITE,
+            backgroundColor: SURFACE,
             boxShadow: TIP_NOTE.shadow,
             paddingTop: SPACE.section,
             paddingHorizontal: SPACE.gutter,
@@ -127,18 +127,18 @@ export function TipCard() {
           </Svg>
 
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.text }}>
-            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase", color: MUTED }}>Tip of the day</Text>
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED }}>Tip of the day</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
               <Animated.View style={{ transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }] }}>
-                <Ionicons name="shuffle" size={15} color={ICON_MUTED} />
+                <Ionicons name="shuffle" size={15} color={HINT} />
               </Animated.View>
-              <Text style={{ fontSize: TYPE.caption, color: ICON_MUTED }}>Tap for another</Text>
+              <Text style={{ fontSize: TYPE.caption, color: HINT }}>Tap for another</Text>
             </View>
           </View>
 
           {/* The tip, written in from the left: a window that widens over it,
               the text inside held at the full width so it never reflows. */}
-          <View style={{ marginTop: SPACE.text, minHeight: TIP_NOTE.minHeight }} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
+          <View style={{ marginTop: 4, minHeight: TIP_NOTE.minHeight }} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
             {/* Two views, since one can't take both drivers: the lift away runs
                 natively, the widening window (layout) on the JS side. */}
             <Animated.View

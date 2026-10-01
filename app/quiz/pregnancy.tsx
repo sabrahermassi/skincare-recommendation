@@ -7,7 +7,6 @@ import { QuizScreen } from "@/components/QuizScreen";
 import type { Pregnancy } from "@/data/types";
 import { PREGNANCY_QUESTION, PREGNANCY_WHY, pregnancyYesNo, quizStepNumber } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { NONE_ICON, PREGNANCY_ICON } from "@/lib/quiz-icons";
 
 /**
  * The quiz's 4th and final question. Unlike the gender/age fields this app
@@ -19,12 +18,10 @@ import { NONE_ICON, PREGNANCY_ICON } from "@/lib/quiz-icons";
  * A yes or no (owner). "Yes" is stored as "pregnant": scoring treats
  * pregnant and breastfeeding the same, so the answer needs no finer split, and
  * an older "breastfeeding" answer still reads as Yes (`isYes`).
- *
- * Icons: design-watercolor/skin quiz/screens/skin quiz screen 4.png.
  */
-const OPTIONS: { value: Pregnancy; label: string; icon: number }[] = [
-  { value: "pregnant", label: "Yes", icon: PREGNANCY_ICON.pregnant },
-  { value: "neither", label: "No", icon: NONE_ICON },
+const OPTIONS: { value: Pregnancy; label: string }[] = [
+  { value: "pregnant", label: "Yes" },
+  { value: "neither", label: "No" },
 ];
 
 export default function PregnancyStep() {
@@ -33,7 +30,7 @@ export default function PregnancyStep() {
   const { close } = useQuizFrame();
   const markQuizJustFinished = useAppStore((s) => s.markQuizJustFinished);
   // A legacy "prefer not to say" isn't one of the two options, so it counts as
-  // not picked yet: Finish waits for Yes or No rather than showing neither.
+  // not picked yet: the button waits for Yes or No rather than showing neither.
   const [picked, setPicked] = useState(pregnancyStatus !== null && pregnancyYesNo(pregnancyStatus) !== null);
 
   // Back to the screen the quiz opened over, which now shows the score (#346).
@@ -51,16 +48,15 @@ export default function PregnancyStep() {
       subtitle={PREGNANCY_WHY}
       onNext={finish}
       nextDisabled={!picked}
-      // Says what it does (#295): the quiz ends here. Not "Done": Skin
-      // profile's per-section "Done" only closes a section without saving
-      // (#308 review).
-      nextLabel="Finish"
+      // Says what happens next (v9): the quiz closes back to the screen it
+      // opened over, which now scores for the answers. Not "Done": Skin
+      // profile's per-section "Done" only closes a section (#308 review).
+      nextLabel="See my match"
     >
       <View style={QUIZ_OPTION_GRID}>
         {OPTIONS.map((option) => (
           <QuizOptionCard
             key={option.value}
-            icon={option.icon}
             label={option.label}
             selected={picked && pregnancyStatus !== null && pregnancyYesNo(pregnancyStatus) === option.value}
             onPress={() => {

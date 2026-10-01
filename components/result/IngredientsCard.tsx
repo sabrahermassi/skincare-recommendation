@@ -9,23 +9,37 @@ import { VerdictMarker } from "@/components/VerdictMarker";
 import type { Ingredient } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { ingredientLabel, LABEL_META, sortForGlance, type IngredientLabel } from "@/lib/ingredient-labels";
-import type { MatchResult } from "@/lib/matching";
+import { ruleFor, type MatchResult } from "@/lib/matching";
+import { isWarnedPoreClogging } from "@/lib/pore-clogging";
+import { nameMatches } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
-import { BUTTON, INK, LINK, MUTED, SURFACE, TYPE } from "@/lib/tokens";
+import { CARD_RADIUS, INK, LINK, MUTED, SPACE, TYPE, WHITE } from "@/lib/tokens";
 
-export type IngredientFilter = "all" | "watch" | "avoid" | "unknown";
+export type IngredientFilter = "all" | "watch" | "actives" | "pore" | "unknown";
 
-// v7 (read off the hand-off): the first five rows, then "N more ingredients".
+// v9 (read off the hand-off): the first five rows, then "N more ingredients".
 const FIRST_ROWS = 5;
-const BOX_RADIUS = 28;
 const ROW_MIN_HEIGHT = 60;
 
 // What a filter with nothing in it says (v7).
 const EMPTY: Record<Exclude<IngredientFilter, "all">, string> = {
   watch: "Nothing to watch out for.",
-  avoid: "Nothing to avoid.",
+  actives: "No actives in this one.",
+  pore: "Nothing here clogs pores.",
   unknown: "We recognised every ingredient.",
 };
+
+/**
+ * An active (v9's "Actives" filter): an ingredient with a curated rule for a
+ * treatment — the "actives" category (acids, retinoids, vitamin C, azelaic
+ * acid), salicylic acid (filed under pore clogging, which it clears), and
+ * niacinamide (filed under barrier support).
+ */
+function isActive(ingredient: Ingredient): boolean {
+  const rule = ruleFor(ingredient);
+  if (!rule) return false;
+  return rule.category === "actives" || (rule.category === "pore-clogging" && !!rule.helps) || nameMatches(["niacinamide", "nicotinamide"], ingredient.name);
+}
 
 /**
  * The ingredient box on the result's Ingredients tab (v7): a white card with
@@ -62,8 +76,10 @@ export function IngredientsCard({
   })();
   const groups: Record<IngredientFilter, Ingredient[]> = {
     all: ordered,
-    watch: ordered.filter((i) => labelOf(i) === "watch"),
-    avoid: ordered.filter((i) => labelOf(i) === "avoid"),
+    // Watch-outs: avoid first, then watch (v9).
+    watch: [...ordered.filter((i) => labelOf(i) === "avoid"), ...ordered.filter((i) => labelOf(i) === "watch")],
+    actives: ordered.filter(isActive),
+    pore: ordered.filter(isWarnedPoreClogging),
     unknown: ordered.filter((i) => labelOf(i) === "unknown" || !isVerified(i)),
   };
   const list = groups[filter];
@@ -72,7 +88,7 @@ export function IngredientsCard({
 
   return (
     <>
-      <View style={{ borderRadius: BOX_RADIUS, borderWidth: 1.5, borderColor: BUTTON.primary.fill, backgroundColor: SURFACE, paddingTop: 8, paddingHorizontal: 16, paddingBottom: 16 }}>
+      <View style={{ borderRadius: CARD_RADIUS, backgroundColor: WHITE, paddingVertical: 8, paddingHorizontal: SPACE.gutter }}>
         <View style={{ minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Text accessibilityRole="header" style={{ fontSize: TYPE.title, fontWeight: "600", letterSpacing: -0.2, color: INK }}>
             Ingredients
@@ -82,7 +98,8 @@ export function IngredientsCard({
             options={[
               { value: "all", label: "All" },
               { value: "watch", label: "Watch-outs" },
-              { value: "avoid", label: "Avoid" },
+              { value: "actives", label: "Actives" },
+              { value: "pore", label: "Pore-clogging" },
               { value: "unknown", label: "Not recognised" },
             ]}
             selected={filter}
@@ -112,12 +129,13 @@ export function IngredientsCard({
             onPress={() => setShowAll(true)}
             accessibilityRole="button"
             accessibilityLabel={`${list.length - FIRST_ROWS} more ingredients`}
-            style={{ marginTop: 12, height: 48, borderRadius: 24, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
-            className="active:opacity-90"
+            style={{ alignSelf: "center", marginTop: 4, minHeight: 44, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 }}
+            className="active:opacity-70"
           >
-            <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: BUTTON.primary.label }}>{list.length - FIRST_ROWS} more ingredients</Text>
-            <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-              <Path d="M12 5v14M6 13l6 6 6-6" stroke={BUTTON.primary.label} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            {/* A text link, not a filled button (v9): the one filled button here is Report a mistake. */}
+            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{list.length - FIRST_ROWS} more ingredients</Text>
+            <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+              <Path d="m6 9 6 6 6-6" stroke={LINK} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </Pressable>
         ) : null}

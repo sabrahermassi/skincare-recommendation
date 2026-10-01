@@ -8,8 +8,9 @@ import { PageTitle } from "@/components/PageTitle";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ReadingScale, Text } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
-import type { Ingredient } from "@/data/types";
+import type { Concern, Ingredient } from "@/data/types";
 import { track } from "@/lib/analytics";
+import { decodeConcerns } from "@/lib/journey";
 import { isLowCoverage, matchProduct } from "@/lib/matching";
 import { photoScannerHref } from "@/lib/open-scanner";
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
@@ -28,14 +29,14 @@ import { useAppStore } from "@/store/useAppStore";
  * entry already on this phone: nothing in the address becomes the list (#29).
  */
 export default function LabelResult() {
-  const { entry } = useLocalSearchParams<{ entry?: string }>();
+  const { entry, from, concerns } = useLocalSearchParams<{ entry?: string; from?: string; concerns?: string }>();
   const saved = useAppStore((s) => (entry ? s.history.find((h) => h.id === entry)?.label : undefined));
   const [held] = useState(heldLabelRead);
   const read: HeldLabel | null = entry ? (saved ? { ingredients: saved } : null) : held;
 
   if (!read) return <NothingToShow />;
 
-  return <Verdict read={read} fromHistory={Boolean(entry)} />;
+  return <Verdict read={read} fromHistory={Boolean(entry)} journey={from === "journey" ? decodeConcerns(concerns) : undefined} />;
 }
 
 function NothingToShow() {
@@ -63,7 +64,7 @@ function retake() {
   router.dismissTo(photoScannerHref());
 }
 
-function Verdict({ read, fromHistory }: { read: HeldLabel; fromHistory: boolean }) {
+function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory: boolean; journey?: Concern[] }) {
   const profile = useAppStore((s) => s.profile);
   const [ingredients, setIngredients] = useState<Ingredient[] | null>(null);
 
@@ -130,6 +131,8 @@ function Verdict({ read, fromHistory }: { read: HeldLabel; fromHistory: boolean 
           </View>
           {/* The same two tabs as a catalogue product (design_handoff_skincare_cards). */}
           <ResultTabs
+            // From "What my skin needs" (v9): how the read fits that plan. No Save: a label read is not a catalogue product.
+            plan={journey ? { concerns: journey, saved: false } : undefined}
             ingredients={product.ingredients}
             type={product.type}
             match={match}

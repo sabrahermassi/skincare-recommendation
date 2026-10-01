@@ -67,11 +67,25 @@ export function SwipeToDelete({
           alignItems: "center",
           justifyContent: "center",
           gap: 3,
-          borderTopRightRadius: CARD_RADIUS,
-          borderBottomRightRadius: CARD_RADIUS,
-          backgroundColor: DESTRUCTIVE_OUTLINE.fill,
         }}
       >
+        {/* The red wash behind the card shows only while it is slid open (v9):
+            at rest it would peep out at the card's rounded corners. Faded,
+            never hidden, so the bin stays reachable for VoiceOver. */}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
+            borderTopRightRadius: CARD_RADIUS,
+            borderBottomRightRadius: CARD_RADIUS,
+            backgroundColor: DESTRUCTIVE_OUTLINE.fill,
+            opacity: offset.interpolate({ inputRange: [-SWIPE_START, 0], outputRange: [1, 0], extrapolate: "clamp" }),
+          }}
+        />
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
           <Path
             d="M4 7h16M9.5 7V4.8c0-.4.4-.8.8-.8h3.4c.4 0 .8.4.8.8V7M6.2 7l.9 12.2c.1.9.8 1.6 1.7 1.6h6.4c.9 0 1.6-.7 1.7-1.6L17.8 7M10 11v6M14 11v6"

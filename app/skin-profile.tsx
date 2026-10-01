@@ -1,4 +1,3 @@
-import { Image } from "expo-image";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
@@ -10,7 +9,6 @@ import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import { haptic } from "@/lib/haptics";
 import { CONCERN_TITLE, PREGNANCY_QUESTION, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
-import { concernIcon, NONE_ICON, PREGNANCY_ICON, SENSITIVITY_ICON, SKIN_TYPE_ICON, UNSURE_ICON } from "@/lib/quiz-icons";
 import { CANVAS, CARD_RADIUS, INK, LINK, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
 
@@ -29,8 +27,8 @@ const QUESTIONS: Record<Question, string> = { ...TITLES, pregnancy: PREGNANCY_QU
 const ORDER: Question[] = ["concerns", "skinType", "sensitivity", "pregnancy"];
 
 /**
- * Skin profile (v7): each answer from the skin quiz on its own card, under the
- * question, with its picture and "Change". Change opens that one question in
+ * Skin profile (v9): each answer from the skin quiz on its own stone card,
+ * under the question, with "Change" — no pictures in v9. Change opens that one question in
  * place, and a choice saves at once — there is no draft to keep or lose.
  * Every score in the app follows the change.
  */
@@ -62,25 +60,22 @@ export default function SkinProfileScreen() {
       profile.concerns.length > 0
         ? profile.concerns.map((c) => CONCERN_TITLE[c]).join(", ")
         : answered.has("concerns")
-          ? "No concerns"
+          ? "None chosen"
           : "Not set",
     sensitivity: profile.sensitivity ? sensitivityLabel(profile.sensitivity) : answered.has("sensitivity") ? "I don't know" : "Not set",
     pregnancy: profile.pregnancyStatus ? pregnancyLabel(profile.pregnancyStatus) : "Not set",
   };
 
-  const icons: Record<Question, number> = {
-    // The first concern with a picture: `atopic`, no longer offered, has none.
-    concerns: profile.concerns.map(concernIcon).find((icon) => icon !== undefined) ?? (answered.has("concerns") ? NONE_ICON : UNSURE_ICON),
-    skinType: profile.baseSkinType ? SKIN_TYPE_ICON[profile.baseSkinType] : UNSURE_ICON,
-    sensitivity: profile.sensitivity ? SENSITIVITY_ICON[profile.sensitivity] : UNSURE_ICON,
-    pregnancy: (profile.pregnancyStatus && PREGNANCY_ICON[profile.pregnancyStatus as keyof typeof PREGNANCY_ICON]) || UNSURE_ICON,
-  };
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader />
       <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
-        <PageTitle title="Skin profile" line="Every score is made from these answers. Change one and your scores update." />
+        <PageTitle title="Skin profile" />
+        {/* In ink, not secondary grey (v9): it says what the page is for. */}
+        <Text style={{ paddingTop: SPACE.block, paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
+          Every score is made from these answers. Change one and your scores update.
+        </Text>
 
         {ORDER.map((question, index) => {
           const isOpen = open === question;
@@ -94,10 +89,11 @@ export default function SkinProfileScreen() {
                   accessibilityLabel={`${TITLES[question]}: ${values[question]}`}
                   accessibilityHint={isOpen ? "Done" : "Change"}
                   accessibilityState={{ expanded: isOpen }}
-                  style={{ minHeight: ROW_HEIGHT, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.block, paddingLeft: SPACE.block, paddingRight: SPACE.gutter }}
+                  // 16 at the left, not the hand-off's 12 (which was the
+                  // removed picture's inset): the answer lines up with the chips.
+                  style={{ minHeight: ROW_HEIGHT, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}
                   className="active:opacity-70"
                 >
-                  <Image source={icons[question]} contentFit="contain" accessibilityLabel="" style={{ width: ICON, height: ICON }} />
                   <Text style={{ flex: 1, fontSize: TYPE.label, fontWeight: "600", color: INK }}>{values[question]}</Text>
                   <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{isOpen ? "Done" : "Change"}</Text>
                 </Pressable>
@@ -123,9 +119,8 @@ export default function SkinProfileScreen() {
   );
 }
 
-// v7: a row's least height, and its answer's picture.
+// v9: a row's least height.
 const ROW_HEIGHT = 64;
-const ICON = 44;
 
 function titleCase(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);

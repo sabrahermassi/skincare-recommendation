@@ -1,3 +1,4 @@
+import { VERDICT_TEXT_SIZE } from "@/components/result/ScoreRing";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 
@@ -125,7 +126,7 @@ describe.each([
   it("lets the verdict follow the phone as far as body text", async () => {
     await renderSettled(screenFor());
     await openMatch();
-    expect(screen.getByText(/^(Excellent|Good|Fair|Poor) match$/).props.maxFontSizeMultiplier).toBe((TYPE.body * FONT_SCALE.reading) / TYPE.label);
+    expect(screen.getByText(/^(Excellent|Good|Fair|Poor) match$/).props.maxFontSizeMultiplier).toBe((TYPE.body * FONT_SCALE.reading) / VERDICT_TEXT_SIZE);
   });
 });
 

@@ -139,6 +139,54 @@ describe("saveProduct vs toggleSaved", () => {
   });
 });
 
+// v9's Undo: the entry comes back exactly as it was, and — signed in — the
+// server is told, or the next sync would undo the undo (CLAUDE.md shelf rule).
+describe("undoing a removal from the shelf", () => {
+  const entry = { id: "b", savedAt: 5, formulaFetchedAt: "2026-01-01", routineStep: 2 as const, note: "Lovely" };
+  // The file-wide reset doesn't cover these, so leave them as found.
+  afterEach(() => useAppStore.setState({ savedIngredients: [], shelfOwner: null, shelfQueue: [] }));
+
+  it("puts a saved product back in its place with its date, step and note", () => {
+    useAppStore.setState({ savedProducts: [{ id: "a", savedAt: 1 }, entry, { id: "c", savedAt: 9 }] });
+    s().toggleSaved("b");
+    s().restoreSavedProduct(entry, 1);
+    expect(s().savedProducts).toEqual([{ id: "a", savedAt: 1 }, entry, { id: "c", savedAt: 9 }]);
+  });
+
+  it("does nothing if the product is already back on the shelf", () => {
+    useAppStore.setState({ savedProducts: [entry] });
+    s().restoreSavedProduct(entry, 0);
+    expect(s().savedProducts).toEqual([entry]);
+  });
+
+  it("queues the save, step and note while an account owns the shelf", () => {
+    useAppStore.setState({ savedProducts: [entry], shelfOwner: "acct", shelfQueue: [] });
+    s().toggleSaved("b");
+    s().restoreSavedProduct(entry, 0);
+    expect(s().shelfQueue).toEqual([
+      { kind: "remove-product", id: "b" },
+      { kind: "save-product", id: "b", savedAt: 5, formulaFetchedAt: "2026-01-01" },
+      { kind: "set-product-step", id: "b", step: 2 },
+      { kind: "set-product-note", id: "b", note: "Lovely" },
+    ]);
+  });
+
+  it("queues nothing for a guest's shelf", () => {
+    useAppStore.setState({ savedProducts: [entry], shelfOwner: null, shelfQueue: [] });
+    s().toggleSaved("b");
+    s().restoreSavedProduct(entry, 0);
+    expect(s().shelfQueue).toEqual([]);
+  });
+
+  it("stars an ingredient again in its place, queued while signed in", () => {
+    useAppStore.setState({ savedIngredients: ["x", "y", "z"], shelfOwner: "acct", shelfQueue: [] });
+    s().toggleSavedIngredient("y");
+    s().restoreSavedIngredient("y", 1);
+    expect(s().savedIngredients).toEqual(["x", "y", "z"]);
+    expect(s().shelfQueue.map((op) => op.kind)).toEqual(["remove-ingredient", "save-ingredient"]);
+  });
+});
+
 describe("concerns", () => {
   it("toggles on and off without duplicating", () => {
     s().toggleConcern("redness");
@@ -346,6 +394,21 @@ describe("history log", () => {
   it("records an unresolved barcode as an unknown entry", () => {
     s().recordView({ id: "8800000000000", known: false, score: null, warnings: 0 });
     expect(s().history[0]).toMatchObject({ known: false, scoreAtView: null });
+  });
+
+  // v9: History says "Scanned" or "Opened" in place of the time.
+  it("records how an entry was reached, defaulting a scan of something unknown to scanned", () => {
+    s().recordView({ id: "8800000000000", known: false, score: null, warnings: 0 });
+    expect(s().history[0].source).toBe("scanned");
+    s().recordView({ id: "a", known: true, score: 70, warnings: 0, source: "opened" });
+    expect(s().history[0].source).toBe("opened");
+    s().recordView({ id: "a", known: true, score: 70, warnings: 0, source: "scanned" });
+    expect(s().history[0].source).toBe("scanned");
+  });
+
+  it("leaves a catalogue product's source unset when the caller doesn't say", () => {
+    s().recordView({ id: "a", known: true, score: 70, warnings: 0 });
+    expect(s().history[0]).not.toHaveProperty("source");
   });
 
   it("clearHistory empties the log without touching the shelf", () => {

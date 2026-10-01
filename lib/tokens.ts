@@ -117,11 +117,27 @@ export const ICON_MUTED = "#ADA7A1"; // v9
 /** A text field's placeholder (v9, read off the hand-off): 4.13:1 on SURFACE (computed) — a hint, not content. */
 export const PLACEHOLDER = "#7A746E";
 
+/** Quiet helper text and its icon: "Tap for another", an info "i" glyph (v9, read off the hand-off). Same grey as a placeholder. */
+export const HINT = PLACEHOLDER;
+
 /** The track behind a segmented control's sliding thumb (v7). */
 export const SEGMENT_TRACK = "#EFEBE6";
 
 /** The destructive button in a confirm pair (v7, read off the hand-off): a soft red outline. */
 export const DESTRUCTIVE_OUTLINE = { border: "#E9C2BD", fill: "#F9F3F2", label: "#794135" } as const; // v9
+
+/**
+ * The undo toast over Saved's lists (v9, read off the hand-off): an ink pill,
+ * white words. The mockup's "Undo" is a peach, `#F1C9B6`; v9 has no terracotta
+ * anywhere, so it takes the pale sage instead (11.97:1 on the ink, computed).
+ * Shadow 0 8 20 at 22%.
+ */
+export const TOAST = {
+  fill: INK,
+  label: "#FFFFFF",
+  action: "#EEEFE7",
+  shadow: { shadowColor: INK, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 20, elevation: 10 },
+} as const;
 
 /** The chosen row in a filter popover (v7, read off the hand-off). */
 export const MENU_CHOSEN = "#EEEFE7"; // v9 pale sage
@@ -132,14 +148,18 @@ export const ROW_PRESSED = "#EFEDE9"; // v9
 /** A starred ingredient's star when on (v7, read off the hand-off). */
 export const STAR_ON = "#CF9E3E";
 
-/** The "i" ring on a filled verdict pill (v7). */
-export const PILL_INFO = "#DCDDD0"; // v9
 
 /** The routine note's moon badge (v7). */
 export const MOON_BADGE = { fill: "#ECE8E3", ink: "#524D48" } as const; // v9
 
 /** Hairline dividers between rows inside a card (v7). */
 export const HAIRLINE = "#E3DFDA"; // v9
+
+/** The 0.5pt line between rows on a white page (v9, read off the hand-off): reasons, plan rows, the routine note, the risk box. */
+export const DIVIDER = "#ECE8E3";
+
+/** A saved toggle's outline once on ("Saved to your plan", v9, read off the hand-off). */
+export const SAVED_OUTLINE = "#DCDDD0";
 
 // ── Lines ───────────────────────────────────────────────────────────────────
 
@@ -175,20 +195,20 @@ export const SELECTED = "#EEEFE7"; // v9 pale sage
  * Home's scan card, and the no-profile "Is it right for your skin?" card (v7,
  * read off the hand-off). The only warm tints outside a verdict are Home's.
  */
-export const HOME_CARD_FILL = "#F8ECE3";
+export const HOME_CARD_FILL = "#EEEFE7"; // v9 pale sage
 
-/** Home's three small tiles (v7, read off the hand-off): Search, Routine, My match. */
-export const HOME_TILE = { sage: "#EEF1E7", butter: "#F8F1E1", blush: "#F7EBE7" } as const;
+/** Home's two tiles (v9, read off the hand-off): What my skin needs, and Skincare routine on stone. */
+export const HOME_TILE = { match: "#EEF1E7", routine: SURFACE } as const;
 
 /** Home's Scan any product card (v7 update, 29 September 2026): a pale apricot, as soft as the tiles. Read off the hand-off. */
-export const HOME_SCAN_FILL = "#F9EFE5";
+export const HOME_SCAN_FILL = "#EEEFE7"; // v9 pale sage
 
 /**
- * The rounded blocks of a menu (Profile, Account, the routine screen): plain
- * white grouped cards with dividers in v7 — no coloured tiles; colour is saved
- * for Home and the scan moments.
+ * The rounded blocks of a menu (Profile, Account, the routine screen): grouped
+ * cards with dividers — white in v7, the stone card fill in v9. No coloured
+ * tiles; colour is saved for Home and the scan moments.
  */
-export const MENU_FILL = "#FFFFFF";
+export const MENU_FILL = SURFACE; // v9: soft stone, like every card
 
 /**
  * The product result's list rows (design_handoff_skincare_cards, read off its
@@ -272,34 +292,6 @@ export const VERDICT: Record<
  * best products stand apart, on Good's tint. Read off the hand-off.
  */
 export const EXCELLENT = { solid: "#4E6B3F", tint: "#E6EAE4", deep: "#384D2D", wash: "#F4F6F2" } as const; // v9
-
-/**
- * The routine's Morning | Evening switch and step badges (v7, read off the
- * hand-off): a warm honey thumb by day, a dusk plum one at night, with the
- * sun and moon icons and the dotted connectors between steps in each.
- */
-export const ROUTINE_TIME = {
-  morning: {
-    track: "#F3EFE9",
-    thumb: "#F1D8A8",
-    thumbShadow: "rgba(190,145,70,0.32)",
-    ink: "#62461D",
-    icon: "#A5712B",
-    iconFill: "#DFAC58",
-    dot: "#CF9F56",
-  },
-  evening: {
-    track: "#ECE7E4",
-    thumb: "#3F3A4A",
-    thumbShadow: "rgba(63,58,74,0.35)",
-    ink: "#F7F1EA",
-    icon: "#EEDCA6",
-    iconFill: "#EEDCA6",
-    dot: "#7C707A",
-  },
-  /** The icon of the time not chosen. */
-  idleIcon: "#9A8880",
-} as const;
 
 /** A score's ring, number and tint: Excellent's deeper green, else its tone's. */
 export function scoreColours(verdict: Verdict): { solid: string; tint: string; deep: string } {
@@ -581,3 +573,24 @@ export const CARD_SHADOW = {} as const;
 
 /** The soft shade drawn under the tab bar: how many layers, how far below it reaches, how dark each is. */
 export const TAB_BAR_SHADE = { layers: 4, reach: 10, opacity: 0.045 } as const;
+
+/** A progress bar or dot not reached yet: the quiz's step bars (v9, read off the hand-off). */
+export const DOT_OFF = "#E8DDD3";
+
+/**
+ * "What my skin needs" (v9, read off ConcernDeckSoft in the hand-off): each
+ * card's front tint (the hand-off's soft top-to-bottom gradients, taken at
+ * their top colour), the card back, the concern tile's idle outline, the
+ * header's progress track, an inactive pager dot, an untick chip's text, and
+ * the soft card shade.
+ */
+export const JOURNEY = {
+  front: { azelaic: "#F3EEE9", niacinamide: "#EFF0EA", hydrating: "#F4F0E8", retinoids: "#F4EDEA" },
+  back: "#FFFDFB",
+  tileLine: "#E7E1DB",
+  track: "#E6E0DA",
+  dotOff: "#DDD6D0",
+  chipOff: "#B9B2AC",
+  backLine: "#ECE7E2",
+  cardShadow: { shadowColor: INK, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.1, shadowRadius: 28, elevation: 6 },
+} as const;

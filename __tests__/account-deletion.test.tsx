@@ -149,7 +149,7 @@ describe("the account screen", () => {
   it("confirms before deleting, and says what goes and what stays", async () => {
     signedIn(["google"]);
     await render(<Account />);
-    await act(async () => fireEvent.press(screen.getByText("Delete account")));
+    await act(async () => fireEvent.press(screen.getByText("Delete my account")));
     expect(mockDeleteAccount).not.toHaveBeenCalled();
     expect(screen.getByText("Are you sure?")).toBeTruthy();
     expect(screen.getByText(DELETE_WARNING)).toBeTruthy();
@@ -166,8 +166,9 @@ describe("the account screen", () => {
     let finish: (value: unknown) => void = () => {};
     mockDeleteAccount.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
     await render(<Account />);
-    await act(async () => fireEvent.press(screen.getByText("Delete account")));
-    const confirm = screen.getByText("Delete my account");
+    await act(async () => fireEvent.press(screen.getByText("Delete my account")));
+    // The row and the sheet's button now read the same (v9); the sheet is drawn last.
+    const confirm = screen.getAllByText("Delete my account").at(-1)!;
     await act(async () => {
       fireEvent.press(confirm);
       fireEvent.press(confirm);
@@ -182,8 +183,9 @@ describe("the account screen", () => {
       useAuth.setState({ status: "signed-out", session: null });
     });
     await render(<Account />);
-    await act(async () => fireEvent.press(screen.getByText("Delete account")));
-    const confirm = screen.getByText("Delete my account");
+    await act(async () => fireEvent.press(screen.getByText("Delete my account")));
+    // The row and the sheet's button now read the same (v9); the sheet is drawn last.
+    const confirm = screen.getAllByText("Delete my account").at(-1)!;
     await act(async () => fireEvent.press(confirm));
     expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
     expect(screen.getByText(ACCOUNT_DELETED)).toBeTruthy();
@@ -229,7 +231,7 @@ describe("deleting the profile, signed out", () => {
   it("offers deleting the account instead once signed in", async () => {
     signedIn(["google"]);
     await render(<Account />);
-    expect(screen.getByText("Delete account")).toBeTruthy();
+    expect(screen.getByText("Delete my account")).toBeTruthy();
     expect(screen.queryByText("Delete my profile")).toBeNull();
   });
 });

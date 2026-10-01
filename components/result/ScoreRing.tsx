@@ -4,14 +4,20 @@ import Svg, { Circle } from "react-native-svg";
 
 import { Text, useRingScale } from "@/components/Text";
 import type { MatchResult } from "@/lib/matching";
-import { DISPLAY_FONT, PILL_INFO, scoreColours, TYPE, VERDICT_LABEL, WHITE } from "@/lib/tokens";
+import { DISPLAY_FONT_ITALIC, HINT, ICON_MUTED, scoreColours, VERDICT_LABEL } from "@/lib/tokens";
+
+/** The score number's size in the ring (v9: Instrument Serif italic 38). */
+const SCORE_SIZE = 38;
+
+/** The verdict beside the ring (v9: 22/600). */
+export const VERDICT_TEXT_SIZE = 22;
 
 /** The big score ring's drawn size (v7), before it grows with large text. */
 export const RING_SIZE = 96;
 
 /**
- * The big score (v7): the band's tint as the track, its colour as the arc from
- * 12 o'clock, the number in the title face. On the product result, and on the
+ * The big score (v9): the band's tint as the track, its colour as the arc from
+ * 12 o'clock, the number in the title face's italic with "/100". On the product result, and on the
  * scanner's found pop-up.
  */
 export function ScoreRing({ match }: { match: Pick<MatchResult, "score" | "verdict"> }) {
@@ -42,19 +48,28 @@ export function ScoreRing({ match }: { match: Pick<MatchResult, "score" | "verdi
           />
         ) : null}
       </Svg>
-      <Text maxFontSizeMultiplier={1} style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.display * scale, lineHeight: TYPE.display * scale + 4, color: colours.deep }}>
-        {score ?? "–"}
-      </Text>
+      {/* v9: the number in the title face's italic, "/100" small beside it on the same baseline. */}
+      <View style={{ flexDirection: "row", alignItems: "baseline", gap: 1 }}>
+        <Text maxFontSizeMultiplier={1} style={{ fontFamily: DISPLAY_FONT_ITALIC, fontSize: SCORE_SIZE * scale, lineHeight: SCORE_SIZE * scale + 4, letterSpacing: -0.38, color: colours.deep }}>
+          {score ?? "–"}
+        </Text>
+        {score !== null ? (
+          <Text maxFontSizeMultiplier={1} style={{ fontSize: 12 * scale, fontWeight: "500", opacity: 0.75, color: colours.deep }}>
+            /100
+          </Text>
+        ) : null}
+      </View>
     </View>
   );
 }
 
 /**
- * The filled verdict pill under the ring ("Good match ⓘ"). It opens How
- * scoring works, passing the score so the page can mark it. `onOpen` runs
- * first, for a screen that must note it is being left (the scanner).
+ * The verdict beside the ring (v9): "Good match" in the band's colour with a
+ * small "i" — a text button, not a filled pill. It opens How scoring works,
+ * passing the score so the page can mark it. `onOpen` runs first, for a
+ * screen that must note it is being left.
  */
-export function VerdictPill({ match, onOpen }: { match: Pick<MatchResult, "score" | "verdict">; onOpen?: () => void }) {
+export function VerdictLink({ match, onOpen }: { match: Pick<MatchResult, "score" | "verdict">; onOpen?: () => void }) {
   const colours = scoreColours(match.verdict);
   return (
     <Pressable
@@ -64,12 +79,12 @@ export function VerdictPill({ match, onOpen }: { match: Pick<MatchResult, "score
       }}
       accessibilityRole="button"
       accessibilityLabel={`${VERDICT_LABEL[match.verdict]}. How scoring works`}
-      style={{ minWidth: 160, height: 32, borderRadius: 16, paddingLeft: 16, paddingRight: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colours.deep }}
-      className="active:opacity-80"
+      style={{ minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8 }}
+      className="active:opacity-70"
     >
-      <Text style={{ fontSize: TYPE.label, fontWeight: "600", letterSpacing: -0.15, color: WHITE }}>{VERDICT_LABEL[match.verdict]}</Text>
-      <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: PILL_INFO, alignItems: "center", justifyContent: "center" }}>
-        <Text maxFontSizeMultiplier={1} style={{ fontSize: 12, fontWeight: "700", color: PILL_INFO }}>
+      <Text style={{ flexShrink: 1, fontSize: VERDICT_TEXT_SIZE, lineHeight: 26, fontWeight: "600", letterSpacing: -0.33, color: colours.deep }}>{VERDICT_LABEL[match.verdict]}</Text>
+      <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: ICON_MUTED, alignItems: "center", justifyContent: "center" }}>
+        <Text maxFontSizeMultiplier={1} style={{ fontSize: 12, fontWeight: "700", color: HINT }}>
           i
         </Text>
       </View>

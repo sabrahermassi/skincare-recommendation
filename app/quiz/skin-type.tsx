@@ -8,14 +8,12 @@ import { QuizScreen } from "@/components/QuizScreen";
 import type { BaseSkinType } from "@/data/types";
 import { nextQuizRoute, quizStepNumber } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { SKIN_TYPE_ICON, UNSURE_ICON } from "@/lib/quiz-icons";
 
-/** Icons: design-watercolor/skin quiz/screens/skin quiz screen 2.png. */
-const OPTIONS: { value: BaseSkinType; label: string; icon: number }[] = [
-  { value: "dry", label: "Dry", icon: SKIN_TYPE_ICON.dry },
-  { value: "oily", label: "Oily", icon: SKIN_TYPE_ICON.oily },
-  { value: "combination", label: "Combination", icon: SKIN_TYPE_ICON.combination },
-  { value: "normal", label: "Normal", icon: SKIN_TYPE_ICON.normal },
+const OPTIONS: { value: BaseSkinType; label: string }[] = [
+  { value: "dry", label: "Dry" },
+  { value: "oily", label: "Oily" },
+  { value: "combination", label: "Combination" },
+  { value: "normal", label: "Normal" },
 ];
 
 
@@ -41,8 +39,8 @@ export default function SkinTypeStep() {
   return (
     <QuizScreen
       step={quizStepNumber("/quiz/skin-type")}
-      title="What's your skin type?"
-      subtitle="Pick the closest match."
+      title="What is your skin type?"
+      subtitle="How your skin feels by midday, without products."
       onNext={next}
       nextDisabled={!picked}
     >
@@ -50,7 +48,6 @@ export default function SkinTypeStep() {
         {OPTIONS.map((option) => (
           <QuizOptionCard
             key={option.value}
-            icon={option.icon}
             label={option.label}
             selected={baseSkinType === option.value}
             onPress={() => {
@@ -61,7 +58,6 @@ export default function SkinTypeStep() {
         ))}
 
         <QuizOptionCard
-          icon={UNSURE_ICON}
           label="I don't know"
           selected={picked && baseSkinType === null}
           onPress={() => {

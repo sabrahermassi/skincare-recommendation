@@ -9,8 +9,11 @@ import { INK, MUTED, SEGMENT_TRACK, TYPE, WHITE, withAlpha } from "@/lib/tokens"
 const SWITCH_HEIGHT = 40;
 // The gap between the capsule and the thumb that slides in it.
 const SWITCH_PADDING = 3;
-// The thumb's own soft lift off the track (v7: 0 1 3 at 10%).
-const THUMB_SHADOW = { shadowColor: INK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 1 } as const;
+// The thumb's soft lift off the track, two layers (v9, read off the hand-off:
+// 0 1 3 at 12% and 0 3 8 at 6%). A view casts one shadow, so the far one is
+// drawn by a layer inside the thumb.
+const THUMB_SHADOW = { shadowColor: INK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 3, elevation: 1 } as const;
+const THUMB_SHADOW_FAR = { shadowColor: INK, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 8 } as const;
 // Apple's spring at a segmented control's pace (response 0.35 s), critically
 // damped (fraction 1) so the thumb stops at its segment instead of
 // overshooting past the capsule's end: stiffness = (2π / response)²,
@@ -26,11 +29,13 @@ export type SwitchLook = {
   label: string;
   chosenLabel: string;
   thumbShadow: ViewStyle | null;
+  /** A second, wider shadow under the thumb (v9's light look). */
+  thumbShadowFar?: ViewStyle;
   fontSize: number;
 };
 const TONES: Record<"dark" | "light", SwitchLook> = {
   dark: { track: withAlpha(WHITE, 0.14), thumb: WHITE, label: WHITE, chosenLabel: INK, thumbShadow: null, fontSize: TYPE.caption },
-  light: { track: SEGMENT_TRACK, thumb: WHITE, label: MUTED, chosenLabel: INK, thumbShadow: THUMB_SHADOW, fontSize: TYPE.label },
+  light: { track: SEGMENT_TRACK, thumb: WHITE, label: MUTED, chosenLabel: INK, thumbShadow: THUMB_SHADOW, thumbShadowFar: THUMB_SHADOW_FAR, fontSize: TYPE.label },
 };
 
 /**
@@ -90,7 +95,22 @@ export function SegmentedSwitch<T extends string>({
               ...look.thumbShadow,
               transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [0, segment] }) }],
             }}
-          />
+          >
+            {look.thumbShadowFar ? (
+              <View
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  borderRadius: (SWITCH_HEIGHT - 2 * SWITCH_PADDING) / 2,
+                  backgroundColor: look.thumb,
+                  ...look.thumbShadowFar,
+                }}
+              />
+            ) : null}
+          </Animated.View>
         ) : null}
         {options.map(({ value, label, icon }) => {
           const on = value === selected;

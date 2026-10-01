@@ -12,9 +12,9 @@ import { DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
  * a dark box with small grey text and a yellow pill, which was the first thing
  * a new user saw and looked nothing like the rest of the app.
  *
- * Sits on the app's cream canvas (the caller paints it) with the watercolor art
- * from the onboarding set, a serif title, one sentence, and the button at the
- * bottom (v7). `topInset` leaves room for the scanner's top row.
+ * Sits on the app's white canvas (the caller paints it) with the watercolor art
+ * from the onboarding set, a serif title, one sentence, and the full-width
+ * button at the bottom (v9). `topInset` leaves room for the scanner's top row.
  */
 export function ScanIntro({
   illustration,
@@ -43,7 +43,7 @@ export function ScanIntro({
         <Image source={illustration} style={{ width: ART_SIZE, height: ART_SIZE }} contentFit="contain" accessibilityLabel="" />
         <Text
           accessibilityRole="header"
-          style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
+          style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 27.6, letterSpacing: -0.48, color: INK }}
         >
           {title}
         </Text>
@@ -57,5 +57,5 @@ export function ScanIntro({
   );
 }
 
-// The illustration's box (v7).
+// The illustration's box (v9).
 const ART_SIZE = 220;
