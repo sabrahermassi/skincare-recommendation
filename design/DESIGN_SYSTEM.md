@@ -48,8 +48,9 @@ no drop shadow. Only things that float get a shade: sheets and pop-ups, menus
 
 **Colour means something.** Terracotta is for actions and the brand only. Green
 is good, orange is watch or fair, red is avoid or poor, brown-grey is unknown.
-Home is the one place with decorative tints (`HOME_CARD_FILL`, `HOME_TILE`);
-elsewhere a tint is a verdict.
+Home is the one place with decorative tints (`HOME_SCAN_FILL`, `HOME_TILE`),
+plus `HOME_CARD_FILL` on the product result's no-profile card; elsewhere a tint
+is a verdict.
 
 ### Verdicts
 

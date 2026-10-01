@@ -160,8 +160,8 @@ export const DOT_INACTIVE = LINE;
 export const SELECTED = "#F9E7DC";
 
 /**
- * Home's scan card, and the no-profile "Is it right for your skin?" card (v7,
- * read off the hand-off). The only warm tints outside a verdict are Home's.
+ * The product result's no-profile "Is it right for your skin?" card (v7, read
+ * off the hand-off). Home's scan card took `HOME_SCAN_FILL` in the v7 update.
  */
 export const HOME_CARD_FILL = "#F8ECE3";
 
