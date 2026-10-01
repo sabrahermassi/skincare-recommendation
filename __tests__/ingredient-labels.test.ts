@@ -34,7 +34,6 @@ function product(ingredients: Ingredient[]): ProductWithIngredients {
     imageUrl: null,
     attribution: null,
     ingredientIds: ingredients.map((i) => i.id),
-    inStock: true,
     ingredients,
   };
 }

@@ -65,7 +65,6 @@ const mockProduct = {
   imageUrl: null,
   attribution: null,
   ingredientIds: [],
-  inStock: true,
   ingredients: [],
 };
 

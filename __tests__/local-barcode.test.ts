@@ -55,7 +55,6 @@ function product(overrides: Partial<ProductWithIngredients> = {}): ProductWithIn
     fetchedAt: "2026-09-23T00:00:00Z",
     source: "obf",
     ingredientIds: ingredients.map((i) => i.id),
-    inStock: true,
     ingredients,
     ...overrides,
   };
@@ -73,7 +72,6 @@ function lookupRow(names: string[], barcode = BARCODE) {
     image_url: null,
     volume: null,
     price_krw: null,
-    in_stock: true,
     suitable_for: [],
     targets: [],
     attribution: null,

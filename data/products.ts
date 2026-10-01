@@ -32,7 +32,6 @@ export const PRODUCTS: Product[] = [
     ],
     imageUrl: null,
     attribution: null,
-    inStock: true,
   },
   {
     id: "aqua-ceramide-cream",
@@ -60,7 +59,6 @@ export const PRODUCTS: Product[] = [
     ],
     imageUrl: null,
     attribution: null,
-    inStock: true,
   },
   {
     id: "mugwort-gel-cleanser",
@@ -87,7 +85,6 @@ export const PRODUCTS: Product[] = [
     ],
     imageUrl: null,
     attribution: null,
-    inStock: true,
   },
   {
     id: "sheer-shield-spf50",
@@ -115,7 +112,6 @@ export const PRODUCTS: Product[] = [
     ],
     imageUrl: null,
     attribution: null,
-    inStock: false,
   },
   {
     id: "snail-repair-ampoule",
@@ -142,7 +138,6 @@ export const PRODUCTS: Product[] = [
     ],
     imageUrl: null,
     attribution: null,
-    inStock: true,
   },
   {
     id: "green-tea-body-wash",
@@ -168,7 +163,6 @@ export const PRODUCTS: Product[] = [
     ],
     imageUrl: null,
     attribution: null,
-    inStock: true,
   },
   {
     id: "ceramide-body-lotion",
@@ -195,7 +189,6 @@ export const PRODUCTS: Product[] = [
     ],
     imageUrl: null,
     attribution: null,
-    inStock: true,
   },
   {
     id: "shea-hand-cream",
@@ -221,6 +214,5 @@ export const PRODUCTS: Product[] = [
     ],
     imageUrl: null,
     attribution: null,
-    inStock: true,
   },
 ];

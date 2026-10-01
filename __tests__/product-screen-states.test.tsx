@@ -114,7 +114,6 @@ describe("the product screen's Report a mistake link", () => {
     attribution: null,
     fetchedAt: "2026-09-26T00:00:00Z",
     ingredientIds: [],
-    inStock: true,
     ingredients: [],
   };
 
@@ -163,7 +162,6 @@ describe("the product screen's result tabs", () => {
     attribution: null,
     fetchedAt: "2026-09-26T00:00:00Z",
     ingredientIds: [],
-    inStock: true,
     ingredients: [
       ...["water", "glycerin", "xanthan gum", "butylene glycol"].map((name) => ingredient(name)),
       ingredient("parfum"),
@@ -321,7 +319,6 @@ describe("the product screen opened from the journey", () => {
     attribution: null,
     fetchedAt: "2026-09-26T00:00:00Z",
     ingredientIds: [],
-    inStock: true,
     ingredients: ["water", "glycerin", "niacinamide", "butylene glycol", "sodium hyaluronate"].map(ingredient),
   };
   const OWN = { ...EMPTY_PROFILE, baseSkinType: "oily" as const, concerns: ["acne-prone" as const], sensitivity: "high" as const };
@@ -385,7 +382,6 @@ it("heads the product with its brand, name and type, and no Out of stock", async
     attribution: null,
     fetchedAt: "2026-09-26T00:00:00Z",
     ingredientIds: [],
-    inStock: false,
     ingredients: [],
   };
   fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: product }));
