@@ -3,7 +3,7 @@ import { Animated, Platform, Pressable, View, type StyleProp, type ViewStyle } f
 
 import { Text } from "@/components/Text";
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { INK, MUTED, SEGMENT_TRACK, SURFACE, TYPE, withAlpha } from "@/lib/tokens";
+import { INK, MUTED, SEGMENT_TRACK, TYPE, WHITE, withAlpha } from "@/lib/tokens";
 
 /** Every segmented control's height in v7 (read off the hand-off). */
 const SWITCH_HEIGHT = 40;
@@ -29,8 +29,8 @@ export type SwitchLook = {
   fontSize: number;
 };
 const TONES: Record<"dark" | "light", SwitchLook> = {
-  dark: { track: withAlpha(SURFACE, 0.14), thumb: SURFACE, label: SURFACE, chosenLabel: INK, thumbShadow: null, fontSize: TYPE.caption },
-  light: { track: SEGMENT_TRACK, thumb: SURFACE, label: MUTED, chosenLabel: INK, thumbShadow: THUMB_SHADOW, fontSize: TYPE.label },
+  dark: { track: withAlpha(WHITE, 0.14), thumb: WHITE, label: WHITE, chosenLabel: INK, thumbShadow: null, fontSize: TYPE.caption },
+  light: { track: SEGMENT_TRACK, thumb: WHITE, label: MUTED, chosenLabel: INK, thumbShadow: THUMB_SHADOW, fontSize: TYPE.label },
 };
 
 /**

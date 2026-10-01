@@ -33,7 +33,7 @@ describe("readingFontScale", () => {
   it("stops larger text where body text stops, so a heading ends level with it", () => {
     expect(readingFontScale(undefined, { fontSize: TYPE.heading }) * TYPE.heading).toBeCloseTo(TOP);
     expect(
-      readingFontScale(undefined, { fontFamily: "PlayfairDisplay_500Medium", fontSize: 34 }) * 34,
+      readingFontScale(undefined, { fontFamily: "InstrumentSerif_400Regular", fontSize: 34 }) * 34,
     ).toBeCloseTo(TOP);
     expect(readingFontScale("font-display text-[21px]", undefined) * 21).toBeCloseTo(TOP);
     expect(readingFontScale("text-title", undefined) * TYPE.title).toBeCloseTo(TOP);
@@ -41,7 +41,7 @@ describe("readingFontScale", () => {
 
   it("never gives text less room than it has outside the scope", () => {
     expect(readingFontScale(undefined, { fontSize: 60 })).toBe(FONT_SCALE.ui);
-    expect(readingFontScale(undefined, { fontFamily: "PlayfairDisplay_500Medium", fontSize: 60 })).toBe(
+    expect(readingFontScale(undefined, { fontFamily: "InstrumentSerif_400Regular", fontSize: 60 })).toBe(
       FONT_SCALE.display,
     );
   });

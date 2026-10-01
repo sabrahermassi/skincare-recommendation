@@ -3,7 +3,7 @@ import { View, type LayoutChangeEvent } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_MARGIN } from "@/lib/tab-bar";
-import { INK, SURFACE, TAB_BAR_SHADE } from "@/lib/tokens";
+import { INK, TAB_BAR_SHADE, WHITE } from "@/lib/tokens";
 
 /**
  * The tab bar's body: a plain rounded bar with a soft shade under it. The scan
@@ -51,7 +51,7 @@ export function TabBarBackground() {
               transform={`translate(0 ${((i + 1) * TAB_BAR_SHADE.reach) / TAB_BAR_SHADE.layers})`}
             />
           ))}
-          <Path d={d} fill={SURFACE} />
+          <Path d={d} fill={WHITE} />
         </Svg>
       ) : null}
     </View>

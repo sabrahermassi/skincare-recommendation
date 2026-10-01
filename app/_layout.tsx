@@ -1,10 +1,15 @@
 import "../global.css";
 
-import { Montserrat_300Light, Montserrat_400Regular } from "@expo-google-fonts/montserrat";
 import {
-  PlayfairDisplay_500Medium,
-  useFonts,
-} from "@expo-google-fonts/playfair-display";
+  DMSans_300Light,
+  DMSans_400Regular,
+  DMSans_400Regular_Italic,
+  DMSans_500Medium,
+  DMSans_600SemiBold,
+  DMSans_700Bold,
+} from "@expo-google-fonts/dm-sans";
+import { InstrumentSerif_400Regular, InstrumentSerif_400Regular_Italic, useFonts } from "@expo-google-fonts/instrument-serif";
+import { Montserrat_300Light, Montserrat_400Regular } from "@expo-google-fonts/montserrat";
 import { loadAsync as loadFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -26,16 +31,22 @@ SplashScreen.preventAutoHideAsync();
 export { RouteErrorScreen as ErrorBoundary } from "@/components/RouteErrorScreen";
 
 export default function RootLayout() {
-  // Body text no longer loads a custom font — it renders in the OS system
-  // font (see tailwind.config.js's `sans` family), so only the display
-  // faces block startup now.
+  // v9: Instrument Serif for titles, ingredient names and the score; DM Sans
+  // for everything else, one family per weight (see components/Text). Both
+  // block startup, so no screen paints in a fallback face first.
   //
   // Montserrat is the FOR.ME shell's (the quiz's Skip, among others) —
   // loaded here for the same reason: onboarding is the first thing a new
   // install renders, so its fonts can't be missing on first paint either.
-  // The intro's headline is Playfair (owner, 26 September 2026).
   const [fontsLoaded] = useFonts({
-    PlayfairDisplay_500Medium,
+    InstrumentSerif_400Regular,
+    InstrumentSerif_400Regular_Italic,
+    DMSans_300Light,
+    DMSans_400Regular,
+    DMSans_400Regular_Italic,
+    DMSans_500Medium,
+    DMSans_600SemiBold,
+    DMSans_700Bold,
     Montserrat_300Light,
     Montserrat_400Regular,
   });
@@ -128,7 +139,7 @@ export default function RootLayout() {
           // named. Weight is carried by fontWeight, same as the `font-semibold`
           // utilities elsewhere. See components/Text.tsx for why naming it
           // (as `System`) was actively wrong.
-          headerTitleStyle: { fontWeight: "600", color: COLORS.ink },
+          headerTitleStyle: { fontFamily: "DMSans_600SemiBold", color: COLORS.ink },
           headerStyle: { backgroundColor: COLORS.surface },
           headerTintColor: COLORS.accentText,
           contentStyle: { backgroundColor: COLORS.canvas },

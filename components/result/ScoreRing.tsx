@@ -4,7 +4,7 @@ import Svg, { Circle } from "react-native-svg";
 
 import { Text, useRingScale } from "@/components/Text";
 import type { MatchResult } from "@/lib/matching";
-import { DISPLAY_FONT, PILL_INFO, SURFACE, TYPE, VERDICT_LABEL, scoreColours } from "@/lib/tokens";
+import { DISPLAY_FONT, PILL_INFO, scoreColours, TYPE, VERDICT_LABEL, WHITE } from "@/lib/tokens";
 
 /** The big score ring's drawn size (v7), before it grows with large text. */
 export const RING_SIZE = 96;
@@ -67,7 +67,7 @@ export function VerdictPill({ match, onOpen }: { match: Pick<MatchResult, "score
       style={{ minWidth: 160, height: 32, borderRadius: 16, paddingLeft: 16, paddingRight: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colours.deep }}
       className="active:opacity-80"
     >
-      <Text style={{ fontSize: TYPE.label, fontWeight: "600", letterSpacing: -0.15, color: SURFACE }}>{VERDICT_LABEL[match.verdict]}</Text>
+      <Text style={{ fontSize: TYPE.label, fontWeight: "600", letterSpacing: -0.15, color: WHITE }}>{VERDICT_LABEL[match.verdict]}</Text>
       <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: PILL_INFO, alignItems: "center", justifyContent: "center" }}>
         <Text maxFontSizeMultiplier={1} style={{ fontSize: 12, fontWeight: "700", color: PILL_INFO }}>
           i

@@ -8,7 +8,7 @@ import { haptic } from "@/lib/haptics";
 import { useNoteTextStyle } from "@/lib/note-font";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { anotherTip, localDay, tipOfTheDay } from "@/lib/tips";
-import { ICON_MUTED, INK, MUTED, SPACE, SURFACE, TIP_NOTE, TYPE } from "@/lib/tokens";
+import { ICON_MUTED, INK, MUTED, SPACE, TIP_NOTE, TYPE, WHITE } from "@/lib/tokens";
 
 // The tape across the card's top (v7): 80 × 22, 10pt above the edge, a few
 // degrees off straight, its short ends cut in a small zigzag like scissors.
@@ -108,7 +108,7 @@ export function TipCard() {
         <Animated.View
           style={{
             borderRadius: TIP_NOTE.radius,
-            backgroundColor: SURFACE,
+            backgroundColor: WHITE,
             boxShadow: TIP_NOTE.shadow,
             paddingTop: SPACE.section,
             paddingHorizontal: SPACE.gutter,

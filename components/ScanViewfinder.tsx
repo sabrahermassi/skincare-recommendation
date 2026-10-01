@@ -6,7 +6,7 @@ import Svg, { Path } from "react-native-svg";
 
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
-import { CAMERA_STAGE, SCANNER_FRAME, SURFACE, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, SCANNER_FRAME, TYPE, WHITE, withAlpha } from "@/lib/tokens";
 
 /**
  * The live scanner's framing: the camera blurred and dimmed outside a rounded
@@ -337,7 +337,7 @@ export function ScanViewfinder({
               <Animated.View
                 style={{ position: "absolute", left: 0, right: 0, top: rect.y + rect.h + HINT_GAP, alignItems: "center", opacity: fades.hint }}
               >
-                <Text style={{ fontSize: TYPE.body, color: withAlpha(SURFACE, 0.85) }}>{hint}</Text>
+                <Text style={{ fontSize: TYPE.body, color: withAlpha(WHITE, 0.85) }}>{hint}</Text>
               </Animated.View>
             ) : null}
           </View>

@@ -16,22 +16,7 @@ import {
   type ScoreFactor,
   type ScoreNote,
 } from "@/lib/scoring-explainer";
-import {
-  CANVAS,
-  CARD_RADIUS,
-  CHOSEN,
-  HAIRLINE,
-  INK,
-  LINK,
-  MUTED,
-  ROW_CHEVRON,
-  SPACE,
-  SURFACE,
-  TYPE,
-  VERDICT,
-  VERDICT_NEUTRAL,
-  scoreColours,
-} from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, CHOSEN, HAIRLINE, INK, LINK, MUTED, ROW_CHEVRON, scoreColours, SPACE, SURFACE, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
 
 /**
  * How scoring works (#325) — where the number comes from, in plain English:
@@ -138,7 +123,7 @@ function BandBar({ score }: { score: number | null }) {
               backgroundColor: INK,
             }}
           >
-            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: SURFACE }}>{score}</Text>
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>{score}</Text>
           </View>
           <View style={{ position: "absolute", top: 22, left: at - 1, width: 2, height: 6, backgroundColor: INK }} />
         </View>
@@ -162,7 +147,7 @@ function FactorRow({ factor, divided }: { factor: ScoreFactor; divided: boolean 
       style={{ flexDirection: "row", gap: SPACE.block, padding: SPACE.gutter, borderTopWidth: divided ? 0.5 : 0, borderTopColor: HAIRLINE }}
     >
       <View style={{ width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: FACTOR_DOT[factor.sign] }}>
-        <Text style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: 20, color: SURFACE }}>{factor.sign}</Text>
+        <Text style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: 20, color: WHITE }}>{factor.sign}</Text>
       </View>
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 26, color: INK }}>{factor.title}</Text>

@@ -67,25 +67,50 @@ export function useRingScale(): number {
 }
 
 /**
- * A thin pass-through over RN's `Text`.
- *
- * It used to merge a default `font-sans` into every className, back when body
- * text was a loaded Google font (Plus Jakarta Sans) that genuinely had to be
- * named on every element. The design now sets body text in the OS UI font,
- * and naming *that* is actively harmful: NativeWind emits the token as a CSS
- * class, which bypasses react-native-web's style compiler — so the browser
- * received the literal, unknown family `System` and fell back to its default
- * serif. Every screen rendered its body copy in Times New Roman.
- *
- * Saying nothing is what produces the system font on all three platforms:
- * iOS falls to San Francisco, Android to Roboto, and RNW's own Text base
- * style (`font: 14px System`) *does* go through the compiler, which expands
- * it to the real `-apple-system, BlinkMacSystemFont, "Segoe UI", …` stack.
- *
- * The wrapper stays because every screen imports it, and because it is the
- * one place to reach if a body face is ever loaded again.
+ * The body face (v9): DM Sans, loaded in `app/_layout.tsx` as one family per
+ * weight. A custom font has no weights of its own on iOS — asking a family
+ * for `fontWeight: "600"` fakes bold or does nothing — so the weight a style
+ * asks for picks the file instead, and the weight itself is dropped.
  */
-export function Text({ className, maxFontSizeMultiplier, ...props }: TextProps) {
+const BODY_FAMILY: Record<string, string> = {
+  "300": "DMSans_300Light",
+  "400": "DMSans_400Regular",
+  "500": "DMSans_500Medium",
+  "600": "DMSans_600SemiBold",
+  "700": "DMSans_700Bold",
+};
+const WEIGHT_CLASS: Record<string, string> = { light: "300", normal: "400", medium: "500", semibold: "600", bold: "700" };
+
+/** The DM Sans file for a weight, rounded to the nearest one loaded. */
+export function bodyFamily(weight: string | number | undefined, italic = false): string {
+  const w = weight === "bold" ? 700 : weight === "normal" || weight === undefined ? 400 : Number(weight);
+  const nearest = String(Math.min(700, Math.max(300, Math.round((Number.isFinite(w) ? w : 400) / 100) * 100)));
+  // Only the regular italic is loaded; nothing here sets a heavier one.
+  return italic ? "DMSans_400Regular_Italic" : BODY_FAMILY[nearest];
+}
+
+/**
+ * The style that sets text in DM Sans, or nothing when the text names its own
+ * family (a display heading, the handwritten note) — those stay as they are.
+ */
+function bodyStyle(className: string | undefined, style: TextProps["style"]) {
+  if (namesOwnFontFamily(className)) return undefined;
+  const flat = StyleSheet.flatten(style) ?? {};
+  if (flat.fontFamily) return undefined;
+  const fromClass = className?.match(/(?:^|\s)font-(light|normal|medium|semibold|bold)(?:\s|$)/)?.[1];
+  const weight = flat.fontWeight ?? (fromClass ? WEIGHT_CLASS[fromClass] : undefined);
+  return { fontFamily: bodyFamily(weight, flat.fontStyle === "italic"), fontWeight: "normal" as const, fontStyle: "normal" as const };
+}
+
+/**
+ * A thin pass-through over RN's `Text` that sets body text in DM Sans (v9).
+ *
+ * The face is named on the element's `style`, never as a NativeWind class:
+ * a family token emitted as a CSS class bypasses react-native-web's style
+ * compiler, which once left every word of body copy in the browser's default
+ * serif. Text that names its own family keeps it.
+ */
+export function Text({ className, maxFontSizeMultiplier, style, ...props }: TextProps) {
   const reading = useContext(ReadingScope);
   // `className` is named as a literal JSX attribute rather than left inside a
   // spread. NativeWind's transform reads it off the call site, and passing it
@@ -97,13 +122,15 @@ export function Text({ className, maxFontSizeMultiplier, ...props }: TextProps) 
   // size may grow this text (#314, `FONT_SCALE`), raised inside a
   // `ReadingScale` (#334). A caller that passes its own
   // `maxFontSizeMultiplier` keeps it.
+  const body = bodyStyle(className, style);
   return (
     <RNText
       className={className}
       maxFontSizeMultiplier={
         maxFontSizeMultiplier ??
-        (reading ? readingFontScale(className, props.style) : defaultFontScale(className, props.style))
+        (reading ? readingFontScale(className, style) : defaultFontScale(className, style))
       }
+      style={body ? [style, body] : style}
       {...props}
     />
   );
@@ -147,5 +174,5 @@ function fontSizeOf(className: string | undefined, style: TextProps["style"]): n
   return TYPE.body;
 }
 
-/** The loaded display faces (`app/_layout.tsx`); body text is the system font. */
-const DISPLAY_FAMILY = /^PlayfairDisplay_/;
+/** The loaded display face (`app/_layout.tsx`); body text is DM Sans. */
+const DISPLAY_FAMILY = /^InstrumentSerif_/;

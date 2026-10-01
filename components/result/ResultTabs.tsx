@@ -18,19 +18,7 @@ import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
 import type { RuleSource } from "@/lib/rules";
 import { irritationWarnings, isVerified } from "@/lib/safety";
-import {
-  CANVAS,
-  CARD_RADIUS,
-  HOME_CARD_FILL,
-  INK,
-  MOON_BADGE,
-  MUTED,
-  SPACE,
-  SURFACE,
-  TYPE,
-  VERDICT,
-  VERDICT_NEUTRAL,
-} from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, HOME_CARD_FILL, INK, MOON_BADGE, MUTED, SPACE, SURFACE, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
 
 type Tab = "match" | "ingredients";
 type Wash = { solid: string; deep: string; wash: string };
@@ -104,7 +92,7 @@ export function ResultTabs({
           marginTop: -SHEET_TUCK,
           borderTopLeftRadius: SHEET_RADIUS,
           borderTopRightRadius: SHEET_RADIUS,
-          backgroundColor: SURFACE,
+          backgroundColor: WHITE,
           paddingHorizontal: SPACE.gutter,
           paddingTop: SPACE.gutter,
           paddingBottom: 40,
@@ -165,7 +153,7 @@ function MatchTab({ ingredients, type, match, profile, ring }: { ingredients: In
 function ScoreHead({ match }: { match: MatchResult }) {
   return (
     <View style={{ alignItems: "center", gap: 12, marginTop: -RING_RISE - SPACE.gutter + 16 }}>
-      <View style={{ borderRadius: 999, backgroundColor: SURFACE, shadowColor: INK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 4 }}>
+      <View style={{ borderRadius: 999, backgroundColor: WHITE, shadowColor: INK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 4 }}>
         <ScoreRing match={match} />
       </View>
       <VerdictPill match={match} />
@@ -310,7 +298,7 @@ function PregnancyCard({ match }: { match: MatchResult }) {
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.low.wash, padding: 16 }}>
       <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT.low.solid }}>
         <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-          <Path d="M12 7v6M12 17h.01" stroke={SURFACE} strokeWidth={2.8} strokeLinecap="round" />
+          <Path d="M12 7v6M12 17h.01" stroke={WHITE} strokeWidth={2.8} strokeLinecap="round" />
         </Svg>
       </View>
       <View style={{ flex: 1, gap: 2 }}>

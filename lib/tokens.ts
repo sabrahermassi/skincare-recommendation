@@ -33,14 +33,23 @@ import type { Verdict } from "./matching";
  * little higher, and white's (SURFACE) a little lower (computed, not
  * re-measured).
  */
-export const CANVAS = "#FCFAF7";
+// v9 (read off the hand-off ("design green color", 1 October 2026)): pure white pages and sheets,
+// soft stone cards. The comment above is v7's history.
+export const CANVAS = "#FFFFFF";
 
 /**
  * Raised card fill. White, not a tint of the canvas — a card has to separate
  * from the ground by its own value, and canvas-on-canvas needed a border to
  * do the job the fill should have been doing.
  */
-export const SURFACE = "#FFFFFF";
+export const SURFACE = "#F4F2EE";
+
+/**
+ * Plain white, for what v9 keeps white on a white page: a switch's thumb, the
+ * filter popover, a pop-up's ring backdrop, and an icon or label drawn on a
+ * filled button. Not a card fill — that is {@link SURFACE}.
+ */
+export const WHITE = "#FFFFFF";
 
 // ── Text ────────────────────────────────────────────────────────────────────
 
@@ -49,7 +58,7 @@ export const SURFACE = "#FFFFFF";
  * a mid-brown at 9.8:1, which passed on paper and read as washed out on a
  * screen, because it sat only a couple of steps from the accents around it.
  */
-export const INK = "#241F1E";
+export const INK = "#2F2C2A"; // v9
 
 /**
  * The dimmed backdrop behind a sheet or pop-up: `INK` at 32% (v7, read off
@@ -68,7 +77,7 @@ export const SHEET_SHADOW = {
 
 /** Secondary text, 6.1:1. The old #96605A was close enough to the accent
  *  browns that a muted line and a peach surface read as the same weight. */
-export const MUTED = "#6B5A54";
+export const MUTED = "#524D48"; // v9: 8.35:1 on white, 7.47:1 on SURFACE (computed)
 
 /**
  * Third-level text — meta lines, timestamps, "/100" suffixes, and the brand
@@ -89,7 +98,7 @@ export const MUTED = "#6B5A54";
  * read off the hand-off: 4.20:1 on SURFACE, 4.03:1 on CANVAS (computed) —
  * under 4.5:1, so it is for the 13pt brand line and meta, never body text.
  */
-export const MUTED_FAINT = "#8A7870";
+export const MUTED_FAINT = "#5E5954"; // v9 meta: 6.9:1 on white (computed)
 
 /**
  * Unselected tab-bar icons. #9A8880 computes to 3.14:1 on CANVAS (WCAG 2.2
@@ -97,45 +106,48 @@ export const MUTED_FAINT = "#8A7870";
  * tab is INK, and MUTED sat only 2.5:1 from it — two dark browns — which is why
  * the selected tab was hard to pick out. Computed, not read off a mockup.
  */
-export const TAB_INACTIVE = "#8A7870";
+export const TAB_INACTIVE = "#5E5954"; // v9
 
 /** The current tab's icon, and every terracotta text link (v7, read off the hand-off). 4.87:1 on SURFACE. */
-export const LINK = "#9C6350";
+export const LINK = "#62664B"; // v9 leaf sage, darker: 5.96:1 on white (computed)
 
 /** Grey icons and placeholders: the search magnifier, an info "i" outline (v7). Decorative: 2.78:1 on SURFACE. */
-export const ICON_MUTED = "#A89890";
+export const ICON_MUTED = "#ADA7A1"; // v9
+
+/** A text field's placeholder (v9, read off the hand-off): 4.13:1 on SURFACE (computed) — a hint, not content. */
+export const PLACEHOLDER = "#7A746E";
 
 /** The track behind a segmented control's sliding thumb (v7). */
 export const SEGMENT_TRACK = "#EFEBE6";
 
 /** The destructive button in a confirm pair (v7, read off the hand-off): a soft red outline. */
-export const DESTRUCTIVE_OUTLINE = { border: "#E9C2BD", fill: "#FDF5F2", label: "#85322B" } as const;
+export const DESTRUCTIVE_OUTLINE = { border: "#E9C2BD", fill: "#F9F3F2", label: "#794135" } as const; // v9
 
 /** The chosen row in a filter popover (v7, read off the hand-off). */
-export const MENU_CHOSEN = "#F7F2EC";
+export const MENU_CHOSEN = "#EEEFE7"; // v9 pale sage
 
 /** A white row or link card while it's pressed (v7 update, read off the hand-off). Mirrored in tailwind.config.js as `row-pressed`. */
-export const ROW_PRESSED = "#F7F0E6";
+export const ROW_PRESSED = "#EFEDE9"; // v9
 
 /** A starred ingredient's star when on (v7, read off the hand-off). */
 export const STAR_ON = "#CF9E3E";
 
 /** The "i" ring on a filled verdict pill (v7). */
-export const PILL_INFO = "#D9CFC7";
+export const PILL_INFO = "#DCDDD0"; // v9
 
 /** The routine note's moon badge (v7). */
-export const MOON_BADGE = { fill: "#E9E3E3", ink: "#3F3A4A" } as const;
+export const MOON_BADGE = { fill: "#ECE8E3", ink: "#524D48" } as const; // v9
 
 /** Hairline dividers between rows inside a card (v7). */
-export const HAIRLINE = "#EFE6DA";
+export const HAIRLINE = "#E3DFDA"; // v9
 
 // ── Lines ───────────────────────────────────────────────────────────────────
 
 /** Hairlines, dividers, unselected control borders, inactive progress dots. */
-export const LINE = "#E4D3C8";
+export const LINE = "#E3DFDA"; // v9
 
 /** The empty avatar's disc behind the see-through picture (v7, read off the hand-off). */
-export const AVATAR_FILL = "#F6E1D3";
+export const AVATAR_FILL = "#ECE8E3"; // v9
 
 /** @deprecated Prefer {@link LINE}. Kept because it names the same value in
  *  the control-state code that already reads well as "border, inactive". */
@@ -157,7 +169,7 @@ export const DOT_INACTIVE = LINE;
  * INK at 15:1 on this fill, so a selected label is the highest-contrast text
  * on the screen, which is what "chosen" should look like.
  */
-export const SELECTED = "#F9E7DC";
+export const SELECTED = "#EEEFE7"; // v9 pale sage
 
 /**
  * Home's scan card, and the no-profile "Is it right for your skin?" card (v7,
@@ -196,7 +208,7 @@ export const BUTTON = {
   secondary: { fill: COLORS.buttonSecondary, label: INK },
   tertiary: { border: COLORS.buttonTertiary, label: COLORS.buttonTertiary, borderWidth: 1.5 },
   destructive: { fill: COLORS.buttonDestructive, label: COLORS.buttonPrimaryText },
-  disabled: { fill: COLORS.buttonDisabled, label: SURFACE },
+  disabled: { fill: COLORS.buttonDisabled, label: WHITE },
 } as const;
 
 /**
@@ -209,7 +221,7 @@ export const BUTTON = {
  * v7 (read off the hand-off): fill `#F3E5DA` — the tab bar's current pill
  * too — with a terracotta border, and the terracotta text link for a word.
  */
-export const CHOSEN = { fill: "#F3E5DA", border: BUTTON.primary.fill, label: INK, accent: LINK } as const;
+export const CHOSEN = { fill: "#EEEFE7", border: BUTTON.primary.fill, label: INK, accent: LINK } as const; // v9
 
 /**
  * One shape for every selectable control in the app — chips, option cards,
@@ -245,18 +257,21 @@ export type VerdictTone = "high" | "medium" | "low";
  */
 export const VERDICT: Record<
   VerdictTone,
-  { solid: string; tint: string; deep: string; wash: string; label: string }
+  { solid: string; tint: string; deep: string; wash: string; halo: string; label: string }
 > = {
-  high: { solid: "#4A7A54", tint: "#E0EADB", deep: "#33593F", wash: "#F5F8F2", label: "Great match" },
-  medium: { solid: "#B8672F", tint: "#F6E2CF", deep: "#8A4B22", wash: "#FDF7F1", label: "Fair match" },
-  low: { solid: "#A8453A", tint: "#F4DBD5", deep: "#85322B", wash: "#FCF4F2", label: "Poor match" },
+  // v9 warm earth (README's band table): solid and deep read off the
+  // hand-off; tint is the hue at about 86% white as the README says, and wash
+  // and halo are read off the screens where drawn, else computed the same way.
+  high: { solid: "#8A9A5B", tint: "#EFF1E8", deep: "#636F42", wash: "#F7F8F4", halo: "#E5E9DB", label: "Great match" },
+  medium: { solid: "#C49A55", tint: "#F7F1E7", deep: "#8D6F3D", wash: "#FBF8F3", halo: "#F1E7D6", label: "Fair match" },
+  low: { solid: "#A85A4A", tint: "#F3E8E6", deep: "#794135", wash: "#F9F3F2", halo: "#EEDDD9", label: "Poor match" },
 };
 
 /**
  * An Excellent score's ring and number (v7): a deeper green than Good, so the
  * best products stand apart, on Good's tint. Read off the hand-off.
  */
-export const EXCELLENT = { solid: "#33593F", tint: "#E0EADB", deep: "#33593F", wash: "#F5F8F2" } as const;
+export const EXCELLENT = { solid: "#4E6B3F", tint: "#E6EAE4", deep: "#384D2D", wash: "#F4F6F2" } as const; // v9
 
 /**
  * The routine's Morning | Evening switch and step badges (v7, read off the
@@ -299,9 +314,10 @@ export function scoreColours(verdict: Verdict): { solid: string; tint: string; d
  */
 export const VERDICT_NEUTRAL = {
   solid: MUTED,
-  tint: "#F1EAE4",
+  tint: "#F2F1F0",
   deep: MUTED,
-  wash: "#F8F6F4",
+  wash: "#F4F2EE",
+  halo: "#ECE8E3",
   label: "Can't tell yet",
 } as const;
 
@@ -438,11 +454,13 @@ export const TYPE = {
   display: 34,
 } as const;
 
-/** The one display face in v7: Playfair Display 500, for a screen's title and the score. */
-export const DISPLAY_FONT = "PlayfairDisplay_500Medium";
+/** The one display face in v9: Instrument Serif 400, for screen titles, ingredient names and the score. */
+export const DISPLAY_FONT = "InstrumentSerif_400Regular";
+/** Its italic, for the score number (v9). */
+export const DISPLAY_FONT_ITALIC = "InstrumentSerif_400Regular_Italic";
 
 /** A card's corners (v7). Every card, white or tinted, is its fill alone: no border, no shadow. */
-export const CARD_RADIUS = 20;
+export const CARD_RADIUS = 16; // v9 (v7 was 20)
 
 /**
  * How far iOS Larger Text / Android font size may grow text (#314). The
