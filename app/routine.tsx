@@ -173,7 +173,7 @@ function StepCard({ number, step, last }: { number: number; step: string; last: 
             <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Scan one to check</Text>
           </Pressable>
         </View>
-        {STEP_BOTTLE[step] ? <Image source={STEP_BOTTLE[step]} contentFit="contain" accessibilityLabel="" style={{ width: 40, height: 46, opacity: 0.4 }} /> : null}
+        {STEP_BOTTLE[step] ? <Image source={STEP_BOTTLE[step]} contentFit="contain" accessibilityLabel="" style={{ width: 52, height: 60, opacity: 0.4 }} /> : null}
       </View>
     </View>
   );
