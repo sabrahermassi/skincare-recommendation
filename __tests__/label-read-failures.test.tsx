@@ -46,12 +46,12 @@ describe("a label read that fails", () => {
     expect(screen.getByRole("button", { name: "Choose a photo instead" })).toBeTruthy();
   });
 
-  it("couldn't reach us: says it's us or the connection, and offers Search", async () => {
+  it("couldn't reach us: says it's us or the connection, with no Search to send anyone to", async () => {
     await readAPhotoThatFails("network_error");
     expect(screen.getAllByText("We couldn't check that just now").length).toBeGreaterThan(0);
     expect(screen.getAllByText("It's us or the connection, not your scan.").length).toBeGreaterThan(0);
     expect(screen.getByText("Try again")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Find it in Search" })).toBeTruthy();
+    expect(screen.queryByText("Find it in Search")).toBeNull();
     expect(screen.queryByText("We couldn't read the ingredients")).toBeNull();
   });
 

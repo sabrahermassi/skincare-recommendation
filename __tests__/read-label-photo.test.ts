@@ -157,8 +157,8 @@ describe("failureCopy", () => {
     expect(failureCopy("not_configured").retryable).toBe(false);
   });
 
-  it("points a build with no credentials at Search", () => {
-    expect(failureCopy("not_configured").hint).toBe("Look the product up in Search instead.");
+  it("gives a build with no credentials no Search to try", () => {
+    expect(failureCopy("not_configured").hint).toBeUndefined();
   });
 
   // #204: a 503 is ours (Vision's key or the day's ceiling), so it says so in

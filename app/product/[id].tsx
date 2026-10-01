@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Share, View } from "react-native";
+import { ActivityIndicator, ScrollView, Share, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { FirstPageMoment } from "@/components/FirstPageMoment";
@@ -25,7 +25,7 @@ import { openScanner } from "@/lib/open-scanner";
 import { productIdParam } from "@/lib/route-params";
 import { historyWarningCount } from "@/lib/safety";
 import { saveFromTap, useCanJournal } from "@/lib/saving";
-import { CANVAS, DISPLAY_FONT, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, TYPE, VERDICT, WARN } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import NotFound from "@/app/+not-found";
 
@@ -80,8 +80,7 @@ export default function ProductRoute() {
 
 function ProductScreen({ id, from, concerns }: { id: string; from?: string; concerns?: string }) {
   // Seeded from the catalogue cache so a product already in memory paints on
-  // the first frame instead of a spinner — the same `peekProducts` seam
-  // `app/(tabs)/browse.tsx` uses for a warm start.
+  // the first frame instead of a spinner (`peekProducts`).
   const [product, setProduct] = useState<ProductWithIngredients | null>(() =>
     peekProducts("all")?.find((p) => p.id === id) ?? null,
   );
@@ -244,16 +243,6 @@ function ProductScreen({ id, from, concerns }: { id: string; from?: string; conc
             {failureMessage(failure)}
           </Text>
           <PrimaryButton label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
-          <Pressable
-            onPress={() => router.push("/browse")}
-            accessibilityRole="link"
-            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
-            className="active:opacity-70"
-          >
-            <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-              Search the catalogue
-            </Text>
-          </Pressable>
         </View>
       </View>
     );
@@ -267,21 +256,7 @@ function ProductScreen({ id, from, concerns }: { id: string; from?: string; conc
           <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
             Product not found
           </Text>
-          <PrimaryButton label="Scan another" onPress={openScanner} />
-          {/* "Scan another" assumes a physical bottle in hand, which isn't
-              true for everyone who lands here — a stale link, a bookmark to
-              a removed product. Same escape hatch the missed-barcode panel
-              offers, for the same reason. */}
-          <Pressable
-            onPress={() => router.push("/browse")}
-            accessibilityRole="link"
-            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
-            className="active:opacity-70"
-          >
-            <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-              Search instead
-            </Text>
-          </Pressable>
+          <PrimaryButton label="Scan another" onPress={() => openScanner()} />
         </View>
       </View>
     );

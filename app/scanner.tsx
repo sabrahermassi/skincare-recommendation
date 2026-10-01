@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -13,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
 
 import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
 import { ScanCamera } from "@/components/ScanCamera";
@@ -463,7 +463,6 @@ export default function Scan() {
         onDismiss={dismissStatus}
         showHint={showScanHint}
         onHint={() => selectMode("Photo")}
-        preserveMode={preserveMode}
       />
     ) : (
       // Photo is the same full-screen stage as Barcode: the camera is live the
@@ -646,31 +645,30 @@ function PopupLink({ label, onPress }: { label: string; onPress: () => void }) {
 }
 
 /**
- * No product for that code (v7): a search badge, what happened, the way
- * forward as the button, and search by name and "Try again" under it.
+ * No product for that code (v9): a "not found" badge, what happened, the way
+ * forward as the button, and "Try again" under it.
  */
 function NoMatchSheet({
   copy,
   primaryLabel,
-  secondaryLabel,
   showTryAgain,
   onDismiss,
   onPrimary,
-  onSecondary,
 }: {
   copy: ScanCopy;
   primaryLabel: string;
-  secondaryLabel: string;
   /** Off when the button itself already scans again. */
   showTryAgain: boolean;
   onDismiss: () => void;
   onPrimary: () => void;
-  onSecondary: () => void;
 }) {
   return (
     <ScanPopup onDismiss={onDismiss}>
       <View style={{ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: CHOSEN.fill }}>
-        <Ionicons name="search" size={22} color={LINK} />
+        {/* A magnifier with a minus: looked, not found (v9, the hand-off's path). */}
+        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+          <Path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5M8.5 11h5" stroke={LINK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
       </View>
       <Text
         accessibilityRole="header"
@@ -681,7 +679,6 @@ function NoMatchSheet({
       <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{copy.line}</Text>
       <PrimaryButton label={primaryLabel} onPress={onPrimary} style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.section }} />
       <View style={{ marginTop: SPACE.text, alignItems: "center" }}>
-        <PopupLink label={secondaryLabel} onPress={onSecondary} />
         {showTryAgain ? <PopupLink label="Try again" onPress={onDismiss} /> : null}
       </View>
     </ScanPopup>
@@ -751,7 +748,6 @@ function BarcodeStage({
   onDismiss,
   showHint,
   onHint,
-  preserveMode,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
   requestPermission: () => void;
@@ -767,9 +763,6 @@ function BarcodeStage({
   showHint: boolean;
   /** Switches to Photo mode — the scan hint's own action. */
   onHint: () => void;
-  /** Call before any navigation away from this stage that isn't a tab
-   *  switch — see `Scan`'s own `preserveMode` doc comment for why. */
-  preserveMode: () => void;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -901,33 +894,6 @@ function BarcodeStage({
           </Pressable>
         )}
 
-        {/* Only when the lookup could not be made. It is the one suggestion here
-            that still works with no connection: Browse renders from the cached
-            catalogue. After a plain miss it is left out — a barcode scan is the
-            direct lookup, so Browse would not have the product either. */}
-        {status.kind === "unreachable" && (
-          <Pressable
-            onPress={() => {
-              preserveMode();
-              // Closes the scanner onto Search. The scanner is a
-              // modal (#313): a push would open the tabs inside it.
-              router.dismissTo("/browse");
-            }}
-            accessibilityRole="link"
-            style={{
-              minHeight: TOUCH_TARGET,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            className="active:opacity-70"
-          >
-            <Text
-              style={{ fontSize: TYPE.label, fontWeight: "600", color: withAlpha(CANVAS, 0.85) }}
-            >
-              {copy?.link}
-            </Text>
-          </Pressable>
-        )}
 
 
 
@@ -940,16 +906,9 @@ function BarcodeStage({
           key={status.code}
           copy={copy}
           primaryLabel={copy.action ?? ""}
-          secondaryLabel={copy.byName ?? ""}
           showTryAgain={!notProduct}
           onDismiss={onDismiss}
           onPrimary={notProduct ? onDismiss : onPhotograph}
-          onSecondary={() => {
-            preserveMode();
-            // Closes the scanner onto Search, with the box empty and focused
-            // (#323); `byName` is a one-time request, so each tap is new.
-            router.dismissTo({ pathname: "/browse", params: { byName: String(Date.now()) } });
-          }}
         />
       ) : null}
 

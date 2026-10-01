@@ -81,7 +81,8 @@ describe.each([
     await act(async () => {});
 
     expect(screen.getByText("Product not found")).toBeTruthy();
-    expect(screen.getByText("Search instead")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Scan another" })).toBeTruthy();
+    expect(screen.queryByText("Search instead")).toBeNull();
     expect(screen.queryByText("Couldn't load this product")).toBeNull();
   });
 });

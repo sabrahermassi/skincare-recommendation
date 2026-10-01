@@ -198,19 +198,14 @@ describe("scanner status panels", () => {
     expect(fetchProductByBarcode).toHaveBeenLastCalledWith("8809999999999");
   });
 
-  it("closes the scanner to reach Search, rather than stacking Search inside it", async () => {
-    // The scanner is a full-screen modal (#313): a push put a second copy of
-    // the tabs inside it, with the scanner still underneath (#315 review).
-    const { router } = jest.requireMock("expo-router") as { router: { push: MockFn; dismissTo: MockFn } };
-    router.push.mockClear();
+  // Search is gone (v9): an unreachable lookup offers no way to it.
+  it("offers no Search when the lookup couldn't be made", async () => {
     (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: false, failure: { kind: "offline" } });
     await render(<Scan />);
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
     await scan("8801234567890");
 
-    await fireEvent.press(screen.getByText("Find it in Search"));
-    expect(router.dismissTo).toHaveBeenCalledWith("/browse");
-    expect(router.push).not.toHaveBeenCalled();
+    expect(screen.queryByText("Find it in Search")).toBeNull();
   });
 
   it("lets you leave a plain miss the same way", async () => {
@@ -339,22 +334,6 @@ describe("scanner history", () => {
 // #323: a code that isn't a product offers the name on the pack as a way in.
 // A barcode we don't have no longer does (v9): its way on is the ingredient
 // list, below.
-describe("Search by name", () => {
-  it.each([["a code that isn't a product", "https://example.com/promo", "Scan again"]])("is offered after %s, and opens Search", async (_what: string, code: string, alongside: string) => {
-    const { router } = jest.requireMock("expo-router") as { router: { dismissTo: { mock: { calls: unknown[][] } } } };
-    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: null });
-    await render(<Scan />);
-    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
-    await scan(code);
-
-    expect(screen.getAllByText(alongside).length).toBeGreaterThan(0);
-    await fireEvent.press(screen.getByRole("button", { name: "Search by name" }));
-    const [href] = router.dismissTo.mock.calls.at(-1) as [{ pathname: string; params: { byName: string } }];
-    expect(href.pathname).toBe("/browse");
-    expect(href.params.byName).toBeTruthy();
-  });
-});
-
 // The top row (v7): the glass close button, both modes in one pill with a
 // thumb that slides between them, and the torch.
 describe("scanner controls", () => {
@@ -382,14 +361,14 @@ describe("scanner controls", () => {
     expect(screen.getByRole("tab", { name: "Barcode" })).toBeTruthy();
   });
 
-  it("offers scanning again and search for a code that isn't a product, and never adding it", async () => {
+  it("offers scanning again for a code that isn't a product, and never Search or adding it", async () => {
     await render(<Scan />);
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
     await scan("https://example.com/promo");
 
     expect(screen.getByText("That's not a product barcode")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Scan again" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Search by name" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Search by name" })).toBeNull();
     expect(screen.queryByText(/add/i)).toBeNull();
   });
 

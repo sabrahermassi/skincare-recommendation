@@ -16,8 +16,7 @@ const CAMERA_ART = require("@/assets/illustrations/camera-permission.webp");
  * Two reasons there is no camera, and it says which: access not asked for yet
  * ("Turn on the camera"), or refused — there is no prompt left to show then,
  * so the button opens the system settings instead. Photo mode adds "Choose a
- * photo instead" (`extra`), the way forward that needs no camera. v9 has no
- * Search, so the old Search link is gone.
+ * photo instead" (`extra`), the way forward that needs no camera.
  */
 export function CameraPermissionScreen({
   permission,

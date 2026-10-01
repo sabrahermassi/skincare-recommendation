@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { CameraView } from "expo-camera";
-import { router } from "expo-router";
 import { Image } from "expo-image";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
@@ -301,10 +300,9 @@ export function LabelCamera({
     setStatus({ kind: "framing" });
   }
 
-  /** A failure's quiet link: another photo from the library, or Search when we couldn't be reached. */
-  function followLink(link: string) {
-    if (link === SEARCH_LINK) router.dismissTo("/browse");
-    else void capture("library");
+  /** A failure's quiet link: another photo from the library. */
+  function followLink() {
+    void capture("library");
   }
 
   const clearance = bottomInset ?? Math.max(24, insets.bottom + 12);
@@ -399,7 +397,7 @@ export function LabelCamera({
               <PrimaryButton size={48} label={status.action} onPress={() => setStatus({ kind: "framing" })} />
             ) : null}
             {!cannotRetry && status.link ? (
-              <QuietLink label={status.link} onPress={() => followLink(status.link as string)} />
+              <QuietLink label={status.link} onPress={followLink} />
             ) : null}
           </View>
         ) : status.kind === "reading" ? (
@@ -482,8 +480,6 @@ function QuietLink({ label, onPress }: { label: string; onPress: () => void }) {
     </Pressable>
   );
 }
-
-const SEARCH_LINK = scanStateCopy({ kind: "couldnt-reach", why: "default" }).link;
 
 /** Eases its children in when it mounts, so switching to Photo does not pop. */
 function FadeIn({ style, children }: { style?: ViewStyle; children: ReactNode }) {

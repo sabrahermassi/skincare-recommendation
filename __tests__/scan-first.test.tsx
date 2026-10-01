@@ -1,7 +1,6 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 import TabsLayout from "@/app/(tabs)/_layout";
-import SearchScreen from "@/app/(tabs)/browse";
 import Onboarding from "@/app/onboarding";
 import ConcernsStep from "@/app/quiz/concerns";
 import PregnancyStep from "@/app/quiz/pregnancy";
@@ -73,7 +72,6 @@ const mockProduct = {
 jest.mock("@/data/api", () => ({
   ...jest.requireActual("@/data/api"),
   peekProducts: () => [mockProduct],
-  searchProducts: () => Promise.resolve({ ok: true, value: [mockProduct] }),
   fetchProductsByIds: () => Promise.resolve({ ok: true, value: [] }),
 }));
 
@@ -208,16 +206,5 @@ describe("the quiz opened from a link, with nothing behind it", () => {
     await fireEvent.press(screen.getByText("See my match"));
     expect(mockGoBack).not.toHaveBeenCalled();
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
-  });
-});
-
-describe("the other ways into the quiz", () => {
-  // Search no longer offers the quiz above its results (owner): the way in is
-  // Home's "Find a product" card.
-  it("doesn't offer it above Search results, even while nothing scores", async () => {
-    await render(<SearchScreen />);
-    await fireEvent.changeText(screen.getByLabelText("Search products or brands"), "Toner");
-    await waitFor(() => expect(screen.getAllByText("Toner").length).toBeGreaterThan(0));
-    expect(screen.queryByText("See your skin match")).toBeNull();
   });
 });

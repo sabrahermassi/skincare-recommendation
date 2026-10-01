@@ -206,11 +206,7 @@ export default function TabsLayout() {
           tabBarButton: (props) => <TabButton tab="home" {...props} />,
         }}
       />
-      {/*
-        Skincare School, in the place Browse had. Browse is still a screen in this
-        group (declared last, below) but has no button in the bar: it opens from
-        Home's "Search" card and from the links that ask for a search.
-      */}
+      {/* Skincare School, second in the bar. */}
       <Tabs.Screen
         name="school"
         options={{
@@ -255,19 +251,6 @@ export default function TabsLayout() {
           tabBarLabel: "Profile",
           tabBarAccessibilityLabel: "Profile",
           tabBarButton: (props) => <TabButton tab="profile" {...props} />,
-        }}
-      />
-      {/*
-        Browse: a screen in the group without a button in the bar (`href: null`).
-        Reached from Home's "Search" card and every "search instead" link;
-        the bar stays under it, so Home is one tap away. `title` is the web
-        document title only (headerShown is false for this group).
-      */}
-      <Tabs.Screen
-        name="browse"
-        options={{
-          title: "for.me",
-          href: null,
         }}
       />
     </Tabs>

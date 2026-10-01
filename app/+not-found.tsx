@@ -1,11 +1,10 @@
 import { router, Stack } from "expo-router";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 import { EmptyState } from "@/components/EmptyState";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { Text } from "@/components/Text";
-import { CANVAS, LINK, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { CANVAS } from "@/lib/tokens";
 
 /**
  * Any link to a page that doesn't exist — a stale share, a mistyped deep
@@ -26,19 +25,7 @@ export default function NotFound() {
           artWidth={280}
           title="This page wandered off"
           line="The link may be old, or the page has moved."
-          action={
-            <>
-              <PrimaryButton label="Go to Home" onPress={() => router.replace("/")} style={{ width: BUTTON_WIDTH.secondary }} />
-              <Pressable
-                onPress={() => router.replace("/browse")}
-                accessibilityRole="link"
-                style={{ minHeight: TOUCH_TARGET, marginTop: SPACE.text, alignItems: "center", justifyContent: "center" }}
-                className="active:opacity-70"
-              >
-                <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Search instead</Text>
-              </Pressable>
-            </>
-          }
+          action={<PrimaryButton label="Go to Home" onPress={() => router.replace("/")} style={{ width: BUTTON_WIDTH.secondary }} />}
         />
       </View>
     </View>

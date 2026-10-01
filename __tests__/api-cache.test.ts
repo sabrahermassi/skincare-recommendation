@@ -127,7 +127,6 @@ import {
   prefetchCatalogue,
   readLabel,
   revalidateOnForeground,
-  searchProducts,
   warmCatalogue,
   type Fetched,
 } from "@/data/api";
@@ -405,9 +404,6 @@ describe("rows nobody can identify", () => {
     mockRowCount = 2;
 
     expect((await fetchProducts()).map((p) => p.id)).toEqual(["a"]);
-    // The stand-in does no text matching — it returns whatever rows are set —
-    // so what this pins is the filter, not the search.
-    expect((await searchProducts("3606")).map((p) => p.id)).toEqual(["a"]);
   });
 
   /** A product genuinely called by a short number is a real name — keep it. */

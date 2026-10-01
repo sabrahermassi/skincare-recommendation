@@ -269,11 +269,10 @@ export type FetchFailure =
  * "is this specific product there?", and for them a missing row and an
  * unreachable server look identical to a caller that only sees a throw.
  *
- * The list fetchers — `fetchProducts` and `searchProducts` —
- * keep throwing on purpose. They answer "what is there?", where an empty result
- * means an empty catalogue rather than a specific absence, and their call sites
+ * The list fetcher — `fetchProducts` — keeps throwing on purpose. It answers "what is there?", where an empty result
+ * means an empty catalogue rather than a specific absence, and its call sites
  * already turn a throw into "couldn't load, try again". Adding a second idiom
- * to them would churn the screens without changing what any of them can say.
+ * to it would churn the screens without changing what any of them can say.
  *
  * **A function returning this never rejects.** That is the contract the screens
  * rely on: they stopped wrapping these calls in `try`, so a throw would land as
@@ -1446,81 +1445,6 @@ export async function resolveIngredientNames(
     if (opts?.strict) throw err;
     return names.map(stub);
   }
-}
-
-/**
- * How many search results any path may return.
- *
- * Exported because Browse narrows the cached catalogue itself on every
- * keystroke and only falls back to this function behind a debounce. If the
- * two disagree, the list visibly shrinks when the slower answer replaces the
- * faster one — so both read this.
- */
-export const SEARCH_RESULT_LIMIT = 20;
-
-/**
- * A search query with everything that would steer the server filter taken
- * out, or `null` when nothing searchable is left (#297).
- *
- * `%`, `_` and `*` are wildcards in a PostgREST `ilike` (`*` stands for `%`),
- * and `,` `(` `)` `"` `\` break the `.or()` filter string, so all of them
- * become spaces. That alone turned "%%" into a search for two spaces, which
- * matched the few names with a double space in them — so runs of spaces
- * collapse, and a query with no letter or digit searches nothing at all.
- * Browse runs its on-device match through the same function, so the two
- * answers agree.
- */
-export function searchableQuery(query: string): string | null {
-  const cleaned = query.replace(/[%_*,()"\\]/g, " ").replace(/\s+/g, " ").trim();
-  return /[\p{L}\p{N}]/u.test(cleaned) ? cleaned : null;
-}
-
-/** How many letters a search needs before it looks anything up (owner). */
-export const SEARCH_MIN_LETTERS = 3;
-
-/**
- * Whether `query` is long enough to search. A Korean, Chinese or Japanese
- * character counts as two letters: one Hangul syllable is a whole sound, so
- * a two-syllable brand name like 미샤 (Missha) is as specific as three Latin
- * letters and still searches.
- */
-export function longEnoughToSearch(query: string): boolean {
-  let letters = 0;
-  for (const char of query.trim()) {
-    letters += /[\p{Script=Hangul}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(char) ? 2 : 1;
-  }
-  return letters >= SEARCH_MIN_LETTERS;
-}
-
-export async function searchProducts(query: string): Promise<ProductWithIngredients[]> {
-  if (!longEnoughToSearch(query)) return [];
-  const escaped = searchableQuery(query);
-  if (escaped === null) return [];
-
-  if (usingSupabase()) {
-    const { data, error } = await withTimeout(
-      (signal) =>
-        supabase!
-          .from("products")
-          .select(SELECT)
-          .or(`name.ilike.%${escaped}%,brand.ilike.%${escaped}%`)
-          .limit(SEARCH_RESULT_LIMIT)
-          .abortSignal(signal),
-      "searchProducts",
-    );
-    if (error) throw new Error(`searchProducts: ${error.message}`);
-    return (data as unknown as CatalogueRow[]).filter(isIdentifiable).map(rowToProduct);
-  }
-
-  const needle = escaped.toLowerCase();
-  return delay(
-    PRODUCTS.filter(
-      (p) =>
-        p.name.toLowerCase().includes(needle) || p.brand.toLowerCase().includes(needle)
-    )
-      .slice(0, SEARCH_RESULT_LIMIT)
-      .map(resolveIngredients)
-  );
 }
 
 // ── The signed-in shelf (#223) ──────────────────────────────────────────────
