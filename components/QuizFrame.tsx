@@ -15,8 +15,8 @@ export function quizTopPadding(insetTop: number) {
 }
 
 type QuizFrameValue = {
-  /** Called by the step that's showing, so the fixed button acts for it. */
-  setFooter: (label: string, disabled: boolean, onPress: () => void) => void;
+  /** Called by the step that's showing, so the fixed button acts for it. A null label takes the button away. */
+  setFooter: (label: string | null, disabled: boolean, onPress: () => void) => void;
   /** Re-arms the footer button after a step change — see `navigatingRef`. */
   releaseFooter: () => void;
   /** Closes the whole quiz, back to the screen that opened it (#346). */
@@ -33,7 +33,7 @@ export function useQuizFrame(): QuizFrameValue {
 
 /**
  * Everything on the quiz screens that must not move between steps: the
- * background and the Next / Build my profile button. No Skip (owner): the quiz is a
+ * background and the Next / See my routine button. No Skip (owner): the quiz is a
  * sheet, so a swipe down closes it like any iOS sheet. Rendered once
  * by app/quiz/_layout.tsx around the step navigator, so tapping
  * Continue only changes the see-through step page inside it.
@@ -47,7 +47,7 @@ export function useQuizFrame(): QuizFrameValue {
 export function QuizFrame({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const [label, setLabel] = useState("Next");
+  const [label, setLabel] = useState<string | null>("Next");
   const [disabled, setDisabled] = useState(true);
   // A ref, not state: steps pass a new function on every render, and storing
   // it as state would re-render the frame (and so the step) every time.
@@ -61,8 +61,8 @@ export function QuizFrame({ children }: { children: ReactNode }) {
 
   const value = useMemo<QuizFrameValue>(
     () => ({
-      // "See my routine" on the last step. Every answer is saved as it's tapped, so a
-      // quiz swiped away early keeps what was answered too (#346).
+      // The close button and a swipe down. Every answer is saved as it's tapped,
+      // so a quiz swiped away early keeps what was answered too (#346).
       close() {
         // Opened from a link, the quiz can be the only screen there is.
         if (navigation.canGoBack()) navigation.goBack();
@@ -94,19 +94,22 @@ export function QuizFrame({ children }: { children: ReactNode }) {
       <View style={{ flex: 1, backgroundColor: CANVAS }} onAccessibilityEscape={value.close}>
         <View style={{ flex: 1 }}>{children}</View>
 
-        {/* The button on its own bar at the foot (v9), above a hairline. */}
-        <View
-          style={{
-            gap: SPACE.text,
-            paddingTop: SPACE.block,
-            paddingHorizontal: SPACE.gutter,
-            paddingBottom: Math.max(SPACE.section, insets.bottom + SPACE.block),
-            borderTopWidth: 0.5,
-            borderTopColor: HAIRLINE,
-          }}
-        >
-          <PrimaryButton label={label} onPress={pressFooter} disabled={disabled} />
-        </View>
+        {/* The button on its own bar at the foot (v9), above a hairline. Not
+            there while the routine is "building" (owner). */}
+        {label === null ? null : (
+          <View
+            style={{
+              gap: SPACE.text,
+              paddingTop: SPACE.block,
+              paddingHorizontal: SPACE.gutter,
+              paddingBottom: Math.max(SPACE.section, insets.bottom + SPACE.block),
+              borderTopWidth: 0.5,
+              borderTopColor: HAIRLINE,
+            }}
+          >
+            <PrimaryButton label={label} onPress={pressFooter} disabled={disabled} />
+          </View>
+        )}
       </View>
     </QuizFrameContext.Provider>
   );

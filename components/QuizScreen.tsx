@@ -21,7 +21,8 @@ type Props = {
   /**
    * The quiz's closing moment (v9): the questions are done and `children` is
    * the "building" picture, not answers. The header drops its count and its
-   * line, and `onBack` returns to the last question.
+   * line, the button at the foot is gone, and `onBack` returns to the last
+   * question.
    */
   building?: boolean;
   onBack?: () => void;
@@ -57,12 +58,12 @@ export function QuizScreen({
   // showing, and again when it becomes the one showing after Back.
   useFocusEffect(
     useCallback(() => {
-      setFooter(nextLabel, nextDisabled, onNext);
+      setFooter(building ? null : nextLabel, nextDisabled, onNext);
       // Re-arms the button for this step: it's latched while a push is in
       // flight, and Back would otherwise return to a step whose button
       // never fires again.
       releaseFooter();
-    }, [setFooter, releaseFooter, nextLabel, nextDisabled, onNext]),
+    }, [setFooter, releaseFooter, building, nextLabel, nextDisabled, onNext]),
   );
 
   // Each step paints the page colour itself: steps slide in from the right

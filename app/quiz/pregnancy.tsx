@@ -1,9 +1,9 @@
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Animated, Easing, View } from "react-native";
 
 import { QuizOptionCard, QUIZ_OPTION_GRID } from "@/components/QuizOptionCard";
-import { useQuizFrame } from "@/components/QuizFrame";
 import { QuizScreen } from "@/components/QuizScreen";
 import { Text } from "@/components/Text";
 import { reduceMotionNow } from "@/lib/reduce-motion";
@@ -27,20 +27,27 @@ import { useAppStore } from "@/store/useAppStore";
 
 const BUILDING_ART = require("@/assets/illustrations/loading-routine.webp");
 
-/** How long the closing screen's bar takes to fill. */
-const BUILDING_MS = 2400;
+/** How long the closing screen shows, and its bar takes to fill. */
+export const BUILDING_MS = 2400;
 
 /**
- * The closing screen's short bar (v9), filling from empty to full as the
- * screen "builds" (owner). With Reduce Motion on it is simply full.
+ * The closing screen's short bar (v9), filling from empty to full while the
+ * routine is "built", then calling `onDone` (owner). With Reduce Motion on it
+ * is full from the start, and waits the same time.
  */
-function BuildingBar() {
+function BuildingBar({ onDone }: { onDone: () => void }) {
   const [fill] = useState(() => new Animated.Value(reduceMotionNow() ? 1 : 0));
   useEffect(() => {
     // Width is layout, which the native driver can't animate.
     const run = Animated.timing(fill, { toValue: 1, duration: BUILDING_MS, easing: Easing.inOut(Easing.quad), useNativeDriver: false });
     run.start();
-    return () => run.stop();
+    const done = setTimeout(onDone, BUILDING_MS);
+    return () => {
+      run.stop();
+      clearTimeout(done);
+    };
+    // `onDone` is read once, when the screen opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fill]);
   return (
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 160, height: 4, borderRadius: 2, backgroundColor: DIVIDER, overflow: "hidden" }}>
@@ -52,19 +59,19 @@ function BuildingBar() {
 export default function PregnancyStep() {
   const pregnancyStatus = useAppStore((s) => s.profile.pregnancyStatus);
   const setProfile = useAppStore((s) => s.setProfile);
-  const { close } = useQuizFrame();
   const markQuizJustFinished = useAppStore((s) => s.markQuizJustFinished);
   const [picked, setPicked] = useState(pregnancyStatus !== null);
-  // The quiz's closing moment (v9): the answers are in, and one more screen
-  // says so before handing back to the screen the quiz opened over.
+  // The quiz's closing moment (v9): the answers are in, and a progress screen
+  // shows while the routine is "built", then opens it (owner).
   const [building, setBuilding] = useState(false);
 
-  // Back to the screen the quiz opened over, which now shows the score (#346).
+  // On to the Skincare routine: back to it when the quiz opened over it, in
+  // the quiz's place otherwise.
   function finish() {
     // Not set by skipping (QuizFrame's close) — there is nothing to
     // acknowledge for a quiz nobody answered. See issue #95.
     markQuizJustFinished();
-    close();
+    router.dismissTo("/routine");
   }
 
   if (building) {
@@ -74,10 +81,8 @@ export default function PregnancyStep() {
         title=""
         building
         onBack={() => setBuilding(false)}
-        onNext={finish}
-        // The hand-off's label (v9). The quiz still closes back to the screen
-        // it opened over, which now scores for the answers.
-        nextLabel="See my routine"
+        // No button here: the screen moves on by itself when the bar is full.
+        onNext={() => {}}
       >
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
           <Image source={BUILDING_ART} contentFit="contain" accessibilityLabel="" style={{ width: 280, height: 280 }} />
@@ -87,7 +92,7 @@ export default function PregnancyStep() {
           <Text style={{ maxWidth: 280, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
             Putting together your morning and evening steps.
           </Text>
-          <BuildingBar />
+          <BuildingBar onDone={finish} />
         </View>
       </QuizScreen>
     );
@@ -100,7 +105,7 @@ export default function PregnancyStep() {
       subtitle={PREGNANCY_WHY}
       onNext={() => setBuilding(true)}
       nextDisabled={!picked}
-      nextLabel="Build my profile"
+      nextLabel="See my routine"
     >
       <View style={QUIZ_OPTION_GRID}>
         {PREGNANCY_OPTIONS.map((option) => (
