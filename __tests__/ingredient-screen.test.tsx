@@ -68,6 +68,8 @@ describe("the ingredient page", () => {
   it("keeps PubChem as the fallback for a name no rule covers", async () => {
     await open("xanthan gum");
     expect(screen.getByText("Read more on PubChem")).toBeTruthy();
+    // v7: it opens in a sheet inside the app, not the phone's browser.
+    expect(screen.getByText("Opens inside the app")).toBeTruthy();
     expect(screen.queryByText(/^Source:/)).toBeNull();
   });
 

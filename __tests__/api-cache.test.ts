@@ -164,7 +164,6 @@ function row(id: string, type = "serum") {
     image_url: null,
     volume: "50ml",
     price_krw: 20000,
-    in_stock: true,
     suitable_for: [],
     targets: [],
     source: "obf",

@@ -57,7 +57,6 @@ function product(id: string, ingredients: Ingredient[], overrides: Partial<Produ
     attribution: null,
     fetchedAt: "2026-09-20T00:00:00Z",
     ingredientIds: ingredients.map((i) => i.id),
-    inStock: true,
     ingredients,
     ...overrides,
   };
@@ -129,11 +128,10 @@ describe("a rescan that changes a product", () => {
 
   // #268 review: only fetchedAt is ignored.
   it("treats a metadata-only change as a change", () => {
-    addScannedToCatalogue(rescan(a, { volume: "50ml", inStock: false }));
+    addScannedToCatalogue(rescan(a, { volume: "50ml" }));
     const next = peekCatalogue()!.byId.get("a")!;
     expect(next).not.toBe(a);
     expect(next.volume).toBe("50ml");
-    expect(next.inStock).toBe(false);
   });
 
   it("treats a new formula as a change", () => {

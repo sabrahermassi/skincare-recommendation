@@ -77,7 +77,6 @@ const PRODUCT: ProductWithIngredients = {
   imageUrl: null,
   attribution: null,
   ingredientIds: INGREDIENTS.map((i) => i.id),
-  inStock: true,
   ingredients: INGREDIENTS,
 };
 

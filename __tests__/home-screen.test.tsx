@@ -90,8 +90,10 @@ it("shows another tip when the card is tapped, never the same one (v7)", async (
   try {
     await render(<Home />);
     const first = tipOfTheDay();
-    await fireEvent.press(screen.getByRole("button", { name: "Show another tip" }));
+    // The tip is what VoiceOver reads first, not a hint it can be set to skip.
+    await fireEvent.press(screen.getByRole("button", { name: `Tip of the day: ${first}` }));
     expect(screen.queryByText(first)).toBeNull();
+    expect(screen.getByRole("button", { name: /^Tip of the day: / }).props.accessibilityHint).toBe("Shows another tip");
     expect(screen.getByText("Tap for another")).toBeTruthy();
   } finally {
     spy.mockRestore();

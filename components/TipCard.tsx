@@ -104,7 +104,8 @@ export function TipCard() {
 
   return (
     <View style={{ marginTop: SPACE.section }}>
-      <Pressable onPress={shuffle} accessibilityRole="button" accessibilityLabel="Show another tip" accessibilityHint={`Tip of the day: ${tip}`}>
+      {/* The tip is the label, not the hint: VoiceOver can be set to skip hints. */}
+      <Pressable onPress={shuffle} accessibilityRole="button" accessibilityLabel={`Tip of the day: ${tip}`} accessibilityHint="Shows another tip">
         <Animated.View
           style={{
             borderRadius: TIP_NOTE.radius,

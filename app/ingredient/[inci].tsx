@@ -271,14 +271,14 @@ function IngredientDetail({ inci, productId, from }: { inci: string; productId?:
                 }
                 accessibilityRole="link"
                 accessibilityLabel="Read more on PubChem"
-                accessibilityHint="Opens in your browser"
+                accessibilityHint="Opens PubChem inside the app"
                 style={{ minHeight: 56, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, paddingVertical: SPACE.text, paddingHorizontal: SPACE.gutter }}
                 className="bg-surface active:bg-row-pressed"
               >
                 <Ionicons name="book-outline" size={20} color={BUTTON.primary.fill} />
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={{ fontSize: TYPE.card, color: INK }}>Read more on PubChem</Text>
-                  <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Opens in your browser</Text>
+                  <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Opens inside the app</Text>
                 </View>
                 <Ionicons name="open-outline" size={17} color={ICON_MUTED} />
               </Pressable>
