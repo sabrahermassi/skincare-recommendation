@@ -46,6 +46,15 @@ const VISION_URL = "https://vision.googleapis.com/v1/images:annotate";
  */
 export const VISION_TIMEOUT_MS = 25_000;
 
+/**
+ * How many times one photo is put to Vision. Vision refuses the odd read and
+ * then takes the same photo a minute later (seen on staging, 1 October 2026),
+ * and without a second try each of those was a failed scan for the person
+ * holding the bottle. The retry doesn't count again toward the daily ceiling.
+ */
+export const VISION_ATTEMPTS = 2;
+const VISION_RETRY_PAUSE_MS = 250;
+
 /** Generous for a person in a shop, useless for anyone burning the free tier. */
 const RATE_LIMIT: RateLimit = { windowSeconds: 300, maxRequests: 10 };
 
@@ -403,7 +412,19 @@ type OcrResult =
   // itself is having a bad day". Found in review on #246.
   | { ok: false; noText: boolean };
 
-async function runOcr(deps: LabelOcrDeps, imageBase64: string): Promise<OcrResult> {
+/** Vision's reply as parsed JSON; null when the body wasn't JSON at all. */
+// deno-lint-ignore no-explicit-any
+type VisionBody = any;
+
+type VisionAnswer =
+  | { ok: true; body: VisionBody }
+  // `retry`: worth asking again, because the same photo can pass a moment
+  // later. Not for a request Vision calls wrong (a 4xx: a bad key, billing
+  // off), where a second try only repeats the refusal.
+  | { ok: false; retry: boolean; why: string };
+
+/** One request to Vision, and whether its answer is usable. */
+async function askVision(deps: LabelOcrDeps, imageBase64: string, signal: AbortSignal): Promise<VisionAnswer> {
   // Wrapped, where it wasn't before: an unreachable Vision (DNS, TLS, a
   // dropped connection) threw out of a bare `await fetch`, past every
   // failure this function otherwise returns for a *reachable-but-unhelpful*
@@ -416,7 +437,7 @@ async function runOcr(deps: LabelOcrDeps, imageBase64: string): Promise<OcrResul
     res = await deps.fetch(VISION_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Goog-Api-Key": deps.visionApiKey },
-      signal: AbortSignal.timeout(VISION_TIMEOUT_MS),
+      signal,
       body: JSON.stringify({
         requests: [
           {
@@ -430,11 +451,13 @@ async function runOcr(deps: LabelOcrDeps, imageBase64: string): Promise<OcrResul
       }),
     });
   } catch (err) {
-    console.error("Vision request failed:", err);
-    return { ok: false, noText: false };
+    return { ok: false, retry: true, why: `request failed: ${err}` };
   }
-  if (!res.ok) return { ok: false, noText: false };
-  const body = await res.json().catch(() => null);
+  const body: VisionBody = await res.json().catch(() => null);
+  if (!res.ok) {
+    const retry = res.status >= 500 || res.status === 429 || res.status === 408;
+    return { ok: false, retry, why: `HTTP ${res.status} ${body?.error?.status ?? ""} ${body?.error?.message ?? ""}`.trim() };
+  }
   // A malformed/truncated HTTP body (`body === null`) and a per-image
   // `responses[0].error` — Vision's own HTTP-200 shape for "couldn't process
   // this image" (bad or corrupted image data) — both mean Vision failed to
@@ -445,7 +468,32 @@ async function runOcr(deps: LabelOcrDeps, imageBase64: string): Promise<OcrResul
   // with no EOI marker ("real cameras do produce truncated files"). Found in
   // review on #246 — without this, both collapsed into the same `noText`
   // outcome as a genuinely blank photo.
-  if (body === null || body?.responses?.[0]?.error) return { ok: false, noText: false };
+  if (body === null) return { ok: false, retry: true, why: "HTTP 200 with a body that isn't JSON" };
+  const imageError = body.responses?.[0]?.error;
+  if (imageError) {
+    return { ok: false, retry: true, why: `image error ${imageError.code ?? ""} ${imageError.message ?? ""}`.trim() };
+  }
+  return { ok: true, body };
+}
+
+async function runOcr(deps: LabelOcrDeps, imageBase64: string): Promise<OcrResult> {
+  // One deadline for every attempt together, so a second try can't carry the
+  // function past the app's own wait.
+  const signal = AbortSignal.timeout(VISION_TIMEOUT_MS);
+  let body: VisionBody = null;
+  for (let attempt = 1; attempt <= VISION_ATTEMPTS; attempt++) {
+    const answer = await askVision(deps, imageBase64, signal);
+    if (answer.ok) {
+      body = answer.body;
+      break;
+    }
+    // Why Vision refused, in the function log: `scan_log` only says
+    // `upstream_failure`, which can't tell a bad key from a busy minute. The
+    // status and Vision's own message only, never anything from the photo.
+    console.error(`[vision] attempt ${attempt} of ${VISION_ATTEMPTS} failed:`, answer.why);
+    if (!answer.retry || signal.aborted || attempt === VISION_ATTEMPTS) return { ok: false, noText: false };
+    await new Promise((resolve) => setTimeout(resolve, VISION_RETRY_PAUSE_MS));
+  }
   const annotation = body.responses?.[0]?.fullTextAnnotation;
   if (!annotation) return { ok: false, noText: true };
 

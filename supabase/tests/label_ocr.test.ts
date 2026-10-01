@@ -4,7 +4,7 @@
 // function is checked with curl.
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
-import { handleLabelOcr, type LabelOcrDeps, VISION_TIMEOUT_MS } from "../functions/label-ocr/handler.ts";
+import { handleLabelOcr, type LabelOcrDeps, VISION_ATTEMPTS, VISION_TIMEOUT_MS } from "../functions/label-ocr/handler.ts";
 import { MAX_IMAGE_CHARS } from "../functions/_shared/image-limits.ts";
 import { READ_TOKEN_TTL_MS, signReadToken, verifyReadToken } from "../functions/_shared/read-token.ts";
 import { resetRateLimits, resetVerifiedTokens } from "../functions/_shared/rate-limit.ts";
@@ -194,6 +194,33 @@ Deno.test("Vision failing is 502, a network problem rather than the photo's", as
     assertEquals(reply.status, 502);
     assertEquals(outcomes(db), ["upstream_failure"]);
   }
+});
+
+Deno.test("a read Vision refuses once and then takes is a good read, on one deadline", async () => {
+  for (const refusal of [
+    () => jsonResponse({}, 503),
+    () => { throw new TypeError("dns"); },
+    () => jsonResponse({ responses: [{ error: { code: 14, message: "unavailable" } }] }),
+  ] as Vision[]) {
+    let asked = 0;
+    const { db, deps, fetched } = setup(allKnown, (url, init) => (++asked === 1 ? refusal(url, init) : visionReads(LABEL)(url, init)));
+    const reply = await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
+    assertEquals(reply.status, 200);
+    assertEquals(outcomes(db), ["read_ok"]);
+    assertEquals(fetched.length, VISION_ATTEMPTS);
+    assert(fetched[0].init?.signal === fetched[1].init?.signal, "the second try gets what is left of the first one's time");
+  }
+});
+
+Deno.test("Vision is asked no more than VISION_ATTEMPTS times, and once when it calls the request wrong", async () => {
+  const down = setup(() => undefined, () => jsonResponse({}, 500));
+  assertEquals((await handleLabelOcr(post({ imageBase64: tinyJpeg() }), down.deps)).status, 502);
+  assertEquals(down.fetched.length, VISION_ATTEMPTS);
+
+  const refused = setup(() => undefined, () => jsonResponse({ error: { status: "PERMISSION_DENIED" } }, 403));
+  assertEquals((await handleLabelOcr(post({ imageBase64: tinyJpeg() }), refused.deps)).status, 502);
+  assertEquals(refused.fetched.length, 1);
+  assertEquals(outcomes(refused.db), ["upstream_failure"]);
 });
 
 Deno.test("a photo with no text is 422 not_enough_text", async () => {
