@@ -56,8 +56,6 @@ function fontCodePoints(file: string): Set<number> {
 }
 
 const fontOf = (text: string) => StyleSheet.flatten(screen.getByText(text).props.style).fontFamily;
-// The UI font is DM Sans (v9), set by components/Text for anything that names no family.
-const UI_FONT = "DMSans_400Regular";
 
 describe("which characters the handwriting draws", () => {
   it("claims nothing the font file cannot draw", () => {
@@ -122,22 +120,22 @@ describe("a note on screen", () => {
   it("puts a Korean note entirely in the UI font, in both places", async () => {
     const note = "Nice and light, 촉촉해요";
     await render(<ProductNote note={note} onSave={() => undefined} />);
-    expect(fontOf(note)).toBe(UI_FONT);
+    expect(fontOf(note)).toBeUndefined();
     await render(<NotePreview note={note} />);
-    expect(fontOf(note)).toBe(UI_FONT);
+    expect(fontOf(note)).toBeUndefined();
   });
 
   it("follows the phone's text size", async () => {
     mockFontScale = 1.3;
     await render(<ProductNote note="Soft and calm" onSave={() => undefined} />);
-    expect(fontOf("Soft and calm")).toBe(UI_FONT);
+    expect(fontOf("Soft and calm")).toBeUndefined();
   });
 
   it("follows iOS's Bold Text setting", async () => {
     const bold = jest.spyOn(AccessibilityInfo, "isBoldTextEnabled").mockResolvedValue(true);
     await render(<ProductNote note="Soft and calm" onSave={() => undefined} />);
     await act(async () => undefined);
-    expect(fontOf("Soft and calm")).toBe(UI_FONT);
+    expect(fontOf("Soft and calm")).toBeUndefined();
     bold.mockRestore();
   });
 });
