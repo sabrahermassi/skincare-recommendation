@@ -10,26 +10,23 @@ import { CONCERN_TITLE, nextQuizRoute, quizStepNumber } from "@/lib/profile";
 import { MAX_CONCERNS, useAppStore } from "@/store/useAppStore";
 
 /**
- * Ordered by how common each concern is reported in skincare-usage surveys
- * (dehydration/dryness and dullness lead, followed by acne/pores/lines/tone
- * concerns, rosacea-specific redness and post-acne marks trailing as more
- * specific complaints) — the same order the design mockups use.
+ * In the hand-off's order (v9), the same one the Skin needs concerns use.
  * "Eczema-prone" is deliberately not offered here — removed from the quiz's
  * selectable options per this session's design decision — though the
  * `"atopic"` concern and its scoring rules remain intact for any profile that
  * already carries it from before that change.
  *
- * v9 drops the tiles' pictures: the answer's name alone.
+ * v9 drops the pictures: the answer's name alone, on a full-width row.
  */
 const OPTIONS: { value: Concern; label: string }[] = [
-  { value: "dehydrated", label: CONCERN_TITLE.dehydrated },
-  { value: "dullness", label: CONCERN_TITLE.dullness },
   { value: "acne-prone", label: CONCERN_TITLE["acne-prone"] },
-  { value: "hyperpigmentation", label: CONCERN_TITLE.hyperpigmentation },
+  { value: "post-acne-marks", label: CONCERN_TITLE["post-acne-marks"] },
+  { value: "dehydrated", label: CONCERN_TITLE.dehydrated },
+  { value: "redness", label: CONCERN_TITLE.redness },
   { value: "large-pores", label: CONCERN_TITLE["large-pores"] },
   { value: "fine-lines", label: CONCERN_TITLE["fine-lines"] },
-  { value: "redness", label: CONCERN_TITLE.redness },
-  { value: "post-acne-marks", label: CONCERN_TITLE["post-acne-marks"] },
+  { value: "dullness", label: CONCERN_TITLE.dullness },
+  { value: "hyperpigmentation", label: CONCERN_TITLE.hyperpigmentation },
 ];
 
 
@@ -83,13 +80,10 @@ export default function ConcernsStep() {
   return (
     <QuizScreen
       step={quizStepNumber("/quiz/concerns")}
-      title="What are your skin concerns?"
+      title="What would you like to work on?"
       subtitle={`Pick up to ${MAX_CONCERNS}. We score every product for these.`}
       onNext={next}
       nextDisabled={concerns.length === 0 && !noneChosen}
-      // Over the button (v9). "No concerns" is a real answer, so it says so
-      // rather than "0 of 3 chosen".
-      counter={noneChosen ? "No concerns chosen" : `${visibleCount} of ${MAX_CONCERNS} chosen`}
       // The quiz's first step: the modal opens on it (#346), so there is no
       // earlier step to go back to, and its back arrow closes the quiz.
       first

@@ -1,7 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react-native";
 
 import IngredientRoute from "@/app/ingredient/[inci]";
-import IngredientListRoute from "@/app/ingredients/[id]";
 import Onboarding from "@/app/onboarding";
 import ProductRoute from "@/app/product/[id]";
 import { fetchProduct, resolveIngredientNames } from "@/data/api";
@@ -96,13 +95,6 @@ describe("a hostile link to a product", () => {
   it.each(HOSTILE_IDS)("shows the not-found page for %j and never asks the catalogue", async (id: string) => {
     mockParams = { id };
     await render(<ProductRoute />);
-    expect(screen.getByText("This page wandered off")).toBeTruthy();
-    expect(fetched.mock.calls).toEqual([]);
-  });
-
-  it("does the same for the ingredient list", async () => {
-    mockParams = { id: "../../account", tab: "Pore-clogging" };
-    await render(<IngredientListRoute />);
     expect(screen.getByText("This page wandered off")).toBeTruthy();
     expect(fetched.mock.calls).toEqual([]);
   });

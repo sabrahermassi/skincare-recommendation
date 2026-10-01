@@ -1,4 +1,6 @@
+import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
+import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
@@ -25,11 +27,11 @@ import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { GlassButton } from "@/components/GlassButton";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
-import { RING_SIZE, ScoreRing } from "@/components/result/ScoreRing";
 import { Text } from "@/components/Text";
 import { isProductBarcode, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
+import { goBackOrHome } from "@/lib/go-back";
 import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
 import { lookupFailureState, scanStateCopy, scanStateSpeech, type ScanCopy, type ScanState, SCAN_SOMETHING_ELSE } from "@/lib/scan-copy";
 import { useScanContext } from "@/lib/scan-context";
@@ -41,6 +43,7 @@ import { matchProduct } from "@/lib/matching";
 import { track } from "@/lib/analytics";
 import { useAppStore } from "@/store/useAppStore";
 import {
+  BUTTON,
   CAMERA_STAGE,
   CANVAS,
   CHOSEN,
@@ -48,11 +51,14 @@ import {
   INK,
   LINK,
   MUTED,
+  MUTED_FAINT,
+  scoreColours,
   SCRIM,
   SHEET_SHADOW,
   SPACE,
   TOUCH_TARGET,
   TYPE,
+  VERDICT_LABEL,
   WHITE,
   withAlpha,
 } from "@/lib/tokens";
@@ -556,7 +562,7 @@ export default function Scan() {
           accessibilityLabel="Close scanner"
           onDark={!needsPermission}
           // Opened from a deep link there is nothing underneath to go back to.
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+          onPress={goBackOrHome}
         />
         <SegmentedSwitch
           tone={needsPermission ? "light" : "dark"}
@@ -591,7 +597,7 @@ export default function Scan() {
  * there (#313). Tapping the dimmed camera closes it, as its own "Try again" or
  * "Scan another" does.
  */
-function ScanPopup({ onDismiss, children }: { onDismiss: () => void; children: ReactNode }) {
+function ScanPopup({ onDismiss, light = false, children }: { onDismiss: () => void; /** Barely dims the camera (v9: a found product). */ light?: boolean; children: ReactNode }) {
   const [rise] = useState(() => new Animated.Value(0));
   const [lift] = useState(() => rise.interpolate({ inputRange: [0, 1], outputRange: [POPUP_TRAVEL, 0] }));
   useEffect(() => {
@@ -604,7 +610,7 @@ function ScanPopup({ onDismiss, children }: { onDismiss: () => void; children: R
 
   return (
     <>
-      <Animated.View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: SCRIM, opacity: rise }}>
+      <Animated.View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: light ? withAlpha(INK, 0.06) : SCRIM, opacity: rise }}>
         <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Close" style={{ flex: 1 }} />
       </Animated.View>
       <Animated.View
@@ -629,24 +635,11 @@ function ScanPopup({ onDismiss, children }: { onDismiss: () => void; children: R
   );
 }
 
-/** A quiet text action under a pop-up's button ("Try again", "Scan another"). */
-function PopupLink({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={{ minHeight: TOUCH_TARGET, paddingHorizontal: SPACE.block, alignItems: "center", justifyContent: "center" }}
-      className="active:opacity-70"
-    >
-      <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{label}</Text>
-    </Pressable>
-  );
-}
-
 /**
- * No product for that code (v9): a "not found" badge, what happened, the way
- * forward as the button, and "Try again" under it.
+ * No product for that code (v9). A product we don't have yet gets the
+ * watercolour, what happened, and one button — scan its ingredient list
+ * instead; tapping the dimmed camera goes back to scanning. A code that isn't
+ * a product at all keeps the small "not found" badge and "Try again".
  */
 function NoMatchSheet({
   copy,
@@ -657,19 +650,24 @@ function NoMatchSheet({
 }: {
   copy: ScanCopy;
   primaryLabel: string;
-  /** Off when the button itself already scans again. */
+  /** A product we simply don't have yet: the illustrated sheet with its one button. */
   showTryAgain: boolean;
   onDismiss: () => void;
   onPrimary: () => void;
 }) {
+  const notOurs = showTryAgain;
   return (
     <ScanPopup onDismiss={onDismiss}>
-      <View style={{ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: CHOSEN.fill }}>
-        {/* A magnifier with a minus: looked, not found (v9, the hand-off's path). */}
-        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-          <Path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5M8.5 11h5" stroke={LINK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-      </View>
+      {notOurs ? (
+        <Image source={NOT_IN_CATALOGUE_ART} contentFit="cover" contentPosition={{ top: "52%", left: "50%" }} accessibilityLabel="" style={{ width: 240, height: 130, marginTop: -12, marginBottom: -16 }} />
+      ) : (
+        <View style={{ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: CHOSEN.fill }}>
+          {/* A magnifier with a minus: looked, not found (v9, the hand-off's path). */}
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+            <Path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5M8.5 11h5" stroke={LINK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </View>
+      )}
       <Text
         accessibilityRole="header"
         style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
@@ -678,18 +676,17 @@ function NoMatchSheet({
       </Text>
       <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{copy.line}</Text>
       <PrimaryButton label={primaryLabel} onPress={onPrimary} style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.section }} />
-      <View style={{ marginTop: SPACE.text, alignItems: "center" }}>
-        {showTryAgain ? <PopupLink label="Try again" onPress={onDismiss} /> : null}
-      </View>
     </ScanPopup>
   );
 }
 
 /**
- * The product a barcode found (v9): brand and name in small capitals, the big
- * score ring and "See full result". Tapping the dimmed camera behind it puts
- * the camera back to scanning. With no score to show (no skin profile, or too
- * little of the label recognised), the product's picture takes the ring's place.
+ * The product a barcode found (v9): one card that is one button — its bottle,
+ * the brand over the name, the verdict and score on a pill in the band's
+ * colour ("Good match · 84/100"), and an arrow. It opens the full result;
+ * tapping the camera behind it, barely dimmed, puts the camera back to
+ * scanning. With no score to show (no skin profile, or too little of the
+ * label recognised) the pill says so instead.
  */
 function FoundSheet({
   product,
@@ -702,23 +699,40 @@ function FoundSheet({
 }) {
   const profile = useAppStore((s) => s.profile);
   const match = matchProduct(product, profile);
+  const colours = scoreColours(match.verdict);
   return (
-    <ScanPopup onDismiss={onClose}>
-      <Text numberOfLines={2} style={{ textAlign: "center", fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase", color: MUTED }}>
-        {product.brand} · {product.name}
-      </Text>
-      <View style={{ marginTop: SPACE.block }}>
-        {match.score === null ? <ProductThumbnail product={product} size={RING_SIZE} /> : <ScoreRing match={match} />}
-      </View>
-      <PrimaryButton
-        label="See full result"
-        accessibilityLabel="See the full result"
+    <ScanPopup onDismiss={onClose} light>
+      <Pressable
         onPress={onOpen}
-        style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.section }}
-      />
+        accessibilityRole="button"
+        accessibilityLabel="See the full result"
+        accessibilityHint={`${product.brand} ${product.name}`}
+        style={{ alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: SPACE.block }}
+        className="active:opacity-80"
+      >
+        <View style={{ width: 52, height: 64, alignItems: "center", justifyContent: "center" }}>
+          <ProductThumbnail product={product} size={64} />
+        </View>
+        <View style={{ flex: 1, alignItems: "flex-start", gap: 2 }}>
+          <Text numberOfLines={1} style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>
+            {product.brand}
+          </Text>
+          <Text numberOfLines={2} style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: 21, color: INK }}>
+            {product.name}
+          </Text>
+          <View testID="found-pill" style={{ marginTop: 6, height: 28, paddingHorizontal: 12, borderRadius: 14, justifyContent: "center", backgroundColor: colours.deep }}>
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>
+              {match.score === null ? "See full result" : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`}
+            </Text>
+          </View>
+        </View>
+        <Ionicons name="arrow-forward" size={20} color={BUTTON.primary.fill} />
+      </Pressable>
     </ScanPopup>
   );
 }
+
+const NOT_IN_CATALOGUE_ART = require("@/assets/illustrations/not-in-catalogue.webp");
 
 // How far below the screen a pop-up starts.
 const POPUP_TRAVEL = 700;

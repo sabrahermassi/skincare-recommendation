@@ -1,4 +1,5 @@
 import type { Concern, Ingredient, SkinProfile } from "@/data/types";
+import { CONCERN_TITLE } from "@/lib/profile";
 import { INGREDIENT_RULES, ruleMatches, type IngredientRule, type RuleSource } from "@/lib/rules";
 
 /**
@@ -14,17 +15,24 @@ import { INGREDIENT_RULES, ruleMatches, type IngredientRule, type RuleSource } f
  * cites its rules' source where they have one.
  */
 
-/** The concerns the journey offers, in the hand-off's order, with its short labels. */
-export const JOURNEY_CONCERNS: readonly { concern: Concern; label: string; short: string }[] = [
-  { concern: "acne-prone", label: "Acne", short: "Acne" },
-  { concern: "post-acne-marks", label: "Post-acne marks", short: "Marks" },
-  { concern: "dehydrated", label: "Dehydration", short: "Hydration" },
-  { concern: "redness", label: "Redness", short: "Redness" },
-  { concern: "large-pores", label: "Pores", short: "Pores" },
-  { concern: "fine-lines", label: "Fine lines", short: "Lines" },
-  { concern: "dullness", label: "Dullness", short: "Dullness" },
-  { concern: "hyperpigmentation", label: "Dark spots", short: "Dark spots" },
-];
+/**
+ * The concerns the journey offers, in the hand-off's order. A tile's name is
+ * the one the quiz and the skin profile use (`CONCERN_TITLE`), so a concern is
+ * called the same thing everywhere (owner, 1 October 2026); `short` is for a
+ * card's small "Helps with" chips.
+ */
+export const JOURNEY_CONCERNS: readonly { concern: Concern; label: string; short: string }[] = (
+  [
+    { concern: "acne-prone", short: CONCERN_TITLE["acne-prone"] },
+    { concern: "post-acne-marks", short: "Marks" },
+    { concern: "dehydrated", short: "Hydration" },
+    { concern: "redness", short: "Redness" },
+    { concern: "large-pores", short: "Pores" },
+    { concern: "fine-lines", short: "Lines" },
+    { concern: "dullness", short: "Dullness" },
+    { concern: "hyperpigmentation", short: "Dark spots" },
+  ] as const
+).map((c) => ({ ...c, label: CONCERN_TITLE[c.concern] }));
 
 export const JOURNEY_MAX = 3;
 

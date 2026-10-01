@@ -33,16 +33,26 @@ import type { Verdict } from "./matching";
  * little higher, and white's (SURFACE) a little lower (computed, not
  * re-measured).
  */
-// v9 (read off the hand-off ("design green color", 1 October 2026)): pure white pages and sheets,
-// soft stone cards. The comment above is v7's history.
-export const CANVAS = "#FFFFFF";
+// v9 (read off design_handoff_formee_v9, 1 October 2026): a pale sage page on
+// every screen; the product result alone keeps a stone header under a white
+// sheet. The comment above is v7's history.
+export const CANVAS = "#F8F9F4";
 
 /**
  * Raised card fill. White, not a tint of the canvas — a card has to separate
  * from the ground by its own value, and canvas-on-canvas needed a border to
  * do the job the fill should have been doing.
  */
-export const SURFACE = "#F4F2EE";
+export const SURFACE = "#FFFFFF"; // v9: cards, quiz answers and list rows are white on the sage page
+
+/**
+ * Soft stone (v9, read off the hand-off): the product result's header, and a
+ * card or panel that sits on a white sheet, where a white card would vanish.
+ */
+export const STONE = "#F4F2EE";
+
+/** A sheet or pop-up's own ground (v9): white, whatever the page under it. */
+export const SHEET = "#FFFFFF";
 
 /**
  * Plain white, for what v9 keeps white on a white page: a switch's thumb, the
@@ -108,6 +118,9 @@ export const MUTED_FAINT = "#5E5954"; // v9 meta: 6.9:1 on white (computed)
  */
 export const TAB_INACTIVE = "#5E5954"; // v9
 
+/** The pill behind the current tab in the tab bar (v9, read off the hand-off). */
+export const TAB_PILL = "#EEF1E7";
+
 /** The current tab's icon, and every terracotta text link (v7, read off the hand-off). 4.87:1 on SURFACE. */
 export const LINK = "#62664B"; // v9 leaf sage, darker: 5.96:1 on white (computed)
 
@@ -121,10 +134,17 @@ export const PLACEHOLDER = "#7A746E";
 export const HINT = PLACEHOLDER;
 
 /** The track behind a segmented control's sliding thumb (v7). */
-export const SEGMENT_TRACK = "#EFEBE6";
+export const SEGMENT_TRACK = "#E8EBDF"; // v9: on the sage page
+/** The same track on the product result's stone header (v9). */
+export const SEGMENT_TRACK_STONE = "#E9E6E0";
 
-/** The destructive button in a confirm pair (v7, read off the hand-off): a soft red outline. */
-export const DESTRUCTIVE_OUTLINE = { border: "#E9C2BD", fill: "#F9F3F2", label: "#794135" } as const; // v9
+/**
+ * Every destructive or report action (v9, read off the hand-off): the soft
+ * see-through style, a pale red fill with red words and no outline. There are
+ * no solid red buttons; the red itself is only an icon or the Poor verdict.
+ * `label` on `fill` is 3.9:1 (computed), so it is 15pt semibold or larger.
+ */
+export const DESTRUCTIVE_OUTLINE = { border: "#FFECE9", fill: "#FFECE9", label: "#CC4F49" } as const;
 
 /**
  * The undo toast over Saved's lists (v9, read off the hand-off): an ink pill,
@@ -149,6 +169,20 @@ export const ROW_PRESSED = "#EFEDE9"; // v9
 export const STAR_ON = "#CF9E3E";
 
 
+/**
+ * The Skincare routine (v9, read off the hand-off): the Morning | Evening
+ * switch — a sun-yellow thumb with brown words in the morning, a night-blue
+ * thumb with white words in the evening, both on the sage track — the sun's
+ * own colour, and a step's numbered disc with the dotted line under it.
+ */
+export const ROUTINE_SWITCH = {
+  morning: { track: "#E8EBDF", thumb: "#F7E3B0", label: "#524D48", chosenLabel: "#5A4318", thumbShadow: null, fontSize: 15 },
+  evening: { track: "#E8EBDF", thumb: "#3C4460", label: "#524D48", chosenLabel: "#FFFFFF", thumbShadow: null, fontSize: 15 },
+  sun: "#C98A26",
+  stepFill: "#EEEFE7",
+  stepLine: "#B5BAA0",
+} as const;
+
 /** The routine note's moon badge (v7). */
 export const MOON_BADGE = { fill: "#ECE8E3", ink: "#524D48" } as const; // v9
 
@@ -158,15 +192,16 @@ export const HAIRLINE = "#E3DFDA"; // v9
 /** The 0.5pt line between rows on a white page (v9, read off the hand-off): reasons, plan rows, the routine note, the risk box. */
 export const DIVIDER = "#ECE8E3";
 
-/** A saved toggle's outline once on ("Saved to your plan", v9, read off the hand-off). */
-export const SAVED_OUTLINE = "#DCDDD0";
+/** The two-risk box on a result's Ingredients tab, and the line between its rows (v9, read off the hand-off). */
+export const RISK_FILL = "#F7F6F4";
+export const RISK_LINE = "#E7E3DE";
 
-/**
- * An unchosen answer tile's outline: the journey's concerns and the quiz's
- * answers (v9, read off ConcernDeckSoft). Without it, a white tile on the
- * white page has no edge and does not read as something to tap.
- */
-export const TILE_LINE = "#E7E1DB";
+/** The no-profile teaser's "Good match?" pill and its question mark (v9, read off the hand-off): 5.6:1 with white (computed). */
+export const TEASER_INK = "#636F42";
+
+/** An unchosen answer row's outline, and the empty tick circle on it (v9, read off the hand-off). */
+export const OPTION_LINE = "#E3DFDA";
+export const CHECK_RING = "#D6D2CC";
 
 // ── Lines ───────────────────────────────────────────────────────────────────
 
@@ -202,13 +237,13 @@ export const SELECTED = "#EEEFE7"; // v9 pale sage
  * Home's scan card, and the no-profile "Is it right for your skin?" card (v7,
  * read off the hand-off). The only warm tints outside a verdict are Home's.
  */
-export const HOME_CARD_FILL = "#EEEFE7"; // v9 pale sage
+export const HOME_CARD_FILL = "#EEF1E7"; // v9 pale sage
 
 /** Home's two tiles (v9, read off the hand-off): What my skin needs, and Skincare routine on stone. */
-export const HOME_TILE = { match: "#EEF1E7", routine: SURFACE } as const;
+export const HOME_TILE = { match: "#EFEBF1", routine: "#F6F0E2" } as const; // soft lavender, butter
 
 /** Home's Scan any product card (v7 update, 29 September 2026): a pale apricot, as soft as the tiles. Read off the hand-off. */
-export const HOME_SCAN_FILL = "#EEEFE7"; // v9 pale sage
+export const HOME_SCAN_FILL = "#F8EEE6"; // v9 apricot, the same light level as the two tiles
 
 /**
  * The rounded blocks of a menu (Profile, Account, the routine screen): grouped
@@ -234,7 +269,7 @@ export const BUTTON = {
   primary: { fill: COLORS.buttonPrimary, pressed: COLORS.buttonPrimaryPressed, label: COLORS.buttonPrimaryText },
   secondary: { fill: COLORS.buttonSecondary, label: INK },
   tertiary: { border: COLORS.buttonTertiary, label: COLORS.buttonTertiary, borderWidth: 1.5 },
-  destructive: { fill: COLORS.buttonDestructive, label: COLORS.buttonPrimaryText },
+  destructive: { fill: DESTRUCTIVE_OUTLINE.fill, label: DESTRUCTIVE_OUTLINE.label },
   disabled: { fill: COLORS.buttonDisabled, label: WHITE },
 } as const;
 
@@ -248,7 +283,7 @@ export const BUTTON = {
  * v7 (read off the hand-off): fill `#F3E5DA` — the tab bar's current pill
  * too — with a terracotta border, and the terracotta text link for a word.
  */
-export const CHOSEN = { fill: "#EEEFE7", border: BUTTON.primary.fill, label: INK, accent: LINK } as const; // v9
+export const CHOSEN = { fill: "#EEF1E7", border: BUTTON.primary.fill, label: INK, accent: LINK } as const; // v9
 
 /**
  * One shape for every selectable control in the app — chips, option cards,
@@ -289,16 +324,20 @@ export const VERDICT: Record<
   // v9 warm earth (README's band table): solid and deep read off the
   // hand-off; tint is the hue at about 86% white as the README says, and wash
   // and halo are read off the screens where drawn, else computed the same way.
-  high: { solid: "#8A9A5B", tint: "#EFF1E8", deep: "#636F42", wash: "#F7F8F4", halo: "#E5E9DB", label: "Great match" },
-  medium: { solid: "#C49A55", tint: "#F7F1E7", deep: "#8D6F3D", wash: "#FBF8F3", halo: "#F1E7D6", label: "Fair match" },
-  low: { solid: "#A85A4A", tint: "#F3E8E6", deep: "#794135", wash: "#F9F3F2", halo: "#EEDDD9", label: "Poor match" },
+  // Latest v9 round (design_handoff_formee_v9): olive, orange and soft red.
+  // One colour per band for ring, dot and pill; `deep` is the verdict word.
+  // Good's word is its ring colour, 3.1:1 on white (computed): the hand-off
+  // only sets it at 15pt semibold or larger, or as white on the filled pill.
+  high: { solid: "#8A9A5B", tint: "#EEF1E7", deep: "#8A9A5B", wash: "#EEF1E7", halo: "#EEF1E7", label: "Great match" },
+  medium: { solid: "#E78B30", tint: "#FBF1E6", deep: "#C26E1E", wash: "#FBF1E6", halo: "#FBF1E6", label: "Fair match" },
+  low: { solid: "#E56B65", tint: "#FFECE9", deep: "#CC4F49", wash: "#FFECE9", halo: "#FFECE9", label: "Poor match" },
 };
 
 /**
  * An Excellent score's ring and number (v7): a deeper green than Good, so the
  * best products stand apart, on Good's tint. Read off the hand-off.
  */
-export const EXCELLENT = { solid: "#4E6B3F", tint: "#E6EAE4", deep: "#384D2D", wash: "#F4F6F2" } as const; // v9
+export const EXCELLENT = { solid: "#6B7A40", tint: "#EEF1E7", deep: "#6B7A40", wash: "#EEF1E7" } as const; // v9 dark olive
 
 /** A score's ring, number and tint: Excellent's deeper green, else its tone's. */
 export function scoreColours(verdict: Verdict): { solid: string; tint: string; deep: string } {
@@ -316,7 +355,7 @@ export const VERDICT_NEUTRAL = {
   tint: "#F2F1F0",
   deep: MUTED,
   wash: "#F4F2EE",
-  halo: "#ECE8E3",
+  halo: "#EAE4DF",
   label: "Can't tell yet",
 } as const;
 
@@ -374,11 +413,6 @@ export const DANGER = VERDICT.low.deep;
 /** The scanner's corner-bracket frame: plain white in v7 (read off the
  *  hand-off, 29 September 2026). */
 export const SCANNER_FRAME = "#FFFFFF";
-
-/** The "Clogging" badge on a pore-clogging ingredient row
- *  (`components/IngredientTabsList.tsx`) — fill and ink. */
-export const CLOG_BADGE_TINT = "#FBE2E7";
-export const CLOG_BADGE_INK = "#A4526A";
 
 // ── Camera stage ────────────────────────────────────────────────────────────
 
@@ -439,7 +473,7 @@ export const CAPSULE_HEIGHT = 56;
 /**
  * v7 (29 September 2026, read off the hand-off): SF 13 captions and meta, 15
  * body and list names, 17 labels and card headings, 20 a product name or the
- * ingredient box's header; Playfair only for a screen's one title (24 on a
+ * ingredient box's header; the display face only for a screen's one title (24 on a
  * pushed screen, 30 on a tab root) and the score (34).
  */
 export const TYPE = {
@@ -453,10 +487,20 @@ export const TYPE = {
   display: 34,
 } as const;
 
-/** The one display face in v9: Instrument Serif 400, for screen titles, ingredient names and the score. */
-export const DISPLAY_FONT = "InstrumentSerif_400Regular";
-/** Its italic, for the score number (v9). */
-export const DISPLAY_FONT_ITALIC = "InstrumentSerif_400Regular_Italic";
+/**
+ * The one display face (v9, design_handoff_formee_v9): PT Serif Bold, upright,
+ * for a screen's title, an ingredient's name and the score. Everything else
+ * is the system font. (v9's first round drew Instrument Serif and DM Sans,
+ * which read too small on a phone; the owner went back to v7's Playfair on
+ * 1 October 2026, and the hand-off then settled on PT Serif.)
+ */
+export const DISPLAY_FONT = "PTSerif_700Bold";
+
+/**
+ * The script face (v9): Allura, only for short accent words — Home's "Hi
+ * there!" (46/48) and the tip sentence on the opened tip (40/46).
+ */
+export const SCRIPT_FONT = "Allura_400Regular";
 
 /** A card's corners (v7). Every card, white or tinted, is its fill alone: no border, no shadow. */
 export const CARD_RADIUS = 16; // v9 (v7 was 20)
@@ -465,7 +509,7 @@ export const CARD_RADIUS = 16; // v9 (v7 was 20)
  * How far iOS Larger Text / Android font size may grow text (#314). The
  * accessibility sizes scale text about 3×, which no fixed layout here
  * survives, so text grows up to these multiples and stops:
- * - `display`: the Playfair headings, already the largest text.
+ * - `display`: the display-face headings, already the largest text.
  * - `ui`: everything else — reading text, labels, chips, buttons, badges.
  *   One ceiling for both keeps a paragraph from outgrowing its own heading.
  * - `reading`: inside a `ReadingScale` (#334) — the reading part of the
@@ -581,9 +625,6 @@ export const CARD_SHADOW = {} as const;
 /** The soft shade drawn under the tab bar: how many layers, how far below it reaches, how dark each is. */
 export const TAB_BAR_SHADE = { layers: 4, reach: 10, opacity: 0.045 } as const;
 
-/** A progress bar or dot not reached yet: the quiz's step bars (v9, read off the hand-off). */
-export const DOT_OFF = "#E8DDD3";
-
 /**
  * "What my skin needs" (v9, read off ConcernDeckSoft in the hand-off): each
  * card's front tint (the hand-off's soft top-to-bottom gradients, taken at
@@ -592,11 +633,16 @@ export const DOT_OFF = "#E8DDD3";
  * the soft card shade.
  */
 export const JOURNEY = {
-  front: { azelaic: "#F3EEE9", niacinamide: "#EFF0EA", hydrating: "#F4F0E8", retinoids: "#F4EDEA" },
+  // Each card's front tint: the hand-off washes a white card with a faint
+  // two-stop gradient; this is that wash's middle, composed over white
+  // (computed), since a card here is one flat fill.
+  front: { azelaic: "#FCF4F2", niacinamide: "#F5F8F3", hydrating: "#F4F8F9", retinoids: "#FCF6EE" },
   back: "#FFFDFB",
   track: "#E6E0DA",
   dotOff: "#DDD6D0",
   chipOff: "#B9B2AC",
-  backLine: "#ECE7E2",
+  backLine: "#ECE8E3",
+  iconFill: "#EEF1E7",
+  iconInk: "#62664B",
   cardShadow: { shadowColor: INK, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.1, shadowRadius: 28, elevation: 6 },
 } as const;

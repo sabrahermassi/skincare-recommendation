@@ -130,7 +130,7 @@ describe("the quiz, as a modal", () => {
       </QuizFrame>,
     );
     await fireEvent.press(screen.getByText("Dry / Dehydrated"));
-    await fireEvent.press(screen.getByText("Continue"));
+    await fireEvent.press(screen.getByText("Next"));
     expect(mockRouter.push).toHaveBeenCalledWith("/quiz/skin-type");
     expect(mockGoBack).not.toHaveBeenCalled();
   });
@@ -143,25 +143,27 @@ describe("the quiz, as a modal", () => {
       </QuizFrame>,
     );
     await fireEvent.press(screen.getByText("No"));
-    await fireEvent.press(screen.getByText("See my match"));
+    // The last question hands over to the closing screen, whose button ends the quiz.
+    await fireEvent.press(screen.getByText("Build my profile"));
+    expect(screen.getByText("Building your skincare routine…")).toBeTruthy();
+    await fireEvent.press(screen.getByText("See my routine"));
     expect(mockGoBack).toHaveBeenCalledTimes(1);
     expect(mockRouter.replace).not.toHaveBeenCalled();
     expect(useAppStore.getState().profile.pregnancyStatus).toBe("neither");
   });
 
-  // #378 review: an old "prefer not to say" is neither of the two options, so
-  // neither shows as chosen and See my match waits for a Yes or No.
-  it("asks again for an old prefer-not-to-say answer instead of showing nothing chosen with See my match on", async () => {
-    useAppStore.setState({ profile: { ...EMPTY_PROFILE, pregnancyStatus: "prefer-not-to-say" } });
+  // Nobody has to say either way to finish: Prefer not to say is an answer.
+  it("finishes on Prefer not to say, and shows it chosen when coming back", async () => {
     await render(
       <QuizFrame>
         <PregnancyStep />
       </QuizFrame>,
     );
-    for (const radio of screen.getAllByRole("radio")) expect(radio.props.accessibilityState?.checked).toBe(false);
-    expect(screen.getByRole("button", { name: "See my match" }).props.accessibilityState?.disabled).toBe(true);
-    await fireEvent.press(screen.getByText("No"));
-    expect(screen.getByRole("button", { name: "See my match" }).props.accessibilityState?.disabled).toBe(false);
+    expect(screen.getByRole("button", { name: "Build my profile" }).props.accessibilityState?.disabled).toBe(true);
+    await fireEvent.press(screen.getByText("Prefer not to say"));
+    expect(useAppStore.getState().profile.pregnancyStatus).toBe("prefer-not-to-say");
+    expect(screen.getByRole("radio", { name: "Prefer not to say" }).props.accessibilityState?.checked).toBe(true);
+    expect(screen.getByRole("button", { name: "Build my profile" }).props.accessibilityState?.disabled).toBe(false);
   });
 
   it("has no Skip, and saves each answer as it's tapped, so a quiz swiped away keeps it", async () => {
@@ -203,7 +205,10 @@ describe("the quiz opened from a link, with nothing behind it", () => {
       </QuizFrame>,
     );
     await fireEvent.press(screen.getByText("No"));
-    await fireEvent.press(screen.getByText("See my match"));
+    // The last question hands over to the closing screen, whose button ends the quiz.
+    await fireEvent.press(screen.getByText("Build my profile"));
+    expect(screen.getByText("Building your skincare routine…")).toBeTruthy();
+    await fireEvent.press(screen.getByText("See my routine"));
     expect(mockGoBack).not.toHaveBeenCalled();
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
   });

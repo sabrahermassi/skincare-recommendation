@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
-import { TAB_BAR_HEIGHT, tabBarBottom } from "@/lib/tab-bar";
+import { SCAN_BUTTON_LIFT, TAB_BAR_HEIGHT, tabBarBottom } from "@/lib/tab-bar";
 import { SPACE, TOAST, TYPE } from "@/lib/tokens";
 
 /** How long the toast stays (v9: 4 s); a new one starts the count again. */
@@ -40,7 +40,8 @@ export function UndoToast({ notice, onDone }: { notice: UndoNotice | null; onDon
             position: "absolute",
             left: SPACE.gutter,
             right: SPACE.gutter,
-            bottom: tabBarBottom(insets.bottom) + TAB_BAR_HEIGHT + SPACE.gutter,
+            // Above the raised scan button, not only the bar: the button stands taller than the bar's top edge.
+            bottom: tabBarBottom(insets.bottom) + TAB_BAR_HEIGHT + SCAN_BUTTON_LIFT + SPACE.text,
             height: HEIGHT,
             borderRadius: HEIGHT / 2,
             backgroundColor: TOAST.fill,

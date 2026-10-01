@@ -538,7 +538,7 @@ function PlainRow({
         <Ionicons name="document-text-outline" size={22} color={MUTED} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text numberOfLines={1} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
+        <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
           {title}
         </Text>
         <Text numberOfLines={2} style={{ fontSize: TYPE.caption, color: MUTED }}>
@@ -610,7 +610,7 @@ function notOursLine(entry: HistoryEntry): string {
 const EMPTY_ART = {
   saved: { source: require("@/assets/illustrations/saved-empty-shelf.webp"), aspect: 1400 / 779 },
   history: { source: require("@/assets/illustrations/history-empty.webp"), aspect: 1400 / 891 },
-  ingredients: { source: require("@/assets/illustrations/ingredients-empty.webp"), aspect: 1400 / 884 },
+  ingredients: { source: require("@/assets/illustrations/ingredients-empty-v9.webp"), aspect: 840 / 560 },
 } as const;
 
 type EmptyCopy = { title: string; body: string };
@@ -673,7 +673,7 @@ function EmptyState({ tab }: { tab: Tab }) {
           />
         </View>
         <View style={{ alignItems: "center", gap: SPACE.text }}>
-          <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 27.6, letterSpacing: -0.48, color: INK }}>
+          <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
             {title}
           </Text>
           <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{body}</Text>
@@ -816,7 +816,7 @@ function IngredientRow({ ingredient, label, onUnstar }: { ingredient: Ingredient
           style={{ flex: 1, gap: 3, paddingVertical: SPACE.block, paddingLeft: SPACE.gutter, paddingRight: 4 }}
           className="active:opacity-70"
         >
-          <Text numberOfLines={1} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
+          <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
             {name}
           </Text>
           {label ? <VerdictMarker label={label} /> : <Text style={{ fontSize: TYPE.caption, color: MUTED }}>No known concerns</Text>}

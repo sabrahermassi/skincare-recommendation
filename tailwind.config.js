@@ -14,8 +14,8 @@ module.exports = {
         // milky-pastel palette. Values taken directly from the mockup HTML
         // (Result/Scanner/Quiz), not invented, except where noted below.
         // Every screen's background, given by the owner (26 September 2026).
-        canvas: "#FFFFFF",
-        surface: "#F4F2EE",
+        canvas: "#F8F9F4",
+        surface: "#FFFFFF",
         // A white row while it's pressed (v7 update, 29 September 2026) —
         // mirrored as ROW_PRESSED in lib/tokens.ts.
         "row-pressed": "#EFEDE9",
@@ -28,8 +28,8 @@ module.exports = {
           "primary-text": "#FFFFFF",
           secondary: "#EEEFE7",
           tertiary: "#62664B",
-          disabled: "#D6CFC9",
-          destructive: "#A85A4A",
+          disabled: "#C9CCB8",
+          destructive: "#FFECE9",
         },
 
         // The Milky pastel colors, untouched. They all sit between
@@ -166,10 +166,10 @@ module.exports = {
         // token that stays legible there while still reading as "neutral,
         // not a verdict."
         level: {
-          good: { DEFAULT: "#8A9A5B", tint: "#EFF1E8", ink: "#636F42" },
-          watch: { DEFAULT: "#C49A55", tint: "#F7F1E7", ink: "#8D6F3D" },
+          good: { DEFAULT: "#8A9A5B", tint: "#EEF1E7", ink: "#8A9A5B" },
+          watch: { DEFAULT: "#E78B30", tint: "#FBF1E6", ink: "#C26E1E" },
           neutral: { DEFAULT: "#524D48", tint: "#F2F1F0", ink: "#524D48" },
-          avoid: { DEFAULT: "#A85A4A", tint: "#F3E8E6", ink: "#794135" },
+          avoid: { DEFAULT: "#E56B65", tint: "#FFECE9", ink: "#CC4F49" },
         },
 
         panel: {
@@ -239,9 +239,9 @@ module.exports = {
         // read agrees (wordmark, screen titles, verdict text, stat-card
         // values). Set at 500 rather than a heavy weight, matching how the
         // mockups use it: large, once per screen, never at small sizes.
-        display: ["InstrumentSerif_400Regular"],
+        display: ["PTSerif_700Bold"],
         // v7 has one display weight, 500; the name stays for existing classes.
-        "display-medium": ["InstrumentSerif_400Regular"],
+        "display-medium": ["PTSerif_700Bold"],
         // A journal note's handwriting (#229), and nothing else. Mirrored as
         // `NOTE_FONT` in lib/tokens.ts; lib/note-font.ts decides per note
         // whether it applies (Hangul, emoji, large text all fall back to the

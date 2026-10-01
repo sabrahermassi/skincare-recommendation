@@ -5,7 +5,7 @@
  * literal color, not a className. Keep this file in sync with the config.
  */
 export const COLORS = {
-  canvas: "#FFFFFF",
+  canvas: "#F8F9F4", // v9 pale sage page
   surface: "#FFFFFF",
 
   tintPink: "#F7D9DA",
@@ -37,9 +37,9 @@ export const COLORS = {
   // Kept equal to that config's DEFAULT values (which are themselves the
   // VERDICT ramp in lib/tokens.ts) rather than a third copy of the palette.
   levelGood: "#8A9A5B",
-  levelWatch: "#C49A55",
+  levelWatch: "#E78B30",
   levelNeutral: "#524D48",
-  levelAvoid: "#A85A4A",
+  levelAvoid: "#E56B65",
 
   panelWash: "#F3EFEA",
 
@@ -73,6 +73,5 @@ export const COLORS = {
   buttonPrimaryText: "#FFFFFF",
   buttonSecondary: "#EEEFE7", // a less critical action (v9 pale sage, ink label)
   buttonTertiary: "#62664B", // outline and label of a low-emphasis action
-  buttonDisabled: "#D6CFC9", // any variant, disabled
-  buttonDestructive: "#A85A4A", // v9 Poor; white label 4.97:1 (computed)
+  buttonDisabled: "#C9CCB8", // any variant, disabled (v9, read off the hand-off)
 } as const;

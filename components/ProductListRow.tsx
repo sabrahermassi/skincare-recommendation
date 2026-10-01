@@ -58,7 +58,7 @@ export function ProductListRow({
         >
           <ProductThumbnail product={product} size={BOTTLE} />
           <View style={{ flex: 1, gap: 2 }}>
-            <Text numberOfLines={1} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
+            <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
               {product.name}
             </Text>
             <Text numberOfLines={1} style={{ fontSize: TYPE.caption, color: MUTED }}>

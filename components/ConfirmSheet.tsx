@@ -59,14 +59,16 @@ export function ConfirmSheet({
         </View>
         <Text
           accessibilityRole="header"
-          style={{ marginTop: 4, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 27.6, letterSpacing: -0.48, color: INK }}
+          style={{ marginTop: 4, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
         >
           {title}
         </Text>
         <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{line}</Text>
       </View>
+      {/* The pair shares the sheet's width (each at least 140pt), so a longer
+          label like "Yes, delete my profile" has room instead of being cut. */}
       <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 16 }}>
-        <PrimaryButton label={keepLabel} onPress={onClose} style={{ width: BUTTON_WIDTH.pair }} />
+        <PrimaryButton label={keepLabel} onPress={onClose} style={{ flex: 1, minWidth: BUTTON_WIDTH.pair }} />
         <Pressable
           onPress={() => {
             haptic.warning();
@@ -77,11 +79,11 @@ export function ConfirmSheet({
           accessibilityLabel={confirmLabel}
           accessibilityState={{ disabled: busy }}
           style={{
-            width: BUTTON_WIDTH.pair,
+            flex: 1,
+            minWidth: BUTTON_WIDTH.pair,
             height: 48,
+            paddingHorizontal: 12,
             borderRadius: 24,
-            borderWidth: 1.5,
-            borderColor: DESTRUCTIVE_OUTLINE.border,
             backgroundColor: DESTRUCTIVE_OUTLINE.fill,
             alignItems: "center",
             justifyContent: "center",
@@ -89,7 +91,9 @@ export function ConfirmSheet({
           }}
           className="active:opacity-80"
         >
-          <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: DESTRUCTIVE_OUTLINE.label }}>{confirmLabel}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: DESTRUCTIVE_OUTLINE.label }}>
+            {confirmLabel}
+          </Text>
         </Pressable>
       </View>
     </BottomSheet>

@@ -238,7 +238,8 @@ describe("the product screen's result tabs", () => {
     const long = { ...PRODUCT, ingredients: Array.from({ length: 10 }, (_, i) => ingredient(`plain ${i}`)) };
     await openSafety(long);
     expect(row("plain 5")).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "5 more ingredients" }));
+    // Nothing left is flagged, so the button says so (v9).
+    await fireEvent.press(screen.getByRole("button", { name: "5 more, no concerns" }));
     expect(row("plain 9")).toBeTruthy();
   });
 
@@ -267,7 +268,9 @@ describe("the product screen's result tabs", () => {
   it("asks for the skin profile on Skin match, and shows the score once the answers score", async () => {
     await open();
     await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
-    expect(screen.getByText("Is it right for your skin?")).toBeTruthy();
+    // On the tab's own card, and on the teaser sheet that rises over it (v9).
+    expect(screen.getAllByText("Is it right for your skin?").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Take the 1-minute quiz" })).toBeTruthy();
     expect(screen.queryByTestId("score-ring")).toBeNull();
     await act(async () => screen.unmount());
 
@@ -276,7 +279,8 @@ describe("the product screen's result tabs", () => {
     await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
     expect(screen.queryByText("Is it right for your skin?")).toBeNull();
     expect(screen.getByTestId("score-ring")).toBeTruthy();
-    expect(screen.getByText(/We checked its ingredients against your skin profile/)).toBeTruthy();
+    // One result for everyone with a profile (v9): a title saying how it fits, then the reasons.
+    expect(screen.getByText(/^(This makes sense for you|Could work for you|Probably not for you)$/)).toBeTruthy();
   });
 
   it("opens How scoring works from the verdict pill (v7)", async () => {
@@ -291,7 +295,7 @@ describe("the product screen's result tabs", () => {
     useAppStore.setState({ profile: { ...EMPTY_PROFILE, sensitivity: "some" } });
     await open();
     await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
-    expect(screen.getByText("Is it right for your skin?")).toBeTruthy();
+    expect(screen.getAllByText("Is it right for your skin?").length).toBeGreaterThan(0);
   });
 });
 
@@ -340,21 +344,17 @@ describe("the product screen opened from the journey", () => {
     expect(screen.getByText(/It covers 2 of the 3 recommendations for your skin\./)).toBeTruthy();
     expect(screen.getByText("Good support")).toBeTruthy();
     expect(screen.getByText("Your foundation")).toBeTruthy();
-    // The plan block takes the place of the usual explainer.
-    expect(screen.queryByText(/We checked its ingredients against your skin profile/)).toBeNull();
-  });
-
-  it("saves to the plan with the same save as the heart", async () => {
-    await open({ from: "journey", concerns: "dehydrated" });
-    await fireEvent.press(screen.getByRole("button", { name: "Save to my plan" }));
-    expect(useAppStore.getState().savedProducts.map((p) => p.id)).toEqual([PRODUCT.id]);
-    expect(screen.getByText("Saved to your plan")).toBeTruthy();
-  });
-
-  it("shows no plan when opened any other way", async () => {
-    await open({});
+    // The heart is the one save (v9): no second button under the result.
     expect(screen.queryByText("Save to my plan")).toBeNull();
-    expect(screen.getByText(/We checked its ingredients against your skin profile/)).toBeTruthy();
+  });
+
+  // One result for everyone with a profile (v9): opened any other way, it
+  // counts against the skin profile's own concerns instead.
+  it("reads against the skin profile's concerns when opened any other way", async () => {
+    await open({});
+    expect(screen.getByText(/^It covers \d of the \d recommendations for your skin\.$/)).toBeTruthy();
+    // Nothing in it works on acne, the profile's one concern.
+    expect(screen.getByText("Not covered: acne or pimples")).toBeTruthy();
   });
 
   it("logs a scan as Scanned and anything else as Opened", async () => {

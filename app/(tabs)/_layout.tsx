@@ -6,9 +6,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, View, type GestureResponderEvent } from "react-native";
 
 import { TabBarBackground } from "@/components/TabBarBackground";
+import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/open-scanner";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT, SCAN_ICON, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
-import { BUTTON, CHOSEN, LINK, RAISED_SHADOW, TAB_INACTIVE, WHITE } from "@/lib/tokens";
+import { BUTTON, LINK, RAISED_SHADOW, TAB_INACTIVE, TAB_PILL, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 
@@ -17,30 +18,33 @@ import { haptic } from "@/lib/haptics";
 // All four come from the one icon set, so their stroke weight matches; unselected
 // they share a single muted colour and nothing else.
 const TAB_ICONS = {
-  home: { on: "home", off: "home-outline" },
-  school: { on: "school", off: "school-outline" },
-  saved: { on: "heart", off: "heart-outline" },
-  profile: { on: "person", off: "person-outline" },
+  home: { on: "home", off: "home-outline", label: "Home" },
+  school: { on: "school", off: "school-outline", label: "School" },
+  saved: { on: "heart", off: "heart-outline", label: "Saved" },
+  profile: { on: "person", off: "person-outline", label: "Profile" },
 } as const;
 
-// The pill behind the current tab's icon, and the icon, sized for the bar.
-const PILL_WIDTH = 58;
-const PILL_HEIGHT = 44;
-const TAB_ICON = 25;
+// The pill behind the current tab, its icon and its name, sized for the bar
+// (v9, read off the hand-off: a 64 by 48 pill, a 22pt icon, an 11pt name).
+const PILL_WIDTH = 64;
+const PILL_HEIGHT = 48;
+const TAB_ICON = 22;
+const TAB_LABEL = 11;
 // A capsule, like the bar it sits in.
 const PILL_RADIUS = PILL_HEIGHT / 2;
 const PILL_MS = 200;
 const PILL_FROM_SCALE = 0.85;
 
 /**
- * A tab: the icon only, in a button of its own that is exactly as tall as the bar
+ * A tab: its icon over its name (v9), in a button of its own that is exactly as tall as the bar
  * and centres the icon in it. The navigator's own item pads and aligns its
  * contents differently on each platform, which is what left the icons off-centre;
  * drawing the button here removes the difference. Unselected the icon is an
  * outline in the shared muted colour, with nothing drawn around it; selected it
- * is filled in terracotta on a peach pill that fades in.
- * Names are not drawn — they did not render on a phone (see `tabBarShowLabel`) —
- * and live on the button's accessibility label for a screen reader.
+ * is filled in sage on a pale sage pill that fades in.
+ * The name is drawn here, under the icon, not by the navigator: its own label
+ * row could not be made to render (see `tabBarShowLabel`). A screen reader
+ * gets the full name from the button's accessibility label.
  */
 function TabButton({
   tab,
@@ -80,11 +84,14 @@ function TabButton({
         <Animated.View
           pointerEvents="none"
           style={[
-            { position: "absolute", width: PILL_WIDTH, height: PILL_HEIGHT, borderRadius: PILL_RADIUS, backgroundColor: CHOSEN.fill },
+            { position: "absolute", width: PILL_WIDTH, height: PILL_HEIGHT, borderRadius: PILL_RADIUS, backgroundColor: TAB_PILL },
             pillStyle,
           ]}
         />
         <Ionicons name={focused ? TAB_ICONS[tab].on : TAB_ICONS[tab].off} size={TAB_ICON} color={color} />
+        <Text maxFontSizeMultiplier={1} numberOfLines={1} style={{ marginTop: 1, fontSize: TAB_LABEL, lineHeight: 13, fontWeight: "600", color }}>
+          {TAB_ICONS[tab].label}
+        </Text>
       </View>
     </Pressable>
   );

@@ -14,14 +14,11 @@ import { Text } from "@/components/Text";
 import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized, profileHeadline } from "@/lib/profile";
-import { CANVAS, CARD_RADIUS, INK, LINK, MUTED, MUTED_FAINT, ROW_CHEVRON, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, ROW_CHEVRON, SPACE, SURFACE, TYPE, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
-// A woman at her dressing table wondering about her products
-// (new-watercolor/no_product_match_v2_transparent.png, trimmed and brought down
-// to 1000px wide).
-const ROUTINE_ART = require("@/assets/illustrations/routine-coming-soon.webp");
-const ROUTINE_ASPECT = 1000 / 611;
+// A woman at her mirror (v9: design_handoff_formee_v9, routine-empty-mirror).
+const ROUTINE_ART = require("@/assets/illustrations/routine-empty-mirror.webp");
 
 type TimeOfDay = "morning" | "evening";
 
@@ -67,8 +64,7 @@ function EmptyProfile() {
       <View style={{ paddingTop: SPACE.text }}>
         <EmptyState
           art={ROUTINE_ART}
-          aspect={ROUTINE_ASPECT}
-          artWidth={354}
+          artWidth={300}
           title="Your skin profile is empty"
           line="Fill it in to create a skincare routine made just for you."
           action={<PrimaryButton label="Take the skin quiz" onPress={openQuiz} style={{ width: BUTTON_WIDTH.secondary }} />}
@@ -108,13 +104,14 @@ function Steps() {
         </Svg>
       </Pressable>
 
-      {/* Morning | Evening (v9): the plain light switch, with an outline sun
-          and moon in the word's colour. */}
+      {/* Morning | Evening (v9): the thumb is a warm sun yellow in the
+          morning and a night blue in the evening, with the sun and moon in
+          the word's colour. */}
       <SegmentedSwitch
-        tone="light"
+        tone={time === "morning" ? ROUTINE_SWITCH.morning : ROUTINE_SWITCH.evening}
         options={[
-          { value: "morning", label: "Morning", icon: (on) => <SunIcon colour={on ? INK : MUTED_FAINT} /> },
-          { value: "evening", label: "Evening", icon: (on) => <MoonIcon colour={on ? INK : MUTED_FAINT} /> },
+          { value: "morning", label: "Morning", icon: (on) => <SunIcon colour={on ? ROUTINE_SWITCH.sun : MUTED_FAINT} /> },
+          { value: "evening", label: "Evening", icon: (on) => <MoonIcon colour={on ? WHITE : MUTED_FAINT} /> },
         ]}
         selected={time}
         onSelect={setTime}
@@ -128,43 +125,56 @@ function Steps() {
         <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{time === "morning" ? "good morning" : "wind down"}</Text>
       </View>
 
-      <View style={{ gap: SPACE.text }}>
+      <View>
         {steps.map((step, i) => (
-          <StepCard key={`${time}-${step}`} number={i + 1} step={step} />
+          <StepCard key={`${time}-${step}`} number={i + 1} step={step} last={i === steps.length - 1} />
         ))}
       </View>
+      <Text style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.text, textAlign: "center", fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
+        Scan a product to see whether it fits a step.
+      </Text>
     </ScrollView>
   );
 }
 
 /**
- * One step (v9): its number, the step's name in small capitals, and — until
- * products can be picked per step — a way to scan one, with the step's bottle
- * faded on the right.
+ * One step (v9): its number in a sage disc on a dotted line that runs down to
+ * the next step, then a white card — the step's name in small capitals, and,
+ * until products can be picked per step, a way to scan one, with the step's
+ * bottle faded on the right.
  */
-function StepCard({ number, step }: { number: number; step: string }) {
+function StepCard({ number, step, last }: { number: number; step: string; last: boolean }) {
   return (
-    <View style={{ minHeight: 72, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}>
-      <Text style={{ width: 12, alignSelf: "flex-start", paddingTop: 1, fontSize: TYPE.caption, fontWeight: "600", lineHeight: 16, color: MUTED_FAINT }}>{number}</Text>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED }}>
-          {step}
-        </Text>
-        <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>No product picked yet.</Text>
-        <Pressable
-          onPress={() => openScanner()}
-          accessibilityRole="button"
-          accessibilityLabel={`Scan one to check, for ${step.toLowerCase()}`}
-          // 28pt tall like the design; the slop takes the target to 44.
-          hitSlop={8}
-          style={{ alignSelf: "flex-start", minHeight: 28, flexDirection: "row", alignItems: "center", gap: SPACE.text }}
-          className="active:opacity-70"
-        >
-          <CameraIcon />
-          <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Scan one to check</Text>
-        </Pressable>
+    <View style={{ flexDirection: "row", alignItems: "stretch", gap: SPACE.block }}>
+      <View style={{ width: 28, alignItems: "center", paddingTop: 14 }}>
+        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: ROUTINE_SWITCH.stepFill, alignItems: "center", justifyContent: "center" }}>
+          <Text maxFontSizeMultiplier={1} style={{ fontSize: TYPE.caption, fontWeight: "700", color: LINK }}>
+            {number}
+          </Text>
+        </View>
+        {last ? null : <View style={{ flex: 1, minHeight: 12, marginTop: 6, borderLeftWidth: 2, borderStyle: "dotted", borderColor: ROUTINE_SWITCH.stepLine }} />}
       </View>
-      {STEP_BOTTLE[step] ? <Image source={STEP_BOTTLE[step]} contentFit="contain" accessibilityLabel="" style={{ width: 40, height: 46, opacity: 0.4 }} /> : null}
+      <View style={{ flex: 1, minHeight: 72, marginBottom: last ? 0 : SPACE.block, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED }}>
+            {step}
+          </Text>
+          <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>No product picked yet.</Text>
+          <Pressable
+            onPress={() => openScanner()}
+            accessibilityRole="button"
+            accessibilityLabel={`Scan one to check, for ${step.toLowerCase()}`}
+            // 28pt tall like the design; the slop takes the target to 44.
+            hitSlop={8}
+            style={{ alignSelf: "flex-start", minHeight: 28, flexDirection: "row", alignItems: "center", gap: SPACE.text }}
+            className="active:opacity-70"
+          >
+            <CameraIcon />
+            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Scan one to check</Text>
+          </Pressable>
+        </View>
+        {STEP_BOTTLE[step] ? <Image source={STEP_BOTTLE[step]} contentFit="contain" accessibilityLabel="" style={{ width: 40, height: 46, opacity: 0.4 }} /> : null}
+      </View>
     </View>
   );
 }

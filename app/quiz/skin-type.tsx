@@ -9,11 +9,13 @@ import type { BaseSkinType } from "@/data/types";
 import { nextQuizRoute, quizStepNumber } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
-const OPTIONS: { value: BaseSkinType; label: string }[] = [
-  { value: "dry", label: "Dry" },
-  { value: "oily", label: "Oily" },
-  { value: "combination", label: "Combination" },
-  { value: "normal", label: "Normal" },
+// Each answer says what it feels like (v9, the hand-off's words), so nobody
+// has to know the word for their own skin.
+const OPTIONS: { value: BaseSkinType; label: string; description: string }[] = [
+  { value: "normal", label: "Normal", description: "Barely visible pores, feels comfortable" },
+  { value: "dry", label: "Dry", description: "Feels tight, might be flaky" },
+  { value: "oily", label: "Oily", description: "Shiny all over, visible pores" },
+  { value: "combination", label: "Combination", description: "Oily T-zone, normal or dry cheeks" },
 ];
 
 
@@ -49,6 +51,7 @@ export default function SkinTypeStep() {
           <QuizOptionCard
             key={option.value}
             label={option.label}
+            description={option.description}
             selected={baseSkinType === option.value}
             onPress={() => {
               setProfile({ baseSkinType: option.value });
@@ -58,7 +61,8 @@ export default function SkinTypeStep() {
         ))}
 
         <QuizOptionCard
-          label="I don't know"
+          label="Not sure"
+          description="We'll keep things gentle"
           selected={picked && baseSkinType === null}
           onPress={() => {
             setProfile({ baseSkinType: null });

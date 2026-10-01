@@ -1,11 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Image } from "expo-image";
+import { useEffect, useMemo, useState } from "react";
 import { Animated, Easing, Linking, PanResponder, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
 import { BackChevron, IconCircle } from "@/components/IconCircle";
+import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
+import { QuizOptionCard, QUIZ_OPTION_GRID } from "@/components/QuizOptionCard";
 import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import {
@@ -20,9 +22,10 @@ import {
   type DeckCard,
   type Role,
 } from "@/lib/journey";
+import { goBackOrHome } from "@/lib/go-back";
 import { openScanner } from "@/lib/open-scanner";
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { BUTTON, CANVAS, DISPLAY_FONT, INK, JOURNEY, LINK, MUTED_FAINT, SURFACE, TILE_LINE, VERDICT, WHITE, withAlpha } from "@/lib/tokens";
+import { BUTTON, CANVAS, DISPLAY_FONT, DIVIDER, INK, JOURNEY, MUTED, MUTED_FAINT, SURFACE, TYPE, VERDICT, WHITE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // v9 (read off ConcernDeckSoft in the hand-off).
@@ -38,32 +41,51 @@ const ROLE_INK: Record<Role, string> = {
   strong: VERDICT.medium.deep,
 };
 
-type Step = "concerns" | "deck";
+type Step = "concerns" | "finding" | "deck";
+
+// How long the "finding" screen shows between the concerns and the cards (v9).
+const FINDING_MS = 1800;
+const FINDING_ART = require("@/assets/illustrations/loading-skin-needs.webp");
+
+/** The journey's own concerns among the skin profile's, at most three. */
+function profileConcerns(concerns: readonly Concern[]): Concern[] {
+  return concerns.filter((c) => JOURNEY_CONCERNS.some((j) => j.concern === c)).slice(0, JOURNEY_MAX);
+}
 
 /**
- * "What my skin needs" (v9): pick up to three concerns, then swipe through
- * the ingredient categories worth looking for — each card flips to show how
- * to use it — and scan a product to see how it fits. Full screen: no nav bar,
- * no tab bar; it draws its own back and progress.
+ * "Skin needs" (v9): the ingredient categories worth looking for, one card
+ * each — a card flips to show how to use it — and a scan to see how a product
+ * fits. Full screen: no nav bar, no tab bar; it draws its own back and
+ * progress.
  *
- * The concerns start from the skin profile's and stay the journey's own: they
- * travel with the scan to the result (`lib/journey.ts`), and never rewrite
- * the profile the score is made from.
+ * Someone whose skin profile already names concerns lands on the cards at
+ * once. Anyone else picks up to three concerns first (step 1 of 2), which
+ * stay the journey's own: they travel with the scan to the result
+ * (`lib/journey.ts`), and never rewrite the profile the score is made from.
  */
 export default function Journey() {
   const profile = useAppStore((s) => s.profile);
-  const [step, setStep] = useState<Step>("concerns");
-  const [picked, setPicked] = useState<Concern[]>(() =>
-    profile.concerns.filter((c) => JOURNEY_CONCERNS.some((j) => j.concern === c)).slice(0, JOURNEY_MAX),
-  );
+  const fromProfile = useMemo(() => profileConcerns(profile.concerns), [profile.concerns]);
+  // Decided once, on opening: whether this visit has the concerns step at all.
+  const [asks] = useState(() => fromProfile.length === 0);
+  const [step, setStep] = useState<Step>(asks ? "concerns" : "deck");
+  const [picked, setPicked] = useState<Concern[]>(fromProfile);
   const insets = useSafeAreaInsets();
-  const back = () => (step === "deck" ? setStep("concerns") : router.back());
+  const back = () => (asks && step !== "concerns" ? setStep("concerns") : goBackOrHome());
+
+  useEffect(() => {
+    if (step !== "finding") return;
+    const timer = setTimeout(() => setStep("deck"), reduceMotionNow() ? 0 : FINDING_MS);
+    return () => clearTimeout(timer);
+  }, [step]);
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top + 6 }}>
-      <Header step={step} onBack={back} />
+      <Header step={step === "concerns" ? 1 : 2} counted={asks} onBack={back} />
       {step === "concerns" ? (
-        <Concerns picked={picked} onPick={setPicked} onNext={() => setStep("deck")} bottom={insets.bottom} />
+        <Concerns picked={picked} onPick={setPicked} onNext={() => setStep("finding")} bottom={insets.bottom} />
+      ) : step === "finding" ? (
+        <Finding />
       ) : (
         <Deck concerns={JOURNEY_CONCERNS.map((j) => j.concern).filter((c) => picked.includes(c))} bottom={insets.bottom} />
       )}
@@ -71,23 +93,26 @@ export default function Journey() {
   );
 }
 
-/** Back on the left, the journey's progress in the middle, "1/4" on the first step. */
-function Header({ step, onBack }: { step: Step; onBack: () => void }) {
+/**
+ * Back on the left and "Step 1 of 2" in the middle, over a thin line that
+ * fills as the journey goes (v9, the quiz's header). Opened straight on the
+ * cards there are no steps to count, so only Back shows.
+ */
+function Header({ step, counted, onBack }: { step: 1 | 2; counted: boolean; onBack: () => void }) {
   return (
-    <View style={{ height: 44, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-      <IconCircle onPress={onBack} accessibilityLabel="Back">
-        <BackChevron />
-      </IconCircle>
-      <View
-        accessibilityRole="progressbar"
-        accessibilityLabel={step === "concerns" ? "Step 1 of 4" : "Step 2 of 4"}
-        style={{ width: 120, height: 2, borderRadius: 1, backgroundColor: JOURNEY.track }}
-      >
-        <View style={{ position: "absolute", left: step === "concerns" ? 0 : 30, width: 30, height: 2, borderRadius: 1, backgroundColor: BUTTON.primary.fill }} />
+    <View>
+      <View style={{ height: 44, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <IconCircle onPress={onBack} accessibilityLabel="Back">
+          <BackChevron />
+        </IconCircle>
+        <Text style={{ flex: 1, textAlign: "center", fontSize: TYPE.card, fontWeight: "600", color: INK }}>{counted ? `Step ${step} of 2` : ""}</Text>
+        <View style={{ width: 40 }} />
       </View>
-      <View style={{ width: 40, alignItems: "flex-end" }}>
-        {step === "concerns" ? <Text style={{ fontSize: 13, fontWeight: "500", color: MUTED_FAINT }}>1/4</Text> : null}
-      </View>
+      {counted ? (
+        <View accessible accessibilityRole="progressbar" accessibilityLabel={`Step ${step} of 2`} style={{ marginTop: 12, height: 2, backgroundColor: DIVIDER }}>
+          <View style={{ height: 2, width: step === 1 ? "50%" : "100%", backgroundColor: BUTTON.primary.fill }} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -101,50 +126,53 @@ function Concerns({ picked, onPick, onNext, bottom }: { picked: Concern[]; onPic
   const ready = picked.length > 0;
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        <View style={{ paddingTop: 12, paddingLeft: 58, paddingRight: 24, gap: 12 }}>
-          <Text accessibilityRole="header" style={{ maxWidth: 262, fontFamily: DISPLAY_FONT, fontSize: 36, lineHeight: 38, letterSpacing: -0.36, color: INK }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} alwaysBounceVertical={false}>
+        <View style={{ paddingTop: 24, paddingHorizontal: 24, gap: 8, alignItems: "center" }}>
+          <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
             What do you want to work on?
           </Text>
-          <Text style={{ fontSize: 15, color: MUTED_FAINT }}>Pick up to 3.</Text>
+          <Text style={{ maxWidth: 320, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>Pick up to 3. We&apos;ll show the ingredients that help.</Text>
         </View>
-        <View style={{ paddingTop: 16, paddingHorizontal: 26, flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+        <View style={[QUIZ_OPTION_GRID, { paddingTop: 24, paddingHorizontal: 16 }]}>
           {JOURNEY_CONCERNS.map(({ concern, label }) => {
             const on = picked.includes(concern);
-            return (
-              <Pressable
-                key={concern}
-                onPress={() => toggle(concern)}
-                disabled={!on && full}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: on, disabled: !on && full }}
-                accessibilityLabel={label}
-                style={{ width: "48.5%", flexGrow: 1, flexBasis: "45%", height: 64, borderRadius: 12, backgroundColor: WHITE, borderWidth: 1, borderColor: on ? INK : TILE_LINE, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }}
-                className="active:opacity-80"
-              >
-                <Text style={{ fontSize: 15, lineHeight: 18, textAlign: "center", color: INK }}>{label}</Text>
-                {on ? (
-                  <View style={{ position: "absolute", top: 8, right: 8, width: 16, height: 16, borderRadius: 8, backgroundColor: INK, alignItems: "center", justifyContent: "center" }}>
-                    <Tick size={11} color={WHITE} />
-                  </View>
-                ) : null}
-              </Pressable>
-            );
+            return <QuizOptionCard key={concern} multiple label={label} selected={on} disabled={!on && full} onPress={() => toggle(concern)} />;
           })}
         </View>
       </ScrollView>
-      <View style={{ paddingTop: 14, paddingHorizontal: 26, paddingBottom: Math.max(24, bottom + 8) }}>
+      <View style={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: Math.max(32, bottom + 8) }}>
         <Pressable
           onPress={ready ? onNext : undefined}
           disabled={!ready}
           accessibilityRole="button"
+          accessibilityLabel="Show what helps"
           accessibilityState={{ disabled: !ready }}
-          style={{ height: 44, borderRadius: 22, backgroundColor: ready ? BUTTON.primary.fill : BUTTON.disabled.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 }}
+          style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: ready ? BUTTON.primary.fill : BUTTON.disabled.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
           className="active:opacity-90"
         >
-          <Text style={{ fontSize: 15, fontWeight: "500", letterSpacing: -0.15, color: WHITE }}>Show what helps</Text>
+          <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: WHITE }}>Show what helps</Text>
           <Ionicons name="arrow-forward" size={18} color={WHITE} />
         </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/** The short wait between the concerns and the cards (v9): a picture, a line, and a bar that fills. */
+function Finding() {
+  const [fill] = useState(() => new Animated.Value(0.08));
+  useEffect(() => {
+    Animated.timing(fill, { toValue: 0.62, duration: reduceMotionNow() ? 0 : 1600, easing: EASE, useNativeDriver: false }).start();
+  }, [fill]);
+  return (
+    <View accessibilityLiveRegion="polite" style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 40 }}>
+      <Image source={FINDING_ART} contentFit="contain" accessibilityLabel="" style={{ width: 280, height: 280 }} />
+      <Text accessibilityRole="header" style={{ marginTop: 16, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+        Finding what your skin needs…
+      </Text>
+      <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>Picking the ingredients that work for your concerns.</Text>
+      <View style={{ marginTop: 24, alignSelf: "stretch", height: 6, borderRadius: 3, backgroundColor: JOURNEY.track, overflow: "hidden" }}>
+        <Animated.View style={{ height: 6, borderRadius: 3, backgroundColor: BUTTON.primary.fill, width: fill.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }) }} />
       </View>
     </View>
   );
@@ -188,7 +216,7 @@ function Deck({ concerns, bottom }: { concerns: Concern[]; bottom: number }) {
   return (
     <View style={{ flex: 1 }}>
       <View style={{ paddingTop: 6, paddingHorizontal: 32, gap: 4, alignItems: "center" }}>
-        <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: 28, lineHeight: 31, letterSpacing: -0.42, textAlign: "center", color: INK }}>
+        <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, textAlign: "center", color: INK }}>
           Based on your skin
         </Text>
         <Text style={{ fontSize: 15, lineHeight: 21, textAlign: "center", color: MUTED_FAINT }}>
@@ -259,6 +287,7 @@ function Deck({ concerns, bottom }: { concerns: Concern[]; bottom: number }) {
         <Pressable
           onPress={scan}
           accessibilityRole="button"
+          accessibilityLabel="Scan a product"
           style={{ height: 42, borderRadius: 21, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 }}
           className="active:opacity-90"
         >
@@ -300,7 +329,7 @@ function FlipCard({ item, concerns, flipped, interactive, onTap }: { item: DeckC
           <Text style={{ fontSize: 13, fontWeight: "500", color: ROLE_INK[role] }}>{ROLE_LABEL[role]}</Text>
         </View>
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 20, padding: 12 }}>
-          <Text adjustsFontSizeToFit numberOfLines={1} style={{ fontFamily: DISPLAY_FONT, fontSize: 48, lineHeight: 50, letterSpacing: -0.48, textAlign: "center", color: INK }}>
+          <Text adjustsFontSizeToFit numberOfLines={1} style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.display, lineHeight: 40, letterSpacing: -0.5, textAlign: "center", color: INK }}>
             {card.name}
           </Text>
           <Text style={{ maxWidth: 290, fontSize: 17, lineHeight: 26, textAlign: "center", color: INK }}>{card.line}</Text>
@@ -321,30 +350,31 @@ function FlipCard({ item, concerns, flipped, interactive, onTap }: { item: DeckC
         ) : null}
       </Animated.View>
 
-      {/* Back */}
+      {/* Back. Hidden is not untouchable: until the card is turned, its link must not take the tap. */}
       <Animated.View
+        pointerEvents={flipped && interactive ? "auto" : "none"}
         style={[
           face,
           { backgroundColor: JOURNEY.back, paddingTop: 22, paddingHorizontal: 20, paddingBottom: 18 },
           { transform: [{ perspective: 1400 }, { rotateY: turn.interpolate({ inputRange: [0, 1], outputRange: ["180deg", "360deg"] }) }] },
         ]}
       >
-        <Text style={{ fontFamily: DISPLAY_FONT, fontSize: 28, lineHeight: 31, textAlign: "center", color: INK }}>{card.name}</Text>
+        <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, textAlign: "center", color: INK }}>{card.name}</Text>
         <View style={{ flex: 1, marginTop: 8, justifyContent: "space-evenly" }}>
-          <BackRow first icon={<Ionicons name="locate-outline" size={15} color={BUTTON.primary.fill} />} title="Why you" text={card.whyYou} />
-          <BackRow icon={<Ionicons name="leaf-outline" size={15} color={BUTTON.primary.fill} />} title="How to start" text={card.howToStart} />
-          <BackRow warn icon={<Text style={{ fontSize: 14, fontWeight: "700", color: WHITE }}>!</Text>} title="Watch for" text={card.watchFor} />
-          <BackRow icon={<Ionicons name="bag-handle-outline" size={15} color={BUTTON.primary.fill} />} title="When shopping" text={card.whenShopping} />
+          <BackRow first icon="locate-outline" title="Why you" text={card.whyYou} />
+          <BackRow icon="leaf-outline" title="How to start" text={card.howToStart} />
+          <BackRow warn icon="warning-outline" title="Watch for" text={card.watchFor} />
+          <BackRow icon="pricetag-outline" title="When shopping" text={card.whenShopping} />
         </View>
         {source ? (
           <Pressable
             onPress={() => void Linking.openURL(source.url).catch(() => undefined)}
             accessibilityRole="link"
             accessibilityLabel={`See the evidence: ${source.label}`}
-            style={{ marginTop: 8, paddingTop: 10, minHeight: 44, borderTopWidth: 1, borderTopColor: JOURNEY.backLine, alignItems: "center", justifyContent: "center" }}
+            style={{ marginTop: 8, paddingTop: 10, minHeight: 44, borderTopWidth: 1, borderTopColor: DIVIDER, alignItems: "center", justifyContent: "center" }}
             className="active:opacity-70"
           >
-            <Text style={{ fontSize: 14, fontWeight: "600", color: LINK }}>See the evidence →</Text>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: BUTTON.primary.fill }}>See the evidence →</Text>
           </Pressable>
         ) : null}
       </Animated.View>
@@ -352,13 +382,16 @@ function FlipCard({ item, concerns, flipped, interactive, onTap }: { item: DeckC
   );
 }
 
-function BackRow({ icon, title, text, first, warn }: { icon: ReactNode; title: string; text: string; first?: boolean; warn?: boolean }) {
+function BackRow({ icon, title, text, first, warn }: { icon: keyof typeof Ionicons.glyphMap; title: string; text: string; first?: boolean; warn?: boolean }) {
   return (
     <View style={{ flexDirection: "row", gap: 12, paddingVertical: 6, borderTopWidth: first ? 0 : 1, borderTopColor: JOURNEY.backLine }}>
-      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: warn ? VERDICT.medium.solid : SURFACE, alignItems: "center", justifyContent: "center" }}>{icon}</View>
+      {/* A 32pt disc (v9): pale sage, or pale amber for the one caution. */}
+      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: warn ? VERDICT.medium.tint : JOURNEY.iconFill, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name={icon} size={17} color={warn ? VERDICT.medium.deep : JOURNEY.iconInk} />
+      </View>
       <View style={{ flex: 1, gap: 1 }}>
-        <Text style={{ fontSize: 14, fontWeight: "600", color: INK }}>{title}</Text>
-        <Text style={{ fontSize: 13, lineHeight: 18, color: MUTED_FAINT }}>{text}</Text>
+        <Text style={{ fontSize: 15, fontWeight: "600", color: INK }}>{title}</Text>
+        <Text style={{ fontSize: 14, lineHeight: 19, color: MUTED }}>{text}</Text>
       </View>
     </View>
   );

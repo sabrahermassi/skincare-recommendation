@@ -90,7 +90,7 @@ it("colours the headline's first line as the accent and the rest as ink", async 
   await render(<Onboarding />);
   expect(textStyle(screen.getByText("Scan any")).color).toBe(COLORS.introAccent);
   expect(textStyle(screen.getByText("skincare product")).color).toBe(COLORS.introInk);
-  expect(textStyle(screen.getByText("Scan any")).fontFamily).toBe("InstrumentSerif_400Regular");
+  expect(textStyle(screen.getByText("Scan any")).fontFamily).toBe("PTSerif_700Bold");
 });
 
 it("shows each screen's sentence in the muted colour, and moves through all three", async () => {

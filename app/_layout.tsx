@@ -1,15 +1,8 @@
 import "../global.css";
 
-import {
-  DMSans_300Light,
-  DMSans_400Regular,
-  DMSans_400Regular_Italic,
-  DMSans_500Medium,
-  DMSans_600SemiBold,
-  DMSans_700Bold,
-} from "@expo-google-fonts/dm-sans";
-import { InstrumentSerif_400Regular, InstrumentSerif_400Regular_Italic, useFonts } from "@expo-google-fonts/instrument-serif";
+import { Allura_400Regular } from "@expo-google-fonts/allura";
 import { Montserrat_300Light, Montserrat_400Regular } from "@expo-google-fonts/montserrat";
+import { PTSerif_700Bold, useFonts } from "@expo-google-fonts/pt-serif";
 import { loadAsync as loadFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -30,23 +23,22 @@ SplashScreen.preventAutoHideAsync();
 // A render crash in any screen shows a way out instead of a blank screen (#152).
 export { RouteErrorScreen as ErrorBoundary } from "@/components/RouteErrorScreen";
 
+// A route that is a floating sheet (`components/SheetScreen`): see-through, so
+// the screen under it shows through the dim, and faded in, since the sheet
+// brings its own slide.
+const SHEET_ROUTE = { headerShown: false, presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } } as const;
+
 export default function RootLayout() {
-  // v9: Instrument Serif for titles, ingredient names and the score; DM Sans
-  // for everything else, one family per weight (see components/Text). Both
-  // block startup, so no screen paints in a fallback face first.
+  // Body text no longer loads a custom font — it renders in the OS system
+  // font (see tailwind.config.js's `sans` family), so only the display
+  // faces block startup now.
   //
   // Montserrat is the FOR.ME shell's (the quiz's Skip, among others) —
   // loaded here for the same reason: onboarding is the first thing a new
   // install renders, so its fonts can't be missing on first paint either.
   const [fontsLoaded] = useFonts({
-    InstrumentSerif_400Regular,
-    InstrumentSerif_400Regular_Italic,
-    DMSans_300Light,
-    DMSans_400Regular,
-    DMSans_400Regular_Italic,
-    DMSans_500Medium,
-    DMSans_600SemiBold,
-    DMSans_700Bold,
+    PTSerif_700Bold,
+    Allura_400Regular,
     Montserrat_300Light,
     Montserrat_400Regular,
   });
@@ -139,7 +131,7 @@ export default function RootLayout() {
           // named. Weight is carried by fontWeight, same as the `font-semibold`
           // utilities elsewhere. See components/Text.tsx for why naming it
           // (as `System`) was actively wrong.
-          headerTitleStyle: { fontFamily: "DMSans_600SemiBold", color: COLORS.ink },
+          headerTitleStyle: { fontWeight: "600", color: COLORS.ink },
           headerStyle: { backgroundColor: COLORS.surface },
           headerTintColor: COLORS.accentText,
           contentStyle: { backgroundColor: COLORS.canvas },
@@ -164,12 +156,13 @@ export default function RootLayout() {
         */}
         <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="result/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="ingredients/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="ingredient/[inci]" options={{ headerShown: false }} />
+        {/* A floating sheet over the screen it was opened from (v9): the route
+            is transparent and `components/SheetScreen` draws the dim and the card. */}
+        <Stack.Screen name="ingredient/[inci]" options={SHEET_ROUTE} />
         <Stack.Screen name="skin-profile" options={{ headerShown: false }} />
         <Stack.Screen name="support" options={{ headerShown: false }} />
         <Stack.Screen name="school" options={{ headerShown: false }} />
-        <Stack.Screen name="scoring" options={{ headerShown: false }} />
+        <Stack.Screen name="scoring" options={SHEET_ROUTE} />
         <Stack.Screen name="routine" options={{ headerShown: false }} />
         {/* "What my skin needs" (v9): full screen, its own back and progress. */}
         <Stack.Screen name="journey" options={{ headerShown: false }} />

@@ -17,7 +17,7 @@ export default function NotFound() {
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <Stack.Screen options={{ headerShown: false }} />
       {/* Opened straight from a link there is nothing to go back to. */}
-      <ScreenHeader onBack={() => (router.canGoBack() ? router.back() : router.replace("/"))} />
+      <ScreenHeader />
       <View style={{ flex: 1, justifyContent: "center", paddingBottom: 80 }}>
         <EmptyState
           art={LOST_ART}

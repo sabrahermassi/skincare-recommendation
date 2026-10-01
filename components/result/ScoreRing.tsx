@@ -4,20 +4,27 @@ import Svg, { Circle } from "react-native-svg";
 
 import { Text, useRingScale } from "@/components/Text";
 import type { MatchResult } from "@/lib/matching";
-import { DISPLAY_FONT_ITALIC, HINT, ICON_MUTED, scoreColours, VERDICT_LABEL } from "@/lib/tokens";
+import { DISPLAY_FONT, INK, scoreColours, VERDICT_LABEL, WHITE, withAlpha } from "@/lib/tokens";
 
-/** The score number's size in the ring (v9: Instrument Serif italic 38). */
-const SCORE_SIZE = 38;
+/**
+ * The score number's size in the ring. The hand-off says PT Serif Bold 34 (30
+ * for a three-digit 100); on a phone that face runs wide enough that "/100"
+ * touches the arc, so it is 32 and 27 here, with "/100" at 10.
+ */
+const SCORE_SIZE = 32;
+const SCORE_SIZE_FULL = 27;
 
-/** The verdict beside the ring (v9: 22/600). */
-export const VERDICT_TEXT_SIZE = 22;
+/** The verdict pill's words (v9: 17/600). */
+export const VERDICT_TEXT_SIZE = 17;
 
 /** The big score ring's drawn size (v7), before it grows with large text. */
 export const RING_SIZE = 96;
+/** The white disc the ring sits on where it straddles the result's sheet (v9). */
+export const RING_DISC = 108;
 
 /**
  * The big score (v9): the band's tint as the track, its colour as the arc from
- * 12 o'clock, the number in the title face's italic with "/100". On the product result, and on the
+ * 12 o'clock, the number in the title face with "/100". On the product result, and on the
  * scanner's found pop-up.
  */
 export function ScoreRing({ match }: { match: Pick<MatchResult, "score" | "verdict"> }) {
@@ -28,6 +35,7 @@ export function ScoreRing({ match }: { match: Pick<MatchResult, "score" | "verdi
   const size = RING_SIZE * scale;
   const radius = 38 * scale;
   const stroke = 6 * scale;
+  const numberSize = (score !== null && score >= 100 ? SCORE_SIZE_FULL : SCORE_SIZE) * scale;
   const circumference = 2 * Math.PI * radius;
   const filled = score === null ? 0 : (score / 100) * circumference;
   return (
@@ -48,13 +56,13 @@ export function ScoreRing({ match }: { match: Pick<MatchResult, "score" | "verdi
           />
         ) : null}
       </Svg>
-      {/* v9: the number in the title face's italic, "/100" small beside it on the same baseline. */}
+      {/* The number in the title face, "/100" small beside it on the same baseline. */}
       <View style={{ flexDirection: "row", alignItems: "baseline", gap: 1 }}>
-        <Text maxFontSizeMultiplier={1} style={{ fontFamily: DISPLAY_FONT_ITALIC, fontSize: SCORE_SIZE * scale, lineHeight: SCORE_SIZE * scale + 4, letterSpacing: -0.38, color: colours.deep }}>
+        <Text maxFontSizeMultiplier={1} style={{ fontFamily: DISPLAY_FONT, fontSize: numberSize, lineHeight: numberSize + 4, letterSpacing: -0.5, color: colours.deep }}>
           {score ?? "–"}
         </Text>
         {score !== null ? (
-          <Text maxFontSizeMultiplier={1} style={{ fontSize: 12 * scale, fontWeight: "500", opacity: 0.75, color: colours.deep }}>
+          <Text maxFontSizeMultiplier={1} style={{ fontSize: 10 * scale, fontWeight: "500", opacity: 0.75, color: colours.deep }}>
             /100
           </Text>
         ) : null}
@@ -64,10 +72,39 @@ export function ScoreRing({ match }: { match: Pick<MatchResult, "score" | "verdi
 }
 
 /**
- * The verdict beside the ring (v9): "Good match" in the band's colour with a
- * small "i" — a text button, not a filled pill. It opens How scoring works,
- * passing the score so the page can mark it. `onOpen` runs first, for a
- * screen that must note it is being left.
+ * The ring on its white disc (v9): on the product result it sits centred over
+ * the white sheet's top edge, and the disc is what separates it from the
+ * stone header behind its upper half.
+ */
+export function ScoreDisc({ match }: { match: Pick<MatchResult, "score" | "verdict"> }) {
+  const scale = useRingScale();
+  const size = RING_DISC * scale;
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: WHITE,
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: INK,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 4,
+      }}
+    >
+      <ScoreRing match={match} />
+    </View>
+  );
+}
+
+/**
+ * The verdict under the ring (v9): "Good match" in white on a pill filled
+ * with the band's colour, with a small "i". Its width hugs the words. It
+ * opens How scoring works, passing the score so the sheet can mark it.
+ * `onOpen` runs first, for a screen that must note it is being left.
  */
 export function VerdictLink({ match, onOpen }: { match: Pick<MatchResult, "score" | "verdict">; onOpen?: () => void }) {
   const colours = scoreColours(match.verdict);
@@ -79,12 +116,13 @@ export function VerdictLink({ match, onOpen }: { match: Pick<MatchResult, "score
       }}
       accessibilityRole="button"
       accessibilityLabel={`${VERDICT_LABEL[match.verdict]}. How scoring works`}
-      style={{ minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8 }}
-      className="active:opacity-70"
+      hitSlop={4}
+      style={{ minHeight: 40, borderRadius: 14, paddingLeft: 20, paddingRight: 12, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colours.deep }}
+      className="active:opacity-80"
     >
-      <Text style={{ flexShrink: 1, fontSize: VERDICT_TEXT_SIZE, lineHeight: 26, fontWeight: "600", letterSpacing: -0.33, color: colours.deep }}>{VERDICT_LABEL[match.verdict]}</Text>
-      <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: ICON_MUTED, alignItems: "center", justifyContent: "center" }}>
-        <Text maxFontSizeMultiplier={1} style={{ fontSize: 12, fontWeight: "700", color: HINT }}>
+      <Text style={{ flexShrink: 1, fontSize: VERDICT_TEXT_SIZE, lineHeight: 22, fontWeight: "600", letterSpacing: -0.17, color: WHITE }}>{VERDICT_LABEL[match.verdict]}</Text>
+      <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: withAlpha(WHITE, 0.75), alignItems: "center", justifyContent: "center" }}>
+        <Text maxFontSizeMultiplier={1} style={{ fontSize: 12, fontWeight: "700", color: WHITE }}>
           i
         </Text>
       </View>

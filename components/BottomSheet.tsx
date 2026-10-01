@@ -38,6 +38,7 @@ export function BottomSheet({
   visible,
   onClose,
   floating = false,
+  bare = false,
   corner,
   children,
 }: {
@@ -48,6 +49,8 @@ export function BottomSheet({
    * over a blurred screen: the confirmation look (owner's OnSkin reference).
    */
   floating?: boolean;
+  /** No padding of the sheet's own: the content runs to its edges (a sheet with a coloured top half). */
+  bare?: boolean;
   /** Pinned to the card's top-right corner, outside the scroll: its X. */
   corner?: ReactNode;
   children: ReactNode;
@@ -76,7 +79,9 @@ export function BottomSheet({
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [height, 0] });
   const maxHeight = height - insets.top - TOP_GAP - (floating ? FLOAT_INSET : 0);
   // v7 pop-up padding: 24 top and bottom, 16 at the sides.
-  const padding = floating
+  const padding = bare
+    ? {}
+    : floating
     ? { paddingTop: 24, paddingHorizontal: 16, paddingBottom: 24, gap: 8 }
     : { paddingTop: 28, paddingHorizontal: 16, paddingBottom: Math.max(24, insets.bottom + 12), gap: 12 };
 

@@ -11,7 +11,7 @@ import { DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 export function PageTitle({ title, line }: { title: string; line?: string }) {
   return (
     <View style={{ gap: 4 }}>
-      <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 27.6, letterSpacing: -0.48, color: INK }}>
+      <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
         {title}
       </Text>
       {line ? <Text style={{ marginTop: SPACE.text - 4, fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{line}</Text> : null}

@@ -8,8 +8,8 @@ import { INGREDIENT_RULES } from "@/lib/rules";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
- * #326: a claim from a sourced rule shows "Source: …" under it; PubChem's
- * "Look it up" is only for a name no rule covers.
+ * #326: a claim from a sourced rule shows "Source: …" under it; the Sources
+ * card (EU CosIng and PubChem, v9) is only for a name no rule covers.
  */
 
 jest.setTimeout(30_000);
@@ -50,11 +50,11 @@ describe("the ingredient page", () => {
     useAppStore.setState({ profile: EMPTY_PROFILE });
   });
 
-  it("shows a sourced rule's source under its claim, and no PubChem card", async () => {
+  it("shows a sourced rule's source under its claim, and no Sources card", async () => {
     await open("niacinamide");
     expect(NIACINAMIDE_SOURCE).toBeDefined();
     expect(screen.getByText(NIACINAMIDE_SOURCE!.label)).toBeTruthy();
-    expect(screen.queryByText("Read more on PubChem")).toBeNull();
+    expect(screen.queryByRole("link", { name: "PubChem" })).toBeNull();
   });
 
   it("opens the source when it's tapped", async () => {
@@ -65,16 +65,18 @@ describe("the ingredient page", () => {
     openURL.mockRestore();
   });
 
-  it("keeps PubChem as the fallback for a name no rule covers", async () => {
+  it("keeps the Sources card as the fallback for a name no rule covers", async () => {
     await open("xanthan gum");
-    expect(screen.getByText("Read more on PubChem")).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Sources" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "EU CosIng ingredient database" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "PubChem" })).toBeTruthy();
     expect(screen.queryByText(/^Source:/)).toBeNull();
   });
 
   it("opens PubChem in the in-app browser (v7)", async () => {
     const { openBrowserAsync } = jest.requireMock("expo-web-browser") as { openBrowserAsync: { mock: { calls: unknown[][] } } };
     await open("xanthan gum");
-    await fireEvent.press(screen.getByRole("link", { name: "Read more on PubChem" }));
+    await fireEvent.press(screen.getByRole("link", { name: "PubChem" }));
     expect(openBrowserAsync.mock.calls.at(-1)?.[0]).toBe("https://pubchem.ncbi.nlm.nih.gov/#query=xanthan%20gum");
   });
 
@@ -94,7 +96,7 @@ describe("the ingredient page", () => {
   it("shows neither for a rule still waiting for a source", async () => {
     await open("tea tree oil");
     expect(screen.queryByText(/^Source:/)).toBeNull();
-    expect(screen.queryByText("Read more on PubChem")).toBeNull();
+    expect(screen.queryByRole("link", { name: "PubChem" })).toBeNull();
   });
 
   // Opened on its own (a label photo, Saved), with no product to score: a

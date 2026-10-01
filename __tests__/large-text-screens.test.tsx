@@ -100,17 +100,15 @@ describe.each([
     expect(ringSize()).toBe(RING_SIZE * FONT_SCALE.icon);
   });
 
-  it("stacks the two risk cards at the largest text size, and keeps them side by side below it", async () => {
-    mockFontScale = FONT_SCALE.ui;
-    await renderSettled(screenFor());
-    await openSafety();
-    expect(StyleSheet.flatten(screen.getByTestId("risk-cards").props.style).flexDirection).toBe("row");
-    await act(async () => screen.unmount());
-
-    mockFontScale = LARGEST;
-    await renderSettled(screenFor());
-    await openSafety();
-    expect(StyleSheet.flatten(screen.getByTestId("risk-cards").props.style).flexDirection).toBe("column");
+  // v9: the two risks are rows in one box, one under the other at every text size.
+  it("lists the two risks one under the other, whatever the text size", async () => {
+    for (const scale of [FONT_SCALE.ui, LARGEST]) {
+      mockFontScale = scale;
+      await renderSettled(screenFor());
+      await openSafety();
+      expect(StyleSheet.flatten(screen.getByTestId("risk-cards").props.style).flexDirection).not.toBe("row");
+      await act(async () => screen.unmount());
+    }
   });
 
   // #346: no profile yet asks for one, not an empty score.
@@ -120,7 +118,8 @@ describe.each([
     await renderSettled(screenFor());
     await openMatch();
     expect(screen.queryByTestId("score-ring")).toBeNull();
-    expect(screen.getByText("Is it right for your skin?")).toBeTruthy();
+    // On the tab's own card, and on the teaser sheet that rises over it (v9).
+    expect(screen.getAllByText("Is it right for your skin?").length).toBeGreaterThan(0);
   });
 
   it("lets the verdict follow the phone as far as body text", async () => {

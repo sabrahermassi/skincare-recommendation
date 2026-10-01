@@ -5,9 +5,9 @@ import Home from "@/app/(tabs)/index";
 import { openScanner } from "@/lib/open-scanner";
 
 /**
- * Home (per #155, v9 design): the "Hi there" title, the scan card (one big
- * button), two tiles — What my skin needs (the journey) and Skincare routine
- * — and the Tip of the day.
+ * Home (per #155, v9 design): the "Hi there!" greeting, the scan card (one
+ * big button), Explore's two tiles — Skin Needs (the journey) and Skincare
+ * Routine — and today's tip, an envelope that opens a sheet.
  */
 
 jest.setTimeout(30_000);
@@ -22,36 +22,40 @@ jest.mock("@/lib/reduce-motion", () => ({ reduceMotionNow: () => true }));
 
 it("shows the title, the scan card and the two tiles, and no Search or finder", async () => {
   await render(<Home />);
-  expect(screen.getByRole("header", { name: "Hi there" })).toBeTruthy();
-  expect(screen.getByText("Scan any product")).toBeTruthy();
+  expect(screen.getByRole("header", { name: "Hi there!" })).toBeTruthy();
+  expect(screen.getByText("Scan Any Product")).toBeTruthy();
+  expect(screen.getByRole("header", { name: "Explore" })).toBeTruthy();
   expect(screen.queryByText("Your skin profile")).toBeNull();
-  for (const tile of ["What my skin needs", "Skincare routine"]) expect(screen.getByRole("button", { name: tile })).toBeTruthy();
+  for (const tile of ["Skin Needs", "Skincare Routine"]) expect(screen.getByRole("button", { name: tile })).toBeTruthy();
   for (const gone of ["Search", "My match"]) expect(screen.queryByRole("button", { name: gone })).toBeNull();
 });
 
 it("opens the scanner from anywhere on the scan card", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "Scan any product" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Scan Any Product" }));
   expect(openScanner).toHaveBeenCalledWith();
 });
 
 it("opens the skincare routine from its tile", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "Skincare routine" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Skincare Routine" }));
   expect(router.push).toHaveBeenCalledWith("/routine");
 });
 
-it("opens What my skin needs from its tile", async () => {
+it("opens Skin Needs from its tile", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "What my skin needs" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Skin Needs" }));
   expect(router.push).toHaveBeenCalledWith("/journey");
 });
 
-it("shows today's tip under the tiles", async () => {
+it("keeps today's tip in its envelope until it is opened", async () => {
   const { tipOfTheDay } = jest.requireActual<typeof import("@/lib/tips")>("@/lib/tips");
   await render(<Home />);
-  expect(screen.getByText("Tip of the day")).toBeTruthy();
+  expect(screen.getByText("Today's tip")).toBeTruthy();
+  expect(screen.queryByText(tipOfTheDay())).toBeNull();
+  await fireEvent.press(screen.getByRole("button", { name: "Open today's tip" }));
   expect(screen.getByText(tipOfTheDay())).toBeTruthy();
+  expect(screen.getByText(/^Tomorrow's tip opens in \d+ h$/)).toBeTruthy();
 });
 
 it("moves to the new day's tip when the app comes back to the front", async () => {
@@ -72,25 +76,11 @@ it("moves to the new day's tip when the app comes back to the front", async () =
     expect(tomorrow).not.toBe(today);
     const { act } = jest.requireActual<typeof import("@testing-library/react-native")>("@testing-library/react-native");
     await act(async () => listeners.forEach((listener) => listener("active")));
+    await fireEvent.press(screen.getByRole("button", { name: "Open today's tip" }));
     expect(screen.getByText(tomorrow)).toBeTruthy();
     expect(TIPS).toContain(tomorrow);
   } finally {
     jest.useRealTimers();
     expect(spy).toHaveBeenCalled();
-  }
-});
-
-it("shows another tip when the card is tapped, never the same one (v7)", async () => {
-  const reduceMotion = jest.requireActual<typeof import("@/lib/reduce-motion")>("@/lib/reduce-motion");
-  const spy = jest.spyOn(reduceMotion, "reduceMotionNow").mockReturnValue(true);
-  const { tipOfTheDay } = jest.requireActual<typeof import("@/lib/tips")>("@/lib/tips");
-  try {
-    await render(<Home />);
-    const first = tipOfTheDay();
-    await fireEvent.press(screen.getByRole("button", { name: "Show another tip" }));
-    expect(screen.queryByText(first)).toBeNull();
-    expect(screen.getByText("Tap for another")).toBeTruthy();
-  } finally {
-    spy.mockRestore();
   }
 });

@@ -192,8 +192,9 @@ describe.each([
   });
 });
 
-// The handoff's layout (design_handoff_ingredient_detail): where it came from,
-// where it sits on the label, and Previous / Next along it.
+// The handoff's layout (design_handoff_ingredient_detail): where it came from
+// and where it sits on the label. v9 makes it a sheet, closed with its X; there
+// is no Previous / Next along the label any more.
 describe("the ingredient page's layout", () => {
   it("says where it sits on the label", async () => {
     await open("glycerin", {});
@@ -201,18 +202,14 @@ describe("the ingredient page's layout", () => {
     expect(screen.getByText(/^#2 of 12/)).toBeTruthy();
   });
 
-  it("steps to the next ingredient on the label, and has no previous on the first", async () => {
-    await open("aqua", {});
-    expect(screen.getByRole("button", { name: "Previous ingredient" }).props.accessibilityState).toMatchObject({ disabled: true });
-    await fireEvent.press(screen.getByRole("button", { name: "Next ingredient: Glycerin" }));
-    expect(router.replace).toHaveBeenLastCalledWith({ pathname: "/ingredient/[inci]", params: { inci: "glycerin", product: "p" } });
-  });
-
-  it("steps back to the previous one, and has no next on the last", async () => {
-    await open("niacinamide", {});
+  it("is a sheet with a close button, and no Previous or Next", async () => {
+    await open("glycerin", {});
+    expect(screen.getByTestId("sheet-screen")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Previous ingredient" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Next ingredient/ })).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "Previous ingredient" }));
-    expect(router.replace).toHaveBeenLastCalledWith({ pathname: "/ingredient/[inci]", params: { inci: "petrolatum", product: "p" } });
+    // The sheet's own X, and the dimmed screen behind it.
+    await fireEvent.press(screen.getAllByRole("button", { name: "Close" }).at(-1)!);
+    expect(router.back).toHaveBeenCalled();
   });
 
   it("names the concern a helping ingredient works on", async () => {

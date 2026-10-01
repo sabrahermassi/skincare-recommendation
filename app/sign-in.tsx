@@ -99,7 +99,7 @@ export default function SignIn() {
     // buttons below the fold, so the sheet leaves it out.
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <View style={{ paddingHorizontal: SPACE.section, paddingTop: 32, paddingBottom: insets.bottom + 32, gap: SPACE.text }}>
-        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 27.6, letterSpacing: -0.48, color: INK }}>
+        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
           Keep your shelf
         </Text>
         <Text style={{ alignSelf: "center", maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{ACCOUNT_PITCH}</Text>

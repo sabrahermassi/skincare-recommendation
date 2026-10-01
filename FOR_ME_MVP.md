@@ -213,9 +213,8 @@ Sensitivity **affects the personalized score**.
 
 Available options:
 
-- Pregnant
-- Breastfeeding
-- Neither
+- Yes (stored as pregnant; an older "breastfeeding" answer reads as Yes)
+- No
 - Prefer not to say
 
 This affects the personalized score: `lib/safety.ts` flags retinoids,

@@ -1,13 +1,14 @@
-import { router, useFocusEffect } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { useCallback, type ReactNode } from "react";
 import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BackChevron, CloseCross, IconCircle } from "@/components/IconCircle";
-import { PageTitle } from "@/components/PageTitle";
 import { quizTopPadding, useQuizFrame } from "@/components/QuizFrame";
+import { Text } from "@/components/Text";
+import { goBackOrHome } from "@/lib/go-back";
 import { quizStepCount } from "@/lib/profile";
-import { BUTTON, CANVAS, DOT_OFF, SPACE } from "@/lib/tokens";
+import { BUTTON, CANVAS, DISPLAY_FONT, DIVIDER, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 
 type Props = {
   /** 1-based index into the quiz. */
@@ -17,8 +18,13 @@ type Props = {
   onNext: () => void;
   nextLabel?: string;
   nextDisabled?: boolean;
-  /** A count drawn over the footer button (v9: concerns' "2 of 3 chosen"). */
-  counter?: string;
+  /**
+   * The quiz's closing moment (v9): the questions are done and `children` is
+   * the "building" picture, not answers. The header drops its count, the line
+   * is full, and `onBack` returns to the last question.
+   */
+  building?: boolean;
+  onBack?: () => void;
   /** True only on the quiz's first step, which the quiz's modal opens on
    *  (`lib/open-quiz.ts`, #346): there is no earlier step behind it, so its
    *  back arrow closes the quiz instead (v9 shows it on every step). */
@@ -27,9 +33,9 @@ type Props = {
 };
 
 /**
- * One quiz step's content (v9) — back, progress bars and close, the
- * question, and its answers — on its own painted page, so it can slide. The
- * Continue button belongs to QuizFrame and stay put; this step hands its button
+ * One quiz step's content (v9) — back, the question count and close, the
+ * progress line, the question, and its answers — on its own painted page, so
+ * it can slide. The Next button belongs to QuizFrame and stays put; this step hands its button
  * label, state and action to QuizFrame while it's the step showing.
  */
 export function QuizScreen({
@@ -37,9 +43,10 @@ export function QuizScreen({
   title,
   subtitle,
   onNext,
-  nextLabel = "Continue",
+  nextLabel = "Next",
   nextDisabled = false,
-  counter,
+  building = false,
+  onBack,
   first = false,
   children,
 }: Props) {
@@ -50,52 +57,60 @@ export function QuizScreen({
   // showing, and again when it becomes the one showing after Back.
   useFocusEffect(
     useCallback(() => {
-      setFooter(nextLabel, nextDisabled, onNext, counter);
+      setFooter(nextLabel, nextDisabled, onNext);
       // Re-arms the button for this step: it's latched while a push is in
       // flight, and Back would otherwise return to a step whose button
       // never fires again.
       releaseFooter();
-    }, [setFooter, releaseFooter, nextLabel, nextDisabled, onNext, counter]),
+    }, [setFooter, releaseFooter, nextLabel, nextDisabled, onNext]),
   );
 
   // Each step paints the page colour itself: steps slide in from the right
   // like any iOS push (#313, owner decision), and a see-through page sliding
   // over another would show both questions at once.
+  const total = quizStepCount();
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      {/* The top row (v9): back, one bar per step (sage up to this one), and
-          close. On the first step there is no step behind it, so back closes
-          the quiz, like the close button. */}
+      {/* The top row (v9): back, "Question 2 of 4", and close, over a thin
+          line that fills as the quiz goes. On the first step there is no step
+          behind it, so back closes the quiz, like the close button. While the
+          profile is "building" the count is gone and the line is full. */}
       <View style={{ marginTop: quizTopPadding(insets.top), height: 44, paddingHorizontal: SPACE.gutter, flexDirection: "row", alignItems: "center", gap: SPACE.block }}>
-        <IconCircle onPress={first ? close : () => router.back()} accessibilityLabel="Back">
+        <IconCircle onPress={onBack ?? (first ? close : goBackOrHome)} accessibilityLabel="Back">
           <BackChevron />
         </IconCircle>
-        <View
-          accessible
-          accessibilityRole="progressbar"
-          accessibilityLabel={`Step ${step} of ${quizStepCount()}`}
-          style={{ flex: 1, flexDirection: "row", gap: SPACE.text }}
-        >
-          {Array.from({ length: quizStepCount() }, (_, i) => (
-            <View key={i} style={{ flex: 1, height: 5, borderRadius: 2.5, backgroundColor: i < step ? BUTTON.primary.fill : DOT_OFF }} />
-          ))}
-        </View>
+        <Text style={{ flex: 1, textAlign: "center", fontSize: TYPE.card, fontWeight: "600", color: INK }}>{building ? "" : `Question ${step} of ${total}`}</Text>
         <IconCircle onPress={close} accessibilityLabel="Close">
           <CloseCross />
         </IconCircle>
       </View>
-
-      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter }}>
-        <PageTitle title={title} line={subtitle} />
+      <View
+        accessible
+        accessibilityRole="progressbar"
+        accessibilityLabel={building ? "All questions answered" : `Step ${step} of ${total}`}
+        style={{ marginTop: SPACE.block, height: 2, backgroundColor: DIVIDER }}
+      >
+        <View style={{ height: 2, width: `${building ? 100 : Math.round((step / total) * 100)}%`, backgroundColor: BUTTON.primary.fill }} />
       </View>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: SPACE.section }}
-        keyboardShouldPersistTaps="handled"
-      >
-        {children}
-      </ScrollView>
+      {building ? (
+        children
+      ) : (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.section, paddingBottom: SPACE.section }}
+          alwaysBounceVertical={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: SPACE.text, paddingBottom: SPACE.section }}>
+            <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+              {title}
+            </Text>
+            {subtitle ? <Text style={{ maxWidth: 320, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{subtitle}</Text> : null}
+          </View>
+          {children}
+        </ScrollView>
+      )}
     </View>
   );
 }

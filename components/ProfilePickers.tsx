@@ -2,7 +2,7 @@ import { Pressable, View } from "react-native";
 
 import { Text } from "@/components/Text";
 import type { BaseSkinType, Concern, Pregnancy, Sensitivity } from "@/data/types";
-import { CONCERN_TITLE, pregnancyLabel, pregnancyYesNo, sensitivityLabel } from "@/lib/profile";
+import { CONCERN_TITLE, PREGNANCY_OPTIONS, pregnancyLabel, pregnancyOption, sensitivityLabel } from "@/lib/profile";
 import { CHOSEN, LINE, MUTED, SPACE, TYPE, WHITE } from "@/lib/tokens";
 import { MAX_CONCERNS, visibleConcernCount } from "@/store/useAppStore";
 
@@ -23,8 +23,6 @@ const SKIN_TYPES: { value: BaseSkinType; label: string }[] = [
   { value: "normal", label: "Normal" },
 ];
 const SENSITIVITY_OPTIONS: Sensitivity[] = ["none", "some", "high"];
-// Yes or no (owner); "Yes" is stored as "pregnant" — see `pregnancyYesNo`.
-const PREGNANCY_OPTIONS: Pregnancy[] = ["pregnant", "neither"];
 
 const CHIP_ROW = { flexDirection: "row", flexWrap: "wrap", gap: 8 } as const;
 // A chip's height (v7); `hitSlop` takes its target past 44.
@@ -117,7 +115,7 @@ export function PregnancyPicker(props: { value: Pregnancy | null; onChange: (val
   return (
     <SingleChoice
       {...props}
-      value={props.value === null ? null : pregnancyYesNo(props.value)}
+      value={props.value === null ? null : pregnancyOption(props.value)}
       unknownChosen={false}
       options={PREGNANCY_OPTIONS.map((value) => ({ value, label: pregnancyLabel(value) }))}
     />

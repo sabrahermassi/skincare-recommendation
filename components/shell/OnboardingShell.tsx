@@ -7,7 +7,7 @@ import { slideDirection } from "@/lib/onboarding-slide";
 import { H_PADDING, INTRO, INTRO_INACTIVE_DOT_OPACITY, ProgressDots, ShellBackButton, SkipButton } from "@/components/shell/shared";
 import { BUTTON, CANVAS, DISPLAY_FONT } from "@/lib/tokens";
 
-// The intro's type (owner, 26 September 2026): a Playfair headline whose first
+// The intro's type (owner, 26 September 2026): a display-face headline whose first
 // line is in the accent colour and the rest in ink; system-font subtext; a
 // flat pill button. The sizes (owner, 27 September) are the earlier intro's as
 // they looked on screen, measured off its screenshots rather than copied as

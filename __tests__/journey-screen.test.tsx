@@ -1,15 +1,16 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { router } from "expo-router";
+import { Linking } from "react-native";
 
 import Journey from "@/app/journey";
 import { openScanner } from "@/lib/open-scanner";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
-/** "What my skin needs" (v9, per #155): pick concerns, read the deck, scan from it. */
+/** "Skin needs" (v9, per #155): pick concerns (or use the profile's), read the deck, scan from it. */
 
 jest.setTimeout(30_000);
 
-jest.mock("expo-router", () => ({ router: { back: jest.fn(), push: jest.fn() } }));
+jest.mock("expo-router", () => ({ router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) } }));
 jest.mock("@/lib/open-scanner", () => ({ openScanner: jest.fn() }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -18,12 +19,21 @@ jest.mock("@/lib/reduce-motion", () => ({ reduceMotionNow: () => true }));
 
 afterEach(() => useAppStore.setState({ profile: EMPTY_PROFILE }));
 
-it("starts from the skin profile's concerns, and stops at three", async () => {
+it("opens straight on the cards when the skin profile already names concerns", async () => {
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["acne-prone"] } });
   await render(<Journey />);
-  expect(screen.getByRole("checkbox", { name: "Acne" }).props.accessibilityState.checked).toBe(true);
-  for (const name of ["Dehydration", "Redness"]) await fireEvent.press(screen.getByRole("checkbox", { name }));
-  expect(screen.getByRole("checkbox", { name: "Pores" }).props.accessibilityState.disabled).toBe(true);
+  expect(screen.getByText("Based on your skin")).toBeTruthy();
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(screen.queryByText(/^Step \d of 2$/)).toBeNull();
+  await fireEvent.press(screen.getByRole("button", { name: "Back" }));
+  expect(router.back).toHaveBeenCalled();
+});
+
+it("asks for concerns without a skin profile, and stops at three", async () => {
+  await render(<Journey />);
+  expect(screen.getByText("Step 1 of 2")).toBeTruthy();
+  for (const name of ["Acne or pimples", "Dry / Dehydrated", "Redness or rosacea"]) await fireEvent.press(screen.getByRole("checkbox", { name }));
+  expect(screen.getByRole("checkbox", { name: "Enlarged pores" }).props.accessibilityState.disabled).toBe(true);
 });
 
 it("needs a concern before it shows what helps", async () => {
@@ -33,29 +43,57 @@ it("needs a concern before it shows what helps", async () => {
 
 it("shows the deck for the chosen concerns, and flips a card to how to use it", async () => {
   await render(<Journey />);
-  await fireEvent.press(screen.getByRole("checkbox", { name: "Acne" }));
+  await fireEvent.press(screen.getByRole("checkbox", { name: "Acne or pimples" }));
   await fireEvent.press(screen.getByRole("button", { name: /Show what helps/ }));
-  expect(screen.getByText("Based on your skin")).toBeTruthy();
+  expect(screen.getByText("Finding what your skin needs…")).toBeTruthy();
+  expect(await screen.findByText("Based on your skin")).toBeTruthy();
   expect(screen.getByText("Best match for you")).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: /^Azelaic acid\. / }));
   expect(screen.getByRole("button", { name: "Azelaic acid, how to use it" })).toBeTruthy();
 });
 
+it("opens the evidence only from a card that is turned over", async () => {
+  const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+  await render(<Journey />);
+  await fireEvent.press(screen.getByRole("checkbox", { name: "Acne or pimples" }));
+  await fireEvent.press(screen.getByRole("button", { name: /Show what helps/ }));
+  await screen.findByText("Based on your skin");
+  // On the front the link is out of sight, so a tap where it sits turns the card instead.
+  await fireEvent.press(screen.getAllByRole("link", { name: /^See the evidence/ })[0]);
+  expect(openURL).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Azelaic acid, how to use it" })).toBeTruthy();
+  await fireEvent.press(screen.getAllByRole("link", { name: /^See the evidence/ })[0]);
+  expect(openURL).toHaveBeenCalledTimes(1);
+  openURL.mockRestore();
+});
+
 it("scans from the deck in label mode, carrying the concerns to the result", async () => {
   await render(<Journey />);
-  await fireEvent.press(screen.getByRole("checkbox", { name: "Dehydration" }));
-  await fireEvent.press(screen.getByRole("checkbox", { name: "Acne" }));
+  await fireEvent.press(screen.getByRole("checkbox", { name: "Dry / Dehydrated" }));
+  await fireEvent.press(screen.getByRole("checkbox", { name: "Acne or pimples" }));
   await fireEvent.press(screen.getByRole("button", { name: /Show what helps/ }));
+  await screen.findByText("Based on your skin");
   await fireEvent.press(screen.getByRole("button", { name: /Scan a product/ }));
   expect(openScanner).toHaveBeenCalledWith({ mode: "photo", from: "journey", concerns: "acne-prone,dehydrated" });
 });
 
 it("goes back from the deck to the concerns, and from the concerns out", async () => {
   await render(<Journey />);
-  await fireEvent.press(screen.getByRole("checkbox", { name: "Acne" }));
+  await fireEvent.press(screen.getByRole("checkbox", { name: "Acne or pimples" }));
   await fireEvent.press(screen.getByRole("button", { name: /Show what helps/ }));
+  await screen.findByText("Based on your skin");
   await fireEvent.press(screen.getByRole("button", { name: "Back" }));
   expect(screen.getByText("What do you want to work on?")).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Back" }));
   expect(router.back).toHaveBeenCalled();
+});
+
+// Opened straight from a link there is nothing behind it: Back must still lead somewhere.
+it("goes Home from the concerns when there is no screen to go back to", async () => {
+  jest.mocked(router.canGoBack).mockReturnValueOnce(false);
+  jest.mocked(router.back).mockClear();
+  await render(<Journey />);
+  await fireEvent.press(screen.getByRole("button", { name: "Back" }));
+  expect(router.back).not.toHaveBeenCalled();
+  expect(router.replace).toHaveBeenCalledWith("/");
 });

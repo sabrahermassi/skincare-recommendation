@@ -216,8 +216,10 @@ describe("scanner status panels", () => {
     await scan("8801234567890");
     expect(screen.getByText("Not in our catalogue yet")).toBeTruthy();
 
-    // "Try again" puts the camera back to scanning.
-    await fireEvent.press(screen.getByRole("button", { name: "Try again" }));
+    // One button on the sheet (v9); tapping the dimmed camera puts it back to scanning.
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Scan the ingredient list" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByText("Not in our catalogue yet")).toBeNull();
   });
 

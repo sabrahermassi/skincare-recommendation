@@ -15,7 +15,7 @@ import { isLowCoverage, matchProduct } from "@/lib/matching";
 import { photoScannerHref } from "@/lib/open-scanner";
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
 import { historyWarningCount, isVerified } from "@/lib/safety";
-import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { CANVAS, INK, MUTED, SPACE, STONE, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -119,9 +119,10 @@ function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory:
   const lowCoverage = isLowCoverage(product.ingredients);
 
   return (
-    <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenHeader />
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.text }}>
+    // v9: the header is on stone and the result a white sheet over it, as on a catalogue product.
+    <View style={{ flex: 1, backgroundColor: STONE }}>
+      <ScreenHeader title="Product details" />
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.text }} alwaysBounceVertical={false}>
         {/* The reading part of the screen: its text follows the phone's text
             size all the way up (#334). */}
         <ReadingScale>
@@ -131,8 +132,8 @@ function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory:
           </View>
           {/* The same two tabs as a catalogue product (design_handoff_skincare_cards). */}
           <ResultTabs
-            // From "What my skin needs" (v9): how the read fits that plan. No Save: a label read is not a catalogue product.
-            plan={journey ? { concerns: journey, saved: false } : undefined}
+            // Scanned from Skin needs (v9): the concerns picked there, not the profile's.
+            concerns={journey}
             ingredients={product.ingredients}
             type={product.type}
             match={match}

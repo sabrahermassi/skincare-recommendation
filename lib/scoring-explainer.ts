@@ -81,5 +81,12 @@ export function scoreNotes(): ScoreNote[] {
   ];
 }
 
+/** The sheet's first line (v9, the hand-off's words). */
+export const SCORING_INTRO = "Your score shows how well a product fits your skin profile.";
+
+/** Where the ingredient facts come from (v9, the hand-off's words), said before the disclaimer. */
+export const SCORING_SOURCES =
+  "Every ingredient is checked against EU CosIng and published safety reviews. You'll find the sources on each ingredient's page.";
+
 export const SCORING_DISCLAIMER =
   "No ads, no brand deals, no paid placements. Not medical advice: for a skin condition, see a dermatologist.";

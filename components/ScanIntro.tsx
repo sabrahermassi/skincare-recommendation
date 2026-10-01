@@ -43,7 +43,7 @@ export function ScanIntro({
         <Image source={illustration} style={{ width: ART_SIZE, height: ART_SIZE }} contentFit="contain" accessibilityLabel="" />
         <Text
           accessibilityRole="header"
-          style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 27.6, letterSpacing: -0.48, color: INK }}
+          style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
         >
           {title}
         </Text>

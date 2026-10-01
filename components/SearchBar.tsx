@@ -2,7 +2,6 @@ import { forwardRef } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
-import { bodyFamily } from "@/components/Text";
 
 import { FONT_SCALE, ICON_MUTED, INK, PLACEHOLDER, SURFACE, TYPE, WHITE } from "@/lib/tokens";
 
@@ -46,8 +45,7 @@ export const SearchBar = forwardRef<
         onSubmitEditing={onSubmitEditing}
         maxFontSizeMultiplier={FONT_SCALE.ui}
         accessibilityLabel={accessibilityLabel ?? placeholder}
-        // A TextInput isn't `Text`, so it names the body face itself (v9).
-        style={{ flex: 1, height: SEARCH_BAR_HEIGHT, fontFamily: bodyFamily(400), fontSize: TYPE.card, color: INK }}
+        style={{ flex: 1, height: SEARCH_BAR_HEIGHT, fontSize: TYPE.card, color: INK }}
       />
       {value.length > 0 ? (
         <Pressable onPress={() => onChangeText("")} accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={8} className="active:opacity-70" style={{ padding: 6 }}>

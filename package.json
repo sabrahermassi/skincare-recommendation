@@ -35,11 +35,10 @@
     "check:cors": "node scripts/check-cors.mjs"
   },
   "dependencies": {
+    "@expo-google-fonts/allura": "^0.4.2",
     "@expo-google-fonts/caveat": "^0.4.2",
-    "@expo-google-fonts/dm-sans": "^0.4.2",
-    "@expo-google-fonts/instrument-serif": "^0.4.1",
     "@expo-google-fonts/montserrat": "^0.4.2",
-    "@expo-google-fonts/playfair-display": "^0.4.2",
+    "@expo-google-fonts/pt-serif": "^0.4.1",
     "@expo/ui": "~57.0.20",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",

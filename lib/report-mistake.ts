@@ -17,12 +17,14 @@ function appVersion(): string {
   return Constants.expoConfig?.version ?? "unknown";
 }
 
-export function mistakeReportUrl(email: string, subject: MistakeSubject): string {
+export function mistakeReportUrl(email: string, subject: MistakeSubject, note = ""): string {
   const title = subject.kind === "product" ? [subject.brand, subject.name].filter(Boolean).join(" ") : subject.name;
   const facts =
     subject.kind === "product"
       ? [`Product: ${title}`, `Product id: ${subject.id}`, ...(subject.barcode ? [`Barcode: ${subject.barcode}`] : [])]
       : [`Ingredient (INCI name): ${subject.name}`];
-  const body = ["What's wrong?", "", "", "---", ...facts, `App version: ${appVersion()}`].join("\n");
+  // What the person typed in the report sheet (v9), or two blank lines to write on.
+  const said = note.trim() ? [note.trim(), ""] : ["", ""];
+  const body = ["What's wrong?", ...said, "---", ...facts, `App version: ${appVersion()}`].join("\n");
   return `mailto:${email}?subject=${encodeURIComponent(`Mistake report: ${title}`)}&body=${encodeURIComponent(body)}`;
 }

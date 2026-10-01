@@ -1,4 +1,4 @@
-# for.me design system (v7)
+# for.me design system (v7, with v9's changes)
 
 The rules every screen follows. Written from the v7 hand-off
 ("Newest Design Sept 29", 29 September 2026) and the code that now carries it.
@@ -14,6 +14,60 @@ component, don't redraw it.
 
 The Claude Design hand-off decides looks only. Scoring (bands, cutoffs,
 weights) is the code's: always read `SCORE_BANDS`, never a number from a mockup.
+
+---
+
+## v9 (1 October 2026): what replaces the v7 values below
+
+Written from `design_handoff_formee_v9`. Where this section and a v7 section
+below disagree, **this section wins**; the v7 text is kept for the rules that
+did not change (one design per element, flat cards, the motion rules). The
+values are in `lib/tokens.ts`.
+
+| Token | v9 value | Use |
+|---|---|---|
+| `CANVAS` | `#F8F9F4` | every page: pale sage |
+| `SURFACE` | `#FFFFFF` | cards, answer rows and list rows on the page |
+| `STONE` | `#F4F2EE` | the product result's header; a card on a white sheet |
+| `SHEET` | `#FFFFFF` | sheets, pop-ups, the result's sheet |
+| `BUTTON.primary` | `#767A5C`, pressed `#62664B` | every filled button, tick, progress |
+| `BUTTON.disabled` | `#C9CCB8` | every disabled button |
+| `LINK` | `#62664B` | text actions |
+| `CHOSEN.fill` / `TAB_PILL` | `#EEF1E7` | a chosen row, the current tab's pill |
+| `INK` / `MUTED` / `MUTED_FAINT` | `#2F2C2A` / `#524D48` / `#5E5954` | text, secondary, meta |
+| `VERDICT.high` | ring `#8A9A5B`, tint `#EEF1E7` | Good; Excellent is `#6B7A40` |
+| `VERDICT.medium` | ring `#E78B30`, word `#C26E1E`, tint `#FBF1E6` | Fair, Watch |
+| `VERDICT.low` | ring `#E56B65`, word `#CC4F49`, tint `#FFECE9` | Poor, Avoid |
+| `DESTRUCTIVE_OUTLINE` | fill `#FFECE9`, words `#CC4F49` | every delete, remove and report button: soft, never a solid red |
+| `HOME_SCAN_FILL` / `HOME_TILE` | `#F8EEE6` / `#EFEBF1`, `#F6F0E2` | Home's scan card and its two tiles |
+
+**Type.** `DISPLAY_FONT` is PT Serif Bold, upright: titles, ingredient names,
+the score. Everything else is the system font. `SCRIPT_FONT` (Allura) is only
+for Home's "Hi there!" (46/48) and the tip sentence on the opened tip (40/46).
+Sizes are the `TYPE` scale, unchanged.
+
+**Elements that changed.**
+
+- **Tab bar:** each tab is its icon over its name (11pt semibold) on a 64 by 48
+  pill when current.
+- **Answer rows** (`QuizOptionCard`): full width, white, 20pt corners, the name
+  (and a line saying what it means) with a round tick at the end. Used by the
+  skin quiz and the Skin needs concerns. No two-per-row tiles.
+- **Quiz and journey header:** back circle, "Question 2 of 4" / "Step 1 of 2"
+  centred, close circle, over a 2pt line that fills.
+- **Product result:** the header (nav, product, switch) is on `STONE`; the
+  result is a white sheet with 32pt top corners rising over it. The score ring
+  sits on a white 108pt disc over the sheet's edge, with the verdict on a
+  filled pill under it. Reasons are boxes on the verdict's tint with an open
+  ring, the bold name, a sentence and a tag.
+- **Ingredient box:** white with a 1.5pt sage outline and 28pt corners; rows
+  worst first; a chevron only on rows that open; "N more, no concerns" on a
+  filled button; the footnote and Report a mistake inside the box.
+- **Sheets:** the ingredient and How scoring works are floating sheets
+  (`SheetScreen`), 10pt off the sides and bottom, 36pt corners, over a dimmed,
+  lightly blurred screen. Cards inside a sheet are `STONE`.
+- **Routine:** numbered discs on a dotted line beside white step cards; the
+  Morning thumb is sun yellow, the Evening thumb night blue.
 
 ---
 
@@ -170,7 +224,7 @@ Search, Saved, History and the finder's results all use it.
 
 ### Score ring beside a product — `ScorePill`
 
-26pt, 2pt ring in the band's colour, the number 11pt bold in its text colour,
+30pt, 2pt ring in the band's colour, the number 12pt bold in its text colour,
 no fill. The big 96pt ring (`ScoreRing`) is only on the product result and
 the scanner's found pop-up, always with its `VerdictPill` ("Good match ⓘ",
 which opens How scoring works).
@@ -233,7 +287,7 @@ permission and not-found states.
   (230) and the torch across the top; white corner brackets; a 76pt shutter.
   Found and not-found pop-ups as above.
 - **Quiz**: back circle, one 5pt bar per step (terracotta up to this one),
-  close circle; the question as a Page title; white tiles two to a row, 124pt,
+  close circle; the question as a Page title; white tiles two to a row, 84pt,
   a 60pt icon over the name, chosen = `CHOSEN` fill + 2pt terracotta ring;
   the button on its own bar at the foot.
 - **Routine**: skin profile card, the tinted Morning | Evening switch, "Steps

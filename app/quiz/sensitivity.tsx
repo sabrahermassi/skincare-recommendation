@@ -16,10 +16,10 @@ import { useAppStore } from "@/store/useAppStore";
  * have an answer, and guessing would misjudge irritation either too harshly
  * or not harshly enough.
  */
-const OPTIONS: { value: Sensitivity; label: string }[] = [
-  { value: "none", label: "Not sensitive" },
-  { value: "some", label: "Somewhat sensitive" },
-  { value: "high", label: "Very sensitive" },
+const OPTIONS: { value: Sensitivity; label: string; description: string }[] = [
+  { value: "none", label: "Not sensitive", description: "Rarely reacts to new products" },
+  { value: "some", label: "Somewhat sensitive", description: "Sometimes stings or turns red" },
+  { value: "high", label: "Very sensitive", description: "Reacts to many products" },
 ];
 
 
@@ -45,7 +45,7 @@ export default function SensitivityStep() {
     <QuizScreen
       step={quizStepNumber("/quiz/sensitivity")}
       title="How sensitive is your skin?"
-      subtitle="This sets how cautious we are about irritants."
+      subtitle="This sets how careful we are with irritants."
       onNext={next}
       nextDisabled={!picked}
     >
@@ -54,6 +54,7 @@ export default function SensitivityStep() {
           <QuizOptionCard
             key={option.value}
             label={option.label}
+            description={option.description}
             selected={picked && sensitivity === option.value}
             onPress={() => {
               setProfile({ sensitivity: option.value });
@@ -63,7 +64,8 @@ export default function SensitivityStep() {
         ))}
 
         <QuizOptionCard
-          label="I don't know"
+          label="Not sure"
+          description="We'll be a little careful"
           selected={picked && sensitivity === null}
           onPress={() => {
             setProfile({ sensitivity: null });

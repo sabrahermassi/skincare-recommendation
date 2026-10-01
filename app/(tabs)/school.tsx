@@ -112,7 +112,7 @@ export default function SkincareSchool() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       {/* A tab: its title on the left, as on every tab, and no back chevron. */}
-      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: tabRootTop(insets.top) }}>
+      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: tabRootTop(insets.top), paddingBottom: SPACE.text }}>
         <TabTitle>Skincare School</TabTitle>
       </View>
 
@@ -120,7 +120,8 @@ export default function SkincareSchool() {
         <ScrollView
           ref={scrollRef}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: SPACE.block, gap: SPACE.block }}
+          // 8 above the first bubble and 8 under the title: a scrolled chat is cut off clear of the title, not against it.
+          contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: SPACE.block, gap: SPACE.block }}
         >
           <AppBubble label={`Skincare School says: ${SCHOOL_CHAT_COPY.greeting}`}>
             <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>{SCHOOL_CHAT_COPY.greeting}</Text>

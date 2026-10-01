@@ -144,9 +144,10 @@ the real backend; the invariant keeps the seam clean for the day it isn't.
 **Routing** — Expo Router (file-based) in `app/`; web must work, not just
 native.
 
-- **`/` is `app/(tabs)/index.tsx`** (Home, v9: the "Scan any product" card,
-  then two tiles — "What my skin needs" (`app/journey.tsx`) and "Skincare
-  routine"), not a product list. There is no product search: it was removed
+- **`/` is `app/(tabs)/index.tsx`** (Home, v9: the "Scan Any Product" card,
+  an Explore row of two tiles — "Skin Needs" (`app/journey.tsx`) and
+  "Skincare Routine" — and today's tip as an envelope that opens a sheet),
+  not a product list. There is no product search: it was removed
   on 1 October 2026. The scanner is `app/scanner.tsx`, a full-screen modal
   on the root stack (it slides up, iOS-style), opened by `openScanner()` in
   `lib/open-scanner.ts` — from the raised middle tab button and every "Scan"

@@ -54,35 +54,35 @@ it("goes back a step from a later step's back arrow", async () => {
   expect(mockGoBack).not.toHaveBeenCalled();
 });
 
-it("asks with v9's words and counts the concerns chosen over the button", async () => {
+it("asks with v9's words, says which question it is, and waits for an answer", async () => {
   await quiz(<ConcernsStep />);
-  expect(screen.getByText("What are your skin concerns?")).toBeTruthy();
+  expect(screen.getByText("What would you like to work on?")).toBeTruthy();
   expect(screen.getByText("Pick up to 3. We score every product for these.")).toBeTruthy();
+  expect(screen.getByText("Question 1 of 4")).toBeTruthy();
   expect(screen.getByRole("progressbar", { name: "Step 1 of 4" })).toBeTruthy();
-  expect(screen.getByText("0 of 3 chosen")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Next" }).props.accessibilityState?.disabled).toBe(true);
   await act(async () => fireEvent.press(screen.getByRole("checkbox", { name: "Dullness" })));
-  expect(screen.getByText("1 of 3 chosen")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Next" }).props.accessibilityState?.disabled).toBe(false);
+  // "No concerns" is a real answer too.
   await act(async () => fireEvent.press(screen.getByRole("radio", { name: "I don't have any concerns" })));
-  expect(screen.getByText("No concerns chosen")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Next" }).props.accessibilityState?.disabled).toBe(false);
 });
 
-it("shows the answers as words alone, with no pictures", async () => {
+it("shows each answer with a line saying what it means, and no pictures", async () => {
   await quiz(<SkinTypeStep />);
   expect(screen.getByText("What is your skin type?")).toBeTruthy();
-  expect(screen.getByRole("radio", { name: "Oily" })).toBeTruthy();
+  expect(screen.getByRole("radio", { name: "Oily. Shiny all over, visible pores" })).toBeTruthy();
+  expect(screen.getByRole("radio", { name: "Not sure. We'll keep things gentle" })).toBeTruthy();
   expect(screen.queryAllByTestId("image")).toHaveLength(0);
-  // A one-answer step has no counter.
-  expect(screen.queryByText(/ of 3 chosen$/)).toBeNull();
 });
 
-// An unchosen tile is white on the white page: without its outline it has
-// no edge and does not read as something to tap (simulator QA).
+// An unchosen row keeps a grey outline, so choosing one never nudges the layout.
 it("outlines an unchosen answer and rings a chosen one", async () => {
   const { StyleSheet } = jest.requireActual<typeof import("react-native")>("react-native");
-  const { BUTTON, TILE_LINE } = jest.requireActual<typeof import("@/lib/tokens")>("@/lib/tokens");
+  const { BUTTON, OPTION_LINE } = jest.requireActual<typeof import("@/lib/tokens")>("@/lib/tokens");
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["acne-prone"] } });
   await render(<QuizFrame><ConcernsStep /></QuizFrame>);
   const border = (name: string) => StyleSheet.flatten(screen.getByRole("checkbox", { name }).props.style).borderColor;
-  expect(border("Dullness")).toBe(TILE_LINE);
+  expect(border("Dullness")).toBe(OPTION_LINE);
   expect(border("Acne or pimples")).toBe(BUTTON.primary.fill);
 });

@@ -25,7 +25,7 @@ import { openScanner } from "@/lib/open-scanner";
 import { productIdParam } from "@/lib/route-params";
 import { historyWarningCount } from "@/lib/safety";
 import { saveFromTap, useCanJournal } from "@/lib/saving";
-import { CANVAS, DISPLAY_FONT, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, TYPE, VERDICT, WARN } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, STONE, TYPE, VERDICT, WARN } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import NotFound from "@/app/+not-found";
 
@@ -100,7 +100,7 @@ function ProductScreen({ id, from, concerns }: { id: string; from?: string; conc
    * on screen beats an error page. That is only right while the id has not
    * changed: without this, routing to a different product whose load then
    * failed left the previous one rendering under the new id, which is the
-   * exact trap `app/ingredients/[id].tsx` documents on its own fetch.
+   * exact trap a screen that keeps state across ids falls into.
    *
    * Seeded to `id` when `product` itself was seeded from the cache above —
    * otherwise a failed first fetch would read as "a different id's product
@@ -314,8 +314,10 @@ function ProductScreen({ id, from, concerns }: { id: string; from?: string; conc
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: CANVAS }}>
+    // v9: the header (nav, product, switch) is on stone; the result is a white sheet over it.
+    <View style={{ flex: 1, backgroundColor: STONE }}>
       <ScreenHeader
+        title="Product details"
         right={
           <>
             <IconCircle
@@ -352,7 +354,7 @@ function ProductScreen({ id, from, concerns }: { id: string; from?: string; conc
       {/* "handled": the note editor's sheet renders inside this scroll view, and
           touches follow the React tree, not the Modal's window. Without it, the
           first tap on "Save note" while typing only closed the keyboard. */}
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.text }}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.text }} alwaysBounceVertical={false}>
         {/* The reading part of the screen: its text follows the phone's text
             size all the way up (#334). */}
         <ReadingScale>
@@ -368,21 +370,8 @@ function ProductScreen({ id, from, concerns }: { id: string; from?: string; conc
             match={match}
             profile={profile}
             onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, product: product.id } })}
-            // Opened from "What my skin needs" (v9): how it fits that plan.
-            // Saving to the plan is the shelf save, the same as the heart.
-            plan={
-              from === "journey"
-                ? {
-                    concerns: decodeConcerns(concerns),
-                    saved,
-                    onSave: () => {
-                      haptic.tap();
-                      if (saved) toggleSaved(product.id);
-                      else saveFromTap(() => saveProduct(product.id, product.fetchedAt), "product");
-                    },
-                  }
-                : undefined
-            }
+            // Scanned from Skin needs (v9): the concerns picked there, not the profile's.
+            concerns={from === "journey" ? decodeConcerns(concerns) : undefined}
             footer={
               <>
                 {/* The person's own note (#228), only for a product on their
@@ -414,14 +403,15 @@ function ProductScreen({ id, from, concerns }: { id: string; from?: string; conc
 function ProductHeader({ product }: { product: ProductWithIngredients }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 16, paddingHorizontal: SPACE.gutter }}>
-      <View style={{ width: 80, height: 92, alignItems: "center", justifyContent: "center" }}>
-        <ProductThumbnail product={product} size={88} />
+      {/* v9: the bottle is 65 by 79 in a 72 by 83 box. */}
+      <View style={{ width: 72, height: 83, alignItems: "center", justifyContent: "center" }}>
+        <ProductThumbnail product={product} size={79} />
       </View>
       <View style={{ flex: 1, gap: 4, paddingTop: 4 }}>
         <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.label, lineHeight: 20, color: MUTED_FAINT }}>
           {product.brand}
         </Text>
-        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontSize: TYPE.title, fontWeight: "600", lineHeight: 25, letterSpacing: -0.2, color: INK }}>
+        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontSize: 18, fontWeight: "600", lineHeight: 23, letterSpacing: -0.18, color: INK }}>
           {product.name}
         </Text>
         {product.type !== "unknown" ? (

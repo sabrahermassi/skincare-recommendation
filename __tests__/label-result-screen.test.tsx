@@ -92,7 +92,7 @@ describe("the label result", () => {
   it("asks for the skin profile on Skin match, and not once the answers score", async () => {
     await open(LIST);
     await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
-    expect(screen.getByText("Is it right for your skin?")).toBeTruthy();
+    expect(screen.getAllByText("Is it right for your skin?").length).toBeGreaterThan(0);
     await act(async () => screen.unmount());
 
     useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "dry" } });

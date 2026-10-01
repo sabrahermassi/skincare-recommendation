@@ -41,7 +41,9 @@ it("puts a reason's source under it, on its card (#326)", async () => {
   expect(source).toBeDefined();
   await show(["niacinamide"], { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] });
   await openMatch();
-  expect(screen.getByText(/^Niacinamide helps with dark spots$/)).toBeTruthy();
+  // One of the Skin needs recommendations for dark spots (v9), in its own box.
+  expect(screen.getByText(/^Niacinamide helps with oil balance/)).toBeTruthy();
+  expect(screen.getByText("Good support")).toBeTruthy();
   expect(screen.getByLabelText(`Source: ${source!.label}`)).toBeTruthy();
 });
 
@@ -107,4 +109,19 @@ it("credits a concern met only by a declared function, as the score does", async
   await act(async () => {});
   await openMatch();
   expect(screen.getByText(/Declared as a humectant/i)).toBeTruthy();
+});
+
+// A reason is the bold name and then the rule's sentence. A sentence that does
+// not open with the name is set off with a colon, not run into it.
+it("joins a reason to its ingredient's name so it reads as a sentence", async () => {
+  await show(["sodium hyaluronate"], { ...EMPTY_PROFILE, concerns: ["dehydrated"] });
+  await openMatch();
+  expect(screen.getByText(/^Butylene Glycol: a humectant solvent/)).toBeTruthy();
+});
+
+it("does not say an ingredient's name twice in its row", async () => {
+  await show([], { ...EMPTY_PROFILE, concerns: ["dehydrated"] });
+  await openIngredients();
+  expect(screen.getByText("Draws water into the skin")).toBeTruthy();
+  expect(screen.queryByText(/^Glycerin draws/)).toBeNull();
 });
