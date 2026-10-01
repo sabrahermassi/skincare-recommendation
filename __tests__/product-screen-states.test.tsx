@@ -131,12 +131,13 @@ describe("the product screen's Report a mistake link", () => {
     expect(screen.getByText("Report a mistake")).toBeTruthy();
   });
 
-  it("hides it when none is", async () => {
+  // Owner (v9): the button is there before anything receives a report.
+  it("shows it when none is, too", async () => {
     delete process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
     await open();
     expect(screen.getAllByText("Toner").length).toBeGreaterThan(0);
     await fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
-    expect(screen.queryByText("Report a mistake")).toBeNull();
+    expect(screen.getByText("Report a mistake")).toBeTruthy();
   });
 });
 

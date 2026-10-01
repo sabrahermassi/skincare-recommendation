@@ -13,8 +13,10 @@ const REPORT_ART = require("@/assets/illustrations/report-mistake.webp");
 
 /**
  * "Report a mistake" at the foot of the product and ingredient pages (#327).
- * Hidden when no support address is set, the same rule `app/support.tsx`
- * keeps.
+ * The link is hidden when no support address is set, the same rule
+ * `app/support.tsx` keeps. The button is always there (owner, v9): where
+ * reports go is still to be built, so with no address its sheet takes what
+ * was typed, sends it nowhere, and says thank you.
  *
  * As a `button` (v9, inside the ingredient box) it is the soft red pill, and
  * opens a sheet: a picture, "What looks wrong about this product?", a text
@@ -29,10 +31,15 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
   const [sent, setSent] = useState(false);
-  if (!email) return null;
+  if (!email && !button) return null;
 
-  const send = (text = "") =>
-    Linking.openURL(mistakeReportUrl(email, subject, text))
+  const send = (text = ""): Promise<boolean> => {
+    if (!email) {
+      // TODO(owner): nothing receives a report yet; the backend comes later.
+      console.warn("[report-mistake] no support address set: this report was not sent");
+      return Promise.resolve(true);
+    }
+    return Linking.openURL(mistakeReportUrl(email, subject, text))
       .then(() => {
         setMailFailed(false);
         return true;
@@ -41,7 +48,8 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
         setMailFailed(true);
         return false;
       });
-  const failure = mailFailed ? (
+  };
+  const failure = mailFailed && email ? (
     <Text selectable style={{ fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
       {`We couldn't open a mail app on this phone. You can write to ${email} instead.`}
     </Text>
