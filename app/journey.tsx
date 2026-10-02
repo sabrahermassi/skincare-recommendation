@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Linking, PanResponder, Pressable, View, useWindowDimensions } from "react-native";
+import { Animated, Easing, Linking, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -32,11 +32,10 @@ import { FitScrollView } from "@/components/FitScrollView";
 
 // v9 (read off ConcernDeckSoft in the hand-off).
 const EASE = Easing.bezier(0.3, 0.7, 0.2, 1);
-const SWIPE_AWAY = 70;
-// Or a quick flick, in points per millisecond.
-const SWIPE_FLICK = 0.5;
+// The carousel: the room each side of the card showing, and between cards. The next card shows 16pt at the edge.
+const CAROUSEL_SIDE = 28;
+const CAROUSEL_GAP = 12;
 const FLIP_MS = 300;
-const STACK_MS = 400;
 
 const ROLE_INK: Record<Role, string> = {
   best: BUTTON.primary.fill,
@@ -191,47 +190,19 @@ function Deck({ concerns, bottom }: { concerns: Concern[]; bottom: number }) {
   const deck = useMemo(() => deckFor(concerns, profile), [concerns, profile]);
   const [current, setCurrent] = useState(0);
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
-  const [position] = useState(() => new Animated.Value(0));
-  const [drag] = useState(() => new Animated.Value(0));
   const { width } = useWindowDimensions();
-
-  // The card being thrown or let go: it keeps the finger's offset and stays on
-  // top until its animation ends, so the offset is never handed to the card
-  // that becomes current underneath it.
-  const [thrown, setThrown] = useState<number | null>(null);
-
-  const goTo = (index: number, from: number | null = null) => {
+  // A sideways carousel (owner, 2 October 2026): the cards sit side by side
+  // and slide, one at a time, with the next one showing at the edge. Nothing
+  // is thrown away, so going back is sliding the other way.
+  const cardWidth = width - 2 * CAROUSEL_SIDE;
+  const stride = cardWidth + CAROUSEL_GAP;
+  const scroller = useRef<ScrollView>(null);
+  const goTo = (index: number) => {
     const next = Math.max(0, Math.min(deck.length - 1, index));
-    const duration = reduceMotionNow() ? 0 : STACK_MS;
-    setThrown(from);
     setCurrent(next);
-    Animated.parallel([
-      Animated.timing(position, { toValue: next, duration, easing: EASE, useNativeDriver: true }),
-      Animated.timing(drag, { toValue: 0, duration, easing: EASE, useNativeDriver: true }),
-    ]).start(() => setThrown(null));
+    scroller.current?.scrollTo({ x: next * stride, animated: !reduceMotionNow() });
   };
-
-  const settle = () => Animated.spring(drag, { toValue: 0, friction: 9, tension: 90, useNativeDriver: true }).start();
-
-  const responder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 6 && Math.abs(g.dx) > Math.abs(g.dy),
-        onPanResponderMove: (_e, g) => drag.setValue(g.dx),
-        onPanResponderRelease: (_e, g) => {
-          // Far enough, or flicked: the card leaves. Otherwise it comes back.
-          const left = g.dx < -SWIPE_AWAY || g.vx < -SWIPE_FLICK;
-          const right = g.dx > SWIPE_AWAY || g.vx > SWIPE_FLICK;
-          if (left && current < deck.length - 1) goTo(current + 1, current);
-          else if (right && current > 0) goTo(current - 1, current);
-          else settle();
-        },
-        onPanResponderTerminate: settle,
-      }),
-    // goTo reads `current`; the responder is rebuilt when it changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [current, deck.length],
-  );
+  const settledAt = (x: number) => setCurrent(Math.max(0, Math.min(deck.length - 1, Math.round(x / stride))));
 
   const scan = () => openScanner({ mode: "photo", from: "journey", concerns: encodeConcerns(concerns) });
 
@@ -246,55 +217,39 @@ function Deck({ concerns, bottom }: { concerns: Concern[]; bottom: number }) {
         </Text>
       </View>
 
-      <View style={{ flex: 1, minHeight: 360, maxHeight: 430, marginTop: 20, marginHorizontal: 28, marginBottom: 16 }}>
-        {deck.map((item, i) => {
-          const rel = Animated.subtract(i, position);
-          const isActive = i === current;
-          // The finger moves only the card it is on (or the one just thrown).
-          const held = thrown === null ? isActive : i === thrown;
-          // Like a stack of profile cards (owner): the cards underneath sit
-          // exactly under the top one and hold still; only the top one moves.
-          // A card that has been swiped waits off to the left.
-          const x = Animated.add(rel.interpolate({ inputRange: [-1, 0], outputRange: [-width * 1.25, 0], extrapolate: "clamp" }), held ? drag : 0);
-          // It tilts with the finger, and a little more as it leaves.
-          const tilt = Animated.add(
-            rel.interpolate({ inputRange: [-1, 0], outputRange: [-8, 0], extrapolate: "clamp" }),
-            held ? drag.interpolate({ inputRange: [-280, 280], outputRange: [-10, 10], extrapolate: "clamp" }) : 0,
-          );
-          return (
-            <Animated.View
-              key={item.card.key}
-              {...(isActive && thrown === null ? responder.panHandlers : {})}
-              pointerEvents={i < current ? "none" : "auto"}
-              style={{
-                position: "absolute",
-                top: 0,
-                bottom: 0,
-                left: 0,
-                right: 0,
-                zIndex: i === thrown ? deck.length + 1 : deck.length - Math.abs(i - current),
-                // Only the top card and the one right under it are drawn: more would stack their shadows.
-                opacity: rel.interpolate({ inputRange: [-1, -0.9, 1, 1.5], outputRange: [0, 1, 1, 0], extrapolate: "clamp" }),
-                transform: [{ translateX: x }, { rotate: tilt.interpolate({ inputRange: [-30, 30], outputRange: ["-30deg", "30deg"] }) }],
-              }}
-            >
+      <View style={{ flex: 1, minHeight: 360, maxHeight: 430, marginTop: 20, marginBottom: 16 }}>
+        <ScrollView
+          ref={scroller}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          snapToInterval={stride}
+          decelerationRate="fast"
+          disableIntervalMomentum
+          contentContainerStyle={{ paddingHorizontal: CAROUSEL_SIDE, gap: CAROUSEL_GAP }}
+          scrollEventThrottle={16}
+          onScroll={(event) => settledAt(event.nativeEvent.contentOffset.x)}
+        >
+          {deck.map((item, i) => (
+            <View key={item.card.key} style={{ width: cardWidth }}>
               <FlipCard
                 item={item}
                 concerns={concerns}
                 flipped={!!flipped[item.card.key]}
-                interactive={isActive}
-                onTap={() => (isActive ? setFlipped((f) => ({ ...f, [item.card.key]: !f[item.card.key] })) : goTo(i))}
+                interactive={i === current}
+                // The card showing turns over; one at the edge slides in.
+                onTap={() => (i === current ? setFlipped((f) => ({ ...f, [item.card.key]: !f[item.card.key] })) : goTo(i))}
               />
-            </Animated.View>
-          );
-        })}
+            </View>
+          ))}
+        </ScrollView>
       </View>
 
-      {/* Pager: one dot per card, the current one stretched. */}
-      <View style={{ flexDirection: "row", justifyContent: "center", gap: 2 }}>
+      {/* Pager: one dot per card, the current one stretched. Each is a full
+          44pt target (owner: the dots were easy to miss). */}
+      <View style={{ flexDirection: "row", justifyContent: "center" }}>
         {deck.map((item, i) => (
-          <Pressable key={item.card.key} onPress={() => goTo(i)} accessibilityRole="button" accessibilityLabel={`Card ${i + 1}: ${item.card.name}`} accessibilityState={{ selected: i === current }} hitSlop={12} style={{ width: 20, height: 20, alignItems: "center", justifyContent: "center" }}>
-            <View style={{ width: i === current ? 18 : 4, height: 4, borderRadius: 2, backgroundColor: i === current ? BUTTON.primary.fill : JOURNEY.dotOff }} />
+          <Pressable key={item.card.key} onPress={() => goTo(i)} accessibilityRole="button" accessibilityLabel={`Card ${i + 1}: ${item.card.name}`} accessibilityState={{ selected: i === current }} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+            <View style={{ width: i === current ? 22 : 8, height: 8, borderRadius: 4, backgroundColor: i === current ? BUTTON.primary.fill : JOURNEY.dotOff }} />
           </Pressable>
         ))}
       </View>
