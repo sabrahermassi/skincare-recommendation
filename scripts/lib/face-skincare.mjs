@@ -45,7 +45,7 @@ export const FACE_TYPES = new Set([
 
 // OBF tags, in any of its languages, that place a product outside face care.
 const OTHER_CATEGORY =
-  /(^|:)(hair|shampoo|conditioner|apres-shampo|cheveux|haar|capelli|cabello|body($|-)|corps|koerper|corpo|showers?-|shower-gels|bath|douche|soaps?($|-)|savons|seifen|liquid-soaps|hand-|hands$|mains|feet|foot|pieds|shaving|rasage|rasur|scheren|deodorants?|anti-perspirants|perfumes?|parfum|cologne|eau-de|makeup|make-up|maquillage|lipsticks?|mascara|eyeliner|foundations?|nail|baby-wipes|moist-wipes|wipes|lingettes|intimate|oral|tooth|dentifrice|mouthwash|beard|bart|barbe|tattoo|massage|insect|self-tann)/i;
+  /(^|:)(hair|shampoo|conditioner|apres-shampo|cheveux|haar|capelli|cabello|body($|-)|corps|koerper|corpo|showers?-|bath|douche|soaps?($|-)|savons|seifen|liquid-soaps|hand-|hands$|mains|feet|foot|pieds|shaving|rasage|rasur|scheren|deodorants?|anti-perspirants|perfumes?|parfum|cologne|eau-de|makeup|make-up|maquillage|lipsticks?|mascara|eyeliner|foundations?|nail|baby-wipes|moist-wipes|wipes|lingettes|intimate|oral|tooth|dentifrice|mouthwash|beard|bart|barbe|tattoo|massage|insect|self-tann)/i;
 
 // Words in a name that say what a product is, when it is not face care. Whole
 // words, in the languages the database holds most of: English, French,
@@ -59,7 +59,7 @@ const OTHER_NAME = [
   /\b(hand|hands|mains|manos|mani|h[äa]nde|hand(creme|cr[èe]me|balsam)|el kremi|foot|feet|pieds|pies|piedi|f[üu](ss|ß)\w*|body|corps|corporal|corporel|k[öo]rper\w*|corpo|v[üu]cut|bodylotion|bodymilk)\b/i,
   // Hair, scalp, beard. "hair" inside a longer word too ("hairfood").
   /(hair|leave-in|\bplex\b|\bcurls?\b)/i,
-  /\b(cheveux|capillaire|haar\w*|cabello|capelli|sa[çc]|shampoo\w*|shampoing|shampooing|champ[uú]|champ[oô]|[şs]ampuan|conditioner|apr[èe]s-shampo+ing|sp[üu]lung|balsam|haarspray|hairspray|styling|coloration|h[åa]rfarge|scalp|beard|barbe|bart\w*|barba|pentear|peinar|coiffant|crème toner|creme toner)\b/i,
+  /\b(cheveux|capillaire|haar\w*|cabello|capelli|sa[çc]|shampoo\w*|shampoing|shampooing|champ[uú]|champ[oô]|[şs]ampuan|conditioner|apr[èe]s-shampo+ing|sp[üu]lung|balsam|styling|coloration|h[åa]rfarge|scalp|beard|barbe|bart\w*|barba|pentear|peinar|coiffant|crème toner|creme toner)\b/i,
   // Shaving and hair removal.
   /\b(shav\w*|rasage|raser|rasier\w*|rasur|scheer\w*|scheren|afeitar|afeitado|barbear|aftershave|after-shave|d[ée]pilatoire|epil\w*|wax|cire)\b/i,
   // Make-up and nails.
@@ -71,7 +71,7 @@ const OTHER_NAME = [
   // Mouth and teeth.
   /\b(tooth\w*|zahn\w*|dent\w*|mouth\w*|mund\w*|bouche|lip balm|lippenbalsam|baume [àa] l[èe]vres)\b/i,
   // Everything else that is not a face product.
-  /\b(intimate?|intime|intim\w*|baby wipes|insect|mosquito|moustique|tattoo|massage|self[- ]tan\w*|autobronz\w*|selbstbr[äa]un\w*|hand sanitizer|sanitizer|desinfect\w*|d[ée]sinfect\w*|anti-friction|[öo]ronreng[öo]ring\w*|ear|oreilles|bb cream|cc cream|bb cr[èe]me)\b/i,
+  /\b(intimate?|intime|intim\w*|insect|mosquito|moustique|tattoo|massage|self[- ]tan\w*|autobronz\w*|selbstbr[äa]un\w*|sanitizer|desinfect\w*|d[ée]sinfect\w*|anti-friction|[öo]ronreng[öo]ring\w*|ear|oreilles|bb cream|cc cream|bb cr[èe]me)\b/i,
 ];
 
 // Brands whose name is itself a product word the type guess trips on.

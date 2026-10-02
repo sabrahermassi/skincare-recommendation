@@ -16,7 +16,7 @@
  * (about 100MB), and reads every product in it. The six categories the API
  * sweep pages hold about 1,500 complete products; the whole database holds
  * about 21,000, a third of them with no category tag at all, so the sweep
- * could never reach them. Read whole, it yields about 1,650 more face-care
+ * could never reach them. Read whole, it yields about 1,775 more face-care
  * products, serums and treatments above all (144 new serums against 28). What
  * keeps the deodorant and shampoo out this time is `lib/face-skincare.mjs`.
  * It combines with --dry-run and --resume like the API sweep, and costs OBF
@@ -906,9 +906,6 @@ if (invokedDirectly()) {
   });
 }
 
-// Exported for `__tests__/import-obf-gates.test.ts`. Deliberately just the
-// pure parts — the gates and the parser — so a test never needs a network or a
-// service-role key to pin the behaviour this step is measured on.
 /**
  * The extra gate for a product read from the whole database (`--dump`): one
  * in a category the API sweep pages is kept on OBF's own word, as it always
@@ -939,6 +936,9 @@ async function* readDump(path) {
   }
 }
 
+// Exported for `__tests__/import-obf-gates.test.ts`. Deliberately just the
+// pure parts — the gates and the parser — so a test never needs a network or a
+// service-role key to pin the behaviour this step is measured on.
 export {
   parseInci,
   toRow,
