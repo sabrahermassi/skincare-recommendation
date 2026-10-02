@@ -47,7 +47,7 @@ const SHEET_OVERLAP = 16;
 const HEAD_SPACER = { ring: 60, plain: 16 } as const;
 const RING_LIFT = 76;
 // How strongly what scrolls behind the fixed header is blurred (expo-blur, 1-100).
-const HEADER_BLUR = 30;
+const HEADER_BLUR = 12;
 // The soft edge under the fixed header: how tall it is, and how far the
 // result has to scroll before it is fully there (none at rest, where it
 // would dull the top of the score ring).

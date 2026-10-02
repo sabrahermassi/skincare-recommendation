@@ -53,10 +53,10 @@ export const STONE = "#F4F2EE";
 
 /**
  * `STONE` let through (owner, 2 October 2026): the wash over the blur on a
- * result's fixed header, so what scrolls behind it shows faintly. Inferred:
- * 72% is a judged value, not read off a hand-off.
+ * result's fixed header, thin enough to read as glass (owner: less blurry,
+ * more see-through). Inferred: 55% is a judged value, not read off a hand-off.
  */
-export const STONE_GLASS = "rgba(244,242,238,0.72)";
+export const STONE_GLASS = "rgba(244,242,238,0.55)";
 
 /** A sheet or pop-up's own ground (v9): white, whatever the page under it. */
 export const SHEET = "#FFFFFF";
