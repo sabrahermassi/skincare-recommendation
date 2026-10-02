@@ -4,7 +4,8 @@ import Svg, { Path } from "react-native-svg";
 
 import { FilterDropdown } from "@/components/FilterDropdown";
 import { Text } from "@/components/Text";
-import { VerdictMarker } from "@/components/VerdictMarker";
+import { StarIcon } from "@/components/icons/StarIcon";
+import { VerdictDot, verdictTone } from "@/components/VerdictMarker";
 import type { Ingredient } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { ingredientLabel, LABEL_META, type IngredientLabel } from "@/lib/ingredient-labels";
@@ -15,6 +16,7 @@ import { nameMatches } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { BUTTON, INK, MUTED, MUTED_FAINT, SPACE, TYPE, WHITE } from "@/lib/tokens";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
+import { useAppStore } from "@/store/useAppStore";
 
 export type IngredientFilter = "all" | "watch" | "actives" | "pore" | "unknown";
 
@@ -182,6 +184,8 @@ function IngredientRow({
   onPress?: () => void;
 }) {
   const name = displayIngredientName(ingredient.name);
+  const tone = verdictTone(label);
+  const starred = useAppStore((state) => state.savedIngredients.includes(ingredient.name));
   return (
     <Pressable
       onPress={onPress}
@@ -191,16 +195,25 @@ function IngredientRow({
       style={{ minHeight: ROW_MIN_HEIGHT, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 }}
       className={onPress ? "active:opacity-70" : undefined}
     >
+      {/* The verdict's dot in front of every row (owner): green, orange, red,
+          or grey for a row the list gives no word. */}
+      <VerdictDot colour={tone.solid} halo={tone.halo} />
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={{ fontSize: TYPE.card, fontWeight: "500", lineHeight: 21, color: INK }}>{name}</Text>
         {label ? (
-          <VerdictMarker label={label} />
+          <Text style={{ fontSize: 15, color: tone.deep }}>{LABEL_META[label].label}</Text>
         ) : (
           <Text numberOfLines={2} style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>
             {subtitle}
           </Text>
         )}
       </View>
+      {/* Starred on the ingredient's own sheet: it shows here too (owner). */}
+      {starred ? (
+        <View accessible accessibilityLabel="Starred">
+          <StarIcon filled size={18} />
+        </View>
+      ) : null}
       {onPress ? (
         <Svg width={8} height={14} viewBox="0 0 8 14" fill="none">
           <Path d="m1 1 6 6-6 6" stroke={BUTTON.primary.fill} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />

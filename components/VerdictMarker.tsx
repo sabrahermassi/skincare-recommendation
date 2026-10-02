@@ -8,8 +8,8 @@ import { VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 const DOT = 8;
 const HALO = 4;
 
-/** A verdict's colours: green, ochre, red, or grey for unknown. */
-function verdictTone(label: IngredientLabel) {
+/** A verdict's colours: green, ochre, red, or grey for unknown and for a row the list gives no word. */
+export function verdictTone(label: IngredientLabel | null) {
   if (label === "good") return VERDICT.high;
   if (label === "watch") return VERDICT.medium;
   if (label === "avoid") return VERDICT.low;

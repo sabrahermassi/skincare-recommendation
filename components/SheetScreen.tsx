@@ -1,7 +1,6 @@
 import { BlurView } from "expo-blur";
 import { useEffect, useState, type ReactNode } from "react";
 import { Animated, Easing, Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FLOAT_INSET, FLOAT_RADIUS } from "@/components/BottomSheet";
 import { goBackOrHome } from "@/lib/go-back";
@@ -26,7 +25,6 @@ const TOP_GAP = 72;
  * closing it is an ordinary Back.
  */
 export function SheetScreen({ header, children, onClose = goBackOrHome }: { header: ReactNode; children: ReactNode; onClose?: () => void }) {
-  const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const [progress] = useState(() => new Animated.Value(reduceMotionNow() ? 1 : 0));
   useEffect(() => {
@@ -42,8 +40,11 @@ export function SheetScreen({ header, children, onClose = goBackOrHome }: { head
       <Animated.View
         style={{
           marginHorizontal: FLOAT_INSET,
-          marginBottom: Math.max(FLOAT_INSET, insets.bottom),
-          maxHeight: height - TOP_GAP - Math.max(FLOAT_INSET, insets.bottom),
+          // 10pt off the bottom like every other pop-up (`BottomSheet`'s
+          // floating card). It used to clear the home indicator as well, and
+          // sat 24pt higher than the rest (owner).
+          marginBottom: FLOAT_INSET,
+          maxHeight: height - TOP_GAP - FLOAT_INSET,
           borderRadius: FLOAT_RADIUS,
           backgroundColor: SHEET,
           ...SHEET_SHADOW,
