@@ -242,6 +242,15 @@ export default function Saved() {
     ).start();
   };
 
+  // Each saved product's score, worked out once per catalogue, shelf or
+  // profile change rather than on every render: scoring a formula is the
+  // dearest thing a row does, and a long shelf has many rows.
+  const savedScores = useMemo(() => {
+    const scores: Record<string, number | null> = {};
+    if (byId) for (const id of savedIds) if (byId[id]) scores[id] = matchProduct(byId[id], profile).score;
+    return scores;
+  }, [byId, savedIds, profile]);
+
   // Each list starts under the fixed header and scrolls up behind it.
   const listStyle = { paddingHorizontal: SPACE.gutter, paddingTop: headerHeight, paddingBottom: tabBarClearance(insets.bottom) };
   const underHeader = { scrollIndicatorInsets: { top: headerHeight }, scrollEventThrottle: 16 } as const;
@@ -299,11 +308,10 @@ export default function Saved() {
           <View style={{ gap: ROW_GAP }}>
             {shown.map((id) => {
               const product = byId[id];
-              const match = matchProduct(product, profile);
               const note = savedProducts.find((p) => p.id === id)?.note;
               return (
                 // Untapping the heart takes it off the shelf at once, with an Undo (v9).
-                <ProductListRow key={id} product={product} score={match.score} detail={productDetail(product)} onUnsave={() => unsave(id)}>
+                <ProductListRow key={id} product={product} score={savedScores[id] ?? null} detail={productDetail(product)} onUnsave={() => unsave(id)}>
                   {/* The person's own words, exactly as written (#228). */}
                   {note ? <NotePreview note={note} /> : null}
                 </ProductListRow>
