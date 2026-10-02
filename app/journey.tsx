@@ -33,8 +33,8 @@ import { FitScrollView } from "@/components/FitScrollView";
 // v9 (read off ConcernDeckSoft in the hand-off).
 const EASE = Easing.bezier(0.3, 0.7, 0.2, 1);
 // The carousel: the room each side of the card showing, and between cards. The next card shows 16pt at the edge.
-const CAROUSEL_SIDE = 28;
-const CAROUSEL_GAP = 12;
+const CAROUSEL_SIDE = 32;
+const CAROUSEL_GAP = 16;
 const FLIP_MS = 300;
 
 const ROLE_INK: Record<Role, string> = {
@@ -284,7 +284,9 @@ function FlipCard({ item, concerns, flipped, interactive, onTap }: { item: DeckC
   const { card, role } = item;
   const helps = cardHelps(card);
   const source = cardSource(card);
-  const face = { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, borderRadius: 22, backfaceVisibility: "hidden", ...JOURNEY.cardShadow } as const;
+  // Flat, like Home's tiles: no shade. In the carousel the scroll view cut a
+  // shade off above and below, which drew a grey box round the card (owner).
+  const face = { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, borderRadius: 22, backfaceVisibility: "hidden" } as const;
   return (
     <Pressable
       onPress={onTap}

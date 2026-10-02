@@ -670,8 +670,7 @@ export const CARD_SHADOW = {} as const;
  * "What my skin needs" (v9, read off ConcernDeckSoft in the hand-off): each
  * card's front tint (the hand-off's soft top-to-bottom gradients, taken at
  * their top colour), the card back, the concern tile's idle outline, the
- * header's progress track, an inactive pager dot, an untick chip's text, and
- * the soft card shade.
+ * header's progress track, an inactive pager dot and an untick chip's text.
  */
 export const JOURNEY = {
   // Each card's front tint, at the light level of Home's tiles and the result
@@ -687,5 +686,4 @@ export const JOURNEY = {
   backLine: "#ECE8E3",
   iconFill: "#EEF1E7",
   iconInk: "#62664B",
-  cardShadow: { shadowColor: INK, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.1, shadowRadius: 28, elevation: 6 },
 } as const;
