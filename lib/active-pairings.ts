@@ -30,7 +30,7 @@ import { INGREDIENT_RULES, nameMatches } from "./rules";
  * reads the clock.
  */
 
-export type PairingConfidence = "high" | "moderate" | "contested";
+type PairingConfidence = "high" | "moderate" | "contested";
 
 type Active = {
   /** How the active reads mid-sentence, e.g. "a retinoid", "AHAs". */

@@ -4,7 +4,7 @@
 // function is checked with curl.
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
-import { handleLabelOcr, type LabelOcrDeps, VISION_TIMEOUT_MS } from "../functions/label-ocr/handler.ts";
+import { handleLabelOcr, type LabelOcrDeps, VISION_ATTEMPTS, VISION_TIMEOUT_MS } from "../functions/label-ocr/handler.ts";
 import { MAX_IMAGE_CHARS } from "../functions/_shared/image-limits.ts";
 import { READ_TOKEN_TTL_MS, signReadToken, verifyReadToken } from "../functions/_shared/read-token.ts";
 import { resetRateLimits, resetVerifiedTokens } from "../functions/_shared/rate-limit.ts";
@@ -196,6 +196,80 @@ Deno.test("Vision failing is 502, a network problem rather than the photo's", as
   }
 });
 
+Deno.test("a read Vision refuses once and then takes is a good read, on one deadline", async () => {
+  for (const refusal of [
+    () => jsonResponse({}, 503),
+    () => { throw new TypeError("dns"); },
+    () => jsonResponse({ responses: [{ error: { code: 14, message: "unavailable" } }] }),
+  ] as Vision[]) {
+    let asked = 0;
+    const { db, deps, fetched } = setup(allKnown, (url, init) => (++asked === 1 ? refusal(url, init) : visionReads(LABEL)(url, init)));
+    const reply = await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
+    assertEquals(reply.status, 200);
+    assertEquals(outcomes(db), ["read_ok"]);
+    assertEquals(fetched.length, VISION_ATTEMPTS);
+    assert(fetched[0].init?.signal === fetched[1].init?.signal, "the second try gets what is left of the first one's time");
+  }
+});
+
+Deno.test("Vision is asked no more than VISION_ATTEMPTS times, and once when it calls the request wrong", async () => {
+  const down = setup(() => undefined, () => jsonResponse({}, 500));
+  assertEquals((await handleLabelOcr(post({ imageBase64: tinyJpeg() }), down.deps)).status, 502);
+  assertEquals(down.fetched.length, VISION_ATTEMPTS);
+
+  const refused = setup(() => undefined, () => jsonResponse({ error: { status: "PERMISSION_DENIED" } }, 403));
+  assertEquals((await handleLabelOcr(post({ imageBase64: tinyJpeg() }), refused.deps)).status, 502);
+  assertEquals(refused.fetched.length, 1);
+  assertEquals(outcomes(refused.db), ["upstream_failure"]);
+});
+
+Deno.test("a busy or slow Vision (429, 408) is asked again; any other 4xx is not", async () => {
+  for (const [status, asks] of [[429, VISION_ATTEMPTS], [408, VISION_ATTEMPTS], [400, 1], [401, 1], [404, 1]]) {
+    const { deps, fetched } = setup(() => undefined, () => jsonResponse({}, status));
+    assertEquals((await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps)).status, 502);
+    assertEquals(fetched.length, asks, `HTTP ${status}`);
+  }
+});
+
+Deno.test("once the deadline has passed, Vision isn't asked again", async () => {
+  const timeout = AbortSignal.timeout;
+  AbortSignal.timeout = () => AbortSignal.abort(new DOMException("timed out", "TimeoutError"));
+  try {
+    const { db, deps, fetched } = setup(() => undefined, () => jsonResponse({}, 503));
+    assertEquals((await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps)).status, 502);
+    assertEquals(fetched.length, 1);
+    assertEquals(outcomes(db), ["upstream_failure"]);
+  } finally {
+    AbortSignal.timeout = timeout;
+  }
+});
+
+Deno.test("a reply cut short by the deadline is logged as a timeout, whatever its status", async () => {
+  const timeout = AbortSignal.timeout;
+  const error = console.error;
+  AbortSignal.timeout = () => AbortSignal.abort(new DOMException("timed out", "TimeoutError"));
+  try {
+    for (const status of [200, 503]) {
+      const logged: string[] = [];
+      console.error = (...line: unknown[]) => void logged.push(line.join(" "));
+      const { deps } = setup(() => undefined, () => new Response("{\"responses\": [", { status }));
+      assertEquals((await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps)).status, 502);
+      assert(logged.some((line) => line.includes("the deadline passed") && line.includes(`HTTP ${status}`)), logged.join("\n"));
+    }
+    // With time left, a broken body is still called what it is.
+    AbortSignal.timeout = timeout;
+    const logged: string[] = [];
+    console.error = (...line: unknown[]) => void logged.push(line.join(" "));
+    const { deps } = setup(() => undefined, () => new Response("{\"responses\": [", { status: 200 }));
+    await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
+    assert(logged.some((line) => line.includes("isn't JSON")), logged.join("\n"));
+    assert(!logged.some((line) => line.includes("the deadline passed")), logged.join("\n"));
+  } finally {
+    AbortSignal.timeout = timeout;
+    console.error = error;
+  }
+});
+
 Deno.test("a photo with no text is 422 not_enough_text", async () => {
   const { db, deps } = setup(() => undefined, visionReads(null));
   const reply = await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
@@ -253,6 +327,27 @@ Deno.test("at the ceiling exactly, the read still goes ahead", async () => {
   const reply = await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
   assertEquals(reply.status, 200);
   assertEquals(fetched.length, 1);
+});
+
+Deno.test("a second try counts toward the day, and isn't made once the day is spent", async () => {
+  const counted = (db: FakeDb) => db.rpcCalls("consume_rate_limit").filter((args) => args.p_bucket === VISION_DAY).length;
+
+  const room = setup(() => undefined, () => jsonResponse({}, 503));
+  await handleLabelOcr(post({ imageBase64: tinyJpeg() }), room.deps);
+  assertEquals(room.fetched.length, VISION_ATTEMPTS);
+  assertEquals(counted(room.db), VISION_ATTEMPTS);
+
+  // The first read takes the day's last place; the retry finds it spent.
+  let spent = 9;
+  const full = setup(
+    (call) => (call.kind === "rpc" && call.fn === "consume_rate_limit" && call.args.p_bucket === VISION_DAY ? { data: ++spent, error: null } : undefined),
+    () => jsonResponse({}, 503),
+    "vision-key",
+    10,
+  );
+  assertEquals((await handleLabelOcr(post({ imageBase64: tinyJpeg() }), full.deps)).status, 502);
+  assertEquals(full.fetched.length, 1);
+  assertEquals(outcomes(full.db), ["upstream_failure"]);
 });
 
 Deno.test("a day counter that can't be reached lets the read through", async () => {

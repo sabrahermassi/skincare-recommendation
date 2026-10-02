@@ -23,7 +23,7 @@ import { supabase } from "@/lib/supabase";
  * also needs a development build: its native module is not in Expo Go.
  */
 
-export type AuthStatus = "loading" | "signed-out" | "signed-in";
+type AuthStatus = "loading" | "signed-out" | "signed-in";
 
 type AuthState = {
   status: AuthStatus;
