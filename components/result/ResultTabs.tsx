@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
 import { BottomSheet } from "@/components/BottomSheet";
@@ -9,7 +9,7 @@ import { IngredientsCard, type IngredientFilter } from "@/components/result/Ingr
 import { ScoreDisc, VerdictLink } from "@/components/result/ScoreRing";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { SourceLink } from "@/components/SourceLink";
-import { Text, useLargeText } from "@/components/Text";
+import { ReadingScale, Text, useLargeText } from "@/components/Text";
 import { VerdictDot } from "@/components/VerdictMarker";
 import type { Concern, Ingredient, ProductType, SkinProfile } from "@/data/types";
 import { pairingNotesFor } from "@/lib/active-pairings";
@@ -22,7 +22,7 @@ import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
 import type { RuleSource } from "@/lib/rules";
 import { irritationWarnings, isVerified } from "@/lib/safety";
-import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
+import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 type Tab = "match" | "ingredients";
@@ -47,9 +47,11 @@ const HEAD_SPACER = { ring: 60, plain: 16 } as const;
 const RING_LIFT = 76;
 
 /**
- * The product result under its header (v9): a Skin match | Ingredients
- * switch on the stone header, then the chosen tab on a white sheet that rises
- * over it. Skin match opens first: the score ring sitting on the sheet's
+ * The scrolling part of a result screen (v9): `header` (the product, or what
+ * a label photo read), a Skin match | Ingredients switch on the stone, then
+ * the chosen tab on a white sheet that rises over it. The header and the
+ * switch hold still and only the sheet scrolls (owner), so the scroll view is
+ * this component's own. Skin match opens first: the score ring sitting on the sheet's
  * edge, the verdict pill under it, then what matters for this person.
  * Ingredients is the same for everyone apart from a pregnancy caution: the
  * two risks and the ingredient box. Shared by a catalogue product and a label
@@ -59,6 +61,7 @@ const RING_LIFT = 76;
  * Skin needs scan carried along; without them the skin profile's are used.
  */
 export function ResultTabs({
+  header,
   ingredients,
   type,
   match,
@@ -68,6 +71,7 @@ export function ResultTabs({
   report,
   concerns,
 }: {
+  header: ReactNode;
   ingredients: Ingredient[];
   type: ProductType;
   match: MatchResult;
@@ -82,10 +86,16 @@ export function ResultTabs({
   const lowCoverage = isLowCoverage(ingredients);
   // Only a scored Skin match has a ring to make room for.
   const ring = tab === "match" && isPersonalized(profile) && !lowCoverage;
+  const largeText = useLargeText();
 
-  return (
-    <View style={{ flexGrow: 1 }}>
-      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: 16, paddingBottom: 12 }}>
+  const top = (
+    <>
+      {/* The reading parts of the screen: their text follows the phone's text
+          size all the way up (#334). */}
+      <ReadingScale>{header}</ReadingScale>
+      {/* The 12pt under the switch belongs to the part below, so this strip
+          doesn't cut the top off the score ring that reaches into it. */}
+      <View style={{ backgroundColor: STONE, paddingHorizontal: SPACE.gutter, paddingTop: 16 }}>
         <SegmentedSwitch
           tone="stone"
           options={[
@@ -96,37 +106,55 @@ export function ResultTabs({
           onSelect={setTab}
         />
       </View>
-      <View style={{ height: ring ? HEAD_SPACER.ring : HEAD_SPACER.plain }} />
-      <View
-        testID="result-sheet"
-        style={{
-          flexGrow: 1,
-          marginTop: -SHEET_OVERLAP,
-          borderTopLeftRadius: SHEET_RADIUS,
-          borderTopRightRadius: SHEET_RADIUS,
-          backgroundColor: SHEET,
-          paddingTop: 24,
-          paddingHorizontal: SPACE.gutter,
-          paddingBottom: 40,
-          gap: SPACE.block,
-        }}
-      >
-        {tab === "match" ? (
-          <MatchTab ingredients={ingredients} type={type} match={match} profile={profile} concerns={concerns} />
-        ) : (
-          <IngredientsTab
-            ingredients={ingredients}
-            type={type}
-            match={match}
-            profile={profile}
-            filter={filter}
-            onFilter={setFilter}
-            onIngredientPress={onIngredientPress}
-            report={report}
-          />
-        )}
-        {footer}
-      </View>
+    </>
+  );
+  return (
+    <View style={{ flex: 1, paddingTop: SPACE.text }}>
+      {/* The header and the switch stay where they are; only the white sheet
+          under them scrolls (owner). At the largest text sizes they would take
+          too much of the screen to hold still, so there they scroll with it. */}
+      {largeText ? null : top}
+      {/* "handled": a note editor's sheet can render inside this scroll view,
+          and touches follow the React tree, not the Modal's window. Without
+          it, the first tap on "Save note" while typing only closed the keyboard. */}
+      <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} alwaysBounceVertical={false}>
+        {largeText ? top : null}
+        <ReadingScale>
+          <View style={{ flexGrow: 1 }}>
+            <View style={{ height: SPACE.block + (ring ? HEAD_SPACER.ring : HEAD_SPACER.plain) }} />
+            <View
+              testID="result-sheet"
+              style={{
+                flexGrow: 1,
+                marginTop: -SHEET_OVERLAP,
+                borderTopLeftRadius: SHEET_RADIUS,
+                borderTopRightRadius: SHEET_RADIUS,
+                backgroundColor: SHEET,
+                paddingTop: 24,
+                paddingHorizontal: SPACE.gutter,
+                paddingBottom: 40,
+                gap: SPACE.block,
+              }}
+            >
+              {tab === "match" ? (
+                <MatchTab ingredients={ingredients} type={type} match={match} profile={profile} concerns={concerns} />
+              ) : (
+                <IngredientsTab
+                  ingredients={ingredients}
+                  type={type}
+                  match={match}
+                  profile={profile}
+                  filter={filter}
+                  onFilter={setFilter}
+                  onIngredientPress={onIngredientPress}
+                  report={report}
+                />
+              )}
+              {footer}
+            </View>
+          </View>
+        </ReadingScale>
+      </ScrollView>
     </View>
   );
 }

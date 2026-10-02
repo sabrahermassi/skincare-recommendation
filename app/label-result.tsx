@@ -1,12 +1,12 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ResultTabs } from "@/components/result/ResultTabs";
 import { PageTitle } from "@/components/PageTitle";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { ReadingScale, Text } from "@/components/Text";
+import { Text } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
 import type { Concern, Ingredient } from "@/data/types";
 import { track } from "@/lib/analytics";
@@ -122,16 +122,14 @@ function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory:
     // v9: the header is on stone and the result a white sheet over it, as on a catalogue product.
     <View style={{ flex: 1, backgroundColor: STONE }}>
       <ScreenHeader title="Product details" />
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.text }} alwaysBounceVertical={false}>
-        {/* The reading part of the screen: its text follows the phone's text
-            size all the way up (#334). */}
-        <ReadingScale>
-          {/* No product to name: what was read, as the header. */}
-          <View style={{ paddingHorizontal: SPACE.gutter }}>
-            <PageTitle title="Label photo" line={total > 0 ? `Read from your photo · ${recognised} of ${total} names recognised` : "Nothing was read"} />
-          </View>
           {/* The same two tabs as a catalogue product (design_handoff_skincare_cards). */}
           <ResultTabs
+            // No product to name: what was read, as the header.
+            header={
+              <View style={{ paddingHorizontal: SPACE.gutter }}>
+                <PageTitle title="Label photo" line={total > 0 ? `Read from your photo · ${recognised} of ${total} names recognised` : "Nothing was read"} />
+              </View>
+            }
             // Scanned from Skin needs (v9): the concerns picked there, not the profile's.
             concerns={journey}
             ingredients={product.ingredients}
@@ -141,8 +139,6 @@ function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory:
             onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name } })}
             footer={lowCoverage ? <PrimaryButton label="Retake the photo" onPress={() => retake()} /> : null}
           />
-        </ReadingScale>
-      </ScrollView>
     </View>
   );
 }

@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, Share, View } from "react-native";
+import { ActivityIndicator, Share, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { FirstPageMoment } from "@/components/FirstPageMoment";
@@ -13,7 +13,7 @@ import { ReportMistakeLink } from "@/components/ReportMistakeLink";
 import { ResultTabs } from "@/components/result/ResultTabs";
 import { IconCircle } from "@/components/IconCircle";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { ReadingScale, Text } from "@/components/Text";
+import { Text } from "@/components/Text";
 import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import { track } from "@/lib/analytics";
@@ -351,15 +351,8 @@ function ProductScreen({ id, from, concerns }: { id: string; from?: string; conc
 
       <FirstPageMoment />
 
-      {/* "handled": the note editor's sheet renders inside this scroll view, and
-          touches follow the React tree, not the Modal's window. Without it, the
-          first tap on "Save note" while typing only closed the keyboard. */}
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.text }} alwaysBounceVertical={false}>
-        {/* The reading part of the screen: its text follows the phone's text
-            size all the way up (#334). */}
-        <ReadingScale>
-          <ProductHeader product={product} />
           <ResultTabs
+            header={<ProductHeader product={product} />}
             // A new product starts on Skin match with the full list, not the last
             // one's tab, filter or open sheet (#379 review). The loading spinner
             // between products already remounts this today; the key keeps that
@@ -389,8 +382,6 @@ function ProductScreen({ id, from, concerns }: { id: string; from?: string; conc
             // A wrong name or list gets told to us (#327), under the full list.
             report={<ReportMistakeLink button subject={{ kind: "product", id: product.id, name: product.name, brand: product.brand, barcode: product.barcode }} />}
           />
-        </ReadingScale>
-      </ScrollView>
     </View>
   );
 }

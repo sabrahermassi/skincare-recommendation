@@ -1,6 +1,14 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
+let mockFontScale = 1;
+jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
+  __esModule: true,
+  default: () => ({ width: 402, height: 874, scale: 3, fontScale: mockFontScale }),
+}));
+
+
 import { ResultTabs } from "@/components/result/ResultTabs";
+import { Text } from "@/components/Text";
 import type { Ingredient, SkinProfile } from "@/data/types";
 import { matchProduct } from "@/lib/matching";
 import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
@@ -29,7 +37,7 @@ const BASE = ["water", "glycerin", "butylene glycol", "xanthan gum"];
 async function show(names: string[], profile: SkinProfile) {
   const ingredients = [...BASE, ...names].map(ingredient);
   const match = matchProduct({ type: "serum", ingredients }, profile);
-  await render(<ResultTabs ingredients={ingredients} type="serum" match={match} profile={profile} onIngredientPress={jest.fn()} />);
+  await render(<ResultTabs header={null} ingredients={ingredients} type="serum" match={match} profile={profile} onIngredientPress={jest.fn()} />);
   await act(async () => {});
 }
 
@@ -87,7 +95,7 @@ it("opens Skin match on the score, with no row of the answers above it", async (
 async function showWith(extra: Ingredient[], profile: SkinProfile) {
   const ingredients = [...BASE.map(ingredient), ...extra];
   const match = matchProduct({ type: "serum", ingredients }, profile);
-  await render(<ResultTabs ingredients={ingredients} type="serum" match={match} profile={profile} onIngredientPress={jest.fn()} />);
+  await render(<ResultTabs header={null} ingredients={ingredients} type="serum" match={match} profile={profile} onIngredientPress={jest.fn()} />);
   await act(async () => {});
 }
 
@@ -104,7 +112,7 @@ it("credits a concern met only by a declared function, as the score does", async
   const ingredients = [ingredient("water"), ingredient("xanthan gum"), { ...ingredient("some declared humectant"), functions: ["humectant"] }];
   const profile = { ...EMPTY_PROFILE, concerns: ["dehydrated" as const] };
   await render(
-    <ResultTabs ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, profile)} profile={profile} onIngredientPress={jest.fn()} />,
+    <ResultTabs header={null} ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, profile)} profile={profile} onIngredientPress={jest.fn()} />,
   );
   await act(async () => {});
   await openMatch();
@@ -124,4 +132,34 @@ it("does not say an ingredient's name twice in its row", async () => {
   await openIngredients();
   expect(screen.getByText("Draws water into the skin")).toBeTruthy();
   expect(screen.queryByText(/^Glycerin draws/)).toBeNull();
+});
+
+// Owner (v9): the header and the switch hold still; only the white sheet scrolls.
+it("keeps the header and the switch out of the part that scrolls", async () => {
+  const ingredients = [ingredient("glycerin")];
+  await render(
+    <ResultTabs header={<Text>Toner</Text>} ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, EMPTY_PROFILE)} profile={EMPTY_PROFILE} onIngredientPress={jest.fn()} />,
+  );
+  const within = (node: { parent: unknown } | null, type: string): boolean => {
+    for (let at = node as { type?: unknown; parent: unknown } | null; at; at = at.parent as typeof at) if (at.type === type) return true;
+    return false;
+  };
+  expect(within(screen.getByTestId("result-sheet"), "RCTScrollView")).toBe(true);
+  expect(within(screen.getByText("Toner"), "RCTScrollView")).toBe(false);
+  expect(within(screen.getByRole("tab", { name: "Ingredients" }), "RCTScrollView")).toBe(false);
+});
+
+it("lets the header and the switch scroll at the largest text sizes, where they'd fill the screen", async () => {
+  mockFontScale = 2;
+  try {
+    const ingredients = [ingredient("glycerin")];
+    await render(
+      <ResultTabs header={<Text>Toner</Text>} ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, EMPTY_PROFILE)} profile={EMPTY_PROFILE} onIngredientPress={jest.fn()} />,
+    );
+    let at = screen.getByText("Toner") as { type?: unknown; parent: unknown } | null;
+    while (at && at.type !== "RCTScrollView") at = at.parent as typeof at;
+    expect(at).not.toBeNull();
+  } finally {
+    mockFontScale = 1;
+  }
 });
