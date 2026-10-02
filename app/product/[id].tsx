@@ -316,72 +316,76 @@ function ProductScreen({ id, from, concerns }: { id: string; from?: string; conc
   return (
     // v9: the header (nav, product, switch) is on stone; the result is a white sheet over it.
     <View style={{ flex: 1, backgroundColor: STONE }}>
-      <ScreenHeader
-        title="Product details"
-        right={
-          <>
-            <IconCircle
-              // Saves for anyone, signed in or not (#300).
-              onPress={() => {
-                haptic.tap();
-                if (saved) toggleSaved(product.id);
-                else saveFromTap(() => saveProduct(product.id, product.fetchedAt), "product");
-              }}
-              accessibilityLabel={saved ? "Remove from saved" : "Save"}
-              accessibilityState={{ selected: saved }}
-            >
-              <PopOnToggle active={saved}>
-                <HeartIcon size={20} filled={saved} color={saved ? VERDICT.low.solid : undefined} />
-              </PopOnToggle>
-            </IconCircle>
-            <IconCircle onPress={share} accessibilityLabel="Share this result">
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M12 3v12M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"
-                  stroke={INK}
-                  strokeWidth={1.9}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </IconCircle>
-          </>
-        }
-      />
-
-      <FirstPageMoment />
-
-          <ResultTabs
-            header={<ProductHeader product={product} />}
-            // A new product starts on Skin match with the full list, not the last
-            // one's tab, filter or open sheet (#379 review). The loading spinner
-            // between products already remounts this today; the key keeps that
-            // true if a cached product ever skips the spinner.
-            key={product.id}
-            ingredients={product.ingredients}
-            type={product.type}
-            match={match}
-            profile={profile}
-            onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, product: product.id } })}
-            // Scanned from Skin needs (v9): the concerns picked there, not the profile's.
-            concerns={from === "journey" ? decodeConcerns(concerns) : undefined}
-            footer={
+      <ResultTabs
+        nav={
+          <ScreenHeader
+            title="Product details"
+            right={
               <>
-                {/* The person's own note (#228), only for a product on their
-                    shelf, and signed in only (#300): see useCanJournal. */}
-                {savedEntry && canJournal ? <ProductNote note={savedEntry.note} onSave={(note) => setNote(product.id, note)} /> : null}
-                {/* How old the formula is, once old enough to matter, and a
-                    confirmed change since it was saved (step 8): WARN, so a
-                    trust-relevant claim never reads as furniture. */}
-                {staleNotice ? <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>{staleNotice}</Text> : null}
-                {formulaChangedNotice ? (
-                  <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>{formulaChangedNotice}</Text>
-                ) : null}
+                <IconCircle
+                  // Saves for anyone, signed in or not (#300).
+                  onPress={() => {
+                    haptic.tap();
+                    if (saved) toggleSaved(product.id);
+                    else saveFromTap(() => saveProduct(product.id, product.fetchedAt), "product");
+                  }}
+                  accessibilityLabel={saved ? "Remove from saved" : "Save"}
+                  accessibilityState={{ selected: saved }}
+                >
+                  <PopOnToggle active={saved}>
+                    <HeartIcon size={20} filled={saved} color={saved ? VERDICT.low.solid : undefined} />
+                  </PopOnToggle>
+                </IconCircle>
+                <IconCircle onPress={share} accessibilityLabel="Share this result">
+                  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 3v12M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"
+                      stroke={INK}
+                      strokeWidth={1.9}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </IconCircle>
               </>
             }
-            // A wrong name or list gets told to us (#327), under the full list.
-            report={<ReportMistakeLink button subject={{ kind: "product", id: product.id, name: product.name, brand: product.brand, barcode: product.barcode }} />}
           />
+        }
+        header={
+          <>
+            <FirstPageMoment />
+            <ProductHeader product={product} />
+          </>
+        }
+        // A new product starts on Skin match with the full list, not the last
+        // one's tab, filter or open sheet (#379 review). The loading spinner
+        // between products already remounts this today; the key keeps that
+        // true if a cached product ever skips the spinner.
+        key={product.id}
+        ingredients={product.ingredients}
+        type={product.type}
+        match={match}
+        profile={profile}
+        onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, product: product.id } })}
+        // Scanned from Skin needs (v9): the concerns picked there, not the profile's.
+        concerns={from === "journey" ? decodeConcerns(concerns) : undefined}
+        footer={
+          <>
+            {/* The person's own note (#228), only for a product on their
+                shelf, and signed in only (#300): see useCanJournal. */}
+            {savedEntry && canJournal ? <ProductNote note={savedEntry.note} onSave={(note) => setNote(product.id, note)} /> : null}
+            {/* How old the formula is, once old enough to matter, and a
+                confirmed change since it was saved (step 8): WARN, so a
+                trust-relevant claim never reads as furniture. */}
+            {staleNotice ? <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>{staleNotice}</Text> : null}
+            {formulaChangedNotice ? (
+              <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>{formulaChangedNotice}</Text>
+            ) : null}
+          </>
+        }
+        // A wrong name or list gets told to us (#327), under the full list.
+        report={<ReportMistakeLink button subject={{ kind: "product", id: product.id, name: product.name, brand: product.brand, barcode: product.barcode }} />}
+      />
     </View>
   );
 }

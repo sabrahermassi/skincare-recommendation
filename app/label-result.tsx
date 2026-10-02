@@ -121,24 +121,24 @@ function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory:
   return (
     // v9: the header is on stone and the result a white sheet over it, as on a catalogue product.
     <View style={{ flex: 1, backgroundColor: STONE }}>
-      <ScreenHeader title="Product details" />
-          {/* The same two tabs as a catalogue product (design_handoff_skincare_cards). */}
-          <ResultTabs
-            // No product to name: what was read, as the header.
-            header={
-              <View style={{ paddingHorizontal: SPACE.gutter }}>
-                <PageTitle title="Label photo" line={total > 0 ? `Read from your photo · ${recognised} of ${total} names recognised` : "Nothing was read"} />
-              </View>
-            }
-            // Scanned from Skin needs (v9): the concerns picked there, not the profile's.
-            concerns={journey}
-            ingredients={product.ingredients}
-            type={product.type}
-            match={match}
-            profile={profile}
-            onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name } })}
-            footer={lowCoverage ? <PrimaryButton label="Retake the photo" onPress={() => retake()} /> : null}
-          />
+      {/* The same two tabs as a catalogue product (design_handoff_skincare_cards). */}
+      <ResultTabs
+        nav={<ScreenHeader title="Product details" />}
+        // No product to name: what was read, as the header.
+        header={
+          <View style={{ paddingHorizontal: SPACE.gutter }}>
+            <PageTitle title="Label photo" line={total > 0 ? `Read from your photo · ${recognised} of ${total} names recognised` : "Nothing was read"} />
+          </View>
+        }
+        // Scanned from Skin needs (v9): the concerns picked there, not the profile's.
+        concerns={journey}
+        ingredients={product.ingredients}
+        type={product.type}
+        match={match}
+        profile={profile}
+        onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name } })}
+        footer={lowCoverage ? <PrimaryButton label="Retake the photo" onPress={() => retake()} /> : null}
+      />
     </View>
   );
 }

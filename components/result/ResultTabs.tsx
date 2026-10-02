@@ -1,5 +1,6 @@
+import { BlurView } from "expo-blur";
 import { useState, type ReactNode } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
 import { BottomSheet } from "@/components/BottomSheet";
@@ -22,7 +23,7 @@ import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
 import type { RuleSource } from "@/lib/rules";
 import { irritationWarnings, isVerified } from "@/lib/safety";
-import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
+import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE_GLASS, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 type Tab = "match" | "ingredients";
@@ -45,13 +46,16 @@ const SHEET_RADIUS = 32;
 const SHEET_OVERLAP = 16;
 const HEAD_SPACER = { ring: 60, plain: 16 } as const;
 const RING_LIFT = 76;
+// How strongly what scrolls behind the fixed header is blurred (expo-blur, 1-100).
+const HEADER_BLUR = 30;
 
 /**
  * The scrolling part of a result screen (v9): `header` (the product, or what
  * a label photo read), a Skin match | Ingredients switch on the stone, then
- * the chosen tab on a white sheet that rises over it. The header and the
- * switch hold still and only the sheet scrolls (owner), so the scroll view is
- * this component's own. Skin match opens first: the score ring sitting on the sheet's
+ * the chosen tab on a white sheet that rises over it. The top bar (`nav`),
+ * the header and the switch hold still on frosted stone, and the sheet
+ * scrolls up behind them, blurred (owner), so the scroll view is this
+ * component's own. Skin match opens first: the score ring sitting on the sheet's
  * edge, the verdict pill under it, then what matters for this person.
  * Ingredients is the same for everyone apart from a pregnancy caution: the
  * two risks and the ingredient box. Shared by a catalogue product and a label
@@ -61,6 +65,7 @@ const RING_LIFT = 76;
  * Skin needs scan carried along; without them the skin profile's are used.
  */
 export function ResultTabs({
+  nav,
   header,
   ingredients,
   type,
@@ -71,6 +76,8 @@ export function ResultTabs({
   report,
   concerns,
 }: {
+  /** The screen's top bar: it stays put, above the header. */
+  nav?: ReactNode;
   header: ReactNode;
   ingredients: Ingredient[];
   type: ProductType;
@@ -87,15 +94,19 @@ export function ResultTabs({
   // Only a scored Skin match has a ring to make room for.
   const ring = tab === "match" && isPersonalized(profile) && !lowCoverage;
   const largeText = useLargeText();
+  // The fixed header's height, once laid out: the room the result leaves for it.
+  const [fixedHeight, setFixedHeight] = useState(0);
 
   const top = (
     <>
       {/* The reading parts of the screen: their text follows the phone's text
           size all the way up (#334). */}
       <ReadingScale>{header}</ReadingScale>
-      {/* The 12pt under the switch belongs to the part below, so this strip
-          doesn't cut the top off the score ring that reaches into it. */}
-      <View style={{ backgroundColor: STONE, paddingHorizontal: SPACE.gutter, paddingTop: 16 }}>
+      {/* A short frosted lip under the switch, so what scrolls up fades in
+          behind it instead of being cut at the switch's own edge. The rest of
+          the room under the switch belongs to the part below, so the lip
+          doesn't cover the top of the score ring that reaches into it. */}
+      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: 16, paddingBottom: SPACE.text }}>
         <SegmentedSwitch
           tone="stone"
           options={[
@@ -109,19 +120,22 @@ export function ResultTabs({
     </>
   );
   return (
-    <View style={{ flex: 1, paddingTop: SPACE.text }}>
-      {/* The header and the switch stay where they are; only the white sheet
-          under them scrolls (owner). At the largest text sizes they would take
-          too much of the screen to hold still, so there they scroll with it. */}
-      {largeText ? null : top}
+    <View style={{ flex: 1 }}>
       {/* "handled": a note editor's sheet can render inside this scroll view,
           and touches follow the React tree, not the Modal's window. Without
           it, the first tap on "Save note" while typing only closed the keyboard. */}
-      <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} alwaysBounceVertical={false}>
-        {largeText ? top : null}
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        style={{ flex: 1 }}
+        // The result starts under the fixed header and scrolls up behind it.
+        contentContainerStyle={{ flexGrow: 1, paddingTop: fixedHeight }}
+        scrollIndicatorInsets={{ top: fixedHeight }}
+        alwaysBounceVertical={false}
+      >
+        {largeText ? <View style={{ paddingTop: SPACE.text }}>{top}</View> : null}
         <ReadingScale>
           <View style={{ flexGrow: 1 }}>
-            <View style={{ height: SPACE.block + (ring ? HEAD_SPACER.ring : HEAD_SPACER.plain) }} />
+            <View style={{ height: SPACE.block - SPACE.text + (ring ? HEAD_SPACER.ring : HEAD_SPACER.plain) }} />
             <View
               testID="result-sheet"
               style={{
@@ -155,6 +169,16 @@ export function ResultTabs({
           </View>
         </ReadingScale>
       </ScrollView>
+      {/* The top bar, the header and the switch stay where they are (owner),
+          on frosted stone: what scrolls up passes behind them, blurred. At the
+          largest text sizes the header and switch would take too much of the
+          screen to hold still, so there they scroll and only the bar stays. */}
+      <View onLayout={(event) => setFixedHeight(event.nativeEvent.layout.height)} style={{ position: "absolute", top: 0, left: 0, right: 0 }}>
+        <BlurView intensity={HEADER_BLUR} tint="default" style={StyleSheet.absoluteFill} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: STONE_GLASS }]} />
+        {nav}
+        {largeText ? null : <View style={{ paddingTop: SPACE.text }}>{top}</View>}
+      </View>
     </View>
   );
 }
