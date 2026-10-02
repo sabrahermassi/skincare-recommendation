@@ -8,6 +8,13 @@
  */
 
 const BEFORE_MASK_RULES = [
+  // The app has no shaving type. A shave foam read as a cleanser by its
+  // "foam" and an after-shave balm as a moisturiser; unknown is the honest
+  // answer, and shows no type at all.
+  [/shav|rasage|\braser\b|rasier|rasur|scheer(gel|schuim|cr[èe]me)|afeita|barbear/, "unknown"],
+  // A soap is washed off whatever it is filed under: bars under a cream
+  // category read as moisturisers, at leave-on strength.
+  [/soap|savon|seife|sabun|zeep|jab[oó]n|sapone/, "body-wash"],
   // "Hand Creme", "Crema Manos" and "Mains à Croquer" read as moisturisers by
   // their "creme" and showed as one on the product page.
   [/hand[\s-]?(&[^,]{0,12})?(cream|creme|crème|serum)|handcr[eè]me|cr[èe]me (pour les )?mains|crema (de |para )?manos|\bmains à/, "hand-cream"],

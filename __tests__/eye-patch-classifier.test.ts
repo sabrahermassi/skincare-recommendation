@@ -88,6 +88,21 @@ describe("eye-patch classification", () => {
     expect(typeOf("Handmade day cream")).toBe("moisturizer");
   });
 
+  it("does not call a shaving product a cleanser, or a soap a moisturiser", () => {
+    // Real names from staging, under the face tags Open Beauty Facts gave them.
+    const cases: [string, string][] = [
+      ["GILLETTE Shave Foam", "unknown"],
+      ["Baume après-rasage", "unknown"],
+      ["Pre-Shave Creme (Sensitive Skin, with Green Tea and Oatmeal)", "unknown"],
+      ["Gillette Gevoelige huid scheergel", "unknown"],
+      ["Charcoal & Dead Sea Salt Detox Soap - Bag", "body-wash"],
+      ["Moisturising Rose & Lavender Cream Soap - Box", "body-wash"],
+      ["L'incontournable savon au lait de chèvre parfum rose", "body-wash"],
+      ["Dove Nemlendirici Sıvı Sabun Caring", "body-wash"],
+    ];
+    for (const [name, type] of cases) expect({ name, type: guessType(["en:face", "en:creams"], name) }).toEqual({ name, type });
+  });
+
   it("leaves what only mentions the eyes as it was", () => {
     for (const name of ["Démaquillant yeux waterproof", "Eye Make-up Remover", "Beauty of Joseon Revive Eye Serum", "Eau micellaire visage & yeux", "Creamy Eyeshadow"]) {
       expect({ name, type: typeOf(name) }).not.toEqual({ name, type: "eye-cream" });

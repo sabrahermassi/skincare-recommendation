@@ -112,9 +112,13 @@ const NOT_FOR_THE_FACE =
 const BODY = /\b(body\w*|corps|corpo|corporal|corporel|k[öo]rper\w*|v[üu]cut)\b/i;
 const FACE = /\b(face|facial|visage|viso|gesicht\w*|rostro|y[üu]z)\b/i;
 
-/** A name that says the product is for somewhere else. "Face & body" is still for the face. */
+// A BB cream or a tinted cream is make-up with skincare in it. One with SPF is
+// typed as a sunscreen and was the step's top pick (owner, 3 October 2026).
+const TINTED = /\b((bb|cc)[\s-]?(cream|cr[èe]me)|tinted|teint[ée]e?s?|get[öo]nt\w*)\b/i;
+
+/** A name that says the product is for somewhere else, or is make-up. "Face & body" is still for the face. */
 function notForTheFace(name: string): boolean {
-  return SOAP.test(name) || NOT_FOR_THE_FACE.test(name) || (BODY.test(name) && !FACE.test(name));
+  return SOAP.test(name) || NOT_FOR_THE_FACE.test(name) || TINTED.test(name) || (BODY.test(name) && !FACE.test(name));
 }
 
 // Where an active for a concern is worn: leave-on steps between cleansing and

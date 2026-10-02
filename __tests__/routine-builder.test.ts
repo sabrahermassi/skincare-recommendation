@@ -219,6 +219,11 @@ it("keeps hand, body, shaving and soap products out of a face routine", () => {
     ["sunscreen", "Spray Solare Protezione alta SPF 50 - Corpo"],
     ["sunscreen", "Nivea Sun SPF50 Güneş Koruyucu ve Ferahlık Vücut Spreyi"],
     ["sunscreen", "Lait autobronzant"],
+    // Tinted and BB creams are make-up, whatever SPF they carry.
+    ["sunscreen", "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30"],
+    ["sunscreen", "BB cream radiance 9 en 1 SPF 20 - 001 claire"],
+    ["sunscreen", "BB Crème Solaire Teinté SPF 50+"],
+    ["moisturizer", "BB cream Crème soin teintée Sable anti-âge"],
   ];
   for (const [type, name] of junk) expect({ name, picked: picked(type, name) }).toEqual({ name, picked: [] });
 
