@@ -80,7 +80,7 @@ function EmptyProfile() {
           artShift={-4}
           title="Your skin profile is empty"
           line="Fill it in to create a skincare routine made just for you."
-          action={<PrimaryButton label="Take the skin quiz" onPress={openQuiz} style={{ width: BUTTON_WIDTH.secondary }} />}
+          action={<PrimaryButton label="Take the skin quiz" onPress={() => openQuiz("routine")} style={{ width: BUTTON_WIDTH.secondary }} />}
         />
       </View>
     </FitScrollView>

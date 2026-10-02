@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { Animated, Easing, View } from "react-native";
 
 import { QuizOptionCard, QUIZ_OPTION_GRID } from "@/components/QuizOptionCard";
+import { useQuizFrame } from "@/components/QuizFrame";
 import { QuizScreen } from "@/components/QuizScreen";
 import { Text } from "@/components/Text";
+import { quizDestination } from "@/lib/open-quiz";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { PREGNANCY_OPTIONS, PREGNANCY_QUESTION, PREGNANCY_WHY, pregnancyLabel, pregnancyOption, quizStepNumber } from "@/lib/profile";
 import { BUTTON, DISPLAY_FONT, DIVIDER, INK, MUTED, TYPE } from "@/lib/tokens";
@@ -65,13 +67,17 @@ export default function PregnancyStep() {
   // shows while the routine is "built", then opens it (owner).
   const [building, setBuilding] = useState(false);
 
-  // On to the Skincare routine: back to it when the quiz opened over it, in
-  // the quiz's place otherwise.
+  // Where the quiz leads: opened from the Skincare routine, on to the routine;
+  // opened anywhere else (a product's "Take the 1-minute quiz"), back to that
+  // screen, which now shows the skin match.
+  const toRoutine = quizDestination() === "routine";
+  const { close } = useQuizFrame();
   function finish() {
     // Not set by skipping (QuizFrame's close) — there is nothing to
     // acknowledge for a quiz nobody answered. See issue #95.
     markQuizJustFinished();
-    router.dismissTo("/routine");
+    if (toRoutine) router.dismissTo("/routine");
+    else close();
   }
 
   if (building) {
@@ -87,10 +93,10 @@ export default function PregnancyStep() {
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
           <Image source={BUILDING_ART} contentFit="contain" accessibilityLabel="" style={{ width: 280, height: 280 }} />
           <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-            Building your skincare routine…
+            {toRoutine ? "Building your skincare routine…" : "Matching products to your skin…"}
           </Text>
           <Text style={{ maxWidth: 280, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
-            Putting together your morning and evening steps.
+            {toRoutine ? "Putting together your morning and evening steps." : "Checking ingredients against your answers."}
           </Text>
           <BuildingBar onDone={finish} />
         </View>
@@ -105,7 +111,7 @@ export default function PregnancyStep() {
       subtitle={PREGNANCY_WHY}
       onNext={() => setBuilding(true)}
       nextDisabled={!picked}
-      nextLabel="See my routine"
+      nextLabel={toRoutine ? "See my routine" : "See my match"}
     >
       <View style={QUIZ_OPTION_GRID}>
         {PREGNANCY_OPTIONS.map((option) => (

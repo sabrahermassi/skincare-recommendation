@@ -12,19 +12,31 @@ const REPEAT_GUARD_MS = 800;
 
 let lastOpenedAt = 0;
 
+/** Where the quiz goes when it is finished: back to the screen that opened it, or on to the Skincare routine. */
+export type QuizDestination = "back" | "routine";
+
+let destination: QuizDestination = "back";
+
+/** Where the quiz now open leads. Read by its last step. */
+export function quizDestination(): QuizDestination {
+  return destination;
+}
+
 /**
- * Opens the skin quiz as a modal over whatever screen asked for it (#346):
- * the Skincare routine's "Complete it now", or a result's "See your skin match". Finishing or closing it dismisses back to that same screen, so no
- * return address is passed along — a link can set a route param (#29), and
- * closing a modal needs none.
+ * Opens the skin quiz as a modal over whatever screen asked for it (#346).
+ * Finished from a result ("Take the 1-minute quiz"), it closes back to that
+ * result, which now shows the skin match. Opened from the Skincare routine
+ * (`"routine"`), it ends on the routine it has just made possible. A button
+ * hands its press event to `onPress`, so anything but that word means "back".
  */
-export function openQuiz() {
-  openQuizAt(Date.now());
+export function openQuiz(then?: unknown) {
+  openQuizAt(Date.now(), then === "routine" ? "routine" : "back");
 }
 
 /** `openQuiz` with the clock passed in — exported for the test. */
-export function openQuizAt(now: number) {
+export function openQuizAt(now: number, then: QuizDestination = "back") {
   if (now - lastOpenedAt < REPEAT_GUARD_MS) return;
   lastOpenedAt = now;
+  destination = then;
   router.push(quizRoutes()[0]);
 }

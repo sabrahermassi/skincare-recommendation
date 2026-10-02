@@ -6,7 +6,7 @@ import ConcernsStep from "@/app/quiz/concerns";
 import PregnancyStep, { BUILDING_MS } from "@/app/quiz/pregnancy";
 import SkinTypeStep from "@/app/quiz/skin-type";
 import { QuizFrame } from "@/components/QuizFrame";
-import { openQuiz } from "@/lib/open-quiz";
+import { openQuiz, openQuizAt } from "@/lib/open-quiz";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
@@ -130,8 +130,39 @@ describe("the quiz, as a modal", () => {
     expect(mockGoBack).not.toHaveBeenCalled();
   });
 
-  it("shows the building screen with no button, then opens the routine by itself", async () => {
+  // Opened from a result ("Take the 1-minute quiz"), the quiz ends back on that result (owner).
+  it("shows the building screen with no button, then closes back to the screen it opened over", async () => {
     useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["dehydrated"], baseSkinType: "dry" } });
+    openQuizAt(Date.now());
+    jest.useFakeTimers();
+    try {
+      await render(
+        <QuizFrame>
+          <PregnancyStep />
+        </QuizFrame>,
+      );
+      await fireEvent.press(screen.getByText("No"));
+      await fireEvent.press(screen.getByText("See my match"));
+      expect(screen.getByText("Matching products to your skin…")).toBeTruthy();
+      // Nothing to tap, and no step line above: the screen moves on when its bar is full.
+      expect(screen.queryByRole("button", { name: "See my match" })).toBeNull();
+      expect(screen.queryByRole("progressbar")).toBeNull();
+      expect(mockGoBack).not.toHaveBeenCalled();
+      await act(async () => {
+        jest.advanceTimersByTime(BUILDING_MS);
+      });
+      expect(mockGoBack).toHaveBeenCalledTimes(1);
+      expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+      expect(useAppStore.getState().profile.pregnancyStatus).toBe("neither");
+      expect(useAppStore.getState().justFinishedQuiz).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  // Opened from the Skincare routine, it ends on the routine.
+  it("opens the routine when it was opened from the routine", async () => {
+    openQuizAt(Date.now(), "routine");
     jest.useFakeTimers();
     try {
       await render(
@@ -142,23 +173,18 @@ describe("the quiz, as a modal", () => {
       await fireEvent.press(screen.getByText("No"));
       await fireEvent.press(screen.getByText("See my routine"));
       expect(screen.getByText("Building your skincare routine…")).toBeTruthy();
-      // Nothing to tap, and no step line above: the screen moves on when its bar is full.
-      expect(screen.queryByRole("button", { name: "See my routine" })).toBeNull();
-      expect(screen.queryByRole("progressbar")).toBeNull();
-      expect(mockRouter.dismissTo).not.toHaveBeenCalled();
       await act(async () => {
         jest.advanceTimersByTime(BUILDING_MS);
       });
       expect(mockRouter.dismissTo).toHaveBeenCalledWith("/routine");
       expect(mockGoBack).not.toHaveBeenCalled();
-      expect(useAppStore.getState().profile.pregnancyStatus).toBe("neither");
-      expect(useAppStore.getState().justFinishedQuiz).toBe(true);
     } finally {
       jest.useRealTimers();
     }
   });
 
-  it("goes back to the last question from the building screen, without opening the routine", async () => {
+  it("goes back to the last question from the building screen, without moving on", async () => {
+    openQuizAt(Date.now());
     jest.useFakeTimers();
     try {
       await render(
@@ -167,13 +193,14 @@ describe("the quiz, as a modal", () => {
         </QuizFrame>,
       );
       await fireEvent.press(screen.getByText("No"));
-      await fireEvent.press(screen.getByText("See my routine"));
+      await fireEvent.press(screen.getByText("See my match"));
       await fireEvent.press(screen.getByRole("button", { name: "Back" }));
       await act(async () => {
         jest.advanceTimersByTime(BUILDING_MS);
       });
-      expect(screen.getByRole("button", { name: "See my routine" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "See my match" })).toBeTruthy();
       expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+      expect(mockGoBack).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
     }
@@ -181,16 +208,17 @@ describe("the quiz, as a modal", () => {
 
   // Nobody has to say either way to finish: Prefer not to say is an answer.
   it("finishes on Prefer not to say, and shows it chosen when coming back", async () => {
+    openQuizAt(Date.now());
     await render(
       <QuizFrame>
         <PregnancyStep />
       </QuizFrame>,
     );
-    expect(screen.getByRole("button", { name: "See my routine" }).props.accessibilityState?.disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "See my match" }).props.accessibilityState?.disabled).toBe(true);
     await fireEvent.press(screen.getByText("Prefer not to say"));
     expect(useAppStore.getState().profile.pregnancyStatus).toBe("prefer-not-to-say");
     expect(screen.getByRole("radio", { name: "Prefer not to say" }).props.accessibilityState?.checked).toBe(true);
-    expect(screen.getByRole("button", { name: "See my routine" }).props.accessibilityState?.disabled).toBe(false);
+    expect(screen.getByRole("button", { name: "See my match" }).props.accessibilityState?.disabled).toBe(false);
   });
 
   it("has no Skip, and saves each answer as it's tapped, so a quiz swiped away keeps it", async () => {
