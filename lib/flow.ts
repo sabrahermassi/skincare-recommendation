@@ -8,5 +8,8 @@ import { ReduceMotion } from "react-native-reanimated";
  * it travels and gathers again where it lands. With Reduce Motion on it
  * simply moves.
  */
-export const FLOW_LEAD = { mass: 0.6, stiffness: 260, damping: 20, reduceMotion: ReduceMotion.System } as const;
-export const FLOW_TRAIL = { mass: 0.9, stiffness: 130, damping: 19, reduceMotion: ReduceMotion.System } as const;
+// Quick (owner: a switch must feel instant): the whole move is over in under
+// a fifth of a second, with just enough lag in the back edge to read as a
+// stretch.
+export const FLOW_LEAD = { mass: 0.4, stiffness: 520, damping: 30, reduceMotion: ReduceMotion.System } as const;
+export const FLOW_TRAIL = { mass: 0.5, stiffness: 320, damping: 28, reduceMotion: ReduceMotion.System } as const;

@@ -665,8 +665,9 @@ const EMPTY_ART_WIDTH = 280;
 const EMPTY_ART_HEIGHT = EMPTY_ART_WIDTH / Math.min(...Object.values(EMPTY_ART).map((art) => art.aspect));
 
 
-// How long a tab change cross-fades, one whole tab into the next.
-const TAB_FADE_MS = 300;
+// How long a tab change cross-fades, one whole tab into the next. Short
+// (owner: a switch must feel instant; it was 300).
+const TAB_FADE_MS = 120;
 const TABS: Tab[] = ["saved", "history", "ingredients"];
 
 /**
