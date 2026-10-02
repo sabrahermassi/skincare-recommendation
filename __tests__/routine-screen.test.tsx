@@ -130,16 +130,15 @@ it("names the best match for each step, and opens the product screen from it", a
   expect(router.push).toHaveBeenCalledWith({ pathname: "/product/[id]", params: { id: "c1" } });
 });
 
-it("offers the other matches for a step behind a count", async () => {
+// One product a step (owner, 2 October 2026): a shortlist left the choosing to
+// someone who came to be told.
+it("suggests one product a step, with no list of others to choose from", async () => {
   useAppStore.setState({ profile: ACNE });
   fetched.mockResolvedValue(CATALOGUE);
   await open();
-  // Two moisturisers: one named, one more behind the link.
-  await fireEvent.press(screen.getByRole("button", { name: "1 more for moisturiser" }));
-  expect(screen.getByText("Day cream")).toBeTruthy();
-  expect(screen.getByText("Night cream")).toBeTruthy();
-  await fireEvent.press(screen.getByRole("button", { name: "Fewer options for moisturiser" }));
+  // Two moisturisers in the catalogue: only the better match is named.
   expect(screen.getAllByText(/cream$/)).toHaveLength(1);
+  expect(screen.queryByRole("button", { name: /more for/ })).toBeNull();
 });
 
 it("names a treatment with the active for the concern in the evening, with what to look for and a way to scan one", async () => {
@@ -240,11 +239,12 @@ it("leads a step with the product the person added, and takes it out again", asy
   await open();
   await waitFor(() => expect(screen.getByText("Your pick · Brand")).toBeTruthy());
   expect(screen.getByRole("button", { name: /^Your pick: Brand Night cream\. / })).toBeTruthy();
-  // Ours is still there, behind the count.
-  expect(screen.getByRole("button", { name: "1 more for moisturiser" })).toBeTruthy();
+  // Theirs stands in place of ours, not beside it; taking it out brings ours back.
+  expect(screen.getAllByText(/cream$/)).toHaveLength(1);
   await fireEvent.press(screen.getByRole("button", { name: "Remove Night cream from my routine" }));
   expect(useAppStore.getState().routinePicks).toEqual({});
   expect(screen.queryByText("Your pick · Brand")).toBeNull();
+  expect(screen.getAllByText(/cream$/)).toHaveLength(1);
 });
 
 it("loads the products on Try again", async () => {

@@ -50,12 +50,14 @@ export type RoutineSlot = {
    * product we may not have). `null` on a basic step.
    */
   active: RoutineActive | null;
-  /** The best matches for the step, best first, three at most. */
-  picks: RoutinePick[];
+  /**
+   * The one product we suggest for the step: the best match, or `null` when
+   * nothing qualifies. One, not a shortlist (owner, 2 October 2026): three
+   * options handed the choice back to someone who came to be told, and who
+   * can still scan a product of their own and add it.
+   */
+  pick: RoutinePick | null;
 };
-
-/** How many products one step offers: its pick, and two more to choose from. */
-export const PICKS_PER_STEP = 3;
 
 /** The Skin needs goal that works on each profile concern. */
 const CONCERN_GOAL: Record<Concern, GoalKey> = {
@@ -211,20 +213,19 @@ export function routinePick(product: ProductWithIngredients, profile: SkinProfil
   return recommendable(product, match) ? { product, match } : null;
 }
 
-/** Both routines from the scored picks: each step keeps its three best. */
+/** Both routines from the scored picks: each step keeps its best. */
 export function assembleRoutine(picks: readonly RoutinePick[], profile: SkinProfile): Routine {
   // Best match first; the name settles a tie, so the same profile always gets the same routine.
   const scored = [...picks].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0) || a.product.name.localeCompare(b.product.name));
   const slots = (time: TimeOfDay): RoutineSlot[] =>
     STEPS[time].map((step) => {
       if (!step.active) {
-        const chosen = scored.filter((pick) => step.fits(pick.product)).slice(0, PICKS_PER_STEP);
-        return { key: step.key, label: step.label, active: null, picks: chosen };
+        return { key: step.key, label: step.label, active: null, pick: scored.find((pick) => step.fits(pick.product)) ?? null };
       }
-      // An active step: only products that hold one of its actives, the ones
-      // with the best active first, then by skin match. The step's headline is
-      // the active its first product holds, so the big letters and the bottle
-      // under them never name two different things.
+      // An active step: only a product that holds one of its actives, the one
+      // with the best active, and among those the best skin match. The step's
+      // headline is the active that product holds, so the big letters and the
+      // bottle under them never name two different things.
       const { cards, cautions } = cardsFor(step.active, profile);
       const holding = scored
         .filter((pick) => step.fits(pick.product))
@@ -233,9 +234,9 @@ export function assembleRoutine(picks: readonly RoutinePick[], profile: SkinProf
           return card ? [{ pick, rank: cards.indexOf(card), card }] : [];
         })
         // `scored` is already best match first, and the sort is stable.
-        .sort((a, b) => a.rank - b.rank)
-        .slice(0, PICKS_PER_STEP);
-      return { key: step.key, label: step.label, active: activeFor(cards, holding[0]?.card ?? cards[0], cautions, profile), picks: holding.map(({ pick }) => pick) };
+        .sort((a, b) => a.rank - b.rank);
+      const best = holding[0];
+      return { key: step.key, label: step.label, active: activeFor(cards, best?.card ?? cards[0], cautions, profile), pick: best?.pick ?? null };
     });
   return { morning: slots("morning"), evening: slots("evening") };
 }

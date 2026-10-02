@@ -191,11 +191,20 @@ it("offers the first scan on an empty Saved, and no button on an empty History o
 
 it("shows a label photo in History and opens that same result", async () => {
   useAppStore.setState({
-    history: [{ id: "label-7", known: false, firstSeenAt: 1, lastSeenAt: Date.now(), seenCount: 1, scoreAtView: 64, warningsAtView: 0, label: ["water", "glycerin"] }],
+    history: [
+      { id: "label-7", known: false, firstSeenAt: 1, lastSeenAt: Date.now(), seenCount: 1, scoreAtView: 64, warningsAtView: 0, label: ["water", "glycerin", "niacinamide"], labelNo: 2 },
+      // Scanned before label photos were numbered: it keeps its old name.
+      { id: "label-3", known: false, firstSeenAt: 1, lastSeenAt: Date.now() - 1000, seenCount: 1, scoreAtView: 50, warningsAtView: 0, label: ["water", "glycerin"] },
+    ],
   });
   await render(<Saved />);
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "History" })));
-  const card = await screen.findByRole("button", { name: /^Label photo, 2 ingredients, Scanned · we don't have this product/ });
+  // Numbered, and named by what says most about it (owner): its active first.
+  expect(await screen.findByText("Product 2: Niacinamide, Glycerin")).toBeTruthy();
+  expect(screen.getByText("Label photo: Glycerin")).toBeTruthy();
+  // The names are all it has to go by, so at a large text size they get a third line.
+  expect(screen.getByText("Product 2: Niacinamide, Glycerin").props.numberOfLines).toBe(3);
+  const card = screen.getByRole("button", { name: /^Product 2: Niacinamide, Glycerin, 3 ingredients, Scanned · we don't have this product/ });
   expect(screen.getByLabelText("64 out of 100")).toBeTruthy();
   await act(async () => fireEvent.press(card));
   expect(mockPush).toHaveBeenCalledWith({ pathname: "/label-result", params: { entry: "label-7" } });
