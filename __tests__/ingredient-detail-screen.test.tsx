@@ -157,7 +157,7 @@ describe("the ingredient page, opened from a product", () => {
   });
 });
 
-// #347: a warning's own sentence carries its source here too, as on the product page.
+// #347: what a warning was checked against is listed in the Sources card.
 describe.each([
   ["default text", 1],
   ["the largest text size", 3.57],
@@ -169,19 +169,19 @@ describe.each([
     mockFontScale = 1;
   });
 
-  it("shows both of hydroquinone's warnings, each under its own source", async () => {
+  it("shows both of hydroquinone's warnings, and both their sources in the Sources card", async () => {
     const hydroquinone = PREGNANCY_CAUTION.find((entry) => entry.category === "hydroquinone")!;
     await open("hydroquinone", { pregnancyStatus: "pregnant" });
     expect(screen.getByText("Flagged as best avoided")).toBeTruthy();
-    expect(screen.getByLabelText(`Source: ${EU_PROHIBITED_SOURCE.label}`)).toBeTruthy();
+    expect(screen.getByRole("link", { name: EU_PROHIBITED_SOURCE.label })).toBeTruthy();
     expect(screen.getByText(hydroquinone.reason)).toBeTruthy();
-    expect(screen.getByLabelText(`Source: ${hydroquinone.source!.label}`)).toBeTruthy();
+    expect(screen.getByRole("link", { name: hydroquinone.source!.label })).toBeTruthy();
   });
 
-  it("shows the EU prohibition under a best-avoided warning", async () => {
+  it("lists the EU prohibition as the source of a best-avoided warning", async () => {
     await open("some prohibited substance", {});
     expect(screen.getByText("Flagged as best avoided")).toBeTruthy();
-    expect(screen.getByLabelText(`Source: ${EU_PROHIBITED_SOURCE.label}`)).toBeTruthy();
+    expect(screen.getByRole("link", { name: EU_PROHIBITED_SOURCE.label })).toBeTruthy();
   });
 
   it("shows no source under a restricted ingredient's warning", async () => {

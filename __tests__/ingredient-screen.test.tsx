@@ -1,5 +1,4 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { Linking } from "react-native";
 
 import IngredientRoute from "@/app/ingredient/[inci]";
 import { resolveIngredientNames } from "@/data/api";
@@ -8,8 +7,9 @@ import { INGREDIENT_RULES } from "@/lib/rules";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
- * #326: a claim from a sourced rule shows "Source: …" under it; the Sources
- * card (EU CosIng and PubChem, v9) is only for a name no rule covers.
+ * #326, as the owner placed it on 2 October 2026: everything a claim was
+ * checked against is in one Sources card on the ingredient's sheet (a rule's
+ * source, then EU CosIng and PubChem), and there is no card with no source.
  */
 
 jest.setTimeout(30_000);
@@ -50,26 +50,27 @@ describe("the ingredient page", () => {
     useAppStore.setState({ profile: EMPTY_PROFILE });
   });
 
-  it("shows a sourced rule's source under its claim, and no Sources card", async () => {
+  it("lists a sourced rule's source in the Sources card, with the two databases, and not under its claim", async () => {
     await open("niacinamide");
     expect(NIACINAMIDE_SOURCE).toBeDefined();
-    expect(screen.getByText(NIACINAMIDE_SOURCE!.label)).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "PubChem" })).toBeNull();
+    expect(screen.getByRole("header", { name: "Sources" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: NIACINAMIDE_SOURCE!.label })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "EU CosIng ingredient database" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "PubChem" })).toBeTruthy();
+    expect(screen.queryByText(/^Source:/)).toBeNull();
   });
 
   it("opens the source when it's tapped", async () => {
-    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+    const { openBrowserAsync } = jest.requireMock("expo-web-browser") as { openBrowserAsync: { mock: { calls: unknown[][] } } };
     await open("niacinamide");
-    await fireEvent.press(screen.getByLabelText(`Source: ${NIACINAMIDE_SOURCE!.label}`));
-    expect(openURL).toHaveBeenCalledWith(NIACINAMIDE_SOURCE!.url);
-    openURL.mockRestore();
+    await fireEvent.press(screen.getByRole("link", { name: NIACINAMIDE_SOURCE!.label }));
+    expect(openBrowserAsync.mock.calls.at(-1)?.[0]).toBe(NIACINAMIDE_SOURCE!.url);
   });
 
-  it("keeps the Sources card as the fallback for a name no rule covers", async () => {
+  it("lists the two databases alone for a recognised name no rule covers", async () => {
     await open("xanthan gum");
     expect(screen.getByRole("header", { name: "Sources" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "EU CosIng ingredient database" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "PubChem" })).toBeTruthy();
+    expect(screen.getAllByRole("link").map((link) => link.props.accessibilityLabel)).toEqual(expect.arrayContaining(["EU CosIng ingredient database", "PubChem"]));
     expect(screen.queryByText(/^Source:/)).toBeNull();
   });
 
@@ -93,10 +94,10 @@ describe("the ingredient page", () => {
     }
   });
 
-  it("shows neither for a rule still waiting for a source", async () => {
+  it("lists only the two databases for a rule still waiting for a source", async () => {
     await open("tea tree oil");
     expect(screen.queryByText(/^Source:/)).toBeNull();
-    expect(screen.queryByRole("link", { name: "PubChem" })).toBeNull();
+    expect(screen.getByRole("link", { name: "PubChem" })).toBeTruthy();
   });
 
   // Opened on its own (a label photo, Saved), with no product to score: a

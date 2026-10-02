@@ -8,7 +8,6 @@ import { CloseCross, IconCircle } from "@/components/IconCircle";
 import { PopOnToggle } from "@/components/PopOnToggle";
 import { ReportMistakeLink } from "@/components/ReportMistakeLink";
 import { SheetScreen } from "@/components/SheetScreen";
-import { SourceLink } from "@/components/SourceLink";
 import { ReadingScale, Text } from "@/components/Text";
 import { VerdictMarker } from "@/components/VerdictMarker";
 import { fetchProduct, resolveIngredientNames } from "@/data/api";
@@ -39,7 +38,7 @@ import NotFound from "@/app/+not-found";
  * The handoff sets the look only. Every word here still comes from what we
  * hold — the curated rule, the ingredient's note, CosIng's function list, the
  * EU status, the pore rating, the label position — never written per
- * ingredient. A claim from a curated rule carries its checked source (#326).
+ * ingredient. What a claim was checked against is in the Sources card (#326).
  * The star stays in the corner: Saved's Ingredients tab is built on it, though
  * the mockup has none.
  */
@@ -158,6 +157,20 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
   const helps = match ? fit === "good" : ruleTargets(ingredient, profile).helps;
   const hurts = match ? countedAgainst(ingredient, match) : ruleTargets(ingredient, profile).hurts;
 
+  // The Sources card: the page each claim on this sheet was checked against
+  // (the rule's, then each warning's), then the two reference databases for a
+  // recognised name. One line per page.
+  const sources = [
+    ...(rule?.source ? [rule.source] : []),
+    ...warningLines.flatMap((w) => (w.source ? [w.source] : [])),
+    ...(verified
+      ? [
+          { label: "EU CosIng ingredient database", url: "https://ec.europa.eu/growth/tools-databases/cosing/" },
+          { label: "PubChem", url: `https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(ingredient.name)}` },
+        ]
+      : []),
+  ].filter((source, i, all) => all.findIndex((other) => other.url === source.url) === i);
+
   const { primary, secondary } = splitName(ingredient);
   const starred = savedIngredients.includes(ingredient.name);
   const kind = kindLine(ingredient, rule, secondary);
@@ -219,20 +232,17 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             <View style={{ padding: 16, gap: 4 }}>
               <CardHeading>What it does</CardHeading>
               <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
-              {rule?.source ? <SourceLink source={rule.source} /> : null}
             </View>
 
             {/* For your skin, on the verdict's light wash (v7). */}
             <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: 16, gap: 4 }}>
               <CardHeading>For your skin</CardHeading>
               <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
-              {/* A warning's own sentence is the most specific thing we hold,
-                  with its source under it (#347). */}
+              {/* A warning's own sentence is the most specific thing we hold (#347). */}
               {fit !== "unknown" && warningLines.length > 0 ? (
                 warningLines.map((w) => (
                   <View key={w.origin} style={{ gap: 4 }}>
                     <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>{w.reason}</Text>
-                    {w.source ? <SourceLink source={w.source} /> : null}
                   </View>
                 ))
               ) : fit === "none" && !personalized ? (
@@ -251,6 +261,19 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
             </View>
 
             {inList ? <OnThisLabel names={product.ingredients.map((i) => i.name)} index={index} colour={tone.solid} /> : null}
+
+            {/* Sources (owner, 2 October 2026): every source we hold for this
+                ingredient, in one card under where it sits on the label: what
+                its claims were checked against, then the EU's inventory and
+                PubChem for a name we recognise. No card when there is none. */}
+            {sources.length > 0 ? (
+              <Card style={{ padding: 16, gap: 4 }}>
+                <CardHeading>Sources</CardHeading>
+                {sources.map((source) => (
+                  <ReferenceLink key={source.url} label={source.label} url={source.url} />
+                ))}
+              </Card>
+            ) : null}
 
             {/* Good to know: neutral facts, no ticks (handoff). */}
             <Card style={{ paddingTop: 16, paddingBottom: 4 }}>
@@ -272,19 +295,6 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
                 </Text>
               )}
             </Card>
-
-
-            {/* Where to read more (v9): the EU's inventory and PubChem. Only
-                for a recognised name no rule covers (#326): a rule's claim
-                links its own checked source above, and a general search
-                under it would read as backing the claim. */}
-            {verified && !rule ? (
-              <Card style={{ padding: 16, gap: 4 }}>
-                <CardHeading>Sources</CardHeading>
-                <ReferenceLink label="EU CosIng ingredient database" url="https://ec.europa.eu/growth/tools-databases/cosing/" />
-                <ReferenceLink label="PubChem" url={`https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(ingredient.name)}`} />
-              </Card>
-            ) : null}
 
             <Text style={{ fontSize: TYPE.caption, color: MUTED, paddingHorizontal: 4 }}>Reference data from Open Beauty Facts and EU CosIng.</Text>
 

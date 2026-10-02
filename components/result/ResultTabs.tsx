@@ -9,19 +9,17 @@ import { GlassHeader } from "@/components/GlassHeader";
 import { IngredientsCard, type IngredientFilter } from "@/components/result/IngredientsCard";
 import { ScoreDisc, VerdictLink } from "@/components/result/ScoreRing";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
-import { SourceLink } from "@/components/SourceLink";
 import { ReadingScale, Text, useLargeText } from "@/components/Text";
 import { VerdictDot } from "@/components/VerdictMarker";
 import type { Concern, Ingredient, ProductType, SkinProfile } from "@/data/types";
 import { pairingNotesFor } from "@/lib/active-pairings";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { displayIngredientName } from "@/lib/ingredient-name";
-import { cardSource, deckFor, JOURNEY_CONCERNS, planFit, ROLE_LABEL, shortLabel } from "@/lib/journey";
+import { deckFor, JOURNEY_CONCERNS, planFit, ROLE_LABEL, shortLabel } from "@/lib/journey";
 import { concernSupport, confidenceLabel, isLowCoverage, matchProduct, ruleFor, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
-import type { RuleSource } from "@/lib/rules";
 import { irritationWarnings, isVerified } from "@/lib/safety";
 import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE, STONE_GLASS, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -247,7 +245,7 @@ function ScoreHead({ match }: { match: MatchResult }) {
   );
 }
 
-type Reason = { key: string; name: string; text: string; tag: string; tone: Tone; source?: RuleSource };
+type Reason = { key: string; name: string; text: string; tag: string; tone: Tone };
 
 /** What the result says first, by how well it scored (v9). */
 const REASONS_TITLE: Record<MatchResult["verdict"], string> = {
@@ -263,8 +261,9 @@ const REASONS_TITLE: Record<MatchResult["verdict"], string> = {
  * profile: a title and a line saying how the product fits, then a box per
  * finding — what to avoid (red), which of the Skin needs recommendations it
  * covers (green), what this skin is warned about (orange), and the concerns
- * it leaves uncovered. Each box is the bold name, a sentence, and a tag; a
- * claim keeps its source under it (#326).
+ * it leaves uncovered. Each box is the bold name, a sentence, and a tag. No
+ * sources here (owner): they are on each ingredient's own sheet, in its
+ * Sources card.
  */
 function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingredient[]; match: MatchResult; profile: SkinProfile; concerns: Concern[] }) {
   const journeyConcerns = concerns.filter((c) => JOURNEY_CONCERNS.some((j) => j.concern === c));
@@ -278,7 +277,7 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
   for (const w of hazards) {
     if (seen.has(w.ingredient.name)) continue;
     seen.add(w.ingredient.name);
-    rows.push({ key: `avoid-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tag: "Best avoided", tone: VERDICT.low, source: w.source });
+    rows.push({ key: `avoid-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tag: "Best avoided", tone: VERDICT.low });
   }
   // Then the recommendations it covers, one box per card.
   for (const { card, role, ingredients: hits } of fit?.covered ?? []) {
@@ -290,7 +289,6 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
       text: card.key === "hydrating" ? " put water back in and help keep it there." : ` ${card.line.charAt(0).toLowerCase()}${card.line.slice(1)}`,
       tag: ROLE_LABEL[role],
       tone: VERDICT.high,
-      source: cardSource(card) ?? undefined,
     });
   }
   // With no recommendations to count (a profile without those concerns):
@@ -309,15 +307,14 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
         text: rule ? ` helps with ${CONCERN_PHRASE[concern]}` : stripName(support.why, support.ingredient),
         tag: "Good for you",
         tone: VERDICT.high,
-        source: rule?.source,
       });
     }
   }
-  // Then what this skin is warned about, each with its source.
+  // Then what this skin is warned about.
   for (const w of irritationWarnings(match.warnings)) {
     if (seen.has(w.ingredient.name)) continue;
     seen.add(w.ingredient.name);
-    rows.push({ key: `watch-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tag: "Watch out", tone: VERDICT.medium, source: w.source });
+    rows.push({ key: `watch-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tag: "Watch out", tone: VERDICT.medium });
   }
   // The concerns none of its ingredients work on.
   if (fit && fit.notCovered.length > 0) {
@@ -341,7 +338,6 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
       text: stripName(r.reason, r.ingredient),
       tag: up ? "Good to know" : "Watch out",
       tone: up ? VERDICT.high : VERDICT.medium,
-      source: r.source,
     });
   }
   const shown = rows.slice(0, 6);
@@ -377,8 +373,6 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
                 {row.text}
               </Text>
               <Text style={{ fontSize: TYPE.caption, color: row.tone.deep }}>{row.tag}</Text>
-              {/* Every claim traces to what it was checked against (#326). */}
-              {row.source ? <SourceLink source={row.source} /> : null}
             </View>
           </View>
         ))}
@@ -434,11 +428,10 @@ function RoutineNotes({ ingredients, type, profile }: { ingredients: Ingredient[
   );
 }
 
-/** "Best avoided while pregnant" (v7): shown only when the profile says so, with each caution's source. */
+/** "Best avoided while pregnant" (v7): shown only when the profile says so. Its sources are on each ingredient's own sheet. */
 function PregnancyCard({ match }: { match: MatchResult }) {
   const pregnancy = match.warnings.filter((w) => w.origin === "pregnancy");
   if (pregnancy.length === 0) return null;
-  const sources = [...new Map(pregnancy.flatMap((w) => (w.source ? [[w.source.url, w.source] as const] : []))).values()];
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.low.wash, padding: SPACE.gutter }}>
       <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT.low.solid }}>
@@ -453,9 +446,6 @@ function PregnancyCard({ match }: { match: MatchResult }) {
         <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>
           It contains {listNames(pregnancy.map((w) => displayIngredientName(w.ingredient.name)))}. If you&apos;re unsure, ask your doctor or midwife.
         </Text>
-        {sources.map((source) => (
-          <SourceLink key={source.url} source={source} />
-        ))}
       </View>
     </View>
   );
