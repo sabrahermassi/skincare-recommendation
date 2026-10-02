@@ -1044,6 +1044,14 @@ distinction is the whole reason both lines survive:
   mood or weather logs, "on this day", monthly recaps, before/after photos.
   None of that is in.
 
+**The routine screen recommends products per step (owner, 2 October 2026).**
+This moves the first line: the Skincare routine screen lays out a morning and
+an evening sequence and names the catalogue's best matches for each step, from
+the skin profile (`lib/routine-builder.ts`). A person can also put a product of their own in a step, from its result
+("Add to my routine"); the app chooses the step, and the pick is kept on the
+device only. What stays out is the rest of that line: reminders,
+notifications, scheduling, and reordering or adding steps.
+
 **AM/PM conflict flags (#233) are not a schedule either.** Flagging that two
 actives should not meet is a safety warning attached to a verdict. Telling
 someone what to apply at 9pm is a routine builder.

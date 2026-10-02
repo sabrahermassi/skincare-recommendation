@@ -10,7 +10,7 @@ import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import { haptic } from "@/lib/haptics";
 import { CONCERN_TITLE, PREGNANCY_QUESTION, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
-import { CANVAS, CARD_RADIUS, INK, LINK, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, DANGER, INK, LINK, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 import { EMPTY_PROFILE, MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
 
@@ -96,7 +96,8 @@ export default function SkinProfileScreen() {
       <ScreenHeader />
       <FitScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
         {/* "Reset" on the title's own line (owner), at its right: words, not a
-            button, like "Clear all" on Saved. Only there when there is an
+            button, like "Clear all" on Saved, in the app's red so it reads as
+            taking the answers away (owner). Only there when there is an
             answer to reset. It ends where the cards' "Change" ends. */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block }}>
           <View style={{ flex: 1 }}>
@@ -104,7 +105,7 @@ export default function SkinProfileScreen() {
           </View>
           {hasAnswers ? (
             <Pressable onPress={reset} accessibilityRole="button" accessibilityLabel="Reset skin profile" hitSlop={12} style={{ paddingRight: SPACE.gutter, justifyContent: "center" }} className="active:opacity-70">
-              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Reset</Text>
+              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: DANGER }}>Reset</Text>
             </Pressable>
           ) : null}
         </View>

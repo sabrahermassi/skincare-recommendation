@@ -204,6 +204,10 @@ left the phone.
   status may be special-category data under GDPR Art. 9, and #14 has not
   decided it).
 - **Scan history** never leaves the phone either.
+- **The products a person adds to their routine** ("Add to my routine") never
+  leave the phone either: a routine step and a catalogue product id each, in
+  `AsyncStorage` with the scan history, kept at sign-out and erased by Delete
+  my profile. There is no server copy.
 - On a phone the profile is in the Keychain (#189): encrypted by the
   system, readable only while the phone is unlocked, and **not in backups**,
   so it doesn't move to a new phone; the person answers the four questions

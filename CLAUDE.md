@@ -160,7 +160,8 @@ native.
 - Regenerate typed routes (above) whenever routes change.
 
 **State** — `store/useAppStore.ts`, one Zustand store: skin profile,
-onboarding flag, wishlist. Persisted via `persist` + AsyncStorage, gated on
+onboarding flag, wishlist, and the products a person put in their own routine
+(`routinePicks`, device only, never sent to the account). Persisted via `persist` + AsyncStorage, gated on
 `useAppStore.persist.hasHydrated()` in `app/_layout.tsx` — except the profile,
 which `formeStorageFor` keeps in the Keychain on a phone (#189).
 **Two files may import AsyncStorage, and no third without review:**

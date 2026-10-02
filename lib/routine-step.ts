@@ -1,9 +1,11 @@
 import type { ProductType } from "@/data/types";
 
 /**
- * Routine-step tagging (#227): where a saved product belongs — not when to
- * use it. No morning/evening, no order, no reminders; that is a routine
- * builder, and `FOR_ME_MVP.md` keeps it out.
+ * Routine-step tagging (#227): where a saved product belongs on the shelf,
+ * in three broad groups. It is not the Skincare routine screen's morning and
+ * evening steps, which are built from the skin profile
+ * (`lib/routine-builder.ts`) and keep a product of one's own separately
+ * (`routinePicks` in the store).
  */
 
 /** The three steps a person can put a product in. */

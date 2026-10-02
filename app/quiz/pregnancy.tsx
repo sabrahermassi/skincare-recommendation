@@ -1,16 +1,16 @@
-import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
-import { Animated, Easing, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Easing, Platform, View } from "react-native";
 
+import { BuildingRoutine } from "@/components/BuildingRoutine";
 import { QuizOptionCard, QUIZ_OPTION_GRID } from "@/components/QuizOptionCard";
 import { useQuizFrame } from "@/components/QuizFrame";
 import { QuizScreen } from "@/components/QuizScreen";
-import { Text } from "@/components/Text";
 import { quizDestination } from "@/lib/open-quiz";
 import { reduceMotionNow } from "@/lib/reduce-motion";
+import { prepareRoutine } from "@/lib/routine-build";
 import { PREGNANCY_OPTIONS, PREGNANCY_QUESTION, PREGNANCY_WHY, pregnancyLabel, pregnancyOption, quizStepNumber } from "@/lib/profile";
-import { BUTTON, DISPLAY_FONT, DIVIDER, INK, MUTED, TYPE } from "@/lib/tokens";
+import { BUTTON, DIVIDER } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -27,33 +27,46 @@ import { useAppStore } from "@/store/useAppStore";
  * answering either way.
  */
 
-const BUILDING_ART = require("@/assets/illustrations/loading-routine.webp");
-
-/** How long the closing screen shows, and its bar takes to fill. */
+/** The least time the closing screen shows, and how long its bar takes to fill. */
 export const BUILDING_MS = 2400;
 
 /**
  * The closing screen's short bar (v9), filling from empty to full while the
- * routine is "built", then calling `onDone` (owner). With Reduce Motion on it
- * is full from the start, and waits the same time.
+ * routine is built, then calling `onDone` (owner). It moves on when the bar
+ * is full and `work` has finished, whichever comes last: with a routine to
+ * build, the screen waits for the real thing rather than for a clock, so the
+ * routine is there when it opens (owner, 2 October 2026). With Reduce Motion
+ * on the bar is full from the start, and waits the same.
  */
-function BuildingBar({ onDone }: { onDone: () => void }) {
+function BuildingBar({ work, onDone }: { /** Starts what the screen waits for, and returns a way to call it off. */ work?: (finished: () => void) => () => void; onDone: () => void }) {
   const [fill] = useState(() => new Animated.Value(reduceMotionNow() ? 1 : 0));
+  const done = useRef(onDone);
+  const start = useRef(work);
   useEffect(() => {
-    // Width is layout, which the native driver can't animate.
-    const run = Animated.timing(fill, { toValue: 1, duration: BUILDING_MS, easing: Easing.inOut(Easing.quad), useNativeDriver: false });
+    // A scale, not a width, so the bar runs off the JS thread: that thread is
+    // busy building the routine while this fills, and a width would stutter.
+    const run = Animated.timing(fill, { toValue: 1, duration: BUILDING_MS, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== "web" });
     run.start();
-    const done = setTimeout(onDone, BUILDING_MS);
+    let full = false;
+    let worked = !start.current;
+    const maybeDone = () => full && worked && done.current();
+    const timer = setTimeout(() => {
+      full = true;
+      maybeDone();
+    }, BUILDING_MS);
+    const callOff = start.current?.(() => {
+      worked = true;
+      maybeDone();
+    });
     return () => {
       run.stop();
-      clearTimeout(done);
+      clearTimeout(timer);
+      callOff?.();
     };
-    // `onDone` is read once, when the screen opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fill]);
   return (
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 160, height: 4, borderRadius: 2, backgroundColor: DIVIDER, overflow: "hidden" }}>
-      <Animated.View style={{ width: fill.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }), height: 4, borderRadius: 2, backgroundColor: BUTTON.primary.fill }} />
+      <Animated.View style={{ width: "100%", height: 4, borderRadius: 2, backgroundColor: BUTTON.primary.fill, transformOrigin: "left", transform: [{ scaleX: fill }] }} />
     </View>
   );
 }
@@ -90,16 +103,13 @@ export default function PregnancyStep() {
         // No button here: the screen moves on by itself when the bar is full.
         onNext={() => {}}
       >
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
-          <Image source={BUILDING_ART} contentFit="contain" accessibilityLabel="" style={{ width: 280, height: 280 }} />
-          <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-            {toRoutine ? "Building your skincare routine…" : "Matching products to your skin…"}
-          </Text>
-          <Text style={{ maxWidth: 280, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
-            {toRoutine ? "Putting together your morning and evening steps." : "Checking ingredients against your answers."}
-          </Text>
-          <BuildingBar onDone={finish} />
-        </View>
+        <BuildingRoutine
+          title={toRoutine ? "Building your skincare routine…" : "Matching products to your skin…"}
+          line={toRoutine ? "Putting together your morning and evening steps." : "Checking ingredients against your answers."}
+        >
+          {/* On the way to the routine, the wait is for the routine itself, built from the answers just given. */}
+          <BuildingBar work={toRoutine ? (finished) => prepareRoutine(useAppStore.getState().profile, finished) : undefined} onDone={finish} />
+        </BuildingRoutine>
       </QuizScreen>
     );
   }
