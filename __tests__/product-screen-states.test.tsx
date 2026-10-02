@@ -457,6 +457,14 @@ describe("the product screen opened from the journey", () => {
     expect(useAppStore.getState().routinePicks).toEqual({});
   });
 
+  it("says when adding it takes the place of a product picked for that step before", async () => {
+    useAppStore.setState({ routinePicks: { "morning:serum": "another-serum" } });
+    await open({ from: "journey", need: "dark-marks.." });
+    expect(screen.getByText(/It goes in Morning · Serum, in place of the product you picked for it before\./)).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Add to my routine" }));
+    expect(useAppStore.getState().routinePicks).toEqual({ "morning:serum": PRODUCT.id });
+  });
+
   it("does not offer it for a product that is not made for the pick", async () => {
     useAppStore.setState({ routinePicks: {} });
     await open({ from: "journey", need: "pimples.." });

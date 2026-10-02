@@ -148,15 +148,17 @@ it("names a treatment with the active for the concern in the evening, with what 
   await open();
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
   expect(screen.getByText("BHA serum")).toBeTruthy();
-  expect(screen.getByText("Benzoyl peroxide")).toBeTruthy();
-  expect(screen.getByText("For acne. Retinoids or Salicylic acid would do too.")).toBeTruthy();
+  // The step is named for the active that serum holds.
+  expect(screen.getByText("Salicylic acid")).toBeTruthy();
+  expect(screen.getByText("For acne. Benzoyl peroxide or Retinoids would do too.")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Scan one to check, for treatment" })).toBeTruthy();
 });
 
-it("still lays out the steps when the catalogue cannot be read", async () => {
+it("says so when the catalogue cannot be read, and tries again from there", async () => {
   useAppStore.setState({ profile: ACNE });
   fetched.mockRejectedValue(new Error("offline"));
   await open();
+  expect(screen.getByText("We couldn't load products, so the steps have none yet.")).toBeTruthy();
   expect(screen.getAllByText("No product picked yet.")).toHaveLength(3);
   expect(screen.getByText("Azelaic acid")).toBeTruthy();
 });
@@ -245,3 +247,31 @@ it("leads a step with the product the person added, and takes it out again", asy
   expect(screen.queryByText("Your pick · Brand")).toBeNull();
 });
 
+it("loads the products on Try again", async () => {
+  useAppStore.setState({ profile: ACNE });
+  fetched.mockRejectedValueOnce(new Error("offline"));
+  await open();
+  fetched.mockResolvedValue(CATALOGUE);
+  await fireEvent.press(screen.getByRole("button", { name: "Try loading products again" }));
+  await waitFor(() => expect(screen.getByText("Foaming gel")).toBeTruthy());
+  expect(screen.queryByText("We couldn't load products, so the steps have none yet.")).toBeNull();
+});
+
+it("warns on a product of one's own that we would no longer pick", async () => {
+  // Added when it suited; the profile now says pregnant, and it holds salicylic acid.
+  useAppStore.setState({ profile: { ...ACNE, pregnancyStatus: "pregnant" }, routinePicks: { "evening:treatment": "t1" } });
+  fetched.mockResolvedValue(CATALOGUE);
+  await open();
+  await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
+  await waitFor(() => expect(screen.getByText("Your pick · Brand")).toBeTruthy());
+  expect(screen.getByText("We wouldn't pick this for your skin profile as it is now.")).toBeTruthy();
+});
+
+it("keeps the place of a product of one's own that cannot be shown, so it can still be taken out", async () => {
+  useAppStore.setState({ profile: ACNE, routinePicks: { "morning:moisturise": "gone" } });
+  fetched.mockResolvedValue(CATALOGUE);
+  await open();
+  await waitFor(() => expect(screen.getByText("Your pick for this step can't be shown right now.")).toBeTruthy());
+  await fireEvent.press(screen.getByRole("button", { name: "Remove my pick from this step" }));
+  expect(useAppStore.getState().routinePicks).toEqual({});
+});

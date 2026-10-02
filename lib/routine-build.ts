@@ -12,20 +12,22 @@ const SCORE_BATCH = 25;
  * A new one is built in small batches. Scoring the catalogue in one go froze
  * the app for as long as it took (owner, 2 October 2026), so each batch
  * leaves room for a tap before the next. A catalogue that cannot be read
- * still gives a routine: its steps, with nothing picked.
+ * still gives a routine, its steps with nothing picked, and `loaded` is then
+ * false, so the screen can say so and try again; that one is not remembered.
  *
  * Returns a way to call it off. Two screens use this: the routine itself, and
  * the skin quiz's closing screen, which waits on it so the routine is there
  * the moment it opens.
  */
-export function prepareRoutine(profile: SkinProfile, onReady: (routine: Routine) => void): () => void {
+export function prepareRoutine(profile: SkinProfile, onReady: (routine: Routine, loaded: boolean) => void): () => void {
   let cancelled = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
-  const build = (products: ProductWithIngredients[]) => {
+  const build = (products: ProductWithIngredients[], loaded: boolean) => {
     if (cancelled) return;
+    if (!loaded) return onReady(assembleRoutine([], profile), false);
     const remembered = recallRoutine(profile, products);
-    if (remembered) return onReady(remembered);
+    if (remembered) return onReady(remembered, true);
 
     const candidates = routineCandidates(products);
     const picks: RoutinePick[] = [];
@@ -43,12 +45,15 @@ export function prepareRoutine(profile: SkinProfile, onReady: (routine: Routine)
       }
       const routine = assembleRoutine(picks, profile);
       rememberRoutine(profile, products, routine);
-      onReady(routine);
+      onReady(routine, true);
     };
     timer = setTimeout(batch, 0);
   };
 
-  fetchProducts().then(build, () => build([]));
+  fetchProducts().then(
+    (products) => build(products, true),
+    () => build([], false),
+  );
   return () => {
     cancelled = true;
     clearTimeout(timer);

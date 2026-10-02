@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, View } from "react-native";
+import { Animated, Easing, Platform, View } from "react-native";
 
 import { BuildingRoutine } from "@/components/BuildingRoutine";
 import { QuizOptionCard, QUIZ_OPTION_GRID } from "@/components/QuizOptionCard";
@@ -43,8 +43,9 @@ function BuildingBar({ work, onDone }: { /** Starts what the screen waits for, a
   const done = useRef(onDone);
   const start = useRef(work);
   useEffect(() => {
-    // Width is layout, which the native driver can't animate.
-    const run = Animated.timing(fill, { toValue: 1, duration: BUILDING_MS, easing: Easing.inOut(Easing.quad), useNativeDriver: false });
+    // A scale, not a width, so the bar runs off the JS thread: that thread is
+    // busy building the routine while this fills, and a width would stutter.
+    const run = Animated.timing(fill, { toValue: 1, duration: BUILDING_MS, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== "web" });
     run.start();
     let full = false;
     let worked = !start.current;
@@ -65,7 +66,7 @@ function BuildingBar({ work, onDone }: { /** Starts what the screen waits for, a
   }, [fill]);
   return (
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 160, height: 4, borderRadius: 2, backgroundColor: DIVIDER, overflow: "hidden" }}>
-      <Animated.View style={{ width: fill.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }), height: 4, borderRadius: 2, backgroundColor: BUTTON.primary.fill }} />
+      <Animated.View style={{ width: "100%", height: 4, borderRadius: 2, backgroundColor: BUTTON.primary.fill, transformOrigin: "left", transform: [{ scaleX: fill }] }} />
     </View>
   );
 }

@@ -81,10 +81,22 @@ it("names a serum or treatment only when it holds an active for the concern, and
   expect(names(slot(routine, "evening", "treatment"))).toEqual(["BHA serum"]);
   // The step's headline is the active itself, best first, with the others that would do.
   expect(slot(routine, "morning", "serum").active).toEqual({ name: "Azelaic acid", why: "For acne.", alternatives: [] });
+  // It is the active the suggested product holds, so the big letters and the
+  // bottle under them never name two different things.
   const treatment = slot(routine, "evening", "treatment").active!;
-  expect(treatment).toEqual({ name: "Benzoyl peroxide", why: "For acne.", alternatives: ["Retinoids", "Salicylic acid"] });
-  expect(activeLine(treatment)).toBe("For acne. Retinoids or Salicylic acid would do too.");
+  expect(treatment).toEqual({ name: "Salicylic acid", why: "For acne.", alternatives: ["Benzoyl peroxide", "Retinoids"] });
+  expect(activeLine(treatment)).toBe("For acne. Benzoyl peroxide or Retinoids would do too.");
+  // With no product to suggest, it is the best active for the profile.
+  expect(slot(buildRoutine([], ACNE), "evening", "treatment").active).toEqual({ name: "Benzoyl peroxide", why: "For acne.", alternatives: ["Retinoids", "Salicylic acid"] });
   expect(activeLine(slot(routine, "morning", "serum").active!)).toBe("For acne.");
+});
+
+it("suggests the product with the better active first, whatever the two score", () => {
+  const catalogue = [product("serum", "BHA serum", ["salicylic acid"]), product("serum", "Retinol serum", ["retinol"])];
+  const treatment = slot(buildRoutine(catalogue, ACNE), "evening", "treatment");
+  // Retinoids rank above salicylic acid for acne, so the retinol serum leads and names the step.
+  expect(names(treatment)).toEqual(["Retinol serum", "BHA serum"]);
+  expect(treatment.active?.name).toBe("Retinoids");
 });
 
 it("still says what to look for when the catalogue has nothing to name", () => {
@@ -129,11 +141,12 @@ it("never recommends what the skin match warns against", () => {
 });
 
 it("splits cleansers into the first cleanse and the face wash", () => {
-  const catalogue = [product("micellar-water", "Micellar water"), product("cleanser", "Cleansing oil"), product("cleanser", "Foaming gel")];
+  // "Oil" in a name is not an oil cleanser: an oil-control wash is a face wash.
+  const catalogue = [product("micellar-water", "Micellar water"), product("cleanser", "Cleansing oil"), product("cleanser", "Foaming gel"), product("cleanser", "Oil control wash")];
   const routine = buildRoutine(catalogue, ACNE);
   expect(names(slot(routine, "evening", "first-cleanse")).sort()).toEqual(["Cleansing oil", "Micellar water"]);
-  expect(names(slot(routine, "evening", "cleanse"))).toEqual(["Foaming gel"]);
-  expect(names(slot(routine, "morning", "cleanse"))).toEqual(["Foaming gel"]);
+  expect(names(slot(routine, "evening", "cleanse")).sort()).toEqual(["Foaming gel", "Oil control wash"]);
+  expect(names(slot(routine, "morning", "cleanse")).sort()).toEqual(["Foaming gel", "Oil control wash"]);
 });
 
 // The catalogue's types are guesses; a name that says otherwise wins.

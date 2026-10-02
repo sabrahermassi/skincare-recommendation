@@ -19,10 +19,10 @@ import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized } from "@/lib/profile";
 import { prepareRoutine } from "@/lib/routine-build";
-import { activeLine, placeId, recallRoutine, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
+import { activeLine, placeId, recallRoutine, recommendable, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
 import { fetchProductsByIds } from "@/data/api";
 import { matchProduct } from "@/lib/matching";
-import { CANVAS, CANVAS_GLASS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WHITE } from "@/lib/tokens";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WARN, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
 import { GlassHeader } from "@/components/GlassHeader";
@@ -100,19 +100,22 @@ function EmptyProfile() {
  * the quiz to make a routine nobody could see (owner, 2 October 2026). The
  * routine built last, for this very profile, is there at once.
  */
-function useRoutine(profile: SkinProfile): BuiltRoutine | null {
+function useRoutine(profile: SkinProfile): { routine: BuiltRoutine | null; /** False when the catalogue could not be read. */ loaded: boolean; retry: () => void } {
   const focused = useIsFocused();
-  const [built, setBuilt] = useState<{ profile: SkinProfile; routine: BuiltRoutine } | null>(null);
+  const [built, setBuilt] = useState<{ profile: SkinProfile; routine: BuiltRoutine; loaded: boolean } | null>(null);
   // Checked this visit against the catalogue as it is now. Until then the
   // remembered routine is shown on trust, so a second visit has no wait; the
   // check is cheap when nothing changed, and builds again when something did.
   const checked = built?.profile === profile;
   useEffect(() => {
     if (!focused || checked) return;
-    return prepareRoutine(profile, (made) => setBuilt({ profile, routine: made }));
+    return prepareRoutine(profile, (made, loaded) => setBuilt({ profile, routine: made, loaded }));
   }, [focused, profile, checked]);
-  return checked ? built.routine : recallRoutine(profile);
+  return { routine: checked ? built.routine : recallRoutine(profile), loaded: checked ? built.loaded : true, retry: () => setBuilt(null) };
 }
+
+/** A step's own product: its id, and the product when it could be read. */
+type OwnPick = { id: string; pick: RoutinePick | null };
 
 /**
  * The products someone put in their own routine, by id, read through the data
@@ -120,20 +123,22 @@ function useRoutine(profile: SkinProfile): BuiltRoutine | null {
  * the catalogue no longer has is simply not there, and its step falls back to
  * our pick.
  */
-function useOwnProducts(ids: readonly string[]): ReadonlyMap<string, ProductWithIngredients> {
-  const [found, setFound] = useState<ReadonlyMap<string, ProductWithIngredients>>(() => new Map());
+function useOwnProducts(ids: readonly string[]): { found: ReadonlyMap<string, ProductWithIngredients>; /** The ids this answer is for; until it matches, nothing is known yet. */ settledFor: string; wanted: string } {
+  const [answer, setAnswer] = useState<{ found: ReadonlyMap<string, ProductWithIngredients>; settledFor: string }>(() => ({ found: new Map(), settledFor: "" }));
   const wanted = [...new Set(ids)].sort().join(",");
   useEffect(() => {
     if (wanted === "") return;
     let cancelled = false;
-    fetchProductsByIds(wanted.split(","))
-      .then((result) => !cancelled && result.ok && setFound(new Map(result.value.map((product) => [product.id, product]))))
-      .catch(() => undefined);
+    const settle = (products: ProductWithIngredients[]) => !cancelled && setAnswer({ found: new Map(products.map((product) => [product.id, product])), settledFor: wanted });
+    fetchProductsByIds(wanted.split(",")).then(
+      (result) => settle(result.ok ? result.value : []),
+      () => settle([]),
+    );
     return () => {
       cancelled = true;
     };
   }, [wanted]);
-  return found;
+  return { ...answer, wanted };
 }
 
 function Steps() {
@@ -142,15 +147,19 @@ function Steps() {
   const [time, setTime] = useState<TimeOfDay>("morning");
   // On a development build with the test data on (Profile), ten steps each way.
   const testRoutine = useTestRoutine();
-  const routine = useRoutine(profile);
+  const { routine, loaded, retry } = useRoutine(profile);
   const steps: readonly RoutineSlot[] = testRoutine ? TEST_STEPS[time].map((label) => ({ key: label, label, active: null, picks: [] })) : (routine?.[time] ?? []);
   // The products the person put in a step themselves stand in front of ours.
   const routinePicks = useAppStore((s) => s.routinePicks);
   const removeFromRoutine = useAppStore((s) => s.removeFromRoutine);
   const ownProducts = useOwnProducts(Object.values(routinePicks));
-  const ownFor = (key: string): RoutinePick | null => {
-    const product = ownProducts.get(routinePicks[placeId(time, key)] ?? "");
-    return product ? { product, match: matchProduct(product, profile) } : null;
+  const ownFor = (key: string): OwnPick | null => {
+    const id = routinePicks[placeId(time, key)];
+    if (!id) return null;
+    const product = ownProducts.found.get(id);
+    if (product) return { id, pick: { product, match: matchProduct(product, profile) } };
+    // Asked for and not there: it could not be read, or the catalogue no longer has it.
+    return ownProducts.settledFor === ownProducts.wanted ? { id, pick: null } : null;
   };
   const [headerHeight, setHeaderHeight] = useState(0);
   const [scrollY] = useState(() => new Animated.Value(0));
@@ -180,6 +189,17 @@ function Steps() {
           </Text>
           <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{time === "morning" ? "good morning" : "wind down"}</Text>
         </View>
+
+        {/* The catalogue could not be read: say so, and offer another go, rather
+            than four steps that look as if nothing suits. */}
+        {!testRoutine && !loaded ? (
+          <View style={{ marginBottom: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter, gap: 2 }}>
+            <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>We couldn&apos;t load products, so the steps have none yet.</Text>
+            <Pressable onPress={retry} accessibilityRole="button" accessibilityLabel="Try loading products again" hitSlop={8} style={{ alignSelf: "flex-start", minHeight: 28, justifyContent: "center" }} className="active:opacity-70">
+              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Try again</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <View>
           {steps.map((step, i) => (
@@ -244,12 +264,18 @@ function Steps() {
  * way to scan one. With nothing picked, the step's bottle sits faded on the
  * right.
  */
-function StepCard({ number, slot, own, onRemove, last }: { number: number; slot: RoutineSlot; own: RoutinePick | null; onRemove: (id: string) => void; last: boolean }) {
+function StepCard({ number, slot, own: ownPick, onRemove, last }: { number: number; slot: RoutineSlot; own: OwnPick | null; onRemove: (id: string) => void; last: boolean }) {
   const [more, setMore] = useState(false);
   const { label, active, picks } = slot;
+  const own = ownPick?.pick ?? null;
   // Their own product leads; ours are then all "more", less the same product.
-  const pick = own ?? picks[0];
-  const others = own ? picks.filter((other) => other.product.id !== own.product.id) : picks.slice(1);
+  // One of theirs that could not be read keeps its place, said plainly, so it
+  // can still be taken out; ours are all "more" then too.
+  const pick = own ?? (ownPick ? undefined : picks[0]);
+  const others = ownPick ? picks.filter((other) => other.product.id !== ownPick.id) : picks.slice(1);
+  // Added when it suited, and no longer something we would pick: a pregnancy
+  // since, or a profile it matches poorly.
+  const outgrown = own !== null && !recommendable(own.product, own.match);
   return (
     <View style={{ flexDirection: "row", alignItems: "stretch", gap: SPACE.block }}>
       <View style={{ width: 28, alignItems: "center", paddingTop: 14 }}>
@@ -273,13 +299,16 @@ function StepCard({ number, slot, own, onRemove, last }: { number: number; slot:
           ) : null}
           {pick ? (
             <PickRow pick={pick} own={own !== null} />
+          ) : ownPick ? (
+            <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>Your pick for this step can&apos;t be shown right now.</Text>
           ) : (
             <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>{active ? "No product to suggest yet." : "No product picked yet."}</Text>
           )}
+          {outgrown ? <Text style={{ fontSize: TYPE.caption, lineHeight: 18, fontWeight: "600", color: WARN }}>We wouldn&apos;t pick this for your skin profile as it is now.</Text> : null}
           {more ? others.map((other) => <PickRow key={other.product.id} pick={other} divided />) : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: SPACE.gutter }}>
-            {own ? (
-              <Pressable onPress={() => onRemove(own.product.id)} accessibilityRole="button" accessibilityLabel={`Remove ${own.product.name} from my routine`} hitSlop={8} style={{ minHeight: 28, justifyContent: "center" }} className="active:opacity-70">
+            {ownPick ? (
+              <Pressable onPress={() => onRemove(ownPick.id)} accessibilityRole="button" accessibilityLabel={own ? `Remove ${own.product.name} from my routine` : "Remove my pick from this step"} hitSlop={8} style={{ minHeight: 28, justifyContent: "center" }} className="active:opacity-70">
                 <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Remove</Text>
               </Pressable>
             ) : null}

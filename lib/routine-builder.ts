@@ -60,7 +60,9 @@ const CONCERN_GOAL: Record<Concern, GoalKey> = {
 };
 
 /** A first cleanse: something that takes off sunscreen and make-up before the face wash. */
-const FIRST_CLEANSE_NAME = /\b(oil|balm|butter|milk|micellar|make-?up remov|d[ée]maquill|cleansing water)/i;
+// "Oil" alone would take in every "oil control" and "oil-free" face wash, so an
+// oil has to be named as the cleanser itself.
+const FIRST_CLEANSE_NAME = /\b(cleansing oil|oil cleanser|huile (d[ée]maquillante|nettoyante)|balm|butter|milk|lait|micellar|micellaire|make-?up remov|d[ée]maquill|cleansing water)/i;
 
 function isFirstCleanse(product: ProductWithIngredients): boolean {
   return product.type === "micellar-water" || (product.type === "cleanser" && FIRST_CLEANSE_NAME.test(product.name));
@@ -118,14 +120,20 @@ function oneOf(names: string[]): string {
   return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
 }
 
-/** The step's active: the best card for the profile, what it is for, and up to two others that would do. */
-function activeFor(cards: JourneyCard[], profile: SkinProfile): RoutineActive | null {
-  if (cards.length === 0) return null;
+/**
+ * The step's active: `lead` (the best card for the profile, or the one the
+ * suggested product holds), what it is for, and up to two others that would do.
+ */
+function activeFor(cards: JourneyCard[], lead: JourneyCard | undefined, profile: SkinProfile): RoutineActive | null {
+  if (!lead) return null;
   const what = needsOf(profile).map((entry) => entry.what);
   return {
-    name: cards[0].name,
+    name: lead.name,
     why: `For ${what.length <= 1 ? what[0] : `${what.slice(0, -1).join(", ")} and ${what[what.length - 1]}`}.`,
-    alternatives: cards.slice(1, 3).map((card) => card.name),
+    alternatives: cards
+      .filter((card) => card !== lead)
+      .slice(0, 2)
+      .map((card) => card.name),
   };
 }
 
@@ -135,14 +143,17 @@ export function activeLine(active: RoutineActive): string {
 }
 
 /** Safe enough to recommend: scored, not a poor match, and nothing the skin match warns hard about. */
-function recommendable(product: ProductWithIngredients, match: MatchResult): boolean {
+export function recommendable(product: ProductWithIngredients, match: MatchResult): boolean {
   if (match.score === null || match.score < SCORE_BANDS.fair || isLowCoverage(product.ingredients)) return false;
   return !match.warnings.some((warning) => warning.severity === "hazard" || warning.origin === "pregnancy");
 }
 
-/** Whether a product holds one of these actives, high enough on its label to count. */
-function holdsActive(product: ProductWithIngredients, cards: readonly JourneyCard[], profile: SkinProfile): boolean {
-  return needsOf(profile).some(({ need }) => needVerdict(product.ingredients, need).actives.some((finding) => !finding.trace && finding.card !== null && cards.includes(finding.card)));
+/** The best of these actives a product holds, high enough on its label to count: the earliest card, or `null`. */
+function activeHeld(product: ProductWithIngredients, cards: readonly JourneyCard[], profile: SkinProfile): JourneyCard | null {
+  const held = new Set(
+    needsOf(profile).flatMap(({ need }) => needVerdict(product.ingredients, need).actives.flatMap((finding) => (!finding.trace && finding.card !== null ? [finding.card] : []))),
+  );
+  return cards.find((card) => held.has(card)) ?? null;
 }
 
 type Step = {
@@ -191,13 +202,25 @@ export function assembleRoutine(picks: readonly RoutinePick[], profile: SkinProf
   const scored = [...picks].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0) || a.product.name.localeCompare(b.product.name));
   const slots = (time: TimeOfDay): RoutineSlot[] =>
     STEPS[time].map((step) => {
-      const cards = step.active ? cardsFor(step.active, profile) : [];
-      const chosen: RoutinePick[] = [];
-      for (const pick of scored) {
-        if (chosen.length === PICKS_PER_STEP) break;
-        if (step.fits(pick.product) && (!step.active || holdsActive(pick.product, cards, profile))) chosen.push(pick);
+      if (!step.active) {
+        const chosen = scored.filter((pick) => step.fits(pick.product)).slice(0, PICKS_PER_STEP);
+        return { key: step.key, label: step.label, active: null, picks: chosen };
       }
-      return { key: step.key, label: step.label, active: step.active ? activeFor(cards, profile) : null, picks: chosen };
+      // An active step: only products that hold one of its actives, the ones
+      // with the best active first, then by skin match. The step's headline is
+      // the active its first product holds, so the big letters and the bottle
+      // under them never name two different things.
+      const cards = cardsFor(step.active, profile);
+      const holding = scored
+        .filter((pick) => step.fits(pick.product))
+        .flatMap((pick) => {
+          const card = activeHeld(pick.product, cards, profile);
+          return card ? [{ pick, rank: cards.indexOf(card), card }] : [];
+        })
+        // `scored` is already best match first, and the sort is stable.
+        .sort((a, b) => a.rank - b.rank)
+        .slice(0, PICKS_PER_STEP);
+      return { key: step.key, label: step.label, active: activeFor(cards, holding[0]?.card ?? cards[0], profile), picks: holding.map(({ pick }) => pick) };
     });
   return { morning: slots("morning"), evening: slots("evening") };
 }

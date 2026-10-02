@@ -40,6 +40,8 @@ export function AddToRoutine({ product, worthAdding }: { product: ProductWithIng
     );
   }
   if (!worthAdding) return null;
+  // One product a step: adding this one takes the place of one they picked before.
+  const replaces = places.some((place) => picks[place.id] !== undefined && picks[place.id] !== product.id);
   return (
     <View style={{ gap: SPACE.text }}>
       <PrimaryButton
@@ -53,7 +55,10 @@ export function AddToRoutine({ product, worthAdding }: { product: ProductWithIng
           );
         }}
       />
-      <Text style={{ textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>It goes in {placesLabel(places)}.</Text>
+      <Text style={{ textAlign: "center", fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
+        It goes in {placesLabel(places)}
+        {replaces ? ", in place of the product you picked for it before." : "."}
+      </Text>
     </View>
   );
 }

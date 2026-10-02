@@ -223,6 +223,33 @@ describe("the quiz, as a modal", () => {
     }
   });
 
+  it("calls the building off when Back is tapped, and does not open the routine when it finishes anyway", async () => {
+    openQuizAt(Date.now(), "routine");
+    mockHoldRoutine = true;
+    mockCallOff.mockClear();
+    jest.useFakeTimers();
+    try {
+      await render(
+        <QuizFrame>
+          <PregnancyStep />
+        </QuizFrame>,
+      );
+      await fireEvent.press(screen.getByText("No"));
+      await fireEvent.press(screen.getByText("See my routine"));
+      await fireEvent.press(screen.getByRole("button", { name: "Back" }));
+      expect(mockCallOff).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        jest.advanceTimersByTime(BUILDING_MS * 2);
+      });
+      expect(screen.getByRole("button", { name: "See my routine" })).toBeTruthy();
+      expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+      mockHoldRoutine = false;
+      mockFinishRoutine = null;
+    }
+  });
+
   it("does not open the routine before the bar is full, even with the routine built at once", async () => {
     openQuizAt(Date.now(), "routine");
     jest.useFakeTimers();

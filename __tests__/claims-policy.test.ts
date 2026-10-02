@@ -3,6 +3,7 @@ import { PRODUCTS } from "@/data/products";
 import { SCHOOL } from "@/data/school";
 import { FIRST_PAGE_COPY } from "@/lib/first-page";
 import { NOTE_COPY, tooLongCopy } from "@/lib/journal";
+import { activeLine, buildRoutine } from "@/lib/routine-builder";
 import { GOALS, JOURNEY_CARDS, PREGNANCY_LINE, needHeadlines, needVerdict } from "@/lib/journey";
 import { pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
 import { claimPolicyViolations } from "@/lib/claims-policy";
@@ -142,6 +143,23 @@ const JOURNEY_CLAIMS: OwnedClaim[] = [
   ),
 ];
 
+// The routine's serum and treatment steps: the active named in big letters and
+// the line under it, for every concern and both skin types that stand in for
+// one, plain, pregnant and very sensitive.
+const ROUTINE_CONCERNS = ["acne-prone", "large-pores", "post-acne-marks", "hyperpigmentation", "redness", "dehydrated", "dullness", "fine-lines", "atopic"] as const;
+const ROUTINE_CLAIMS: OwnedClaim[] = [
+  ...ROUTINE_CONCERNS.map((concern) => ({ ...EMPTY_PROFILE, concerns: [concern] })),
+  { ...EMPTY_PROFILE, baseSkinType: "oily" as const },
+  { ...EMPTY_PROFILE, baseSkinType: "dry" as const },
+]
+  .flatMap((profile) => [profile, { ...profile, pregnancyStatus: "pregnant" as const }, { ...profile, sensitivity: "high" as const }])
+  .flatMap((profile) => {
+    const routine = buildRoutine([], profile);
+    return [...routine.morning, ...routine.evening].flatMap((slot) =>
+      slot.active ? [{ source: `routine.${profile.concerns[0] ?? profile.baseSkinType}.${slot.key}`, text: `${slot.active.name}. ${activeLine(slot.active)}` }] : []
+    );
+  });
+
 // #228: the app's copy around a journal note — never the note itself, which
 // is the person's own words and is not the app's to audit or rewrite.
 const NOTE_CLAIMS: OwnedClaim[] = [
@@ -185,6 +203,7 @@ const OWNED_CLAIMS: OwnedClaim[] = [
   { source: "UNSET_SENSITIVITY_REASON", text: UNSET_SENSITIVITY_REASON },
   ...NOTE_CLAIMS,
   ...JOURNEY_CLAIMS,
+  ...ROUTINE_CLAIMS,
   ...FIRST_PAGE_CLAIMS,
   ...NUDGE_RESULTS,
   ...PAIRING_CLAIMS,
