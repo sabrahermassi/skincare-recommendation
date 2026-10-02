@@ -64,6 +64,34 @@ describe("what it drops, though the type guess called it face care", () => {
     expect(keep(type, name, brand)).not.toBeNull();
   });
 
+  // What the first run over the whole export let into staging (2 October
+  // 2026): the kind of product written as the end of one long word, where a
+  // whole-word match never looked, and lip products other than a "lip balm".
+  it.each([
+    ["moisturizer", "Cremedusche Mandelblüte & Magnolie, Reisegröße", "Balea"],
+    ["moisturizer", "Enthaarungscreme", "Balea"],
+    ["moisturizer", "Eurodont Spezialzahncreme", "Eurodont"],
+    ["moisturizer", "Föhnlotion Volume Effect", "Balea"],
+    ["moisturizer", "Deocreme Sensitive", "Balea"],
+    ["sunscreen", "Deospray Sweet Sunshine", "Balea"],
+    ["moisturizer", "Bodycreme Sheabutter & Arganöl", "Balea"],
+    ["moisturizer", "Ritual of Mehr Bodycream", "Rituals"],
+    ["moisturizer", "Handlotion Creme-Öl", "Balea"],
+    ["serum", "Handserum Hyaluron", "Balea"],
+    ["moisturizer", "SEBAMED FUẞCREME", "SEBAMED"],
+    ["moisturizer", "Creme-Öl Bad Soft LOTUS DREAM", "Balea"],
+    ["exfoliator", "Perfect Lip Scrub", "LimeLife by Alcone"],
+    ["moisturizer", "Nivea lip cream", "Unknown"],
+  ])("drops a so-called %s whose name is one long word: %s", (type: string, name: string, brand: string) => {
+    expect(keep(type, name, brand)).toBe("named as another kind of product");
+  });
+
+  it("keeps a face product that only names another part of the body in passing", () => {
+    expect(keep("micellar-water", "Micellar water eyes face & lips", "Delhaize")).toBeNull();
+    expect(keep("moisturizer", "Handmade Rose Face Cream", "Atelier")).toBeNull();
+    expect(keep("essence", "Snail Bee High Content Essence", "Benton")).toBeNull();
+  });
+
   it("drops a product OBF itself tags as hair, body, shaving or make-up", () => {
     for (const tag of ["en:hair", "en:shampoos", "en:body-creams", "en:shaving-foam", "en:makeup", "en:baby-wipes", "en:hand-creams", "en:perfumes"]) {
       expect({ tag, reason: keep("moisturizer", "Plain cream", "Brand", [tag]) }).toEqual({ tag, reason: "tagged as another kind of product" });

@@ -27,7 +27,7 @@ Supabase is the live backend (Edge Functions `product-lookup`, `label-ocr`,
 `EXPO_PUBLIC_SUPABASE_URL`/`_ANON_KEY` are absent — keeps checkouts and
 tests hermetic. Live catalogue: 851 products (grows when someone runs the
 operator script `import:obf` only — with `--dump <file>` it reads OBF's whole
-export, about 2,850 usable face products, rather than the six categories its
+export, about 2,830 usable face products, rather than the six categories its
 API sweep pages; users can no longer add products from the
 app — a product exists only with a name, a barcode and an ingredient list,
 enforced in `replace_product_with_ingredients`; `import:dailymed` is retired

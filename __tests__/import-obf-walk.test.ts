@@ -39,6 +39,12 @@ describe("import:obf walk limits", () => {
   it("says nothing when the run reached its target", () => {
     expect(stopMessage("target", TARGET_ROWS)).toBeNull();
   });
+
+  it("says nothing when a run over the whole export read it to the end", () => {
+    // Every --dump run ends below the cap; "add a category" is no advice for it.
+    expect(stopMessage("exhausted", 2_856, true)).toBeNull();
+    expect(stopMessage("budget", 2_856, true)).toMatch(/request budget/);
+  });
 });
 
 // #265 review: a checkpoint must not be resumed against another project, or

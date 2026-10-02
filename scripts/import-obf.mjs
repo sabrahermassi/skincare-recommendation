@@ -16,8 +16,8 @@
  * (about 100MB), and reads every product in it. The six categories the API
  * sweep pages hold about 1,500 complete products; the whole database holds
  * about 21,000, a third of them with no category tag at all, so the sweep
- * could never reach them. Read whole, it yields about 1,775 more face-care
- * products, serums and treatments above all (144 new serums against 28). What
+ * could never reach them. Read whole, it yields about 1,750 more face-care
+ * products, serums and treatments above all (about 140 new serums against 28). What
  * keeps the deodorant and shampoo out this time is `lib/face-skincare.mjs`.
  * It combines with --dry-run and --resume like the API sweep, and costs OBF
  * one download instead of a rate-limited walk.
@@ -212,9 +212,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * one line for all of them is how a run that ran out of budget used to read as
  * a run that ran out of products (#180).
  *
+ * A run over the whole export (`--dump`) that read the file to its end has
+ * nothing to say: that is how every such run ends, with as many rows as the
+ * source holds.
+ *
  * @param {"target" | "budget" | "exhausted"} reason
  */
-function stopMessage(reason, rowCount) {
+function stopMessage(reason, rowCount, fromDump = false) {
+  if (fromDump && reason === "exhausted") return null;
   if (reason === "budget") {
     return (
       `  ! Stopped at the ${MAX_REQUESTS}-request budget with ${rowCount} of ${TARGET_ROWS} rows. ` +
@@ -644,6 +649,8 @@ async function main() {
       if (rows.size >= TARGET_ROWS) break;
     }
     state.stopReason = rows.size >= TARGET_ROWS ? "target" : "exhausted";
+    // Kept in the checkpoint, so a `--resume` without `--dump` still knows.
+    state.fromDump = true;
     console.log(`  ${DUMP}: ${state.seen} products read, ${rows.size} kept`);
     if (!DRY_RUN) saveCheckpoint(state);
   }
@@ -723,7 +730,7 @@ async function main() {
   const all = [...rows.values()];
   const withImage = all.filter((r) => r.product.image_url).length;
   if (!USE_SOURCE_PHOTOS) console.log("  (photos disabled — see USE_SOURCE_PHOTOS)");
-  const stopped = stopMessage(state.stopReason, all.length);
+  const stopped = stopMessage(state.stopReason, all.length, state.fromDump === true);
   if (stopped) console.warn(`\n${stopped}`);
   console.log(
     `\n${seen} records seen over ${pagesRead} request(s), ${all.length} usable ` +

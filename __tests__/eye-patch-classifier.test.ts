@@ -44,4 +44,11 @@ describe("eye-patch classification", () => {
   it("does not turn an eye cream into a patch", () => {
     expect(typeOf("Eye Cream")).toBe("eye-cream");
   });
+
+  it("knows an eye cream in German, Italian, Spanish, French and Dutch", () => {
+    // Each read as a moisturiser by its "creme", and could be offered as one.
+    for (const name of ["Augencreme Vital", "Contorno occhi", "Crema contorno de ojos", "Soin contour des yeux", "Oogcrème Q10"]) {
+      expect({ name, type: typeOf(name) }).toEqual({ name, type: "eye-cream" });
+    }
+  });
 });

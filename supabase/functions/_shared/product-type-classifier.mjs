@@ -9,7 +9,9 @@
 
 const BEFORE_MASK_RULES = [
   [/hand.?cream|crème mains|handcreme/, "hand-cream"],
-  [/eye[\s-]?cream/, "eye-cream"],
+  // In the other languages the catalogue holds, too: "Augencreme", "Contorno
+  // occhi" and "Contour des yeux" all read as moisturisers by their "creme".
+  [/eye[\s-]?cream|augencreme|contorno (de )?(occhi|ojos)|contour (des )?yeux|oogcr[èe]me/, "eye-cream"],
   [/body.?butter/, "body-butter"],
   [/body.?(wash|gel)|shower|douche|duschgel/, "body-wash"],
   [/body.?scrub|body.?exfoliat/, "body-scrub"],

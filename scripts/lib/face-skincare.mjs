@@ -54,9 +54,16 @@ const OTHER_NAME = [
   // Soap, shower and bath. The soap words are matched inside longer ones too:
   // Dutch and German write "handzeep" and "Cremeseife" as one word.
   /(soap|savon|seife|sabun|jab[oó]n|sapone|s[åa]pe|zeep|handwash|hand wash)/i,
-  /\b(shower|douche|dusch\w*|doccia|ducha|bath|bain|bade\w*|bagno|ba[ñn]o|lavante? (mains|corps))\b/i,
-  // Hands, feet, body.
-  /\b(hand|hands|mains|manos|mani|h[äa]nde|hand(creme|cr[èe]me|balsam)|el kremi|foot|feet|pieds|pies|piedi|f[üu](ss|ß)\w*|body|corps|corporal|corporel|k[öo]rper\w*|corpo|v[üu]cut|bodylotion|bodymilk)\b/i,
+  /\b(shower|douche|doccia|ducha|bath|bain|bad|bade\w*|bagno|ba[ñn]o|lavante? (mains|corps))\b/i,
+  // German writes the kind of product as the end of one long word, which a
+  // whole-word match never sees: "Cremedusche" (shower cream),
+  // "Spezialzahncreme" (toothpaste), "Enthaarungscreme" (hair-removal cream),
+  // "Föhnlotion" (blow-dry lotion). All four were in the first import over the
+  // whole export, typed as moisturisers. So these are matched anywhere.
+  /(dusch|zahn|haar|f[öo]e?hn)/i,
+  // Hands, feet, body. "Handserum", "Bodycreme" and "Fußcreme" are one word
+  // too, so these match as the start of a word; "handmade" is not a hand.
+  /\b(hand(?!made|crafted)\w*|mains|manos|mani|h[äa]nde|el kremi|foot\w*|feet|pieds|pies|piedi|f[üu](ss|[ßẞ])\w*|body\w*|corps|corporal|corporel|k[öo]rper\w*|corpo|v[üu]cut)\b/i,
   // Hair, scalp, beard. "hair" inside a longer word too ("hairfood").
   /(hair|leave-in|\bplex\b|\bcurls?\b)/i,
   /\b(cheveux|capillaire|haar\w*|cabello|capelli|sa[çc]|shampoo\w*|shampoing|shampooing|champ[uú]|champ[oô]|[şs]ampuan|conditioner|apr[èe]s-shampo+ing|sp[üu]lung|balsam|styling|coloration|h[åa]rfarge|scalp|beard|barbe|bart\w*|barba|pentear|peinar|coiffant|crème toner|creme toner)\b/i,
@@ -67,9 +74,12 @@ const OTHER_NAME = [
   // Wipes and cotton.
   /\b(wipes?|lingettes?|feuchtt[üu]cher|toallitas|salviett\w*|v[åa]tservietter|cotton|coton|watte\w*)\b/i,
   // Deodorant and perfume.
-  /\b(deo|deodorant\w*|d[ée]odorant|desodorante|antiperspirant|anti-transpirant|parfum|perfume|profumo|cologne|eau de (toilette|parfum|cologne)|k[öo]lnisch\w*|kolonya)\b/i,
+  /\b(deo\w*|d[ée]odorant|desodorante|antiperspirant|anti-transpirant|parfum|perfume|profumo|cologne|eau de (toilette|parfum|cologne)|k[öo]lnisch\w*|kolonya)\b/i,
   // Mouth and teeth.
-  /\b(tooth\w*|zahn\w*|dent\w*|mouth\w*|mund\w*|bouche|lip balm|lippenbalsam|baume [àa] l[èe]vres)\b/i,
+  /\b(tooth\w*|dent\w*|mouth\w*|mund\w*|bouche)\b/i,
+  // Lips: a product for them, not a face product that also names them
+  // ("Micellar water eyes face & lips" stays).
+  /\b(lip[- ]?(balm|scrub|cream|mask|butter|oil|care|treatment|gloss|stick|tint|serum)|lippen(balsam|pflege|peeling|maske|creme|[öo]l)\w*|(baume|soin|gommage) (pour les |des |[àa] )?l[èe]vres)\b/i,
   // Everything else that is not a face product.
   /\b(intimate?|intime|intim\w*|insect|mosquito|moustique|tattoo|massage|self[- ]tan\w*|autobronz\w*|selbstbr[äa]un\w*|sanitizer|desinfect\w*|d[ée]sinfect\w*|anti-friction|[öo]ronreng[öo]ring\w*|ear|oreilles|bb cream|cc cream|bb cr[èe]me)\b/i,
 ];

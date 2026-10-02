@@ -305,11 +305,16 @@ check a Skin needs scan uses, and always say which actives to look for.
   six categories are a small corner of the source: its nightly export holds
   about 21,000 complete products, a third of them with no category tag, which
   no category sweep can reach. `import-obf.mjs --dump` reads the whole export
-  (2 October 2026): 2,856 usable face products, 1,775 of them new, 144 new
-  serums among them. What keeps the shampoo and hand soap out is
+  (2 October 2026): 2,831 usable face products, about 1,750 of them new, about
+  140 new serums among them. What keeps the shampoo and hand soap out is
   `scripts/lib/face-skincare.mjs`: a row must be typed as face care by its
   name or tags, never by its ingredients alone, and nothing in its name, brand
-  or tags may say it is something else.
+  or tags may say it is something else. The first run kept 25 more: German
+  writes the kind of product as the end of one long word ("Cremedusche",
+  "Enthaarungscreme", "Spezialzahncreme"), which a whole-word match never
+  saw, so a hair-removal cream showed in the app as a fair-match moisturiser.
+  Those words are matched inside longer ones now. A row in one of the six
+  categories is still kept on OBF's word, whatever its name says.
 - **Nothing is recommended that the skin match warns against**: a hazard, a
   pregnancy caution, a match under "fair", or a label too little of which was
   read.
