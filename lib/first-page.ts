@@ -31,7 +31,7 @@ export const FIRST_PAGE_COPY = {
 } as const;
 
 /** Whether this account has already had the moment — on the account, or on this phone. */
-export function hasStartedJournal(user: Pick<User, "id" | "user_metadata">, startedHere: readonly string[]): boolean {
+function hasStartedJournal(user: Pick<User, "id" | "user_metadata">, startedHere: readonly string[]): boolean {
   return Boolean(user.user_metadata?.[JOURNAL_STARTED_KEY]) || startedHere.includes(user.id);
 }
 
@@ -71,7 +71,7 @@ async function recordOnAccount(): Promise<void> {
 }
 
 /** This phone showed the moment but the account never heard — offline at the time, say. */
-export function needsRecording(session: Session | null, startedHere: readonly string[]): boolean {
+function needsRecording(session: Session | null, startedHere: readonly string[]): boolean {
   const user = session?.user;
   return Boolean(user && startedHere.includes(user.id) && !user.user_metadata?.[JOURNAL_STARTED_KEY]);
 }

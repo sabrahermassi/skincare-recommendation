@@ -140,7 +140,6 @@ export const AVATAR_FILL = "#F6E1D3";
 /** @deprecated Prefer {@link LINE}. Kept because it names the same value in
  *  the control-state code that already reads well as "border, inactive". */
 export const BORDER_INACTIVE = LINE;
-export const DOT_INACTIVE = LINE;
 
 // ── Controls ────────────────────────────────────────────────────────────────
 
