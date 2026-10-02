@@ -201,3 +201,35 @@ export function buildRoutine(products: readonly ProductWithIngredients[], profil
   const picks = routineCandidates(products).flatMap((product) => routinePick(product, profile) ?? []);
   return assembleRoutine(picks, profile);
 }
+
+// ── The last routine built ───────────────────────────────────────────────────
+
+let last: { profile: SkinProfile; products: readonly ProductWithIngredients[]; routine: Routine } | null = null;
+
+/** Whether two reads of the catalogue hold the very same products: a changed product is always a new object. */
+function sameCatalogue(a: readonly ProductWithIngredients[], b: readonly ProductWithIngredients[]): boolean {
+  return a.length === b.length && a.every((product, index) => product === b[index]);
+}
+
+/**
+ * Keeps the routine just built, in memory, so that opening the screen again
+ * shows it at once: the screen is drawn afresh on every visit, and without
+ * this each visit scored the catalogue all over again. It answers only for
+ * the very profile it was built for (a changed profile is a new object), and
+ * the screen drops it when the catalogue it reads is no longer the same one.
+ */
+export function rememberRoutine(profile: SkinProfile, products: readonly ProductWithIngredients[], routine: Routine): void {
+  last = { profile, products, routine };
+}
+
+/** The remembered routine for this profile, or `null`. With `products`, only if it was built from that same catalogue. */
+export function recallRoutine(profile: SkinProfile, products?: readonly ProductWithIngredients[]): Routine | null {
+  if (!last || last.profile !== profile) return null;
+  return products && !sameCatalogue(last.products, products) ? null : last.routine;
+}
+
+/** Forgets it. For tests, which would otherwise carry one case's routine into the next. */
+export function forgetRoutine(): void {
+  last = null;
+}
+

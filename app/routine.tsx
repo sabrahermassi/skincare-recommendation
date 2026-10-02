@@ -17,7 +17,7 @@ import type { ProductWithIngredients, SkinProfile } from "@/data/types";
 import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized, profileHeadline } from "@/lib/profile";
-import { assembleRoutine, routineCandidates, routinePick, ROUTINE_STEPS, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
+import { assembleRoutine, recallRoutine, rememberRoutine, routineCandidates, routinePick, ROUTINE_STEPS, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
 import { CANVAS, CANVAS_GLASS, CARD_RADIUS, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
@@ -102,9 +102,10 @@ const SCORE_BATCH = 25;
  */
 function useRoutine(profile: SkinProfile): BuiltRoutine | null {
   const focused = useIsFocused();
-  // The catalogue, read once: `null` until it arrives, empty if it could not be read.
+  // The catalogue, read once a visit: `null` until it arrives, empty if it could not be read.
   const [products, setProducts] = useState<ProductWithIngredients[] | null>(null);
-  const [built, setBuilt] = useState<{ profile: SkinProfile; products: ProductWithIngredients[]; routine: BuiltRoutine } | null>(null);
+  // Bumped when a build finishes, so the remembered routine is read again.
+  const [, setBuilds] = useState(0);
   const asked = useRef(false);
 
   useEffect(() => {
@@ -119,7 +120,12 @@ function useRoutine(profile: SkinProfile): BuiltRoutine | null {
     };
   }, [focused]);
 
-  const fresh = built !== null && built.profile === profile && built.products === products;
+  // The routine built last time, for this very profile, shows at once (owner:
+  // every visit took a second to score the catalogue again). Until this
+  // visit's catalogue is in, it is taken on trust; once it is in, only if it
+  // is the same catalogue.
+  const routine = recallRoutine(profile, products ?? undefined);
+  const fresh = routine !== null;
   useEffect(() => {
     if (!focused || products === null || fresh) return;
     const candidates = routineCandidates(products);
@@ -132,14 +138,18 @@ function useRoutine(profile: SkinProfile): BuiltRoutine | null {
         const pick = routinePick(candidates[next], profile);
         if (pick) picks.push(pick);
       }
-      if (next < candidates.length) timer = setTimeout(batch, 0);
-      else setBuilt({ profile, products, routine: assembleRoutine(picks, profile) });
+      if (next < candidates.length) {
+        timer = setTimeout(batch, 0);
+        return;
+      }
+      rememberRoutine(profile, products, assembleRoutine(picks, profile));
+      setBuilds((count) => count + 1);
     };
     timer = setTimeout(batch, 0);
     return () => clearTimeout(timer);
   }, [focused, products, profile, fresh]);
 
-  return fresh ? built.routine : null;
+  return routine;
 }
 
 function Steps() {

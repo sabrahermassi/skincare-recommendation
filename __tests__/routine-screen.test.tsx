@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import Routine from "@/app/routine";
 import { fetchProducts } from "@/data/api";
 import type { ProductType, ProductWithIngredients } from "@/data/types";
+import { forgetRoutine } from "@/lib/routine-builder";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
@@ -60,6 +61,7 @@ beforeEach(() => {
   fetched.mockResolvedValue([]);
   jest.mocked(router.push).mockClear();
   mockFocused = true;
+  forgetRoutine();
 });
 
 /** The screen with its routine built: the catalogue read, and scored in its batches. */
@@ -176,5 +178,33 @@ it("neither reads the catalogue nor builds a routine while it is not the screen 
   await view.rerender(<Routine />);
   await waitFor(() => expect(screen.getByText("Foaming gel")).toBeTruthy());
   expect(fetched).toHaveBeenCalledTimes(1);
+});
+
+// The screen is drawn afresh on every visit; scoring the catalogue again each
+// time made every visit wait a second for its products (owner).
+it("shows the routine at once on a second visit, without building it again", async () => {
+  useAppStore.setState({ profile: ACNE });
+  fetched.mockResolvedValue(CATALOGUE);
+  const first = await render(<Routine />);
+  await waitFor(() => expect(screen.getByText("Foaming gel")).toBeTruthy());
+  await act(async () => first.unmount());
+
+  await render(<Routine />);
+  // There on the first frame: no "Finding products…" to wait through.
+  expect(screen.getByText("Foaming gel")).toBeTruthy();
+  expect(screen.queryByText("Finding products…")).toBeNull();
+});
+
+it("builds it again when the catalogue it reads has changed", async () => {
+  useAppStore.setState({ profile: ACNE });
+  fetched.mockResolvedValue(CATALOGUE);
+  const first = await render(<Routine />);
+  await waitFor(() => expect(screen.getByText("Foaming gel")).toBeTruthy());
+  await act(async () => first.unmount());
+
+  fetched.mockResolvedValue([product("c2", "cleanser", "Cream wash"), ...CATALOGUE.slice(1)]);
+  await render(<Routine />);
+  await waitFor(() => expect(screen.getByText("Cream wash")).toBeTruthy());
+  expect(screen.queryByText("Foaming gel")).toBeNull();
 });
 
