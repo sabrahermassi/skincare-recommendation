@@ -27,6 +27,8 @@ export { RouteErrorScreen as ErrorBoundary } from "@/components/RouteErrorScreen
 // A route that is a floating sheet (`components/SheetScreen`): see-through, so
 // the screen under it shows through the dim, and faded in, since the sheet
 // brings its own slide.
+// How long a pushed screen takes to slide in.
+const PUSH_MS = 250;
 const SHEET_ROUTE = { headerShown: false, presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } } as const;
 
 export default function RootLayout() {
@@ -142,6 +144,12 @@ export default function RootLayout() {
           // previous route's title, which for a route group is the raw group
           // name — the product screen's back button read "(tabs)".
           headerBackButtonDisplayMode: "minimal",
+          // A pushed screen slides in over a quarter of a second (owner: every
+          // tap must open at once). iOS's own push takes about half a second
+          // and its length can't be set; "simple_push" is the same slide from
+          // the right with a length that can. Modals and sheets keep theirs.
+          animation: "simple_push",
+          animationDuration: PUSH_MS,
         }}
       >
         {/* Titled as a fallback for anything that ignores the display mode. */}
