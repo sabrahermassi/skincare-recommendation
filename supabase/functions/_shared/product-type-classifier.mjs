@@ -8,7 +8,9 @@
  */
 
 const BEFORE_MASK_RULES = [
-  [/hand.?cream|crème mains|handcreme/, "hand-cream"],
+  // "Hand Creme", "Crema Manos" and "Mains à Croquer" read as moisturisers by
+  // their "creme" and showed as one on the product page.
+  [/hand[\s-]?(&[^,]{0,12})?(cream|creme|crème|serum)|handcr[eè]me|cr[èe]me (pour les )?mains|crema (de |para )?manos|\bmains à/, "hand-cream"],
   // In the other languages the catalogue holds, too: "Augencreme", "Contorno
   // occhi" and "Contour des yeux" all read as moisturisers by their "creme".
   // English spells it "creme" as well, and names the eye before or after the
@@ -21,8 +23,8 @@ const BEFORE_MASK_RULES = [
   [/body.?butter/, "body-butter"],
   [/body.?(wash|gel)|shower|douche|duschgel/, "body-wash"],
   [/body.?scrub|body.?exfoliat/, "body-scrub"],
-  [/body.?(lotion|milk)|body ?lotion|lait corporel/, "body-lotion"],
-  [/foot[\s-]?(cream|balm)/, "foot-cream"],
+  [/body.?(lotion|milk)|body ?lotion|lait corporel|bodycreme|body care|(crema|b[áa]lsamo|loci[óo]n|leche) corporal/, "body-lotion"],
+  [/foot[\s-]?(cream|balm)|fu(ss|ß)creme|cr[èe]me (pour les )?pieds/, "foot-cream"],
   // A lip balm with SPF is still a lip balm.
   [/lip[\s-]?(balm|butter|care)|l[èe]vres|dudak|губ/, "lip-balm"],
   // These must beat the broad cleanser wording in names such as "Deep

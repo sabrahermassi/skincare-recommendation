@@ -69,6 +69,25 @@ describe("eye-patch classification", () => {
     }
   });
 
+  it("knows a hand, body or foot cream in the catalogue's languages, even under a face tag", () => {
+    // Real names from staging; each showed as "Moisturizer" on its own page.
+    const cases: [string, string][] = [
+      ["Ombia Med Hand Creme 5% Urea", "hand-cream"],
+      ["Crema Manos", "hand-cream"],
+      ["Mains à Croquer", "hand-cream"],
+      ["Yesto Coconut - Hand & Cuticule Cream (crème pour les mains)", "hand-cream"],
+      ["Bodycreme Vitamin E", "body-lotion"],
+      ["Dove Nourishing Body Care Intensiva Piel Extra Seca", "body-lotion"],
+      ["Bálsamo Corporal Aloe", "body-lotion"],
+      ["Dermasel Fusscreme Happy Moments", "foot-cream"],
+    ];
+    for (const [name, type] of cases) expect({ name, type: guessType(["en:face", "en:creams"], name) }).toEqual({ name, type });
+    // A cream for face and body is still a moisturiser.
+    expect(guessType(["en:creams"], "Crème hydratante visage et corps")).toBe("moisturizer");
+    expect(typeOf("mama bear face & body cream")).toBe("moisturizer");
+    expect(typeOf("Handmade day cream")).toBe("moisturizer");
+  });
+
   it("leaves what only mentions the eyes as it was", () => {
     for (const name of ["Démaquillant yeux waterproof", "Eye Make-up Remover", "Beauty of Joseon Revive Eye Serum", "Eau micellaire visage & yeux", "Creamy Eyeshadow"]) {
       expect({ name, type: typeOf(name) }).not.toEqual({ name, type: "eye-cream" });
