@@ -64,6 +64,12 @@ export type HistoryEntry = {
    */
   label?: string[];
   /**
+   * A label photo's number, counted up from 1 on this phone, for its name in
+   * History ("Product 2", `lib/label-title.ts`). Optional, like `label`: an
+   * entry scanned before they were numbered has none and keeps "Label photo".
+   */
+  labelNo?: number;
+  /**
    * How it was last reached (v9): "scanned" from the camera (a barcode or a
    * label photo), "opened" from anywhere else. History shows it in place of
    * the time ("Softwell · Scanned"). Optional, like `label`: an entry logged
@@ -814,7 +820,7 @@ export const useAppStore = create<AppState>()(
             seenCount: (previous?.seenCount ?? 0) + 1,
             scoreAtView: score,
             warningsAtView: warnings,
-            ...(label ? { label } : {}),
+            ...(label ? { label, labelNo: previous?.labelNo ?? Math.max(0, ...state.history.map((h) => h.labelNo ?? 0)) + 1 } : {}),
             ...(how ? { source: how } : {}),
           };
           return {

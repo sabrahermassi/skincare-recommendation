@@ -1,3 +1,4 @@
+import { labelName, labelTitle } from "@/lib/label-title";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Link, router, useFocusEffect, useScrollToTop } from "expo-router";
@@ -350,7 +351,7 @@ export default function Saved() {
                 {group.entries.map((entry) => {
                   const product = entry.known ? byId[entry.id] : undefined;
                   return (
-                    <SwipeToDelete key={entry.id} label={product?.name ?? (entry.label ? "Label photo" : entry.id)} onDelete={() => setDeleting(entry)}>
+                    <SwipeToDelete key={entry.id} label={product?.name ?? (entry.label ? labelName(entry.labelNo) : entry.id)} onDelete={() => setDeleting(entry)}>
                       {entry.label ? (
                         <LabelRow entry={entry} ingredients={entry.label} />
                       ) : product ? (
@@ -583,16 +584,19 @@ const TILE = 52;
 const TILE_RADIUS = 12;
 
 /**
- * A label photo in History: what was read off the pack, its score then, and a
- * tap that opens the same result again (owner). The list is kept on the entry.
+ * A label photo in History: its number and the ingredients that say most
+ * about it ("Product 2: Niacinamide, Salicylic Acid, Retinol", owner), its
+ * score then, and a tap that opens the same result again. The list is kept on
+ * the entry.
  */
 function LabelRow({ entry, ingredients }: { entry: HistoryEntry; ingredients: string[] }) {
+  const title = labelTitle(ingredients, entry.labelNo);
   return (
     <PlainRow
-      title="Label photo"
+      title={title}
       detail={notOursLine(entry)}
       onPress={() => router.push({ pathname: "/label-result", params: { entry: entry.id } })}
-      accessibilityLabel={`Label photo, ${ingredients.length} ingredients, ${notOursLine(entry)}`}
+      accessibilityLabel={`${title}, ${ingredients.length} ingredients, ${notOursLine(entry)}`}
       end={<ScorePill score={entry.scoreAtView} />}
     />
   );

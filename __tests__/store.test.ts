@@ -803,3 +803,28 @@ describe("a routine of one's own", () => {
   });
 });
 
+// A label photo has no name of its own, so it is numbered for History
+// ("Product 2", owner, 2 October 2026).
+describe("a label photo's number", () => {
+  const scan = (id: string) => s().recordView({ id, known: false, score: 70, warnings: 0, label: ["aqua", "glycerin"] });
+
+  it("counts up from 1, and keeps its number when the same result is opened again", () => {
+    scan("label-1");
+    scan("label-2");
+    expect(s().history.find((h) => h.id === "label-1")?.labelNo).toBe(1);
+    expect(s().history.find((h) => h.id === "label-2")?.labelNo).toBe(2);
+    scan("label-1");
+    expect(s().history.find((h) => h.id === "label-1")?.labelNo).toBe(1);
+  });
+
+  it("never reuses a number still in History, and leaves products without one", () => {
+    scan("label-1");
+    scan("label-2");
+    s().removeHistoryEntry("label-1");
+    scan("label-3");
+    expect(s().history.find((h) => h.id === "label-3")?.labelNo).toBe(3);
+    s().recordView({ id: "p1", known: true, score: 80, warnings: 0 });
+    expect(s().history.find((h) => h.id === "p1")?.labelNo).toBeUndefined();
+  });
+});
+

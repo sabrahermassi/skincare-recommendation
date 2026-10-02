@@ -13,6 +13,7 @@ import { track } from "@/lib/analytics";
 import { decodeNeed, needProfile, type Need } from "@/lib/journey";
 import { isLowCoverage, matchProduct } from "@/lib/matching";
 import { photoScannerHref } from "@/lib/open-scanner";
+import { labelName } from "@/lib/label-title";
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
 import { historyWarningCount, isVerified } from "@/lib/safety";
 import { CANVAS, INK, MUTED, SPACE, STONE, TYPE } from "@/lib/tokens";
@@ -36,7 +37,7 @@ export default function LabelResult() {
 
   if (!read) return <NothingToShow />;
 
-  return <Verdict read={read} fromHistory={Boolean(entry)} journey={from === "journey" ? (decodeNeed(need) ?? undefined) : undefined} />;
+  return <Verdict read={read} entry={entry || undefined} journey={from === "journey" ? (decodeNeed(need) ?? undefined) : undefined} />;
 }
 
 function NothingToShow() {
@@ -64,7 +65,12 @@ function retake() {
   router.dismissTo(photoScannerHref());
 }
 
-function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory: boolean; journey?: Need }) {
+function Verdict({ read, entry, journey }: { read: HeldLabel; /** The History entry it was opened from, if it was. */ entry?: string; journey?: Need }) {
+  const fromHistory = entry !== undefined;
+  // The History entry this result is: the one it was opened from, or the one
+  // it writes below. Its number names it ("Product 2").
+  const [entryId] = useState(() => entry ?? `label-${Date.now()}`);
+  const labelNo = useAppStore((s) => s.history.find((h) => h.id === entryId)?.labelNo);
   // A scan from Skin needs is read for what was picked there today, not the
   // saved skin profile (owner): this profile, made from the pick, only feeds
   // its warnings. History keeps the skin profile's score, below.
@@ -89,7 +95,7 @@ function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory:
       if (fromHistory || resolved.length === 0) return;
       const { profile: now, recordView } = useAppStore.getState();
       const seen = matchProduct({ type: "unknown", ingredients: resolved }, now);
-      recordView({ id: `label-${Date.now()}`, known: false, score: seen.score, warnings: historyWarningCount(seen.warnings), label: read.ingredients });
+      recordView({ id: entryId, known: false, score: seen.score, warnings: historyWarningCount(seen.warnings), label: read.ingredients });
     });
     return () => {
       cancelled = true;
@@ -131,7 +137,7 @@ function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory:
         // No product to name: what was read, as the header.
         header={
           <View style={{ paddingHorizontal: SPACE.gutter }}>
-            <PageTitle title="Label photo" line={total > 0 ? `Read from your photo · ${recognised} of ${total} names recognised` : "Nothing was read"} />
+            <PageTitle title={labelName(labelNo)} line={total > 0 ? `Read from your photo · ${recognised} of ${total} names recognised` : "Nothing was read"} />
           </View>
         }
         // Scanned from Skin needs: read against what was picked there.

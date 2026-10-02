@@ -88,6 +88,13 @@ describe("the label result", () => {
     expect(screen.getByText(COUNT)).toBeTruthy();
   });
 
+  // A photo has no name of its own: it is numbered as it goes into History (owner).
+  it("names the result by its number in History", async () => {
+    await open(LIST);
+    expect(screen.getByText("Product 1")).toBeTruthy();
+    expect(useAppStore.getState().history[0]).toMatchObject({ labelNo: 1, label: LIST });
+  });
+
   it("opens an ingredient from the list", async () => {
     await open(LIST);
     await showSafety();
