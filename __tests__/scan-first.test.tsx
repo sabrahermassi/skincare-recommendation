@@ -17,6 +17,18 @@ import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 jest.setTimeout(30_000);
 
+// The routine the closing screen waits for: ready at once unless a test holds it back.
+let mockFinishRoutine: (() => void) | null = null;
+let mockHoldRoutine = false;
+const mockCallOff = jest.fn();
+jest.mock("@/lib/routine-build", () => ({
+  prepareRoutine: (_profile: unknown, onReady: () => void) => {
+    if (mockHoldRoutine) mockFinishRoutine = onReady;
+    else onReady();
+    return mockCallOff;
+  },
+}));
+
 const mockRouter = { back: jest.fn(), push: jest.fn(), replace: jest.fn(), dismissTo: jest.fn(), canGoBack: () => true };
 const mockGoBack = jest.fn();
 let mockCanGoBack = true;
@@ -178,6 +190,54 @@ describe("the quiz, as a modal", () => {
       });
       expect(mockRouter.dismissTo).toHaveBeenCalledWith("/routine");
       expect(mockGoBack).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  // The wait is for the routine itself, not a clock (owner, 2 October 2026):
+  // the routine must be there when it opens.
+  it("waits on the building screen until the routine is built, however long the bar has been full", async () => {
+    openQuizAt(Date.now(), "routine");
+    mockHoldRoutine = true;
+    jest.useFakeTimers();
+    try {
+      await render(
+        <QuizFrame>
+          <PregnancyStep />
+        </QuizFrame>,
+      );
+      await fireEvent.press(screen.getByText("No"));
+      await fireEvent.press(screen.getByText("See my routine"));
+      await act(async () => {
+        jest.advanceTimersByTime(BUILDING_MS * 3);
+      });
+      expect(screen.getByText("Building your skincare routine…")).toBeTruthy();
+      expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+      await act(async () => mockFinishRoutine?.());
+      expect(mockRouter.dismissTo).toHaveBeenCalledWith("/routine");
+    } finally {
+      jest.useRealTimers();
+      mockHoldRoutine = false;
+      mockFinishRoutine = null;
+    }
+  });
+
+  it("does not open the routine before the bar is full, even with the routine built at once", async () => {
+    openQuizAt(Date.now(), "routine");
+    jest.useFakeTimers();
+    try {
+      await render(
+        <QuizFrame>
+          <PregnancyStep />
+        </QuizFrame>,
+      );
+      await fireEvent.press(screen.getByText("No"));
+      await fireEvent.press(screen.getByText("See my routine"));
+      await act(async () => {
+        jest.advanceTimersByTime(BUILDING_MS - 1);
+      });
+      expect(mockRouter.dismissTo).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
     }

@@ -1,10 +1,12 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useIsFocused } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Animated, Pressable, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BuildingRoutine } from "@/components/BuildingRoutine";
 import { EmptyState } from "@/components/EmptyState";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { PageTitle } from "@/components/PageTitle";
@@ -12,13 +14,13 @@ import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { Text } from "@/components/Text";
-import { fetchProducts } from "@/data/api";
-import type { ProductWithIngredients, SkinProfile } from "@/data/types";
+import type { SkinProfile } from "@/data/types";
 import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
-import { isPersonalized, profileHeadline } from "@/lib/profile";
-import { assembleRoutine, recallRoutine, rememberRoutine, routineCandidates, routinePick, ROUTINE_STEPS, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
-import { CANVAS, CANVAS_GLASS, CARD_RADIUS, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WHITE } from "@/lib/tokens";
+import { isPersonalized } from "@/lib/profile";
+import { prepareRoutine } from "@/lib/routine-build";
+import { recallRoutine, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, CHOSEN, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
 import { GlassHeader } from "@/components/GlassHeader";
@@ -87,85 +89,50 @@ function EmptyProfile() {
   );
 }
 
-// How many products are scored between two chances for a tap to be handled.
-const SCORE_BATCH = 25;
-
 /**
- * The routine for a profile, `null` while it is being built.
+ * The routine for a profile, `null` until it is built.
  *
- * Built in small batches, and only while this screen is the one showing.
- * Scoring the catalogue in one go froze the app for as long as it took, and
- * this screen is alive when it is not on show: Home draws it ahead of the
- * tap, and the skin quiz opens over it and changes the profile with every
- * answer, so each answer froze the quiz to rebuild a routine nobody could see
- * (owner, 2 October 2026).
+ * Asked for only while this screen is the one showing. It is alive when it is
+ * not on show: Home draws it ahead of the tap, and the skin quiz opens over it
+ * and changes the profile with every answer, so building on every change froze
+ * the quiz to make a routine nobody could see (owner, 2 October 2026). The
+ * routine built last, for this very profile, is there at once.
  */
 function useRoutine(profile: SkinProfile): BuiltRoutine | null {
   const focused = useIsFocused();
-  // The catalogue, read once a visit: `null` until it arrives, empty if it could not be read.
-  const [products, setProducts] = useState<ProductWithIngredients[] | null>(null);
-  // Bumped when a build finishes, so the remembered routine is read again.
-  const [, setBuilds] = useState(0);
-  const asked = useRef(false);
-
+  const [built, setBuilt] = useState<{ profile: SkinProfile; routine: BuiltRoutine } | null>(null);
+  // Checked this visit against the catalogue as it is now. Until then the
+  // remembered routine is shown on trust, so a second visit has no wait; the
+  // check is cheap when nothing changed, and builds again when something did.
+  const checked = built?.profile === profile;
   useEffect(() => {
-    if (!focused || asked.current) return;
-    asked.current = true;
-    let cancelled = false;
-    fetchProducts()
-      .then((all) => !cancelled && setProducts(all))
-      .catch(() => !cancelled && setProducts([]));
-    return () => {
-      cancelled = true;
-    };
-  }, [focused]);
-
-  // The routine built last time, for this very profile, shows at once (owner:
-  // every visit took a second to score the catalogue again). Until this
-  // visit's catalogue is in, it is taken on trust; once it is in, only if it
-  // is the same catalogue.
-  const routine = recallRoutine(profile, products ?? undefined);
-  const fresh = routine !== null;
-  useEffect(() => {
-    if (!focused || products === null || fresh) return;
-    const candidates = routineCandidates(products);
-    const picks: RoutinePick[] = [];
-    let next = 0;
-    let timer: ReturnType<typeof setTimeout>;
-    const batch = () => {
-      const end = Math.min(next + SCORE_BATCH, candidates.length);
-      for (; next < end; next++) {
-        const pick = routinePick(candidates[next], profile);
-        if (pick) picks.push(pick);
-      }
-      if (next < candidates.length) {
-        timer = setTimeout(batch, 0);
-        return;
-      }
-      rememberRoutine(profile, products, assembleRoutine(picks, profile));
-      setBuilds((count) => count + 1);
-    };
-    timer = setTimeout(batch, 0);
-    return () => clearTimeout(timer);
-  }, [focused, products, profile, fresh]);
-
-  return routine;
+    if (!focused || checked) return;
+    return prepareRoutine(profile, (made) => setBuilt({ profile, routine: made }));
+  }, [focused, profile, checked]);
+  return checked ? built.routine : recallRoutine(profile);
 }
 
 function Steps() {
   const insets = useSafeAreaInsets();
   const profile = useAppStore((s) => s.profile);
   const [time, setTime] = useState<TimeOfDay>("morning");
-  const { title, tags } = profileHeadline(profile);
   // On a development build with the test data on (Profile), ten steps each way.
   const testRoutine = useTestRoutine();
   const routine = useRoutine(profile);
-  const steps: readonly RoutineSlot[] = testRoutine
-    ? TEST_STEPS[time].map((label) => ({ key: label, label, note: null, picks: [] }))
-    : (routine?.[time] ?? ROUTINE_STEPS[time].map((step) => ({ ...step, note: null, picks: [] })));
+  const steps: readonly RoutineSlot[] = testRoutine ? TEST_STEPS[time].map((label) => ({ key: label, label, note: null, picks: [] })) : (routine?.[time] ?? []);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [scrollY] = useState(() => new Animated.Value(0));
   const [onScroll] = useState(() => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false }));
+  // Not shown until it is built (owner): the same picture and words as the
+  // skin quiz's closing screen, for as long as the building takes.
+  if (!testRoutine && routine === null) {
+    return (
+      <>
+        <ScreenHeader />
+        <BuildingRoutine title="Building your skincare routine…" line="Putting together your morning and evening steps." />
+      </>
+    );
+  }
   return (
     <View style={{ flex: 1 }}>
       {/* The steps start under the fixed header and scroll up behind it. */}
@@ -184,7 +151,7 @@ function Steps() {
 
         <View>
           {steps.map((step, i) => (
-            <StepCard key={`${time}-${step.key}`} number={i + 1} slot={step} finding={!testRoutine && routine === null} last={i === steps.length - 1} />
+            <StepCard key={`${time}-${step.key}`} number={i + 1} slot={step} last={i === steps.length - 1} />
           ))}
         </View>
         <Text style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.text, textAlign: "center", fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
@@ -199,21 +166,21 @@ function Steps() {
         <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: SPACE.block }}>
           <PageTitle title="Your skincare routine" />
 
-          {/* What the routine is built from; tapping it changes the answers. */}
+          {/* What the routine is built from; tapping it changes the answers.
+              A pale sage card with its name in sage and an arrow (owner, after
+              OnSkin's routine): it reads as a way in, not as a step. */}
           <Pressable
             onPress={() => router.push("/skin-profile")}
             accessibilityRole="button"
-            // A stone card like the steps below, pressed to the row tint; the fill
-            // is a class so the pressed state can replace it.
-            className="bg-surface active:bg-row-pressed"
-            style={{ marginTop: SPACE.block, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}
+            accessibilityLabel="Your skin profile. Your skincare routine is based on this."
+            style={{ marginTop: SPACE.block, minHeight: 64, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: CHOSEN.fill, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}
+            className="active:opacity-80"
           >
-            <View style={{ flex: 1, gap: 1 }}>
-              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>Your skin profile</Text>
-              <Text numberOfLines={1} style={{ fontSize: TYPE.caption, color: MUTED }}>
-                {[title, ...tags].join(" · ")}
-              </Text>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={{ fontSize: TYPE.card, fontWeight: "600", color: LINK }}>Your skin profile</Text>
+              <Text style={{ fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>Your skincare routine is based on this.</Text>
             </View>
+            <Ionicons name="arrow-forward" size={20} color={LINK} />
           </Pressable>
 
           {/* Morning | Evening (v9): the thumb is a warm sun yellow in the
@@ -242,7 +209,7 @@ function Steps() {
  * a serum or treatment the actives to look for, any other options, and a way
  * to scan one. With nothing picked, the step's bottle sits faded on the right.
  */
-function StepCard({ number, slot, finding, last }: { number: number; slot: RoutineSlot; finding: boolean; last: boolean }) {
+function StepCard({ number, slot, last }: { number: number; slot: RoutineSlot; last: boolean }) {
   const [more, setMore] = useState(false);
   const { label, note, picks } = slot;
   const [pick, ...others] = picks;
@@ -261,7 +228,7 @@ function StepCard({ number, slot, finding, last }: { number: number; slot: Routi
           <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED }}>
             {label}
           </Text>
-          {pick ? <PickRow pick={pick} /> : <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>{finding ? "Finding products…" : "No product picked yet."}</Text>}
+          {pick ? <PickRow pick={pick} /> : <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>No product picked yet.</Text>}
           {/* A serum or treatment: the actives that matter, whether or not we had a product to name. */}
           {note ? <Text style={{ fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{note}</Text> : null}
           {more ? others.map((other) => <PickRow key={other.product.id} pick={other} divided />) : null}

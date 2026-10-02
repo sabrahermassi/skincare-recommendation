@@ -67,7 +67,7 @@ beforeEach(() => {
 /** The screen with its routine built: the catalogue read, and scored in its batches. */
 async function open() {
   await render(<Routine />);
-  await waitFor(() => expect(screen.queryByText("Finding products…")).toBeNull());
+  await waitFor(() => expect(screen.queryByText("Building your skincare routine…")).toBeNull());
 }
 
 it("asks for a skin profile first, and opens the quiz from Take the skin quiz", async () => {
@@ -97,14 +97,16 @@ it("numbers each step plainly, with no dotted connectors between them (v9)", asy
   expect(screen.getAllByRole("button", { name: /^Scan one to check, for / })).toHaveLength(4);
 });
 
-it("says it is finding products until the catalogue arrives, then that none was picked where it has none", async () => {
+it("shows the building screen until the routine is built, then that none was picked where the catalogue has none", async () => {
   useAppStore.setState({ profile: ACNE });
   let arrive: (products: ProductWithIngredients[]) => void = () => undefined;
   fetched.mockReturnValue(new Promise((resolve) => (arrive = resolve)));
   await render(<Routine />);
-  expect(screen.getAllByText("Finding products…")).toHaveLength(4);
+  expect(screen.getByText("Building your skincare routine…")).toBeTruthy();
+  // Not shown until it is built (owner): no steps behind the loading screen.
+  expect(screen.queryByText("Steps for today")).toBeNull();
   await act(async () => arrive([]));
-  await waitFor(() => expect(screen.queryByText("Finding products…")).toBeNull());
+  await waitFor(() => expect(screen.queryByText("Building your skincare routine…")).toBeNull());
   expect(screen.getAllByText("No product picked yet.")).toHaveLength(4);
 });
 
@@ -160,7 +162,9 @@ it("neither reads the catalogue nor builds a routine while it is not the screen 
   const view = await render(<Routine />);
   await act(async () => new Promise((resolve) => setTimeout(resolve, 50)));
   expect(fetched).not.toHaveBeenCalled();
-  expect(screen.getAllByText("Finding products…")).toHaveLength(4);
+  expect(screen.getByText("Building your skincare routine…")).toBeTruthy();
+  // Not shown until it is built (owner): no steps behind the loading screen.
+  expect(screen.queryByText("Steps for today")).toBeNull();
 
   // Shown: now it reads and builds.
   mockFocused = true;
@@ -177,7 +181,8 @@ it("neither reads the catalogue nor builds a routine while it is not the screen 
   mockFocused = true;
   await view.rerender(<Routine />);
   await waitFor(() => expect(screen.getByText("Foaming gel")).toBeTruthy());
-  expect(fetched).toHaveBeenCalledTimes(1);
+  // Once per build: the first, and the one for the changed profile.
+  expect(fetched).toHaveBeenCalledTimes(2);
 });
 
 // The screen is drawn afresh on every visit; scoring the catalogue again each
@@ -190,9 +195,9 @@ it("shows the routine at once on a second visit, without building it again", asy
   await act(async () => first.unmount());
 
   await render(<Routine />);
-  // There on the first frame: no "Finding products…" to wait through.
+  // There on the first frame: no building screen to wait through.
   expect(screen.getByText("Foaming gel")).toBeTruthy();
-  expect(screen.queryByText("Finding products…")).toBeNull();
+  expect(screen.queryByText("Building your skincare routine…")).toBeNull();
 });
 
 it("builds it again when the catalogue it reads has changed", async () => {
@@ -206,5 +211,13 @@ it("builds it again when the catalogue it reads has changed", async () => {
   await render(<Routine />);
   await waitFor(() => expect(screen.getByText("Cream wash")).toBeTruthy());
   expect(screen.queryByText("Foaming gel")).toBeNull();
+});
+
+it("leads with the skin profile it is built from, as a way in", async () => {
+  useAppStore.setState({ profile: ACNE });
+  fetched.mockResolvedValue(CATALOGUE);
+  await open();
+  await fireEvent.press(screen.getByRole("button", { name: "Your skin profile. Your skincare routine is based on this." }));
+  expect(router.push).toHaveBeenCalledWith("/skin-profile");
 });
 
