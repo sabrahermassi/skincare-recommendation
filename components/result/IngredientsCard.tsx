@@ -61,6 +61,32 @@ function hasDetails(ingredient: Ingredient, label: IngredientLabel | null): bool
 }
 
 /**
+ * The rows under each filter, worst first. Its own function so a test can
+ * hold it against the two risk rows that open a filter: a row that counts
+ * ingredients must open a list that shows them
+ * (`__tests__/risk-rows-match-lists.test.ts`).
+ */
+export function ingredientGroups(ingredients: Ingredient[], match: MatchResult, personalized: boolean): Record<IngredientFilter, Ingredient[]> {
+  const labelOf = (i: Ingredient) => ingredientLabel(i, match, personalized);
+  // A stable sort: within a verdict the label's own order (most to least) stands.
+  const ordered = ingredients
+    .map((ingredient, index) => ({ ingredient, index, rank: SEVERITY[labelOf(ingredient) ?? "none"] }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map((row) => row.ingredient);
+  return {
+    all: ordered,
+    // Watch-outs: avoid first, then watch (v9).
+    watch: [...ordered.filter((i) => labelOf(i) === "avoid"), ...ordered.filter((i) => labelOf(i) === "watch")],
+    actives: ordered.filter(isActive),
+    // Every name on the pore-clogging lists, the disputed ones too: the risk
+    // row that opens this filter counts them ("5 ingredients, mixed
+    // evidence"), so leaving them out showed an empty list under that count.
+    pore: ordered.filter(isPoreClogging),
+    unknown: ordered.filter((i) => labelOf(i) === "unknown" || !isVerified(i)),
+  };
+}
+
+/**
  * The ingredient box on the result's Ingredients tab (v9): a white box with a
  * sage outline. "Ingredients" and a Filter (All / Watch-outs / Actives /
  * Pore-clogging / Not recognised) in its header, then the rows, worst first —
@@ -89,23 +115,7 @@ export function IngredientsCard({
 }) {
   const [showAll, setShowAll] = useState(false);
   const labelOf = (i: Ingredient) => ingredientLabel(i, match, personalized);
-
-  // A stable sort: within a verdict the label's own order (most to least) stands.
-  const ordered = ingredients
-    .map((ingredient, index) => ({ ingredient, index, rank: SEVERITY[labelOf(ingredient) ?? "none"] }))
-    .sort((a, b) => a.rank - b.rank || a.index - b.index)
-    .map((row) => row.ingredient);
-  const groups: Record<IngredientFilter, Ingredient[]> = {
-    all: ordered,
-    // Watch-outs: avoid first, then watch (v9).
-    watch: [...ordered.filter((i) => labelOf(i) === "avoid"), ...ordered.filter((i) => labelOf(i) === "watch")],
-    actives: ordered.filter(isActive),
-    // Every name on the pore-clogging lists, the disputed ones too: the risk
-    // row that opens this filter counts them ("5 ingredients, mixed
-    // evidence"), so leaving them out showed an empty list under that count.
-    pore: ordered.filter(isPoreClogging),
-    unknown: ordered.filter((i) => labelOf(i) === "unknown" || !isVerified(i)),
-  };
+  const groups = ingredientGroups(ingredients, match, personalized);
   const list = groups[filter];
   const truncated = filter === "all" && !showAll && list.length > FIRST_ROWS;
   const rows = truncated ? list.slice(0, FIRST_ROWS) : list;
