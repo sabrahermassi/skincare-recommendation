@@ -1,6 +1,7 @@
 import "../global.css";
 
 import { Allura_400Regular } from "@expo-google-fonts/allura";
+import { Figtree_600SemiBold } from "@expo-google-fonts/figtree";
 import { Montserrat_300Light, Montserrat_400Regular } from "@expo-google-fonts/montserrat";
 import { PTSerif_700Bold, useFonts } from "@expo-google-fonts/pt-serif";
 import { loadAsync as loadFonts } from "expo-font";
@@ -39,6 +40,8 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     PTSerif_700Bold,
     Allura_400Regular,
+    // Profile's menu rows (`MENU_FONT`).
+    Figtree_600SemiBold,
     Montserrat_300Light,
     Montserrat_400Regular,
   });

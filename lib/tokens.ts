@@ -512,6 +512,16 @@ export const DISPLAY_FONT = "PTSerif_700Bold";
  */
 export const SCRIPT_FONT = "Allura_400Regular";
 
+/**
+ * The Profile menu's row names (owner, 2 October 2026, after a reference
+ * screenshot): a rounder geometric sans, semibold. Figtree is the closest
+ * match found to the reference, not a confirmed identification.
+ */
+export const MENU_FONT = "Figtree_600SemiBold";
+
+/** The Profile menu's softer cards (same reference): rounder corners than `CARD_RADIUS`. Inferred from the screenshot. */
+export const MENU_SOFT_RADIUS = 22;
+
 /** A card's corners (v7). Every card, white or tinted, is its fill alone: no border, no shadow. */
 export const CARD_RADIUS = 16; // v9 (v7 was 20)
 

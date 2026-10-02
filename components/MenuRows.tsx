@@ -4,7 +4,7 @@ import { Pressable, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
-import { CARD_RADIUS, DESTRUCTIVE_OUTLINE, HAIRLINE, INK, LINK, MENU_FILL, MUTED, ROW_CHEVRON, TYPE } from "@/lib/tokens";
+import { CARD_RADIUS, DESTRUCTIVE_OUTLINE, HAIRLINE, INK, LINK, MENU_FILL, MENU_FONT, MENU_SOFT_RADIUS, MUTED, ROW_CHEVRON, TYPE } from "@/lib/tokens";
 
 // Each row's height (v7).
 const ROW_HEIGHT = 56;
@@ -14,14 +14,18 @@ const ROW_INSET = 16;
  * One block of a settings-style menu (Profile and Account): a stone card (v9)
  * whose rows are split by hairlines. Colour is saved for Home and
  * the scan moments, so no tinted tiles here.
+ *
+ * `soft` is Profile's look (owner, after a reference screenshot): rounder
+ * corners, no hairlines, and rows with a filled icon, a semibold name in
+ * `MENU_FONT` and an arrow.
  */
-export function MenuGroup({ children }: { children: ReactNode }) {
+export function MenuGroup({ soft = false, children }: { soft?: boolean; children: ReactNode }) {
   // Rows only: a condition left false (`{signedIn ? <MenuRow … /> : null}`) is
   // not a row, so it doesn't count as the first.
   const rows = Children.toArray(children).filter(isValidElement);
   return (
-    <View style={{ borderRadius: CARD_RADIUS, backgroundColor: MENU_FILL, overflow: "hidden" }}>
-      {rows.map((row, i) => cloneElement(row as ReactElement<{ divided?: boolean }>, { divided: i > 0 }))}
+    <View style={{ borderRadius: soft ? MENU_SOFT_RADIUS : CARD_RADIUS, backgroundColor: MENU_FILL, overflow: "hidden" }}>
+      {rows.map((row, i) => cloneElement(row as ReactElement<{ divided?: boolean; soft?: boolean }>, { divided: i > 0 && !soft, soft }))}
     </View>
   );
 }
@@ -52,6 +56,7 @@ export function MenuRow({
   destructive = false,
   chevron = true,
   divided = false,
+  soft = false,
 }: {
   /** Left out on a list of settings, where the name alone reads. */
   icon?: ComponentProps<typeof Ionicons>["name"];
@@ -68,6 +73,8 @@ export function MenuRow({
   chevron?: boolean;
   /** Set by `MenuGroup`: every row but the first has a hairline above it. */
   divided?: boolean;
+  /** Set by `MenuGroup`: Profile's look. */
+  soft?: boolean;
 }) {
   const body = (
     <>
@@ -84,14 +91,14 @@ export function MenuRow({
           borderTopColor: HAIRLINE,
         }}
       >
-        <Text style={{ flex: value ? 0 : 1, fontSize: TYPE.card, color: destructive ? DESTRUCTIVE_OUTLINE.label : INK }}>{label}</Text>
+        <Text style={{ flex: value ? 0 : 1, fontSize: TYPE.card, color: destructive ? DESTRUCTIVE_OUTLINE.label : INK, ...(soft ? { fontFamily: MENU_FONT } : null) }}>{label}</Text>
         {badge ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{badge}</Text> : null}
         {value ? (
           <Text numberOfLines={1} ellipsizeMode={onPress ? "tail" : "middle"} style={{ flex: 1, textAlign: "right", fontSize: TYPE.label, color: MUTED }}>
             {value}
           </Text>
         ) : null}
-        {onPress && chevron && !destructive ? <RowChevron /> : null}
+        {onPress && chevron && !destructive ? soft ? <Ionicons name="arrow-forward" size={20} color={LINK} /> : <RowChevron /> : null}
       </View>
     </>
   );

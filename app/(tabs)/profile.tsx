@@ -79,31 +79,31 @@ export default function Profile() {
 
         {/* The menu, in two blocks (v7): your skin, then your account and the reference pages. */}
         <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.section, gap: SPACE.section }}>
-          <MenuGroup>
+          <MenuGroup soft>
             {/* The answers, one row each, to change at any time. */}
             <MenuRow
-              icon="water-outline"
+              icon="water"
               label="Skin profile"
               badge={isPersonalized(profile) ? undefined : "Tap to fill in"}
               onPress={() => router.push("/skin-profile")}
             />
-            <MenuRow icon="list-outline" label="Skincare routine" onPress={() => router.push("/routine")} />
+            <MenuRow icon="list" label="Skincare routine" onPress={() => router.push("/routine")} />
           </MenuGroup>
-          <MenuGroup>
-            <MenuRow icon="person-outline" label="Account" onPress={() => router.push("/account")} />
-            <MenuRow icon="shield-outline" label="Privacy policy" onPress={() => router.push("/privacy")} />
-            <MenuRow icon="chatbubble-outline" label="Support" onPress={() => router.push("/support")} />
+          <MenuGroup soft>
+            <MenuRow icon="person-circle" label="Account" onPress={() => router.push("/account")} />
+            <MenuRow icon="shield-checkmark" label="Privacy policy" onPress={() => router.push("/privacy")} />
+            <MenuRow icon="chatbubbles" label="Support" onPress={() => router.push("/support")} />
           </MenuGroup>
           {/* Development builds only (owner): long lists and a ten-step
               routine to test scrolling with. A release build has no such rows. */}
           {__DEV__ ? (
-            <MenuGroup>
+            <MenuGroup soft>
               <MenuRow
-                icon="flask-outline"
+                icon="flask"
                 label="Fill with test data"
                 onPress={() => void fillTestData().catch((err) => console.warn("fillTestData failed:", err))}
               />
-              <MenuRow icon="trash-outline" label="Remove all saved, history and starred" onPress={clearTestData} />
+              <MenuRow icon="trash" label="Remove all saved, history and starred" onPress={clearTestData} />
             </MenuGroup>
           ) : null}
         </View>
