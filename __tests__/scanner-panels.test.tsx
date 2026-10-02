@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, within } from "@testing-library/react-native";
 
 import Scan from "@/app/scanner";
 import { fetchProductByBarcode } from "@/data/api";
@@ -236,6 +236,22 @@ describe("scanner status panels", () => {
     expect(screen.getByRole("button", { name: "See the full result" })).toBeTruthy();
     expect(screen.queryByText("Not in our catalogue yet")).toBeNull();
     expect(screen.queryByText("Photograph its ingredient list and we'll add it")).toBeNull();
+  });
+
+  // Opened from Skin needs, the found card answers that path's question in
+  // words (owner, 2 October 2026), and hands the pick on to the result.
+  it("says on the found card whether the product has an active for the Skin needs pick, with no score", async () => {
+    mockParams = { mode: "photo", from: "journey", need: "pimples.." };
+    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: foundProduct("8801234567890") });
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+
+    await scan("8801234567890");
+    expect(within(screen.getByTestId("found-pill")).getByText(/^(Works on|Helps a little with|Not made for) pimples$/)).toBeTruthy();
+    expect(within(screen.getByTestId("found-pill")).queryByText(/\/100/)).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "See the full result" }));
+    const { router } = jest.requireMock("expo-router") as { router: { push: MockFn } };
+    expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ from: "journey", need: "pimples.." }) }));
   });
 
   // Found in review on #259 (Codex): "Scan the ingredient list" on a plain miss

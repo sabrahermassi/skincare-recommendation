@@ -3,7 +3,7 @@ import { PRODUCTS } from "@/data/products";
 import { SCHOOL } from "@/data/school";
 import { FIRST_PAGE_COPY } from "@/lib/first-page";
 import { NOTE_COPY, tooLongCopy } from "@/lib/journal";
-import { GOALS, JOURNEY_CARDS, PREGNANCY_LINE } from "@/lib/journey";
+import { GOALS, JOURNEY_CARDS, PREGNANCY_LINE, needHeadlines, needVerdict } from "@/lib/journey";
 import { pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
 import { claimPolicyViolations } from "@/lib/claims-policy";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
@@ -132,6 +132,14 @@ const JOURNEY_CLAIMS: OwnedClaim[] = [
     ([card.name, card.line, card.found ?? "", card.whyYou, card.howToStart, card.watchFor, card.whenShopping] as const).map((text, i) => ({ source: `JOURNEY_CARDS.${card.key}[${i}]`, text }))
   ),
   { source: "PREGNANCY_LINE", text: PREGNANCY_LINE },
+  // What a scan from Skin needs can say: every headline, and each kind of line under it.
+  ...needHeadlines().map((text) => ({ source: "needHeadlines", text })),
+  ...GOALS.flatMap((goal) =>
+    [["water"], ["salicylic acid", "glycerin", "niacinamide", "retinol", "ceramide np"], ["tea tree oil", "adenosine", "allantoin"]].map((names) => ({
+      source: `needVerdict.${goal.key}.line`,
+      text: needVerdict(names.map((name) => ({ name })), { goal: goal.key, sensitivity: null, pregnant: null }).line,
+    }))
+  ),
 ];
 
 // #228: the app's copy around a journal note — never the note itself, which

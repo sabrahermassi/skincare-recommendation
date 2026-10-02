@@ -15,7 +15,7 @@ import type { Ingredient, ProductType, SkinProfile } from "@/data/types";
 import { pairingNotesFor } from "@/lib/active-pairings";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { displayIngredientName } from "@/lib/ingredient-name";
-import { deckFor, needFit, PLAN_CONCERNS, planFit, type Need } from "@/lib/journey";
+import { deckFor, needVerdict, PLAN_CONCERNS, planFit, type Need, type NeedLevel } from "@/lib/journey";
 import { concernSupport, confidenceLabel, isLowCoverage, matchProduct, ruleFor, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
@@ -61,8 +61,9 @@ const TEASER_GONE_MS = 600;
  * photo. `footer` is what a screen adds under either tab (a note, a
  * stale-formula notice, a retake button); `report` goes inside the
  * ingredient box once every ingredient is showing. `need` is what a Skin
- * needs scan carried along: the result is then read against that goal's cards
- * (and `profile` is the one made from it, not the saved skin profile).
+ * needs scan carried along: Skin match then answers a different question,
+ * whether the product holds an active for that goal (`NeedMatch`), with no
+ * score, and `profile` is the one made from the goal, used for warnings only.
  */
 export function ResultTabs({
   nav,
@@ -92,13 +93,13 @@ export function ResultTabs({
   const [filter, setFilter] = useState<IngredientFilter>("all");
   const lowCoverage = isLowCoverage(ingredients);
   // Only a scored Skin match has a ring to make room for.
-  const ring = tab === "match" && isPersonalized(profile) && !lowCoverage;
+  const ring = tab === "match" && !need && isPersonalized(profile) && !lowCoverage;
   const largeText = useLargeText();
   // The fixed header's height, once laid out: the room the result leaves for it.
   const [fixedHeight, setFixedHeight] = useState(0);
   // With no skin profile, a sheet rises once over the result to offer the quiz.
   const [teaser, setTeaser] = useState(true);
-  const noProfile = !isPersonalized(profile) && !lowCoverage;
+  const noProfile = !need && !isPersonalized(profile) && !lowCoverage;
   const takeQuiz = () => {
     // The quiz rises at once, over the sheet; the sheet is gone by the time
     // the quiz is closed.
@@ -196,7 +197,7 @@ export function ResultTabs({
 
 function MatchTab({ ingredients, type, match, profile, need }: { ingredients: Ingredient[]; type: ProductType; match: MatchResult; profile: SkinProfile; need?: Need }) {
   const lowCoverage = isLowCoverage(ingredients);
-  if (!isPersonalized(profile) && !lowCoverage) return <NoProfile />;
+  if (!need && !isPersonalized(profile) && !lowCoverage) return <NoProfile />;
 
   const identified = ingredients.filter(isVerified).length;
   if (lowCoverage) {
@@ -213,9 +214,9 @@ function MatchTab({ ingredients, type, match, profile, need }: { ingredients: In
   const confidence = confidenceLabel(match.confidence);
   return (
     <>
-      <ScoreHead match={match} />
+      {need ? null : <ScoreHead match={match} />}
       <PregnancyCard match={match} />
-      <Reasons ingredients={ingredients} match={match} profile={profile} need={need} />
+      {need ? <NeedMatch ingredients={ingredients} match={match} profile={profile} need={need} /> : <Reasons ingredients={ingredients} match={match} profile={profile} />}
       <RoutineNotes ingredients={ingredients} type={type} profile={profile} />
       {/* Only said when it changes how far to trust the number. */}
       {confidence === "high" ? null : (
@@ -278,13 +279,9 @@ export function reasonOrder(verdict: MatchResult["verdict"]): ("red" | "green" |
  * sources here (owner): they are on each ingredient's own sheet, in its
  * Sources card.
  */
-function Reasons({ ingredients, match, profile, need }: { ingredients: Ingredient[]; match: MatchResult; profile: SkinProfile; need?: Need }) {
-  // What it is read against: today's Skin needs goal, or the skin profile's own concerns.
-  const needed = need ? needFit(ingredients, need) : null;
+function Reasons({ ingredients, match, profile }: { ingredients: Ingredient[]; match: MatchResult; profile: SkinProfile }) {
   const planConcerns = profile.concerns.filter((c) => PLAN_CONCERNS.includes(c));
-  const fit = needed ? needed.fit : planConcerns.length > 0 ? planFit(ingredients, deckFor(planConcerns, profile), planConcerns) : null;
-  // Said after "the recommendations": whose they are.
-  const about = needed ? `to ${needed.phrase}` : "for your skin";
+  const fit = planConcerns.length > 0 ? planFit(ingredients, deckFor(planConcerns, profile), planConcerns) : null;
 
   const seen = new Set<string>();
   const rows: Reason[] = [];
@@ -342,9 +339,7 @@ function Reasons({ ingredients, match, profile, need }: { ingredients: Ingredien
     rows.push({ key: `watch-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tone: VERDICT.medium });
   }
   // The concerns none of its ingredients work on.
-  if (needed && fit && fit.covered.length === 0) {
-    rows.push({ key: "not-covered", name: "Worth knowing:", text: ` it has none of the ingredients we suggest ${about}.`, tone: VERDICT.medium });
-  } else if (fit && fit.notCovered.length > 0) {
+  if (fit && fit.notCovered.length > 0) {
     rows.push({
       key: "not-covered",
       name: "Worth knowing:",
@@ -379,9 +374,9 @@ function Reasons({ ingredients, match, profile, need }: { ingredients: Ingredien
       : fit
         ? fit.total === 1
           ? fit.covered.length === 1
-            ? `It covers the recommendation ${about}.`
-            : `It doesn't cover the recommendation ${about}.`
-          : `It covers ${fit.covered.length} of the ${fit.total} recommendations ${about}.`
+            ? "It covers the recommendation for your skin."
+            : "It doesn't cover the recommendation for your skin."
+          : `It covers ${fit.covered.length} of the ${fit.total} recommendations for your skin.`
         : shown.length === 0
           ? "Nothing in it works on your skin in particular, either way."
           : "Checked against your skin profile.";
@@ -395,20 +390,103 @@ function Reasons({ ingredients, match, profile, need }: { ingredients: Ingredien
       </View>
       <View style={{ marginTop: 16, gap: SPACE.block }}>
         {shown.map((row) => (
-          <View key={row.key} style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, borderRadius: 20, backgroundColor: row.tone.wash, padding: SPACE.gutter }}>
-            {/* The app's one marker, the dot in its halo (owner). The halo is
-                white here: the verdict's own pale halo is the card's colour
-                and would not show on it. */}
-            <View style={{ marginTop: 2 }}>
-              <VerdictDot colour={row.tone.solid} halo={WHITE} />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>
-                <Text style={{ fontWeight: "600" }}>{row.name}</Text>
-                {row.text}
-              </Text>
-            </View>
-          </View>
+          <ReasonBox key={row.key} row={row} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** One finding: its colour, the app's one marker, the bold name and a sentence. */
+function ReasonBox({ row }: { row: Reason }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, borderRadius: 20, backgroundColor: row.tone.wash, padding: SPACE.gutter }}>
+      {/* The dot in its halo (owner). The halo is white here: the verdict's
+          own pale halo is the card's colour and would not show on it. */}
+      <View style={{ marginTop: 2 }}>
+        <VerdictDot colour={row.tone.solid} halo={WHITE} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>
+          <Text style={{ fontWeight: "600" }}>{row.name}</Text>
+          {row.text}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const NEED_TONE: Record<NeedLevel, Tone> = { works: VERDICT.high, little: VERDICT.medium, none: VERDICT_NEUTRAL };
+
+/**
+ * Skin match for a scan opened from Skin needs (owner, 2 October 2026): not
+ * "does it suit my skin" but "does it hold an active for what I picked". The
+ * answer is a sentence on a pill, with no score; then the actives it has,
+ * what it would be better for when it misses, and the same warnings any
+ * result gives (a pore-clogger where pores are the point, an irritant, a
+ * hazard). Support such as hydration is named once and never counted.
+ */
+function NeedMatch({ ingredients, match, profile, need }: { ingredients: Ingredient[]; match: MatchResult; profile: SkinProfile; need: Need }) {
+  const verdict = needVerdict(ingredients, need);
+  const tone = NEED_TONE[verdict.level];
+  const names = (list: string[]) => listNames(list.slice(0, 3).map(displayIngredientName));
+  const seen = new Set<string>();
+  const rows: Reason[] = [];
+  for (const w of match.warnings.filter((warning) => warning.severity === "hazard")) {
+    if (seen.has(w.ingredient.name)) continue;
+    seen.add(w.ingredient.name);
+    rows.push({ key: `avoid-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tone: VERDICT.low });
+  }
+  for (const finding of verdict.actives) {
+    finding.ingredients.forEach((name) => seen.add(name));
+    const { card } = finding;
+    rows.push({
+      key: `active-${finding.ingredients[0]}`,
+      name: !card || card.found ? names(finding.ingredients) : card.name,
+      text: card ? (card.found ? ` ${card.found}` : ` ${card.line.charAt(0).toLowerCase()}${card.line.slice(1)}`) : stripName(finding.reason, finding.ingredients[0]),
+      tone: VERDICT.high,
+    });
+  }
+  if (verdict.level === "none" && verdict.missing.length > 0) {
+    rows.push({ key: "missing", name: "We looked for:", text: ` ${listNames(verdict.missing.map((name) => name.toLowerCase()), "or")}.`, tone: VERDICT_NEUTRAL });
+  }
+  for (const other of verdict.betterFor) {
+    rows.push({ key: `better-${other.label}`, name: "Better for:", text: ` ${other.label.toLowerCase()} (${names(other.ingredients)}).`, tone: VERDICT_NEUTRAL });
+  }
+  // A pore-clogger, where pores are what the goal is about. Strong evidence is red, moderate orange.
+  const poreGoal = profile.concerns.some((c) => c === "acne-prone" || c === "large-pores") || profile.baseSkinType === "oily";
+  if (poreGoal) {
+    let clogs = false;
+    for (const ingredient of ingredients) {
+      const confidence = cloggerConfidence(ingredient);
+      if (confidence === null || confidence === "contested") continue;
+      clogs = true;
+      if (seen.has(ingredient.name)) continue;
+      seen.add(ingredient.name);
+      rows.push({ key: `clog-${ingredient.name}`, name: displayIngredientName(ingredient.name), text: " is comedogenic and may clog pores.", tone: confidence === "high" ? VERDICT.low : VERDICT.medium });
+    }
+    if (!clogs) rows.push({ key: "no-clog", name: "Nothing in it", text: " is on the pore-clogging lists.", tone: VERDICT.high });
+  }
+  for (const w of irritationWarnings(match.warnings)) {
+    if (seen.has(w.ingredient.name)) continue;
+    seen.add(w.ingredient.name);
+    rows.push({ key: `watch-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tone: VERDICT.medium });
+  }
+  if (verdict.helpful.length > 0) {
+    rows.push({ key: "helpful", name: "Also in it:", text: ` ${names(verdict.helpful)}, which support skin but are not actives for this.`, tone: VERDICT_NEUTRAL });
+  }
+  return (
+    <View style={{ gap: SPACE.gutter }}>
+      {/* Where the score ring's verdict pill sits on any other result: the answer, in words. */}
+      <View testID="need-verdict" style={{ alignSelf: "center", minHeight: 40, borderRadius: 14, paddingHorizontal: 20, justifyContent: "center", backgroundColor: tone.deep }}>
+        <Text accessibilityRole="header" style={{ fontSize: TYPE.card, lineHeight: 22, fontWeight: "600", color: WHITE }}>
+          {verdict.headline}
+        </Text>
+      </View>
+      <Text style={{ paddingHorizontal: 4, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{verdict.line}</Text>
+      <View style={{ gap: SPACE.block }}>
+        {rows.map((row) => (
+          <ReasonBox key={row.key} row={row} />
         ))}
       </View>
     </View>
@@ -624,6 +702,6 @@ function RiskRow({ title, risk, divider = false, onPress }: { title: string; ris
 }
 
 /** "A", "A and B", "A, B and C". */
-function listNames(names: string[]): string {
-  return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+function listNames(names: string[], joiner: "and" | "or" = "and"): string {
+  return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} ${joiner} ${names[names.length - 1]}`;
 }

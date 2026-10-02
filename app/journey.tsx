@@ -29,6 +29,7 @@ const ROLE_INK: Record<Role, string> = {
   support: VERDICT.high.solid,
   foundation: BUTTON.primary.fill,
   strong: VERDICT.medium.deep,
+  helpful: MUTED_FAINT,
 };
 
 type Step = "needs" | "finding" | "deck";
@@ -318,7 +319,7 @@ function Deck({ need, bottom }: { need: Need; bottom: number }) {
       <View style={{ marginTop: "auto", marginHorizontal: 19, marginBottom: Math.max(34, bottom + 8), backgroundColor: SURFACE, borderRadius: 18, paddingTop: 10, paddingHorizontal: 12, paddingBottom: 12, gap: 10 }}>
         <View style={{ paddingHorizontal: 4, gap: 2 }}>
           <Text style={{ fontSize: 15, fontWeight: "600", color: INK }}>Have a product in mind?</Text>
-          <Text style={{ fontSize: 13, lineHeight: 17.5, color: MUTED_FAINT }}>I&apos;ll check it for these ingredients, and for what you picked.</Text>
+          <Text style={{ fontSize: 13, lineHeight: 17.5, color: MUTED_FAINT }}>I&apos;ll check whether it has these actives.</Text>
         </View>
         <Pressable
           onPress={scan}

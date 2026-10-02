@@ -95,6 +95,21 @@ describe("the label result", () => {
     expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ pathname: "/ingredient/[inci]" }));
   });
 
+  // Scanned from Skin needs (owner, 2 October 2026): the answer is whether the
+  // list holds an active for what was picked, profile or no profile.
+  it("answers for what was picked when the scan came from Skin needs", async () => {
+    mockParams = { from: "journey", need: "pimples.." };
+    await open(["water", "glycerin", "xanthan gum", "butylene glycol"]);
+    expect(screen.getByRole("header", { name: "Not made for pimples" })).toBeTruthy();
+    expect(screen.queryByText("Is it right for your skin?")).toBeNull();
+    expect(screen.queryByText("/100")).toBeNull();
+    await act(async () => screen.unmount());
+
+    mockParams = { from: "journey", need: "hydrate.." };
+    await open(["water", "glycerin", "xanthan gum", "butylene glycol"]);
+    expect(screen.getByRole("header", { name: "Works on dry skin" })).toBeTruthy();
+  });
+
   // #346: the quiz in place of an empty score, gone once the answers score.
   it("asks for the skin profile on Skin match, and not once the answers score", async () => {
     await open(LIST);

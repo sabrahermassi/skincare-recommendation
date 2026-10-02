@@ -1,4 +1,4 @@
-import { DECK_MAX, GOALS, JOURNEY_CARDS, PREGNANCY_LINE, cardHelps, cardRules, decodeNeed, deckFor, encodeNeed, needDeck, needFit, needProfile, planFit, type Need } from "@/lib/journey";
+import { DECK_MAX, GOALS, JOURNEY_CARDS, PREGNANCY_LINE, cardHelps, cardRules, decodeNeed, deckFor, encodeNeed, needDeck, needProfile, needVerdict, planFit, type Need } from "@/lib/journey";
 import type { Ingredient } from "@/data/types";
 
 const ingredient = (name: string): Pick<Ingredient, "name"> => ({ name });
@@ -22,9 +22,31 @@ describe("a Skin needs deck", () => {
     }
   });
 
-  it("ranks by the weight of the rules that work on the goal", () => {
-    expect(keys(need("pimples"))).toEqual(["benzoyl", "retinoids", "bha", "azelaic", "calming"]);
+  it("ranks the actives by the weight of the rules that work on the goal, then the support", () => {
+    const deck = needDeck(need("pimples"));
+    expect(deck.map((d) => d.card.key)).toEqual(["benzoyl", "retinoids", "bha", "azelaic", "calming"]);
+    // Calming is support for pimples: shown last, said to be so, and not checked for.
+    expect(deck.map((d) => d.counts)).toEqual([true, true, true, true, false]);
+    expect(deck[4]).toMatchObject({ role: "helpful", helps: undefined });
     expect(keys(need("lines"))).toEqual(["retinoids", "bakuchiol", "peptides"]);
+  });
+
+  it("counts the support cards where the goal is hydration, the barrier, eczema-prone skin or redness", () => {
+    for (const goal of ["hydrate", "barrier", "eczema", "redness"] as const) {
+      const supports = needDeck(need(goal)).filter((d) => d.card.support && d.helps !== "Dry skin");
+      expect({ goal, some: supports.length > 0, counted: supports.every((d) => d.counts) }).toEqual({ goal, some: true, counted: true });
+    }
+  });
+
+  it("has a card left for every goal whatever the two optional answers are", () => {
+    for (const goal of GOALS) {
+      for (const sensitivity of [null, "none", "some", "high"] as const) {
+        for (const pregnant of [null, true, false]) {
+          const deck = needDeck({ goal: goal.key, sensitivity, pregnant });
+          expect({ goal: goal.key, sensitivity, pregnant, counted: deck.some((d) => d.counts) }).toEqual({ goal: goal.key, sensitivity, pregnant, counted: true });
+        }
+      }
+    }
   });
 
   it("tells the two kinds of post-acne mark apart", () => {
@@ -37,7 +59,7 @@ describe("a Skin needs deck", () => {
   it("says what a card is on the deck for, including one that only helps something close", () => {
     const deck = needDeck(need("red-marks"));
     expect(deck.find((d) => d.card.key === "niacinamide")?.helps).toBe("Red marks");
-    expect(deck.find((d) => d.card.key === "calming")?.helps).toBe("Redness");
+    expect(deck.find((d) => d.card.key === "calming")).toMatchObject({ helps: "Redness", role: "helpful", counts: false });
   });
 
   it("drops the pregnancy-caution cards for someone pregnant or breastfeeding", () => {
@@ -53,7 +75,7 @@ describe("a Skin needs deck", () => {
   });
 
   it("puts the gentle cards first for very sensitive skin", () => {
-    expect(keys(need("pimples", { sensitivity: "high" }))).toEqual(["azelaic", "calming", "bakuchiol", "zinc-clay", "benzoyl"]);
+    expect(keys(need("pimples", { sensitivity: "high" }))).toEqual(["azelaic", "bakuchiol", "zinc-clay", "benzoyl", "calming"]);
     // Somewhat sensitive keeps the order; the strong cards already say to go slow.
     expect(keys(need("pimples", { sensitivity: "some" }))).toEqual(keys(need("pimples")));
   });
@@ -117,13 +139,6 @@ describe("how a product fits the plan", () => {
     const fit = planFit(["water", "glycerin"].map(ingredient), deck, [...concerns]);
     expect(fit.notCovered).toEqual(["post-acne-marks"]);
   });
-
-  it("reads a Skin needs scan against that goal's cards", () => {
-    const { fit, phrase } = needFit(["water", "salicylic acid", "glycerin"].map(ingredient), need("pimples"));
-    expect(fit.covered.map((c) => c.card.key)).toEqual(["bha"]);
-    expect(fit.total).toBe(5);
-    expect(phrase).toBe("clear pimples");
-  });
 });
 
 it("carries a need through a route param, ignoring anything that isn't one", () => {
@@ -133,4 +148,65 @@ it("carries a need through a route param, ignoring anything that isn't one", () 
   expect(decodeNeed("pimples.extreme.maybe")).toEqual(need("pimples"));
   expect(decodeNeed("not-a-goal.high.yes")).toBeNull();
   expect(decodeNeed(undefined)).toBeNull();
+});
+
+// A scan opened from Skin needs (owner, 2 October 2026): not the skin match,
+// which called a dark-spot serum "80, good match" for pimples because nothing
+// in it clogs pores. Only an active for what was picked counts.
+describe("the answer for a scan from Skin needs", () => {
+  const label = (...names: string[]) => names.map(ingredient);
+  // The serum that showed the problem: actives for dark spots, support for everything, nothing for pimples.
+  const DARK_SPOT_SERUM = label("water", "glycerin", "niacinamide", "tranexamic acid", "panthenol", "allantoin", "ceramide np");
+
+  it("says a product with no active for the goal is not made for it, however kind it is to skin", () => {
+    const verdict = needVerdict(DARK_SPOT_SERUM, need("pimples"));
+    expect(verdict.level).toBe("none");
+    expect(verdict.headline).toBe("Not made for pimples");
+    expect(verdict.line).toBe("It has none of the actives we suggest to clear pimples.");
+    expect(verdict.actives).toEqual([]);
+    expect(verdict.missing).toEqual(["Benzoyl peroxide", "Retinoids", "Salicylic acid", "Azelaic acid"]);
+  });
+
+  it("says what such a product is better for, from its actives only", () => {
+    const { betterFor } = needVerdict(DARK_SPOT_SERUM, need("pimples"));
+    expect(betterFor.map((b) => b.label)).toEqual(["Fade dark marks", "Even skin tone"]);
+    expect(betterFor[0].ingredients).toEqual(["niacinamide", "tranexamic acid"]);
+    // Never "better for dry skin" on the strength of glycerin.
+    expect(needVerdict(label("water", "glycerin", "ceramide np"), need("pimples")).betterFor).toEqual([]);
+  });
+
+  it("names support once, without counting it", () => {
+    // Nothing among the serum's support works on pimples by the rules, so none is named for it.
+    expect(needVerdict(DARK_SPOT_SERUM, need("pimples")).helpful).toEqual([]);
+    const withCentella = needVerdict(label("water", "centella asiatica extract"), need("pimples"));
+    expect(withCentella).toMatchObject({ level: "none", helpful: ["centella asiatica extract"] });
+  });
+
+  it("works on the goal when it has one of its strong actives", () => {
+    const verdict = needVerdict(label("water", "salicylic acid", "glycerin"), need("pimples"));
+    expect(verdict).toMatchObject({ level: "works", headline: "Works on pimples", line: "It has 1 of the 4 actives we suggest to clear pimples.", betterFor: [] });
+    expect(verdict.actives.map((a) => a.card?.key)).toEqual(["bha"]);
+    expect(needVerdict(DARK_SPOT_SERUM, need("dark-marks")).level).toBe("works");
+  });
+
+  it("helps a little when its only active for the goal is a mild one", () => {
+    const verdict = needVerdict(label("water", "tea tree oil"), need("pimples"));
+    expect(verdict).toMatchObject({ level: "little", headline: "Helps a little with pimples", line: "It has an active for this, though not one of our top picks." });
+    expect(verdict.actives).toEqual([expect.objectContaining({ card: null, ingredients: ["tea tree oil"] })]);
+  });
+
+  it("counts hydration as the active where hydration is the goal", () => {
+    expect(needVerdict(label("water", "glycerin", "sodium hyaluronate"), need("hydrate")).level).toBe("works");
+    expect(needVerdict(label("water", "ceramide np", "cholesterol"), need("barrier")).level).toBe("works");
+    expect(needVerdict(label("water", "glycerin"), need("lines")).level).toBe("none");
+  });
+
+  it("checks the hand-picked cards for texture, which no rule is tagged for", () => {
+    expect(needVerdict(label("water", "glycolic acid"), need("texture"))).toMatchObject({ level: "works", headline: "Works on rough texture" });
+    expect(needVerdict(label("water", "niacinamide"), need("texture")).level).toBe("none");
+  });
+
+  it("checks only for the actives on the deck, so a pregnancy drops retinoids from what was looked for", () => {
+    expect(needVerdict(label("water"), need("lines", { pregnant: true })).missing).toEqual(["Bakuchiol", "Peptides"]);
+  });
 });

@@ -5,8 +5,11 @@ import { INGREDIENT_RULES, ruleMatches, type IngredientRule, type RuleSource, ty
 /**
  * "Skin needs": the person picks one thing to work on today, and we show the
  * ingredient categories worth looking for, one card each, best first. A
- * product scanned from there is then read against those cards ("It has 2 of
- * the 5 ingredients we suggest").
+ * product scanned from there gets its own answer, apart from the skin match
+ * every other scan gets (owner, 2 October 2026): does it hold an active for
+ * what was picked (`needVerdict`)? The skin match answers "does this suit my
+ * skin", which called a product with nothing for pimples a good match for
+ * them, because it had nothing that clogs pores either.
  *
  * It stands apart from the skin profile (owner, 2 October 2026): what someone
  * wants to work on this week is not what their skin is like all year, so
@@ -55,6 +58,13 @@ export type JourneyCard = {
    * water back in"). Without one, a result says the name and then the line.
    */
   found?: string;
+  /**
+   * Hydration, barrier and calming: what skin needs under any routine, not an
+   * active for a goal. It counts toward a goal only where the goal is that
+   * very thing (dry skin, the barrier, redness); elsewhere it is shown last,
+   * as "Also helpful", and never counted.
+   */
+  support?: boolean;
   /** An acid or a retinoid: skin has to get used to it. */
   strong?: boolean;
   /** One of the four cards a skin profile's result is read against (`deckFor`). */
@@ -107,6 +117,7 @@ export const JOURNEY_CARDS: readonly JourneyCard[] = [
     key: "hydrating",
     name: "Hydrating basics",
     tint: "blue",
+    support: true,
     core: true,
     // Panthenol and ceramides were on this card until they got cards of their own (calming, ceramides).
     line: "Glycerin, hyaluronic acid and urea draw water in and hold it there.",
@@ -208,6 +219,7 @@ export const JOURNEY_CARDS: readonly JourneyCard[] = [
     key: "ceramides",
     name: "Ceramides",
     tint: "butter",
+    support: true,
     line: "The fats your skin barrier is made of, put back from the outside.",
     found: "can top up the fats your skin barrier is made of.",
     whyYou: "Supports a dry or easily upset barrier.",
@@ -220,6 +232,7 @@ export const JOURNEY_CARDS: readonly JourneyCard[] = [
     key: "calming",
     name: "Calming ingredients",
     tint: "sage",
+    support: true,
     line: "Centella, panthenol, oat and allantoin calm the look of redness and keep skin comfortable.",
     found: "can calm the look of redness and keep skin comfortable.",
     whyYou: "Gentle enough for skin that reacts easily.",
@@ -244,6 +257,7 @@ export const JOURNEY_CARDS: readonly JourneyCard[] = [
     key: "emollients",
     name: "Squalane and shea",
     tint: "butter",
+    support: true,
     line: "Soften dry skin and slow the water leaving it.",
     found: "can soften dry skin and slow the water leaving it.",
     whyYou: "Dry skin needs oils as well as water.",
@@ -276,13 +290,14 @@ function pregnancyCaution(card: JourneyCard): boolean {
   return pregnancyCautionHits(card.names.map((name) => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true }))).length > 0;
 }
 
-export type Role = "best" | "support" | "foundation" | "strong";
+export type Role = "best" | "support" | "foundation" | "strong" | "helpful";
 
 export const ROLE_LABEL: Record<Role, string> = {
   best: "Best match for you",
   support: "Good support",
   foundation: "Your foundation",
   strong: "Stronger, go slow",
+  helpful: "Also helpful",
 };
 
 export type DeckCard = {
@@ -292,6 +307,8 @@ export type DeckCard = {
   helps?: string;
   /** A line added to "Watch for" when the pregnancy question was left unanswered. */
   caution?: string;
+  /** On a Skin needs deck: whether a scanned product is checked for it. An "Also helpful" card is not. */
+  counts?: boolean;
 };
 
 // ── The goals ────────────────────────────────────────────────────────────────
@@ -319,13 +336,17 @@ type Goal = {
   phrase: string;
   /** On a card's chip. */
   short: string;
+  /** What it is about, for a scan's answer ("Works on pimples", "Not made for dull skin"). */
+  noun: string;
+  /** The goal is itself hydration, the barrier or calm skin, so the support cards are its actives. */
+  supportCounts?: boolean;
   /** Which rules work on it; a card's strength is its heaviest such rule. */
   test: (helps: RuleTarget) => boolean;
   /** Cards that only help something close to it, shown after the rest, with the chip they get. */
   also?: { short: string; test: (helps: RuleTarget) => boolean };
   /** Hand-picked cards, for the one goal the rules have no word for. */
   cards?: CardKey[];
-  /** What a scan from here is scored as. */
+  /** The skin a scan from here is checked for warnings as (pore-cloggers, irritants). */
   score: { concerns: Concern[]; baseSkinType?: BaseSkinType; sensitive?: boolean };
 };
 
@@ -333,13 +354,14 @@ const has = (concern: Concern) => (helps: RuleTarget) => helps.concerns?.include
 const type = (skinType: BaseSkinType) => (helps: RuleTarget) => helps.skinTypes?.includes(skinType) ?? false;
 
 export const GOALS: readonly Goal[] = [
-  { key: "pimples", label: "Clear pimples", phrase: "clear pimples", short: "Pimples", test: has("acne-prone"), score: { concerns: ["acne-prone"] } },
-  { key: "blackheads", label: "Unclog pores", phrase: "unclog blackheads and pores", short: "Pores", test: has("large-pores"), score: { concerns: ["large-pores"] } },
+  { key: "pimples", label: "Clear pimples", phrase: "clear pimples", short: "Pimples", noun: "pimples", test: has("acne-prone"), score: { concerns: ["acne-prone"] } },
+  { key: "blackheads", label: "Unclog pores", phrase: "unclog blackheads and pores", short: "Pores", noun: "clogged pores", test: has("large-pores"), score: { concerns: ["large-pores"] } },
   {
     key: "red-marks",
     label: "Fade red marks",
     phrase: "fade red marks",
     short: "Red marks",
+    noun: "red marks",
     // The rules have one concern for both kinds of mark; the red kind is the part of it that also works on redness.
     test: (helps) => has("post-acne-marks")(helps) && has("redness")(helps),
     also: { short: "Redness", test: has("redness") },
@@ -350,28 +372,32 @@ export const GOALS: readonly Goal[] = [
     label: "Fade dark marks",
     phrase: "fade dark marks",
     short: "Dark marks",
+    noun: "dark marks",
     test: (helps) => has("post-acne-marks")(helps) && has("hyperpigmentation")(helps),
     score: { concerns: ["post-acne-marks"] },
   },
-  { key: "dark-spots", label: "Even skin tone", phrase: "even out skin tone", short: "Skin tone", test: has("hyperpigmentation"), score: { concerns: ["hyperpigmentation"] } },
-  { key: "redness", label: "Calm redness", phrase: "calm redness", short: "Redness", test: has("redness"), score: { concerns: ["redness"] } },
+  { key: "dark-spots", label: "Even skin tone", phrase: "even out skin tone", short: "Skin tone", noun: "uneven skin tone", test: has("hyperpigmentation"), score: { concerns: ["hyperpigmentation"] } },
+  { key: "redness", label: "Calm redness", phrase: "calm redness", short: "Redness", noun: "redness", supportCounts: true, test: has("redness"), score: { concerns: ["redness"] } },
   {
     key: "hydrate",
     label: "Hydrate dry skin",
     phrase: "hydrate dry skin",
     short: "Hydration",
+    noun: "dry skin",
+    supportCounts: true,
     test: (helps) => has("dehydrated")(helps) || type("dry")(helps),
     score: { concerns: ["dehydrated"], baseSkinType: "dry" },
   },
-  { key: "dull", label: "Brighten dull skin", phrase: "brighten dull skin", short: "Dullness", test: has("dullness"), score: { concerns: ["dullness"] } },
-  { key: "lines", label: "Lines and wrinkles", phrase: "smooth fine lines", short: "Lines", test: has("fine-lines"), score: { concerns: ["fine-lines"] } },
-  { key: "eczema", label: "Soothe eczema-prone skin", phrase: "soothe eczema-prone skin", short: "Eczema-prone", test: has("atopic"), score: { concerns: ["atopic"] } },
-  { key: "oil", label: "Control oil", phrase: "control oil and shine", short: "Oil", test: type("oily"), score: { concerns: [], baseSkinType: "oily" } },
+  { key: "dull", label: "Brighten dull skin", phrase: "brighten dull skin", short: "Dullness", noun: "dull skin", test: has("dullness"), score: { concerns: ["dullness"] } },
+  { key: "lines", label: "Lines and wrinkles", phrase: "smooth fine lines", short: "Lines", noun: "lines and wrinkles", test: has("fine-lines"), score: { concerns: ["fine-lines"] } },
+  { key: "eczema", label: "Soothe eczema-prone skin", phrase: "soothe eczema-prone skin", short: "Eczema-prone", noun: "eczema-prone skin", supportCounts: true, test: has("atopic"), score: { concerns: ["atopic"] } },
+  { key: "oil", label: "Control oil", phrase: "control oil and shine", short: "Oil", noun: "oily skin", test: type("oily"), score: { concerns: [], baseSkinType: "oily" } },
   {
     key: "texture",
     label: "Smooth rough texture",
     phrase: "smooth rough texture",
     short: "Texture",
+    noun: "rough texture",
     // No rule is tagged for texture, so these are picked by hand, and a scan
     // is scored as the two concerns nearest to it. Tagging the rules would
     // change every product's score, which is the owner's decision to make.
@@ -385,6 +411,8 @@ export const GOALS: readonly Goal[] = [
     label: "Support skin barrier",
     phrase: "support your skin barrier",
     short: "Barrier",
+    noun: "a weak skin barrier",
+    supportCounts: true,
     test: (helps) => helps.sensitive === true && (type("dry")(helps) || has("atopic")(helps)),
     also: { short: "Dry skin", test: (helps) => type("dry")(helps) || has("dehydrated")(helps) },
     score: { concerns: [], baseSkinType: "dry", sensitive: true },
@@ -411,9 +439,10 @@ function strength(card: JourneyCard, test: (helps: RuleTarget) => boolean): numb
 }
 
 /**
- * The cards for a goal, best first, five at most. Pregnant or breastfeeding
- * drops the cards the pregnancy caution list names; unanswered, they stay and
- * say so. Very sensitive skin gets the gentle cards before the strong ones.
+ * The cards for a goal, five at most: its actives best first, then the
+ * support cards as "Also helpful". Pregnant or breastfeeding drops the cards
+ * the pregnancy caution list names; unanswered, they stay and say so. Very
+ * sensitive skin gets the gentle actives before the strong ones.
  */
 export function needDeck(need: Need): DeckCard[] {
   const goal = GOAL[need.goal];
@@ -424,21 +453,31 @@ export function needDeck(need: Need): DeckCard[] {
       .filter(({ weight }) => weight > 0)
       .sort((a, b) => b.weight - a.weight || a.order - b.order)
       .map(({ card }) => card);
-  let main = goal.cards ? goal.cards.map((key) => CARD[key]).filter((card) => allowed.includes(card)) : ranked(goal.test);
-  if (need.sensitivity === "high") main = [...main.filter((card) => !card.strong), ...main.filter((card) => card.strong)];
+  const main = goal.cards ? goal.cards.map((key) => CARD[key]).filter((card) => allowed.includes(card)) : ranked(goal.test);
+  let actives = main.filter((card) => goal.supportCounts || !card.support);
+  if (need.sensitivity === "high") actives = [...actives.filter((card) => !card.strong), ...actives.filter((card) => card.strong)];
   const extra = goal.also ? ranked(goal.also.test).filter((card) => !main.includes(card)) : [];
+  const helpful = [...main.filter((card) => !actives.includes(card)), ...extra];
+  // One place is kept for an "Also helpful" card where there is one.
+  const shown = [...actives.slice(0, helpful.length > 0 ? DECK_MAX - 1 : DECK_MAX), ...helpful].slice(0, DECK_MAX);
 
-  return [...main, ...extra].slice(0, DECK_MAX).map((card, index) => ({
-    card,
-    role: index === 0 ? "best" : card.strong ? "strong" : card.key === "hydrating" ? "foundation" : "support",
-    helps: main.includes(card) ? goal.short : goal.also?.short,
-    caution: need.pregnant === null && pregnancyCaution(card) ? PREGNANCY_LINE : undefined,
-  }));
+  return shown.map((card, index) => {
+    const counts = actives.includes(card);
+    return {
+      card,
+      role: !counts ? "helpful" : index === 0 ? "best" : card.strong ? "strong" : card.key === "hydrating" ? "foundation" : "support",
+      helps: counts ? goal.short : extra.includes(card) ? goal.also?.short : undefined,
+      caution: need.pregnant === null && pregnancyCaution(card) ? PREGNANCY_LINE : undefined,
+      counts,
+    };
+  });
 }
 
 /**
- * The profile a scan from Skin needs is scored with: today's goal and the two
- * optional answers, and nothing from the saved skin profile.
+ * The skin a scan from Skin needs is checked for warnings as (pore-cloggers,
+ * irritants, the pregnancy caution): today's goal and the two optional
+ * answers, and nothing from the saved skin profile. Its score is not shown:
+ * `needVerdict` is the answer on that path.
  */
 export function needProfile(need: Need): SkinProfile {
   const { score } = GOAL[need.goal];
@@ -519,7 +558,142 @@ export function planFit(ingredients: readonly Pick<Ingredient, "name">[], deck: 
   return { covered, total: deck.length, notCovered: concerns.filter((c) => !helped.has(c)) };
 }
 
-/** The same for a Skin needs scan: its deck, how the product fits it, and the goal inside a sentence. */
-export function needFit(ingredients: readonly Pick<Ingredient, "name">[], need: Need): { fit: PlanFit; phrase: string } {
-  return { fit: planFit(ingredients, needDeck(need), []), phrase: GOAL[need.goal].phrase };
+// ── A scan from Skin needs ───────────────────────────────────────────────────
+
+/**
+ * An active, as opposed to hydration, barrier and calming support. The same
+ * line the Ingredients tab's Actives filter draws: the actives, salicylic
+ * acid (filed under pore clogging, which it clears) and niacinamide (filed
+ * under barrier).
+ */
+function isActiveRule(rule: IngredientRule): boolean {
+  return rule.category === "actives" || (rule.category === "pore-clogging" && !!rule.helps) || ruleMatches(rule, "niacinamide");
+}
+
+/** Whether a rule works on a goal at all, counted or not. */
+function worksOn(goal: Goal, rule: IngredientRule): boolean {
+  if (goal.cards) return goal.cards.some((key) => cardRules(CARD[key]).includes(rule));
+  return !!rule.helps && goal.test(rule.helps);
+}
+
+/** Whether a rule is an active for a goal: it works on it, and is not mere support there. */
+function countsFor(goal: Goal, rule: IngredientRule): boolean {
+  return worksOn(goal, rule) && (goal.supportCounts || isActiveRule(rule));
+}
+
+// A product "works on" a goal when its strongest active for it is at least
+// this share of the strongest active there is for it; under that it "helps a
+// little". Benzoyl peroxide leads pimples at 12, so azelaic acid (9) works and
+// tea tree oil (7) helps a little.
+const WORKS_SHARE = 0.7;
+
+function strongest(goal: Goal): number {
+  return Math.max(0, ...INGREDIENT_RULES.filter((rule) => countsFor(goal, rule)).map((rule) => rule.weight));
+}
+
+type Hit = { ingredient: string; rule: IngredientRule };
+
+/** Each ingredient with the rule that names it: the first match, as the score takes it. */
+function ruleHits(ingredients: readonly Pick<Ingredient, "name">[]): Hit[] {
+  return ingredients.flatMap(({ name }) => {
+    const rule = INGREDIENT_RULES.find((candidate) => ruleMatches(candidate, name));
+    return rule ? [{ ingredient: name, rule }] : [];
+  });
+}
+
+export type NeedLevel = "works" | "little" | "none";
+
+/** One thing found in the product: a card and the ingredients that counted for it, or a lone ingredient with its rule's sentence. */
+export type NeedFinding = { card: JourneyCard | null; ingredients: string[]; reason: string };
+
+export type NeedVerdict = {
+  level: NeedLevel;
+  /** "Works on pimples", "Helps a little with pimples", "Not made for pimples". */
+  headline: string;
+  /** How many of the actives on the deck it has, or that it has none. */
+  line: string;
+  /** Its actives for the goal, strongest first. */
+  actives: NeedFinding[];
+  /** The deck's actives it does not have, by name, for "it has none of…". */
+  missing: string[];
+  /** Support it has for the goal, said once and never counted. */
+  helpful: string[];
+  /** When it does not work on the goal: up to two goals its actives do work on. */
+  betterFor: { label: string; ingredients: string[] }[];
+};
+
+const HEADLINE: Record<NeedLevel, (noun: string) => string> = {
+  works: (noun) => `Works on ${noun}`,
+  little: (noun) => `Helps a little with ${noun}`,
+  none: (noun) => `Not made for ${noun}`,
+};
+
+function levelFor(goal: Goal, hits: readonly Hit[]): NeedLevel {
+  const best = Math.max(0, ...hits.filter((hit) => countsFor(goal, hit.rule)).map((hit) => hit.rule.weight));
+  return best === 0 ? "none" : best >= WORKS_SHARE * strongest(goal) ? "works" : "little";
+}
+
+/**
+ * The answer for a scan opened from Skin needs: does the product hold an
+ * active for what was picked? Only actives count. Hydration, barrier and
+ * calming count where the goal is one of those, and are otherwise named once
+ * as support. It reads the label's names against the same rules the score
+ * uses, and knows nothing of how much of each is in the bottle.
+ */
+export function needVerdict(ingredients: readonly Pick<Ingredient, "name">[], need: Need): NeedVerdict {
+  const goal = GOAL[need.goal];
+  const hits = ruleHits(ingredients);
+  const counted = hits.filter((hit) => countsFor(goal, hit.rule)).sort((a, b) => b.rule.weight - a.rule.weight);
+  const level = levelFor(goal, hits);
+
+  // One finding per card, or per ingredient where no card stands for it.
+  const actives: NeedFinding[] = [];
+  for (const hit of counted) {
+    const card = JOURNEY_CARDS.find((candidate) => cardRules(candidate).includes(hit.rule)) ?? null;
+    const same = actives.find((finding) => (card ? finding.card === card : finding.reason === hit.rule.reason));
+    if (same) same.ingredients.push(hit.ingredient);
+    else actives.push({ card, ingredients: [hit.ingredient], reason: hit.rule.reason });
+  }
+
+  const deck = needDeck(need).filter((item) => item.counts);
+  const covered = deck.filter(({ card }) => actives.some((finding) => finding.card === card)).length;
+  const line =
+    level === "none"
+      ? `It has none of the actives we suggest to ${goal.phrase}.`
+      : covered === 0
+        ? "It has an active for this, though not one of our top picks."
+        : deck.length === 1
+          ? `It has the active we suggest to ${goal.phrase}.`
+          : `It has ${covered} of the ${deck.length} actives we suggest to ${goal.phrase}.`;
+
+  const helpful = hits.filter((hit) => worksOn(goal, hit.rule) && !countsFor(goal, hit.rule)).map((hit) => hit.ingredient);
+
+  // Elsewhere only true actives are counted, or glycerin would make every product "better for" dry skin.
+  const active = hits.filter((hit) => isActiveRule(hit.rule));
+  const betterFor =
+    level === "works"
+      ? []
+      : GOALS.filter((other) => other !== goal && levelFor({ ...other, supportCounts: false }, active) === "works")
+          .map((other) => {
+            const mine = active.filter((hit) => worksOn(other, hit.rule));
+            return { label: other.label, ingredients: mine.map((hit) => hit.ingredient), weight: mine.reduce((sum, hit) => sum + hit.rule.weight, 0) };
+          })
+          .sort((a, b) => b.weight - a.weight)
+          .slice(0, 2)
+          .map(({ label, ingredients: names }) => ({ label, ingredients: names }));
+
+  return {
+    level,
+    headline: HEADLINE[level](goal.noun),
+    line,
+    actives,
+    missing: deck.filter(({ card }) => !actives.some((finding) => finding.card === card)).map(({ card }) => card.name),
+    helpful,
+    betterFor,
+  };
+}
+
+/** Every headline a scan can show, for the claims audit. */
+export function needHeadlines(): string[] {
+  return GOALS.flatMap((goal) => (["works", "little", "none"] as const).map((level) => HEADLINE[level](goal.noun)));
 }

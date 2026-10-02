@@ -31,6 +31,7 @@ import { isProductBarcode, fetchProductByBarcode, type FetchFailure } from "@/da
 import type { ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
 import { goBackOrHome } from "@/lib/go-back";
+import { decodeNeed, needVerdict, type Need, type NeedLevel } from "@/lib/journey";
 import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
 import { lookupFailureState, scanStateCopy, scanStateSpeech, type ScanCopy, type ScanState, SCAN_SOMETHING_ELSE } from "@/lib/scan-copy";
 import { useScanContext } from "@/lib/scan-context";
@@ -57,7 +58,9 @@ import {
   SPACE,
   TOUCH_TARGET,
   TYPE,
+  VERDICT,
   VERDICT_LABEL,
+  VERDICT_NEUTRAL,
   WHITE,
   withAlpha,
 } from "@/lib/tokens";
@@ -542,6 +545,7 @@ export default function Scan() {
           <FoundSheet
             key={status.product.id}
             product={status.product}
+            need={context.from === "journey" ? decodeNeed(context.need) : null}
             onClose={() => {
               // Same reasoning as the missed/unreachable clear in
               // `selectMode` — the barcode is still in frame. See #190.
@@ -707,20 +711,25 @@ function NoMatchSheet({
  * colour ("Good match · 84/100"), and an arrow. It opens the full result;
  * tapping the camera behind it, barely dimmed, puts the camera back to
  * scanning. With no score to show (no skin profile, or too little of the
- * label recognised) the pill says so instead.
+ * label recognised) the pill says so instead. Opened from Skin needs
+ * (`need`), the same pill answers that path's question: whether the product
+ * holds an active for what was picked, in words, with no score.
  */
 function FoundSheet({
   product,
+  need,
   onClose,
   onOpen,
 }: {
   product: ProductWithIngredients;
+  need: Need | null;
   onClose: () => void;
   onOpen: () => void;
 }) {
   const profile = useAppStore((s) => s.profile);
   const match = matchProduct(product, profile);
-  const colours = scoreColours(match.verdict);
+  const verdict = need ? needVerdict(product.ingredients, need) : null;
+  const colours = verdict ? NEED_PILL[verdict.level] : scoreColours(match.verdict);
   return (
     <ScanPopup onDismiss={onClose} light>
       <Pressable
@@ -743,7 +752,7 @@ function FoundSheet({
           </Text>
           <View testID="found-pill" style={{ marginTop: 6, height: 28, paddingHorizontal: 12, borderRadius: 14, justifyContent: "center", backgroundColor: colours.deep }}>
             <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>
-              {match.score === null ? "See full result" : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`}
+              {verdict ? verdict.headline : match.score === null ? "See full result" : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`}
             </Text>
           </View>
         </View>
@@ -751,6 +760,9 @@ function FoundSheet({
     </ScanPopup>
   );
 }
+
+// The found card's pill on a scan from Skin needs: green for an active that works, amber for a mild one, grey for none.
+const NEED_PILL: Record<NeedLevel, { deep: string }> = { works: VERDICT.high, little: VERDICT.medium, none: VERDICT_NEUTRAL };
 
 const NOT_IN_CATALOGUE_ART = require("@/assets/illustrations/not-in-catalogue.webp");
 
