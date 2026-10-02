@@ -199,10 +199,18 @@ function Deck({ concerns, bottom }: { concerns: Concern[]; bottom: number }) {
   const scroller = useRef<ScrollView>(null);
   const goTo = (index: number) => {
     const next = Math.max(0, Math.min(deck.length - 1, index));
+    // The dot lights at once and stays lit: while the cards slide there, the
+    // scroll's own positions are not read, or the lit dot ran back to where
+    // the slide started and across again (owner).
+    jumping.current = true;
     setCurrent(next);
     scroller.current?.scrollTo({ x: next * stride, animated: !reduceMotionNow() });
   };
-  const settledAt = (x: number) => setCurrent(Math.max(0, Math.min(deck.length - 1, Math.round(x / stride))));
+  const jumping = useRef(false);
+  const settledAt = (x: number) => {
+    if (jumping.current) return;
+    setCurrent(Math.max(0, Math.min(deck.length - 1, Math.round(x / stride))));
+  };
 
   const scan = () => openScanner({ mode: "photo", from: "journey", concerns: encodeConcerns(concerns) });
 
@@ -228,6 +236,14 @@ function Deck({ concerns, bottom }: { concerns: Concern[]; bottom: number }) {
           contentContainerStyle={{ paddingHorizontal: CAROUSEL_SIDE, gap: CAROUSEL_GAP }}
           scrollEventThrottle={16}
           onScroll={(event) => settledAt(event.nativeEvent.contentOffset.x)}
+          // A finger on the cards, or the slide coming to rest, hands the dots back to the scroll.
+          onScrollBeginDrag={() => {
+            jumping.current = false;
+          }}
+          onMomentumScrollEnd={(event) => {
+            jumping.current = false;
+            settledAt(event.nativeEvent.contentOffset.x);
+          }}
         >
           {deck.map((item, i) => (
             <View key={item.card.key} style={{ width: cardWidth }}>
