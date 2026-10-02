@@ -5,7 +5,7 @@ import Animated, { makeMutable, ReduceMotion, useAnimatedReaction, useAnimatedSt
 import Svg, { ClipPath, Defs, G, Path } from "react-native-svg";
 
 import { TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_MARGIN } from "@/lib/tab-bar";
-import { INK, TAB_BAR_GLASS, TAB_BAR_SHADE, TAB_PILL } from "@/lib/tokens";
+import { HAIRLINE, INK, TAB_BAR_GLASS, TAB_BAR_SHADE, TAB_PILL } from "@/lib/tokens";
 
 /**
  * The tab bar's body: a rounded bar of glass (owner: what scrolls under it
@@ -112,8 +112,9 @@ export function TabBarBackground() {
           </G>
         </Svg>
       ) : null}
+      {/* The bar itself, with a hairline round it so its edge shows even over a white card. */}
       {width > 0 ? (
-        <View style={{ position: "absolute", top: 0, left: x0, width: x1 - x0, height: h, borderRadius: r, overflow: "hidden" }}>
+        <View style={{ position: "absolute", top: 0, left: x0, width: x1 - x0, height: h, borderRadius: r, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: HAIRLINE }}>
           {/* "light", never "default", which goes dark with the phone's appearance. */}
           <BlurView intensity={TAB_BAR_BLUR} tint="light" style={StyleSheet.absoluteFill} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: TAB_BAR_GLASS }]} />

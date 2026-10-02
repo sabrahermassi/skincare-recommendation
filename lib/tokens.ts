@@ -156,10 +156,11 @@ export const SWITCH_TRACK_GLASS = "rgba(47,44,42,0.07)";
 
 /**
  * The floating tab bar as glass (same request): white let through over a
- * light blur, so the bar stays white (owner) while what scrolls under it
- * shows through. 62% is a judged value.
+ * light blur. Mostly white (owner: at 62% it could vanish over a white card),
+ * so the bar always reads as a white bar and what scrolls under it shows only
+ * faintly. 86% is a judged value.
  */
-export const TAB_BAR_GLASS = "rgba(255,255,255,0.62)";
+export const TAB_BAR_GLASS = "rgba(255,255,255,0.86)";
 
 /**
  * Every destructive or report action (v9, read off the hand-off): the soft
