@@ -11,12 +11,14 @@ import { displayIngredientName } from "@/lib/ingredient-name";
 import { ingredientLabel, LABEL_META, type IngredientLabel } from "@/lib/ingredient-labels";
 import { ingredientSubtitle } from "@/lib/ingredient-subtitle";
 import { ruleFor, type MatchResult } from "@/lib/matching";
-import { isWarnedPoreClogging } from "@/lib/pore-clogging";
+import { cloggerConfidence, isPoreClogging } from "@/lib/pore-clogging";
 import { nameMatches } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { BUTTON, INK, MUTED, MUTED_FAINT, SPACE, TYPE, WHITE } from "@/lib/tokens";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
 import { useAppStore } from "@/store/useAppStore";
+
+const DISPUTED_CLOGGER = "Disputed: sources disagree on whether it clogs pores";
 
 export type IngredientFilter = "all" | "watch" | "actives" | "pore" | "unknown";
 
@@ -55,7 +57,7 @@ const SEVERITY: Record<IngredientLabel | "none", number> = { avoid: 0, watch: 1,
  * ingredient; plain filler like water just sits in the list.
  */
 function hasDetails(ingredient: Ingredient, label: IngredientLabel | null): boolean {
-  return (label !== null && label !== "good") || ruleFor(ingredient) !== undefined || isWarnedPoreClogging(ingredient);
+  return (label !== null && label !== "good") || ruleFor(ingredient) !== undefined || isPoreClogging(ingredient);
 }
 
 /**
@@ -98,7 +100,10 @@ export function IngredientsCard({
     // Watch-outs: avoid first, then watch (v9).
     watch: [...ordered.filter((i) => labelOf(i) === "avoid"), ...ordered.filter((i) => labelOf(i) === "watch")],
     actives: ordered.filter(isActive),
-    pore: ordered.filter(isWarnedPoreClogging),
+    // Every name on the pore-clogging lists, the disputed ones too: the risk
+    // row that opens this filter counts them ("5 ingredients, mixed
+    // evidence"), so leaving them out showed an empty list under that count.
+    pore: ordered.filter(isPoreClogging),
     unknown: ordered.filter((i) => labelOf(i) === "unknown" || !isVerified(i)),
   };
   const list = groups[filter];
@@ -141,7 +146,8 @@ export function IngredientsCard({
               key={ingredient.id}
               ingredient={ingredient}
               label={label}
-              subtitle={ingredientSubtitle(ingredient, label, match.warnings.find((w) => w.ingredient.id === ingredient.id))}
+              // A disputed pore-clogger carries no warning anywhere else, so under this filter the row says why it is listed.
+              subtitle={filter === "pore" && cloggerConfidence(ingredient) === "contested" ? DISPUTED_CLOGGER : ingredientSubtitle(ingredient, label, match.warnings.find((w) => w.ingredient.id === ingredient.id))}
               onPress={hasDetails(ingredient, label) ? () => onIngredientPress(ingredient) : undefined}
             />
           );

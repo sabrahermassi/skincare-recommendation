@@ -243,6 +243,21 @@ describe("the product screen's result tabs", () => {
     expect(row("water")).toBeNull();
   });
 
+  // The pore-clogging row counts disputed names ("2 ingredients, mixed
+  // evidence"); the list it opens used to leave them out and say "Nothing
+  // here clogs pores" under that count (owner, 2 October 2026).
+  it("lists the disputed pore-cloggers the risk row counts, and says why each is there", async () => {
+    const disputed = { ...PRODUCT, ingredients: ["water", "shea butter", "glycerin", "beeswax", "panthenol"].map((name) => ingredient(name)) };
+    await openSafety(disputed);
+    await fireEvent.press(screen.getByRole("button", { name: /^Pore-clogging risk: Contested\. 2 ingredients, mixed evidence/ }));
+    expect(screen.getByLabelText("Filter: Pore-clogging")).toBeTruthy();
+    expect(row("shea butter")).toBeTruthy();
+    expect(row("beeswax")).toBeTruthy();
+    expect(row("glycerin")).toBeNull();
+    expect(screen.queryByText("Nothing here clogs pores.")).toBeNull();
+    expect(screen.getAllByText("Disputed: sources disagree on whether it clogs pores")).toHaveLength(2);
+  });
+
   it("shows the first five rows of a long list, then all of them (v7)", async () => {
     const long = { ...PRODUCT, ingredients: Array.from({ length: 10 }, (_, i) => ingredient(`plain ${i}`)) };
     await openSafety(long);
