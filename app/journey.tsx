@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Linking, PanResponder, Pressable, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -67,9 +68,24 @@ export default function Journey() {
   const profile = useAppStore((s) => s.profile);
   const fromProfile = useMemo(() => profileConcerns(profile.concerns), [profile.concerns]);
   // Decided once, on opening: whether this visit has the concerns step at all.
-  const [asks] = useState(() => fromProfile.length === 0);
+  const [asks, setAsks] = useState(() => fromProfile.length === 0);
   const [step, setStep] = useState<Step>(asks ? "concerns" : "deck");
   const [picked, setPicked] = useState<Concern[]>(fromProfile);
+  // Home draws this screen ahead of the tap, so "on opening" can come before
+  // the profile's last change (the quiz taken in between). Until someone has
+  // actually seen it, it follows the profile.
+  const seen = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      seen.current = true;
+    }, []),
+  );
+  useEffect(() => {
+    if (seen.current) return;
+    setAsks(fromProfile.length === 0);
+    setStep(fromProfile.length === 0 ? "concerns" : "deck");
+    setPicked(fromProfile);
+  }, [fromProfile]);
   const insets = useSafeAreaInsets();
   const back = () => (asks && step !== "concerns" ? setStep("concerns") : goBackOrHome());
 

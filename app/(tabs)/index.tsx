@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
+import { useEffect } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -17,6 +18,8 @@ const NEEDS_ART = require("@/assets/illustrations/home-skin-needs.webp");
 const ROUTINE_ART = require("@/assets/illustrations/home-routine-v2.webp");
 
 // v9 measurements, read off the hand-off.
+// How long after Home shows its tiles' screens are drawn in the background.
+const PREFETCH_AFTER_MS = 600;
 const SCAN_CARD_MIN_HEIGHT = 188;
 const SCAN_ART_WIDTH = 150;
 const SCAN_LINE_WIDTH = 180;
@@ -32,6 +35,16 @@ const TILE_RADIUS = 20;
  */
 export default function Home() {
   const insets = useSafeAreaInsets();
+  // The two tiles' screens are drawn ahead of the tap (owner: a card must
+  // open at once), a moment after Home itself has painted. Not the scanner:
+  // drawing it would switch the camera on.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.prefetch("/routine");
+      router.prefetch("/journey");
+    }, PREFETCH_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, []);
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <FitScrollView
