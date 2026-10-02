@@ -16,18 +16,22 @@ const TITLE_NAMES = 3;
 const SAYS_NOTHING = /^(aqua|water|eau|aqua\/water|water\/aqua|aqua\/eau|water\/eau)$/i;
 
 /**
- * The ingredients that say most about a label: its actives, in printed order,
- * three at most; where it has fewer, its first ingredients fill the rest,
- * water left out.
+ * The ingredients that say most about a label, three at most: its actives
+ * first, in printed order; then, where it has fewer, the ingredients our
+ * rules credit most (ceramides before butylene glycol), and last whatever is
+ * printed first, water left out.
  */
 export function labelHighlights(names: readonly string[]): string[] {
-  const active = (name: string) => {
-    const rule = INGREDIENT_RULES.find((candidate) => ruleMatches(candidate, name));
+  const ruleOf = (name: string) => INGREDIENT_RULES.find((candidate) => ruleMatches(candidate, name));
+  const actives = names.filter((name) => {
+    const rule = ruleOf(name);
     return rule !== undefined && isActiveRule(rule);
-  };
-  const actives = names.filter(active);
-  const rest = names.filter((name) => !actives.includes(name) && !SAYS_NOTHING.test(name.trim()));
-  return [...actives, ...rest].slice(0, TITLE_NAMES).map(displayIngredientName);
+  });
+  const others = names.filter((name) => !actives.includes(name) && !SAYS_NOTHING.test(name.trim()));
+  // A rule that helps something, heaviest first; the sort is stable, so equals keep printed order.
+  const credited = others.filter((name) => ruleOf(name)?.helps).sort((a, b) => (ruleOf(b)?.weight ?? 0) - (ruleOf(a)?.weight ?? 0));
+  const plain = others.filter((name) => !credited.includes(name));
+  return [...actives, ...credited, ...plain].slice(0, TITLE_NAMES).map(displayIngredientName);
 }
 
 /** "Product 2", or "Label photo" for an entry scanned before they were numbered. */

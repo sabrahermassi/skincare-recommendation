@@ -11,9 +11,10 @@ it("names a label by its actives, in printed order, three at most", () => {
   expect(labelTitle(label, 2)).toBe("Product 2: Niacinamide, Salicylic Acid, Retinol");
 });
 
-it("fills up with the first ingredients when it has fewer than three actives, water left out", () => {
-  expect(labelHighlights(["aqua", "glycerin", "niacinamide", "butylene glycol"])).toEqual(["Niacinamide", "Glycerin", "Butylene Glycol"]);
-  expect(labelHighlights(["Water", "glycerin", "dimethicone", "panthenol", "parfum"])).toEqual(["Glycerin", "Dimethicone", "Panthenol"]);
+it("fills up, with fewer than three actives, from what our rules credit most, then what is printed first, water left out", () => {
+  // Ceramides say more about a product than butylene glycol does.
+  expect(labelHighlights(["aqua", "glycerin", "niacinamide", "butylene glycol", "panthenol", "ceramide np"])).toEqual(["Niacinamide", "Ceramide NP", "Glycerin"]);
+  expect(labelHighlights(["Water", "xanthan gum", "glycerin", "carbomer"])).toEqual(["Glycerin", "Xanthan Gum", "Carbomer"]);
 });
 
 it("has just its number when nothing was read, and its old name when it was never numbered", () => {
