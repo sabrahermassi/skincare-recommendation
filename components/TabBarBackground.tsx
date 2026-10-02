@@ -2,18 +2,10 @@ import { BlurView } from "expo-blur";
 import { useState } from "react";
 import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import Animated, { makeMutable, ReduceMotion, useAnimatedReaction, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
-import Svg, { ClipPath, Defs, G, Path } from "react-native-svg";
 
 import { TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_MARGIN } from "@/lib/tab-bar";
-import { HAIRLINE, INK, TAB_BAR_GLASS, TAB_BAR_SHADE, TAB_PILL } from "@/lib/tokens";
+import { HAIRLINE, TAB_BAR_GLASS, TAB_PILL } from "@/lib/tokens";
 
-/**
- * The tab bar's body: a rounded bar of glass (owner: what scrolls under it
- * shows through, lightly blurred, and the bar stays white) with a soft shade under it. The scan
- * button is not cut into it; it sits on top of the bar and casts its own shadow.
- * Drawn rather than styled so the shade can be built from a few soft layers
- * (`TAB_BAR_SHADE`) instead of one box shadow.
- */
 // The pill behind the current tab (v9, read off the hand-off: 64 by 48), a
 // capsule like the bar it sits in.
 export const PILL_WIDTH = 64;
@@ -33,6 +25,12 @@ const TRAIL = { mass: 0.9, stiffness: 130, damping: 19, reduceMotion: ReduceMoti
 // How strongly what scrolls under the bar is blurred (expo-blur, 1-100).
 const TAB_BAR_BLUR = 14;
 
+/**
+ * The tab bar's body: a rounded bar of glass (owner: mostly white, with a
+ * faint show of what scrolls under it) and a hairline round it. No shade
+ * under it (owner). The scan button is not cut into it; it sits on top of the
+ * bar and casts its own shadow.
+ */
 export function TabBarBackground() {
   const [width, setWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
@@ -70,48 +68,8 @@ export function TabBarBackground() {
     width: Math.max(PILL_HEIGHT, right.value - left.value),
   }));
 
-  const d =
-    width > 0
-      ? [
-          // True arcs at the corners: a quadratic curve only approximates a
-          // quarter circle, and at a capsule's full radius the ends looked pinched.
-          `M ${x0 + r} 0`,
-          `L ${x1 - r} 0`,
-          `A ${r} ${r} 0 0 1 ${x1} ${r}`,
-          `L ${x1} ${h - r}`,
-          `A ${r} ${r} 0 0 1 ${x1 - r} ${h}`,
-          `L ${x0 + r} ${h}`,
-          `A ${r} ${r} 0 0 1 ${x0} ${h - r}`,
-          `L ${x0} ${r}`,
-          `A ${r} ${r} 0 0 1 ${x0 + r} 0`,
-          "Z",
-        ].join(" ")
-      : "";
-
   return (
     <View pointerEvents="none" onLayout={onLayout} style={{ position: "absolute", left: 0, right: 0, top: 0, height: h }}>
-      {width > 0 ? (
-        <Svg width={width} height={h + TAB_BAR_SHADE.reach} style={{ position: "absolute", top: 0, left: 0 }}>
-          {/* The shade is drawn only outside the bar: under glass it would
-              show through and turn the white grey. */}
-          <Defs>
-            <ClipPath id="outsideBar">
-              <Path d={`M 0 0 H ${width} V ${h + TAB_BAR_SHADE.reach} H 0 Z ${d}`} clipRule="evenodd" />
-            </ClipPath>
-          </Defs>
-          <G clipPath="url(#outsideBar)">
-            {Array.from({ length: TAB_BAR_SHADE.layers }, (_, i) => (
-              <Path
-                key={i}
-                d={d}
-                fill={INK}
-                fillOpacity={TAB_BAR_SHADE.opacity}
-                transform={`translate(0 ${((i + 1) * TAB_BAR_SHADE.reach) / TAB_BAR_SHADE.layers})`}
-              />
-            ))}
-          </G>
-        </Svg>
-      ) : null}
       {/* The bar itself, with a hairline round it so its edge shows even over a white card. */}
       {width > 0 ? (
         <View style={{ position: "absolute", top: 0, left: x0, width: x1 - x0, height: h, borderRadius: r, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: HAIRLINE }}>

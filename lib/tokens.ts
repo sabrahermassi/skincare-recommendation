@@ -656,9 +656,6 @@ export const MENU_SHADOW = {
  */
 export const CARD_SHADOW = {} as const;
 
-/** The soft shade drawn under the tab bar: how many layers, how far below it reaches, how dark each is. */
-export const TAB_BAR_SHADE = { layers: 4, reach: 10, opacity: 0.045 } as const;
-
 /**
  * "What my skin needs" (v9, read off ConcernDeckSoft in the hand-off): each
  * card's front tint (the hand-off's soft top-to-bottom gradients, taken at
