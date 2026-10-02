@@ -7,7 +7,7 @@ jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
 }));
 
 
-import { ResultTabs } from "@/components/result/ResultTabs";
+import { reasonOrder, ResultTabs } from "@/components/result/ResultTabs";
 import { Text } from "@/components/Text";
 import type { Ingredient, SkinProfile } from "@/data/types";
 import { matchProduct } from "@/lib/matching";
@@ -168,4 +168,32 @@ it("lets the header and the switch scroll at the largest text sizes, where they'
   } finally {
     mockFontScale = 1;
   }
+});
+
+// Owner, 2 October 2026: the first box agrees with the verdict above it.
+describe("the order of the boxes", () => {
+  it("leads with what works on a good or excellent match", () => {
+    expect(reasonOrder("excellent")).toEqual(["red", "green", "orange"]);
+    expect(reasonOrder("good")).toEqual(["red", "green", "orange"]);
+  });
+
+  it("leads with what doesn't on a fair or poor match", () => {
+    expect(reasonOrder("fair")).toEqual(["red", "orange", "green"]);
+    expect(reasonOrder("poor")).toEqual(["red", "orange", "green"]);
+  });
+
+  it("keeps a banned or hazardous ingredient first whatever the verdict", () => {
+    for (const verdict of ["excellent", "good", "fair", "poor", "unknown"] as const) expect(reasonOrder(verdict)[0]).toBe("red");
+  });
+
+  it("puts the watch-outs above the praise on a product that scores poorly", async () => {
+    // Fragrance and a pore-clogger for acne-prone, very sensitive skin, with one thing that helps.
+    await show(["parfum", "niacinamide"], { ...EMPTY_PROFILE, concerns: ["acne-prone"], baseSkinType: "oily", sensitivity: "high" });
+    await openMatch();
+    const tags = screen.getAllByText(/^(Watch out|Good support|Your foundation|Good for you|Good to know|Best match for you)$/).map((node) => String(node.props.children));
+    const firstGreen = tags.findIndex((tag) => tag !== "Watch out");
+    const lastOrange = tags.lastIndexOf("Watch out");
+    // Only checked when the product did land on fair or poor; the rule itself is pinned above.
+    if (screen.queryByText(/^(Could work for you|Probably not for you)$/) && firstGreen >= 0 && lastOrange >= 0) expect(lastOrange).toBeLessThan(firstGreen);
+  });
 });

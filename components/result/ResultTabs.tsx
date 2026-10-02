@@ -257,11 +257,22 @@ const REASONS_TITLE: Record<MatchResult["verdict"], string> = {
 };
 
 /**
+ * The order of a result's boxes, by colour, for a verdict (owner):
+ * a good or excellent match leads with what works (green, then orange); a
+ * fair or poor one leads with what doesn't (orange, then green). Red is a
+ * banned or hazardous ingredient, a safety warning, and is first on every
+ * product, so it never sits under the praise.
+ */
+export function reasonOrder(verdict: MatchResult["verdict"]): ("red" | "green" | "orange")[] {
+  return verdict === "fair" || verdict === "poor" ? ["red", "orange", "green"] : ["red", "green", "orange"];
+}
+
+/**
  * What matters for this person (v9), one result for everyone with a skin
  * profile: a title and a line saying how the product fits, then a box per
  * finding — what to avoid (red), which of the Skin needs recommendations it
  * covers (green), what this skin is warned about (orange), and the concerns
- * it leaves uncovered. Each box is the bold name, a sentence, and a tag. No
+ * it leaves uncovered — in the order `reasonOrder` gives for the verdict. Each box is the bold name, a sentence, and a tag. No
  * sources here (owner): they are on each ingredient's own sheet, in its
  * Sources card.
  */
@@ -340,6 +351,12 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
       tone: up ? VERDICT.high : VERDICT.medium,
     });
   }
+  // What is read first follows the verdict (owner, 2 October 2026), so the
+  // first box never argues with the score above it. The sort is stable: within
+  // a colour the order built above stands.
+  const order = reasonOrder(match.verdict);
+  const colourOf = (row: Reason) => (row.tone === VERDICT.low ? "red" : row.tone === VERDICT.high ? "green" : "orange");
+  rows.sort((a, b) => order.indexOf(colourOf(a)) - order.indexOf(colourOf(b)));
   const shown = rows.slice(0, 6);
 
   const line =
