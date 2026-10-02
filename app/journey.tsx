@@ -347,10 +347,13 @@ function FlipCard({ item, concerns, flipped, interactive, onTap }: { item: DeckC
             onPress={() => void Linking.openURL(source.url).catch(() => undefined)}
             accessibilityRole="link"
             accessibilityLabel={`See the evidence: ${source.label}`}
-            style={{ marginTop: 8, paddingTop: 10, minHeight: 44, borderTopWidth: 1, borderTopColor: DIVIDER, alignItems: "center", justifyContent: "center" }}
+            accessibilityHint="Opens in your browser"
+            style={{ marginTop: 8, paddingTop: 10, minHeight: 44, borderTopWidth: 1, borderTopColor: DIVIDER, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center" }}
             className="active:opacity-70"
           >
-            <Text style={{ fontSize: 14, fontWeight: "600", color: BUTTON.primary.fill }}>See the evidence →</Text>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: BUTTON.primary.fill }}>See the evidence</Text>
+            {/* The "opens a website" arrow (owner), as on an ingredient's sources. */}
+            <Ionicons name="open-outline" size={16} color={BUTTON.primary.fill} />
           </Pressable>
         ) : null}
       </Animated.View>

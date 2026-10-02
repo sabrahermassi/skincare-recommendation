@@ -322,7 +322,8 @@ function ReferenceLink({ label, url }: { label: string; url: string }) {
       className="active:opacity-70"
     >
       <Text style={{ fontSize: TYPE.body, fontWeight: "500", color: CHOSEN.accent }}>{label}</Text>
-      <Ionicons name="chevron-forward" size={14} color={BUTTON.primary.fill} />
+      {/* The "opens a website" arrow (owner): every link that leaves the app wears it. */}
+      <Ionicons name="open-outline" size={16} color={BUTTON.primary.fill} />
     </Pressable>
   );
 }
