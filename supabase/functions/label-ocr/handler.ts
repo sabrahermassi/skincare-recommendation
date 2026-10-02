@@ -50,7 +50,8 @@ export const VISION_TIMEOUT_MS = 25_000;
  * How many times one photo is put to Vision. Vision refuses the odd read and
  * then takes the same photo a minute later (seen on staging, 1 October 2026),
  * and without a second try each of those was a failed scan for the person
- * holding the bottle. The retry doesn't count again toward the daily ceiling.
+ * holding the bottle. The second try is a Vision call like any other, so it
+ * counts toward the daily ceiling too, and isn't made once the day is spent.
  */
 export const VISION_ATTEMPTS = 2;
 const VISION_RETRY_PAUSE_MS = 250;
@@ -260,7 +261,7 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
     return json(req, { error: "daily_limit" }, 503, { "Retry-After": String(secondsUntilUtcMidnight()) });
   }
 
-  const ocr = await runOcr(deps, imageBase64);
+  const ocr = await runOcr(deps, imageBase64, () => spendVisionRead(db, deps.visionDailyCeiling));
   if (!ocr.ok) {
     if (ocr.noText) {
       // A blank, blurred or text-free photo is an ordinary read failure, not
@@ -468,7 +469,12 @@ async function askVision(deps: LabelOcrDeps, imageBase64: string, signal: AbortS
   // with no EOI marker ("real cameras do produce truncated files"). Found in
   // review on #246 — without this, both collapsed into the same `noText`
   // outcome as a genuinely blank photo.
-  if (body === null) return { ok: false, retry: true, why: "HTTP 200 with a body that isn't JSON" };
+  if (body === null) {
+    // A deadline that lands mid-reply looks like a broken body from here; say
+    // which it was, since this line is all there is to go on afterwards.
+    const why = signal.aborted ? "the deadline passed while Vision was still answering" : "HTTP 200 with a body that isn't JSON";
+    return { ok: false, retry: true, why };
+  }
   const imageError = body.responses?.[0]?.error;
   if (imageError) {
     return { ok: false, retry: true, why: `image error ${imageError.code ?? ""} ${imageError.message ?? ""}`.trim() };
@@ -476,7 +482,12 @@ async function askVision(deps: LabelOcrDeps, imageBase64: string, signal: AbortS
   return { ok: true, body };
 }
 
-async function runOcr(deps: LabelOcrDeps, imageBase64: string): Promise<OcrResult> {
+/**
+ * `spendRetry` counts a second try against the daily ceiling and says whether
+ * the day still has room for it: the ceiling is a top on calls to Vision, so
+ * a retry that skipped it would let the bill reach twice what it promises.
+ */
+async function runOcr(deps: LabelOcrDeps, imageBase64: string, spendRetry: () => Promise<boolean>): Promise<OcrResult> {
   // One deadline for every attempt together, so a second try can't carry the
   // function past the app's own wait.
   const signal = AbortSignal.timeout(VISION_TIMEOUT_MS);
@@ -493,6 +504,7 @@ async function runOcr(deps: LabelOcrDeps, imageBase64: string): Promise<OcrResul
     console.error(`[vision] attempt ${attempt} of ${VISION_ATTEMPTS} failed:`, answer.why);
     if (!answer.retry || signal.aborted || attempt === VISION_ATTEMPTS) return { ok: false, noText: false };
     await new Promise((resolve) => setTimeout(resolve, VISION_RETRY_PAUSE_MS));
+    if (signal.aborted || !(await spendRetry())) return { ok: false, noText: false };
   }
   const annotation = body.responses?.[0]?.fullTextAnnotation;
   if (!annotation) return { ok: false, noText: true };

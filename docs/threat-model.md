@@ -152,9 +152,12 @@ second table is planned; if that ever changes, it gets its own row.
   Response text is trusted only as far as `label-ocr`'s existing parsing
   guards go, and none of it is sent back to the app when a read fails. The
   API key travels in the `X-Goog-Api-Key` header, never the URL, and each
-  call has a deadline. On top of the per-caller limits, one ceiling counts
-  every read in a UTC day (`VISION_DAILY_CEILING`, `_shared/vision-ceiling.ts`)
-  so rotating addresses can't run up the bill (#198).
+  read has one deadline, shared by its attempts. A read Vision refuses is put
+  to it once more (`VISION_ATTEMPTS`), unless Vision calls the request itself
+  wrong. On top of the per-caller limits, one ceiling counts every call to
+  Vision in a UTC day, a second try included (`VISION_DAILY_CEILING`,
+  `_shared/vision-ceiling.ts`), so rotating addresses can't run up the bill
+  (#198).
 
   Outbound, this is the boundary the app's most sensitive field crosses, and
   it is the one place where "we never store photos" buys nothing: a camera
