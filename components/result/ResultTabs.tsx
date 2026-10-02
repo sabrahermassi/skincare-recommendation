@@ -103,6 +103,7 @@ export function ResultTabs({
   const [fixedHeight, setFixedHeight] = useState(0);
   const [scrollY] = useState(() => new Animated.Value(0));
   const [scrolled] = useState(() => scrollY.interpolate({ inputRange: [0, HEADER_FADE_AFTER], outputRange: [0, 1], extrapolate: "clamp" }));
+  const [atRest] = useState(() => scrollY.interpolate({ inputRange: [0, HEADER_FADE_AFTER], outputRange: [1, 0], extrapolate: "clamp" }));
 
   const top = (
     <>
@@ -183,8 +184,14 @@ export function ResultTabs({
           largest text sizes the header and switch would take too much of the
           screen to hold still, so there they scroll and only the bar stays. */}
       <View onLayout={(event) => setFixedHeight(event.nativeEvent.layout.height)} style={{ position: "absolute", top: 0, left: 0, right: 0 }}>
-        <BlurView intensity={HEADER_BLUR} tint="default" style={StyleSheet.absoluteFill} />
+        {/* "light", never "default": the default follows the phone's
+            appearance, and in dark mode it turned the header grey and
+            swallowed the switch's track. */}
+        <BlurView intensity={HEADER_BLUR} tint="light" style={StyleSheet.absoluteFill} />
         <View style={[StyleSheet.absoluteFill, { backgroundColor: STONE_GLASS }]} />
+        {/* Plain stone until the result scrolls, so at rest the header is
+            exactly the page's own colour, whatever the blur does. */}
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: STONE, opacity: atRest }]} />
         {nav}
         {largeText ? null : <View style={{ paddingTop: SPACE.text }}>{top}</View>}
         {/* Once the result has scrolled, the header's lower edge is a soft
