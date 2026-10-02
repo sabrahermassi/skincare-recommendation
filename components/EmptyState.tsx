@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { View } from "react-native";
 
 import { Text } from "@/components/Text";
-import { DISPLAY_FONT, INK, MUTED, TYPE } from "@/lib/tokens";
+import { DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 
 /** The picture's widest (v7: 220, 280 for the larger scenes). */
 const ART_WIDTH = 220;
@@ -20,6 +20,7 @@ export function EmptyState({
   aspect = 1,
   artWidth = ART_WIDTH,
   artFull = false,
+  artShift = 0,
   title,
   line,
   action,
@@ -28,8 +29,10 @@ export function EmptyState({
   /** The picture's own width over height, so it isn't letterboxed. */
   aspect?: number;
   artWidth?: number;
-  /** The picture as wide as the screen, edge to edge (owner: the routine's), instead of `artWidth`. */
+  /** The picture as wide as the screen less the page gutter each side (owner: the routine's), instead of `artWidth`. */
   artFull?: boolean;
+  /** Points to move the picture sideways (negative is left), for one whose drawing sits off the middle of its own canvas. */
+  artShift?: number;
   title?: string;
   line: string;
   action?: ReactNode;
@@ -40,11 +43,16 @@ export function EmptyState({
         source={art}
         contentFit="contain"
         accessibilityLabel=""
-        // Edge to edge, it steps out of this block's side padding; "contain" keeps the whole picture in view.
-        style={artFull ? { alignSelf: "stretch", marginHorizontal: -SIDE, aspectRatio: aspect } : { width: "100%", maxWidth: artWidth, aspectRatio: aspect }}
+        // Full width, it steps out of this block's side padding to the page
+        // gutter, so the drawing never touches the screen's edge; "contain"
+        // keeps the whole picture in view.
+        style={[
+          artFull ? { alignSelf: "stretch", marginHorizontal: SPACE.gutter - SIDE, aspectRatio: aspect } : { width: "100%", maxWidth: artWidth, aspectRatio: aspect },
+          artShift ? { transform: [{ translateX: artShift }] } : null,
+        ]}
       />
       {title ? (
-        <Text accessibilityRole="header" style={{ marginTop: 8, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+        <Text accessibilityRole="header" style={{ marginTop: artFull ? SPACE.gutter : 8, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
           {title}
         </Text>
       ) : null}

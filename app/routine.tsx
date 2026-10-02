@@ -73,8 +73,11 @@ function EmptyProfile() {
       <View style={{ flex: 1, justifyContent: "center", paddingTop: SPACE.text }}>
         <EmptyState
           art={ROUTINE_ART}
-          // As big as the screen allows (owner): edge to edge, never cut.
+          // As big as the screen allows (owner), inside the page gutter. The
+          // drawing's weight sits 11px right of the middle of its 900px
+          // canvas (measured), so it is moved left to look centred.
           artFull
+          artShift={-4}
           title="Your skin profile is empty"
           line="Fill it in to create a skincare routine made just for you."
           action={<PrimaryButton label="Take the skin quiz" onPress={openQuiz} style={{ width: BUTTON_WIDTH.secondary }} />}
