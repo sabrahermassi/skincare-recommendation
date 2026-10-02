@@ -51,4 +51,27 @@ describe("eye-patch classification", () => {
       expect({ name, type: typeOf(name) }).toEqual({ name, type: "eye-cream" });
     }
   });
+
+  it("knows an eye cream however English names it", () => {
+    // Real names from staging; the first was the routine's top "moisturiser".
+    for (const name of [
+      "Abib Collagen Eye Creme Jericho Rose",
+      "Neutrogena Collagen Bank Eye Gel Cream 14g",
+      "Neutrogena Hydro Boost Gel-Cream Eye",
+      "CeraVe Eye Repair Cream",
+      "Creamy Eye Treatment with Avocado",
+      "Active Botanical Eye Contour (15ml)",
+      "AYZ ooglid crème",
+      "Augen Roll-On Aqua",
+      "Soin anti-âge yeux rechargeur jeunesse et perfection",
+    ]) {
+      expect({ name, type: typeOf(name) }).toEqual({ name, type: "eye-cream" });
+    }
+  });
+
+  it("leaves what only mentions the eyes as it was", () => {
+    for (const name of ["Démaquillant yeux waterproof", "Eye Make-up Remover", "Beauty of Joseon Revive Eye Serum", "Eau micellaire visage & yeux", "Creamy Eyeshadow"]) {
+      expect({ name, type: typeOf(name) }).not.toEqual({ name, type: "eye-cream" });
+    }
+  });
 });

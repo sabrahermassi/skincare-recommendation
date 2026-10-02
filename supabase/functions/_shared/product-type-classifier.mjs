@@ -11,7 +11,13 @@ const BEFORE_MASK_RULES = [
   [/hand.?cream|crème mains|handcreme/, "hand-cream"],
   // In the other languages the catalogue holds, too: "Augencreme", "Contorno
   // occhi" and "Contour des yeux" all read as moisturisers by their "creme".
-  [/eye[\s-]?cream|augencreme|contorno (de )?(occhi|ojos)|contour (des )?yeux|oogcr[èe]me/, "eye-cream"],
+  // English spells it "creme" as well, and names the eye before or after the
+  // cream: "Eye Creme", "Eye Gel Cream", "Eye Repair Cream", "Gel-Cream Eye".
+  // The routine offered "Collagen Eye Creme" as the face moisturiser.
+  [
+    /eye[\s-]?(gel[\s-]?|repair[\s-]?)?cr[eè]a?me?\b|cream[\s-]eye\b|eye[\s-]?(contour|treatment)|augen[\s-]?(creme|roll-on)|contorno (de )?(occhi|ojos)|contour (des )?yeux|soin [^,]*\byeux|oog(lid)?[\s-]?cr[èe]me/,
+    "eye-cream",
+  ],
   [/body.?butter/, "body-butter"],
   [/body.?(wash|gel)|shower|douche|duschgel/, "body-wash"],
   [/body.?scrub|body.?exfoliat/, "body-scrub"],
