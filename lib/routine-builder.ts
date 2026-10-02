@@ -168,12 +168,6 @@ const STEPS: Record<TimeOfDay, Step[]> = {
   ],
 };
 
-/** The step names of each routine, for a screen that has no catalogue yet. */
-export const ROUTINE_STEPS: Record<TimeOfDay, { key: string; label: string }[]> = {
-  morning: STEPS.morning.map(({ key, label }) => ({ key, label })),
-  evening: STEPS.evening.map(({ key, label }) => ({ key, label })),
-};
-
 export type Routine = Record<TimeOfDay, RoutineSlot[]>;
 
 /**

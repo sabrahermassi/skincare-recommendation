@@ -1,6 +1,6 @@
 import type { Ingredient, ProductType, ProductWithIngredients, SkinProfile } from "@/data/types";
 import { SCORE_BANDS } from "@/lib/matching";
-import { activeLine, buildRoutine, PICKS_PER_STEP, placesLabel, ROUTINE_STEPS, routinePlacesFor } from "@/lib/routine-builder";
+import { activeLine, buildRoutine, PICKS_PER_STEP, placesLabel, routinePlacesFor } from "@/lib/routine-builder";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 /**
@@ -45,7 +45,6 @@ it("lays out a morning of four steps and an evening that cleanses twice", () => 
   const routine = buildRoutine([], ACNE);
   expect(labels(routine.morning)).toEqual(["Cleansing", "Serum", "Moisturiser", "Sunscreen"]);
   expect(labels(routine.evening)).toEqual(["First cleanse", "Cleansing", "Treatment", "Moisturiser"]);
-  expect(ROUTINE_STEPS.morning.map((s) => s.label)).toEqual(labels(routine.morning));
 });
 
 it("fills a basic step with the best matches of that type, three at most, best first", () => {
