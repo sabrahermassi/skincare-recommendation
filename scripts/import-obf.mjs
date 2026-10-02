@@ -9,6 +9,18 @@
  *   node scripts/import-obf.mjs --dry-run      # print what would be written
  *   node scripts/import-obf.mjs                # write to Supabase
  *   node scripts/import-obf.mjs --resume       # continue a write run that stopped partway
+ *   node scripts/import-obf.mjs --dump <file>  # read OBF's whole database from its download, not the API
+ *
+ * `--dump` (added 2 October 2026) takes OBF's own nightly export,
+ * https://static.openbeautyfacts.org/data/openbeautyfacts-products.jsonl.gz
+ * (about 100MB), and reads every product in it. The six categories the API
+ * sweep pages hold about 1,500 complete products; the whole database holds
+ * about 21,000, a third of them with no category tag at all, so the sweep
+ * could never reach them. Read whole, it yields about 1,650 more face-care
+ * products, serums and treatments above all (144 new serums against 28). What
+ * keeps the deodorant and shampoo out this time is `lib/face-skincare.mjs`.
+ * It combines with --dry-run and --resume like the API sweep, and costs OBF
+ * one download instead of a rate-limited walk.
  *
  * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY — including for --dry-run,
  * unlike every other importer here. The plausibility gate below judges a parsed
@@ -23,8 +35,10 @@
  */
 
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
+import { createGunzip } from "node:zlib";
 
 import { connect } from "./lib/db.mjs";
 import { guessType } from "../supabase/functions/_shared/product-type-classifier.mjs";
@@ -34,8 +48,11 @@ import { fetchStoredFormulas, isParserRefresh } from "./lib/formula-diff.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
 import { normalise, parseInci } from "./lib/inci-parse.mjs";
 import { nonSkincareReason } from "./lib/non-skincare.mjs";
+import { notFaceSkincareReason } from "./lib/face-skincare.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
+/** The path after `--dump`, or null: read OBF's exported database rather than paging its API. */
+const DUMP = process.argv.includes("--dump") ? (process.argv[process.argv.indexOf("--dump") + 1] ?? null) : null;
 const OBF = "https://world.openbeautyfacts.org";
 const USER_AGENT = "for.me/1.0 (https://github.com/sabrahermassi/skincare-recommendation)";
 const ATTRIBUTION = "Product data from Open Beauty Facts, used under ODbL.";
@@ -209,7 +226,7 @@ function stopMessage(reason, rowCount) {
     return (
       `  ! Only ${rowCount} of ${TARGET_ROWS} rows after every category was exhausted. ` +
       "Not itself an error — it means the skincare categories are the limit, not the cap.\n" +
-      "    Add a category to CATEGORIES if the catalogue needs to be bigger."
+      "    The API sweep only reaches the six categories in CATEGORIES; --dump reads the whole database."
     );
   }
   return null;
@@ -317,6 +334,7 @@ const STAMPED_MODULES = [
   "./lib/inci-parse.mjs",
   "./lib/guess-type-from-ingredients.mjs",
   "./lib/non-skincare.mjs",
+  "./lib/face-skincare.mjs",
   "../supabase/functions/_shared/product-type-classifier.mjs",
 ];
 
@@ -605,6 +623,31 @@ async function main() {
   // in the run's output instead of only in the dictionary afterwards.
   const rejectedNames = [];
 
+  // The whole database, from its export file: every product once, no paging,
+  // no rate limit. Rows are gated as in the API sweep, then by `dumpReason`.
+  if (DUMP !== null && state.stopReason === null) {
+    if (!DUMP || !existsSync(DUMP)) throw new Error(`--dump needs the path of OBF's export file; "${DUMP}" is not there.`);
+    for await (const p of readDump(DUMP)) {
+      state.seen += 1;
+      if (typeof p.last_modified_t === "number") {
+        state.newestModifiedAt = Math.max(state.newestModifiedAt ?? 0, p.last_modified_t);
+      }
+      if (!p.ingredients_text) continue;
+      const row = toRow(p, known, rejectSamples, rejectedNames, aliases);
+      const reason = typeof row === "string" ? row : dumpReason(p, row);
+      if (reason) {
+        rejected.set(reason, (rejected.get(reason) ?? 0) + 1);
+        continue;
+      }
+      if (rows.has(row.product.id)) continue;
+      rows.set(row.product.id, row);
+      if (rows.size >= TARGET_ROWS) break;
+    }
+    state.stopReason = rows.size >= TARGET_ROWS ? "target" : "exhausted";
+    console.log(`  ${DUMP}: ${state.seen} products read, ${rows.size} kept`);
+    if (!DRY_RUN) saveCheckpoint(state);
+  }
+
   // Categories are walked in order, each paged to exhaustion, until the cap is
   // reached. A product tagged with two of them is fetched twice and kept once —
   // the `rows` map is keyed on product id, so the overlap between `en:face` and
@@ -728,6 +771,14 @@ async function main() {
   }
 
   if (DRY_RUN) {
+    // What a real run would add, by type: the number that says whether a wider
+    // sweep bought the kind of product the catalogue is short of.
+    const inCatalogue = new Set((await paginateOrdered(db, "products", { select: "id", cursorColumn: "id" })).map((row) => row.id));
+    const fresh = all.filter((r) => !inCatalogue.has(r.product.id));
+    const byType = new Map();
+    for (const r of fresh) byType.set(r.product.type, (byType.get(r.product.type) ?? 0) + 1);
+    console.log(`\n--dry-run: ${fresh.length} of ${all.length} usable products are not in the catalogue yet. By type:`);
+    for (const [type, count] of [...byType.entries()].sort((a, b) => b[1] - a[1])) console.log(`  ${String(count).padStart(5)}  ${type}`);
     console.log(`\n--dry-run: would record watermark "${newestModifiedAt ?? "null"}" for source "obf".`);
     console.log("--dry-run: nothing written. Sample:");
     for (const r of all.slice(0, 3)) {
@@ -858,9 +909,41 @@ if (invokedDirectly()) {
 // Exported for `__tests__/import-obf-gates.test.ts`. Deliberately just the
 // pure parts — the gates and the parser — so a test never needs a network or a
 // service-role key to pin the behaviour this step is measured on.
+/**
+ * The extra gate for a product read from the whole database (`--dump`): one
+ * in a category the API sweep pages is kept on OBF's own word, as it always
+ * was; anything else has to show it is face skincare (`lib/face-skincare.mjs`).
+ * Returns the reason it is dropped, or null.
+ */
+function dumpReason(p, row) {
+  if ((p.categories_tags ?? []).some((tag) => CATEGORIES.includes(tag))) return null;
+  return notFaceSkincareReason({
+    type: guessType(p.categories_tags, row.product.name),
+    name: row.product.name,
+    brand: row.product.brand,
+    categories: p.categories_tags,
+  });
+}
+
+/** Every product in an OBF export file (JSON lines, gzipped or not), one at a time. */
+async function* readDump(path) {
+  const file = createReadStream(path);
+  const lines = createInterface({ input: path.endsWith(".gz") ? file.pipe(createGunzip()) : file, crlfDelay: Infinity });
+  for await (const line of lines) {
+    if (!line) continue;
+    try {
+      yield JSON.parse(line);
+    } catch {
+      // A truncated or mangled line is one product lost, not the run.
+    }
+  }
+}
+
 export {
   parseInci,
   toRow,
+  dumpReason,
+  readDump,
   guessType,
   normalise,
   retryAfterMs,

@@ -297,13 +297,19 @@ sunscreen) takes the best skin matches of that type. The morning serum and the
 evening treatment must hold an active for the profile's concerns, by the same
 check a Skin needs scan uses, and always say which actives to look for.
 
-- **Why the active steps so often name nothing.** Open Beauty Facts, the only
-  product source we may keep, has almost no serums or treatments: the staging
-  catalogue held 28 serums of 1,114 products, and 3 leave-on products with
-  retinol. A read-only import run on 2 October 2026 with six more categories
-  (make-up removers, anti-aging face care, cleansing waters and three small
-  ones) found nothing new: every row was already in through `en:face`. The
-  source is used up for face skincare; more serums need a second source.
+- **Why the active steps so often name nothing, and what changed.** Open
+  Beauty Facts is the only product source we may keep (INCIDecoder,
+  Skincarisma and EWG Skin Deep forbid reuse; INCIDB is OBF resold; DailyMed
+  has no barcodes). The API sweep pages six categories, which held 28 serums
+  of 1,114 products, and adding six more categories found nothing new. But the
+  six categories are a small corner of the source: its nightly export holds
+  about 21,000 complete products, a third of them with no category tag, which
+  no category sweep can reach. `import-obf.mjs --dump` reads the whole export
+  (2 October 2026): 2,856 usable face products, 1,775 of them new, 144 new
+  serums among them. What keeps the shampoo and hand soap out is
+  `scripts/lib/face-skincare.mjs`: a row must be typed as face care by its
+  name or tags, never by its ingredients alone, and nothing in its name, brand
+  or tags may say it is something else.
 - **Nothing is recommended that the skin match warns against**: a hazard, a
   pregnancy caution, a match under "fair", or a label too little of which was
   read.
