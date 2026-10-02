@@ -244,6 +244,32 @@ Deno.test("once the deadline has passed, Vision isn't asked again", async () => 
   }
 });
 
+Deno.test("a reply cut short by the deadline is logged as a timeout, whatever its status", async () => {
+  const timeout = AbortSignal.timeout;
+  const error = console.error;
+  AbortSignal.timeout = () => AbortSignal.abort(new DOMException("timed out", "TimeoutError"));
+  try {
+    for (const status of [200, 503]) {
+      const logged: string[] = [];
+      console.error = (...line: unknown[]) => void logged.push(line.join(" "));
+      const { deps } = setup(() => undefined, () => new Response("{\"responses\": [", { status }));
+      assertEquals((await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps)).status, 502);
+      assert(logged.some((line) => line.includes("the deadline passed") && line.includes(`HTTP ${status}`)), logged.join("\n"));
+    }
+    // With time left, a broken body is still called what it is.
+    AbortSignal.timeout = timeout;
+    const logged: string[] = [];
+    console.error = (...line: unknown[]) => void logged.push(line.join(" "));
+    const { deps } = setup(() => undefined, () => new Response("{\"responses\": [", { status: 200 }));
+    await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
+    assert(logged.some((line) => line.includes("isn't JSON")), logged.join("\n"));
+    assert(!logged.some((line) => line.includes("the deadline passed")), logged.join("\n"));
+  } finally {
+    AbortSignal.timeout = timeout;
+    console.error = error;
+  }
+});
+
 Deno.test("a photo with no text is 422 not_enough_text", async () => {
   const { db, deps } = setup(() => undefined, visionReads(null));
   const reply = await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);

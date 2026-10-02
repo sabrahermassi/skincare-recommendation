@@ -455,6 +455,12 @@ async function askVision(deps: LabelOcrDeps, imageBase64: string, signal: AbortS
     return { ok: false, retry: true, why: `request failed: ${err}` };
   }
   const body: VisionBody = await res.json().catch(() => null);
+  // A deadline that lands mid-reply looks like a broken body from here, on a
+  // refusal as much as on a 200; say which it was, since this line is all
+  // there is to go on afterwards.
+  if (body === null && signal.aborted) {
+    return { ok: false, retry: true, why: `the deadline passed while Vision was still answering (HTTP ${res.status})` };
+  }
   if (!res.ok) {
     const retry = res.status >= 500 || res.status === 429 || res.status === 408;
     return { ok: false, retry, why: `HTTP ${res.status} ${body?.error?.status ?? ""} ${body?.error?.message ?? ""}`.trim() };
@@ -469,12 +475,7 @@ async function askVision(deps: LabelOcrDeps, imageBase64: string, signal: AbortS
   // with no EOI marker ("real cameras do produce truncated files"). Found in
   // review on #246 — without this, both collapsed into the same `noText`
   // outcome as a genuinely blank photo.
-  if (body === null) {
-    // A deadline that lands mid-reply looks like a broken body from here; say
-    // which it was, since this line is all there is to go on afterwards.
-    const why = signal.aborted ? "the deadline passed while Vision was still answering" : "HTTP 200 with a body that isn't JSON";
-    return { ok: false, retry: true, why };
-  }
+  if (body === null) return { ok: false, retry: true, why: "HTTP 200 with a body that isn't JSON" };
   const imageError = body.responses?.[0]?.error;
   if (imageError) {
     return { ok: false, retry: true, why: `image error ${imageError.code ?? ""} ${imageError.message ?? ""}`.trim() };
