@@ -8,9 +8,9 @@ import { PageTitle } from "@/components/PageTitle";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
-import type { Concern, Ingredient } from "@/data/types";
+import type { Ingredient } from "@/data/types";
 import { track } from "@/lib/analytics";
-import { decodeConcerns } from "@/lib/journey";
+import { decodeNeed, needProfile, type Need } from "@/lib/journey";
 import { isLowCoverage, matchProduct } from "@/lib/matching";
 import { photoScannerHref } from "@/lib/open-scanner";
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
@@ -29,14 +29,14 @@ import { useAppStore } from "@/store/useAppStore";
  * entry already on this phone: nothing in the address becomes the list (#29).
  */
 export default function LabelResult() {
-  const { entry, from, concerns } = useLocalSearchParams<{ entry?: string; from?: string; concerns?: string }>();
+  const { entry, from, need } = useLocalSearchParams<{ entry?: string; from?: string; need?: string }>();
   const saved = useAppStore((s) => (entry ? s.history.find((h) => h.id === entry)?.label : undefined));
   const [held] = useState(heldLabelRead);
   const read: HeldLabel | null = entry ? (saved ? { ingredients: saved } : null) : held;
 
   if (!read) return <NothingToShow />;
 
-  return <Verdict read={read} fromHistory={Boolean(entry)} journey={from === "journey" ? decodeConcerns(concerns) : undefined} />;
+  return <Verdict read={read} fromHistory={Boolean(entry)} journey={from === "journey" ? (decodeNeed(need) ?? undefined) : undefined} />;
 }
 
 function NothingToShow() {
@@ -64,8 +64,11 @@ function retake() {
   router.dismissTo(photoScannerHref());
 }
 
-function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory: boolean; journey?: Concern[] }) {
-  const profile = useAppStore((s) => s.profile);
+function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory: boolean; journey?: Need }) {
+  // A scan from Skin needs is scored for what was picked there today, not the
+  // saved skin profile (owner). History keeps the skin profile's score, below.
+  const ownProfile = useAppStore((s) => s.profile);
+  const profile = useMemo(() => (journey ? needProfile(journey) : ownProfile), [journey, ownProfile]);
   const [ingredients, setIngredients] = useState<Ingredient[] | null>(null);
 
   useEffect(() => track("verdict_viewed", { path: "label" }), []);
@@ -130,8 +133,8 @@ function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory:
             <PageTitle title="Label photo" line={total > 0 ? `Read from your photo · ${recognised} of ${total} names recognised` : "Nothing was read"} />
           </View>
         }
-        // Scanned from Skin needs (v9): the concerns picked there, not the profile's.
-        concerns={journey}
+        // Scanned from Skin needs: read against what was picked there.
+        need={journey}
         ingredients={product.ingredients}
         type={product.type}
         match={match}

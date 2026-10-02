@@ -29,11 +29,11 @@ export function openScanner(context?: ScanContext) {
 /**
  * Where a scan started, carried through the scanner to the product result as
  * route params, so the result can answer that question (v9): from the
- * "What my skin needs" journey (`from: "journey"`, with the concerns picked
- * there), or for one routine step. Opened any other way, the scanner gets
+ * Skin needs journey (`from: "journey"`, with what was picked there as
+ * `need`), or for one routine step. Opened any other way, the scanner gets
  * none, so no earlier context leaks into an unrelated scan.
  */
-export type ScanContext = { mode?: "photo"; from?: "journey"; concerns?: string; step?: string };
+export type ScanContext = { mode?: "photo"; from?: "journey"; need?: string; step?: string };
 
 /** The scanner route in Photo mode, for `router.dismissTo` as well as a push. */
 export function photoScannerHref() {

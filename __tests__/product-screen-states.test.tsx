@@ -312,8 +312,9 @@ describe("the product screen's result tabs", () => {
   });
 });
 
-// Opened from "What my skin needs" (v9): scored with the skin profile as
-// always, and read against the journey's cards ("It covers N of M").
+// Opened from Skin needs: scored for what was picked there today, not the
+// saved skin profile (owner, 2 October 2026), and read against that goal's
+// cards ("It covers N of M").
 describe("the product screen opened from the journey", () => {
   const { matchProduct } = require("@/lib/matching") as typeof import("@/lib/matching");
   const ingredient = (name: string): Ingredient => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true });
@@ -349,17 +350,38 @@ describe("the product screen opened from the journey", () => {
     await putTeaserAway();
   }
 
-  it("keeps the skin profile's score, and says how it covers the plan", async () => {
-    await open({ from: "journey", concerns: "post-acne-marks,dehydrated" });
-    expect(screen.getByText(String(matchProduct(PRODUCT, OWN).score))).toBeTruthy();
-    // Niacinamide and the hydrating basics are in it; azelaic acid isn't.
-    expect(screen.getByText("This makes sense for you")).toBeTruthy();
-    expect(screen.getByText(/It covers 2 of the 3 recommendations for your skin\./)).toBeTruthy();
+  it("scores for what was picked, not the skin profile, and says how it covers that plan", async () => {
+    const { needProfile } = require("@/lib/journey") as typeof import("@/lib/journey");
+    await open({ from: "journey", need: "red-marks.." });
+    const picked = matchProduct(PRODUCT, needProfile({ goal: "red-marks", sensitivity: null, pregnant: null })).score;
+    // The two profiles disagree on this product, so the number says which was used.
+    expect(picked).not.toBe(matchProduct(PRODUCT, OWN).score);
+    expect(screen.getByText(String(picked))).toBeTruthy();
+    // Niacinamide is in it; azelaic acid and the calming ones aren't.
+    expect(screen.getByText(/It covers 1 of the 3 recommendations to fade red marks\./)).toBeTruthy();
     // No label under a box (owner): its colour and its sentence say it.
     expect(screen.queryByText("Good support")).toBeNull();
     expect(screen.queryByText("Your foundation")).toBeNull();
     // The heart is the one save (v9): no second button under the result.
     expect(screen.queryByText("Save to my plan")).toBeNull();
+    // History is the person's own log: it keeps the skin profile's score.
+    expect(useAppStore.getState().history[0]?.scoreAtView).toBe(matchProduct(PRODUCT, OWN).score);
+  });
+
+  it("shows a result from Skin needs to someone with no skin profile", async () => {
+    useAppStore.setState({ profile: EMPTY_PROFILE, history: [], savedProducts: [] });
+    mockParams = { id: PRODUCT.id, from: "journey", need: "pimples.high.no" };
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+    expect(screen.queryByText("Is it right for your skin?")).toBeNull();
+    expect(screen.getByText(/Worth knowing:/)).toBeTruthy();
+    expect(screen.getByText(/it has none of the ingredients we suggest to clear pimples\./)).toBeTruthy();
+  });
+
+  it("falls back to the skin profile when the link's need is not one", async () => {
+    await open({ from: "journey", need: "not-a-goal" });
+    expect(screen.getByText(String(matchProduct(PRODUCT, OWN).score))).toBeTruthy();
   });
 
   // One result for everyone with a profile (v9): opened any other way, it

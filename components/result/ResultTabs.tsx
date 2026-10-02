@@ -11,11 +11,11 @@ import { ScoreDisc, VerdictLink } from "@/components/result/ScoreRing";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { ReadingScale, Text, useLargeText } from "@/components/Text";
 import { VerdictDot } from "@/components/VerdictMarker";
-import type { Concern, Ingredient, ProductType, SkinProfile } from "@/data/types";
+import type { Ingredient, ProductType, SkinProfile } from "@/data/types";
 import { pairingNotesFor } from "@/lib/active-pairings";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { displayIngredientName } from "@/lib/ingredient-name";
-import { deckFor, JOURNEY_CONCERNS, planFit } from "@/lib/journey";
+import { deckFor, needFit, PLAN_CONCERNS, planFit, type Need } from "@/lib/journey";
 import { concernSupport, confidenceLabel, isLowCoverage, matchProduct, ruleFor, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
@@ -60,8 +60,9 @@ const TEASER_GONE_MS = 600;
  * two risks and the ingredient box. Shared by a catalogue product and a label
  * photo. `footer` is what a screen adds under either tab (a note, a
  * stale-formula notice, a retake button); `report` goes inside the
- * ingredient box once every ingredient is showing. `concerns` are the ones a
- * Skin needs scan carried along; without them the skin profile's are used.
+ * ingredient box once every ingredient is showing. `need` is what a Skin
+ * needs scan carried along: the result is then read against that goal's cards
+ * (and `profile` is the one made from it, not the saved skin profile).
  */
 export function ResultTabs({
   nav,
@@ -73,7 +74,7 @@ export function ResultTabs({
   onIngredientPress,
   footer,
   report,
-  concerns,
+  need,
 }: {
   /** The screen's top bar: it stays put, above the header. */
   nav?: ReactNode;
@@ -85,7 +86,7 @@ export function ResultTabs({
   onIngredientPress: (ingredient: Ingredient) => void;
   footer?: ReactNode;
   report?: ReactNode;
-  concerns?: Concern[];
+  need?: Need;
 }) {
   const [tab, setTab] = useState<Tab>("match");
   const [filter, setFilter] = useState<IngredientFilter>("all");
@@ -162,7 +163,7 @@ export function ResultTabs({
               }}
             >
               {tab === "match" ? (
-                <MatchTab ingredients={ingredients} type={type} match={match} profile={profile} concerns={concerns} />
+                <MatchTab ingredients={ingredients} type={type} match={match} profile={profile} need={need} />
               ) : (
                 <IngredientsTab
                   ingredients={ingredients}
@@ -193,7 +194,7 @@ export function ResultTabs({
   );
 }
 
-function MatchTab({ ingredients, type, match, profile, concerns }: { ingredients: Ingredient[]; type: ProductType; match: MatchResult; profile: SkinProfile; concerns?: Concern[] }) {
+function MatchTab({ ingredients, type, match, profile, need }: { ingredients: Ingredient[]; type: ProductType; match: MatchResult; profile: SkinProfile; need?: Need }) {
   const lowCoverage = isLowCoverage(ingredients);
   if (!isPersonalized(profile) && !lowCoverage) return <NoProfile />;
 
@@ -214,7 +215,7 @@ function MatchTab({ ingredients, type, match, profile, concerns }: { ingredients
     <>
       <ScoreHead match={match} />
       <PregnancyCard match={match} />
-      <Reasons ingredients={ingredients} match={match} profile={profile} concerns={concerns ?? profile.concerns} />
+      <Reasons ingredients={ingredients} match={match} profile={profile} need={need} />
       <RoutineNotes ingredients={ingredients} type={type} profile={profile} />
       {/* Only said when it changes how far to trust the number. */}
       {confidence === "high" ? null : (
@@ -277,10 +278,13 @@ export function reasonOrder(verdict: MatchResult["verdict"]): ("red" | "green" |
  * sources here (owner): they are on each ingredient's own sheet, in its
  * Sources card.
  */
-function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingredient[]; match: MatchResult; profile: SkinProfile; concerns: Concern[] }) {
-  const journeyConcerns = concerns.filter((c) => JOURNEY_CONCERNS.some((j) => j.concern === c));
-  const deck = journeyConcerns.length > 0 ? deckFor(journeyConcerns, profile) : [];
-  const fit = deck.length > 0 ? planFit(ingredients, deck, journeyConcerns) : null;
+function Reasons({ ingredients, match, profile, need }: { ingredients: Ingredient[]; match: MatchResult; profile: SkinProfile; need?: Need }) {
+  // What it is read against: today's Skin needs goal, or the skin profile's own concerns.
+  const needed = need ? needFit(ingredients, need) : null;
+  const planConcerns = profile.concerns.filter((c) => PLAN_CONCERNS.includes(c));
+  const fit = needed ? needed.fit : planConcerns.length > 0 ? planFit(ingredients, deckFor(planConcerns, profile), planConcerns) : null;
+  // Said after "the recommendations": whose they are.
+  const about = needed ? `to ${needed.phrase}` : "for your skin";
 
   const seen = new Set<string>();
   const rows: Reason[] = [];
@@ -307,9 +311,9 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
     hits.forEach((hit) => seen.add(hit));
     rows.push({
       key: `card-${card.key}`,
-      // A group card names what it found ("Glycerin + Panthenol"); a single-ingredient card is its name.
-      name: card.key === "hydrating" ? hits.slice(0, 2).map(displayIngredientName).join(" + ") : card.name,
-      text: card.key === "hydrating" ? " put water back in and help keep it there." : ` ${card.line.charAt(0).toLowerCase()}${card.line.slice(1)}`,
+      // A card with its own sentence names what it found ("Glycerin + Panthenol"); any other is its name, then its line.
+      name: card.found ? hits.slice(0, 2).map(displayIngredientName).join(" + ") : card.name,
+      text: card.found ? ` ${card.found}` : ` ${card.line.charAt(0).toLowerCase()}${card.line.slice(1)}`,
       tone: VERDICT.high,
     });
   }
@@ -338,7 +342,9 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
     rows.push({ key: `watch-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tone: VERDICT.medium });
   }
   // The concerns none of its ingredients work on.
-  if (fit && fit.notCovered.length > 0) {
+  if (needed && fit && fit.covered.length === 0) {
+    rows.push({ key: "not-covered", name: "Worth knowing:", text: ` it has none of the ingredients we suggest ${about}.`, tone: VERDICT.medium });
+  } else if (fit && fit.notCovered.length > 0) {
     rows.push({
       key: "not-covered",
       name: "Worth knowing:",
@@ -373,9 +379,9 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
       : fit
         ? fit.total === 1
           ? fit.covered.length === 1
-            ? "It covers the recommendation for your skin."
-            : "It doesn't cover the recommendation for your skin."
-          : `It covers ${fit.covered.length} of the ${fit.total} recommendations for your skin.`
+            ? `It covers the recommendation ${about}.`
+            : `It doesn't cover the recommendation ${about}.`
+          : `It covers ${fit.covered.length} of the ${fit.total} recommendations ${about}.`
         : shown.length === 0
           ? "Nothing in it works on your skin in particular, either way."
           : "Checked against your skin profile.";

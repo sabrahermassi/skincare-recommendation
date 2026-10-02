@@ -3,6 +3,7 @@ import { PRODUCTS } from "@/data/products";
 import { SCHOOL } from "@/data/school";
 import { FIRST_PAGE_COPY } from "@/lib/first-page";
 import { NOTE_COPY, tooLongCopy } from "@/lib/journal";
+import { GOALS, JOURNEY_CARDS, PREGNANCY_LINE } from "@/lib/journey";
 import { pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
 import { claimPolicyViolations } from "@/lib/claims-policy";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
@@ -123,6 +124,16 @@ const SCHOOL_CLAIMS: OwnedClaim[] = SCHOOL.flatMap((category) =>
   ])
 );
 
+// Skin needs: the things to work on and every line of every card, which say
+// what an ingredient does more directly than anything else in the app.
+const JOURNEY_CLAIMS: OwnedClaim[] = [
+  ...GOALS.map((goal) => ({ source: `GOALS.${goal.key}`, text: goal.label })),
+  ...JOURNEY_CARDS.flatMap((card) =>
+    ([card.name, card.line, card.found ?? "", card.whyYou, card.howToStart, card.watchFor, card.whenShopping] as const).map((text, i) => ({ source: `JOURNEY_CARDS.${card.key}[${i}]`, text }))
+  ),
+  { source: "PREGNANCY_LINE", text: PREGNANCY_LINE },
+];
+
 // #228: the app's copy around a journal note — never the note itself, which
 // is the person's own words and is not the app's to audit or rewrite.
 const NOTE_CLAIMS: OwnedClaim[] = [
@@ -165,6 +176,7 @@ const OWNED_CLAIMS: OwnedClaim[] = [
   // `contraindications` collection below runs at "high", so it never reaches it.
   { source: "UNSET_SENSITIVITY_REASON", text: UNSET_SENSITIVITY_REASON },
   ...NOTE_CLAIMS,
+  ...JOURNEY_CLAIMS,
   ...FIRST_PAGE_CLAIMS,
   ...NUDGE_RESULTS,
   ...PAIRING_CLAIMS,

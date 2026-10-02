@@ -8,9 +8,9 @@ import type { ScanContext } from "@/lib/open-scanner";
  * keys that carry it, so nothing else in the link travels along (#29).
  */
 export function useScanContext(): Omit<ScanContext, "mode"> {
-  const params = useLocalSearchParams<{ from?: string; concerns?: string; step?: string }>();
+  const params = useLocalSearchParams<{ from?: string; need?: string; step?: string }>();
   return {
-    ...(params.from === "journey" ? { from: "journey" as const, concerns: params.concerns ?? "" } : {}),
+    ...(params.from === "journey" ? { from: "journey" as const, need: params.need ?? "" } : {}),
     ...(params.step ? { step: params.step } : {}),
   };
 }

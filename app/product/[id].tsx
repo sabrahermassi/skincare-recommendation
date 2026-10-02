@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Share, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
@@ -19,7 +19,7 @@ import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import { track } from "@/lib/analytics";
 import { relativeTime } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
-import { decodeConcerns } from "@/lib/journey";
+import { decodeNeed, needProfile } from "@/lib/journey";
 import { matchProduct } from "@/lib/matching";
 import { openScanner } from "@/lib/open-scanner";
 import { productIdParam } from "@/lib/route-params";
@@ -72,13 +72,13 @@ const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 export default function ProductRoute() {
   // `from` says how the person got here, for the funnel (#225) only: the
   // scanner and the label flow set it, and anything else is browsing.
-  const { id, from, concerns } = useLocalSearchParams<{ id: string; from?: string; concerns?: string }>();
+  const { id, from, need } = useLocalSearchParams<{ id: string; from?: string; need?: string }>();
   const productId = productIdParam(id);
   if (!productId) return <NotFound />;
-  return <ProductScreen id={productId} from={from} concerns={concerns} />;
+  return <ProductScreen id={productId} from={from} need={need} />;
 }
 
-function ProductScreen({ id, from, concerns }: { id: string; from?: string; concerns?: string }) {
+function ProductScreen({ id, from, need }: { id: string; from?: string; need?: string }) {
   // Seeded from the catalogue cache so a product already in memory paints on
   // the first frame instead of a spinner (`peekProducts`).
   const [product, setProduct] = useState<ProductWithIngredients | null>(() =>
@@ -113,10 +113,13 @@ function ProductScreen({ id, from, concerns }: { id: string; from?: string; conc
   // `react-hooks/purity` flags `Date.now()` during render.
   const [renderedAt] = useState(() => Date.now());
 
-  // Scored with the skin profile; a journey's concerns (`from=journey`) only
-  // shape the plan block, never the score.
+  // Scored with the skin profile, except a scan from Skin needs
+  // (`from=journey`): that one is scored for what was picked there today, and
+  // nothing from the saved profile (owner, 2 October 2026). History still
+  // keeps the skin profile's score, below.
   const ownProfile = useAppStore((s) => s.profile);
-  const profile = ownProfile;
+  const journey = useMemo(() => (from === "journey" ? decodeNeed(need) : null), [from, need]);
+  const profile = useMemo(() => (journey ? needProfile(journey) : ownProfile), [journey, ownProfile]);
   const savedProducts = useAppStore((s) => s.savedProducts);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
   const saveProduct = useAppStore((s) => s.saveProduct);
@@ -367,8 +370,8 @@ function ProductScreen({ id, from, concerns }: { id: string; from?: string; conc
         match={match}
         profile={profile}
         onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, product: product.id } })}
-        // Scanned from Skin needs (v9): the concerns picked there, not the profile's.
-        concerns={from === "journey" ? decodeConcerns(concerns) : undefined}
+        // Scanned from Skin needs: read against what was picked there.
+        need={journey ?? undefined}
         footer={
           <>
             {/* The person's own note (#228), only for a product on their

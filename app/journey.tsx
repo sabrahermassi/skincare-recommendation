@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Linking, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -10,24 +9,13 @@ import { BackChevron, IconCircle } from "@/components/IconCircle";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
 import { QuizOptionCard, QUIZ_OPTION_GRID } from "@/components/QuizOptionCard";
 import { Text } from "@/components/Text";
-import type { Concern } from "@/data/types";
-import {
-  cardHelps,
-  cardSource,
-  deckFor,
-  encodeConcerns,
-  JOURNEY_CONCERNS,
-  JOURNEY_MAX,
-  ROLE_LABEL,
-  shortLabel,
-  type DeckCard,
-  type Role,
-} from "@/lib/journey";
+import type { Sensitivity } from "@/data/types";
+import { cardSource, encodeNeed, goalLabel, GOALS, needDeck, ROLE_LABEL, type DeckCard, type GoalKey, type Need, type Role } from "@/lib/journey";
 import { goBackOrHome } from "@/lib/go-back";
+import { haptic } from "@/lib/haptics";
 import { openScanner } from "@/lib/open-scanner";
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { BUTTON, CANVAS, DISPLAY_FONT, DIVIDER, INK, JOURNEY, MUTED, MUTED_FAINT, SURFACE, TYPE, VERDICT, WHITE, withAlpha } from "@/lib/tokens";
-import { useAppStore } from "@/store/useAppStore";
+import { BUTTON, CANVAS, CHOSEN, DISPLAY_FONT, DIVIDER, INK, JOURNEY, MUTED, MUTED_FAINT, OPTION_LINE, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, WHITE, withAlpha } from "@/lib/tokens";
 import { FitScrollView } from "@/components/FitScrollView";
 
 // v9 (read off ConcernDeckSoft in the hand-off).
@@ -44,51 +32,39 @@ const ROLE_INK: Record<Role, string> = {
   strong: VERDICT.medium.deep,
 };
 
-type Step = "concerns" | "finding" | "deck";
+type Step = "needs" | "finding" | "deck";
 
-// How long the "finding" screen shows between the concerns and the cards (v9).
+// How long the "finding" screen shows between the question and the cards (v9).
 const FINDING_MS = 1800;
 const FINDING_ART = require("@/assets/illustrations/loading-skin-needs.webp");
 
-/** The journey's own concerns among the skin profile's, at most three. */
-function profileConcerns(concerns: readonly Concern[]): Concern[] {
-  return concerns.filter((c) => JOURNEY_CONCERNS.some((j) => j.concern === c)).slice(0, JOURNEY_MAX);
-}
+const SENSITIVITY_OPTIONS: readonly { value: Sensitivity; label: string }[] = [
+  { value: "none", label: "Not sensitive" },
+  { value: "some", label: "Somewhat" },
+  { value: "high", label: "Very" },
+];
+const PREGNANT_OPTIONS: readonly { value: boolean; label: string }[] = [
+  { value: true, label: "Yes" },
+  { value: false, label: "No" },
+];
 
 /**
- * "Skin needs" (v9): the ingredient categories worth looking for, one card
- * each — a card flips to show how to use it — and a scan to see how a product
- * fits. Full screen: no nav bar, no tab bar; it draws its own back.
+ * "Skin needs": one thing to work on today, then the ingredient categories
+ * worth looking for, one card each (a card flips to show how to use it), and
+ * a scan to see how a product fits. Full screen: no nav bar, no tab bar; it
+ * draws its own back.
  *
- * Someone whose skin profile already names concerns lands on the cards at
- * once. Anyone else picks up to three concerns first, which
- * stay the journey's own: they travel with the scan to the result
- * (`lib/journey.ts`), and never rewrite the profile the score is made from.
+ * It stands apart from the skin profile (owner, 2 October 2026): it asks
+ * fresh every time, reads nothing from the profile and writes nothing to it.
+ * What was picked travels with the scan to the result (`lib/journey.ts`).
  */
 export default function Journey() {
-  const profile = useAppStore((s) => s.profile);
-  const fromProfile = useMemo(() => profileConcerns(profile.concerns), [profile.concerns]);
-  // Decided once, on opening: whether this visit has the concerns step at all.
-  const [asks, setAsks] = useState(() => fromProfile.length === 0);
-  const [step, setStep] = useState<Step>(asks ? "concerns" : "deck");
-  const [picked, setPicked] = useState<Concern[]>(fromProfile);
-  // Home draws this screen ahead of the tap, so "on opening" can come before
-  // the profile's last change (the quiz taken in between). Until someone has
-  // actually seen it, it follows the profile.
-  const seen = useRef(false);
-  useFocusEffect(
-    useCallback(() => {
-      seen.current = true;
-    }, []),
-  );
-  useEffect(() => {
-    if (seen.current) return;
-    setAsks(fromProfile.length === 0);
-    setStep(fromProfile.length === 0 ? "concerns" : "deck");
-    setPicked(fromProfile);
-  }, [fromProfile]);
+  const [step, setStep] = useState<Step>("needs");
+  const [goal, setGoal] = useState<GoalKey | null>(null);
+  const [sensitivity, setSensitivity] = useState<Sensitivity | null>(null);
+  const [pregnant, setPregnant] = useState<boolean | null>(null);
   const insets = useSafeAreaInsets();
-  const back = () => (asks && step !== "concerns" ? setStep("concerns") : goBackOrHome());
+  const back = () => (step !== "needs" ? setStep("needs") : goBackOrHome());
 
   useEffect(() => {
     if (step !== "finding") return;
@@ -99,12 +75,21 @@ export default function Journey() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top + 6 }}>
       <Header onBack={back} />
-      {step === "concerns" ? (
-        <Concerns picked={picked} onPick={setPicked} onNext={() => setStep("finding")} bottom={insets.bottom} />
+      {step === "needs" || goal === null ? (
+        <Needs
+          goal={goal}
+          onGoal={setGoal}
+          sensitivity={sensitivity}
+          onSensitivity={setSensitivity}
+          pregnant={pregnant}
+          onPregnant={setPregnant}
+          onNext={() => setStep("finding")}
+          bottom={insets.bottom}
+        />
       ) : step === "finding" ? (
         <Finding />
       ) : (
-        <Deck concerns={JOURNEY_CONCERNS.map((j) => j.concern).filter((c) => picked.includes(c))} bottom={insets.bottom} />
+        <Deck need={{ goal, sensitivity, pregnant }} bottom={insets.bottom} />
       )}
     </View>
   );
@@ -124,13 +109,31 @@ function Header({ onBack }: { onBack: () => void }) {
   );
 }
 
-function Concerns({ picked, onPick, onNext, bottom }: { picked: Concern[]; onPick: (next: Concern[]) => void; onNext: () => void; bottom: number }) {
-  const full = picked.length >= JOURNEY_MAX;
-  const toggle = (concern: Concern) => {
-    if (picked.includes(concern)) onPick(picked.filter((c) => c !== concern));
-    else if (!full) onPick([...picked, concern]);
-  };
-  const ready = picked.length > 0;
+/**
+ * The one question, and the two that are optional (owner): what to work on
+ * is a must and takes one answer; sensitive skin and pregnancy can be left
+ * alone, and the cards still come.
+ */
+function Needs({
+  goal,
+  onGoal,
+  sensitivity,
+  onSensitivity,
+  pregnant,
+  onPregnant,
+  onNext,
+  bottom,
+}: {
+  goal: GoalKey | null;
+  onGoal: (goal: GoalKey) => void;
+  sensitivity: Sensitivity | null;
+  onSensitivity: (next: Sensitivity | null) => void;
+  pregnant: boolean | null;
+  onPregnant: (next: boolean | null) => void;
+  onNext: () => void;
+  bottom: number;
+}) {
+  const ready = goal !== null;
   return (
     <View style={{ flex: 1 }}>
       <FitScrollView contentContainerStyle={{ paddingBottom: 24 }}>
@@ -138,13 +141,17 @@ function Concerns({ picked, onPick, onNext, bottom }: { picked: Concern[]; onPic
           <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
             What do you want to work on?
           </Text>
-          <Text style={{ maxWidth: 320, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>Pick up to 3. We&apos;ll show the ingredients that help.</Text>
+          <Text style={{ maxWidth: 320, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>Pick one. We&apos;ll show the ingredients that help.</Text>
         </View>
-        <View style={[QUIZ_OPTION_GRID, { paddingTop: 24, paddingHorizontal: 16 }]}>
-          {JOURNEY_CONCERNS.map(({ concern, label }) => {
-            const on = picked.includes(concern);
-            return <QuizOptionCard key={concern} multiple label={label} selected={on} disabled={!on && full} onPress={() => toggle(concern)} />;
-          })}
+        <View accessibilityRole="radiogroup" style={[QUIZ_OPTION_GRID, { paddingTop: 24, paddingHorizontal: 16 }]}>
+          {GOALS.map(({ key, label }) => (
+            <QuizOptionCard key={key} label={label} selected={goal === key} onPress={() => onGoal(key)} />
+          ))}
+        </View>
+        <View style={{ paddingTop: SPACE.section, paddingHorizontal: 16, gap: SPACE.gutter }}>
+          <Text style={{ paddingHorizontal: 4, fontSize: 12, fontWeight: "500", letterSpacing: 1.44, textTransform: "uppercase", color: MUTED_FAINT }}>Optional</Text>
+          <Pills title="Is your skin sensitive?" options={SENSITIVITY_OPTIONS} selected={sensitivity} onSelect={onSensitivity} />
+          <Pills title="Pregnant or breastfeeding?" options={PREGNANT_OPTIONS} selected={pregnant} onSelect={onPregnant} />
         </View>
       </FitScrollView>
       <View style={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: Math.max(32, bottom + 8) }}>
@@ -165,7 +172,37 @@ function Concerns({ picked, onPick, onNext, bottom }: { picked: Concern[]; onPic
   );
 }
 
-/** The short wait between the concerns and the cards (v9): a picture, a line, and a bar that fills. */
+/** An optional question: its answers as a row of pills. Tapping the chosen one takes the answer back. */
+function Pills<T extends string | boolean>({ title, options, selected, onSelect }: { title: string; options: readonly { value: T; label: string }[]; selected: T | null; onSelect: (next: T | null) => void }) {
+  return (
+    <View accessibilityRole="radiogroup" accessibilityLabel={title} style={{ gap: SPACE.text }}>
+      <Text style={{ paddingHorizontal: 4, fontSize: TYPE.card, fontWeight: "600", color: INK }}>{title}</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACE.text }}>
+        {options.map(({ value, label }) => {
+          const on = selected === value;
+          return (
+            <Pressable
+              key={label}
+              onPress={() => {
+                haptic.select();
+                onSelect(on ? null : value);
+              }}
+              accessibilityRole="radio"
+              accessibilityLabel={`${title} ${label}`}
+              accessibilityState={{ checked: on }}
+              style={{ minHeight: TOUCH_TARGET, paddingHorizontal: SPACE.gutter, borderRadius: TOUCH_TARGET / 2, borderWidth: 1.5, borderColor: on ? BUTTON.primary.fill : OPTION_LINE, backgroundColor: on ? CHOSEN.fill : SURFACE, justifyContent: "center" }}
+              className="active:opacity-80"
+            >
+              <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/** The short wait between the question and the cards (v9): a picture, a line, and a bar that fills. */
 function Finding() {
   const [fill] = useState(() => new Animated.Value(0.08));
   useEffect(() => {
@@ -177,7 +214,7 @@ function Finding() {
       <Text accessibilityRole="header" style={{ marginTop: 16, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
         Finding what your skin needs…
       </Text>
-      <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>Picking the ingredients that work for your concerns.</Text>
+      <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>Picking the ingredients that work on it.</Text>
       <View style={{ marginTop: 24, alignSelf: "stretch", height: 6, borderRadius: 3, backgroundColor: JOURNEY.track, overflow: "hidden" }}>
         <Animated.View style={{ height: 6, borderRadius: 3, backgroundColor: BUTTON.primary.fill, width: fill.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }) }} />
       </View>
@@ -185,9 +222,9 @@ function Finding() {
   );
 }
 
-function Deck({ concerns, bottom }: { concerns: Concern[]; bottom: number }) {
-  const profile = useAppStore((s) => s.profile);
-  const deck = useMemo(() => deckFor(concerns, profile), [concerns, profile]);
+function Deck({ need, bottom }: { need: Need; bottom: number }) {
+  const { goal, sensitivity, pregnant } = need;
+  const deck = useMemo(() => needDeck({ goal, sensitivity, pregnant }), [goal, sensitivity, pregnant]);
   const [current, setCurrent] = useState(0);
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
   const { width } = useWindowDimensions();
@@ -212,17 +249,15 @@ function Deck({ concerns, bottom }: { concerns: Concern[]; bottom: number }) {
     setCurrent(Math.max(0, Math.min(deck.length - 1, Math.round(x / stride))));
   };
 
-  const scan = () => openScanner({ mode: "photo", from: "journey", concerns: encodeConcerns(concerns) });
+  const scan = () => openScanner({ mode: "photo", from: "journey", need: encodeNeed(need) });
 
   return (
     <View style={{ flex: 1 }}>
       <View style={{ paddingTop: 6, paddingHorizontal: 32, gap: 4, alignItems: "center" }}>
         <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, textAlign: "center", color: INK }}>
-          Based on your skin
+          {goalLabel(need)}
         </Text>
-        <Text style={{ fontSize: 15, lineHeight: 21, textAlign: "center", color: MUTED_FAINT }}>
-          Here are ingredient categories that may be worth exploring for your concerns.
-        </Text>
+        <Text style={{ fontSize: 15, lineHeight: 21, textAlign: "center", color: MUTED_FAINT }}>Ingredients worth looking for, best match first.</Text>
       </View>
 
       <View style={{ flex: 1, minHeight: 360, maxHeight: 430, marginTop: 20, marginBottom: 16 }}>
@@ -249,7 +284,6 @@ function Deck({ concerns, bottom }: { concerns: Concern[]; bottom: number }) {
             <View key={item.card.key} style={{ width: cardWidth }}>
               <FlipCard
                 item={item}
-                concerns={concerns}
                 flipped={!!flipped[item.card.key]}
                 interactive={i === current}
                 // The card showing turns over; one at the edge slides in.
@@ -274,7 +308,7 @@ function Deck({ concerns, bottom }: { concerns: Concern[]; bottom: number }) {
       <View style={{ marginTop: "auto", marginHorizontal: 19, marginBottom: Math.max(34, bottom + 8), backgroundColor: SURFACE, borderRadius: 18, paddingTop: 10, paddingHorizontal: 12, paddingBottom: 12, gap: 10 }}>
         <View style={{ paddingHorizontal: 4, gap: 2 }}>
           <Text style={{ fontSize: 15, fontWeight: "600", color: INK }}>Have a product in mind?</Text>
-          <Text style={{ fontSize: 13, lineHeight: 17.5, color: MUTED_FAINT }}>I&apos;ll check how it fits your skin and these recommendations.</Text>
+          <Text style={{ fontSize: 13, lineHeight: 17.5, color: MUTED_FAINT }}>I&apos;ll check it for these ingredients, and for what you picked.</Text>
         </View>
         <Pressable
           onPress={scan}
@@ -291,14 +325,13 @@ function Deck({ concerns, bottom }: { concerns: Concern[]; bottom: number }) {
   );
 }
 
-/** One card: the front says what it is and which of your concerns it helps; tapped, it turns to how to use it. */
-function FlipCard({ item, concerns, flipped, interactive, onTap }: { item: DeckCard; concerns: Concern[]; flipped: boolean; interactive: boolean; onTap: () => void }) {
+/** One card: the front says what it is and what it is here for; tapped, it turns to how to use it. */
+function FlipCard({ item, flipped, interactive, onTap }: { item: DeckCard; flipped: boolean; interactive: boolean; onTap: () => void }) {
   const [turn] = useState(() => new Animated.Value(flipped ? 1 : 0));
   useEffect(() => {
     Animated.timing(turn, { toValue: flipped ? 1 : 0, duration: reduceMotionNow() ? 0 : FLIP_MS, easing: EASE, useNativeDriver: true }).start();
   }, [flipped, turn]);
-  const { card, role } = item;
-  const helps = cardHelps(card);
+  const { card, role, helps, caution } = item;
   const source = cardSource(card);
   // Flat, like Home's tiles: no shade. In the carousel the scroll view cut a
   // shade off above and below, which drew a grey box round the card (owner).
@@ -315,7 +348,7 @@ function FlipCard({ item, concerns, flipped, interactive, onTap }: { item: DeckC
       <Animated.View
         style={[
           face,
-          { backgroundColor: JOURNEY.front[card.key], paddingTop: 28, paddingHorizontal: 24, paddingBottom: 24, alignItems: "center" },
+          { backgroundColor: JOURNEY.front[card.tint], paddingTop: 28, paddingHorizontal: 24, paddingBottom: 24, alignItems: "center" },
           { transform: [{ perspective: 1400 }, { rotateY: turn.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "180deg"] }) }] },
         ]}
       >
@@ -332,14 +365,10 @@ function FlipCard({ item, concerns, flipped, interactive, onTap }: { item: DeckC
             <Text style={{ fontSize: 13, fontWeight: "500", color: BUTTON.primary.fill }}>Tap to see how to use it</Text>
           </View>
         </View>
-        {concerns.length > 0 ? (
+        {helps ? (
           <View style={{ alignSelf: "stretch", paddingTop: 20, borderTopWidth: 1, borderTopColor: withAlpha(INK, 0.08), gap: 14, alignItems: "center" }}>
             <Text style={{ fontSize: 12, fontWeight: "500", letterSpacing: 1.44, textTransform: "uppercase", color: MUTED_FAINT }}>Helps with</Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8 }}>
-              {concerns.map((concern) => (
-                <Chip key={concern} label={shortLabel(concern)} on={helps.has(concern)} />
-              ))}
-            </View>
+            <Chip label={helps} />
           </View>
         ) : null}
       </Animated.View>
@@ -357,7 +386,7 @@ function FlipCard({ item, concerns, flipped, interactive, onTap }: { item: DeckC
         <View style={{ flex: 1, marginTop: 8, justifyContent: "space-evenly" }}>
           <BackRow first icon="locate-outline" title="Why you" text={card.whyYou} />
           <BackRow icon="leaf-outline" title="How to start" text={card.howToStart} />
-          <BackRow warn icon="warning-outline" title="Watch for" text={card.watchFor} />
+          <BackRow warn icon="warning-outline" title="Watch for" text={caution ? `${card.watchFor} ${caution}` : card.watchFor} />
           <BackRow icon="pricetag-outline" title="When shopping" text={card.whenShopping} />
         </View>
         {source ? (
@@ -394,20 +423,14 @@ function BackRow({ icon, title, text, first, warn }: { icon: keyof typeof Ionico
   );
 }
 
-/** A concern chip: ticked when the card's rules help it, dashed when they don't. */
-function Chip({ label, on }: { label: string; on: boolean }) {
+/** What a card is on the deck for, ticked. */
+function Chip({ label }: { label: string }) {
   return (
-    <View
-      accessibilityLabel={on ? `Helps with ${label}` : `Not for ${label}`}
-      style={{ height: 34, borderRadius: 17, backgroundColor: withAlpha(WHITE, 0.9), flexDirection: "row", alignItems: "center", gap: 6, paddingLeft: on ? 6 : 12, paddingRight: 14 }}
-    >
-      {on ? (
-        <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: BUTTON.primary.fill, alignItems: "center", justifyContent: "center" }}>
-          <Tick size={11} color={WHITE} />
-        </View>
-      ) : null}
-      <Text style={{ fontSize: 14, fontWeight: "500", color: on ? INK : JOURNEY.chipOff }}>{label}</Text>
-      {on ? null : <View style={{ width: 10, height: 1, backgroundColor: JOURNEY.chipOff }} />}
+    <View accessibilityLabel={`Helps with ${label}`} style={{ height: 34, borderRadius: 17, backgroundColor: withAlpha(WHITE, 0.9), flexDirection: "row", alignItems: "center", gap: 6, paddingLeft: 6, paddingRight: 14 }}>
+      <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: BUTTON.primary.fill, alignItems: "center", justifyContent: "center" }}>
+        <Tick size={11} color={WHITE} />
+      </View>
+      <Text style={{ fontSize: 14, fontWeight: "500", color: INK }}>{label}</Text>
     </View>
   );
 }

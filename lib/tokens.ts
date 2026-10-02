@@ -673,16 +673,15 @@ export const CARD_SHADOW = {} as const;
  * header's progress track, an inactive pager dot and an untick chip's text.
  */
 export const JOURNEY = {
-  // Each card's front tint, at the light level of Home's tiles and the result
-  // boxes (owner, 2 October 2026: the hand-off's washes, #FCF4F2 and the like,
-  // were too faint to read as colour). Niacinamide is the result's green wash
-  // and retinoids Home's butter; the rose and the blue are inferred to sit at
-  // the same level, not read off a hand-off.
-  front: { azelaic: "#F8E8E4", niacinamide: "#EEF1E7", hydrating: "#E6EEF2", retinoids: "#F6F0E2" },
+  // The four front tints a card can take, at the light level of Home's tiles
+  // and the result boxes (owner, 2 October 2026: the hand-off's washes,
+  // #FCF4F2 and the like, were too faint to read as colour). Sage is the
+  // result's green wash and butter Home's; the rose and the blue are inferred
+  // to sit at the same level, not read off a hand-off.
+  front: { rose: "#F8E8E4", sage: "#EEF1E7", blue: "#E6EEF2", butter: "#F6F0E2" },
   back: "#FFFDFB",
   track: "#E6E0DA",
   dotOff: "#DDD6D0",
-  chipOff: "#B9B2AC",
   backLine: "#ECE8E3",
   iconFill: "#EEF1E7",
   iconInk: "#62664B",
