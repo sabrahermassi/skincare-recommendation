@@ -1,4 +1,3 @@
-import { labelName, labelTitle } from "@/lib/label-title";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Link, router, useFocusEffect, useScrollToTop } from "expo-router";
@@ -26,6 +25,7 @@ import { displayIngredientName } from "@/lib/ingredient-name";
 import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime } from "@/lib/format";
 import { LABEL_META, labelWithoutProduct, type IngredientLabel } from "@/lib/ingredient-labels";
+import { labelName, labelTitle } from "@/lib/label-title";
 import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, stepOf, type StepGroup } from "@/lib/routine-step";

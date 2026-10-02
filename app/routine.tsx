@@ -260,8 +260,8 @@ function Steps() {
  * serum or treatment, the active to use in big letters and what it is for
  * (owner: the active says more than a product we may not have); then the
  * product for the step, the person's own if they added one and ours otherwise
- * (tapping it opens the product, as a scan would); and a way to scan one. With nothing picked, the step's bottle sits faded on the
- * right.
+ * (tapping it opens the product, as a scan would); and a way to scan one.
+ * With nothing picked, the step's bottle sits faded on the right.
  */
 function StepCard({ number, slot, own: ownPick, onRemove, last }: { number: number; slot: RoutineSlot; own: OwnPick | null; onRemove: (id: string) => void; last: boolean }) {
   const { label, active } = slot;
@@ -343,7 +343,7 @@ function PickRow({ pick, own = false }: { pick: RoutinePick; own?: boolean }) {
       onPress={() => router.push({ pathname: "/product/[id]", params: { id: product.id } })}
       accessibilityRole="button"
       accessibilityLabel={`${own ? "Your pick: " : ""}${product.brand} ${product.name}. ${match.score === null ? VERDICT_LABEL[match.verdict] : `${VERDICT_LABEL[match.verdict]}, ${match.score} out of 100`}`}
-      style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.text}}
+      style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.text }}
       className="active:opacity-70"
     >
       <ProductThumbnail product={product} size={44} />
