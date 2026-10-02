@@ -12,6 +12,7 @@ import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
 import { AVATAR_FILL, CANVAS, LINE, MUTED, SPACE, TYPE, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
+import { clearTestData, fillTestData } from "@/lib/dev-test-data";
 
 // The avatar (v7): 112pt, in a 4pt white ring.
 const AVATAR = 112;
@@ -93,6 +94,18 @@ export default function Profile() {
             <MenuRow icon="shield-outline" label="Privacy policy" onPress={() => router.push("/privacy")} />
             <MenuRow icon="chatbubble-outline" label="Support" onPress={() => router.push("/support")} />
           </MenuGroup>
+          {/* Development builds only (owner): long lists and a ten-step
+              routine to test scrolling with. A release build has no such rows. */}
+          {__DEV__ ? (
+            <MenuGroup>
+              <MenuRow
+                icon="flask-outline"
+                label="Fill with test data"
+                onPress={() => void fillTestData().catch((err) => console.warn("fillTestData failed:", err))}
+              />
+              <MenuRow icon="trash-outline" label="Remove all saved, history and starred" onPress={clearTestData} />
+            </MenuGroup>
+          ) : null}
         </View>
       </FitScrollView>
 

@@ -18,6 +18,7 @@ import { CANVAS, CANVAS_GLASS, CARD_RADIUS, INK, LINK, MUTED, MUTED_FAINT, ROUTI
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
 import { GlassHeader } from "@/components/GlassHeader";
+import { TEST_STEPS, useTestRoutine } from "@/lib/dev-test-data";
 
 // A woman at her mirror (v9: design_handoff_formee_v9, routine-empty-mirror).
 const ROUTINE_ART = require("@/assets/illustrations/routine-empty-mirror.webp");
@@ -87,7 +88,9 @@ function Steps() {
   const profile = useAppStore((s) => s.profile);
   const [time, setTime] = useState<TimeOfDay>("morning");
   const { title, tags } = profileHeadline(profile);
-  const steps = STEPS[time];
+  // On a development build with the test data on (Profile), ten steps each way.
+  const testRoutine = useTestRoutine();
+  const steps: readonly string[] = testRoutine ? TEST_STEPS[time] : STEPS[time];
   const [headerHeight, setHeaderHeight] = useState(0);
   const [scrollY] = useState(() => new Animated.Value(0));
   const [onScroll] = useState(() => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false }));
