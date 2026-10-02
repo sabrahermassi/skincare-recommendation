@@ -1474,7 +1474,7 @@ export function searchableQuery(query: string): string | null {
 }
 
 /** How many letters a search needs before it looks anything up (owner). */
-export const SEARCH_MIN_LETTERS = 3;
+const SEARCH_MIN_LETTERS = 3;
 
 /**
  * Whether `query` is long enough to search. A Korean, Chinese or Japanese
