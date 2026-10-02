@@ -477,7 +477,7 @@ export const CAMERA_STAGE = "#1C1816";
  */
 export const TOUCH_TARGET = Platform.select({ ios: 44, android: 48, default: 44 }) as number;
 
-/** The floating tab bar's height (v7: 56pt). A segmented control is 40pt (`SWITCH_HEIGHT`). */
+/** The floating tab bar's height (v7: 56pt). A segmented control is 44pt (`SWITCH_HEIGHT`). */
 export const CAPSULE_HEIGHT = 56;
 
 /**

@@ -5,8 +5,8 @@ import { Text } from "@/components/Text";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { INK, MUTED, SEGMENT_TRACK, SEGMENT_TRACK_STONE, TYPE, WHITE, withAlpha } from "@/lib/tokens";
 
-/** Every segmented control's height in v7 (read off the hand-off). */
-const SWITCH_HEIGHT = 40;
+/** Every segmented control's height (owner, 2 October 2026: 44, Apple's smallest comfortable tap; the hand-off's was 40). */
+const SWITCH_HEIGHT = 44;
 // The gap between the capsule and the thumb that slides in it.
 const SWITCH_PADDING = 3;
 // The thumb's soft lift off the track, two layers (v9, read off the hand-off:
@@ -34,7 +34,7 @@ export type SwitchLook = {
   fontSize: number;
 };
 const TONES: Record<"dark" | "light" | "stone", SwitchLook> = {
-  dark: { track: withAlpha(WHITE, 0.14), thumb: WHITE, label: WHITE, chosenLabel: INK, thumbShadow: null, fontSize: TYPE.caption },
+  dark: { track: withAlpha(WHITE, 0.14), thumb: WHITE, label: WHITE, chosenLabel: INK, thumbShadow: null, fontSize: TYPE.label },
   light: { track: SEGMENT_TRACK, thumb: WHITE, label: MUTED, chosenLabel: INK, thumbShadow: THUMB_SHADOW, thumbShadowFar: THUMB_SHADOW_FAR, fontSize: TYPE.label },
   // The light look on the product result's stone header (v9).
   stone: { track: SEGMENT_TRACK_STONE, thumb: WHITE, label: MUTED, chosenLabel: INK, thumbShadow: THUMB_SHADOW, fontSize: TYPE.label },
