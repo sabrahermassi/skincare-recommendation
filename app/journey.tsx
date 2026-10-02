@@ -56,11 +56,10 @@ function profileConcerns(concerns: readonly Concern[]): Concern[] {
 /**
  * "Skin needs" (v9): the ingredient categories worth looking for, one card
  * each — a card flips to show how to use it — and a scan to see how a product
- * fits. Full screen: no nav bar, no tab bar; it draws its own back and
- * progress.
+ * fits. Full screen: no nav bar, no tab bar; it draws its own back.
  *
  * Someone whose skin profile already names concerns lands on the cards at
- * once. Anyone else picks up to three concerns first (step 1 of 2), which
+ * once. Anyone else picks up to three concerns first, which
  * stay the journey's own: they travel with the scan to the result
  * (`lib/journey.ts`), and never rewrite the profile the score is made from.
  */
@@ -82,7 +81,7 @@ export default function Journey() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top + 6 }}>
-      <Header step={step === "concerns" ? 1 : 2} counted={asks} onBack={back} />
+      <Header onBack={back} />
       {step === "concerns" ? (
         <Concerns picked={picked} onPick={setPicked} onNext={() => setStep("finding")} bottom={insets.bottom} />
       ) : step === "finding" ? (
@@ -95,25 +94,15 @@ export default function Journey() {
 }
 
 /**
- * Back on the left and "Step 1 of 2" in the middle, over a thin line that
- * fills as the journey goes (v9, the quiz's header). Opened straight on the
- * cards there are no steps to count, so only Back shows.
+ * Back, and nothing else (owner): the journey is one question and its cards,
+ * so there is no step count and no progress line.
  */
-function Header({ step, counted, onBack }: { step: 1 | 2; counted: boolean; onBack: () => void }) {
+function Header({ onBack }: { onBack: () => void }) {
   return (
-    <View>
-      <View style={{ height: 44, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <IconCircle onPress={onBack} accessibilityLabel="Back">
-          <BackChevron />
-        </IconCircle>
-        <Text style={{ flex: 1, textAlign: "center", fontSize: TYPE.card, fontWeight: "600", color: INK }}>{counted ? `Step ${step} of 2` : ""}</Text>
-        <View style={{ width: 40 }} />
-      </View>
-      {counted ? (
-        <View accessible accessibilityRole="progressbar" accessibilityLabel={`Step ${step} of 2`} style={{ marginTop: 12, height: 2, backgroundColor: DIVIDER }}>
-          <View style={{ height: 2, width: step === 1 ? "50%" : "100%", backgroundColor: BUTTON.primary.fill }} />
-        </View>
-      ) : null}
+    <View style={{ height: 44, paddingHorizontal: 16, flexDirection: "row", alignItems: "center" }}>
+      <IconCircle onPress={onBack} accessibilityLabel="Back">
+        <BackChevron />
+      </IconCircle>
     </View>
   );
 }
