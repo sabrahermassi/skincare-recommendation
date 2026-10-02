@@ -55,7 +55,7 @@ it("gives a reason its box, with no source under it", async () => {
   await openMatch();
   // One of the Skin needs recommendations for dark spots (v9), in its own box.
   expect(screen.getByText(/^Niacinamide helps with oil balance/)).toBeTruthy();
-  expect(screen.getByText("Good support")).toBeTruthy();
+  expect(screen.queryByText("Good support")).toBeNull();
   expect(screen.queryByLabelText(/^Source:/)).toBeNull();
 });
 
@@ -184,16 +184,5 @@ describe("the order of the boxes", () => {
 
   it("keeps a banned or hazardous ingredient first whatever the verdict", () => {
     for (const verdict of ["excellent", "good", "fair", "poor", "unknown"] as const) expect(reasonOrder(verdict)[0]).toBe("red");
-  });
-
-  it("puts the watch-outs above the praise on a product that scores poorly", async () => {
-    // Fragrance and a pore-clogger for acne-prone, very sensitive skin, with one thing that helps.
-    await show(["parfum", "niacinamide"], { ...EMPTY_PROFILE, concerns: ["acne-prone"], baseSkinType: "oily", sensitivity: "high" });
-    await openMatch();
-    const tags = screen.getAllByText(/^(Watch out|Good support|Your foundation|Good for you|Good to know|Best match for you)$/).map((node) => String(node.props.children));
-    const firstGreen = tags.findIndex((tag) => tag !== "Watch out");
-    const lastOrange = tags.lastIndexOf("Watch out");
-    // Only checked when the product did land on fair or poor; the rule itself is pinned above.
-    if (screen.queryByText(/^(Could work for you|Probably not for you)$/) && firstGreen >= 0 && lastOrange >= 0) expect(lastOrange).toBeLessThan(firstGreen);
   });
 });

@@ -15,7 +15,7 @@ import type { Concern, Ingredient, ProductType, SkinProfile } from "@/data/types
 import { pairingNotesFor } from "@/lib/active-pairings";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { displayIngredientName } from "@/lib/ingredient-name";
-import { deckFor, JOURNEY_CONCERNS, planFit, ROLE_LABEL, shortLabel } from "@/lib/journey";
+import { deckFor, JOURNEY_CONCERNS, planFit } from "@/lib/journey";
 import { concernSupport, confidenceLabel, isLowCoverage, matchProduct, ruleFor, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
@@ -245,7 +245,7 @@ function ScoreHead({ match }: { match: MatchResult }) {
   );
 }
 
-type Reason = { key: string; name: string; text: string; tag: string; tone: Tone };
+type Reason = { key: string; name: string; text: string; tone: Tone };
 
 /** What the result says first, by how well it scored (v9). */
 const REASONS_TITLE: Record<MatchResult["verdict"], string> = {
@@ -272,7 +272,7 @@ export function reasonOrder(verdict: MatchResult["verdict"]): ("red" | "green" |
  * profile: a title and a line saying how the product fits, then a box per
  * finding — what to avoid (red), which of the Skin needs recommendations it
  * covers (green), what this skin is warned about (orange), and the concerns
- * it leaves uncovered — in the order `reasonOrder` gives for the verdict. Each box is the bold name, a sentence, and a tag. No
+ * it leaves uncovered — in the order `reasonOrder` gives for the verdict. Each box is its colour, the bold name and a sentence, with no label under it (owner). No
  * sources here (owner): they are on each ingredient's own sheet, in its
  * Sources card.
  */
@@ -288,17 +288,16 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
   for (const w of hazards) {
     if (seen.has(w.ingredient.name)) continue;
     seen.add(w.ingredient.name);
-    rows.push({ key: `avoid-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tag: "Best avoided", tone: VERDICT.low });
+    rows.push({ key: `avoid-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tone: VERDICT.low });
   }
   // Then the recommendations it covers, one box per card.
-  for (const { card, role, ingredients: hits } of fit?.covered ?? []) {
+  for (const { card, ingredients: hits } of fit?.covered ?? []) {
     hits.forEach((hit) => seen.add(hit));
     rows.push({
       key: `card-${card.key}`,
       // A group card names what it found ("Glycerin + Panthenol"); a single-ingredient card is its name.
       name: card.key === "hydrating" ? hits.slice(0, 2).map(displayIngredientName).join(" + ") : card.name,
       text: card.key === "hydrating" ? " put water back in and help keep it there." : ` ${card.line.charAt(0).toLowerCase()}${card.line.slice(1)}`,
-      tag: ROLE_LABEL[role],
       tone: VERDICT.high,
     });
   }
@@ -316,7 +315,6 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
         name: displayIngredientName(support.ingredient),
         // A rule names the concern; a declared function says only what it is.
         text: rule ? ` helps with ${CONCERN_PHRASE[concern]}` : stripName(support.why, support.ingredient),
-        tag: "Good for you",
         tone: VERDICT.high,
       });
     }
@@ -325,7 +323,7 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
   for (const w of irritationWarnings(match.warnings)) {
     if (seen.has(w.ingredient.name)) continue;
     seen.add(w.ingredient.name);
-    rows.push({ key: `watch-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tag: "Watch out", tone: VERDICT.medium });
+    rows.push({ key: `watch-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tone: VERDICT.medium });
   }
   // The concerns none of its ingredients work on.
   if (fit && fit.notCovered.length > 0) {
@@ -333,7 +331,6 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
       key: "not-covered",
       name: "Worth knowing:",
       text: ` it won't work on your ${fit.notCovered.map((c) => CONCERN_PHRASE[c]).join(" or ")} on its own.`,
-      tag: `Not covered: ${fit.notCovered.map((c) => shortLabel(c).toLowerCase()).join(", ")}`,
       tone: VERDICT.medium,
     });
   }
@@ -347,7 +344,6 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
       key: `${up ? "up" : "down"}-${r.ingredient}`,
       name: displayIngredientName(r.ingredient),
       text: stripName(r.reason, r.ingredient),
-      tag: up ? "Good to know" : "Watch out",
       tone: up ? VERDICT.high : VERDICT.medium,
     });
   }
@@ -389,7 +385,6 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
                 <Text style={{ fontWeight: "600" }}>{row.name}</Text>
                 {row.text}
               </Text>
-              <Text style={{ fontSize: TYPE.caption, color: row.tone.deep }}>{row.tag}</Text>
             </View>
           </View>
         ))}

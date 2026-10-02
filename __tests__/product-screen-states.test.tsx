@@ -355,8 +355,9 @@ describe("the product screen opened from the journey", () => {
     // Niacinamide and the hydrating basics are in it; azelaic acid isn't.
     expect(screen.getByText("This makes sense for you")).toBeTruthy();
     expect(screen.getByText(/It covers 2 of the 3 recommendations for your skin\./)).toBeTruthy();
-    expect(screen.getByText("Good support")).toBeTruthy();
-    expect(screen.getByText("Your foundation")).toBeTruthy();
+    // No label under a box (owner): its colour and its sentence say it.
+    expect(screen.queryByText("Good support")).toBeNull();
+    expect(screen.queryByText("Your foundation")).toBeNull();
     // The heart is the one save (v9): no second button under the result.
     expect(screen.queryByText("Save to my plan")).toBeNull();
   });
@@ -367,7 +368,7 @@ describe("the product screen opened from the journey", () => {
     await open({});
     expect(screen.getByText(/^It covers \d of the \d recommendations for your skin\.$/)).toBeTruthy();
     // Nothing in it works on acne, the profile's one concern.
-    expect(screen.getByText("Not covered: acne or pimples")).toBeTruthy();
+    expect(screen.getAllByText(/it won.t work on your acne on its own/).length).toBeGreaterThan(0);
   });
 
   it("logs a scan as Scanned and anything else as Opened", async () => {
