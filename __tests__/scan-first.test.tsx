@@ -41,10 +41,6 @@ jest.mock("expo-router", () => {
   };
 });
 
-// The tab bar's scan button animates; nothing here tests the animation.
-jest.mock("react-native-worklets", () => require("react-native-worklets/src/mock"));
-jest.mock("react-native-reanimated", () => require("react-native-reanimated/mock"));
-
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));

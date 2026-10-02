@@ -1,8 +1,9 @@
 import { BlurView } from "expo-blur";
 import { useState } from "react";
 import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
-import Animated, { makeMutable, ReduceMotion, useAnimatedReaction, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import Animated, { makeMutable, useAnimatedReaction, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 
+import { FLOW_LEAD, FLOW_TRAIL } from "@/lib/flow";
 import { TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_MARGIN } from "@/lib/tab-bar";
 import { HAIRLINE, TAB_BAR_GLASS, TAB_PILL } from "@/lib/tokens";
 
@@ -15,12 +16,6 @@ const SLOTS = 5;
 
 /** Which of the bar's five places is current. Each tab button sets it when it becomes the current tab. */
 export const activeTabSlot = makeMutable(0);
-
-// The pill flows to the next tab like a drop of water (owner): the edge in
-// front moves off quickly and the edge behind follows, so it stretches as it
-// travels and gathers again where it lands.
-const LEAD = { mass: 0.6, stiffness: 260, damping: 20, reduceMotion: ReduceMotion.System } as const;
-const TRAIL = { mass: 0.9, stiffness: 130, damping: 19, reduceMotion: ReduceMotion.System } as const;
 
 // How strongly what scrolls under the bar is blurred (expo-blur, 1-100).
 const TAB_BAR_BLUR = 14;
@@ -56,8 +51,8 @@ export function TabBarBackground() {
         return;
       }
       const forward = to > left.value;
-      left.value = withSpring(to, forward ? TRAIL : LEAD);
-      right.value = withSpring(to + PILL_WIDTH, forward ? LEAD : TRAIL);
+      left.value = withSpring(to, forward ? FLOW_TRAIL : FLOW_LEAD);
+      right.value = withSpring(to + PILL_WIDTH, forward ? FLOW_LEAD : FLOW_TRAIL);
     },
     [width],
   );
