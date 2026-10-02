@@ -167,7 +167,7 @@ width changes (`BUTTON_WIDTH`):
 |---|---|
 | full | actions that move a flow forward: Continue, Show products, Sign in, Turn on the camera |
 | 220 (`secondary`) | pop-ups, sheets, empty and error states: See full result, Go to Home, Take the skin quiz |
-| 180 (`inCard`) | inside a card: Scan now, Get my match |
+| 180 (`inCard`) | inside a card: Get my match |
 | 140 (`pair`) | each of a confirm pair (Keep it / Delete) |
 
 Label SF 16 semibold, white on terracotta; disabled `#D9C9BE` whatever the

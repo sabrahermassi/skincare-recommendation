@@ -2,15 +2,13 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
 
 import { BounceCard } from "@/components/BounceCard";
-import { BUTTON_HEIGHT, BUTTON_WIDTH } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 import { TipCard } from "@/components/TipCard";
 import { openScanner } from "@/lib/open-scanner";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { BUTTON, CANVAS, CARD_RADIUS, HOME_SCAN_FILL, HOME_TILE, INK, MUTED, SCRIPT_FONT, SPACE, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, HOME_SCAN_FILL, HOME_TILE, INK, MUTED, SCRIPT_FONT, SPACE, TYPE } from "@/lib/tokens";
 import { FitScrollView } from "@/components/FitScrollView";
 
 // The scan card's watercolour, and the two tiles' (transparent ground).
@@ -57,6 +55,9 @@ export default function Home() {
             backgroundColor: HOME_SCAN_FILL,
             paddingVertical: 24,
             paddingHorizontal: 16,
+            // No button inside it (owner): the whole card is the button, so
+            // its two lines sit in the middle of its height.
+            justifyContent: "center",
             overflow: "hidden",
           }}
         >
@@ -71,15 +72,6 @@ export default function Home() {
           <Text style={{ marginTop: 4, maxWidth: SCAN_LINE_WIDTH, fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
             Point at a barcode or the ingredient list.
           </Text>
-          {/* Looks like the filled button, but the card is what's pressed. */}
-          <View
-            importantForAccessibility="no-hide-descendants"
-            accessibilityElementsHidden
-            style={{ marginTop: 16, width: BUTTON_WIDTH.inCard, height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
-          >
-            <BarcodeIcon />
-            <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: BUTTON.primary.label }}>Scan now</Text>
-          </View>
         </BounceCard>
 
         <Text accessibilityRole="header" style={{ marginTop: SPACE.section, paddingHorizontal: 4, fontSize: TYPE.title, fontWeight: "600", color: INK }}>
@@ -119,20 +111,5 @@ function Tile({ label, description, art, fill, onPress }: { label: string; descr
         {description}
       </Text>
     </BounceCard>
-  );
-}
-
-/** The barcode-scanner glyph on "Scan now" (v9, the hand-off's path). */
-function BarcodeIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M10 8v8M13 8v8M17 8v8"
-        stroke={BUTTON.primary.label}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
   );
 }
