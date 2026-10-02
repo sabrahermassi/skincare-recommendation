@@ -298,6 +298,16 @@ export const BUTTON = {
 } as const;
 
 /**
+ * The scanner's Barcode | Ingredient list switch (owner, 2 October 2026): the
+ * chosen pill is the main button's sage with its white label. `camera` is
+ * over the live camera, `page` on the cream permission screen.
+ */
+export const SCANNER_SWITCH = {
+  camera: { track: "rgba(255,255,255,0.14)", thumb: BUTTON.primary.fill, label: WHITE, chosenLabel: BUTTON.primary.label, thumbShadow: null, fontSize: 15 },
+  page: { track: SWITCH_TRACK_GLASS, thumb: BUTTON.primary.fill, label: MUTED, chosenLabel: BUTTON.primary.label, thumbShadow: null, fontSize: 15 },
+} as const;
+
+/**
  * A chosen option in any selectable control — quiz cards, skin-profile chips,
  * filter pills: the same look the app always had, a darker outline around a
  * pale fill with ink words, in the primary button's colour rather than the

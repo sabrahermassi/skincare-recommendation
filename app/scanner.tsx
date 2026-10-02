@@ -55,6 +55,7 @@ import {
   scoreColours,
   SCRIM,
   SHEET_SHADOW,
+  SCANNER_SWITCH,
   SPACE,
   TOUCH_TARGET,
   TYPE,
@@ -62,6 +63,7 @@ import {
   WHITE,
   withAlpha,
 } from "@/lib/tokens";
+import { TAB_BAR_HEIGHT } from "@/lib/tab-bar";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -487,13 +489,17 @@ export default function Scan() {
 
 
   const popupUp = status.kind === "found" || (mode === "Barcode" && (status.kind === "missed" || status.kind === "unreachable"));
-  const modeSwitch = (
+  // At the foot of the camera it is the screen's main bar: as tall as the tab
+  // bar and wide enough for roomy pills (owner). On the cream permission
+  // screen it shares the top row with two buttons, at the usual size.
+  const modeSwitch = (atFoot: boolean) => (
     <SegmentedSwitch
-      tone={needsPermission ? "light" : "dark"}
+      tone={needsPermission ? SCANNER_SWITCH.page : SCANNER_SWITCH.camera}
       options={MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
       selected={mode}
       onSelect={selectMode}
-      style={{ width: SWITCH_WIDTH }}
+      height={atFoot ? TAB_BAR_HEIGHT : undefined}
+      style={{ width: atFoot ? FOOT_SWITCH_WIDTH : SWITCH_WIDTH }}
     />
   );
 
@@ -576,7 +582,7 @@ export default function Scan() {
           // Opened from a deep link there is nothing underneath to go back to.
           onPress={goBackOrHome}
         />
-        {needsPermission ? modeSwitch : null}
+        {needsPermission ? modeSwitch(false) : null}
         {/* In both modes, not just Barcode (#195): the camera is one shared
             instance, so a torch turned on here stays on across a mode switch —
             and someone photographing a label on the same dark shelf needs the
@@ -601,7 +607,7 @@ export default function Scan() {
           way back from there. */}
       {!needsPermission && !popupUp ? (
         <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, bottom: stageBottom(insets.bottom), alignItems: "center" }}>
-          {modeSwitch}
+          {modeSwitch(true)}
         </View>
       ) : null}
     </View>
@@ -1065,6 +1071,8 @@ function IngredientsStage({
 const MODE_LABEL: Record<Mode, string> = { Barcode: "Barcode", Photo: "Ingredient list" };
 // The mode switch's width in the top row (v7).
 const SWITCH_WIDTH = 230;
+// At the foot of the camera: wider, so "Ingredient list" has room in its pill.
+const FOOT_SWITCH_WIDTH = 300;
 // Apple's spring for a sheet presenting: critically damped (fraction 1) at
 // response 0.5 s, as a system sheet rises — stiffness = (2π / response)²,
 // damping = 4π × fraction / response, for a mass of 1.
@@ -1082,7 +1090,7 @@ function stageBottom(safeBottom: number) {
 
 /** Where the frame ends: above the mode switch at the foot of the screen, with a gutter between them. */
 function frameBottom(safeBottom: number) {
-  return stageBottom(safeBottom) + TOUCH_TARGET + SPACE.gutter;
+  return stageBottom(safeBottom) + TAB_BAR_HEIGHT + SPACE.gutter;
 }
 // How long a barcode can sit unread in frame before offering Photo mode as
 // the way out (#195) — long enough that a normal read (under a second)
