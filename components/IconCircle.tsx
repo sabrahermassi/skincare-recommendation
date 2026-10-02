@@ -5,7 +5,7 @@ import Svg, { Path } from "react-native-svg";
 import { ICON_SHADOW, INK, SURFACE } from "@/lib/tokens";
 
 /** The circle's size (v7): the nav bar's back, close, heart, share and star. */
-export const ICON_CIRCLE = 40;
+const ICON_CIRCLE = 40;
 
 /**
  * A 40pt white circle with a soft shade and an ink icon in it (v7): back,

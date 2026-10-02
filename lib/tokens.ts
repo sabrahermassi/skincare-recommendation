@@ -207,9 +207,6 @@ export const ROUTINE_SWITCH = {
   stepLine: "#B5BAA0",
 } as const;
 
-/** The routine note's moon badge (v7). */
-export const MOON_BADGE = { fill: "#ECE8E3", ink: "#524D48" } as const; // v9
-
 /** Hairline dividers between rows inside a card (v7). */
 export const HAIRLINE = "#E3DFDA"; // v9
 

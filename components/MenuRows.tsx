@@ -31,7 +31,7 @@ export function MenuGroup({ soft = false, children }: { soft?: boolean; children
 }
 
 /** The grey disclosure chevron at a row's end (v7). */
-export function RowChevron() {
+function RowChevron() {
   return (
     <Svg width={8} height={14} viewBox="0 0 8 14" fill="none">
       <Path d="m1 1 6 6-6 6" stroke={ROW_CHEVRON} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />

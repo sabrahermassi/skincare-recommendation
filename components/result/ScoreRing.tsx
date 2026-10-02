@@ -20,14 +20,14 @@ export const VERDICT_TEXT_SIZE = 17;
 /** The big score ring's drawn size (v7), before it grows with large text. */
 export const RING_SIZE = 96;
 /** The white disc the ring sits on where it straddles the result's sheet (v9). */
-export const RING_DISC = 108;
+const RING_DISC = 108;
 
 /**
  * The big score (v9): the band's tint as the track, its colour as the arc from
  * 12 o'clock, the number in the title face with "/100". On the product result, and on the
  * scanner's found pop-up.
  */
-export function ScoreRing({ match }: { match: Pick<MatchResult, "score" | "verdict"> }) {
+function ScoreRing({ match }: { match: Pick<MatchResult, "score" | "verdict"> }) {
   const colours = scoreColours(match.verdict);
   const { score } = match;
   // Drawn for the ordinary text sizes; past them it grows with the words (#334).

@@ -8,7 +8,7 @@ import { SCAN_BUTTON_LIFT, TAB_BAR_HEIGHT, tabBarBottom } from "@/lib/tab-bar";
 import { SPACE, TOAST, TYPE } from "@/lib/tokens";
 
 /** How long the toast stays (v9: 4 s); a new one starts the count again. */
-export const UNDO_MS = 4000;
+const UNDO_MS = 4000;
 // The pill's height, and its Undo button's (v9).
 const HEIGHT = 48;
 const ACTION_HEIGHT = 40;

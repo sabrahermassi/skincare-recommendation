@@ -21,9 +21,9 @@ import { INGREDIENT_RULES, ruleMatches, type IngredientRule, type RuleSource, ty
  * have one.
  */
 
-export type Tint = "rose" | "sage" | "blue" | "butter";
+type Tint = "rose" | "sage" | "blue" | "butter";
 
-export type CardKey =
+type CardKey =
   | "azelaic"
   | "niacinamide"
   | "hydrating"
