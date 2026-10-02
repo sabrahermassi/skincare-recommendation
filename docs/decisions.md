@@ -289,6 +289,32 @@ for it**: every other way into the scanner keeps the profile's score.
 - History keeps the skin profile's score for a product scanned this way: the
   log is the person's own, and one number per product.
 
+### The routine builder picks from the catalogue (2 October 2026)
+
+The Skincare routine screen names products for each step, by the owner's
+decision (`lib/routine-builder.ts`). A basic step (cleanse, moisturise,
+sunscreen) takes the best skin matches of that type. The morning serum and the
+evening treatment must hold an active for the profile's concerns, by the same
+check a Skin needs scan uses, and always say which actives to look for.
+
+- **Why the active steps so often name nothing.** Open Beauty Facts, the only
+  product source we may keep, has almost no serums or treatments: the staging
+  catalogue held 28 serums of 1,114 products, and 3 leave-on products with
+  retinol. A read-only import run on 2 October 2026 with six more categories
+  (make-up removers, anti-aging face care, cleansing waters and three small
+  ones) found nothing new: every row was already in through `en:face`. The
+  source is used up for face skincare; more serums need a second source.
+- **Nothing is recommended that the skin match warns against**: a hazard, a
+  pregnancy caution, a match under "fair", or a label too little of which was
+  read.
+- **Types are guesses, so names can veto.** A nail polish remover and a
+  pimple patch are typed as cleansers and an exfoliating lotion as a
+  moisturiser. The builder keeps a product out of a step when its name says
+  it is something else. That is a patch over the catalogue's typing, not a
+  fix for it.
+- **A product opened from the routine is the normal product screen**, scored
+  with the skin profile like any scan.
+
 ## SDK and platform history
 
 **iOS is the only release target for this MVP, decided 19 September 2026.**

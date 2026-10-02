@@ -1,20 +1,24 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Animated, Pressable, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
+import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { PageTitle } from "@/components/PageTitle";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { Text } from "@/components/Text";
+import { fetchProducts } from "@/data/api";
+import type { ProductWithIngredients } from "@/data/types";
 import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized, profileHeadline } from "@/lib/profile";
-import { CANVAS, CANVAS_GLASS, CARD_RADIUS, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, SPACE, SURFACE, TYPE, WHITE } from "@/lib/tokens";
+import { buildRoutine, ROUTINE_STEPS, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
 import { GlassHeader } from "@/components/GlassHeader";
@@ -23,15 +27,10 @@ import { TEST_STEPS, useTestRoutine } from "@/lib/dev-test-data";
 // A woman at her mirror (v9: design_handoff_formee_v9, routine-empty-mirror).
 const ROUTINE_ART = require("@/assets/illustrations/routine-empty-mirror.webp");
 
-type TimeOfDay = "morning" | "evening";
-
-// The steps of each routine, in order, and the faded bottle each step's card
-// shows until a product is picked for it (v9, read off the hand-off).
-const STEPS: Record<TimeOfDay, string[]> = {
-  morning: ["Cleansing", "Serum", "Moisturiser", "Sunscreen"],
-  evening: ["Cleansing", "Treatment", "Moisturiser", "Night care"],
-};
+// The faded bottle each step's card shows until a product is picked for it
+// (v9, read off the hand-off).
 const STEP_BOTTLE: Record<string, number> = {
+  "First cleanse": require("@/assets/illustrations/bottle-cleanser.png"),
   Cleansing: require("@/assets/illustrations/bottle-cleanser.png"),
   Serum: require("@/assets/illustrations/bottle-serum.png"),
   Treatment: require("@/assets/illustrations/bottle-serum.png"),
@@ -43,9 +42,10 @@ const STEP_BOTTLE: Record<string, number> = {
 /**
  * Skincare routine — opened from its card on Home. With no skin profile yet it
  * asks for one ("Take the skin quiz" opens the quiz, which closes back here);
- * with one, it lays out the morning and evening steps (v9). The products for
- * each step aren't built yet, so every step shows its faded bottle and a way
- * to scan one.
+ * with one, it lays out the morning and evening steps (v9), each with the
+ * catalogue's best matches for that skin (`lib/routine-builder.ts`). A serum
+ * or treatment step also says which actives to look for, since the catalogue
+ * often has none to name; every step keeps a way to scan one.
  */
 export default function Routine() {
   const profile = useAppStore((s) => s.profile);
@@ -94,7 +94,21 @@ function Steps() {
   const { title, tags } = profileHeadline(profile);
   // On a development build with the test data on (Profile), ten steps each way.
   const testRoutine = useTestRoutine();
-  const steps: readonly string[] = testRoutine ? TEST_STEPS[time] : STEPS[time];
+  // The catalogue, read once: `null` until it arrives, empty if it could not be read.
+  const [products, setProducts] = useState<ProductWithIngredients[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchProducts()
+      .then((all) => !cancelled && setProducts(all))
+      .catch(() => !cancelled && setProducts([]));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const routine = useMemo(() => (products ? buildRoutine(products, profile) : null), [products, profile]);
+  const steps: readonly RoutineSlot[] = testRoutine
+    ? TEST_STEPS[time].map((label) => ({ key: label, label, note: null, picks: [] }))
+    : (routine?.[time] ?? ROUTINE_STEPS[time].map((step) => ({ ...step, note: null, picks: [] })));
   const [headerHeight, setHeaderHeight] = useState(0);
   const [scrollY] = useState(() => new Animated.Value(0));
   const [onScroll] = useState(() => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false }));
@@ -116,11 +130,11 @@ function Steps() {
 
         <View>
           {steps.map((step, i) => (
-            <StepCard key={`${time}-${step}`} number={i + 1} step={step} last={i === steps.length - 1} />
+            <StepCard key={`${time}-${step.key}`} number={i + 1} slot={step} finding={!testRoutine && routine === null} last={i === steps.length - 1} />
           ))}
         </View>
         <Text style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.text, textAlign: "center", fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
-          Scan a product to see whether it fits a step.
+          Picked from our catalogue for your skin profile. Scan a product to see whether it fits a step.
         </Text>
       </FitScrollView>
       {/* Back, the title, the skin profile and the Morning | Evening switch
@@ -169,11 +183,15 @@ function Steps() {
 
 /**
  * One step (v9): its number in a sage disc on a dotted line that runs down to
- * the next step, then a white card — the step's name in small capitals, and,
- * until products can be picked per step, a way to scan one, with the step's
- * bottle faded on the right.
+ * the next step, then a stone card: the step's name in small capitals, the
+ * product picked for it (tapping it opens the product, as a scan would), for
+ * a serum or treatment the actives to look for, any other options, and a way
+ * to scan one. With nothing picked, the step's bottle sits faded on the right.
  */
-function StepCard({ number, step, last }: { number: number; step: string; last: boolean }) {
+function StepCard({ number, slot, finding, last }: { number: number; slot: RoutineSlot; finding: boolean; last: boolean }) {
+  const [more, setMore] = useState(false);
+  const { label, note, picks } = slot;
+  const [pick, ...others] = picks;
   return (
     <View style={{ flexDirection: "row", alignItems: "stretch", gap: SPACE.block }}>
       <View style={{ width: 28, alignItems: "center", paddingTop: 14 }}>
@@ -187,25 +205,70 @@ function StepCard({ number, step, last }: { number: number; step: string; last: 
       <View style={{ flex: 1, minHeight: 72, marginBottom: last ? 0 : SPACE.block, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED }}>
-            {step}
+            {label}
           </Text>
-          <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>No product picked yet.</Text>
-          <Pressable
-            onPress={() => openScanner()}
-            accessibilityRole="button"
-            accessibilityLabel={`Scan one to check, for ${step.toLowerCase()}`}
-            // 28pt tall like the design; the slop takes the target to 44.
-            hitSlop={8}
-            style={{ alignSelf: "flex-start", minHeight: 28, flexDirection: "row", alignItems: "center", gap: SPACE.text }}
-            className="active:opacity-70"
-          >
-            <CameraIcon />
-            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Scan one to check</Text>
-          </Pressable>
+          {pick ? <PickRow pick={pick} /> : <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>{finding ? "Finding products…" : "No product picked yet."}</Text>}
+          {/* A serum or treatment: the actives that matter, whether or not we had a product to name. */}
+          {note ? <Text style={{ fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{note}</Text> : null}
+          {more ? others.map((other) => <PickRow key={other.product.id} pick={other} divided />) : null}
+          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: SPACE.gutter }}>
+            {others.length > 0 ? (
+              <Pressable
+                onPress={() => setMore((open) => !open)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: more }}
+                accessibilityLabel={more ? `Fewer options for ${label.toLowerCase()}` : `${others.length} more for ${label.toLowerCase()}`}
+                hitSlop={8}
+                style={{ minHeight: 28, justifyContent: "center" }}
+                className="active:opacity-70"
+              >
+                <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{more ? "Fewer" : `${others.length} more`}</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={() => openScanner()}
+              accessibilityRole="button"
+              accessibilityLabel={`Scan one to check, for ${label.toLowerCase()}`}
+              // 28pt tall like the design; the slop takes the target to 44.
+              hitSlop={8}
+              style={{ minHeight: 28, flexDirection: "row", alignItems: "center", gap: SPACE.text }}
+              className="active:opacity-70"
+            >
+              <CameraIcon />
+              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Scan one to check</Text>
+            </Pressable>
+          </View>
         </View>
-        {STEP_BOTTLE[step] ? <Image source={STEP_BOTTLE[step]} contentFit="contain" accessibilityLabel="" style={{ width: 52, height: 60, opacity: 0.4 }} /> : null}
+        {!pick && STEP_BOTTLE[label] ? <Image source={STEP_BOTTLE[label]} contentFit="contain" accessibilityLabel="" style={{ width: 52, height: 60, opacity: 0.4 }} /> : null}
       </View>
     </View>
+  );
+}
+
+/** A product picked for a step: its bottle, the brand over the name, and its skin match. It opens the product screen. */
+function PickRow({ pick, divided = false }: { pick: RoutinePick; divided?: boolean }) {
+  const { product, match } = pick;
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: "/product/[id]", params: { id: product.id } })}
+      accessibilityRole="button"
+      accessibilityLabel={`${product.brand} ${product.name}. ${VERDICT_LABEL[match.verdict]}, ${match.score} out of 100`}
+      style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.text, borderTopWidth: divided ? 0.5 : 0, borderTopColor: DIVIDER }}
+      className="active:opacity-70"
+    >
+      <ProductThumbnail product={product} size={44} />
+      <View style={{ flex: 1, gap: 1 }}>
+        <Text numberOfLines={1} style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>
+          {product.brand}
+        </Text>
+        <Text numberOfLines={2} style={{ fontSize: TYPE.body, fontWeight: "600", lineHeight: 20, color: INK }}>
+          {product.name}
+        </Text>
+        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: scoreColours(match.verdict).deep }}>
+          {VERDICT_LABEL[match.verdict]} · {match.score}/100
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 
