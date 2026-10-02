@@ -145,8 +145,21 @@ export const HINT = PLACEHOLDER;
 
 /** The track behind a segmented control's sliding thumb (v7). */
 export const SEGMENT_TRACK = "#E8EBDF"; // v9: on the sage page
-/** The same track on the product result's stone header (v9). */
-export const SEGMENT_TRACK_STONE = "#E9E6E0";
+
+/**
+ * A switch's track as glass (owner, 2 October 2026): ink let through at 7%,
+ * so what scrolls behind the switch shows through it, a little darker than
+ * the header around it. Over the plain page it lands within a shade of the
+ * solid tracks it replaced (computed). 7% is a judged value.
+ */
+export const SWITCH_TRACK_GLASS = "rgba(47,44,42,0.07)";
+
+/**
+ * The floating tab bar as glass (same request): a wash over a light blur, a
+ * little darker than the page, so what scrolls under the bar shows through.
+ * Judged values.
+ */
+export const TAB_BAR_GLASS = "rgba(228,230,222,0.6)";
 
 /**
  * Every destructive or report action (v9, read off the hand-off): the soft
@@ -186,8 +199,8 @@ export const STAR_ON = "#CF9E3E";
  * own colour, and a step's numbered disc with the dotted line under it.
  */
 export const ROUTINE_SWITCH = {
-  morning: { track: "#E8EBDF", thumb: "#F7E3B0", label: "#524D48", chosenLabel: "#5A4318", thumbShadow: null, fontSize: 15 },
-  evening: { track: "#E8EBDF", thumb: "#3C4460", label: "#524D48", chosenLabel: "#FFFFFF", thumbShadow: null, fontSize: 15 },
+  morning: { track: SWITCH_TRACK_GLASS, thumb: "#F7E3B0", label: "#524D48", chosenLabel: "#5A4318", thumbShadow: null, fontSize: 15 },
+  evening: { track: SWITCH_TRACK_GLASS, thumb: "#3C4460", label: "#524D48", chosenLabel: "#FFFFFF", thumbShadow: null, fontSize: 15 },
   sun: "#C98A26",
   stepFill: "#EEEFE7",
   stepLine: "#B5BAA0",

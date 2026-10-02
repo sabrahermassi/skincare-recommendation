@@ -3,7 +3,7 @@ import { Animated, Platform, Pressable, View, type StyleProp, type ViewStyle } f
 
 import { Text } from "@/components/Text";
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { INK, MUTED, SEGMENT_TRACK, SEGMENT_TRACK_STONE, TYPE, WHITE, withAlpha } from "@/lib/tokens";
+import { INK, MUTED, SWITCH_TRACK_GLASS, TYPE, WHITE, withAlpha } from "@/lib/tokens";
 
 /** Every segmented control's height (owner, 2 October 2026: 44, Apple's smallest comfortable tap; the hand-off's was 40). */
 const SWITCH_HEIGHT = 44;
@@ -35,9 +35,9 @@ export type SwitchLook = {
 };
 const TONES: Record<"dark" | "light" | "stone", SwitchLook> = {
   dark: { track: withAlpha(WHITE, 0.14), thumb: WHITE, label: WHITE, chosenLabel: INK, thumbShadow: null, fontSize: TYPE.label },
-  light: { track: SEGMENT_TRACK, thumb: WHITE, label: MUTED, chosenLabel: INK, thumbShadow: THUMB_SHADOW, thumbShadowFar: THUMB_SHADOW_FAR, fontSize: TYPE.label },
+  light: { track: SWITCH_TRACK_GLASS, thumb: WHITE, label: MUTED, chosenLabel: INK, thumbShadow: THUMB_SHADOW, thumbShadowFar: THUMB_SHADOW_FAR, fontSize: TYPE.label },
   // The light look on the product result's stone header (v9).
-  stone: { track: SEGMENT_TRACK_STONE, thumb: WHITE, label: MUTED, chosenLabel: INK, thumbShadow: THUMB_SHADOW, fontSize: TYPE.label },
+  stone: { track: SWITCH_TRACK_GLASS, thumb: WHITE, label: MUTED, chosenLabel: INK, thumbShadow: THUMB_SHADOW, fontSize: TYPE.label },
 };
 
 /**

@@ -1,16 +1,21 @@
+import { BlurView } from "expo-blur";
 import { useState } from "react";
-import { View, type LayoutChangeEvent } from "react-native";
+import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_MARGIN } from "@/lib/tab-bar";
-import { INK, TAB_BAR_SHADE, WHITE } from "@/lib/tokens";
+import { INK, TAB_BAR_GLASS, TAB_BAR_SHADE } from "@/lib/tokens";
 
 /**
- * The tab bar's body: a plain rounded bar with a soft shade under it. The scan
+ * The tab bar's body: a rounded bar of glass (owner: what scrolls under it
+ * shows through, lightly blurred and a little darker) with a soft shade under it. The scan
  * button is not cut into it; it sits on top of the bar and casts its own shadow.
  * Drawn rather than styled so the shade can be built from a few soft layers
  * (`TAB_BAR_SHADE`) instead of one box shadow.
  */
+// How strongly what scrolls under the bar is blurred (expo-blur, 1-100).
+const TAB_BAR_BLUR = 14;
+
 export function TabBarBackground() {
   const [width, setWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
@@ -51,8 +56,14 @@ export function TabBarBackground() {
               transform={`translate(0 ${((i + 1) * TAB_BAR_SHADE.reach) / TAB_BAR_SHADE.layers})`}
             />
           ))}
-          <Path d={d} fill={WHITE} />
         </Svg>
+      ) : null}
+      {width > 0 ? (
+        <View style={{ position: "absolute", top: 0, left: x0, width: x1 - x0, height: h, borderRadius: r, overflow: "hidden" }}>
+          {/* "light", never "default", which goes dark with the phone's appearance. */}
+          <BlurView intensity={TAB_BAR_BLUR} tint="light" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: TAB_BAR_GLASS }]} />
+        </View>
       ) : null}
     </View>
   );
