@@ -10,7 +10,7 @@ import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import { haptic } from "@/lib/haptics";
 import { CONCERN_TITLE, PREGNANCY_QUESTION, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
-import { CANVAS, CARD_RADIUS, INK, LINK, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, INK, LINK, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 import { EMPTY_PROFILE, MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
 
@@ -93,18 +93,21 @@ export default function SkinProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenHeader
-        right={
-          // Words, not a button (owner), like "Clear all" on Saved. Only there when there is an answer to reset.
-          hasAnswers ? (
-            <Pressable onPress={reset} accessibilityRole="button" accessibilityLabel="Reset skin profile" style={{ minHeight: TOUCH_TARGET, paddingHorizontal: 4, justifyContent: "center" }} className="active:opacity-70">
-              <Text style={{ fontSize: TYPE.label, color: LINK }}>Reset</Text>
-            </Pressable>
-          ) : null
-        }
-      />
+      <ScreenHeader />
       <FitScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
-        <PageTitle title="Skin profile" />
+        {/* "Reset" on the title's own line (owner), at its right: words, not a
+            button, like "Clear all" on Saved. Only there when there is an
+            answer to reset. It ends where the cards' "Change" ends. */}
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block }}>
+          <View style={{ flex: 1 }}>
+            <PageTitle title="Skin profile" />
+          </View>
+          {hasAnswers ? (
+            <Pressable onPress={reset} accessibilityRole="button" accessibilityLabel="Reset skin profile" hitSlop={12} style={{ paddingRight: SPACE.gutter, justifyContent: "center" }} className="active:opacity-70">
+              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Reset</Text>
+            </Pressable>
+          ) : null}
+        </View>
         {/* In ink, not secondary grey (v9): it says what the page is for. */}
         <Text style={{ paddingTop: SPACE.block, paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
           Every score is made from these answers. Change one and your scores update.
