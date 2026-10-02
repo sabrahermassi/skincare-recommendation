@@ -25,9 +25,10 @@ import { CAMERA_STAGE, SCANNER_FRAME, TYPE, WHITE, withAlpha } from "@/lib/token
 export type Box = { x: number; y: number; width: number; height: number };
 
 /** How far the window sits in from each side; the mode pills line up with it. */
-export const SCAN_SIDE_INSET = 33;
+// A little smaller than it was (owner, 2 October 2026: 33 at the sides, 24 at the top).
+export const SCAN_SIDE_INSET = 44;
 const SIDE = SCAN_SIDE_INSET;
-const TOP_GAP = 24;
+const TOP_GAP = 40;
 /** Gap between the top inset and the window, for anything placed inside it. */
 export const SCAN_TOP_GAP = TOP_GAP;
 // The corner brackets (v7): each corner's curve (the window's too), arm and stroke.

@@ -1085,9 +1085,9 @@ function stageBottom(safeBottom: number) {
   return Math.max(SPACE.section, safeBottom + SPACE.gutter);
 }
 
-/** Where the frame ends: above the mode switch at the foot of the screen, with a gutter between them. */
+/** Where the frame ends: above the mode switch at the foot of the screen, with 32pt between them. */
 function frameBottom(safeBottom: number) {
-  return stageBottom(safeBottom) + TAB_BAR_HEIGHT + SPACE.gutter;
+  return stageBottom(safeBottom) + TAB_BAR_HEIGHT + SPACE.section + SPACE.text;
 }
 // How long a barcode can sit unread in frame before offering Photo mode as
 // the way out (#195) — long enough that a normal read (under a second)
