@@ -114,9 +114,10 @@ function ProductScreen({ id, from, need }: { id: string; from?: string; need?: s
   const [renderedAt] = useState(() => Date.now());
 
   // Scored with the skin profile, except a scan from Skin needs
-  // (`from=journey`): that one is scored for what was picked there today, and
-  // nothing from the saved profile (owner, 2 October 2026). History still
-  // keeps the skin profile's score, below.
+  // (`from=journey`): that one is read for what was picked there today, with
+  // no score, and this profile, made from the pick, only feeds its warnings
+  // (owner, 2 October 2026). History still keeps the skin profile's score,
+  // below.
   const ownProfile = useAppStore((s) => s.profile);
   const journey = useMemo(() => (from === "journey" ? decodeNeed(need) : null), [from, need]);
   const profile = useMemo(() => (journey ? needProfile(journey) : ownProfile), [journey, ownProfile]);

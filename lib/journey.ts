@@ -399,8 +399,9 @@ export const GOALS: readonly Goal[] = [
     short: "Texture",
     noun: "rough texture",
     // No rule is tagged for texture, so these are picked by hand, and a scan
-    // is scored as the two concerns nearest to it. Tagging the rules would
-    // change every product's score, which is the owner's decision to make.
+    // is checked for warnings as the two concerns nearest to it. Tagging the
+    // rules would change every product's score, which is the owner's decision
+    // to make.
     test: () => false,
     cards: ["aha", "bha", "retinoids"],
     score: { concerns: ["dullness", "large-pores"] },
@@ -604,7 +605,7 @@ function ruleHits(ingredients: readonly Pick<Ingredient, "name">[]): Hit[] {
 export type NeedLevel = "works" | "little" | "none";
 
 /** One thing found in the product: a card and the ingredients that counted for it, or a lone ingredient with its rule's sentence. */
-export type NeedFinding = { card: JourneyCard | null; ingredients: string[]; reason: string };
+type NeedFinding = { card: JourneyCard | null; ingredients: string[]; reason: string };
 
 export type NeedVerdict = {
   level: NeedLevel;

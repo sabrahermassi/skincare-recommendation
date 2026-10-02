@@ -65,8 +65,9 @@ function retake() {
 }
 
 function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory: boolean; journey?: Need }) {
-  // A scan from Skin needs is scored for what was picked there today, not the
-  // saved skin profile (owner). History keeps the skin profile's score, below.
+  // A scan from Skin needs is read for what was picked there today, not the
+  // saved skin profile (owner): this profile, made from the pick, only feeds
+  // its warnings. History keeps the skin profile's score, below.
   const ownProfile = useAppStore((s) => s.profile);
   const profile = useMemo(() => (journey ? needProfile(journey) : ownProfile), [journey, ownProfile]);
   const [ingredients, setIngredients] = useState<Ingredient[] | null>(null);
