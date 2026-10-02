@@ -66,13 +66,26 @@ const TONE: Record<Fit, Tone> = {
  * dropped, leaving the ingredient on its own (#29).
  */
 export default function IngredientRoute() {
-  const params = useLocalSearchParams<{ inci: string; product?: string }>();
+  const params = useLocalSearchParams<{ inci: string; product?: string; from?: string }>();
   const inci = ingredientNameParam(params.inci);
   if (!inci) return <NotFound />;
-  return <IngredientDetail inci={inci} productId={productIdParam(params.product) ?? undefined} />;
+  return <IngredientDetail inci={inci} productId={productIdParam(params.product) ?? undefined} forProfile={params.from !== "journey"} />;
 }
 
-function IngredientDetail({ inci, productId }: { inci: string; productId?: string }) {
+function IngredientDetail({
+  inci,
+  productId,
+  forProfile,
+}: {
+  inci: string;
+  productId?: string;
+  /**
+   * Whether to say how it fits the saved skin profile. Not from a Skin needs
+   * result: that path reads nothing from the profile, and "For your skin"
+   * here could disagree with the result it was opened from (owner).
+   */
+  forProfile: boolean;
+}) {
   const [product, setProduct] = useState<ProductWithIngredients | null>(null);
   const [resolvedIngredient, setResolvedIngredient] = useState<Ingredient | null>(null);
   const [loading, setLoading] = useState(true);
@@ -235,31 +248,34 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
               <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
             </View>
 
-            {/* For your skin, on the verdict's light wash (v7). */}
-            <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: 16, gap: 4 }}>
-              <CardHeading>For your skin</CardHeading>
-              <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
-              {/* A warning's own sentence is the most specific thing we hold (#347). */}
-              {fit !== "unknown" && warningLines.length > 0 ? (
-                warningLines.map((w) => (
-                  <View key={w.origin} style={{ gap: 4 }}>
-                    <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>{w.reason}</Text>
-                  </View>
-                ))
-              ) : fit === "none" && !personalized ? (
-                // No skin profile, and nothing about it for everyone: a quiet
-                // way to set one up, not a button (handoff). A fragrance or a
-                // listed pore-clogger still says why, profile or not.
-                <Pressable onPress={openQuiz} accessibilityRole="link" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
-                  <Text style={{ fontSize: 15, lineHeight: 22, fontWeight: "600", color: CHOSEN.accent }}>Set up your skin profile to see how this fits you</Text>
-                </Pressable>
-              ) : (
-                <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
-                  {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null, cloggerConfidence(ingredient) === "high")}
-                </Text>
-              )}
-              <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{fitTag(fit, helps, hurts, warning, match)}</Text>
-            </View>
+            {/* For your skin, on the verdict's light wash (v7). Left out when
+                opened from a Skin needs result, which reads nothing from the profile. */}
+            {forProfile ? (
+              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: 16, gap: 4 }}>
+                <CardHeading>For your skin</CardHeading>
+                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
+                {/* A warning's own sentence is the most specific thing we hold (#347). */}
+                {fit !== "unknown" && warningLines.length > 0 ? (
+                  warningLines.map((w) => (
+                    <View key={w.origin} style={{ gap: 4 }}>
+                      <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>{w.reason}</Text>
+                    </View>
+                  ))
+                ) : fit === "none" && !personalized ? (
+                  // No skin profile, and nothing about it for everyone: a quiet
+                  // way to set one up, not a button (handoff). A fragrance or a
+                  // listed pore-clogger still says why, profile or not.
+                  <Pressable onPress={openQuiz} accessibilityRole="link" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
+                    <Text style={{ fontSize: 15, lineHeight: 22, fontWeight: "600", color: CHOSEN.accent }}>Set up your skin profile to see how this fits you</Text>
+                  </Pressable>
+                ) : (
+                  <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
+                    {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null, cloggerConfidence(ingredient) === "high")}
+                  </Text>
+                )}
+                <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{fitTag(fit, helps, hurts, warning, match)}</Text>
+              </View>
+            ) : null}
 
             {inList ? <OnThisLabel names={product.ingredients.map((i) => i.name)} index={index} colour={tone.solid} /> : null}
 

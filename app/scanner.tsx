@@ -555,7 +555,8 @@ export default function Scan() {
             }}
             onOpen={() => {
               preserveMode();
-              router.push({ pathname: "/result/[id]", params: { id: status.product.id, from: "barcode", ...context } });
+              // `scan` says it was scanned even when `from` names where the scan started (Skin needs), for History.
+              router.push({ pathname: "/result/[id]", params: { id: status.product.id, from: "barcode", scan: "barcode", ...context } });
             }}
           />
         ) : null}
@@ -727,9 +728,10 @@ function FoundSheet({
   onOpen: () => void;
 }) {
   const profile = useAppStore((s) => s.profile);
-  const match = matchProduct(product, profile);
+  // One or the other: the Skin needs answer, or the skin profile's match.
   const verdict = need ? needVerdict(product.ingredients, need) : null;
-  const colours = verdict ? NEED_PILL[verdict.level] : scoreColours(match.verdict);
+  const match = verdict ? null : matchProduct(product, profile);
+  const colours = verdict ? NEED_PILL[verdict.level] : scoreColours(match?.verdict ?? "unknown");
   return (
     <ScanPopup onDismiss={onClose} light>
       <Pressable
@@ -752,7 +754,7 @@ function FoundSheet({
           </Text>
           <View testID="found-pill" style={{ marginTop: 6, height: 28, paddingHorizontal: 12, borderRadius: 14, justifyContent: "center", backgroundColor: colours.deep }}>
             <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>
-              {verdict ? verdict.headline : match.score === null ? "See full result" : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`}
+              {verdict ? verdict.headline : !match || match.score === null ? "See full result" : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`}
             </Text>
           </View>
         </View>

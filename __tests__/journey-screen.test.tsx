@@ -60,7 +60,8 @@ it("needs one thing to work on before it shows what helps, and nothing more", as
   await render(<Journey />);
   expect(screen.getByRole("button", { name: /Show what helps/ }).props.accessibilityState.disabled).toBe(true);
   await pick("Clear pimples");
-  // The two optional questions can be left alone; the second says why it is asked.
+  // The two optional questions can be left alone; each says what its answer is used for.
+  expect(screen.getByText(/Very sensitive puts the gentle ingredients first/)).toBeTruthy();
   expect(screen.getByText(/We ask so we can leave out ingredients commonly advised against/)).toBeTruthy();
   expect(screen.getByRole("button", { name: /Show what helps/ }).props.accessibilityState.disabled).toBe(false);
 });
@@ -81,7 +82,8 @@ it("leaves the pregnancy-caution cards out after a yes, and warns on them when u
   await pick("Lines and wrinkles");
   await showCards();
   await screen.findByRole("header", { name: "Lines and wrinkles" });
-  expect(screen.getByText(/Commonly advised against while pregnant or breastfeeding\./)).toBeTruthy();
+  // Once, on the card's front, where it is read without turning the card.
+  expect(screen.getByText("Commonly advised against while pregnant or breastfeeding.")).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Back" }));
   await pick("Pregnant or breastfeeding? Yes");
   await showCards();

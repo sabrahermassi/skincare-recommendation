@@ -151,7 +151,13 @@ function Needs({
         </View>
         <View style={{ paddingTop: SPACE.section, paddingHorizontal: 16, gap: SPACE.gutter }}>
           <Text style={{ paddingHorizontal: 4, fontSize: 12, fontWeight: "500", letterSpacing: 1.44, textTransform: "uppercase", color: MUTED_FAINT }}>Optional</Text>
-          <Pills title="Is your skin sensitive?" options={SENSITIVITY_OPTIONS} selected={sensitivity} onSelect={onSensitivity} />
+          <Pills
+            title="Is your skin sensitive?"
+            note="Very sensitive puts the gentle ingredients first. Any answer sets how firmly we flag irritants in a product you scan."
+            options={SENSITIVITY_OPTIONS}
+            selected={sensitivity}
+            onSelect={onSensitivity}
+          />
           <Pills
             title="Pregnant or breastfeeding?"
             note="We ask so we can leave out ingredients commonly advised against while pregnant or breastfeeding."
@@ -371,6 +377,8 @@ function FlipCard({ item, flipped, interactive, onTap }: { item: DeckCard; flipp
             {card.name}
           </Text>
           <Text style={{ maxWidth: 290, fontSize: 17, lineHeight: 26, textAlign: "center", color: INK }}>{card.line}</Text>
+          {/* On the front, where it is read without turning the card (the pregnancy question was skipped). */}
+          {caution ? <Text style={{ maxWidth: 290, fontSize: TYPE.caption, lineHeight: 17.5, fontWeight: "600", textAlign: "center", color: VERDICT.medium.deep }}>{caution}</Text> : null}
           <View style={{ marginTop: 4, height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: withAlpha(WHITE, 0.8), flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Ionicons name="refresh" size={14} color={BUTTON.primary.fill} />
             <Text style={{ fontSize: 13, fontWeight: "500", color: BUTTON.primary.fill }}>Tap to see how to use it</Text>
@@ -397,7 +405,7 @@ function FlipCard({ item, flipped, interactive, onTap }: { item: DeckCard; flipp
         <View style={{ flex: 1, marginTop: 8, justifyContent: "space-evenly" }}>
           <BackRow first icon="locate-outline" title="Why you" text={card.whyYou} />
           <BackRow icon="leaf-outline" title="How to start" text={card.howToStart} />
-          <BackRow warn icon="warning-outline" title="Watch for" text={caution ? `${card.watchFor} ${caution}` : card.watchFor} />
+          <BackRow warn icon="warning-outline" title="Watch for" text={card.watchFor} />
           <BackRow icon="pricetag-outline" title="When shopping" text={card.whenShopping} />
         </View>
         {source ? (

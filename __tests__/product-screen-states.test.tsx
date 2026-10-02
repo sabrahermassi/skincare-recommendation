@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { router } from "expo-router";
+import { Share } from "react-native";
 
 import ProductRoute from "@/app/product/[id]";
 import ResultRoute from "@/app/result/[id]";
@@ -405,6 +406,42 @@ describe("the product screen opened from the journey", () => {
     await act(async () => {});
     expect(screen.queryByText("Is it right for your skin?")).toBeNull();
     expect(screen.getByRole("header", { name: "Not made for pimples" })).toBeTruthy();
+  });
+
+  it("names support once without counting it, and lets a strong pore-clogger hold a pores pick back", async () => {
+    const product = { ...PRODUCT, ingredients: ["water", "salicylic acid", "centella asiatica extract", "isopropyl palmitate"].map(ingredient) };
+    useAppStore.setState({ profile: OWN, history: [], savedProducts: [] });
+    mockParams = { id: PRODUCT.id, from: "journey", need: "pimples.." };
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: product }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+    // Salicylic acid would work on pimples; the pore-clogger beside it caps the answer.
+    expect(screen.getByRole("header", { name: "Helps a little with pimples" })).toBeTruthy();
+    expect(screen.getByText(/It also has an ingredient that can clog pores\./)).toBeTruthy();
+    expect(screen.getByText(/is comedogenic and may clog pores/)).toBeTruthy();
+    expect(screen.queryByText("Nothing in it")).toBeNull();
+    expect(screen.getByText("Also in it:")).toBeTruthy();
+    expect(screen.getByText(/which support skin but are not actives for this/)).toBeTruthy();
+  });
+
+  it("opens an ingredient from a Skin needs result without the saved profile's reading of it", async () => {
+    await open({ from: "journey", need: "dark-marks.." });
+    await fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
+    await fireEvent.press(screen.getByLabelText(/^Niacinamide,/));
+    expect(router.push).toHaveBeenCalledWith({ pathname: "/ingredient/[inci]", params: { inci: "niacinamide", product: PRODUCT.id, from: "journey" } });
+  });
+
+  it("logs a barcode scan that started in Skin needs as Scanned", async () => {
+    await open({ from: "journey", need: "pimples..", scan: "barcode" });
+    expect(useAppStore.getState().history[0]?.source).toBe("scanned");
+  });
+
+  it("shares the answer in words, never a score", async () => {
+    const share = jest.spyOn(Share, "share").mockResolvedValue({ action: "sharedAction" });
+    await open({ from: "journey", need: "pimples.." });
+    await fireEvent.press(screen.getByRole("button", { name: "Share this result" }));
+    expect(share).toHaveBeenCalledWith({ message: "Brand Serum - not made for pimples, on for.me" });
+    share.mockRestore();
   });
 
   it("falls back to the skin profile when the link's need is not one", async () => {

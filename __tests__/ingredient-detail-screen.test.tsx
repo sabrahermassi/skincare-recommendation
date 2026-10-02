@@ -218,3 +218,21 @@ describe("the ingredient page's layout", () => {
     expect(screen.getByText("Adds to your score")).toBeTruthy();
   });
 });
+
+// Opened from a Skin needs result (owner, 2 October 2026): that path reads
+// nothing from the saved skin profile, so the sheet does not say how the
+// ingredient fits it either.
+it("leaves out For your skin when opened from a Skin needs result", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] } });
+  mockParams = { inci: "niacinamide", product: "p", from: "journey" };
+  (fetchProduct as unknown as { mockResolvedValue(value: unknown): void }).mockResolvedValue({ ok: true, value: PRODUCT });
+  await render(<IngredientRoute />);
+  await act(async () => {});
+  expect(screen.getByText("What it does")).toBeTruthy();
+  expect(screen.queryByText("For your skin")).toBeNull();
+  await act(async () => screen.unmount());
+
+  await open("niacinamide", { concerns: ["hyperpigmentation"] });
+  expect(screen.getByText("For your skin")).toBeTruthy();
+});
+

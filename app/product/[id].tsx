@@ -19,7 +19,7 @@ import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import { track } from "@/lib/analytics";
 import { relativeTime } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
-import { decodeNeed, needProfile } from "@/lib/journey";
+import { decodeNeed, needProfile, needVerdict } from "@/lib/journey";
 import { matchProduct } from "@/lib/matching";
 import { openScanner } from "@/lib/open-scanner";
 import { productIdParam } from "@/lib/route-params";
@@ -72,13 +72,13 @@ const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 export default function ProductRoute() {
   // `from` says how the person got here, for the funnel (#225) only: the
   // scanner and the label flow set it, and anything else is browsing.
-  const { id, from, need } = useLocalSearchParams<{ id: string; from?: string; need?: string }>();
+  const { id, from, need, scan } = useLocalSearchParams<{ id: string; from?: string; need?: string; scan?: string }>();
   const productId = productIdParam(id);
   if (!productId) return <NotFound />;
-  return <ProductScreen id={productId} from={from} need={need} />;
+  return <ProductScreen id={productId} from={from} need={need} scanned={from === "barcode" || from === "label" || scan === "barcode"} />;
 }
 
-function ProductScreen({ id, from, need }: { id: string; from?: string; need?: string }) {
+function ProductScreen({ id, from, need, scanned }: { id: string; from?: string; need?: string; /** Reached by scanning it, whichever path the scan started on. */ scanned: boolean }) {
   // Seeded from the catalogue cache so a product already in memory paints on
   // the first frame instead of a spinner (`peekProducts`).
   const [product, setProduct] = useState<ProductWithIngredients | null>(() =>
@@ -203,9 +203,9 @@ function ProductScreen({ id, from, need }: { id: string; from?: string; need?: s
     // historyWarningCount, not irritationWarnings (#187 found in review) —
     // see lib/safety.ts for why the two must differ.
     // Scanned or opened, for Saved › History's line (v9).
-    recordView({ id: product.id, known: true, score, warnings: historyWarningCount(warnings), source: from === "barcode" || from === "label" ? "scanned" : "opened" });
-    track("verdict_viewed", { path: from === "barcode" || from === "label" ? from : "browse" });
-  }, [product, confirmedFor, recordView, from]);
+    recordView({ id: product.id, known: true, score, warnings: historyWarningCount(warnings), source: scanned ? "scanned" : "opened" });
+    track("verdict_viewed", { path: from === "barcode" || from === "label" ? from : scanned ? "barcode" : "browse" });
+  }, [product, confirmedFor, recordView, from, scanned]);
 
   // The effect above captures the score as it stood when the screen opened,
   // which for someone with no profile is no score at all. The inline prompt
@@ -306,8 +306,10 @@ function ProductScreen({ id, from, need }: { id: string; from?: string; need?: s
 
   async function share() {
     if (!product) return;
-    const line =
-      match.score === null
+    // A Skin needs result has no score to share: it shares its answer in words.
+    const line = journey
+      ? `${product.brand} ${product.name} - ${needVerdict(product.ingredients, journey).headline.toLowerCase()}, on for.me`
+      : match.score === null
         ? `${product.brand} ${product.name} - checked on for.me`
         : `${product.brand} ${product.name} - ${match.score}/100 for my skin, on for.me`;
     try {
@@ -370,7 +372,7 @@ function ProductScreen({ id, from, need }: { id: string; from?: string; need?: s
         type={product.type}
         match={match}
         profile={profile}
-        onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, product: product.id } })}
+        onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, product: product.id, ...(journey ? { from: "journey" } : {}) } })}
         // Scanned from Skin needs: read against what was picked there.
         need={journey ?? undefined}
         footer={

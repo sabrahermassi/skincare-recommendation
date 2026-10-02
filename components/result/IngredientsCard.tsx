@@ -12,7 +12,7 @@ import { ingredientLabel, LABEL_META, type IngredientLabel } from "@/lib/ingredi
 import { ingredientSubtitle } from "@/lib/ingredient-subtitle";
 import { ruleFor, type MatchResult } from "@/lib/matching";
 import { cloggerConfidence, isPoreClogging } from "@/lib/pore-clogging";
-import { nameMatches } from "@/lib/rules";
+import { isActiveRule } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { BUTTON, INK, MUTED, MUTED_FAINT, SPACE, TYPE, WHITE } from "@/lib/tokens";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
@@ -43,8 +43,7 @@ const EMPTY: Record<Exclude<IngredientFilter, "all">, string> = {
  */
 function isActive(ingredient: Ingredient): boolean {
   const rule = ruleFor(ingredient);
-  if (!rule) return false;
-  return rule.category === "actives" || (rule.category === "pore-clogging" && !!rule.helps) || nameMatches(["niacinamide", "nicotinamide"], ingredient.name);
+  return rule !== undefined && isActiveRule(rule);
 }
 
 /** Worst first (v9): avoid, watch, not recognised, then everything fine. */

@@ -19,7 +19,7 @@ import { deckFor, needVerdict, PLAN_CONCERNS, planFit, type Need, type NeedLevel
 import { concernSupport, confidenceLabel, isLowCoverage, matchProduct, ruleFor, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
-import { cloggerConfidence } from "@/lib/pore-clogging";
+import { cloggerConfidence, poreVerdict } from "@/lib/pore-clogging";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
 import { irritationWarnings, isVerified } from "@/lib/safety";
 import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE, STONE_GLASS, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
@@ -416,6 +416,8 @@ function ReasonBox({ row }: { row: Reason }) {
   );
 }
 
+const TRACE_NOTE = " It is near the end of the list, so there may be very little of it.";
+
 const NEED_TONE: Record<NeedLevel, Tone> = { works: VERDICT.high, little: VERDICT.medium, none: VERDICT_NEUTRAL };
 
 /**
@@ -443,8 +445,9 @@ function NeedMatch({ ingredients, match, profile, need }: { ingredients: Ingredi
     rows.push({
       key: `active-${finding.ingredients[0]}`,
       name: !card || card.found ? names(finding.ingredients) : card.name,
-      text: card ? (card.found ? ` ${card.found}` : ` ${card.line.charAt(0).toLowerCase()}${card.line.slice(1)}`) : stripName(finding.reason, finding.ingredients[0]),
-      tone: VERDICT.high,
+      text: `${card ? (card.found ? ` ${card.found}` : ` ${card.line.charAt(0).toLowerCase()}${card.line.slice(1)}`) : stripName(finding.reason, finding.ingredients[0])}${finding.trace ? TRACE_NOTE : ""}`,
+      // Near the end of the list it may be there in name only: amber, not green.
+      tone: finding.trace ? VERDICT.medium : VERDICT.high,
     });
   }
   if (verdict.level === "none" && verdict.missing.length > 0) {
@@ -456,16 +459,15 @@ function NeedMatch({ ingredients, match, profile, need }: { ingredients: Ingredi
   // A pore-clogger, where pores are what the goal is about. Strong evidence is red, moderate orange.
   const poreGoal = profile.concerns.some((c) => c === "acne-prone" || c === "large-pores") || profile.baseSkinType === "oily";
   if (poreGoal) {
-    let clogs = false;
     for (const ingredient of ingredients) {
       const confidence = cloggerConfidence(ingredient);
-      if (confidence === null || confidence === "contested") continue;
-      clogs = true;
-      if (seen.has(ingredient.name)) continue;
+      if (confidence === null || confidence === "contested" || seen.has(ingredient.name)) continue;
       seen.add(ingredient.name);
       rows.push({ key: `clog-${ingredient.name}`, name: displayIngredientName(ingredient.name), text: " is comedogenic and may clog pores.", tone: confidence === "high" ? VERDICT.low : VERDICT.medium });
     }
-    if (!clogs) rows.push({ key: "no-clog", name: "Nothing in it", text: " is on the pore-clogging lists.", tone: VERDICT.high });
+    // Said only when the pore check itself is clean: no listed name, disputed
+    // ones included, and enough of the label recognised to say so.
+    if (poreVerdict(ingredients).kind === "clean") rows.push({ key: "no-clog", name: "Nothing in it", text: " is on the pore-clogging lists.", tone: VERDICT.high });
   }
   for (const w of irritationWarnings(match.warnings)) {
     if (seen.has(w.ingredient.name)) continue;

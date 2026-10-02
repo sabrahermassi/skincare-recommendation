@@ -922,6 +922,16 @@ export function nameMatches(patterns: readonly (string | RegExp)[], inciName: st
   return patterns.some((pattern) => (typeof pattern === "string" ? name === pattern : pattern.test(name)));
 }
 
+/**
+ * An active, as opposed to hydration, barrier and calming support: the
+ * actives, salicylic acid (filed under pore clogging, which it clears) and
+ * niacinamide (filed under barrier support). The one definition, for the
+ * Ingredients tab's Actives filter and for what a Skin needs scan counts.
+ */
+export function isActiveRule(rule: IngredientRule): boolean {
+  return rule.category === "actives" || (rule.category === "pore-clogging" && !!rule.helps) || nameMatches(rule.names, "niacinamide");
+}
+
 /** Matches an ingredient name against a rule's name patterns. */
 export function ruleMatches(rule: IngredientRule, inciName: string): boolean {
   return nameMatches(rule.names, inciName);

@@ -254,6 +254,41 @@ and it drifted between them. `COMEDOGENIC_FLAG_THRESHOLD` /
 `COMEDOGENIC_SEVERE_THRESHOLD` in `lib/safety.ts` exist so there's exactly
 one place that number can be wrong.
 
+### Skin needs is a path of its own (2 October 2026)
+
+Skin needs stands apart from the skin profile, by the owner's decision. What
+someone wants to work on this week (a breakout before a period, a dry spell in
+winter) is not what their skin is like all year, so the journey asks fresh
+every visit, reads nothing from the profile and writes nothing to it: one
+thing to work on, and two optional answers (sensitive skin, pregnant or
+breastfeeding).
+
+A scan opened from there does not get the skin match. The first build reused
+it, scored for the pick, and called a dark-spot serum "80, good match" for
+pimples: the score answers "does this suit my skin", and for acne most of it
+is "nothing in it clogs pores". So that path has its own check
+(`needVerdict`, `lib/journey.ts`) and **the skin match is not to be touched
+for it**: every other way into the scanner keeps the profile's score.
+
+- The answer is one of three sentences, with no 0-100 score: "Works on",
+  "Helps a little with", "Not made for". The owner chose that wording; it is
+  a stronger claim than a compatibility score, and it is audited with the rest
+  (`__tests__/claims-policy.test.ts`).
+- Only actives count. Hydration, barrier and calming ingredients count where
+  the pick is one of those (dry skin, the barrier, eczema-prone skin,
+  redness) and are otherwise named once as support.
+- The check reads names off the label and cannot know concentrations. It uses
+  the one thing the label says: an active in the trace stretch of the list
+  helps a little at most. Where pores are the point (pimples, pores, oil) a
+  strong pore-clogger caps the answer there too.
+- "Eczema-prone" is not a quiz option (see the quiz's concerns step) but is a
+  Skin needs pick, worded "Care for eczema-prone skin": the pick is a thing
+  to shop for, not a statement about the person's skin.
+- "Smooth rough texture" has no rule tagged for it; its actives are picked by
+  hand. Tagging the rules would change every product's score.
+- History keeps the skin profile's score for a product scanned this way: the
+  log is the person's own, and one number per product.
+
 ## SDK and platform history
 
 **iOS is the only release target for this MVP, decided 19 September 2026.**

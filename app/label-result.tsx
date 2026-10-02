@@ -140,7 +140,7 @@ function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory:
         type={product.type}
         match={match}
         profile={profile}
-        onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name } })}
+        onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, ...(journey ? { from: "journey" } : {}) } })}
         footer={lowCoverage ? <PrimaryButton label="Retake the photo" onPress={() => retake()} /> : null}
       />
     </View>

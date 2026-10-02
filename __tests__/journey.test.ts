@@ -169,7 +169,8 @@ describe("the answer for a scan from Skin needs", () => {
 
   it("says what such a product is better for, from its actives only", () => {
     const { betterFor } = needVerdict(DARK_SPOT_SERUM, need("pimples"));
-    expect(betterFor.map((b) => b.label)).toEqual(["Fade dark marks", "Even skin tone"]);
+    // Dark marks and uneven tone are met by the very same two actives, so only the first is said.
+    expect(betterFor.map((b) => b.label)).toEqual(["Fade dark marks", "Unclog pores"]);
     expect(betterFor[0].ingredients).toEqual(["niacinamide", "tranexamic acid"]);
     // Never "better for dry skin" on the strength of glycerin.
     expect(needVerdict(label("water", "glycerin", "ceramide np"), need("pimples")).betterFor).toEqual([]);
@@ -208,5 +209,28 @@ describe("the answer for a scan from Skin needs", () => {
 
   it("checks only for the actives on the deck, so a pregnancy drops retinoids from what was looked for", () => {
     expect(needVerdict(label("water"), need("lines", { pregnant: true })).missing).toEqual(["Bakuchiol", "Peptides"]);
+  });
+
+  it("lets an active near the end of the list help a little at most", () => {
+    const base = Array.from({ length: 24 }, (_, i) => `filler ${i}`);
+    const high = needVerdict(label("water", "salicylic acid", ...base), need("pimples"));
+    const trace = needVerdict(label("water", ...base, "salicylic acid"), need("pimples"));
+    expect(high).toMatchObject({ level: "works", actives: [expect.objectContaining({ trace: false })] });
+    expect(trace).toMatchObject({ level: "little", headline: "Helps a little with pimples", actives: [expect.objectContaining({ trace: true })] });
+  });
+
+  it("only helps a little with a pores pick when a strong pore-clogger is in it too", () => {
+    const verdict = needVerdict(label("water", "salicylic acid", "isopropyl palmitate"), need("pimples"));
+    expect(verdict).toMatchObject({ level: "little", clogged: true, line: "It has 1 of the 4 actives we suggest to clear pimples. It also has an ingredient that can clog pores." });
+    // Pores are not the point of dark marks, so the same clogger changes nothing there.
+    expect(needVerdict(label("water", "niacinamide", "isopropyl palmitate"), need("dark-marks"))).toMatchObject({ level: "works", clogged: false });
+    // And with no active at all it is simply not made for it.
+    expect(needVerdict(label("water", "isopropyl palmitate"), need("pimples"))).toMatchObject({ level: "none", clogged: false });
+  });
+
+  it("measures against the actives left on a pregnant person's deck", () => {
+    const bakuchiol = label("water", "bakuchiol");
+    expect(needVerdict(bakuchiol, need("lines")).level).toBe("little");
+    expect(needVerdict(bakuchiol, need("lines", { pregnant: true }))).toMatchObject({ level: "works", line: "It has 1 of the 2 actives we suggest to smooth fine lines." });
   });
 });
