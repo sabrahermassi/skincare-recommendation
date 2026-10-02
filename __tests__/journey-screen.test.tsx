@@ -60,7 +60,8 @@ it("needs one thing to work on before it shows what helps, and nothing more", as
   await render(<Journey />);
   expect(screen.getByRole("button", { name: /Show what helps/ }).props.accessibilityState.disabled).toBe(true);
   await pick("Clear pimples");
-  // The two optional questions can be left alone.
+  // The two optional questions can be left alone; the second says why it is asked.
+  expect(screen.getByText(/We ask so we can leave out ingredients commonly advised against/)).toBeTruthy();
   expect(screen.getByRole("button", { name: /Show what helps/ }).props.accessibilityState.disabled).toBe(false);
 });
 

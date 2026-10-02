@@ -7,7 +7,6 @@ import Svg, { Path } from "react-native-svg";
 
 import { BackChevron, IconCircle } from "@/components/IconCircle";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
-import { QuizOptionCard, QUIZ_OPTION_GRID } from "@/components/QuizOptionCard";
 import { Text } from "@/components/Text";
 import type { Sensitivity } from "@/data/types";
 import { cardSource, encodeNeed, goalLabel, GOALS, needDeck, ROLE_LABEL, type DeckCard, type GoalKey, type Need, type Role } from "@/lib/journey";
@@ -143,15 +142,22 @@ function Needs({
           </Text>
           <Text style={{ maxWidth: 320, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>Pick one. We&apos;ll show the ingredients that help.</Text>
         </View>
-        <View accessibilityRole="radiogroup" style={[QUIZ_OPTION_GRID, { paddingTop: 24, paddingHorizontal: 16 }]}>
+        {/* Pills, like the two optional questions under them (owner). */}
+        <View accessibilityRole="radiogroup" style={{ paddingTop: 24, paddingHorizontal: 16, flexDirection: "row", flexWrap: "wrap", gap: SPACE.text }}>
           {GOALS.map(({ key, label }) => (
-            <QuizOptionCard key={key} label={label} selected={goal === key} onPress={() => onGoal(key)} />
+            <Pill key={key} label={label} on={goal === key} onPress={() => onGoal(key)} />
           ))}
         </View>
         <View style={{ paddingTop: SPACE.section, paddingHorizontal: 16, gap: SPACE.gutter }}>
           <Text style={{ paddingHorizontal: 4, fontSize: 12, fontWeight: "500", letterSpacing: 1.44, textTransform: "uppercase", color: MUTED_FAINT }}>Optional</Text>
           <Pills title="Is your skin sensitive?" options={SENSITIVITY_OPTIONS} selected={sensitivity} onSelect={onSensitivity} />
-          <Pills title="Pregnant or breastfeeding?" options={PREGNANT_OPTIONS} selected={pregnant} onSelect={onPregnant} />
+          <Pills
+            title="Pregnant or breastfeeding?"
+            note="We ask so we can leave out ingredients commonly advised against while pregnant or breastfeeding."
+            options={PREGNANT_OPTIONS}
+            selected={pregnant}
+            onSelect={onPregnant}
+          />
         </View>
       </FitScrollView>
       <View style={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: Math.max(32, bottom + 8) }}>
@@ -172,33 +178,37 @@ function Needs({
   );
 }
 
-/** An optional question: its answers as a row of pills. Tapping the chosen one takes the answer back. */
-function Pills<T extends string | boolean>({ title, options, selected, onSelect }: { title: string; options: readonly { value: T; label: string }[]; selected: T | null; onSelect: (next: T | null) => void }) {
+/** An optional question: its answers as a row of pills, and why we ask where that needs saying. Tapping the chosen one takes the answer back. */
+function Pills<T extends string | boolean>({ title, note, options, selected, onSelect }: { title: string; note?: string; options: readonly { value: T; label: string }[]; selected: T | null; onSelect: (next: T | null) => void }) {
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel={title} style={{ gap: SPACE.text }}>
       <Text style={{ paddingHorizontal: 4, fontSize: TYPE.card, fontWeight: "600", color: INK }}>{title}</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACE.text }}>
-        {options.map(({ value, label }) => {
-          const on = selected === value;
-          return (
-            <Pressable
-              key={label}
-              onPress={() => {
-                haptic.select();
-                onSelect(on ? null : value);
-              }}
-              accessibilityRole="radio"
-              accessibilityLabel={`${title} ${label}`}
-              accessibilityState={{ checked: on }}
-              style={{ minHeight: TOUCH_TARGET, paddingHorizontal: SPACE.gutter, borderRadius: TOUCH_TARGET / 2, borderWidth: 1.5, borderColor: on ? BUTTON.primary.fill : OPTION_LINE, backgroundColor: on ? CHOSEN.fill : SURFACE, justifyContent: "center" }}
-              className="active:opacity-80"
-            >
-              <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>{label}</Text>
-            </Pressable>
-          );
-        })}
+        {options.map(({ value, label }) => (
+          <Pill key={label} label={label} accessibilityLabel={`${title} ${label}`} on={selected === value} onPress={() => onSelect(selected === value ? null : value)} />
+        ))}
       </View>
+      {note ? <Text style={{ paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: 17.5, color: MUTED }}>{note}</Text> : null}
     </View>
+  );
+}
+
+/** One answer as a pill: outlined, and pale sage with a sage outline once chosen. */
+function Pill({ label, accessibilityLabel, on, onPress }: { label: string; accessibilityLabel?: string; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={() => {
+        haptic.select();
+        onPress();
+      }}
+      accessibilityRole="radio"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ checked: on }}
+      style={{ minHeight: TOUCH_TARGET, paddingHorizontal: SPACE.gutter, borderRadius: TOUCH_TARGET / 2, borderWidth: 1.5, borderColor: on ? BUTTON.primary.fill : OPTION_LINE, backgroundColor: on ? CHOSEN.fill : SURFACE, justifyContent: "center" }}
+      className="active:opacity-80"
+    >
+      <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>{label}</Text>
+    </Pressable>
   );
 }
 

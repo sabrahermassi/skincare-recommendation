@@ -10,7 +10,7 @@ import { CONCERN_TITLE, nextQuizRoute, quizStepNumber } from "@/lib/profile";
 import { MAX_CONCERNS, useAppStore } from "@/store/useAppStore";
 
 /**
- * In the hand-off's order (v9), the same one the Skin needs concerns use.
+ * In the hand-off's order (v9).
  * "Eczema-prone" is deliberately not offered here — removed from the quiz's
  * selectable options per this session's design decision — though the
  * `"atopic"` concern and its scoring rules remain intact for any profile that

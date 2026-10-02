@@ -28,7 +28,7 @@ type Props = {
  * (and, where it helps, a line saying what it means) on the left and a round
  * tick on the right. Chosen, it takes the pale sage fill, a sage outline and
  * a filled tick; at the concerns limit the others dim to 45%. One component
- * for the skin quiz and the Skin needs concerns, so they can't drift apart.
+ * for every step of the skin quiz, so they can't drift apart.
  * The outline is always there (grey when not chosen), so choosing never
  * nudges the layout.
  */
