@@ -1,5 +1,5 @@
 import type { Concern, ProductType, ProductWithIngredients, SkinProfile } from "@/data/types";
-import { needDeck, needVerdict, type GoalKey, type JourneyCard, type Need } from "@/lib/journey";
+import { holdsStrongActive, needDeck, needVerdict, type GoalKey, type JourneyCard, type Need } from "@/lib/journey";
 import { isLowCoverage, matchProduct, SCORE_BANDS, type MatchResult } from "@/lib/matching";
 import { CONCERN_PHRASE } from "@/lib/profile";
 
@@ -27,11 +27,18 @@ export type TimeOfDay = "morning" | "evening";
 
 export type RoutinePick = { product: ProductWithIngredients; match: MatchResult };
 
+/** The active a serum or treatment step is about: its name, what it is for, and the others that would do. */
+export type RoutineActive = { name: string; why: string; alternatives: string[] };
+
 export type RoutineSlot = {
   key: string;
   label: string;
-  /** For an active step: which actives to look for, and what for. */
-  note: string | null;
+  /**
+   * For a serum or treatment step: the active to use, as the step's headline
+   * (owner, 2 October 2026: "Vitamin C" in big letters says more than a
+   * product we may not have). `null` on a basic step.
+   */
+  active: RoutineActive | null;
   /** The best matches for the step, best first, three at most. */
   picks: RoutinePick[];
 };
@@ -111,10 +118,20 @@ function oneOf(names: string[]): string {
   return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
 }
 
-function noteFor(cards: JourneyCard[], profile: SkinProfile): string | null {
+/** The step's active: the best card for the profile, what it is for, and up to two others that would do. */
+function activeFor(cards: JourneyCard[], profile: SkinProfile): RoutineActive | null {
   if (cards.length === 0) return null;
   const what = needsOf(profile).map((entry) => entry.what);
-  return `Look for ${oneOf(cards.slice(0, 3).map((card) => card.name))}, for ${what.length <= 1 ? what[0] : `${what.slice(0, -1).join(", ")} and ${what[what.length - 1]}`}.`;
+  return {
+    name: cards[0].name,
+    why: `For ${what.length <= 1 ? what[0] : `${what.slice(0, -1).join(", ")} and ${what[what.length - 1]}`}.`,
+    alternatives: cards.slice(1, 3).map((card) => card.name),
+  };
+}
+
+/** The line under a step's active: what it is for, and what else would do. */
+export function activeLine(active: RoutineActive): string {
+  return active.alternatives.length > 0 ? `${active.why} ${oneOf(active.alternatives)} would do too.` : active.why;
 }
 
 /** Safe enough to recommend: scored, not a poor match, and nothing the skin match warns hard about. */
@@ -186,7 +203,7 @@ export function assembleRoutine(picks: readonly RoutinePick[], profile: SkinProf
         if (chosen.length === PICKS_PER_STEP) break;
         if (step.fits(pick.product) && (!step.active || holdsActive(pick.product, cards, profile))) chosen.push(pick);
       }
-      return { key: step.key, label: step.label, note: step.active ? noteFor(cards, profile) : null, picks: chosen };
+      return { key: step.key, label: step.label, active: step.active ? activeFor(cards, profile) : null, picks: chosen };
     });
   return { morning: slots("morning"), evening: slots("evening") };
 }
@@ -200,6 +217,44 @@ export function assembleRoutine(picks: readonly RoutinePick[], profile: SkinProf
 export function buildRoutine(products: readonly ProductWithIngredients[], profile: SkinProfile): Routine {
   const picks = routineCandidates(products).flatMap((product) => routinePick(product, profile) ?? []);
   return assembleRoutine(picks, profile);
+}
+
+// ── A product of one's own ───────────────────────────────────────────────────
+
+/** A step of one routine, as a place a product can be put: "evening:treatment". */
+export type RoutinePlace = { id: string; time: TimeOfDay; label: string };
+
+const placeOf = (time: TimeOfDay, key: string): RoutinePlace => ({ id: `${time}:${key}`, time, label: STEPS[time].find((step) => step.key === key)!.label });
+
+/** The id a step's own pick is kept under. */
+export function placeId(time: TimeOfDay, key: string): string {
+  return `${time}:${key}`;
+}
+
+/**
+ * Where a product someone adds to their routine goes (owner, 2 October 2026:
+ * "we add it ourselves into the proper step"): a cleanser, a moisturiser and
+ * a sunscreen go where their type says, morning and evening where the step is
+ * in both; a serum goes to the evening treatment when it holds a strong
+ * active, worn at night, and to the morning serum otherwise. Empty for a
+ * product no step takes: a lip balm, a mask.
+ */
+export function routinePlacesFor(product: ProductWithIngredients): RoutinePlace[] {
+  if (isFirstCleanse(product)) return [placeOf("evening", "first-cleanse")];
+  if (isFaceWash(product)) return [placeOf("morning", "cleanse"), placeOf("evening", "cleanse")];
+  if (product.type === "sunscreen") return [placeOf("morning", "sunscreen")];
+  if (product.type === "night-mask") return [placeOf("evening", "moisturise")];
+  if (isMoisturiser(product)) return [placeOf("morning", "moisturise"), placeOf("evening", "moisturise")];
+  if (product.type === "exfoliator") return [placeOf("evening", "treatment")];
+  if (SERUM_TYPES.includes(product.type)) return [holdsStrongActive(product.ingredients) ? placeOf("evening", "treatment") : placeOf("morning", "serum")];
+  return [];
+}
+
+/** "Evening · Treatment", "Morning and evening · Moisturiser". */
+export function placesLabel(places: readonly RoutinePlace[]): string {
+  if (places.length === 0) return "";
+  const times = places.length > 1 ? "Morning and evening" : places[0].time === "morning" ? "Morning" : "Evening";
+  return `${times} · ${places[0].label}`;
 }
 
 // ── The last routine built ───────────────────────────────────────────────────

@@ -225,6 +225,7 @@ describe("what survives an app restart", () => {
       "journalStarted",
       "parkedShelf",
       "profile",
+      "routinePicks",
       "savedIngredients",
       "savedProducts",
       "secureStoreClaimed",
@@ -782,3 +783,23 @@ describe("formeStorage (skintel-store -> forme-store migration)", () => {
 });
 
 afterAll(() => useAppStore.setState(initial, true));
+
+describe("a routine of one's own", () => {
+  it("puts a product in its steps, one per step, and takes it out of all of them", () => {
+    s().addToRoutine(["morning:moisturise", "evening:moisturise"], "cream");
+    s().addToRoutine(["evening:treatment"], "retinol");
+    expect(s().routinePicks).toEqual({ "morning:moisturise": "cream", "evening:moisturise": "cream", "evening:treatment": "retinol" });
+    // A second product for a step takes the first one's place there.
+    s().addToRoutine(["evening:moisturise"], "night-cream");
+    expect(s().routinePicks["evening:moisturise"]).toBe("night-cream");
+    s().removeFromRoutine("cream");
+    expect(s().routinePicks).toEqual({ "evening:moisturise": "night-cream", "evening:treatment": "retinol" });
+  });
+
+  it("is erased with everything else", () => {
+    s().addToRoutine(["evening:treatment"], "retinol");
+    s().resetApp();
+    expect(s().routinePicks).toEqual({});
+  });
+});
+

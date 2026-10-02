@@ -139,6 +139,7 @@ default `allowBackup`); a Keychain item marked `THIS_DEVICE_ONLY` never is.
 | `forme.secure.keys` | The list of session keys written, so a reinstall can delete them | Keychain, same setting | Until the next reinstall purge | No |
 | `forme-store` → `history` | Scan history: product id or barcode, score and warning count at the time, when seen | AsyncStorage | At most 50 entries and 90 days since last seen; the person can remove entries or clear it | Yes |
 | `forme-store` → `savedProducts`, `savedIngredients` | The saved shelf: product ids, when saved, formula version, routine step, journal note | AsyncStorage | Until removed; signed in, cleared at sign-out (the account keeps it) | Yes |
+| `forme-store` → `routinePicks` | The products the person put in their own routine: a routine step to a catalogue product id | AsyncStorage | Until removed from the routine, or Delete my profile; kept at sign-out (it is not part of the shelf and is not sent to the account) | Yes |
 | `forme-store` → `shelfOwner`, `shelfQueue`, `parkedShelf` | Which account owns the shelf; shelf changes not yet synced | AsyncStorage | Until synced, or dropped at sign-out / account deletion | Yes |
 | `forme-store` → `hasSeenOnboarding`, `secureStoreClaimed`, `journalStarted` | Flags: intro seen, this install cleared the Keychain, accounts that saw the first-page welcome | AsyncStorage | Until Delete my profile (the Keychain flag is kept) | Yes |
 | `skintel-store` | The store's pre-rebrand name | AsyncStorage | Copied to `forme-store` and deleted on first read | Yes, until then |

@@ -1,6 +1,6 @@
 import type { Ingredient, ProductType, ProductWithIngredients, SkinProfile } from "@/data/types";
 import { SCORE_BANDS } from "@/lib/matching";
-import { buildRoutine, PICKS_PER_STEP, ROUTINE_STEPS } from "@/lib/routine-builder";
+import { activeLine, buildRoutine, PICKS_PER_STEP, placesLabel, ROUTINE_STEPS, routinePlacesFor } from "@/lib/routine-builder";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 /**
@@ -63,7 +63,7 @@ it("fills a basic step with the best matches of that type, three at most, best f
   const scores = moisturiser.picks.map((pick) => pick.match.score ?? 0);
   expect(scores).toEqual([...scores].sort((a, b) => b - a));
   expect(moisturiser.picks.every((pick) => pick.product.type === "moisturizer")).toBe(true);
-  expect(moisturiser.note).toBeNull();
+  expect(moisturiser.active).toBeNull();
   expect(names(slot(routine, "morning", "sunscreen"))).toEqual(["Sun fluid"]);
   expect(names(slot(routine, "morning", "cleanse"))).toEqual(["Gel wash"]);
 });
@@ -80,20 +80,25 @@ it("names a serum or treatment only when it holds an active for the concern, and
   // Morning takes the gentle active, evening the strong one.
   expect(names(slot(routine, "morning", "serum"))).toEqual(["Azelaic serum"]);
   expect(names(slot(routine, "evening", "treatment"))).toEqual(["BHA serum"]);
-  expect(slot(routine, "morning", "serum").note).toBe("Look for Azelaic acid, for acne.");
-  expect(slot(routine, "evening", "treatment").note).toBe("Look for Benzoyl peroxide, Retinoids or Salicylic acid, for acne.");
+  // The step's headline is the active itself, best first, with the others that would do.
+  expect(slot(routine, "morning", "serum").active).toEqual({ name: "Azelaic acid", why: "For acne.", alternatives: [] });
+  const treatment = slot(routine, "evening", "treatment").active!;
+  expect(treatment).toEqual({ name: "Benzoyl peroxide", why: "For acne.", alternatives: ["Retinoids", "Salicylic acid"] });
+  expect(activeLine(treatment)).toBe("For acne. Retinoids or Salicylic acid would do too.");
+  expect(activeLine(slot(routine, "morning", "serum").active!)).toBe("For acne.");
 });
 
 it("still says what to look for when the catalogue has nothing to name", () => {
   const routine = buildRoutine([product("serum", "Hydrating serum")], { ...EMPTY_PROFILE, concerns: ["fine-lines"], pregnancyStatus: "pregnant" });
-  expect(slot(routine, "morning", "serum")).toMatchObject({ picks: [], note: "Look for Bakuchiol or Peptides, for fine lines." });
+  expect(slot(routine, "morning", "serum")).toMatchObject({ picks: [], active: { name: "Bakuchiol", why: "For fine lines.", alternatives: ["Peptides"] } });
   // Retinoids are off the list while pregnant, so the evening looks for the same gentle actives.
-  expect(slot(routine, "evening", "treatment").note).toBe("Look for Bakuchiol or Peptides, for fine lines.");
+  expect(slot(routine, "evening", "treatment").active?.name).toBe("Bakuchiol");
 });
 
 it("keeps the strong actives away from very sensitive skin at night", () => {
   const routine = buildRoutine([], { ...ACNE, sensitivity: "high" });
-  expect(slot(routine, "evening", "treatment").note).not.toMatch(/Benzoyl|Retinoids|Salicylic/);
+  const night = slot(routine, "evening", "treatment").active!;
+  expect([night.name, ...night.alternatives].join()).not.toMatch(/Benzoyl|Retinoids|Salicylic/);
 });
 
 it("counts hydration as the active for dry, dehydrated skin", () => {
@@ -102,8 +107,8 @@ it("counts hydration as the active for dry, dehydrated skin", () => {
 });
 
 it("goes by skin type when the profile names no concern", () => {
-  expect(slot(buildRoutine([], { ...EMPTY_PROFILE, baseSkinType: "oily" }), "morning", "serum").note).toMatch(/, for oily skin\.$/);
-  expect(slot(buildRoutine([], { ...EMPTY_PROFILE, baseSkinType: "dry" }), "morning", "serum").note).toMatch(/, for hydration\.$/);
+  expect(slot(buildRoutine([], { ...EMPTY_PROFILE, baseSkinType: "oily" }), "morning", "serum").active?.why).toBe("For oily skin.");
+  expect(slot(buildRoutine([], { ...EMPTY_PROFILE, baseSkinType: "dry" }), "morning", "serum").active?.why).toBe("For hydration.");
 });
 
 it("never recommends what the skin match warns against", () => {
@@ -152,3 +157,36 @@ it("gives the same profile the same routine every time", () => {
   expect(names(slot(buildRoutine(catalogue, ACNE), "morning", "sunscreen"))).toEqual(["A sun", "B sun", "C sun"]);
   expect(names(slot(buildRoutine([...catalogue].reverse(), ACNE), "morning", "sunscreen"))).toEqual(["A sun", "B sun", "C sun"]);
 });
+
+// "Add to my routine" (owner): we put the product in the step it belongs to.
+describe("where a product someone adds goes", () => {
+  const where = (p: ProductWithIngredients) => routinePlacesFor(p).map((place) => place.id);
+
+  it("puts the basics where their type says, morning and evening where the step is in both", () => {
+    expect(where(product("cleanser", "Foaming gel"))).toEqual(["morning:cleanse", "evening:cleanse"]);
+    expect(where(product("cleanser", "Cleansing oil"))).toEqual(["evening:first-cleanse"]);
+    expect(where(product("micellar-water", "Micellar water"))).toEqual(["evening:first-cleanse"]);
+    expect(where(product("moisturizer", "Day cream"))).toEqual(["morning:moisturise", "evening:moisturise"]);
+    expect(where(product("night-mask", "Sleeping mask"))).toEqual(["evening:moisturise"]);
+    expect(where(product("sunscreen", "Sun fluid"))).toEqual(["morning:sunscreen"]);
+  });
+
+  it("puts a serum with a strong active in the evening treatment, and any other in the morning serum", () => {
+    expect(where(product("serum", "Retinol serum", ["retinol"]))).toEqual(["evening:treatment"]);
+    expect(where(product("serum", "BHA serum", ["salicylic acid"]))).toEqual(["evening:treatment"]);
+    expect(where(product("serum", "Vitamin C serum", ["ascorbic acid"]))).toEqual(["morning:serum"]);
+    expect(where(product("serum", "Hydrating serum"))).toEqual(["morning:serum"]);
+    expect(where(product("exfoliator", "Peeling pads"))).toEqual(["evening:treatment"]);
+  });
+
+  it("has no place for what no step takes", () => {
+    expect(where(product("lip-balm", "Lip balm"))).toEqual([]);
+    expect(where(product("cleanser", "Dissolvant express"))).toEqual([]);
+  });
+
+  it("says where in words", () => {
+    expect(placesLabel(routinePlacesFor(product("serum", "Retinol serum", ["retinol"])))).toBe("Evening · Treatment");
+    expect(placesLabel(routinePlacesFor(product("moisturizer", "Day cream")))).toBe("Morning and evening · Moisturiser");
+  });
+});
+

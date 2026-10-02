@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-
 import { router } from "expo-router";
 
 import Routine from "@/app/routine";
-import { fetchProducts } from "@/data/api";
+import { fetchProducts, fetchProductsByIds } from "@/data/api";
 import type { ProductType, ProductWithIngredients } from "@/data/types";
 import { forgetRoutine } from "@/lib/routine-builder";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
@@ -22,8 +22,9 @@ jest.mock("expo-router", () => ({ router: { back: jest.fn(), push: jest.fn(), ca
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
-jest.mock("@/data/api", () => ({ fetchProducts: jest.fn() }));
+jest.mock("@/data/api", () => ({ fetchProducts: jest.fn(), fetchProductsByIds: jest.fn() }));
 const fetched = jest.mocked(fetchProducts);
+const fetchedByIds = jest.mocked(fetchProductsByIds);
 
 const product = (id: string, type: ProductType, name: string, extra: string[] = []): ProductWithIngredients =>
   ({
@@ -59,6 +60,9 @@ beforeEach(() => {
   useAppStore.setState({ profile: EMPTY_PROFILE });
   fetched.mockReset();
   fetched.mockResolvedValue([]);
+  fetchedByIds.mockReset();
+  fetchedByIds.mockImplementation(async (ids: string[]) => ({ ok: true, value: CATALOGUE.filter((p) => ids.includes(p.id)) }));
+  useAppStore.setState({ routinePicks: {} });
   jest.mocked(router.push).mockClear();
   mockFocused = true;
   forgetRoutine();
@@ -107,7 +111,9 @@ it("shows the building screen until the routine is built, then that none was pic
   expect(screen.queryByText("Steps for today")).toBeNull();
   await act(async () => arrive([]));
   await waitFor(() => expect(screen.queryByText("Building your skincare routine…")).toBeNull());
-  expect(screen.getAllByText("No product picked yet.")).toHaveLength(4);
+  // Three basic steps with nothing picked, and the serum step with its active and nothing to suggest.
+  expect(screen.getAllByText("No product picked yet.")).toHaveLength(3);
+  expect(screen.getByText("No product to suggest yet.")).toBeTruthy();
 });
 
 it("names the best match for each step, and opens the product screen from it", async () => {
@@ -116,8 +122,10 @@ it("names the best match for each step, and opens the product screen from it", a
   await open();
   expect(screen.getByText("Foaming gel")).toBeTruthy();
   expect(screen.getByText("Sun fluid")).toBeTruthy();
-  // The serum step has nothing gentle to name for acne here, so it only says what to look for.
-  expect(screen.getByText("Look for Azelaic acid, for acne.")).toBeTruthy();
+  // The serum step has nothing gentle to name for acne here: its active leads, in big letters.
+  expect(screen.getByText("Azelaic acid")).toBeTruthy();
+  expect(screen.getByText("For acne.")).toBeTruthy();
+  expect(screen.getByText("No product to suggest yet.")).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: /^Brand Foaming gel\. / }));
   expect(router.push).toHaveBeenCalledWith({ pathname: "/product/[id]", params: { id: "c1" } });
 });
@@ -140,7 +148,8 @@ it("names a treatment with the active for the concern in the evening, with what 
   await open();
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
   expect(screen.getByText("BHA serum")).toBeTruthy();
-  expect(screen.getByText("Look for Benzoyl peroxide, Retinoids or Salicylic acid, for acne.")).toBeTruthy();
+  expect(screen.getByText("Benzoyl peroxide")).toBeTruthy();
+  expect(screen.getByText("For acne. Retinoids or Salicylic acid would do too.")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Scan one to check, for treatment" })).toBeTruthy();
 });
 
@@ -148,8 +157,8 @@ it("still lays out the steps when the catalogue cannot be read", async () => {
   useAppStore.setState({ profile: ACNE });
   fetched.mockRejectedValue(new Error("offline"));
   await open();
-  expect(screen.getAllByText("No product picked yet.")).toHaveLength(4);
-  expect(screen.getByText("Look for Azelaic acid, for acne.")).toBeTruthy();
+  expect(screen.getAllByText("No product picked yet.")).toHaveLength(3);
+  expect(screen.getByText("Azelaic acid")).toBeTruthy();
 });
 
 // Home draws this screen ahead of the tap, and the skin quiz opens over it and
@@ -219,5 +228,20 @@ it("leads with the skin profile it is built from, as a way in", async () => {
   await open();
   await fireEvent.press(screen.getByRole("button", { name: "Your skin profile. Your skincare routine is based on this." }));
   expect(router.push).toHaveBeenCalledWith("/skin-profile");
+});
+
+// "Add to my routine" (owner, 2 October 2026): a product the person added
+// stands in its step in front of ours, and can be taken out again.
+it("leads a step with the product the person added, and takes it out again", async () => {
+  useAppStore.setState({ profile: ACNE, routinePicks: { "morning:moisturise": "m2" } });
+  fetched.mockResolvedValue(CATALOGUE);
+  await open();
+  await waitFor(() => expect(screen.getByText("Your pick · Brand")).toBeTruthy());
+  expect(screen.getByRole("button", { name: /^Your pick: Brand Night cream\. / })).toBeTruthy();
+  // Ours is still there, behind the count.
+  expect(screen.getByRole("button", { name: "1 more for moisturiser" })).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Remove Night cream from my routine" }));
+  expect(useAppStore.getState().routinePicks).toEqual({});
+  expect(screen.queryByText("Your pick · Brand")).toBeNull();
 });
 

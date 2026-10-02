@@ -719,6 +719,16 @@ export function needVerdict(ingredients: readonly Pick<Ingredient, "name">[], ne
   };
 }
 
+/**
+ * Whether a label holds a strong active (a retinoid, an acid, benzoyl
+ * peroxide) high enough to count: the kind worn at night. The routine uses it
+ * to place a product someone adds: the evening treatment, not the morning serum.
+ */
+export function holdsStrongActive(ingredients: readonly Pick<Ingredient, "name">[]): boolean {
+  const strong = JOURNEY_CARDS.filter((card) => card.strong).flatMap(cardRules);
+  return ruleHits(ingredients).some((hit) => !hit.trace && strong.includes(hit.rule));
+}
+
 /** Every headline a scan can show, for the claims audit. */
 export function needHeadlines(): string[] {
   return GOALS.flatMap((goal) => (["works", "little", "none"] as const).map((level) => HEADLINE[level](goal.noun)));

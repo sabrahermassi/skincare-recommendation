@@ -147,6 +147,19 @@ type AppState = {
   history: HistoryEntry[];
 
   /**
+   * The products someone put in their own routine (owner, 2 October 2026), by
+   * the step each stands in: `"evening:treatment"` to a catalogue product id
+   * (`lib/routine-builder.ts`, `routinePlacesFor`). One product per step. On
+   * this device only: it is not part of the shelf and is not sent to the
+   * account. A new key with a first-run value, so it needs no migration.
+   */
+  routinePicks: Record<string, string>;
+  /** Puts a product in these steps, in place of whatever was there. */
+  addToRoutine: (places: string[], id: string) => void;
+  /** Takes a product out of every step it is in. */
+  removeFromRoutine: (id: string) => void;
+
+  /**
    * Whether this install has already cleared whatever an earlier install left
    * in the Keychain — see `claimOnce` in lib/secure-storage.ts. A plain flag,
    * never the session itself: tokens go to secure storage, not here.
@@ -314,6 +327,7 @@ export const PERSISTED_KEYS = [
   "savedProducts",
   "savedIngredients",
   "history",
+  "routinePicks",
   "secureStoreClaimed",
   "shelfOwner",
   "shelfQueue",
@@ -331,6 +345,7 @@ export function partializeState(state: AppState): PersistedState {
     savedProducts: state.savedProducts,
     savedIngredients: state.savedIngredients,
     history: state.history,
+    routinePicks: state.routinePicks,
     secureStoreClaimed: state.secureStoreClaimed,
     shelfOwner: state.shelfOwner,
     shelfQueue: state.shelfQueue,
@@ -347,6 +362,7 @@ const INITIAL_STATE = {
   savedProducts: [] as SavedProduct[],
   savedIngredients: [] as string[],
   history: [] as HistoryEntry[],
+  routinePicks: {} as Record<string, string>,
   secureStoreClaimed: false,
   shelfOwner: null as string | null,
   shelfQueue: [] as ShelfOp[],
@@ -830,6 +846,9 @@ export const useAppStore = create<AppState>()(
       },
 
       clearHistory: () => set({ history: [] }),
+
+      addToRoutine: (places, id) => set((state) => ({ routinePicks: { ...state.routinePicks, ...Object.fromEntries(places.map((place) => [place, id])) } })),
+      removeFromRoutine: (id) => set((state) => ({ routinePicks: Object.fromEntries(Object.entries(state.routinePicks).filter(([, picked]) => picked !== id)) })),
       clearSavedProducts: () =>
         set((state) => ({
           savedProducts: [],

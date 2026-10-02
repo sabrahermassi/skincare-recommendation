@@ -314,6 +314,18 @@ check a Skin needs scan uses, and always say which actives to look for.
   fix for it.
 - **A product opened from the routine is the normal product screen**, scored
   with the skin profile like any scan.
+- **The serum and treatment steps lead with the active, not the product**
+  ("Vitamin C" in the heading font). The owner's reasoning: the catalogue
+  often has no product to name, and the active is the advice either way.
+- **"Add to my routine" keeps a product of one's own in a step**, offered on
+  a result for a good skin match, or from Skin needs for a product that works
+  on the pick. The app chooses the step (`routinePlacesFor`): a strong active
+  goes to the evening treatment, any other serum to the morning. One product
+  per step. It is kept in the store's `routinePicks`, **on the device only**:
+  syncing it to the account needs a table and RLS, which is the owner's call
+  and was not taken. It is not part of the shelf, so sign-out leaves it and
+  "erase everything" clears it. A label-photo result has no product to keep,
+  so it has no button.
 
 ## SDK and platform history
 

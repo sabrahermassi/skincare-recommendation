@@ -14,13 +14,15 @@ import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { Text } from "@/components/Text";
-import type { SkinProfile } from "@/data/types";
+import type { ProductWithIngredients, SkinProfile } from "@/data/types";
 import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized } from "@/lib/profile";
 import { prepareRoutine } from "@/lib/routine-build";
-import { recallRoutine, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
-import { CANVAS, CANVAS_GLASS, CARD_RADIUS, CHOSEN, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WHITE } from "@/lib/tokens";
+import { activeLine, placeId, recallRoutine, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
+import { fetchProductsByIds } from "@/data/api";
+import { matchProduct } from "@/lib/matching";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
 import { GlassHeader } from "@/components/GlassHeader";
@@ -112,6 +114,28 @@ function useRoutine(profile: SkinProfile): BuiltRoutine | null {
   return checked ? built.routine : recallRoutine(profile);
 }
 
+/**
+ * The products someone put in their own routine, by id, read through the data
+ * seam (almost always straight from the catalogue already on the device). One
+ * the catalogue no longer has is simply not there, and its step falls back to
+ * our pick.
+ */
+function useOwnProducts(ids: readonly string[]): ReadonlyMap<string, ProductWithIngredients> {
+  const [found, setFound] = useState<ReadonlyMap<string, ProductWithIngredients>>(() => new Map());
+  const wanted = [...new Set(ids)].sort().join(",");
+  useEffect(() => {
+    if (wanted === "") return;
+    let cancelled = false;
+    fetchProductsByIds(wanted.split(","))
+      .then((result) => !cancelled && result.ok && setFound(new Map(result.value.map((product) => [product.id, product]))))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [wanted]);
+  return found;
+}
+
 function Steps() {
   const insets = useSafeAreaInsets();
   const profile = useAppStore((s) => s.profile);
@@ -119,7 +143,15 @@ function Steps() {
   // On a development build with the test data on (Profile), ten steps each way.
   const testRoutine = useTestRoutine();
   const routine = useRoutine(profile);
-  const steps: readonly RoutineSlot[] = testRoutine ? TEST_STEPS[time].map((label) => ({ key: label, label, note: null, picks: [] })) : (routine?.[time] ?? []);
+  const steps: readonly RoutineSlot[] = testRoutine ? TEST_STEPS[time].map((label) => ({ key: label, label, active: null, picks: [] })) : (routine?.[time] ?? []);
+  // The products the person put in a step themselves stand in front of ours.
+  const routinePicks = useAppStore((s) => s.routinePicks);
+  const removeFromRoutine = useAppStore((s) => s.removeFromRoutine);
+  const ownProducts = useOwnProducts(Object.values(routinePicks));
+  const ownFor = (key: string): RoutinePick | null => {
+    const product = ownProducts.get(routinePicks[placeId(time, key)] ?? "");
+    return product ? { product, match: matchProduct(product, profile) } : null;
+  };
   const [headerHeight, setHeaderHeight] = useState(0);
   const [scrollY] = useState(() => new Animated.Value(0));
   const [onScroll] = useState(() => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false }));
@@ -151,11 +183,11 @@ function Steps() {
 
         <View>
           {steps.map((step, i) => (
-            <StepCard key={`${time}-${step.key}`} number={i + 1} slot={step} last={i === steps.length - 1} />
+            <StepCard key={`${time}-${step.key}`} number={i + 1} slot={step} own={ownFor(step.key)} onRemove={removeFromRoutine} last={i === steps.length - 1} />
           ))}
         </View>
         <Text style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.text, textAlign: "center", fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
-          Picked from our catalogue for your skin profile. Scan a product to see whether it fits a step.
+          Picked from our catalogue for your skin profile. Scan a product to see whether it fits a step, and add your own from its result.
         </Text>
       </FitScrollView>
       {/* Back, the title, the skin profile and the Morning | Evening switch
@@ -204,15 +236,20 @@ function Steps() {
 
 /**
  * One step (v9): its number in a sage disc on a dotted line that runs down to
- * the next step, then a stone card: the step's name in small capitals, the
- * product picked for it (tapping it opens the product, as a scan would), for
- * a serum or treatment the actives to look for, any other options, and a way
- * to scan one. With nothing picked, the step's bottle sits faded on the right.
+ * the next step, then a stone card. The step's name in small capitals; for a
+ * serum or treatment, the active to use in big letters and what it is for
+ * (owner: the active says more than a product we may not have); then the
+ * product for the step, the person's own if they added one and ours otherwise
+ * (tapping it opens the product, as a scan would); any other options; and a
+ * way to scan one. With nothing picked, the step's bottle sits faded on the
+ * right.
  */
-function StepCard({ number, slot, last }: { number: number; slot: RoutineSlot; last: boolean }) {
+function StepCard({ number, slot, own, onRemove, last }: { number: number; slot: RoutineSlot; own: RoutinePick | null; onRemove: (id: string) => void; last: boolean }) {
   const [more, setMore] = useState(false);
-  const { label, note, picks } = slot;
-  const [pick, ...others] = picks;
+  const { label, active, picks } = slot;
+  // Their own product leads; ours are then all "more", less the same product.
+  const pick = own ?? picks[0];
+  const others = own ? picks.filter((other) => other.product.id !== own.product.id) : picks.slice(1);
   return (
     <View style={{ flexDirection: "row", alignItems: "stretch", gap: SPACE.block }}>
       <View style={{ width: 28, alignItems: "center", paddingTop: 14 }}>
@@ -228,11 +265,24 @@ function StepCard({ number, slot, last }: { number: number; slot: RoutineSlot; l
           <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED }}>
             {label}
           </Text>
-          {pick ? <PickRow pick={pick} /> : <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>No product picked yet.</Text>}
-          {/* A serum or treatment: the actives that matter, whether or not we had a product to name. */}
-          {note ? <Text style={{ fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{note}</Text> : null}
+          {active ? (
+            <View style={{ paddingTop: 2, paddingBottom: SPACE.text, gap: 2 }}>
+              <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>{active.name}</Text>
+              <Text style={{ fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{activeLine(active)}</Text>
+            </View>
+          ) : null}
+          {pick ? (
+            <PickRow pick={pick} own={own !== null} />
+          ) : (
+            <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>{active ? "No product to suggest yet." : "No product picked yet."}</Text>
+          )}
           {more ? others.map((other) => <PickRow key={other.product.id} pick={other} divided />) : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: SPACE.gutter }}>
+            {own ? (
+              <Pressable onPress={() => onRemove(own.product.id)} accessibilityRole="button" accessibilityLabel={`Remove ${own.product.name} from my routine`} hitSlop={8} style={{ minHeight: 28, justifyContent: "center" }} className="active:opacity-70">
+                <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Remove</Text>
+              </Pressable>
+            ) : null}
             {others.length > 0 ? (
               <Pressable
                 onPress={() => setMore((open) => !open)}
@@ -260,34 +310,37 @@ function StepCard({ number, slot, last }: { number: number; slot: RoutineSlot; l
             </Pressable>
           </View>
         </View>
-        {!pick && STEP_BOTTLE[label] ? <Image source={STEP_BOTTLE[label]} contentFit="contain" accessibilityLabel="" style={{ width: 52, height: 60, opacity: 0.4 }} /> : null}
+        {!pick && !active && STEP_BOTTLE[label] ? <Image source={STEP_BOTTLE[label]} contentFit="contain" accessibilityLabel="" style={{ width: 52, height: 60, opacity: 0.4 }} /> : null}
       </View>
     </View>
   );
 }
 
-/** A product picked for a step: its bottle, the brand over the name, and its skin match. It opens the product screen. */
-function PickRow({ pick, divided = false }: { pick: RoutinePick; divided?: boolean }) {
+/**
+ * A product for a step: its bottle, the brand over the name, and its skin
+ * match. It opens the product screen. `own` marks the one the person added
+ * themselves.
+ */
+function PickRow({ pick, divided = false, own = false }: { pick: RoutinePick; divided?: boolean; own?: boolean }) {
   const { product, match } = pick;
+  const verdict = match.score === null ? VERDICT_LABEL[match.verdict] : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`;
   return (
     <Pressable
       onPress={() => router.push({ pathname: "/product/[id]", params: { id: product.id } })}
       accessibilityRole="button"
-      accessibilityLabel={`${product.brand} ${product.name}. ${VERDICT_LABEL[match.verdict]}, ${match.score} out of 100`}
+      accessibilityLabel={`${own ? "Your pick: " : ""}${product.brand} ${product.name}. ${match.score === null ? VERDICT_LABEL[match.verdict] : `${VERDICT_LABEL[match.verdict]}, ${match.score} out of 100`}`}
       style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.text, borderTopWidth: divided ? 0.5 : 0, borderTopColor: DIVIDER }}
       className="active:opacity-70"
     >
       <ProductThumbnail product={product} size={44} />
       <View style={{ flex: 1, gap: 1 }}>
         <Text numberOfLines={1} style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>
-          {product.brand}
+          {own ? `Your pick · ${product.brand}` : product.brand}
         </Text>
         <Text numberOfLines={2} style={{ fontSize: TYPE.body, fontWeight: "600", lineHeight: 20, color: INK }}>
           {product.name}
         </Text>
-        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: scoreColours(match.verdict).deep }}>
-          {VERDICT_LABEL[match.verdict]} · {match.score}/100
-        </Text>
+        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: scoreColours(match.verdict).deep }}>{verdict}</Text>
       </View>
     </Pressable>
   );
