@@ -92,3 +92,15 @@ it("says how to swap once three concerns are chosen", async () => {
   await act(async () => fireEvent.press(screen.getByRole("button", { name: /^Skin concerns: / })));
   expect(screen.getByText("3 chosen. Untick one to swap.")).toBeTruthy();
 });
+
+// Owner: one tap puts every answer back to not set, and Undo brings them back.
+it("resets every answer with Reset, and puts them back with Undo", async () => {
+  useAppStore.setState({ profile: { concerns: ["acne-prone"], baseSkinType: "oily", sensitivity: "some", pregnancyStatus: "neither" } });
+  await render(<SkinProfileScreen />);
+  await fireEvent.press(screen.getByRole("button", { name: "Reset skin profile" }));
+  expect(useAppStore.getState().profile).toEqual({ concerns: [], baseSkinType: null, sensitivity: null, pregnancyStatus: null });
+  // Nothing left to reset, so the word is gone.
+  expect(screen.queryByRole("button", { name: "Reset skin profile" })).toBeNull();
+  await fireEvent.press(screen.getByText("Undo"));
+  expect(useAppStore.getState().profile).toEqual({ concerns: ["acne-prone"], baseSkinType: "oily", sensitivity: "some", pregnancyStatus: "neither" });
+});

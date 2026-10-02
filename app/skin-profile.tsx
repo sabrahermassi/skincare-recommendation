@@ -1,16 +1,17 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { ConcernPicker, PregnancyPicker, SensitivityPicker, SkinTypePicker } from "@/components/ProfilePickers";
 import { PageTitle } from "@/components/PageTitle";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { UndoToast, type UndoNotice } from "@/components/UndoToast";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import { haptic } from "@/lib/haptics";
 import { CONCERN_TITLE, PREGNANCY_QUESTION, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
-import { CANVAS, CARD_RADIUS, INK, LINK, SPACE, SURFACE, TYPE } from "@/lib/tokens";
-import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
+import { CANVAS, CARD_RADIUS, INK, LINK, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { EMPTY_PROFILE, MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
 
 type Question = "skinType" | "concerns" | "sensitivity" | "pregnancy";
@@ -55,6 +56,28 @@ export default function SkinProfileScreen() {
     save({ concerns: has ? profile.concerns.filter((c) => c !== concern) : [...profile.concerns, concern] }, false);
   };
 
+  // "Reset" (owner): every answer back to not set, at once, with an Undo that
+  // puts them all back, like taking something off a list on Saved.
+  const [notice, setNotice] = useState<UndoNotice | null>(null);
+  const clearNotice = useCallback(() => setNotice(null), []);
+  const hasAnswers = profile.concerns.length > 0 || profile.baseSkinType !== null || profile.sensitivity !== null || profile.pregnancyStatus !== null;
+  const reset = () => {
+    const before = profile;
+    const answeredBefore = answered;
+    setProfile(EMPTY_PROFILE);
+    setAnswered(new Set());
+    setOpen(null);
+    haptic.select();
+    setNotice({
+      id: Date.now(),
+      message: "Skin profile reset",
+      undo: () => {
+        setProfile(before);
+        setAnswered(answeredBefore);
+      },
+    });
+  };
+
   const values: Record<Question, string> = {
     skinType: profile.baseSkinType ? titleCase(profile.baseSkinType) : answered.has("skinType") ? "I don't know" : "Not set",
     concerns:
@@ -70,7 +93,16 @@ export default function SkinProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenHeader />
+      <ScreenHeader
+        right={
+          // Words, not a button (owner), like "Clear all" on Saved. Only there when there is an answer to reset.
+          hasAnswers ? (
+            <Pressable onPress={reset} accessibilityRole="button" accessibilityLabel="Reset skin profile" style={{ minHeight: TOUCH_TARGET, paddingHorizontal: 4, justifyContent: "center" }} className="active:opacity-70">
+              <Text style={{ fontSize: TYPE.label, color: LINK }}>Reset</Text>
+            </Pressable>
+          ) : null
+        }
+      />
       <FitScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
         <PageTitle title="Skin profile" />
         {/* In ink, not secondary grey (v9): it says what the page is for. */}
@@ -116,6 +148,7 @@ export default function SkinProfileScreen() {
           );
         })}
       </FitScrollView>
+      <UndoToast notice={notice} onDone={clearNotice} />
     </View>
   );
 }
