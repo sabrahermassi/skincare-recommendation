@@ -1,7 +1,7 @@
 import { BlurView } from "expo-blur";
 import { useState, type ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
-import Svg, { Circle, Path } from "react-native-svg";
+import { Animated, Pressable, StyleSheet, View } from "react-native";
+import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 
 import { BottomSheet } from "@/components/BottomSheet";
 import { CloseCross, IconCircle } from "@/components/IconCircle";
@@ -23,7 +23,7 @@ import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
 import type { RuleSource } from "@/lib/rules";
 import { irritationWarnings, isVerified } from "@/lib/safety";
-import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE_GLASS, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
+import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE, STONE_GLASS, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 type Tab = "match" | "ingredients";
@@ -48,6 +48,11 @@ const HEAD_SPACER = { ring: 60, plain: 16 } as const;
 const RING_LIFT = 76;
 // How strongly what scrolls behind the fixed header is blurred (expo-blur, 1-100).
 const HEADER_BLUR = 30;
+// The soft edge under the fixed header: how tall it is, and how far the
+// result has to scroll before it is fully there (none at rest, where it
+// would dull the top of the score ring).
+const HEADER_FADE = 24;
+const HEADER_FADE_AFTER = 16;
 
 /**
  * The scrolling part of a result screen (v9): `header` (the product, or what
@@ -96,17 +101,17 @@ export function ResultTabs({
   const largeText = useLargeText();
   // The fixed header's height, once laid out: the room the result leaves for it.
   const [fixedHeight, setFixedHeight] = useState(0);
+  const [scrollY] = useState(() => new Animated.Value(0));
+  const [scrolled] = useState(() => scrollY.interpolate({ inputRange: [0, HEADER_FADE_AFTER], outputRange: [0, 1], extrapolate: "clamp" }));
 
   const top = (
     <>
       {/* The reading parts of the screen: their text follows the phone's text
           size all the way up (#334). */}
       <ReadingScale>{header}</ReadingScale>
-      {/* A short frosted lip under the switch, so what scrolls up fades in
-          behind it instead of being cut at the switch's own edge. The rest of
-          the room under the switch belongs to the part below, so the lip
-          doesn't cover the top of the score ring that reaches into it. */}
-      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: 16, paddingBottom: SPACE.text }}>
+      {/* The 12pt under the switch is frosted too, so nothing is cut at the
+          switch's own edge. */}
+      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: 16, paddingBottom: SPACE.block }}>
         <SegmentedSwitch
           tone="stone"
           options={[
@@ -124,18 +129,22 @@ export function ResultTabs({
       {/* "handled": a note editor's sheet can render inside this scroll view,
           and touches follow the React tree, not the Modal's window. Without
           it, the first tap on "Save note" while typing only closed the keyboard. */}
-      <ScrollView
+      <Animated.ScrollView
         keyboardShouldPersistTaps="handled"
         style={{ flex: 1 }}
         // The result starts under the fixed header and scrolls up behind it.
         contentContainerStyle={{ flexGrow: 1, paddingTop: fixedHeight }}
         scrollIndicatorInsets={{ top: fixedHeight }}
         alwaysBounceVertical={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
       >
         {largeText ? <View style={{ paddingTop: SPACE.text }}>{top}</View> : null}
         <ReadingScale>
           <View style={{ flexGrow: 1 }}>
-            <View style={{ height: SPACE.block - SPACE.text + (ring ? HEAD_SPACER.ring : HEAD_SPACER.plain) }} />
+            {/* The extra 12pt keeps the score ring, which reaches above its own
+                room, clear of the frosted header. */}
+            <View style={{ height: SPACE.block + (ring ? HEAD_SPACER.ring : HEAD_SPACER.plain) }} />
             <View
               testID="result-sheet"
               style={{
@@ -168,7 +177,7 @@ export function ResultTabs({
             </View>
           </View>
         </ReadingScale>
-      </ScrollView>
+      </Animated.ScrollView>
       {/* The top bar, the header and the switch stay where they are (owner),
           on frosted stone: what scrolls up passes behind them, blurred. At the
           largest text sizes the header and switch would take too much of the
@@ -178,6 +187,19 @@ export function ResultTabs({
         <View style={[StyleSheet.absoluteFill, { backgroundColor: STONE_GLASS }]} />
         {nav}
         {largeText ? null : <View style={{ paddingTop: SPACE.text }}>{top}</View>}
+        {/* Once the result has scrolled, the header's lower edge is a soft
+            fade, not a straight cut across whatever is passing under it. */}
+        <Animated.View pointerEvents="none" style={{ position: "absolute", top: "100%", left: 0, right: 0, height: HEADER_FADE, opacity: scrolled }}>
+          <Svg width="100%" height={HEADER_FADE}>
+            <Defs>
+              <LinearGradient id="headerFade" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={STONE} stopOpacity={0.9} />
+                <Stop offset="1" stopColor={STONE} stopOpacity={0} />
+              </LinearGradient>
+            </Defs>
+            <Rect width="100%" height={HEADER_FADE} fill="url(#headerFade)" />
+          </Svg>
+        </Animated.View>
       </View>
     </View>
   );
