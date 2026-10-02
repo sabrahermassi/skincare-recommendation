@@ -1,22 +1,19 @@
 import { Pressable, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
 
 import { BottomSheet } from "@/components/BottomSheet";
 import { CloseCross, IconCircle } from "@/components/IconCircle";
 import { BUTTON_HEIGHT, BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 import { haptic } from "@/lib/haptics";
-import { DESTRUCTIVE_OUTLINE, DISPLAY_FONT, INK, MUTED, TOUCH_TARGET, TYPE, VERDICT } from "@/lib/tokens";
-
-/** The badge at the top of the pop-up (v7; v9's soft red disc). */
-const BADGE = 48;
+import { DESTRUCTIVE_OUTLINE, DISPLAY_FONT, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 
 /**
- * Every "are you sure" in the app, one way (v7): a pop-up floats up with a
- * trash badge, the question in the title face and one line on what it means,
- * then a pair of 140pt buttons — the safe choice filled, the destructive one
- * in a soft red outline. "Keep it" and a tap on the dimmed screen both close
- * it untouched.
+ * Every "are you sure" in the app, one way (owner's reference, 2 October
+ * 2026): a pop-up floats up with a close button in its corner, the question
+ * in the title face and one line on what it means, then one button, the
+ * destructive action as a soft red pill. The X and a tap on the dimmed screen
+ * close it untouched. The account's (`stacked`) adds a filled "keep" button
+ * above the action, which is then plain words.
  */
 export function ConfirmSheet({
   visible,
@@ -28,12 +25,11 @@ export function ConfirmSheet({
   onConfirm,
   busy = false,
   stacked = false,
-  single = false,
 }: {
   visible: boolean;
   title: string;
   line: string;
-  /** The button that closes the sheet and changes nothing. Not shown when `single`. */
+  /** The filled button that closes the sheet and changes nothing. Only with `stacked`. */
   keepLabel?: string;
   /** The button beside it that goes ahead. */
   confirmLabel: string;
@@ -47,45 +43,12 @@ export function ConfirmSheet({
    * the destructive one as plain words under it.
    */
   stacked?: boolean;
-  /**
-   * One button (same reference): a close button in the corner, the question,
-   * and the destructive action alone as a soft red pill. The X and a tap on
-   * the dimmed screen are the way out. For taking one row off a list.
-   */
-  single?: boolean;
 }) {
   const corner = (
     <IconCircle onPress={onClose} accessibilityLabel="Close">
       <CloseCross />
     </IconCircle>
   );
-  if (single) {
-    return (
-      <BottomSheet visible={visible} onClose={onClose} floating corner={corner}>
-        <View style={{ alignItems: "center", gap: 8, paddingTop: 32 }}>
-          <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-            {title}
-          </Text>
-          <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{line}</Text>
-          <Pressable
-            onPress={() => {
-              haptic.warning();
-              onConfirm();
-            }}
-            disabled={busy}
-            accessibilityRole="button"
-            accessibilityLabel={confirmLabel}
-            accessibilityState={{ disabled: busy }}
-            // The short width (140): the label is one word.
-            style={{ marginTop: 16, width: BUTTON_WIDTH.pair, height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: DESTRUCTIVE_OUTLINE.fill, alignItems: "center", justifyContent: "center", opacity: busy ? 0.6 : 1 }}
-            className="active:opacity-80"
-          >
-            <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: DESTRUCTIVE_OUTLINE.label }}>{confirmLabel}</Text>
-          </Pressable>
-        </View>
-      </BottomSheet>
-    );
-  }
   if (stacked) {
     return (
       <BottomSheet visible={visible} onClose={onClose} floating corner={corner}>
@@ -114,35 +77,12 @@ export function ConfirmSheet({
     );
   }
   return (
-    <BottomSheet visible={visible} onClose={onClose} floating>
-      <View style={{ alignItems: "center", gap: 8 }}>
-        <View
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          style={{ width: BADGE, height: BADGE, borderRadius: BADGE / 2, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT.low.tint }}
-        >
-          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"
-              stroke={VERDICT.low.deep}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </View>
-        <Text
-          accessibilityRole="header"
-          style={{ marginTop: 4, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
-        >
+    <BottomSheet visible={visible} onClose={onClose} floating corner={corner}>
+      <View style={{ alignItems: "center", gap: 8, paddingTop: 32 }}>
+        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
           {title}
         </Text>
         <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{line}</Text>
-      </View>
-      {/* The pair shares the sheet's width (each at least 140pt), so a longer
-          label like "Yes, delete my profile" has room instead of being cut. */}
-      <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 16 }}>
-        <PrimaryButton label={keepLabel ?? ""} onPress={onClose} style={{ flex: 1, minWidth: BUTTON_WIDTH.pair }} />
         <Pressable
           onPress={() => {
             haptic.warning();
@@ -152,22 +92,11 @@ export function ConfirmSheet({
           accessibilityRole="button"
           accessibilityLabel={confirmLabel}
           accessibilityState={{ disabled: busy }}
-          style={{
-            flex: 1,
-            minWidth: BUTTON_WIDTH.pair,
-            height: 48,
-            paddingHorizontal: 12,
-            borderRadius: 24,
-            backgroundColor: DESTRUCTIVE_OUTLINE.fill,
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: busy ? 0.6 : 1,
-          }}
+          // The short width (140): the label is one word.
+          style={{ marginTop: 16, width: BUTTON_WIDTH.pair, height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: DESTRUCTIVE_OUTLINE.fill, alignItems: "center", justifyContent: "center", opacity: busy ? 0.6 : 1 }}
           className="active:opacity-80"
         >
-          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: DESTRUCTIVE_OUTLINE.label }}>
-            {confirmLabel}
-          </Text>
+          <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: DESTRUCTIVE_OUTLINE.label }}>{confirmLabel}</Text>
         </Pressable>
       </View>
     </BottomSheet>

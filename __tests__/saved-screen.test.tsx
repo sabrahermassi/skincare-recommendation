@@ -210,7 +210,7 @@ describe("v9 list layout", () => {
     expect(screen.queryByText(/Swipe left/)).toBeNull();
   });
 
-  it("clears the whole shelf from Clear all, after asking Keep it or Delete", async () => {
+  it("clears the whole shelf from Clear all, after asking with one Delete button", async () => {
     useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 1 }] });
     await render(<Saved />);
     await screen.findByText(NAME);

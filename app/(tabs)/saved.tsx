@@ -374,8 +374,6 @@ export default function Saved() {
           title="Delete product?"
           line="It will disappear from your history."
           confirmLabel="Delete"
-          // One button (owner's reference): the X closes it.
-          single
           onClose={() => setDeleting(null)}
           onConfirm={() => {
             if (deleting) removeHistoryEntry(deleting.id);
@@ -475,7 +473,7 @@ function GroupLabel({ title, onClearAll }: { title: string; onClearAll?: () => v
 
 /** The sheet "Clear all" opens; one component so the three tabs wipe the same way. */
 function ClearSheet({ title, line, visible, onCancel, onConfirm }: { title: string; line: string; visible: boolean; onCancel: () => void; onConfirm: () => void }) {
-  return <ConfirmSheet visible={visible} title={title} line={line} keepLabel="Keep it" confirmLabel="Delete" onClose={onCancel} onConfirm={onConfirm} />;
+  return <ConfirmSheet visible={visible} title={title} line={line} confirmLabel="Delete" onClose={onCancel} onConfirm={onConfirm} />;
 }
 
 /** Under a list: how to take something off it, since a swipe can't be seen. */
