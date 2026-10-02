@@ -550,7 +550,7 @@ export default function Scan() {
           position: "absolute",
           left: SPACE.block,
           right: SPACE.block,
-          top: insets.top + TOP_ROW_DROP,
+          top: insets.top + SPACE.text,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
@@ -1052,11 +1052,9 @@ const SWITCH_WIDTH = 230;
 const SHEET_SPRING = { mass: 1, stiffness: 158, damping: 25 };
 // How far in the bottom wrapper (status panel) sits from each edge.
 const STAGE_INSET = 20;
-// The top row: close, the mode switch, the torch. It sits 16 below the safe
-// area (owner: lower, clear of the Dynamic Island; it was 8), is a touch
-// target tall, and the frame starts 12 clear of it.
-const TOP_ROW_DROP = SPACE.gutter;
-const CLOSE_CLEARANCE = TOP_ROW_DROP + TOUCH_TARGET + SPACE.block;
+// The top row (a whole touch target, 8 below the safe area); the frame
+// starts clear of it.
+const CLOSE_CLEARANCE = 44;
 // The shutter (v7), and the gap between it and the frame above.
 const SHUTTER = 76;
 
