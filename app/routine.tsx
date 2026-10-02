@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { Animated, Pressable, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -14,9 +14,10 @@ import { Text } from "@/components/Text";
 import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized, profileHeadline } from "@/lib/profile";
-import { CANVAS, CARD_RADIUS, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, ROW_CHEVRON, SPACE, SURFACE, TYPE, WHITE } from "@/lib/tokens";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, ROW_CHEVRON, SPACE, SURFACE, TYPE, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
+import { GlassHeader } from "@/components/GlassHeader";
 
 // A woman at her mirror (v9: design_handoff_formee_v9, routine-empty-mirror).
 const ROUTINE_ART = require("@/assets/illustrations/routine-empty-mirror.webp");
@@ -49,8 +50,14 @@ export default function Routine() {
   const profile = useAppStore((s) => s.profile);
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenHeader />
-      {isPersonalized(profile) ? <Steps /> : <EmptyProfile />}
+      {isPersonalized(profile) ? (
+        <Steps />
+      ) : (
+        <>
+          <ScreenHeader />
+          <EmptyProfile />
+        </>
+      )}
     </View>
   );
 }
@@ -81,60 +88,78 @@ function Steps() {
   const [time, setTime] = useState<TimeOfDay>("morning");
   const { title, tags } = profileHeadline(profile);
   const steps = STEPS[time];
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [scrollY] = useState(() => new Animated.Value(0));
+  const [onScroll] = useState(() => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false }));
   return (
-    <FitScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: insets.bottom + SPACE.section }}>
-      <PageTitle title="Your skincare routine" />
-
-      {/* What the routine is built from; tapping it changes the answers. */}
-      <Pressable
-        onPress={() => router.push("/skin-profile")}
-        accessibilityRole="button"
-        // A stone card like the steps below, pressed to the row tint; the fill
-        // is a class so the pressed state can replace it.
-        className="bg-surface active:bg-row-pressed"
-        style={{ marginTop: SPACE.block, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}
+    <View style={{ flex: 1 }}>
+      {/* The steps start under the fixed header and scroll up behind it. */}
+      <FitScrollView
+        contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: headerHeight, paddingBottom: insets.bottom + SPACE.section }}
+        scrollIndicatorInsets={{ top: headerHeight }}
+        scrollEventThrottle={16}
+        onScroll={onScroll}
       >
-        <View style={{ flex: 1, gap: 1 }}>
-          <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>Your skin profile</Text>
-          <Text numberOfLines={1} style={{ fontSize: TYPE.caption, color: MUTED }}>
-            {[title, ...tags].join(" · ")}
+        <View style={{ paddingTop: SPACE.section - SPACE.block, paddingBottom: SPACE.block, paddingHorizontal: 4, flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
+          <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED }}>
+            Steps for today
           </Text>
+          <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{time === "morning" ? "good morning" : "wind down"}</Text>
         </View>
-        <Svg width={8} height={14} viewBox="0 0 8 14" fill="none">
-          <Path d="m1 1 6 6-6 6" stroke={ROW_CHEVRON} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-      </Pressable>
 
-      {/* Morning | Evening (v9): the thumb is a warm sun yellow in the
-          morning and a night blue in the evening, with the sun and moon in
-          the word's colour. */}
-      <SegmentedSwitch
-        tone={time === "morning" ? ROUTINE_SWITCH.morning : ROUTINE_SWITCH.evening}
-        options={[
-          { value: "morning", label: "Morning", icon: (on) => <SunIcon colour={on ? ROUTINE_SWITCH.sun : MUTED_FAINT} /> },
-          { value: "evening", label: "Evening", icon: (on) => <MoonIcon colour={on ? WHITE : MUTED_FAINT} /> },
-        ]}
-        selected={time}
-        onSelect={setTime}
-        style={{ marginTop: SPACE.block }}
-      />
-
-      <View style={{ paddingTop: SPACE.section, paddingBottom: SPACE.block, paddingHorizontal: 4, flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
-        <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED }}>
-          Steps for today
+        <View>
+          {steps.map((step, i) => (
+            <StepCard key={`${time}-${step}`} number={i + 1} step={step} last={i === steps.length - 1} />
+          ))}
+        </View>
+        <Text style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.text, textAlign: "center", fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
+          Scan a product to see whether it fits a step.
         </Text>
-        <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{time === "morning" ? "good morning" : "wind down"}</Text>
-      </View>
+      </FitScrollView>
+      {/* Back, the title, the skin profile and the Morning | Evening switch
+          hold still on glass; the steps pass behind them (owner). */}
+      <GlassHeader scrollY={scrollY} solid={CANVAS} glass={CANVAS_GLASS} onHeight={setHeaderHeight}>
+        <ScreenHeader />
+        {/* The 12pt under the switch is glass too, so nothing is cut at the switch's own edge. */}
+        <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: SPACE.block }}>
+          <PageTitle title="Your skincare routine" />
 
-      <View>
-        {steps.map((step, i) => (
-          <StepCard key={`${time}-${step}`} number={i + 1} step={step} last={i === steps.length - 1} />
-        ))}
-      </View>
-      <Text style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.text, textAlign: "center", fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
-        Scan a product to see whether it fits a step.
-      </Text>
-    </FitScrollView>
+          {/* What the routine is built from; tapping it changes the answers. */}
+          <Pressable
+            onPress={() => router.push("/skin-profile")}
+            accessibilityRole="button"
+            // A stone card like the steps below, pressed to the row tint; the fill
+            // is a class so the pressed state can replace it.
+            className="bg-surface active:bg-row-pressed"
+            style={{ marginTop: SPACE.block, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}
+          >
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>Your skin profile</Text>
+              <Text numberOfLines={1} style={{ fontSize: TYPE.caption, color: MUTED }}>
+                {[title, ...tags].join(" · ")}
+              </Text>
+            </View>
+            <Svg width={8} height={14} viewBox="0 0 8 14" fill="none">
+              <Path d="m1 1 6 6-6 6" stroke={ROW_CHEVRON} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </Pressable>
+
+          {/* Morning | Evening (v9): the thumb is a warm sun yellow in the
+              morning and a night blue in the evening, with the sun and moon in
+              the word's colour. */}
+          <SegmentedSwitch
+            tone={time === "morning" ? ROUTINE_SWITCH.morning : ROUTINE_SWITCH.evening}
+            options={[
+              { value: "morning", label: "Morning", icon: (on) => <SunIcon colour={on ? ROUTINE_SWITCH.sun : MUTED_FAINT} /> },
+              { value: "evening", label: "Evening", icon: (on) => <MoonIcon colour={on ? WHITE : MUTED_FAINT} /> },
+            ]}
+            selected={time}
+            onSelect={setTime}
+            style={{ marginTop: SPACE.block }}
+          />
+        </View>
+      </GlassHeader>
+    </View>
   );
 }
 

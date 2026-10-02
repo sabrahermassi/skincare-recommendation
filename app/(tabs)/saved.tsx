@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { Link, router, useFocusEffect, useScrollToTop } from "expo-router";
 import type { ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View, type ScrollViewProps } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ConfirmSheet } from "@/components/ConfirmSheet";
@@ -30,11 +30,12 @@ import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, stepOf, type StepGroup } from "@/lib/routine-step";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { CANVAS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_NEUTRAL } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { FitScrollView } from "@/components/FitScrollView";
+import { GlassHeader } from "@/components/GlassHeader";
 
 type Tab = "saved" | "history" | "ingredients";
 
@@ -64,6 +65,16 @@ export default function Saved() {
   const listRef = useRef<ScrollView>(null);
   useScrollToTop(listRef);
   const [tab, setTab] = useState<Tab>("saved");
+  // The title and the switch hold still on glass and the lists scroll up
+  // behind them (owner): how tall that header is, and how far each list has
+  // scrolled, so the glass shows for the list on screen.
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [scrollY] = useState(() => ({ saved: new Animated.Value(0), history: new Animated.Value(0), ingredients: new Animated.Value(0) }));
+  const [onScroll] = useState(() => ({
+    saved: Animated.event([{ nativeEvent: { contentOffset: { y: scrollY.saved } } }], { useNativeDriver: false }),
+    history: Animated.event([{ nativeEvent: { contentOffset: { y: scrollY.history } } }], { useNativeDriver: false }),
+    ingredients: Animated.event([{ nativeEvent: { contentOffset: { y: scrollY.ingredients } } }], { useNativeDriver: false }),
+  }));
 
   const profile = useAppStore((s) => s.profile);
   const savedProducts = useAppStore((s) => s.savedProducts);
@@ -231,9 +242,11 @@ export default function Saved() {
     ).start();
   };
 
-  const listStyle = { paddingHorizontal: SPACE.gutter, paddingBottom: tabBarClearance(insets.bottom) };
+  // Each list starts under the fixed header and scrolls up behind it.
+  const listStyle = { paddingHorizontal: SPACE.gutter, paddingTop: headerHeight, paddingBottom: tabBarClearance(insets.bottom) };
+  const underHeader = { scrollIndicatorInsets: { top: headerHeight }, scrollEventThrottle: 16 } as const;
   const loadFailed = (what: string) => (
-    <View style={{ alignItems: "center", gap: SPACE.block, paddingHorizontal: 40, paddingTop: 96 }}>
+    <View style={{ alignItems: "center", gap: SPACE.block, paddingHorizontal: 40, paddingTop: headerHeight + 96 }}>
       <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
         Couldn&apos;t load your {what}. Check your connection and try again.
       </Text>
@@ -244,11 +257,13 @@ export default function Saved() {
   /** What one tab shows: its list, or its empty state. `live` is the tab being
    *  shown, and only it takes the scroll ref. */
   const content = (t: Tab, live: boolean) => {
-    if (counts[t] === 0) return <EmptyState tab={t} />;
+    if (counts[t] === 0) return <EmptyState tab={t} top={headerHeight} />;
     if (t === "ingredients") {
       return (
         <IngredientsTab
           scrollRef={live ? listRef : undefined}
+          top={headerHeight}
+          onScroll={onScroll.ingredients}
           names={savedIngredients}
           onRemoved={removed}
           onClearAll={() => setConfirmingClear(t)}
@@ -270,7 +285,7 @@ export default function Saved() {
     if (error) return loadFailed("saved products");
     if (byId === null) {
       return (
-        <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 96 }}>
+        <View style={{ alignItems: "center", justifyContent: "center", paddingTop: headerHeight + 96, paddingBottom: 96 }}>
           <ActivityIndicator color={INK} />
         </View>
       );
@@ -278,7 +293,7 @@ export default function Saved() {
     if (t === "saved") {
       const shown = savedIds.filter((id) => byId[id] && (activeFilter === "all" || groupOf(id) === activeFilter));
       return (
-        <FitScrollView ref={live ? listRef : undefined} contentContainerStyle={listStyle}>
+        <FitScrollView ref={live ? listRef : undefined} contentContainerStyle={listStyle} onScroll={onScroll.saved} {...underHeader}>
           <StepFilter groups={presentGroups} selected={activeFilter} onSelect={setStepFilter} />
           <GroupLabel title={`${shown.length} ${shown.length === 1 ? "product" : "products"}`} onClearAll={() => setConfirmingClear(t)} />
           <View style={{ gap: ROW_GAP }}>
@@ -317,6 +332,8 @@ export default function Saved() {
         scrollEnabled={historySwipe.scrollEnabled}
         onScrollBeginDrag={historySwipe.onScrollBeginDrag}
         contentContainerStyle={listStyle}
+        onScroll={onScroll.history}
+        {...underHeader}
       >
         <SwipeListScope list={historySwipe.list}>
           {historyGroups(history).map((group, index) => (
@@ -373,24 +390,6 @@ export default function Saved() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: tabRootTop(insets.top) }}>
-        <TabTitle>Saved</TabTitle>
-      </View>
-
-      {/* The three lists in one light capsule (owner's reference), words only:
-          no counts on a select button, anywhere (owner). */}
-      <SegmentedSwitch
-        options={[
-          { value: "saved", label: "Saved" },
-          { value: "history", label: "History" },
-          { value: "ingredients", label: "Ingredients" },
-        ]}
-        selected={tab}
-        onSelect={selectTab}
-        tone="light"
-        style={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: SPACE.block }}
-      />
-
       <View style={{ flex: 1 }}>
         {/* All three tabs, one over the other; only the one showing takes
             touches or is heard by a screen reader. */}
@@ -406,6 +405,26 @@ export default function Saved() {
           </Animated.View>
         ))}
       </View>
+      {/* The title and the switch, fixed on glass over the lists (owner). */}
+      <GlassHeader scrollY={scrollY[tab]} solid={CANVAS} glass={CANVAS_GLASS} onHeight={setHeaderHeight}>
+        <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: tabRootTop(insets.top) }}>
+          <TabTitle>Saved</TabTitle>
+        </View>
+
+        {/* The three lists in one light capsule (owner's reference), words only:
+            no counts on a select button, anywhere (owner). */}
+        <SegmentedSwitch
+          options={[
+            { value: "saved", label: "Saved" },
+            { value: "history", label: "History" },
+            { value: "ingredients", label: "Ingredients" },
+          ]}
+          selected={tab}
+          onSelect={selectTab}
+          tone="light"
+          style={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: SPACE.block }}
+        />
+      </GlassHeader>
       <UndoToast notice={notice} onDone={clearNotice} />
     </View>
   );
@@ -646,7 +665,7 @@ const TABS: Tab[] = ["saved", "history", "ingredients"];
  * What an empty tab shows: its picture and words, and on Saved the first scan.
  * Each tab has its own; the tab change fades one into the next.
  */
-function EmptyState({ tab }: { tab: Tab }) {
+function EmptyState({ tab, top }: { tab: Tab; /** Room for the screen's fixed header. */ top: number }) {
   const insets = useSafeAreaInsets();
   const { title, body } = EMPTY_COPY[tab];
 
@@ -657,7 +676,7 @@ function EmptyState({ tab }: { tab: Tab }) {
     // short phone, large text).
     <FitScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.section, paddingHorizontal: 32, paddingBottom: tabBarClearance(insets.bottom) }}
+      contentContainerStyle={{ flexGrow: 1, paddingTop: top + SPACE.section, paddingHorizontal: 32, paddingBottom: tabBarClearance(insets.bottom) }}
       showsVerticalScrollIndicator={false}
     >
       <View style={{ alignItems: "center", gap: SPACE.text }}>
@@ -702,6 +721,8 @@ function IngredientsTab({
   onClearAll,
   clearSheet,
   scrollRef,
+  top,
+  onScroll,
 }: {
   names: string[];
   /** Unstarring went through; the screen shows the Undo. */
@@ -711,6 +732,9 @@ function IngredientsTab({
   clearSheet: ReactNode;
   /** Only on the tab being shown, not the one fading out. */
   scrollRef?: RefObject<ScrollView | null>;
+  /** Room for the screen's fixed header, which the list scrolls up behind. */
+  top: number;
+  onScroll: ScrollViewProps["onScroll"];
 }) {
   const insets = useSafeAreaInsets();
   const profile = useAppStore((s) => s.profile);
@@ -766,7 +790,7 @@ function IngredientsTab({
 
   if (error) {
     return (
-      <View style={{ alignItems: "center", gap: SPACE.block, paddingHorizontal: 40, paddingTop: 96 }}>
+      <View style={{ alignItems: "center", gap: SPACE.block, paddingHorizontal: 40, paddingTop: top + 96 }}>
         <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
           Couldn&apos;t load your starred ingredients. Check your connection and try again.
         </Text>
@@ -777,14 +801,14 @@ function IngredientsTab({
 
   if (byName === null) {
     return (
-      <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 96 }}>
+      <View style={{ alignItems: "center", justifyContent: "center", paddingTop: top + 96, paddingBottom: 96 }}>
         <ActivityIndicator color={INK} />
       </View>
     );
   }
 
   return (
-    <FitScrollView ref={scrollRef} contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingBottom: tabBarClearance(insets.bottom) }}>
+    <FitScrollView ref={scrollRef} contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: top, paddingBottom: tabBarClearance(insets.bottom) }} onScroll={onScroll} scrollIndicatorInsets={{ top }} scrollEventThrottle={16}>
       <GroupLabel title={`${names.length} starred`} onClearAll={onClearAll} />
       <View style={{ gap: ROW_GAP }}>
         {names.map((name) => {

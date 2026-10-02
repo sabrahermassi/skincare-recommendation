@@ -38,6 +38,9 @@ import type { Verdict } from "./matching";
 // sheet. The comment above is v7's history.
 export const CANVAS = "#F8F9F4";
 
+/** `CANVAS` let through: the glass of a fixed header on the sage page (`STONE_GLASS`'s twin; 55% is a judged value). */
+export const CANVAS_GLASS = "rgba(248,249,244,0.55)";
+
 /**
  * Raised card fill. White, not a tint of the canvas — a card has to separate
  * from the ground by its own value, and canvas-on-canvas needed a border to

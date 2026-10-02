@@ -1,11 +1,11 @@
-import { BlurView } from "expo-blur";
 import { useState, type ReactNode } from "react";
-import { Animated, Pressable, StyleSheet, View } from "react-native";
-import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
+import { Animated, Pressable, View } from "react-native";
+import Svg, { Circle, Path } from "react-native-svg";
 
 import { BottomSheet } from "@/components/BottomSheet";
 import { CloseCross, IconCircle } from "@/components/IconCircle";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
+import { GlassHeader } from "@/components/GlassHeader";
 import { IngredientsCard, type IngredientFilter } from "@/components/result/IngredientsCard";
 import { ScoreDisc, VerdictLink } from "@/components/result/ScoreRing";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
@@ -46,13 +46,6 @@ const SHEET_RADIUS = 32;
 const SHEET_OVERLAP = 16;
 const HEAD_SPACER = { ring: 60, plain: 16 } as const;
 const RING_LIFT = 76;
-// How strongly what scrolls behind the fixed header is blurred (expo-blur, 1-100).
-const HEADER_BLUR = 12;
-// The soft edge under the fixed header: how tall it is, and how far the
-// result has to scroll before it is fully there (none at rest, where it
-// would dull the top of the score ring).
-const HEADER_FADE = 24;
-const HEADER_FADE_AFTER = 16;
 
 /**
  * The scrolling part of a result screen (v9): `header` (the product, or what
@@ -102,8 +95,6 @@ export function ResultTabs({
   // The fixed header's height, once laid out: the room the result leaves for it.
   const [fixedHeight, setFixedHeight] = useState(0);
   const [scrollY] = useState(() => new Animated.Value(0));
-  const [scrolled] = useState(() => scrollY.interpolate({ inputRange: [0, HEADER_FADE_AFTER], outputRange: [0, 1], extrapolate: "clamp" }));
-  const [atRest] = useState(() => scrollY.interpolate({ inputRange: [0, HEADER_FADE_AFTER], outputRange: [1, 0], extrapolate: "clamp" }));
 
   const top = (
     <>
@@ -180,34 +171,13 @@ export function ResultTabs({
         </ReadingScale>
       </Animated.ScrollView>
       {/* The top bar, the header and the switch stay where they are (owner),
-          on frosted stone: what scrolls up passes behind them, blurred. At the
+          on glass: what scrolls up passes behind them, blurred. At the
           largest text sizes the header and switch would take too much of the
           screen to hold still, so there they scroll and only the bar stays. */}
-      <View onLayout={(event) => setFixedHeight(event.nativeEvent.layout.height)} style={{ position: "absolute", top: 0, left: 0, right: 0 }}>
-        {/* "light", never "default": the default follows the phone's
-            appearance, and in dark mode it turned the header grey and
-            swallowed the switch's track. */}
-        <BlurView intensity={HEADER_BLUR} tint="light" style={StyleSheet.absoluteFill} />
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: STONE_GLASS }]} />
-        {/* Plain stone until the result scrolls, so at rest the header is
-            exactly the page's own colour, whatever the blur does. */}
-        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: STONE, opacity: atRest }]} />
+      <GlassHeader scrollY={scrollY} solid={STONE} glass={STONE_GLASS} onHeight={setFixedHeight}>
         {nav}
         {largeText ? null : <View style={{ paddingTop: SPACE.text }}>{top}</View>}
-        {/* Once the result has scrolled, the header's lower edge is a soft
-            fade, not a straight cut across whatever is passing under it. */}
-        <Animated.View pointerEvents="none" style={{ position: "absolute", top: "100%", left: 0, right: 0, height: HEADER_FADE, opacity: scrolled }}>
-          <Svg width="100%" height={HEADER_FADE}>
-            <Defs>
-              <LinearGradient id="headerFade" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={STONE} stopOpacity={0.9} />
-                <Stop offset="1" stopColor={STONE} stopOpacity={0} />
-              </LinearGradient>
-            </Defs>
-            <Rect width="100%" height={HEADER_FADE} fill="url(#headerFade)" />
-          </Svg>
-        </Animated.View>
-      </View>
+      </GlassHeader>
     </View>
   );
 }
