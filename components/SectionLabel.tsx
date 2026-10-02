@@ -2,22 +2,23 @@ import { Text } from "@/components/Text";
 import { MUTED, SPACE, TYPE } from "@/lib/tokens";
 
 /**
- * A group's small caps label above a card (v7: "WHAT THE NUMBERS MEAN",
- * "GOOD TO KNOW"): 13pt semibold, spaced capitals, in the secondary text
- * colour. The first one on a page sits a section's gap below the title; each
- * later one a bigger gap below the card before it.
+ * A group's small caps label above a card ("WHAT THE NUMBERS MEAN", "GOOD TO
+ * KNOW"): 13pt semibold, spaced capitals, in the secondary text colour. v9
+ * (read off the hand-off): a section's gap above it every time, a line's gap
+ * below. `first` no longer changes anything; it stays so callers still read
+ * as they did.
  */
-export function SectionLabel({ title, first = false }: { title: string; first?: boolean }) {
+export function SectionLabel({ title }: { title: string; first?: boolean }) {
   return (
     <Text
       accessibilityRole="header"
       style={{
-        paddingTop: first ? SPACE.section : 32,
-        paddingBottom: SPACE.block,
+        paddingTop: SPACE.section,
+        paddingBottom: SPACE.text,
         paddingHorizontal: 4,
         fontSize: TYPE.caption,
         fontWeight: "600",
-        letterSpacing: 0.8,
+        letterSpacing: 0.78,
         textTransform: "uppercase",
         color: MUTED,
       }}

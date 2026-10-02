@@ -8,14 +8,14 @@ import { QuizScreen } from "@/components/QuizScreen";
 import type { BaseSkinType } from "@/data/types";
 import { nextQuizRoute, quizStepNumber } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { SKIN_TYPE_ICON, UNSURE_ICON } from "@/lib/quiz-icons";
 
-/** Icons: design-watercolor/skin quiz/screens/skin quiz screen 2.png. */
-const OPTIONS: { value: BaseSkinType; label: string; icon: number }[] = [
-  { value: "dry", label: "Dry", icon: SKIN_TYPE_ICON.dry },
-  { value: "oily", label: "Oily", icon: SKIN_TYPE_ICON.oily },
-  { value: "combination", label: "Combination", icon: SKIN_TYPE_ICON.combination },
-  { value: "normal", label: "Normal", icon: SKIN_TYPE_ICON.normal },
+// Each answer says what it feels like (v9, the hand-off's words), so nobody
+// has to know the word for their own skin.
+const OPTIONS: { value: BaseSkinType; label: string; description: string }[] = [
+  { value: "normal", label: "Normal", description: "Barely visible pores, feels comfortable" },
+  { value: "dry", label: "Dry", description: "Feels tight, might be flaky" },
+  { value: "oily", label: "Oily", description: "Shiny all over, visible pores" },
+  { value: "combination", label: "Combination", description: "Oily T-zone, normal or dry cheeks" },
 ];
 
 
@@ -41,8 +41,8 @@ export default function SkinTypeStep() {
   return (
     <QuizScreen
       step={quizStepNumber("/quiz/skin-type")}
-      title="What's your skin type?"
-      subtitle="Pick the closest match."
+      title="What is your skin type?"
+      subtitle="How your skin feels by midday, without products."
       onNext={next}
       nextDisabled={!picked}
     >
@@ -50,8 +50,8 @@ export default function SkinTypeStep() {
         {OPTIONS.map((option) => (
           <QuizOptionCard
             key={option.value}
-            icon={option.icon}
             label={option.label}
+            description={option.description}
             selected={baseSkinType === option.value}
             onPress={() => {
               setProfile({ baseSkinType: option.value });
@@ -61,8 +61,8 @@ export default function SkinTypeStep() {
         ))}
 
         <QuizOptionCard
-          icon={UNSURE_ICON}
-          label="I don't know"
+          label="Not sure"
+          description="We'll keep things gentle"
           selected={picked && baseSkinType === null}
           onPress={() => {
             setProfile({ baseSkinType: null });

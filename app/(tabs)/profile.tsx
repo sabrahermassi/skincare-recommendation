@@ -9,8 +9,10 @@ import { TabTitle } from "@/components/TabTitle";
 import { Text } from "@/components/Text";
 import { answeredWithoutSignal, isPersonalized, profileHeadline } from "@/lib/profile";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { AVATAR_FILL, CANVAS, LINE, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { AVATAR_FILL, CANVAS, LINE, MUTED, SPACE, TYPE, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { FitScrollView } from "@/components/FitScrollView";
+import { clearTestData, fillTestData } from "@/lib/dev-test-data";
 
 // The avatar (v7): 112pt, in a 4pt white ring.
 const AVATAR = 112;
@@ -33,7 +35,7 @@ export default function Profile() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScrollView
+      <FitScrollView
         ref={scrollRef}
         contentContainerStyle={{ paddingTop: tabRootTop(insets.top), paddingBottom: tabBarClearance(insets.bottom) }}
         showsVerticalScrollIndicator={false}
@@ -44,7 +46,7 @@ export default function Profile() {
 
         <View style={{ alignItems: "center", gap: SPACE.gutter, paddingTop: SPACE.section, paddingHorizontal: SPACE.section }}>
           {/* A placeholder for their own picture: the watercolor empty avatar on
-              its disc, in a white ring with a hairline outside it (v7). */}
+              its disc, in a white ring with a hairline outside it (v7, v9 colours). */}
           <View
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
@@ -56,7 +58,7 @@ export default function Profile() {
               borderColor: LINE,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: SURFACE,
+              backgroundColor: WHITE,
             }}
           >
             <View style={{ width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, overflow: "hidden", backgroundColor: AVATAR_FILL }}>
@@ -77,23 +79,35 @@ export default function Profile() {
 
         {/* The menu, in two blocks (v7): your skin, then your account and the reference pages. */}
         <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.section, gap: SPACE.section }}>
-          <MenuGroup>
+          <MenuGroup soft>
             {/* The answers, one row each, to change at any time. */}
             <MenuRow
-              icon="water-outline"
+              icon="water"
               label="Skin profile"
               badge={isPersonalized(profile) ? undefined : "Tap to fill in"}
               onPress={() => router.push("/skin-profile")}
             />
-            <MenuRow icon="list-outline" label="Skincare routine" onPress={() => router.push("/routine")} />
+            <MenuRow icon="list" label="Skincare routine" onPress={() => router.push("/routine")} />
           </MenuGroup>
-          <MenuGroup>
-            <MenuRow icon="person-outline" label="Account" onPress={() => router.push("/account")} />
-            <MenuRow icon="shield-outline" label="Privacy policy" onPress={() => router.push("/privacy")} />
-            <MenuRow icon="chatbubble-outline" label="Support" onPress={() => router.push("/support")} />
+          <MenuGroup soft>
+            <MenuRow icon="person-circle" label="Account" onPress={() => router.push("/account")} />
+            <MenuRow icon="shield-checkmark" label="Privacy policy" onPress={() => router.push("/privacy")} />
+            <MenuRow icon="chatbubbles" label="Support" onPress={() => router.push("/support")} />
           </MenuGroup>
+          {/* Development builds only (owner): long lists and a ten-step
+              routine to test scrolling with. A release build has no such rows. */}
+          {__DEV__ ? (
+            <MenuGroup soft>
+              <MenuRow
+                icon="flask"
+                label="Fill with test data"
+                onPress={() => void fillTestData().catch((err) => console.warn("fillTestData failed:", err))}
+              />
+              <MenuRow icon="trash" label="Remove all saved, history and starred" onPress={clearTestData} />
+            </MenuGroup>
+          ) : null}
         </View>
-      </ScrollView>
+      </FitScrollView>
 
     </View>
   );

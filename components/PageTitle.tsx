@@ -4,7 +4,7 @@ import { Text } from "@/components/Text";
 import { DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 
 /**
- * A pushed screen's title (v7): 24pt in the title face, under the back
+ * A pushed screen's title (v7; v9 spacing): 24pt in the title face, under the back
  * circle, with an optional line under it in the secondary colour. Tab roots
  * use the larger `TabTitle` instead.
  */

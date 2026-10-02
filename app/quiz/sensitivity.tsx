@@ -8,7 +8,6 @@ import { QuizScreen } from "@/components/QuizScreen";
 import type { Sensitivity } from "@/data/types";
 import { nextQuizRoute, quizStepNumber } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
-import { SENSITIVITY_ICON, UNSURE_ICON } from "@/lib/quiz-icons";
 
 /**
  * Third of four questions (pregnancy/breastfeeding follows), so this screen
@@ -16,17 +15,11 @@ import { SENSITIVITY_ICON, UNSURE_ICON } from "@/lib/quiz-icons";
  * "I don't know" exists because not everyone has tested enough products to
  * have an answer, and guessing would misjudge irritation either too harshly
  * or not harshly enough.
- *
- * Icons: design-watercolor/skin quiz/screens/skin quiz screen 3.png.
  */
-const OPTIONS: { value: Sensitivity; label: string; icon: number }[] = [
-  { value: "none", label: "Not sensitive", icon: SENSITIVITY_ICON.none },
-  {
-    value: "some",
-    label: "Somewhat sensitive",
-    icon: SENSITIVITY_ICON.some,
-  },
-  { value: "high", label: "Very sensitive", icon: SENSITIVITY_ICON.high },
+const OPTIONS: { value: Sensitivity; label: string; description: string }[] = [
+  { value: "none", label: "Not sensitive", description: "Rarely reacts to new products" },
+  { value: "some", label: "Somewhat sensitive", description: "Sometimes stings or turns red" },
+  { value: "high", label: "Very sensitive", description: "Reacts to many products" },
 ];
 
 
@@ -52,7 +45,7 @@ export default function SensitivityStep() {
     <QuizScreen
       step={quizStepNumber("/quiz/sensitivity")}
       title="How sensitive is your skin?"
-      subtitle="This sets how cautious we are about irritants."
+      subtitle="This sets how careful we are with irritants."
       onNext={next}
       nextDisabled={!picked}
     >
@@ -60,8 +53,8 @@ export default function SensitivityStep() {
         {OPTIONS.map((option) => (
           <QuizOptionCard
             key={option.value}
-            icon={option.icon}
             label={option.label}
+            description={option.description}
             selected={picked && sensitivity === option.value}
             onPress={() => {
               setProfile({ sensitivity: option.value });
@@ -71,8 +64,8 @@ export default function SensitivityStep() {
         ))}
 
         <QuizOptionCard
-          icon={UNSURE_ICON}
-          label="I don't know"
+          label="Not sure"
+          description="We'll be a little careful"
           selected={picked && sensitivity === null}
           onPress={() => {
             setProfile({ sensitivity: null });

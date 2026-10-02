@@ -38,9 +38,11 @@ const EVERY_STATE: ScanState[] = [
 
 describe("scanStateCopy", () => {
   it("says the three messages FOR_ME_MVP.md §22 fixes, word for word", () => {
+    // Product not found takes v9's wording (1 October 2026): there is no
+    // Search any more, so it no longer offers to search by name.
     expect(scanStateCopy({ kind: "not-ours-yet" })).toMatchObject({
-      title: "We don't have this product yet",
-      line: "Scan its ingredient list to see what's in it, or search for it by name.",
+      title: "Not in our catalogue yet",
+      line: "Scan its ingredient list instead. We'll read it and score it for your skin.",
       action: "Scan the ingredient list",
     });
     expect(scanStateCopy({ kind: "couldnt-read", why: "photo" })).toMatchObject({

@@ -6,7 +6,7 @@ import Svg, { Path } from "react-native-svg";
 
 import { TERRACOTTA } from "@/components/shell/shared";
 import { Text } from "@/components/Text";
-import { CAMERA_STAGE, SCANNER_FRAME, SURFACE, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, SCANNER_FRAME, TYPE, WHITE, withAlpha } from "@/lib/tokens";
 
 /**
  * The live scanner's framing: the camera blurred and dimmed outside a rounded
@@ -25,9 +25,10 @@ import { CAMERA_STAGE, SCANNER_FRAME, SURFACE, TYPE, withAlpha } from "@/lib/tok
 export type Box = { x: number; y: number; width: number; height: number };
 
 /** How far the window sits in from each side; the mode pills line up with it. */
-export const SCAN_SIDE_INSET = 33;
+// A little smaller than it was (owner, 2 October 2026: 33 at the sides, 24 at the top).
+export const SCAN_SIDE_INSET = 44;
 const SIDE = SCAN_SIDE_INSET;
-const TOP_GAP = 24;
+const TOP_GAP = 40;
 /** Gap between the top inset and the window, for anything placed inside it. */
 export const SCAN_TOP_GAP = TOP_GAP;
 // The corner brackets (v7): each corner's curve (the window's too), arm and stroke.
@@ -337,7 +338,7 @@ export function ScanViewfinder({
               <Animated.View
                 style={{ position: "absolute", left: 0, right: 0, top: rect.y + rect.h + HINT_GAP, alignItems: "center", opacity: fades.hint }}
               >
-                <Text style={{ fontSize: TYPE.body, color: withAlpha(SURFACE, 0.85) }}>{hint}</Text>
+                <Text style={{ fontSize: TYPE.body, color: withAlpha(WHITE, 0.85) }}>{hint}</Text>
               </Animated.View>
             ) : null}
           </View>

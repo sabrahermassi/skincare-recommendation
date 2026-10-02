@@ -2,8 +2,8 @@ import { Pressable, View } from "react-native";
 
 import { Text } from "@/components/Text";
 import type { BaseSkinType, Concern, Pregnancy, Sensitivity } from "@/data/types";
-import { CONCERN_TITLE, pregnancyLabel, pregnancyYesNo, sensitivityLabel } from "@/lib/profile";
-import { CANVAS, CHOSEN, LINE, MUTED, TYPE } from "@/lib/tokens";
+import { CONCERN_TITLE, PREGNANCY_OPTIONS, pregnancyLabel, pregnancyOption, sensitivityLabel } from "@/lib/profile";
+import { CHOSEN, LINE, MUTED, SPACE, TYPE, WHITE } from "@/lib/tokens";
 import { MAX_CONCERNS, visibleConcernCount } from "@/store/useAppStore";
 
 /**
@@ -23,8 +23,6 @@ const SKIN_TYPES: { value: BaseSkinType; label: string }[] = [
   { value: "normal", label: "Normal" },
 ];
 const SENSITIVITY_OPTIONS: Sensitivity[] = ["none", "some", "high"];
-// Yes or no (owner); "Yes" is stored as "pregnant" — see `pregnancyYesNo`.
-const PREGNANCY_OPTIONS: Pregnancy[] = ["pregnant", "neither"];
 
 const CHIP_ROW = { flexDirection: "row", flexWrap: "wrap", gap: 8 } as const;
 // A chip's height (v7); `hitSlop` takes its target past 44.
@@ -49,7 +47,7 @@ export function ConcernPicker({
   const chosen = visibleConcernCount(concerns);
   const atLimit = chosen >= MAX_CONCERNS;
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: SPACE.block }}>
       <View style={CHIP_ROW}>
         {CONCERNS.map((concern) => {
           const selected = concerns.includes(concern);
@@ -69,7 +67,7 @@ export function ConcernPicker({
         <ProfileChip label="I don't have any concerns" role="button" selected={noneChosen && concerns.length === 0} onPress={onNone} />
       </View>
       <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
-        {atLimit ? `${MAX_CONCERNS} chosen – deselect one to swap.` : `${chosen} of ${MAX_CONCERNS} chosen.`}
+        {atLimit ? `${MAX_CONCERNS} chosen. Untick one to swap.` : `Pick up to ${MAX_CONCERNS}. Tap Done when finished.`}
       </Text>
     </View>
   );
@@ -117,7 +115,7 @@ export function PregnancyPicker(props: { value: Pregnancy | null; onChange: (val
   return (
     <SingleChoice
       {...props}
-      value={props.value === null ? null : pregnancyYesNo(props.value)}
+      value={props.value === null ? null : pregnancyOption(props.value)}
       unknownChosen={false}
       options={PREGNANCY_OPTIONS.map((value) => ({ value, label: pregnancyLabel(value) }))}
     />
@@ -125,10 +123,10 @@ export function PregnancyPicker(props: { value: Pregnancy | null; onChange: (val
 }
 
 /**
- * One chip (v7): a 38pt pill, auto-width and wrap-flowed, since a section
+ * One chip (v9): a 38pt pill, auto-width and wrap-flowed, since a section
  * holds a variable number of options (4 skin types, 8 concerns). A chosen
- * chip takes the pale fill and terracotta outline (`CHOSEN`); the rest a
- * hairline on the page colour.
+ * chip takes the pale sage fill and sage outline (`CHOSEN`); the rest a
+ * hairline on white.
  */
 function ProfileChip({
   label,
@@ -163,8 +161,8 @@ function ProfileChip({
         borderRadius: CHIP_HEIGHT / 2,
         borderWidth: 1.5,
         borderColor: selected ? CHOSEN.border : LINE,
-        backgroundColor: selected ? CHOSEN.fill : CANVAS,
-        opacity: disabled ? 0.4 : 1,
+        backgroundColor: selected ? CHOSEN.fill : WHITE,
+        opacity: disabled ? 0.45 : 1,
       }}
       className="active:opacity-70"
     >

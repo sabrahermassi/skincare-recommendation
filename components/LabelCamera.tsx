@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { CameraView } from "expo-camera";
-import { router } from "expo-router";
 import { Image } from "expo-image";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
@@ -18,7 +17,7 @@ import { deleteTempFile, LIBRARY_MAX_WIDTH, pickLabelPhoto } from "@/lib/pick-la
 import { failureFromState, readLabelPhoto } from "@/lib/read-label-photo";
 import { scanStateCopy, scanStateSpeech } from "@/lib/scan-copy";
 import { track } from "@/lib/analytics";
-import { CAMERA_STAGE, CANVAS, INK, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, INK, SELECTED, SPACE, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 
@@ -87,6 +86,8 @@ export function LabelCamera({
   const [status, setStatus] = useState<Status>({ kind: "framing" });
   // The picture chosen from the library, shown in the frame while it is read.
   const [preview, setPreview] = useState<string | null>(null);
+  // A camera shot is shown exactly where the live view had it; a picked picture is shown whole.
+  const [previewFromCamera, setPreviewFromCamera] = useState(false);
   // One number per capture. Cancel (#204) moves it on, so a read that lands
   // afterwards is recognised as abandoned: not held, and not opened.
   const attempt = useRef(0);
@@ -139,6 +140,7 @@ export function LabelCamera({
           return;
         }
         releasePick = picked.cleanup;
+        setPreviewFromCamera(false);
         setPreview(picked.previewUri);
         photo = { uri: picked.previewUri, base64: picked.base64 };
       } else {
@@ -158,7 +160,10 @@ export function LabelCamera({
       capturedUri = photo.uri;
       // Freeze the viewfinder on the captured frame while it's read — the
       // library path already does this via `preview` above.
-      if (source === "camera") setPreview(photo.uri);
+      if (source === "camera") {
+        setPreviewFromCamera(true);
+        setPreview(photo.uri);
+      }
 
       // Crop to the on-screen guide box before anything leaves the device.
       // Until this existed, the box drawn below was decoration only —
@@ -192,11 +197,9 @@ export function LabelCamera({
             croppedUri = cropped.uri;
             if (cropped.base64) imageBase64 = cropped.base64;
             imageWidth = cropped.width;
-            // Swap the frozen frame to what's actually inside the guide
-            // window — the raw sensor frame set at capture is a much wider
-            // field of view, so leaving it in place made the window look
-            // like it zoomed out the moment the shutter was pressed.
-            setPreview(cropped.uri);
+            // The frozen frame stays the shot itself, drawn where the live
+            // view had it (below), so nothing moves when the shutter is
+            // pressed (owner). Only what is sent is cropped.
           } catch {
             // Fall through with the uncropped photo — see comment above. It's
             // the largest one there is, so it still needs the resize below.
@@ -301,10 +304,9 @@ export function LabelCamera({
     setStatus({ kind: "framing" });
   }
 
-  /** A failure's quiet link: another photo from the library, or Search when we couldn't be reached. */
-  function followLink(link: string) {
-    if (link === SEARCH_LINK) router.dismissTo("/browse");
-    else void capture("library");
+  /** A failure's quiet link: another photo from the library. */
+  function followLink() {
+    void capture("library");
   }
 
   const clearance = bottomInset ?? Math.max(24, insets.bottom + 12);
@@ -333,7 +335,19 @@ export function LabelCamera({
             borderColor: CANVAS,
           }}
         >
-          <Image source={{ uri: preview }} contentFit="contain" accessibilityLabel="" style={{ flex: 1 }} />
+          {previewFromCamera && cameraSize ? (
+            // The whole shot, laid over the screen the way the live view fills
+            // it ("cover"), and seen through this window: the frame shows the
+            // very thing it showed before the shutter. -2 for the border.
+            <Image
+              source={{ uri: preview }}
+              contentFit="cover"
+              accessibilityLabel=""
+              style={{ position: "absolute", left: -guideRect.x - 2, top: -guideRect.y - 2, width: cameraSize.width, height: cameraSize.height }}
+            />
+          ) : (
+            <Image source={{ uri: preview }} contentFit="contain" accessibilityLabel="" style={{ flex: 1 }} />
+          )}
           <View style={{ ...StyleSheet.absoluteFill, backgroundColor: withAlpha(CAMERA_STAGE, 0.4) }} />
           {/* Stars over the photo while it is read, so the wait looks like work. */}
           {status.kind === "reading" ? <Sparkles style={StyleSheet.absoluteFill} /> : null}
@@ -371,7 +385,8 @@ export function LabelCamera({
           position: "absolute",
           left: 0,
           right: 0,
-          bottom: clearance + 20,
+          // `clearance` is where the frame ends: 16 inside it.
+          bottom: clearance + SPACE.gutter,
           alignItems: "center",
           gap: 12,
           paddingHorizontal: SCAN_SIDE_INSET + 12,
@@ -399,7 +414,7 @@ export function LabelCamera({
               <PrimaryButton size={48} label={status.action} onPress={() => setStatus({ kind: "framing" })} />
             ) : null}
             {!cannotRetry && status.link ? (
-              <QuietLink label={status.link} onPress={() => followLink(status.link as string)} />
+              <QuietLink label={status.link} onPress={followLink} />
             ) : null}
           </View>
         ) : status.kind === "reading" ? (
@@ -482,8 +497,6 @@ function QuietLink({ label, onPress }: { label: string; onPress: () => void }) {
     </Pressable>
   );
 }
-
-const SEARCH_LINK = scanStateCopy({ kind: "couldnt-reach", why: "default" }).link;
 
 /** Eases its children in when it mounts, so switching to Photo does not pop. */
 function FadeIn({ style, children }: { style?: ViewStyle; children: ReactNode }) {

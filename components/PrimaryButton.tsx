@@ -32,6 +32,9 @@ type ButtonVariant = "primary" | "secondary" | "tertiary" | "destructive";
 /** v7's fixed button widths; a main action takes the full width instead. */
 export const BUTTON_WIDTH = { secondary: 220, inCard: 180, pair: 140 } as const;
 
+/** Every filled button's height (v7/v9). */
+export const BUTTON_HEIGHT = 48;
+
 /** Room for the label's line, so a large text size isn't clipped. */
 const LABEL_LINE_HEIGHT = 20;
 
@@ -61,7 +64,7 @@ export function PrimaryButton({
   label,
   onPress,
   variant = "primary",
-  size = 48,
+  size = BUTTON_HEIGHT,
   disabled = false,
   icon,
   className = "",

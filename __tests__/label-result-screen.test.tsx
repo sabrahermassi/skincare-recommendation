@@ -6,6 +6,12 @@ import LabelResult from "@/app/label-result";
 import { clearLabelRead, holdLabelRead } from "@/lib/pending-label";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
+/** With no skin profile a sheet rises over the result (v9) and nothing behind it can be reached: put it away. */
+async function putTeaserAway() {
+  const close = screen.queryByRole("button", { name: "Close" });
+  if (close) await fireEvent.press(close);
+}
+
 /**
  * A photographed label's result: the same Skin match / Ingredients tabs as a
  * catalogue product, the Ingredients tab the same with or without a skin profile,
@@ -52,6 +58,7 @@ async function open(names: string[]) {
   holdLabelRead({ ingredients: names });
   await render(<LabelResult />);
   await act(async () => {});
+  await putTeaserAway();
 }
 // Skin match opens first (owner).
 const showSafety = () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
@@ -88,11 +95,26 @@ describe("the label result", () => {
     expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ pathname: "/ingredient/[inci]" }));
   });
 
+  // Scanned from Skin needs (owner, 2 October 2026): the answer is whether the
+  // list holds an active for what was picked, profile or no profile.
+  it("answers for what was picked when the scan came from Skin needs", async () => {
+    mockParams = { from: "journey", need: "pimples.." };
+    await open(["water", "glycerin", "xanthan gum", "butylene glycol"]);
+    expect(screen.getByRole("header", { name: "Not made for pimples" })).toBeTruthy();
+    expect(screen.queryByText("Is it right for your skin?")).toBeNull();
+    expect(screen.queryByText("/100")).toBeNull();
+    await act(async () => screen.unmount());
+
+    mockParams = { from: "journey", need: "hydrate.." };
+    await open(["water", "glycerin", "xanthan gum", "butylene glycol"]);
+    expect(screen.getByRole("header", { name: "Works on dry skin" })).toBeTruthy();
+  });
+
   // #346: the quiz in place of an empty score, gone once the answers score.
   it("asks for the skin profile on Skin match, and not once the answers score", async () => {
     await open(LIST);
     await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
-    expect(screen.getByText("Is it right for your skin?")).toBeTruthy();
+    expect(screen.getAllByText("Is it right for your skin?").length).toBeGreaterThan(0);
     await act(async () => screen.unmount());
 
     useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "dry" } });
@@ -128,6 +150,7 @@ describe("History", () => {
     mockParams = { entry: "label-1" };
     await render(<LabelResult />);
     await act(async () => {});
+    await putTeaserAway();
     await showSafety();
     expect(screen.getByText(COUNT)).toBeTruthy();
     expect(useAppStore.getState().history).toHaveLength(1);

@@ -1,5 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
+import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
 
 import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
 import { ScanCamera } from "@/components/ScanCamera";
@@ -25,13 +26,15 @@ import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { GlassButton } from "@/components/GlassButton";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
-import { RING_SIZE, ScoreRing, VerdictPill } from "@/components/result/ScoreRing";
 import { Text } from "@/components/Text";
 import { isProductBarcode, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
+import { goBackOrHome } from "@/lib/go-back";
+import { decodeNeed, needVerdict, type Need, type NeedLevel } from "@/lib/journey";
 import { createScanDismissGuard } from "@/lib/scan-dismiss-guard";
 import { lookupFailureState, scanStateCopy, scanStateSpeech, type ScanCopy, type ScanState, SCAN_SOMETHING_ELSE } from "@/lib/scan-copy";
+import { useScanContext } from "@/lib/scan-context";
 import { rememberScanMode, rememberedScanMode, type ScanMode } from "@/lib/scan-mode";
 import { createStaleGuard } from "@/lib/stale-guard";
 import { haptic } from "@/lib/haptics";
@@ -47,13 +50,21 @@ import {
   INK,
   LINK,
   MUTED,
+  MUTED_FAINT,
+  scoreColours,
   SCRIM,
   SHEET_SHADOW,
+  SCANNER_SWITCH,
   SPACE,
   TOUCH_TARGET,
   TYPE,
+  VERDICT,
+  VERDICT_LABEL,
+  VERDICT_NEUTRAL,
+  WHITE,
   withAlpha,
 } from "@/lib/tokens";
+import { TAB_BAR_HEIGHT } from "@/lib/tab-bar";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -100,6 +111,8 @@ export default function Scan() {
   // from the label result. Nothing else is taken from the link (#29): a read
   // is only shown, never saved under a barcode.
   const params = useLocalSearchParams<{ mode?: string }>();
+  // Where this scan started (the journey, a routine step), handed on to the result.
+  const context = useScanContext();
   const photoRequested = params.mode === "photo";
   // Photo is the default now (issue #214): reading a label works on every
   // product, in any shop, with no catalogue coverage needed — a barcode only
@@ -446,7 +459,7 @@ export default function Scan() {
   const needsPermission = permission !== null && !permission.granted;
   const scanning = mode === "Photo" || status.kind === "idle" || status.kind === "looking";
   const cameraLive = isFocused && granted;
-  const shutterClearance = shutterRoom(insets.bottom);
+  const frameClearance = frameBottom(insets.bottom);
 
   const stage =
     mode === "Barcode" ? (
@@ -459,7 +472,6 @@ export default function Scan() {
         onDismiss={dismissStatus}
         showHint={showScanHint}
         onHint={() => selectMode("Photo")}
-        preserveMode={preserveMode}
       />
     ) : (
       // Photo is the same full-screen stage as Barcode: the camera is live the
@@ -476,6 +488,21 @@ export default function Scan() {
       />
     );
 
+
+  const popupUp = status.kind === "found" || (mode === "Barcode" && (status.kind === "missed" || status.kind === "unreachable"));
+  // At the foot of the camera it is the screen's main bar: as tall as the tab
+  // bar and wide enough for roomy pills (owner). On the cream permission
+  // screen it shares the top row with two buttons, at the usual size.
+  const modeSwitch = (atFoot: boolean) => (
+    <SegmentedSwitch
+      tone={needsPermission ? SCANNER_SWITCH.page : SCANNER_SWITCH.camera}
+      options={MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
+      selected={mode}
+      onSelect={selectMode}
+      height={atFoot ? TAB_BAR_HEIGHT : undefined}
+      style={{ width: atFoot ? FOOT_SWITCH_WIDTH : SWITCH_WIDTH }}
+    />
+  );
 
   // Full screen, presented the standard iOS way: it slides up from the bottom
   // and back down when closed (`presentation: "fullScreenModal"` in
@@ -502,7 +529,7 @@ export default function Scan() {
         {granted && scanning ? (
           <ScanViewfinder
             topInset={insets.top + CLOSE_CLEARANCE}
-            bottomInset={shutterClearance}
+            bottomInset={frameClearance}
             frame={mode === "Barcode" ? "corners" : "full"}
             description={mode === "Barcode" ? (scanStateCopy({ kind: "ready", mode: "barcode" }).line ?? null) : null}
             hint={mode === "Barcode" ? (scanStateCopy({ kind: "ready", mode: "barcode" }).line ?? null) : null}
@@ -518,7 +545,7 @@ export default function Scan() {
           <FoundSheet
             key={status.product.id}
             product={status.product}
-            onLeave={preserveMode}
+            need={context.from === "journey" ? decodeNeed(context.need) : null}
             onClose={() => {
               // Same reasoning as the missed/unreachable clear in
               // `selectMode` — the barcode is still in frame. See #190.
@@ -528,14 +555,16 @@ export default function Scan() {
             }}
             onOpen={() => {
               preserveMode();
-              router.push({ pathname: "/result/[id]", params: { id: status.product.id, from: "barcode" } });
+              // `scan` says it was scanned even when `from` names where the scan started (Skin needs), for History.
+              router.push({ pathname: "/result/[id]", params: { id: status.product.id, from: "barcode", scan: "barcode", ...context } });
             }}
           />
         ) : null}
       </View>
 
-      {/* Across the top (v7): close, the mode switch, the torch. One switch,
-          so the pills do not remount and jump on a mode change. */}
+      {/* Across the top: close and the torch. The mode switch is at the foot
+          of the screen (owner), except on the cream permission screen, whose
+          own buttons are down there. */}
       <View
         pointerEvents="box-none"
         style={{
@@ -554,15 +583,9 @@ export default function Scan() {
           accessibilityLabel="Close scanner"
           onDark={!needsPermission}
           // Opened from a deep link there is nothing underneath to go back to.
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+          onPress={goBackOrHome}
         />
-        <SegmentedSwitch
-          tone={needsPermission ? "light" : "dark"}
-          options={MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
-          selected={mode}
-          onSelect={selectMode}
-          style={{ width: SWITCH_WIDTH }}
-        />
+        {needsPermission ? modeSwitch(false) : null}
         {/* In both modes, not just Barcode (#195): the camera is one shared
             instance, so a torch turned on here stays on across a mode switch —
             and someone photographing a label on the same dark shelf needs the
@@ -579,6 +602,17 @@ export default function Scan() {
           <View style={{ width: TOUCH_TARGET }} />
         )}
       </View>
+
+      {/* Barcode | Ingredient list, at the foot of the screen under the frame
+          (owner). One switch for both modes, so it does not remount and jump
+          on a change. Put away while a pop-up is up: it rises over this spot.
+          A miss carried into Photo mode has no pop-up, and the switch is the
+          way back from there. */}
+      {!needsPermission && !popupUp ? (
+        <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, bottom: stageBottom(insets.bottom), alignItems: "center" }}>
+          {modeSwitch(true)}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -589,7 +623,7 @@ export default function Scan() {
  * there (#313). Tapping the dimmed camera closes it, as its own "Try again" or
  * "Scan another" does.
  */
-function ScanPopup({ onDismiss, children }: { onDismiss: () => void; children: ReactNode }) {
+function ScanPopup({ onDismiss, light = false, children }: { onDismiss: () => void; /** Barely dims the camera (v9: a found product). */ light?: boolean; children: ReactNode }) {
   const [rise] = useState(() => new Animated.Value(0));
   const [lift] = useState(() => rise.interpolate({ inputRange: [0, 1], outputRange: [POPUP_TRAVEL, 0] }));
   useEffect(() => {
@@ -602,7 +636,7 @@ function ScanPopup({ onDismiss, children }: { onDismiss: () => void; children: R
 
   return (
     <>
-      <Animated.View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: SCRIM, opacity: rise }}>
+      <Animated.View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: light ? withAlpha(INK, 0.06) : SCRIM, opacity: rise }}>
         <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Close" style={{ flex: 1 }} />
       </Animated.View>
       <Animated.View
@@ -612,7 +646,7 @@ function ScanPopup({ onDismiss, children }: { onDismiss: () => void; children: R
           right: FLOAT_INSET,
           bottom: FLOAT_INSET,
           transform: [{ translateY: lift }],
-          backgroundColor: CANVAS,
+          backgroundColor: WHITE,
           borderRadius: FLOAT_RADIUS,
           paddingTop: SPACE.section,
           paddingHorizontal: SPACE.gutter,
@@ -627,48 +661,39 @@ function ScanPopup({ onDismiss, children }: { onDismiss: () => void; children: R
   );
 }
 
-/** A quiet text action under a pop-up's button ("Try again", "Scan another"). */
-function PopupLink({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={{ minHeight: TOUCH_TARGET, paddingHorizontal: SPACE.block, alignItems: "center", justifyContent: "center" }}
-      className="active:opacity-70"
-    >
-      <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{label}</Text>
-    </Pressable>
-  );
-}
-
 /**
- * No product for that code (v7): a search badge, what happened, the way
- * forward as the button, and search by name and "Try again" under it.
+ * No product for that code (v9). A product we don't have yet gets the
+ * watercolour, what happened, and one button — scan its ingredient list
+ * instead; tapping the dimmed camera goes back to scanning. A code that isn't
+ * a product at all keeps the small "not found" badge and "Try again".
  */
 function NoMatchSheet({
   copy,
   primaryLabel,
-  secondaryLabel,
   showTryAgain,
   onDismiss,
   onPrimary,
-  onSecondary,
 }: {
   copy: ScanCopy;
   primaryLabel: string;
-  secondaryLabel: string;
-  /** Off when the button itself already scans again. */
+  /** A product we simply don't have yet: the illustrated sheet with its one button. */
   showTryAgain: boolean;
   onDismiss: () => void;
   onPrimary: () => void;
-  onSecondary: () => void;
 }) {
+  const notOurs = showTryAgain;
   return (
     <ScanPopup onDismiss={onDismiss}>
-      <View style={{ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: CHOSEN.fill }}>
-        <Ionicons name="search" size={22} color={LINK} />
-      </View>
+      {notOurs ? (
+        <Image source={NOT_IN_CATALOGUE_ART} contentFit="cover" contentPosition={{ top: "52%", left: "50%" }} accessibilityLabel="" style={{ width: 240, height: 130, marginTop: -12, marginBottom: -16 }} />
+      ) : (
+        <View style={{ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: CHOSEN.fill }}>
+          {/* A magnifier with a minus: looked, not found (v9, the hand-off's path). */}
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+            <Path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5M8.5 11h5" stroke={LINK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </View>
+      )}
       <Text
         accessibilityRole="header"
         style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
@@ -677,57 +702,71 @@ function NoMatchSheet({
       </Text>
       <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{copy.line}</Text>
       <PrimaryButton label={primaryLabel} onPress={onPrimary} style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.section }} />
-      <View style={{ marginTop: SPACE.text, alignItems: "center" }}>
-        <PopupLink label={secondaryLabel} onPress={onSecondary} />
-        {showTryAgain ? <PopupLink label="Try again" onPress={onDismiss} /> : null}
-      </View>
     </ScanPopup>
   );
 }
 
 /**
- * The product a barcode found (v7): brand and name in small capitals, the big
- * score ring and its verdict pill, "See full result", and "Scan another" to put
- * the camera back to scanning. With no score to show (no skin profile, or too
- * little of the label recognised), the product's picture takes the ring's place.
+ * The product a barcode found (v9): one card that is one button — its bottle,
+ * the brand over the name, the verdict and score on a pill in the band's
+ * colour ("Good match · 84/100"), and an arrow. It opens the full result;
+ * tapping the camera behind it, barely dimmed, puts the camera back to
+ * scanning. With no score to show (no skin profile, or too little of the
+ * label recognised) the pill says so instead. Opened from Skin needs
+ * (`need`), the same pill answers that path's question: whether the product
+ * holds an active for what was picked, in words, with no score.
  */
 function FoundSheet({
   product,
+  need,
   onClose,
   onOpen,
-  onLeave,
 }: {
   product: ProductWithIngredients;
+  need: Need | null;
   onClose: () => void;
   onOpen: () => void;
-  /** Called before How scoring works opens over the scanner. */
-  onLeave: () => void;
 }) {
   const profile = useAppStore((s) => s.profile);
-  const match = matchProduct(product, profile);
+  // One or the other: the Skin needs answer, or the skin profile's match.
+  const verdict = need ? needVerdict(product.ingredients, need) : null;
+  const match = verdict ? null : matchProduct(product, profile);
+  const colours = verdict ? NEED_PILL[verdict.level] : scoreColours(match?.verdict ?? "unknown");
   return (
-    <ScanPopup onDismiss={onClose}>
-      <Text numberOfLines={2} style={{ textAlign: "center", fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase", color: MUTED }}>
-        {product.brand} · {product.name}
-      </Text>
-      <View style={{ marginTop: SPACE.block }}>
-        {match.score === null ? <ProductThumbnail product={product} size={RING_SIZE} /> : <ScoreRing match={match} />}
-      </View>
-      <View style={{ marginTop: SPACE.block }}>
-        <VerdictPill match={match} onOpen={onLeave} />
-      </View>
-      <PrimaryButton
-        label="See full result"
-        accessibilityLabel="See the full result"
+    <ScanPopup onDismiss={onClose} light>
+      <Pressable
         onPress={onOpen}
-        style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.section }}
-      />
-      <View style={{ marginTop: SPACE.text }}>
-        <PopupLink label="Scan another" onPress={onClose} />
-      </View>
+        accessibilityRole="button"
+        accessibilityLabel="See the full result"
+        accessibilityHint={`${product.brand} ${product.name}`}
+        style={{ alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: SPACE.block }}
+        className="active:opacity-80"
+      >
+        <View style={{ width: 52, height: 64, alignItems: "center", justifyContent: "center" }}>
+          <ProductThumbnail product={product} size={64} />
+        </View>
+        <View style={{ flex: 1, alignItems: "flex-start", gap: 2 }}>
+          <Text numberOfLines={1} style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>
+            {product.brand}
+          </Text>
+          <Text numberOfLines={2} style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: 21, color: INK }}>
+            {product.name}
+          </Text>
+          <View testID="found-pill" style={{ marginTop: 6, height: 28, paddingHorizontal: 12, borderRadius: 14, justifyContent: "center", backgroundColor: colours.deep }}>
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>
+              {verdict ? verdict.headline : !match || match.score === null ? "See full result" : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`}
+            </Text>
+          </View>
+        </View>
+      </Pressable>
     </ScanPopup>
   );
 }
+
+// The found card's pill on a scan from Skin needs: green for an active that works, amber for a mild one, grey for none.
+const NEED_PILL: Record<NeedLevel, { deep: string }> = { works: VERDICT.high, little: VERDICT.medium, none: VERDICT_NEUTRAL };
+
+const NOT_IN_CATALOGUE_ART = require("@/assets/illustrations/not-in-catalogue.webp");
 
 // How far below the screen a pop-up starts.
 const POPUP_TRAVEL = 700;
@@ -757,7 +796,6 @@ function BarcodeStage({
   onDismiss,
   showHint,
   onHint,
-  preserveMode,
 }: {
   permission: ReturnType<typeof useCameraPermissions>[0];
   requestPermission: () => void;
@@ -773,9 +811,6 @@ function BarcodeStage({
   showHint: boolean;
   /** Switches to Photo mode — the scan hint's own action. */
   onHint: () => void;
-  /** Call before any navigation away from this stage that isn't a tab
-   *  switch — see `Scan`'s own `preserveMode` doc comment for why. */
-  preserveMode: () => void;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -823,13 +858,13 @@ function BarcodeStage({
         />
       )}
 
-      {/* Status, at the bottom of the stage. */}
+      {/* Status, at the bottom of the stage, above the mode switch. */}
       <View
         style={{
           position: "absolute",
           left: STAGE_INSET,
           right: STAGE_INSET,
-          bottom,
+          bottom: needsPermission ? bottom : frameBottom(insets.bottom),
           gap: 12,
         }}
       >
@@ -907,33 +942,6 @@ function BarcodeStage({
           </Pressable>
         )}
 
-        {/* Only when the lookup could not be made. It is the one suggestion here
-            that still works with no connection: Browse renders from the cached
-            catalogue. After a plain miss it is left out — a barcode scan is the
-            direct lookup, so Browse would not have the product either. */}
-        {status.kind === "unreachable" && (
-          <Pressable
-            onPress={() => {
-              preserveMode();
-              // Closes the scanner onto Search. The scanner is a
-              // modal (#313): a push would open the tabs inside it.
-              router.dismissTo("/browse");
-            }}
-            accessibilityRole="link"
-            style={{
-              minHeight: TOUCH_TARGET,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            className="active:opacity-70"
-          >
-            <Text
-              style={{ fontSize: TYPE.label, fontWeight: "600", color: withAlpha(CANVAS, 0.85) }}
-            >
-              {copy?.link}
-            </Text>
-          </Pressable>
-        )}
 
 
 
@@ -946,16 +954,9 @@ function BarcodeStage({
           key={status.code}
           copy={copy}
           primaryLabel={copy.action ?? ""}
-          secondaryLabel={copy.byName ?? ""}
           showTryAgain={!notProduct}
           onDismiss={onDismiss}
           onPrimary={notProduct ? onDismiss : onPhotograph}
-          onSecondary={() => {
-            preserveMode();
-            // Closes the scanner onto Search, with the box empty and focused
-            // (#323); `byName` is a one-time request, so each tap is new.
-            router.dismissTo({ pathname: "/browse", params: { byName: String(Date.now()) } });
-          }}
         />
       ) : null}
 
@@ -968,7 +969,8 @@ function BarcodeStage({
             position: "absolute",
             left: STAGE_INSET,
             right: STAGE_INSET,
-            bottom,
+            // Above the mode switch at the foot of the screen.
+            bottom: frameBottom(insets.bottom),
             alignItems: "center",
           }}
         >
@@ -1038,12 +1040,13 @@ function IngredientsStage({
   // Where a finished read goes, whether it came from the camera or a chosen
   // photo: straight to the verdict (issue #214). The verdict is only shown;
   // users can't add products to the catalogue (owner).
+  const context = useScanContext();
   const openVerdict = () => {
     // The X (or a tab switch), or a mode switch away and back, can land
     // while a read is still pending.
     if (!stillWanted()) return;
     preserveMode();
-    router.push("/label-result");
+    router.push({ pathname: "/label-result", params: context });
   };
 
   return (
@@ -1054,7 +1057,8 @@ function IngredientsStage({
           cameraSize={cameraSize}
           window={windowBox}
           frameTopOffset={CLOSE_CLEARANCE}
-          bottomInset={bottom}
+          // The shutter and the library button sit inside the frame, at its foot (owner).
+          bottomInset={frameBottom(insets.bottom)}
           onRead={openVerdict}
           isStillWanted={stillWanted}
         />
@@ -1078,6 +1082,8 @@ function IngredientsStage({
 const MODE_LABEL: Record<Mode, string> = { Barcode: "Barcode", Photo: "Ingredient list" };
 // The mode switch's width in the top row (v7).
 const SWITCH_WIDTH = 230;
+// At the foot of the camera: wider, so "Ingredient list" has room in its pill.
+const FOOT_SWITCH_WIDTH = 300;
 // Apple's spring for a sheet presenting: critically damped (fraction 1) at
 // response 0.5 s, as a system sheet rises — stiffness = (2π / response)²,
 // damping = 4π × fraction / response, for a mass of 1.
@@ -1087,17 +1093,15 @@ const STAGE_INSET = 20;
 // The top row (a whole touch target, 8 below the safe area); the frame
 // starts clear of it.
 const CLOSE_CLEARANCE = 44;
-// The shutter (v7), and the gap between it and the frame above.
-const SHUTTER = 76;
 
 /** Where the stage's bottom row sits: clear of the edge and the home indicator. */
 function stageBottom(safeBottom: number) {
   return Math.max(SPACE.section, safeBottom + SPACE.gutter);
 }
 
-/** Room under the frame for the shutter, with a section's gap above it. */
-function shutterRoom(safeBottom: number) {
-  return stageBottom(safeBottom) + SHUTTER + SPACE.section;
+/** Where the frame ends: above the mode switch at the foot of the screen, with 32pt between them. */
+function frameBottom(safeBottom: number) {
+  return stageBottom(safeBottom) + TAB_BAR_HEIGHT + SPACE.section + SPACE.text;
 }
 // How long a barcode can sit unread in frame before offering Photo mode as
 // the way out (#195) — long enough that a normal read (under a second)

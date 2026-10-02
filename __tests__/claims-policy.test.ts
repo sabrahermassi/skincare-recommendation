@@ -3,6 +3,7 @@ import { PRODUCTS } from "@/data/products";
 import { SCHOOL } from "@/data/school";
 import { FIRST_PAGE_COPY } from "@/lib/first-page";
 import { NOTE_COPY, tooLongCopy } from "@/lib/journal";
+import { GOALS, JOURNEY_CARDS, PREGNANCY_LINE, needHeadlines, needVerdict } from "@/lib/journey";
 import { pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
 import { claimPolicyViolations } from "@/lib/claims-policy";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
@@ -12,7 +13,7 @@ import { scoreExplanation, verdictHeadline, type MatchResult } from "@/lib/match
 import { INGREDIENT_RULES } from "@/lib/rules";
 import { SCHOOL_CHAT_COPY } from "@/lib/school-chat";
 import { TIPS } from "@/lib/tips";
-import { LABEL_ORDER, SCORING_DISCLAIMER, scoreBandLines, scoreFactors, scoreNotes } from "@/lib/scoring-explainer";
+import { LABEL_ORDER, SCORING_DISCLAIMER, SCORING_INTRO, SCORING_SOURCES, scoreBandLines, scoreFactors, scoreNotes } from "@/lib/scoring-explainer";
 import { UNSET_SENSITIVITY_REASON, contraindications } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
@@ -123,6 +124,24 @@ const SCHOOL_CLAIMS: OwnedClaim[] = SCHOOL.flatMap((category) =>
   ])
 );
 
+// Skin needs: the things to work on and every line of every card, which say
+// what an ingredient does more directly than anything else in the app.
+const JOURNEY_CLAIMS: OwnedClaim[] = [
+  ...GOALS.map((goal) => ({ source: `GOALS.${goal.key}`, text: goal.label })),
+  ...JOURNEY_CARDS.flatMap((card) =>
+    ([card.name, card.line, card.found ?? "", card.whyYou, card.howToStart, card.watchFor, card.whenShopping] as const).map((text, i) => ({ source: `JOURNEY_CARDS.${card.key}[${i}]`, text }))
+  ),
+  { source: "PREGNANCY_LINE", text: PREGNANCY_LINE },
+  // What a scan from Skin needs can say: every headline, and each kind of line under it.
+  ...needHeadlines().map((text) => ({ source: "needHeadlines", text })),
+  ...GOALS.flatMap((goal) =>
+    [["water"], ["salicylic acid", "glycerin", "niacinamide", "retinol", "ceramide np"], ["tea tree oil", "adenosine", "allantoin"]].map((names) => ({
+      source: `needVerdict.${goal.key}.line`,
+      text: needVerdict(names.map((name) => ({ name })), { goal: goal.key, sensitivity: null, pregnant: null }).line,
+    }))
+  ),
+];
+
 // #228: the app's copy around a journal note — never the note itself, which
 // is the person's own words and is not the app's to audit or rewrite.
 const NOTE_CLAIMS: OwnedClaim[] = [
@@ -146,6 +165,8 @@ const SCORING_CLAIMS: OwnedClaim[] = [
   ...scoreBandLines().map((band) => ({ source: `scoreBandLines.${band.label}`, text: `${band.range}: ${band.label}. ${band.meaning}` })),
   { source: "LABEL_ORDER", text: LABEL_ORDER },
   { source: "SCORING_DISCLAIMER", text: SCORING_DISCLAIMER },
+  { source: "SCORING_INTRO", text: SCORING_INTRO },
+  { source: "SCORING_SOURCES", text: SCORING_SOURCES },
 ];
 
 // #352: the School chat's own lines — its greeting speaks for the app.
@@ -163,6 +184,7 @@ const OWNED_CLAIMS: OwnedClaim[] = [
   // `contraindications` collection below runs at "high", so it never reaches it.
   { source: "UNSET_SENSITIVITY_REASON", text: UNSET_SENSITIVITY_REASON },
   ...NOTE_CLAIMS,
+  ...JOURNEY_CLAIMS,
   ...FIRST_PAGE_CLAIMS,
   ...NUDGE_RESULTS,
   ...PAIRING_CLAIMS,

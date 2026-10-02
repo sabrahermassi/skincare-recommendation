@@ -41,14 +41,10 @@ export type ScanCopy = {
   action?: string;
   /** The quiet underlined way out, when there is one. */
   link?: string;
-  /** A second quiet way out: look the product up by the name on the pack (#323). */
-  byName?: string;
   /** A small line of scope under the rest. */
   note?: string;
 };
 
-const SEARCH_LINK = "Find it in Search";
-const BY_NAME = "Search by name";
 /** Clears a panel and puts the camera back to scanning. */
 export const SCAN_SOMETHING_ELSE = "Scan something else";
 
@@ -74,11 +70,11 @@ export function scanStateCopy(state: ScanState): ScanCopy {
     case "found":
       return { action: "See full result" };
     case "not-ours-yet":
+      // v9: the ingredient list is the way on.
       return {
-        title: "We don't have this product yet",
-        line: "Scan its ingredient list to see what's in it, or search for it by name.",
+        title: "Not in our catalogue yet",
+        line: "Scan its ingredient list instead. We'll read it and score it for your skin.",
         action: "Scan the ingredient list",
-        byName: BY_NAME,
       };
     case "couldnt-read":
       switch (state.why) {
@@ -87,7 +83,6 @@ export function scanStateCopy(state: ScanState): ScanCopy {
             title: "That's not a product barcode",
             line: "Look for the striped barcode on the packaging.",
             action: "Scan again",
-            byName: BY_NAME,
           };
         case "photo":
           return {
@@ -124,34 +119,31 @@ export function scanStateCopy(state: ScanState): ScanCopy {
             title: "Let's take a short break",
             line: "That was a lot of scans at once. Try again in a minute or two.",
             action: "Try again",
-            link: SEARCH_LINK,
           }
         : {
             title: "We couldn't check that just now",
             line: "It's us or the connection, not your scan.",
             action: "Try again",
-            link: SEARCH_LINK,
           };
     case "camera-off":
+      // v9 (read off the hand-off). Photo mode's "Choose a
+      // photo instead" is the way on without a camera.
       return state.refused
         ? {
-            title: "The camera is turned off",
-            line: "Turn it back on for for.me in your settings, then come back.",
-            action: "Open settings",
-            link: SEARCH_LINK,
+            title: "The camera is off",
+            line: "Turn it on in Settings to scan products.",
+            action: "Open Settings",
           }
         : state.mode === "barcode"
           ? {
-              title: "Scan a product",
-              line: "Point your camera at a barcode and we'll read the ingredients for you. Nothing leaves your phone except the barcode number.",
+              title: "Scan a barcode",
+              line: "Point your camera at the barcode on the pack. We only use it while you scan.",
               action: "Turn on the camera",
-              link: SEARCH_LINK,
             }
           : {
-              title: "Photograph the ingredient list",
-              line: "Take a photo of the list on the back and we'll read it. We crop to the frame, send it to Google to read the text, and never store the image.",
+              title: "Scan the ingredient list",
+              line: "Take a photo of the list on the back and we'll read it for you.",
               action: "Turn on the camera",
-              link: SEARCH_LINK,
             };
   }
 }

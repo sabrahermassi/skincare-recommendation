@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, View, useWindowDimensions, type StyleProp
 import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
-import { INK, LINK, MENU_CHOSEN, MENU_SHADOW, MUTED, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { INK, LINK, MENU_CHOSEN, MENU_SHADOW, MUTED, TOUCH_TARGET, TYPE, WHITE } from "@/lib/tokens";
 
 // The popover (v7, read off the hand-off): white, radius 14, 4pt inside,
 // sized to its longest option; the chosen row tinted and ticked.
@@ -94,7 +94,7 @@ export function FilterDropdown<T extends string>({
                 opacity: anchor ? 1 : 0,
                 width: popoverWidth,
                 borderRadius: POPOVER_RADIUS,
-                backgroundColor: SURFACE,
+                backgroundColor: WHITE,
                 ...MENU_SHADOW,
               }}
             >

@@ -2,15 +2,16 @@ import { forwardRef } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
-import { FONT_SCALE, ICON_MUTED, INK, SURFACE, TYPE } from "@/lib/tokens";
+
+import { FONT_SCALE, ICON_MUTED, INK, PLACEHOLDER, SURFACE, TYPE, WHITE } from "@/lib/tokens";
 
 /** The bar's height (v7). */
 const SEARCH_BAR_HEIGHT = 44;
 
 /**
- * Every search bar in the app (v7): a 44pt pure white pill, no border or
- * shade, a grey magnifier and placeholder, 17pt text, and a small clear cross
- * once there is something to clear.
+ * Every search bar in the app: a 44pt stone pill (v9), no border or shade, a
+ * grey magnifier, a darker grey placeholder, 17pt text, and a small clear
+ * cross once there is something to clear.
  */
 export const SearchBar = forwardRef<
   TextInput,
@@ -37,7 +38,7 @@ export const SearchBar = forwardRef<
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={ICON_MUTED}
+        placeholderTextColor={PLACEHOLDER}
         autoCorrect={false}
         autoFocus={autoFocus}
         returnKeyType="search"
@@ -50,7 +51,7 @@ export const SearchBar = forwardRef<
         <Pressable onPress={() => onChangeText("")} accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={8} className="active:opacity-70" style={{ padding: 6 }}>
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
             <Circle cx={12} cy={12} r={10} fill={ICON_MUTED} />
-            <Path d="m15 9-6 6M9 9l6 6" stroke={SURFACE} strokeWidth={2.2} strokeLinecap="round" />
+            <Path d="m15 9-6 6M9 9l6 6" stroke={WHITE} strokeWidth={2.2} strokeLinecap="round" />
           </Svg>
         </Pressable>
       ) : null}

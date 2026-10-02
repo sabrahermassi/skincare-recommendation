@@ -1,20 +1,21 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ResultTabs } from "@/components/result/ResultTabs";
 import { PageTitle } from "@/components/PageTitle";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { ReadingScale, Text } from "@/components/Text";
+import { Text } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
 import type { Ingredient } from "@/data/types";
 import { track } from "@/lib/analytics";
+import { decodeNeed, needProfile, type Need } from "@/lib/journey";
 import { isLowCoverage, matchProduct } from "@/lib/matching";
 import { photoScannerHref } from "@/lib/open-scanner";
 import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-label";
 import { historyWarningCount, isVerified } from "@/lib/safety";
-import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { CANVAS, INK, MUTED, SPACE, STONE, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -28,14 +29,14 @@ import { useAppStore } from "@/store/useAppStore";
  * entry already on this phone: nothing in the address becomes the list (#29).
  */
 export default function LabelResult() {
-  const { entry } = useLocalSearchParams<{ entry?: string }>();
+  const { entry, from, need } = useLocalSearchParams<{ entry?: string; from?: string; need?: string }>();
   const saved = useAppStore((s) => (entry ? s.history.find((h) => h.id === entry)?.label : undefined));
   const [held] = useState(heldLabelRead);
   const read: HeldLabel | null = entry ? (saved ? { ingredients: saved } : null) : held;
 
   if (!read) return <NothingToShow />;
 
-  return <Verdict read={read} fromHistory={Boolean(entry)} />;
+  return <Verdict read={read} fromHistory={Boolean(entry)} journey={from === "journey" ? (decodeNeed(need) ?? undefined) : undefined} />;
 }
 
 function NothingToShow() {
@@ -63,8 +64,12 @@ function retake() {
   router.dismissTo(photoScannerHref());
 }
 
-function Verdict({ read, fromHistory }: { read: HeldLabel; fromHistory: boolean }) {
-  const profile = useAppStore((s) => s.profile);
+function Verdict({ read, fromHistory, journey }: { read: HeldLabel; fromHistory: boolean; journey?: Need }) {
+  // A scan from Skin needs is read for what was picked there today, not the
+  // saved skin profile (owner): this profile, made from the pick, only feeds
+  // its warnings. History keeps the skin profile's score, below.
+  const ownProfile = useAppStore((s) => s.profile);
+  const profile = useMemo(() => (journey ? needProfile(journey) : ownProfile), [journey, ownProfile]);
   const [ingredients, setIngredients] = useState<Ingredient[] | null>(null);
 
   useEffect(() => track("verdict_viewed", { path: "label" }), []);
@@ -118,27 +123,26 @@ function Verdict({ read, fromHistory }: { read: HeldLabel; fromHistory: boolean 
   const lowCoverage = isLowCoverage(product.ingredients);
 
   return (
-    <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenHeader />
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.text }}>
-        {/* The reading part of the screen: its text follows the phone's text
-            size all the way up (#334). */}
-        <ReadingScale>
-          {/* No product to name: what was read, as the header. */}
+    // v9: the header is on stone and the result a white sheet over it, as on a catalogue product.
+    <View style={{ flex: 1, backgroundColor: STONE }}>
+      {/* The same two tabs as a catalogue product (design_handoff_skincare_cards). */}
+      <ResultTabs
+        nav={<ScreenHeader title="Product details" />}
+        // No product to name: what was read, as the header.
+        header={
           <View style={{ paddingHorizontal: SPACE.gutter }}>
             <PageTitle title="Label photo" line={total > 0 ? `Read from your photo · ${recognised} of ${total} names recognised` : "Nothing was read"} />
           </View>
-          {/* The same two tabs as a catalogue product (design_handoff_skincare_cards). */}
-          <ResultTabs
-            ingredients={product.ingredients}
-            type={product.type}
-            match={match}
-            profile={profile}
-            onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name } })}
-            footer={lowCoverage ? <PrimaryButton label="Retake the photo" onPress={() => retake()} /> : null}
-          />
-        </ReadingScale>
-      </ScrollView>
+        }
+        // Scanned from Skin needs: read against what was picked there.
+        need={journey}
+        ingredients={product.ingredients}
+        type={product.type}
+        match={match}
+        profile={profile}
+        onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, ...(journey ? { from: "journey" } : {}) } })}
+        footer={lowCoverage ? <PrimaryButton label="Retake the photo" onPress={() => retake()} /> : null}
+      />
     </View>
   );
 }

@@ -1,15 +1,30 @@
+import { BlurView } from "expo-blur";
 import { useState } from "react";
-import { View, type LayoutChangeEvent } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
+import Animated, { makeMutable, useAnimatedReaction, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 
+import { FLOW_LEAD, FLOW_TRAIL } from "@/lib/flow";
 import { TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_MARGIN } from "@/lib/tab-bar";
-import { INK, SURFACE, TAB_BAR_SHADE } from "@/lib/tokens";
+import { HAIRLINE, TAB_BAR_GLASS, TAB_PILL } from "@/lib/tokens";
+
+// The pill behind the current tab (v9, read off the hand-off: 64 by 48), a
+// capsule like the bar it sits in.
+export const PILL_WIDTH = 64;
+export const PILL_HEIGHT = 48;
+// The bar has five equal places: Home, School, the scan button, Saved, Profile.
+const SLOTS = 5;
+
+/** Which of the bar's five places is current. Each tab button sets it when it becomes the current tab. */
+export const activeTabSlot = makeMutable(0);
+
+// How strongly what scrolls under the bar is blurred (expo-blur, 1-100).
+const TAB_BAR_BLUR = 14;
 
 /**
- * The tab bar's body: a plain rounded bar with a soft shade under it. The scan
- * button is not cut into it; it sits on top of the bar and casts its own shadow.
- * Drawn rather than styled so the shade can be built from a few soft layers
- * (`TAB_BAR_SHADE`) instead of one box shadow.
+ * The tab bar's body: a rounded bar of glass (owner: mostly white, with a
+ * faint show of what scrolls under it) and a hairline round it. No shade
+ * under it (owner). The scan button is not cut into it; it sits on top of the
+ * bar and casts its own shadow.
  */
 export function TabBarBackground() {
   const [width, setWidth] = useState(0);
@@ -20,40 +35,45 @@ export function TabBarBackground() {
   const x0 = TAB_BAR_SIDE_MARGIN;
   const x1 = width - TAB_BAR_SIDE_MARGIN;
 
-  const d =
-    width > 0
-      ? [
-          // True arcs at the corners: a quadratic curve only approximates a
-          // quarter circle, and at a capsule's full radius the ends looked pinched.
-          `M ${x0 + r} 0`,
-          `L ${x1 - r} 0`,
-          `A ${r} ${r} 0 0 1 ${x1} ${r}`,
-          `L ${x1} ${h - r}`,
-          `A ${r} ${r} 0 0 1 ${x1 - r} ${h}`,
-          `L ${x0 + r} ${h}`,
-          `A ${r} ${r} 0 0 1 ${x0} ${h - r}`,
-          `L ${x0} ${r}`,
-          `A ${r} ${r} 0 0 1 ${x0 + r} 0`,
-          "Z",
-        ].join(" ")
-      : "";
+  // The pill's two edges, each on its own spring. -1 until the bar has a width.
+  const left = useSharedValue(-1);
+  const right = useSharedValue(-1);
+  useAnimatedReaction(
+    () => ({ slot: activeTabSlot.value, width }),
+    (now, before) => {
+      if (now.width <= 0) return;
+      const place = (now.width - 2 * TAB_BAR_SIDE_MARGIN) / SLOTS;
+      const to = TAB_BAR_SIDE_MARGIN + place * (now.slot + 0.5) - PILL_WIDTH / 2;
+      // First time, or the bar changed width: just be there.
+      if (left.value < 0 || !before || before.width !== now.width) {
+        left.value = to;
+        right.value = to + PILL_WIDTH;
+        return;
+      }
+      const forward = to > left.value;
+      left.value = withSpring(to, forward ? FLOW_TRAIL : FLOW_LEAD);
+      right.value = withSpring(to + PILL_WIDTH, forward ? FLOW_LEAD : FLOW_TRAIL);
+    },
+    [width],
+  );
+  const pillStyle = useAnimatedStyle(() => ({
+    opacity: left.value < 0 ? 0 : 1,
+    left: left.value,
+    // Never thinner than its own height, however the springs cross.
+    width: Math.max(PILL_HEIGHT, right.value - left.value),
+  }));
 
   return (
     <View pointerEvents="none" onLayout={onLayout} style={{ position: "absolute", left: 0, right: 0, top: 0, height: h }}>
+      {/* The bar itself, with a hairline round it so its edge shows even over a white card. */}
       {width > 0 ? (
-        <Svg width={width} height={h + TAB_BAR_SHADE.reach} style={{ position: "absolute", top: 0, left: 0 }}>
-          {Array.from({ length: TAB_BAR_SHADE.layers }, (_, i) => (
-            <Path
-              key={i}
-              d={d}
-              fill={INK}
-              fillOpacity={TAB_BAR_SHADE.opacity}
-              transform={`translate(0 ${((i + 1) * TAB_BAR_SHADE.reach) / TAB_BAR_SHADE.layers})`}
-            />
-          ))}
-          <Path d={d} fill={SURFACE} />
-        </Svg>
+        <View style={{ position: "absolute", top: 0, left: x0, width: x1 - x0, height: h, borderRadius: r, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: HAIRLINE }}>
+          {/* "light", never "default", which goes dark with the phone's appearance. */}
+          <BlurView intensity={TAB_BAR_BLUR} tint="light" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: TAB_BAR_GLASS }]} />
+        </View>
       ) : null}
+      <Animated.View style={[{ position: "absolute", top: (h - PILL_HEIGHT) / 2, height: PILL_HEIGHT, borderRadius: PILL_HEIGHT / 2, backgroundColor: TAB_PILL }, pillStyle]} />
     </View>
   );
 }

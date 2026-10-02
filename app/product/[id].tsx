@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Share, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Share, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { FirstPageMoment } from "@/components/FirstPageMoment";
@@ -13,19 +13,19 @@ import { ReportMistakeLink } from "@/components/ReportMistakeLink";
 import { ResultTabs } from "@/components/result/ResultTabs";
 import { IconCircle } from "@/components/IconCircle";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { ReadingScale, Text } from "@/components/Text";
+import { Text } from "@/components/Text";
 import { failureMessage, fetchProduct, peekProducts, type FetchFailure } from "@/data/api";
 import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import { track } from "@/lib/analytics";
 import { relativeTime } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
-import { FROM_FINDER, useScoringProfile } from "@/lib/finder-choices";
+import { decodeNeed, needProfile, needVerdict } from "@/lib/journey";
 import { matchProduct } from "@/lib/matching";
 import { openScanner } from "@/lib/open-scanner";
 import { productIdParam } from "@/lib/route-params";
 import { historyWarningCount } from "@/lib/safety";
 import { saveFromTap, useCanJournal } from "@/lib/saving";
-import { CANVAS, DISPLAY_FONT, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE, VERDICT, WARN } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, STONE, TYPE, VERDICT, WARN } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import NotFound from "@/app/+not-found";
 
@@ -72,16 +72,15 @@ const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 export default function ProductRoute() {
   // `from` says how the person got here, for the funnel (#225) only: the
   // scanner and the label flow set it, and anything else is browsing.
-  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  const { id, from, need, scan } = useLocalSearchParams<{ id: string; from?: string; need?: string; scan?: string }>();
   const productId = productIdParam(id);
   if (!productId) return <NotFound />;
-  return <ProductScreen id={productId} from={from} />;
+  return <ProductScreen id={productId} from={from} need={need} scanned={from === "barcode" || from === "label" || scan === "barcode"} />;
 }
 
-function ProductScreen({ id, from }: { id: string; from?: string }) {
+function ProductScreen({ id, from, need, scanned }: { id: string; from?: string; need?: string; /** Reached by scanning it, whichever path the scan started on. */ scanned: boolean }) {
   // Seeded from the catalogue cache so a product already in memory paints on
-  // the first frame instead of a spinner — the same `peekProducts` seam
-  // `app/(tabs)/browse.tsx` uses for a warm start.
+  // the first frame instead of a spinner (`peekProducts`).
   const [product, setProduct] = useState<ProductWithIngredients | null>(() =>
     peekProducts("all")?.find((p) => p.id === id) ?? null,
   );
@@ -101,7 +100,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
    * on screen beats an error page. That is only right while the id has not
    * changed: without this, routing to a different product whose load then
    * failed left the previous one rendering under the new id, which is the
-   * exact trap `app/ingredients/[id].tsx` documents on its own fetch.
+   * exact trap a screen that keeps state across ids falls into.
    *
    * Seeded to `id` when `product` itself was seeded from the cache above —
    * otherwise a failed first fetch would read as "a different id's product
@@ -114,12 +113,14 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
   // `react-hooks/purity` flags `Date.now()` during render.
   const [renderedAt] = useState(() => Date.now());
 
-  // The answers this page scores with: the finder's when opened from its
-  // results, so the number matches the row tapped; the skin profile otherwise.
-  const profile = useScoringProfile(from);
-  // History is the person's own record, so it logs the skin profile's score
-  // whichever answers the page is showing.
+  // Scored with the skin profile, except a scan from Skin needs
+  // (`from=journey`): that one is read for what was picked there today, with
+  // no score, and this profile, made from the pick, only feeds its warnings
+  // (owner, 2 October 2026). History still keeps the skin profile's score,
+  // below.
   const ownProfile = useAppStore((s) => s.profile);
+  const journey = useMemo(() => (from === "journey" ? decodeNeed(need) : null), [from, need]);
+  const profile = useMemo(() => (journey ? needProfile(journey) : ownProfile), [journey, ownProfile]);
   const savedProducts = useAppStore((s) => s.savedProducts);
   const toggleSaved = useAppStore((s) => s.toggleSaved);
   const saveProduct = useAppStore((s) => s.saveProduct);
@@ -201,9 +202,10 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
     const { score, warnings } = matchProduct(product, useAppStore.getState().profile);
     // historyWarningCount, not irritationWarnings (#187 found in review) —
     // see lib/safety.ts for why the two must differ.
-    recordView({ id: product.id, known: true, score, warnings: historyWarningCount(warnings) });
-    track("verdict_viewed", { path: from === "barcode" || from === "label" ? from : "browse" });
-  }, [product, confirmedFor, recordView, from]);
+    // Scanned or opened, for Saved › History's line (v9).
+    recordView({ id: product.id, known: true, score, warnings: historyWarningCount(warnings), source: scanned ? "scanned" : "opened" });
+    track("verdict_viewed", { path: from === "barcode" || from === "label" ? from : scanned ? "barcode" : "browse" });
+  }, [product, confirmedFor, recordView, from, scanned]);
 
   // The effect above captures the score as it stood when the screen opened,
   // which for someone with no profile is no score at all. The inline prompt
@@ -245,16 +247,6 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
             {failureMessage(failure)}
           </Text>
           <PrimaryButton label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
-          <Pressable
-            onPress={() => router.push("/browse")}
-            accessibilityRole="link"
-            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
-            className="active:opacity-70"
-          >
-            <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-              Search the catalogue
-            </Text>
-          </Pressable>
         </View>
       </View>
     );
@@ -268,21 +260,7 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
           <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
             Product not found
           </Text>
-          <PrimaryButton label="Scan another" onPress={openScanner} />
-          {/* "Scan another" assumes a physical bottle in hand, which isn't
-              true for everyone who lands here — a stale link, a bookmark to
-              a removed product. Same escape hatch the missed-barcode panel
-              offers, for the same reason. */}
-          <Pressable
-            onPress={() => router.push("/browse")}
-            accessibilityRole="link"
-            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
-            className="active:opacity-70"
-          >
-            <Text style={{ fontSize: 13.5, fontWeight: "600", color: INK, textDecorationLine: "underline" }}>
-              Search instead
-            </Text>
-          </Pressable>
+          <PrimaryButton label="Scan another" onPress={() => openScanner()} />
         </View>
       </View>
     );
@@ -328,8 +306,10 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
 
   async function share() {
     if (!product) return;
-    const line =
-      match.score === null
+    // A Skin needs result has no score to share: it shares its answer in words.
+    const line = journey
+      ? `${product.brand} ${product.name} - ${needVerdict(product.ingredients, journey).headline.toLowerCase()}, on for.me`
+      : match.score === null
         ? `${product.brand} ${product.name} - checked on for.me`
         : `${product.brand} ${product.name} - ${match.score}/100 for my skin, on for.me`;
     try {
@@ -340,85 +320,78 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenHeader
-        right={
-          <>
-            <IconCircle
-              // Saves for anyone, signed in or not (#300).
-              onPress={() => {
-                haptic.tap();
-                if (saved) toggleSaved(product.id);
-                else saveFromTap(() => saveProduct(product.id, product.fetchedAt), "product");
-              }}
-              accessibilityLabel={saved ? "Remove from saved" : "Save"}
-              accessibilityState={{ selected: saved }}
-            >
-              <PopOnToggle active={saved}>
-                <HeartIcon size={20} filled={saved} color={saved ? VERDICT.low.solid : undefined} />
-              </PopOnToggle>
-            </IconCircle>
-            <IconCircle onPress={share} accessibilityLabel="Share this result">
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M12 3v12M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"
-                  stroke={INK}
-                  strokeWidth={1.9}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </IconCircle>
-          </>
-        }
-      />
-
-      <FirstPageMoment />
-
-      {/* "handled": the note editor's sheet renders inside this scroll view, and
-          touches follow the React tree, not the Modal's window. Without it, the
-          first tap on "Save note" while typing only closed the keyboard. */}
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.text }}>
-        {/* The reading part of the screen: its text follows the phone's text
-            size all the way up (#334). */}
-        <ReadingScale>
-          <ProductHeader product={product} />
-          <ResultTabs
-            // A new product starts on Skin match with the full list, not the last
-            // one's tab, filter or open sheet (#379 review). The loading spinner
-            // between products already remounts this today; the key keeps that
-            // true if a cached product ever skips the spinner.
-            key={product.id}
-            ingredients={product.ingredients}
-            type={product.type}
-            match={match}
-            profile={profile}
-            onIngredientPress={(ingredient) =>
-              router.push({
-                pathname: "/ingredient/[inci]",
-                // The ingredient page scores with the same answers as this one.
-                params: from === FROM_FINDER ? { inci: ingredient.name, product: product.id, from } : { inci: ingredient.name, product: product.id },
-              })
-            }
-            footer={
+    // v9: the header (nav, product, switch) is on stone; the result is a white sheet over it.
+    <View style={{ flex: 1, backgroundColor: STONE }}>
+      <ResultTabs
+        nav={
+          <ScreenHeader
+            title="Product details"
+            right={
               <>
-                {/* The person's own note (#228), only for a product on their
-                    shelf, and signed in only (#300): see useCanJournal. */}
-                {savedEntry && canJournal ? <ProductNote note={savedEntry.note} onSave={(note) => setNote(product.id, note)} /> : null}
-                {/* How old the formula is, once old enough to matter, and a
-                    confirmed change since it was saved (step 8): WARN, so a
-                    trust-relevant claim never reads as furniture. */}
-                {staleNotice ? <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>{staleNotice}</Text> : null}
-                {formulaChangedNotice ? (
-                  <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>{formulaChangedNotice}</Text>
-                ) : null}
+                <IconCircle
+                  // Saves for anyone, signed in or not (#300).
+                  onPress={() => {
+                    haptic.tap();
+                    if (saved) toggleSaved(product.id);
+                    else saveFromTap(() => saveProduct(product.id, product.fetchedAt), "product");
+                  }}
+                  accessibilityLabel={saved ? "Remove from saved" : "Save"}
+                  accessibilityState={{ selected: saved }}
+                >
+                  <PopOnToggle active={saved}>
+                    <HeartIcon size={20} filled={saved} color={saved ? VERDICT.low.solid : undefined} />
+                  </PopOnToggle>
+                </IconCircle>
+                <IconCircle onPress={share} accessibilityLabel="Share this result">
+                  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 3v12M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"
+                      stroke={INK}
+                      strokeWidth={1.9}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </IconCircle>
               </>
             }
-            // A wrong name or list gets told to us (#327), under the full list.
-            report={<ReportMistakeLink button subject={{ kind: "product", id: product.id, name: product.name, brand: product.brand, barcode: product.barcode }} />}
           />
-        </ReadingScale>
-      </ScrollView>
+        }
+        header={
+          <>
+            <FirstPageMoment />
+            <ProductHeader product={product} />
+          </>
+        }
+        // A new product starts on Skin match with the full list, not the last
+        // one's tab, filter or open sheet (#379 review). The loading spinner
+        // between products already remounts this today; the key keeps that
+        // true if a cached product ever skips the spinner.
+        key={product.id}
+        ingredients={product.ingredients}
+        type={product.type}
+        match={match}
+        profile={profile}
+        onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, product: product.id, ...(journey ? { from: "journey" } : {}) } })}
+        // Scanned from Skin needs: read against what was picked there.
+        need={journey ?? undefined}
+        footer={
+          <>
+            {/* The person's own note (#228), only for a product on their
+                shelf, and signed in only (#300): see useCanJournal. */}
+            {savedEntry && canJournal ? <ProductNote note={savedEntry.note} onSave={(note) => setNote(product.id, note)} /> : null}
+            {/* How old the formula is, once old enough to matter, and a
+                confirmed change since it was saved (step 8): WARN, so a
+                trust-relevant claim never reads as furniture. */}
+            {staleNotice ? <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>{staleNotice}</Text> : null}
+            {formulaChangedNotice ? (
+              <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>{formulaChangedNotice}</Text>
+            ) : null}
+          </>
+        }
+        // A wrong name or list gets told to us (#327), under the full list.
+        report={<ReportMistakeLink button subject={{ kind: "product", id: product.id, name: product.name, brand: product.brand, barcode: product.barcode }} />}
+      />
     </View>
   );
 }
@@ -431,14 +404,15 @@ function ProductScreen({ id, from }: { id: string; from?: string }) {
 function ProductHeader({ product }: { product: ProductWithIngredients }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 16, paddingHorizontal: SPACE.gutter }}>
-      <View style={{ width: 80, height: 92, alignItems: "center", justifyContent: "center" }}>
-        <ProductThumbnail product={product} size={88} />
+      {/* v9: the bottle is 65 by 79 in a 72 by 83 box. */}
+      <View style={{ width: 72, height: 83, alignItems: "center", justifyContent: "center" }}>
+        <ProductThumbnail product={product} size={79} />
       </View>
       <View style={{ flex: 1, gap: 4, paddingTop: 4 }}>
         <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.label, lineHeight: 20, color: MUTED_FAINT }}>
           {product.brand}
         </Text>
-        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontSize: TYPE.title, fontWeight: "600", lineHeight: 25, letterSpacing: -0.2, color: INK }}>
+        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontSize: 18, fontWeight: "600", lineHeight: 23, letterSpacing: -0.18, color: INK }}>
           {product.name}
         </Text>
         {product.type !== "unknown" ? (

@@ -129,7 +129,8 @@ describe("the ingredient page, opened from a product", () => {
 
   it("says a misread pore-clogger is on the lists when the score didn't charge it", async () => {
     await open("isopropyl myristate", {});
-    expect(screen.getByText("Worth a second look")).toBeTruthy();
+    // A strong-evidence pore-clogger is red (owner, 2 October 2026).
+    expect(screen.getByText("Flagged for everyone")).toBeTruthy();
     expect(
       screen.getByText("This name didn't match our ingredient dictionary, but it is on the published pore-clogging lists."),
     ).toBeTruthy();
@@ -157,7 +158,7 @@ describe("the ingredient page, opened from a product", () => {
   });
 });
 
-// #347: a warning's own sentence carries its source here too, as on the product page.
+// #347: what a warning was checked against is listed in the Sources card.
 describe.each([
   ["default text", 1],
   ["the largest text size", 3.57],
@@ -169,19 +170,19 @@ describe.each([
     mockFontScale = 1;
   });
 
-  it("shows both of hydroquinone's warnings, each under its own source", async () => {
+  it("shows both of hydroquinone's warnings, and both their sources in the Sources card", async () => {
     const hydroquinone = PREGNANCY_CAUTION.find((entry) => entry.category === "hydroquinone")!;
     await open("hydroquinone", { pregnancyStatus: "pregnant" });
     expect(screen.getByText("Flagged as best avoided")).toBeTruthy();
-    expect(screen.getByLabelText(`Source: ${EU_PROHIBITED_SOURCE.label}`)).toBeTruthy();
+    expect(screen.getByRole("link", { name: EU_PROHIBITED_SOURCE.label })).toBeTruthy();
     expect(screen.getByText(hydroquinone.reason)).toBeTruthy();
-    expect(screen.getByLabelText(`Source: ${hydroquinone.source!.label}`)).toBeTruthy();
+    expect(screen.getByRole("link", { name: hydroquinone.source!.label })).toBeTruthy();
   });
 
-  it("shows the EU prohibition under a best-avoided warning", async () => {
+  it("lists the EU prohibition as the source of a best-avoided warning", async () => {
     await open("some prohibited substance", {});
     expect(screen.getByText("Flagged as best avoided")).toBeTruthy();
-    expect(screen.getByLabelText(`Source: ${EU_PROHIBITED_SOURCE.label}`)).toBeTruthy();
+    expect(screen.getByRole("link", { name: EU_PROHIBITED_SOURCE.label })).toBeTruthy();
   });
 
   it("shows no source under a restricted ingredient's warning", async () => {
@@ -191,8 +192,9 @@ describe.each([
   });
 });
 
-// The handoff's layout (design_handoff_ingredient_detail): where it came from,
-// where it sits on the label, and Previous / Next along it.
+// The handoff's layout (design_handoff_ingredient_detail): where it came from
+// and where it sits on the label. v9 makes it a sheet, closed with its X; there
+// is no Previous / Next along the label any more.
 describe("the ingredient page's layout", () => {
   it("says where it sits on the label", async () => {
     await open("glycerin", {});
@@ -200,18 +202,14 @@ describe("the ingredient page's layout", () => {
     expect(screen.getByText(/^#2 of 12/)).toBeTruthy();
   });
 
-  it("steps to the next ingredient on the label, and has no previous on the first", async () => {
-    await open("aqua", {});
-    expect(screen.getByRole("button", { name: "Previous ingredient" }).props.accessibilityState).toMatchObject({ disabled: true });
-    await fireEvent.press(screen.getByRole("button", { name: "Next ingredient: Glycerin" }));
-    expect(router.replace).toHaveBeenLastCalledWith({ pathname: "/ingredient/[inci]", params: { inci: "glycerin", product: "p" } });
-  });
-
-  it("steps back to the previous one, and has no next on the last", async () => {
-    await open("niacinamide", {});
+  it("is a sheet with a close button, and no Previous or Next", async () => {
+    await open("glycerin", {});
+    expect(screen.getByTestId("sheet-screen")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Previous ingredient" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Next ingredient/ })).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "Previous ingredient" }));
-    expect(router.replace).toHaveBeenLastCalledWith({ pathname: "/ingredient/[inci]", params: { inci: "petrolatum", product: "p" } });
+    // The sheet's own X, and the dimmed screen behind it.
+    await fireEvent.press(screen.getAllByRole("button", { name: "Close" }).at(-1)!);
+    expect(router.back).toHaveBeenCalled();
   });
 
   it("names the concern a helping ingredient works on", async () => {
@@ -221,18 +219,20 @@ describe("the ingredient page's layout", () => {
   });
 });
 
-// From a product the finder opened, the ingredient scores with the finder's answers too.
-describe("the ingredient page opened from the finder", () => {
-  const { useFinderChoices } = require("@/lib/finder-choices") as typeof import("@/lib/finder-choices");
-  afterEach(() => useFinderChoices.setState({ choices: EMPTY_PROFILE }));
+// Opened from a Skin needs result (owner, 2 October 2026): that path reads
+// nothing from the saved skin profile, so the sheet does not say how the
+// ingredient fits it either.
+it("leaves out For your skin when opened from a Skin needs result", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] } });
+  mockParams = { inci: "niacinamide", product: "p", from: "journey" };
+  (fetchProduct as unknown as { mockResolvedValue(value: unknown): void }).mockResolvedValue({ ok: true, value: PRODUCT });
+  await render(<IngredientRoute />);
+  await act(async () => {});
+  expect(screen.getByText("What it does")).toBeTruthy();
+  expect(screen.queryByText("For your skin")).toBeNull();
+  await act(async () => screen.unmount());
 
-  it("speaks to the finder's concerns, not the skin profile's", async () => {
-    useFinderChoices.setState({ choices: { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] } });
-    useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
-    mockParams = { inci: "niacinamide", product: "p", from: "finder" };
-    (fetchProduct as unknown as { mockResolvedValue(value: unknown): void }).mockResolvedValue({ ok: true, value: PRODUCT });
-    await render(<IngredientRoute />);
-    await act(async () => {});
-    expect(screen.getByText("Helps with your dark spots")).toBeTruthy();
-  });
+  await open("niacinamide", { concerns: ["hyperpigmentation"] });
+  expect(screen.getByText("For your skin")).toBeTruthy();
 });
+

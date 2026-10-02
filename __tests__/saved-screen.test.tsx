@@ -1,10 +1,10 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 /**
- * Saved, History and Ingredients (v7): one list layout, white cards under a
- * caps group label. Untapping a saved card's heart takes it off the shelf at
- * once; a swipe's bin asks first on every tab ("Remove from saved?", "Delete
- * product?", "Delete ingredient?").
+ * Saved, History and Ingredients (v9): one list layout, stone cards under a
+ * caps group label. Untapping a saved card's heart or a starred ingredient's
+ * star takes it off at once, with an Undo toast; only History swipes to a bin,
+ * which asks first ("Delete product?").
  */
 
 jest.setTimeout(30000);
@@ -45,37 +45,46 @@ beforeEach(() => {
   useAppStore.setState({ profile: EMPTY_PROFILE, savedProducts: [], savedIngredients: [], history: [], shelfOwner: null });
 });
 
-it("takes a saved product off the shelf at once when its heart is untapped, with no Undo", async () => {
-  useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 1 }] });
-  await render(<Saved />);
-  expect(await screen.findByText(NAME)).toBeTruthy();
-
-  await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove from saved" })));
-  expect(useAppStore.getState().savedProducts).toEqual([]);
-  expect(screen.queryByText("Undo")).toBeNull();
-  expect(screen.getByText("No products saved yet")).toBeTruthy();
-});
-
-// Unsaving deletes the person's note with it, so a product with one asks first.
-describe("unsaving a product with a note", () => {
-  async function untap() {
-    useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 1, note: "Stings a bit" }] });
+describe("unsaving from Saved", () => {
+  it("takes a saved product off the shelf at once when its heart is untapped, and offers Undo", async () => {
+    useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 1 }] });
     await render(<Saved />);
     expect(await screen.findByText(NAME)).toBeTruthy();
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove from saved" })));
-  }
 
-  it("asks, and keeps the product and its note on Keep it", async () => {
-    await untap();
-    expect(screen.getByText("Remove from saved?")).toBeTruthy();
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Keep it" })));
-    expect(useAppStore.getState().savedProducts).toEqual([{ id: "aqua-ceramide-cream", savedAt: 1, note: "Stings a bit" }]);
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove from saved" })));
+    expect(useAppStore.getState().savedProducts).toEqual([]);
+    expect(screen.queryByText("Remove from saved?")).toBeNull();
+    expect(screen.getByText("Removed from saved")).toBeTruthy();
+    expect(screen.getByText("No products saved yet")).toBeTruthy();
   });
 
-  it("removes it on Remove", async () => {
-    await untap();
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove" })));
-    expect(useAppStore.getState().savedProducts).toEqual([]);
+  // Undo is why it no longer asks first about a note: the note comes back too.
+  it("puts the product back with its date, step and note on Undo", async () => {
+    const entry = { id: "aqua-ceramide-cream", savedAt: 5, note: "Stings a bit", routineStep: 3 as const };
+    useAppStore.setState({ savedProducts: [{ id: "snail-repair-ampoule", savedAt: 9 }, entry] });
+    await render(<Saved />);
+    expect(await screen.findByText(NAME)).toBeTruthy();
+
+    await act(async () => fireEvent.press(screen.getAllByRole("button", { name: "Remove from saved" })[1]));
+    expect(useAppStore.getState().savedProducts.map((p) => p.id)).toEqual(["snail-repair-ampoule"]);
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Undo" })));
+    expect(useAppStore.getState().savedProducts).toEqual([{ id: "snail-repair-ampoule", savedAt: 9 }, entry]);
+    expect(screen.queryByTestId("undo-toast")).toBeNull();
+  });
+
+  it("drops the toast after four seconds", async () => {
+    jest.useFakeTimers();
+    try {
+      useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 1 }] });
+      await render(<Saved />);
+      expect(await screen.findByText(NAME)).toBeTruthy();
+      await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove from saved" })));
+      expect(screen.getByTestId("undo-toast")).toBeTruthy();
+      await act(async () => jest.advanceTimersByTime(4000));
+      expect(screen.queryByTestId("undo-toast")).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 
@@ -86,10 +95,10 @@ describe("History", () => {
     await screen.findByText(NAME);
   }
 
-  it("shows the score it had then as a pill, and saves from the heart", async () => {
+  it("shows the score it had then, and saves from the heart", async () => {
     useAppStore.setState({ history: [viewed("aqua-ceramide-cream")] });
     await openHistory();
-    expect(screen.getByLabelText("72 out of 100")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /72 out of 100$/ })).toBeTruthy();
 
     await act(async () => fireEvent.press(screen.getByRole("button", { name: "Save" })));
     expect(useAppStore.getState().savedProducts.map((p) => p.id)).toEqual(["aqua-ceramide-cream"]);
@@ -107,12 +116,29 @@ describe("History", () => {
     expect(useAppStore.getState().history).toEqual([]);
   });
 
+  it("says whether it was scanned or opened (v9), and when for an older entry", async () => {
+    useAppStore.setState({
+      history: [
+        { ...viewed("aqua-ceramide-cream"), source: "scanned" as const },
+        { ...viewed("snail-repair-ampoule"), source: "opened" as const },
+        viewed("hanbang-rice-serum"),
+      ],
+    });
+    await openHistory();
+    expect(screen.getByText(/· Scanned$/)).toBeTruthy();
+    expect(screen.getByText(/· Opened$/)).toBeTruthy();
+    expect(screen.getByText(/· just now$/i)).toBeTruthy();
+    expect(screen.queryByText(/Checked \d+ times/)).toBeNull();
+  });
+
   it("keeps the entry when the confirmation is closed with its X", async () => {
     useAppStore.setState({ history: [viewed("aqua-ceramide-cream")] });
     await openHistory();
 
     await act(async () => fireEvent.press(screen.getByRole("button", { name: `Delete ${NAME}` })));
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Keep it" })));
+    // One button on this sheet (owner): the X is the way out.
+    expect(screen.queryByRole("button", { name: "Keep it" })).toBeNull();
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Close" })));
     expect(useAppStore.getState().history).toHaveLength(1);
   });
 });
@@ -125,22 +151,15 @@ describe("Ingredients", () => {
     await screen.findByText("Niacinamide");
   }
 
-  it("asks before deleting a starred ingredient from the bin, and deletes only on Delete", async () => {
+  it("unstars at once from the star, with no swipe and no question, and Undo puts it back", async () => {
     await openIngredients();
+    expect(screen.queryByRole("button", { name: "Delete Niacinamide" })).toBeNull();
 
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete Niacinamide" })));
-    expect(screen.getByText("Delete ingredient?")).toBeTruthy();
-    expect(useAppStore.getState().savedIngredients).toEqual(["niacinamide"]);
-
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete" })));
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove from starred ingredients" })));
     expect(useAppStore.getState().savedIngredients).toEqual([]);
-  });
+    expect(screen.getByText("Removed from starred")).toBeTruthy();
 
-  it("keeps the ingredient when the question is answered Keep it", async () => {
-    await openIngredients();
-
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete Niacinamide" })));
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Keep it" })));
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Undo" })));
     expect(useAppStore.getState().savedIngredients).toEqual(["niacinamide"]);
   });
 });
@@ -176,31 +195,38 @@ it("shows a label photo in History and opens that same result", async () => {
   });
   await render(<Saved />);
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "History" })));
-  const card = await screen.findByRole("button", { name: /^Label photo, 2 ingredients/ });
+  const card = await screen.findByRole("button", { name: /^Label photo, 2 ingredients, Scanned · we don't have this product/ });
   expect(screen.getByLabelText("64 out of 100")).toBeTruthy();
   await act(async () => fireEvent.press(card));
   expect(mockPush).toHaveBeenCalledWith({ pathname: "/label-result", params: { entry: "label-7" } });
 });
 
-describe("v7 list layout", () => {
-  it("asks before a swipe's bin takes a product off the shelf", async () => {
+describe("v9 list layout", () => {
+  it("has no swipe-to-remove on Saved", async () => {
     useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 1 }] });
     await render(<Saved />);
     expect(await screen.findByText("1 product")).toBeTruthy();
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: `Remove ${NAME}` })));
-    expect(screen.getByText("Remove from saved?")).toBeTruthy();
-    expect(screen.getByText("It stays in your history.")).toBeTruthy();
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Remove" })));
-    expect(useAppStore.getState().savedProducts).toEqual([]);
+    expect(screen.queryByRole("button", { name: `Remove ${NAME}` })).toBeNull();
+    expect(screen.queryByText(/Swipe left/)).toBeNull();
   });
 
-  it("clears the whole shelf from Clear all, after asking", async () => {
+  it("clears the whole shelf from Clear all, after asking with one Delete button", async () => {
     useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 1 }] });
     await render(<Saved />);
     await screen.findByText(NAME);
     await act(async () => fireEvent.press(screen.getAllByRole("button", { name: "Clear all" })[0]));
     expect(screen.getByText("Clear all saved?")).toBeTruthy();
     expect(useAppStore.getState().savedProducts).toHaveLength(1);
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete" })));
+    expect(useAppStore.getState().savedProducts).toEqual([]);
+  });
+
+  it("shows a dash for a product with no score", async () => {
+    useAppStore.setState({ history: [{ ...viewed("aqua-ceramide-cream"), scoreAtView: null }] });
+    await render(<Saved />);
+    await act(async () => fireEvent.press(screen.getByRole("tab", { name: /History/ })));
+    await screen.findByText(NAME);
+    expect(screen.getByText("–", { includeHiddenElements: true })).toBeTruthy();
   });
 
   it("groups History into today and earlier", async () => {

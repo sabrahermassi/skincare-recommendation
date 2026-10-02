@@ -1,11 +1,18 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { router } from "expo-router";
+import { Share } from "react-native";
 
 import ProductRoute from "@/app/product/[id]";
 import ResultRoute from "@/app/result/[id]";
 import { fetchProduct } from "@/data/api";
 import type { Ingredient } from "@/data/types";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
+
+/** With no skin profile a sheet rises over the result (v9) and nothing behind it can be reached: put it away. */
+async function putTeaserAway() {
+  const close = screen.queryByRole("button", { name: "Close" });
+  if (close) await fireEvent.press(close);
+}
 
 /**
  * #155: the product screen's states before there is a product to show —
@@ -81,7 +88,8 @@ describe.each([
     await act(async () => {});
 
     expect(screen.getByText("Product not found")).toBeTruthy();
-    expect(screen.getByText("Search instead")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Scan another" })).toBeTruthy();
+    expect(screen.queryByText("Search instead")).toBeNull();
     expect(screen.queryByText("Couldn't load this product")).toBeNull();
   });
 });
@@ -120,6 +128,7 @@ describe("the product screen's Report a mistake link", () => {
     fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
     await render(<ProductRoute />);
     await act(async () => {});
+    await putTeaserAway();
   }
 
   it("shows the link on the Ingredients tab when a support address is set", async () => {
@@ -130,12 +139,13 @@ describe("the product screen's Report a mistake link", () => {
     expect(screen.getByText("Report a mistake")).toBeTruthy();
   });
 
-  it("hides it when none is", async () => {
+  // Owner (v9): the button is there before anything receives a report.
+  it("shows it when none is, too", async () => {
     delete process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
     await open();
     expect(screen.getAllByText("Toner").length).toBeGreaterThan(0);
     await fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
-    expect(screen.queryByText("Report a mistake")).toBeNull();
+    expect(screen.getByText("Report a mistake")).toBeTruthy();
   });
 });
 
@@ -175,6 +185,7 @@ describe("the product screen's result tabs", () => {
     fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: product }));
     await render(<ProductRoute />);
     await act(async () => {});
+    await putTeaserAway();
   }
   // Skin match opens first (owner); these tests are about the Ingredients tab.
   const openSafety = async (product?: object) => {
@@ -210,6 +221,8 @@ describe("the product screen's result tabs", () => {
     fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: { ...PRODUCT, id: "obf-8809999999999", barcode: "8809999999999" } }));
     await screen.rerender(<ProductRoute />);
     await act(async () => {});
+    // A new product, so the sheet rises again.
+    await putTeaserAway();
     expect(screen.getByRole("tab", { name: "Skin match" }).props.accessibilityState).toMatchObject({ selected: true });
   });
 
@@ -231,11 +244,27 @@ describe("the product screen's result tabs", () => {
     expect(row("water")).toBeNull();
   });
 
+  // The pore-clogging row counts disputed names ("2 ingredients, mixed
+  // evidence"); the list it opens used to leave them out and say "Nothing
+  // here clogs pores" under that count (owner, 2 October 2026).
+  it("lists the disputed pore-cloggers the risk row counts, and says why each is there", async () => {
+    const disputed = { ...PRODUCT, ingredients: ["water", "shea butter", "glycerin", "beeswax", "panthenol"].map((name) => ingredient(name)) };
+    await openSafety(disputed);
+    await fireEvent.press(screen.getByRole("button", { name: /^Pore-clogging risk: Contested\. 2 ingredients, mixed evidence/ }));
+    expect(screen.getByLabelText("Filter: Pore-clogging")).toBeTruthy();
+    expect(row("shea butter")).toBeTruthy();
+    expect(row("beeswax")).toBeTruthy();
+    expect(row("glycerin")).toBeNull();
+    expect(screen.queryByText("Nothing here clogs pores.")).toBeNull();
+    expect(screen.getAllByText("Disputed: sources disagree on whether it clogs pores")).toHaveLength(2);
+  });
+
   it("shows the first five rows of a long list, then all of them (v7)", async () => {
     const long = { ...PRODUCT, ingredients: Array.from({ length: 10 }, (_, i) => ingredient(`plain ${i}`)) };
     await openSafety(long);
     expect(row("plain 5")).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "5 more ingredients" }));
+    // Nothing left is flagged, so the button says so (v9).
+    await fireEvent.press(screen.getByRole("button", { name: "5 more, no concerns" }));
     expect(row("plain 9")).toBeTruthy();
   });
 
@@ -262,9 +291,15 @@ describe("the product screen's result tabs", () => {
 
   // #346: no profile, no empty score — the quiz, until the answers score.
   it("asks for the skin profile on Skin match, and shows the score once the answers score", async () => {
-    await open();
+    // The teaser sheet rises over the result (v9), with the way to the quiz.
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+    expect(screen.getByRole("button", { name: "Take the 1-minute quiz" })).toBeTruthy();
+    // Put away, the tab's own card asks the same.
+    await putTeaserAway();
     await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
-    expect(screen.getByText("Is it right for your skin?")).toBeTruthy();
+    expect(screen.getAllByText("Is it right for your skin?").length).toBeGreaterThan(0);
     expect(screen.queryByTestId("score-ring")).toBeNull();
     await act(async () => screen.unmount());
 
@@ -273,7 +308,8 @@ describe("the product screen's result tabs", () => {
     await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
     expect(screen.queryByText("Is it right for your skin?")).toBeNull();
     expect(screen.getByTestId("score-ring")).toBeTruthy();
-    expect(screen.getByText(/We checked its ingredients against your skin profile/)).toBeTruthy();
+    // One result for everyone with a profile (v9): a title saying how it fits, then the reasons.
+    expect(screen.getByText(/^(This makes sense for you|Could work for you|Probably not for you)$/)).toBeTruthy();
   });
 
   it("opens How scoring works from the verdict pill (v7)", async () => {
@@ -288,14 +324,14 @@ describe("the product screen's result tabs", () => {
     useAppStore.setState({ profile: { ...EMPTY_PROFILE, sensitivity: "some" } });
     await open();
     await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
-    expect(screen.getByText("Is it right for your skin?")).toBeTruthy();
+    expect(screen.getAllByText("Is it right for your skin?").length).toBeGreaterThan(0);
   });
 });
 
-// Opened from the finder's results, a product scores with the finder's answers,
-// so it shows the number its row showed (owner); from anywhere else, the skin profile.
-describe("the product screen opened from the finder", () => {
-  const { useFinderChoices } = require("@/lib/finder-choices") as typeof import("@/lib/finder-choices");
+// Opened from Skin needs: a path of its own (owner, 2 October 2026). Skin match
+// there says whether the product holds an active for what was picked, in
+// words, with no score; every other way in keeps the skin profile's match.
+describe("the product screen opened from the journey", () => {
   const { matchProduct } = require("@/lib/matching") as typeof import("@/lib/matching");
   const ingredient = (name: string): Ingredient => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true });
   const PRODUCT = {
@@ -317,84 +353,117 @@ describe("the product screen opened from the finder", () => {
     ingredientIds: [],
     ingredients: ["water", "glycerin", "niacinamide", "butylene glycol", "sodium hyaluronate"].map(ingredient),
   };
-  const FINDER = { ...EMPTY_PROFILE, concerns: ["hyperpigmentation" as const] };
   const OWN = { ...EMPTY_PROFILE, baseSkinType: "oily" as const, concerns: ["acne-prone" as const], sensitivity: "high" as const };
 
-  afterEach(() => {
-    useAppStore.setState({ profile: EMPTY_PROFILE, history: [] });
-    useFinderChoices.setState({ choices: EMPTY_PROFILE });
-  });
+  afterEach(() => useAppStore.setState({ profile: EMPTY_PROFILE, history: [], savedProducts: [] }));
 
-  async function open(from?: string) {
-    useAppStore.setState({ profile: OWN, history: [] });
-    useFinderChoices.setState({ choices: FINDER });
-    mockParams = from ? { id: PRODUCT.id, from } : { id: PRODUCT.id };
+  async function open(params: Record<string, string>) {
+    useAppStore.setState({ profile: OWN, history: [], savedProducts: [] });
+    mockParams = { id: PRODUCT.id, ...params };
     fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
     await render(<ProductRoute />);
     await act(async () => {});
+    await putTeaserAway();
   }
 
-  it("shows the finder's score, and the skin profile's anywhere else", async () => {
-    const finderScore = matchProduct(PRODUCT, FINDER).score;
-    const ownScore = matchProduct(PRODUCT, OWN).score;
-    expect(finderScore).not.toBe(ownScore);
-
-    await open("finder");
-    expect(screen.getByText(String(finderScore))).toBeTruthy();
-    await act(async () => screen.unmount());
-
-    await open();
-    expect(screen.getByText(String(ownScore))).toBeTruthy();
-  });
-
-  it("speaks only to the finder's concerns", async () => {
-    await open("finder");
-    expect(screen.getByText(/with dark spots\./)).toBeTruthy();
-    expect(screen.queryByText(/acne/i)).toBeNull();
-  });
-
-  it("still logs the skin profile's score in History", async () => {
-    await open("finder");
+  it("answers whether it has an active for what was picked, with no score", async () => {
+    await open({ from: "journey", need: "dark-marks.." });
+    // Niacinamide works on dark marks; the ring and its number are gone.
+    expect(screen.getByRole("header", { name: "Works on dark marks" })).toBeTruthy();
+    expect(screen.getByText("It has 1 of the 5 actives we suggest to fade dark marks.")).toBeTruthy();
+    expect(screen.queryByText(String(matchProduct(PRODUCT, OWN).score))).toBeNull();
+    expect(screen.queryByText("/100")).toBeNull();
+    expect(screen.queryByText(/recommendations for your skin/)).toBeNull();
+    // The heart is the one save (v9): no second button under the result.
+    expect(screen.queryByText("Save to my plan")).toBeNull();
+    // History is the person's own log: it keeps the skin profile's score.
     expect(useAppStore.getState().history[0]?.scoreAtView).toBe(matchProduct(PRODUCT, OWN).score);
   });
 
-  // A safety note for the person holding the phone: not lost because the
-  // finder didn't ask, and the number still matches the row (#384 review).
-  it("keeps the skin profile's pregnancy caution when the finder left it unanswered", async () => {
-    const pregnant = { ...OWN, pregnancyStatus: "pregnant" as const };
-    const retinoid = { ...PRODUCT, ingredients: [...PRODUCT.ingredients, ingredient("retinol")] };
-    useAppStore.setState({ profile: pregnant, history: [] });
-    useFinderChoices.setState({ choices: FINDER });
-    mockParams = { id: PRODUCT.id, from: "finder" };
-    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: retinoid }));
-    await render(<ProductRoute />);
-    await act(async () => {});
-    expect(screen.getByText(String(matchProduct(retinoid, FINDER).score))).toBeTruthy();
-    await fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
-    expect(screen.getByText("Best avoided while pregnant")).toBeTruthy();
+  it("says a product with no active for the pick is not made for it, and what it is better for", async () => {
+    await open({ from: "journey", need: "pimples.." });
+    expect(screen.getByRole("header", { name: "Not made for pimples" })).toBeTruthy();
+    expect(screen.getByText("It has none of the actives we suggest to clear pimples.")).toBeTruthy();
+    expect(screen.getByText("We looked for:")).toBeTruthy();
+    expect(screen.getAllByText("Better for:").length).toBeGreaterThan(0);
+    // Hydration is not an active for pimples: the glycerin in it earns no green box.
+    expect(screen.queryByText(/put water back in/)).toBeNull();
+    // Pores are the point of this pick, so it says nothing in it clogs them.
+    expect(screen.getByText("Nothing in it")).toBeTruthy();
   });
 
-  // Finder answers that don't score (sensitivity only) give the row no number;
-  // the page uses the skin profile, which its "Find my match" can change.
-  it("uses the skin profile when the finder's answers don't score", async () => {
-    useAppStore.setState({ profile: OWN, history: [] });
-    useFinderChoices.setState({ choices: { ...EMPTY_PROFILE, sensitivity: "some" } });
-    mockParams = { id: PRODUCT.id, from: "finder" };
+  it("counts hydration where hydration is the pick", async () => {
+    await open({ from: "journey", need: "hydrate.." });
+    expect(screen.getByRole("header", { name: "Works on dry skin" })).toBeTruthy();
+    expect(screen.getByText(/put water back in/)).toBeTruthy();
+  });
+
+  it("shows the answer from Skin needs to someone with no skin profile", async () => {
+    useAppStore.setState({ profile: EMPTY_PROFILE, history: [], savedProducts: [] });
+    mockParams = { id: PRODUCT.id, from: "journey", need: "pimples.high.no" };
     fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
     await render(<ProductRoute />);
     await act(async () => {});
-    expect(screen.queryByText("See your skin match")).toBeNull();
+    expect(screen.queryByText("Is it right for your skin?")).toBeNull();
+    expect(screen.getByRole("header", { name: "Not made for pimples" })).toBeTruthy();
+  });
+
+  it("names support once without counting it, and lets a strong pore-clogger hold a pores pick back", async () => {
+    const product = { ...PRODUCT, ingredients: ["water", "salicylic acid", "centella asiatica extract", "isopropyl palmitate"].map(ingredient) };
+    useAppStore.setState({ profile: OWN, history: [], savedProducts: [] });
+    mockParams = { id: PRODUCT.id, from: "journey", need: "pimples.." };
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: product }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+    // Salicylic acid would work on pimples; the pore-clogger beside it caps the answer.
+    expect(screen.getByRole("header", { name: "Helps a little with pimples" })).toBeTruthy();
+    expect(screen.getByText(/It also has an ingredient that can clog pores\./)).toBeTruthy();
+    expect(screen.getByText(/is comedogenic and may clog pores/)).toBeTruthy();
+    expect(screen.queryByText("Nothing in it")).toBeNull();
+    expect(screen.getByText("Also in it:")).toBeTruthy();
+    expect(screen.getByText(/which support skin but are not actives for this/)).toBeTruthy();
+  });
+
+  it("opens an ingredient from a Skin needs result without the saved profile's reading of it", async () => {
+    await open({ from: "journey", need: "dark-marks.." });
+    await fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
+    await fireEvent.press(screen.getByLabelText(/^Niacinamide,/));
+    expect(router.push).toHaveBeenCalledWith({ pathname: "/ingredient/[inci]", params: { inci: "niacinamide", product: PRODUCT.id, from: "journey" } });
+  });
+
+  it("logs a barcode scan that started in Skin needs as Scanned", async () => {
+    await open({ from: "journey", need: "pimples..", scan: "barcode" });
+    expect(useAppStore.getState().history[0]?.source).toBe("scanned");
+  });
+
+  it("shares the answer in words, never a score", async () => {
+    const share = jest.spyOn(Share, "share").mockResolvedValue({ action: "sharedAction" });
+    await open({ from: "journey", need: "pimples.." });
+    await fireEvent.press(screen.getByRole("button", { name: "Share this result" }));
+    expect(share).toHaveBeenCalledWith({ message: "Brand Serum - not made for pimples, on for.me" });
+    share.mockRestore();
+  });
+
+  it("falls back to the skin profile when the link's need is not one", async () => {
+    await open({ from: "journey", need: "not-a-goal" });
     expect(screen.getByText(String(matchProduct(PRODUCT, OWN).score))).toBeTruthy();
   });
 
-  it("opens an ingredient with the same answers", async () => {
-    await open("finder");
-    await fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
-    await fireEvent.press(screen.getByLabelText(/^Niacinamide,/));
-    expect(router.push).toHaveBeenLastCalledWith({
-      pathname: "/ingredient/[inci]",
-      params: { inci: "niacinamide", product: PRODUCT.id, from: "finder" },
-    });
+  // One result for everyone with a profile (v9): opened any other way, it
+  // counts against the skin profile's own concerns instead.
+  it("reads against the skin profile's concerns when opened any other way", async () => {
+    await open({});
+    expect(screen.getByText(/^It covers \d of the \d recommendations for your skin\.$/)).toBeTruthy();
+    // Nothing in it works on acne, the profile's one concern.
+    expect(screen.getAllByText(/it won.t work on your acne on its own/).length).toBeGreaterThan(0);
+  });
+
+  it("logs a scan as Scanned and anything else as Opened", async () => {
+    await open({ from: "barcode" });
+    expect(useAppStore.getState().history[0]?.source).toBe("scanned");
+    await act(async () => screen.unmount());
+    await open({});
+    expect(useAppStore.getState().history[0]?.source).toBe("opened");
   });
 });
 

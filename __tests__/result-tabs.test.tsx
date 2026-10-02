@@ -1,11 +1,23 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
-import { ResultTabs } from "@/components/result/ResultTabs";
+let mockFontScale = 1;
+jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
+  __esModule: true,
+  default: () => ({ width: 402, height: 874, scale: 3, fontScale: mockFontScale }),
+}));
+
+
+import { reasonOrder, ResultTabs } from "@/components/result/ResultTabs";
+import { Text } from "@/components/Text";
 import type { Ingredient, SkinProfile } from "@/data/types";
 import { matchProduct } from "@/lib/matching";
-import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
-import { INGREDIENT_RULES } from "@/lib/rules";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
+
+/** With no skin profile a sheet rises over the result (v9) and nothing behind it can be reached: put it away. */
+async function putTeaserAway() {
+  const close = screen.queryByRole("button", { name: "Close" });
+  if (close) await fireEvent.press(close);
+}
 
 /**
  * The product result's two tabs (design_handoff_skincare_cards), past what
@@ -29,28 +41,29 @@ const BASE = ["water", "glycerin", "butylene glycol", "xanthan gum"];
 async function show(names: string[], profile: SkinProfile) {
   const ingredients = [...BASE, ...names].map(ingredient);
   const match = matchProduct({ type: "serum", ingredients }, profile);
-  await render(<ResultTabs ingredients={ingredients} type="serum" match={match} profile={profile} onIngredientPress={jest.fn()} />);
+  await render(<ResultTabs header={null} ingredients={ingredients} type="serum" match={match} profile={profile} onIngredientPress={jest.fn()} />);
   await act(async () => {});
+  await putTeaserAway();
 }
 
 const openMatch = () => fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
 const openIngredients = () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
 
-it("puts a reason's source under it, on its card (#326)", async () => {
-  const source = INGREDIENT_RULES.find((rule) => rule.names.includes("niacinamide"))?.source;
-  expect(source).toBeDefined();
+// Owner, 2 October 2026: no sources on the result; they are on each ingredient's own sheet.
+it("gives a reason its box, with no source under it", async () => {
   await show(["niacinamide"], { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] });
   await openMatch();
-  expect(screen.getByText(/^Niacinamide helps with dark spots$/)).toBeTruthy();
-  expect(screen.getByLabelText(`Source: ${source!.label}`)).toBeTruthy();
+  // One of the Skin needs recommendations for dark spots (v9), in its own box.
+  expect(screen.getByText(/^Niacinamide helps with oil balance/)).toBeTruthy();
+  expect(screen.queryByText("Good support")).toBeNull();
+  expect(screen.queryByLabelText(/^Source:/)).toBeNull();
 });
 
-it("puts a pregnancy caution's source on the pregnancy card", async () => {
-  const hydroquinone = PREGNANCY_CAUTION.find((entry) => entry.category === "hydroquinone")!;
+it("shows the pregnancy card, with no source on it", async () => {
   await show(["hydroquinone"], { ...EMPTY_PROFILE, pregnancyStatus: "pregnant" });
   await openIngredients();
   expect(screen.getByText("Best avoided while pregnant")).toBeTruthy();
-  expect(screen.getByLabelText(`Source: ${hydroquinone.source!.label}`)).toBeTruthy();
+  expect(screen.queryByLabelText(/^Source:/)).toBeNull();
 });
 
 it("marks a layering note as a caution and leaves the evening note plain", async () => {
@@ -79,21 +92,21 @@ it("opens Skin match on the score, with no row of the answers above it", async (
   expect(screen.queryByText("Edit")).toBeNull();
 });
 
-// #379 review (Codex): a sourced warning keeps its source in "Flagged for your
-// skin", and a concern met only by a declared function still shows under "For
-// your concerns", as the score counts it.
+// #379 review (Codex): a concern met only by a declared function still shows
+// under "For your concerns", as the score counts it.
 async function showWith(extra: Ingredient[], profile: SkinProfile) {
   const ingredients = [...BASE.map(ingredient), ...extra];
   const match = matchProduct({ type: "serum", ingredients }, profile);
-  await render(<ResultTabs ingredients={ingredients} type="serum" match={match} profile={profile} onIngredientPress={jest.fn()} />);
+  await render(<ResultTabs header={null} ingredients={ingredients} type="serum" match={match} profile={profile} onIngredientPress={jest.fn()} />);
   await act(async () => {});
+  await putTeaserAway();
 }
 
-it("puts an EU prohibition's source under it, on its red card", async () => {
+it("puts an EU prohibition on its red card, with no source under it", async () => {
   await showWith([{ ...ingredient("some prohibited substance"), safety: "avoid" }], { ...EMPTY_PROFILE, concerns: ["dullness"] });
   await openMatch();
   expect(screen.getByText("Some Prohibited Substance")).toBeTruthy();
-  expect(screen.getAllByLabelText("Source: EU Cosmetics Regulation, Annex II").length).toBeGreaterThan(0);
+  expect(screen.queryByLabelText(/^Source:/)).toBeNull();
 });
 
 it("credits a concern met only by a declared function, as the score does", async () => {
@@ -102,9 +115,89 @@ it("credits a concern met only by a declared function, as the score does", async
   const ingredients = [ingredient("water"), ingredient("xanthan gum"), { ...ingredient("some declared humectant"), functions: ["humectant"] }];
   const profile = { ...EMPTY_PROFILE, concerns: ["dehydrated" as const] };
   await render(
-    <ResultTabs ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, profile)} profile={profile} onIngredientPress={jest.fn()} />,
+    <ResultTabs header={null} ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, profile)} profile={profile} onIngredientPress={jest.fn()} />,
   );
   await act(async () => {});
+  await putTeaserAway();
   await openMatch();
   expect(screen.getByText(/Declared as a humectant/i)).toBeTruthy();
+});
+
+// A reason is the bold name and then the rule's sentence. A sentence that does
+// not open with the name is set off with a colon, not run into it.
+it("joins a reason to its ingredient's name so it reads as a sentence", async () => {
+  await show(["sodium hyaluronate"], { ...EMPTY_PROFILE, concerns: ["dehydrated"] });
+  await openMatch();
+  expect(screen.getByText(/^Butylene Glycol: a humectant solvent/)).toBeTruthy();
+});
+
+it("does not say an ingredient's name twice in its row", async () => {
+  await show([], { ...EMPTY_PROFILE, concerns: ["dehydrated"] });
+  await openIngredients();
+  expect(screen.getByText("Draws water into the skin")).toBeTruthy();
+  expect(screen.queryByText(/^Glycerin draws/)).toBeNull();
+});
+
+// Owner (v9): the header and the switch hold still; only the white sheet scrolls.
+it("keeps the header and the switch out of the part that scrolls", async () => {
+  const ingredients = [ingredient("glycerin")];
+  await render(
+    <ResultTabs header={<Text>Toner</Text>} ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, EMPTY_PROFILE)} profile={EMPTY_PROFILE} onIngredientPress={jest.fn()} />,
+  );
+  await putTeaserAway();
+  const within = (node: { parent: unknown } | null, type: string): boolean => {
+    for (let at = node as { type?: unknown; parent: unknown } | null; at; at = at.parent as typeof at) if (at.type === type) return true;
+    return false;
+  };
+  expect(within(screen.getByTestId("result-sheet"), "RCTScrollView")).toBe(true);
+  expect(within(screen.getByText("Toner"), "RCTScrollView")).toBe(false);
+  expect(within(screen.getByRole("tab", { name: "Ingredients" }), "RCTScrollView")).toBe(false);
+});
+
+it("lets the header and the switch scroll at the largest text sizes, where they'd fill the screen", async () => {
+  mockFontScale = 2;
+  try {
+    const ingredients = [ingredient("glycerin")];
+    await render(
+      <ResultTabs header={<Text>Toner</Text>} ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, EMPTY_PROFILE)} profile={EMPTY_PROFILE} onIngredientPress={jest.fn()} />,
+    );
+    await putTeaserAway();
+    let at = screen.getByText("Toner") as { type?: unknown; parent: unknown } | null;
+    while (at && at.type !== "RCTScrollView") at = at.parent as typeof at;
+    expect(at).not.toBeNull();
+  } finally {
+    mockFontScale = 1;
+  }
+});
+
+// Owner, 2 October 2026: the first box agrees with the verdict above it.
+describe("the order of the boxes", () => {
+  it("leads with what works on a good or excellent match", () => {
+    expect(reasonOrder("excellent")).toEqual(["red", "green", "orange"]);
+    expect(reasonOrder("good")).toEqual(["red", "green", "orange"]);
+  });
+
+  it("leads with what doesn't on a fair or poor match", () => {
+    expect(reasonOrder("fair")).toEqual(["red", "orange", "green"]);
+    expect(reasonOrder("poor")).toEqual(["red", "orange", "green"]);
+  });
+
+  it("keeps a banned or hazardous ingredient first whatever the verdict", () => {
+    for (const verdict of ["excellent", "good", "fair", "poor", "unknown"] as const) expect(reasonOrder(verdict)[0]).toBe("red");
+  });
+});
+
+// Owner, 2 October 2026: a pore-clogger gets its own box for the skin it matters to.
+describe("a pore-clogger on Skin match", () => {
+  it("says it is comedogenic for someone with acne", async () => {
+    await show(["isopropyl myristate"], { ...EMPTY_PROFILE, concerns: ["acne-prone"] });
+    await openMatch();
+    expect(screen.getByText(/Isopropyl Myristate is comedogenic and may clog pores\./i)).toBeTruthy();
+  });
+
+  it("says nothing of it for someone without acne or enlarged pores", async () => {
+    await show(["isopropyl myristate"], { ...EMPTY_PROFILE, concerns: ["dehydrated"] });
+    await openMatch();
+    expect(screen.queryByText(/is comedogenic and may clog pores/)).toBeNull();
+  });
 });

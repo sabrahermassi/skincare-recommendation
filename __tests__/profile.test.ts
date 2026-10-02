@@ -4,7 +4,7 @@ import {
   isPersonalized,
   isSensitive,
   nextQuizRoute,
-  pregnancyYesNo,
+  pregnancyOption,
   profileHeadline,
   quizRoutes,
   quizStepCount,
@@ -133,16 +133,16 @@ describe("profileHeadline", () => {
   });
 });
 
-// Asked as yes or no (#378): breastfeeding counts as Yes; an old "prefer not
-// to say" is neither option, so nothing shows as chosen.
-describe("pregnancyYesNo", () => {
+// Asked as Yes, No or Prefer not to say: breastfeeding counts as Yes, and
+// Prefer not to say is an answer of its own.
+describe("pregnancyOption", () => {
   it("reads breastfeeding as Yes and keeps Yes and No", () => {
-    expect(pregnancyYesNo("breastfeeding")).toBe("pregnant");
-    expect(pregnancyYesNo("pregnant")).toBe("pregnant");
-    expect(pregnancyYesNo("neither")).toBe("neither");
+    expect(pregnancyOption("breastfeeding")).toBe("pregnant");
+    expect(pregnancyOption("pregnant")).toBe("pregnant");
+    expect(pregnancyOption("neither")).toBe("neither");
   });
 
-  it("gives an old prefer-not-to-say no option", () => {
-    expect(pregnancyYesNo("prefer-not-to-say")).toBeNull();
+  it("keeps prefer-not-to-say as its own answer", () => {
+    expect(pregnancyOption("prefer-not-to-say")).toBe("prefer-not-to-say");
   });
 });

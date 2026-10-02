@@ -10,6 +10,9 @@ import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
  * ingredient and the app version — and nothing about the person.
  */
 
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 jest.mock("expo-constants", () => ({ __esModule: true, default: { expoConfig: { version: "1.2.3" } } }));
 
 const PRODUCT: MistakeSubject = { kind: "product", id: "obf-8801234567890", name: "Toner", brand: "Brand", barcode: "8801234567890" };
@@ -62,10 +65,25 @@ describe("ReportMistakeLink", () => {
     jest.restoreAllMocks();
   });
 
-  it("is hidden when no support address is set", async () => {
+  it("is hidden as a link when no support address is set", async () => {
     delete process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
     await render(<ReportMistakeLink subject={PRODUCT} />);
     expect(screen.queryByText("Report a mistake")).toBeNull();
+  });
+
+  // Owner (v9): the button and its sheet are there before anything receives a report.
+  it("shows the button with no support address, and its sheet says thank you without sending", async () => {
+    delete process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    await render(<ReportMistakeLink button subject={PRODUCT} />);
+    await fireEvent.press(screen.getByRole("button", { name: "Report a mistake" }));
+    expect(screen.getByText("What looks wrong about this product?")).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText("What looks wrong"), "The list is from an older version.");
+    await fireEvent.press(screen.getByText("Send report"));
+    await act(async () => {});
+    expect(screen.getByText("Thank you")).toBeTruthy();
+    expect(openURL).not.toHaveBeenCalled();
   });
 
   it("opens the pre-filled email when tapped", async () => {

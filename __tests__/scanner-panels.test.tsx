@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, within } from "@testing-library/react-native";
 
 import Scan from "@/app/scanner";
 import { fetchProductByBarcode } from "@/data/api";
@@ -197,19 +197,14 @@ describe("scanner status panels", () => {
     expect(fetchProductByBarcode).toHaveBeenLastCalledWith("8809999999999");
   });
 
-  it("closes the scanner to reach Search, rather than stacking Search inside it", async () => {
-    // The scanner is a full-screen modal (#313): a push put a second copy of
-    // the tabs inside it, with the scanner still underneath (#315 review).
-    const { router } = jest.requireMock("expo-router") as { router: { push: MockFn; dismissTo: MockFn } };
-    router.push.mockClear();
+  // Search is gone (v9): an unreachable lookup offers no way to it.
+  it("offers no Search when the lookup couldn't be made", async () => {
     (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: false, failure: { kind: "offline" } });
     await render(<Scan />);
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
     await scan("8801234567890");
 
-    await fireEvent.press(screen.getByText("Find it in Search"));
-    expect(router.dismissTo).toHaveBeenCalledWith("/browse");
-    expect(router.push).not.toHaveBeenCalled();
+    expect(screen.queryByText("Find it in Search")).toBeNull();
   });
 
   it("lets you leave a plain miss the same way", async () => {
@@ -218,17 +213,19 @@ describe("scanner status panels", () => {
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
 
     await scan("8801234567890");
-    expect(screen.getByText("We don't have this product yet")).toBeTruthy();
+    expect(screen.getByText("Not in our catalogue yet")).toBeTruthy();
 
-    // "Try again" puts the camera back to scanning.
-    await fireEvent.press(screen.getByRole("button", { name: "Try again" }));
-    expect(screen.queryByText("We don't have this product yet")).toBeNull();
+    // One button on the sheet (v9); tapping the dimmed camera puts it back to scanning.
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Scan the ingredient list" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByText("Not in our catalogue yet")).toBeNull();
   });
 
   // Found during manual device QA on #268: the status panel's render guard
   // only excluded "idle", not "found", and its message ternary has no
   // "found" branch — so a successful scan showed the correct found sheet
-  // with the wrong "We don't have this product yet" panel stacked
+  // with the wrong "Not in our catalogue yet" panel stacked
   // underneath it, straight from the panel's own fallback case.
   it("shows only the found sheet, never the status panel, once a barcode resolves to a known product", async () => {
     (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: foundProduct("8801234567890") });
@@ -237,8 +234,24 @@ describe("scanner status panels", () => {
 
     await scan("8801234567890");
     expect(screen.getByRole("button", { name: "See the full result" })).toBeTruthy();
-    expect(screen.queryByText("We don't have this product yet")).toBeNull();
+    expect(screen.queryByText("Not in our catalogue yet")).toBeNull();
     expect(screen.queryByText("Photograph its ingredient list and we'll add it")).toBeNull();
+  });
+
+  // Opened from Skin needs, the found card answers that path's question in
+  // words (owner, 2 October 2026), and hands the pick on to the result.
+  it("says on the found card whether the product has an active for the Skin needs pick, with no score", async () => {
+    mockParams = { mode: "photo", from: "journey", need: "pimples.." };
+    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: foundProduct("8801234567890") });
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+
+    await scan("8801234567890");
+    expect(within(screen.getByTestId("found-pill")).getByText(/^(Works on|Helps a little with|Not made for) pimples$/)).toBeTruthy();
+    expect(within(screen.getByTestId("found-pill")).queryByText(/\/100/)).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "See the full result" }));
+    const { router } = jest.requireMock("expo-router") as { router: { push: MockFn } };
+    expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ from: "journey", need: "pimples.." }) }));
   });
 
   // Found in review on #259 (Codex): "Scan the ingredient list" on a plain miss
@@ -251,11 +264,11 @@ describe("scanner status panels", () => {
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
 
     await scan("8801234567890");
-    expect(screen.getByText("We don't have this product yet")).toBeTruthy();
+    expect(screen.getByText("Not in our catalogue yet")).toBeTruthy();
 
     await fireEvent.press(screen.getByRole("button", { name: "Scan the ingredient list" }));
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
-    expect(screen.queryByText("We don't have this product yet")).toBeNull();
+    expect(screen.queryByText("Not in our catalogue yet")).toBeNull();
 
     // Same guard, same reason as the unreachable-panel test above: the
     // barcode can still be in frame the moment Barcode mode remounts.
@@ -335,26 +348,9 @@ describe("scanner history", () => {
   });
 });
 
-// #323: both dead ends offer the name on the pack as a way in.
-describe("Search by name", () => {
-  it.each([
-    ["a barcode we don't have", "8801234567890", "Scan the ingredient list"],
-    ["a code that isn't a product", "https://example.com/promo", "Scan again"],
-  ])("is offered after %s, and opens Search", async (_what: string, code: string, alongside: string) => {
-    const { router } = jest.requireMock("expo-router") as { router: { dismissTo: { mock: { calls: unknown[][] } } } };
-    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: null });
-    await render(<Scan />);
-    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
-    await scan(code);
-
-    expect(screen.getAllByText(alongside).length).toBeGreaterThan(0);
-    await fireEvent.press(screen.getByRole("button", { name: "Search by name" }));
-    const [href] = router.dismissTo.mock.calls.at(-1) as [{ pathname: string; params: { byName: string } }];
-    expect(href.pathname).toBe("/browse");
-    expect(href.params.byName).toBeTruthy();
-  });
-});
-
+// #323: a code that isn't a product offers the name on the pack as a way in.
+// A barcode we don't have no longer does (v9): its way on is the ingredient
+// list, below.
 // The top row (v7): the glass close button, both modes in one pill with a
 // thumb that slides between them, and the torch.
 describe("scanner controls", () => {
@@ -366,30 +362,30 @@ describe("scanner controls", () => {
     expect(router.back).toHaveBeenCalled();
   });
 
-  it("raises a no-match pop-up for a barcode we don't have, with the ingredient photo, search and Try again (v7)", async () => {
+  it("raises a no-match pop-up for a barcode we don't have, with the ingredient photo and Try again (v9)", async () => {
     (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: null });
     await render(<Scan />);
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
     await scan("8801234567890");
 
-    expect(screen.getByText("We don't have this product yet")).toBeTruthy();
+    expect(screen.getByText("Not in our catalogue yet")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Scan the ingredient list" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Search by name" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Search by name" })).toBeNull();
 
     // Tapping the dimmed camera closes it too.
     await fireEvent.press(screen.getByRole("button", { name: "Close" }));
-    expect(screen.queryByText("We don't have this product yet")).toBeNull();
+    expect(screen.queryByText("Not in our catalogue yet")).toBeNull();
     expect(screen.getByRole("tab", { name: "Barcode" })).toBeTruthy();
   });
 
-  it("offers scanning again and search for a code that isn't a product, and never adding it", async () => {
+  it("offers scanning again for a code that isn't a product, and never Search or adding it", async () => {
     await render(<Scan />);
     await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
     await scan("https://example.com/promo");
 
     expect(screen.getByText("That's not a product barcode")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Scan again" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Search by name" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Search by name" })).toBeNull();
     expect(screen.queryByText(/add/i)).toBeNull();
   });
 

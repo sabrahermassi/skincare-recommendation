@@ -15,7 +15,7 @@ export type LabelReadFailure = {
   hint?: string;
   /** The button that fixes it (`scanStateCopy`'s action), when there is one. */
   action?: string;
-  /** A quieter way forward (`scanStateCopy`'s link): another photo, or Search. */
+  /** A quieter way forward (`scanStateCopy`'s link): another photo. */
   link?: string;
   /** Required, not optional: a failure whose retryability nobody decided defaults to "retryable" by accident. */
   retryable: boolean;
@@ -127,7 +127,6 @@ export function failureCopy(reason: LabelFailureReason | "not_configured"): Labe
     console.warn("[label-read] label-ocr not available: this app has no Supabase credentials configured");
     return {
       message: NOT_CONFIGURED_COPY,
-      hint: "Look the product up in Search instead.",
       retryable: false,
     };
   }

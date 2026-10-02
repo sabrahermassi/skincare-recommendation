@@ -1,41 +1,31 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 
 import HowScoringWorks from "@/app/scoring";
 import { SCORE_BANDS } from "@/lib/matching";
 
-/** #325: the page renders every section, with the bands from SCORE_BANDS (v7 layout). */
+/** #325: the sheet renders every section, with the bands from SCORE_BANDS (v9 layout). */
 
-let mockParams: Record<string, string> = {};
 jest.mock("expo-router", () => ({
   router: { back: jest.fn(), canGoBack: () => true },
-  useLocalSearchParams: () => mockParams,
 }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-beforeEach(() => {
-  mockParams = {};
-});
-
-/** The bar only draws its marker once it knows its width. */
-async function layOutBar() {
-  await act(async () => fireEvent(screen.getByTestId("band-bar"), "layout", { nativeEvent: { layout: { width: 300, height: 44 } } }));
-}
-
 describe("How scoring works", () => {
-  it("shows the bands and every section", async () => {
+  it("shows the bands as pills and every section, on a sheet", async () => {
     await render(<HowScoringWorks />);
-    expect(screen.getByText(`${SCORE_BANDS.excellent} to 100`)).toBeTruthy();
-    expect(screen.getByText(`0 to ${SCORE_BANDS.fair - 1}`)).toBeTruthy();
+    expect(screen.getByTestId("sheet-screen")).toBeTruthy();
+    expect(screen.getByText(`Excellent · ${SCORE_BANDS.excellent}–100`)).toBeTruthy();
+    expect(screen.getByText(`Poor · 0–${SCORE_BANDS.fair - 1}`)).toBeTruthy();
     for (const title of [
       "How scoring works",
+      "Your score shows how well a product fits your skin profile.",
       "What the numbers mean",
-      "What goes into it",
+      "How we score",
       "Raises it",
       "Lowers it",
       "Doesn't count",
-      "Order on the label",
       "Good to know",
       "Pregnancy warnings",
       "Sometimes there is no score",
@@ -45,20 +35,10 @@ describe("How scoring works", () => {
     }
   });
 
-  it("marks the product's score on the bar when opened from a result", async () => {
-    mockParams = { score: "84" };
+  it("closes from its X", async () => {
+    const { router } = jest.requireMock<typeof import("expo-router")>("expo-router");
     await render(<HowScoringWorks />);
-    await layOutBar();
-    expect(await screen.findByLabelText("This product scored 84")).toBeTruthy();
+    await fireEvent.press(screen.getAllByRole("button", { name: "Close" }).at(-1)!);
+    expect(router.back).toHaveBeenCalled();
   });
-
-  it.each([["no score", undefined], ["a score over 100", "140"], ["something that isn't a number", "abc"]])(
-    "draws no marker with %s",
-    async (_: string, score: string | undefined) => {
-      mockParams = score ? { score } : {};
-      await render(<HowScoringWorks />);
-      await layOutBar();
-      expect(screen.queryByLabelText(/This product scored/)).toBeNull();
-    },
-  );
 });

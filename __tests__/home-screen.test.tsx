@@ -5,9 +5,9 @@ import Home from "@/app/(tabs)/index";
 import { openScanner } from "@/lib/open-scanner";
 
 /**
- * Home (per #155, v7 design): the "Hi there" title, the scan card with its own
- * Scan now button, three tiles — Search, Routine and My match (the
- * skincare finder) — and the Tip of the day.
+ * Home (per #155, v9 design): the "Hi there!" greeting, the scan card (one
+ * big button), Explore's two tiles — Skin Needs (the journey) and Skincare
+ * Routine — and today's tip, an envelope that opens a sheet.
  */
 
 jest.setTimeout(30_000);
@@ -17,44 +17,45 @@ jest.mock("@/lib/open-scanner", () => ({ openScanner: jest.fn() }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
+// Reduce Motion on: a tap acts at once, with no bounce delay to wait out.
+jest.mock("@/lib/reduce-motion", () => ({ reduceMotionNow: () => true }));
 
-it("shows the title, the scan card and the three tiles, and no skin profile card", async () => {
+it("shows the title, the scan card and the two tiles, and no Search or finder", async () => {
   await render(<Home />);
-  expect(screen.getByRole("header", { name: "Hi there" })).toBeTruthy();
-  expect(screen.getByText("Scan any product")).toBeTruthy();
+  expect(screen.getByRole("header", { name: "Hi there!" })).toBeTruthy();
+  expect(screen.getByText("Scan Any Product")).toBeTruthy();
+  expect(screen.getByRole("header", { name: "Explore" })).toBeTruthy();
   expect(screen.queryByText("Your skin profile")).toBeNull();
-  for (const tile of ["Search", "Routine", "My match"]) expect(screen.getByRole("button", { name: tile })).toBeTruthy();
+  for (const tile of ["Skin Needs", "Skincare Routine"]) expect(screen.getByRole("button", { name: tile })).toBeTruthy();
+  for (const gone of ["Search", "My match"]) expect(screen.queryByRole("button", { name: gone })).toBeNull();
 });
 
-it("opens the scanner from Scan now", async () => {
+it("opens the scanner from anywhere on the scan card", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "Scan now" }));
-  expect(openScanner).toHaveBeenCalled();
+  await fireEvent.press(screen.getByRole("button", { name: "Scan Any Product" }));
+  expect(openScanner).toHaveBeenCalledWith();
 });
 
-it("opens the skincare routine from Routine", async () => {
+it("opens the skincare routine from its tile", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "Routine" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Skincare Routine" }));
   expect(router.push).toHaveBeenCalledWith("/routine");
 });
 
-it("opens Search from its tile, which has no tab of its own", async () => {
+it("opens Skin Needs from its tile", async () => {
   await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "Search" }));
-  expect(router.navigate).toHaveBeenCalledWith("/browse");
+  await fireEvent.press(screen.getByRole("button", { name: "Skin Needs" }));
+  expect(router.push).toHaveBeenCalledWith("/journey");
 });
 
-it("opens the skincare finder from My match", async () => {
-  await render(<Home />);
-  await fireEvent.press(screen.getByRole("button", { name: "My match" }));
-  expect(router.push).toHaveBeenCalledWith("/finder");
-});
-
-it("shows today's tip under the tiles", async () => {
+it("keeps today's tip in its envelope until it is opened", async () => {
   const { tipOfTheDay } = jest.requireActual<typeof import("@/lib/tips")>("@/lib/tips");
   await render(<Home />);
-  expect(screen.getByText("Tip of the day")).toBeTruthy();
+  expect(screen.getByText("Today's tip")).toBeTruthy();
+  expect(screen.queryByText(tipOfTheDay())).toBeNull();
+  await fireEvent.press(screen.getByRole("button", { name: "Open today's tip" }));
   expect(screen.getByText(tipOfTheDay())).toBeTruthy();
+  expect(screen.getByText(/^Tomorrow's tip opens in \d+ h$/)).toBeTruthy();
 });
 
 it("moves to the new day's tip when the app comes back to the front", async () => {
@@ -75,27 +76,11 @@ it("moves to the new day's tip when the app comes back to the front", async () =
     expect(tomorrow).not.toBe(today);
     const { act } = jest.requireActual<typeof import("@testing-library/react-native")>("@testing-library/react-native");
     await act(async () => listeners.forEach((listener) => listener("active")));
+    await fireEvent.press(screen.getByRole("button", { name: "Open today's tip" }));
     expect(screen.getByText(tomorrow)).toBeTruthy();
     expect(TIPS).toContain(tomorrow);
   } finally {
     jest.useRealTimers();
     expect(spy).toHaveBeenCalled();
-  }
-});
-
-it("shows another tip when the card is tapped, never the same one (v7)", async () => {
-  const reduceMotion = jest.requireActual<typeof import("@/lib/reduce-motion")>("@/lib/reduce-motion");
-  const spy = jest.spyOn(reduceMotion, "reduceMotionNow").mockReturnValue(true);
-  const { tipOfTheDay } = jest.requireActual<typeof import("@/lib/tips")>("@/lib/tips");
-  try {
-    await render(<Home />);
-    const first = tipOfTheDay();
-    // The tip is what VoiceOver reads first, not a hint it can be set to skip.
-    await fireEvent.press(screen.getByRole("button", { name: `Tip of the day: ${first}` }));
-    expect(screen.queryByText(first)).toBeNull();
-    expect(screen.getByRole("button", { name: /^Tip of the day: / }).props.accessibilityHint).toBe("Shows another tip");
-    expect(screen.getByText("Tap for another")).toBeTruthy();
-  } finally {
-    spy.mockRestore();
   }
 });

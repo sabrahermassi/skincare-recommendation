@@ -12,7 +12,8 @@ import type { SchoolQuestion } from "@/data/school";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { fallbackSuggestions, SCHOOL_CHAT_COPY, SCHOOL_QUESTIONS, searchSchool } from "@/lib/school-chat";
 import { SCAN_BUTTON_LIFT, tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { CANVAS, CHOSEN, INK, LINE, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { BUTTON, CANVAS, CHOSEN, INK, LINE, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { FitScrollView } from "@/components/FitScrollView";
 
 // The School's face: a plain circle with the app's own heart mark, the one
 // the app icon is drawn from, until there is a mascot of its own (#352).
@@ -117,10 +118,11 @@ export default function SkincareSchool() {
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView
+        <FitScrollView
           ref={scrollRef}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: SPACE.block, gap: SPACE.block }}
+          // 8 above the first bubble and 8 under the title: a scrolled chat is cut off clear of the title, not against it.
+          contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: SPACE.block, gap: SPACE.block }}
         >
           <AppBubble label={`Skincare School says: ${SCHOOL_CHAT_COPY.greeting}`}>
             <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>{SCHOOL_CHAT_COPY.greeting}</Text>
@@ -155,7 +157,7 @@ export default function SkincareSchool() {
               )}
             </View>
           ))}
-        </ScrollView>
+        </FitScrollView>
 
         <View
           style={{
@@ -216,7 +218,7 @@ function AppBubble({ label, children }: { label?: string; children: React.ReactN
           backgroundColor: CHOSEN.fill,
         }}
       >
-        <HeartMark size={16} variant="filled" />
+        <HeartMark size={16} variant="filled" color={BUTTON.primary.fill} />
       </View>
       <View
         accessible={label !== undefined}
@@ -228,7 +230,9 @@ function AppBubble({ label, children }: { label?: string; children: React.ReactN
           borderWidth: 1,
           borderColor: LINE,
           backgroundColor: SURFACE,
+          // v9: a slightly tighter top-left corner, the tail at bottom left.
           borderRadius: 18,
+          borderTopLeftRadius: 16,
           borderBottomLeftRadius: 6,
         }}
       >
@@ -251,6 +255,7 @@ function UserBubble({ text }: { text: string }) {
         paddingVertical: SPACE.block,
         backgroundColor: CHOSEN.fill,
         borderRadius: 18,
+        borderTopLeftRadius: 16,
         borderBottomRightRadius: 6,
       }}
     >
@@ -262,12 +267,12 @@ function UserBubble({ text }: { text: string }) {
 /** "What would you like to know?" and a card for each question not asked yet. */
 function Suggestions({ unasked, onAsk }: { unasked: readonly SchoolQuestion[]; onAsk: (item: SchoolQuestion) => void }) {
   return (
-    <View style={{ gap: SPACE.text }}>
+    <View style={{ gap: SPACE.block }}>
       <Text style={{ paddingHorizontal: SPACE.gutter, fontSize: TYPE.label, fontWeight: "600", color: INK }}>
         {unasked.length > 0 ? SCHOOL_CHAT_COPY.prompt : SCHOOL_CHAT_COPY.allAsked}
       </Text>
       {unasked.length > 0 ? (
-        <ScrollView
+        <FitScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -277,7 +282,7 @@ function Suggestions({ unasked, onAsk }: { unasked: readonly SchoolQuestion[]; o
           {unasked.map((item) => (
             <QuestionCard key={item.id} item={item} width={CARD_WIDTH} onPress={() => onAsk(item)} />
           ))}
-        </ScrollView>
+        </FitScrollView>
       ) : null}
     </View>
   );
@@ -293,7 +298,7 @@ function Matches({ matches, onAsk }: { matches: readonly SchoolQuestion[]; onAsk
     );
   }
   return (
-    <ScrollView
+    <FitScrollView
       style={{ maxHeight: 220 }}
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ gap: SPACE.text, paddingHorizontal: SPACE.gutter, paddingBottom: 6 }}
@@ -301,7 +306,7 @@ function Matches({ matches, onAsk }: { matches: readonly SchoolQuestion[]; onAsk
       {matches.map((item) => (
         <QuestionCard key={item.id} item={item} onPress={() => onAsk(item)} />
       ))}
-    </ScrollView>
+    </FitScrollView>
   );
 }
 
@@ -325,7 +330,7 @@ function QuestionCard({ item, width, onPress }: { item: SchoolQuestion; width?: 
       }}
       className="active:opacity-70"
     >
-      <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>{item.question}</Text>
+      <Text style={{ fontSize: TYPE.body, lineHeight: 20.25, color: INK }}>{item.question}</Text>
     </Pressable>
   );
 }

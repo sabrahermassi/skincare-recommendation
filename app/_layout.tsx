@@ -1,10 +1,9 @@
 import "../global.css";
 
+import { Allura_400Regular } from "@expo-google-fonts/allura";
+import { Figtree_600SemiBold } from "@expo-google-fonts/figtree";
 import { Montserrat_300Light, Montserrat_400Regular } from "@expo-google-fonts/montserrat";
-import {
-  PlayfairDisplay_500Medium,
-  useFonts,
-} from "@expo-google-fonts/playfair-display";
+import { PTSerif_700Bold, useFonts } from "@expo-google-fonts/pt-serif";
 import { loadAsync as loadFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -25,6 +24,13 @@ SplashScreen.preventAutoHideAsync();
 // A render crash in any screen shows a way out instead of a blank screen (#152).
 export { RouteErrorScreen as ErrorBoundary } from "@/components/RouteErrorScreen";
 
+// A route that is a floating sheet (`components/SheetScreen`): see-through, so
+// the screen under it shows through the dim, and faded in, since the sheet
+// brings its own slide.
+// How long a pushed screen takes to slide in.
+const PUSH_MS = 250;
+const SHEET_ROUTE = { headerShown: false, presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } } as const;
+
 export default function RootLayout() {
   // Body text no longer loads a custom font — it renders in the OS system
   // font (see tailwind.config.js's `sans` family), so only the display
@@ -33,9 +39,11 @@ export default function RootLayout() {
   // Montserrat is the FOR.ME shell's (the quiz's Skip, among others) —
   // loaded here for the same reason: onboarding is the first thing a new
   // install renders, so its fonts can't be missing on first paint either.
-  // The intro's headline is Playfair (owner, 26 September 2026).
   const [fontsLoaded] = useFonts({
-    PlayfairDisplay_500Medium,
+    PTSerif_700Bold,
+    Allura_400Regular,
+    // Profile's menu rows (`MENU_FONT`).
+    Figtree_600SemiBold,
     Montserrat_300Light,
     Montserrat_400Regular,
   });
@@ -136,6 +144,12 @@ export default function RootLayout() {
           // previous route's title, which for a route group is the raw group
           // name — the product screen's back button read "(tabs)".
           headerBackButtonDisplayMode: "minimal",
+          // A pushed screen slides in over a quarter of a second (owner: every
+          // tap must open at once). iOS's own push takes about half a second
+          // and its length can't be set; "simple_push" is the same slide from
+          // the right with a length that can. Modals and sheets keep theirs.
+          animation: "simple_push",
+          animationDuration: PUSH_MS,
         }}
       >
         {/* Titled as a fallback for anything that ignores the display mode. */}
@@ -153,17 +167,16 @@ export default function RootLayout() {
         */}
         <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="result/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="ingredients/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="ingredient/[inci]" options={{ headerShown: false }} />
+        {/* A floating sheet over the screen it was opened from (v9): the route
+            is transparent and `components/SheetScreen` draws the dim and the card. */}
+        <Stack.Screen name="ingredient/[inci]" options={SHEET_ROUTE} />
         <Stack.Screen name="skin-profile" options={{ headerShown: false }} />
         <Stack.Screen name="support" options={{ headerShown: false }} />
         <Stack.Screen name="school" options={{ headerShown: false }} />
-        <Stack.Screen name="scoring" options={{ headerShown: false }} />
+        <Stack.Screen name="scoring" options={SHEET_ROUTE} />
         <Stack.Screen name="routine" options={{ headerShown: false }} />
-        {/* The skincare finder slides in from the right, as a pushed page, and
-            its results after it (owner). */}
-        <Stack.Screen name="finder" options={{ headerShown: false }} />
-        <Stack.Screen name="finder-results" options={{ headerShown: false }} />
+        {/* "What my skin needs" (v9): full screen, its own back and progress. */}
+        <Stack.Screen name="journey" options={{ headerShown: false }} />
         <Stack.Screen name="privacy" options={{ headerShown: false }} />
         <Stack.Screen name="account" options={{ headerShown: false }} />
         {/* A sheet over wherever sign-in was asked for, so closing it returns

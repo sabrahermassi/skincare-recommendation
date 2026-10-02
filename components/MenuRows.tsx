@@ -4,30 +4,34 @@ import { Pressable, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
-import { BUTTON, CARD_RADIUS, HAIRLINE, INK, LINK, MENU_FILL, MUTED, ROW_CHEVRON, TYPE } from "@/lib/tokens";
+import { CARD_RADIUS, HAIRLINE, INK, LINK, MENU_FILL, MENU_FONT, MENU_SOFT_RADIUS, MUTED, ROW_CHEVRON, TYPE } from "@/lib/tokens";
 
 // Each row's height (v7).
 const ROW_HEIGHT = 56;
 const ROW_INSET = 16;
 
 /**
- * One block of a settings-style menu (v7, on Profile and Account): a plain
- * white card whose rows are split by hairlines. Colour is saved for Home and
+ * One block of a settings-style menu (Profile and Account): a stone card (v9)
+ * whose rows are split by hairlines. Colour is saved for Home and
  * the scan moments, so no tinted tiles here.
+ *
+ * `soft` is Profile's look (owner, after a reference screenshot): rounder
+ * corners, no hairlines, and rows with a filled icon, a semibold name in
+ * `MENU_FONT` and an arrow.
  */
-export function MenuGroup({ children }: { children: ReactNode }) {
+export function MenuGroup({ soft = false, children }: { soft?: boolean; children: ReactNode }) {
   // Rows only: a condition left false (`{signedIn ? <MenuRow … /> : null}`) is
   // not a row, so it doesn't count as the first.
   const rows = Children.toArray(children).filter(isValidElement);
   return (
-    <View style={{ borderRadius: CARD_RADIUS, backgroundColor: MENU_FILL, overflow: "hidden" }}>
-      {rows.map((row, i) => cloneElement(row as ReactElement<{ divided?: boolean }>, { divided: i > 0 }))}
+    <View style={{ borderRadius: soft ? MENU_SOFT_RADIUS : CARD_RADIUS, backgroundColor: MENU_FILL, overflow: "hidden" }}>
+      {rows.map((row, i) => cloneElement(row as ReactElement<{ divided?: boolean; soft?: boolean }>, { divided: i > 0 && !soft, soft }))}
     </View>
   );
 }
 
 /** The grey disclosure chevron at a row's end (v7). */
-export function RowChevron() {
+function RowChevron() {
   return (
     <Svg width={8} height={14} viewBox="0 0 8 14" fill="none">
       <Path d="m1 1 6 6-6 6" stroke={ROW_CHEVRON} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -36,9 +40,9 @@ export function RowChevron() {
 }
 
 /**
- * One row of a menu: a terracotta line icon, the name, a value on the right
- * (a setting's current answer, or a fact like the account's email) and a grey
- * chevron when the row opens something. A short note can sit beside the name.
+ * One row of a menu: a sage line icon, the name, a value on the right (a
+ * setting's current answer, or a fact like the account's email) and a grey
+ * chevron when the row opens something (unless `chevron` is off). A short note can sit beside the name.
  * The hairline above it starts after the icon, and `MenuGroup` leaves it off
  * the first row.
  */
@@ -49,8 +53,9 @@ export function MenuRow({
   value,
   onPress,
   disabled = false,
-  destructive = false,
+  chevron = true,
   divided = false,
+  soft = false,
 }: {
   /** Left out on a list of settings, where the name alone reads. */
   icon?: ComponentProps<typeof Ionicons>["name"];
@@ -61,10 +66,12 @@ export function MenuRow({
   value?: string;
   onPress?: () => void;
   disabled?: boolean;
-  /** A red name and no chevron (v7: "Delete my account"). */
-  destructive?: boolean;
+  /** Off for an action row that doesn't open a screen (v9 Account: "Sign out"). */
+  chevron?: boolean;
   /** Set by `MenuGroup`: every row but the first has a hairline above it. */
   divided?: boolean;
+  /** Set by `MenuGroup`: Profile's look. */
+  soft?: boolean;
 }) {
   const body = (
     <>
@@ -81,14 +88,14 @@ export function MenuRow({
           borderTopColor: HAIRLINE,
         }}
       >
-        <Text style={{ flex: value ? 0 : 1, fontSize: TYPE.card, color: destructive ? BUTTON.destructive.fill : INK }}>{label}</Text>
+        <Text style={{ flex: value ? 0 : 1, fontSize: TYPE.card, color: INK, ...(soft ? { fontFamily: MENU_FONT } : null) }}>{label}</Text>
         {badge ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{badge}</Text> : null}
         {value ? (
           <Text numberOfLines={1} ellipsizeMode={onPress ? "tail" : "middle"} style={{ flex: 1, textAlign: "right", fontSize: TYPE.label, color: MUTED }}>
             {value}
           </Text>
         ) : null}
-        {onPress && !destructive ? <RowChevron /> : null}
+        {onPress && chevron ? soft ? <Ionicons name="arrow-forward" size={20} color={LINK} /> : <RowChevron /> : null}
       </View>
     </>
   );
@@ -100,7 +107,8 @@ export function MenuRow({
       accessibilityRole="button"
       accessibilityLabel={badge ? `${label}. ${badge}` : value ? `${label}: ${value}` : label}
       accessibilityState={{ disabled }}
-      className="active:opacity-60"
+      // v9: a pressed row takes a soft grey fill rather than fading.
+      className="active:bg-row-pressed"
       style={row}
     >
       {body}

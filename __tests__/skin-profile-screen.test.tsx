@@ -1,11 +1,10 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react-native";
 
 import SkinProfileScreen from "@/app/skin-profile";
-import { CONCERN_ICON } from "@/lib/quiz-icons";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
- * The Skin profile screen (v7): each answer on its own card with its value;
+ * The Skin profile screen (v9): each answer on its own card with its value;
  * Change opens that question in place, and a choice saves at once.
  */
 
@@ -71,11 +70,37 @@ it("opens a question in place with Change, and closes it with Done", async () =>
   expect(screen.queryByRole("checkbox", { name: "Dullness" })).toBeNull();
 });
 
-// #386 review: `atopic` has no picture (the quiz no longer offers it), and a
-// profile that still leads with it showed the "No concerns" one.
-it("pictures the first concern that has a picture when an old eczema-prone answer leads", async () => {
+// v9 drops the answers' pictures: a row is its value and Change, nothing else.
+it("shows each answer without a picture", async () => {
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["atopic", "redness"] } });
   await render(<SkinProfileScreen />);
   const row = screen.getByRole("button", { name: /^Skin concerns: / });
-  expect(within(row).getByTestId("image").props.source).toBe(CONCERN_ICON.redness);
+  expect(within(row).queryByTestId("image")).toBeNull();
+});
+
+it("says None chosen once no concerns is the answer, and how many may be picked", async () => {
+  await render(<SkinProfileScreen />);
+  await act(async () => fireEvent.press(screen.getByRole("button", { name: "Skin concerns: Not set" })));
+  expect(screen.getByText("Pick up to 3. Tap Done when finished.")).toBeTruthy();
+  await act(async () => fireEvent.press(screen.getByRole("button", { name: "I don't have any concerns" })));
+  expect(screen.getByRole("button", { name: "Skin concerns: None chosen" })).toBeTruthy();
+});
+
+it("says how to swap once three concerns are chosen", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["dullness", "redness", "acne-prone"] } });
+  await render(<SkinProfileScreen />);
+  await act(async () => fireEvent.press(screen.getByRole("button", { name: /^Skin concerns: / })));
+  expect(screen.getByText("3 chosen. Untick one to swap.")).toBeTruthy();
+});
+
+// Owner: one tap puts every answer back to not set, and Undo brings them back.
+it("resets every answer with Reset, and puts them back with Undo", async () => {
+  useAppStore.setState({ profile: { concerns: ["acne-prone"], baseSkinType: "oily", sensitivity: "some", pregnancyStatus: "neither" } });
+  await render(<SkinProfileScreen />);
+  await fireEvent.press(screen.getByRole("button", { name: "Reset skin profile" }));
+  expect(useAppStore.getState().profile).toEqual({ concerns: [], baseSkinType: null, sensitivity: null, pregnancyStatus: null });
+  // Nothing left to reset, so the word is gone.
+  expect(screen.queryByRole("button", { name: "Reset skin profile" })).toBeNull();
+  await fireEvent.press(screen.getByText("Undo"));
+  expect(useAppStore.getState().profile).toEqual({ concerns: ["acne-prone"], baseSkinType: "oily", sensitivity: "some", pregnancyStatus: "neither" });
 });

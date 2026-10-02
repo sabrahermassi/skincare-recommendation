@@ -1,10 +1,10 @@
-import { router } from "expo-router";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BackChevron, ICON_CIRCLE, IconCircle } from "@/components/IconCircle";
+import { BackChevron, IconCircle } from "@/components/IconCircle";
 import { Text } from "@/components/Text";
+import { goBackOrHome } from "@/lib/go-back";
 import { INK, SPACE, TYPE } from "@/lib/tokens";
 
 /**
@@ -33,23 +33,21 @@ export function ScreenHeader({
     <View
       style={{ paddingTop: insets.top + 6, paddingHorizontal: SPACE.gutter, height: insets.top + 50, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}
     >
-      <IconCircle onPress={onBack ?? (() => router.back())} accessibilityLabel="Back">
-        <BackChevron />
-      </IconCircle>
+      {/* Back and the right-hand circles take equal shares, so the title sits
+          at the screen's true centre however many circles there are (v9). */}
+      <View style={{ flex: 1, alignItems: "flex-start" }}>
+        <IconCircle onPress={onBack ?? goBackOrHome} accessibilityLabel="Back">
+          <BackChevron />
+        </IconCircle>
+      </View>
 
       {title ? (
-        <Text
-          style={{ flex: 1, textAlign: "center", fontSize: TYPE.card, fontWeight: "600", color: INK }}
-          numberOfLines={1}
-        >
+        <Text style={{ maxWidth: 170, textAlign: "center", fontSize: TYPE.card, fontWeight: "600", color: INK }} numberOfLines={1}>
           {title}
         </Text>
-      ) : (
-        <View style={{ flex: 1 }} />
-      )}
+      ) : null}
 
-      {/* Mirrors the back circle's width when empty, so a centred title stays centred. */}
-      <View style={{ minWidth: ICON_CIRCLE, gap: 12, flexDirection: "row", alignItems: "center", justifyContent: "flex-end" }}>{right}</View>
+      <View style={{ flex: 1, gap: 12, flexDirection: "row", alignItems: "center", justifyContent: "flex-end" }}>{right}</View>
     </View>
   );
 }

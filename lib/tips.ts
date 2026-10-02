@@ -1,9 +1,9 @@
 /**
- * Tip of the day (v7): the handwritten note on Home. Written by the owner
- * (29 September 2026), kept word for word. Home opens on the day's tip —
- * the same for everyone, changing at local midnight — and a tap shuffles to
- * another at random, never the same one twice in a row. Held to the claims
- * policy by `__tests__/claims-policy.test.ts`.
+ * Tip of the day: one tip a day on Home, the same for everyone, changing at
+ * local midnight. Written by the owner (29 September 2026), kept word for
+ * word. v9 shows it as an envelope that opens a sheet; there is no shuffle
+ * any more, tomorrow brings the next one. Held to the claims policy by
+ * `__tests__/claims-policy.test.ts`.
  */
 export const TIPS: readonly string[] = [
   "Double cleanse at night — oil or butter first, then a gentle foaming wash.",
@@ -52,8 +52,12 @@ export function tipOfTheDay(now: Date = new Date()): string {
   return TIPS[((day % TIPS.length) + TIPS.length) % TIPS.length];
 }
 
-/** A tip at random, never the one showing now (the card's "Tap for another"). */
-export function anotherTip(current: string, random: () => number = Math.random): string {
-  const others = TIPS.filter((tip) => tip !== current);
-  return others[Math.min(others.length - 1, Math.floor(random() * others.length))];
+/**
+ * Whole hours until the next tip, which arrives at local midnight: what the
+ * opened tip says under it ("Tomorrow's tip opens in 9 h"). Never 0 — the
+ * last hour of the day reads "1 h".
+ */
+export function hoursUntilNextTip(now: Date = new Date()): number {
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return Math.max(1, Math.ceil((midnight.getTime() - now.getTime()) / (60 * 60 * 1000)));
 }

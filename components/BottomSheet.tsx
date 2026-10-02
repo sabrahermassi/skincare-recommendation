@@ -4,7 +4,7 @@ import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, Scr
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { CANVAS, INK, SCRIM, SHEET_SHADOW, withAlpha } from "@/lib/tokens";
+import { INK, SCRIM, SHEET_SHADOW, WHITE, withAlpha } from "@/lib/tokens";
 
 const IN_MS = 280;
 const OUT_MS = 220;
@@ -13,7 +13,7 @@ const OUT_MS = 220;
 // grabber.
 export const FLOAT_INSET = 10;
 export const FLOAT_RADIUS = 36;
-const FLOAT_BLUR = 6;
+const FLOAT_BLUR = 4; // v9
 const SHEET_RADIUS = 38;
 // The room a sheet always leaves above itself, under the status bar, so a
 // long one stops short of the top and scrolls instead (its corner stays
@@ -38,6 +38,8 @@ export function BottomSheet({
   visible,
   onClose,
   floating = false,
+  bare = false,
+  inline = false,
   corner,
   children,
 }: {
@@ -48,6 +50,16 @@ export function BottomSheet({
    * over a blurred screen: the confirmation look (owner's OnSkin reference).
    */
   floating?: boolean;
+  /** No padding of the sheet's own: the content runs to its edges (a sheet with a coloured top half). */
+  bare?: boolean;
+  /**
+   * Drawn over the screen it is in, not in a window of its own. For a sheet
+   * whose button opens another screen: iOS will not present a screen while a
+   * `Modal` is still up, so the new screen waited for this one to close and
+   * be torn down first (about a second). The caller must render it at the
+   * root of a full-screen view.
+   */
+  inline?: boolean;
   /** Pinned to the card's top-right corner, outside the scroll: its X. */
   corner?: ReactNode;
   children: ReactNode;
@@ -76,12 +88,13 @@ export function BottomSheet({
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [height, 0] });
   const maxHeight = height - insets.top - TOP_GAP - (floating ? FLOAT_INSET : 0);
   // v7 pop-up padding: 24 top and bottom, 16 at the sides.
-  const padding = floating
+  const padding = bare
+    ? {}
+    : floating
     ? { paddingTop: 24, paddingHorizontal: 16, paddingBottom: 24, gap: 8 }
     : { paddingTop: 28, paddingHorizontal: 16, paddingBottom: Math.max(24, insets.bottom + 12), gap: 12 };
 
-  return (
-    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
+  const body = (
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>
         <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: progress }}>
           {floating ? <BlurView intensity={FLOAT_BLUR} tint="default" style={StyleSheet.absoluteFill} /> : null}
@@ -94,7 +107,7 @@ export function BottomSheet({
               floating
                 ? { marginHorizontal: FLOAT_INSET, marginBottom: FLOAT_INSET, borderRadius: FLOAT_RADIUS }
                 : { borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS },
-              { maxHeight, backgroundColor: CANVAS, ...SHEET_SHADOW },
+              { maxHeight, backgroundColor: WHITE, ...SHEET_SHADOW }, // v9: pure white sheets
             ]}
           >
             {/* Rounded clipping lives on this inner view, so the shadow above
@@ -128,6 +141,18 @@ export function BottomSheet({
           </View>
         </Animated.View>
       </KeyboardAvoidingView>
+  );
+  if (inline) {
+    return mounted ? (
+      // A screen reader stays inside it while it is up, as it would in a Modal.
+      <View accessibilityViewIsModal={visible} onAccessibilityEscape={onClose} style={StyleSheet.absoluteFill}>
+        {body}
+      </View>
+    ) : null;
+  }
+  return (
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
+      {body}
     </Modal>
   );
 }

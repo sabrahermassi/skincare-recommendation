@@ -128,9 +128,8 @@ No personalization questionnaire is required before scanning.
 ## Personalize My Results
 
 The skin quiz (Concerns → Skin Type → Sensitivity → Pregnancy, `app/quiz/`)
-opens as a modal over whatever asked for it: a result's "See your skin
-match", Home's "Find a product" card, Profile's "Skin profile" row, or the top
-of Search results (`lib/open-quiz.ts`).
+opens as a modal over whatever asked for it: a result's "Get my match",
+Profile's "Skin profile" row, or the routine (`lib/open-quiz.ts`).
 
 Flow:
 
@@ -214,9 +213,8 @@ Sensitivity **affects the personalized score**.
 
 Available options:
 
-- Pregnant
-- Breastfeeding
-- Neither
+- Yes (stored as pregnant; an older "breastfeeding" answer reads as Yes)
+- No
 - Prefer not to say
 
 This affects the personalized score: `lib/safety.ts` flags retinoids,
@@ -675,13 +673,14 @@ Keep error handling lean.
 
 Message:
 
-**We don't have this product yet**
+**Not in our catalogue yet**
 
-Scan its ingredient list to see what's in it, or search for it by name.
+Scan its ingredient list instead. We'll read it and score it for your skin.
 
-Actions (side by side):
+Action:
 
-**Scan the ingredient list** · **Search by name**
+**Scan the ingredient list** (with "Try again" under it). There is no product
+search (removed by the owner, 1 October 2026).
 
 ## Ingredient photo unreadable
 
@@ -817,7 +816,8 @@ Everything above, plus:
   question, or search the curated ones, and its pre-written answer appears
   as a reply. The search box never writes an answer; with no match it says
   so and offers questions it can answer.
-- Product search, and the existing detailed result breakdown.
+- The existing detailed result breakdown. (Product search was removed by the
+  owner on 1 October 2026: scanning is the way to a product.)
 
 ## Journal identity
 

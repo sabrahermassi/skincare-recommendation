@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { useState } from "react";
-import { Linking, Pressable, ScrollView, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 
 import { PageTitle } from "@/components/PageTitle";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
@@ -9,18 +8,37 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
 import { supportEmail } from "@/lib/support-email";
-import { CANVAS, CARD_RADIUS, HAIRLINE, INK, LINK, MUTED, ROW_CHEVRON, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, HAIRLINE, INK, LINK, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { FitScrollView } from "@/components/FitScrollView";
 
 // Where to write to. Until it is set, the screen shows the help below and no
 // contact button rather than a made-up address.
 const SUPPORT_EMAIL = supportEmail();
 
 const HELP: { title: string; body: string }[] = [
+  // v9's four questions (read off the hand-off), then the one v7 answer it
+  // dropped that people still need.
   {
-    title: "A product isn't in our catalogue",
+    title: "Why is there no score?",
+    // A score needs at least 3 identified ingredients and a quarter of the
+    // list (lib/matching.ts); below that the result still lists them.
+    body: "We need to recognise enough of the list to score it fairly. We still show what's in it.",
+  },
+  {
+    title: "Why can't I find a product?",
     // A photo gives a result, never a catalogue entry: users can't add
     // products (owner), so the catalogue only holds products we imported.
-    body: "Open the scanner, choose Photo and photograph its ingredient list: you get a result straight away, even for a product our catalogue doesn't have.",
+    body: "It isn't in our library yet. Take a photo of its ingredient list and we'll read it for you.",
+  },
+  {
+    title: "How do I change my skin profile?",
+    body: "Go to Profile, then Skin profile, and tap Change next to any answer.",
+  },
+  {
+    title: "Is my data sold?",
+    // The design adds "no brand deals"; the privacy policy doesn't promise
+    // that, so this says only what it does.
+    body: "Never. No ads, and we never sell your data.",
   },
   {
     title: "The ingredients look wrong",
@@ -28,25 +46,18 @@ const HELP: { title: string; body: string }[] = [
     // product that already has ingredients as it is (#293).
     body: "Formulas change and labels can be misread. Photograph the ingredient list on your bottle to get a result for exactly what it says, and check the packaging for anything that matters.",
   },
-  {
-    title: "How the score is worked out",
-    body: "It compares the ingredient list with your skin profile. Open a product to see which ingredients moved it, and tap the match under the score to read how every score works.",
-  },
-  {
-    title: "Change your answers",
-    body: "Profile → Skin profile, then Change on any answer. Every score updates straight away.",
-  },
 ];
 
 /** Support — answers to the questions people actually have, and a way to write to us. */
 export default function Support() {
   // `Linking.openURL` rejects when the phone has no mail app set up to take a mailto link.
   const [mailFailed, setMailFailed] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
+  // The first answer starts open (v9); one at a time.
+  const [open, setOpen] = useState<string | null>(HELP[0].title);
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
+      <FitScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
         <PageTitle title="Support" />
 
         {/* The questions, each opening its answer in place (v7). */}
@@ -65,7 +76,7 @@ export default function Support() {
                   className="active:opacity-70"
                 >
                   <Text style={{ flex: 1, fontSize: TYPE.label, fontWeight: "600", color: INK }}>{item.title}</Text>
-                  <Ionicons name={isOpen ? "chevron-up" : "chevron-down"} size={16} color={ROW_CHEVRON} />
+                  <Ionicons name="chevron-down" size={16} color={LINK} style={{ transform: [{ rotate: isOpen ? "180deg" : "0deg" }] }} />
                 </Pressable>
                 {isOpen ? <Text style={{ paddingBottom: SPACE.gutter, fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{item.body}</Text> : null}
               </View>
@@ -73,18 +84,8 @@ export default function Support() {
           })}
         </View>
 
-        {/* The whole of how a score works, one tap away (#325). */}
-        <Pressable
-          onPress={() => router.push("/scoring")}
-          accessibilityRole="link"
-          style={{ minHeight: TOUCH_TARGET, marginTop: SPACE.text, paddingHorizontal: 4, justifyContent: "center", alignSelf: "flex-start" }}
-          className="active:opacity-70"
-        >
-          <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>How scoring works</Text>
-        </Pressable>
-
         {SUPPORT_EMAIL ? (
-          <View style={{ marginTop: SPACE.section, alignItems: "center", gap: SPACE.block }}>
+          <View style={{ marginTop: SPACE.section + SPACE.text, alignItems: "center", gap: SPACE.block }}>
             <Text style={{ fontSize: TYPE.body, color: MUTED }}>Still stuck? Write to us.</Text>
             <PrimaryButton
               label="Email support"
@@ -102,7 +103,7 @@ export default function Support() {
             ) : null}
           </View>
         ) : null}
-      </ScrollView>
+      </FitScrollView>
     </View>
   );
 }

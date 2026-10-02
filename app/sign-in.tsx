@@ -94,7 +94,9 @@ export default function SignIn() {
     // A half-height form sheet that drags to full height (`app/_layout.tsx`,
     // #296). No scroll view: inside a form sheet one rendered nothing at all.
     // Content taller than half the screen — both sign-in buttons at a large
-    // text size — is reached by dragging the sheet up (#309 review).
+    // text size — is reached by dragging the sheet up (#309 review). v9 draws
+    // a shelf picture above the title; at half height it would push both
+    // buttons below the fold, so the sheet leaves it out.
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <View style={{ paddingHorizontal: SPACE.section, paddingTop: 32, paddingBottom: insets.bottom + 32, gap: SPACE.text }}>
         <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
@@ -105,7 +107,8 @@ export default function SignIn() {
         <View style={{ gap: SPACE.block, paddingTop: SPACE.gutter, alignItems: "center" }}>
           {appleAvailable ? (
             <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              // v9's "Continue with Apple", in Apple's own button (HIG).
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
               buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
               cornerRadius={APPLE_BUTTON_HEIGHT / 2}
               style={{ width: "100%", height: APPLE_BUTTON_HEIGHT }}

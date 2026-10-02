@@ -1,14 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 import { useEffect } from "react";
-import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, View, type GestureResponderEvent } from "react-native";
 
-import { TabBarBackground } from "@/components/TabBarBackground";
+import { activeTabSlot, PILL_HEIGHT, PILL_WIDTH, TabBarBackground } from "@/components/TabBarBackground";
+import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/open-scanner";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT, SCAN_ICON, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
-import { BUTTON, CHOSEN, LINK, RAISED_SHADOW, SURFACE, TAB_INACTIVE } from "@/lib/tokens";
+import { BUTTON, LINK, RAISED_SHADOW, TAB_INACTIVE, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 
@@ -16,31 +16,30 @@ import { haptic } from "@/lib/haptics";
 // the colour, so the current tab does not rest on a contrast difference alone.
 // All four come from the one icon set, so their stroke weight matches; unselected
 // they share a single muted colour and nothing else.
+// `slot` is the tab's place among the bar's five (the scan button is the third).
 const TAB_ICONS = {
-  home: { on: "home", off: "home-outline" },
-  school: { on: "school", off: "school-outline" },
-  saved: { on: "heart", off: "heart-outline" },
-  profile: { on: "person", off: "person-outline" },
+  home: { on: "home", off: "home-outline", label: "Home", slot: 0 },
+  school: { on: "school", off: "school-outline", label: "School", slot: 1 },
+  saved: { on: "heart", off: "heart-outline", label: "Saved", slot: 3 },
+  profile: { on: "person", off: "person-outline", label: "Profile", slot: 4 },
 } as const;
 
-// The pill behind the current tab's icon, and the icon, sized for the bar.
-const PILL_WIDTH = 58;
-const PILL_HEIGHT = 44;
-const TAB_ICON = 25;
-// A capsule, like the bar it sits in.
-const PILL_RADIUS = PILL_HEIGHT / 2;
-const PILL_MS = 200;
-const PILL_FROM_SCALE = 0.85;
+// A tab's icon and its name, sized for the bar (v9, read off the hand-off: a
+// 22pt icon, an 11pt name). The pill behind the current one is drawn once, by
+// `TabBarBackground`, and flows from tab to tab.
+const TAB_ICON = 22;
+const TAB_LABEL = 11;
 
 /**
- * A tab: the icon only, in a button of its own that is exactly as tall as the bar
+ * A tab: its icon over its name (v9), in a button of its own that is exactly as tall as the bar
  * and centres the icon in it. The navigator's own item pads and aligns its
  * contents differently on each platform, which is what left the icons off-centre;
  * drawing the button here removes the difference. Unselected the icon is an
  * outline in the shared muted colour, with nothing drawn around it; selected it
- * is filled in terracotta on a peach pill that fades in.
- * Names are not drawn — they did not render on a phone (see `tabBarShowLabel`) —
- * and live on the button's accessibility label for a screen reader.
+ * is filled in sage, on the pale sage pill that flows to it.
+ * The name is drawn here, under the icon, not by the navigator: its own label
+ * row could not be made to render (see `tabBarShowLabel`). A screen reader
+ * gets the full name from the button's accessibility label.
  */
 function TabButton({
   tab,
@@ -55,15 +54,10 @@ function TabButton({
 }) {
   const focused = rest["aria-selected"] === true;
   const color = focused ? LINK : TAB_INACTIVE;
-  const shown = useSharedValue(focused ? 1 : 0);
+  const slot = TAB_ICONS[tab].slot;
   useEffect(() => {
-    // ReduceMotion.System: no grow with Reduce Motion on (#313).
-    shown.value = withTiming(focused ? 1 : 0, { duration: PILL_MS, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System });
-  }, [focused, shown]);
-  const pillStyle = useAnimatedStyle(() => ({
-    opacity: shown.value,
-    transform: [{ scale: PILL_FROM_SCALE + (1 - PILL_FROM_SCALE) * shown.value }],
-  }));
+    if (focused) activeTabSlot.value = slot;
+  }, [focused, slot]);
   return (
     <Pressable
       onPress={onPress ?? undefined}
@@ -74,17 +68,10 @@ function TabButton({
       style={{ flex: 1, height: TAB_BAR_HEIGHT, alignItems: "center", justifyContent: "center" }}
     >
       <View style={{ width: PILL_WIDTH, height: PILL_HEIGHT, alignItems: "center", justifyContent: "center" }}>
-        {/* The pill behind the current tab's icon: fades and grows in when the tab
-            becomes current, and back out when it stops. Driven by `focused`, so
-            switching tabs quickly just retargets it. */}
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            { position: "absolute", width: PILL_WIDTH, height: PILL_HEIGHT, borderRadius: PILL_RADIUS, backgroundColor: CHOSEN.fill },
-            pillStyle,
-          ]}
-        />
         <Ionicons name={focused ? TAB_ICONS[tab].on : TAB_ICONS[tab].off} size={TAB_ICON} color={color} />
+        <Text maxFontSizeMultiplier={1} numberOfLines={1} style={{ marginTop: 1, fontSize: TAB_LABEL, lineHeight: 13, fontWeight: "600", color }}>
+          {TAB_ICONS[tab].label}
+        </Text>
       </View>
     </Pressable>
   );
@@ -119,7 +106,7 @@ function ScanTabButton() {
         }}
         className="active:opacity-90"
       >
-        <Ionicons name="camera" size={SCAN_ICON} color={SURFACE} />
+        <Ionicons name="camera" size={SCAN_ICON} color={WHITE} />
       </Pressable>
     </View>
   );
@@ -206,11 +193,7 @@ export default function TabsLayout() {
           tabBarButton: (props) => <TabButton tab="home" {...props} />,
         }}
       />
-      {/*
-        Skincare School, in the place Browse had. Browse is still a screen in this
-        group (declared last, below) but has no button in the bar: it opens from
-        Home's "Search" card and from the links that ask for a search.
-      */}
+      {/* Skincare School, second in the bar. */}
       <Tabs.Screen
         name="school"
         options={{
@@ -255,19 +238,6 @@ export default function TabsLayout() {
           tabBarLabel: "Profile",
           tabBarAccessibilityLabel: "Profile",
           tabBarButton: (props) => <TabButton tab="profile" {...props} />,
-        }}
-      />
-      {/*
-        Browse: a screen in the group without a button in the bar (`href: null`).
-        Reached from Home's "Search" card and every "search instead" link;
-        the bar stays under it, so Home is one tap away. `title` is the web
-        document title only (headerShown is false for this group).
-      */}
-      <Tabs.Screen
-        name="browse"
-        options={{
-          title: "for.me",
-          href: null,
         }}
       />
     </Tabs>

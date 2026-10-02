@@ -5,58 +5,28 @@ import { View } from "react-native";
 import { QuizOptionCard, QUIZ_OPTION_GRID } from "@/components/QuizOptionCard";
 import { useQuizFrame } from "@/components/QuizFrame";
 import { QuizScreen } from "@/components/QuizScreen";
-import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import { CONCERN_TITLE, nextQuizRoute, quizStepNumber } from "@/lib/profile";
 import { MAX_CONCERNS, useAppStore } from "@/store/useAppStore";
-import { MUTED, SPACE, TYPE } from "@/lib/tokens";
-import { CONCERN_ICON, NONE_ICON } from "@/lib/quiz-icons";
 
 /**
- * Ordered by how common each concern is reported in skincare-usage surveys
- * (dehydration/dryness and dullness lead, followed by acne/pores/lines/tone
- * concerns, rosacea-specific redness and post-acne marks trailing as more
- * specific complaints) — the same order the design mockups use.
+ * In the hand-off's order (v9).
  * "Eczema-prone" is deliberately not offered here — removed from the quiz's
  * selectable options per this session's design decision — though the
  * `"atopic"` concern and its scoring rules remain intact for any profile that
  * already carries it from before that change.
  *
- * Icons: design-watercolor/skin quiz/screens/skin quiz screen 1.png.
+ * v9 drops the pictures: the answer's name alone, on a full-width row.
  */
-const OPTIONS: { value: Concern; label: string; icon: number }[] = [
-  {
-    value: "dehydrated",
-    label: CONCERN_TITLE.dehydrated,
-    icon: CONCERN_ICON.dehydrated,
-  },
-  { value: "dullness", label: CONCERN_TITLE.dullness, icon: CONCERN_ICON.dullness },
-  { value: "acne-prone", label: CONCERN_TITLE["acne-prone"], icon: CONCERN_ICON["acne-prone"] },
-  {
-    value: "hyperpigmentation",
-    label: CONCERN_TITLE.hyperpigmentation,
-    icon: CONCERN_ICON.hyperpigmentation,
-  },
-  {
-    value: "large-pores",
-    label: CONCERN_TITLE["large-pores"],
-    icon: CONCERN_ICON["large-pores"],
-  },
-  {
-    value: "fine-lines",
-    label: CONCERN_TITLE["fine-lines"],
-    icon: CONCERN_ICON["fine-lines"],
-  },
-  {
-    value: "redness",
-    label: CONCERN_TITLE.redness,
-    icon: CONCERN_ICON.redness,
-  },
-  {
-    value: "post-acne-marks",
-    label: CONCERN_TITLE["post-acne-marks"],
-    icon: CONCERN_ICON["post-acne-marks"],
-  },
+const OPTIONS: { value: Concern; label: string }[] = [
+  { value: "acne-prone", label: CONCERN_TITLE["acne-prone"] },
+  { value: "post-acne-marks", label: CONCERN_TITLE["post-acne-marks"] },
+  { value: "dehydrated", label: CONCERN_TITLE.dehydrated },
+  { value: "redness", label: CONCERN_TITLE.redness },
+  { value: "large-pores", label: CONCERN_TITLE["large-pores"] },
+  { value: "fine-lines", label: CONCERN_TITLE["fine-lines"] },
+  { value: "dullness", label: CONCERN_TITLE.dullness },
+  { value: "hyperpigmentation", label: CONCERN_TITLE.hyperpigmentation },
 ];
 
 
@@ -110,15 +80,13 @@ export default function ConcernsStep() {
   return (
     <QuizScreen
       step={quizStepNumber("/quiz/concerns")}
-      title="What are your main skin concerns?"
-      subtitle={`Pick up to ${MAX_CONCERNS}. You can change these later.`}
+      title="What would you like to work on?"
+      subtitle={`Pick up to ${MAX_CONCERNS}. We score every product for these.`}
       onNext={next}
       nextDisabled={concerns.length === 0 && !noneChosen}
-      // This is the quiz's first step: the modal opens on it (#346), so
-      // there is no earlier step for router.back() to return to. A swipe
-      // down closes the quiz. Every later step is reached by push and
-      // keeps its arrow.
-      showBack={false}
+      // The quiz's first step: the modal opens on it (#346), so there is no
+      // earlier step to go back to, and its back arrow closes the quiz.
+      first
     >
       <View style={QUIZ_OPTION_GRID}>
         {OPTIONS.map((option) => {
@@ -127,7 +95,6 @@ export default function ConcernsStep() {
             <QuizOptionCard
               key={option.value}
               multiple
-              icon={option.icon}
               label={option.label}
               selected={selected}
               disabled={!selected && atLimit}
@@ -135,16 +102,8 @@ export default function ConcernsStep() {
             />
           );
         })}
-        <QuizOptionCard icon={NONE_ICON} label="I don't have any concerns" selected={noneChosen} onPress={pickNone} />
+        <QuizOptionCard label="I don't have any concerns" selected={noneChosen} onPress={pickNone} />
       </View>
-
-      <Text style={{ marginTop: SPACE.block, textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>
-        {noneChosen
-          ? "No concerns selected."
-          : atLimit
-            ? `${MAX_CONCERNS} chosen – deselect one to swap.`
-            : `${visibleCount} of ${MAX_CONCERNS} chosen.`}
-      </Text>
     </QuizScreen>
   );
 }

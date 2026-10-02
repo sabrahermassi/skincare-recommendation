@@ -133,7 +133,7 @@ second table is planned; if that ever changes, it gets its own row.
 
   | Route | Parameters from a link | Check |
   |---|---|---|
-  | `/`, `/browse`, `/saved`, `/profile` (tabs), `/school`, `/support`, `/privacy`, `/scoring`, `/skin-profile`, `/routine`, `/finder`, `/finder-results` | none | — |
+  | `/`, `/saved`, `/profile` (tabs), `/school`, `/support`, `/privacy`, `/scoring`, `/skin-profile`, `/routine`, `/journey` | none | — |
   | `/quiz/concerns`, `/quiz/skin-type`, `/quiz/sensitivity`, `/quiz/pregnancy` | none | opened with nothing behind it, closing goes Home (#346) |
   | `/scanner` | `mode` | only `"photo"` does anything (opens Photo mode, #204) |
   | `/product/<id>`, `/result/<id>` | `id`; `from` (analytics only) | `productIdParam`: letters, digits, `-`, `_`, ≤128; else Page not found. `from` is matched against fixed values |

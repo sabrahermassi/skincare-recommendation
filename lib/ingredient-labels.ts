@@ -1,6 +1,6 @@
 import type { Ingredient, SkinProfile } from "@/data/types";
 import { ruleFor, RUNG_META, type MatchResult } from "@/lib/matching";
-import { isWarnedPoreClogging } from "@/lib/pore-clogging";
+import { cloggerConfidence, isWarnedPoreClogging } from "@/lib/pore-clogging";
 import { isSensitive, treatAsReactive } from "@/lib/profile";
 import { targetApplies, type RuleCategory } from "@/lib/rules";
 import { contraindications, groupByRisk, isVerified } from "@/lib/safety";
@@ -58,6 +58,10 @@ export function ingredientLabel(ingredient: Ingredient, match: MatchResult, pers
 
   const risk = riskOf(ingredient);
   if (risk === "avoid") return "avoid";
+  // A pore-clogger the lists agree on with strong evidence is red (owner, 2
+  // October 2026), so the row matches the red Pore-clogging risk above it.
+  // A moderate one stays Watch below; a contested one is never warned about.
+  if (cloggerConfidence(ingredient) === "high") return "avoid";
   // Both also outrank not knowing. Pore-clogging matching fires on an
   // unrecognised name too, so a misread name can wear the CLOGGING tag and
   // cost the score: "Unknown" beside that contradicts both.
@@ -151,6 +155,8 @@ export function labelWithoutProduct(ingredient: Ingredient, profile: SkinProfile
   // for someone pregnant.
   const warnings = contraindications([ingredient], profile);
   if (warnings.some((w) => w.severity === "hazard" || w.origin === "pregnancy")) return "avoid";
+  // As in the list: a strong-evidence pore-clogger is red, recognised or not.
+  if (cloggerConfidence(ingredient) === "high") return "avoid";
   if (!isVerified(ingredient)) return isWarnedPoreClogging(ingredient) ? "watch" : "unknown";
   if (ingredient.safety === "avoid") return "avoid";
   if (warnings.length > 0 || ingredient.safety === "caution" || isCommonIrritant(ingredient) || isWarnedPoreClogging(ingredient)) return "watch";
