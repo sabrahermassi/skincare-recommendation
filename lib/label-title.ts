@@ -12,8 +12,18 @@ import { INGREDIENT_RULES, isActiveRule, ruleMatches } from "@/lib/rules";
 /** How many ingredients a title names. */
 const TITLE_NAMES = 3;
 
-// What every label starts with, and says nothing about the product.
-const SAYS_NOTHING = /^(aqua|water|eau|aqua\/water|water\/aqua|aqua\/eau|water\/eau)$/i;
+// What every label starts with, and says nothing about the product: water,
+// however the pack prints it ("Aqua/Water/Eau", "Water (Aqua)", "Purified Water").
+const WATER = /^(aqua|eau|(purified |deionized |deionised |demineralized |demineralised |distilled )?water)$/;
+
+function saysNothing(name: string): boolean {
+  const parts = name
+    .toLowerCase()
+    .split(/[/()]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.length > 0 && parts.every((part) => WATER.test(part));
+}
 
 /**
  * The ingredients that say most about a label, three at most: its actives
@@ -22,12 +32,15 @@ const SAYS_NOTHING = /^(aqua|water|eau|aqua\/water|water\/aqua|aqua\/eau|water\/
  * printed first, water left out.
  */
 export function labelHighlights(names: readonly string[]): string[] {
-  const ruleOf = (name: string) => INGREDIENT_RULES.find((candidate) => ruleMatches(candidate, name));
+  // Each name is looked up once: History titles every label row each time it
+  // draws, and the rule list is headed for hundreds (#237).
+  const rules = new Map(names.map((name) => [name, INGREDIENT_RULES.find((candidate) => ruleMatches(candidate, name))]));
+  const ruleOf = (name: string) => rules.get(name);
   const actives = names.filter((name) => {
     const rule = ruleOf(name);
     return rule !== undefined && isActiveRule(rule);
   });
-  const others = names.filter((name) => !actives.includes(name) && !SAYS_NOTHING.test(name.trim()));
+  const others = names.filter((name) => !actives.includes(name) && !saysNothing(name));
   // A rule that helps something, heaviest first; the sort is stable, so equals keep printed order.
   const credited = others.filter((name) => ruleOf(name)?.helps).sort((a, b) => (ruleOf(b)?.weight ?? 0) - (ruleOf(a)?.weight ?? 0));
   const plain = others.filter((name) => !credited.includes(name));

@@ -17,6 +17,14 @@ it("fills up, with fewer than three actives, from what our rules credit most, th
   expect(labelHighlights(["Water", "xanthan gum", "glycerin", "carbomer"])).toEqual(["Glycerin", "Xanthan Gum", "Carbomer"]);
 });
 
+it("leaves water out however the pack prints it", () => {
+  for (const water of ["Aqua/Water/Eau", "Water (Aqua)", "Purified Water", "AQUA"]) {
+    expect(labelHighlights([water, "glycerin", "xanthan gum", "carbomer"])).toEqual(["Glycerin", "Xanthan Gum", "Carbomer"]);
+  }
+  // A name that only contains the word is not water.
+  expect(labelHighlights(["aqua", "rosa damascena flower water"])).toEqual(["Rosa Damascena Flower Water"]);
+});
+
 it("has just its number when nothing was read, and its old name when it was never numbered", () => {
   expect(labelTitle([], 4)).toBe("Product 4");
   expect(labelTitle(["aqua"], 1)).toBe("Product 1");

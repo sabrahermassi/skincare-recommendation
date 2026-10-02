@@ -590,7 +590,7 @@ const TILE_RADIUS = 12;
  * the entry.
  */
 function LabelRow({ entry, ingredients }: { entry: HistoryEntry; ingredients: string[] }) {
-  const title = labelTitle(ingredients, entry.labelNo);
+  const title = useMemo(() => labelTitle(ingredients, entry.labelNo), [ingredients, entry.labelNo]);
   return (
     <PlainRow
       title={title}
