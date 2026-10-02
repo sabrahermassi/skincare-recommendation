@@ -155,11 +155,11 @@ export const SEGMENT_TRACK = "#E8EBDF"; // v9: on the sage page
 export const SWITCH_TRACK_GLASS = "rgba(47,44,42,0.07)";
 
 /**
- * The floating tab bar as glass (same request): a wash over a light blur, a
- * little darker than the page, so what scrolls under the bar shows through.
- * Judged values.
+ * The floating tab bar as glass (same request): white let through over a
+ * light blur, so the bar stays white (owner) while what scrolls under it
+ * shows through. 62% is a judged value.
  */
-export const TAB_BAR_GLASS = "rgba(228,230,222,0.6)";
+export const TAB_BAR_GLASS = "rgba(255,255,255,0.62)";
 
 /**
  * Every destructive or report action (v9, read off the hand-off): the soft

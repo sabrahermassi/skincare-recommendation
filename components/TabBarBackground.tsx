@@ -1,14 +1,14 @@
 import { BlurView } from "expo-blur";
 import { useState } from "react";
 import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import Svg, { ClipPath, Defs, G, Path } from "react-native-svg";
 
 import { TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_MARGIN } from "@/lib/tab-bar";
 import { INK, TAB_BAR_GLASS, TAB_BAR_SHADE } from "@/lib/tokens";
 
 /**
  * The tab bar's body: a rounded bar of glass (owner: what scrolls under it
- * shows through, lightly blurred and a little darker) with a soft shade under it. The scan
+ * shows through, lightly blurred, and the bar stays white) with a soft shade under it. The scan
  * button is not cut into it; it sits on top of the bar and casts its own shadow.
  * Drawn rather than styled so the shade can be built from a few soft layers
  * (`TAB_BAR_SHADE`) instead of one box shadow.
@@ -47,15 +47,24 @@ export function TabBarBackground() {
     <View pointerEvents="none" onLayout={onLayout} style={{ position: "absolute", left: 0, right: 0, top: 0, height: h }}>
       {width > 0 ? (
         <Svg width={width} height={h + TAB_BAR_SHADE.reach} style={{ position: "absolute", top: 0, left: 0 }}>
-          {Array.from({ length: TAB_BAR_SHADE.layers }, (_, i) => (
-            <Path
-              key={i}
-              d={d}
-              fill={INK}
-              fillOpacity={TAB_BAR_SHADE.opacity}
-              transform={`translate(0 ${((i + 1) * TAB_BAR_SHADE.reach) / TAB_BAR_SHADE.layers})`}
-            />
-          ))}
+          {/* The shade is drawn only outside the bar: under glass it would
+              show through and turn the white grey. */}
+          <Defs>
+            <ClipPath id="outsideBar">
+              <Path d={`M 0 0 H ${width} V ${h + TAB_BAR_SHADE.reach} H 0 Z ${d}`} clipRule="evenodd" />
+            </ClipPath>
+          </Defs>
+          <G clipPath="url(#outsideBar)">
+            {Array.from({ length: TAB_BAR_SHADE.layers }, (_, i) => (
+              <Path
+                key={i}
+                d={d}
+                fill={INK}
+                fillOpacity={TAB_BAR_SHADE.opacity}
+                transform={`translate(0 ${((i + 1) * TAB_BAR_SHADE.reach) / TAB_BAR_SHADE.layers})`}
+              />
+            ))}
+          </G>
         </Svg>
       ) : null}
       {width > 0 ? (
