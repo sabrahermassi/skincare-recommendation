@@ -76,7 +76,8 @@ export function ConfirmSheet({
             accessibilityRole="button"
             accessibilityLabel={confirmLabel}
             accessibilityState={{ disabled: busy }}
-            style={{ marginTop: 16, width: BUTTON_WIDTH.secondary, height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: DESTRUCTIVE_OUTLINE.fill, alignItems: "center", justifyContent: "center", opacity: busy ? 0.6 : 1 }}
+            // The short width (140): the label is one word.
+            style={{ marginTop: 16, width: BUTTON_WIDTH.pair, height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: DESTRUCTIVE_OUTLINE.fill, alignItems: "center", justifyContent: "center", opacity: busy ? 0.6 : 1 }}
             className="active:opacity-80"
           >
             <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: DESTRUCTIVE_OUTLINE.label }}>{confirmLabel}</Text>
