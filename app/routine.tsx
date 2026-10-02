@@ -22,7 +22,7 @@ import { prepareRoutine } from "@/lib/routine-build";
 import { activeLine, placeId, recallRoutine, recommendable, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
 import { fetchProductsByIds } from "@/data/api";
 import { matchProduct } from "@/lib/matching";
-import { CANVAS, CANVAS_GLASS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WARN, WHITE } from "@/lib/tokens";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WARN, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
 import { GlassHeader } from "@/components/GlassHeader";
@@ -148,7 +148,7 @@ function Steps() {
   // On a development build with the test data on (Profile), ten steps each way.
   const testRoutine = useTestRoutine();
   const { routine, loaded, retry } = useRoutine(profile);
-  const steps: readonly RoutineSlot[] = testRoutine ? TEST_STEPS[time].map((label) => ({ key: label, label, active: null, picks: [] })) : (routine?.[time] ?? []);
+  const steps: readonly RoutineSlot[] = testRoutine ? TEST_STEPS[time].map((label) => ({ key: label, label, active: null, pick: null })) : (routine?.[time] ?? []);
   // The products the person put in a step themselves stand in front of ours.
   const routinePicks = useAppStore((s) => s.routinePicks);
   const removeFromRoutine = useAppStore((s) => s.removeFromRoutine);
@@ -260,19 +260,16 @@ function Steps() {
  * serum or treatment, the active to use in big letters and what it is for
  * (owner: the active says more than a product we may not have); then the
  * product for the step, the person's own if they added one and ours otherwise
- * (tapping it opens the product, as a scan would); any other options; and a
- * way to scan one. With nothing picked, the step's bottle sits faded on the
+ * (tapping it opens the product, as a scan would); and a way to scan one. With nothing picked, the step's bottle sits faded on the
  * right.
  */
 function StepCard({ number, slot, own: ownPick, onRemove, last }: { number: number; slot: RoutineSlot; own: OwnPick | null; onRemove: (id: string) => void; last: boolean }) {
-  const [more, setMore] = useState(false);
-  const { label, active, picks } = slot;
+  const { label, active } = slot;
   const own = ownPick?.pick ?? null;
-  // Their own product leads; ours are then all "more", less the same product.
-  // One of theirs that could not be read keeps its place, said plainly, so it
-  // can still be taken out; ours are all "more" then too.
-  const pick = own ?? (ownPick ? undefined : picks[0]);
-  const others = ownPick ? picks.filter((other) => other.product.id !== ownPick.id) : picks.slice(1);
+  // One product a step (owner): their own when they added one, and ours
+  // otherwise. One of theirs that could not be read keeps its place, said
+  // plainly, so it can still be taken out, which brings ours back.
+  const pick = own ?? (ownPick ? null : slot.pick);
   // Added when it suited, and no longer something we would pick: a pregnancy
   // since, or a profile it matches poorly.
   const outgrown = own !== null && !recommendable(own.product, own.match);
@@ -307,24 +304,10 @@ function StepCard({ number, slot, own: ownPick, onRemove, last }: { number: numb
             <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>{active ? "No product to suggest yet." : "No product picked yet."}</Text>
           )}
           {outgrown ? <Text style={{ fontSize: TYPE.caption, lineHeight: 18, fontWeight: "600", color: WARN }}>We wouldn&apos;t pick this for your skin profile as it is now.</Text> : null}
-          {more ? others.map((other) => <PickRow key={other.product.id} pick={other} divided />) : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: SPACE.gutter }}>
             {ownPick ? (
               <Pressable onPress={() => onRemove(ownPick.id)} accessibilityRole="button" accessibilityLabel={own ? `Remove ${own.product.name} from my routine` : "Remove my pick from this step"} hitSlop={8} style={{ minHeight: 28, justifyContent: "center" }} className="active:opacity-70">
                 <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Remove</Text>
-              </Pressable>
-            ) : null}
-            {others.length > 0 ? (
-              <Pressable
-                onPress={() => setMore((open) => !open)}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: more }}
-                accessibilityLabel={more ? `Fewer options for ${label.toLowerCase()}` : `${others.length} more for ${label.toLowerCase()}`}
-                hitSlop={8}
-                style={{ minHeight: 28, justifyContent: "center" }}
-                className="active:opacity-70"
-              >
-                <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{more ? "Fewer" : `${others.length} more`}</Text>
               </Pressable>
             ) : null}
             <Pressable
@@ -352,7 +335,7 @@ function StepCard({ number, slot, own: ownPick, onRemove, last }: { number: numb
  * match. It opens the product screen. `own` marks the one the person added
  * themselves.
  */
-function PickRow({ pick, divided = false, own = false }: { pick: RoutinePick; divided?: boolean; own?: boolean }) {
+function PickRow({ pick, own = false }: { pick: RoutinePick; own?: boolean }) {
   const { product, match } = pick;
   const verdict = match.score === null ? VERDICT_LABEL[match.verdict] : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`;
   return (
@@ -360,7 +343,7 @@ function PickRow({ pick, divided = false, own = false }: { pick: RoutinePick; di
       onPress={() => router.push({ pathname: "/product/[id]", params: { id: product.id } })}
       accessibilityRole="button"
       accessibilityLabel={`${own ? "Your pick: " : ""}${product.brand} ${product.name}. ${match.score === null ? VERDICT_LABEL[match.verdict] : `${VERDICT_LABEL[match.verdict]}, ${match.score} out of 100`}`}
-      style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.text, borderTopWidth: divided ? 0.5 : 0, borderTopColor: DIVIDER }}
+      style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.text}}
       className="active:opacity-70"
     >
       <ProductThumbnail product={product} size={44} />

@@ -1,7 +1,7 @@
 import type { Ingredient, ProductType, ProductWithIngredients, SkinProfile } from "@/data/types";
 import { PREGNANCY_LINE } from "@/lib/journey";
-import { SCORE_BANDS } from "@/lib/matching";
-import { activeLine, buildRoutine, PICKS_PER_STEP, placesLabel, routinePlacesFor } from "@/lib/routine-builder";
+import { matchProduct, SCORE_BANDS } from "@/lib/matching";
+import { activeLine, buildRoutine, placesLabel, routinePlacesFor } from "@/lib/routine-builder";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 /**
@@ -40,7 +40,8 @@ function product(type: ProductType, name: string, names: string[] = [], override
 const ACNE: SkinProfile = { ...EMPTY_PROFILE, concerns: ["acne-prone"], baseSkinType: "oily", sensitivity: "none" };
 const labels = (slots: { label: string }[]) => slots.map((slot) => slot.label);
 const slot = (routine: ReturnType<typeof buildRoutine>, time: "morning" | "evening", key: string) => routine[time].find((s) => s.key === key)!;
-const names = (s: { picks: { product: { name: string } }[] }) => s.picks.map((pick) => pick.product.name);
+/** The product a step suggests, as a list of one name or none. */
+const names = (s: { pick: { product: { name: string } } | null }) => (s.pick ? [s.pick.product.name] : []);
 
 it("lays out a morning of four steps and an evening that cleanses twice", () => {
   const routine = buildRoutine([], ACNE);
@@ -48,7 +49,9 @@ it("lays out a morning of four steps and an evening that cleanses twice", () => 
   expect(labels(routine.evening)).toEqual(["First cleanse", "Cleansing", "Treatment", "Moisturiser"]);
 });
 
-it("fills a basic step with the best matches of that type, three at most, best first", () => {
+// One product a step, not a shortlist (owner, 2 October 2026): three options
+// handed the choice back to someone who came to be told.
+it("fills a basic step with the one best match of that type", () => {
   const catalogue = [
     product("moisturizer", "Plain cream"),
     product("moisturizer", "Niacinamide cream", ["niacinamide"]),
@@ -59,10 +62,9 @@ it("fills a basic step with the best matches of that type, three at most, best f
   ];
   const routine = buildRoutine(catalogue, ACNE);
   const moisturiser = slot(routine, "morning", "moisturise");
-  expect(moisturiser.picks).toHaveLength(PICKS_PER_STEP);
-  const scores = moisturiser.picks.map((pick) => pick.match.score ?? 0);
-  expect(scores).toEqual([...scores].sort((a, b) => b - a));
-  expect(moisturiser.picks.every((pick) => pick.product.type === "moisturizer")).toBe(true);
+  const best = Math.max(...catalogue.filter((p) => p.type === "moisturizer").map((p) => matchProduct(p, ACNE).score ?? 0));
+  expect(moisturiser.pick?.product.type).toBe("moisturizer");
+  expect(moisturiser.pick?.match.score).toBe(best);
   expect(moisturiser.active).toBeNull();
   expect(names(slot(routine, "morning", "sunscreen"))).toEqual(["Sun fluid"]);
   expect(names(slot(routine, "morning", "cleanse"))).toEqual(["Gel wash"]);
@@ -96,13 +98,13 @@ it("suggests the product with the better active first, whatever the two score", 
   const catalogue = [product("serum", "BHA serum", ["salicylic acid"]), product("serum", "Retinol serum", ["retinol"])];
   const treatment = slot(buildRoutine(catalogue, ACNE), "evening", "treatment");
   // Retinoids rank above salicylic acid for acne, so the retinol serum leads and names the step.
-  expect(names(treatment)).toEqual(["Retinol serum", "BHA serum"]);
+  expect(names(treatment)).toEqual(["Retinol serum"]);
   expect(treatment.active?.name).toBe("Retinoids");
 });
 
 it("still says what to look for when the catalogue has nothing to name", () => {
   const routine = buildRoutine([product("serum", "Hydrating serum")], { ...EMPTY_PROFILE, concerns: ["fine-lines"], pregnancyStatus: "pregnant" });
-  expect(slot(routine, "morning", "serum")).toMatchObject({ picks: [], active: { name: "Bakuchiol", why: "For fine lines.", alternatives: ["Peptides"] } });
+  expect(slot(routine, "morning", "serum")).toMatchObject({ pick: null, active: { name: "Bakuchiol", why: "For fine lines.", alternatives: ["Peptides"] } });
   // Retinoids are off the list while pregnant, so the evening looks for the same gentle actives.
   expect(slot(routine, "evening", "treatment").active?.name).toBe("Bakuchiol");
 });
@@ -158,7 +160,7 @@ it("never recommends what the skin match warns against", () => {
   const routine = buildRoutine(catalogue, ACNE);
   expect(names(slot(routine, "morning", "moisturise"))).toEqual(["Fine cream"]);
   for (const time of ["morning", "evening"] as const) {
-    for (const s of routine[time]) for (const pick of s.picks) expect(pick.match.score).toBeGreaterThanOrEqual(SCORE_BANDS.fair);
+    for (const s of routine[time]) if (s.pick) expect(s.pick.match.score).toBeGreaterThanOrEqual(SCORE_BANDS.fair);
   }
   // A retinol serum is a fine treatment, until the profile says pregnant.
   const retinol = [product("serum", "Retinol serum", ["retinol"])];
@@ -168,12 +170,15 @@ it("never recommends what the skin match warns against", () => {
 });
 
 it("splits cleansers into the first cleanse and the face wash", () => {
+  const cleanse = (name: string, type: ProductType = "cleanser") => {
+    const routine = buildRoutine([product(type, name)], ACNE);
+    return { first: names(slot(routine, "evening", "first-cleanse")), evening: names(slot(routine, "evening", "cleanse")), morning: names(slot(routine, "morning", "cleanse")) };
+  };
+  expect(cleanse("Micellar water", "micellar-water")).toEqual({ first: ["Micellar water"], evening: [], morning: [] });
+  expect(cleanse("Cleansing oil")).toEqual({ first: ["Cleansing oil"], evening: [], morning: [] });
+  expect(cleanse("Foaming gel")).toEqual({ first: [], evening: ["Foaming gel"], morning: ["Foaming gel"] });
   // "Oil" in a name is not an oil cleanser: an oil-control wash is a face wash.
-  const catalogue = [product("micellar-water", "Micellar water"), product("cleanser", "Cleansing oil"), product("cleanser", "Foaming gel"), product("cleanser", "Oil control wash")];
-  const routine = buildRoutine(catalogue, ACNE);
-  expect(names(slot(routine, "evening", "first-cleanse")).sort()).toEqual(["Cleansing oil", "Micellar water"]);
-  expect(names(slot(routine, "evening", "cleanse")).sort()).toEqual(["Foaming gel", "Oil control wash"]);
-  expect(names(slot(routine, "morning", "cleanse")).sort()).toEqual(["Foaming gel", "Oil control wash"]);
+  expect(cleanse("Oil control wash")).toEqual({ first: [], evening: ["Oil control wash"], morning: ["Oil control wash"] });
 });
 
 // The catalogue's types are guesses; a name that says otherwise wins.
@@ -193,8 +198,9 @@ it("keeps a product whose name says it is something else out of a step", () => {
 
 it("gives the same profile the same routine every time", () => {
   const catalogue = [product("sunscreen", "B sun"), product("sunscreen", "A sun"), product("sunscreen", "C sun")];
-  expect(names(slot(buildRoutine(catalogue, ACNE), "morning", "sunscreen"))).toEqual(["A sun", "B sun", "C sun"]);
-  expect(names(slot(buildRoutine([...catalogue].reverse(), ACNE), "morning", "sunscreen"))).toEqual(["A sun", "B sun", "C sun"]);
+  // Three equal matches: the name settles it, whatever order the catalogue came in.
+  expect(names(slot(buildRoutine(catalogue, ACNE), "morning", "sunscreen"))).toEqual(["A sun"]);
+  expect(names(slot(buildRoutine([...catalogue].reverse(), ACNE), "morning", "sunscreen"))).toEqual(["A sun"]);
 });
 
 // "Add to my routine" (owner): we put the product in the step it belongs to.
