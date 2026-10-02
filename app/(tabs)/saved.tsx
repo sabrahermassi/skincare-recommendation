@@ -539,6 +539,7 @@ function howOrWhen(entry: HistoryEntry): string {
  */
 function PlainRow({
   title,
+  titleLines = 2,
   detail,
   onPress,
   accessibilityLabel,
@@ -546,6 +547,8 @@ function PlainRow({
   children,
 }: {
   title: string;
+  /** How many lines the name may take before it is cut. */
+  titleLines?: number;
   detail: string;
   onPress?: () => void;
   accessibilityLabel?: string;
@@ -565,7 +568,7 @@ function PlainRow({
         <Ionicons name="document-text-outline" size={22} color={MUTED} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
+        <Text numberOfLines={titleLines} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
           {title}
         </Text>
         <Text numberOfLines={2} style={{ fontSize: TYPE.caption, color: MUTED }}>
@@ -594,6 +597,9 @@ function LabelRow({ entry, ingredients }: { entry: HistoryEntry; ingredients: st
   return (
     <PlainRow
       title={title}
+      // The names are all the row has to say which product it was, so at a
+      // large text size they get a third line rather than being cut.
+      titleLines={3}
       detail={notOursLine(entry)}
       onPress={() => router.push({ pathname: "/label-result", params: { entry: entry.id } })}
       accessibilityLabel={`${title}, ${ingredients.length} ingredients, ${notOursLine(entry)}`}

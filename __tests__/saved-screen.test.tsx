@@ -202,6 +202,8 @@ it("shows a label photo in History and opens that same result", async () => {
   // Numbered, and named by what says most about it (owner): its active first.
   expect(await screen.findByText("Product 2: Niacinamide, Glycerin")).toBeTruthy();
   expect(screen.getByText("Label photo: Glycerin")).toBeTruthy();
+  // The names are all it has to go by, so at a large text size they get a third line.
+  expect(screen.getByText("Product 2: Niacinamide, Glycerin").props.numberOfLines).toBe(3);
   const card = screen.getByRole("button", { name: /^Product 2: Niacinamide, Glycerin, 3 ingredients, Scanned · we don't have this product/ });
   expect(screen.getByLabelText("64 out of 100")).toBeTruthy();
   await act(async () => fireEvent.press(card));
