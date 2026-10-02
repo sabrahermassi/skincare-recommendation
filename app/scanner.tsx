@@ -456,7 +456,7 @@ export default function Scan() {
   const needsPermission = permission !== null && !permission.granted;
   const scanning = mode === "Photo" || status.kind === "idle" || status.kind === "looking";
   const cameraLive = isFocused && granted;
-  const shutterClearance = shutterRoom(insets.bottom);
+  const frameClearance = frameBottom(insets.bottom);
 
   const stage =
     mode === "Barcode" ? (
@@ -486,6 +486,17 @@ export default function Scan() {
     );
 
 
+  const popupUp = status.kind === "found" || (mode === "Barcode" && (status.kind === "missed" || status.kind === "unreachable"));
+  const modeSwitch = (
+    <SegmentedSwitch
+      tone={needsPermission ? "light" : "dark"}
+      options={MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
+      selected={mode}
+      onSelect={selectMode}
+      style={{ width: SWITCH_WIDTH }}
+    />
+  );
+
   // Full screen, presented the standard iOS way: it slides up from the bottom
   // and back down when closed (`presentation: "fullScreenModal"` in
   // app/_layout.tsx, #313).
@@ -511,7 +522,7 @@ export default function Scan() {
         {granted && scanning ? (
           <ScanViewfinder
             topInset={insets.top + CLOSE_CLEARANCE}
-            bottomInset={shutterClearance}
+            bottomInset={frameClearance}
             frame={mode === "Barcode" ? "corners" : "full"}
             description={mode === "Barcode" ? (scanStateCopy({ kind: "ready", mode: "barcode" }).line ?? null) : null}
             hint={mode === "Barcode" ? (scanStateCopy({ kind: "ready", mode: "barcode" }).line ?? null) : null}
@@ -542,8 +553,9 @@ export default function Scan() {
         ) : null}
       </View>
 
-      {/* Across the top (v7): close, the mode switch, the torch. One switch,
-          so the pills do not remount and jump on a mode change. */}
+      {/* Across the top: close and the torch. The mode switch is at the foot
+          of the screen (owner), except on the cream permission screen, whose
+          own buttons are down there. */}
       <View
         pointerEvents="box-none"
         style={{
@@ -564,13 +576,7 @@ export default function Scan() {
           // Opened from a deep link there is nothing underneath to go back to.
           onPress={goBackOrHome}
         />
-        <SegmentedSwitch
-          tone={needsPermission ? "light" : "dark"}
-          options={MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
-          selected={mode}
-          onSelect={selectMode}
-          style={{ width: SWITCH_WIDTH }}
-        />
+        {needsPermission ? modeSwitch : null}
         {/* In both modes, not just Barcode (#195): the camera is one shared
             instance, so a torch turned on here stays on across a mode switch —
             and someone photographing a label on the same dark shelf needs the
@@ -587,6 +593,17 @@ export default function Scan() {
           <View style={{ width: TOUCH_TARGET }} />
         )}
       </View>
+
+      {/* Barcode | Ingredient list, at the foot of the screen under the frame
+          (owner). One switch for both modes, so it does not remount and jump
+          on a change. Put away while a pop-up is up: it rises over this spot.
+          A miss carried into Photo mode has no pop-up, and the switch is the
+          way back from there. */}
+      {!needsPermission && !popupUp ? (
+        <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, bottom: stageBottom(insets.bottom), alignItems: "center" }}>
+          {modeSwitch}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -824,13 +841,13 @@ function BarcodeStage({
         />
       )}
 
-      {/* Status, at the bottom of the stage. */}
+      {/* Status, at the bottom of the stage, above the mode switch. */}
       <View
         style={{
           position: "absolute",
           left: STAGE_INSET,
           right: STAGE_INSET,
-          bottom,
+          bottom: needsPermission ? bottom : frameBottom(insets.bottom),
           gap: 12,
         }}
       >
@@ -935,7 +952,8 @@ function BarcodeStage({
             position: "absolute",
             left: STAGE_INSET,
             right: STAGE_INSET,
-            bottom,
+            // Above the mode switch at the foot of the screen.
+            bottom: frameBottom(insets.bottom),
             alignItems: "center",
           }}
         >
@@ -1022,7 +1040,8 @@ function IngredientsStage({
           cameraSize={cameraSize}
           window={windowBox}
           frameTopOffset={CLOSE_CLEARANCE}
-          bottomInset={bottom}
+          // The shutter and the library button sit inside the frame, at its foot (owner).
+          bottomInset={frameBottom(insets.bottom)}
           onRead={openVerdict}
           isStillWanted={stillWanted}
         />
@@ -1055,17 +1074,15 @@ const STAGE_INSET = 20;
 // The top row (a whole touch target, 8 below the safe area); the frame
 // starts clear of it.
 const CLOSE_CLEARANCE = 44;
-// The shutter (v7), and the gap between it and the frame above.
-const SHUTTER = 76;
 
 /** Where the stage's bottom row sits: clear of the edge and the home indicator. */
 function stageBottom(safeBottom: number) {
   return Math.max(SPACE.section, safeBottom + SPACE.gutter);
 }
 
-/** Room under the frame for the shutter, with a section's gap above it. */
-function shutterRoom(safeBottom: number) {
-  return stageBottom(safeBottom) + SHUTTER + SPACE.section;
+/** Where the frame ends: above the mode switch at the foot of the screen, with a gutter between them. */
+function frameBottom(safeBottom: number) {
+  return stageBottom(safeBottom) + TOUCH_TARGET + SPACE.gutter;
 }
 // How long a barcode can sit unread in frame before offering Photo mode as
 // the way out (#195) — long enough that a normal read (under a second)

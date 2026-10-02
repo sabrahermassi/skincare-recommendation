@@ -17,7 +17,7 @@ import { deleteTempFile, LIBRARY_MAX_WIDTH, pickLabelPhoto } from "@/lib/pick-la
 import { failureFromState, readLabelPhoto } from "@/lib/read-label-photo";
 import { scanStateCopy, scanStateSpeech } from "@/lib/scan-copy";
 import { track } from "@/lib/analytics";
-import { CAMERA_STAGE, CANVAS, INK, SELECTED, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
+import { CAMERA_STAGE, CANVAS, INK, SELECTED, SPACE, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 
@@ -369,7 +369,8 @@ export function LabelCamera({
           position: "absolute",
           left: 0,
           right: 0,
-          bottom: clearance + 20,
+          // `clearance` is where the frame ends: 16 inside it.
+          bottom: clearance + SPACE.gutter,
           alignItems: "center",
           gap: 12,
           paddingHorizontal: SCAN_SIDE_INSET + 12,
