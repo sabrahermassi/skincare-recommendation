@@ -129,7 +129,8 @@ describe("the ingredient page, opened from a product", () => {
 
   it("says a misread pore-clogger is on the lists when the score didn't charge it", async () => {
     await open("isopropyl myristate", {});
-    expect(screen.getByText("Worth a second look")).toBeTruthy();
+    // A strong-evidence pore-clogger is red (owner, 2 October 2026).
+    expect(screen.getByText("Flagged for everyone")).toBeTruthy();
     expect(
       screen.getByText("This name didn't match our ingredient dictionary, but it is on the published pore-clogging lists."),
     ).toBeTruthy();

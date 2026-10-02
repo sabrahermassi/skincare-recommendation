@@ -19,6 +19,7 @@ import { deckFor, JOURNEY_CONCERNS, planFit } from "@/lib/journey";
 import { concernSupport, confidenceLabel, isLowCoverage, matchProduct, ruleFor, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
+import { cloggerConfidence } from "@/lib/pore-clogging";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
 import { irritationWarnings, isVerified } from "@/lib/safety";
 import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE, STONE_GLASS, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
@@ -289,6 +290,17 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
     if (seen.has(w.ingredient.name)) continue;
     seen.add(w.ingredient.name);
     rows.push({ key: `avoid-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tone: VERDICT.low });
+  }
+  // A pore-clogger, for the skin it matters to (owner): acne or enlarged
+  // pores in the profile. Strong evidence is red, moderate orange; a
+  // contested one is never warned about.
+  if (profile.concerns.some((c) => c === "acne-prone" || c === "large-pores")) {
+    for (const ingredient of ingredients) {
+      const confidence = cloggerConfidence(ingredient);
+      if (confidence === null || confidence === "contested" || seen.has(ingredient.name)) continue;
+      seen.add(ingredient.name);
+      rows.push({ key: `clog-${ingredient.name}`, name: displayIngredientName(ingredient.name), text: " is comedogenic and may clog pores.", tone: confidence === "high" ? VERDICT.low : VERDICT.medium });
+    }
   }
   // Then the recommendations it covers, one box per card.
   for (const { card, ingredients: hits } of fit?.covered ?? []) {

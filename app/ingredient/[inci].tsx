@@ -13,6 +13,7 @@ import { VerdictMarker } from "@/components/VerdictMarker";
 import { fetchProduct, resolveIngredientNames } from "@/data/api";
 import { unknownIngredient, type Concern, type Ingredient, type ProductWithIngredients, type SkinProfile } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
+import { cloggerConfidence } from "@/lib/pore-clogging";
 import { StarIcon } from "@/components/icons/StarIcon";
 import { comedogenicLabel } from "@/lib/format";
 import { countedAgainst, ingredientLabel, isCommonIrritant, labelWithoutProduct, ruleTargets, type IngredientLabel } from "@/lib/ingredient-labels";
@@ -254,7 +255,7 @@ function IngredientDetail({ inci, productId }: { inci: string; productId?: strin
                 </Pressable>
               ) : (
                 <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
-                  {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null)}
+                  {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null, cloggerConfidence(ingredient) === "high")}
                 </Text>
               )}
               <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{fitTag(fit, helps, hurts, warning, match)}</Text>
@@ -467,7 +468,8 @@ function fitBody(
   verified: boolean,
   hasRule: boolean,
   commonIrritant: boolean,
-  inProduct: boolean
+  inProduct: boolean,
+  clogs: boolean
 ): string {
   if (fit === "unknown") {
     return "We don't know enough about this one to say how it fits your skin, so it isn't counted in your score.";
@@ -481,6 +483,9 @@ function fitBody(
     return "This name didn't match our ingredient dictionary, but it is on the published pore-clogging lists.";
   }
   if (helps) return "This actively helps with what you told us about your skin.";
+  if (fit === "avoid" && clogs) {
+    return "It is comedogenic: the published pore-clogging lists agree on it, so it may clog pores, most of all on acne-prone skin.";
+  }
   if (fit === "avoid") {
     return "The EU inventory restricts or prohibits this one, which applies to everybody rather than to your profile in particular.";
   }

@@ -346,6 +346,11 @@ export function isWarnedPoreClogging(ingredient: Ingredient): boolean {
   return entry !== undefined && entry.confidence !== "contested";
 }
 
+/** How sure the published lists are about this exact ingredient, or null when it is on none of them. */
+export function cloggerConfidence(ingredient: Ingredient): CloggerConfidence | null {
+  return PORE_CLOGGERS.find((candidate) => entryMatches(candidate, ingredient.name))?.confidence ?? null;
+}
+
 export type PoreVerdict =
   /** At least one flagged ingredient. `warned` excludes contested entries. */
   | { kind: "hits"; hits: CloggerHit[]; warned: CloggerHit[] }

@@ -41,10 +41,10 @@ export function ingredientSubtitle(ingredient: Ingredient, label: IngredientLabe
       : clogs
         ? // Pore-clogging matching fires on an unrecognised name too, and the
           // row is Watch for it, not Unknown.
-          "On the published pore-clogging lists"
+          "Comedogenic: may clog pores"
         : "Not recognised - we can't assess this one"
     : clogs
-      ? "On the published pore-clogging lists"
+      ? "Comedogenic: may clog pores"
       : rule
         ? withoutOwnName(rule.reason.split(" - ")[0].trim(), ingredient.name)
         : (ingredient.note ?? functionLabel(ingredient));

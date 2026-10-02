@@ -186,3 +186,18 @@ describe("the order of the boxes", () => {
     for (const verdict of ["excellent", "good", "fair", "poor", "unknown"] as const) expect(reasonOrder(verdict)[0]).toBe("red");
   });
 });
+
+// Owner, 2 October 2026: a pore-clogger gets its own box for the skin it matters to.
+describe("a pore-clogger on Skin match", () => {
+  it("says it is comedogenic for someone with acne", async () => {
+    await show(["isopropyl myristate"], { ...EMPTY_PROFILE, concerns: ["acne-prone"] });
+    await openMatch();
+    expect(screen.getByText(/Isopropyl Myristate is comedogenic and may clog pores\./i)).toBeTruthy();
+  });
+
+  it("says nothing of it for someone without acne or enlarged pores", async () => {
+    await show(["isopropyl myristate"], { ...EMPTY_PROFILE, concerns: ["dehydrated"] });
+    await openMatch();
+    expect(screen.queryByText(/is comedogenic and may clog pores/)).toBeNull();
+  });
+});
