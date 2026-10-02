@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { router } from "expo-router";
 
 import Routine from "@/app/routine";
@@ -16,7 +16,8 @@ jest.setTimeout(30000);
 
 const mockOpenQuiz = jest.fn();
 jest.mock("@/lib/open-quiz", () => ({ openQuiz: () => mockOpenQuiz() }));
-jest.mock("expo-router", () => ({ router: { back: jest.fn(), push: jest.fn(), canGoBack: () => true } }));
+let mockFocused = true;
+jest.mock("expo-router", () => ({ router: { back: jest.fn(), push: jest.fn(), canGoBack: () => true }, useIsFocused: () => mockFocused }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -58,12 +59,13 @@ beforeEach(() => {
   fetched.mockReset();
   fetched.mockResolvedValue([]);
   jest.mocked(router.push).mockClear();
+  mockFocused = true;
 });
 
-/** The screen with its catalogue read. */
+/** The screen with its routine built: the catalogue read, and scored in its batches. */
 async function open() {
   await render(<Routine />);
-  await act(async () => {});
+  await waitFor(() => expect(screen.queryByText("Finding products…")).toBeNull());
 }
 
 it("asks for a skin profile first, and opens the quiz from Take the skin quiz", async () => {
@@ -100,7 +102,7 @@ it("says it is finding products until the catalogue arrives, then that none was 
   await render(<Routine />);
   expect(screen.getAllByText("Finding products…")).toHaveLength(4);
   await act(async () => arrive([]));
-  expect(screen.queryByText("Finding products…")).toBeNull();
+  await waitFor(() => expect(screen.queryByText("Finding products…")).toBeNull());
   expect(screen.getAllByText("No product picked yet.")).toHaveLength(4);
 });
 
@@ -145,3 +147,34 @@ it("still lays out the steps when the catalogue cannot be read", async () => {
   expect(screen.getAllByText("No product picked yet.")).toHaveLength(4);
   expect(screen.getByText("Look for Azelaic acid, for acne.")).toBeTruthy();
 });
+
+// Home draws this screen ahead of the tap, and the skin quiz opens over it and
+// changes the profile with every answer. Scoring the catalogue then froze the
+// app while nobody was looking at the routine (owner, 2 October 2026).
+it("neither reads the catalogue nor builds a routine while it is not the screen showing", async () => {
+  useAppStore.setState({ profile: ACNE });
+  fetched.mockResolvedValue(CATALOGUE);
+  mockFocused = false;
+  const view = await render(<Routine />);
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 50)));
+  expect(fetched).not.toHaveBeenCalled();
+  expect(screen.getAllByText("Finding products…")).toHaveLength(4);
+
+  // Shown: now it reads and builds.
+  mockFocused = true;
+  await view.rerender(<Routine />);
+  await waitFor(() => expect(screen.getByText("Foaming gel")).toBeTruthy());
+  expect(fetched).toHaveBeenCalledTimes(1);
+
+  // An answer changed behind another screen: the old routine is not shown as
+  // if it were for the new profile, and nothing is rebuilt until it is back.
+  mockFocused = false;
+  await act(async () => useAppStore.setState({ profile: { ...ACNE, sensitivity: "high" } }));
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 50)));
+  expect(screen.queryByText("Foaming gel")).toBeNull();
+  mockFocused = true;
+  await view.rerender(<Routine />);
+  await waitFor(() => expect(screen.getByText("Foaming gel")).toBeTruthy());
+  expect(fetched).toHaveBeenCalledTimes(1);
+});
+

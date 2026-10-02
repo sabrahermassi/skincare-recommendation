@@ -157,22 +157,47 @@ export const ROUTINE_STEPS: Record<TimeOfDay, { key: string; label: string }[]> 
   evening: STEPS.evening.map(({ key, label }) => ({ key, label })),
 };
 
-/**
- * Both routines for a profile, from the catalogue. Every product is scored
- * once; a step then keeps its three best that are safe to recommend.
- */
-export function buildRoutine(products: readonly ProductWithIngredients[], profile: SkinProfile): Record<TimeOfDay, RoutineSlot[]> {
-  const scored: RoutinePick[] = products
-    .map((product) => ({ product, match: matchProduct(product, profile) }))
-    .filter(({ product, match }) => recommendable(product, match))
-    // Best match first; the name settles a tie, so the same profile always gets the same routine.
-    .sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0) || a.product.name.localeCompare(b.product.name));
+export type Routine = Record<TimeOfDay, RoutineSlot[]>;
 
+/**
+ * The products any step could use. About a quarter of the catalogue is lip
+ * balms, hand creams and masks, which no step takes and so need no score.
+ */
+export function routineCandidates(products: readonly ProductWithIngredients[]): ProductWithIngredients[] {
+  const steps = [...STEPS.morning, ...STEPS.evening];
+  return products.filter((product) => steps.some((step) => step.fits(product)));
+}
+
+/** One candidate, scored for this skin: `null` when it is not safe enough to recommend. */
+export function routinePick(product: ProductWithIngredients, profile: SkinProfile): RoutinePick | null {
+  const match = matchProduct(product, profile);
+  return recommendable(product, match) ? { product, match } : null;
+}
+
+/** Both routines from the scored picks: each step keeps its three best. */
+export function assembleRoutine(picks: readonly RoutinePick[], profile: SkinProfile): Routine {
+  // Best match first; the name settles a tie, so the same profile always gets the same routine.
+  const scored = [...picks].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0) || a.product.name.localeCompare(b.product.name));
   const slots = (time: TimeOfDay): RoutineSlot[] =>
     STEPS[time].map((step) => {
       const cards = step.active ? cardsFor(step.active, profile) : [];
-      const picks = scored.filter(({ product }) => step.fits(product) && (!step.active || holdsActive(product, cards, profile))).slice(0, PICKS_PER_STEP);
-      return { key: step.key, label: step.label, note: step.active ? noteFor(cards, profile) : null, picks };
+      const chosen: RoutinePick[] = [];
+      for (const pick of scored) {
+        if (chosen.length === PICKS_PER_STEP) break;
+        if (step.fits(pick.product) && (!step.active || holdsActive(pick.product, cards, profile))) chosen.push(pick);
+      }
+      return { key: step.key, label: step.label, note: step.active ? noteFor(cards, profile) : null, picks: chosen };
     });
   return { morning: slots("morning"), evening: slots("evening") };
+}
+
+/**
+ * Both routines for a profile, from the catalogue, in one go. Scoring a
+ * thousand products takes long enough on a phone to freeze a tap, so the
+ * screen does the same three steps in small batches (`app/routine.tsx`);
+ * this is the whole of it for tests and scripts.
+ */
+export function buildRoutine(products: readonly ProductWithIngredients[], profile: SkinProfile): Routine {
+  const picks = routineCandidates(products).flatMap((product) => routinePick(product, profile) ?? []);
+  return assembleRoutine(picks, profile);
 }

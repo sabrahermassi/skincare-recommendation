@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { router, useIsFocused } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,11 +13,11 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { Text } from "@/components/Text";
 import { fetchProducts } from "@/data/api";
-import type { ProductWithIngredients } from "@/data/types";
+import type { ProductWithIngredients, SkinProfile } from "@/data/types";
 import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized, profileHeadline } from "@/lib/profile";
-import { buildRoutine, ROUTINE_STEPS, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
+import { assembleRoutine, routineCandidates, routinePick, ROUTINE_STEPS, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
 import { CANVAS, CANVAS_GLASS, CARD_RADIUS, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
@@ -87,16 +87,29 @@ function EmptyProfile() {
   );
 }
 
-function Steps() {
-  const insets = useSafeAreaInsets();
-  const profile = useAppStore((s) => s.profile);
-  const [time, setTime] = useState<TimeOfDay>("morning");
-  const { title, tags } = profileHeadline(profile);
-  // On a development build with the test data on (Profile), ten steps each way.
-  const testRoutine = useTestRoutine();
+// How many products are scored between two chances for a tap to be handled.
+const SCORE_BATCH = 25;
+
+/**
+ * The routine for a profile, `null` while it is being built.
+ *
+ * Built in small batches, and only while this screen is the one showing.
+ * Scoring the catalogue in one go froze the app for as long as it took, and
+ * this screen is alive when it is not on show: Home draws it ahead of the
+ * tap, and the skin quiz opens over it and changes the profile with every
+ * answer, so each answer froze the quiz to rebuild a routine nobody could see
+ * (owner, 2 October 2026).
+ */
+function useRoutine(profile: SkinProfile): BuiltRoutine | null {
+  const focused = useIsFocused();
   // The catalogue, read once: `null` until it arrives, empty if it could not be read.
   const [products, setProducts] = useState<ProductWithIngredients[] | null>(null);
+  const [built, setBuilt] = useState<{ profile: SkinProfile; products: ProductWithIngredients[]; routine: BuiltRoutine } | null>(null);
+  const asked = useRef(false);
+
   useEffect(() => {
+    if (!focused || asked.current) return;
+    asked.current = true;
     let cancelled = false;
     fetchProducts()
       .then((all) => !cancelled && setProducts(all))
@@ -104,8 +117,39 @@ function Steps() {
     return () => {
       cancelled = true;
     };
-  }, []);
-  const routine = useMemo(() => (products ? buildRoutine(products, profile) : null), [products, profile]);
+  }, [focused]);
+
+  const fresh = built !== null && built.profile === profile && built.products === products;
+  useEffect(() => {
+    if (!focused || products === null || fresh) return;
+    const candidates = routineCandidates(products);
+    const picks: RoutinePick[] = [];
+    let next = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const batch = () => {
+      const end = Math.min(next + SCORE_BATCH, candidates.length);
+      for (; next < end; next++) {
+        const pick = routinePick(candidates[next], profile);
+        if (pick) picks.push(pick);
+      }
+      if (next < candidates.length) timer = setTimeout(batch, 0);
+      else setBuilt({ profile, products, routine: assembleRoutine(picks, profile) });
+    };
+    timer = setTimeout(batch, 0);
+    return () => clearTimeout(timer);
+  }, [focused, products, profile, fresh]);
+
+  return fresh ? built.routine : null;
+}
+
+function Steps() {
+  const insets = useSafeAreaInsets();
+  const profile = useAppStore((s) => s.profile);
+  const [time, setTime] = useState<TimeOfDay>("morning");
+  const { title, tags } = profileHeadline(profile);
+  // On a development build with the test data on (Profile), ten steps each way.
+  const testRoutine = useTestRoutine();
+  const routine = useRoutine(profile);
   const steps: readonly RoutineSlot[] = testRoutine
     ? TEST_STEPS[time].map((label) => ({ key: label, label, note: null, picks: [] }))
     : (routine?.[time] ?? ROUTINE_STEPS[time].map((step) => ({ ...step, note: null, picks: [] })));
