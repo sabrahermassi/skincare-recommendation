@@ -44,4 +44,68 @@ describe("eye-patch classification", () => {
   it("does not turn an eye cream into a patch", () => {
     expect(typeOf("Eye Cream")).toBe("eye-cream");
   });
+
+  it("knows an eye cream in German, Italian, Spanish, French and Dutch", () => {
+    // Each read as a moisturiser by its "creme", and could be offered as one.
+    for (const name of ["Augencreme Vital", "Contorno occhi", "Crema contorno de ojos", "Soin contour des yeux", "Oogcrème Q10"]) {
+      expect({ name, type: typeOf(name) }).toEqual({ name, type: "eye-cream" });
+    }
+  });
+
+  it("knows an eye cream however English names it", () => {
+    // Real names from staging; the first was the routine's top "moisturiser".
+    for (const name of [
+      "Abib Collagen Eye Creme Jericho Rose",
+      "Neutrogena Collagen Bank Eye Gel Cream 14g",
+      "Neutrogena Hydro Boost Gel-Cream Eye",
+      "CeraVe Eye Repair Cream",
+      "Creamy Eye Treatment with Avocado",
+      "Active Botanical Eye Contour (15ml)",
+      "AYZ ooglid crème",
+      "Augen Roll-On Aqua",
+      "Soin anti-âge yeux rechargeur jeunesse et perfection",
+    ]) {
+      expect({ name, type: typeOf(name) }).toEqual({ name, type: "eye-cream" });
+    }
+  });
+
+  it("knows a hand, body or foot cream in the catalogue's languages, even under a face tag", () => {
+    // Real names from staging; each showed as "Moisturizer" on its own page.
+    const cases: [string, string][] = [
+      ["Ombia Med Hand Creme 5% Urea", "hand-cream"],
+      ["Crema Manos", "hand-cream"],
+      ["Mains à Croquer", "hand-cream"],
+      ["Yesto Coconut - Hand & Cuticule Cream (crème pour les mains)", "hand-cream"],
+      ["Bodycreme Vitamin E", "body-lotion"],
+      ["Dove Nourishing Body Care Intensiva Piel Extra Seca", "body-lotion"],
+      ["Bálsamo Corporal Aloe", "body-lotion"],
+      ["Dermasel Fusscreme Happy Moments", "foot-cream"],
+    ];
+    for (const [name, type] of cases) expect({ name, type: guessType(["en:face", "en:creams"], name) }).toEqual({ name, type });
+    // A cream for face and body is still a moisturiser.
+    expect(guessType(["en:creams"], "Crème hydratante visage et corps")).toBe("moisturizer");
+    expect(typeOf("mama bear face & body cream")).toBe("moisturizer");
+    expect(typeOf("Handmade day cream")).toBe("moisturizer");
+  });
+
+  it("does not call a shaving product a cleanser, or a soap a moisturiser", () => {
+    // Real names from staging, under the face tags Open Beauty Facts gave them.
+    const cases: [string, string][] = [
+      ["GILLETTE Shave Foam", "unknown"],
+      ["Baume après-rasage", "unknown"],
+      ["Pre-Shave Creme (Sensitive Skin, with Green Tea and Oatmeal)", "unknown"],
+      ["Gillette Gevoelige huid scheergel", "unknown"],
+      ["Charcoal & Dead Sea Salt Detox Soap - Bag", "body-wash"],
+      ["Moisturising Rose & Lavender Cream Soap - Box", "body-wash"],
+      ["L'incontournable savon au lait de chèvre parfum rose", "body-wash"],
+      ["Dove Nemlendirici Sıvı Sabun Caring", "body-wash"],
+    ];
+    for (const [name, type] of cases) expect({ name, type: guessType(["en:face", "en:creams"], name) }).toEqual({ name, type });
+  });
+
+  it("leaves what only mentions the eyes as it was", () => {
+    for (const name of ["Démaquillant yeux waterproof", "Eye Make-up Remover", "Beauty of Joseon Revive Eye Serum", "Eau micellaire visage & yeux", "Creamy Eyeshadow"]) {
+      expect({ name, type: typeOf(name) }).not.toEqual({ name, type: "eye-cream" });
+    }
+  });
 });

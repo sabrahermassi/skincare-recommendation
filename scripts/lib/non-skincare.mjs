@@ -28,7 +28,7 @@ const NAME = [
   // Not bare "ongles" (nails): "Crème Mains et Ongles" is a hand & nail
   // cream, which stays (#312 review). Polish and remover are caught above.
   /\bfaux ongles\b/i, // French: false nails
-  /\bnagellack/i, // German: nail polish
+  /\bnagellac?k/i, // German "Nagellack" and Dutch "nagellak": nail polish
   /\bquitaesmalte\b/i, // Spanish: nail polish remover
   /\bsmalto\b/i, // Italian: nail polish
   // The household word right before "cleaner"/"cleaning", which is how

@@ -82,11 +82,15 @@ function isFirstCleanse(product: ProductWithIngredients): boolean {
 }
 
 function isFaceWash(product: ProductWithIngredients): boolean {
-  return product.type === "cleanser" && !isFirstCleanse(product) && !NOT_A_FACE_WASH.test(product.name);
+  return product.type === "cleanser" && !isFirstCleanse(product) && !NOT_A_FACE_WASH.test(product.name) && !notForTheFace(product.name);
 }
 
 function isMoisturiser(product: ProductWithIngredients): boolean {
-  return product.type === "moisturizer" && !NOT_A_MOISTURISER.test(product.name);
+  return product.type === "moisturizer" && !NOT_A_MOISTURISER.test(product.name) && !notForTheFace(product.name);
+}
+
+function isSunscreen(product: ProductWithIngredients): boolean {
+  return product.type === "sunscreen" && !notForTheFace(product.name);
 }
 
 // The catalogue's types are guessed from names and categories, and some
@@ -97,6 +101,25 @@ function isMoisturiser(product: ProductWithIngredients): boolean {
 // German, Dutch, Turkish).
 const NOT_A_FACE_WASH = /\b(patch|pads?|dissolvant|nail|ongles?|nagel|eye|yeux|augen|l[èe]vres|lip)\b/i;
 const NOT_A_MOISTURISER = /\b(exfoli\w*|peel\w*|peeling|gommage|scrub|tonique|toner|tonic|cleans\w*|nettoyant|reinig\w*)\b/i;
+
+// The catalogue keeps hand, body and shaving products on purpose (they are
+// scored when scanned), and Open Beauty Facts files many under its face
+// categories: a hand cream typed as a moisturiser, a shave foam as a cleanser,
+// a body sun spray as a sunscreen. None of them is a step of a face routine.
+const SOAP = /(soap|savon|seife|sabun|zeep)/i;
+const NOT_FOR_THE_FACE =
+  /\b(hand(?!made|crafted)\w*|mains|manos|h[äa]nde|foot\w*|feet|pieds|f[üu](ss|ß)\w*|shav\w*|rasage|raser|rasier\w*|scheer\w*|intim\w*|autobronz\w*|self[- ]tan\w*|bronzla\w*|wipes?|lingettes?|cotton|coton|hair\w*|curls?|cuticule|cuticle)\b/i;
+const BODY = /\b(body\w*|corps|corpo|corporal|corporel|k[öo]rper\w*|v[üu]cut)\b/i;
+const FACE = /\b(face|facial|visage|viso|gesicht\w*|rostro|y[üu]z)\b/i;
+
+// A BB cream or a tinted cream is make-up with skincare in it. One with SPF is
+// typed as a sunscreen and was the step's top pick (owner, 3 October 2026).
+const TINTED = /\b((bb|cc)[\s-]?(cream|cr[èe]me)|tinted|teint[ée]e?s?|get[öo]nt\w*)\b/i;
+
+/** A name that says the product is for somewhere else, or is make-up. "Face & body" is still for the face. */
+function notForTheFace(name: string): boolean {
+  return SOAP.test(name) || NOT_FOR_THE_FACE.test(name) || TINTED.test(name) || (BODY.test(name) && !FACE.test(name));
+}
 
 // Where an active for a concern is worn: leave-on steps between cleansing and
 // moisturiser. A moisturiser with niacinamide in it is still the moisturiser.
@@ -186,10 +209,10 @@ const STEPS: Record<TimeOfDay, Step[]> = {
     { key: "cleanse", label: "Cleansing", fits: isFaceWash },
     { key: "serum", label: "Serum", fits: (p) => SERUM_TYPES.includes(p.type), active: "morning" },
     { key: "moisturise", label: "Moisturiser", fits: isMoisturiser },
-    { key: "sunscreen", label: "Sunscreen", fits: (p) => p.type === "sunscreen" },
+    { key: "sunscreen", label: "Sunscreen", fits: isSunscreen },
   ],
   evening: [
-    { key: "first-cleanse", label: "First cleanse", fits: (p) => isFirstCleanse(p) && !/\b(dissolvant|nail|ongles?|nagel)\b/i.test(p.name) },
+    { key: "first-cleanse", label: "First cleanse", fits: (p) => isFirstCleanse(p) && !/\b(dissolvant|nail|ongles?|nagel)\b/i.test(p.name) && !notForTheFace(p.name) },
     { key: "cleanse", label: "Cleansing", fits: isFaceWash },
     { key: "treatment", label: "Treatment", fits: (p) => TREATMENT_TYPES.includes(p.type), active: "evening" },
     { key: "moisturise", label: "Moisturiser", fits: (p) => isMoisturiser(p) || p.type === "night-mask" },

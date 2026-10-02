@@ -196,6 +196,43 @@ it("keeps a product whose name says it is something else out of a step", () => {
   expect(names(slot(routine, "evening", "first-cleanse"))).toEqual([]);
 });
 
+// Real names from the staging catalogue, each filed under a face category by Open Beauty Facts.
+it("keeps hand, body, shaving and soap products out of a face routine", () => {
+  const picked = (type: ProductType, name: string) => {
+    const routine = buildRoutine([product(type, name)], ACNE);
+    return [...routine.morning, ...routine.evening].flatMap((step) => (step.pick ? [step.pick.product.name] : []));
+  };
+  const junk: [ProductType, string][] = [
+    ["moisturizer", "Ombia Med Hand Creme 5% Urea"],
+    ["moisturizer", "Crema Manos"],
+    ["moisturizer", "Mains à Croquer"],
+    ["moisturizer", "Bodycreme Vitamin E"],
+    ["moisturizer", "Dove Nourishing Body Care Intensiva Piel Extra Seca"],
+    ["moisturizer", "Baume après-rasage"],
+    ["moisturizer", "Pre-Shave Creme (Sensitive Skin, with Green Tea and Oatmeal)"],
+    ["cleanser", "GILLETTE Shave Foam"],
+    ["cleanser", "Detergente intimo uomo"],
+    ["cleanser", "Dove Nemlendirici Sıvı Sabun Caring"],
+    ["cleanser", "Charcoal & Dead Sea Salt Detox Soap - Bag"],
+    ["cleanser", "25 lingettes démaquillantes fraîcheur"],
+    ["sunscreen", "Sensitive Protect Body Spray"],
+    ["sunscreen", "Spray Solare Protezione alta SPF 50 - Corpo"],
+    ["sunscreen", "Nivea Sun SPF50 Güneş Koruyucu ve Ferahlık Vücut Spreyi"],
+    ["sunscreen", "Lait autobronzant"],
+    // Tinted and BB creams are make-up, whatever SPF they carry.
+    ["sunscreen", "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30"],
+    ["sunscreen", "BB cream radiance 9 en 1 SPF 20 - 001 claire"],
+    ["sunscreen", "BB Crème Solaire Teinté SPF 50+"],
+    ["moisturizer", "BB cream Crème soin teintée Sable anti-âge"],
+  ];
+  for (const [type, name] of junk) expect({ name, picked: picked(type, name) }).toEqual({ name, picked: [] });
+
+  // "Face and body" is still for the face, and "handmade" is not a hand.
+  expect(picked("moisturizer", "Crème hydratante visage et corps")).not.toEqual([]);
+  expect(picked("sunscreen", "Anthelios UVMUNE 400, Face & Body hydrating milk")).not.toEqual([]);
+  expect(picked("moisturizer", "Handmade day cream")).not.toEqual([]);
+});
+
 it("gives the same profile the same routine every time", () => {
   const catalogue = [product("sunscreen", "B sun"), product("sunscreen", "A sun"), product("sunscreen", "C sun")];
   // Three equal matches: the name settles it, whatever order the catalogue came in.

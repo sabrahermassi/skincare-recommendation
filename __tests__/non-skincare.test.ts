@@ -14,6 +14,7 @@ describe("nonSkincareReason", () => {
     "Murphy Oil Soap Multi-use Wood Cleaning Spray",
     "Nail Polish Remover Acetone Free",
     "Nagellackentferner",
+    "Kruidvat Nagellakremover", // Dutch, kept by the first import over the whole export
     "Dentifrice blancheur",
     "Faux ongles adhésifs",
     "Multi-Surface Cleaner",

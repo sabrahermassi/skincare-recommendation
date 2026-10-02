@@ -8,13 +8,30 @@
  */
 
 const BEFORE_MASK_RULES = [
-  [/hand.?cream|crème mains|handcreme/, "hand-cream"],
-  [/eye[\s-]?cream/, "eye-cream"],
+  // The app has no shaving type. A shave foam read as a cleanser by its
+  // "foam" and an after-shave balm as a moisturiser; unknown is the honest
+  // answer, and shows no type at all.
+  [/shav|rasage|\braser\b|rasier|rasur|scheer(gel|schuim|cr[èe]me)|afeita|barbear/, "unknown"],
+  // A soap is washed off whatever it is filed under: bars under a cream
+  // category read as moisturisers, at leave-on strength.
+  [/soap|savon|seife|sabun|zeep|jab[oó]n|sapone/, "body-wash"],
+  // "Hand Creme", "Crema Manos" and "Mains à Croquer" read as moisturisers by
+  // their "creme" and showed as one on the product page.
+  [/hand[\s-]?(&[^,]{0,12})?(cream|creme|crème|serum)|handcr[eè]me|cr[èe]me (pour les )?mains|crema (de |para )?manos|\bmains à/, "hand-cream"],
+  // In the other languages the catalogue holds, too: "Augencreme", "Contorno
+  // occhi" and "Contour des yeux" all read as moisturisers by their "creme".
+  // English spells it "creme" as well, and names the eye before or after the
+  // cream: "Eye Creme", "Eye Gel Cream", "Eye Repair Cream", "Gel-Cream Eye".
+  // The routine offered "Collagen Eye Creme" as the face moisturiser.
+  [
+    /eye[\s-]?(gel[\s-]?|repair[\s-]?)?cr[eè]a?me?\b|cream[\s-]eye\b|eye[\s-]?(contour|treatment)|augen[\s-]?(creme|roll-on)|contorno (de )?(occhi|ojos)|contour (des )?yeux|soin [^,]*\byeux|oog(lid)?[\s-]?cr[èe]me/,
+    "eye-cream",
+  ],
   [/body.?butter/, "body-butter"],
   [/body.?(wash|gel)|shower|douche|duschgel/, "body-wash"],
   [/body.?scrub|body.?exfoliat/, "body-scrub"],
-  [/body.?(lotion|milk)|body ?lotion|lait corporel/, "body-lotion"],
-  [/foot[\s-]?(cream|balm)/, "foot-cream"],
+  [/body.?(lotion|milk)|body ?lotion|lait corporel|bodycreme|body care|(crema|b[áa]lsamo|loci[óo]n|leche) corporal/, "body-lotion"],
+  [/foot[\s-]?(cream|balm)|fu(ss|ß)creme|cr[èe]me (pour les )?pieds/, "foot-cream"],
   // A lip balm with SPF is still a lip balm.
   [/lip[\s-]?(balm|butter|care)|l[èe]vres|dudak|губ/, "lip-balm"],
   // These must beat the broad cleanser wording in names such as "Deep

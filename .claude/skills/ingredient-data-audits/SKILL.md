@@ -19,6 +19,7 @@ prints the project ref it touches — read it.
 npm run import:inci-dictionary       # Open Beauty Facts taxonomy (~31k rows, the bulk)
 npm run import:cosing                # EU CosIng; no argument = the mirrored export
 npm run import:obf                   # products, not the dictionary
+npm run import:obf -- --dump <file>  # products from OBF's whole export file, not its six-category API sweep
 npm run import:wikidata-synonyms     # ingredient_synonyms only, CAS-matched (e.g. "glycérine" → glycerin)
 npm run import:mfds                  # Korean names from Korea's MFDS register (e.g. "글리세린" → glycerin)
 ```
