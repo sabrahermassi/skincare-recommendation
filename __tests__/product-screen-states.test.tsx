@@ -7,6 +7,12 @@ import { fetchProduct } from "@/data/api";
 import type { Ingredient } from "@/data/types";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
+/** With no skin profile a sheet rises over the result (v9) and nothing behind it can be reached: put it away. */
+async function putTeaserAway() {
+  const close = screen.queryByRole("button", { name: "Close" });
+  if (close) await fireEvent.press(close);
+}
+
 /**
  * #155: the product screen's states before there is a product to show —
  * loading, a request that failed, and the catalogue answering "no such
@@ -121,6 +127,7 @@ describe("the product screen's Report a mistake link", () => {
     fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
     await render(<ProductRoute />);
     await act(async () => {});
+    await putTeaserAway();
   }
 
   it("shows the link on the Ingredients tab when a support address is set", async () => {
@@ -177,6 +184,7 @@ describe("the product screen's result tabs", () => {
     fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: product }));
     await render(<ProductRoute />);
     await act(async () => {});
+    await putTeaserAway();
   }
   // Skin match opens first (owner); these tests are about the Ingredients tab.
   const openSafety = async (product?: object) => {
@@ -212,6 +220,8 @@ describe("the product screen's result tabs", () => {
     fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: { ...PRODUCT, id: "obf-8809999999999", barcode: "8809999999999" } }));
     await screen.rerender(<ProductRoute />);
     await act(async () => {});
+    // A new product, so the sheet rises again.
+    await putTeaserAway();
     expect(screen.getByRole("tab", { name: "Skin match" }).props.accessibilityState).toMatchObject({ selected: true });
   });
 
@@ -265,11 +275,15 @@ describe("the product screen's result tabs", () => {
 
   // #346: no profile, no empty score — the quiz, until the answers score.
   it("asks for the skin profile on Skin match, and shows the score once the answers score", async () => {
-    await open();
-    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
-    // On the tab's own card, and on the teaser sheet that rises over it (v9).
-    expect(screen.getAllByText("Is it right for your skin?").length).toBeGreaterThan(0);
+    // The teaser sheet rises over the result (v9), with the way to the quiz.
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
+    await render(<ProductRoute />);
+    await act(async () => {});
     expect(screen.getByRole("button", { name: "Take the 1-minute quiz" })).toBeTruthy();
+    // Put away, the tab's own card asks the same.
+    await putTeaserAway();
+    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
+    expect(screen.getAllByText("Is it right for your skin?").length).toBeGreaterThan(0);
     expect(screen.queryByTestId("score-ring")).toBeNull();
     await act(async () => screen.unmount());
 
@@ -332,6 +346,7 @@ describe("the product screen opened from the journey", () => {
     fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
     await render(<ProductRoute />);
     await act(async () => {});
+    await putTeaserAway();
   }
 
   it("keeps the skin profile's score, and says how it covers the plan", async () => {

@@ -59,6 +59,8 @@ beforeEach(() => {
 async function renderSettled(element: React.JSX.Element) {
   await render(element);
   await act(async () => {});
+  // With no skin profile a sheet rises over the result (v9) and nothing behind it can be reached: put it away.
+  if (screen.queryByRole("button", { name: "Take the 1-minute quiz" })) await fireEvent.press(screen.getByRole("button", { name: "Close" }));
 }
 
 /** Opens the Skin match tab, where the score is (it opens first; pressing it again is harmless). */

@@ -47,7 +47,8 @@ function signIn(id: string) {
 beforeEach(() => {
   jest.clearAllMocks();
   useAuth.setState({ status: "signed-out", session: null });
-  useAppStore.setState({ savedProducts: [], savedIngredients: [], shelfOwner: null, shelfQueue: [] });
+  // A skin profile, so the no-profile sheet doesn't rise over the product: these tests are about saving.
+  useAppStore.setState({ savedProducts: [], savedIngredients: [], shelfOwner: null, shelfQueue: [], profile: { concerns: [], baseSkinType: "dry", sensitivity: null, pregnancyStatus: null } });
 });
 
 describe("the heart on a product", () => {

@@ -15,6 +15,12 @@ import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import { INGREDIENT_RULES } from "@/lib/rules";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
+/** With no skin profile a sheet rises over the result (v9) and nothing behind it can be reached: put it away. */
+async function putTeaserAway() {
+  const close = screen.queryByRole("button", { name: "Close" });
+  if (close) await fireEvent.press(close);
+}
+
 /**
  * The product result's two tabs (design_handoff_skincare_cards), past what
  * the product and label screens' own tests cover: every claim keeps its
@@ -39,6 +45,7 @@ async function show(names: string[], profile: SkinProfile) {
   const match = matchProduct({ type: "serum", ingredients }, profile);
   await render(<ResultTabs header={null} ingredients={ingredients} type="serum" match={match} profile={profile} onIngredientPress={jest.fn()} />);
   await act(async () => {});
+  await putTeaserAway();
 }
 
 const openMatch = () => fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
@@ -97,6 +104,7 @@ async function showWith(extra: Ingredient[], profile: SkinProfile) {
   const match = matchProduct({ type: "serum", ingredients }, profile);
   await render(<ResultTabs header={null} ingredients={ingredients} type="serum" match={match} profile={profile} onIngredientPress={jest.fn()} />);
   await act(async () => {});
+  await putTeaserAway();
 }
 
 it("puts an EU prohibition's source under it, on its red card", async () => {
@@ -115,6 +123,7 @@ it("credits a concern met only by a declared function, as the score does", async
     <ResultTabs header={null} ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, profile)} profile={profile} onIngredientPress={jest.fn()} />,
   );
   await act(async () => {});
+  await putTeaserAway();
   await openMatch();
   expect(screen.getByText(/Declared as a humectant/i)).toBeTruthy();
 });
@@ -140,6 +149,7 @@ it("keeps the header and the switch out of the part that scrolls", async () => {
   await render(
     <ResultTabs header={<Text>Toner</Text>} ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, EMPTY_PROFILE)} profile={EMPTY_PROFILE} onIngredientPress={jest.fn()} />,
   );
+  await putTeaserAway();
   const within = (node: { parent: unknown } | null, type: string): boolean => {
     for (let at = node as { type?: unknown; parent: unknown } | null; at; at = at.parent as typeof at) if (at.type === type) return true;
     return false;
@@ -156,6 +166,7 @@ it("lets the header and the switch scroll at the largest text sizes, where they'
     await render(
       <ResultTabs header={<Text>Toner</Text>} ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, EMPTY_PROFILE)} profile={EMPTY_PROFILE} onIngredientPress={jest.fn()} />,
     );
+    await putTeaserAway();
     let at = screen.getByText("Toner") as { type?: unknown; parent: unknown } | null;
     while (at && at.type !== "RCTScrollView") at = at.parent as typeof at;
     expect(at).not.toBeNull();

@@ -46,6 +46,8 @@ const SHEET_RADIUS = 32;
 const SHEET_OVERLAP = 16;
 const HEAD_SPACER = { ring: 60, plain: 16 } as const;
 const RING_LIFT = 76;
+// How long after its button the no-profile sheet is put away: once the quiz has risen over it.
+const TEASER_GONE_MS = 600;
 
 /**
  * The scrolling part of a result screen (v9): `header` (the product, or what
@@ -94,6 +96,15 @@ export function ResultTabs({
   const largeText = useLargeText();
   // The fixed header's height, once laid out: the room the result leaves for it.
   const [fixedHeight, setFixedHeight] = useState(0);
+  // With no skin profile, a sheet rises once over the result to offer the quiz.
+  const [teaser, setTeaser] = useState(true);
+  const noProfile = !isPersonalized(profile) && !lowCoverage;
+  const takeQuiz = () => {
+    // The quiz rises at once, over the sheet; the sheet is gone by the time
+    // the quiz is closed.
+    openQuiz();
+    setTimeout(() => setTeaser(false), TEASER_GONE_MS);
+  };
   const [scrollY] = useState(() => new Animated.Value(0));
 
   const top = (
@@ -178,6 +189,7 @@ export function ResultTabs({
         {nav}
         {largeText ? null : <View style={{ paddingTop: SPACE.text }}>{top}</View>}
       </GlassHeader>
+      {noProfile ? <ProfileTeaser visible={teaser} onClose={() => setTeaser(false)} onQuiz={takeQuiz} /> : null}
     </View>
   );
 }
@@ -455,56 +467,60 @@ function PregnancyCard({ match }: { match: MatchResult }) {
  * and the tab itself keeps a quieter card with the same way in — the quiz.
  */
 function NoProfile() {
-  const [teaser, setTeaser] = useState(true);
-  const takeQuiz = () => {
-    setTeaser(false);
-    openQuiz();
-  };
   return (
-    <>
-      <View style={{ alignItems: "center", borderRadius: CARD_RADIUS, backgroundColor: HOME_CARD_FILL, paddingVertical: SPACE.section, paddingHorizontal: SPACE.gutter }}>
-        <Text accessibilityRole="header" style={{ textAlign: "center", fontSize: TYPE.card, fontWeight: "600", color: INK }}>
+    <View style={{ alignItems: "center", borderRadius: CARD_RADIUS, backgroundColor: HOME_CARD_FILL, paddingVertical: SPACE.section, paddingHorizontal: SPACE.gutter }}>
+      <Text accessibilityRole="header" style={{ textAlign: "center", fontSize: TYPE.card, fontWeight: "600", color: INK }}>
+        Is it right for your skin?
+      </Text>
+      <Text style={{ marginTop: 4, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>4 quick questions. No sign-up needed.</Text>
+      <PrimaryButton label="Get my match" onPress={openQuiz} style={{ marginTop: 12, width: BUTTON_WIDTH.inCard }} />
+    </View>
+  );
+}
+
+/**
+ * The sheet that rises over a result opened with no skin profile
+ * ("Is it right for your skin?"), sending them to the quiz. Drawn in the
+ * screen, not in a window of its own (`inline`), so the quiz rises the moment
+ * its button is tapped rather than waiting for this sheet to go.
+ */
+function ProfileTeaser({ visible, onClose, onQuiz }: { visible: boolean; onClose: () => void; onQuiz: () => void }) {
+  return (
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      floating
+      bare
+      inline
+      corner={
+        <IconCircle onPress={onClose} accessibilityLabel="Close">
+          <CloseCross />
+        </IconCircle>
+      }
+    >
+      {/* The top half: a ring with no score yet, and the verdict as a question. */}
+      <View style={{ alignItems: "center", gap: 12, backgroundColor: HOME_CARD_FILL, paddingTop: 32, paddingHorizontal: 20, paddingBottom: 24 }}>
+        <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: WHITE, alignItems: "center", justifyContent: "center" }}>
+          <Svg width={80} height={80} style={{ position: "absolute" }}>
+            <Circle cx={40} cy={40} r={34} stroke={SEGMENT_TRACK} strokeWidth={6} fill="none" />
+            <Circle cx={40} cy={40} r={34} stroke={VERDICT.high.solid} strokeWidth={6} strokeLinecap="round" fill="none" strokeDasharray="180 999" transform="rotate(-90 40 40)" />
+          </Svg>
+          <Text maxFontSizeMultiplier={1} style={{ fontFamily: DISPLAY_FONT, fontSize: 30, lineHeight: 34, color: TEASER_INK }}>
+            ?
+          </Text>
+        </View>
+        <View style={{ height: 36, paddingHorizontal: 20, borderRadius: 14, backgroundColor: TEASER_INK, justifyContent: "center" }}>
+          <Text style={{ fontSize: 16, fontWeight: "600", color: WHITE }}>Good match?</Text>
+        </View>
+      </View>
+      <View style={{ alignItems: "center", gap: 8, paddingTop: 24, paddingHorizontal: 20, paddingBottom: 20 }}>
+        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
           Is it right for your skin?
         </Text>
-        <Text style={{ marginTop: 4, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>4 quick questions. No sign-up needed.</Text>
-        <PrimaryButton label="Get my match" onPress={openQuiz} style={{ marginTop: 12, width: BUTTON_WIDTH.inCard }} />
+        <Text style={{ maxWidth: 300, textAlign: "center", fontSize: 16, lineHeight: 23, color: MUTED }}>Answer 4 quick questions and we&apos;ll match every product to your skin.</Text>
+        <PrimaryButton label="Take the 1-minute quiz" onPress={onQuiz} style={{ marginTop: 12, width: BUTTON_WIDTH.secondary }} />
       </View>
-
-      <BottomSheet
-        visible={teaser}
-        onClose={() => setTeaser(false)}
-        floating
-        bare
-        corner={
-          <IconCircle onPress={() => setTeaser(false)} accessibilityLabel="Close">
-            <CloseCross />
-          </IconCircle>
-        }
-      >
-        {/* The top half: a ring with no score yet, and the verdict as a question. */}
-        <View style={{ alignItems: "center", gap: 12, backgroundColor: HOME_CARD_FILL, paddingTop: 32, paddingHorizontal: 20, paddingBottom: 24 }}>
-          <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: WHITE, alignItems: "center", justifyContent: "center" }}>
-            <Svg width={80} height={80} style={{ position: "absolute" }}>
-              <Circle cx={40} cy={40} r={34} stroke={SEGMENT_TRACK} strokeWidth={6} fill="none" />
-              <Circle cx={40} cy={40} r={34} stroke={VERDICT.high.solid} strokeWidth={6} strokeLinecap="round" fill="none" strokeDasharray="180 999" transform="rotate(-90 40 40)" />
-            </Svg>
-            <Text maxFontSizeMultiplier={1} style={{ fontFamily: DISPLAY_FONT, fontSize: 30, lineHeight: 34, color: TEASER_INK }}>
-              ?
-            </Text>
-          </View>
-          <View style={{ height: 36, paddingHorizontal: 20, borderRadius: 14, backgroundColor: TEASER_INK, justifyContent: "center" }}>
-            <Text style={{ fontSize: 16, fontWeight: "600", color: WHITE }}>Good match?</Text>
-          </View>
-        </View>
-        <View style={{ alignItems: "center", gap: 8, paddingTop: 24, paddingHorizontal: 20, paddingBottom: 20 }}>
-          <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-            Is it right for your skin?
-          </Text>
-          <Text style={{ maxWidth: 300, textAlign: "center", fontSize: 16, lineHeight: 23, color: MUTED }}>Answer 4 quick questions and we&apos;ll match every product to your skin.</Text>
-          <PrimaryButton label="Take the 1-minute quiz" onPress={takeQuiz} style={{ marginTop: 12, width: BUTTON_WIDTH.secondary }} />
-        </View>
-      </BottomSheet>
-    </>
+    </BottomSheet>
   );
 }
 

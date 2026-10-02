@@ -39,6 +39,7 @@ export function BottomSheet({
   onClose,
   floating = false,
   bare = false,
+  inline = false,
   corner,
   children,
 }: {
@@ -51,6 +52,14 @@ export function BottomSheet({
   floating?: boolean;
   /** No padding of the sheet's own: the content runs to its edges (a sheet with a coloured top half). */
   bare?: boolean;
+  /**
+   * Drawn over the screen it is in, not in a window of its own. For a sheet
+   * whose button opens another screen: iOS will not present a screen while a
+   * `Modal` is still up, so the new screen waited for this one to close and
+   * be torn down first (about a second). The caller must render it at the
+   * root of a full-screen view.
+   */
+  inline?: boolean;
   /** Pinned to the card's top-right corner, outside the scroll: its X. */
   corner?: ReactNode;
   children: ReactNode;
@@ -85,8 +94,7 @@ export function BottomSheet({
     ? { paddingTop: 24, paddingHorizontal: 16, paddingBottom: 24, gap: 8 }
     : { paddingTop: 28, paddingHorizontal: 16, paddingBottom: Math.max(24, insets.bottom + 12), gap: 12 };
 
-  return (
-    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
+  const body = (
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>
         <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: progress }}>
           {floating ? <BlurView intensity={FLOAT_BLUR} tint="default" style={StyleSheet.absoluteFill} /> : null}
@@ -133,6 +141,18 @@ export function BottomSheet({
           </View>
         </Animated.View>
       </KeyboardAvoidingView>
+  );
+  if (inline) {
+    return mounted ? (
+      // A screen reader stays inside it while it is up, as it would in a Modal.
+      <View accessibilityViewIsModal={visible} onAccessibilityEscape={onClose} style={StyleSheet.absoluteFill}>
+        {body}
+      </View>
+    ) : null;
+  }
+  return (
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
+      {body}
     </Modal>
   );
 }

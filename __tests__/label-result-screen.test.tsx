@@ -6,6 +6,12 @@ import LabelResult from "@/app/label-result";
 import { clearLabelRead, holdLabelRead } from "@/lib/pending-label";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
+/** With no skin profile a sheet rises over the result (v9) and nothing behind it can be reached: put it away. */
+async function putTeaserAway() {
+  const close = screen.queryByRole("button", { name: "Close" });
+  if (close) await fireEvent.press(close);
+}
+
 /**
  * A photographed label's result: the same Skin match / Ingredients tabs as a
  * catalogue product, the Ingredients tab the same with or without a skin profile,
@@ -52,6 +58,7 @@ async function open(names: string[]) {
   holdLabelRead({ ingredients: names });
   await render(<LabelResult />);
   await act(async () => {});
+  await putTeaserAway();
 }
 // Skin match opens first (owner).
 const showSafety = () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
@@ -128,6 +135,7 @@ describe("History", () => {
     mockParams = { entry: "label-1" };
     await render(<LabelResult />);
     await act(async () => {});
+    await putTeaserAway();
     await showSafety();
     expect(screen.getByText(COUNT)).toBeTruthy();
     expect(useAppStore.getState().history).toHaveLength(1);
