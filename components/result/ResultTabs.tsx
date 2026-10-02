@@ -378,8 +378,12 @@ function Reasons({ ingredients, match, profile, concerns }: { ingredients: Ingre
       <View style={{ marginTop: 16, gap: SPACE.block }}>
         {shown.map((row) => (
           <View key={row.key} style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, borderRadius: 20, backgroundColor: row.tone.wash, padding: SPACE.gutter }}>
-            {/* An open ring in the verdict's colour (v9). */}
-            <View style={{ marginTop: 4, width: 12, height: 12, borderRadius: 6, borderWidth: 3, borderColor: row.tone.solid }} />
+            {/* The app's one marker, the dot in its halo (owner). The halo is
+                white here: the verdict's own pale halo is the card's colour
+                and would not show on it. */}
+            <View style={{ marginTop: 2 }}>
+              <VerdictDot colour={row.tone.solid} halo={WHITE} />
+            </View>
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>
                 <Text style={{ fontWeight: "600" }}>{row.name}</Text>
