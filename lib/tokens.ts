@@ -674,10 +674,12 @@ export const CARD_SHADOW = {} as const;
  * the soft card shade.
  */
 export const JOURNEY = {
-  // Each card's front tint: the hand-off washes a white card with a faint
-  // two-stop gradient; this is that wash's middle, composed over white
-  // (computed), since a card here is one flat fill.
-  front: { azelaic: "#FCF4F2", niacinamide: "#F5F8F3", hydrating: "#F4F8F9", retinoids: "#FCF6EE" },
+  // Each card's front tint, at the light level of Home's tiles and the result
+  // boxes (owner, 2 October 2026: the hand-off's washes, #FCF4F2 and the like,
+  // were too faint to read as colour). Niacinamide is the result's green wash
+  // and retinoids Home's butter; the rose and the blue are inferred to sit at
+  // the same level, not read off a hand-off.
+  front: { azelaic: "#F8E8E4", niacinamide: "#EEF1E7", hydrating: "#E6EEF2", retinoids: "#F6F0E2" },
   back: "#FFFDFB",
   track: "#E6E0DA",
   dotOff: "#DDD6D0",
