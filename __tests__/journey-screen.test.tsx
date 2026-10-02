@@ -38,7 +38,7 @@ it("asks what to work on even when the skin profile already names concerns", asy
   expect(screen.getByText("What do you want to work on?")).toBeTruthy();
   expect(screen.getByRole("radio", { name: "Clear pimples" }).props.accessibilityState.checked).toBe(false);
   // Nor is the profile's pregnancy carried in: fine lines still offers retinoids.
-  await pick("Fine lines and wrinkles");
+  await pick("Lines and wrinkles");
   await showCards();
   expect(await screen.findByRole("button", { name: /^Retinoids\. / })).toBeTruthy();
 });
@@ -48,7 +48,7 @@ it("offers the thirteen things to work on, and takes one", async () => {
   // One question, so no step count and no progress line (owner).
   expect(screen.queryByText(/^Step \d of 2$/)).toBeNull();
   expect(screen.queryByRole("progressbar")).toBeNull();
-  expect(screen.getByRole("radio", { name: "Even out skin tone" })).toBeTruthy();
+  expect(screen.getByRole("radio", { name: "Even skin tone" })).toBeTruthy();
   expect(screen.getByRole("radio", { name: "Support skin barrier" })).toBeTruthy();
   await pick("Clear pimples");
   await pick("Calm redness");
@@ -78,14 +78,14 @@ it("shows the deck for what was picked, and flips a card to how to use it", asyn
 
 it("leaves the pregnancy-caution cards out after a yes, and warns on them when unanswered", async () => {
   await render(<Journey />);
-  await pick("Fine lines and wrinkles");
+  await pick("Lines and wrinkles");
   await showCards();
-  await screen.findByRole("header", { name: "Fine lines and wrinkles" });
+  await screen.findByRole("header", { name: "Lines and wrinkles" });
   expect(screen.getByText(/Commonly advised against while pregnant or breastfeeding\./)).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Back" }));
   await pick("Pregnant or breastfeeding? Yes");
   await showCards();
-  await screen.findByRole("header", { name: "Fine lines and wrinkles" });
+  await screen.findByRole("header", { name: "Lines and wrinkles" });
   expect(screen.queryByRole("button", { name: /^Retinoids\. / })).toBeNull();
   expect(screen.getByRole("button", { name: /^Bakuchiol\. / })).toBeTruthy();
 });

@@ -334,10 +334,10 @@ const type = (skinType: BaseSkinType) => (helps: RuleTarget) => helps.skinTypes?
 
 export const GOALS: readonly Goal[] = [
   { key: "pimples", label: "Clear pimples", phrase: "clear pimples", short: "Pimples", test: has("acne-prone"), score: { concerns: ["acne-prone"] } },
-  { key: "blackheads", label: "Unclog blackheads and pores", phrase: "unclog blackheads and pores", short: "Pores", test: has("large-pores"), score: { concerns: ["large-pores"] } },
+  { key: "blackheads", label: "Unclog pores", phrase: "unclog blackheads and pores", short: "Pores", test: has("large-pores"), score: { concerns: ["large-pores"] } },
   {
     key: "red-marks",
-    label: "Fade red marks after pimples",
+    label: "Fade red marks",
     phrase: "fade red marks",
     short: "Red marks",
     // The rules have one concern for both kinds of mark; the red kind is the part of it that also works on redness.
@@ -347,26 +347,26 @@ export const GOALS: readonly Goal[] = [
   },
   {
     key: "dark-marks",
-    label: "Fade dark marks after pimples",
+    label: "Fade dark marks",
     phrase: "fade dark marks",
     short: "Dark marks",
     test: (helps) => has("post-acne-marks")(helps) && has("hyperpigmentation")(helps),
     score: { concerns: ["post-acne-marks"] },
   },
-  { key: "dark-spots", label: "Even out skin tone", phrase: "even out skin tone", short: "Skin tone", test: has("hyperpigmentation"), score: { concerns: ["hyperpigmentation"] } },
+  { key: "dark-spots", label: "Even skin tone", phrase: "even out skin tone", short: "Skin tone", test: has("hyperpigmentation"), score: { concerns: ["hyperpigmentation"] } },
   { key: "redness", label: "Calm redness", phrase: "calm redness", short: "Redness", test: has("redness"), score: { concerns: ["redness"] } },
   {
     key: "hydrate",
-    label: "Hydrate dry, tight skin",
+    label: "Hydrate dry skin",
     phrase: "hydrate dry skin",
     short: "Hydration",
     test: (helps) => has("dehydrated")(helps) || type("dry")(helps),
     score: { concerns: ["dehydrated"], baseSkinType: "dry" },
   },
   { key: "dull", label: "Brighten dull skin", phrase: "brighten dull skin", short: "Dullness", test: has("dullness"), score: { concerns: ["dullness"] } },
-  { key: "lines", label: "Fine lines and wrinkles", phrase: "smooth fine lines", short: "Lines", test: has("fine-lines"), score: { concerns: ["fine-lines"] } },
+  { key: "lines", label: "Lines and wrinkles", phrase: "smooth fine lines", short: "Lines", test: has("fine-lines"), score: { concerns: ["fine-lines"] } },
   { key: "eczema", label: "Soothe eczema-prone skin", phrase: "soothe eczema-prone skin", short: "Eczema-prone", test: has("atopic"), score: { concerns: ["atopic"] } },
-  { key: "oil", label: "Control oil and shine", phrase: "control oil and shine", short: "Oil", test: type("oily"), score: { concerns: [], baseSkinType: "oily" } },
+  { key: "oil", label: "Control oil", phrase: "control oil and shine", short: "Oil", test: type("oily"), score: { concerns: [], baseSkinType: "oily" } },
   {
     key: "texture",
     label: "Smooth rough texture",
