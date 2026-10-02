@@ -11,6 +11,7 @@ import { answeredWithoutSignal, isPersonalized, profileHeadline } from "@/lib/pr
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
 import { AVATAR_FILL, CANVAS, LINE, MUTED, SPACE, TYPE, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { FitScrollView } from "@/components/FitScrollView";
 
 // The avatar (v7): 112pt, in a 4pt white ring.
 const AVATAR = 112;
@@ -33,7 +34,7 @@ export default function Profile() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScrollView
+      <FitScrollView
         ref={scrollRef}
         contentContainerStyle={{ paddingTop: tabRootTop(insets.top), paddingBottom: tabBarClearance(insets.bottom) }}
         showsVerticalScrollIndicator={false}
@@ -93,7 +94,7 @@ export default function Profile() {
             <MenuRow icon="chatbubble-outline" label="Support" onPress={() => router.push("/support")} />
           </MenuGroup>
         </View>
-      </ScrollView>
+      </FitScrollView>
 
     </View>
   );

@@ -34,6 +34,7 @@ import { CANVAS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TO
 import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
+import { FitScrollView } from "@/components/FitScrollView";
 
 type Tab = "saved" | "history" | "ingredients";
 
@@ -277,7 +278,7 @@ export default function Saved() {
     if (t === "saved") {
       const shown = savedIds.filter((id) => byId[id] && (activeFilter === "all" || groupOf(id) === activeFilter));
       return (
-        <ScrollView ref={live ? listRef : undefined} contentContainerStyle={listStyle}>
+        <FitScrollView ref={live ? listRef : undefined} contentContainerStyle={listStyle}>
           <StepFilter groups={presentGroups} selected={activeFilter} onSelect={setStepFilter} />
           <GroupLabel title={`${shown.length} ${shown.length === 1 ? "product" : "products"}`} onClearAll={() => setConfirmingClear(t)} />
           <View style={{ gap: ROW_GAP }}>
@@ -307,11 +308,11 @@ export default function Saved() {
               clearSavedProducts();
             }}
           />
-        </ScrollView>
+        </FitScrollView>
       );
     }
     return (
-      <ScrollView
+      <FitScrollView
         ref={live ? listRef : undefined}
         scrollEnabled={historySwipe.scrollEnabled}
         onScrollBeginDrag={historySwipe.onScrollBeginDrag}
@@ -366,7 +367,7 @@ export default function Saved() {
             clearHistory();
           }}
         />
-      </ScrollView>
+      </FitScrollView>
     );
   };
 
@@ -654,11 +655,9 @@ function EmptyState({ tab }: { tab: Tab }) {
     // (v9), each tab's picture in a box of the same height so the words start
     // at the same place on every tab. Scrolls only when it doesn't fit (a
     // short phone, large text).
-    <ScrollView
+    <FitScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.section, paddingHorizontal: 32, paddingBottom: tabBarClearance(insets.bottom) }}
-      alwaysBounceVertical={false}
-      overScrollMode="never"
       showsVerticalScrollIndicator={false}
     >
       <View style={{ alignItems: "center", gap: SPACE.text }}>
@@ -683,7 +682,7 @@ function EmptyState({ tab }: { tab: Tab }) {
           ) : null}
         </View>
       </View>
-    </ScrollView>
+    </FitScrollView>
   );
 }
 
@@ -785,7 +784,7 @@ function IngredientsTab({
   }
 
   return (
-    <ScrollView ref={scrollRef} contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingBottom: tabBarClearance(insets.bottom) }}>
+    <FitScrollView ref={scrollRef} contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingBottom: tabBarClearance(insets.bottom) }}>
       <GroupLabel title={`${names.length} starred`} onClearAll={onClearAll} />
       <View style={{ gap: ROW_GAP }}>
         {names.map((name) => {
@@ -795,7 +794,7 @@ function IngredientsTab({
       </View>
 
       {clearSheet}
-    </ScrollView>
+    </FitScrollView>
   );
 }
 

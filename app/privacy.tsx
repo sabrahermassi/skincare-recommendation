@@ -1,10 +1,11 @@
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 
 import { PageTitle } from "@/components/PageTitle";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
 import { CANVAS, CARD_RADIUS, INK, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { FitScrollView } from "@/components/FitScrollView";
 
 // The facts behind each line are recorded in docs/privacy-disclosures.md.
 const SECTIONS: { title: string; lines: string[] }[] = [
@@ -70,7 +71,7 @@ export default function Privacy() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
+      <FitScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
         <PageTitle title="Privacy policy" />
         {/* The short version first (v7), on a stone card (v9). */}
         <View style={{ marginTop: SPACE.gutter, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, padding: SPACE.gutter }}>
@@ -91,7 +92,7 @@ export default function Privacy() {
         <Text style={{ marginTop: SPACE.section, paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
           Ingredient assessments are based on your skin profile and public ingredient data. They are not medical advice.
         </Text>
-      </ScrollView>
+      </FitScrollView>
     </View>
   );
 }

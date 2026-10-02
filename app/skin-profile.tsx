@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { ConcernPicker, PregnancyPicker, SensitivityPicker, SkinTypePicker } from "@/components/ProfilePickers";
 import { PageTitle } from "@/components/PageTitle";
@@ -11,6 +11,7 @@ import { haptic } from "@/lib/haptics";
 import { CONCERN_TITLE, PREGNANCY_QUESTION, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
 import { CANVAS, CARD_RADIUS, INK, LINK, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 import { MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
+import { FitScrollView } from "@/components/FitScrollView";
 
 type Question = "skinType" | "concerns" | "sensitivity" | "pregnancy";
 
@@ -70,7 +71,7 @@ export default function SkinProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
+      <FitScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
         <PageTitle title="Skin profile" />
         {/* In ink, not secondary grey (v9): it says what the page is for. */}
         <Text style={{ paddingTop: SPACE.block, paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
@@ -114,7 +115,7 @@ export default function SkinProfileScreen() {
             </View>
           );
         })}
-      </ScrollView>
+      </FitScrollView>
     </View>
   );
 }

@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -11,6 +11,7 @@ import { TipCard } from "@/components/TipCard";
 import { openScanner } from "@/lib/open-scanner";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
 import { BUTTON, CANVAS, CARD_RADIUS, HOME_SCAN_FILL, HOME_TILE, INK, MUTED, SCRIPT_FONT, SPACE, TYPE } from "@/lib/tokens";
+import { FitScrollView } from "@/components/FitScrollView";
 
 // The scan card's watercolour, and the two tiles' (transparent ground).
 const SCAN_ART = require("@/assets/illustrations/home-scan-tube.webp");
@@ -35,10 +36,9 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScrollView
+      <FitScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: tabRootTop(insets.top), paddingHorizontal: SPACE.gutter, paddingBottom: tabBarClearance(insets.bottom) }}
-        alwaysBounceVertical={false}
         showsVerticalScrollIndicator={false}
       >
         <Text accessibilityRole="header" style={{ fontFamily: SCRIPT_FONT, fontSize: 46, lineHeight: 48, color: INK }}>
@@ -94,7 +94,7 @@ export default function Home() {
 
         {/* One short tip a day, in an envelope. */}
         <TipCard />
-      </ScrollView>
+      </FitScrollView>
     </View>
   );
 }

@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 
 import { ConfirmSheet } from "@/components/ConfirmSheet";
 import { MenuGroup, MenuRow } from "@/components/MenuRows";
@@ -14,6 +14,7 @@ import { ACCOUNT_PITCH, accountSummary, signOut, signOutEverywhere, useAuth } fr
 import { noteProfileErased } from "@/lib/erase-notice";
 import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { FitScrollView } from "@/components/FitScrollView";
 
 /**
  * Account (#220, #224): who is signed in, and the ways out — sign out of
@@ -109,7 +110,7 @@ export default function Account() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
+      <FitScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
         <PageTitle title="Account" />
         {status === "loading" ? (
           <ActivityIndicator color={MUTED} accessibilityLabel="Loading" style={{ marginTop: SPACE.section }} />
@@ -154,7 +155,7 @@ export default function Account() {
             <Note>{signedIn ? "Deleting your account removes everything saved to it. It can't be undone." : "Your profile, shelf and history on this phone. It can't be undone."}</Note>
           </>
         )}
-      </ScrollView>
+      </FitScrollView>
 
       <ConfirmSheet
         visible={confirmingDelete}

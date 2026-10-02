@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useEffect, useMemo, useState } from "react";
-import { Animated, Easing, Linking, PanResponder, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
+import { Animated, Easing, Linking, PanResponder, Pressable, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -27,6 +27,7 @@ import { openScanner } from "@/lib/open-scanner";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { BUTTON, CANVAS, DISPLAY_FONT, DIVIDER, INK, JOURNEY, MUTED, MUTED_FAINT, SURFACE, TYPE, VERDICT, WHITE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { FitScrollView } from "@/components/FitScrollView";
 
 // v9 (read off ConcernDeckSoft in the hand-off).
 const EASE = Easing.bezier(0.3, 0.7, 0.2, 1);
@@ -126,7 +127,7 @@ function Concerns({ picked, onPick, onNext, bottom }: { picked: Concern[]; onPic
   const ready = picked.length > 0;
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} alwaysBounceVertical={false}>
+      <FitScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         <View style={{ paddingTop: 24, paddingHorizontal: 24, gap: 8, alignItems: "center" }}>
           <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
             What do you want to work on?
@@ -139,7 +140,7 @@ function Concerns({ picked, onPick, onNext, bottom }: { picked: Concern[]; onPic
             return <QuizOptionCard key={concern} multiple label={label} selected={on} disabled={!on && full} onPress={() => toggle(concern)} />;
           })}
         </View>
-      </ScrollView>
+      </FitScrollView>
       <View style={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: Math.max(32, bottom + 8) }}>
         <Pressable
           onPress={ready ? onNext : undefined}

@@ -1,6 +1,6 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, type ReactNode } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BackChevron, CloseCross, IconCircle } from "@/components/IconCircle";
@@ -9,6 +9,7 @@ import { Text } from "@/components/Text";
 import { goBackOrHome } from "@/lib/go-back";
 import { quizStepCount } from "@/lib/profile";
 import { BUTTON, CANVAS, DISPLAY_FONT, DIVIDER, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { FitScrollView } from "@/components/FitScrollView";
 
 type Props = {
   /** 1-based index into the quiz. */
@@ -100,10 +101,9 @@ export function QuizScreen({
       {building ? (
         children
       ) : (
-        <ScrollView
+        <FitScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.section, paddingBottom: SPACE.section }}
-          alwaysBounceVertical={false}
           keyboardShouldPersistTaps="handled"
         >
           <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: SPACE.text, paddingBottom: SPACE.section }}>
@@ -113,7 +113,7 @@ export function QuizScreen({
             {subtitle ? <Text style={{ maxWidth: 320, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{subtitle}</Text> : null}
           </View>
           {children}
-        </ScrollView>
+        </FitScrollView>
       )}
     </View>
   );

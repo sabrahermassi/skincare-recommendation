@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { Linking, Pressable, ScrollView, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 
 import { PageTitle } from "@/components/PageTitle";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
@@ -9,6 +9,7 @@ import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
 import { supportEmail } from "@/lib/support-email";
 import { CANVAS, CARD_RADIUS, HAIRLINE, INK, LINK, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { FitScrollView } from "@/components/FitScrollView";
 
 // Where to write to. Until it is set, the screen shows the help below and no
 // contact button rather than a made-up address.
@@ -56,7 +57,7 @@ export default function Support() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
+      <FitScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
         <PageTitle title="Support" />
 
         {/* The questions, each opening its answer in place (v7). */}
@@ -102,7 +103,7 @@ export default function Support() {
             ) : null}
           </View>
         ) : null}
-      </ScrollView>
+      </FitScrollView>
     </View>
   );
 }

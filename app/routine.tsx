@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -16,6 +16,7 @@ import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized, profileHeadline } from "@/lib/profile";
 import { CANVAS, CARD_RADIUS, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, ROW_CHEVRON, SPACE, SURFACE, TYPE, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { FitScrollView } from "@/components/FitScrollView";
 
 // A woman at her mirror (v9: design_handoff_formee_v9, routine-empty-mirror).
 const ROUTINE_ART = require("@/assets/illustrations/routine-empty-mirror.webp");
@@ -56,7 +57,7 @@ export default function Routine() {
 
 function EmptyProfile() {
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.text, paddingBottom: 48 }}>
+    <FitScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: SPACE.text, paddingBottom: 48 }}>
       <View style={{ paddingHorizontal: SPACE.gutter }}>
         <PageTitle title="Your skincare routine" />
       </View>
@@ -70,7 +71,7 @@ function EmptyProfile() {
           action={<PrimaryButton label="Take the skin quiz" onPress={openQuiz} style={{ width: BUTTON_WIDTH.secondary }} />}
         />
       </View>
-    </ScrollView>
+    </FitScrollView>
   );
 }
 
@@ -81,7 +82,7 @@ function Steps() {
   const { title, tags } = profileHeadline(profile);
   const steps = STEPS[time];
   return (
-    <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: insets.bottom + SPACE.section }}>
+    <FitScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: insets.bottom + SPACE.section }}>
       <PageTitle title="Your skincare routine" />
 
       {/* What the routine is built from; tapping it changes the answers. */}
@@ -133,7 +134,7 @@ function Steps() {
       <Text style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.text, textAlign: "center", fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
         Scan a product to see whether it fits a step.
       </Text>
-    </ScrollView>
+    </FitScrollView>
   );
 }
 
