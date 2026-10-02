@@ -51,8 +51,15 @@ import { nonSkincareReason } from "./lib/non-skincare.mjs";
 import { notFaceSkincareReason } from "./lib/face-skincare.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
-/** The path after `--dump`, or null: read OBF's exported database rather than paging its API. */
-const DUMP = process.argv.includes("--dump") ? (process.argv[process.argv.indexOf("--dump") + 1] ?? null) : null;
+/**
+ * The path after `--dump`, or null without the flag: read OBF's exported
+ * database rather than paging its API. `--dump` with nothing after it is "",
+ * not null, so the run stops there rather than quietly paging the API instead.
+ */
+function dumpPath(argv) {
+  return argv.includes("--dump") ? (argv[argv.indexOf("--dump") + 1] ?? "") : null;
+}
+const DUMP = dumpPath(process.argv);
 const OBF = "https://world.openbeautyfacts.org";
 const USER_AGENT = "for.me/1.0 (https://github.com/sabrahermassi/skincare-recommendation)";
 const ATTRIBUTION = "Product data from Open Beauty Facts, used under ODbL.";
@@ -596,6 +603,11 @@ async function main() {
   // Passing it back as `&last_modified_t>=` would silently skip those forever.
   // An incremental version has to *sort* by modification time first, which is
   // a different query, not a different constant.
+  //
+  // On a `--dump` run it is the newest modification time in the export file,
+  // across all of its products and not only face care. That is how fresh the
+  // file was, and no cutoff for the API sweep either: the sweep still pages
+  // six categories in OBF's own order.
   const state = RESUME
     ? parseCheckpoint(readFileSync(CHECKPOINT_FILE, "utf8"))
     : {
@@ -950,6 +962,7 @@ export {
   parseInci,
   toRow,
   dumpReason,
+  dumpPath,
   readDump,
   guessType,
   normalise,

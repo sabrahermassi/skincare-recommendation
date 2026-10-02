@@ -8,6 +8,7 @@ import {
   TARGET_ROWS,
   STAMPED_MODULES,
   dictionaryStamp,
+  dumpPath,
   moduleStamp,
   parseCheckpoint,
   resumeProblem,
@@ -44,6 +45,13 @@ describe("import:obf walk limits", () => {
     // Every --dump run ends below the cap; "add a category" is no advice for it.
     expect(stopMessage("exhausted", 2_856, true)).toBeNull();
     expect(stopMessage("budget", 2_856, true)).toMatch(/request budget/);
+  });
+
+  it("does not fall back to the API sweep when --dump is given no file", () => {
+    expect(dumpPath(["node", "import-obf.mjs"])).toBeNull();
+    expect(dumpPath(["node", "import-obf.mjs", "--dump", "obf.jsonl.gz"])).toBe("obf.jsonl.gz");
+    // "" and not null: the run then refuses to start, as for a file that is not there.
+    expect(dumpPath(["node", "import-obf.mjs", "--dump"])).toBe("");
   });
 });
 
