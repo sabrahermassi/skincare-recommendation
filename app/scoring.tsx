@@ -16,7 +16,7 @@ import {
   type ScoreFactor,
   type ScoreNote,
 } from "@/lib/scoring-explainer";
-import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINK, MUTED, MUTED_FAINT, ROW_CHEVRON, scoreColours, SPACE, STONE, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
+import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, MUTED, MUTED_FAINT, scoreColours, SPACE, STONE, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
 
 /**
  * How scoring works (#325) — where the number comes from, in plain English:
@@ -66,12 +66,12 @@ export default function HowScoringWorks() {
         <Text accessibilityRole="header" style={{ paddingTop: 32, paddingHorizontal: 4, fontSize: TYPE.title, fontWeight: "600", color: INK }}>
           How we score
         </Text>
+        {/* All in ink (owner): no grey signs, no sage "your score". */}
         <Text
           accessibilityLabel="Your skin plus its ingredients equals your score"
           style={{ paddingTop: SPACE.text, paddingHorizontal: 4, fontSize: TYPE.card, fontWeight: "600", lineHeight: 22, color: INK }}
         >
-          Your skin <Text style={{ fontWeight: "400", color: ROW_CHEVRON }}>+</Text> its ingredients{" "}
-          <Text style={{ fontWeight: "400", color: ROW_CHEVRON }}>=</Text> <Text style={{ color: LINK }}>your score</Text>
+          Your skin + its ingredients = your score
         </Text>
         <View style={{ marginTop: SPACE.block, backgroundColor: STONE, borderRadius: CARD_RADIUS, overflow: "hidden" }}>
           {scoreFactors().map((factor, index) => (
