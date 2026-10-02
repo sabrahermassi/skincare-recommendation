@@ -86,6 +86,8 @@ export function LabelCamera({
   const [status, setStatus] = useState<Status>({ kind: "framing" });
   // The picture chosen from the library, shown in the frame while it is read.
   const [preview, setPreview] = useState<string | null>(null);
+  // A camera shot is shown exactly where the live view had it; a picked picture is shown whole.
+  const [previewFromCamera, setPreviewFromCamera] = useState(false);
   // One number per capture. Cancel (#204) moves it on, so a read that lands
   // afterwards is recognised as abandoned: not held, and not opened.
   const attempt = useRef(0);
@@ -138,6 +140,7 @@ export function LabelCamera({
           return;
         }
         releasePick = picked.cleanup;
+        setPreviewFromCamera(false);
         setPreview(picked.previewUri);
         photo = { uri: picked.previewUri, base64: picked.base64 };
       } else {
@@ -157,7 +160,10 @@ export function LabelCamera({
       capturedUri = photo.uri;
       // Freeze the viewfinder on the captured frame while it's read — the
       // library path already does this via `preview` above.
-      if (source === "camera") setPreview(photo.uri);
+      if (source === "camera") {
+        setPreviewFromCamera(true);
+        setPreview(photo.uri);
+      }
 
       // Crop to the on-screen guide box before anything leaves the device.
       // Until this existed, the box drawn below was decoration only —
@@ -191,11 +197,9 @@ export function LabelCamera({
             croppedUri = cropped.uri;
             if (cropped.base64) imageBase64 = cropped.base64;
             imageWidth = cropped.width;
-            // Swap the frozen frame to what's actually inside the guide
-            // window — the raw sensor frame set at capture is a much wider
-            // field of view, so leaving it in place made the window look
-            // like it zoomed out the moment the shutter was pressed.
-            setPreview(cropped.uri);
+            // The frozen frame stays the shot itself, drawn where the live
+            // view had it (below), so nothing moves when the shutter is
+            // pressed (owner). Only what is sent is cropped.
           } catch {
             // Fall through with the uncropped photo — see comment above. It's
             // the largest one there is, so it still needs the resize below.
@@ -331,7 +335,19 @@ export function LabelCamera({
             borderColor: CANVAS,
           }}
         >
-          <Image source={{ uri: preview }} contentFit="contain" accessibilityLabel="" style={{ flex: 1 }} />
+          {previewFromCamera && cameraSize ? (
+            // The whole shot, laid over the screen the way the live view fills
+            // it ("cover"), and seen through this window: the frame shows the
+            // very thing it showed before the shutter. -2 for the border.
+            <Image
+              source={{ uri: preview }}
+              contentFit="cover"
+              accessibilityLabel=""
+              style={{ position: "absolute", left: -guideRect.x - 2, top: -guideRect.y - 2, width: cameraSize.width, height: cameraSize.height }}
+            />
+          ) : (
+            <Image source={{ uri: preview }} contentFit="contain" accessibilityLabel="" style={{ flex: 1 }} />
+          )}
           <View style={{ ...StyleSheet.absoluteFill, backgroundColor: withAlpha(CAMERA_STAGE, 0.4) }} />
           {/* Stars over the photo while it is read, so the wait looks like work. */}
           {status.kind === "reading" ? <Sparkles style={StyleSheet.absoluteFill} /> : null}
