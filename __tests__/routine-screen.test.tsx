@@ -295,4 +295,3 @@ it("leaves the caution out once the profile says not pregnant", async () => {
   expect(screen.getByText("Salicylic acid")).toBeTruthy();
   expect(screen.queryByText("Commonly advised against while pregnant or breastfeeding.")).toBeNull();
 });
-
