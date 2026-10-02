@@ -14,6 +14,7 @@ import { isWarnedPoreClogging } from "@/lib/pore-clogging";
 import { nameMatches } from "@/lib/rules";
 import { isVerified } from "@/lib/safety";
 import { BUTTON, INK, MUTED, MUTED_FAINT, SPACE, TYPE, WHITE } from "@/lib/tokens";
+import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
 
 export type IngredientFilter = "all" | "watch" | "actives" | "pore" | "unknown";
 
@@ -150,7 +151,7 @@ export function IngredientsCard({
           onPress={() => setShowAll(true)}
           accessibilityRole="button"
           accessibilityLabel={moreLabel}
-          style={{ marginTop: 12, height: 44, borderRadius: 22, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+          style={{ marginTop: 12, height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
           className="active:opacity-90"
         >
           <Text style={{ fontSize: 16, fontWeight: "600", color: BUTTON.primary.label }}>{moreLabel}</Text>

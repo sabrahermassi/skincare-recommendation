@@ -8,6 +8,7 @@ import { Text } from "@/components/Text";
 import { mistakeReportUrl, type MistakeSubject } from "@/lib/report-mistake";
 import { supportEmail } from "@/lib/support-email";
 import { BUTTON, DESTRUCTIVE_OUTLINE, DISPLAY_FONT, FONT_SCALE, INK, MUTED, OPTION_LINE, PLACEHOLDER, STONE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
 
 const REPORT_ART = require("@/assets/illustrations/report-mistake.webp");
 
@@ -86,7 +87,7 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
         }}
         accessibilityRole="button"
         accessibilityLabel="Report a mistake"
-        style={{ height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: DESTRUCTIVE_OUTLINE.fill }}
+        style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, alignItems: "center", justifyContent: "center", backgroundColor: DESTRUCTIVE_OUTLINE.fill }}
         className="active:opacity-80"
       >
         <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: DESTRUCTIVE_OUTLINE.label }}>Report a mistake</Text>

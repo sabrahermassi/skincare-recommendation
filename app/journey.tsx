@@ -309,7 +309,7 @@ function Deck({ concerns, bottom }: { concerns: Concern[]; bottom: number }) {
           onPress={scan}
           accessibilityRole="button"
           accessibilityLabel="Scan a product"
-          style={{ height: 42, borderRadius: 21, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 }}
+          style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 }}
           className="active:opacity-90"
         >
           <Ionicons name="camera-outline" size={19} color={WHITE} />
