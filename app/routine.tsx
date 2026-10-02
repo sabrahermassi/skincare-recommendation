@@ -69,8 +69,8 @@ function EmptyProfile() {
       <View style={{ paddingHorizontal: SPACE.gutter }}>
         <PageTitle title="Your skincare routine" />
       </View>
-      {/* Top-aligned under the title (v9), not centred in the page. */}
-      <View style={{ paddingTop: SPACE.text }}>
+      {/* In the middle of the room under the title (owner), not hard against it. */}
+      <View style={{ flex: 1, justifyContent: "center", paddingTop: SPACE.text }}>
         <EmptyState
           art={ROUTINE_ART}
           // As big as the screen allows (owner): edge to edge, never cut.
