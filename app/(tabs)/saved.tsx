@@ -7,7 +7,6 @@ import { ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, S
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ConfirmSheet } from "@/components/ConfirmSheet";
-import { RowChevron } from "@/components/MenuRows";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { FilterDropdown } from "@/components/FilterDropdown";
 import { StarIcon } from "@/components/icons/StarIcon";
@@ -596,12 +595,7 @@ function LabelRow({ entry, ingredients }: { entry: HistoryEntry; ingredients: st
       detail={notOursLine(entry)}
       onPress={() => router.push({ pathname: "/label-result", params: { entry: entry.id } })}
       accessibilityLabel={`Label photo, ${ingredients.length} ingredients, ${notOursLine(entry)}`}
-      end={
-        <>
-          <ScorePill score={entry.scoreAtView} />
-          <RowChevron />
-        </>
-      }
+      end={<ScorePill score={entry.scoreAtView} />}
     />
   );
 }
@@ -869,9 +863,6 @@ function IngredientRow({ ingredient, label, onUnstar }: { ingredient: Ingredient
       >
         <StarIcon filled size={20} />
       </Pressable>
-      <View style={{ paddingRight: SPACE.gutter }}>
-        <RowChevron />
-      </View>
     </View>
   );
 }

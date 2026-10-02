@@ -51,7 +51,7 @@ export function TipCard() {
         />
         <View style={{ flex: 1, gap: 6 }}>
           <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, color: INK }}>Today&apos;s tip</Text>
-          <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: BUTTON.primary.fill }}>Tap to read ›</Text>
+          <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: BUTTON.primary.fill }}>Tap to read</Text>
         </View>
       </BounceCard>
 

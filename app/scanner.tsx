@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -43,7 +42,6 @@ import { matchProduct } from "@/lib/matching";
 import { track } from "@/lib/analytics";
 import { useAppStore } from "@/store/useAppStore";
 import {
-  BUTTON,
   CAMERA_STAGE,
   CANVAS,
   CHOSEN,
@@ -749,7 +747,6 @@ function FoundSheet({
             </Text>
           </View>
         </View>
-        <Ionicons name="arrow-forward" size={20} color={BUTTON.primary.fill} />
       </Pressable>
     </ScanPopup>
   );

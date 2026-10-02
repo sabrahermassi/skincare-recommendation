@@ -14,7 +14,7 @@ import { Text } from "@/components/Text";
 import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized, profileHeadline } from "@/lib/profile";
-import { CANVAS, CANVAS_GLASS, CARD_RADIUS, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, ROW_CHEVRON, SPACE, SURFACE, TYPE, WHITE } from "@/lib/tokens";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, SPACE, SURFACE, TYPE, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
 import { GlassHeader } from "@/components/GlassHeader";
@@ -146,9 +146,6 @@ function Steps() {
                 {[title, ...tags].join(" · ")}
               </Text>
             </View>
-            <Svg width={8} height={14} viewBox="0 0 8 14" fill="none">
-              <Path d="m1 1 6 6-6 6" stroke={ROW_CHEVRON} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
           </Pressable>
 
           {/* Morning | Evening (v9): the thumb is a warm sun yellow in the
