@@ -136,7 +136,9 @@ describe("History", () => {
     await openHistory();
 
     await act(async () => fireEvent.press(screen.getByRole("button", { name: `Delete ${NAME}` })));
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Keep it" })));
+    // One button on this sheet (owner): the X is the way out.
+    expect(screen.queryByRole("button", { name: "Keep it" })).toBeNull();
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Close" })));
     expect(useAppStore.getState().history).toHaveLength(1);
   });
 });

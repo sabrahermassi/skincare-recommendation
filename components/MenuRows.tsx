@@ -4,7 +4,7 @@ import { Pressable, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
-import { CARD_RADIUS, DESTRUCTIVE_OUTLINE, HAIRLINE, INK, LINK, MENU_FILL, MENU_FONT, MENU_SOFT_RADIUS, MUTED, ROW_CHEVRON, TYPE } from "@/lib/tokens";
+import { CARD_RADIUS, HAIRLINE, INK, LINK, MENU_FILL, MENU_FONT, MENU_SOFT_RADIUS, MUTED, ROW_CHEVRON, TYPE } from "@/lib/tokens";
 
 // Each row's height (v7).
 const ROW_HEIGHT = 56;
@@ -53,7 +53,6 @@ export function MenuRow({
   value,
   onPress,
   disabled = false,
-  destructive = false,
   chevron = true,
   divided = false,
   soft = false,
@@ -67,8 +66,6 @@ export function MenuRow({
   value?: string;
   onPress?: () => void;
   disabled?: boolean;
-  /** A red name and no chevron (v7: "Delete my account"). */
-  destructive?: boolean;
   /** Off for an action row that doesn't open a screen (v9 Account: "Sign out"). */
   chevron?: boolean;
   /** Set by `MenuGroup`: every row but the first has a hairline above it. */
@@ -91,14 +88,14 @@ export function MenuRow({
           borderTopColor: HAIRLINE,
         }}
       >
-        <Text style={{ flex: value ? 0 : 1, fontSize: TYPE.card, color: destructive ? DESTRUCTIVE_OUTLINE.label : INK, ...(soft ? { fontFamily: MENU_FONT } : null) }}>{label}</Text>
+        <Text style={{ flex: value ? 0 : 1, fontSize: TYPE.card, color: INK, ...(soft ? { fontFamily: MENU_FONT } : null) }}>{label}</Text>
         {badge ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{badge}</Text> : null}
         {value ? (
           <Text numberOfLines={1} ellipsizeMode={onPress ? "tail" : "middle"} style={{ flex: 1, textAlign: "right", fontSize: TYPE.label, color: MUTED }}>
             {value}
           </Text>
         ) : null}
-        {onPress && chevron && !destructive ? soft ? <Ionicons name="arrow-forward" size={20} color={LINK} /> : <RowChevron /> : null}
+        {onPress && chevron ? soft ? <Ionicons name="arrow-forward" size={20} color={LINK} /> : <RowChevron /> : null}
       </View>
     </>
   );

@@ -374,8 +374,9 @@ export default function Saved() {
           visible={deleting !== null}
           title="Delete product?"
           line="It will disappear from your history."
-          keepLabel="Keep it"
           confirmLabel="Delete"
+          // One button (owner's reference): the X closes it.
+          single
           onClose={() => setDeleting(null)}
           onConfirm={() => {
             if (deleting) removeHistoryEntry(deleting.id);

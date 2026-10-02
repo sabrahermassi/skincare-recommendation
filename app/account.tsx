@@ -1,6 +1,8 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator, Pressable, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ConfirmSheet } from "@/components/ConfirmSheet";
 import { MenuGroup, MenuRow } from "@/components/MenuRows";
@@ -12,7 +14,7 @@ import { Text } from "@/components/Text";
 import { deleteMyAccount, exportMyData, type DeleteOutcome, type ExportOutcome } from "@/lib/account";
 import { ACCOUNT_PITCH, accountSummary, signOut, signOutEverywhere, useAuth } from "@/lib/auth";
 import { noteProfileErased } from "@/lib/erase-notice";
-import { CANVAS, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { CANVAS, INK, MUTED, MUTED_FAINT, SPACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
 
@@ -107,6 +109,7 @@ export default function Account() {
   };
 
   const signedIn = status === "signed-in" && session !== null;
+  const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       <ScreenHeader />
@@ -138,24 +141,26 @@ export default function Account() {
             {notice}
           </Text>
         ) : null}
-
-        {/* The delete, in its own group at the foot (v7). Signed out it is the
-            one Profile used to carry: erasing this phone's profile, shelf and history. */}
-        {status === "loading" ? null : (
-          <>
-            <SectionLabel title="Delete" />
-            <MenuGroup>
-              <MenuRow
-                label={signedIn ? "Delete my account" : "Delete my profile"}
-                destructive
-                disabled={working}
-                onPress={() => (signedIn ? setConfirmingDelete(true) : setConfirmingErase(true))}
-              />
-            </MenuGroup>
-            <Note>{signedIn ? "Deleting your account removes everything saved to it. It can't be undone." : "Your profile, shelf and history on this phone. It can't be undone."}</Note>
-          </>
-        )}
       </FitScrollView>
+
+      {/* The delete, as quiet words with a bin at the foot of the screen
+          (owner's reference). Signed out it is the one Profile used to carry:
+          erasing this phone's profile, shelf and history. What it removes is
+          said in the sheet it opens. */}
+      {status === "loading" ? null : (
+        <Pressable
+          onPress={() => (signedIn ? setConfirmingDelete(true) : setConfirmingErase(true))}
+          disabled={working}
+          accessibilityRole="button"
+          accessibilityLabel={signedIn ? "Delete my account" : "Delete my profile"}
+          accessibilityState={{ disabled: working }}
+          style={{ alignSelf: "center", minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: SPACE.text, paddingHorizontal: SPACE.gutter, marginBottom: Math.max(SPACE.section, insets.bottom + SPACE.text), opacity: working ? 0.6 : 1 }}
+          className="active:opacity-70"
+        >
+          <Ionicons name="trash-outline" size={20} color={MUTED_FAINT} />
+          <Text style={{ fontSize: 16, fontWeight: "600", color: MUTED_FAINT }}>{signedIn ? "Delete my account" : "Delete my profile"}</Text>
+        </Pressable>
+      )}
 
       <ConfirmSheet
         visible={confirmingDelete}
@@ -164,6 +169,7 @@ export default function Account() {
         keepLabel="Keep my account"
         confirmLabel="Delete my account"
         busy={working}
+        stacked
         onClose={() => setConfirmingDelete(false)}
         onConfirm={() => void remove()}
       />
@@ -173,6 +179,7 @@ export default function Account() {
         line={ERASE_WARNING}
         keepLabel="Keep my profile"
         confirmLabel="Yes, delete my profile"
+        stacked
         onClose={() => setConfirmingErase(false)}
         onConfirm={erase}
       />
