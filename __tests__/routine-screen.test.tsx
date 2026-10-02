@@ -275,3 +275,24 @@ it("keeps the place of a product of one's own that cannot be shown, so it can st
   await fireEvent.press(screen.getByRole("button", { name: "Remove my pick from this step" }));
   expect(useAppStore.getState().routinePicks).toEqual({});
 });
+
+// Found in review on #394: the step named a retinoid or salicylic acid with
+// nothing about pregnancy for a profile that had not answered that question.
+it("says the pregnancy caution under a step's active when the profile does not say either way", async () => {
+  useAppStore.setState({ profile: ACNE });
+  fetched.mockResolvedValue(CATALOGUE);
+  await open();
+  await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
+  expect(screen.getByText("Salicylic acid")).toBeTruthy();
+  expect(screen.getByText("Commonly advised against while pregnant or breastfeeding.")).toBeTruthy();
+});
+
+it("leaves the caution out once the profile says not pregnant", async () => {
+  useAppStore.setState({ profile: { ...ACNE, pregnancyStatus: "neither" } });
+  fetched.mockResolvedValue(CATALOGUE);
+  await open();
+  await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
+  expect(screen.getByText("Salicylic acid")).toBeTruthy();
+  expect(screen.queryByText("Commonly advised against while pregnant or breastfeeding.")).toBeNull();
+});
+

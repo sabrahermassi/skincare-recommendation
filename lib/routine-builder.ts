@@ -28,7 +28,18 @@ export type TimeOfDay = "morning" | "evening";
 export type RoutinePick = { product: ProductWithIngredients; match: MatchResult };
 
 /** The active a serum or treatment step is about: its name, what it is for, and the others that would do. */
-export type RoutineActive = { name: string; why: string; alternatives: string[] };
+export type RoutineActive = {
+  name: string;
+  why: string;
+  alternatives: string[];
+  /**
+   * The pregnancy caution, when the active is one the caution list names and
+   * the profile does not say either way (unanswered, or "Prefer not to say").
+   * With a yes the active is not offered at all; with a no there is nothing
+   * to say. The same line a Skin needs card carries.
+   */
+  caution: string | null;
+};
 
 export type RoutineSlot = {
   key: string;
@@ -107,12 +118,15 @@ function needsOf(profile: SkinProfile): { need: Need; what: string }[] {
  * ones at night too, and so does a profile whose concerns have no strong
  * active at all (redness, dry skin).
  */
-function cardsFor(time: TimeOfDay, profile: SkinProfile): JourneyCard[] {
-  const all = [...new Set(needsOf(profile).flatMap(({ need }) => needDeck(need).filter((item) => item.counts).map((item) => item.card)))];
+function cardsFor(time: TimeOfDay, profile: SkinProfile): { cards: JourneyCard[]; cautions: ReadonlyMap<JourneyCard, string> } {
+  const deck = needsOf(profile).flatMap(({ need }) => needDeck(need).filter((item) => item.counts));
+  const all = [...new Set(deck.map((item) => item.card))];
+  // The pregnancy caution a card carries when the profile does not say either way.
+  const cautions = new Map(deck.flatMap((item) => (item.caution ? [[item.card, item.caution] as const] : [])));
   const gentle = all.filter((card) => !card.strong);
   const strong = all.filter((card) => card.strong);
-  if (time === "morning") return gentle;
-  return profile.sensitivity === "high" || strong.length === 0 ? gentle : strong;
+  const cards = time === "morning" || profile.sensitivity === "high" || strong.length === 0 ? gentle : strong;
+  return { cards, cautions };
 }
 
 /** "A", "A or B", "A, B or C". */
@@ -124,7 +138,7 @@ function oneOf(names: string[]): string {
  * The step's active: `lead` (the best card for the profile, or the one the
  * suggested product holds), what it is for, and up to two others that would do.
  */
-function activeFor(cards: JourneyCard[], lead: JourneyCard | undefined, profile: SkinProfile): RoutineActive | null {
+function activeFor(cards: JourneyCard[], lead: JourneyCard | undefined, cautions: ReadonlyMap<JourneyCard, string>, profile: SkinProfile): RoutineActive | null {
   if (!lead) return null;
   const what = needsOf(profile).map((entry) => entry.what);
   return {
@@ -134,6 +148,7 @@ function activeFor(cards: JourneyCard[], lead: JourneyCard | undefined, profile:
       .filter((card) => card !== lead)
       .slice(0, 2)
       .map((card) => card.name),
+    caution: cautions.get(lead) ?? null,
   };
 }
 
@@ -210,7 +225,7 @@ export function assembleRoutine(picks: readonly RoutinePick[], profile: SkinProf
       // with the best active first, then by skin match. The step's headline is
       // the active its first product holds, so the big letters and the bottle
       // under them never name two different things.
-      const cards = cardsFor(step.active, profile);
+      const { cards, cautions } = cardsFor(step.active, profile);
       const holding = scored
         .filter((pick) => step.fits(pick.product))
         .flatMap((pick) => {
@@ -220,7 +235,7 @@ export function assembleRoutine(picks: readonly RoutinePick[], profile: SkinProf
         // `scored` is already best match first, and the sort is stable.
         .sort((a, b) => a.rank - b.rank)
         .slice(0, PICKS_PER_STEP);
-      return { key: step.key, label: step.label, active: activeFor(cards, holding[0]?.card ?? cards[0], profile), picks: holding.map(({ pick }) => pick) };
+      return { key: step.key, label: step.label, active: activeFor(cards, holding[0]?.card ?? cards[0], cautions, profile), picks: holding.map(({ pick }) => pick) };
     });
   return { morning: slots("morning"), evening: slots("evening") };
 }

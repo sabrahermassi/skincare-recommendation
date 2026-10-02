@@ -295,6 +295,8 @@ function StepCard({ number, slot, own: ownPick, onRemove, last }: { number: numb
             <View style={{ paddingTop: 2, paddingBottom: SPACE.text, gap: 2 }}>
               <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>{active.name}</Text>
               <Text style={{ fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{activeLine(active)}</Text>
+              {/* The profile does not say whether they are pregnant, and this active is one to check first. */}
+              {active.caution ? <Text style={{ fontSize: TYPE.caption, lineHeight: 18, fontWeight: "600", color: WARN }}>{active.caution}</Text> : null}
             </View>
           ) : null}
           {pick ? (

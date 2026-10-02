@@ -1,4 +1,5 @@
 import type { Ingredient, ProductType, ProductWithIngredients, SkinProfile } from "@/data/types";
+import { PREGNANCY_LINE } from "@/lib/journey";
 import { SCORE_BANDS } from "@/lib/matching";
 import { activeLine, buildRoutine, PICKS_PER_STEP, placesLabel, routinePlacesFor } from "@/lib/routine-builder";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -80,14 +81,14 @@ it("names a serum or treatment only when it holds an active for the concern, and
   expect(names(slot(routine, "morning", "serum"))).toEqual(["Azelaic serum"]);
   expect(names(slot(routine, "evening", "treatment"))).toEqual(["BHA serum"]);
   // The step's headline is the active itself, best first, with the others that would do.
-  expect(slot(routine, "morning", "serum").active).toEqual({ name: "Azelaic acid", why: "For acne.", alternatives: [] });
+  expect(slot(routine, "morning", "serum").active).toEqual({ name: "Azelaic acid", why: "For acne.", alternatives: [], caution: null });
   // It is the active the suggested product holds, so the big letters and the
   // bottle under them never name two different things.
   const treatment = slot(routine, "evening", "treatment").active!;
-  expect(treatment).toEqual({ name: "Salicylic acid", why: "For acne.", alternatives: ["Benzoyl peroxide", "Retinoids"] });
+  expect(treatment).toMatchObject({ name: "Salicylic acid", why: "For acne.", alternatives: ["Benzoyl peroxide", "Retinoids"] });
   expect(activeLine(treatment)).toBe("For acne. Benzoyl peroxide or Retinoids would do too.");
   // With no product to suggest, it is the best active for the profile.
-  expect(slot(buildRoutine([], ACNE), "evening", "treatment").active).toEqual({ name: "Benzoyl peroxide", why: "For acne.", alternatives: ["Retinoids", "Salicylic acid"] });
+  expect(slot(buildRoutine([], ACNE), "evening", "treatment").active).toEqual({ name: "Benzoyl peroxide", why: "For acne.", alternatives: ["Retinoids", "Salicylic acid"], caution: null });
   expect(activeLine(slot(routine, "morning", "serum").active!)).toBe("For acne.");
 });
 
@@ -104,6 +105,32 @@ it("still says what to look for when the catalogue has nothing to name", () => {
   expect(slot(routine, "morning", "serum")).toMatchObject({ picks: [], active: { name: "Bakuchiol", why: "For fine lines.", alternatives: ["Peptides"] } });
   // Retinoids are off the list while pregnant, so the evening looks for the same gentle actives.
   expect(slot(routine, "evening", "treatment").active?.name).toBe("Bakuchiol");
+});
+
+// Found in review on #394: a profile that does not say whether the person is
+// pregnant (unanswered, or "Prefer not to say") kept retinoids as the evening
+// headline and showed nothing about pregnancy, where a Skin needs card for
+// the same person carries the caution.
+describe("the pregnancy caution on a step's active", () => {
+  const LINES: SkinProfile = { ...EMPTY_PROFILE, concerns: ["fine-lines"] };
+  const evening = (profile: SkinProfile, catalogue: ProductWithIngredients[] = []) => slot(buildRoutine(catalogue, profile), "evening", "treatment").active!;
+
+  it("is said when the profile does not say either way", () => {
+    for (const pregnancyStatus of [null, "prefer-not-to-say"] as const) {
+      expect(evening({ ...LINES, pregnancyStatus })).toMatchObject({ name: "Retinoids", caution: PREGNANCY_LINE });
+    }
+    // On the product's own active too: a salicylic acid serum named for an unanswered acne profile.
+    expect(evening(ACNE, [product("serum", "BHA serum", ["salicylic acid"])])).toMatchObject({ name: "Salicylic acid", caution: PREGNANCY_LINE });
+  });
+
+  it("is not said after a no, and the active is not offered at all after a yes", () => {
+    expect(evening({ ...LINES, pregnancyStatus: "neither" })).toMatchObject({ name: "Retinoids", caution: null });
+    expect(evening({ ...LINES, pregnancyStatus: "pregnant" })).toMatchObject({ name: "Bakuchiol", caution: null });
+  });
+
+  it("is not said on an active the caution list does not name", () => {
+    expect(slot(buildRoutine([], LINES), "morning", "serum").active).toMatchObject({ name: "Bakuchiol", caution: null });
+  });
 });
 
 it("keeps the strong actives away from very sensitive skin at night", () => {
