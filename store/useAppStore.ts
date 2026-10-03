@@ -6,6 +6,8 @@ import { createJSONStorage, persist, type StateStorage } from "zustand/middlewar
 import { forgetScannedBarcodes } from "@/data/catalogue-cache";
 import { resetScoreCache } from "@/lib/matching";
 import type { RoutineStep } from "@/lib/routine-step";
+import { DEFAULT_STEP_LIMIT, type RoutineEntry, type StepLimit } from "@/lib/skin-needs";
+import type { ActiveKey } from "@/lib/skin-needs-data";
 import { connectClaimFlag, readSecureProfile, removeSecureProfile, writeSecureProfile } from "@/lib/secure-storage";
 import { applyOps, shelfAsSaves, type Shelf, type ShelfOp } from "@/lib/shelf";
 
@@ -164,6 +166,23 @@ type AppState = {
   addToRoutine: (places: string[], id: string) => void;
   /** Takes a product out of every step it is in. */
   removeFromRoutine: (id: string) => void;
+
+  /**
+   * Actives added to the routine from a Skin needs story (owner, 3 October
+   * 2026, design_handoff "october 3d"): each with its routine (morning or
+   * evening) and its days, so actives that clash can live on different
+   * nights (`lib/skin-needs.ts`). On this device only, like `routinePicks`.
+   * New keys with first-run values, so they need no migration.
+   */
+  routineActives: RoutineEntry[];
+  /** The most steps a routine should have, chosen on "Let's start your routine" (3, 4 or 5). */
+  routineStepLimit: StepLimit;
+  /** A routine begun from a story with no skin profile behind it. */
+  routineStarted: boolean;
+  /** Sets the added actives, and the step limit and the started flag where given: every Add, Swap, Alternate and Undo. */
+  setRoutineActives: (next: { entries: RoutineEntry[]; stepLimit?: StepLimit; started?: boolean }) => void;
+  /** Takes an added active out of the routine. */
+  removeRoutineActive: (active: ActiveKey) => void;
 
   /**
    * Whether this install has already cleared whatever an earlier install left
@@ -334,6 +353,9 @@ export const PERSISTED_KEYS = [
   "savedIngredients",
   "history",
   "routinePicks",
+  "routineActives",
+  "routineStepLimit",
+  "routineStarted",
   "secureStoreClaimed",
   "shelfOwner",
   "shelfQueue",
@@ -352,6 +374,9 @@ export function partializeState(state: AppState): PersistedState {
     savedIngredients: state.savedIngredients,
     history: state.history,
     routinePicks: state.routinePicks,
+    routineActives: state.routineActives,
+    routineStepLimit: state.routineStepLimit,
+    routineStarted: state.routineStarted,
     secureStoreClaimed: state.secureStoreClaimed,
     shelfOwner: state.shelfOwner,
     shelfQueue: state.shelfQueue,
@@ -369,6 +394,9 @@ const INITIAL_STATE = {
   savedIngredients: [] as string[],
   history: [] as HistoryEntry[],
   routinePicks: {} as Record<string, string>,
+  routineActives: [] as RoutineEntry[],
+  routineStepLimit: DEFAULT_STEP_LIMIT as StepLimit,
+  routineStarted: false,
   secureStoreClaimed: false,
   shelfOwner: null as string | null,
   shelfQueue: [] as ShelfOp[],
@@ -855,6 +883,9 @@ export const useAppStore = create<AppState>()(
 
       addToRoutine: (places, id) => set((state) => ({ routinePicks: { ...state.routinePicks, ...Object.fromEntries(places.map((place) => [place, id])) } })),
       removeFromRoutine: (id) => set((state) => ({ routinePicks: Object.fromEntries(Object.entries(state.routinePicks).filter(([, picked]) => picked !== id)) })),
+      setRoutineActives: ({ entries, stepLimit, started }) =>
+        set((state) => ({ routineActives: entries, routineStepLimit: stepLimit ?? state.routineStepLimit, routineStarted: started ?? state.routineStarted })),
+      removeRoutineActive: (active) => set((state) => ({ routineActives: state.routineActives.filter((entry) => entry.active !== active) })),
       clearSavedProducts: () =>
         set((state) => ({
           savedProducts: [],

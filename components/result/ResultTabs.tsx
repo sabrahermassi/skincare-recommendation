@@ -445,13 +445,13 @@ function NeedMatch({ ingredients, match, profile, need }: { ingredients: Ingredi
     rows.push({
       key: `active-${finding.ingredients[0]}`,
       name: !card || card.found ? names(finding.ingredients) : card.name,
-      text: `${card ? (card.found ? ` ${card.found}` : ` ${card.line.charAt(0).toLowerCase()}${card.line.slice(1)}`) : stripName(finding.reason, finding.ingredients[0])}${finding.trace ? TRACE_NOTE : ""}`,
+      text: `${finding.line ? ` ${finding.line}` : card ? (card.found ? ` ${card.found}` : ` ${card.line.charAt(0).toLowerCase()}${card.line.slice(1)}`) : stripName(finding.reason, finding.ingredients[0])}${finding.trace ? TRACE_NOTE : ""}`,
       // Near the end of the list it may be there in name only: amber, not green.
       tone: finding.trace ? VERDICT.medium : VERDICT.high,
     });
   }
   if (verdict.level === "none" && verdict.missing.length > 0) {
-    rows.push({ key: "missing", name: "We looked for:", text: ` ${listNames(verdict.missing.map((name) => name.toLowerCase()), "or")}.`, tone: VERDICT_NEUTRAL });
+    rows.push({ key: "missing", name: "We looked for:", text: ` ${listNames(verdict.missing.map((name) => (/^[A-Z]{2,}/.test(name) ? name : name.toLowerCase())), "or")}.`, tone: VERDICT_NEUTRAL });
   }
   for (const other of verdict.betterFor) {
     rows.push({ key: `better-${other.label}`, name: "Better for:", text: ` ${other.label.toLowerCase()} (${names(other.ingredients)}).`, tone: VERDICT_NEUTRAL });

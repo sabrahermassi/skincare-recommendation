@@ -289,6 +289,76 @@ for it**: every other way into the scanner keeps the profile's score.
 - History keeps the skin profile's score for a product scanned this way: the
   log is the person's own, and one number per product.
 
+### Skin needs becomes an ingredient story (3 October 2026)
+
+The flip-card deck was replaced by the "october 3d" hand-off
+(`BHA-STORY-README.md`): four question cards, a carousel of up to three
+actives for the goal, and a six-card story per active that ends in "Add to my
+routine". Not both: the deck is gone.
+
+- **One list of actives** (`lib/skin-needs-data.ts`), owner's choice: every
+  story is filled from it, and the scan-from-Skin-needs check and the routine
+  builder read their actives from it too (`JOURNEY_CARDS` is now derived from
+  the records with a `result`). Their behaviour was kept: the same names, the
+  same order, the same rules. The scoring is untouched.
+- **All advice copy is placeholder** and needs a scientific check before
+  launch: strengths, frequencies, pairings, pregnancy notes and the goal →
+  families table. Two lines of the hand-off were reworded for the claims
+  policy ("Seals moisture in and repairs" → "supports your barrier"; "Your
+  evening treatment step" → "active step").
+- **Skipped answers**: sensitivity counts as somewhat sensitive; pregnancy,
+  skipped or "Prefer not to say", counts as yes (safe options only, with
+  "Not pregnant? Change"). When that leaves a gap, one safe option from a
+  nearby family is added (owner): azelaic acid for pimples, pores, oil and
+  dark marks, vitamin C for lines.
+- **Over-the-counter only.** A product scanned from Skin needs that holds
+  tretinoin, tazarotene, trifarotene, hydroquinone, or adapalene outside the
+  US gets "Talk to a doctor first", with the over-the-counter option unless
+  pregnancy is anything but no. Adapalene's country is the phone's region
+  setting (`lib/region.ts`), not its location: no permission, works with
+  Location Services off; unknown counts as prescription (owner).
+- **"No routine yet"** means no skin profile and nothing added from a story
+  (owner). "Let's start your routine" then starts one with the basics and the
+  step limit chosen (3, 4 or 5, default 4); the steps show with no products
+  picked until there is a profile. The limit counts every step in one
+  routine; cleanse, moisturise and SPF (first cleanse, cleanse and moisturise
+  at night) are basics and never swapped.
+- **The routine by day.** An added active has a time (morning or evening)
+  and days, set from its start plan and the sensitivity; clashing actives
+  are put on different nights. On an active's night the step names the
+  catalogue's best product that holds it (owner); other nights say "Rest
+  night" and when the next one is. Kept on the phone only (`routineActives`,
+  `routineStepLimit`, `routineStarted`), like `routinePicks`.
+- **SPF comes first for lines and dark spots** (owner, 3 October 2026, after
+  research): the AAD's wrinkle advice and its dark-spot advice both start
+  with daily broad-spectrum SPF 30+, and a 4.5-year randomised trial (Hughes
+  et al. 2013) found 24% less skin ageing with daily use. SPF is the best
+  first pick for Lines and wrinkles, Fade dark marks and Even skin tone, and
+  second for Fade red marks and Brighten dull skin. Sunscreen is already a
+  basic step of every routine, so its story ends in "Already in your
+  routine" rather than an Add button.
+- **A story for every active, chosen per person** (owner, 3 October 2026:
+  "each person requires a different active"). A goal lists families, each
+  with its actives in the goal's order; a person gets the first that is safe
+  for their pregnancy answer and that they don't already use, or the
+  family's gentlest when very sensitive (BHA → PHA, a retinoid → bakuchiol,
+  vitamin C → tranexamic acid). Retinoids stay one story, as the hand-off
+  says. Arbutin and bakuchiol are left out while pregnant until checked.
+  Whether a product holds an active is read off the active's own label names
+  (`match`), not the scoring rules, which group several actives in one.
+- **A scan from a story is judged against what that person was shown**
+  (owner, 3 October 2026): "Check a product" compares the label with the
+  carousel's actives for those answers, so a product holding one works on the
+  goal, and "We looked for" names them. Only scans started from Skin needs;
+  every other scan keeps the skin match.
+- **"Start easy" is "How often do I use it?"** (owner).
+- **The story slides up from the bottom** when a card is tapped, rather than
+  the card growing into it as drawn: the owner saw both and kept the slide
+  (3 October 2026).
+- **The toast sits under the story's header**, not over it as drawn: over
+  it, its Undo was where the close button is, and a tap meant to close undid
+  the add (found in the simulator).
+
 ### The routine builder picks from the catalogue (2 October 2026)
 
 The Skincare routine screen names products for each step, by the owner's

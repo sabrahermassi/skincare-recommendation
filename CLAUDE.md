@@ -147,7 +147,7 @@ the real backend; the invariant keeps the seam clean for the day it isn't.
 native.
 
 - **`/` is `app/(tabs)/index.tsx`** (Home, v9: the "Scan Any Product" card,
-  an Explore row of two tiles — "Skin Needs" (`app/journey.tsx`) and
+  an Explore row of two tiles — "Skin Needs" (`app/journey.tsx`, whose stories are `app/journey-story.tsx`) and
   "Skincare Routine" — and today's tip as an envelope that opens a sheet),
   not a product list. There is no product search: it was removed
   on 1 October 2026. The scanner is `app/scanner.tsx`, a full-screen modal
@@ -162,8 +162,11 @@ native.
 - Regenerate typed routes (above) whenever routes change.
 
 **State** — `store/useAppStore.ts`, one Zustand store: skin profile,
-onboarding flag, wishlist, and the products a person put in their own routine
-(`routinePicks`, device only, never sent to the account). Persisted via `persist` + AsyncStorage, gated on
+onboarding flag, wishlist, the products a person put in their own routine
+(`routinePicks`) and the actives added from a Skin needs story with their days
+(`routineActives`, `routineStepLimit`, `routineStarted`), all device only, never
+sent to the account. Skin needs' advice lives in one data file,
+`lib/skin-needs-data.ts`: its copy is placeholder until scientifically checked. Persisted via `persist` + AsyncStorage, gated on
 `useAppStore.persist.hasHydrated()` in `app/_layout.tsx` — except the profile,
 which `formeStorageFor` keeps in the Keychain on a phone (#189).
 **Two files may import AsyncStorage, and no third without review:**

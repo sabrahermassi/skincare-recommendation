@@ -164,7 +164,8 @@ describe("the answer for a scan from Skin needs", () => {
     expect(verdict.headline).toBe("Not made for pimples");
     expect(verdict.line).toBe("It has none of the actives we suggest to clear pimples.");
     expect(verdict.actives).toEqual([]);
-    expect(verdict.missing).toEqual(["Benzoyl peroxide", "Retinoids", "Salicylic acid", "Azelaic acid"]);
+    // What the carousel showed for this pick, pregnancy skipped (owner, 3 October 2026): BHA becomes PHA, retinoids give way to azelaic acid.
+    expect(verdict.missing).toEqual(["PHA", "Benzoyl peroxide", "Azelaic acid"]);
   });
 
   it("says what such a product is better for, from its actives only", () => {
@@ -184,8 +185,8 @@ describe("the answer for a scan from Skin needs", () => {
   });
 
   it("works on the goal when it has one of its strong actives", () => {
-    const verdict = needVerdict(label("water", "salicylic acid", "glycerin"), need("pimples"));
-    expect(verdict).toMatchObject({ level: "works", headline: "Works on pimples", line: "It has 1 of the 4 actives we suggest to clear pimples.", betterFor: [] });
+    const verdict = needVerdict(label("water", "salicylic acid", "glycerin"), need("pimples", { pregnant: false }));
+    expect(verdict).toMatchObject({ level: "works", headline: "Works on pimples", line: "It has 1 of the 3 actives we suggest to clear pimples.", betterFor: [] });
     expect(verdict.actives.map((a) => a.card?.key)).toEqual(["bha"]);
     expect(needVerdict(DARK_SPOT_SERUM, need("dark-marks")).level).toBe("works");
   });
@@ -207,8 +208,15 @@ describe("the answer for a scan from Skin needs", () => {
     expect(needVerdict(label("water", "niacinamide"), need("texture")).level).toBe("none");
   });
 
-  it("checks only for the actives on the deck, so a pregnancy drops retinoids from what was looked for", () => {
-    expect(needVerdict(label("water"), need("lines", { pregnant: true })).missing).toEqual(["Bakuchiol", "Peptides"]);
+  it("checks for the actives the carousel showed, so a pregnancy drops retinoids from what was looked for", () => {
+    expect(needVerdict(label("water"), need("lines", { pregnant: true })).missing).toEqual(["SPF", "Peptides", "Green tea"]);
+  });
+
+  // Owner, 3 October 2026: the story calls SPF step one for lines, so a sunscreen scanned from there must not be "not made for" them.
+  it("counts an active the carousel showed even where no scoring rule credits it for the goal", () => {
+    const sunscreen = needVerdict(label("water", "zinc oxide", "glycerin"), need("lines"));
+    expect(sunscreen).toMatchObject({ level: "works", headline: "Works on lines and wrinkles", line: "It has 1 of the 3 actives we suggest to smooth fine lines." });
+    expect(sunscreen.actives).toEqual([expect.objectContaining({ card: null, ingredients: ["zinc oxide"], line: "(SPF): it sends back the rays that mark and age skin." })]);
   });
 
   it("lets an active near the end of the list help a little at most", () => {
@@ -220,17 +228,17 @@ describe("the answer for a scan from Skin needs", () => {
   });
 
   it("only helps a little with a pores pick when a strong pore-clogger is in it too", () => {
-    const verdict = needVerdict(label("water", "salicylic acid", "isopropyl palmitate"), need("pimples"));
-    expect(verdict).toMatchObject({ level: "little", clogged: true, line: "It has 1 of the 4 actives we suggest to clear pimples. It also has an ingredient that can clog pores." });
+    const verdict = needVerdict(label("water", "salicylic acid", "isopropyl palmitate"), need("pimples", { pregnant: false }));
+    expect(verdict).toMatchObject({ level: "little", clogged: true, line: "It has 1 of the 3 actives we suggest to clear pimples. It also has an ingredient that can clog pores." });
     // Pores are not the point of dark marks, so the same clogger changes nothing there.
     expect(needVerdict(label("water", "niacinamide", "isopropyl palmitate"), need("dark-marks"))).toMatchObject({ level: "works", clogged: false });
     // And with no active at all it is simply not made for it.
     expect(needVerdict(label("water", "isopropyl palmitate"), need("pimples"))).toMatchObject({ level: "none", clogged: false });
   });
 
-  it("measures against the actives left on a pregnant person's deck", () => {
+  it("measures against the actives shown to this person: bakuchiol works for very sensitive skin, which was shown it", () => {
     const bakuchiol = label("water", "bakuchiol");
-    expect(needVerdict(bakuchiol, need("lines")).level).toBe("little");
-    expect(needVerdict(bakuchiol, need("lines", { pregnant: true }))).toMatchObject({ level: "works", line: "It has 1 of the 2 actives we suggest to smooth fine lines." });
+    expect(needVerdict(bakuchiol, need("lines", { pregnant: false })).level).toBe("little");
+    expect(needVerdict(bakuchiol, need("lines", { pregnant: false, sensitivity: "high" }))).toMatchObject({ level: "works", line: "It has 1 of the 3 actives we suggest to smooth fine lines." });
   });
 });

@@ -2,7 +2,9 @@ import type { BaseSkinType, Concern, Ingredient, Sensitivity, SkinProfile } from
 import { positionWeightLabel } from "@/lib/matching";
 import { cloggerConfidence } from "@/lib/pore-clogging";
 import { pregnancyCautionHits } from "@/lib/pregnancy-caution";
-import { INGREDIENT_RULES, isActiveRule, ruleMatches, type IngredientRule, type RuleSource, type RuleTarget } from "@/lib/rules";
+import { INGREDIENT_RULES, isActiveRule, nameMatches, ruleMatches, type IngredientRule, type RuleTarget } from "@/lib/rules";
+import { holdsActive, optionsFor, type StoryActive } from "@/lib/skin-needs";
+import { ACTIVES, type ActiveKey } from "@/lib/skin-needs-data";
 
 /**
  * "Skin needs": the person picks one thing to work on today, and we show the
@@ -26,34 +28,15 @@ import { INGREDIENT_RULES, isActiveRule, ruleMatches, type IngredientRule, type 
  * have one.
  */
 
-type Tint = "rose" | "sage" | "blue" | "butter";
-
-type CardKey =
-  | "azelaic"
-  | "niacinamide"
-  | "hydrating"
-  | "retinoids"
-  | "tranexamic"
-  | "vitamin-c"
-  | "aha"
-  | "bha"
-  | "benzoyl"
-  | "bakuchiol"
-  | "peptides"
-  | "ceramides"
-  | "calming"
-  | "zinc-clay"
-  | "emollients";
-
+/**
+ * An active as a scanned product's result and the routine builder see it:
+ * read off `ACTIVES` (`lib/skin-needs-data.ts`), the one list of actives,
+ * which also holds the Skin needs stories (owner, 3 October 2026).
+ */
 export type JourneyCard = {
-  key: CardKey;
+  key: ActiveKey;
   name: string;
-  tint: Tint;
   line: string;
-  whyYou: string;
-  howToStart: string;
-  watchFor: string;
-  whenShopping: string;
   /**
    * For a card whose `line` can't follow its own name in a sentence: what a
    * result says after the ingredients it found ("Glycerin + Panthenol put
@@ -75,202 +58,16 @@ export type JourneyCard = {
   names: string[];
 };
 
-// The four core cards are the hand-off's; the rest were added with the goals
-// (owner, 2 October 2026). The order breaks ties between equally strong cards,
-// which is why salicylic acid sits ahead of niacinamide: for pores and oil it leads.
-export const JOURNEY_CARDS: readonly JourneyCard[] = [
-  {
-    key: "azelaic",
-    name: "Azelaic acid",
-    tint: "rose",
-    core: true,
-    line: "Calms breakouts and helps with the marks they leave.",
-    whyYou: "Targets acne and marks, and suits sensitive skin.",
-    howToStart: "Slowly, a few times a week, then more if it feels fine.",
-    watchFor: "Can feel tingly or drying at first.",
-    whenShopping: "Leave-on, often around 10%, without other strong acids.",
-    names: ["azelaic acid"],
-  },
-  {
-    key: "bha",
-    name: "Salicylic acid",
-    tint: "sage",
-    strong: true,
-    line: "Gets inside pores and clears out what blocks them.",
-    whyYou: "Made for blackheads, clogged pores and oily skin.",
-    howToStart: "Two or three times a week, on the areas that clog.",
-    watchFor: "Drying on dry or sensitive skin.",
-    whenShopping: "A leave-on at up to 2%; a wash is gentler but does less.",
-    names: ["salicylic acid"],
-  },
-  {
-    key: "niacinamide",
-    name: "Niacinamide",
-    tint: "sage",
-    core: true,
-    line: "Helps with oil balance, supports your skin barrier and can fade marks.",
-    whyYou: "Supports your barrier and oil balance, and helps marks fade over time.",
-    howToStart: "Once a day, morning or evening. Most skin tolerates it well.",
-    watchFor: "Very high strengths can cause flushing in some people.",
-    whenShopping: "A serum or moisturiser; it doesn't need to be very strong.",
-    names: ["niacinamide"],
-  },
-  {
-    key: "hydrating",
-    name: "Hydrating basics",
-    tint: "blue",
-    support: true,
-    core: true,
-    // Panthenol and ceramides were on this card until they got cards of their own (calming, ceramides).
-    line: "Glycerin, hyaluronic acid and urea draw water in and hold it there.",
-    found: "put water back in and help keep it there.",
-    whyYou: "Dehydrated skin copes less well with other actives, so this comes first.",
-    howToStart: "Morning and evening, after cleansing.",
-    watchFor: "Heavy oils can clog acne-prone skin.",
-    whenShopping: "Look for glycerin or hyaluronic acid in a light texture.",
-    names: ["glycerin", "sodium hyaluronate", "urea"],
-  },
-  {
-    key: "retinoids",
-    name: "Retinoids",
-    tint: "butter",
-    core: true,
-    strong: true,
-    line: "Strong evidence for acne, lines and texture, with a learning curve.",
-    whyYou: "Powerful for acne and texture over time.",
-    howToStart: "Twice a week at night, in the gentlest form.",
-    watchFor: "Dryness and peeling at first. Sunscreen every day.",
-    whenShopping: "A gentle retinol in a moisturising base.",
-    names: ["retinol"],
-  },
-  {
-    key: "tranexamic",
-    name: "Tranexamic acid",
-    tint: "rose",
-    line: "With arbutin and kojic acid, it works on uneven tone and dark marks.",
-    found: "can work on uneven tone and dark marks.",
-    whyYou: "Made for dark marks, and gentler than acids.",
-    howToStart: "Once a day, after cleansing. Give it two or three months.",
-    watchFor: "Marks come back without sunscreen every day.",
-    whenShopping: "A serum naming tranexamic acid, alpha-arbutin or kojic acid.",
-    names: ["tranexamic acid"],
-  },
-  {
-    key: "vitamin-c",
-    name: "Vitamin C",
-    tint: "butter",
-    line: "An antioxidant that brightens and evens out skin tone.",
-    found: "can brighten and even out skin tone.",
-    whyYou: "Works on dullness and dark marks at the same time.",
-    howToStart: "In the morning, under moisturiser and sunscreen.",
-    watchFor: "Strong formulas can sting. It goes off once it turns dark orange.",
-    whenShopping: "A serum in a dark or airless bottle.",
-    names: ["ascorbic acid", "3-o-ethyl ascorbic acid"],
-  },
-  {
-    key: "aha",
-    name: "AHAs",
-    tint: "rose",
-    strong: true,
-    line: "Glycolic and lactic acid lift away dead skin, for a smoother, brighter surface.",
-    found: "can lift away dead skin, for a smoother, brighter surface.",
-    whyYou: "Works on the surface: dullness, rough patches and marks.",
-    howToStart: "Once or twice a week at night, then more if it feels fine.",
-    watchFor: "Stinging and dryness. Skin burns more easily in the sun.",
-    whenShopping: "Lactic acid is the gentler one; glycolic acid is the stronger one.",
-    names: ["glycolic acid"],
-  },
-  {
-    key: "benzoyl",
-    name: "Benzoyl peroxide",
-    tint: "blue",
-    strong: true,
-    line: "One of the most studied ingredients for red, inflamed pimples.",
-    found: "is one of the most studied ingredients for red, inflamed pimples.",
-    whyYou: "Works on the pimples themselves, not only the pores.",
-    howToStart: "A thin layer once a day, on the areas that break out.",
-    watchFor: "Dryness and peeling. It bleaches towels and pillowcases.",
-    whenShopping: "A low strength is gentler and a good place to start.",
-    names: ["benzoyl peroxide"],
-  },
-  {
-    key: "bakuchiol",
-    name: "Bakuchiol",
-    tint: "sage",
-    line: "A plant ingredient that smooths like retinol, with far less irritation.",
-    found: "can smooth like retinol, with far less irritation.",
-    whyYou: "The gentle choice when retinoids are too much, or not an option.",
-    howToStart: "Once a day, morning or evening.",
-    watchFor: "Less studied than retinoids, and not studied in pregnancy.",
-    whenShopping: "A serum or cream that names bakuchiol high on the list.",
-    names: ["bakuchiol"],
-  },
-  {
-    key: "peptides",
-    name: "Peptides",
-    tint: "blue",
-    line: "Small proteins that help skin look firmer and smoother.",
-    found: "can help skin look firmer and smoother.",
-    whyYou: "A gentle way to work on fine lines.",
-    howToStart: "Once or twice a day. They sit well with most other ingredients.",
-    watchFor: "The evidence is thinner than for retinoids, and results are slow.",
-    whenShopping: "A leave-on serum or cream; a wash rinses them away.",
-    names: ["palmitoyl tripeptide-1"],
-  },
-  {
-    key: "ceramides",
-    name: "Ceramides",
-    tint: "butter",
-    support: true,
-    line: "The fats your skin barrier is made of, put back from the outside.",
-    found: "can top up the fats your skin barrier is made of.",
-    whyYou: "Supports a dry or easily upset barrier.",
-    howToStart: "Morning and evening, in your moisturiser.",
-    watchFor: "Rich creams can feel heavy on oily skin.",
-    whenShopping: "A moisturiser with ceramides, cholesterol and fatty acids together.",
-    names: ["ceramide np", "cholesterol"],
-  },
-  {
-    key: "calming",
-    name: "Calming ingredients",
-    tint: "sage",
-    support: true,
-    line: "Centella, panthenol, oat and allantoin calm the look of redness and keep skin comfortable.",
-    found: "can calm the look of redness and keep skin comfortable.",
-    whyYou: "Gentle enough for skin that reacts easily.",
-    howToStart: "Any time, morning or evening.",
-    watchFor: "Check the rest of the formula: fragrance undoes the point.",
-    whenShopping: "A fragrance-free cream or serum naming one of them near the top.",
-    names: ["centella asiatica extract", "panthenol", "colloidal oatmeal", "allantoin", "bisabolol", "beta-glucan"],
-  },
-  {
-    key: "zinc-clay",
-    name: "Zinc and clay",
-    tint: "blue",
-    line: "Zinc helps moderate oil, and clay soaks it up from the surface.",
-    found: "can help with oil and shine.",
-    whyYou: "A mild way to take down oil and shine.",
-    howToStart: "Zinc daily in a serum; a clay mask once a week.",
-    watchFor: "Clay left on too long dries skin out.",
-    whenShopping: "Zinc PCA in a light serum, or a kaolin mask.",
-    names: ["zinc pca", "kaolin"],
-  },
-  {
-    key: "emollients",
-    name: "Squalane and shea",
-    tint: "butter",
-    support: true,
-    line: "Soften dry skin and slow the water leaving it.",
-    found: "can soften dry skin and slow the water leaving it.",
-    whyYou: "Dry skin needs oils as well as water.",
-    howToStart: "As the last step, over your other products.",
-    watchFor: "Shea butter can feel heavy if you break out easily.",
-    whenShopping: "Squalane is the light one; shea butter is the rich one.",
-    names: ["squalane", "shea butter"],
-  },
-];
+// The records with a `result`, in the data file's order, which breaks ties
+// between equally strong cards: salicylic acid sits ahead of niacinamide
+// because for pores and oil it leads.
+export const JOURNEY_CARDS: readonly JourneyCard[] = ACTIVES.flatMap((active) =>
+  active.result
+    ? [{ key: active.key, name: active.result.name ?? active.name, line: active.result.line, found: active.result.found, support: active.support, strong: active.strong, core: active.core, names: active.names }]
+    : [],
+);
 
-const CARD: Record<CardKey, JourneyCard> = Object.fromEntries(JOURNEY_CARDS.map((card) => [card.key, card])) as Record<CardKey, JourneyCard>;
+const CARD = new Map<ActiveKey, JourneyCard>(JOURNEY_CARDS.map((card) => [card.key, card]));
 
 /** The rules whose ingredients make a product count for this card. */
 export function cardRules(card: JourneyCard): IngredientRule[] {
@@ -282,25 +79,13 @@ export function cardHelps(card: JourneyCard): Set<Concern> {
   return new Set(cardRules(card).flatMap((rule) => rule.helps?.concerns ?? []));
 }
 
-/** Where to read about a card: its first rule with a source. */
-export function cardSource(card: JourneyCard): RuleSource | null {
-  return cardRules(card).find((rule) => rule.source)?.source ?? null;
-}
-
 /** A card the pregnancy caution list names: the same list the score warns from. */
 function pregnancyCaution(card: JourneyCard): boolean {
   return pregnancyCautionHits(card.names.map((name) => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true }))).length > 0;
 }
 
-export type Role = "best" | "support" | "foundation" | "strong" | "helpful";
+type Role = "best" | "support" | "foundation" | "strong" | "helpful";
 
-export const ROLE_LABEL: Record<Role, string> = {
-  best: "Best match for you",
-  support: "Good support",
-  foundation: "Your foundation",
-  strong: "Stronger, go slow",
-  helpful: "Also helpful",
-};
 
 export type DeckCard = {
   card: JourneyCard;
@@ -349,7 +134,7 @@ type Goal = {
   /** Cards that only help something close to it, shown after the rest, with the chip they get. */
   also?: { short: string; test: (helps: RuleTarget) => boolean };
   /** Hand-picked cards, for the one goal the rules have no word for. */
-  cards?: CardKey[];
+  cards?: ActiveKey[];
   /** The skin a scan from here is checked for warnings as (pore-cloggers, irritants). */
   score: { concerns: Concern[]; baseSkinType?: BaseSkinType; sensitive?: boolean };
 };
@@ -434,9 +219,6 @@ export type Need = { goal: GoalKey; sensitivity: Sensitivity | null; pregnant: b
 
 export const PREGNANCY_LINE = "Commonly advised against while pregnant or breastfeeding.";
 
-export function goalLabel(need: Need): string {
-  return GOAL[need.goal].label;
-}
 
 /** How strongly a card works on something: its heaviest rule that passes. */
 function strength(card: JourneyCard, test: (helps: RuleTarget) => boolean): number {
@@ -458,7 +240,7 @@ export function needDeck(need: Need): DeckCard[] {
       .filter(({ weight }) => weight > 0)
       .sort((a, b) => b.weight - a.weight || a.order - b.order)
       .map(({ card }) => card);
-  const main = goal.cards ? goal.cards.map((key) => CARD[key]).filter((card) => allowed.includes(card)) : ranked(goal.test);
+  const main = goal.cards ? goal.cards.flatMap((key) => CARD.get(key) ?? []).filter((card) => allowed.includes(card)) : ranked(goal.test);
   let actives = main.filter((card) => goal.supportCounts || !card.support);
   if (need.sensitivity === "high") actives = [...actives.filter((card) => !card.strong), ...actives.filter((card) => card.strong)];
   const extra = goal.also ? ranked(goal.also.test).filter((card) => !main.includes(card)) : [];
@@ -567,7 +349,7 @@ export function planFit(ingredients: readonly Pick<Ingredient, "name">[], deck: 
 
 /** Whether a rule works on a goal at all, counted or not. */
 function worksOn(goal: Goal, rule: IngredientRule): boolean {
-  if (goal.cards) return goal.cards.some((key) => cardRules(CARD[key]).includes(rule));
+  if (goal.cards) return goal.cards.some((key) => { const card = CARD.get(key); return card !== undefined && cardRules(card).includes(rule); });
   return !!rule.helps && goal.test(rule.helps);
 }
 
@@ -614,8 +396,13 @@ function ruleHits(ingredients: readonly Pick<Ingredient, "name">[]): Hit[] {
 
 export type NeedLevel = "works" | "little" | "none";
 
-/** One thing found in the product: a card and the ingredients that counted for it, or a lone ingredient with its rule's sentence. */
-type NeedFinding = { card: JourneyCard | null; ingredients: string[]; reason: string; trace: boolean };
+/**
+ * One thing found in the product: a card and the ingredients that counted for
+ * it, or a lone ingredient with its rule's sentence. `line` is what follows
+ * the ingredients for an active the carousel showed that no card stands for
+ * ("(SPF): it sends back the rays that mark and age skin.").
+ */
+type NeedFinding = { card: JourneyCard | null; ingredients: string[]; reason: string; trace: boolean; line?: string };
 
 export type NeedVerdict = {
   level: NeedLevel;
@@ -662,11 +449,8 @@ export function needVerdict(ingredients: readonly Pick<Ingredient, "name">[], ne
   const goal = GOAL[need.goal];
   const hits = ruleHits(ingredients);
   const counted = hits.filter((hit) => countsFor(goal, hit.rule)).sort((a, b) => b.rule.weight - a.rule.weight);
-  const found = levelFor(goal, hits, need.pregnant === true);
+  const rulesLevel = levelFor(goal, hits, need.pregnant === true);
   // Only the name is read, so a bare name is enough.
-  const clogged = !!goal.pores && found !== "none" && ingredients.some(({ name }) => cloggerConfidence({ name } as Ingredient) === "high");
-  const level: NeedLevel = clogged ? "little" : found;
-
   // One finding per card, or per ingredient where no card stands for it.
   const actives: NeedFinding[] = [];
   for (const hit of counted) {
@@ -678,14 +462,33 @@ export function needVerdict(ingredients: readonly Pick<Ingredient, "name">[], ne
     } else actives.push({ card, ingredients: [hit.ingredient], reason: hit.rule.reason, trace: hit.trace });
   }
 
-  const deck = needDeck(need).filter((item) => item.counts);
-  const covered = deck.filter(({ card }) => actives.some((finding) => finding.card === card)).length;
+  // What the Skin needs carousel showed for this pick (owner, 3 October
+  // 2026): a product holding one of those works on the goal, whatever the
+  // scoring rules say of it (a sunscreen for lines), and the line below
+  // counts against them, not against a list the person never saw.
+  const suggested = optionsFor({ goal: need.goal, sensitivity: need.sensitivity, pregnancy: need.pregnant === null ? null : need.pregnant ? "yes" : "no" }).actives;
+  const covers = (active: StoryActive) => holdsActive(ingredients, active) || actives.some((finding) => finding.card?.key === active.key && !finding.trace);
+  for (const active of suggested) {
+    if (actives.some((finding) => finding.card?.key === active.key)) continue;
+    const named = ingredients
+      .filter(({ name }, index) => positionWeightLabel(index) !== "trace" && nameMatches(active.match ?? active.names, name))
+      .map(({ name }) => name)
+      .filter((name) => !actives.some((finding) => finding.ingredients.includes(name)));
+    if (named.length > 0) actives.push({ card: null, ingredients: named, reason: active.story.why.line, line: `(${active.name}): ${lowerFirst(active.story.why.line)}`, trace: false });
+  }
+  const shown = suggested.filter(covers);
+  const found: NeedLevel = shown.length > 0 ? "works" : rulesLevel;
+  // Only the name is read, so a bare name is enough.
+  const clogged = !!goal.pores && found !== "none" && ingredients.some(({ name }) => cloggerConfidence({ name } as Ingredient) === "high");
+  const level: NeedLevel = clogged ? "little" : found;
+
+  const covered = shown.length;
   const has =
     covered === 0
       ? "It has an active for this, though not one of our top picks."
-      : deck.length === 1
+      : suggested.length === 1
         ? `It has the active we suggest to ${goal.phrase}.`
-        : `It has ${covered} of the ${deck.length} actives we suggest to ${goal.phrase}.`;
+        : `It has ${covered} of the ${suggested.length} actives we suggest to ${goal.phrase}.`;
   const line = level === "none" ? `It has none of the actives we suggest to ${goal.phrase}.` : clogged ? `${has} It also has an ingredient that can clog pores.` : has;
 
   const helpful = hits.filter((hit) => worksOn(goal, hit.rule) && !countsFor(goal, hit.rule)).map((hit) => hit.ingredient);
@@ -712,7 +515,7 @@ export function needVerdict(ingredients: readonly Pick<Ingredient, "name">[], ne
     headline: HEADLINE[level](goal.noun),
     line,
     actives,
-    missing: deck.filter(({ card }) => !actives.some((finding) => finding.card === card)).map(({ card }) => card.name),
+    missing: suggested.filter((active) => !covers(active)).map((active) => active.name),
     helpful,
     betterFor,
     clogged,
@@ -727,6 +530,10 @@ export function needVerdict(ingredients: readonly Pick<Ingredient, "name">[], ne
 export function holdsStrongActive(ingredients: readonly Pick<Ingredient, "name">[]): boolean {
   const strong = JOURNEY_CARDS.filter((card) => card.strong).flatMap(cardRules);
   return ruleHits(ingredients).some((hit) => !hit.trace && strong.includes(hit.rule));
+}
+
+function lowerFirst(text: string): string {
+  return `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
 }
 
 /** Every headline a scan can show, for the claims audit. */

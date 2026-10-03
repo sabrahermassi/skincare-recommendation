@@ -1,8 +1,9 @@
+import { router, useLocalSearchParams } from "expo-router";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BackChevron, IconCircle } from "@/components/IconCircle";
+import { BackChevron, CloseCross, IconCircle } from "@/components/IconCircle";
 import { Text } from "@/components/Text";
 import { goBackOrHome } from "@/lib/go-back";
 import { INK, SPACE, TYPE } from "@/lib/tokens";
@@ -22,10 +23,13 @@ export function ScreenHeader({
   title,
   right,
   onBack,
+  back = true,
 }: {
   title?: string;
   right?: ReactNode;
   onBack?: () => void;
+  /** False for a screen that slid up over another and closes with an X on the right instead. */
+  back?: boolean;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -36,9 +40,11 @@ export function ScreenHeader({
       {/* Back and the right-hand circles take equal shares, so the title sits
           at the screen's true centre however many circles there are (v9). */}
       <View style={{ flex: 1, alignItems: "flex-start" }}>
-        <IconCircle onPress={onBack ?? goBackOrHome} accessibilityLabel="Back">
-          <BackChevron />
-        </IconCircle>
+        {back ? (
+          <IconCircle onPress={onBack ?? goBackOrHome} accessibilityLabel="Back">
+            <BackChevron />
+          </IconCircle>
+        ) : null}
       </View>
 
       {title ? (
@@ -49,5 +55,26 @@ export function ScreenHeader({
 
       <View style={{ flex: 1, gap: 12, flexDirection: "row", alignItems: "center", justifyContent: "flex-end" }}>{right}</View>
     </View>
+  );
+}
+
+/**
+ * The top row of a screen that can slide up over a Skin needs story (the
+ * routine, and the skin profile from there, opened with `from=story`): an X on
+ * the right that closes it back onto the story, in place of the back arrow
+ * (owner, 3 October 2026). Opened any other way, the usual back arrow.
+ */
+export function StoryAwareHeader() {
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  if (from !== "story") return <ScreenHeader />;
+  return (
+    <ScreenHeader
+      back={false}
+      right={
+        <IconCircle onPress={() => router.back()} accessibilityLabel="Close">
+          <CloseCross />
+        </IconCircle>
+      }
+    />
   );
 }

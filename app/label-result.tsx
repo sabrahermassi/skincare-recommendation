@@ -4,6 +4,7 @@ import { ActivityIndicator, View } from "react-native";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ResultTabs } from "@/components/result/ResultTabs";
+import { DoctorSheet } from "@/components/skin-needs/DoctorSheet";
 import { PageTitle } from "@/components/PageTitle";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Text } from "@/components/Text";
@@ -149,6 +150,8 @@ function Verdict({ read, entry, journey }: { read: HeldLabel; /** The History en
         onIngredientPress={(ingredient) => router.push({ pathname: "/ingredient/[inci]", params: { inci: ingredient.name, ...(journey ? { from: "journey" } : {}) } })}
         footer={lowCoverage ? <PrimaryButton label="Retake the photo" onPress={() => retake()} /> : null}
       />
+      {/* Scanned from Skin needs with a prescription-only active in it. */}
+      {journey ? <DoctorSheet ingredients={product.ingredients} need={journey} /> : null}
     </View>
   );
 }

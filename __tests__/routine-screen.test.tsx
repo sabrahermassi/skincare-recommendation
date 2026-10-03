@@ -18,7 +18,8 @@ jest.setTimeout(30000);
 const mockOpenQuiz = jest.fn();
 jest.mock("@/lib/open-quiz", () => ({ openQuiz: () => mockOpenQuiz() }));
 let mockFocused = true;
-jest.mock("expo-router", () => ({ router: { back: jest.fn(), push: jest.fn(), canGoBack: () => true }, useIsFocused: () => mockFocused }));
+let mockParams: Record<string, string> = {};
+jest.mock("expo-router", () => ({ router: { back: jest.fn(), push: jest.fn(), canGoBack: () => true }, useIsFocused: () => mockFocused, useLocalSearchParams: () => mockParams }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -62,9 +63,10 @@ beforeEach(() => {
   fetched.mockResolvedValue([]);
   fetchedByIds.mockReset();
   fetchedByIds.mockImplementation(async (ids: string[]) => ({ ok: true, value: CATALOGUE.filter((p) => ids.includes(p.id)) }));
-  useAppStore.setState({ routinePicks: {} });
+  useAppStore.setState({ routinePicks: {}, routineActives: [], routineStarted: false, routineStepLimit: 4 });
   jest.mocked(router.push).mockClear();
   mockFocused = true;
+  mockParams = {};
   forgetRoutine();
 });
 
@@ -228,7 +230,7 @@ it("leads with the skin profile it is built from, as a way in", async () => {
   fetched.mockResolvedValue(CATALOGUE);
   await open();
   await fireEvent.press(screen.getByRole("button", { name: "Your skin profile. Your skincare routine is based on this." }));
-  expect(router.push).toHaveBeenCalledWith("/skin-profile");
+  expect(router.push).toHaveBeenCalledWith({ pathname: "/skin-profile", params: {} });
 });
 
 // "Add to my routine" (owner, 2 October 2026): a product the person added
@@ -294,4 +296,84 @@ it("leaves the caution out once the profile says not pregnant", async () => {
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
   expect(screen.getByText("Salicylic acid")).toBeTruthy();
   expect(screen.queryByText("Commonly advised against while pregnant or breastfeeding.")).toBeNull();
+});
+
+describe("by day, with actives added from Skin needs (design_handoff october 3d, R1–R3)", () => {
+  const BHA_NIGHTS = { active: "bha" as const, time: "evening" as const, days: [0, 3] };
+  // Monday the 28th of September 2026, so Monday is today.
+  beforeEach(() => jest.useFakeTimers({ now: new Date(2026, 8, 28, 9), toFake: ["Date"] }));
+  afterEach(() => jest.useRealTimers());
+
+  it("shows the week, opens on today, and names tonight's active with a product that holds it", async () => {
+    useAppStore.setState({ profile: ACNE, routineActives: [BHA_NIGHTS] });
+    fetched.mockResolvedValue(CATALOGUE);
+    await open();
+    expect(screen.getByRole("tab", { name: "Monday 28, an active" }).props.accessibilityState.selected).toBe(true);
+    expect(screen.getByRole("tab", { name: "Thursday 1, an active" })).toBeTruthy();
+    expect(screen.getByText("Steps for Monday")).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
+    expect(screen.getByText("Tonight’s active")).toBeTruthy();
+    expect(screen.getByText("BHA")).toBeTruthy();
+    expect(screen.getByText("A 0.5–2% leave-on, fragrance-free.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /BHA serum/ })).toBeTruthy();
+  });
+
+  it("calls a night without one a rest night, and says when the next is", async () => {
+    useAppStore.setState({ profile: ACNE, routineActives: [BHA_NIGHTS] });
+    await open();
+    await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
+    await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Tuesday 29" })));
+    expect(screen.getByText("Rest night")).toBeTruthy();
+    expect(screen.getByText("No active tonight. Next BHA: Thursday.")).toBeTruthy();
+    expect(screen.queryByText("Treatment")).toBeNull();
+  });
+
+  it("asks not to skip the sunscreen on a morning with an active", async () => {
+    useAppStore.setState({ profile: ACNE, routineActives: [{ active: "vitamin-c", time: "morning", days: [0, 2, 4] }] });
+    await open();
+    expect(screen.getByText("Today’s active")).toBeTruthy();
+    expect(screen.getByText("Sunscreen · don’t skip")).toBeTruthy();
+    expect(screen.getByText("SPF 50 keeps Vitamin C working.")).toBeTruthy();
+  });
+
+  it("takes an added active out with Remove", async () => {
+    useAppStore.setState({ profile: ACNE, routineActives: [BHA_NIGHTS] });
+    await open();
+    await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Take BHA out of my routine" })));
+    expect(useAppStore.getState().routineActives).toEqual([]);
+  });
+
+  it("shows a routine started from a story without a skin profile: its steps, nothing picked", async () => {
+    useAppStore.setState({ profile: EMPTY_PROFILE, routineStarted: true, routineActives: [BHA_NIGHTS] });
+    await render(<Routine />);
+    expect(screen.queryByRole("header", { name: "Your skin profile is empty" })).toBeNull();
+    expect(screen.getByText("Steps for Monday")).toBeTruthy();
+    expect(fetched).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole("button", { name: /Your skin profile is empty\. Fill it in/ }));
+    expect(mockOpenQuiz).toHaveBeenCalled();
+  });
+
+  it("changes the step limit it was started with", async () => {
+    useAppStore.setState({ profile: ACNE, routineActives: [BHA_NIGHTS] });
+    await open();
+    await act(async () => fireEvent.press(screen.getByRole("radio", { name: "5 steps per routine" })));
+    expect(useAppStore.getState().routineStepLimit).toBe(5);
+  });
+});
+
+it("closes with an X on the right, not a back arrow, when opened from a Skin needs story", async () => {
+  mockParams = { from: "story" };
+  await render(<Routine />);
+  expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+  await fireEvent.press(screen.getByRole("button", { name: "Close" }));
+  expect(router.back).toHaveBeenCalled();
+});
+
+it("opens the skin profile with the same X when it was itself opened from a story", async () => {
+  mockParams = { from: "story" };
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
+  await open();
+  await fireEvent.press(screen.getByRole("button", { name: /^Your skin profile\./ }));
+  expect(router.push).toHaveBeenCalledWith({ pathname: "/skin-profile", params: { from: "story" } });
 });

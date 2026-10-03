@@ -370,7 +370,8 @@ describe("the product screen opened from the journey", () => {
     await open({ from: "journey", need: "dark-marks.." });
     // Niacinamide works on dark marks; the ring and its number are gone.
     expect(screen.getByRole("header", { name: "Works on dark marks" })).toBeTruthy();
-    expect(screen.getByText("It has 1 of the 5 actives we suggest to fade dark marks.")).toBeTruthy();
+    // Not one the carousel showed for dark marks (SPF, vitamin C, AHA), though it works on them.
+    expect(screen.getByText("It has an active for this, though not one of our top picks.")).toBeTruthy();
     expect(screen.queryByText(String(matchProduct(PRODUCT, OWN).score))).toBeNull();
     expect(screen.queryByText("/100")).toBeNull();
     expect(screen.queryByText(/recommendations for your skin/)).toBeNull();
@@ -405,7 +406,30 @@ describe("the product screen opened from the journey", () => {
     await render(<ProductRoute />);
     await act(async () => {});
     expect(screen.queryByText("Is it right for your skin?")).toBeNull();
-    expect(screen.getByRole("header", { name: "Not made for pimples" })).toBeTruthy();
+    // Very sensitive skin with pimples was shown niacinamide, which this serum has.
+    expect(screen.getByRole("header", { name: "Works on pimples" })).toBeTruthy();
+  });
+
+  // design_handoff "october 3d", D: over-the-counter only.
+  it("says to talk to a doctor first about a prescription active scanned from Skin needs, and offers the over-the-counter one", async () => {
+    const gel = { ...PRODUCT, ingredients: ["water", "tretinoin", "glycerin"].map(ingredient) };
+    useAppStore.setState({ profile: OWN, history: [], savedProducts: [] });
+    mockParams = { id: PRODUCT.id, from: "journey", need: "lines..no" };
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: gel }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+    expect(screen.getByRole("header", { name: "Talk to a doctor first" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Learn about retinol" })).toBeTruthy();
+  });
+
+  it("raises no doctor sheet for a prescription active scanned outside Skin needs", async () => {
+    const gel = { ...PRODUCT, ingredients: ["water", "tretinoin", "glycerin"].map(ingredient) };
+    useAppStore.setState({ profile: OWN, history: [], savedProducts: [] });
+    mockParams = { id: PRODUCT.id };
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: gel }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+    expect(screen.queryByRole("header", { name: "Talk to a doctor first" })).toBeNull();
   });
 
   it("names support once without counting it, and lets a strong pore-clogger hold a pores pick back", async () => {
