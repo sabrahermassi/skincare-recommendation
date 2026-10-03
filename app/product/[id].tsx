@@ -20,6 +20,7 @@ import { PRODUCT_TYPE_LABEL, type ProductWithIngredients } from "@/data/types";
 import { track } from "@/lib/analytics";
 import { relativeTime } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
+import { DoctorSheet } from "@/components/skin-needs/DoctorSheet";
 import { decodeNeed, needProfile, needVerdict } from "@/lib/journey";
 import { matchProduct, SCORE_BANDS } from "@/lib/matching";
 import { openScanner } from "@/lib/open-scanner";
@@ -403,6 +404,8 @@ function ProductScreen({ id, from, need, scanned }: { id: string; from?: string;
         // A wrong name or list gets told to us (#327), under the full list.
         report={<ReportMistakeLink button subject={{ kind: "product", id: product.id, name: product.name, brand: product.brand, barcode: product.barcode }} />}
       />
+      {/* Scanned from Skin needs with a prescription-only active in it. */}
+      {journey ? <DoctorSheet ingredients={product.ingredients} need={journey} /> : null}
     </View>
   );
 }

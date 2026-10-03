@@ -5,6 +5,8 @@ import { FIRST_PAGE_COPY } from "@/lib/first-page";
 import { NOTE_COPY, tooLongCopy } from "@/lib/journal";
 import { activeLine, buildRoutine } from "@/lib/routine-builder";
 import { GOALS, JOURNEY_CARDS, PREGNANCY_LINE, needHeadlines, needVerdict } from "@/lib/journey";
+import { sensitivityNote, startLine } from "@/lib/skin-needs";
+import { ACTIVES, ACTIVES_IN_USE, FAMILIES, GOAL_OPTIONS, PRESCRIPTION, SIGNS } from "@/lib/skin-needs-data";
 import { pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
 import { claimPolicyViolations } from "@/lib/claims-policy";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
@@ -125,12 +127,27 @@ const SCHOOL_CLAIMS: OwnedClaim[] = SCHOOL.flatMap((category) =>
   ])
 );
 
+/** Every string in a value, however deep, each with where it was found. */
+function stringsIn(value: unknown, path: string): OwnedClaim[] {
+  if (typeof value === "string") return [{ source: path, text: value }];
+  if (Array.isArray(value)) return value.flatMap((item, i) => stringsIn(item, `${path}[${i}]`));
+  // An active's `sources` are the papers its claims were checked against: never
+  // shown in the app, and their titles are the papers' own words, not ours.
+  if (value && typeof value === "object") return Object.entries(value).flatMap(([key, item]) => (key === "sources" ? [] : stringsIn(item, `${path}.${key}`)));
+  return [];
+}
+
 // Skin needs: the things to work on and every line of every card, which say
 // what an ingredient does more directly than anything else in the app.
 const JOURNEY_CLAIMS: OwnedClaim[] = [
   ...GOALS.map((goal) => ({ source: `GOALS.${goal.key}`, text: goal.label })),
-  ...JOURNEY_CARDS.flatMap((card) =>
-    ([card.name, card.line, card.found ?? "", card.whyYou, card.howToStart, card.watchFor, card.whenShopping] as const).map((text, i) => ({ source: `JOURNEY_CARDS.${card.key}[${i}]`, text }))
+  ...JOURNEY_CARDS.flatMap((card) => ([card.name, card.line, card.found ?? ""] as const).map((text, i) => ({ source: `JOURNEY_CARDS.${card.key}[${i}]`, text }))),
+  // Every word of every active's story, family, warning sign and prescription
+  // note (lib/skin-needs-data.ts), and the lines the story builds from them.
+  ...stringsIn({ ACTIVES, FAMILIES, SIGNS, GOAL_OPTIONS, ACTIVES_IN_USE, PRESCRIPTION }, "skin-needs-data"),
+  ...[1, 2, 3, 4, 5, 6, 7].map((nights) => ({ source: `startLine.${nights}`, text: startLine(nights) })),
+  ...([null, "none", "some", "high"] as const).flatMap((sensitivity) =>
+    [2, 7].map((nights) => ({ source: `sensitivityNote.${sensitivity}.${nights}`, text: sensitivityNote({ sensitivity }, nights) }))
   ),
   { source: "PREGNANCY_LINE", text: PREGNANCY_LINE },
   // What a scan from Skin needs can say: every headline, and each kind of line under it.

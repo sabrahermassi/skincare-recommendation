@@ -3,7 +3,7 @@ import { Pressable, View } from "react-native";
 
 import { ConcernPicker, PregnancyPicker, SensitivityPicker, SkinTypePicker } from "@/components/ProfilePickers";
 import { PageTitle } from "@/components/PageTitle";
-import { ScreenHeader } from "@/components/ScreenHeader";
+import { StoryAwareHeader } from "@/components/ScreenHeader";
 import { UndoToast, type UndoNotice } from "@/components/UndoToast";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
@@ -93,7 +93,7 @@ export default function SkinProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <ScreenHeader />
+      <StoryAwareHeader />
       <FitScrollView contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: 48 }}>
         {/* "Reset" on the title's own line (owner), at its right: words, not a
             button, like "Clear all" on Saved, in the app's red so it reads as

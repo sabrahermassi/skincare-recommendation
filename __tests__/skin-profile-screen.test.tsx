@@ -10,7 +10,8 @@ import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 jest.setTimeout(30000);
 
-jest.mock("expo-router", () => ({ router: { back: jest.fn(), canGoBack: () => true } }));
+let mockParams: Record<string, string> = {};
+jest.mock("expo-router", () => ({ router: { back: jest.fn(), canGoBack: () => true }, useLocalSearchParams: () => mockParams }));
 jest.mock("expo-image", () => {
   const { View } = jest.requireActual("react-native");
   return { Image: (props: object) => <View testID="image" {...props} /> };
@@ -103,4 +104,12 @@ it("resets every answer with Reset, and puts them back with Undo", async () => {
   expect(screen.queryByRole("button", { name: "Reset skin profile" })).toBeNull();
   await fireEvent.press(screen.getByText("Undo"));
   expect(useAppStore.getState().profile).toEqual({ concerns: ["acne-prone"], baseSkinType: "oily", sensitivity: "some", pregnancyStatus: "neither" });
+});
+
+it("closes with an X on the right, not a back arrow, when it slid up from a Skin needs story", async () => {
+  mockParams = { from: "story" };
+  await render(<SkinProfileScreen />);
+  expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
+  mockParams = {};
 });

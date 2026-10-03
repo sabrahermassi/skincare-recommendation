@@ -2,6 +2,8 @@ import type { Concern, ProductType, ProductWithIngredients, SkinProfile } from "
 import { holdsStrongActive, needDeck, needVerdict, type GoalKey, type JourneyCard, type Need } from "@/lib/journey";
 import { isLowCoverage, matchProduct, SCORE_BANDS, type MatchResult } from "@/lib/matching";
 import { CONCERN_PHRASE } from "@/lib/profile";
+import { holdsActive } from "@/lib/skin-needs";
+import type { Active } from "@/lib/skin-needs-data";
 
 /**
  * The routine builder (owner, 2 October 2026): from the skin profile, the
@@ -219,7 +221,13 @@ const STEPS: Record<TimeOfDay, Step[]> = {
   ],
 };
 
-export type Routine = Record<TimeOfDay, RoutineSlot[]>;
+export type Routine = Record<TimeOfDay, RoutineSlot[]> & {
+  /**
+   * Every product safe to recommend for this skin, best match first: where an
+   * active added from Skin needs finds its product (`pickHolding`).
+   */
+  picks: readonly RoutinePick[];
+};
 
 /**
  * The products any step could use. About a quarter of the catalogue is lip
@@ -261,7 +269,28 @@ export function assembleRoutine(picks: readonly RoutinePick[], profile: SkinProf
       const best = holding[0];
       return { key: step.key, label: step.label, active: activeFor(cards, best?.card ?? cards[0], cautions, profile), pick: best?.pick ?? null };
     });
-  return { morning: slots("morning"), evening: slots("evening") };
+  return { morning: slots("morning"), evening: slots("evening"), picks: scored };
+}
+
+/** The steps with nothing picked and no active named: a routine begun from Skin needs with no skin profile to pick for. */
+export function basicRoutine(): Routine {
+  const slots = (time: TimeOfDay): RoutineSlot[] => STEPS[time].map((step) => ({ key: step.key, label: step.label, active: null, pick: null }));
+  return { morning: slots("morning"), evening: slots("evening"), picks: [] };
+}
+
+/** The key of the step an active added from Skin needs goes in: the morning serum or the evening treatment. */
+export function activeStepKey(time: TimeOfDay): string {
+  return STEPS[time].find((step) => step.active === time)!.key;
+}
+
+/**
+ * The product we suggest for an active someone added from Skin needs (owner,
+ * 3 October 2026): the best skin match among the products that fit its step
+ * and hold it above the trace stretch of their label, or `null`.
+ */
+export function pickHolding(routine: Routine, time: TimeOfDay, active: Active): RoutinePick | null {
+  const step = STEPS[time].find((candidate) => candidate.active === time)!;
+  return routine.picks.find((pick) => step.fits(pick.product) && holdsActive(pick.product.ingredients, active)) ?? null;
 }
 
 /**

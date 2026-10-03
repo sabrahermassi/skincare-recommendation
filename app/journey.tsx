@@ -1,175 +1,168 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Linking, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
+import { router } from "expo-router";
+import { useRef, useState } from "react";
+import { Animated, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 
+import { FitScrollView } from "@/components/FitScrollView";
+import { GlassHeader } from "@/components/GlassHeader";
 import { BackChevron, IconCircle } from "@/components/IconCircle";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
+import { Hand, StarIcon, Tick } from "@/components/skin-needs/bits";
 import { Text } from "@/components/Text";
 import type { Sensitivity } from "@/data/types";
-import { cardSource, encodeNeed, goalLabel, GOALS, needDeck, ROLE_LABEL, type DeckCard, type GoalKey, type Need, type Role } from "@/lib/journey";
 import { goBackOrHome } from "@/lib/go-back";
 import { haptic } from "@/lib/haptics";
-import { openScanner } from "@/lib/open-scanner";
+import { GOALS, type GoalKey } from "@/lib/journey";
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { BUTTON, CANVAS, CHOSEN, DISPLAY_FONT, DIVIDER, INK, JOURNEY, MUTED, MUTED_FAINT, OPTION_LINE, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT, WHITE, withAlpha } from "@/lib/tokens";
-import { FitScrollView } from "@/components/FitScrollView";
+import { encodeAnswers, familyOf, hiddenLine, holdsActive, optionsFor, safeOnly, storyLength, storyLengthLine, type NeedAnswers, type StoryActive } from "@/lib/skin-needs";
+import { useOwnProducts } from "@/lib/use-own-products";
+import { ACTIVES_IN_USE, GOAL_OPTIONS, type ActiveKey } from "@/lib/skin-needs-data";
+import { BUTTON, CANVAS, CANVAS_GLASS, CHOSEN, DISPLAY_FONT, ICON_SHADOW, INK, LINK, MUTED, MUTED_FAINT, SKIN_NEEDS, SPACE, STAR_ON, SURFACE, WHITE, TYPE } from "@/lib/tokens";
+import { useAppStore } from "@/store/useAppStore";
 
-// v9 (read off ConcernDeckSoft in the hand-off).
-const EASE = Easing.bezier(0.3, 0.7, 0.2, 1);
-// The carousel: the room each side of the card showing, and between cards. The next card shows 16pt at the edge.
-const CAROUSEL_SIDE = 32;
-const CAROUSEL_GAP = 16;
-const FLIP_MS = 300;
+// The carousel (hand-off): 292 × 470 cards, 24pt in from the left, 12pt apart.
+const CARD_WIDTH = 292;
+const CARD_HEIGHT = 470;
+const CARD_GAP = 12;
+const CARD_SIDE = 24;
 
-const ROLE_INK: Record<Role, string> = {
-  best: BUTTON.primary.fill,
-  support: VERDICT.high.solid,
-  foundation: BUTTON.primary.fill,
-  strong: VERDICT.medium.deep,
-  helpful: MUTED_FAINT,
-};
-
-type Step = "needs" | "finding" | "deck";
-
-// How long the "finding" screen shows between the question and the cards (v9).
-const FINDING_MS = 1800;
-const FINDING_ART = require("@/assets/illustrations/loading-skin-needs.webp");
-
-const SENSITIVITY_OPTIONS: readonly { value: Sensitivity; label: string }[] = [
-  { value: "none", label: "Not sensitive" },
-  { value: "some", label: "Somewhat" },
-  { value: "high", label: "Very" },
+const SENSITIVITY_OPTIONS: readonly { value: Sensitivity; label: string; chip: string }[] = [
+  { value: "none", label: "Not sensitive", chip: "Not sensitive" },
+  { value: "some", label: "Somewhat", chip: "Somewhat sensitive" },
+  { value: "high", label: "Very", chip: "Very sensitive" },
 ];
-const PREGNANT_OPTIONS: readonly { value: boolean; label: string }[] = [
-  { value: true, label: "Yes" },
-  { value: false, label: "No" },
+const PREGNANCY_OPTIONS: readonly { value: NonNullable<NeedAnswers["pregnancy"]>; label: string; chip: string }[] = [
+  { value: "yes", label: "Yes", chip: "Pregnant or breastfeeding" },
+  { value: "no", label: "No", chip: "Not pregnant or breastfeeding" },
+  { value: "unsaid", label: "Prefer not to say", chip: "Pregnancy: not said" },
 ];
 
 /**
- * "Skin needs": one thing to work on today, then the ingredient categories
- * worth looking for, one card each (a card flips to show how to use it), and
- * a scan to see how a product fits. Full screen: no nav bar, no tab bar; it
- * draws its own back.
+ * The answers so far. "Actives you already use" is kept as the chips tapped:
+ * "Glycolic acid" and "AHA acids" are one active to the clash check, but two
+ * chips, each lit only when it was the one tapped.
+ */
+type Draft = Omit<NeedAnswers, "goal" | "uses"> & { goal: GoalKey | null; used: string[] };
+
+function usesOf(used: readonly string[]): ActiveKey[] {
+  return [...new Set(ACTIVES_IN_USE.filter(({ label }) => used.includes(label)).map(({ active }) => active))];
+}
+
+/**
+ * Skin needs (design_handoff "october 3d"): one scrolling screen of questions,
+ * then "What can help?", a carousel of up to three actives for the goal. A card
+ * opens its story (`app/journey-story.tsx`), which can add the active to the
+ * routine. It replaced the flip-card deck.
  *
- * It stands apart from the skin profile (owner, 2 October 2026): it asks
- * fresh every time, reads nothing from the profile and writes nothing to it.
- * What was picked travels with the scan to the result (`lib/journey.ts`).
+ * Its own path (owner): nothing is read from the skin profile or saved to it,
+ * and nothing is filled in ahead.
  */
 export default function Journey() {
-  const [step, setStep] = useState<Step>("needs");
-  const [goal, setGoal] = useState<GoalKey | null>(null);
-  const [sensitivity, setSensitivity] = useState<Sensitivity | null>(null);
-  const [pregnant, setPregnant] = useState<boolean | null>(null);
+  const [draft, setDraft] = useState<Draft>({ goal: null, sensitivity: null, pregnancy: null, used: [] });
+  const [showing, setShowing] = useState(false);
+  const goal = draft.goal;
+  if (showing && goal) {
+    return (
+      <Options
+        answers={{ goal, sensitivity: draft.sensitivity, pregnancy: draft.pregnancy, uses: usesOf(draft.used) }}
+        onBack={() => setShowing(false)}
+        // "Not pregnant? Change": the answer becomes no, and the hidden ones come back.
+        onNotPregnant={() => setDraft((d) => ({ ...d, pregnancy: "no" }))}
+      />
+    );
+  }
+  return <Questions draft={draft} onChange={setDraft} onShow={() => setShowing(true)} />;
+}
+
+// ── Q1 ──────────────────────────────────────────────────────────────────────
+
+function Questions({ draft, onChange, onShow }: { draft: Draft; onChange: (next: Draft) => void; onShow: () => void }) {
   const insets = useSafeAreaInsets();
-  const back = () => (step !== "needs" ? setStep("needs") : goBackOrHome());
-
-  useEffect(() => {
-    if (step !== "finding") return;
-    const timer = setTimeout(() => setStep("deck"), reduceMotionNow() ? 0 : FINDING_MS);
-    return () => clearTimeout(timer);
-  }, [step]);
-
+  const ready = draft.goal !== null;
+  const [headerHeight, setHeaderHeight] = useState(insets.top + 56);
+  const [footer, setFooter] = useState({ width: 0, height: 0 });
+  const [scrollY] = useState(() => new Animated.Value(0));
+  const [onScroll] = useState(() => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false }));
   return (
-    <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top + 6 }}>
-      <Header onBack={back} />
-      {step === "needs" || goal === null ? (
-        <Needs
-          goal={goal}
-          onGoal={setGoal}
-          sensitivity={sensitivity}
-          onSensitivity={setSensitivity}
-          pregnant={pregnant}
-          onPregnant={setPregnant}
-          onNext={() => setStep("finding")}
-          bottom={insets.bottom}
-        />
-      ) : step === "finding" ? (
-        <Finding />
-      ) : (
-        <Deck need={{ goal, sensitivity, pregnant }} bottom={insets.bottom} />
-      )}
-    </View>
-  );
-}
-
-/**
- * Back, and nothing else (owner): the journey is one question and its cards,
- * so there is no step count and no progress line.
- */
-function Header({ onBack }: { onBack: () => void }) {
-  return (
-    <View style={{ height: 44, paddingHorizontal: 16, flexDirection: "row", alignItems: "center" }}>
-      <IconCircle onPress={onBack} accessibilityLabel="Back">
-        <BackChevron />
-      </IconCircle>
-    </View>
-  );
-}
-
-/**
- * The one question, and the two that are optional (owner): what to work on
- * is a must and takes one answer; sensitive skin and pregnancy can be left
- * alone, and the cards still come.
- */
-function Needs({
-  goal,
-  onGoal,
-  sensitivity,
-  onSensitivity,
-  pregnant,
-  onPregnant,
-  onNext,
-  bottom,
-}: {
-  goal: GoalKey | null;
-  onGoal: (goal: GoalKey) => void;
-  sensitivity: Sensitivity | null;
-  onSensitivity: (next: Sensitivity | null) => void;
-  pregnant: boolean | null;
-  onPregnant: (next: boolean | null) => void;
-  onNext: () => void;
-  bottom: number;
-}) {
-  const ready = goal !== null;
-  return (
-    <View style={{ flex: 1 }}>
-      <FitScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        <View style={{ paddingTop: 24, paddingHorizontal: 24, gap: 8, alignItems: "center" }}>
-          <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-            What do you want to work on?
-          </Text>
-          <Text style={{ maxWidth: 320, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>Pick one. We&apos;ll show the ingredients that help.</Text>
-        </View>
-        {/* Pills, like the two optional questions under them (owner). */}
-        <View accessibilityRole="radiogroup" style={{ paddingTop: 24, paddingHorizontal: 16, flexDirection: "row", flexWrap: "wrap", gap: SPACE.text }}>
-          {GOALS.map(({ key, label }) => (
-            <Pill key={key} label={label} on={goal === key} onPress={() => onGoal(key)} />
-          ))}
-        </View>
-        <View style={{ paddingTop: SPACE.section, paddingHorizontal: 16, gap: SPACE.gutter }}>
-          <Text style={{ paddingHorizontal: 4, fontSize: 12, fontWeight: "500", letterSpacing: 1.44, textTransform: "uppercase", color: MUTED_FAINT }}>Optional</Text>
-          <Pills
-            title="Is your skin sensitive?"
-            note="Very sensitive puts the gentle ingredients first. Any answer sets how firmly we flag irritants in a product you scan."
-            options={SENSITIVITY_OPTIONS}
-            selected={sensitivity}
-            onSelect={onSensitivity}
-          />
-          <Pills
-            title="Pregnant or breastfeeding?"
-            note="We ask so we can leave out ingredients commonly advised against while pregnant or breastfeeding."
-            options={PREGNANT_OPTIONS}
-            selected={pregnant}
-            onSelect={onPregnant}
-          />
-        </View>
+    <View style={{ flex: 1, backgroundColor: CANVAS }}>
+      <FitScrollView
+        contentContainerStyle={{ paddingTop: headerHeight + SPACE.text, paddingHorizontal: SPACE.gutter, paddingBottom: 140, gap: SPACE.block }}
+        scrollIndicatorInsets={{ top: headerHeight }}
+        scrollEventThrottle={16}
+        onScroll={onScroll}
+      >
+        <QuestionCard title="What do you want to work on?" tag="Pick one">
+          <Chips accessibilityLabel="What do you want to work on?">
+            {GOALS.map(({ key, label }) => (
+              <Chip key={key} label={label} on={draft.goal === key} onPress={() => onChange({ ...draft, goal: key })} />
+            ))}
+          </Chips>
+        </QuestionCard>
+        <QuestionCard title="Is your skin sensitive?" tag="Optional" note="Very sensitive puts the gentlest options first. Skipped: we treat your skin as somewhat sensitive.">
+          <Chips accessibilityLabel="Is your skin sensitive?">
+            {SENSITIVITY_OPTIONS.map(({ value, label }) => (
+              <Chip
+                key={value}
+                label={label}
+                accessibilityLabel={`Sensitive skin: ${label}`}
+                on={draft.sensitivity === value}
+                // Tapping the chosen one again takes the answer back: it is optional.
+                onPress={() => onChange({ ...draft, sensitivity: draft.sensitivity === value ? null : value })}
+              />
+            ))}
+          </Chips>
+        </QuestionCard>
+        <QuestionCard
+          title="Pregnant or breastfeeding?"
+          tag="Optional"
+          note="We leave out ingredients commonly advised against while pregnant or breastfeeding. Skipped: we show only the safe ones."
+        >
+          <Chips accessibilityLabel="Pregnant or breastfeeding?">
+            {PREGNANCY_OPTIONS.map(({ value, label }) => (
+              <Chip
+                key={value}
+                label={label}
+                accessibilityLabel={`Pregnant or breastfeeding: ${label}`}
+                on={draft.pregnancy === value}
+                onPress={() => onChange({ ...draft, pregnancy: draft.pregnancy === value ? null : value })}
+              />
+            ))}
+          </Chips>
+        </QuestionCard>
+        <QuestionCard title="Actives you already use" tag="Optional" note="So we don't double up or pair things that clash.">
+          <Chips accessibilityLabel="Actives you already use" many>
+            {ACTIVES_IN_USE.map(({ label }) => {
+              const on = draft.used.includes(label);
+              return <Chip key={label} label={label} many on={on} onPress={() => onChange({ ...draft, used: on ? draft.used.filter((l) => l !== label) : [...draft.used, label] })} />;
+            })}
+          </Chips>
+        </QuestionCard>
       </FitScrollView>
-      <View style={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: Math.max(32, bottom + 8) }}>
+
+      {/* The header holds still on glass while the cards pass behind it. */}
+      <GlassHeader scrollY={scrollY} solid={CANVAS} glass={CANVAS_GLASS} onHeight={setHeaderHeight}>
+        <View style={{ marginTop: insets.top, height: 56, paddingHorizontal: SPACE.gutter, flexDirection: "row", alignItems: "center" }}>
+          <IconCircle onPress={goBackOrHome} accessibilityLabel="Back">
+            <BackChevron />
+          </IconCircle>
+          <Text accessibilityRole="header" style={{ flex: 1, textAlign: "center", fontSize: TYPE.card, fontWeight: "600", color: INK }}>
+            Skin needs
+          </Text>
+          <View style={{ width: 40 }} />
+        </View>
+      </GlassHeader>
+
+      {/* Pinned to the bottom over a fade (hand-off). Disabled until a goal is picked (Q0). */}
+      <View
+        pointerEvents="box-none"
+        onLayout={(event) => setFooter({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}
+        style={{ position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 24, paddingHorizontal: SPACE.gutter, paddingBottom: Math.max(34, insets.bottom + 8) }}
+      >
+        <Fade width={footer.width} height={footer.height} />
         <Pressable
-          onPress={ready ? onNext : undefined}
+          onPress={ready ? onShow : undefined}
           disabled={!ready}
           accessibilityRole="button"
           accessibilityLabel="Show what helps"
@@ -177,107 +170,134 @@ function Needs({
           style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: ready ? BUTTON.primary.fill : BUTTON.disabled.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
           className="active:opacity-90"
         >
-          <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: WHITE }}>Show what helps</Text>
-          <Ionicons name="arrow-forward" size={18} color={WHITE} />
+          <Text style={{ fontSize: 16, fontWeight: "600", color: WHITE }}>Show what helps</Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
-/** An optional question: its answers as a row of pills, and why we ask where that needs saying. Tapping the chosen one takes the answer back. */
-function Pills<T extends string | boolean>({ title, note, options, selected, onSelect }: { title: string; note?: string; options: readonly { value: T; label: string }[]; selected: T | null; onSelect: (next: T | null) => void }) {
+/** A white card: the question, "Pick one" or "Optional" on its right, the chips, and a note. */
+function QuestionCard({ title, tag, note, children }: { title: string; tag: string; note?: string; children: React.ReactNode }) {
   return (
-    <View accessibilityRole="radiogroup" accessibilityLabel={title} style={{ gap: SPACE.text }}>
-      <Text style={{ paddingHorizontal: 4, fontSize: TYPE.card, fontWeight: "600", color: INK }}>{title}</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACE.text }}>
-        {options.map(({ value, label }) => (
-          <Pill key={label} label={label} accessibilityLabel={`${title} ${label}`} on={selected === value} onPress={() => onSelect(selected === value ? null : value)} />
-        ))}
+    <View style={{ backgroundColor: SURFACE, borderRadius: 24, padding: 20, gap: 16 }}>
+      <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+        <Text accessibilityRole="header" style={{ flex: 1, fontSize: TYPE.title, fontWeight: "600", lineHeight: 24, color: INK }}>
+          {title}
+        </Text>
+        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: MUTED_FAINT }}>{tag}</Text>
       </View>
-      {note ? <Text style={{ paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: 17.5, color: MUTED }}>{note}</Text> : null}
+      {children}
+      {note ? <Text style={{ fontSize: TYPE.caption, lineHeight: 19, color: MUTED_FAINT }}>{note}</Text> : null}
     </View>
   );
 }
 
-/** One answer as a pill: outlined, and pale sage with a sage outline once chosen. */
-function Pill({ label, accessibilityLabel, on, onPress }: { label: string; accessibilityLabel?: string; on: boolean; onPress: () => void }) {
+function Chips({ accessibilityLabel, many = false, children }: { accessibilityLabel: string; many?: boolean; children: React.ReactNode }) {
+  return (
+    <View accessibilityRole={many ? undefined : "radiogroup"} accessibilityLabel={accessibilityLabel} style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      {children}
+    </View>
+  );
+}
+
+/** One answer (hand-off): 40pt, radius 12, a 1pt outline; chosen, pale green with a sage outline and a tick. */
+function Chip({ label, accessibilityLabel, on, many = false, onPress }: { label: string; accessibilityLabel?: string; on: boolean; many?: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={() => {
         haptic.select();
         onPress();
       }}
-      accessibilityRole="radio"
+      accessibilityRole={many ? "checkbox" : "radio"}
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ checked: on }}
-      style={{ minHeight: TOUCH_TARGET, paddingHorizontal: SPACE.gutter, borderRadius: TOUCH_TARGET / 2, borderWidth: 1.5, borderColor: on ? BUTTON.primary.fill : OPTION_LINE, backgroundColor: on ? CHOSEN.fill : SURFACE, justifyContent: "center" }}
+      style={{
+        minHeight: 40,
+        // Chosen, the tick takes room: the padding gives some of it back, so a
+        // chip at the end of a row stays on it (owner: "Very" jumped a line).
+        paddingHorizontal: on ? 10 : 14,
+        borderRadius: 12,
+        borderWidth: on ? 1.5 : 1,
+        borderColor: on ? CHOSEN.border : SKIN_NEEDS.line,
+        backgroundColor: on ? CHOSEN.fill : SURFACE,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+      }}
       className="active:opacity-80"
     >
-      <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>{label}</Text>
+      {on ? <Tick size={14} color={CHOSEN.border} /> : null}
+      <Text style={{ fontSize: 16, fontWeight: on ? "600" : "500", color: on ? SKIN_NEEDS.chosenInk : INK }}>{label}</Text>
     </Pressable>
   );
 }
 
-/** The short wait between the question and the cards (v9): a picture, a line, and a bar that fills. */
-function Finding() {
-  const [fill] = useState(() => new Animated.Value(0.08));
-  useEffect(() => {
-    Animated.timing(fill, { toValue: 0.62, duration: reduceMotionNow() ? 0 : 1600, easing: EASE, useNativeDriver: false }).start();
-  }, [fill]);
-  return (
-    <View accessibilityLiveRegion="polite" style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 40 }}>
-      <Image source={FINDING_ART} contentFit="contain" accessibilityLabel="" style={{ width: 280, height: 280 }} />
-      <Text accessibilityRole="header" style={{ marginTop: 16, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-        Finding what your skin needs…
-      </Text>
-      <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 22, color: MUTED }}>Picking the ingredients that work on it.</Text>
-      <View style={{ marginTop: 24, alignSelf: "stretch", height: 6, borderRadius: 3, backgroundColor: JOURNEY.track, overflow: "hidden" }}>
-        <Animated.View style={{ height: 6, borderRadius: 3, backgroundColor: BUTTON.primary.fill, width: fill.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }) }} />
-      </View>
-    </View>
-  );
-}
+// ── 1 · What can help? ──────────────────────────────────────────────────────
 
-function Deck({ need, bottom }: { need: Need; bottom: number }) {
-  const { goal, sensitivity, pregnant } = need;
-  const deck = useMemo(() => needDeck({ goal, sensitivity, pregnant }), [goal, sensitivity, pregnant]);
-  const [current, setCurrent] = useState(0);
-  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onBack: () => void; onNotPregnant: () => void }) {
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  // A sideways carousel (owner, 2 October 2026): the cards sit side by side
-  // and slide, one at a time, with the next one showing at the edge. Nothing
-  // is thrown away, so going back is sliding the other way.
-  const cardWidth = width - 2 * CAROUSEL_SIDE;
-  const stride = cardWidth + CAROUSEL_GAP;
+  const { actives, hidden } = optionsFor(answers);
+  const routineActives = useAppStore((s) => s.routineActives);
+  const routinePicks = useAppStore((s) => s.routinePicks);
+  const own = useOwnProducts(Object.values(routinePicks));
+  // Added from a story, or held by a product of their own in the routine: the same test as the story's last card (7f).
+  const inRoutine = (active: StoryActive) => routineActives.some((entry) => entry.active === active.key) || [...own.found.values()].some((product) => holdsActive(product.ingredients, active));
+  const [current, setCurrent] = useState(0);
   const scroller = useRef<ScrollView>(null);
-  const goTo = (index: number) => {
-    const next = Math.max(0, Math.min(deck.length - 1, index));
-    // The dot lights at once and stays lit: while the cards slide there, the
-    // scroll's own positions are not read, or the lit dot ran back to where
-    // the slide started and across again (owner).
-    jumping.current = true;
-    setCurrent(next);
-    scroller.current?.scrollTo({ x: next * stride, animated: !reduceMotionNow() });
-  };
-  const jumping = useRef(false);
-  const settledAt = (x: number) => {
-    if (jumping.current) return;
-    setCurrent(Math.max(0, Math.min(deck.length - 1, Math.round(x / stride))));
-  };
+  const stride = Math.min(CARD_WIDTH, width - 2 * CARD_SIDE - 40) + CARD_GAP;
+  const cardWidth = stride - CARD_GAP;
 
-  const scan = () => openScanner({ mode: "photo", from: "journey", need: encodeNeed(need) });
+  const goal = GOALS.find((g) => g.key === answers.goal)!;
+  const safe = safeOnly(answers) && hidden.length > 0;
+  const count = actives.length;
+  const sensitivity = SENSITIVITY_OPTIONS.find((o) => o.value === answers.sensitivity)?.chip ?? "Sensitivity: skipped";
+  const pregnancy = PREGNANCY_OPTIONS.find((o) => o.value === answers.pregnancy)?.chip ?? "Pregnancy: skipped";
+  const left = count - current - 1;
+  const open = (active: StoryActive) => router.push({ pathname: "/journey-story", params: { active: active.key, answers: encodeAnswers(answers) } });
 
   return (
-    <View style={{ flex: 1 }}>
-      <View style={{ paddingTop: 6, paddingHorizontal: 32, gap: 4, alignItems: "center" }}>
-        <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, textAlign: "center", color: INK }}>
-          {goalLabel(need)}
-        </Text>
-        <Text style={{ fontSize: 15, lineHeight: 21, textAlign: "center", color: MUTED_FAINT }}>Ingredients worth looking for, best match first.</Text>
+    <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top }}>
+      <View style={{ height: 48, paddingHorizontal: SPACE.gutter, flexDirection: "row", alignItems: "center" }}>
+        <IconCircle onPress={onBack} accessibilityLabel="Back to the questions">
+          <ArrowLeft />
+        </IconCircle>
       </View>
+      <FitScrollView contentContainerStyle={{ paddingBottom: insets.bottom + SPACE.section }}>
+        <View style={{ paddingTop: 16, paddingHorizontal: 24, gap: 12 }}>
+          <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: 34, letterSpacing: -0.6, color: INK }}>
+            What can help with {GOAL_OPTIONS[answers.goal].about}?
+          </Text>
+          <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+            {count === 1
+              ? `Based on your answers, here is 1 ${safe ? "safe option" : "option worth knowing"}.`
+              : `Based on your answers, here are ${count} ${safe ? "safe options" : "options worth knowing"}.`}
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {[goal.label, sensitivity, pregnancy].map((label) => (
+              <View key={label} style={{ height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: SURFACE, justifyContent: "center" }}>
+                <Text style={{ fontSize: TYPE.caption, fontWeight: "500", color: MUTED }}>{label}</Text>
+              </View>
+            ))}
+          </View>
+          {safe ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <InfoIcon />
+              {answers.pregnancy === "yes" ? (
+                <Text style={{ flex: 1, fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{hiddenLine(hidden)}</Text>
+              ) : (
+                <Text style={{ flex: 1, fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
+                  Showing pregnancy-safe options. Not pregnant?{" "}
+                  <Text onPress={onNotPregnant} accessibilityRole="button" accessibilityLabel="Not pregnant: show every option" style={{ fontWeight: "600", color: BUTTON.primary.fill }}>
+                    Change
+                  </Text>
+                </Text>
+              )}
+            </View>
+          ) : null}
+        </View>
 
-      <View style={{ flex: 1, minHeight: 360, maxHeight: 430, marginTop: 20, marginBottom: 16 }}>
         <ScrollView
           ref={scroller}
           horizontal
@@ -285,179 +305,163 @@ function Deck({ need, bottom }: { need: Need; bottom: number }) {
           snapToInterval={stride}
           decelerationRate="fast"
           disableIntervalMomentum
-          contentContainerStyle={{ paddingHorizontal: CAROUSEL_SIDE, gap: CAROUSEL_GAP }}
+          // Room for the card's shade, which a scroll view would otherwise cut.
+          style={{ marginTop: 14 }}
+          contentContainerStyle={{ paddingLeft: CARD_SIDE, paddingRight: CARD_SIDE, paddingVertical: 10, gap: CARD_GAP }}
           scrollEventThrottle={16}
-          onScroll={(event) => settledAt(event.nativeEvent.contentOffset.x)}
-          // A finger on the cards, or the slide coming to rest, hands the dots back to the scroll.
-          onScrollBeginDrag={() => {
-            jumping.current = false;
-          }}
-          onMomentumScrollEnd={(event) => {
-            jumping.current = false;
-            settledAt(event.nativeEvent.contentOffset.x);
-          }}
+          onScroll={(event) => setCurrent(Math.max(0, Math.min(count - 1, Math.round(event.nativeEvent.contentOffset.x / stride))))}
         >
-          {deck.map((item, i) => (
-            <View key={item.card.key} style={{ width: cardWidth }}>
-              <FlipCard
-                item={item}
-                flipped={!!flipped[item.card.key]}
-                interactive={i === current}
-                // The card showing turns over; one at the edge slides in.
-                onTap={() => (i === current ? setFlipped((f) => ({ ...f, [item.card.key]: !f[item.card.key] })) : goTo(i))}
-              />
-            </View>
+          {actives.map((active, index) => (
+            <FamilyCard key={active.key} active={active} width={cardWidth} best={index === 0} safe={safeOnly(answers)} inRoutine={inRoutine(active)} onOpen={() => open(active)} />
           ))}
         </ScrollView>
-      </View>
 
-      {/* Pager: one dot per card, the current one stretched. Each is a full
-          44pt target (owner: the dots were easy to miss). */}
-      <View style={{ flexDirection: "row", justifyContent: "center" }}>
-        {deck.map((item, i) => (
-          <Pressable key={item.card.key} onPress={() => goTo(i)} accessibilityRole="button" accessibilityLabel={`Card ${i + 1}: ${item.card.name}`} accessibilityState={{ selected: i === current }} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
-            <View style={{ width: i === current ? 22 : 8, height: 8, borderRadius: 4, backgroundColor: i === current ? BUTTON.primary.fill : JOURNEY.dotOff }} />
-          </Pressable>
-        ))}
-      </View>
-
-      {/* Pinned to the bottom: check a product against all this. */}
-      <View style={{ marginTop: "auto", marginHorizontal: 19, marginBottom: Math.max(34, bottom + 8), backgroundColor: SURFACE, borderRadius: 18, paddingTop: 10, paddingHorizontal: 12, paddingBottom: 12, gap: 10 }}>
-        <View style={{ paddingHorizontal: 4, gap: 2 }}>
-          <Text style={{ fontSize: 15, fontWeight: "600", color: INK }}>Have a product in mind?</Text>
-          <Text style={{ fontSize: 13, lineHeight: 17.5, color: MUTED_FAINT }}>I&apos;ll check whether it has these actives.</Text>
+        <View style={{ paddingTop: 14, paddingHorizontal: 24, minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+            {actives.map((active, index) => (
+              <Pressable
+                key={active.key}
+                onPress={() => scroller.current?.scrollTo({ x: index * stride, animated: !reduceMotionNow() })}
+                accessibilityRole="button"
+                accessibilityLabel={`Option ${index + 1}: ${active.name}`}
+                accessibilityState={{ selected: index === current }}
+                hitSlop={{ top: 19, bottom: 19, left: 4, right: 4 }}
+              >
+                <View style={{ width: index === current ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: index === current ? INK : SKIN_NEEDS.dotOff }} />
+              </Pressable>
+            ))}
+          </View>
+          {actives.some(inRoutine) ? (
+            <Hand size={18} color={MUTED_FAINT} says>
+              add another?
+            </Hand>
+          ) : left > 0 ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Hand size={18} color={MUTED_FAINT} says>{`swipe for ${left} more`}</Hand>
+              <Svg width={36} height={14} viewBox="0 0 40 16" fill="none">
+                <Path d="M2 9c10-6 22-6 34-1" stroke={MUTED_FAINT} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="m30 3 6 5-7 3" stroke={MUTED_FAINT} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            </View>
+          ) : null}
         </View>
-        <Pressable
-          onPress={scan}
-          accessibilityRole="button"
-          accessibilityLabel="Scan a product"
-          style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 }}
-          className="active:opacity-90"
-        >
-          <Ionicons name="camera-outline" size={19} color={WHITE} />
-          <Text style={{ fontSize: 15, fontWeight: "500", letterSpacing: -0.15, color: WHITE }}>Scan a product</Text>
-        </Pressable>
-      </View>
+      </FitScrollView>
     </View>
   );
 }
 
-/** One card: the front says what it is and what it is here for; tapped, it turns to how to use it. */
-function FlipCard({ item, flipped, interactive, onTap }: { item: DeckCard; flipped: boolean; interactive: boolean; onTap: () => void }) {
-  const [turn] = useState(() => new Animated.Value(flipped ? 1 : 0));
-  useEffect(() => {
-    Animated.timing(turn, { toValue: flipped ? 1 : 0, duration: reduceMotionNow() ? 0 : FLIP_MS, easing: EASE, useNativeDriver: true }).start();
-  }, [flipped, turn]);
-  const { card, role, helps, caution } = item;
-  const source = cardSource(card);
-  // Flat, like Home's tiles: no shade. In the carousel the scroll view cut a
-  // shade off above and below, which drew a grey box round the card (owner).
-  const face = { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, borderRadius: 22, backfaceVisibility: "hidden" } as const;
+/**
+ * One option (hand-off): the family's tint and picture, "Best first pick" on
+ * the first (or "In your routine" once added), a star that saves the
+ * ingredient to Saved › Ingredients, the name, the line, and how long its
+ * story is. Tapping it opens the story.
+ */
+function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: StoryActive; width: number; best: boolean; /** Only the safe ones are showing: each says so (hand-off 1p). */ safe: boolean; inRoutine: boolean; onOpen: () => void }) {
+  const line = safe ? `${active.story.line} Safe while pregnant or breastfeeding.` : active.story.line;
+  const family = familyOf(active);
+  const saved = useAppStore((s) => s.savedIngredients.includes(active.save));
+  const toggleSaved = useAppStore((s) => s.toggleSavedIngredient);
+  const cards = storyLength(active);
   return (
     <Pressable
-      onPress={onTap}
+      onPress={onOpen}
       accessibilityRole="button"
-      accessibilityLabel={flipped ? `${card.name}, how to use it` : `${card.name}. ${card.line}`}
-      accessibilityHint={interactive ? (flipped ? "Turns the card back" : "Turns the card to show how to use it") : "Brings this card to the front"}
-      style={{ flex: 1 }}
+      accessibilityLabel={`${active.name}, ${active.sub}. ${line} ${storyLengthLine(active)}.`}
+      accessibilityHint="Opens its story"
+      style={{ width, height: CARD_HEIGHT, borderRadius: 32, backgroundColor: SKIN_NEEDS.family[active.family], ...SKIN_NEEDS.cardShadow }}
+      className="active:opacity-95"
     >
-      {/* Front */}
-      <Animated.View
-        style={[
-          face,
-          { backgroundColor: JOURNEY.front[card.tint], paddingTop: 28, paddingHorizontal: 24, paddingBottom: 24, alignItems: "center" },
-          { transform: [{ perspective: 1400 }, { rotateY: turn.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "180deg"] }) }] },
-        ]}
-      >
-        <View style={{ height: 28, paddingHorizontal: 14, borderRadius: 14, backgroundColor: WHITE, justifyContent: "center" }}>
-          <Text style={{ fontSize: 13, fontWeight: "500", color: ROLE_INK[role] }}>{ROLE_LABEL[role]}</Text>
-        </View>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 20, padding: 12 }}>
-          <Text adjustsFontSizeToFit numberOfLines={1} style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.display, lineHeight: 40, letterSpacing: -0.5, textAlign: "center", color: INK }}>
-            {card.name}
-          </Text>
-          <Text style={{ maxWidth: 290, fontSize: 17, lineHeight: 26, textAlign: "center", color: INK }}>{card.line}</Text>
-          {/* On the front, where it is read without turning the card (the pregnancy question was skipped). */}
-          {caution ? <Text style={{ maxWidth: 290, fontSize: TYPE.caption, lineHeight: 17.5, fontWeight: "600", textAlign: "center", color: VERDICT.medium.deep }}>{caution}</Text> : null}
-          <View style={{ marginTop: 4, height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: withAlpha(WHITE, 0.8), flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Ionicons name="refresh" size={14} color={BUTTON.primary.fill} />
-            <Text style={{ fontSize: 13, fontWeight: "500", color: BUTTON.primary.fill }}>Tap to see how to use it</Text>
+      <View style={{ height: 236 }}>
+        <Image source={family.picture} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", top: 14, alignSelf: "center", width: 230, height: 222 }} />
+        {inRoutine ? (
+          <View style={{ position: "absolute", top: 16, left: 16, height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Tick size={12} color={WHITE} />
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>In your routine</Text>
           </View>
-        </View>
-        {helps ? (
-          <View style={{ alignSelf: "stretch", paddingTop: 20, borderTopWidth: 1, borderTopColor: withAlpha(INK, 0.08), gap: 14, alignItems: "center" }}>
-            <Text style={{ fontSize: 12, fontWeight: "500", letterSpacing: 1.44, textTransform: "uppercase", color: MUTED_FAINT }}>Helps with</Text>
-            <Chip label={helps} />
+        ) : best ? (
+          <View style={{ position: "absolute", top: 16, left: 16, height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: SURFACE, justifyContent: "center" }}>
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: LINK }}>Best first pick</Text>
           </View>
         ) : null}
-      </Animated.View>
-
-      {/* Back. Hidden is not untouchable: until the card is turned, its link must not take the tap. */}
-      <Animated.View
-        pointerEvents={flipped && interactive ? "auto" : "none"}
-        style={[
-          face,
-          { backgroundColor: JOURNEY.back, paddingTop: 22, paddingHorizontal: 20, paddingBottom: 18 },
-          { transform: [{ perspective: 1400 }, { rotateY: turn.interpolate({ inputRange: [0, 1], outputRange: ["180deg", "360deg"] }) }] },
-        ]}
-      >
-        <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, textAlign: "center", color: INK }}>{card.name}</Text>
-        <View style={{ flex: 1, marginTop: 8, justifyContent: "space-evenly" }}>
-          <BackRow first icon="locate-outline" title="Why you" text={card.whyYou} />
-          <BackRow icon="leaf-outline" title="How to start" text={card.howToStart} />
-          <BackRow warn icon="warning-outline" title="Watch for" text={card.watchFor} />
-          <BackRow icon="pricetag-outline" title="When shopping" text={card.whenShopping} />
+        <Pressable
+          onPress={() => {
+            haptic.select();
+            toggleSaved(active.save);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={saved ? `Remove ${active.name} from saved ingredients` : `Save ${active.name} to your ingredients`}
+          accessibilityState={{ selected: saved }}
+          hitSlop={4}
+          style={{ position: "absolute", top: 16, right: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: SURFACE, alignItems: "center", justifyContent: "center", ...ICON_SHADOW }}
+          className="active:opacity-80"
+        >
+          <StarIcon filled={saved} color={saved ? STAR_ON : INK} />
+        </Pressable>
+      </View>
+      <View style={{ flex: 1, paddingTop: 16, paddingHorizontal: 24, paddingBottom: 24, gap: 4 }}>
+        <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: 34, letterSpacing: -0.6, color: INK }}>
+          {active.name}
+        </Text>
+        <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>{active.sub}</Text>
+        <Text style={{ marginTop: 8, fontSize: TYPE.card, lineHeight: 23, color: INK }}>{line}</Text>
+        <View style={{ marginTop: "auto", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: MUTED_FAINT }}>{storyLengthLine(active)}</Text>
+            <View style={{ flexDirection: "row", gap: 3 }}>
+              {Array.from({ length: cards }, (_, index) => (
+                <View key={index} style={{ width: 14, height: 3, borderRadius: 2, backgroundColor: SKIN_NEEDS.dash }} />
+              ))}
+            </View>
+          </View>
+          <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: BUTTON.primary.fill, alignItems: "center", justifyContent: "center" }}>
+            <ArrowRight color={WHITE} size={22} />
+          </View>
         </View>
-        {source ? (
-          <Pressable
-            onPress={() => void Linking.openURL(source.url).catch(() => undefined)}
-            accessibilityRole="link"
-            accessibilityLabel={`See the evidence: ${source.label}`}
-            accessibilityHint="Opens in your browser"
-            style={{ marginTop: 8, paddingTop: 10, minHeight: 44, borderTopWidth: 1, borderTopColor: DIVIDER, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center" }}
-            className="active:opacity-70"
-          >
-            <Text style={{ fontSize: 14, fontWeight: "600", color: BUTTON.primary.fill }}>See the evidence</Text>
-            {/* The "opens a website" arrow (owner), as on an ingredient's sources. */}
-            <Ionicons name="open-outline" size={16} color={BUTTON.primary.fill} />
-          </Pressable>
-        ) : null}
-      </Animated.View>
+      </View>
     </Pressable>
   );
 }
 
-function BackRow({ icon, title, text, first, warn }: { icon: keyof typeof Ionicons.glyphMap; title: string; text: string; first?: boolean; warn?: boolean }) {
+/** The page colour fading in from clear, behind the pinned button: clear at the top, solid from 40% down. */
+function Fade({ width, height }: { width: number; height: number }) {
+  if (width === 0) return null;
   return (
-    <View style={{ flexDirection: "row", gap: 12, paddingVertical: 6, borderTopWidth: first ? 0 : 1, borderTopColor: JOURNEY.backLine }}>
-      {/* A 32pt disc (v9): pale sage, or pale amber for the one caution. */}
-      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: warn ? VERDICT.medium.tint : JOURNEY.iconFill, alignItems: "center", justifyContent: "center" }}>
-        <Ionicons name={icon} size={17} color={warn ? VERDICT.medium.deep : JOURNEY.iconInk} />
-      </View>
-      <View style={{ flex: 1, gap: 1 }}>
-        <Text style={{ fontSize: 15, fontWeight: "600", color: INK }}>{title}</Text>
-        <Text style={{ fontSize: 14, lineHeight: 19, color: MUTED }}>{text}</Text>
-      </View>
-    </View>
+    <Svg pointerEvents="none" width={width} height={height} style={{ position: "absolute", top: 0, left: 0 }}>
+      <Defs>
+        <LinearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={CANVAS} stopOpacity={0} />
+          <Stop offset="0.4" stopColor={CANVAS} stopOpacity={1} />
+          <Stop offset="1" stopColor={CANVAS} stopOpacity={1} />
+        </LinearGradient>
+      </Defs>
+      <Rect x={0} y={0} width={width} height={height} fill="url(#fade)" />
+    </Svg>
   );
 }
 
-/** What a card is on the deck for, ticked. */
-function Chip({ label }: { label: string }) {
+function ArrowLeft() {
   return (
-    <View accessibilityLabel={`Helps with ${label}`} style={{ height: 34, borderRadius: 17, backgroundColor: withAlpha(WHITE, 0.9), flexDirection: "row", alignItems: "center", gap: 6, paddingLeft: 6, paddingRight: 14 }}>
-      <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: BUTTON.primary.fill, alignItems: "center", justifyContent: "center" }}>
-        <Tick size={11} color={WHITE} />
-      </View>
-      <Text style={{ fontSize: 14, fontWeight: "500", color: INK }}>{label}</Text>
-    </View>
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M19 12H5" stroke={INK} strokeWidth={2.2} strokeLinecap="round" />
+      <Path d="m12 19-7-7 7-7" stroke={INK} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
   );
 }
 
-function Tick({ size, color }: { size: number; color: string }) {
+function ArrowRight({ color, size }: { color: string; size: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6 9 17l-5-5" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M5 12h14" stroke={color} strokeWidth={2.4} strokeLinecap="round" />
+      <Path d="m13 6 6 6-6 6" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={9} stroke={BUTTON.primary.fill} strokeWidth={2.2} />
+      <Path d="M12 8v5M12 16v.01" stroke={BUTTON.primary.fill} strokeWidth={2.2} strokeLinecap="round" />
     </Svg>
   );
 }

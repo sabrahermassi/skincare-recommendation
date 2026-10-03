@@ -663,22 +663,58 @@ export const MENU_SHADOW = {
 export const CARD_SHADOW = {} as const;
 
 /**
- * "What my skin needs" (v9, read off ConcernDeckSoft in the hand-off): each
- * card's front tint (the hand-off's soft top-to-bottom gradients, taken at
- * their top colour), the card back, the concern tile's idle outline, the
- * header's progress track, an inactive pager dot and an untick chip's text.
+ * Skin needs (design_handoff "october 3d", BHA Story Preview, read off the
+ * hand-off unless marked): the questions' chips, the carousel's family cards,
+ * the story's cards, its sheets and toast.
  */
-export const JOURNEY = {
-  // The four front tints a card can take, at the light level of Home's tiles
-  // and the result boxes (owner, 2 October 2026: the hand-off's washes,
-  // #FCF4F2 and the like, were too faint to read as colour). Sage is the
-  // result's green wash and butter Home's; the rose and the blue are inferred
-  // to sit at the same level, not read off a hand-off.
-  front: { rose: "#F8E8E4", sage: "#EEF1E7", blue: "#E6EEF2", butter: "#F6F0E2" },
-  back: "#FFFDFB",
-  track: "#E6E0DA",
+export const SKIN_NEEDS = {
+  /** A chip's outline, a story's progress bar not reached yet, an empty day on a calendar. */
+  line: "#E6E2DD",
+  /** A chosen chip's label, and a pale sage pill's (the goal, the strength scale, a second button). */
+  chosenInk: "#4F523C",
+  /** The pale sage of the goal chip, the strength scale and a second button. */
+  sage: "#ECEEE2",
+  /** A white pill's text and a pager dot not current. */
   dotOff: "#DDD6D0",
-  backLine: "#ECE8E3",
-  iconFill: "#EEF1E7",
-  iconInk: "#62664B",
+  /** "How often do I use it?"'s note card. */
+  note: "#F6E4E0",
+  /** "Later" on the calendar: a dashed ring. */
+  later: "#A9AD92",
+  /** "When do I use it?": the morning tile, its word and sun; the evening tile and its line. */
+  morning: { fill: "#F7EED8", ink: "#5A4318", sun: "#C98A26", sunFill: "#E7A93C" },
+  evening: { fill: "#3C4460", line: "#D3D6E2" },
+  /** The active's own step on the rail, and the "New" badge: a deep apricot on the family's tint. */
+  stepInk: "#9A5A2E",
+  /** The strength scale's "more", struck through. */
+  over: { fill: "#F3ECE3", ink: "#A8968A" },
+  /** "Avoid pairing with"'s handwriting. Same as WARN. */
+  warn: "#C26E1E",
+  /** Active nights on the routine's days, and the new active on the clash calendar. */
+  amber: "#E7A93C",
+  /** The active already in the routine, on the clash calendar. */
+  mauve: "#C9A5B8",
+  /** The step-count switch's track on "Let's start your routine". */
+  track: "#EFEBE6",
+  /** The carousel card's shade (0 10 30, a warm brown at 16%). */
+  cardShadow: { shadowColor: "#A66C46", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.16, shadowRadius: 30, elevation: 6 },
+  /** The toast's shade (0 10 30 at 18%). */
+  toastShadow: { shadowColor: INK, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.18, shadowRadius: 30, elevation: 10 },
+  /** Each family's card tint, the same on the carousel and on the story's rail. */
+  family: {
+    exfoliants: "#FBEBDD",
+    retinoids: "#F6E9E2",
+    brighteners: "#FAEBD3",
+    "acne-oil": "#ECEEE2",
+    calming: "#EEF1E7",
+    hydrators: "#E9EEF0",
+    barrier: "#F7EBE7",
+    antioxidants: "#E9EEDF",
+    peptides: "#F6E6E6",
+    uv: "#F8F1E1",
+  },
+  /** The six dashes under "6 quick cards" (#E2C4AC on the apricot card): ink at 14%, so they show on every tint (inferred). */
+  dash: "rgba(47,44,42,0.14)",
 } as const;
+
+/** Handwritten notes on Skin needs' pictures (hand-off: Kalam). */
+export const HAND_FONT = "Kalam_400Regular";

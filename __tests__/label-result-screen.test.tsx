@@ -60,6 +60,12 @@ async function open(names: string[]) {
   await act(async () => {});
   await putTeaserAway();
 }
+/** The result as it opens, with whatever sheet it raises left up. */
+async function openOnly(names: string[]) {
+  holdLabelRead({ ingredients: names });
+  await render(<LabelResult />);
+  await act(async () => {});
+}
 // Skin match opens first (owner).
 const showSafety = () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
 
@@ -115,6 +121,31 @@ describe("the label result", () => {
     mockParams = { from: "journey", need: "hydrate.." };
     await open(["water", "glycerin", "xanthan gum", "butylene glycol"]);
     expect(screen.getByRole("header", { name: "Works on dry skin" })).toBeTruthy();
+  });
+
+  // design_handoff "october 3d", D and Dp: Skin needs covers over-the-counter
+  // actives only, so a prescription one gets the doctor sheet, once.
+  it("says to talk to a doctor first about a prescription active scanned from Skin needs", async () => {
+    // The actives they already use go into the story too, for its clash checks.
+    mockParams = { from: "journey", need: "lines..no.bha" };
+    await openOnly(["water", "tretinoin", "glycerin"]);
+    expect(screen.getByRole("header", { name: "Talk to a doctor first" })).toBeTruthy();
+    expect(screen.getByText("This has tretinoin, a prescription-strength retinoid. A doctor should guide how you use it.")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Learn about retinol" }));
+    expect(router.push).toHaveBeenCalledWith({ pathname: "/journey-story", params: { active: "retinoids", answers: "lines..no.bha" } });
+    await act(async () => screen.unmount());
+
+    // Pregnant, breastfeeding or not said: nothing in its place.
+    mockParams = { from: "journey", need: "lines.." };
+    await openOnly(["water", "tretinoin", "glycerin"]);
+    expect(screen.getByText(/usually avoided while pregnant or breastfeeding/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Learn about/ })).toBeNull();
+    await act(async () => screen.unmount());
+
+    // Not from Skin needs: the normal result, no sheet.
+    mockParams = {};
+    await openOnly(["water", "tretinoin", "glycerin"]);
+    expect(screen.queryByRole("header", { name: "Talk to a doctor first" })).toBeNull();
   });
 
   // #346: the quiz in place of an empty score, gone once the answers score.
