@@ -164,7 +164,8 @@ native.
 **State** — `store/useAppStore.ts`, one Zustand store: skin profile,
 onboarding flag, wishlist, the products a person put in their own routine
 (`routinePicks`) and the actives added from a Skin needs story with their days
-(`routineActives`, `routineStepLimit`, `routineStarted`), all device only, never
+(`routineActives`, `routineStepLimit`, `routineStarted`) and the skincare tip
+last read on Home (`tipRead`), all device only, never
 sent to the account. Skin needs' advice lives in one data file,
 `lib/skin-needs-data.ts`: its copy is placeholder until scientifically checked. Persisted via `persist` + AsyncStorage, gated on
 `useAppStore.persist.hasHydrated()` in `app/_layout.tsx` — except the profile,

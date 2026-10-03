@@ -20,8 +20,9 @@ import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized } from "@/lib/profile";
 import { prepareRoutine } from "@/lib/routine-build";
-import { activeLine, activeStepKey, basicRoutine, pickHolding, placeId, recallRoutine, recommendable, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
-import { activeOf, activesOn, DAY_LETTERS, DAY_NAMES, hasStory, nextActiveDay, STEP_LIMITS, today, type RoutineEntry, type StoryActive } from "@/lib/skin-needs";
+import { rowsFor, type Row } from "@/lib/routine-rows";
+import { activeLine, basicRoutine, placeId, recallRoutine, recommendable, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
+import { DAY_LETTERS, DAY_NAMES, STEP_LIMITS, today, type RoutineEntry } from "@/lib/skin-needs";
 import { matchProduct } from "@/lib/matching";
 import { CANVAS, CANVAS_GLASS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SKIN_NEEDS, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WARN, WHITE } from "@/lib/tokens";
 import { useOwnProducts } from "@/lib/use-own-products";
@@ -133,56 +134,6 @@ function useRoutine(profile: SkinProfile, personalized: boolean): { routine: Bui
 }
 
 const BASIC_ROUTINE = basicRoutine();
-
-/** One row of the routine: a step as the builder made it, an active added from Skin needs on this day, or a rest night between two. */
-type Row = { key: string; slot: RoutineSlot; added?: StoryActive; note?: string; rest?: boolean };
-
-/**
- * The day's steps (design_handoff "october 3d", R1–R3). The basics are the
- * same every day; only the active step changes. With actives added from Skin
- * needs, it shows the day's ("Tonight's active"), or a rest night and when
- * the next one is; a morning with one says not to skip the sunscreen.
- * Without any, the builder's own step stands.
- */
-function rowsFor(routine: BuiltRoutine, time: TimeOfDay, day: number, entries: readonly RoutineEntry[]): Row[] {
-  const activeKey = activeStepKey(time);
-  const timed = entries.filter((entry) => entry.time === time);
-  const today = activesOn(entries, time, day)
-    .map((entry) => activeOf(entry.active))
-    .filter(hasStory);
-  return routine[time].flatMap((slot): Row[] => {
-    if (slot.key === "sunscreen" && today.length > 0) {
-      return [{ key: slot.key, slot: { ...slot, label: "Sunscreen · don’t skip" }, note: `SPF 50 keeps ${today.map((active) => active.name).join(" and ")} working.` }];
-    }
-    if (slot.key !== activeKey || timed.length === 0) return [{ key: slot.key, slot }];
-    if (today.length === 0) {
-      const next = nextActiveDay(entries, time, day);
-      const name = next ? activeOf(next.entry.active).name : "";
-      return [
-        {
-          key: slot.key,
-          slot: { ...slot, label: time === "evening" ? "Rest night" : "Rest morning", active: null, pick: null },
-          note: next ? `No active ${time === "evening" ? "tonight" : "this morning"}. Next ${name}: ${DAY_NAMES[next.day]}.` : undefined,
-          rest: true,
-        },
-      ];
-    }
-    return today.map((active) => ({
-      key: `${slot.key}-${active.key}`,
-      slot: {
-        ...slot,
-        label: time === "evening" ? "Tonight’s active" : "Today’s active",
-        active: { name: active.name, why: capitalised(active.story.shopping.routine), alternatives: [], caution: null },
-        pick: pickHolding(routine, time, active),
-      },
-      added: active,
-    }));
-  });
-}
-
-function capitalised(line: string): string {
-  return `${line.charAt(0).toUpperCase()}${line.slice(1)}`;
-}
 
 /** A step's own product: its id, and the product when it could be read. */
 type OwnPick = { id: string; pick: RoutinePick | null };

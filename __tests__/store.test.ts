@@ -234,6 +234,7 @@ describe("what survives an app restart", () => {
       "secureStoreClaimed",
       "shelfOwner",
       "shelfQueue",
+      "tipRead",
     ]);
 
     s().saveProduct("keep-me");

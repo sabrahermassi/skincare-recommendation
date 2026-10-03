@@ -147,5 +147,5 @@ function fontSizeOf(className: string | undefined, style: TextProps["style"]): n
   return TYPE.body;
 }
 
-/** The loaded display faces (`app/_layout.tsx`); body text is the system font. */
-const DISPLAY_FAMILY = /^(PTSerif|Allura)_/;
+/** The loaded display faces (`app/_layout.tsx`): PT Serif, and Home's bold Kalam greeting. Body text is the system font. */
+const DISPLAY_FAMILY = /^(PTSerif_|Kalam_700)/;

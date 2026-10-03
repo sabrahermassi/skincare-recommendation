@@ -213,6 +213,9 @@ left the phone.
   its days of the week, and the step limit they chose. The answers on the
   Skin needs questions themselves (goal, sensitivity, pregnancy, actives in
   use) are never stored: they live only while the screens are open.
+- **Which skincare tip was read** on Home stays on the phone too: the day,
+  morning or evening, and for an evening tip the active it was about (e.g.
+  "bha"), of the last one opened.
 - On a phone the profile is in the Keychain (#189): encrypted by the
   system, readable only while the phone is unlocked, and **not in backups**,
   so it doesn't move to a new phone; the person answers the four questions

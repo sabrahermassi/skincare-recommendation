@@ -15,7 +15,7 @@ import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import { scoreExplanation, verdictHeadline, type MatchResult } from "@/lib/matching";
 import { INGREDIENT_RULES } from "@/lib/rules";
 import { SCHOOL_CHAT_COPY } from "@/lib/school-chat";
-import { TIPS } from "@/lib/tips";
+import { EVENING_FALLBACK, EVENING_TIPS, GENERAL_TIPS, MORNING_TIPS, REST_NIGHT_TIP } from "@/lib/skin-tips";
 import { LABEL_ORDER, SCORING_DISCLAIMER, SCORING_INTRO, SCORING_SOURCES, scoreBandLines, scoreFactors, scoreNotes } from "@/lib/scoring-explainer";
 import { UNSET_SENSITIVITY_REASON, contraindications } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -205,8 +205,8 @@ const SCORING_CLAIMS: OwnedClaim[] = [
 ];
 
 // #352: the School chat's own lines — its greeting speaks for the app.
-// Tip of the day (v7): the app says these in its own voice on Home.
-const TIP_CLAIMS: OwnedClaim[] = TIPS.map((text, i) => ({ source: `TIPS[${i}]`, text }));
+// The skincare tip on Home (handoff_home_and_tip): every tip and its reason, said in the app's own voice.
+const TIP_CLAIMS: OwnedClaim[] = stringsIn({ GENERAL_TIPS, MORNING_TIPS, EVENING_TIPS, EVENING_FALLBACK, REST_NIGHT_TIP }, "skin-tips");
 
 const SCHOOL_CHAT_CLAIMS: OwnedClaim[] = Object.entries(SCHOOL_CHAT_COPY).map(([key, text]) => ({
   source: `SCHOOL_CHAT_COPY.${key}`,

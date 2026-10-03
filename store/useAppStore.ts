@@ -185,6 +185,15 @@ type AppState = {
   removeRoutineActive: (active: ActiveKey) => void;
 
   /**
+   * The skincare tip last opened on Home (handoff_home_and_tip): its place in
+   * the day (`HomeTip.id` in lib/home-today.ts), so the envelope says "Tip
+   * read" until the next one. On this device only; a new key with a first-run
+   * value, so it needs no migration.
+   */
+  tipRead: string | null;
+  setTipRead: (id: string) => void;
+
+  /**
    * Whether this install has already cleared whatever an earlier install left
    * in the Keychain — see `claimOnce` in lib/secure-storage.ts. A plain flag,
    * never the session itself: tokens go to secure storage, not here.
@@ -356,6 +365,7 @@ export const PERSISTED_KEYS = [
   "routineActives",
   "routineStepLimit",
   "routineStarted",
+  "tipRead",
   "secureStoreClaimed",
   "shelfOwner",
   "shelfQueue",
@@ -377,6 +387,7 @@ export function partializeState(state: AppState): PersistedState {
     routineActives: state.routineActives,
     routineStepLimit: state.routineStepLimit,
     routineStarted: state.routineStarted,
+    tipRead: state.tipRead,
     secureStoreClaimed: state.secureStoreClaimed,
     shelfOwner: state.shelfOwner,
     shelfQueue: state.shelfQueue,
@@ -397,6 +408,7 @@ const INITIAL_STATE = {
   routineActives: [] as RoutineEntry[],
   routineStepLimit: DEFAULT_STEP_LIMIT as StepLimit,
   routineStarted: false,
+  tipRead: null as string | null,
   secureStoreClaimed: false,
   shelfOwner: null as string | null,
   shelfQueue: [] as ShelfOp[],
@@ -886,6 +898,7 @@ export const useAppStore = create<AppState>()(
       setRoutineActives: ({ entries, stepLimit, started }) =>
         set((state) => ({ routineActives: entries, routineStepLimit: stepLimit ?? state.routineStepLimit, routineStarted: started ?? state.routineStarted })),
       removeRoutineActive: (active) => set((state) => ({ routineActives: state.routineActives.filter((entry) => entry.active !== active) })),
+      setTipRead: (id) => set({ tipRead: id }),
       clearSavedProducts: () =>
         set((state) => ({
           savedProducts: [],
