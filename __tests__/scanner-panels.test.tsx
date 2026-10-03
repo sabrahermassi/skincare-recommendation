@@ -347,6 +347,23 @@ describe("scanner opened for a photo", () => {
   });
 });
 
+// From a routine step only a catalogue product can be added, and a photographed
+// label cannot, so the scanner opens on Barcode (owner, 3 October 2026).
+describe("scanner opened from a routine step", () => {
+  it("opens on Barcode, not the cold-start Photo", async () => {
+    mockParams = { step: "evening:treatment" };
+    await render(<Scan />);
+    expect(screen.getByRole("tab", { name: "Barcode" }).props.accessibilityState).toMatchObject({ selected: true });
+    expect(mockLabelCameraShown).toBe(false);
+  });
+
+  it("still opens in Photo when a photo was asked for", async () => {
+    mockParams = { step: "evening:treatment", mode: "photo" };
+    await render(<Scan />);
+    expect(screen.getByRole("tab", { name: "Ingredient list" }).props.accessibilityState).toMatchObject({ selected: true });
+  });
+});
+
 // #204: history is for products someone could find again.
 describe("scanner history", () => {
   it("keeps a QR code out of history, and still records an unknown product barcode", async () => {

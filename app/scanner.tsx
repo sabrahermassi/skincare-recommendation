@@ -114,13 +114,17 @@ export default function Scan() {
   // Where this scan started (the journey, a routine step), handed on to the result.
   const context = useScanContext();
   const photoRequested = params.mode === "photo";
+  // From a routine step (owner, 3 October 2026) it opens on Barcode: only a
+  // product from the catalogue can be added to a step, and a photographed
+  // label cannot. Photo is one tap away; the remembered mode is left alone.
+  const startMode: Mode = photoRequested ? "Photo" : context.step ? "Barcode" : rememberedScanMode();
   // Photo is the default now (issue #214): reading a label works on every
   // product, in any shop, with no catalogue coverage needed — a barcode only
   // resolves for the ~851 products the catalogue already has. Seeded from
   // `lib/scan-mode.ts`, which remembers a mode switch for the session (a
   // cold start always reads Photo); the focus-reset below reads the same
   // module rather than hardcoding either mode.
-  const [mode, setMode] = useState<Mode>(() => (photoRequested ? "Photo" : rememberedScanMode()));
+  const [mode, setMode] = useState<Mode>(startMode);
   // A retake returns here by `router.dismissTo` with new params, on the same
   // scanner: switch to Photo. Adjusted while rendering, as React recommends
   // for state that follows a prop, rather than in an effect.
@@ -294,7 +298,7 @@ export default function Scan() {
         // `lib/scan-mode.ts` — unless this scanner was opened for a photo.
         // A genuine exit (this branch) still resets the *screen state*, just
         // not to a fixed mode.
-        setMode(photoRequested ? "Photo" : rememberedScanMode());
+        setMode(startMode);
       }
       return () => {
         lookups.current.invalidate();
