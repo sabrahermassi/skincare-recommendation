@@ -86,7 +86,9 @@ it("asks for a skin profile first, and opens the quiz from Take the skin quiz", 
 it("lays out the morning steps, and the evening's from the switch", async () => {
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
   await open();
-  expect(screen.getByText("Steps for today")).toBeTruthy();
+  // The week shows with or without actives added from Skin needs (hand-off R1), on today.
+  expect(screen.getByText(/^Steps for (Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$/)).toBeTruthy();
+  expect(screen.getAllByRole("tab").filter((tab) => /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) \d+$/.test(String(tab.props.accessibilityLabel)))).toHaveLength(7);
   // By day: Cleansing, Serum, Moisturiser, Sunscreen.
   for (const step of ["Cleansing", "Serum", "Moisturiser", "Sunscreen"]) expect(screen.getByText(step)).toBeTruthy();
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
@@ -99,7 +101,8 @@ it("lays out the morning steps, and the evening's from the switch", async () => 
 it("numbers each step plainly, with no dotted connectors between them (v9)", async () => {
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
   await open();
-  for (const n of ["1", "2", "3", "4"]) expect(screen.getByText(n)).toBeTruthy();
+  // The week's dates can share a number with a step, so each is there at least once.
+  for (const n of ["1", "2", "3", "4"]) expect(screen.getAllByText(n).length).toBeGreaterThan(0);
   expect(screen.getAllByRole("button", { name: /^Scan one to check, for / })).toHaveLength(4);
 });
 
@@ -110,7 +113,7 @@ it("shows the building screen until the routine is built, then that none was pic
   await render(<Routine />);
   expect(screen.getByText("Building your skincare routine…")).toBeTruthy();
   // Not shown until it is built (owner): no steps behind the loading screen.
-  expect(screen.queryByText("Steps for today")).toBeNull();
+  expect(screen.queryByText(/^Steps for /)).toBeNull();
   await act(async () => arrive([]));
   await waitFor(() => expect(screen.queryByText("Building your skincare routine…")).toBeNull());
   // Three basic steps with nothing picked, and the serum step with its active and nothing to suggest.
@@ -176,7 +179,7 @@ it("neither reads the catalogue nor builds a routine while it is not the screen 
   expect(fetched).not.toHaveBeenCalled();
   expect(screen.getByText("Building your skincare routine…")).toBeTruthy();
   // Not shown until it is built (owner): no steps behind the loading screen.
-  expect(screen.queryByText("Steps for today")).toBeNull();
+  expect(screen.queryByText(/^Steps for /)).toBeNull();
 
   // Shown: now it reads and builds.
   mockFocused = true;

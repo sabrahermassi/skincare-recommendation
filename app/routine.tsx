@@ -193,7 +193,7 @@ function Steps({ personalized }: { personalized: boolean }) {
       >
         <View style={{ paddingTop: SPACE.section - SPACE.block, paddingBottom: SPACE.block, paddingHorizontal: 4, flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
           <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED }}>
-            {byDay ? `Steps for ${DAY_NAMES[day]}` : "Steps for today"}
+            {`Steps for ${DAY_NAMES[day]}`}
           </Text>
           <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{time === "morning" ? "good morning" : "wind down"}</Text>
         </View>
@@ -256,7 +256,8 @@ function Steps({ personalized }: { personalized: boolean }) {
             <Ionicons name="arrow-forward" size={20} color={LINK} />
           </Pressable>
 
-          {byDay ? <DayStrip day={day} onDay={setDay} entries={entries} /> : null}
+          {/* The week, always (hand-off R1: under Your skin profile). With no active added from Skin needs every day is alike, and no day has a dot. */}
+          <DayStrip day={day} onDay={setDay} entries={entries} />
 
           {/* Morning | Evening (v9): the thumb is a warm sun yellow in the
               morning and a night blue in the evening, with the sun and moon in
