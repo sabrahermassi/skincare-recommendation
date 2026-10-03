@@ -373,7 +373,7 @@ routine". Not both: the deck is gone.
   carousel's actives for those answers, so a product holding one works on the
   goal, and "We looked for" names them. Only scans started from Skin needs;
   every other scan keeps the skin match.
-- **"Start easy" is "How often should I use it?"** (owner; first "How often do I use it?").
+- **"Start easy" is "How often do I use it?"** (owner).
 - **The story slides up from the bottom** when a card is tapped, rather than
   the card growing into it as drawn: the owner saw both and kept the slide
   (3 October 2026).

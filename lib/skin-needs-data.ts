@@ -138,7 +138,7 @@ export const SIGNS: Record<SignKey, { label: string; picture: number }> = {
   sun: { label: "Sun sensitivity", picture: require("@/assets/illustrations/skin-needs/signs/sign-sun.webp") },
 };
 
-/** "How often should I use it?"'s picture (the hand-off's "Start easy"), by how sensitive the skin is ("some" when the question was skipped). */
+/** "How often do I use it?"'s picture (the hand-off's "Start easy"), by how sensitive the skin is ("some" when the question was skipped). */
 export const SENSITIVITY_ART = {
   none: require("@/assets/illustrations/skin-needs/sensitivity-none.webp"),
   some: require("@/assets/illustrations/skin-needs/sensitivity-some.webp"),

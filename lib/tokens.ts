@@ -685,7 +685,7 @@ export const SKIN_NEEDS = {
   sage: "#ECEEE2",
   /** A white pill's text and a pager dot not current. */
   dotOff: "#DDD6D0",
-  /** "How often should I use it?"'s note card. */
+  /** "How often do I use it?"'s note card. */
   note: "#F6E4E0",
   /** "Later" on the calendar: a dashed ring. */
   later: "#A9AD92",

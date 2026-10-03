@@ -128,7 +128,7 @@ export function storyLengthLine(active: StoryActive): string {
   return `${cards} quick cards · ${cards === 6 ? 40 : 35} sec`;
 }
 
-// ── How often should I use it? ──────────────────────────────────────────────────────────────
+// ── How often do I use it? ──────────────────────────────────────────────────────────────
 
 /** Monday first. */
 export const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"] as const;
@@ -167,12 +167,12 @@ export function startNights(active: StoryActive, sensitivity: Sensitivity): numb
 
 const TIMES_A_WEEK = ["", "Once a week", "Twice a week", "Three times a week", "Four times a week", "Five times a week", "Six times a week"];
 
-/** The line under "How often should I use it?". */
+/** The line under "How often do I use it?". */
 export function startLine(nights: number): string {
   return nights >= 7 ? "Every day, from the start. It's a gentle one." : `${TIMES_A_WEEK[nights]} first. More only if it feels fine.`;
 }
 
-/** The note at the bottom of "How often should I use it?". */
+/** The note at the bottom of "How often do I use it?". */
 export function sensitivityNote(answers: Pick<NeedAnswers, "sensitivity">, nights: number): string {
   if (nights >= 7) return answers.sensitivity === null ? "Gentle enough for most skin, every day." : "Gentle enough for your skin, every day.";
   switch (answers.sensitivity) {
@@ -189,7 +189,7 @@ export function sensitivityNote(answers: Pick<NeedAnswers, "sensitivity">, night
 
 export type WeekRow = { label: string; days: number[]; later?: boolean };
 
-/** The calendar on "How often should I use it?": weeks one and two, three and four, and later. */
+/** The calendar on "How often do I use it?": weeks one and two, three and four, and later. */
 export function weekRows(active: StoryActive, sensitivity: Sensitivity): WeekRow[] {
   const first = startNights(active, sensitivity);
   const then = Math.max(first, active.story.start.then);

@@ -53,7 +53,7 @@ it("tells the BHA story in six cards, the start plan set by the sensitivity", as
   expect(screen.getByText("Control oil")).toBeTruthy();
   expect(screen.getByRole("link", { name: /See the evidence/ })).toBeTruthy();
   await fireEvent.press(screen.getByText("Tap to continue"));
-  expect(screen.getByRole("header", { name: "How often should I use it?" })).toBeTruthy();
+  expect(screen.getByRole("header", { name: "How often do I use it?" })).toBeTruthy();
   expect(screen.getByText("Twice a week first. More only if it feels fine.")).toBeTruthy();
   expect(screen.getByText("Your skin is somewhat sensitive, so give it time.")).toBeTruthy();
   await toLast(5);
