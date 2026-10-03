@@ -255,15 +255,30 @@ export const SELECTED = "#EEEFE7"; // v9 pale sage
 
 /**
  * The product result's no-profile "Is it right for your skin?" card (v7, read
- * off the hand-off). Home's scan card took `HOME_SCAN_FILL` in the v7 update.
+ * off the hand-off), and Home's Scan Any Product tile (`HOME_TILE.scan`).
  */
 export const HOME_CARD_FILL = "#EEF1E7"; // v9 pale sage
 
-/** Home's two tiles (v9, read off the hand-off): What my skin needs, and Skincare routine on stone. */
-export const HOME_TILE = { match: "#EFEBF1", routine: "#F6F0E2" } as const; // soft lavender, butter
+/**
+ * Home (handoff_home_and_tip, read off the hand-off): Explore's two square
+ * tiles, and the flat butter "Start your routine" card.
+ */
+export const HOME_TILE = { scan: HOME_CARD_FILL, actives: "#EFEBF1", start: "#F6F0E2" } as const; // pale sage, soft lavender, butter
 
-/** Home's Scan any product card (v7 update, 29 September 2026): a pale apricot, as soft as the tiles. Read off the hand-off. */
-export const HOME_SCAN_FILL = "#F8EEE6"; // v9 apricot, the same light level as the two tiles
+/**
+ * Home's routine card and the skincare tip's note (handoff_home_and_tip, read
+ * off the hand-off): a watery wash, light blue from 3 pm and butter before.
+ * `wash` is two soft corner glows over a base with a white bloom in the
+ * middle; `active` fills the active step's pill; `ink` is the note's small
+ * label and its reason; `icon` draws the moon or the sun. The other pills are
+ * frosted white (`pill`, ringed with `pillRing`).
+ */
+export const HOME_TODAY = {
+  evening: { wash: { a: "#E4E8F5", b: "#DCE1F2", base: "#EBEEF7" }, active: "#4A5272", ink: "#3C4460", icon: "#3C4460" },
+  morning: { wash: { a: "#FAEDE4", b: "#F5E8D0", base: "#FAF3E6" }, active: "#D9A24A", ink: "#5A4318", icon: "#C98A26" },
+  pill: "rgba(255,255,255,0.55)",
+  pillRing: "rgba(255,255,255,0.85)",
+} as const;
 
 /**
  * The rounded blocks of a menu (Profile, Account, the routine screen): grouped
@@ -527,12 +542,6 @@ export const TYPE = {
 export const DISPLAY_FONT = "PTSerif_700Bold";
 
 /**
- * The script face (v9): Allura, only for short accent words — Home's "Hi
- * there!" (46/48) and the tip sentence on the opened tip (40/46).
- */
-export const SCRIPT_FONT = "Allura_400Regular";
-
-/**
  * The Profile menu's row names (owner, 2 October 2026, after a reference
  * screenshot): a rounder geometric sans, semibold. Figtree is the closest
  * match found to the reference, not a confirmed identification.
@@ -716,5 +725,7 @@ export const SKIN_NEEDS = {
   dash: "rgba(47,44,42,0.14)",
 } as const;
 
-/** Handwritten notes on Skin needs' pictures (hand-off: Kalam). */
+/** Handwritten notes on Skin needs' pictures, and the skincare tip's text (hand-off: Kalam). */
 export const HAND_FONT = "Kalam_400Regular";
+/** Home's "Hi there!" (handoff_home_and_tip: Kalam 700 34). */
+export const HAND_FONT_BOLD = "Kalam_700Bold";

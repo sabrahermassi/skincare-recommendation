@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import Scan from "@/app/scanner";
 import { fetchProductByBarcode } from "@/data/api";
@@ -153,6 +154,8 @@ describe("scanner idle hint", () => {
     await act(async () => {
       jest.advanceTimersByTime(8_000);
     });
+    // Centred like the line above it, also on two lines (found in the simulator).
+    expect(StyleSheet.flatten(screen.getByText(HINT).props.style).textAlign).toBe("center");
     await fireEvent.press(screen.getByRole("button", { name: HINT }));
     expect(screen.queryByText(HINT)).toBeNull();
   });
@@ -254,6 +257,19 @@ describe("scanner status panels", () => {
     expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ from: "journey", need: "pimples.." }) }));
   });
 
+  // A scan started from a routine step hands that step on to the result, which offers "Add to <step>" (owner, 3 October 2026).
+  it("hands the routine step it was opened from on to the result", async () => {
+    mockParams = { step: "evening:treatment" };
+    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: foundProduct("8801234567890") });
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+
+    await scan("8801234567890");
+    await fireEvent.press(screen.getByRole("button", { name: "See the full result" }));
+    const { router } = jest.requireMock("expo-router") as { router: { push: MockFn } };
+    expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ step: "evening:treatment" }) }));
+  });
+
   // Found in review on #259 (Codex): "Scan the ingredient list" on a plain miss
   // keeps `status` as `missed` after switching to Photo mode. If the user backs
   // out of that by tapping Barcode instead, the stale sheet used to reappear
@@ -327,6 +343,23 @@ describe("scanner opened for a photo", () => {
 
     mockParams = { mode: "photo" };
     await view.rerender(<Scan />);
+    expect(screen.getByRole("tab", { name: "Ingredient list" }).props.accessibilityState).toMatchObject({ selected: true });
+  });
+});
+
+// From a routine step only a catalogue product can be added, and a photographed
+// label cannot, so the scanner opens on Barcode (owner, 3 October 2026).
+describe("scanner opened from a routine step", () => {
+  it("opens on Barcode, not the cold-start Photo", async () => {
+    mockParams = { step: "evening:treatment" };
+    await render(<Scan />);
+    expect(screen.getByRole("tab", { name: "Barcode" }).props.accessibilityState).toMatchObject({ selected: true });
+    expect(mockLabelCameraShown).toBe(false);
+  });
+
+  it("still opens in Photo when a photo was asked for", async () => {
+    mockParams = { step: "evening:treatment", mode: "photo" };
+    await render(<Scan />);
     expect(screen.getByRole("tab", { name: "Ingredient list" }).props.accessibilityState).toMatchObject({ selected: true });
   });
 });

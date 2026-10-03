@@ -20,8 +20,10 @@ jest.mock("@/lib/haptics", () => ({ haptic: { tap: jest.fn(), success: jest.fn()
 jest.mock("@/lib/pick-label-photo", () => ({
   LIBRARY_MAX_WIDTH: 2000,
   deleteTempFile: jest.fn(),
-  pickLabelPhoto: () => Promise.resolve({ previewUri: "file://pick.jpg", base64: "abc", cleanup: () => {} }),
+  pickLabelPhoto: () => mockPick(),
 }));
+// The picker: answers at once unless a test holds it open.
+let mockPick: () => Promise<unknown> = () => Promise.resolve({ previewUri: "file://pick.jpg", base64: "abc", cleanup: () => {} });
 
 // The read, settled by each test when it chooses.
 let mockSettle: (outcome: LabelReadOutcome) => void = () => {};
@@ -49,6 +51,18 @@ async function chooseAPhoto() {
 }
 
 describe("LabelCamera", () => {
+  it("says nothing is being read while the photo picker is still opening, and stays put when it is cancelled", async () => {
+    let answer: (picked: null) => void = () => {};
+    const actual = mockPick;
+    mockPick = () => new Promise((resolve) => (answer = resolve));
+    await renderCamera();
+    await fireEvent.press(screen.getByLabelText("Choose a photo of the ingredient list from your library"));
+    expect(screen.queryByText("Checking our database…")).toBeNull();
+    await act(async () => answer(null));
+    expect(screen.getByText(TIP)).toBeTruthy();
+    mockPick = actual;
+  });
+
   it("cancels a read in progress, and drops it when it lands", async () => {
     const onRead = jest.fn();
     await renderCamera(onRead);

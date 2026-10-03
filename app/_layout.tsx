@@ -1,9 +1,8 @@
 import "../global.css";
 
-import { Allura_400Regular } from "@expo-google-fonts/allura";
 import { Figtree_600SemiBold } from "@expo-google-fonts/figtree";
 import { Montserrat_300Light, Montserrat_400Regular } from "@expo-google-fonts/montserrat";
-import { Kalam_400Regular } from "@expo-google-fonts/kalam";
+import { Kalam_400Regular, Kalam_700Bold } from "@expo-google-fonts/kalam";
 import { PTSerif_700Bold, useFonts } from "@expo-google-fonts/pt-serif";
 import { loadAsync as loadFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -42,13 +41,13 @@ export default function RootLayout() {
   // install renders, so its fonts can't be missing on first paint either.
   const [fontsLoaded] = useFonts({
     PTSerif_700Bold,
-    Allura_400Regular,
     // Profile's menu rows (`MENU_FONT`).
     Figtree_600SemiBold,
     Montserrat_300Light,
     Montserrat_400Regular,
-    // Skin needs' handwritten notes (`HAND_FONT`).
+    // Skin needs' handwritten notes and the skincare tip (`HAND_FONT`), and Home's "Hi there!" (`HAND_FONT_BOLD`).
     Kalam_400Regular,
+    Kalam_700Bold,
   });
 
   // Reading persisted state off disk is async, so on a cold start the store

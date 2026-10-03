@@ -30,7 +30,8 @@ const byIds = jest.mocked(fetchProductsByIds);
 const ACNE = { ...EMPTY_PROFILE, baseSkinType: "oily" as const, concerns: ["acne-prone" as const] };
 
 beforeEach(() => {
-  useAppStore.setState({ profile: ACNE, routineActives: [], routineStarted: false, routineStepLimit: 4, routinePicks: {}, savedIngredients: [] });
+  // A routine already built from this skin profile (opened once), unless a test says otherwise.
+  useAppStore.setState({ profile: ACNE, routineBuilt: true, routineActives: [], routineStarted: false, routineStepLimit: 4, routinePicks: {}, savedIngredients: [] });
   byIds.mockResolvedValue({ ok: true, value: [] } as never);
   jest.mocked(router.push).mockClear();
   jest.mocked(router.back).mockClear();
@@ -108,6 +109,23 @@ it("adds it straight in, says where, and Undo takes it out again (7e)", async ()
   await fireEvent.press(screen.getByRole("button", { name: "Undo" }));
   expect(useAppStore.getState().routineActives).toEqual([]);
   expect(screen.getByRole("button", { name: "Add BHA to my routine" })).toBeTruthy();
+});
+
+it("asks to start a routine when there is a skin profile but no routine built yet (owner)", async () => {
+  useAppStore.setState({ routineBuilt: false });
+  await open("bha");
+  await toLast(6);
+  await fireEvent.press(screen.getByRole("button", { name: "Add BHA to my routine" }));
+  expect(screen.getByRole("header", { name: "Let's start your routine" })).toBeTruthy();
+  expect(useAppStore.getState().routineActives).toEqual([]);
+});
+
+it("doesn't ask to start a routine when products of one's own are in it, with no routine built (review)", async () => {
+  useAppStore.setState({ routineBuilt: false, routinePicks: { "evening:treatment": "retinol" } });
+  await open("bha");
+  await toLast(6);
+  await fireEvent.press(screen.getByRole("button", { name: "Add BHA to my routine" }));
+  expect(screen.queryByRole("header", { name: "Let's start your routine" })).toBeNull();
 });
 
 it("starts a routine when there is none, with the step count chosen (7c)", async () => {

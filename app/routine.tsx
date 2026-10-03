@@ -20,8 +20,9 @@ import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized } from "@/lib/profile";
 import { prepareRoutine } from "@/lib/routine-build";
-import { activeLine, activeStepKey, basicRoutine, pickHolding, placeId, recallRoutine, recommendable, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
-import { activeOf, activesOn, DAY_LETTERS, DAY_NAMES, hasStory, nextActiveDay, STEP_LIMITS, today, type RoutineEntry, type StoryActive } from "@/lib/skin-needs";
+import { rowsFor, type Row } from "@/lib/routine-rows";
+import { activeLine, basicRoutine, placeId, recallRoutine, recommendable, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
+import { DAY_LETTERS, DAY_NAMES, STEP_LIMITS, today, type RoutineEntry } from "@/lib/skin-needs";
 import { matchProduct } from "@/lib/matching";
 import { CANVAS, CANVAS_GLASS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SKIN_NEEDS, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WARN, WHITE } from "@/lib/tokens";
 import { useOwnProducts } from "@/lib/use-own-products";
@@ -70,6 +71,15 @@ export default function Routine() {
   // its steps, with nothing picked for them, and the actives added there.
   const fromStory = useAppStore((s) => s.routineStarted || s.routineActives.length > 0);
   const personalized = isPersonalized(profile);
+  // Opened with a skin profile, the routine is built for them, and from now on
+  // Home shows it (owner: only opening it builds the first one, never a skin
+  // profile filled in from a scan). Not while drawn ahead of the tap from Home.
+  const focused = useIsFocused();
+  const built = useAppStore((s) => s.routineBuilt);
+  const setRoutineBuilt = useAppStore((s) => s.setRoutineBuilt);
+  useEffect(() => {
+    if (focused && personalized && !built) setRoutineBuilt();
+  }, [focused, personalized, built, setRoutineBuilt]);
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       {personalized || fromStory ? (
@@ -134,56 +144,6 @@ function useRoutine(profile: SkinProfile, personalized: boolean): { routine: Bui
 
 const BASIC_ROUTINE = basicRoutine();
 
-/** One row of the routine: a step as the builder made it, an active added from Skin needs on this day, or a rest night between two. */
-type Row = { key: string; slot: RoutineSlot; added?: StoryActive; note?: string; rest?: boolean };
-
-/**
- * The day's steps (design_handoff "october 3d", R1–R3). The basics are the
- * same every day; only the active step changes. With actives added from Skin
- * needs, it shows the day's ("Tonight's active"), or a rest night and when
- * the next one is; a morning with one says not to skip the sunscreen.
- * Without any, the builder's own step stands.
- */
-function rowsFor(routine: BuiltRoutine, time: TimeOfDay, day: number, entries: readonly RoutineEntry[]): Row[] {
-  const activeKey = activeStepKey(time);
-  const timed = entries.filter((entry) => entry.time === time);
-  const today = activesOn(entries, time, day)
-    .map((entry) => activeOf(entry.active))
-    .filter(hasStory);
-  return routine[time].flatMap((slot): Row[] => {
-    if (slot.key === "sunscreen" && today.length > 0) {
-      return [{ key: slot.key, slot: { ...slot, label: "Sunscreen · don’t skip" }, note: `SPF 50 keeps ${today.map((active) => active.name).join(" and ")} working.` }];
-    }
-    if (slot.key !== activeKey || timed.length === 0) return [{ key: slot.key, slot }];
-    if (today.length === 0) {
-      const next = nextActiveDay(entries, time, day);
-      const name = next ? activeOf(next.entry.active).name : "";
-      return [
-        {
-          key: slot.key,
-          slot: { ...slot, label: time === "evening" ? "Rest night" : "Rest morning", active: null, pick: null },
-          note: next ? `No active ${time === "evening" ? "tonight" : "this morning"}. Next ${name}: ${DAY_NAMES[next.day]}.` : undefined,
-          rest: true,
-        },
-      ];
-    }
-    return today.map((active) => ({
-      key: `${slot.key}-${active.key}`,
-      slot: {
-        ...slot,
-        label: time === "evening" ? "Tonight’s active" : "Today’s active",
-        active: { name: active.name, why: capitalised(active.story.shopping.routine), alternatives: [], caution: null },
-        pick: pickHolding(routine, time, active),
-      },
-      added: active,
-    }));
-  });
-}
-
-function capitalised(line: string): string {
-  return `${line.charAt(0).toUpperCase()}${line.slice(1)}`;
-}
-
 /** A step's own product: its id, and the product when it could be read. */
 type OwnPick = { id: string; pick: RoutinePick | null };
 
@@ -208,7 +168,7 @@ function Steps({ personalized }: { personalized: boolean }) {
       : [];
   // The products the person put in a step themselves stand in front of ours.
   const routinePicks = useAppStore((s) => s.routinePicks);
-  const removeFromRoutine = useAppStore((s) => s.removeFromRoutine);
+  const removeFromStep = useAppStore((s) => s.removeFromStep);
   const ownProducts = useOwnProducts(Object.values(routinePicks));
   const ownFor = (key: string): OwnPick | null => {
     const id = routinePicks[placeId(time, key)];
@@ -242,7 +202,7 @@ function Steps({ personalized }: { personalized: boolean }) {
       >
         <View style={{ paddingTop: SPACE.section - SPACE.block, paddingBottom: SPACE.block, paddingHorizontal: 4, flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
           <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED }}>
-            {byDay ? `Steps for ${DAY_NAMES[day]}` : "Steps for today"}
+            {`Steps for ${DAY_NAMES[day]}`}
           </Text>
           <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{time === "morning" ? "good morning" : "wind down"}</Text>
         </View>
@@ -267,7 +227,8 @@ function Steps({ personalized }: { personalized: boolean }) {
               note={row.note}
               rest={row.rest}
               own={row.rest ? null : ownFor(row.slot.key)}
-              onRemove={removeFromRoutine}
+              step={placeId(time, row.slot.key)}
+              onRemove={removeFromStep}
               onRemoveActive={row.added ? () => removeRoutineActive(row.added!.key) : undefined}
               last={i === steps.length - 1}
             />
@@ -305,7 +266,8 @@ function Steps({ personalized }: { personalized: boolean }) {
             <Ionicons name="arrow-forward" size={20} color={LINK} />
           </Pressable>
 
-          {byDay ? <DayStrip day={day} onDay={setDay} entries={entries} /> : null}
+          {/* The week, always (hand-off R1: under Your skin profile). With no active added from Skin needs every day is alike, and no day has a dot. */}
+          <DayStrip day={day} onDay={setDay} entries={entries} />
 
           {/* Morning | Evening (v9): the thumb is a warm sun yellow in the
               morning and a night blue in the evening, with the sun and moon in
@@ -341,6 +303,7 @@ function StepCard({
   note,
   rest = false,
   own: ownPick,
+  step,
   onRemove,
   onRemoveActive,
   last,
@@ -352,7 +315,9 @@ function StepCard({
   /** A rest night: no active, nothing to pick or scan. */
   rest?: boolean;
   own: OwnPick | null;
-  onRemove: (id: string) => void;
+  /** This step's id: a scan from it carries it, so the result can offer to add the product here. */
+  step: string;
+  onRemove: (step: string) => void;
   /** For an active added from Skin needs: takes it out of the routine. */
   onRemoveActive?: () => void;
   last: boolean;
@@ -407,12 +372,12 @@ function StepCard({
               </Pressable>
             ) : null}
             {ownPick ? (
-              <Pressable onPress={() => onRemove(ownPick.id)} accessibilityRole="button" accessibilityLabel={own ? `Remove ${own.product.name} from my routine` : "Remove my pick from this step"} hitSlop={8} style={{ minHeight: 28, justifyContent: "center" }} className="active:opacity-70">
+              <Pressable onPress={() => onRemove(step)} accessibilityRole="button" accessibilityLabel={own ? `Remove ${own.product.name} from my routine` : "Remove my pick from this step"} hitSlop={8} style={{ minHeight: 28, justifyContent: "center" }} className="active:opacity-70">
                 <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Remove</Text>
               </Pressable>
             ) : null}
             <Pressable
-              onPress={() => openScanner()}
+              onPress={() => openScanner({ step })}
               accessibilityRole="button"
               accessibilityLabel={`Scan one to check, for ${label.toLowerCase()}`}
               // 28pt tall like the design; the slop takes the target to 44.

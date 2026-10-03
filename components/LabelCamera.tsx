@@ -91,6 +91,9 @@ export function LabelCamera({
   // One number per capture. Cancel (#204) moves it on, so a read that lands
   // afterwards is recognised as abandoned: not held, and not opened.
   const attempt = useRef(0);
+  // The photo picker is open: a second tap must not open another, though
+  // nothing is being read yet.
+  const choosing = useRef(false);
 
   // Reaching this screen at all — from "Label photo" mode, a barcode miss, a
   // formula-less product, or Saved's recorded miss — is a scan starting the
@@ -106,10 +109,13 @@ export function LabelCamera({
   }, [dismissQuizAcknowledgement]);
 
   async function capture(source: "camera" | "library" = "camera") {
-    if (status.kind === "reading") return;
+    if (status.kind === "reading" || choosing.current) return;
     const mine = ++attempt.current;
     const cancelled = () => attempt.current !== mine;
-    setStatus({ kind: "reading" });
+    // A photo from the library is read once one is chosen: until then the
+    // picker is still opening, and saying it's being read would be untrue
+    // (found in the simulator).
+    if (source === "camera") setStatus({ kind: "reading" });
 
     // Both files, once they exist, are deleted in `finally` below regardless
     // of how this function exits. iOS gives a freshly-created file
@@ -133,12 +139,18 @@ export function LabelCamera({
       // its own copy in cache, cleaned up below like the camera's.
       let photo: { uri: string; base64?: string; width?: number; height?: number } | undefined;
       if (source === "library") {
-        const picked = await pickLabelPhoto();
+        choosing.current = true;
+        let picked: Awaited<ReturnType<typeof pickLabelPhoto>>;
+        try {
+          picked = await pickLabelPhoto();
+        } finally {
+          choosing.current = false;
+        }
         if (!picked || cancelled()) {
-          if (!cancelled()) setStatus({ kind: "framing" });
           picked?.cleanup();
           return;
         }
+        setStatus({ kind: "reading" });
         releasePick = picked.cleanup;
         setPreviewFromCamera(false);
         setPreview(picked.previewUri);

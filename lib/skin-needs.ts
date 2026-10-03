@@ -288,7 +288,8 @@ export type AddPlan =
  * The checks on Add, in the hand-off's order: already in the routine, then a
  * clash, then the step. "No routine yet" comes before the clash, so a routine
  * begun from here is checked like any other. `hasRoutine` is whether there is
- * a routine without this: a skin profile, or one started earlier.
+ * a routine without this: one built by opening it with a skin profile (a
+ * skin profile alone is not one, owner 3 October 2026), or one started earlier.
  */
 export function planAdd({
   active,

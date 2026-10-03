@@ -257,7 +257,7 @@ export function AvoidCard({ active }: { active: StoryActive }) {
   return (
     <View style={{ flex: 1 }}>
       <Heading title="Avoid pairing with" line="You don't need every active at once." />
-      <View accessibilityLabel={`${active.name} and ${others.join(" or ")}: too much together.`} style={{ height: 250, marginTop: 16 }}>
+      <View accessibilityLabel={`${active.name} and ${others.join(" or ")}: too much together.`} style={{ height: 246, marginTop: 8 }}>
         <Image source={familyOf(active).picture} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", left: 8, top: 56, width: 160, height: 152 }} />
         <Image source={FAMILIES[first.family].picture} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", right: 8, top: 56, width: 160, height: 152 }} />
         <Image source={PAIR_AVOID_ART} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", top: 70, alignSelf: "center", width: 96, height: 96 }} />
@@ -277,33 +277,34 @@ export function AvoidCard({ active }: { active: StoryActive }) {
           </Hand>
         </View>
       </View>
-      <View style={{ paddingTop: 16, paddingHorizontal: 16, flexDirection: "row", gap: 8 }}>
+      {/* What to do instead, right under the pair (owner), then the signs that say it's too much. */}
+      <View style={{ marginTop: 20, marginHorizontal: 16, backgroundColor: SURFACE, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <SwapIcon color={BUTTON.primary.fill} />
+        <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
+          Not in the same routine.{"\n"}Alternate: <Text style={{ fontWeight: "600" }}>morning and evening</Text>, or <Text style={{ fontWeight: "600" }}>different days</Text>.
+        </Text>
+      </View>
+      <View style={{ paddingTop: 20, paddingHorizontal: 16, flexDirection: "row", gap: 8 }}>
         {avoid.signs.map((sign) => (
-          <View key={sign} style={{ flex: 1, minHeight: 108, borderRadius: 24, backgroundColor: SURFACE, alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8 }}>
+          <View key={sign} style={{ flex: 1, minHeight: 96, borderRadius: 24, backgroundColor: SURFACE, alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8 }}>
             <Image source={SIGNS[sign].picture} contentFit="contain" accessibilityLabel="" style={{ width: 56, height: 56 }} />
             <Text style={{ fontSize: TYPE.body, fontWeight: "600", textAlign: "center", color: INK }}>{SIGNS[sign].label}</Text>
           </View>
         ))}
       </View>
-      <View style={{ alignItems: "center", paddingVertical: 8 }}>
+      <View style={{ alignItems: "center", paddingVertical: 4 }}>
         <Svg width={16} height={28} viewBox="0 0 24 40" fill="none">
           <Path d="M12 2v32M5 27l7 7 7-7" stroke={MUTED_FAINT} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       </View>
       <Text style={{ marginHorizontal: 32, fontSize: TYPE.card, lineHeight: 24, fontWeight: "600", textAlign: "center", color: INK }}>See these? Give your skin a few days off.</Text>
-      <View style={{ marginTop: 16, marginHorizontal: 16, backgroundColor: SURFACE, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <SwapIcon color={BUTTON.primary.fill} />
-        <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
-          Not in the same routine. Alternate: <Text style={{ fontWeight: "600" }}>morning and evening</Text>, or <Text style={{ fontWeight: "600" }}>different days</Text>.
-        </Text>
-      </View>
     </View>
   );
 }
 
 // ── 7 · When shopping ───────────────────────────────────────────────────────
 
-export function ShopCard({ active, actions }: { active: StoryActive; /** Add to my routine, or See my routine, and Check a product. */ actions: ReactNode }) {
+export function ShopCard({ active, actions }: { active: StoryActive; /** "Add <active> to my routine" or "See my routine", and Check a product. */ actions: ReactNode }) {
   const { shopping } = active.story;
   return (
     <View style={{ flex: 1 }}>

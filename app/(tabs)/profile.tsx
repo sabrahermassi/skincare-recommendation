@@ -67,8 +67,9 @@ export default function Profile() {
           </View>
 
           {/* A profile that doesn't score yet says how to fix that; the answers
-              themselves are on the Skin profile row below (owner). */}
-          {tags.length === 0 ? (
+              themselves are on the Skin profile row below (owner). One that
+              scores (a skin type alone will) is not told to answer again. */}
+          {tags.length === 0 && !isPersonalized(profile) ? (
             <Text style={{ maxWidth: 300, fontSize: TYPE.body, lineHeight: 21, color: MUTED, textAlign: "center" }}>
               {answeredWithoutSignal(profile)
                 ? "Scores aren't personal yet. Add your skin type or a concern when you know it."

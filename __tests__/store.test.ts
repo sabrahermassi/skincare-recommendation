@@ -226,6 +226,7 @@ describe("what survives an app restart", () => {
       "parkedShelf",
       "profile",
       "routineActives",
+      "routineBuilt",
       "routinePicks",
       "routineStarted",
       "routineStepLimit",
@@ -234,6 +235,7 @@ describe("what survives an app restart", () => {
       "secureStoreClaimed",
       "shelfOwner",
       "shelfQueue",
+      "tipRead",
     ]);
 
     s().saveProduct("keep-me");
@@ -718,7 +720,8 @@ describe("v7 -> v8 migration (#300)", () => {
 
   it("leaves a v8 install alone", () => {
     const state = v7({});
-    expect(migratePersisted(state, 8)).toEqual(state);
+    // Only the v10 flag is added: no skin profile here, so no routine built.
+    expect(migratePersisted(state, 8)).toEqual({ ...state, routineBuilt: false });
   });
 });
 
@@ -737,7 +740,23 @@ describe("v8 -> v9 migration (#189)", () => {
       shelfQueue: [],
       parkedShelf: null,
     };
-    expect(migratePersisted(state, 8)).toEqual(state);
+    expect(migratePersisted(state, 8)).toEqual({ ...state, routineBuilt: false });
+  });
+});
+
+describe("v9 -> v10 migration: a skin profile alone is not a routine (owner)", () => {
+  const base = { profile: { ...EMPTY_PROFILE, baseSkinType: "oily" as const }, routinePicks: {}, routineActives: [] };
+  it("asks someone with a skin profile and nothing in the routine to open it first", () => {
+    expect(migratePersisted(base, 9)).toMatchObject({ routineBuilt: false });
+  });
+
+  it("keeps the routine of someone who already used it, with their own products or added actives", () => {
+    expect(migratePersisted({ ...base, routinePicks: { "evening:treatment": "retinol" } }, 9)).toMatchObject({ routineBuilt: true });
+    expect(migratePersisted({ ...base, routineActives: [{ active: "bha", time: "evening", days: [0] }] }, 9)).toMatchObject({ routineBuilt: true });
+  });
+
+  it("leaves a v10 install alone", () => {
+    expect(migratePersisted({ ...base, routineBuilt: false }, 10)).toMatchObject({ routineBuilt: false });
   });
 });
 
@@ -788,19 +807,21 @@ describe("formeStorage (skintel-store -> forme-store migration)", () => {
 afterAll(() => useAppStore.setState(initial, true));
 
 describe("a routine of one's own", () => {
-  it("puts a product in its steps, one per step, and takes it out of all of them", () => {
-    s().addToRoutine(["morning:moisturise", "evening:moisturise"], "cream");
-    s().addToRoutine(["evening:treatment"], "retinol");
-    expect(s().routinePicks).toEqual({ "morning:moisturise": "cream", "evening:moisturise": "cream", "evening:treatment": "retinol" });
-    // A second product for a step takes the first one's place there.
-    s().addToRoutine(["evening:moisturise"], "night-cream");
-    expect(s().routinePicks["evening:moisturise"]).toBe("night-cream");
-    s().removeFromRoutine("cream");
-    expect(s().routinePicks).toEqual({ "evening:moisturise": "night-cream", "evening:treatment": "retinol" });
+  it("puts a product in a step, one per step", () => {
+    s().addToStep("evening:treatment", "retinol");
+    s().addToStep("morning:serum", "vit-c");
+    s().addToStep("evening:treatment", "bha");
+    expect(s().routinePicks).toEqual({ "evening:treatment": "bha", "morning:serum": "vit-c" });
+  });
+
+  it("takes a product out of one step, and leaves the same product in another", () => {
+    useAppStore.setState({ routinePicks: { "morning:moisturise": "cream", "evening:moisturise": "cream", "evening:treatment": "retinol" } });
+    s().removeFromStep("morning:moisturise");
+    expect(s().routinePicks).toEqual({ "evening:moisturise": "cream", "evening:treatment": "retinol" });
   });
 
   it("is erased with everything else", () => {
-    s().addToRoutine(["evening:treatment"], "retinol");
+    useAppStore.setState({ routinePicks: { "evening:treatment": "retinol" } });
     s().resetApp();
     expect(s().routinePicks).toEqual({});
   });

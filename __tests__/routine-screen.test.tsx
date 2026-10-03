@@ -24,6 +24,8 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock("@/data/api", () => ({ fetchProducts: jest.fn(), fetchProductsByIds: jest.fn() }));
+const mockOpenScanner = jest.fn();
+jest.mock("@/lib/open-scanner", () => ({ openScanner: (...args: unknown[]) => mockOpenScanner(...args) }));
 const fetched = jest.mocked(fetchProducts);
 const fetchedByIds = jest.mocked(fetchProductsByIds);
 
@@ -63,7 +65,7 @@ beforeEach(() => {
   fetched.mockResolvedValue([]);
   fetchedByIds.mockReset();
   fetchedByIds.mockImplementation(async (ids: string[]) => ({ ok: true, value: CATALOGUE.filter((p) => ids.includes(p.id)) }));
-  useAppStore.setState({ routinePicks: {}, routineActives: [], routineStarted: false, routineStepLimit: 4 });
+  useAppStore.setState({ routinePicks: {}, routineActives: [], routineStarted: false, routineBuilt: false, routineStepLimit: 4 });
   jest.mocked(router.push).mockClear();
   mockFocused = true;
   mockParams = {};
@@ -83,10 +85,27 @@ it("asks for a skin profile first, and opens the quiz from Take the skin quiz", 
   expect(mockOpenQuiz).toHaveBeenCalledTimes(1);
 });
 
+it("builds the first routine only when it is opened, so Home shows it from then on (owner)", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
+  expect(useAppStore.getState().routineBuilt).toBe(false);
+  await open();
+  expect(useAppStore.getState().routineBuilt).toBe(true);
+});
+
+it("doesn't count as built while drawn ahead of the tap from Home", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
+  mockFocused = false;
+  await render(<Routine />);
+  expect(useAppStore.getState().routineBuilt).toBe(false);
+  mockFocused = true;
+});
+
 it("lays out the morning steps, and the evening's from the switch", async () => {
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
   await open();
-  expect(screen.getByText("Steps for today")).toBeTruthy();
+  // The week shows with or without actives added from Skin needs (hand-off R1), on today.
+  expect(screen.getByText(/^Steps for (Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$/)).toBeTruthy();
+  expect(screen.getAllByRole("tab").filter((tab) => /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) \d+$/.test(String(tab.props.accessibilityLabel)))).toHaveLength(7);
   // By day: Cleansing, Serum, Moisturiser, Sunscreen.
   for (const step of ["Cleansing", "Serum", "Moisturiser", "Sunscreen"]) expect(screen.getByText(step)).toBeTruthy();
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
@@ -99,7 +118,8 @@ it("lays out the morning steps, and the evening's from the switch", async () => 
 it("numbers each step plainly, with no dotted connectors between them (v9)", async () => {
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
   await open();
-  for (const n of ["1", "2", "3", "4"]) expect(screen.getByText(n)).toBeTruthy();
+  // The week's dates can share a number with a step, so each is there at least once.
+  for (const n of ["1", "2", "3", "4"]) expect(screen.getAllByText(n).length).toBeGreaterThan(0);
   expect(screen.getAllByRole("button", { name: /^Scan one to check, for / })).toHaveLength(4);
 });
 
@@ -110,7 +130,7 @@ it("shows the building screen until the routine is built, then that none was pic
   await render(<Routine />);
   expect(screen.getByText("Building your skincare routine…")).toBeTruthy();
   // Not shown until it is built (owner): no steps behind the loading screen.
-  expect(screen.queryByText("Steps for today")).toBeNull();
+  expect(screen.queryByText(/^Steps for /)).toBeNull();
   await act(async () => arrive([]));
   await waitFor(() => expect(screen.queryByText("Building your skincare routine…")).toBeNull());
   // Three basic steps with nothing picked, and the serum step with its active and nothing to suggest.
@@ -155,6 +175,15 @@ it("names a treatment with the active for the concern in the evening, with what 
   expect(screen.getByRole("button", { name: "Scan one to check, for treatment" })).toBeTruthy();
 });
 
+it("starts a scan from a step carrying that step, so the result can add the product there", async () => {
+  useAppStore.setState({ profile: ACNE });
+  fetched.mockResolvedValue(CATALOGUE);
+  await open();
+  await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
+  await fireEvent.press(screen.getByRole("button", { name: "Scan one to check, for treatment" }));
+  expect(mockOpenScanner).toHaveBeenCalledWith({ step: "evening:treatment" });
+});
+
 it("says so when the catalogue cannot be read, and tries again from there", async () => {
   useAppStore.setState({ profile: ACNE });
   fetched.mockRejectedValue(new Error("offline"));
@@ -176,7 +205,7 @@ it("neither reads the catalogue nor builds a routine while it is not the screen 
   expect(fetched).not.toHaveBeenCalled();
   expect(screen.getByText("Building your skincare routine…")).toBeTruthy();
   // Not shown until it is built (owner): no steps behind the loading screen.
-  expect(screen.queryByText("Steps for today")).toBeNull();
+  expect(screen.queryByText(/^Steps for /)).toBeNull();
 
   // Shown: now it reads and builds.
   mockFocused = true;
