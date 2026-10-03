@@ -1,5 +1,5 @@
 import type { Concern, ProductType, ProductWithIngredients, SkinProfile } from "@/data/types";
-import { holdsStrongActive, needDeck, needVerdict, type GoalKey, type JourneyCard, type Need } from "@/lib/journey";
+import { needDeck, needVerdict, type GoalKey, type JourneyCard, type Need } from "@/lib/journey";
 import { isLowCoverage, matchProduct, SCORE_BANDS, type MatchResult } from "@/lib/matching";
 import { CONCERN_PHRASE } from "@/lib/profile";
 import { holdsActive } from "@/lib/skin-needs";
@@ -307,39 +307,11 @@ export function buildRoutine(products: readonly ProductWithIngredients[], profil
 // ── A product of one's own ───────────────────────────────────────────────────
 
 /** A step of one routine, as a place a product can be put: "evening:treatment". */
-export type RoutinePlace = { id: string; time: TimeOfDay; label: string };
 
-const placeOf = (time: TimeOfDay, key: string): RoutinePlace => ({ id: `${time}:${key}`, time, label: STEPS[time].find((step) => step.key === key)!.label });
 
 /** The id a step's own pick is kept under. */
 export function placeId(time: TimeOfDay, key: string): string {
   return `${time}:${key}`;
-}
-
-/**
- * Where a product someone adds to their routine goes (owner, 2 October 2026:
- * "we add it ourselves into the proper step"): a cleanser, a moisturiser and
- * a sunscreen go where their type says, morning and evening where the step is
- * in both; a serum goes to the evening treatment when it holds a strong
- * active, worn at night, and to the morning serum otherwise. Empty for a
- * product no step takes: a lip balm, a mask.
- */
-export function routinePlacesFor(product: ProductWithIngredients): RoutinePlace[] {
-  if (isFirstCleanse(product)) return [placeOf("evening", "first-cleanse")];
-  if (isFaceWash(product)) return [placeOf("morning", "cleanse"), placeOf("evening", "cleanse")];
-  if (product.type === "sunscreen") return [placeOf("morning", "sunscreen")];
-  if (product.type === "night-mask") return [placeOf("evening", "moisturise")];
-  if (isMoisturiser(product)) return [placeOf("morning", "moisturise"), placeOf("evening", "moisturise")];
-  if (product.type === "exfoliator") return [placeOf("evening", "treatment")];
-  if (SERUM_TYPES.includes(product.type)) return [holdsStrongActive(product.ingredients) ? placeOf("evening", "treatment") : placeOf("morning", "serum")];
-  return [];
-}
-
-/** "Evening · Treatment", "Morning and evening · Moisturiser". */
-export function placesLabel(places: readonly RoutinePlace[]): string {
-  if (places.length === 0) return "";
-  const times = places.length > 1 ? "Morning and evening" : places[0].time === "morning" ? "Morning" : "Evening";
-  return `${times} · ${places[0].label}`;
 }
 
 // ── The last routine built ───────────────────────────────────────────────────

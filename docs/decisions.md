@@ -373,7 +373,7 @@ routine". Not both: the deck is gone.
   carousel's actives for those answers, so a product holding one works on the
   goal, and "We looked for" names them. Only scans started from Skin needs;
   every other scan keeps the skin match.
-- **"Start easy" is "How often do I use it?"** (owner).
+- **"Start easy" is "How often should I use it?"** (owner; first "How often do I use it?").
 - **The story slides up from the bottom** when a card is tapped, rather than
   the card growing into it as drawn: the owner saw both and kept the slide
   (3 October 2026).
@@ -429,6 +429,10 @@ check a Skin needs scan uses, and always say which actives to look for.
   and was not taken. It is not part of the shelf, so sign-out leaves it and
   "erase everything" clears it. A label-photo result has no product to keep,
   so it has no button.
+  **Removed on 3 October 2026 (owner):** too many places to add from. A
+  result no longer offers "Add to my routine"; adding belongs to the routine
+  itself (a step's scan) and to Skin needs. Picks already kept stay, with
+  their Remove on the routine screen.
 
 ## SDK and platform history
 

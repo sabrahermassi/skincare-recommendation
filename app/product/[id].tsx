@@ -1,4 +1,3 @@
-import { AddToRoutine } from "@/components/AddToRoutine";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Share, View } from "react-native";
@@ -22,7 +21,7 @@ import { relativeTime } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
 import { DoctorSheet } from "@/components/skin-needs/DoctorSheet";
 import { decodeNeed, needProfile, needVerdict } from "@/lib/journey";
-import { matchProduct, SCORE_BANDS } from "@/lib/matching";
+import { matchProduct } from "@/lib/matching";
 import { openScanner } from "@/lib/open-scanner";
 import { productIdParam } from "@/lib/route-params";
 import { historyWarningCount } from "@/lib/safety";
@@ -379,16 +378,6 @@ function ProductScreen({ id, from, need, scanned }: { id: string; from?: string;
         need={journey ?? undefined}
         footer={
           <>
-            {/* One tap into the step it belongs to (owner): for a good skin
-                match, or from Skin needs one that works on the pick. Nothing
-                the result warns hard about is offered. */}
-            <AddToRoutine
-              product={product}
-              worthAdding={
-                !match.warnings.some((w) => w.severity === "hazard" || w.origin === "pregnancy") &&
-                (journey ? needVerdict(product.ingredients, journey).level === "works" : match.score !== null && match.score >= SCORE_BANDS.good)
-              }
-            />
             {/* The person's own note (#228), only for a product on their
                 shelf, and signed in only (#300): see useCanJournal. */}
             {savedEntry && canJournal ? <ProductNote note={savedEntry.note} onSave={(note) => setNote(product.id, note)} /> : null}

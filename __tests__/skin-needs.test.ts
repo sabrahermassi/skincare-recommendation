@@ -144,7 +144,7 @@ describe("optionsFor", () => {
   });
 });
 
-describe("How often do I use it?", () => {
+describe("How often should I use it?", () => {
   it("starts BHA at two nights, one more when not sensitive, one fewer when very", () => {
     expect(startNights(story("bha"), "some")).toBe(2);
     expect(startNights(story("bha"), "none")).toBe(3);

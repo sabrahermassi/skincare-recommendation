@@ -78,7 +78,7 @@ export function WhyCard({ active, goal }: { active: StoryActive; goal: string })
   );
 }
 
-// ── 3 · How often do I use it? (the hand-off's "Start easy", renamed by the owner) ──────────────────────────────────────────────────────────
+// ── 3 · How often should I use it? (the hand-off's "Start easy", renamed by the owner) ──────────────────────────────────────────────────────────
 
 export function StartCard({ active, answers }: { active: StoryActive; answers: Pick<NeedAnswers, "sensitivity"> }) {
   const sensitivity: Sensitivity = sensitivityOf(answers);
@@ -86,7 +86,7 @@ export function StartCard({ active, answers }: { active: StoryActive; answers: P
   const rows = weekRows(active, sensitivity);
   return (
     <View style={{ flex: 1 }}>
-      <Heading title="How often do I use it?" line={startLine(nights)} />
+      <Heading title="How often should I use it?" line={startLine(nights)} />
       <View style={{ marginTop: 32, marginHorizontal: 16, backgroundColor: SURFACE, borderRadius: 28, paddingTop: 20, paddingHorizontal: 16, paddingBottom: 12 }}>
         <View style={{ flexDirection: "row", paddingBottom: 8 }}>
           <View style={{ width: 84 }} />

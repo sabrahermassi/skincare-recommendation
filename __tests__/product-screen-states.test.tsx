@@ -470,48 +470,6 @@ describe("the product screen opened from the journey", () => {
     share.mockRestore();
   });
 
-  // "Add to my routine" (owner, 2 October 2026): from Skin needs, for a
-  // product that works on the pick; we choose the step.
-  it("offers to add a product that works on the pick to the routine, in the step it belongs to", async () => {
-    useAppStore.setState({ routinePicks: {} });
-    await open({ from: "journey", need: "dark-marks.." });
-    expect(screen.getByText("It goes in Morning · Serum.")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Add to my routine" }));
-    expect(useAppStore.getState().routinePicks).toEqual({ "morning:serum": PRODUCT.id });
-    expect(screen.getByText("In your routine")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Remove from my routine" }));
-    expect(useAppStore.getState().routinePicks).toEqual({});
-  });
-
-  it("says when adding it takes the place of a product picked for that step before", async () => {
-    useAppStore.setState({ routinePicks: { "morning:serum": "another-serum" } });
-    await open({ from: "journey", need: "dark-marks.." });
-    expect(screen.getByText(/It goes in Morning · Serum, in place of the product you picked for it before\./)).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Add to my routine" }));
-    expect(useAppStore.getState().routinePicks).toEqual({ "morning:serum": PRODUCT.id });
-  });
-
-  it("does not offer it for a product that is not made for the pick", async () => {
-    useAppStore.setState({ routinePicks: {} });
-    await open({ from: "journey", need: "pimples.." });
-    expect(screen.queryByRole("button", { name: "Add to my routine" })).toBeNull();
-  });
-
-  // On any other result it is offered for a good skin match, and never under one.
-  it("offers it on a normal result only when the skin match is good", async () => {
-    const dry = { ...EMPTY_PROFILE, baseSkinType: "dry" as const, concerns: ["dehydrated" as const], sensitivity: "none" as const };
-    const good = matchProduct(PRODUCT, dry).score ?? 0;
-    const { SCORE_BANDS } = require("@/lib/matching") as typeof import("@/lib/matching");
-    useAppStore.setState({ profile: dry, history: [], savedProducts: [], routinePicks: {} });
-    mockParams = { id: PRODUCT.id };
-    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: PRODUCT }));
-    await render(<ProductRoute />);
-    await act(async () => {});
-    expect(screen.queryByRole("button", { name: "Add to my routine" }) !== null).toBe(good >= SCORE_BANDS.good);
-    // This hydrating serum is a good match for dry, dehydrated skin: the case is the offered one.
-    expect(good).toBeGreaterThanOrEqual(SCORE_BANDS.good);
-  });
-
   it("falls back to the skin profile when the link's need is not one", async () => {
     await open({ from: "journey", need: "not-a-goal" });
     expect(screen.getByText(String(matchProduct(PRODUCT, OWN).score))).toBeTruthy();

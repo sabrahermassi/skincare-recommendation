@@ -790,19 +790,14 @@ describe("formeStorage (skintel-store -> forme-store migration)", () => {
 afterAll(() => useAppStore.setState(initial, true));
 
 describe("a routine of one's own", () => {
-  it("puts a product in its steps, one per step, and takes it out of all of them", () => {
-    s().addToRoutine(["morning:moisturise", "evening:moisturise"], "cream");
-    s().addToRoutine(["evening:treatment"], "retinol");
-    expect(s().routinePicks).toEqual({ "morning:moisturise": "cream", "evening:moisturise": "cream", "evening:treatment": "retinol" });
-    // A second product for a step takes the first one's place there.
-    s().addToRoutine(["evening:moisturise"], "night-cream");
-    expect(s().routinePicks["evening:moisturise"]).toBe("night-cream");
+  it("takes a product out of every step it is in", () => {
+    useAppStore.setState({ routinePicks: { "morning:moisturise": "cream", "evening:moisturise": "night-cream", "evening:treatment": "retinol" } });
     s().removeFromRoutine("cream");
     expect(s().routinePicks).toEqual({ "evening:moisturise": "night-cream", "evening:treatment": "retinol" });
   });
 
   it("is erased with everything else", () => {
-    s().addToRoutine(["evening:treatment"], "retinol");
+    useAppStore.setState({ routinePicks: { "evening:treatment": "retinol" } });
     s().resetApp();
     expect(s().routinePicks).toEqual({});
   });
