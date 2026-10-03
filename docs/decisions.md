@@ -310,14 +310,20 @@ routine". Not both: the deck is gone.
   October 2026): each active's `sources` holds a PubMed/PMC paper or a
   dermatology body's page for its pregnancy flag, its start and what it
   avoids, marked as backing the claim, partly, or not. Where a source says
-  otherwise the claim is kept as it is until the owner decides: BHA and
-  arbutin are hidden in pregnancy though the AAD and Putra et al. 2022 call
-  them safe (BHA for limited use). Two starts stay as they are (owner): azelaic
-  acid at three nights a week, though trials use it twice daily, because above
-  10% it is not that gentle; retinoids at two nights a week, though the AAD
-  says every other night, because they can be strong. Peptides, PHA, zinc, ceramides, centella, oat,
-  ferulic acid, copper peptides and tranexamic acid have no pregnancy source
-  yet, and most gentle actives have none for their start.
+  otherwise, the owner kept the claim as it is:
+  - BHA and arbutin stay hidden in pregnancy, though the AAD and Putra et
+    al. 2022 call them safe: the AAD only for limited use of BHA, and arbutin
+    is close kin to hydroquinone, which is prescription-only here.
+  - Azelaic acid starts at three nights a week, though trials use it twice
+    daily: above 10% it is not that gentle.
+  - Retinoids start at two nights a week, though the AAD says every other
+    night: they can be strong.
+  - Benzoyl peroxide and retinoids are still not layered, though adapalene
+    gels hold both: benzoyl peroxide breaks down tretinoin and retinol.
+
+  Peptides, PHA, zinc, ceramides, centella, oat, ferulic acid, copper
+  peptides and tranexamic acid have no pregnancy source yet, and most gentle
+  actives have none for their start.
 - **Skipped answers**: sensitivity counts as somewhat sensitive; pregnancy,
   skipped or "Prefer not to say", counts as yes (safe options only, with
   "Not pregnant? Change"). When that leaves a gap, one safe option from a
