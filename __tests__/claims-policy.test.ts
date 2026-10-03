@@ -131,7 +131,9 @@ const SCHOOL_CLAIMS: OwnedClaim[] = SCHOOL.flatMap((category) =>
 function stringsIn(value: unknown, path: string): OwnedClaim[] {
   if (typeof value === "string") return [{ source: path, text: value }];
   if (Array.isArray(value)) return value.flatMap((item, i) => stringsIn(item, `${path}[${i}]`));
-  if (value && typeof value === "object") return Object.entries(value).flatMap(([key, item]) => stringsIn(item, `${path}.${key}`));
+  // An active's `sources` are the papers its claims were checked against: never
+  // shown in the app, and their titles are the papers' own words, not ours.
+  if (value && typeof value === "object") return Object.entries(value).flatMap(([key, item]) => (key === "sources" ? [] : stringsIn(item, `${path}.${key}`)));
   return [];
 }
 

@@ -306,6 +306,16 @@ routine". Not both: the deck is gone.
   families table. Two lines of the hand-off were reworded for the claims
   policy ("Seals moisture in and repairs" → "supports your barrier"; "Your
   evening treatment step" → "active step").
+- **The claims that matter most are checked against sources** (owner, 3
+  October 2026): each active's `sources` holds a PubMed/PMC paper or a
+  dermatology body's page for its pregnancy flag, its start and what it
+  avoids, marked as backing the claim, partly, or not. Where a source says
+  otherwise the claim is kept as it is until the owner decides: BHA and
+  arbutin are hidden in pregnancy though the AAD and Putra et al. 2022 call
+  them safe (BHA for limited use); azelaic acid is used twice daily in trials,
+  not three nights a week. Peptides, PHA, zinc, ceramides, centella, oat,
+  ferulic acid, copper peptides and tranexamic acid have no pregnancy source
+  yet, and most gentle actives have none for their start.
 - **Skipped answers**: sensitivity counts as somewhat sensitive; pregnancy,
   skipped or "Prefer not to say", counts as yes (safe options only, with
   "Not pregnant? Change"). When that leaves a gap, one safe option from a

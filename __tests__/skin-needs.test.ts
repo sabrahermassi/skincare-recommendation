@@ -39,6 +39,14 @@ it("writes an active's name for the middle of a sentence", () => {
 });
 
 describe("the data", () => {
+  // Owner, 3 October 2026: the claims are checked against published sources only.
+  it("cites only published papers and dermatology bodies for its claims", () => {
+    const allowed = /^https:\/\/(pmc\.ncbi\.nlm\.nih\.gov|pubmed\.ncbi\.nlm\.nih\.gov|www\.jabfm\.org|www\.aad\.org|mothertobaby\.org|health\.clevelandclinic\.org)\//;
+    const sources = ACTIVES.flatMap((active) => Object.values(active.sources ?? {}).map((source) => ({ key: active.key, url: source.url, labelled: source.label.length > 0 })));
+    expect(sources.length).toBeGreaterThan(0);
+    for (const source of sources) expect({ ...source, allowed: allowed.test(source.url) }).toEqual({ ...source, labelled: true, allowed: true });
+  });
+
   it("gives every active the goal table names a story", () => {
     for (const goal of GOAL_KEYS) for (const key of GOAL_OPTIONS[goal].actives.flat()) expect({ goal, key, story: hasStory(activeOf(key)) }).toEqual({ goal, key, story: true });
   });

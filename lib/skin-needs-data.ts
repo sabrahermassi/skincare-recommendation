@@ -215,6 +215,14 @@ export type Story = {
   };
 };
 
+/**
+ * A published source for one claim. `supports` is how far it backs the claim
+ * as written: "partly" where it backs the idea but not every detail (a slow
+ * start, though not the exact nights); "no" where it says otherwise, kept so
+ * the claim is looked at again rather than forgotten.
+ */
+export type ClaimSource = { label: string; url: string; supports: "yes" | "partly" | "no" };
+
 export type Active = {
   key: ActiveKey;
   /** Its name on the carousel and the story ("BHA"). */
@@ -254,6 +262,14 @@ export type Active = {
   /** Where "See the evidence" opens, where the scoring rule's own source is not the best one for it. */
   evidence?: { label: string; url: string };
   /**
+   * Where the story's three claims that matter most were checked (owner, 3
+   * October 2026): safe or not while pregnant, how often to start, and what
+   * not to layer it with. A claim left out has no published source found
+   * yet. Not shown in the app: they are here so the advice can be read
+   * against them.
+   */
+  sources?: { pregnancy?: ClaimSource; start?: ClaimSource; avoid?: ClaimSource };
+  /**
    * How a scanned product's result and the routine name it, when it is on
    * that list: its name there when that differs ("Salicylic acid"), and the
    * line after it. `found` stands in for the line after the ingredients
@@ -288,6 +304,10 @@ export const ACTIVES: readonly Active[] = [
     save: "azelaic acid",
     pregnancySafe: true,
     gentleness: 2,
+    sources: {
+      pregnancy: { label: "MotherToBaby: topical acne treatments in pregnancy", url: "https://mothertobaby.org/fact-sheets/topical-acne-treatments-pregnancy/", supports: "yes" },
+      start: { label: "Kircik 2011: azelaic acid gel 15% for marks and acne", url: "https://pubmed.ncbi.nlm.nih.gov/21637899/", supports: "no" },
+    },
     core: true,
     result: { line: "Calms breakouts and helps with the marks they leave." },
     story: {
@@ -318,6 +338,10 @@ export const ACTIVES: readonly Active[] = [
     save: "salicylic acid",
     pregnancySafe: false,
     gentleness: 2,
+    sources: {
+      pregnancy: { label: "AAD: is any acne treatment safe to use during pregnancy?", url: "https://www.aad.org/public/diseases/acne/derm-treat/pregnancy", supports: "no" },
+      avoid: { label: "Robinson et al. 2022: a double-conjugated retinoid and AHA cream", url: "https://pubmed.ncbi.nlm.nih.gov/35005862/", supports: "partly" },
+    },
     strong: true,
     result: { name: "Salicylic acid", line: "Gets inside pores and clears out what blocks them." },
     story: {
@@ -348,6 +372,10 @@ export const ACTIVES: readonly Active[] = [
     save: "niacinamide",
     pregnancySafe: true,
     gentleness: 1,
+    sources: {
+      pregnancy: { label: "Bozzo et al. 2011: safety of skin care products during pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3114665/", supports: "yes" },
+      start: { label: "Poostiyan et al. 2024: 1% niacinamide gel, a randomised trial", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC11845947/", supports: "partly" },
+    },
     core: true,
     result: { line: "Helps with oil balance, supports your skin barrier and can fade marks." },
     story: {
@@ -378,6 +406,10 @@ export const ACTIVES: readonly Active[] = [
     save: "sodium hyaluronate",
     pregnancySafe: true,
     gentleness: 1,
+    sources: {
+      pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "yes" },
+      start: { label: "Bravo et al. 2022: topical hyaluronic acid for skin quality", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC10078143/", supports: "yes" },
+    },
     support: true,
     core: true,
     result: { name: "Hydrating basics", line: "Glycerin, hyaluronic acid and urea draw water in and hold it there.", found: "put water back in and help keep it there." },
@@ -411,6 +443,11 @@ export const ACTIVES: readonly Active[] = [
     save: "retinol",
     pregnancySafe: false,
     gentleness: 3,
+    sources: {
+      pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "yes" },
+      start: { label: "AAD: retinoid or retinol?", url: "https://www.aad.org/public/everyday-care/skin-care-secrets/anti-aging/retinoid-retinol", supports: "partly" },
+      avoid: { label: "Feneran et al. 2011: retinoid plus antimicrobial combinations for acne", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3133504/", supports: "partly" },
+    },
     strong: true,
     core: true,
     result: { line: "Strong evidence for acne, lines and texture, with a learning curve." },
@@ -472,6 +509,9 @@ export const ACTIVES: readonly Active[] = [
     // A plant cousin of hydroquinone: left out while pregnant or breastfeeding until it is checked.
     pregnancySafe: false,
     gentleness: 1,
+    sources: {
+      pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "no" },
+    },
     story: {
       line: "A gentle brightener for dark spots and uneven tone.",
       why: { line: "It slows the making of the pigment behind dark spots.", notes: ["less pigment made", "spots soften"] },
@@ -501,6 +541,9 @@ export const ACTIVES: readonly Active[] = [
     save: "ascorbic acid",
     pregnancySafe: true,
     gentleness: 2,
+    sources: {
+      pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "yes" },
+    },
     result: { line: "An antioxidant that brightens and evens out skin tone.", found: "can brighten and even out skin tone." },
     story: {
       line: "Fades dark spots and evens your tone.",
@@ -531,6 +574,11 @@ export const ACTIVES: readonly Active[] = [
     save: "glycolic acid",
     pregnancySafe: true,
     gentleness: 3,
+    sources: {
+      pregnancy: { label: "AAD: dermatologist-approved pregnancy skin care", url: "https://www.aad.org/public/everyday-care/skin-care-secrets/routine/pregnancy-skin-care", supports: "yes" },
+      start: { label: "Moghimipour 2012: hydroxy acids, the most used anti-ageing agents", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3941867/", supports: "partly" },
+      avoid: { label: "Robinson et al. 2022: a double-conjugated retinoid and AHA cream", url: "https://pubmed.ncbi.nlm.nih.gov/35005862/", supports: "partly" },
+    },
     strong: true,
     result: { name: "AHAs", line: "Glycolic and lactic acid lift away dead skin, for a smoother, brighter surface.", found: "can lift away dead skin, for a smoother, brighter surface." },
     story: {
@@ -561,6 +609,10 @@ export const ACTIVES: readonly Active[] = [
     save: "benzoyl peroxide",
     pregnancySafe: true,
     gentleness: 3,
+    sources: {
+      pregnancy: { label: "Chien et al. 2016: treatment of acne in pregnancy", url: "https://www.jabfm.org/content/29/2/254", supports: "yes" },
+      avoid: { label: "Feneran et al. 2011: retinoid plus antimicrobial combinations for acne", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3133504/", supports: "partly" },
+    },
     strong: true,
     result: { line: "One of the most studied ingredients for red, inflamed pimples.", found: "is one of the most studied ingredients for red, inflamed pimples." },
     story: {
@@ -592,6 +644,9 @@ export const ACTIVES: readonly Active[] = [
     // Not studied in pregnancy (its old card said so): left out until it is checked.
     pregnancySafe: false,
     gentleness: 1,
+    sources: {
+      pregnancy: { label: "Cleveland Clinic: bakuchiol, a retinol alternative", url: "https://health.clevelandclinic.org/bakuchiol/", supports: "partly" },
+    },
     result: { line: "A plant ingredient that smooths like retinol, with far less irritation.", found: "can smooth like retinol, with far less irritation." },
     story: {
       line: "Smooths like retinol, with far less irritation.",
@@ -800,6 +855,9 @@ export const ACTIVES: readonly Active[] = [
     save: "sulfur",
     pregnancySafe: true,
     gentleness: 2,
+    sources: {
+      pregnancy: { label: "Patel et al. 2016: topical scabies and lice medicines in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5122270/", supports: "yes" },
+    },
     story: {
       line: "Soaks up oil and dries out spots, gently.",
       why: { line: "It soaks up oil and loosens flakes on a spot.", notes: ["oil soaks up", "flakes loosen"] },
@@ -858,6 +916,10 @@ export const ACTIVES: readonly Active[] = [
     save: "panthenol",
     pregnancySafe: true,
     gentleness: 1,
+    sources: {
+      pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "yes" },
+      start: { label: "Tseng et al. 2026: a panthenol repair balm, a randomised trial", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC13237422/", supports: "partly" },
+    },
     story: {
       line: "Soothes and keeps skin comfortable.",
       why: { line: "It soothes skin and helps it hold water.", notes: ["comfy again", "water stays"] },
@@ -886,6 +948,9 @@ export const ACTIVES: readonly Active[] = [
     save: "glycerin",
     pregnancySafe: true,
     gentleness: 1,
+    sources: {
+      pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "yes" },
+    },
     story: {
       line: "The most proven way to draw water into skin.",
       why: { line: "It pulls water in and keeps it there.", notes: ["water pulled in", "soft and smooth"] },
@@ -915,6 +980,9 @@ export const ACTIVES: readonly Active[] = [
     save: "squalane",
     pregnancySafe: true,
     gentleness: 1,
+    sources: {
+      pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "partly" },
+    },
     story: {
       line: "A light oil that seals water in.",
       why: { line: "It softens skin and slows water leaving it.", notes: ["sealed in", "soft, not greasy"] },
@@ -944,6 +1012,9 @@ export const ACTIVES: readonly Active[] = [
     save: "tocopherol",
     pregnancySafe: true,
     gentleness: 1,
+    sources: {
+      pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "yes" },
+    },
     story: {
       line: "Shields skin from daily stress, and softens it.",
       why: { line: "It soaks up the daily stress that ages skin.", notes: ["stress soaked up", "softer skin"] },
@@ -1030,6 +1101,9 @@ export const ACTIVES: readonly Active[] = [
     save: "urea",
     pregnancySafe: true,
     gentleness: 1,
+    sources: {
+      pregnancy: { label: "Bozzo et al. 2011: safety of skin care products during pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3114665/", supports: "partly" },
+    },
     support: true,
     story: {
       line: "Softens rough patches and holds water in.",
@@ -1059,6 +1133,9 @@ export const ACTIVES: readonly Active[] = [
     save: "camellia sinensis leaf extract",
     pregnancySafe: true,
     gentleness: 1,
+    sources: {
+      pregnancy: { label: "Bozzo et al. 2011: safety of skin care products during pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3114665/", supports: "partly" },
+    },
     story: {
       line: "Shields skin from daily stress.",
       why: { line: "It shields your skin from daily stress.", notes: ["pollution bounces off", "protected glow"] },
@@ -1087,6 +1164,10 @@ export const ACTIVES: readonly Active[] = [
     save: "zinc oxide",
     pregnancySafe: true,
     gentleness: 1,
+    sources: {
+      pregnancy: { label: "AAD: dermatologist-approved pregnancy skin care", url: "https://www.aad.org/public/everyday-care/skin-care-secrets/routine/pregnancy-skin-care", supports: "yes" },
+      start: { label: "AAD: dermatologist-approved pregnancy skin care", url: "https://www.aad.org/public/everyday-care/skin-care-secrets/routine/pregnancy-skin-care", supports: "yes" },
+    },
     basic: { when: "every morning" },
     // The trial behind putting it first for lines: daily sunscreen, 24% less
     // skin ageing over 4.5 years (owner, 3 October 2026, after research).
