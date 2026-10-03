@@ -71,6 +71,15 @@ export default function Routine() {
   // its steps, with nothing picked for them, and the actives added there.
   const fromStory = useAppStore((s) => s.routineStarted || s.routineActives.length > 0);
   const personalized = isPersonalized(profile);
+  // Opened with a skin profile, the routine is built for them, and from now on
+  // Home shows it (owner: only opening it builds the first one, never a skin
+  // profile filled in from a scan). Not while drawn ahead of the tap from Home.
+  const focused = useIsFocused();
+  const built = useAppStore((s) => s.routineBuilt);
+  const setRoutineBuilt = useAppStore((s) => s.setRoutineBuilt);
+  useEffect(() => {
+    if (focused && personalized && !built) setRoutineBuilt();
+  }, [focused, personalized, built, setRoutineBuilt]);
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
       {personalized || fromStory ? (

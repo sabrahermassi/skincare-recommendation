@@ -35,8 +35,10 @@ const TILE_RADIUS = 20;
  * back (`BounceCard`). It scrolls only when the content is taller than the
  * screen.
  *
- * "A routine" is what the routine screen shows steps for (owner): a skin
- * profile, or a routine started from a Skin needs story.
+ * "A routine" is one the person made (owner, 3 October 2026): built by
+ * opening the routine with a skin profile, or started from a Skin needs
+ * story. Filling in the skin profile alone, say after a scan, keeps "Start
+ * your routine".
  */
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -57,8 +59,10 @@ export default function Home() {
   const profile = useAppStore((s) => s.profile);
   const entries = useAppStore((s) => s.routineActives);
   const started = useAppStore((s) => s.routineStarted);
+  const built = useAppStore((s) => s.routineBuilt);
   const personalized = isPersonalized(profile);
-  const hasRoutine = personalized || started || entries.length > 0;
+  // A skin profile alone is not a routine (owner): only one opened from the card, or started from a Skin needs story.
+  const hasRoutine = (personalized && built) || started || entries.length > 0;
   // The routine the routine screen built last for this profile; until it has
   // built one, the same steps with each active step's first choice.
   const routine = hasRoutine ? (personalized ? (recallRoutine(profile) ?? assembleRoutine([], profile)) : basicRoutine()) : null;

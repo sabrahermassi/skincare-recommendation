@@ -63,7 +63,7 @@ beforeEach(() => {
   fetched.mockResolvedValue([]);
   fetchedByIds.mockReset();
   fetchedByIds.mockImplementation(async (ids: string[]) => ({ ok: true, value: CATALOGUE.filter((p) => ids.includes(p.id)) }));
-  useAppStore.setState({ routinePicks: {}, routineActives: [], routineStarted: false, routineStepLimit: 4 });
+  useAppStore.setState({ routinePicks: {}, routineActives: [], routineStarted: false, routineBuilt: false, routineStepLimit: 4 });
   jest.mocked(router.push).mockClear();
   mockFocused = true;
   mockParams = {};
@@ -81,6 +81,21 @@ it("asks for a skin profile first, and opens the quiz from Take the skin quiz", 
   expect(screen.getByRole("header", { name: "Your skin profile is empty" })).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Take the skin quiz" }));
   expect(mockOpenQuiz).toHaveBeenCalledTimes(1);
+});
+
+it("builds the first routine only when it is opened, so Home shows it from then on (owner)", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
+  expect(useAppStore.getState().routineBuilt).toBe(false);
+  await open();
+  expect(useAppStore.getState().routineBuilt).toBe(true);
+});
+
+it("doesn't count as built while drawn ahead of the tap from Home", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
+  mockFocused = false;
+  await render(<Routine />);
+  expect(useAppStore.getState().routineBuilt).toBe(false);
+  mockFocused = true;
 });
 
 it("lays out the morning steps, and the evening's from the switch", async () => {

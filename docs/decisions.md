@@ -335,8 +335,12 @@ routine". Not both: the deck is gone.
   pregnancy is anything but no. Adapalene's country is the phone's region
   setting (`lib/region.ts`), not its location: no permission, works with
   Location Services off; unknown counts as prescription (owner).
-- **"No routine yet"** means no skin profile and nothing added from a story
-  (owner). "Let's start your routine" then starts one with the basics and the
+- **"No routine yet"** means no routine built and nothing added from a story
+  (owner; first "no skin profile", changed on 3 October 2026: a skin profile
+  alone is not a routine). The first routine is built only when the person
+  opens "Your skincare routine" with a skin profile (`routineBuilt`), or
+  starts one from a story; filling in the skin profile after a scan leaves
+  Home on "Start your routine". "Let's start your routine" then starts one with the basics and the
   step limit chosen (3, 4 or 5, default 4); the steps show with no products
   picked until there is a profile. The limit counts every step in one
   routine; cleanse, moisturise and SPF (first cleanse, cleanse and moisturise

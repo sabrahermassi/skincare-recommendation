@@ -226,6 +226,7 @@ describe("what survives an app restart", () => {
       "parkedShelf",
       "profile",
       "routineActives",
+      "routineBuilt",
       "routinePicks",
       "routineStarted",
       "routineStepLimit",

@@ -32,7 +32,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   jest.useRealTimers();
-  useAppStore.setState({ profile: EMPTY_PROFILE, routineActives: [], routineStarted: false, tipRead: null });
+  useAppStore.setState({ profile: EMPTY_PROFILE, routineActives: [], routineStarted: false, routineBuilt: false, tipRead: null });
   jest.mocked(router.push).mockClear();
 });
 
@@ -72,6 +72,16 @@ it("turns into today's routine once there is one, by day before 3 pm and by nigh
   expect(screen.getByText("Tonight: about your BHA night")).toBeTruthy();
   await fireEvent.press(card);
   expect(router.push).toHaveBeenCalledWith("/routine");
+});
+
+it("keeps Start your routine for a skin profile alone, and shows the routine once it was opened", async () => {
+  // Filled in after a scan: a skin profile, but no routine yet (owner).
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
+  await render(<Home />);
+  expect(screen.getByRole("button", { name: "Start your routine. Build my routine" })).toBeTruthy();
+  await act(async () => useAppStore.setState({ routineBuilt: true }));
+  expect(screen.queryByRole("button", { name: /^Start your routine/ })).toBeNull();
+  expect(screen.getByRole("button", { name: /^Your skincare routine\. This morning · \d steps\./ })).toBeTruthy();
 });
 
 it("goes back to Start your routine when the routine is gone", async () => {

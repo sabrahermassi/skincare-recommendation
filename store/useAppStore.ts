@@ -179,6 +179,14 @@ type AppState = {
   routineStepLimit: StepLimit;
   /** A routine begun from a story with no skin profile behind it. */
   routineStarted: boolean;
+  /**
+   * The person opened their skincare routine with a skin profile, so it was
+   * built for them (owner, 3 October 2026). A skin profile alone is not a
+   * routine: filling it in from a scan must not make one appear on Home.
+   * A new key with a first-run value, so it needs no migration.
+   */
+  routineBuilt: boolean;
+  setRoutineBuilt: () => void;
   /** Sets the added actives, and the step limit and the started flag where given: every Add, Swap, Alternate and Undo. */
   setRoutineActives: (next: { entries: RoutineEntry[]; stepLimit?: StepLimit; started?: boolean }) => void;
   /** Takes an added active out of the routine. */
@@ -365,6 +373,7 @@ export const PERSISTED_KEYS = [
   "routineActives",
   "routineStepLimit",
   "routineStarted",
+  "routineBuilt",
   "tipRead",
   "secureStoreClaimed",
   "shelfOwner",
@@ -387,6 +396,7 @@ export function partializeState(state: AppState): PersistedState {
     routineActives: state.routineActives,
     routineStepLimit: state.routineStepLimit,
     routineStarted: state.routineStarted,
+    routineBuilt: state.routineBuilt,
     tipRead: state.tipRead,
     secureStoreClaimed: state.secureStoreClaimed,
     shelfOwner: state.shelfOwner,
@@ -408,6 +418,7 @@ const INITIAL_STATE = {
   routineActives: [] as RoutineEntry[],
   routineStepLimit: DEFAULT_STEP_LIMIT as StepLimit,
   routineStarted: false,
+  routineBuilt: false,
   tipRead: null as string | null,
   secureStoreClaimed: false,
   shelfOwner: null as string | null,
@@ -899,6 +910,7 @@ export const useAppStore = create<AppState>()(
         set((state) => ({ routineActives: entries, routineStepLimit: stepLimit ?? state.routineStepLimit, routineStarted: started ?? state.routineStarted })),
       removeRoutineActive: (active) => set((state) => ({ routineActives: state.routineActives.filter((entry) => entry.active !== active) })),
       setTipRead: (id) => set({ tipRead: id }),
+      setRoutineBuilt: () => set({ routineBuilt: true }),
       clearSavedProducts: () =>
         set((state) => ({
           savedProducts: [],
