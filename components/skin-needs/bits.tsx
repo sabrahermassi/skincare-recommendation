@@ -17,6 +17,7 @@ export function Hand({
   color = MUTED_FAINT,
   tilt = 0,
   says = false,
+  fit = false,
   style,
 }: {
   children: ReactNode;
@@ -25,12 +26,14 @@ export function Hand({
   tilt?: number;
   /** A note that tells something ("we recommend swapping"): it grows with the text size like any line. One placed on a picture stays put. */
   says?: boolean;
+  /** One line, shrunk to fit its box: a long name under a picture ("Benzoyl peroxide"). */
+  fit?: boolean;
   style?: StyleProp<TextStyle>;
 }) {
   return (
     // Kalam's letters rise and lean past an ordinary line box: a taller line and
     // a little room at the sides, or their tops and right edges are cut off.
-    <Text maxFontSizeMultiplier={says ? undefined : 1.2} style={[{ fontFamily: HAND_FONT, fontSize: size, lineHeight: Math.round(size * 1.5), paddingHorizontal: 3, color, transform: tilt ? [{ rotate: `${tilt}deg` }] : undefined }, style]}>
+    <Text maxFontSizeMultiplier={says ? undefined : 1.2} numberOfLines={fit ? 1 : undefined} adjustsFontSizeToFit={fit} minimumFontScale={fit ? 0.55 : undefined} style={[{ fontFamily: HAND_FONT, fontSize: size, lineHeight: Math.round(size * 1.5), paddingHorizontal: 3, color, transform: tilt ? [{ rotate: `${tilt}deg` }] : undefined }, style]}>
       {children}
     </Text>
   );

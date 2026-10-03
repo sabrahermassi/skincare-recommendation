@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -71,7 +71,7 @@ export function StoryAwareHeader() {
     <ScreenHeader
       back={false}
       right={
-        <IconCircle onPress={() => router.back()} accessibilityLabel="Close">
+        <IconCircle onPress={goBackOrHome} accessibilityLabel="Close">
           <CloseCross />
         </IconCircle>
       }

@@ -9,6 +9,7 @@ import {
   hasStory,
   hiddenLine,
   holdsActive,
+  inSentence,
   nextActiveDay,
   optionsFor,
   planAdd,
@@ -30,6 +31,12 @@ const story = (key: ActiveKey) => activeOf(key) as StoryActive;
 const GOAL_KEYS = GOALS.map((goal) => goal.key);
 const answers = (over: Partial<NeedAnswers> = {}): NeedAnswers => ({ goal: "oil", sensitivity: "some", pregnancy: "no", uses: [], ...over });
 const EMPTY: RoutineState = { entries: [], stepLimit: 4, started: false };
+
+it("writes an active's name for the middle of a sentence", () => {
+  expect(inSentence("BHA")).toBe("BHA");
+  expect(inSentence("Vitamin C")).toBe("vitamin C");
+  expect(inSentence("Benzoyl peroxide")).toBe("benzoyl peroxide");
+});
 
 describe("the data", () => {
   it("gives every active the goal table names a story", () => {

@@ -3,10 +3,11 @@ import type { ReactNode } from "react";
 import { Linking, Pressable, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
+import { DottedLine } from "@/components/DottedLine";
 import { Hand, SwapIcon, Tick } from "@/components/skin-needs/bits";
 import { Text } from "@/components/Text";
 import type { Sensitivity } from "@/data/types";
-import { DAY_LETTERS, evidenceFor, familyOf, sensitivityNote, sensitivityOf, startLine, startNights, weekRows, type NeedAnswers, type StoryActive } from "@/lib/skin-needs";
+import { DAY_LETTERS, evidenceFor, familyOf, inSentence, sensitivityNote, sensitivityOf, startLine, startNights, weekRows, type NeedAnswers, type StoryActive } from "@/lib/skin-needs";
 import { FAMILIES, LOOK_FOR_ART, PAIR_AVOID_ART, PAIR_LOVE_ART, SENSITIVITY_ART, SIGNS } from "@/lib/skin-needs-data";
 import { BUTTON, DISPLAY_FONT, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, SKIN_NEEDS, STONE, SURFACE, WHITE, TYPE } from "@/lib/tokens";
 
@@ -15,11 +16,6 @@ import { BUTTON, DISPLAY_FONT, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_S
  * each, mostly picture. Every word comes from the active's record
  * (`lib/skin-needs-data.ts`) and the answers on the questions screen.
  */
-
-/** "BHA" stays as it is in a sentence; "Vitamin C" becomes "vitamin C". */
-export function inSentence(name: string): string {
-  return /^[A-Z]{2,}/.test(name) ? name : `${name.charAt(0).toLowerCase()}${name.slice(1)}`;
-}
 
 /** A card's title and the line under it (hand-off: PT Serif 34/40, then 17/24). */
 function Heading({ title, line, top = 32, children }: { title: string; line?: string; top?: number; children?: ReactNode }) {
@@ -60,8 +56,8 @@ export function WhyCard({ active, goal }: { active: StoryActive; goal: string })
         ) : null}
       </Heading>
       <View style={{ height: 330 }}>
-        <Image source={familyOf(active).why} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", left: 16, right: 16, top: 34, height: 262 }} />
-        <Hand tilt={3} style={{ position: "absolute", right: 16, top: -6, width: 170, textAlign: "right" }}>
+        <Image source={familyOf(active).why} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", left: 16, right: 16, top: 40, height: 256 }} />
+        <Hand tilt={3} style={{ position: "absolute", right: 16, top: 6, width: 170, textAlign: "right" }}>
           {why.notes[0]}
         </Hand>
         <Hand tilt={-3} style={{ position: "absolute", left: 16, top: 290 }}>
@@ -191,7 +187,7 @@ function RailStep({ number, name, active, amount, last = false }: { number: numb
             {number}
           </Text>
         </View>
-        {last ? null : <View style={{ flex: 1, marginVertical: 4, borderLeftWidth: 2, borderStyle: "dotted", borderColor: ROUTINE_SWITCH.stepLine }} />}
+        {last ? null : <DottedLine color={ROUTINE_SWITCH.stepLine} style={{ flex: 1, marginVertical: 4 }} />}
       </View>
       <View style={{ flex: 1, paddingBottom: last ? 0 : 20 }}>
         <View style={{ minHeight: 56, borderRadius: 20, backgroundColor: tint, paddingVertical: active ? 14 : 0, paddingHorizontal: 16, justifyContent: "center", gap: 8 }}>
@@ -227,15 +223,15 @@ export function PairsCard({ active }: { active: StoryActive }) {
         <Image source={FAMILIES[pairs[1].family].picture} contentFit="contain" style={{ position: "absolute", right: 0, top: 118, width: 150, height: 144 }} />
         <Image source={familyOf(active).picture} contentFit="contain" style={{ position: "absolute", top: 6, alignSelf: "center", width: 170, height: 162 }} />
         <Image source={PAIR_LOVE_ART} contentFit="contain" style={{ position: "absolute", top: 198, alignSelf: "center", width: 110, height: 88 }} />
-        <Hand size={21} style={{ position: "absolute", left: 20, top: 272 }}>
+        <Hand size={21} fit style={{ position: "absolute", left: 20, top: 272, maxWidth: 150 }}>
           {pairs[0].label}
         </Hand>
-        <View style={{ position: "absolute", top: 160, left: 0, right: 0, alignItems: "center" }}>
-          <Hand size={26} color={INK}>
+        <View style={{ position: "absolute", top: 160, alignSelf: "center", width: 170, alignItems: "center" }}>
+          <Hand size={26} color={INK} fit>
             {active.name}
           </Hand>
         </View>
-        <Hand size={21} style={{ position: "absolute", right: 24, top: 272 }}>
+        <Hand size={21} fit style={{ position: "absolute", right: 24, top: 272, maxWidth: 150 }}>
           {pairs[1].label}
         </Hand>
       </View>
@@ -266,12 +262,14 @@ export function AvoidCard({ active }: { active: StoryActive }) {
         <Image source={FAMILIES[first.family].picture} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", right: 8, top: 56, width: 160, height: 152 }} />
         <Image source={PAIR_AVOID_ART} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", top: 70, alignSelf: "center", width: 96, height: 96 }} />
         <View style={{ position: "absolute", left: 8, width: 160, top: 210, alignItems: "center" }}>
-          <Hand size={26} color={INK}>
+          <Hand size={26} color={INK} fit>
             {active.name}
           </Hand>
         </View>
         <View style={{ position: "absolute", right: 8, width: 160, top: 214, alignItems: "center" }}>
-          <Hand size={21}>{first.label}</Hand>
+          <Hand size={21} fit>
+            {first.label}
+          </Hand>
         </View>
         <View style={{ position: "absolute", top: 24, left: 0, right: 0, alignItems: "center" }}>
           <Hand color={SKIN_NEEDS.warn} tilt={-5}>

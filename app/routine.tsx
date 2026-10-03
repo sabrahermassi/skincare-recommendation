@@ -7,6 +7,7 @@ import Svg, { Circle, Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BuildingRoutine } from "@/components/BuildingRoutine";
+import { DottedLine } from "@/components/DottedLine";
 import { EmptyState } from "@/components/EmptyState";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { PageTitle } from "@/components/PageTitle";
@@ -374,7 +375,7 @@ function StepCard({
             {number}
           </Text>
         </View>
-        {last ? null : <View style={{ flex: 1, minHeight: 12, marginTop: 6, borderLeftWidth: 2, borderStyle: "dotted", borderColor: ROUTINE_SWITCH.stepLine }} />}
+        {last ? null : <DottedLine color={ROUTINE_SWITCH.stepLine} style={{ flex: 1, minHeight: 12, marginTop: 6 }} />}
       </View>
       <View style={{ flex: 1, minHeight: 72, marginBottom: last ? 0 : SPACE.block, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}>
         <View style={{ flex: 1, gap: 2 }}>

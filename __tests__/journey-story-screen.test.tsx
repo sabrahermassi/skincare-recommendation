@@ -15,7 +15,7 @@ import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 jest.setTimeout(30_000);
 
 jest.mock("expo-router", () => ({
-  router: { back: jest.fn(), push: jest.fn(), canGoBack: () => true },
+  router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) },
   useLocalSearchParams: jest.fn(),
 }));
 jest.mock("react-native-safe-area-context", () => ({
@@ -77,6 +77,24 @@ it("closes on the cross, and refuses a link it can't read", async () => {
   params.mockReturnValue({ active: "nonsense", answers: "oil.some.no." });
   await render(<JourneyStory />);
   expect(screen.getByText("This story can't be shown.")).toBeTruthy();
+});
+
+it("goes Home on the cross when it was opened straight from a link", async () => {
+  jest.mocked(router.canGoBack).mockReturnValueOnce(false);
+  await open("bha");
+  await fireEvent.press(screen.getByRole("button", { name: "Close the story" }));
+  expect(router.back).not.toHaveBeenCalled();
+  expect(router.replace).toHaveBeenCalledWith("/");
+});
+
+it("starts another story opened in the same place at its first card", async () => {
+  await open("bha");
+  await toLast(6);
+  expect(screen.getByText("6 / 6")).toBeTruthy();
+  params.mockReturnValue({ active: "niacinamide", answers: "oil.some.no." });
+  await screen.rerender(<JourneyStory />);
+  expect(screen.getByText(/^1 \/ /)).toBeTruthy();
+  expect(screen.getByRole("header", { name: "Why niacinamide?" })).toBeTruthy();
 });
 
 it("adds it straight in, says where, and Undo takes it out again (7e)", async () => {
@@ -148,6 +166,7 @@ it("offers swap or add a step when its step is taken (7b)", async () => {
   await toLast(6);
   await fireEvent.press(screen.getByRole("button", { name: "Add BHA to my routine" }));
   expect(screen.getByRole("header", { name: "Swap or add a step?" })).toBeTruthy();
+  expect(screen.getByText(/active step already has ceramides\./)).toBeTruthy();
   expect(screen.getByText("Adding makes it 5 steps.")).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Add a step" }));
   expect(useAppStore.getState().routineActives.map((entry) => entry.active).sort()).toEqual(["bha", "ceramides"]);

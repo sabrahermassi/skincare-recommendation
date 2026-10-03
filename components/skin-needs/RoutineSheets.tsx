@@ -10,7 +10,7 @@ import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { Hand, SwapIcon } from "@/components/skin-needs/bits";
 import { Text } from "@/components/Text";
 import { haptic } from "@/lib/haptics";
-import { activeOf, DAY_LETTERS, DEFAULT_STEP_LIMIT, familyOf, STEP_LIMITS, type StepLimit } from "@/lib/skin-needs";
+import { activeOf, DAY_LETTERS, DEFAULT_STEP_LIMIT, familyOf, inSentence, STEP_LIMITS, type StepLimit } from "@/lib/skin-needs";
 import type { ActiveKey } from "@/lib/skin-needs-data";
 import { BUTTON, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, SKIN_NEEDS, STONE, WHITE, TYPE } from "@/lib/tokens";
 
@@ -145,7 +145,7 @@ export function SwapOrAddSheet({
       onClose={onClose}
       closable={false}
       title="Swap or add a step?"
-      line={`Your ${time} active step already has ${takenName.charAt(0).toLowerCase()}${takenName.slice(1)}. Your routine has ${stepsNow} steps.`}
+      line={`Your ${time} active step already has ${inSentence(takenName)}. Your routine has ${stepsNow} steps.`}
     >
       <View style={{ alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: 8 }}>
         <ActiveTile

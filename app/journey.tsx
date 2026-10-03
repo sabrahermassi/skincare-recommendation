@@ -214,14 +214,16 @@ function Chip({ label, accessibilityLabel, on, many = false, onPress }: { label:
       accessibilityState={{ checked: on }}
       style={{
         minHeight: 40,
-        paddingHorizontal: 14,
+        // Chosen, the tick takes room: the padding gives some of it back, so a
+        // chip at the end of a row stays on it (owner: "Very" jumped a line).
+        paddingHorizontal: on ? 10 : 14,
         borderRadius: 12,
         borderWidth: on ? 1.5 : 1,
         borderColor: on ? CHOSEN.border : SKIN_NEEDS.line,
         backgroundColor: on ? CHOSEN.fill : SURFACE,
         flexDirection: "row",
         alignItems: "center",
-        gap: 6,
+        gap: 4,
       }}
       className="active:opacity-80"
     >

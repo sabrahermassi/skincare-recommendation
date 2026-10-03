@@ -22,6 +22,7 @@ import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
 import { cloggerConfidence, poreVerdict } from "@/lib/pore-clogging";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
 import { irritationWarnings, isVerified } from "@/lib/safety";
+import { inSentence } from "@/lib/skin-needs";
 import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE, STONE_GLASS, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
@@ -451,7 +452,7 @@ function NeedMatch({ ingredients, match, profile, need }: { ingredients: Ingredi
     });
   }
   if (verdict.level === "none" && verdict.missing.length > 0) {
-    rows.push({ key: "missing", name: "We looked for:", text: ` ${listNames(verdict.missing.map((name) => (/^[A-Z]{2,}/.test(name) ? name : name.toLowerCase())), "or")}.`, tone: VERDICT_NEUTRAL });
+    rows.push({ key: "missing", name: "We looked for:", text: ` ${listNames(verdict.missing.map(inSentence), "or")}.`, tone: VERDICT_NEUTRAL });
   }
   for (const other of verdict.betterFor) {
     rows.push({ key: `better-${other.label}`, name: "Better for:", text: ` ${other.label.toLowerCase()} (${names(other.ingredients)}).`, tone: VERDICT_NEUTRAL });

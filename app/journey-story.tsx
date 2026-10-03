@@ -10,9 +10,10 @@ import { CloseCross } from "@/components/IconCircle";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
 import { Tick } from "@/components/skin-needs/bits";
 import { AlternateSheet, OneAtATimeSheet, StartRoutineSheet, SwapOrAddSheet, yours } from "@/components/skin-needs/RoutineSheets";
-import { AvoidCard, inSentence, PairsCard, ShopCard, StartCard, WhenCard, WhyCard } from "@/components/skin-needs/StoryCards";
+import { AvoidCard, PairsCard, ShopCard, StartCard, WhenCard, WhyCard } from "@/components/skin-needs/StoryCards";
 import { TopToast, type TopNotice } from "@/components/skin-needs/TopToast";
 import { Text } from "@/components/Text";
+import { goBackOrHome } from "@/lib/go-back";
 import { encodeNeed, GOALS } from "@/lib/journey";
 import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized } from "@/lib/profile";
@@ -25,6 +26,7 @@ import {
   findActive,
   hasStory,
   holdsActive,
+  inSentence,
   needFrom,
   placeLine,
   planAdd,
@@ -62,7 +64,8 @@ export default function JourneyStory() {
   const answers = useMemo(() => decodeAnswers(params.answers, GOALS.map((goal) => goal.key)), [params.answers]);
   const record = findActive(params.active);
   if (!answers || !record || !hasStory(record)) return <NothingToShow />;
-  return <Story active={record} answers={answers} />;
+  // Keyed by what it shows: another story opened in the same place starts at its own first card.
+  return <Story key={`${record.key}:${params.answers}`} active={record} answers={answers} />;
 }
 
 function NothingToShow() {
@@ -70,7 +73,7 @@ function NothingToShow() {
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS, paddingTop: insets.top + 12, alignItems: "center", justifyContent: "center", gap: SPACE.block, paddingHorizontal: SPACE.gutter }}>
       <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>This story can&apos;t be shown.</Text>
-      <Pressable onPress={() => router.back()} accessibilityRole="button" style={{ minHeight: 44, justifyContent: "center" }}>
+      <Pressable onPress={goBackOrHome} accessibilityRole="button" style={{ minHeight: 44, justifyContent: "center" }}>
         <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: BUTTON.primary.fill }}>Close</Text>
       </Pressable>
     </View>
@@ -193,7 +196,8 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
   // ── Moving through the cards ──
   const next = () => setIndex((i) => Math.min(total - 1, i + 1));
   const back = () => setIndex((i) => Math.max(0, i - 1));
-  const close = () => router.back();
+  // Opened straight from a link there is nothing under it: Home, not a dead button.
+  const close = goBackOrHome;
   const [screenReader, setScreenReader] = useState(false);
   useEffect(() => {
     let live = true;
@@ -212,7 +216,7 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
       onMoveShouldSetPanResponder: (_, g) => g.dy > 12 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
       onPanResponderMove: (_, g) => drag.setValue(Math.max(0, g.dy)),
       onPanResponderRelease: (_, g) => {
-        if (g.dy > CLOSE_DRAG) router.back();
+        if (g.dy > CLOSE_DRAG) goBackOrHome();
         else Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
       },
       onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start(),

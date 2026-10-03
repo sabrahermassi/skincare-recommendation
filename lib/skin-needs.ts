@@ -39,6 +39,11 @@ export function familyOf(active: Active): Family {
   return FAMILIES[active.family];
 }
 
+/** "BHA" stays as it is in a sentence; "Vitamin C" becomes "vitamin C". */
+export function inSentence(name: string): string {
+  return /^[A-Z]{2,}/.test(name) ? name : `${name.charAt(0).toLowerCase()}${name.slice(1)}`;
+}
+
 /** An active with its story: the ones the carousel can show. */
 export type StoryActive = Active & { story: Story };
 

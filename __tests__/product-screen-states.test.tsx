@@ -386,6 +386,8 @@ describe("the product screen opened from the journey", () => {
     expect(screen.getByRole("header", { name: "Not made for pimples" })).toBeTruthy();
     expect(screen.getByText("It has none of the actives we suggest to clear pimples.")).toBeTruthy();
     expect(screen.getByText("We looked for:")).toBeTruthy();
+    // Names keep their capitals mid-sentence only where they need them: "PHA", not "pHA".
+    expect(screen.getByText(/We looked for: PHA, benzoyl peroxide or azelaic acid\./)).toBeTruthy();
     expect(screen.getAllByText("Better for:").length).toBeGreaterThan(0);
     // Hydration is not an active for pimples: the glycerin in it earns no green box.
     expect(screen.queryByText(/put water back in/)).toBeNull();
