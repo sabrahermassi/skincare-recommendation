@@ -522,3 +522,65 @@ it("heads the product with its brand, name and type, and no Out of stock", async
   expect(screen.getByText("Serum")).toBeTruthy();
   expect(screen.queryByText("Out of stock")).toBeNull();
 });
+
+// "Add to <step>" (owner, 3 October 2026): the one place a product is added, for a scan started from a routine step.
+describe("the product screen opened from a routine step", () => {
+  const ingredient = (name: string): Ingredient => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true });
+  const SERUM = {
+    id: "obf-8801234567890",
+    barcode: "8801234567890",
+    brand: "Brand",
+    name: "Serum",
+    type: "serum" as const,
+    productType: "serum",
+    price: 0,
+    volume: "",
+    suitableFor: [],
+    targets: [],
+    description: "",
+    benefits: [],
+    imageUrl: null,
+    attribution: null,
+    fetchedAt: "2026-09-26T00:00:00Z",
+    ingredientIds: [],
+    ingredients: ["water", "glycerin", "niacinamide"].map(ingredient),
+  };
+
+  beforeEach(() => useAppStore.setState({ routinePicks: {}, profile: { ...EMPTY_PROFILE, baseSkinType: "oily" as const }, history: [], savedProducts: [] }));
+  afterEach(() => useAppStore.setState({ routinePicks: {}, profile: EMPTY_PROFILE, history: [], savedProducts: [] }));
+
+  async function open(params: Record<string, string>, product: object = SERUM) {
+    mockParams = { id: SERUM.id, ...params };
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: product }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+    await putTeaserAway();
+  }
+
+  it("offers to add a product that belongs in the step, puts it there, and takes it out again", async () => {
+    await open({ from: "barcode", step: "morning:serum" });
+    await fireEvent.press(screen.getByRole("button", { name: "Add to serum" }));
+    expect(useAppStore.getState().routinePicks).toEqual({ "morning:serum": SERUM.id });
+    expect(screen.getByText("In your routine · Serum")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Remove from my routine" }));
+    expect(useAppStore.getState().routinePicks).toEqual({});
+  });
+
+  it("takes the place of the product picked for that step before", async () => {
+    useAppStore.setState({ routinePicks: { "morning:serum": "another" } });
+    await open({ from: "barcode", step: "morning:serum" });
+    await fireEvent.press(screen.getByRole("button", { name: "Add to serum" }));
+    expect(useAppStore.getState().routinePicks).toEqual({ "morning:serum": SERUM.id });
+  });
+
+  it("offers nothing for a scan from anywhere else, a step the product doesn't belong in, or a step that isn't one", async () => {
+    await open({ from: "barcode" });
+    expect(screen.queryByRole("button", { name: /^Add to / })).toBeNull();
+    await act(async () => screen.unmount());
+    await open({ from: "barcode", step: "morning:sunscreen" });
+    expect(screen.queryByRole("button", { name: /^Add to / })).toBeNull();
+    await act(async () => screen.unmount());
+    await open({ from: "barcode", step: "nonsense" });
+    expect(screen.queryByRole("button", { name: /^Add to / })).toBeNull();
+  });
+});

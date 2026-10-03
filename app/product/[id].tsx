@@ -1,3 +1,4 @@
+import { AddToStep } from "@/components/AddToStep";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Share, View } from "react-native";
@@ -73,13 +74,13 @@ const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 export default function ProductRoute() {
   // `from` says how the person got here, for the funnel (#225) only: the
   // scanner and the label flow set it, and anything else is browsing.
-  const { id, from, need, scan } = useLocalSearchParams<{ id: string; from?: string; need?: string; scan?: string }>();
+  const { id, from, need, scan, step } = useLocalSearchParams<{ id: string; from?: string; need?: string; scan?: string; step?: string }>();
   const productId = productIdParam(id);
   if (!productId) return <NotFound />;
-  return <ProductScreen id={productId} from={from} need={need} scanned={from === "barcode" || from === "label" || scan === "barcode"} />;
+  return <ProductScreen id={productId} from={from} need={need} step={step} scanned={from === "barcode" || from === "label" || scan === "barcode"} />;
 }
 
-function ProductScreen({ id, from, need, scanned }: { id: string; from?: string; need?: string; /** Reached by scanning it, whichever path the scan started on. */ scanned: boolean }) {
+function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: string; need?: string; /** The routine step a scan started from: where "Add to…" puts the product. */ step?: string; /** Reached by scanning it, whichever path the scan started on. */ scanned: boolean }) {
   // Seeded from the catalogue cache so a product already in memory paints on
   // the first frame instead of a spinner (`peekProducts`).
   const [product, setProduct] = useState<ProductWithIngredients | null>(() =>
@@ -378,6 +379,8 @@ function ProductScreen({ id, from, need, scanned }: { id: string; from?: string;
         need={journey ?? undefined}
         footer={
           <>
+            {/* Scanned from one of the routine's steps: add it there (owner). Nothing the result warns hard about is offered. */}
+            <AddToStep product={product} step={step} blocked={match.warnings.some((w) => w.severity === "hazard" || w.origin === "pregnancy")} />
             {/* The person's own note (#228), only for a product on their
                 shelf, and signed in only (#300): see useCanJournal. */}
             {savedEntry && canJournal ? <ProductNote note={savedEntry.note} onSave={(note) => setNote(product.id, note)} /> : null}

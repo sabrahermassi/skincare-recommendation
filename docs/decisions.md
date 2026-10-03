@@ -461,8 +461,13 @@ decisions:
 - **All tip text is in `lib/skin-tips.ts`**: the owner's 31 general tips, each
   with a reason added; the morning, evening and rest-night tips are
   placeholder copy for the owner to review.
-- **Removed the "Add to my routine" button on a product result** (owner: too
-  many places to add from).
+- **A product is added from a routine step only** (owner: too many places to
+  add from). The step's "Scan one to check" carries the step to the scanner,
+  and the result of a scanned catalogue product shows "Add to <step>" when
+  the product belongs in that step and nothing in it is a hard warning
+  (`components/AddToStep.tsx`). From anywhere else, and for a label photo
+  (no product to keep), there is no Add button; the old one on every result
+  is gone. Actives are added from Skin needs stories.
 
 ## SDK and platform history
 

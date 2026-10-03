@@ -1,7 +1,7 @@
 import type { Ingredient, ProductType, ProductWithIngredients, SkinProfile } from "@/data/types";
 import { PREGNANCY_LINE } from "@/lib/journey";
 import { matchProduct, SCORE_BANDS } from "@/lib/matching";
-import { activeLine, buildRoutine } from "@/lib/routine-builder";
+import { activeLine, buildRoutine, routineStepOf } from "@/lib/routine-builder";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 /**
@@ -238,4 +238,17 @@ it("gives the same profile the same routine every time", () => {
   // Three equal matches: the name settles it, whatever order the catalogue came in.
   expect(names(slot(buildRoutine(catalogue, ACNE), "morning", "sunscreen"))).toEqual(["A sun"]);
   expect(names(slot(buildRoutine([...catalogue].reverse(), ACNE), "morning", "sunscreen"))).toEqual(["A sun"]);
+});
+
+// A scan started from a routine step carries the step (owner, 3 October 2026).
+describe("a step named by its id", () => {
+  it("knows each step's name and what belongs in it", () => {
+    expect(routineStepOf("evening:treatment")).toMatchObject({ id: "evening:treatment", label: "Treatment", time: "evening" });
+    expect(routineStepOf("morning:serum")?.fits(product("serum", "Serum"))).toBe(true);
+    expect(routineStepOf("morning:serum")?.fits(product("sunscreen", "Sun fluid"))).toBe(false);
+  });
+
+  it("takes nothing else for a step", () => {
+    for (const bad of [undefined, "", "serum", "noon:serum", "morning:nonsense", "evening:serum"]) expect(routineStepOf(bad)).toBeNull();
+  });
 });

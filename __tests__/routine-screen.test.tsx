@@ -24,6 +24,8 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock("@/data/api", () => ({ fetchProducts: jest.fn(), fetchProductsByIds: jest.fn() }));
+const mockOpenScanner = jest.fn();
+jest.mock("@/lib/open-scanner", () => ({ openScanner: (...args: unknown[]) => mockOpenScanner(...args) }));
 const fetched = jest.mocked(fetchProducts);
 const fetchedByIds = jest.mocked(fetchProductsByIds);
 
@@ -171,6 +173,15 @@ it("names a treatment with the active for the concern in the evening, with what 
   expect(screen.getByText("Salicylic acid")).toBeTruthy();
   expect(screen.getByText("For acne. Benzoyl peroxide or Retinoids would do too.")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Scan one to check, for treatment" })).toBeTruthy();
+});
+
+it("starts a scan from a step carrying that step, so the result can add the product there", async () => {
+  useAppStore.setState({ profile: ACNE });
+  fetched.mockResolvedValue(CATALOGUE);
+  await open();
+  await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
+  await fireEvent.press(screen.getByRole("button", { name: "Scan one to check, for treatment" }));
+  expect(mockOpenScanner).toHaveBeenCalledWith({ step: "evening:treatment" });
 });
 
 it("says so when the catalogue cannot be read, and tries again from there", async () => {

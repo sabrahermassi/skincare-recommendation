@@ -807,6 +807,13 @@ describe("formeStorage (skintel-store -> forme-store migration)", () => {
 afterAll(() => useAppStore.setState(initial, true));
 
 describe("a routine of one's own", () => {
+  it("puts a product in a step, one per step", () => {
+    s().addToStep("evening:treatment", "retinol");
+    s().addToStep("morning:serum", "vit-c");
+    s().addToStep("evening:treatment", "bha");
+    expect(s().routinePicks).toEqual({ "evening:treatment": "bha", "morning:serum": "vit-c" });
+  });
+
   it("takes a product out of every step it is in", () => {
     useAppStore.setState({ routinePicks: { "morning:moisturise": "cream", "evening:moisturise": "night-cream", "evening:treatment": "retinol" } });
     s().removeFromRoutine("cream");

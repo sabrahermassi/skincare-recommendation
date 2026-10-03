@@ -227,6 +227,7 @@ function Steps({ personalized }: { personalized: boolean }) {
               note={row.note}
               rest={row.rest}
               own={row.rest ? null : ownFor(row.slot.key)}
+              step={placeId(time, row.slot.key)}
               onRemove={removeFromRoutine}
               onRemoveActive={row.added ? () => removeRoutineActive(row.added!.key) : undefined}
               last={i === steps.length - 1}
@@ -302,6 +303,7 @@ function StepCard({
   note,
   rest = false,
   own: ownPick,
+  step,
   onRemove,
   onRemoveActive,
   last,
@@ -313,6 +315,8 @@ function StepCard({
   /** A rest night: no active, nothing to pick or scan. */
   rest?: boolean;
   own: OwnPick | null;
+  /** This step's id: a scan from it carries it, so the result can offer to add the product here. */
+  step: string;
   onRemove: (id: string) => void;
   /** For an active added from Skin needs: takes it out of the routine. */
   onRemoveActive?: () => void;
@@ -373,7 +377,7 @@ function StepCard({
               </Pressable>
             ) : null}
             <Pressable
-              onPress={() => openScanner()}
+              onPress={() => openScanner({ step })}
               accessibilityRole="button"
               accessibilityLabel={`Scan one to check, for ${label.toLowerCase()}`}
               // 28pt tall like the design; the slop takes the target to 44.

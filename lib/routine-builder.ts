@@ -314,6 +314,18 @@ export function placeId(time: TimeOfDay, key: string): string {
   return `${time}:${key}`;
 }
 
+/**
+ * A step named by its id (`placeId`), as a scan started from it carries it:
+ * what it is called, and whether a scanned product belongs in it. `null` for
+ * anything that is not one of the steps: nothing in a link is taken on trust.
+ */
+export function routineStepOf(id: string | undefined): { id: string; label: string; time: TimeOfDay; fits: (product: ProductWithIngredients) => boolean } | null {
+  const [time, key] = (id ?? "").split(":");
+  if (time !== "morning" && time !== "evening") return null;
+  const step = STEPS[time].find((candidate) => candidate.key === key);
+  return step ? { id: placeId(time, step.key), label: step.label, time, fits: step.fits } : null;
+}
+
 // ── The last routine built ───────────────────────────────────────────────────
 
 let last: { profile: SkinProfile; products: readonly ProductWithIngredients[]; routine: Routine } | null = null;
