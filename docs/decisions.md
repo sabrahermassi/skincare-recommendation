@@ -319,7 +319,7 @@ routine". Not both: the deck is gone.
   - Retinoids start at two nights a week, though the AAD says every other
     night: they can be strong.
   - Benzoyl peroxide and retinoids are still not layered, though adapalene
-    gels hold both: benzoyl peroxide breaks down tretinoin and retinol.
+    gels hold both: benzoyl peroxide breaks down tretinoin (Feneran et al. 2011).
 
   Peptides, PHA, zinc, ceramides, centella, oat, ferulic acid, copper
   peptides and tranexamic acid have no pregnancy source yet, and most gentle
